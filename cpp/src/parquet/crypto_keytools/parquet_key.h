@@ -26,26 +26,26 @@ namespace parquet {
 
 class PARQUET_EXPORT ParquetKey {
  public:
-  
+
   ParquetKey(std::string &key_bytes, std::string &key_metadata) {
     this->key_bytes_ = key_bytes;
     this->key_metadata_ = key_metadata;
   }
-  
+
   std::string &getBytes() {
     return key_bytes_;
   }
-  
+
   std::string &getMetaData() {
     return key_metadata_;
   }
-  
+
  private:
   //In the Parquet Modular Encryption design the key is byte[].
   std::string key_bytes_;
   std::string key_metadata_;
 };
- 
+
 } // namespace parquet
 
 #endif  // PARQUET_PARQUET_KEY_H

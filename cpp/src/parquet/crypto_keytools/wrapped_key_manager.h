@@ -33,34 +33,39 @@ namespace parquet {
 class DecryptionKeyRetriever;
 
 class PARQUET_EXPORT WrappedKeyManager {
- public:  
+ public:
   class WrappedKeyRetriever : public DecryptionKeyRetriever {
    public:
-    WrappedKeyRetriever(std::shared_ptr<KmsClient> kms_client, bool unwrap_locally,
-   	                std::shared_ptr<WrappedKeyStore> key_store, std::string file_id);
+    WrappedKeyRetriever(std::shared_ptr<KmsClient> kms_client,
+                        bool unwrap_locally,
+                        std::shared_ptr<WrappedKeyStore> key_store,
+                        std::string file_id);
     const std::string& GetKey(const std::string& key_metadata);
-   
+
    private:
     std::shared_ptr<KmsClient> const kms_client_;
     const bool unwrap_locally_;
-    std::shared_ptr<WrappedKeyStore> const key_store_; //TODO: implement key store
+    //TODO:·implement·key·store
+    std::shared_ptr<WrappedKeyStore> const key_store_;
     const std::string file_id_;
     std::string data_key_;
   };
- 
+
   WrappedKeyManager(std::shared_ptr<KmsClient> kms_client);
   WrappedKeyManager(std::shared_ptr<KmsClient> kms_client, bool wrap_locally,
-		    std::shared_ptr<WrappedKeyStore> wrapped_key_store, std::string file_id);
+                    std::shared_ptr<WrappedKeyStore> wrapped_key_store,
+                    std::string file_id);
   std::unique_ptr<ParquetKey> generateKey(std::string &master_key_id);
   std::shared_ptr<DecryptionKeyRetriever> getKeyRetriever();
- 
+
   private:
    std::shared_ptr<KmsClient> const kms_client_;
    const bool wrap_locally_;
-   std::shared_ptr<WrappedKeyStore> const wrapped_key_store_; //TODO: implement key store
+   //TODO:·implement·key·store
+   std::shared_ptr<WrappedKeyStore> const wrapped_key_store_;
    const std::string file_id_; //Used for WrappedKeyStore
 };
- 
+
 } // namespace parquet
 
 #endif  // PARQUET_WRAPPED_KEY_MANAGER_H
