@@ -21,13 +21,13 @@ import (
 	"strings"
 
 	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/numeric"
+	"github.com/apache/arrow/go/arrow/float16"
 )
 
 // A type which represents an immutable sequence of Float16 values.
 type Float16 struct {
 	array
-	values []numeric.Float16
+	values []float16.Float16
 }
 
 func NewFloat16Data(data *Data) *Float16 {
@@ -37,24 +37,14 @@ func NewFloat16Data(data *Data) *Float16 {
 	return a
 }
 
-func (a *Float16) Value(i int) numeric.Float16 { return a.values[i] }
+func (a *Float16) Value(i int) float16.Float16 { return a.values[i] }
 
-func (a *Float16) Float32Value(i int) float32 { return a.values[i].Float32() }
-
-func (a *Float16) Values() []numeric.Float16 { return a.values }
-
-func (a *Float16) Float32Values() []float32 {
-	values := make([]float32, len(a.values))
-	for i, v := range a.values {
-		values[i] = v.Float32()
-	}
-	return values
-}
+func (a *Float16) Values() []float16.Float16 { return a.values }
 
 func (a *Float16) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
-	for i, v := range a.values {
+	for i := 0; i < a.Len(); i++ {
 		if i > 0 {
 			fmt.Fprintf(o, " ")
 		}
@@ -62,7 +52,7 @@ func (a *Float16) String() string {
 		case a.IsNull(i):
 			o.WriteString("(null)")
 		default:
-			fmt.Fprintf(o, "%v", v.Float32())
+			fmt.Fprintf(o, "%v", a.values[i].Float32())
 		}
 	}
 	o.WriteString("]")
