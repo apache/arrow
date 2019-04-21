@@ -135,7 +135,7 @@ class SerializedFile : public ParquetFileReader::Contents {
  public:
   SerializedFile(std::unique_ptr<RandomAccessSource> source,
                  const ReaderProperties& props = default_reader_properties())
-    : source_(std::move(source)), properties_(props), next_metadata_pos_(-1) {}
+      : source_(std::move(source)), properties_(props), next_metadata_pos_(-1) {}
 
   ~SerializedFile() override {
     try {
@@ -158,9 +158,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     file_metadata_ = metadata;
   }
 
-  void ParseMetaData() {
-    parse_metadata(source_->Size());
-  }
+  void ParseMetaData() { parse_metadata(source_->Size()); }
 
   int64_t parse_metadata(int64_t file_size) {
     if (file_size < FOOTER_SIZE) {
@@ -214,15 +212,15 @@ class SerializedFile : public ParquetFileReader::Contents {
         return next_metadata_pos;
       }
     }
-    return 0; // no more metadata
+    return 0;  // no more metadata
   }
 
   std::shared_ptr<FileMetaData> metadata_last() override {
-    if (next_metadata_pos_ == -1)
-      next_metadata_pos_ = source_->Size();
+    if (next_metadata_pos_ == -1) next_metadata_pos_ = source_->Size();
     if (next_metadata_pos_ > 0) {
       next_metadata_pos_ = parse_metadata(next_metadata_pos_);
     } else {
+      next_metadata_pos_ = -1;
       file_metadata_.reset();
     }
     return file_metadata_;
