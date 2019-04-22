@@ -136,80 +136,88 @@ PyReadableFile::PyReadableFile(PyObject* file) { file_.reset(new PythonFile(file
 PyReadableFile::~PyReadableFile() {}
 
 Status PyReadableFile::Close() {
-  PyAcquireGIL lock;
-  return file_->Close();
+  return SafeCallIntoPython([this]() { return file_->Close(); });
 }
 
 bool PyReadableFile::closed() const {
-  PyAcquireGIL lock;
-  return file_->closed();
+  bool res;
+  Status st = SafeCallIntoPython([this, &res]() {
+    res = file_->closed();
+    return Status::OK();
+  });
+  return res;
 }
 
 Status PyReadableFile::Seek(int64_t position) {
-  PyAcquireGIL lock;
-  return file_->Seek(position, 0);
+  return SafeCallIntoPython([=] { return file_->Seek(position, 0); });
 }
 
 Status PyReadableFile::Tell(int64_t* position) const {
-  PyAcquireGIL lock;
-  return file_->Tell(position);
+  return SafeCallIntoPython([=]() { return file_->Tell(position); });
 }
 
 Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-  PyAcquireGIL lock;
+  return SafeCallIntoPython([=]() {
+    OwnedRef bytes;
+    RETURN_NOT_OK(file_->Read(nbytes, bytes.ref()));
+    PyObject* bytes_obj = bytes.obj();
+    DCHECK(bytes_obj != NULL);
 
-  PyObject* bytes_obj = NULL;
-  RETURN_NOT_OK(file_->Read(nbytes, &bytes_obj));
-  DCHECK(bytes_obj != NULL);
+    if (!PyBytes_Check(bytes_obj)) {
+      return Status::TypeError(
+          "Python file read() should have returned a bytes object, got '",
+          Py_TYPE(bytes_obj)->tp_name, "' (did you open the file in binary mode?)");
+    }
 
-  *bytes_read = PyBytes_GET_SIZE(bytes_obj);
-  std::memcpy(out, PyBytes_AS_STRING(bytes_obj), *bytes_read);
-  Py_XDECREF(bytes_obj);
-
-  return Status::OK();
+    *bytes_read = PyBytes_GET_SIZE(bytes_obj);
+    std::memcpy(out, PyBytes_AS_STRING(bytes_obj), *bytes_read);
+    return Status::OK();
+  });
 }
 
 Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  PyAcquireGIL lock;
+  return SafeCallIntoPython([=]() {
+    OwnedRef bytes_obj;
+    RETURN_NOT_OK(file_->Read(nbytes, bytes_obj.ref()));
+    DCHECK(bytes_obj.obj() != NULL);
 
-  OwnedRef bytes_obj;
-  RETURN_NOT_OK(file_->Read(nbytes, bytes_obj.ref()));
-  DCHECK(bytes_obj.obj() != NULL);
-
-  return PyBuffer::FromPyObject(bytes_obj.obj(), out);
+    return PyBuffer::FromPyObject(bytes_obj.obj(), out);
+  });
 }
 
 Status PyReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                               void* out) {
   std::lock_guard<std::mutex> guard(file_->lock());
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, bytes_read, out);
+  return SafeCallIntoPython([=]() {
+    RETURN_NOT_OK(Seek(position));
+    return Read(nbytes, bytes_read, out);
+  });
 }
 
 Status PyReadableFile::ReadAt(int64_t position, int64_t nbytes,
                               std::shared_ptr<Buffer>* out) {
   std::lock_guard<std::mutex> guard(file_->lock());
-  RETURN_NOT_OK(Seek(position));
-  return Read(nbytes, out);
+  return SafeCallIntoPython([=]() {
+    RETURN_NOT_OK(Seek(position));
+    return Read(nbytes, out);
+  });
 }
 
 Status PyReadableFile::GetSize(int64_t* size) {
-  PyAcquireGIL lock;
+  return SafeCallIntoPython([=]() {
+    int64_t current_position = -1;
 
-  int64_t current_position = -1;
+    RETURN_NOT_OK(file_->Tell(&current_position));
+    RETURN_NOT_OK(file_->Seek(0, 2));
 
-  RETURN_NOT_OK(file_->Tell(&current_position));
+    int64_t file_size = -1;
+    RETURN_NOT_OK(file_->Tell(&file_size));
+    // Restore previous file position
+    RETURN_NOT_OK(file_->Seek(current_position, 0));
 
-  RETURN_NOT_OK(file_->Seek(0, 2));
-
-  int64_t file_size = -1;
-  RETURN_NOT_OK(file_->Tell(&file_size));
-
-  // Restore previous file position
-  RETURN_NOT_OK(file_->Seek(current_position, 0));
-
-  *size = file_size;
-  return Status::OK();
+    *size = file_size;
+    return Status::OK();
+  });
 }
 
 // ----------------------------------------------------------------------
@@ -222,13 +230,16 @@ PyOutputStream::PyOutputStream(PyObject* file) : position_(0) {
 PyOutputStream::~PyOutputStream() {}
 
 Status PyOutputStream::Close() {
-  PyAcquireGIL lock;
-  return file_->Close();
+  return SafeCallIntoPython([=]() { return file_->Close(); });
 }
 
 bool PyOutputStream::closed() const {
-  PyAcquireGIL lock;
-  return file_->closed();
+  bool res;
+  Status st = SafeCallIntoPython([this, &res]() {
+    res = file_->closed();
+    return Status::OK();
+  });
+  return res;
 }
 
 Status PyOutputStream::Tell(int64_t* position) const {
@@ -237,9 +248,10 @@ Status PyOutputStream::Tell(int64_t* position) const {
 }
 
 Status PyOutputStream::Write(const void* data, int64_t nbytes) {
-  PyAcquireGIL lock;
-  position_ += nbytes;
-  return file_->Write(data, nbytes);
+  return SafeCallIntoPython([=]() {
+    position_ += nbytes;
+    return file_->Write(data, nbytes);
+  });
 }
 
 // ----------------------------------------------------------------------

@@ -184,6 +184,17 @@ class BaseTestCSVRead:
         assert table.num_columns == len(names)
         assert [c.name for c in table.columns] == names
 
+    def test_file_object(self):
+        data = b"a,b\n1,2\n"
+        expected_data = {'a': [1], 'b': [2]}
+        bio = io.BytesIO(data)
+        table = self.read_csv(bio)
+        assert table.to_pydict() == expected_data
+        # Text files not allowed
+        sio = io.StringIO(data.decode())
+        with pytest.raises(TypeError):
+            self.read_csv(sio)
+
     def test_header(self):
         rows = b"abc,def,gh\n"
         table = self.read_bytes(rows)
