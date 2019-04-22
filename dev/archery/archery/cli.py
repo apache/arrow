@@ -151,12 +151,7 @@ def tmpdir(preserve, prefix="arrow-bench-"):
             yield tmp
 
 
-DEFAULT_BENCHMARK_CONF = CppConfiguration(
-    build_type="release", with_tests=True, with_benchmarks=True,
-    with_python=False)
-
-
-def cpp_runner_from_rev_or_path(src, root, rev_or_path):
+def cpp_runner_from_rev_or_path(src, root, rev_or_path, cmake_conf):
     build = None
     if os.path.exists(rev_or_path) and CMakeBuild.is_build_dir(rev_or_path):
         build = CMakeBuild.from_path(rev_or_path)
@@ -173,7 +168,7 @@ def cpp_runner_from_rev_or_path(src, root, rev_or_path):
         # TODO: find a way to pass custom configuration without cluttering
         # the cli. Ideally via a configuration file that can be shared with the
         # `build` sub-command.
-        cmake_def = CppCMakeDefinition(src_rev.cpp, DEFAULT_BENCHMARK_CONF)
+        cmake_def = CppCMakeDefinition(src_rev.cpp, cmake_conf)
         build = cmake_def.build(os.path.join(root_rev, "build"))
 
     return CppBenchmarkRunner(build)
@@ -206,13 +201,16 @@ def benchmark(ctx):
               is_flag=True, help="Preserve workspace for investigation.")
 @click.option("--threshold", type=float, default=0.05, show_default=True,
               help="Regression failure threshold in percentage.")
+@click.option("--cmake-extras", type=str, multiple=True,
+              help="Extra flags/options to pass to cmake invocation. "
+              "Can be stacked")
 @click.argument("contender", metavar="[<contender>", default=Git.WORKSPACE,
                 required=False)
 @click.argument("baseline", metavar="[<baseline>]]", default="master",
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
-                   threshold, contender, baseline):
+                   threshold, cmake_extras, contender, baseline):
     """ Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -271,8 +269,12 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
         logger.debug(f"Comparing {contender} (contender) with "
                      f"{baseline} (baseline)")
 
-        runner_cont = cpp_runner_from_rev_or_path(src, root, contender)
-        runner_base = cpp_runner_from_rev_or_path(src, root, baseline)
+        conf = CppConfiguration(
+                build_type="release", with_tests=True, with_benchmarks=True,
+                with_python=False, cmake_extras=cmake_extras)
+
+        runner_cont = cpp_runner_from_rev_or_path(src, root, contender, conf)
+        runner_base = cpp_runner_from_rev_or_path(src, root, baseline, conf)
 
         suites_cont = {s.name: s for s in runner_cont.suites(suite_filter,
                                                              benchmark_filter)}
