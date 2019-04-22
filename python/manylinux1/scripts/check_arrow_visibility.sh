@@ -16,14 +16,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-nm -D -C /arrow-dist/lib/libarrow.so > nm_arrow.log
-grep ' T ' nm_arrow.log | grep -v arrow > visible_symbols.log
+nm --demangle --dynamic /arrow-dist/lib/libarrow.so > nm_arrow.log
 
-if [[ `cat visible_symbols.log | wc -l` -eq 2 ]]
+# Filter out Arrow symbols and see if anything remains.
+# '_init' and '_fini' symbols may or not be present, we don't care.
+# (note we must ignore the grep exit status when no match is found)
+grep ' T ' nm_arrow.log | grep -v -E '(arrow|\b_init\b|\b_fini\b)' | cat - > visible_symbols.log
+
+if [[ -f visible_symbols.log && `cat visible_symbols.log | wc -l` -eq 0 ]]
 then
     exit 0
 fi
 
+echo "== Unexpected symbols exported by libarrow.so =="
 cat visible_symbols.log
+echo "================================================"
 
 exit 1
