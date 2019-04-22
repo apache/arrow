@@ -27,6 +27,8 @@ proc-macro = true
 
 [features]
 chrono = []
+bigdecimal = []
+uuid = []
 
 [dependencies]
 proc-macro2 = "0.4"

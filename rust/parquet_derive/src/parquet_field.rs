@@ -34,6 +34,7 @@ pub struct Field {
 enum ThirdPartyType {
     ChronoNaiveDateTime,
     ChronoNaiveDate,
+    Uuid,
 }
 
 impl Field {
@@ -44,6 +45,7 @@ impl Field {
         let third_party_type = match &ty.last_part()[..] {
             "NaiveDateTime" => Some(ThirdPartyType::ChronoNaiveDateTime),
             "NaiveDate" => Some(ThirdPartyType::ChronoNaiveDate),
+            "Uuid" => Some(ThirdPartyType::Uuid),
             _ => None,
         };
 
@@ -176,6 +178,7 @@ impl Field {
         let is_a_timestamp =
             self.third_party_type == Some(ThirdPartyType::ChronoNaiveDateTime);
         let is_a_date = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDate);
+        let is_a_uuid = self.third_party_type == Some(ThirdPartyType::Uuid);
         let copy_to_vec = match self.ty.physical_type() {
             parquet::basic::Type::BYTE_ARRAY
             | parquet::basic::Type::FIXED_LEN_BYTE_ARRAY => false,
@@ -188,12 +191,14 @@ impl Field {
             quote! { let Some(ref inner) = x.#field_name }
         };
 
-        let some = if is_a_byte_buf {
-            quote! { Some((&inner[..]).into())}
-        } else if is_a_timestamp {
+        let some = if is_a_timestamp {
             quote! { Some(inner.timestamp_millis()) }
         } else if is_a_date {
             quote! { Some(inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32)  }
+        } else if is_a_uuid {
+            quote! { Some((&inner.to_string()[..]).into()) }
+        } else if is_a_byte_buf {
+            quote! { Some((&inner[..]).into())}
         } else {
             quote! { Some(inner) }
         };
@@ -215,13 +220,16 @@ impl Field {
         let is_a_timestamp =
             self.third_party_type == Some(ThirdPartyType::ChronoNaiveDateTime);
         let is_a_date = self.third_party_type == Some(ThirdPartyType::ChronoNaiveDate);
+        let is_a_uuid = self.third_party_type == Some(ThirdPartyType::Uuid);
 
-        let access = if is_a_byte_buf {
-            quote! { (&x.#field_name[..]).into() }
-        } else if is_a_timestamp {
+        let access = if is_a_timestamp {
             quote! { x.#field_name.timestamp_millis() }
         } else if is_a_date {
             quote! { x.#field_name.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32 }
+        } else if is_a_uuid {
+            quote! { (&x.#field_name.to_string()[..]).into() }
+        } else if is_a_byte_buf {
+            quote! { (&x.#field_name[..]).into() }
         } else {
             quote! { x.#field_name }
         };
@@ -407,7 +415,7 @@ impl Type {
             "u64" | "i64" | "usize" | "NaiveDateTime" => BasicType::INT64,
             "f32" => BasicType::FLOAT,
             "f64" => BasicType::DOUBLE,
-            "String" | "str" => BasicType::BYTE_ARRAY,
+            "String" | "str" | "Uuid" => BasicType::BYTE_ARRAY,
             f @ _ => unimplemented!("sorry, don't handle {} yet!", f),
         }
     }
@@ -731,7 +739,7 @@ mod test {
     }
 
     #[test]
-    fn convert_comprehensive_owned_struct() {
+    fn test_convert_comprehensive_owned_struct() {
         let snippet: proc_macro2::TokenStream = quote! {
           struct VecHolder {
             a_vec: Vec<u8>,
@@ -764,7 +772,7 @@ mod test {
     }
 
     #[test]
-    fn convert_borrowed_struct() {
+    fn test_convert_borrowed_struct() {
         let snippet: proc_macro2::TokenStream = quote! {
           struct Borrower<'a> {
             a_str: &'a str,
@@ -802,7 +810,7 @@ mod test {
 
     #[test]
     #[cfg(feature = "chrono")]
-    fn chrono_timestamp_millis() {
+    fn test_chrono_timestamp_millis() {
         let snippet: proc_macro2::TokenStream = quote! {
           struct ATimestampStruct {
             henceforth: chrono::NaiveDateTime,
@@ -846,7 +854,7 @@ mod test {
 
     #[test]
     #[cfg(feature = "chrono")]
-    fn chrono_date() {
+    fn test_chrono_date() {
         let snippet: proc_macro2::TokenStream = quote! {
           struct ATimestampStruct {
             henceforth: chrono::NaiveDate,
@@ -883,6 +891,50 @@ mod test {
                     typed.write_batch(&vals[..], Some(&definition_levels[..]), None).unwrap();
                 } else {
                     panic!("schema and struct disagree on type for {}" , stringify!{ maybe_happened })
+                }
+            }
+        }).to_string());
+    }
+
+    #[test]
+    #[cfg(feature = "uuid")]
+    fn test_uuid() {
+        let snippet: proc_macro2::TokenStream = quote! {
+          struct ATimestampStruct {
+            unique_id: uuid::Uuid,
+            maybe_unique_id: Option<&uuid::Uuid>,
+          }
+        };
+
+        let fields = extract_fields(snippet);
+        let when = Field::from(&fields[0]);
+        assert_eq!(when.writer_snippet().to_string(),(quote!{
+            {
+                let vals : Vec<_> = records.iter().map(|x| (&x.unique_id.to_string()[..]).into() ).collect();
+                if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter(ref mut typed) = column_writer {
+                    typed.write_batch(&vals[..], None, None).unwrap();
+                } else {
+                    panic!("schema and struct disagree on type for {}" , stringify!{ unique_id })
+                }
+            }
+        }).to_string());
+
+        let maybe_happened = Field::from(&fields[1]);
+        assert_eq!(maybe_happened.writer_snippet().to_string(),(quote!{
+            {
+                let definition_levels : Vec<i16> = self.iter().map(|x| if x.maybe_unique_id.is_some() { 1 } else { 0 }).collect();
+                let vals : Vec<_> = records.iter().filter_map(|x| {
+                    if let Some(ref inner) = x.maybe_unique_id {
+                        Some( (&inner.to_string()[..]).into() )
+                    } else {
+                        None
+                    }
+                }).collect();
+
+                if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter(ref mut typed) = column_writer {
+                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None).unwrap();
+                } else {
+                    panic!("schema and struct disagree on type for {}" , stringify!{ maybe_unique_id })
                 }
             }
         }).to_string());
