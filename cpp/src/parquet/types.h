@@ -480,14 +480,6 @@ struct EncryptionAlgorithm {
 };
 
 class PARQUET_EXPORT EncryptionProperties {
- private:
-  static inline uint8_t* str2bytes(const std::string& str) {
-    if (str.empty()) return NULLPTR;
-
-    char* cbytes = const_cast<char*>(str.c_str());
-    return reinterpret_cast<uint8_t*>(cbytes);
-  }
-
  public:
   EncryptionProperties() = default;
   EncryptionProperties(ParquetCipher::type algorithm, const std::string& key,
@@ -532,6 +524,13 @@ class PARQUET_EXPORT EncryptionProperties {
   std::string key_;             // encryption key, should have 16, 24, 32-byte length
   std::string file_aad_;
   std::string aad_;             // encryption additional authenticated data
+  static inline uint8_t* str2bytes(const std::string& str) {
+    if (str.empty()) return NULLPTR;
+
+    char* cbytes = const_cast<char*>(str.c_str());
+    return reinterpret_cast<uint8_t*>(cbytes);
+  }
+
 };
 
 // parquet::PageType

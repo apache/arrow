@@ -69,7 +69,7 @@ class PARQUET_EXPORT UnsupportedOperationException : public ParquetException {
  UnsupportedOperationException(const std::string& columnPath)
    : ParquetException(columnPath.c_str()) {}
 };
- 
+
 }  // namespace parquet
 
 #endif  // PARQUET_ENCRYPTION_H
