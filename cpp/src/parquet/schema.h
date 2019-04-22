@@ -92,7 +92,7 @@ class PARQUET_EXPORT ColumnPath {
 
   struct CmpColumnPath {
     bool operator()(const std::shared_ptr<schema::ColumnPath>& a,
-		    const std::shared_ptr<schema::ColumnPath>& b) const {
+                    const std::shared_ptr<schema::ColumnPath>& b) const {
       return a->ToDotString() < b->ToDotString();
     }
   };

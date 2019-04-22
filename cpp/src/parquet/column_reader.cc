@@ -94,14 +94,14 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
 
 ReaderProperties default_reader_properties() {
   static ReaderProperties default_reader_properties;
-  //reset column_map and fileAAD as default_reader_properties is static but
-  //can be used when reading parquet file with different reading options.
+  // reset column_map and fileAAD as default_reader_properties is static but
+  // can be used when reading parquet file with different reading options.
   if (default_reader_properties.column_map() != NULLPTR
       && default_reader_properties.column_map()->size () != 0)
     default_reader_properties.column_map()->clear();
-  if (!default_reader_properties.fileAAD().empty()) 
+  if (!default_reader_properties.fileAAD().empty())
     default_reader_properties.set_fileAAD ("");
-  
+
   return default_reader_properties;
 }
 
@@ -136,14 +136,16 @@ class SerializedPageReader : public PageReader {
     if (encryption != NULLPTR) {
       DCHECK (!encryption_->fileAAD().empty());
       //prepare the AAD for quick update later
-      data_pageAAD_ = parquet_encryption::createModuleAAD(encryption_->fileAAD(),
-							  parquet_encryption::DataPage,
-							  row_group_ordinal_,
-							  column_ordinal_, (int16_t)-1);
-      data_page_headerAAD_ = parquet_encryption::createModuleAAD(encryption_->fileAAD(),
-								 parquet_encryption::DataPageHeader,
-								 row_group_ordinal_,
-								 column_ordinal_, (int16_t)-1);
+      data_pageAAD_ = parquet_encryption::createModuleAAD(
+          encryption_->fileAAD(),
+          parquet_encryption::DataPage,
+          row_group_ordinal_,
+          column_ordinal_, (int16_t)-1);
+      data_page_headerAAD_ = parquet_encryption::createModuleAAD(
+          encryption_->fileAAD(),
+          parquet_encryption::DataPageHeader,
+          row_group_ordinal_,
+          column_ordinal_, (int16_t)-1);
     }
   }
 
@@ -192,7 +194,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     if (first_page_) {
       current_page_is_dictionary = true;
       first_page_ = false;
-    } else 
+    } else
       page_ordinal_++;
   } else
     page_ordinal_++;
@@ -216,20 +218,20 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       // This gets used, then set by DeserializeThriftMsg
       header_size = static_cast<uint32_t>(buffer.size());
       try {
-	if (encryption_!= NULLPTR) {
-	  if (current_page_is_dictionary) {
-	    aad = parquet_encryption::createModuleAAD(encryption_->fileAAD(),
-						      parquet_encryption::DictionaryPageHeader,
-						      row_group_ordinal_,
-						      column_ordinal_, (int16_t)-1);
-	    encryption_->aad(aad);
-	  } else { 
-	    parquet_encryption::quickUpdatePageAAD(data_page_headerAAD_, page_ordinal_);
-	    encryption_->aad(data_page_headerAAD_);
-	  }
-	}
-	DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
-                       &header_size, &current_page_header_, encryption_);
+      	if (encryption_!= NULLPTR) {
+      	  if (current_page_is_dictionary) {
+      	    aad = parquet_encryption::createModuleAAD(encryption_->fileAAD(),
+  				      parquet_encryption::DictionaryPageHeader,
+  				      row_group_ordinal_,
+  				      column_ordinal_, (int16_t)-1);
+      	    encryption_->aad(aad);
+      	  } else { 
+      	    parquet_encryption::quickUpdatePageAAD(data_page_headerAAD_, page_ordinal_);
+      	    encryption_->aad(data_page_headerAAD_);
+      	  }
+      	}
+      	DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
+                             &header_size, &current_page_header_, encryption_);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -250,17 +252,18 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     if (encryption_!= NULLPTR){
       DCHECK(!encryption_->fileAAD().empty());
       if (current_page_is_dictionary){
-	aad = parquet_encryption::createModuleAAD(encryption_->fileAAD(),
-						  parquet_encryption::DictionaryPage,
-						  row_group_ordinal_,
-						  column_ordinal_, (int16_t)-1);
-	encryption_->aad(aad);
+        aad = parquet_encryption::createModuleAAD(
+            encryption_->fileAAD(),
+            parquet_encryption::DictionaryPage,
+            row_group_ordinal_,
+            column_ordinal_, (int16_t)-1);
+        encryption_->aad(aad);
       } else {
-	parquet_encryption::quickUpdatePageAAD(data_pageAAD_, page_ordinal_);
+        parquet_encryption::quickUpdatePageAAD(data_pageAAD_, page_ordinal_);
         encryption_->aad(data_pageAAD_);
       }
     }
-    
+
     // Read the compressed data page.
     std::shared_ptr<Buffer> page_buffer;
     PARQUET_THROW_NOT_OK(stream_->Read(compressed_len, &page_buffer));

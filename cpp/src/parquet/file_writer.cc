@@ -82,8 +82,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   RowGroupSerializer(const std::shared_ptr<ArrowOutputStream>& sink,
                      RowGroupMetaDataBuilder* metadata, 
                      int16_t row_group_ordinal,
-                     const WriterProperties* properties, bool buffered_row_group = false)
-
+                     const WriterProperties* properties,
+                     bool buffered_row_group = false)
       : sink_(sink),
         metadata_(metadata),
         properties_(properties),
@@ -130,10 +130,10 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     const ColumnDescriptor* column_descr = col_meta->descr();
     std::unique_ptr<PageWriter> pager =
         PageWriter::Open(sink_, properties_->compression(column_descr->path()),
-                         properties_->encryption(column_descr->path()), col_meta,  
-                         row_group_ordinal_, (int16_t)(current_column_index_-1),
-			 properties_->memory_pool());
-
+                         properties_->encryption(column_descr->path()),
+                         col_meta, row_group_ordinal_,
+                         (int16_t)(current_column_index_-1),
+                         properties_->memory_pool());
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
   }
@@ -230,12 +230,11 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       auto col_meta = metadata_->NextColumnChunk();
       const ColumnDescriptor* column_descr = col_meta->descr();
       std::unique_ptr<PageWriter> pager =
-	  PageWriter::Open(sink_, properties_->compression(column_descr->path()),
-                           properties_->encryption(column_descr->path()), col_meta,
-			   (int16_t)row_group_ordinal_,
-			   (int16_t)current_column_index_,
-                           properties_->memory_pool(), buffered_row_group_);
-
+        PageWriter::Open(sink_, properties_->compression(column_descr->path()),
+                         properties_->encryption(column_descr->path()),
+                         col_meta, (int16_t)row_group_ordinal_,
+                         (int16_t)current_column_index_,
+                         properties_->memory_pool(), buffered_row_group_);
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
     }
@@ -278,9 +277,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       auto file_encryption = properties_->file_encryption();
       if (file_encryption == nullptr) {
         file_metadata_ = metadata_->Finish();
-        WriteFileMetaData(*file_metadata_, sink_.get());
-      }
-      else {
+        WriteFileMetaData(*metadata, sink_.get());
+      } else {
         if (file_encryption->encryptedFooter()) {
           // encrypted footer
           file_metadata_ = metadata_->Finish();
@@ -288,37 +286,38 @@ class FileSerializer : public ParquetFileWriter::Contents {
           uint64_t metadata_start = static_cast<uint64_t>(sink_->Tell());
           auto crypto_metadata = metadata_->GetCryptoMetaData();
           WriteFileCryptoMetaData(*crypto_metadata, sink_.get());
-	  
-	  ParquetCipher::type algorithm = file_encryption->getAlgorithm().algorithm;
-          std::string aad = parquet_encryption::createFooterAAD(file_encryption->getFileAAD());
-          std::shared_ptr<EncryptionProperties> footer_encryption =
-            std::make_shared<EncryptionProperties>(algorithm,
-						   file_encryption->getFooterEncryptionKey(),
-						   file_encryption->getFileAAD(), aad);
+
+          ParquetCipher::type algorithm =
+            file_encryption->getAlgorithm().algorithm;
+          std::string aad = parquet_encryption::createFooterAAD(
+              file_encryption->getFileAAD());
+          std::shared_ptr<EncryptionProperties> footer_encryption = std::make_shared<EncryptionProperties>(
+              algorithm,
+              file_encryption->getFooterEncryptionKey(),
+              file_encryption->getFileAAD(), aad);
           WriteFileMetaData(*file_metadata_, sink_.get(), footer_encryption, true);
           uint32_t footer_and_crypto_len = static_cast<uint32_t>(sink_->Tell() - metadata_start);
           sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4);
           sink_->Write(PARQUET_EMAGIC, 4);
-        }
-        else {
+        } else {
           // footer plain mode
           EncryptionAlgorithm signing_encryption;
           EncryptionAlgorithm algo =  file_encryption->getAlgorithm();
-
           signing_encryption.aad.aad_file_unique = algo.aad.aad_file_unique;
           signing_encryption.aad.supply_aad_prefix = algo.aad.supply_aad_prefix;
           if (!algo.aad.supply_aad_prefix)
             signing_encryption.aad.aad_prefix = algo.aad.aad_prefix;
           signing_encryption.algorithm = ParquetCipher::AES_GCM_V1;
-
-          file_metadata_ = metadata_->Finish(&signing_encryption,
-					    file_encryption->getFooterSigningKeyMetadata ());
-	  ParquetCipher::type algorithm = algo.algorithm;
-	  std::string aad = parquet_encryption::createFooterAAD(file_encryption->getFileAAD());	  
-	  std::shared_ptr<EncryptionProperties> footer_encryption =
-	    std::make_shared<EncryptionProperties>(algorithm,
-						   file_encryption->getFooterSigningKey(),
-						   file_encryption->getFileAAD(), aad);
+          file_metadata_ = metadata_->Finish(
+               &signing_encryption,
+               file_encryption->getFooterSigningKeyMetadata ());
+          ParquetCipher::type algorithm = algo.algorithm;
+          std::string aad = parquet_encryption::createFooterAAD(
+              file_encryption->getFileAAD());
+          std::shared_ptr<EncryptionProperties> footer_encryption = std::make_shared<EncryptionProperties>(
+              algorithm,
+              file_encryption->getFooterSigningKey(),
+              file_encryption->getFileAAD(), aad);
           WriteFileMetaData(*file_metadata_, sink_.get(), footer_encryption, false);
         }
       }

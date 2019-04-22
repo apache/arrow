@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 #include <map>
- 
+
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 
@@ -124,7 +124,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
       const void* metadata, const ColumnDescriptor* descr,
       int16_t row_group_ordinal = -1, int16_t column_ordinal = -1,
       const ApplicationVersion* writer_version = NULLPTR,
-      FileDecryptionProperties* file_decryption = NULLPTR, 
+      FileDecryptionProperties* file_decryption = NULLPTR,
       const EncryptionAlgorithm* algorithm = NULLPTR,
       const std::string &fileAAD = "",
       std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
@@ -157,14 +157,14 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
  private:
   explicit ColumnChunkMetaData(const void* metadata, const ColumnDescriptor* descr,
-			       int16_t row_group_ordinal, int16_t column_ordinal,
+                               int16_t row_group_ordinal, int16_t column_ordinal,
                                const ApplicationVersion* writer_version = NULLPTR,
                                FileDecryptionProperties* file_decryption = NULLPTR,
                                const EncryptionAlgorithm* algorithm = NULLPTR,
                                const std::string& fileAAD = "",
                                std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-			       std::string, parquet::schema::ColumnPath::CmpColumnPath>>
-			       column_map = NULLPTR);
+                               std::string, parquet::schema::ColumnPath::CmpColumnPath>>
+                               column_map = NULLPTR);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
   std::unique_ptr<ColumnChunkMetaDataImpl> impl_;
@@ -186,13 +186,13 @@ class PARQUET_EXPORT RowGroupMetaData {
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i, int16_t row_group_ordinal = -1,
-						   FileDecryptionProperties* file_decryption = NULLPTR,
+                                                   FileDecryptionProperties* file_decryption = NULLPTR,
                                                    const EncryptionAlgorithm* algorithm = NULLPTR,
                                                    const std::string &fileAAD = "",
                                                    std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-						   std::string,
-						   parquet::schema::ColumnPath::CmpColumnPath>>
-						   column_map = NULLPTR) const;
+                                                   std::string,
+                                                   parquet::schema::ColumnPath::CmpColumnPath>>
+                                                   column_map = NULLPTR) const;
 
  private:
   explicit RowGroupMetaData(const void* metadata, const SchemaDescriptor* schema,
@@ -309,7 +309,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
 
   // For writing metadata at end of column chunk
   void WriteTo(::arrow::io::OutputStream* sink,
-	       const std::shared_ptr<parquet::EncryptionProperties>& encryption = NULLPTR);
+	             const std::shared_ptr<parquet::EncryptionProperties>& encryption = NULLPTR);
   std::shared_ptr<EncryptionProperties>
     get_encryption_props(const std::shared_ptr<schema::ColumnPath>& path);
 
