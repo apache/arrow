@@ -217,6 +217,21 @@ impl<R: Read> Reader<R> {
         )
     }
 
+    /// Returns the schema of the reader, useful for getting the schema without reading
+    /// record batches
+    pub fn schema(&self) -> Arc<Schema> {
+        match &self.projection {
+            Some(projection) => {
+                let fields = self.schema.fields();
+                let projected_fields: Vec<Field> =
+                    projection.iter().map(|i| fields[*i].clone()).collect();
+
+                Arc::new(Schema::new(projected_fields))
+            }
+            None => self.schema.clone(),
+        }
+    }
+
     /// Create a new CsvReader from a `BufReader<R: Read>
     ///
     /// This constructor allows you more flexibility in what records are processed by the
@@ -536,7 +551,8 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), false, 1024, None);
+        let mut csv = Reader::new(file, Arc::new(schema.clone()), false, 1024, None);
+        assert_eq!(Arc::new(schema), csv.schema());
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
@@ -594,6 +610,12 @@ mod tests {
         let builder = ReaderBuilder::new().has_headers(true).infer_schema(None);
 
         let mut csv = builder.build(file).unwrap();
+        let expected_schema = Schema::new(vec![
+            Field::new("city", DataType::Utf8, false),
+            Field::new("lat", DataType::Float64, false),
+            Field::new("lng", DataType::Float64, false),
+        ]);
+        assert_eq!(Arc::new(expected_schema), csv.schema());
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
@@ -625,14 +647,16 @@ mod tests {
         let builder = ReaderBuilder::new().infer_schema(None);
 
         let mut csv = builder.build(file).unwrap();
-        let batch = csv.next().unwrap().unwrap();
 
         // csv field names should be 'column_{number}'
-        let schema = batch.schema();
+        let schema = csv.schema();
         assert_eq!("column_1", schema.field(0).name());
         assert_eq!("column_2", schema.field(1).name());
         assert_eq!("column_3", schema.field(2).name());
+        let batch = csv.next().unwrap().unwrap();
+        let batch_schema = batch.schema();
 
+        assert_eq!(&schema, batch_schema);
         assert_eq!(37, batch.num_rows());
         assert_eq!(3, batch.num_columns());
 
@@ -667,7 +691,13 @@ mod tests {
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
         let mut csv = Reader::new(file, Arc::new(schema), false, 1024, Some(vec![0, 1]));
+        let projected_schema = Arc::new(Schema::new(vec![
+            Field::new("city", DataType::Utf8, false),
+            Field::new("lat", DataType::Float64, false),
+        ]));
+        assert_eq!(projected_schema.clone(), csv.schema());
         let batch = csv.next().unwrap().unwrap();
+        assert_eq!(&projected_schema, batch.schema());
         assert_eq!(37, batch.num_rows());
         assert_eq!(2, batch.num_columns());
     }
