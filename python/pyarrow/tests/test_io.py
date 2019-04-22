@@ -83,6 +83,9 @@ def test_python_file_write():
     f.close()
     assert f.closed
 
+    with pytest.raises(TypeError, match="binary file expected"):
+        pa.PythonFile(StringIO())
+
 
 def test_python_file_read():
     data = b'some sample data'
@@ -112,6 +115,9 @@ def test_python_file_read():
     assert not f.closed
     f.close()
     assert f.closed
+
+    with pytest.raises(TypeError, match="binary file expected"):
+        pa.PythonFile(StringIO(), mode='r')
 
 
 def test_python_file_readall():

@@ -26,7 +26,7 @@ import sys
 import threading
 import time
 import warnings
-from io import BufferedIOBase, IOBase, UnsupportedOperation
+from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 
 from pyarrow.util import _stringify_path
 from pyarrow.compat import (
@@ -626,6 +626,10 @@ cdef class PythonFile(NativeFile):
                     if 'w' not in handle.mode and '+' not in handle.mode:
                         raise TypeError("writable file expected")
             # (other duck-typed file-like objects are possible)
+
+        # If possible, check the file is a binary file
+        if isinstance(handle, TextIOBase):
+            raise TypeError("binary file expected, got text file")
 
         if kind == 'r':
             self.set_random_access_file(

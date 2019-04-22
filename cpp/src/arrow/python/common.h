@@ -54,6 +54,7 @@ ARROW_PYTHON_EXPORT Status PassPyError();
 
 #define PY_RETURN_IF_ERROR(CODE) ARROW_RETURN_NOT_OK(CheckPyError(CODE));
 
+// A RAII-style helper that ensures the GIL is acquired inside a lexical block.
 class ARROW_PYTHON_EXPORT PyAcquireGIL {
  public:
   PyAcquireGIL() : acquired_gil_(false) { acquire(); }
@@ -80,6 +81,24 @@ class ARROW_PYTHON_EXPORT PyAcquireGIL {
   PyGILState_STATE state_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
 };
+
+// A helper to call safely into the Python interpreter from arbitrary C++ code.
+// The GIL is acquired, and the current thread's error status is preserved.
+template <typename Function>
+Status SafeCallIntoPython(Function&& func) {
+  PyAcquireGIL lock;
+  PyObject* exc_type;
+  PyObject* exc_value;
+  PyObject* exc_traceback;
+  PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+  Status st = std::forward<Function>(func)();
+  // If the return Status is a "Python error", the current Python error status
+  // describes the error and shouldn't be clobbered.
+  if (!st.IsPythonError() && exc_type != NULLPTR) {
+    PyErr_Restore(exc_type, exc_value, exc_traceback);
+  }
+  return st;
+}
 
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION <= 2
 
