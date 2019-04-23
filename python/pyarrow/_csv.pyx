@@ -261,6 +261,11 @@ cdef class ConvertOptions:
     false_values: list, optional
         A sequence of strings that denote false booleans in the data
         (defaults are appropriate in most cases).
+    strings_can_be_null: bool, optional (default False)
+        Whether string / binary columns can have null values.
+        If true, then strings in null_values are considered null for
+        string columns.
+        If false, then all strings are valid string values.
     """
     cdef:
         CCSVConvertOptions options
@@ -269,7 +274,8 @@ cdef class ConvertOptions:
     __slots__ = ()
 
     def __init__(self, check_utf8=None, column_types=None, null_values=None,
-                 true_values=None, false_values=None):
+                 true_values=None, false_values=None,
+                 strings_can_be_null=None):
         self.options = CCSVConvertOptions.Defaults()
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
@@ -281,6 +287,8 @@ cdef class ConvertOptions:
             self.true_values = true_values
         if false_values is not None:
             self.false_values = false_values
+        if strings_can_be_null is not None:
+            self.strings_can_be_null = strings_can_be_null
 
     @property
     def check_utf8(self):
@@ -292,6 +300,17 @@ cdef class ConvertOptions:
     @check_utf8.setter
     def check_utf8(self, value):
         self.options.check_utf8 = value
+
+    @property
+    def strings_can_be_null(self):
+        """
+        Whether string / binary columns can have null values.
+        """
+        return self.options.strings_can_be_null
+
+    @strings_can_be_null.setter
+    def strings_can_be_null(self, value):
+        self.options.strings_can_be_null = value
 
     @property
     def column_types(self):

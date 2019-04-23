@@ -121,6 +121,18 @@ TEST(BinaryConversion, Basics) {
                                             {{"ab", ""}, {"cdé", "\xffgh"}});
 }
 
+TEST(BinaryConversion, Nulls) {
+  AssertConversion<BinaryType, std::string>(binary(), {"ab,N/A\n", "NULL,\n"},
+                                            {{"ab", "NULL"}, {"N/A", ""}},
+                                            {{true, true}, {true, true}});
+
+  auto options = ConvertOptions::Defaults();
+  options.strings_can_be_null = true;
+  AssertConversion<BinaryType, std::string>(binary(), {"ab,N/A\n", "NULL,\n"},
+                                            {{"ab", ""}, {"", ""}},
+                                            {{true, false}, {false, true}}, options);
+}
+
 TEST(StringConversion, Basics) {
   AssertConversion<StringType, std::string>(utf8(), {"ab,cdé\n", ",gh\n"},
                                             {{"ab", ""}, {"cdé", "gh"}});
@@ -129,6 +141,18 @@ TEST(StringConversion, Basics) {
   options.check_utf8 = false;
   AssertConversion<StringType, std::string>(utf8(), {"ab,cdé\n", ",\xffgh\n"},
                                             {{"ab", ""}, {"cdé", "\xffgh"}}, options);
+}
+
+TEST(StringConversion, Nulls) {
+  AssertConversion<StringType, std::string>(utf8(), {"ab,N/A\n", "NULL,\n"},
+                                            {{"ab", "NULL"}, {"N/A", ""}},
+                                            {{true, true}, {true, true}});
+
+  auto options = ConvertOptions::Defaults();
+  options.strings_can_be_null = true;
+  AssertConversion<StringType, std::string>(utf8(), {"ab,N/A\n", "NULL,\n"},
+                                            {{"ab", ""}, {"", ""}},
+                                            {{true, false}, {false, true}}, options);
 }
 
 TEST(StringConversion, Errors) {

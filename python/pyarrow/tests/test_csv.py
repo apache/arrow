@@ -132,6 +132,10 @@ def test_convert_options():
     opts.check_utf8 = False
     assert opts.check_utf8 is False
 
+    assert opts.strings_can_be_null is False
+    opts.strings_can_be_null = True
+    assert opts.strings_can_be_null is True
+
     assert opts.column_types == {}
     # Pass column_types as mapping
     opts.column_types = {'b': pa.int16(), 'c': pa.float32()}
@@ -167,12 +171,13 @@ def test_convert_options():
 
     opts = cls(check_utf8=False, column_types={'a': pa.null()},
                null_values=['N', 'nn'], true_values=['T', 'tt'],
-               false_values=['F', 'ff'])
+               false_values=['F', 'ff'], strings_can_be_null=True)
     assert opts.check_utf8 is False
     assert opts.column_types == {'a': pa.null()}
     assert opts.null_values == ['N', 'nn']
     assert opts.false_values == ['F', 'ff']
     assert opts.true_values == ['T', 'tt']
+    assert opts.strings_can_be_null is True
 
 
 class BaseTestCSVRead:
@@ -280,6 +285,16 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [None, None],
             'b': [u"Xxx", u"#N/A"],
+            'c': [u"1", u""],
+            'd': [2, None],
+            }
+
+        opts = ConvertOptions(null_values=['Xxx', 'Zzz'],
+                              strings_can_be_null=True)
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.to_pydict() == {
+            'a': [None, None],
+            'b': [None, u"#N/A"],
             'c': [u"1", u""],
             'd': [2, None],
             }
