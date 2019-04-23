@@ -130,9 +130,7 @@ class VarSizeBinaryConverter : public ConcreteConverter {
     using BuilderType = typename TypeTraits<T>::BuilderType;
     BuilderType builder(pool_);
 
-    // TODO do we accept nulls here?
-
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+    auto visit_non_null = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
       if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8(data, size))) {
         return Status::Invalid("CSV conversion error to ", type_->ToString(),
                                ": invalid UTF8 data");
@@ -140,9 +138,24 @@ class VarSizeBinaryConverter : public ConcreteConverter {
       builder.UnsafeAppend(data, size);
       return Status::OK();
     };
+
     RETURN_NOT_OK(builder.Resize(parser.num_rows()));
     RETURN_NOT_OK(builder.ReserveData(parser.num_bytes()));
-    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+
+    if (options_.strings_can_be_null) {
+      auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+        if (size > 0 && IsNull(data, size, false /* quoted */)) {
+          builder.UnsafeAppendNull();
+          return Status::OK();
+        } else {
+          return visit_non_null(data, size, quoted);
+        }
+      };
+      RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+    } else {
+      RETURN_NOT_OK(parser.VisitColumn(col_index, visit_non_null));
+    }
+
     RETURN_NOT_OK(builder.Finish(out));
 
     return Status::OK();
