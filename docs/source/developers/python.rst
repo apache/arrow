@@ -285,7 +285,7 @@ Now, build pyarrow:
    export PYARROW_WITH_GANDIVA=1
    export PYARROW_WITH_ORC=1
    export PYARROW_WITH_PARQUET=1
-   python setup.py build_ext --build-type=$ARROW_BUILD_TYPE --inplace
+   python setup.py build_ext --inplace
    popd
 
 If you did not build one of the optional components, set the corresponding
