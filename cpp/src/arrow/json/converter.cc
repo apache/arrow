@@ -39,6 +39,14 @@ Status GenericConversionError(const DataType& type, Args&&... args) {
                          std::forward<Args>(args)...);
 }
 
+const DictionaryArray* GetDictionaryArray(const std::shared_ptr<Array>& in) {
+  DCHECK_EQ(in->type_id(), Type::DICTIONARY);
+  auto dict_type = static_cast<const DictionaryType*>(in->type().get());
+  DCHECK_EQ(dict_type->index_type()->id(), Type::INT32);
+  DCHECK_EQ(dict_type->dictionary()->type_id(), Type::STRING);
+  return static_cast<const DictionaryArray*>(in.get());
+}
+
 template <typename Vis>
 Status VisitDictionaryEntries(const DictionaryArray* dict_array, Vis&& vis) {
   const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
@@ -74,6 +82,7 @@ Status PrimitiveFromNull(MemoryPool* pool, const std::shared_ptr<DataType>& type
                          const Array& null, std::shared_ptr<Array>* out) {
   auto data = ArrayData::Make(type, null.length(), {nullptr, nullptr}, null.length());
   RETURN_NOT_OK(AllocateBitmap(pool, null.length(), &data->buffers[0]));
+  std::memset(data->buffers[0]->mutable_data(), 0, data->buffers[0]->size());
   *out = MakeArray(data);
   return Status::OK();
 }
@@ -83,6 +92,7 @@ Status BinaryFromNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
   auto data =
       ArrayData::Make(type, null.length(), {nullptr, nullptr, nullptr}, null.length());
   RETURN_NOT_OK(AllocateBitmap(pool, null.length(), &data->buffers[0]));
+  std::memset(data->buffers[0]->mutable_data(), 0, data->buffers[0]->size());
   RETURN_NOT_OK(AllocateBuffer(pool, sizeof(int32_t), &data->buffers[1]));
   data->GetMutableValues<int32_t>(1)[0] = 0;
   *out = MakeArray(data);
@@ -117,8 +127,7 @@ class NumericConverter : public PrimitiveConverter {
     if (in->type_id() == Type::NA) {
       return PrimitiveFromNull(pool_, out_type_, *in, out);
     }
-
-    auto dict_array = static_cast<const DictionaryArray*>(in.get());
+    auto dict_array = GetDictionaryArray(in);
 
     using Builder = typename TypeTraits<T>::BuilderType;
     Builder builder(out_type_, pool_);
@@ -184,8 +193,7 @@ class BinaryConverter : public PrimitiveConverter {
     if (in->type_id() == Type::NA) {
       return BinaryFromNull(pool_, out_type_, *in, out);
     }
-
-    auto dict_array = static_cast<const DictionaryArray*>(in.get());
+    auto dict_array = GetDictionaryArray(in);
 
     using Builder = typename TypeTraits<T>::BuilderType;
     Builder builder(out_type_, pool_);

@@ -218,6 +218,8 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
         continue;
       }
       RETURN_NOT_OK(AllocateBitmap(pool_, chunk_lengths[i], &null_bitmap_chunks_[i]));
+      std::memset(null_bitmap_chunks_[i]->mutable_data(), 0,
+                  null_bitmap_chunks_[i]->size());
       int64_t offsets_length = (chunk_lengths[i] + 1) * sizeof(int32_t);
       RETURN_NOT_OK(AllocateBuffer(pool_, offsets_length, &offset_chunks_[i]));
       std::memset(offset_chunks_[i]->mutable_data(), 0, offsets_length);
