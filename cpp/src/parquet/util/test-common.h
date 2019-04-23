@@ -59,7 +59,7 @@ std::string get_bad_data_dir() {
   return ss.str();
 }
 
-std::string get_data_file(const std::string& testing_file_path, bool is_good = true) {
+std::string get_data_file(const std::string& filename, bool is_good = true) {
   std::stringstream ss;
 
   if (is_good) {
@@ -68,7 +68,7 @@ std::string get_data_file(const std::string& testing_file_path, bool is_good = t
     ss << get_bad_data_dir();
   }
 
-  ss << "/" << testing_file_path;
+  ss << "/" << filename;
   return ss.str();
 }
 
