@@ -17,6 +17,7 @@
 
 from collections import OrderedDict, Iterable
 import pickle
+import sys
 
 import numpy as np
 import pytest
@@ -348,10 +349,15 @@ def test_recordbatch_basics():
     assert len(batch) == 5
     assert batch.num_rows == 5
     assert batch.num_columns == len(data)
-    assert batch.to_pydict() == OrderedDict([
+    pydict = batch.to_pydict()
+    assert pydict == OrderedDict([
         ('c0', [0, 1, 2, 3, 4]),
         ('c1', [-10, -5, 0, 5, 10])
     ])
+    if sys.version_info >= (3, 7):
+        assert type(pydict) == dict
+    else:
+        assert type(pydict) == OrderedDict
 
     with pytest.raises(IndexError):
         # bounds checking
@@ -540,10 +546,15 @@ def test_table_basics():
     assert table.num_rows == 5
     assert table.num_columns == 2
     assert table.shape == (5, 2)
-    assert table.to_pydict() == OrderedDict([
+    pydict = table.to_pydict()
+    assert pydict == OrderedDict([
         ('a', [0, 1, 2, 3, 4]),
         ('b', [-10, -5, 0, 5, 10])
     ])
+    if sys.version_info >= (3, 7):
+        assert type(pydict) == dict
+    else:
+        assert type(pydict) == OrderedDict
 
     columns = []
     for col in table.itercolumns():
