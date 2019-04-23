@@ -19,14 +19,14 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from collections import OrderedDict
 import datetime
 import decimal as _pydecimal
 import json
 import numpy as np
 import os
 import six
-from pyarrow.compat import frombytes, tobytes
+
+from pyarrow.compat import frombytes, tobytes, ordered_dict
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
