@@ -196,6 +196,11 @@ Status FromPrimitive(const PrimitiveNode& primitive, std::shared_ptr<ArrowType>*
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
       RETURN_NOT_OK(FromFLBA(primitive, out));
       break;
+    default: {
+      // PARQUET-1565: This can occur if the file is corrupt
+      return Status::IOError("Invalid physical column type: ",
+                             TypeToString(primitive.physical_type()));
+    }
   }
   return Status::OK();
 }
