@@ -854,7 +854,7 @@ TEST(InvalidSchema, ParquetNegativeDecimalScale) {
 TEST(TestFromParquetSchema, CorruptMetadata) {
   // PARQUET-1565: ensure that an IOError is returned when the parquet file contains
   // corrupted metadata.
-  auto path = test::get_data_file("PARQUET-1481.parquet", false /*is_good*/);
+  auto path = test::get_data_file("PARQUET-1481.parquet",  /*is_good=*/ false);
 
   try {
     std::unique_ptr<parquet::ParquetFileReader> reader =
