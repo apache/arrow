@@ -99,41 +99,41 @@ class InferringChunkedArrayBuilder : public NonNestedChunkedArrayBuilder {
     if (chunks_.size() <= static_cast<size_t>(block_index)) {
       chunks_.resize(static_cast<size_t>(block_index) + 1, nullptr);
       unconverted_.resize(chunks_.size(), nullptr);
+      unconverted_fields_.resize(chunks_.size(), nullptr);
     }
     unconverted_[block_index] = unconverted;
+    unconverted_fields_[block_index] = unconverted_field;
     lock.unlock();
-    ScheduleConvertChunk(block_index, unconverted_field);
+    ScheduleConvertChunk(block_index);
   }
 
-  void ScheduleConvertChunk(int64_t block_index,
-                            const std::shared_ptr<Field>& unconverted_field) {
-    task_group_->Append([this, block_index, unconverted_field] {
-      return TryConvertChunk(static_cast<size_t>(block_index), unconverted_field);
+  void ScheduleConvertChunk(int64_t block_index) {
+    task_group_->Append([this, block_index] {
+      return TryConvertChunk(static_cast<size_t>(block_index));
     });
   }
 
-  Status TryConvertChunk(size_t block_index,
-                         const std::shared_ptr<Field>& unconverted_field) {
+  Status TryConvertChunk(size_t block_index) {
     std::unique_lock<std::mutex> lock(mutex_);
     auto converter = converter_;
     auto unconverted = unconverted_[block_index];
+    auto unconverted_field = unconverted_fields_[block_index];
     std::shared_ptr<Array> converted;
 
     lock.unlock();
-    Status st = converter_->Convert(unconverted, &converted);
+    Status st = converter->Convert(unconverted, &converted);
     lock.lock();
 
     if (converter != converter_) {
       // another task promoted converter; reconvert
       lock.unlock();
-      ScheduleConvertChunk(block_index, unconverted_field);
+      ScheduleConvertChunk(block_index);
       return Status::OK();
     }
 
     if (st.ok()) {
       // conversion succeeded
       chunks_[block_index] = std::move(converted);
-      unconverted_[block_index] = unconverted;
       return Status::OK();
     }
 
@@ -152,12 +152,12 @@ class InferringChunkedArrayBuilder : public NonNestedChunkedArrayBuilder {
         // (which should be true unless the executor reorders tasks)
         chunks_[i].reset();
         lock.unlock();
-        ScheduleConvertChunk(i, unconverted_field);
+        ScheduleConvertChunk(i);
         lock.lock();
       }
     }
     lock.unlock();
-    ScheduleConvertChunk(block_index, unconverted_field);
+    ScheduleConvertChunk(block_index);
     return Status::OK();
   }
 
@@ -170,6 +170,7 @@ class InferringChunkedArrayBuilder : public NonNestedChunkedArrayBuilder {
 
  private:
   ArrayVector unconverted_;
+  std::vector<std::shared_ptr<Field>> unconverted_fields_;
   const PromotionGraph* promotion_graph_;
 };
 
@@ -260,6 +261,8 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
 
   void Insert(int64_t block_index, const std::shared_ptr<Field>&,
               const std::shared_ptr<Array>& unconverted) override {
+    std::unique_lock<std::mutex> lock(mutex_);
+
     auto struct_array = std::static_pointer_cast<StructArray>(unconverted);
     if (promotion_graph_ == nullptr) {
       // If unexpected fields are ignored or result in an error then all parsers will emit
@@ -270,12 +273,12 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
                                    struct_array->field(i));
       }
     } else {
-      task_group_->Append([this, block_index, struct_array] {
-        return InsertChildren(block_index, struct_array.get());
-      });
+      auto st = InsertChildren(block_index, struct_array.get());
+      if (!st.ok()) {
+        return task_group_->Append([st] { return st; });
+      }
     }
 
-    std::unique_lock<std::mutex> lock(null_mutex_);
     if (null_bitmap_chunks_.size() <= static_cast<size_t>(block_index)) {
       null_bitmap_chunks_.resize(static_cast<size_t>(block_index) + 1, nullptr);
       chunk_lengths_.resize(null_bitmap_chunks_.size(), -1);
@@ -287,7 +290,6 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   // Insert children associatively by name; the unconverted block may have unexpected or
   // differently ordered fields
   Status InsertChildren(int64_t block_index, const StructArray* unconverted) {
-    std::unique_lock<std::mutex> lock(children_mutex_);
     const auto& fields = unconverted->type()->children();
 
     for (int i = 0; i < unconverted->num_fields(); ++i) {
@@ -351,7 +353,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   }
 
  private:
-  std::mutex null_mutex_, children_mutex_;
+  std::mutex mutex_;
   MemoryPool* pool_;
   const PromotionGraph* promotion_graph_;
   std::unordered_map<std::string, int> name_to_index_;

@@ -43,11 +43,17 @@ using internal::TaskGroup;
 void AssertBuilding(const std::unique_ptr<ChunkedArrayBuilder>& builder,
                     const std::vector<std::string>& chunks,
                     std::shared_ptr<ChunkedArray>* out) {
+  ArrayVector unconverted;
+
   auto options = ParseOptions::Defaults();
-  int64_t i = 0;
   for (const auto& chunk : chunks) {
     std::shared_ptr<Array> parsed;
     ASSERT_OK(ParseFromString(options, chunk, &parsed));
+    unconverted.push_back(parsed);
+  }
+
+  int64_t i = 0;
+  for (const auto& parsed : unconverted) {
     builder->Insert(i, field("", parsed->type()), parsed);
     ++i;
   }
@@ -408,17 +414,16 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkIntegerParallel) {
                                     struct_({}), &builder));
 
   std::shared_ptr<ChunkedArray> actual;
-  AssertBuilding(builder,
-                 {
-                     RowsOfOneColumn("a", {1, 2}),
-                     RowsOfOneColumn("a", {3}),
-                     RowsOfOneColumn("a", {4, 5}),
-                     RowsOfOneColumn("a", {6, 7}),
-                 },
-                 &actual);
+  std::vector<std::string> chunks;
+  std::vector<std::vector<int>> expected_chunks;
+  for (int i = 0; i < 1 << 10; ++i) {
+    expected_chunks.push_back({i, i + 1, i + 2, i + 3});
+    chunks.push_back(RowsOfOneColumn("a", {i, i + 1, i + 2, i + 3}));
+  }
+  AssertBuilding(builder, chunks, &actual);
 
   std::shared_ptr<ChunkedArray> expected;
-  ChunkedArrayFromVector<Int64Type>({{1, 2}, {3}, {4, 5}, {6, 7}}, &expected);
+  ChunkedArrayFromVector<Int64Type>(expected_chunks, &expected);
   AssertFieldEqual({"a"}, actual, *expected);
 }
 
