@@ -172,7 +172,7 @@ class build_ext(_build_ext):
 
     def _run_cmake(self):
         # check if build_type is correctly passed / set
-        if self.build_type not in ('release', 'debug'):
+        if self.build_type.lower() not in ('release', 'debug'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
                              "be 'release' or 'debug'")
 
