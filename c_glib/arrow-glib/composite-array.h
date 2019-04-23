@@ -131,6 +131,12 @@ garrow_dense_union_array_new(GArrowInt8Array *type_ids,
                              GArrowInt32Array *value_offsets,
                              GList *fields,
                              GError **error);
+GArrowDenseUnionArray *
+garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
+                                       GArrowInt8Array *type_ids,
+                                       GArrowInt32Array *value_offsets,
+                                       GList *fields,
+                                       GError **error);
 
 
 #define GARROW_TYPE_DICTIONARY_ARRAY (garrow_dictionary_array_get_type())
