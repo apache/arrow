@@ -18,6 +18,7 @@
 import os
 
 from ..utils.cmake import CMakeDefinition
+from ..utils.logger import ctx
 
 
 def truthifier(value):
@@ -32,7 +33,8 @@ class CppConfiguration:
     def __init__(self,
                  # toolchain
                  cc=None, cxx=None, cxx_flags=None,
-                 build_type=None, warn_level=None, verbose_third_party=True,
+                 build_type=None, warn_level=None,
+                 install_prefix=None, use_conda=None,
                  # components
                  with_tests=True, with_benchmarks=False, with_python=True,
                  with_parquet=False, with_gandiva=False, with_plasma=False,
@@ -43,7 +45,8 @@ class CppConfiguration:
 
         self.build_type = build_type
         self.warn_level = warn_level
-        self.verbose_third_party = verbose_third_party
+        self._install_prefix = install_prefix
+        self._use_conda = use_conda
 
         self.with_tests = with_tests
         self.with_benchmarks = with_benchmarks
@@ -60,8 +63,13 @@ class CppConfiguration:
 
         yield ("CMAKE_BUILD_TYPE", or_else(self.build_type, "debug"))
         yield ("BUILD_WARNING_LEVEL", or_else(self.warn_level, "production"))
-        yield ("ARROW_VERBOSE_THIRDPARTY_BUILD",
-               truthifier(self.verbose_third_party))
+
+        if not ctx.quiet:
+            yield ("ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
+
+        maybe_prefix = self.install_prefix
+        if maybe_prefix:
+            yield ("CMAKE_INSTALL_PREFIX", maybe_prefix)
 
         yield ("ARROW_BUILD_TESTS", truthifier(self.with_tests))
         yield ("ARROW_BUILD_BENCHMARKS", truthifier(self.with_benchmarks))
@@ -71,6 +79,31 @@ class CppConfiguration:
         yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_FLIGHT", truthifier(self.with_flight))
+
+        # Detect custom conda toolchain
+        if self.use_conda:
+            for d, v in [('CMAKE_AR', 'AR'), ('CMAKE_RANLIB', 'RANLIB')]:
+                v = os.environ.get(v)
+                if v:
+                    yield (d, v)
+
+    @property
+    def install_prefix(self):
+        if self._install_prefix:
+            return self._install_prefix
+
+        if self.use_conda:
+            return os.environ.get("CONDA_PREFIX")
+
+        return None
+
+    @property
+    def use_conda(self):
+        # If the user didn't specify a preference, guess via environment
+        if self._use_conda is None:
+            return os.environ.get("CONDA_PREFIX") is not None
+
+        return self._use_conda
 
     @property
     def definitions(self):
