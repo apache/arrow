@@ -2362,7 +2362,7 @@ TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
 
 TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   // PARQUET-1481
-  auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/ false);
+  auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
   TryReadDataFile(path, false /* should_succeed */);
 }
 
