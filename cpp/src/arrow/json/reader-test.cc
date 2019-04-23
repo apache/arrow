@@ -76,13 +76,6 @@ class ReaderTest : public ::testing::TestWithParam<bool> {
     return std::make_shared<Column>(field, std::move(chunks));
   }
 
-  std::shared_ptr<Table> MakeTable(const std::vector<std::shared_ptr<Column>>& columns) {
-    std::vector<std::shared_ptr<Field>> fields(columns.size());
-    std::transform(columns.begin(), columns.end(), fields.begin(),
-                   [](const std::shared_ptr<Column>& column) { return column->field(); });
-    return Table::Make(schema(std::move(fields)), columns);
-  }
-
   ParseOptions parse_options_ = ParseOptions::Defaults();
   ReadOptions read_options_ = ReadOptions::Defaults();
   std::shared_ptr<io::InputStream> input_;
@@ -106,7 +99,7 @@ TEST_P(ReaderTest, Basics) {
   SetUpReader(src);
   ASSERT_OK(reader_->Read(&table_));
 
-  auto expected_table = MakeTable({
+  auto expected_table = Table::Make({
       ColumnFromJSON(field("hello", float64()), "[3.5, 3.2, 3.4, 0.0]"),
       ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
       ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
@@ -120,7 +113,7 @@ TEST_P(ReaderTest, Nested) {
   SetUpReader(src);
   ASSERT_OK(reader_->Read(&table_));
 
-  auto expected_table = MakeTable({
+  auto expected_table = Table::Make({
       ColumnFromJSON(field("hello", float64()), "[3.5, 3.2, 3.4, 0.0]"),
       ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
       ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
@@ -140,7 +133,7 @@ TEST_P(ReaderTest, PartialSchema) {
   SetUpReader(src);
   ASSERT_OK(reader_->Read(&table_));
 
-  auto expected_table = MakeTable({
+  auto expected_table = Table::Make({
       // NB: explicitly declared fields will appear first
       ColumnFromJSON(
           field("nuf", struct_({field("absent", date32()), field("ps", int64())})),
@@ -164,9 +157,9 @@ TEST_P(ReaderTest, TypeInference) {
   ASSERT_OK(reader_->Read(&table_));
 
   auto expected_table =
-      MakeTable({ColumnFromJSON(field("ts", timestamp(TimeUnit::SECOND)),
-                                R"([null, "1970-01-01", "2018-11-13 17:11:10"])"),
-                 ColumnFromJSON(field("f", float64()), R"([null, 3, 3.4])")});
+      Table::Make({ColumnFromJSON(field("ts", timestamp(TimeUnit::SECOND)),
+                                  R"([null, "1970-01-01", "2018-11-13 17:11:10"])"),
+                   ColumnFromJSON(field("f", float64()), R"([null, 3, 3.4])")});
   AssertTablesEqual(*table_, *expected_table);
 }
 

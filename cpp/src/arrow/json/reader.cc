@@ -108,28 +108,9 @@ class SerialTableReader : public TableReader {
       }
     }
 
-    return Finish(out);
-  }
-
-  Status Finish(std::shared_ptr<Table>* out) {
     std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(builder_->Finish({}, &array));
-
-    int num_fields = array->type()->num_children();
-    int num_chunks = array->num_chunks();
-
-    std::vector<std::shared_ptr<Column>> columns(num_fields);
-    for (int i = 0; i < num_fields; ++i) {
-      ArrayVector chunks(num_chunks);
-      for (int chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
-        chunks[chunk_index] =
-            static_cast<const StructArray&>(*array->chunk(chunk_index)).field(i);
-      }
-      columns[i] = std::make_shared<Column>(array->type()->child(i), chunks);
-    }
-
-    *out = Table::Make(schema(array->type()->children()), columns, array->length());
-    return Status::OK();
+    return Table::FromChunkedStructArray(array, out);
   }
 
  private:
@@ -218,28 +199,9 @@ class ThreadedTableReader : public TableReader {
       }
     }
 
-    return Finish(out);
-  }
-
-  Status Finish(std::shared_ptr<Table>* out) {
     std::shared_ptr<ChunkedArray> array;
     RETURN_NOT_OK(builder_->Finish({}, &array));
-
-    int num_fields = array->type()->num_children();
-    int num_chunks = array->num_chunks();
-
-    std::vector<std::shared_ptr<Column>> columns(num_fields);
-    for (int i = 0; i < num_fields; ++i) {
-      ArrayVector chunks(num_chunks);
-      for (int chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
-        chunks[chunk_index] =
-            static_cast<const StructArray&>(*array->chunk(chunk_index)).field(i);
-      }
-      columns[i] = std::make_shared<Column>(array->type()->child(i), chunks);
-    }
-
-    *out = Table::Make(schema(array->type()->children()), columns, array->length());
-    return Status::OK();
+    return Table::FromChunkedStructArray(array, out);
   }
 
  private:
