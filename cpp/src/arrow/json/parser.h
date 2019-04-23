@@ -58,6 +58,9 @@ class ARROW_EXPORT BlockParser {
  public:
   virtual ~BlockParser() = default;
 
+  /// \brief Reserve storage for scalars parsed from a block of json
+  virtual Status ReserveScalarStorage(int64_t nbytes) = 0;
+
   /// \brief Parse a block of data
   virtual Status Parse(const std::shared_ptr<Buffer>& json) = 0;
 

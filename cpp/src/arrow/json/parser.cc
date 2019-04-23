@@ -42,11 +42,6 @@
 namespace arrow {
 namespace json {
 
-// This guess is used to inflate memory reserved for storage of parsed strings
-// to hold the strings encountered in parsing a block *and* those from the presumed
-// partial trailing object which straddles the block boundary.
-constexpr int32_t kRowsPerBlockGuess = 64;
-
 namespace rj = arrow::rapidjson;
 
 using internal::BitsetStack;
@@ -794,16 +789,13 @@ class HandlerBase : public BlockParser,
   }
 
   /// Reserve storage for scalars, these can occupy almost all of the JSON buffer
-  Status ReserveScalarStorage(int64_t buffer_size) {
+  Status ReserveScalarStorage(int64_t size) override {
     auto available_storage = scalar_values_builder_.value_data_capacity() -
                              scalar_values_builder_.value_data_length();
-    if (buffer_size <= available_storage) {
+    if (size <= available_storage) {
       return Status::OK();
     }
-    auto additional_storage = buffer_size - available_storage;
-    // expand in anticipation of scalars from probable straddling row
-    additional_storage *= (kRowsPerBlockGuess + 1.0) / kRowsPerBlockGuess;
-    return scalar_values_builder_.ReserveData(additional_storage);
+    return scalar_values_builder_.ReserveData(size - available_storage);
   }
 
   Status status_;
