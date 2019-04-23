@@ -45,12 +45,12 @@ namespace Apache.Arrow.Ipc
             return new ArrowFileReader(stream);
         }
 
-        public Task<int> RecordBatchCountAsync()
+        public ValueTask<int> RecordBatchCountAsync()
         {
             return Implementation.RecordBatchCountAsync();
         }
 
-        public Task<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken = default)
+        public ValueTask<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken = default)
         {
             return Implementation.ReadRecordBatchAsync(index, cancellationToken);
         }

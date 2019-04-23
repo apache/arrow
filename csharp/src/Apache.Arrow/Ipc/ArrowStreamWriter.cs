@@ -160,7 +160,7 @@ namespace Apache.Arrow.Ipc
             _fieldTypeBuilder = new ArrowTypeFlatbufferBuilder(Builder);
         }
 
-        private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
+        private protected async ValueTask WriteRecordBatchInternalAsync(RecordBatch recordBatch,
             CancellationToken cancellationToken = default)
         {
             // TODO: Truncate buffers with extraneous padding / unused capacity
@@ -253,15 +253,14 @@ namespace Apache.Arrow.Ipc
         {
         }
 
-        public virtual Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
+        public virtual ValueTask WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
         }
 
-        public async Task WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
+        public ValueTask WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
         {
-            await BaseStream.WriteAsync(arrowBuffer.Memory, cancellationToken)
-                .ConfigureAwait(false);
+            return BaseStream.WriteAsync(arrowBuffer.Memory, cancellationToken);
         }
 
         private protected Offset<Flatbuf.Schema> SerializeSchema(Schema schema)
@@ -364,11 +363,14 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        protected Task WritePaddingAsync(int length)
+        protected ValueTask WritePaddingAsync(int length)
         {
-            if (length <= 0) return Task.CompletedTask;
+            if (length > 0)
+            {
+                return BaseStream.WriteAsync(Padding.AsMemory(0, Math.Min(Padding.Length, length)));
+            }
 
-            return BaseStream.WriteAsync(Padding, 0, Math.Min(Padding.Length, length));
+            return default;
         }
 
         public virtual void Dispose()

@@ -42,7 +42,7 @@ namespace Apache.Arrow.Ipc
         {
         }
 
-        public async Task<int> RecordBatchCountAsync()
+        public async ValueTask<int> RecordBatchCountAsync()
         {
             if (!HasReadSchema)
             {
@@ -142,7 +142,7 @@ namespace Apache.Arrow.Ipc
             Schema = _footer.Schema;
         }
 
-        public async Task<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)
+        public async ValueTask<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
 

@@ -58,7 +58,7 @@ namespace Apache.Arrow.Ipc
             RecordBatchBlocks = new List<Block>();
         }
 
-        public override async Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
+        public override async ValueTask WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             // TODO: Compare record batch schema
 
@@ -101,7 +101,7 @@ namespace Apache.Arrow.Ipc
             _currentRecordBatchOffset = -1;
         }
 
-        public async Task WriteFooterAsync(CancellationToken cancellationToken = default)
+        public async ValueTask WriteFooterAsync(CancellationToken cancellationToken = default)
         {
             if (!HasWrittenFooter)
             {
@@ -114,11 +114,9 @@ namespace Apache.Arrow.Ipc
 
         private async ValueTask WriteHeaderAsync(CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             // Write magic number and empty padding up to the 8-byte boundary
 
-            await WriteMagicAsync().ConfigureAwait(false);
+            await WriteMagicAsync(cancellationToken).ConfigureAwait(false);
             await WritePaddingAsync(CalculatePadding(ArrowFileConstants.Magic.Length))
                 .ConfigureAwait(false);
         }
@@ -182,15 +180,12 @@ namespace Apache.Arrow.Ipc
 
             // Write magic
 
-            cancellationToken.ThrowIfCancellationRequested();
-
-            await WriteMagicAsync().ConfigureAwait(false);
+            await WriteMagicAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        private Task WriteMagicAsync()
+        private ValueTask WriteMagicAsync(CancellationToken cancellationToken)
         {
-            return BaseStream.WriteAsync(
-                ArrowFileConstants.Magic, 0, ArrowFileConstants.Magic.Length);
+            return BaseStream.WriteAsync(ArrowFileConstants.Magic, cancellationToken);
         }
     }
 }
