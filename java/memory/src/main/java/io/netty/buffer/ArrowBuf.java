@@ -531,206 +531,659 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
+  /**
+   * Get long value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte long value
+   */
   @Override
   public long getLong(int index) {
     chk(index, 8);
+    return getLongUnsafe(index);
+  }
+
+  /**
+   * Get long value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte long value
+   */
+  public long getLongUnsafe(int index) {
     final long v = PlatformDependent.getLong(addr(index));
     return v;
   }
 
+  /**
+   * Get float value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte float value
+   */
   @Override
   public float getFloat(int index) {
-    return Float.intBitsToFloat(getInt(index));
+    chk(index, 4);
+    return getFloatUnsafe(index);
   }
 
   /**
-   * Gets a 64-bit long integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
+   * Get float value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte float value
+   */
+  public float getFloatUnsafe(int index) {
+    return Float.intBitsToFloat(getIntUnsafe(index));
+  }
+
+  /**
+   * Get long value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte long value
    */
   @Override
   public long getLongLE(int index) {
     chk(index, 8);
+    return getLongLEUnsafe(index);
+  }
+
+  /**
+   * Get long value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte long value
+   */
+  public long getLongLEUnsafe(int index) {
     final long v = PlatformDependent.getLong(addr(index));
     return Long.reverseBytes(v);
   }
 
+  /**
+   * Get double value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte double value
+   */
   @Override
   public double getDouble(int index) {
-    return Double.longBitsToDouble(getLong(index));
+    chk(index, 8);
+    return getDoubleUnsafe(index);
   }
 
+  /**
+   * Get double value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte double value
+   */
+  public double getDoubleUnsafe(int index) {
+    return Double.longBitsToDouble(getLongUnsafe(index));
+  }
+
+  /**
+   * Get char value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte char value
+   */
   @Override
   public char getChar(int index) {
-    return (char) getShort(index);
+    chk(index, 2);
+    return getCharUnsafe(index);
   }
 
+  /**
+   * Get char value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte char value
+   */
+  public char getCharUnsafe(int index) {
+    return (char) getShortUnsafe(index);
+  }
+
+  /**
+   * Get unsigned int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte unsigned int value
+   */
   @Override
   public long getUnsignedInt(int index) {
-    return getInt(index) & 0xFFFFFFFFL;
+    chk(index, 4);
+    return getUnsignedIntUnsafe(index);
   }
 
+  /**
+   * Get unsigned int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte unsigned int value
+   */
+  public long getUnsignedIntUnsafe(int index) {
+    return getIntUnsafe(index) & 0xFFFFFFFFL;
+  }
+
+  /**
+   * Get int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte int value
+   */
   @Override
   public int getInt(int index) {
     chk(index, 4);
+    return getIntUnsafe(index);
+  }
+
+  /**
+   * Get int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte int value
+   */
+  public int getIntUnsafe(int index) {
     final int v = PlatformDependent.getInt(addr(index));
     return v;
   }
 
   /**
-   * Gets a 32-bit integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
+   * Get int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte int value
    */
   @Override
   public int getIntLE(int index) {
     chk(index, 4);
+    return getIntLEUnsafe(index);
+  }
+
+  /**
+   * Get int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte int value
+   */
+  public int getIntLEUnsafe(int index) {
     final int v = PlatformDependent.getInt(addr(index));
     return Integer.reverseBytes(v);
   }
 
+  /**
+   * Get unsigned short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte unsigned short value
+   */
   @Override
   public int getUnsignedShort(int index) {
-    return getShort(index) & 0xFFFF;
+    chk(index, 2);
+    return getUnsignedShortUnsafe(index);
   }
 
+  /**
+   * Get unsigned short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte unsigned short value
+   */
+  public int getUnsignedShortUnsafe(int index) {
+    return getShortUnsafe(index) & 0xFFFF;
+  }
+
+  /**
+   * Get short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte short value
+   */
   @Override
   public short getShort(int index) {
     chk(index, 2);
+    return getShortUnsafe(index);
+  }
+
+  /**
+   * Get short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte short value
+   */
+  public short getShortUnsafe(int index) {
     final short v = PlatformDependent.getShort(addr(index));
     return v;
   }
 
   /**
-   * Gets a 16-bit short integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
+   * Get short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte short value
    */
   @Override
   public short getShortLE(int index) {
+    chk(index, 2);
+    return getShortLEUnsafe(index);
+  }
+
+  /**
+   * Get short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte short value
+   */
+  public short getShortLEUnsafe(int index) {
     final short v = PlatformDependent.getShort(addr(index));
     return Short.reverseBytes(v);
   }
 
   /**
-   * Gets an unsigned 24-bit medium integer at the specified absolute
-   * {@code index} in this buffer.
+   * Get medium value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 3 byte medium value
    */
   @Override
   public int getUnsignedMedium(int index) {
     chk(index, 3);
-    final long addr = addr(index);
-    return (PlatformDependent.getByte(addr) & 0xff) << 16 |
-        (PlatformDependent.getShort(addr + 1) & 0xffff);
+    return getUnsignedMediumUnsafe(index);
   }
 
   /**
-   * Gets an unsigned 24-bit medium integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
+   * Get medium value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 3 byte medium value
+   */
+  public int getUnsignedMediumUnsafe(int index) {
+    final long addr = addr(index);
+    return (PlatformDependent.getByte(addr) & 0xff) << 16 |
+            (PlatformDependent.getShort(addr + 1) & 0xffff);
+  }
+
+  /**
+   * Get medium value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 3 byte medium value
    */
   @Override
   public int getUnsignedMediumLE(int index) {
     chk(index, 3);
-    final long addr = addr(index);
-    return (PlatformDependent.getByte(addr) & 0xff) |
-        (Short.reverseBytes(PlatformDependent.getShort(addr + 1)) & 0xffff) << 8;
+    return getUnsignedMediumLEUnsafe(index);
   }
 
+  /**
+   * Get medium value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 3 byte medium value
+   */
+  public int getUnsignedMediumLEUnsafe(int index) {
+    chk(index, 3);
+    final long addr = addr(index);
+    return (PlatformDependent.getByte(addr) & 0xff) |
+            (Short.reverseBytes(PlatformDependent.getShort(addr + 1)) & 0xffff) << 8;
+  }
+
+  /**
+   * Set short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 2 byte short value
+   * @return this ArrowBuf
+   */
   @Override
   public ArrowBuf setShort(int index, int value) {
     chk(index, 2);
+    return setShortUnsafe(index, value);
+  }
+
+  /**
+   * Set short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 2 byte short value
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setShortUnsafe(int index, int value) {
     PlatformDependent.putShort(addr(index), (short) value);
     return this;
   }
 
   /**
-   * Sets the specified 16-bit short integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
+   * Set short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 2 byte short value
+   * @return this ArrowBuf
    */
   @Override
   public ByteBuf setShortLE(int index, int value) {
     chk(index, 2);
+    return setShortLEUnsafe(index, value);
+  }
+
+  /**
+   * Set short value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 2 byte short value
+   * @return this ArrowBuf
+   */
+  public ByteBuf setShortLEUnsafe(int index, int value) {
     PlatformDependent.putShort(addr(index), Short.reverseBytes((short) value));
     return this;
   }
 
   /**
-   * Sets the specified 24-bit medium integer at the specified absolute
-   * {@code index} in this buffer.
+   * Set medium value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 3 byte medium value
+   * @return this ArrowBuf
    */
   @Override
   public ByteBuf setMedium(int index, int value) {
     chk(index, 3);
+    return setMediumUnsafe(index, value);
+  }
+
+  /**
+   * Set medium value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 3 byte medium value
+   * @return this ArrowBuf
+   */
+  public ByteBuf setMediumUnsafe(int index, int value) {
     final long addr = addr(index);
     PlatformDependent.putByte(addr, (byte) (value >>> 16));
     PlatformDependent.putShort(addr + 1, (short) value);
     return this;
   }
 
-
   /**
-   * Sets the specified 24-bit medium integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
+   * Set medium value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 3 byte medium value
+   * @return this ArrowBuf
    */
   @Override
   public ByteBuf setMediumLE(int index, int value) {
     chk(index, 3);
+    return setMediumLEUnsafe(index, value);
+  }
+
+  /**
+   * Set medium value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 3 byte medium value
+   * @return this ArrowBuf
+   */
+  public ByteBuf setMediumLEUnsafe(int index, int value) {
     final long addr = addr(index);
     PlatformDependent.putByte(addr, (byte) value);
     PlatformDependent.putShort(addr + 1, Short.reverseBytes((short) (value >>> 8)));
     return this;
   }
 
+  /**
+   * Set int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 4 byte int value
+   * @return this ArrowBuf
+   */
   @Override
   public ArrowBuf setInt(int index, int value) {
     chk(index, 4);
+    return setIntUnsafe(index, value);
+  }
+
+  /**
+   * Set int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 4 byte int value
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setIntUnsafe(int index, int value) {
     PlatformDependent.putInt(addr(index), value);
     return this;
   }
 
   /**
-   * Sets the specified 32-bit integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
+   * Set int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 4 byte int value
+   * @return this ArrowBuf
    */
   @Override
   public ByteBuf setIntLE(int index, int value) {
     chk(index, 4);
+    return setIntLEUnsafe(index, value);
+  }
+
+  /**
+   * Set int value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 4 byte int value
+   * @return this ArrowBuf
+   */
+  public ByteBuf setIntLEUnsafe(int index, int value) {
     PlatformDependent.putInt(addr(index), Integer.reverseBytes(value));
     return this;
   }
 
+  /**
+   * Set long value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 8 byte long value
+   * @return this ArrowBuf
+   */
   @Override
   public ArrowBuf setLong(int index, long value) {
     chk(index, 8);
+    return setLongUnsafe(index, value);
+  }
+
+  /**
+   * Set long value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 8 byte long value
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setLongUnsafe(int index, long value) {
     PlatformDependent.putLong(addr(index), value);
     return this;
   }
 
   /**
-   * Sets the specified 64-bit long integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
+   * Set long value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 8 byte long value
+   * @return this ArrowBuf
    */
   @Override
   public ByteBuf setLongLE(int index, long value) {
     chk(index, 8);
+    return setLongLEUnsafe(index, value);
+  }
+
+  /**
+   * Set long value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * in Big Endian Byte Order without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 8 byte long value
+   * @return this ArrowBuf
+   */
+  public ByteBuf setLongLEUnsafe(int index, long value) {
     PlatformDependent.putLong(addr(index), Long.reverseBytes(value));
     return this;
   }
 
+  /**
+   * Set char value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 2 byte char value
+   * @return this ArrowBuf
+   */
   @Override
   public ArrowBuf setChar(int index, int value) {
     chk(index, 2);
+    return setCharUnsafe(index, value);
+  }
+
+  /**
+   * Set char value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 2 byte char value
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setCharUnsafe(int index, int value) {
     PlatformDependent.putShort(addr(index), (short) value);
     return this;
   }
 
+  /**
+   * Set float value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 4 byte float value
+   * @return this ArrowBuf
+   */
   @Override
   public ArrowBuf setFloat(int index, float value) {
     chk(index, 4);
+    return setFloatUnsafe(index, value);
+  }
+
+  /**
+   * Set float value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 4 byte float value
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setFloatUnsafe(int index, float value) {
     PlatformDependent.putInt(addr(index), Float.floatToRawIntBits(value));
     return this;
   }
 
+  /**
+   * Set double value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 8 byte double value
+   * @return this ArrowBuf
+   */
   @Override
   public ArrowBuf setDouble(int index, double value) {
     chk(index, 8);
+    return setDoubleUnsafe(index, value);
+  }
+
+  /**
+   * Set double value stored at designated index in the
+   * underlying memory chunk this ArrowBuf has access to
+   * without boundary check.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @param value 8 byte double value
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setDoubleUnsafe(int index, double value) {
     PlatformDependent.putLong(addr(index), Double.doubleToRawLongBits(value));
     return this;
   }
@@ -738,6 +1191,11 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   @Override
   public ArrowBuf writeShort(int value) {
     ensure(2);
+    return writeShortUnsafe(value);
+  }
+
+
+  public ArrowBuf writeShortUnsafe(int value) {
     PlatformDependent.putShort(addr(writerIndex), (short) value);
     writerIndex += 2;
     return this;
@@ -746,6 +1204,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   @Override
   public ArrowBuf writeInt(int value) {
     ensure(4);
+    return writeIntUnsafe(value);
+  }
+
+  public ArrowBuf writeIntUnsafe(int value) {
     PlatformDependent.putInt(addr(writerIndex), value);
     writerIndex += 4;
     return this;
@@ -754,6 +1216,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   @Override
   public ArrowBuf writeLong(long value) {
     ensure(8);
+    return writeLongUnsafe(value);
+  }
+
+  public ArrowBuf writeLongUnsafe(long value) {
     PlatformDependent.putLong(addr(writerIndex), value);
     writerIndex += 8;
     return this;
@@ -762,6 +1228,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   @Override
   public ArrowBuf writeChar(int value) {
     ensure(2);
+    return writeCharUnsafe(value);
+  }
+
+  public ArrowBuf writeCharUnsafe(int value) {
     PlatformDependent.putShort(addr(writerIndex), (short) value);
     writerIndex += 2;
     return this;
@@ -770,6 +1240,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   @Override
   public ArrowBuf writeFloat(float value) {
     ensure(4);
+    return writeFloatUnsafe(value);
+  }
+
+  public ArrowBuf writeFloatUnsafe(float value) {
     PlatformDependent.putInt(addr(writerIndex), Float.floatToRawIntBits(value));
     writerIndex += 4;
     return this;
@@ -778,6 +1252,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   @Override
   public ArrowBuf writeDouble(double value) {
     ensure(8);
+    return writeDoubleUnsafe(value);
+  }
+
+  public ArrowBuf writeDoubleUnsafe(double value) {
     PlatformDependent.putLong(addr(writerIndex), Double.doubleToRawLongBits(value));
     writerIndex += 8;
     return this;
@@ -798,12 +1276,20 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   @Override
   public ArrowBuf setByte(int index, int value) {
     chk(index, 1);
+    return setByteUnsafe(index, value);
+  }
+
+  public ArrowBuf setByteUnsafe(int index, int value) {
     PlatformDependent.putByte(addr(index), (byte) value);
     return this;
   }
 
   public void setByte(int index, byte b) {
     chk(index, 1);
+    setByteUnsafe(index, b);
+  }
+
+  public void setByteUnsafe(int index, byte b) {
     PlatformDependent.putByte(addr(index), b);
   }
 
