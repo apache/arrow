@@ -42,6 +42,30 @@ using internal::checked_cast;
 // ----------------------------------------------------------------------
 // String / Binary tests
 
+template <typename ArrayType>
+void CheckStringArray(const ArrayType& array, const std::vector<std::string>& strings,
+                      const std::vector<uint8_t>& is_valid, int repeats = 1) {
+  int64_t length = array.length();
+  int64_t base_length = static_cast<int64_t>(strings.size());
+  ASSERT_EQ(base_length, static_cast<int64_t>(is_valid.size()));
+
+  int32_t value_pos = 0;
+  int32_t value_length;
+  for (int i = 0; i < length; ++i) {
+    auto j = i % base_length;
+    if (is_valid[j]) {
+      ASSERT_FALSE(array.IsNull(i));
+      array.GetValue(i, &value_length);
+      ASSERT_EQ(value_pos, array.value_offset(i));
+      ASSERT_EQ(static_cast<int32_t>(strings[j].size()), value_length);
+      ASSERT_EQ(strings[j], array.GetString(i));
+      value_pos += value_length;
+    } else {
+      ASSERT_TRUE(array.IsNull(i));
+    }
+  }
+}
+
 class TestStringArray : public ::testing::Test {
  public:
   void SetUp() {
@@ -210,14 +234,14 @@ class TestStringBuilder : public TestBuilder {
 
 TEST_F(TestStringBuilder, TestScalarAppend) {
   std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
-  std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+  std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
 
   int N = static_cast<int>(strings.size());
   int reps = 1000;
 
   for (int j = 0; j < reps; ++j) {
     for (int i = 0; i < N; ++i) {
-      if (is_null[i]) {
+      if (!is_valid[i]) {
         ASSERT_OK(builder_->AppendNull());
       } else {
         ASSERT_OK(builder_->Append(strings[i]));
@@ -230,21 +254,7 @@ TEST_F(TestStringBuilder, TestScalarAppend) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->value_data()->size());
 
-  int32_t length;
-  int32_t pos = 0;
-  for (int i = 0; i < N * reps; ++i) {
-    if (is_null[i % N]) {
-      ASSERT_TRUE(result_->IsNull(i));
-    } else {
-      ASSERT_FALSE(result_->IsNull(i));
-      result_->GetValue(i, &length);
-      ASSERT_EQ(pos, result_->value_offset(i));
-      ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
-      ASSERT_EQ(strings[i % N], result_->GetString(i));
-
-      pos += length;
-    }
-  }
+  CheckStringArray(*result_, strings, is_valid, reps);
 }
 
 TEST_F(TestStringBuilder, TestAppendVector) {
@@ -263,21 +273,7 @@ TEST_F(TestStringBuilder, TestAppendVector) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->value_data()->size());
 
-  int32_t length;
-  int32_t pos = 0;
-  for (int i = 0; i < N * reps; ++i) {
-    if (valid_bytes[i % N]) {
-      ASSERT_FALSE(result_->IsNull(i));
-      result_->GetValue(i, &length);
-      ASSERT_EQ(pos, result_->value_offset(i));
-      ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
-      ASSERT_EQ(strings[i % N], result_->GetString(i));
-
-      pos += length;
-    } else {
-      ASSERT_TRUE(result_->IsNull(i));
-    }
-  }
+  CheckStringArray(*result_, strings, valid_bytes, reps);
 }
 
 TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
@@ -296,22 +292,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithValidBytes) {
   ASSERT_EQ(reps * 3, result_->null_count());
   ASSERT_EQ(reps * 3, result_->value_data()->size());
 
-  int32_t length;
-  int32_t pos = 0;
-  for (int i = 0; i < N * reps; ++i) {
-    auto string = strings[i % N];
-    if (string && valid_bytes[i % N]) {
-      ASSERT_FALSE(result_->IsNull(i));
-      result_->GetValue(i, &length);
-      ASSERT_EQ(pos, result_->value_offset(i));
-      ASSERT_EQ(static_cast<int32_t>(strlen(string)), length);
-      ASSERT_EQ(strings[i % N], result_->GetString(i));
-
-      pos += length;
-    } else {
-      ASSERT_TRUE(result_->IsNull(i));
-    }
-  }
+  CheckStringArray(*result_, {"", "aaa", "", "", ""}, {0, 1, 0, 0, 1}, reps);
 }
 
 TEST_F(TestStringBuilder, TestAppendCStringsWithoutValidBytes) {
@@ -329,21 +310,7 @@ TEST_F(TestStringBuilder, TestAppendCStringsWithoutValidBytes) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->value_data()->size());
 
-  int32_t length;
-  int32_t pos = 0;
-  for (int i = 0; i < N * reps; ++i) {
-    if (strings[i % N]) {
-      ASSERT_FALSE(result_->IsNull(i));
-      result_->GetValue(i, &length);
-      ASSERT_EQ(pos, result_->value_offset(i));
-      ASSERT_EQ(static_cast<int32_t>(strlen(strings[i % N])), length);
-      ASSERT_EQ(strings[i % N], result_->GetString(i));
-
-      pos += length;
-    } else {
-      ASSERT_TRUE(result_->IsNull(i));
-    }
-  }
+  CheckStringArray(*result_, {"", "bb", "a", "", "ccc"}, {1, 1, 1, 0, 1}, reps);
 }
 
 TEST_F(TestStringBuilder, TestZeroLength) {
@@ -499,14 +466,14 @@ class TestBinaryBuilder : public TestBuilder {
 
 TEST_F(TestBinaryBuilder, TestScalarAppend) {
   std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
-  std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+  std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
 
   int N = static_cast<int>(strings.size());
   int reps = 10;
 
   for (int j = 0; j < reps; ++j) {
     for (int i = 0; i < N; ++i) {
-      if (is_null[i]) {
+      if (!is_valid[i]) {
         ASSERT_OK(builder_->AppendNull());
       } else {
         ASSERT_OK(builder_->Append(strings[i]));
@@ -519,22 +486,26 @@ TEST_F(TestBinaryBuilder, TestScalarAppend) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * 6, result_->value_data()->size());
 
-  int32_t length;
-  for (int i = 0; i < N * reps; ++i) {
-    if (is_null[i % N]) {
-      ASSERT_TRUE(result_->IsNull(i));
-    } else {
-      ASSERT_FALSE(result_->IsNull(i));
-      const uint8_t* vals = result_->GetValue(i, &length);
-      ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
-      ASSERT_EQ(0, std::memcmp(vals, strings[i % N].data(), length));
-    }
-  }
+  CheckStringArray(*result_, strings, is_valid, reps);
+}
+
+TEST_F(TestBinaryBuilder, TestAppendNulls) {
+  ASSERT_OK(builder_->Append("bow"));
+  ASSERT_OK(builder_->AppendNulls(3));
+  ASSERT_OK(builder_->Append("arrow"));
+  Done();
+  ASSERT_OK(ValidateArray(*result_));
+
+  ASSERT_EQ(5, result_->length());
+  ASSERT_EQ(3, result_->null_count());
+  ASSERT_EQ(8, result_->value_data()->size());
+
+  CheckStringArray(*result_, {"bow", "", "", "", "arrow"}, {1, 0, 0, 0, 1});
 }
 
 TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
   std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
-  std::vector<uint8_t> is_null = {0, 0, 0, 1, 0};
+  std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
 
   int N = static_cast<int>(strings.size());
   int reps = 13;
@@ -546,7 +517,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
 
   for (int j = 0; j < reps; ++j) {
     for (int i = 0; i < N; ++i) {
-      if (is_null[i]) {
+      if (!is_valid[i]) {
         builder_->UnsafeAppendNull();
       } else {
         builder_->UnsafeAppend(strings[i]);
@@ -560,17 +531,7 @@ TEST_F(TestBinaryBuilder, TestScalarAppendUnsafe) {
   ASSERT_EQ(reps, result_->null_count());
   ASSERT_EQ(reps * total_length, result_->value_data()->size());
 
-  int32_t length;
-  for (int i = 0; i < N * reps; ++i) {
-    if (is_null[i % N]) {
-      ASSERT_TRUE(result_->IsNull(i));
-    } else {
-      ASSERT_FALSE(result_->IsNull(i));
-      const uint8_t* vals = result_->GetValue(i, &length);
-      ASSERT_EQ(static_cast<int>(strings[i % N].size()), length);
-      ASSERT_EQ(0, std::memcmp(vals, strings[i % N].data(), length));
-    }
-  }
+  CheckStringArray(*result_, strings, is_valid, reps);
 }
 
 TEST_F(TestBinaryBuilder, TestCapacityReserve) {

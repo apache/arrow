@@ -21,6 +21,7 @@
 
 
 import io
+import os
 
 
 INTEGER_TYPES = ['UInt8', 'Int8', 'UInt16', 'Int16',
@@ -64,7 +65,6 @@ class CastCodeGenerator(object):
 
 
 CAST_GENERATORS = [
-    CastCodeGenerator('Null', NUMERIC_TYPES + DATE_TIME_TYPES),
     CastCodeGenerator('Boolean', NUMERIC_TYPES),
     CastCodeGenerator('UInt8', NUMERIC_TYPES),
     CastCodeGenerator('Int8', NUMERIC_TYPES),
@@ -126,8 +126,10 @@ def write_file_with_preamble(path, code):
 
 
 def write_files():
+    here = os.path.abspath(os.path.dirname(__file__))
     cast_code = generate_cast_code()
-    write_file_with_preamble('cast-codegen-internal.h', cast_code)
+    write_file_with_preamble(os.path.join(here, 'cast-codegen-internal.h'),
+                             cast_code)
 
 
 if __name__ == '__main__':

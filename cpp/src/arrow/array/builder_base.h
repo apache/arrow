@@ -18,25 +18,18 @@
 #pragma once
 
 #include <algorithm>  // IWYU pragma: keep
-#include <array>
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <iterator>
 #include <limits>
 #include <memory>
-#include <string>
 #include <type_traits>
 #include <vector>
 
 #include "arrow/buffer-builder.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
@@ -44,6 +37,7 @@ namespace arrow {
 
 class Array;
 struct ArrayData;
+class MemoryPool;
 
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1;
@@ -103,6 +97,9 @@ class ARROW_EXPORT ArrayBuilder {
   /// Reset the builder.
   virtual void Reset();
 
+  virtual Status AppendNull() = 0;
+  virtual Status AppendNulls(int64_t length) = 0;
+
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use
   /// this function responsibly.
@@ -133,6 +130,9 @@ class ARROW_EXPORT ArrayBuilder {
   /// assume all of length bits are valid.
   Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
 
+  /// Uniform append.  Append N times the same validity bit.
+  Status AppendToBitmap(int64_t num_bits, bool value);
+
   /// Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int64_t length);
 
@@ -158,11 +158,21 @@ class ARROW_EXPORT ArrayBuilder {
     null_count_ = null_bitmap_builder_.false_count();
   }
 
+  // Append the same validity value a given number of times.
+  void UnsafeAppendToBitmap(const int64_t num_bits, bool value) {
+    if (value) {
+      UnsafeSetNotNull(num_bits);
+    } else {
+      UnsafeSetNull(num_bits);
+    }
+  }
+
   void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
 
-  // Set the next length bits to not null (i.e. valid).
+  // Set the next validity bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
 
+  // Set the next validity bits to null (i.e. invalid).
   void UnsafeSetNull(int64_t length);
 
   static Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer);

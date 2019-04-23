@@ -95,7 +95,9 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   }
 
   /// \brief Append a scalar null value
-  Status AppendNull();
+  Status AppendNull() final;
+
+  Status AppendNulls(int64_t length) final;
 
   /// \brief Append a whole dense array to the builder
   Status AppendArray(const Array& array);
@@ -127,7 +129,9 @@ class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
   DictionaryBuilder(const std::shared_ptr<Array>& dictionary, MemoryPool* pool);
 
   /// \brief Append a scalar null value
-  Status AppendNull();
+  Status AppendNull() final;
+
+  Status AppendNulls(int64_t length) final;
 
   /// \brief Append a whole dense array to the builder
   Status AppendArray(const Array& array);

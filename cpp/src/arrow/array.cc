@@ -804,7 +804,7 @@ struct ValidateVisitor {
     if (array.data()->buffers.size() != 3) {
       return Status::Invalid("number of buffers was != 3");
     }
-    return Status::OK();
+    return ValidateOffsets(array);
   }
 
   Status Visit(const ListArray& array) {
@@ -836,25 +836,7 @@ struct ValidateVisitor {
       return Status::Invalid("Child array invalid: ", child_valid.ToString());
     }
 
-    int32_t prev_offset = array.value_offset(0);
-    if (prev_offset != 0) {
-      return Status::Invalid("The first offset wasn't zero");
-    }
-    for (int64_t i = 1; i <= array.length(); ++i) {
-      int32_t current_offset = array.value_offset(i);
-      if (array.IsNull(i - 1) && current_offset != prev_offset) {
-        return Status::Invalid("Offset invariant failure at: ", i,
-                               " inconsistent value_offsets for null slot",
-                               current_offset, "!=", prev_offset);
-      }
-      if (current_offset < prev_offset) {
-        return Status::Invalid("Offset invariant failure: ", i,
-                               " inconsistent offset for non-null slot: ", current_offset,
-                               "<", prev_offset);
-      }
-      prev_offset = current_offset;
-    }
-    return Status::OK();
+    return ValidateOffsets(array);
   }
 
   Status Visit(const StructArray& array) {
@@ -912,6 +894,30 @@ struct ValidateVisitor {
   }
 
   Status Visit(const ExtensionArray& array) { return ValidateArray(*array.storage()); }
+
+ protected:
+  template <typename ArrayType>
+  Status ValidateOffsets(ArrayType& array) {
+    int32_t prev_offset = array.value_offset(0);
+    if (array.offset() == 0 && prev_offset != 0) {
+      return Status::Invalid("The first offset wasn't zero");
+    }
+    for (int64_t i = 1; i <= array.length(); ++i) {
+      int32_t current_offset = array.value_offset(i);
+      if (array.IsNull(i - 1) && current_offset != prev_offset) {
+        return Status::Invalid("Offset invariant failure at: ", i,
+                               " inconsistent value_offsets for null slot",
+                               current_offset, "!=", prev_offset);
+      }
+      if (current_offset < prev_offset) {
+        return Status::Invalid("Offset invariant failure: ", i,
+                               " inconsistent offset for non-null slot: ", current_offset,
+                               "<", prev_offset);
+      }
+      prev_offset = current_offset;
+    }
+    return Status::OK();
+  }
 };
 
 }  // namespace internal

@@ -63,6 +63,12 @@ Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int64_t length) 
   return Status::OK();
 }
 
+Status ArrayBuilder::AppendToBitmap(int64_t num_bits, bool value) {
+  RETURN_NOT_OK(Reserve(num_bits));
+  UnsafeAppendToBitmap(num_bits, value);
+  return Status::OK();
+}
+
 Status ArrayBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
   capacity_ = capacity;

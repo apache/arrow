@@ -82,15 +82,7 @@ template <typename OutType, typename InType, typename Enable = void>
 struct CastFunctor {};
 
 // ----------------------------------------------------------------------
-// Null to other things
-
-template <typename T>
-struct CastFunctor<
-    T, NullType,
-    typename std::enable_if<std::is_base_of<FixedWidthType, T>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {}
-};
+// Dictionary to null
 
 template <>
 struct CastFunctor<NullType, DictionaryType> {
@@ -689,6 +681,35 @@ class ListCastKernel : public CastKernelBase {
 };
 
 // ----------------------------------------------------------------------
+// Null to other things
+
+class FromNullCastKernel : public CastKernelBase {
+ public:
+  explicit FromNullCastKernel(std::shared_ptr<DataType> out_type)
+      : CastKernelBase(std::move(out_type)) {}
+
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(Datum::ARRAY, input.kind());
+
+    const ArrayData& in_data = *input.array();
+    DCHECK_EQ(Type::NA, in_data.type->id());
+    auto length = in_data.length;
+
+    // A ArrayData may be preallocated for the output (see InvokeUnaryArrayKernel),
+    // however, it doesn't have any actual data, so throw it away and start anew.
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out_type_, &builder));
+    RETURN_NOT_OK(builder->Reserve(length));
+    RETURN_NOT_OK(builder->AppendNulls(length));
+
+    std::shared_ptr<Array> out_array;
+    RETURN_NOT_OK(builder->Finish(&out_array));
+    out->value = out_array->data();
+    return Status::OK();
+  }
+};
+
+// ----------------------------------------------------------------------
 // Dictionary to other things
 
 template <typename IndexType>
@@ -1125,7 +1146,6 @@ class CastKernel : public CastKernelBase {
 
 #include "generated/cast-codegen-internal.h"  // NOLINT
 
-GET_CAST_FUNCTION(NULL_CASES, NullType)
 GET_CAST_FUNCTION(BOOLEAN_CASES, BooleanType)
 GET_CAST_FUNCTION(UINT8_CASES, UInt8Type)
 GET_CAST_FUNCTION(INT8_CASES, Int8Type)
@@ -1194,17 +1214,21 @@ inline bool IsZeroCopyCast(Type::type in_type, Type::type out_type) {
 Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
   if (in_type.Equals(out_type)) {
-    *kernel = std::unique_ptr<UnaryKernel>(new IdentityCast(std::move(out_type)));
+    kernel->reset(new IdentityCast(std::move(out_type)));
     return Status::OK();
   }
 
   if (IsZeroCopyCast(in_type.id(), out_type->id())) {
-    *kernel = std::unique_ptr<UnaryKernel>(new ZeroCopyCast(std::move(out_type)));
+    kernel->reset(new ZeroCopyCast(std::move(out_type)));
+    return Status::OK();
+  }
+
+  if (in_type.id() == Type::NA) {
+    kernel->reset(new FromNullCastKernel(std::move(out_type)));
     return Status::OK();
   }
 
   switch (in_type.id()) {
-    CAST_FUNCTION_CASE(NullType);
     CAST_FUNCTION_CASE(BooleanType);
     CAST_FUNCTION_CASE(UInt8Type);
     CAST_FUNCTION_CASE(Int8Type);
