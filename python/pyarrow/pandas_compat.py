@@ -16,7 +16,6 @@
 # under the License.
 
 import ast
-import collections
 import json
 import operator
 import re
@@ -27,7 +26,7 @@ import six
 
 import pyarrow as pa
 from pyarrow.lib import _pandas_api
-from pyarrow.compat import (builtin_pickle, PY2, zip_longest)  # noqa
+from pyarrow.compat import (builtin_pickle, PY2, zip_longest, Sequence)  # noqa
 
 
 _logical_type_map = {}
@@ -291,7 +290,7 @@ def _column_name_to_strings(name):
         return name.decode('utf8')
     elif isinstance(name, tuple):
         return str(tuple(map(_column_name_to_strings, name)))
-    elif isinstance(name, collections.Sequence):
+    elif isinstance(name, Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
     elif name is None:
         return None

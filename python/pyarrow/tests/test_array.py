@@ -16,7 +16,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import collections
 import datetime
 import hypothesis as h
 import hypothesis.strategies as st
@@ -34,6 +33,7 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
+from pyarrow import compat
 
 
 def test_total_bytes_allocated():
@@ -255,7 +255,7 @@ def test_array_iter():
     for i, j in zip(range(10), arr):
         assert i == j
 
-    assert isinstance(arr, collections.Iterable)
+    assert isinstance(arr, compat.Iterable)
 
 
 def test_struct_array_slice():
