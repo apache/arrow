@@ -1014,6 +1014,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         vector[c_string] null_values
         vector[c_string] true_values
         vector[c_string] false_values
+        c_bool strings_can_be_null
 
         @staticmethod
         CCSVConvertOptions Defaults()

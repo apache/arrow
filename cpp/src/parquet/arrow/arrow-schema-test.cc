@@ -21,7 +21,9 @@
 #include "gtest/gtest.h"
 
 #include "parquet/arrow/schema.h"
+#include "parquet/file_reader.h"
 #include "parquet/schema.h"
+#include "parquet/util/test-common.h"
 
 #include "arrow/api.h"
 #include "arrow/testing/gtest_util.h"
@@ -847,6 +849,18 @@ TEST(InvalidSchema, ParquetNegativeDecimalScale) {
 
   ASSERT_RAISES(IOError,
                 ToParquetSchema(arrow_schema.get(), *properties.get(), &result_schema));
+}
+
+TEST(TestFromParquetSchema, CorruptMetadata) {
+  // PARQUET-1565: ensure that an IOError is returned when the parquet file contains
+  // corrupted metadata.
+  auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
+
+  std::unique_ptr<parquet::ParquetFileReader> reader =
+      parquet::ParquetFileReader::OpenFile(path);
+  const auto parquet_schema = reader->metadata()->schema();
+  std::shared_ptr<::arrow::Schema> arrow_schema;
+  ASSERT_RAISES(IOError, FromParquetSchema(parquet_schema, &arrow_schema));
 }
 
 }  // namespace arrow

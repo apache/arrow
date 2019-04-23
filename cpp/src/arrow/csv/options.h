@@ -72,6 +72,10 @@ struct ARROW_EXPORT ConvertOptions {
   // Recognized spellings for boolean values
   std::vector<std::string> true_values;
   std::vector<std::string> false_values;
+  // Whether string / binary columns can have null values.
+  // If true, then strings in "null_values" are considered null for string columns.
+  // If false, then all strings are valid string values.
+  bool strings_can_be_null = false;
 
   static ConvertOptions Defaults();
 };

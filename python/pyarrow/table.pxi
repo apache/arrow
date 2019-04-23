@@ -813,18 +813,18 @@ cdef class RecordBatch(_PandasConvertible):
 
     def to_pydict(self):
         """
-        Converted the arrow::RecordBatch to an OrderedDict
+        Convert the RecordBatch to a dict or OrderedDict.
 
         Returns
         -------
-        OrderedDict
+        dict
         """
         entries = []
         for i in range(self.batch.num_columns()):
             name = bytes(self.batch.column_name(i)).decode('utf8')
             column = self[i].to_pylist()
             entries.append((name, column))
-        return OrderedDict(entries)
+        return ordered_dict(entries)
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
@@ -1336,11 +1336,11 @@ cdef class Table(_PandasConvertible):
 
     def to_pydict(self):
         """
-        Converted the arrow::Table to an OrderedDict
+        Convert the Table to a dict or OrderedDict.
 
         Returns
         -------
-        OrderedDict
+        dict
         """
         cdef:
             size_t i
@@ -1352,7 +1352,7 @@ cdef class Table(_PandasConvertible):
             column = self.column(i)
             entries.append((column.name, column.to_pylist()))
 
-        return OrderedDict(entries)
+        return ordered_dict(entries)
 
     @property
     def schema(self):

@@ -22,6 +22,7 @@
 #include <iostream>
 #include <limits>
 #include <random>
+#include <string>
 #include <vector>
 
 #include "parquet/exception.h"
@@ -47,6 +48,28 @@ const char* get_data_dir() {
         "variable to the test data directory");
   }
   return result;
+}
+
+std::string get_bad_data_dir() {
+  // PARQUET_TEST_DATA should point to ARROW_HOME/cpp/submodules/parquet-testing/data
+  // so need to reach one folder up to access the "bad_data" folder.
+  std::string data_dir(get_data_dir());
+  std::stringstream ss;
+  ss << data_dir << "/../bad_data";
+  return ss.str();
+}
+
+std::string get_data_file(const std::string& filename, bool is_good = true) {
+  std::stringstream ss;
+
+  if (is_good) {
+    ss << get_data_dir();
+  } else {
+    ss << get_bad_data_dir();
+  }
+
+  ss << "/" << filename;
+  return ss.str();
 }
 
 template <typename T>

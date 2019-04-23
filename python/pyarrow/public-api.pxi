@@ -99,7 +99,7 @@ cdef object pyarrow_wrap_metadata(
     if cmeta == nullptr:
         return None
 
-    result = OrderedDict()
+    result = ordered_dict()
     for i in range(cmeta.size()):
         result[cmeta.key(i)] = cmeta.value(i)
 

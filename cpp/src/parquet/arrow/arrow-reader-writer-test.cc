@@ -2334,34 +2334,31 @@ TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
   ASSERT_EQ(expected, calculated);
 }
 
-void TryReadDataFile(const std::string& testing_file_path, bool should_succeed = true) {
-  std::string dir_string(test::get_data_dir());
-  std::stringstream ss;
-  ss << dir_string << "/" << testing_file_path;
-  auto path = ss.str();
-
+void TryReadDataFile(const std::string& path,
+                     ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK) {
   auto pool = ::arrow::default_memory_pool();
 
   std::unique_ptr<FileReader> arrow_reader;
-  try {
-    arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false)));
-    std::shared_ptr<::arrow::Table> table;
-    ASSERT_OK(arrow_reader->ReadTable(&table));
-  } catch (const ParquetException& e) {
-    if (should_succeed) {
-      FAIL() << "Exception thrown when reading file: " << e.what();
-    }
-  }
+
+  arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false)));
+  std::shared_ptr<::arrow::Table> table;
+  auto status = arrow_reader->ReadTable(&table);
+
+  ASSERT_TRUE(status.code() == expected_code)
+      << "Expected reading file to return "
+      << arrow::Status(expected_code, "").CodeAsString() << ", but got "
+      << status.ToString();
 }
 
 TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
   // PARQUET-995
-  TryReadDataFile("alltypes_plain.parquet");
+  TryReadDataFile(test::get_data_file("alltypes_plain.parquet"));
 }
 
 TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   // PARQUET-1481
-  TryReadDataFile("bad_data/PARQUET-1481.parquet", false /* should_succeed */);
+  auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
+  TryReadDataFile(path, ::arrow::StatusCode::IOError);
 }
 
 class TestArrowReaderAdHocSparkAndHvr
