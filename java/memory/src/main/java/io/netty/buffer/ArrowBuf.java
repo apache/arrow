@@ -585,7 +585,7 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
   /**
    * Get long value stored at designated index in the
    * underlying memory chunk this ArrowBuf has access to
-   * in Big Endian Byte Order
+   * in Big Endian Byte Order.
    * @param index index (0 based relative to this ArrowBuf)
    *              where the value will be read from
    * @return 8 byte long value
