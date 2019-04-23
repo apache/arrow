@@ -33,3 +33,6 @@ garrow_count_options_get_raw(GArrowCountOptions *count_options);
 
 arrow::compute::TakeOptions *
 garrow_take_options_get_raw(GArrowTakeOptions *take_options);
+
+arrow::compute::CompareOptions *
+garrow_compare_options_get_raw(GArrowCompareOptions *compare_options);
