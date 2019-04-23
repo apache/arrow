@@ -136,11 +136,15 @@ public final class ArrowBuf implements AutoCloseable {
    * @return netty compliant {@link NettyArrowBuf}
    */
   public NettyArrowBuf asNettyBuffer() {
-    return new NettyArrowBuf((UnsafeDirectLittleEndian)referenceManager.getUnderlying(),
-      this,
-      referenceManager.getByteBufAllocator(),
-      referenceManager.getOffsetForBuffer(this),
-      length);
+    final NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
+            (UnsafeDirectLittleEndian)referenceManager.getUnderlying(),
+            this,
+            referenceManager.getByteBufAllocator(),
+            referenceManager.getOffsetForBuffer(this),
+            length);
+    nettyArrowBuf.readerIndex(readerIndex);
+    nettyArrowBuf.writerIndex(writerIndex);
+    return nettyArrowBuf;
   }
 
   /**
