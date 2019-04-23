@@ -865,7 +865,6 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @return 3 byte medium value
    */
   public int getUnsignedMediumLEUnsafe(int index) {
-    chk(index, 3);
     final long addr = addr(index);
     return (PlatformDependent.getByte(addr) & 0xff) |
             (Short.reverseBytes(PlatformDependent.getShort(addr + 1)) & 0xffff) << 8;
