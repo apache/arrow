@@ -856,15 +856,11 @@ TEST(TestFromParquetSchema, CorruptMetadata) {
   // corrupted metadata.
   auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
 
-  try {
-    std::unique_ptr<parquet::ParquetFileReader> reader =
-        parquet::ParquetFileReader::OpenFile(path);
-    const auto parquet_schema = reader->metadata()->schema();
-    std::shared_ptr<::arrow::Schema> arrow_schema;
-    ASSERT_RAISES(IOError, FromParquetSchema(parquet_schema, &arrow_schema));
-  } catch (const ParquetException& e) {
-    FAIL() << "Exception thrown while reading file: " << e.what();
-  }
+  std::unique_ptr<parquet::ParquetFileReader> reader =
+      parquet::ParquetFileReader::OpenFile(path);
+  const auto parquet_schema = reader->metadata()->schema();
+  std::shared_ptr<::arrow::Schema> arrow_schema;
+  ASSERT_RAISES(IOError, FromParquetSchema(parquet_schema, &arrow_schema));
 }
 
 }  // namespace arrow
