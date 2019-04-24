@@ -168,12 +168,25 @@ class CMakeBuild(Command):
 
     @staticmethod
     def is_build_dir(path):
+        """ Indicate if a path is CMake build directory.
+
+        This method only checks for the existence of paths and does not do any
+        validation whatsoever.
+        """
         cmake_cache = os.path.join(path, "CMakeCache.txt")
         cmake_files = os.path.join(path, "CMakeFiles")
         return os.path.exists(cmake_cache) and os.path.exists(cmake_files)
 
     @staticmethod
     def from_path(path):
+        """ Instantiate a CMakeBuild from a path.
+
+        This is used to recover from an existing physical directory (created
+        with or without CMakeBuild).
+
+        Note that this method is not idempotent as the original definition will
+        be lost. Only some parameters are recovered (generator and build_type).
+        """
         if not CMakeBuild.is_build_dir(path):
             raise ValueError(f"Not a valid CMakeBuild path: {path}")
 

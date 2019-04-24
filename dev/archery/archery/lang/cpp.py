@@ -18,7 +18,6 @@
 import os
 
 from ..utils.cmake import CMakeDefinition
-from ..utils.logger import ctx
 
 
 def truthifier(value):
@@ -64,8 +63,8 @@ class CppConfiguration:
         yield ("CMAKE_BUILD_TYPE", or_else(self.build_type, "debug"))
         yield ("BUILD_WARNING_LEVEL", or_else(self.warn_level, "production"))
 
-        if not ctx.quiet:
-            yield ("ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
+        # if not ctx.quiet:
+        #   yield ("ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
 
         maybe_prefix = self.install_prefix
         if maybe_prefix:

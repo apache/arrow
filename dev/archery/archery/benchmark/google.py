@@ -30,6 +30,12 @@ def partition(pred, iterable):
 
 
 class GoogleBenchmarkCommand(Command):
+    """ Run a google benchmark binary.
+
+    This assumes the binary supports the standard command line options,
+    notably `--benchmark_filter`, `--benchmark_format`, etc...
+    """
+
     def __init__(self, benchmark_bin, benchmark_filter=None):
         self.bin = benchmark_bin
         self.benchmark_filter = benchmark_filter
@@ -52,24 +58,48 @@ class GoogleBenchmarkCommand(Command):
                                    stderr=subprocess.PIPE).stdout)
 
 
-class BenchmarkObservation:
-    """ Represents one run of a single benchmark. """
+class GoogleBenchmarkObservation:
+    """ Represents one run of a single (google c++) benchmark.
 
-    def __init__(self, **kwargs):
-        self._name = kwargs.get("name")
-        self.real_time = kwargs.get("real_time")
-        self.cpu_time = kwargs.get("cpu_time")
-        self.time_unit = kwargs.get("time_unit")
-        self.size = kwargs.get("size")
-        self.bytes_per_second = kwargs.get("bytes_per_second")
+    Observations are found when running with `--benchmark_repetitions`. Sadly,
+    the format mixes values and aggregates, e.g.
+
+    RegressionSumKernel/32768/0                 1 us          1 us  25.8077GB/s
+    RegressionSumKernel/32768/0                 1 us          1 us  25.7066GB/s
+    RegressionSumKernel/32768/0                 1 us          1 us  25.1481GB/s
+    RegressionSumKernel/32768/0                 1 us          1 us  25.846GB/s
+    RegressionSumKernel/32768/0                 1 us          1 us  25.6453GB/s
+    RegressionSumKernel/32768/0_mean            1 us          1 us  25.6307GB/s
+    RegressionSumKernel/32768/0_median          1 us          1 us  25.7066GB/s
+    RegressionSumKernel/32768/0_stddev          0 us          0 us  288.046MB/s
+
+    As from benchmark v1.4.1 (2019-04-24), the only way to differentiate an
+    actual run from the aggregates, is to match on the benchmark name. The
+    aggregates will be appended with `_$agg_name`.
+
+    This class encapsulate the logic to separate runs from aggregate . This is
+    hopefully avoided in benchmark's master version with a separate json
+    attribute.
+    """
+
+    def __init__(self, name, real_time, cpu_time, time_unit, size=None,
+                 bytes_per_second=None, **kwargs):
+        self._name = name
+        self.real_time = real_time
+        self.cpu_time = cpu_time
+        self.time_unit = time_unit
+        self.size = size
+        self.bytes_per_second = bytes_per_second
 
     @property
     def is_agg(self):
+        """ Indicate if the observation is a run or an aggregate. """
         suffixes = ["_mean", "_median", "_stddev"]
         return any(map(lambda x: self._name.endswith(x), suffixes))
 
     @property
     def is_realtime(self):
+        """ Indicate if the preferred value is realtime instead of cputime. """
         return self.name.find("/realtime") != -1
 
     @property
@@ -95,20 +125,29 @@ class BenchmarkObservation:
 
 
 class GoogleBenchmark(Benchmark):
+    """ A set of GoogleBenchmarkObservations. """
+
     def __init__(self, name, runs):
+        """ Initialize a GoogleBenchmark.
+
+        Parameters
+        ----------
+        name: str
+              Name of the benchmark
+        runs: list(GoogleBenchmarkObservation)
+              Repetitions of GoogleBenchmarkObservation run.
+
+        """
         self.name = name
         # exclude google benchmark aggregate artifacts
         _, runs = partition(lambda b: b.is_agg, runs)
         self.runs = sorted(runs, key=lambda b: b.value)
-        super().__init__(name, [b.value for b in self.runs])
-
-    @property
-    def unit(self):
-        return self.runs[0].unit
-
-    @property
-    def less_is_better(self):
-        return self.runs[0].size is None
+        unit = self.runs[0].unit
+        # If `size` is found in the json dict, then the benchmark is reported
+        # in bytes per second
+        less_is_better = self.runs[0].size is None
+        values = [b.value for b in self.runs]
+        super().__init__(name, unit, less_is_better, values)
 
     def __repr__(self):
         return f"GoogleBenchmark[name={self.name},runs={self.runs}]"
@@ -118,6 +157,6 @@ class GoogleBenchmark(Benchmark):
         def group_key(x):
             return x.name
 
-        benchmarks = map(lambda x: BenchmarkObservation(**x), payload)
+        benchmarks = map(lambda x: GoogleBenchmarkObservation(**x), payload)
         groups = groupby(sorted(benchmarks, key=group_key), group_key)
         return [cls(k, list(bs)) for k, bs in groups]

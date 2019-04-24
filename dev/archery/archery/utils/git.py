@@ -32,9 +32,6 @@ def git_cmd(fn):
 
 
 class Git(Command):
-    WORKSPACE = "WORKSPACE"
-    HEAD = "HEAD"
-
     def __init__(self, git_bin=None):
         self.bin = git_bin if git_bin else os.environ.get("GIT", "git")
 
@@ -66,11 +63,11 @@ class Git(Command):
     @capture_stdout(strip=True)
     def head(self, **kwargs):
         """ Return commit pointed by HEAD. """
-        return self.rev_parse(Git.HEAD, **kwargs)
+        return self.rev_parse("HEAD", **kwargs)
 
     @capture_stdout(strip=True)
     def current_branch(self, **kwargs):
-        return self.rev_parse("--abbrev-ref", Git.HEAD, **kwargs)
+        return self.rev_parse("--abbrev-ref", "HEAD", **kwargs)
 
 
 git = Git()

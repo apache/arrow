@@ -24,6 +24,10 @@ class ArrowSources:
     """ ArrowSources is a companion class representing a directory containing
     Apache Arrow's sources.
     """
+    # Note that WORKSPACE is a reserved git revision name by this module to
+    # reference the current git workspace. In other words, this indicates to
+    # ArrowSources.at_revision that no cloning/checkout is required.
+    WORKSPACE = "WORKSPACE"
 
     def __init__(self, path):
         """ Initialize an ArrowSources
@@ -60,6 +64,12 @@ class ArrowSources:
         This method may return the current object if no checkout is required.
         The caller is responsible to remove the cloned repository directory.
 
+        The user can use the special WORKSPACE token to mean the current git
+        workspace (no checkout performed).
+
+        The second value of the returned tuple indicates if a clone was
+        performed.
+
         Parameters
         ----------
         revision : str
@@ -70,13 +80,16 @@ class ArrowSources:
         if not self.git_backed:
             raise ValueError(f"{self} is not backed by git")
 
+        if revision == ArrowSources.WORKSPACE:
+            return self, False
+
         # A local clone is required to leave the current sources intact such
         # that builds depending on said sources are not invalidated (or worse
         # slightly affected when re-invoking the generator).
         git.clone("--local", self.path, clone_dir)
         git.checkout(revision, git_dir=clone_dir)
 
-        return ArrowSources(clone_dir)
+        return ArrowSources(clone_dir), True
 
     @staticmethod
     def valid(src):

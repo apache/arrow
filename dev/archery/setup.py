@@ -21,7 +21,7 @@ from setuptools import setup
 
 
 if sys.version_info < (3, 5):
-    sys.exit('Python < 3.5 is not supported due to subprocess.run')
+    sys.exit('Python < 3.5 is not supported')
 
 
 setup(
@@ -32,7 +32,7 @@ setup(
     maintainer='Arrow Developers',
     maintainer_email='dev@arrow.apache.org',
     packages=['archery'],
-    install_requires=['click'],
+    install_requires=['click', 'pandas'],
     entry_points='''
         [console_scripts]
         archery=archery.cli:archery

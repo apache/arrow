@@ -39,6 +39,9 @@ the module files but uses the actual sources.
   pip install -e dev/archery
   archery --help
 
+  # optional: enable bash/zsh autocompletion
+  eval "$(_ARCHERY_COMPLETE=source archery)"
+
 Comparison
 ==========
 

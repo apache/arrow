@@ -21,14 +21,14 @@ from contextlib import contextmanager
 import json
 import logging
 import os
+import sys
 from tempfile import mkdtemp, TemporaryDirectory
 
-
-from .benchmark.core import BenchmarkComparator
+from .benchmark.compare import RunnerComparator
 from .benchmark.runner import CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.cmake import CMakeBuild
-from .utils.git import Git
+from .utils.codec import JsonEncoder
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
 
@@ -152,6 +152,14 @@ def tmpdir(preserve, prefix="arrow-bench-"):
 
 
 def cpp_runner_from_rev_or_path(src, root, rev_or_path, cmake_conf):
+    """ Returns a CppBenchmarkRunner from a path or a git revision.
+
+    First, it checks if `rev_or_path` points to a valid CMake build directory.
+    If so, it creates a CppBenchmarkRunner with this existing CMakeBuild.
+
+    Otherwise, it assumes `rev_or_path` is a revision and clone/checkout the
+    given revision and create a fresh CMakeBuild.
+    """
     build = None
     if os.path.exists(rev_or_path) and CMakeBuild.is_build_dir(rev_or_path):
         build = CMakeBuild.from_path(rev_or_path)
@@ -159,21 +167,18 @@ def cpp_runner_from_rev_or_path(src, root, rev_or_path, cmake_conf):
         root_rev = os.path.join(root, rev_or_path)
         os.mkdir(root_rev)
 
-        # Possibly checkout the sources at given revision
-        src_rev = src
-        if rev_or_path != Git.WORKSPACE:
-            root_src = os.path.join(root_rev, "arrow")
-            src_rev = src.at_revision(rev_or_path, root_src)
-
-        # TODO: find a way to pass custom configuration without cluttering
-        # the cli. Ideally via a configuration file that can be shared with the
-        # `build` sub-command.
+        clone_dir = os.path.join(root_rev, "arrow")
+        # Possibly checkout the sources at given revision, no need to perform
+        # cleanup on cloned repository as root_rev is reclaimed.
+        src_rev, _ = src.at_revision(rev_or_path, clone_dir)
         cmake_def = CppCMakeDefinition(src_rev.cpp, cmake_conf)
         build = cmake_def.build(os.path.join(root_rev, "build"))
 
     return CppBenchmarkRunner(build)
 
 
+# Running all benchmarks would be prohibitive. Benchmark who needs to be
+# monitored for regression should be named with this prefix.
 DEFAULT_BENCHMARK_FILTER = "^Regression"
 
 
@@ -204,8 +209,8 @@ def benchmark(ctx):
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
-@click.argument("contender", metavar="[<contender>", default=Git.WORKSPACE,
-                required=False)
+@click.argument("contender", metavar="[<contender>",
+                default=ArrowSources.WORKSPACE, required=False)
 @click.argument("baseline", metavar="[<baseline>]]", default="master",
                 required=False)
 @click.pass_context
@@ -219,7 +224,7 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
     unspecified, the contender will default to the current workspace (like git)
     and the baseline will default to master.
 
-    Each target (contender or baseline) can either be a git object reference
+    Each target (contender or baseline) can either be a git revision
     (commit, tag, special values like HEAD) or a cmake build directory. This
     allow comparing git commits, and/or different compilers and/or compiler
     flags.
@@ -270,39 +275,21 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
                      f"{baseline} (baseline)")
 
         conf = CppConfiguration(
-                build_type="release", with_tests=True, with_benchmarks=True,
-                with_python=False, cmake_extras=cmake_extras)
+            build_type="release", with_tests=True, with_benchmarks=True,
+            with_python=False, cmake_extras=cmake_extras)
 
         runner_cont = cpp_runner_from_rev_or_path(src, root, contender, conf)
         runner_base = cpp_runner_from_rev_or_path(src, root, baseline, conf)
 
-        suites_cont = {s.name: s for s in runner_cont.suites(suite_filter,
-                                                             benchmark_filter)}
-        suites_base = {s.name: s for s in runner_base.suites(suite_filter,
-                                                             benchmark_filter)}
+        runner_comp = RunnerComparator(runner_cont, runner_base, threshold)
+        comparisons = runner_comp.comparisons(suite_filter, benchmark_filter)
 
-        for suite_name in sorted(suites_cont.keys() & suites_base.keys()):
-            logger.debug(f"Comparing {suite_name}")
+        regressions = 0
+        for comparator in comparisons:
+            regressions += comparator.regression
+            print(json.dumps(comparator, cls=JsonEncoder))
 
-            suite_cont = {
-                b.name: b for b in suites_cont[suite_name].benchmarks}
-            suite_base = {
-                b.name: b for b in suites_base[suite_name].benchmarks}
-
-            for bench_name in sorted(suite_cont.keys() & suite_base.keys()):
-                logger.debug(f"Comparing {bench_name}")
-
-                bench_cont = suite_cont[bench_name]
-                bench_base = suite_base[bench_name]
-
-                comparator = BenchmarkComparator(bench_cont, bench_base,
-                                                 threshold=threshold)
-                comparison = comparator()
-
-                comparison["suite"] = suite_name
-                comparison["benchmark"] = bench_name
-
-                print(json.dumps(comparison))
+        sys.exit(regressions)
 
 
 if __name__ == "__main__":

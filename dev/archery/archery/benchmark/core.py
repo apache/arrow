@@ -15,53 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
-class Statistics:
-    def __init__(self, min, max, mean, stddev, q1, median, q3):
-        self.min = min
-        self.max = max
-        self.mean = mean
-        self.stddev = stddev
-        self.q1 = q1
-        self.median = median
-        self.q3 = q3
-
-    @staticmethod
-    def from_values(values):
-        sorted(values)
-        n = len(values)
-        mean = sum(values) / len(values)
-        sum_diff = sum([(val - mean)**2 for val in values])
-        stddev = (sum_diff / (n - 1))**0.5 if n > 1 else 0.0
-
-        return Statistics(
-            values[0],
-            values[-1],
-            mean,
-            stddev,
-            values[int(n/4)],
-            values[int(n/2)],
-            values[int((3*n)/4)],
-        )
+import pandas as pa
 
 
 class Benchmark:
-    def __init__(self, name, values, stats=None):
+    def __init__(self, name, unit, less_is_better, values, stats=None):
         self.name = name
-        self.values = values
-        self.statistics = stats if stats else Statistics.from_values(values)
+        self.unit = unit
+        self.less_is_better = less_is_better
+        self.values = pa.Series(values)
+        self.statistics = self.values.describe()
 
     @property
     def value(self):
-        return self.statistics.median
+        median = "50%"
+        return float(self.statistics[median])
 
-    @property
-    def unit(self):
-        return None
-
-    @property
-    def less_is_better(self):
-        return True
+    def __repr__(self):
+        return f"Benchmark[name={self.name},value={self.value}]"
 
 
 class BenchmarkSuite:
@@ -73,51 +44,3 @@ class BenchmarkSuite:
         name = self.name
         benchmarks = self.benchmarks
         return f"BenchmarkSuite[name={name}, benchmarks={benchmarks}]"
-
-
-def regress(change, threshold):
-    # negative change is better, positive is tolerable until it exceeds
-    # threshold
-    return change > threshold
-
-
-def changes(old, new):
-    if old == 0 and new == 0:
-        return 0.0
-    if old == 0:
-        return float(new - old) / (float(old + new) / 2)
-    return float(new - old) / abs(old)
-
-
-DEFAULT_THRESHOLD = 0.05
-
-
-class BenchmarkComparator:
-    def __init__(self, contender, baseline, threshold=DEFAULT_THRESHOLD):
-        self.contender = contender
-        self.baseline = baseline
-        self.threshold = threshold
-
-    def compare(self, comparator=None):
-        base = self.baseline.value
-        cont = self.contender.value
-        change = changes(base, cont)
-        adjusted_change = change
-        if not self.baseline.less_is_better:
-            adjusted_change = change * -1.0
-        return {
-            "benchmark": self.baseline.name,
-            "change": change,
-            "regression": regress(adjusted_change, self.threshold),
-            "baseline": base,
-            "contender": cont,
-            "unit": self.baseline.unit,
-            "less_is_better": self.baseline.less_is_better,
-        }
-
-    def confidence(self):
-        """ Indicate if a comparison of benchmarks should be trusted. """
-        return True
-
-    def __call__(self, **kwargs):
-        return self.compare(**kwargs)
