@@ -55,5 +55,18 @@ void BenchmarkSetArgs(benchmark::internal::Benchmark* bench) {
       bench->Args({static_cast<ArgsType>(size), nulls});
 }
 
+void RegressionSetArgs(benchmark::internal::Benchmark* bench) {
+  // Benchmark changed its parameter type between releases from
+  // int to int64_t. As it doesn't have version macros, we need
+  // to apply C++ template magic.
+  using ArgsType =
+      typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
+  bench->Unit(benchmark::kMicrosecond);
+
+  // Regressions should only bench L1 data for better stability
+  for (auto nulls : std::vector<ArgsType>({0, 1, 10, 50}))
+    bench->Args({static_cast<ArgsType>(kL1Size), nulls});
+}
+
 }  // namespace compute
 }  // namespace arrow
