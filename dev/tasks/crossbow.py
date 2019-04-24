@@ -248,8 +248,7 @@ class Repo:
         name = next(self.repo.config.get_multivar('user.name'))
         return pygit2.Signature(name, self.email, int(time.time()))
 
-    def create_commit(self, files, parents=None, message=''):
-        # 1. create tree
+    def create_tree(self, files):
         builder = self.repo.TreeBuilder()
 
         for filename, content in files.items():
@@ -257,8 +256,9 @@ class Repo:
             blob_id = self.repo.create_blob(content)
             builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
 
-        tree_id = builder.write()
+        return builder.write()
 
+    def create_commit(self, tree_id, parents=None, message=''):
         # 2. create commit with the tree created above
         author = committer = self.signature
         commit_id = self.repo.create_commit(None, author, committer, message,
@@ -342,13 +342,15 @@ class Queue(Repo):
         for task_name, task in job.tasks.items():
             task.branch = '{}-{}'.format(job.branch, task_name)
             files = task.render_files(job=job, arrow=job.target)
-            commit = self.create_commit(files)
+            tree_id = self.create_tree(files)
+            commit = self.create_commit(tree_id)
             branch = self.create_branch(task.branch, commit)
             self.create_tag(task.tag, branch.target)
             task.commit = str(branch.target)
 
         # create job's branch with its description
-        commit = self.create_commit(job.render_files())
+        tree_id = self.create_tree(job.render_files())
+        commit = self.create_commit(tree_id)
         return self.create_branch(job.branch, commit=commit)
 
     def jobs(self, prefix='build'):
