@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import collections
 import re
 import warnings
+
+from pyarrow import compat
+
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
@@ -1486,7 +1488,7 @@ def struct(fields):
         vector[shared_ptr[CField]] c_fields
         cdef shared_ptr[CDataType] struct_type
 
-    if isinstance(fields, collections.Mapping):
+    if isinstance(fields, compat.Mapping):
         fields = fields.items()
 
     for item in fields:
@@ -1656,7 +1658,7 @@ def schema(fields, metadata=None):
         Field py_field
         vector[shared_ptr[CField]] c_fields
 
-    if isinstance(fields, collections.Mapping):
+    if isinstance(fields, compat.Mapping):
         fields = fields.items()
 
     for item in fields:
