@@ -85,17 +85,18 @@ class ARROW_EXPORT ArrayBuilder {
   virtual Status Resize(int64_t capacity);
 
   /// \brief Ensure that there is enough space allocated to add the indicated
-  /// number of elements without any further calls to Resize. The memory
-  /// allocated is rounded up to the next highest power of 2 similar to memory
-  /// allocations in STL containers like std::vector
+  /// number of elements without any further calls to Resize. Overallocation is
+  /// used in order to minimize the impact of incremental Reserve() calls.
+  ///
   /// \param[in] additional_capacity the number of additional array values
   /// \return Status
   Status Reserve(int64_t additional_capacity) {
+    auto current_capacity = capacity();
     auto min_capacity = length() + additional_capacity;
-    if (min_capacity <= capacity()) return Status::OK();
+    if (min_capacity <= current_capacity) return Status::OK();
 
     // leave growth factor up to BufferBuilder
-    auto new_capacity = BufferBuilder::GrowByFactor(min_capacity);
+    auto new_capacity = BufferBuilder::GrowByFactor(current_capacity, min_capacity);
     return Resize(new_capacity);
   }
 

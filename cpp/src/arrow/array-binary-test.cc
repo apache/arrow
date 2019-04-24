@@ -603,7 +603,9 @@ TEST_F(TestBinaryBuilder, TestCapacityReserve) {
   ASSERT_OK(builder_->ReserveData(extra_capacity));
 
   ASSERT_EQ(length, builder_->value_data_length());
-  ASSERT_EQ(expected_capacity, builder_->value_data_capacity());
+  int64_t actual_capacity = builder_->value_data_capacity();
+  ASSERT_GE(actual_capacity, expected_capacity);
+  ASSERT_EQ(actual_capacity & 63, 0);
 
   Done();
 
