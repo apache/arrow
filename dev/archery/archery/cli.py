@@ -27,7 +27,6 @@ from tempfile import mkdtemp, TemporaryDirectory
 from .benchmark.compare import RunnerComparator
 from .benchmark.runner import CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
-from .utils.cmake import CMakeBuild
 from .utils.codec import JsonEncoder
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
@@ -151,32 +150,6 @@ def tmpdir(preserve, prefix="arrow-bench-"):
             yield tmp
 
 
-def cpp_runner_from_rev_or_path(src, root, rev_or_path, cmake_conf):
-    """ Returns a CppBenchmarkRunner from a path or a git revision.
-
-    First, it checks if `rev_or_path` points to a valid CMake build directory.
-    If so, it creates a CppBenchmarkRunner with this existing CMakeBuild.
-
-    Otherwise, it assumes `rev_or_path` is a revision and clone/checkout the
-    given revision and create a fresh CMakeBuild.
-    """
-    build = None
-    if os.path.exists(rev_or_path) and CMakeBuild.is_build_dir(rev_or_path):
-        build = CMakeBuild.from_path(rev_or_path)
-    else:
-        root_rev = os.path.join(root, rev_or_path)
-        os.mkdir(root_rev)
-
-        clone_dir = os.path.join(root_rev, "arrow")
-        # Possibly checkout the sources at given revision, no need to perform
-        # cleanup on cloned repository as root_rev is reclaimed.
-        src_rev, _ = src.at_revision(rev_or_path, clone_dir)
-        cmake_def = CppCMakeDefinition(src_rev.cpp, cmake_conf)
-        build = cmake_def.build(os.path.join(root_rev, "build"))
-
-    return CppBenchmarkRunner(build)
-
-
 # Running all benchmarks would be prohibitive. Benchmark who needs to be
 # monitored for regression should be named with this prefix.
 DEFAULT_BENCHMARK_FILTER = "^Regression"
@@ -278,8 +251,10 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
             build_type="release", with_tests=True, with_benchmarks=True,
             with_python=False, cmake_extras=cmake_extras)
 
-        runner_cont = cpp_runner_from_rev_or_path(src, root, contender, conf)
-        runner_base = cpp_runner_from_rev_or_path(src, root, baseline, conf)
+        runner_cont = CppBenchmarkRunner.from_rev_or_path(
+            src, root, contender, conf)
+        runner_base = CppBenchmarkRunner.from_rev_or_path(
+            src, root, baseline, conf)
 
         runner_comp = RunnerComparator(runner_cont, runner_base, threshold)
         comparisons = runner_comp.comparisons(suite_filter, benchmark_filter)

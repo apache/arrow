@@ -21,6 +21,8 @@ import re
 
 from .core import BenchmarkSuite
 from .google import GoogleBenchmarkCommand, GoogleBenchmark
+from ..lang.cpp import CppCMakeDefinition
+from ..utils.cmake import CMakeBuild
 from ..utils.logger import logger
 
 
@@ -83,3 +85,30 @@ class CppBenchmarkRunner(BenchmarkRunner):
                 continue
 
             yield suite
+
+    @staticmethod
+    def from_rev_or_path(src, root, rev_or_path, cmake_conf):
+        """ Returns a CppBenchmarkRunner from a path or a git revision.
+
+        First, it checks if `rev_or_path` points to a valid CMake build
+        directory.  If so, it creates a CppBenchmarkRunner with this existing
+        CMakeBuild.
+
+        Otherwise, it assumes `rev_or_path` is a revision and clone/checkout
+        the given revision and create a fresh CMakeBuild.
+        """
+        build = None
+        if os.path.exists(rev_or_path) and CMakeBuild.is_build_dir(rev_or_path):
+            build = CMakeBuild.from_path(rev_or_path)
+        else:
+            root_rev = os.path.join(root, rev_or_path)
+            os.mkdir(root_rev)
+
+            clone_dir = os.path.join(root_rev, "arrow")
+            # Possibly checkout the sources at given revision, no need to
+            # perform cleanup on cloned repository as root_rev is reclaimed.
+            src_rev, _ = src.at_revision(rev_or_path, clone_dir)
+            cmake_def = CppCMakeDefinition(src_rev.cpp, cmake_conf)
+            build = cmake_def.build(os.path.join(root_rev, "build"))
+
+        return CppBenchmarkRunner(build)

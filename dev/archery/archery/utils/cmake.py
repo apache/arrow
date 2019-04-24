@@ -200,9 +200,7 @@ class CMakeBuild(Command):
         cmake_cache_path = os.path.join(path, "CMakeCache.txt")
         with open(cmake_cache_path, "r") as cmake_cache:
             candidates = CMAKE_BUILD_TYPE_RE.findall(cmake_cache.read())
-            if len(candidates) != 1:
-                ValueError("Could not chose build_type from {candidates}")
-            build_type = candidates[0].lower()
+            build_type = candidates[0].lower() if candidates else "release"
 
         return CMakeBuild(path, generator, build_type)
 
