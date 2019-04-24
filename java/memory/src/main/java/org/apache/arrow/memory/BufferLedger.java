@@ -36,8 +36,15 @@ import io.netty.buffer.ByteBuf;
  * fate (same reference count).
  */
 public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, ReferenceManager  {
-
-  private final IdentityHashMap<ArrowBuf, Integer> buffers = BaseAllocator.DEBUG ? new IdentityHashMap<>() : null;
+  // since ArrowBuf interface has been cleaned to just include the length
+  // of memory chunk it has access to and starting virtual address in the chunk,
+  // ArrowBuf no longer tracks its offset within the chunk and that info
+  // is kept by the ReferenceManager/BufferLedger here. thus we need this map
+  // to track offsets of ArrowBufs managed by this ledger. the downside is
+  // that there could be potential increase in heap overhead as earlier
+  // map was created in debug mode only but now it will always be created
+  // per instance creation of BufferLedger
+  private final IdentityHashMap<ArrowBuf, Integer> buffers = new IdentityHashMap<>();
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
   // unique ID assigned to each ledger
   private final long ledgerId = LEDGER_ID_GENERATOR.incrementAndGet();
@@ -236,6 +243,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
       // create new ArrowBuf
       derivedBuf = new ArrowBuf(
         this,
+        null,
         length, // length (in bytes) in the underlying memory chunk for this new ArrowBuf
         startAddress, // starting byte address in the underlying memory for this new ArrowBuf
         false);
@@ -270,15 +278,13 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    *         with this BufferLedger
    */
   ArrowBuf newArrowBuf(final int length, final BufferManager manager) {
-    // TODO: SIDD I believe we can remove BufferManager. I have removed it from ArrowBuf. I don't think its needed
-    // need to evaluate the use/significance of buffer manager
     allocator.assertOpen();
 
     // the start virtual address of the ArrowBuf will be same as address of memory chunk
     final long startAddress = allocationManager.getMemoryChunk().memoryAddress();
 
     // create ArrowBuf
-    final ArrowBuf buf = new ArrowBuf(this, length, startAddress, false);
+    final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress, false);
 
     // store the offset (within the underlying memory chunk) of new buffer
     synchronized (buffers) {
@@ -502,16 +508,13 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * @param verbosity The level of verbosity to print.
    */
   void print(StringBuilder sb, int indent, BaseAllocator.Verbosity verbosity) {
-    // TODO SIDD: figure out how to make the debug logging work with new changes
     indent(sb, indent)
       .append("ledger[")
       .append(ledgerId)
       .append("] allocator: ")
       .append(allocator.name)
       .append("), isOwning: ")
-      //.append(owningLedger == this)
       .append(", size: ")
-      //.append(size)
       .append(", references: ")
       .append(bufRefCnt.get())
       .append(", life: ")
@@ -519,11 +522,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
       .append("..")
       .append(lDestructionTime)
       .append(", allocatorManager: [")
-      //.append(AllocationManager.this.allocatorManagerId)
       .append(", life: ");
-    //.append(amCreationTime)
-    //.append("..")
-    //.append(amDestructionTime);
 
     if (!BaseAllocator.DEBUG) {
       sb.append("]\n");

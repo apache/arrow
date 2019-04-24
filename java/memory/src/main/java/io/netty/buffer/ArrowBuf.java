@@ -29,6 +29,7 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferLedger;
+import org.apache.arrow.memory.BufferManager;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
@@ -71,6 +72,7 @@ public final class ArrowBuf implements AutoCloseable {
   private static final int LOG_BYTES_PER_ROW = 10;
   private final long id = idGenerator.incrementAndGet();
   private final ReferenceManager referenceManager;
+  private final BufferManager bufferManager;
   private final long addr;
   private final boolean isEmpty;
   private int readerIndex;
@@ -87,10 +89,12 @@ public final class ArrowBuf implements AutoCloseable {
    */
   public ArrowBuf(
       final ReferenceManager referenceManager,
+      final BufferManager bufferManager,
       final int length,
       final long memoryAddress,
       boolean isEmpty) {
     this.referenceManager = referenceManager;
+    this.bufferManager = bufferManager;
     this.isEmpty = isEmpty;
     this.addr = memoryAddress;
     this.length = length;
@@ -1003,18 +1007,6 @@ public final class ArrowBuf implements AutoCloseable {
     return id;
   }
 
-  /** Returns all ledger information with stack traces as a string. */
-  public String toVerboseString() {
-    if (isEmpty) {
-      return toString();
-    }
-
-    StringBuilder sb = new StringBuilder();
-    // TODO SIDD
-    //referenceManager.print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);
-    return sb.toString();
-  }
-
   /**
    * Prints information of this buffer into <code>sb</code> at the given
    * indentation and verbosity level.
@@ -1081,6 +1073,23 @@ public final class ArrowBuf implements AutoCloseable {
       }
 
       return this;
+    }
+  }
+
+  /**
+   * Returns <code>this</code> if size is less then {@link #capacity()}, otherwise
+   * delegates to {@link BufferManager#replace(ArrowBuf, int)} to get a new buffer.
+   */
+  public ArrowBuf reallocIfNeeded(final int size) {
+    Preconditions.checkArgument(size >= 0, "reallocation size must be non-negative");
+    if (this.capacity() >= size) {
+      return this;
+    }
+    if (bufferManager != null) {
+      return bufferManager.replace(this, size);
+    } else {
+      throw new UnsupportedOperationException(
+              "Realloc is only available in the context of operator's UDFs");
     }
   }
 }
