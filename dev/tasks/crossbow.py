@@ -248,21 +248,34 @@ class Repo:
         name = next(self.repo.config.get_multivar('user.name'))
         return pygit2.Signature(name, self.email, int(time.time()))
 
-    def create_tree(self, files):
-        builder = self.repo.TreeBuilder()
+    def create_tree(self, files, parent=None):
+        if parent is None:
+            builder = self.repo.TreeBuilder()
+        else:
+            builder = self.repo.TreeBuilder(parent)
 
         for filename, content in files.items():
             # insert the file and creating the new filetree
-            blob_id = self.repo.create_blob(content)
-            builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
+            if isinstance(content, dict):
+                # create another tree for subdirectory
+                tree_id = self.create_tree(content)
+                builder.insert(filename, tree_id, pygit2.GIT_FILEMODE_TREE)
+            else:  # create a blob
+                blob_id = self.repo.create_blob(content)
+                builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
 
         return builder.write()
 
-    def create_commit(self, tree_id, parents=None, message=''):
-        # 2. create commit with the tree created above
+    def create_commit(self, tree_id, parents=None, message='',
+                      reference_name=None):
+        # create commit with the tree created above
         author = committer = self.signature
-        commit_id = self.repo.create_commit(None, author, committer, message,
-                                            tree_id, parents or [])
+        parents = [p.id for p in parents or []]
+        commit_id = self.repo.create_commit(reference_name, author, committer,
+                                            message, tree_id, parents)
+        if reference_name is not None:
+            self._updated_refs.append(reference_name)
+
         return self.repo[commit_id]
 
     def create_branch(self, branch_name, commit):
@@ -578,8 +591,10 @@ def github_page(ctx):
 @click.option('--gh-branch', default='gh-pages', help='Github pages branch')
 @click.option('--job-prefix', default='nightly',
               help='Job/tag prefix the wheel links should be generated for')
+@click.option('--dry-run/--push', default=False,
+              help='Just render the files without pushing')
 @click.pass_context
-def update_wheel_links(ctx, n, gh_branch, job_prefix):
+def update_wheel_links(ctx, n, gh_branch, job_prefix, dry_run):
     def generate_content(links):
         links = ['<li><a href="{}">{}</a></li>'.format(url, name)
                  for name, url in sorted(links.items())]
@@ -588,6 +603,7 @@ def update_wheel_links(ctx, n, gh_branch, job_prefix):
     queue = ctx.obj['queue']
     # queue.fetch()
 
+    files = {'nightly': {'wheel': {}}}
     latest = None
     for job in toolz.take(n, queue.jobs(prefix=job_prefix)):
         wheels = {}
@@ -621,22 +637,31 @@ def update_wheel_links(ctx, n, gh_branch, job_prefix):
                  for filename, asset in wheels.items()}
         content = generate_content(links)
         date = queue.date_of(job)
-        path = queue.path / 'nightly' / 'wheel' / str(date) / 'index.html'
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
 
-        if latest is None:
+        files['nightly']['wheel'][str(date)] = {'index.html': content}
+        if 'latest' not in files['nightly']['wheel']:
             # write the most recent
-            latest = path.parent.parent / 'latest' / 'index.html'
-            latest.parent.mkdir(parents=True, exist_ok=True)
-            latest.write_text(content)
+            files['nightly']['wheel']['latest'] = {'index.html': content}
 
-    for parent in (latest.parents[1], latest.parents[2]):
-        subdirs = {p.name: '{}/'.format(p.relative_to(p.parent))
-                   for p in parent.iterdir() if p.is_dir()}
+    for parent in (files['nightly']['wheel'], files['nightly']):
+        subdirs = {p: '{}/'.format(p) for p in parent.keys()}
         content = generate_content(subdirs)
-        path = parent / 'index.html'
-        path.write_text(content)
+        parent['index.html'] = content
+
+    branch = queue.repo.branches[gh_branch]
+    head = queue.repo[branch.target]
+
+    if dry_run:
+        click.echo(yaml.dump(files, sys.stdout))
+    else:
+        tree_id = queue.create_tree(files, parent=head.tree)
+        refname = 'refs/heads/{}'.format(branch.branch_name)
+        message = 'Update nightly wheel links {}'.format(datetime.date.today())
+        commit = queue.create_commit(tree_id, parents=[head], message=message,
+                                     reference_name=refname)
+        click.echo('Updated `{}` branch\'s head to `{}`'
+                   .format(branch.branch_name, commit.id))
+        queue.push()
 
 
 @crossbow.command()
