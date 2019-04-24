@@ -34,8 +34,8 @@ using internal::checked_cast;
 static std::string scalars_only_src() {
   return R"(
     { "hello": 3.5, "world": false, "yo": "thing" }
-    { "hello": 3.2, "world": null }
-    { "hello": 3.4, "world": null, "yo": "\u5fcd" }
+    { "hello": 3.25, "world": null }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
   )";
 }
@@ -43,8 +43,8 @@ static std::string scalars_only_src() {
 static std::string nested_src() {
   return R"(
     { "hello": 3.5, "world": false, "yo": "thing", "arr": [1, 2, 3], "nuf": {} }
-    { "hello": 3.2, "world": null, "arr": [2], "nuf": null }
-    { "hello": 3.4, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
+    { "hello": 3.25, "world": null, "arr": [2], "nuf": null }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
     { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90 } }
   )";
 }
@@ -100,7 +100,7 @@ TEST_P(ReaderTest, Basics) {
   ASSERT_OK(reader_->Read(&table_));
 
   auto expected_table = Table::Make({
-      ColumnFromJSON(field("hello", float64()), "[3.5, 3.2, 3.4, 0.0]"),
+      ColumnFromJSON(field("hello", float64()), "[3.5, 3.25, 3.125, 0.0]"),
       ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
       ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
   });
@@ -114,7 +114,7 @@ TEST_P(ReaderTest, Nested) {
   ASSERT_OK(reader_->Read(&table_));
 
   auto expected_table = Table::Make({
-      ColumnFromJSON(field("hello", float64()), "[3.5, 3.2, 3.4, 0.0]"),
+      ColumnFromJSON(field("hello", float64()), "[3.5, 3.25, 3.125, 0.0]"),
       ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
       ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
       ColumnFromJSON(field("arr", list(int64())), R"([[1, 2, 3], [2], [], null])"),
@@ -140,7 +140,7 @@ TEST_P(ReaderTest, PartialSchema) {
           R"([{"absent":null,"ps":null}, null, {"absent":null,"ps":78}, {"absent":null,"ps":90}])"),
       ColumnFromJSON(field("arr", list(float32())), R"([[1, 2, 3], [2], [], null])"),
       // ...followed by undeclared fields
-      ColumnFromJSON(field("hello", float64()), "[3.5, 3.2, 3.4, 0.0]"),
+      ColumnFromJSON(field("hello", float64()), "[3.5, 3.25, 3.125, 0.0]"),
       ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
       ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
   });
@@ -152,14 +152,14 @@ TEST_P(ReaderTest, TypeInference) {
   SetUpReader(R"(
     {"ts":null, "f": null}
     {"ts":"1970-01-01", "f": 3}
-    {"ts":"2018-11-13 17:11:10", "f":3.4}
+    {"ts":"2018-11-13 17:11:10", "f":3.125}
     )");
   ASSERT_OK(reader_->Read(&table_));
 
   auto expected_table =
       Table::Make({ColumnFromJSON(field("ts", timestamp(TimeUnit::SECOND)),
                                   R"([null, "1970-01-01", "2018-11-13 17:11:10"])"),
-                   ColumnFromJSON(field("f", float64()), R"([null, 3, 3.4])")});
+                   ColumnFromJSON(field("f", float64()), R"([null, 3, 3.125])")});
   AssertTablesEqual(*table_, *expected_table);
 }
 

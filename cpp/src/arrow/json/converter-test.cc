@@ -29,72 +29,63 @@ namespace json {
 
 using util::string_view;
 
-static std::string scalars_only_src() {
-  return R"(
-    { "hello": 3.5, "world": false, "yo": "thing" }
-    { "hello": 3.2, "world": null }
-    { "hello": 3.4, "world": null, "yo": "\u5fcd" }
-    { "hello": 0.0, "world": true, "yo": null }
-  )";
+void AssertConvert(const std::shared_ptr<DataType>& expected_type,
+                   const std::string& expected_json,
+                   const std::string& unconverted_json) {
+  // make an unconverted array
+  auto scalar_values = ArrayFromJSON(utf8(), unconverted_json);
+  Int32Builder indices_builder;
+  ASSERT_OK(indices_builder.Resize(scalar_values->length()));
+  for (int i = 0; i < scalar_values->length(); ++i) {
+    if (scalar_values->IsNull(i)) {
+      indices_builder.UnsafeAppendNull();
+    } else {
+      indices_builder.UnsafeAppend(i);
+    }
+  }
+  std::shared_ptr<Array> indices, unconverted, converted;
+  ASSERT_OK(indices_builder.Finish(&indices));
+  ASSERT_OK(DictionaryArray::FromArrays(dictionary(int32(), scalar_values), indices,
+                                        &unconverted));
+
+  // convert the array
+  std::shared_ptr<Converter> converter;
+  ASSERT_OK(MakeConverter(expected_type, default_memory_pool(), &converter));
+  ASSERT_OK(converter->Convert(unconverted, &converted));
+
+  // assert equality
+  auto expected = ArrayFromJSON(expected_type, expected_json);
+  AssertArraysEqual(*expected, *converted);
 }
 
-static std::string nested_src() {
-  return R"(
-    { "hello": 3.5, "world": false, "yo": "thing", "arr": [1, 2, 3], "nuf": {} }
-    { "hello": 3.2, "world": null, "arr": [2], "nuf": null }
-    { "hello": 3.4, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
-    { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90 } }
-  )";
-}
+// bool, null are trivial pass throughs
 
-void AssertParseAndConvert(ParseOptions options, string_view src_str,
-                           const std::vector<std::shared_ptr<Field>>& fields,
-                           const std::vector<std::string>& columns_json) {
-  std::shared_ptr<Array> parsed;
-  ASSERT_OK(ParseFromString(options, src_str, &parsed));
-  auto struct_array = static_cast<StructArray*>(parsed.get());
-  for (size_t i = 0; i < fields.size(); ++i) {
-    auto column_expected = ArrayFromJSON(fields[i]->type(), columns_json[i]);
-    std::shared_ptr<Array> column;
-    ASSERT_OK(Convert(fields[i]->type(), struct_array->GetFieldByName(fields[i]->name()),
-                      &column));
-    AssertArraysEqual(*column_expected, *column);
+TEST(ConverterTest, Integers) {
+  for (auto expected_type : {uint8(), uint16(), uint32(), uint64()}) {
+    AssertConvert(expected_type, "[0, null, 1, 32, 45, 12, 64, 124]",
+                  R"(["0", null, "1", "32", "45", "12", "64", "124"])");
+  }
+  for (auto expected_type : {int8(), int16(), int32(), int64()}) {
+    AssertConvert(expected_type, "[0, null, -1, 32, -45, 12, -64, 124]",
+                  R"(["-0", null, "-1", "32", "-45", "12", "-64", "124"])");
   }
 }
 
-TEST(ConversionTest, Basics) {
-  auto options = ParseOptions::Defaults();
-  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-  AssertParseAndConvert(
-      options, scalars_only_src(),
-      {field("hello", float64()), field("world", boolean()), field("yo", utf8())},
-      {"[3.5, 3.2, 3.4, 0.0]", "[false, null, null, true]",
-       "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
+TEST(ConverterTest, Floats) {
+  for (auto expected_type : {float32(), float64()}) {
+    AssertConvert(expected_type, "[0, -0.0, null, 32.0, 1e5]",
+                  R"(["0", "-0.0", null, "32.0", "1e5"])");
+  }
 }
 
-TEST(ConversionTest, Nested) {
-  auto options = ParseOptions::Defaults();
-  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-  AssertParseAndConvert(
-      options, nested_src(),
-      {field("yo", utf8()), field("arr", list(int64())),
-       field("nuf", struct_({field("ps", int64())}))},
-      {"[\"thing\", null, \"\xe5\xbf\x8d\", null]", R"([[1, 2, 3], [2], [], null])",
-       R"([{"ps":null}, null, {"ps":78}, {"ps":90}])"});
+TEST(ConverterTest, String) {
+  std::string src = R"(["a", "b c", null, "d e f", "g"])";
+  AssertConvert(utf8(), src, src);
 }
 
-TEST(ConversionTest, PartialSchema) {
-  auto options = ParseOptions::Defaults();
-  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-  options.explicit_schema = schema({field("nuf", struct_({field("absent", date32())})),
-                                    field("arr", list(float32()))});
-  AssertParseAndConvert(
-      options, nested_src(),
-      {field("yo", utf8()), field("arr", list(float32())),
-       field("nuf", struct_({field("absent", date32()), field("ps", int64())}))},
-      {"[\"thing\", null, \"\xe5\xbf\x8d\", null]", R"([[1, 2, 3], [2], [], null])",
-       R"([{"absent":null,"ps":null}, null,)"
-       R"( {"absent":null,"ps":78}, {"absent":null,"ps":90}])"});
+TEST(ConverterTest, Timestamp) {
+  std::string src = R"([null, "1970-01-01", "2018-11-13 17:11:10"])";
+  AssertConvert(timestamp(TimeUnit::SECOND), src, src);
 }
 
 }  // namespace json
