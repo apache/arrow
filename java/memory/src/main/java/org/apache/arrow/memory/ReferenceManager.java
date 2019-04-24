@@ -20,7 +20,6 @@ package org.apache.arrow.memory;
 import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.ByteBuf;
 
 /**
  * Reference Manager manages one or more ArrowBufs that share the
@@ -109,10 +108,6 @@ public interface ReferenceManager {
    */
   BufferAllocator getAllocator();
 
-  int getOffsetForBuffer(final ArrowBuf buffer);
-
-  ByteBuf getUnderlying();
-
   /**
    * Total size (in bytes) of memory underlying this reference manager.
    * @return Size (in bytes) of the memory chunk.
@@ -124,8 +119,6 @@ public interface ReferenceManager {
    * @return accounted size.
    */
   int getAccountedSize();
-
-  ArrowByteBufAllocator getByteBufAllocator();
 
   public static String NO_OP_ERROR_MESSAGE = "Operation not supported on NO_OP Reference Manager";
 
@@ -174,16 +167,6 @@ public interface ReferenceManager {
     }
 
     @Override
-    public int getOffsetForBuffer(ArrowBuf buffer) {
-      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
-    }
-
-    @Override
-    public ByteBuf getUnderlying() {
-      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
-    }
-
-    @Override
     public int getSize() {
       return 0;
     }
@@ -191,11 +174,6 @@ public interface ReferenceManager {
     @Override
     public int getAccountedSize() {
       return 0;
-    }
-
-    @Override
-    public ArrowByteBufAllocator getByteBufAllocator() {
-      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
     }
   };
 }

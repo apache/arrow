@@ -37,26 +37,20 @@ import io.netty.util.internal.PlatformDependent;
  */
 public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
-  private final UnsafeDirectLittleEndian udle;
   private final ArrowBuf arrowBuf;
   private final ArrowByteBufAllocator arrowByteBufAllocator;
-  private final int offset;
   private int length;
   private final long address;
 
   public NettyArrowBuf(
-      final UnsafeDirectLittleEndian udle,
       final ArrowBuf arrowBuf,
-      final ArrowByteBufAllocator arrowByteBufAllocator,
-      final int offset,
+      final ByteBufAllocator arrowByteBufAllocator,
       final int length) {
-    super(udle.maxCapacity());
-    this.udle = udle;
+    super(length);
     this.arrowBuf = arrowBuf;
-    this.arrowByteBufAllocator = arrowByteBufAllocator;
-    this.offset = offset;
+    this.arrowByteBufAllocator = (ArrowByteBufAllocator)arrowByteBufAllocator;
     this.length = length;
-    this.address = udle.memoryAddress() + offset;
+    this.address = arrowBuf.memoryAddress();
   }
 
   @Override
@@ -101,7 +95,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public ByteBuf unwrap() {
-    return udle;
+    throw new UnsupportedOperationException("Operation not supported");
   }
 
   @Override
@@ -116,17 +110,17 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public boolean hasArray() {
-    return udle.hasArray();
+    return false;
   }
 
   @Override
   public byte[] array() {
-    return udle.array();
+    throw new UnsupportedOperationException("Operation not supported on direct buffer");
   }
 
   @Override
   public int arrayOffset() {
-    return udle.arrayOffset();
+    throw new UnsupportedOperationException("Operation not supported on direct buffer");
   }
 
   @Override
@@ -147,26 +141,6 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
   @Override
   public ByteBuf touch(Object hint) {
     return this;
-  }
-
-  @Override
-  public int nioBufferCount() {
-    return 1;
-  }
-
-  @Override
-  public ByteBuffer internalNioBuffer(int index, int length) {
-    return udle.internalNioBuffer(offset + index, length);
-  }
-
-  @Override
-  public ByteBuffer[] nioBuffers() {
-    return new ByteBuffer[] {nioBuffer()};
-  }
-
-  @Override
-  public ByteBuffer[] nioBuffers(int index, int length) {
-    return new ByteBuffer[] {nioBuffer(index, length)};
   }
 
   @Override
@@ -200,27 +174,35 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
   }
 
   @Override
-  public int readerIndex() {
-    return arrowBuf.readerIndex();
-  }
-
-  @Override
-  public int writerIndex() {
-    return arrowBuf.writerIndex();
-  }
-
-  @Override
   public NettyArrowBuf readerIndex(int readerIndex) {
     super.readerIndex(readerIndex);
-    //arrowBuf.readerIndex(readerIndex);
     return this;
   }
 
   @Override
   public NettyArrowBuf writerIndex(int writerIndex) {
     super.writerIndex(writerIndex);
-    //arrowBuf.writerIndex(writerIndex);
     return this;
+  }
+
+  @Override
+  public int nioBufferCount() {
+    return 1;
+  }
+
+  @Override
+  public ByteBuffer internalNioBuffer(int index, int length) {
+    throw new UnsupportedOperationException("operation not supported");
+  }
+
+  @Override
+  public ByteBuffer[] nioBuffers() {
+    return new ByteBuffer[] {nioBuffer()};
+  }
+
+  @Override
+  public ByteBuffer[] nioBuffers(int index, int length) {
+    return new ByteBuffer[] {nioBuffer(index, length)};
   }
 
   @Override
@@ -230,74 +212,144 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public ByteBuffer nioBuffer(int index, int length) {
-    return udle.nioBuffer(offset + index, length);
+    checkIndex(index, length);
+    final ByteBuffer buffer = getDirectBuffer();
+    buffer.position(index).limit(index + length);
+    return buffer;
+  }
+
+  /**
+   * Get this ArrowBuf as a direct {@link ByteBuffer}.
+   * @return ByteBuffer
+   */
+  private ByteBuffer getDirectBuffer() {
+    return PlatformDependent.directBuffer(address, length);
   }
 
   @Override
   public ByteBuf getBytes(int index, ByteBuffer dst) {
-    udle.getBytes(offset + index, dst);
+    arrowBuf.getBytes(index, dst);
     return this;
   }
 
   @Override
   public ByteBuf setBytes(int index, ByteBuffer src) {
-    udle.setBytes(offset + index, src);
+    arrowBuf.setBytes(index, src);
     return this;
   }
 
   @Override
   public ByteBuf getBytes(int index, byte[] dst, int dstIndex, int length) {
-    udle.getBytes(offset + index, dst, dstIndex, length);
+    arrowBuf.getBytes(index, dst, dstIndex, length);
     return this;
   }
 
   @Override
   public ByteBuf setBytes(int index, byte[] src, int srcIndex, int length) {
-    udle.setBytes(offset + index, src, srcIndex, length);
+    arrowBuf.setBytes(index, src, srcIndex, length);
     return this;
+  }
+
+  /**
+   * Determine if the requested {@code index} and {@code length} will fit within {@code capacity}.
+   * @param index The starting index.
+   * @param length The length which will be utilized (starting from {@code index}).
+   * @param capacity The capacity that {@code index + length} is allowed to be within.
+   * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code capacity}.
+   * {@code false} if this would result in an index out of bounds exception.
+   */
+  private static boolean isOutOfBounds(int index, int length, int capacity) {
+    return (index | length | (index + length) | (capacity - (index + length))) < 0;
   }
 
   @Override
   public ByteBuf getBytes(int index, ByteBuf dst, int dstIndex, int length) {
-    udle.getBytes(offset + index, dst, dstIndex, length);
+    chk(index, length);
+    Preconditions.checkArgument(dst != null, "Expecting valid dst ByteBuffer");
+    if (isOutOfBounds(dstIndex, length, dst.capacity())) {
+      throw new IndexOutOfBoundsException("dstIndex: " + dstIndex + " length: " + length);
+    } else {
+      final long srcAddress = addr(index);
+      if (dst.hasMemoryAddress()) {
+        final long dstAddress = dst.memoryAddress() + (long)dstIndex;
+        PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+      } else if (dst.hasArray()) {
+        dstIndex += dst.arrayOffset();
+        PlatformDependent.copyMemory(srcAddress, dst.array(), dstIndex, (long)length);
+      } else {
+        throw new UnsupportedOperationException("Copy to this ByteBuf is not supported");
+      }
+    }
     return this;
   }
 
   @Override
   public ByteBuf setBytes(int index, ByteBuf src, int srcIndex, int length) {
-    udle.setBytes(offset + index, src, srcIndex, length);
+    chk(index, length);
+    Preconditions.checkArgument(src != null, "Expecting valid src ByteBuffer");
+    if (isOutOfBounds(srcIndex, length, src.capacity())) {
+      throw new IndexOutOfBoundsException("srcIndex: " + srcIndex + " length: " + length);
+    } else {
+      if (length != 0) {
+        final long dstAddress = addr(index);
+        if (src.hasMemoryAddress()) {
+          final long srcAddress = src.memoryAddress() + (long)srcIndex;
+          PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+        } else if (src.hasArray()) {
+          srcIndex += src.arrayOffset();
+          PlatformDependent.copyMemory(src.array(), srcIndex, dstAddress, (long)length);
+        } else {
+          throw new UnsupportedOperationException("Copy from this ByteBuf is not supported");
+        }
+      }
+    }
     return this;
   }
 
   @Override
   public ByteBuf getBytes(int index, OutputStream out, int length) throws IOException {
-    udle.getBytes(offset + index, out, length);
+    arrowBuf.getBytes(index, out, length);
     return this;
   }
 
   @Override
   public int setBytes(int index, InputStream in, int length) throws IOException {
-    return udle.setBytes(offset + index, in, length);
+    return arrowBuf.setBytes(index, in, length);
   }
 
   @Override
   public int getBytes(int index, GatheringByteChannel out, int length) throws IOException {
-    return udle.getBytes(offset + index, out, length);
-  }
-
-  @Override
-  public int setBytes(int index, ScatteringByteChannel in, int length) throws IOException {
-    return udle.setBytes(offset + index, in, length);
+    Preconditions.checkArgument(out != null, "expecting valid gathering byte channel");
+    chk(index, length);
+    if (length == 0) {
+      return 0;
+    } else {
+      final ByteBuffer tmpBuf = getDirectBuffer();
+      tmpBuf.clear().position(index).limit(index + length);
+      return out.write(tmpBuf);
+    }
   }
 
   @Override
   public int getBytes(int index, FileChannel out, long position, int length) throws IOException {
-    return udle.getBytes(offset + index, out, position, length);
+    chk(index, length);
+    if (length == 0) {
+      return 0;
+    } else {
+      final ByteBuffer tmpBuf = getDirectBuffer();
+      tmpBuf.clear().position(index).limit(index + length);
+      return out.write(tmpBuf, position);
+    }
+  }
+
+  @Override
+  public int setBytes(int index, ScatteringByteChannel in, int length) throws IOException {
+    throw new UnsupportedOperationException("Operation not supported");
   }
 
   @Override
   public int setBytes(int index, FileChannel in, long position, int length) throws IOException {
-    return udle.setBytes(offset + index, in, position, length);
+    throw new UnsupportedOperationException("Operation not supported");
   }
 
   @Override

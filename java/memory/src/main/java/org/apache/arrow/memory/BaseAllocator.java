@@ -548,7 +548,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           continue;
         }
 
-        final UnsafeDirectLittleEndian udle = (UnsafeDirectLittleEndian)ledger.getUnderlying();
+        final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
         /*
          * Even when shared, ArrowBufs are rewrapped, so we should never see the same instance
          * twice.
@@ -672,7 +672,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       if (!ledger.isOwningLedger()) {
         continue;
       }
-      final UnsafeDirectLittleEndian udle = (UnsafeDirectLittleEndian)ledger.getUnderlying();
+      final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
       sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
       sb.append(Integer.toString(System.identityHashCode(udle)));
       sb.append("] size ");

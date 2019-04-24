@@ -27,7 +27,7 @@ import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.ByteBuf;
+import io.netty.buffer.UnsafeDirectLittleEndian;
 
 /**
  * The reference manager that binds an {@link AllocationManager} to
@@ -36,7 +36,8 @@ import io.netty.buffer.ByteBuf;
  * fate (same reference count).
  */
 public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, ReferenceManager  {
-  // since ArrowBuf interface has been cleaned to just include the length
+  // TODO: check this.
+  //  since ArrowBuf interface has been cleaned to just include the length
   // of memory chunk it has access to and starting virtual address in the chunk,
   // ArrowBuf no longer tracks its offset within the chunk and that info
   // is kept by the ReferenceManager/BufferLedger here. thus we need this map
@@ -219,7 +220,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   @Override
   public ArrowBuf deriveBuffer(final ArrowBuf sourceBuffer, int index, int length) {
     ArrowBuf derivedBuf;
-    // TODO: SIDD look at the synchronization here. we probably don't need to synchronize on buffers map
     synchronized (buffers) {
       // compute the start virtual address in the underlying memory chunk from which the new buffer
       // will have access to
@@ -288,7 +288,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
 
     // store the offset (within the underlying memory chunk) of new buffer
     synchronized (buffers) {
-      // TODO: SIDD, look at synchronization here. we probably don't need to synchronize on buffers map
       buffers.put(buf, 0);
     }
 
@@ -539,18 +538,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     }
   }
 
-  @Override
-  public ByteBuf getUnderlying() {
+  public UnsafeDirectLittleEndian getUnderlying() {
     return allocationManager.getMemoryChunk();
-  }
-
-  @Override
-  public int getOffsetForBuffer(final ArrowBuf buf) {
-    return buffers.get(buf);
-  }
-
-  @Override
-  public ArrowByteBufAllocator getByteBufAllocator() {
-    return allocator.getAsByteBufAllocator();
   }
 }

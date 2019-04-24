@@ -19,6 +19,7 @@ package io.netty.buffer;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ReadOnlyBufferException;
@@ -34,8 +35,6 @@ import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 
-import io.netty.util.IllegalReferenceCountException;
-import io.netty.util.internal.MathUtil;
 import io.netty.util.internal.PlatformDependent;
 
 /**
@@ -130,7 +129,7 @@ public final class ArrowBuf implements AutoCloseable {
    */
   private void ensureAccessible() {
     if (this.refCnt() == 0) {
-      throw new IllegalReferenceCountException(0);
+      throw new IllegalStateException("Ref count should be >= 1 for accessing the ArrowBuf");
     }
   }
 
@@ -141,10 +140,8 @@ public final class ArrowBuf implements AutoCloseable {
    */
   public NettyArrowBuf asNettyBuffer() {
     final NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
-            (UnsafeDirectLittleEndian)referenceManager.getUnderlying(),
             this,
-            referenceManager.getByteBufAllocator(),
-            referenceManager.getOffsetForBuffer(this),
+            referenceManager.getAllocator().getAsByteBufAllocator(),
             length);
     nettyArrowBuf.readerIndex(readerIndex);
     nettyArrowBuf.writerIndex(writerIndex);
@@ -662,16 +659,27 @@ public final class ArrowBuf implements AutoCloseable {
   /*--------------------------------------------------*
    | Following are another set of data set/get APIs   |
    | that read and write stream of bytes from/to byte |
-   | arrays, ByteBuffer etc                           |
+   | arrays, ByteBuffer, ArrowBuf etc                 |
    |                                                  |
    *--------------------------------------------------*/
 
+  /**
+   * Determine if the requested {@code index} and {@code length} will fit within {@code capacity}.
+   * @param index The starting index.
+   * @param length The length which will be utilized (starting from {@code index}).
+   * @param capacity The capacity that {@code index + length} is allowed to be within.
+   * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code capacity}.
+   * {@code false} if this would result in an index out of bounds exception.
+   */
+  private static boolean isOutOfBounds(int index, int length, int capacity) {
+    return (index | length | (index + length) | (capacity - (index + length))) < 0;
+  }
 
   private void checkIndex(int index, int fieldLength) {
     // check reference count
     this.ensureAccessible();
     // check bounds
-    if (MathUtil.isOutOfBounds(index, fieldLength, this.capacity())) {
+    if (isOutOfBounds(index, fieldLength, this.capacity())) {
       throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
         index, fieldLength, this.capacity()));
     }
@@ -702,7 +710,7 @@ public final class ArrowBuf implements AutoCloseable {
     // null check
     Preconditions.checkArgument(dst != null, "expecting a valid dst byte array");
     // bound check for dst byte array where the data will be copied to
-    if (MathUtil.isOutOfBounds(dstIndex, length, dst.length)) {
+    if (isOutOfBounds(dstIndex, length, dst.length)) {
       // not enough space to copy "length" bytes into dst array from dstIndex onwards
       throw new IndexOutOfBoundsException("Not enough space to copy data into destination" + dstIndex);
     }
@@ -711,6 +719,17 @@ public final class ArrowBuf implements AutoCloseable {
       // into dst byte array at dstIndex onwards
       PlatformDependent.copyMemory(addr(index), dst, dstIndex, (long)length);
     }
+  }
+
+  /**
+   * Copy data from a given byte array into this ArrowBuf starting at
+   * a given index.
+   * @param index starting index (0 based relative to the portion of memory)
+   *              this ArrowBuf has access to
+   * @param src byte array to copy the data from
+   */
+  public void setBytes(int index, byte[] src) {
+    setBytes(index, src, 0, src.length);
   }
 
   /**
@@ -728,20 +747,15 @@ public final class ArrowBuf implements AutoCloseable {
     // null check
     Preconditions.checkArgument(src != null, "expecting a valid src byte array");
     // bound check for src byte array where the data will be copied from
-    if (MathUtil.isOutOfBounds(srcIndex, length, src.length)) {
+    if (isOutOfBounds(srcIndex, length, src.length)) {
       // not enough space to copy "length" bytes into dst array from dstIndex onwards
       throw new IndexOutOfBoundsException("Not enough space to copy data from byte array" + srcIndex);
     }
-    if (length != 0) {
+    if (length > 0) {
       // copy "length" bytes from src byte array at the starting index (srcIndex)
       // into this ArrowBuf starting at address "addr(index)"
       PlatformDependent.copyMemory(src, srcIndex, addr(index), (long)length);
     }
-  }
-
-  public void setBytes(int index, byte[] src) {
-    Preconditions.checkArgument(src != null, "expecting valid src bytearray");
-    setBytes(index, src, 0, src.length);
   }
 
   /**
@@ -754,8 +768,9 @@ public final class ArrowBuf implements AutoCloseable {
   public void getBytes(int index, ByteBuffer dst) {
     // bound check for this ArrowBuf where the data will be copied from
     checkIndex(index, dst.remaining());
-    int length = dst.remaining();
+    // dst.remaining() bytes of data will be copied into dst ByteBuffer
     if (dst.remaining() != 0) {
+      // address in this ArrowBuf where the copy will begin from
       final long srcAddress = addr(index);
       if (dst.isDirect()) {
         if (dst.isReadOnly()) {
@@ -765,18 +780,19 @@ public final class ArrowBuf implements AutoCloseable {
         // at address srcAddress into the dst ByteBuffer starting at
         // address dstAddress
         final long dstAddress = PlatformDependent.directBufferAddress(dst) + (long)dst.position();
-        PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+        PlatformDependent.copyMemory(srcAddress, dstAddress, (long)dst.remaining());
         // after copy, bump the next write position for the dst ByteBuffer
-        dst.position(dst.position() + length);
+        dst.position(dst.position() + dst.remaining());
       } else if (dst.hasArray()) {
         // copy dst.remaining() bytes of data from this ArrowBuf starting
         // at address srcAddress into the dst ByteBuffer starting at
         // index dstIndex
         final int dstIndex = dst.arrayOffset() + dst.position();
-        PlatformDependent.copyMemory(srcAddress, dst.array(), dstIndex, (long)length);
-        dst.position(dst.position() + length);
+        PlatformDependent.copyMemory(srcAddress, dst.array(), dstIndex, (long)dst.remaining());
+        // after copy, bump the next write position for the dst ByteBuffer
+        dst.position(dst.position() + dst.remaining());
       } else {
-        throw new UnsupportedOperationException("Copy from this ByteBuffer is not supported");
+        throw new UnsupportedOperationException("Copy from this ArrowBuf to ByteBuffer is not supported");
       }
     }
   }
@@ -791,7 +807,9 @@ public final class ArrowBuf implements AutoCloseable {
   public void setBytes(int index, ByteBuffer src) {
     // bound check for this ArrowBuf where the data will be copied into
     checkIndex(index, src.remaining());
+    // length of data to copy
     int length = src.remaining();
+    // address in this ArrowBuf where the data will be copied to
     long dstAddress = addr(index);
     if (length != 0) {
       if (src.isDirect()) {
@@ -809,14 +827,17 @@ public final class ArrowBuf implements AutoCloseable {
         // after copy, bump the next read position for the src ByteBuffer
         src.position(src.position() + length);
       } else {
-        // word-wise memcpy
-        while (length >= 8) {
+        // copy word at a time
+        while (length >= LONG_SIZE) {
           PlatformDependent.putLong(dstAddress, src.getLong());
-          length -= 8;
-          dstAddress += 8;
+          length -= LONG_SIZE;
+          dstAddress += LONG_SIZE;
         }
+        // copy last byte
         while (length > 0) {
           PlatformDependent.putByte(dstAddress, src.get());
+          --length;
+          ++dstAddress;
         }
       }
     }
@@ -841,9 +862,10 @@ public final class ArrowBuf implements AutoCloseable {
       // srcAddress into this ArrowBuf at address dstAddres
       final long srcAddress = PlatformDependent.directBufferAddress(src) + (long)srcIndex;
       final long dstAddress = addr(index);
-      PlatformDependent.copyMemory(srcAddress, dstAddress, length);
+      PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
     } else {
       if (srcIndex == 0 && src.capacity() == length) {
+        // copy the entire ByteBuffer from start to end of length
         setBytes(index, src);
       } else {
         ByteBuffer newBuf = src.duplicate();
@@ -870,7 +892,7 @@ public final class ArrowBuf implements AutoCloseable {
     // bound check for this ArrowBuf where the data will be copied into
     Preconditions.checkArgument(dst != null, "expecting a valid ArrowBuf");
     // bound check for dst ArrowBuf
-    if (MathUtil.isOutOfBounds(dstIndex, length, dst.capacity())) {
+    if (isOutOfBounds(dstIndex, length, dst.capacity())) {
       throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
         dstIndex, length, dst.capacity()));
     }
@@ -900,7 +922,7 @@ public final class ArrowBuf implements AutoCloseable {
     // null check
     Preconditions.checkArgument(src != null, "expecting a valid ArrowBuf");
     // bound check for src ArrowBuf
-    if (MathUtil.isOutOfBounds(srcIndex, length, src.capacity())) {
+    if (isOutOfBounds(srcIndex, length, src.capacity())) {
       throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
         index, length, src.capacity()));
     }
@@ -937,12 +959,31 @@ public final class ArrowBuf implements AutoCloseable {
   public int setBytes(int index, InputStream in, int length) throws IOException {
     Preconditions.checkArgument(in != null, "expecting valid input stream");
     checkIndex(index, length);
-    byte[] tmp = new byte[length];
-    int readBytes = in.read(tmp);
-    if (readBytes > 0) {
-      PlatformDependent.copyMemory(tmp, 0, addr(index), readBytes);
+    int readBytes = 0;
+    if (length > 0) {
+      byte[] tmp = new byte[length];
+      // read the data from input stream into tmp byte array
+      readBytes = in.read(tmp);
+      if (readBytes > 0) {
+        // copy readBytes length of data from the tmp byte array starting
+        // at srcIndex 0 into this ArrowBuf starting at address addr(index)
+        PlatformDependent.copyMemory(tmp, 0, addr(index), readBytes);
+      }
     }
     return readBytes;
+  }
+
+  public void getBytes(int index, OutputStream out, int length) throws IOException {
+    Preconditions.checkArgument(out != null, "expecting valid output stream");
+    checkIndex(index, length);
+    if (length > 0) {
+      // copy length bytes of data from this ArrowBuf starting at
+      // address addr(index) into the tmp byte array starting at index 0
+      byte[] tmp = new byte[length];
+      PlatformDependent.copyMemory(addr(index), tmp, 0, length);
+      // write the copied data to output stream
+      out.write(tmp);
+    }
   }
 
   @Override
@@ -953,7 +994,6 @@ public final class ArrowBuf implements AutoCloseable {
   /**
    * Returns the possible memory consumed by this ArrowBuf in the worse case scenario.
    * (not shared, connected to larger underlying buffer of allocated memory)
-   *
    * @return Size in bytes.
    */
   public int getPossibleMemoryConsumed() {
@@ -963,8 +1003,6 @@ public final class ArrowBuf implements AutoCloseable {
   /**
    * Return that is Accounted for by this buffer (and its potentially shared siblings within the
    * context of the associated allocator).
-   * TODO SIDD: I believe the following method should not be in ArrowBuf
-   *
    * @return Size in bytes.
    */
   public int getActualMemoryConsumed() {
