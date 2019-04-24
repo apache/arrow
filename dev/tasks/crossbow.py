@@ -22,6 +22,7 @@ import re
 import sys
 import time
 import click
+import datetime
 import hashlib
 import gnupg
 import toolz
@@ -32,7 +33,6 @@ import jira.client
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
-from datetime import datetime
 from jinja2 import Template, StrictUndefined
 from setuptools_scm.git import parse as parse_git_version
 from ruamel.yaml import YAML
@@ -134,7 +134,7 @@ class JiraChangelog:
         out.write('\n'.join(old_changelog[:18]))
 
         # Newly generated changelog
-        today = datetime.today().strftime('%d %B %Y')
+        today = datetime.datetime.today().strftime('%d %B %Y')
         out.write(md('\n\n# Apache Arrow {} ({})\n\n', self.version, today))
         out.write(new_changelog)
         out.write('\n'.join(old_changelog[19:]))
@@ -222,6 +222,10 @@ class Repo:
     @property
     def remote(self):
         """Currently checked out branch's remote counterpart"""
+        if self.branch.upstream is None:
+            # the currently checked out branch is not pushed yet
+            # so fall back to origin as the default
+            return self.repo.remotes['origin']
         return self.repo.remotes[self.branch.upstream.remote_name]
 
     @property
@@ -244,7 +248,7 @@ class Repo:
         name = next(self.repo.config.get_multivar('user.name'))
         return pygit2.Signature(name, self.email, int(time.time()))
 
-    def create_branch(self, branch_name, files, parents=[], message=''):
+    def create_commit(self, files, parents=None, message=''):
         # 1. create tree
         builder = self.repo.TreeBuilder()
 
@@ -258,10 +262,11 @@ class Repo:
         # 2. create commit with the tree created above
         author = committer = self.signature
         commit_id = self.repo.create_commit(None, author, committer, message,
-                                            tree_id, parents)
-        commit = self.repo[commit_id]
+                                            tree_id, parents or [])
+        return self.repo[commit_id]
 
-        # 3. create branch pointing to the previously created commit
+    def create_branch(self, branch_name, commit):
+        # create branch pointing to the commit
         branch = self.repo.create_branch(branch_name, commit)
 
         # append to the pushable references
@@ -309,6 +314,14 @@ class Queue(Repo):
             latest = 0
         return '{}-{}'.format(prefix, latest + 1)
 
+    def date_of(self, job):
+        # it'd be better to bound to the queue repository on deserialization
+        # and reorganize these methods to Job
+        branch_name = 'origin/{}'.format(job.branch)
+        branch = self.repo.branches[branch_name]
+        commit = self.repo[branch.target]
+        return datetime.date.fromtimestamp(commit.commit_time)
+
     def get(self, job_name):
         branch_name = 'origin/{}'.format(job_name)
         branch = self.repo.branches[branch_name]
@@ -329,12 +342,28 @@ class Queue(Repo):
         for task_name, task in job.tasks.items():
             task.branch = '{}-{}'.format(job.branch, task_name)
             files = task.render_files(job=job, arrow=job.target)
-            branch = self.create_branch(task.branch, files=files)
+            commit = self.create_commit(files)
+            branch = self.create_branch(task.branch, commit)
             self.create_tag(task.tag, branch.target)
             task.commit = str(branch.target)
 
         # create job's branch with its description
-        return self.create_branch(job.branch, files=job.render_files())
+        commit = self.create_commit(job.render_files())
+        return self.create_branch(job.branch, commit=commit)
+
+    def jobs(self, prefix='build'):
+        """Return jobs sorted by its identifier in reverse order"""
+        job_names = {}
+        for name in self.repo.branches.remote:
+            origin, name = name.split('/')
+            job_pattern = r'^{}-(\d+)$'.format(prefix)
+            result = re.match(job_pattern, name)
+            if result:
+                index = int(result.group(1))
+                job_names[index] = name
+
+        for _, name in sorted(job_names.items(), reverse=True):
+            yield self.get(name)
 
     def github_statuses(self, job):
         repo = self.as_github_repo()
@@ -532,6 +561,80 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
 
     ctx.obj['arrow'] = Repo(Path(arrow_path))
     ctx.obj['queue'] = Queue(Path(queue_path), github_token=github_token)
+
+
+@crossbow.group()
+@click.pass_context
+def github_page(ctx):
+    # currently We only list links to nightly binary wheels
+    pass
+
+
+@github_page.command()
+@click.option('-n', default=10,
+              help='Number of most recent jobs')
+@click.option('--gh-branch', default='gh-pages', help='Github pages branch')
+@click.option('--job-prefix', default='nightly',
+              help='Job/tag prefix the wheel links should be generated for')
+@click.pass_context
+def update_wheel_links(ctx, n, gh_branch, job_prefix):
+    def generate_content(links):
+        links = ['<li><a href="{}">{}</a></li>'.format(url, name)
+                 for name, url in sorted(links.items())]
+        return '<html><body><ul>{}</ul></body></html>'.format(''.join(links))
+
+    queue = ctx.obj['queue']
+    # queue.fetch()
+
+    latest = None
+    for job in toolz.take(n, queue.jobs(prefix=job_prefix)):
+        wheels = {}
+
+        click.echo()
+        click.echo('Processing {}...'.format(job.branch))
+        for task_name, task in job.tasks.items():
+            # We only take care of wheels for now
+            if not task_name.startswith('wheel'):
+                continue
+
+            # don't fetch github API unless We expect to have wheels
+            assets = queue.github_assets(task)
+            for artifact in task.artifacts:
+                try:
+                    asset = assets[artifact]
+                except KeyError:
+                    msg = 'MISSING: {}'.format(artifact)
+                    click.echo(click.style(msg, 'yellow'))
+                else:
+                    wheels[artifact] = asset
+
+        if not wheels:
+            click.echo('No wheels found.')
+            continue
+
+        click.echo(
+            'Found {} wheels, generating html file...'.format(len(wheels))
+        )
+        links = {filename: asset.browser_download_url
+                 for filename, asset in wheels.items()}
+        content = generate_content(links)
+        date = queue.date_of(job)
+        path = queue.path / 'nightly' / 'wheel' / str(date) / 'index.html'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+
+        if latest is None:
+            # write the most recent
+            latest = path.parent.parent / 'latest' / 'index.html'
+            latest.parent.mkdir(parents=True, exist_ok=True)
+            latest.write_text(content)
+
+    for parent in (latest.parents[1], latest.parents[2]):
+        subdirs = {p.name: '{}/'.format(p.relative_to(p.parent))
+                   for p in parent.iterdir() if p.is_dir()}
+        content = generate_content(subdirs)
+        path = parent / 'index.html'
+        path.write_text(content)
 
 
 @crossbow.command()
