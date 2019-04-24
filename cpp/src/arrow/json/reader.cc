@@ -91,7 +91,7 @@ class TableReaderImpl : public TableReader {
     }
 
     std::shared_ptr<ChunkedArray> array;
-    RETURN_NOT_OK(builder_->Finish({}, &array));
+    RETURN_NOT_OK(builder_->Finish(&array));
     return Table::FromChunkedStructArray(array, out);
   }
 
@@ -175,7 +175,7 @@ Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
 
   builder->Insert(0, field("", type), parsed);
   std::shared_ptr<ChunkedArray> converted_chunked;
-  RETURN_NOT_OK(builder->Finish({}, &converted_chunked));
+  RETURN_NOT_OK(builder->Finish(&converted_chunked));
   auto converted = static_cast<const StructArray*>(converted_chunked->chunk(0).get());
 
   std::vector<std::shared_ptr<Array>> columns(converted->num_fields());

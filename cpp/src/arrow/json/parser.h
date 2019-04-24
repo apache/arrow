@@ -54,6 +54,10 @@ constexpr int32_t kMaxParserNumRows = 100000;
 ///
 /// The parser takes a block of newline delimited JSON data and extracts Arrays
 /// of unconverted strings which can be fed to a Converter to obtain a usable Array.
+///
+/// Note that some conversion errors are caught at parse time:
+/// - JSON kind of a field may not change
+/// - Null in non-nullable field
 class ARROW_EXPORT BlockParser {
  public:
   virtual ~BlockParser() = default;

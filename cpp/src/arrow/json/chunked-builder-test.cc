@@ -57,8 +57,7 @@ void AssertBuilding(const std::unique_ptr<ChunkedArrayBuilder>& builder,
     builder->Insert(i, field("", parsed->type()), parsed);
     ++i;
   }
-  ASSERT_OK(builder->task_group()->Finish());
-  ASSERT_OK(builder->Finish({}, out));
+  ASSERT_OK(builder->Finish(out));
 }
 
 std::shared_ptr<ChunkedArray> ExtractField(const std::string& name,
@@ -145,8 +144,7 @@ TEST(ChunkedArrayBuilder, Insert) {
   ASSERT_OK(ParseFromString(options, RowsOfOneColumn("a", {123}), &parsed));
   builder->Insert(0, field("", parsed->type()), parsed);
 
-  ASSERT_OK(builder->task_group()->Finish());
-  ASSERT_OK(builder->Finish({}, &actual));
+  ASSERT_OK(builder->Finish(&actual));
 
   ChunkedArrayFromVector<Int32Type>({{123}, {-456}}, &expected);
   AssertFieldEqual({"a"}, actual, *expected);
@@ -252,14 +250,16 @@ TEST(InferringChunkedArrayBuilder, SingleChunkInteger) {
                                     struct_({}), &builder));
 
   std::shared_ptr<ChunkedArray> actual;
-  AssertBuilding(builder,
-                 {
-                     "{}\n" + RowsOfOneColumn("a", {123, 456}),
-                 },
-                 &actual);
+  AssertBuilding(
+      builder,
+      {
+          "{}\n" + RowsOfOneColumn("a", {123, 456}) + RowsOfOneColumn("a", {"null"}),
+      },
+      &actual);
 
   std::shared_ptr<ChunkedArray> expected;
-  ChunkedArrayFromVector<Int64Type>({{false, true, true}}, {{0, 123, 456}}, &expected);
+  ChunkedArrayFromVector<Int64Type>({{false, true, true, false}}, {{0, 123, 456, 0}},
+                                    &expected);
   AssertFieldEqual({"a"}, actual, *expected);
 }
 
@@ -291,15 +291,16 @@ TEST(InferringChunkedArrayBuilder, SingleChunkDouble) {
                                     struct_({}), &builder));
 
   std::shared_ptr<ChunkedArray> actual;
-  AssertBuilding(builder,
-                 {
-                     "{}\n" + RowsOfOneColumn("a", {0.0, 12.5}),
-                 },
-                 &actual);
+  AssertBuilding(
+      builder,
+      {
+          "{}\n" + RowsOfOneColumn("a", {0.0, 12.5}) + RowsOfOneColumn("a", {"null"}),
+      },
+      &actual);
 
   std::shared_ptr<ChunkedArray> expected;
-  ChunkedArrayFromVector<DoubleType>({{false, true, true}}, {{0.0, 0.0, 12.5}},
-                                     &expected);
+  ChunkedArrayFromVector<DoubleType>({{false, true, true, false}},
+                                     {{0.0, 0.0, 12.5, 0.0}}, &expected);
   AssertFieldEqual({"a"}, actual, *expected);
 }
 
@@ -312,6 +313,7 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkDouble) {
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder,
                  {
+                     "{}\n{}\n",
                      RowsOfOneColumn("a", {"null"}),
                      RowsOfOneColumn("a", {8}),
                      RowsOfOneColumn("a", {"null", "12.5"}),
@@ -319,8 +321,8 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkDouble) {
                  &actual);
 
   std::shared_ptr<ChunkedArray> expected;
-  ChunkedArrayFromVector<DoubleType>({{false}, {true}, {false, true}},
-                                     {{0.0}, {8.0}, {0.0, 12.5}}, &expected);
+  ChunkedArrayFromVector<DoubleType>({{false, false}, {false}, {true}, {false, true}},
+                                     {{0.0, 0.0}, {0.0}, {8.0}, {0.0, 12.5}}, &expected);
   AssertFieldEqual({"a"}, actual, *expected);
 }
 
@@ -331,17 +333,17 @@ TEST(InferringChunkedArrayBuilder, SingleChunkTimestamp) {
                                     struct_({}), &builder));
 
   std::shared_ptr<ChunkedArray> actual;
-  AssertBuilding(
-      builder,
-      {
-          RowsOfOneColumn("a", {"null", "\"1970-01-01\"", "\"2018-11-13 17:11:10\""}),
-      },
-      &actual);
+  AssertBuilding(builder,
+                 {
+                     "{}\n" + RowsOfOneColumn("a", {"null", "\"1970-01-01\"",
+                                                    "\"2018-11-13 17:11:10\""}),
+                 },
+                 &actual);
 
   std::shared_ptr<ChunkedArray> expected;
   ChunkedArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND),
-                                        {{false, true, true}}, {{0, 0, 1542129070}},
-                                        &expected);
+                                        {{false, false, true, true}},
+                                        {{0, 0, 0, 1542129070}}, &expected);
   AssertFieldEqual({"a"}, actual, *expected);
 }
 
@@ -354,6 +356,7 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkTimestamp) {
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder,
                  {
+                     "{}\n{}\n",
                      RowsOfOneColumn("a", {"null"}),
                      RowsOfOneColumn("a", {"\"1970-01-01\""}),
                      RowsOfOneColumn("a", {"\"2018-11-13 17:11:10\""}),
@@ -362,8 +365,8 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkTimestamp) {
 
   std::shared_ptr<ChunkedArray> expected;
   ChunkedArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND),
-                                        {{false}, {true}, {true}},
-                                        {{0}, {0}, {1542129070}}, &expected);
+                                        {{false, false}, {false}, {true}, {true}},
+                                        {{0, 0}, {0}, {0}, {1542129070}}, &expected);
   AssertFieldEqual({"a"}, actual, *expected);
 }
 
@@ -374,15 +377,17 @@ TEST(InferringChunkedArrayBuilder, SingleChunkString) {
                                     struct_({}), &builder));
 
   std::shared_ptr<ChunkedArray> actual;
-  AssertBuilding(builder,
-                 {
-                     RowsOfOneColumn("a", {"\"\"", "\"foo\"", "\"baré\""}),
-                 },
-                 &actual);
+  AssertBuilding(
+      builder,
+      {
+          "{}\n" + RowsOfOneColumn("a", {"null", "\"\"", "null", "\"foo\"", "\"baré\""}),
+      },
+      &actual);
 
   std::shared_ptr<ChunkedArray> expected;
-  ChunkedArrayFromVector<StringType, std::string>({{true, true, true}},
-                                                  {{"", "foo", "baré"}}, &expected);
+  ChunkedArrayFromVector<StringType, std::string>(
+      {{false, false, true, false, true, true}}, {{"", "", "", "", "foo", "baré"}},
+      &expected);
   AssertFieldEqual({"a"}, actual, *expected);
 }
 
@@ -395,7 +400,8 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkString) {
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder,
                  {
-                     RowsOfOneColumn("a", {"\"\""}),
+                     "{}\n{}\n",
+                     RowsOfOneColumn("a", {"\"\"", "null"}),
                      RowsOfOneColumn("a", {"\"1970-01-01\""}),
                      RowsOfOneColumn("a", {"\"\"", "\"baré\""}),
                  },
@@ -403,7 +409,8 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkString) {
 
   std::shared_ptr<ChunkedArray> expected;
   ChunkedArrayFromVector<StringType, std::string>(
-      {{true}, {true}, {true, true}}, {{""}, {"1970-01-01"}, {"", "baré"}}, &expected);
+      {{false, false}, {true, false}, {true}, {true, true}},
+      {{"", ""}, {"", ""}, {"1970-01-01"}, {"", "baré"}}, &expected);
   AssertFieldEqual({"a"}, actual, *expected);
 }
 

@@ -49,12 +49,12 @@ class ARROW_EXPORT ChunkedArrayBuilder {
                       const std::shared_ptr<Array>& unconverted) = 0;
 
   /// Return the final chunked array.
-  /// chunk_lengths may be empty if all chunks were inserted, otherwise if the
-  /// nth chunk is missing then it is assumed to contain chunk_lengths[n] nulls
-  virtual Status Finish(const std::vector<int64_t>& chunk_lengths,
-                        std::shared_ptr<ChunkedArray>* out) = 0;
+  /// Every chunk must be inserted before this is called!
+  virtual Status Finish(std::shared_ptr<ChunkedArray>* out) = 0;
 
-  std::shared_ptr<internal::TaskGroup> task_group() { return task_group_; }
+  /// Finish current task group and substitute a new one
+  virtual Status ReplaceTaskGroup(
+      const std::shared_ptr<internal::TaskGroup>& task_group) = 0;
 
  protected:
   explicit ChunkedArrayBuilder(const std::shared_ptr<internal::TaskGroup>& task_group)

@@ -259,6 +259,10 @@ Status MakeConverter(const std::shared_ptr<DataType>& out_type, MemoryPool* pool
 
 const PromotionGraph* GetPromotionGraph() {
   static struct : PromotionGraph {
+    std::shared_ptr<Field> Null(const std::string& name) const override {
+      return field(name, null(), true, Kind::Tag(Kind::kNull));
+    }
+
     std::shared_ptr<DataType> Infer(
         const std::shared_ptr<Field>& unexpected_field) const override {
       auto kind = Kind::FromTag(unexpected_field->metadata());
@@ -277,12 +281,13 @@ const PromotionGraph* GetPromotionGraph() {
 
         case Kind::kArray: {
           auto type = static_cast<const ListType*>(unexpected_field->type().get());
-          return list(field(type->value_field()->name(), Infer(type->value_field())));
+          auto value_field = type->value_field();
+          return list(value_field->WithType(Infer(value_field)));
         }
         case Kind::kObject: {
           auto fields = unexpected_field->type()->children();
-          for (auto& fld : fields) {
-            fld = field(fld->name(), Infer(fld));
+          for (auto& field : fields) {
+            field = field->WithType(Infer(field));
           }
           return struct_(std::move(fields));
         }

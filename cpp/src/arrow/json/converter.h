@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
@@ -67,6 +68,9 @@ ARROW_EXPORT Status MakeConverter(const std::shared_ptr<DataType>& out_type,
 class ARROW_EXPORT PromotionGraph {
  public:
   virtual ~PromotionGraph() = default;
+
+  /// \brief produce a valid field which will be inferred as null
+  virtual std::shared_ptr<Field> Null(const std::string& name) const = 0;
 
   /// \brief given an unexpected field encountered during parsing, return a type to which
   /// it may be convertible (may return null if none is available)
