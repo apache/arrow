@@ -88,7 +88,7 @@ struct CompareOptions {
 /// \param[in] type required to specialize the kernel
 /// \param[in] options required to specify the compare operator
 ///
-/// \since 0.13.0
+/// \since 0.14.0
 /// \note API not yet finalized
 ARROW_EXPORT
 std::shared_ptr<FilterFunction> MakeCompareFilterFunction(FunctionContext* context,
@@ -106,7 +106,7 @@ std::shared_ptr<FilterFunction> MakeCompareFilterFunction(FunctionContext* conte
 ///
 /// Note on floating point arrays, this uses ieee-754 compare semantics.
 ///
-/// \since 0.13.0
+/// \since 0.14.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Status Compare(FunctionContext* context, const Datum& left, const Datum& right,

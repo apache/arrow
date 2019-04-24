@@ -55,6 +55,32 @@ garrow_numeric_array_sum(GArrowArrayType array,
   }
 }
 
+template <typename GArrowArrayType, typename VALUE>
+GArrowBooleanArray *
+garrow_numeric_array_compare(GArrowArrayType array,
+                             VALUE value,
+                             GArrowCompareOptions *options,
+                             GError **error,
+                             const gchar *tag)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum compared_datum;
+  auto arrow_options = garrow_compare_options_get_raw(options);
+  auto status = arrow::compute::Compare(&context,
+                                        arrow_array,
+                                        arrow::compute::Datum(value),
+                                        *arrow_options,
+                                        &compared_datum);
+  if (garrow_error_check(error, status, tag)) {
+    auto arrow_compared_array = compared_datum.make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_compared_array));
+  } else {
+    return NULL;
+  }
+}
+
 G_BEGIN_DECLS
 
 /**
@@ -364,6 +390,105 @@ garrow_take_options_new(void)
 {
   auto take_options = g_object_new(GARROW_TYPE_TAKE_OPTIONS, NULL);
   return GARROW_TAKE_OPTIONS(take_options);
+}
+
+
+typedef struct GArrowCompareOptionsPrivate_ {
+  arrow::compute::CompareOptions options;
+} GArrowCompareOptionsPrivate;
+
+enum {
+  PROP_OPERATOR = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowCompareOptions,
+                           garrow_compare_options,
+                           G_TYPE_OBJECT)
+
+#define GARROW_COMPARE_OPTIONS_GET_PRIVATE(object)        \
+  static_cast<GArrowCompareOptionsPrivate *>(             \
+    garrow_compare_options_get_instance_private(          \
+      GARROW_COMPARE_OPTIONS(object)))
+
+static void
+garrow_compare_options_set_property(GObject *object,
+                                    guint prop_id,
+                                    const GValue *value,
+                                    GParamSpec *pspec)
+{
+  auto priv = GARROW_COMPARE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_OPERATOR:
+    priv->options.op =
+      static_cast<arrow::compute::CompareOperator>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_compare_options_get_property(GObject *object,
+                                    guint prop_id,
+                                    GValue *value,
+                                    GParamSpec *pspec)
+{
+  auto priv = GARROW_COMPARE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_OPERATOR:
+    g_value_set_enum(value, priv->options.op);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_compare_options_init(GArrowCompareOptions *object)
+{
+}
+
+static void
+garrow_compare_options_class_init(GArrowCompareOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_compare_options_set_property;
+  gobject_class->get_property = garrow_compare_options_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowCompareOptions:operator:
+   *
+   * How to compare the value.
+   *
+   * Since: 0.14.0
+   */
+  spec = g_param_spec_enum("operator",
+                           "Operator",
+                           "How to compare the value",
+                           GARROW_TYPE_COMPARE_OPERATOR,
+                           0,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_OPERATOR, spec);
+}
+
+/**
+ * garrow_compare_options_new:
+ *
+ * Returns: A newly created #GArrowCompareOptions.
+ *
+ * Since: 0.14.0
+ */
+GArrowCompareOptions *
+garrow_compare_options_new(void)
+{
+  auto compare_options = g_object_new(GARROW_TYPE_COMPARE_OPTIONS, NULL);
+  return GARROW_COMPARE_OPTIONS(compare_options);
 }
 
 
@@ -990,6 +1115,267 @@ garrow_array_take(GArrowArray *array,
 }
 
 
+/**
+ * garrow_int8_array_compare:
+ * @array: A #GArrowInt8Array.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_int8_array_compare(GArrowInt8Array *array,
+                          gint8 value,
+                          GArrowCompareOptions *options,
+                          GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[int8-array][compare]");
+}
+
+/**
+ * garrow_uint8_array_compare:
+ * @array: A #GArrowUInt8Array.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_uint8_array_compare(GArrowUInt8Array *array,
+                           guint8 value,
+                           GArrowCompareOptions *options,
+                           GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[uint8-array][compare]");
+}
+
+/**
+ * garrow_int16_array_compare:
+ * @array: A #GArrowInt16Array.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_int16_array_compare(GArrowInt16Array *array,
+                           gint16 value,
+                           GArrowCompareOptions *options,
+                           GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[int16-array][compare]");
+}
+
+/**
+ * garrow_uint16_array_compare:
+ * @array: A #GArrowUInt16Array.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_uint16_array_compare(GArrowUInt16Array *array,
+                            guint16 value,
+                            GArrowCompareOptions *options,
+                            GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[uint16-array][compare]");
+}
+
+/**
+ * garrow_int32_array_compare:
+ * @array: A #GArrowUInt32Array.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_int32_array_compare(GArrowInt32Array *array,
+                           gint32 value,
+                           GArrowCompareOptions *options,
+                           GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[int32-array][compare]");
+}
+
+/**
+ * garrow_uint32_array_compare:
+ * @array: A #GArrowUInt32Array.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_uint32_array_compare(GArrowUInt32Array *array,
+                            guint32 value,
+                            GArrowCompareOptions *options,
+                            GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[uint32-array][compare]");
+}
+
+/**
+ * garrow_int64_array_compare:
+ * @array: A #GArrowInt64Array.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_int64_array_compare(GArrowInt64Array *array,
+                           gint64 value,
+                           GArrowCompareOptions *options,
+                           GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[int64-array][compare]");
+}
+
+/**
+ * garrow_uint64_array_compare:
+ * @array: A #GArrowUInt64Array.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_uint64_array_compare(GArrowUInt64Array *array,
+                            guint64 value,
+                            GArrowCompareOptions *options,
+                            GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[uint64-array][compare]");
+}
+
+/**
+ * garrow_float_array_compare:
+ * @array: A #GArrowFloatArray.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_float_array_compare(GArrowFloatArray *array,
+                           gfloat value,
+                           GArrowCompareOptions *options,
+                           GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[float-array][compare]");
+}
+
+/**
+ * garrow_double_array_compare:
+ * @array: A #GArrowDoubleArray.
+ * @value: The value to compare.
+ * @options: A #GArrowCompareOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray as
+ *   the result compared a numeric array with a scalar on success,
+ *   %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowBooleanArray *
+garrow_double_array_compare(GArrowDoubleArray *array,
+                            gdouble value,
+                            GArrowCompareOptions *options,
+                            GError **error)
+{
+  return garrow_numeric_array_compare(array,
+                                      value,
+                                      options,
+                                      error,
+                                      "[double-array][compare]");
+}
+
+
 G_END_DECLS
 
 GArrowCastOptions *
@@ -1033,5 +1419,12 @@ arrow::compute::TakeOptions *
 garrow_take_options_get_raw(GArrowTakeOptions *take_options)
 {
   auto priv = GARROW_TAKE_OPTIONS_GET_PRIVATE(take_options);
+  return &(priv->options);
+}
+
+arrow::compute::CompareOptions *
+garrow_compare_options_get_raw(GArrowCompareOptions *compare_options)
+{
+  auto priv = GARROW_COMPARE_OPTIONS_GET_PRIVATE(compare_options);
   return &(priv->options);
 }
