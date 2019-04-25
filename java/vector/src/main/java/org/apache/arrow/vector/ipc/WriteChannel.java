@@ -89,9 +89,13 @@ public class WriteChannel implements AutoCloseable {
     return write(outBuffer);
   }
 
-  public void write(ArrowBuf buffer) throws IOException {
-    ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
-    write(nioBuffer);
+  public long write(ArrowBuf buffer) throws IOException {
+    return write(buffer, buffer.readerIndex(), buffer.readableBytes());
+  }
+
+  public long write(ArrowBuf buffer, int offset, int length) throws IOException {
+    ByteBuffer nioBuffer = buffer.nioBuffer(offset, length);
+    return write(nioBuffer);
   }
 
   public long write(FBSerializable writer, boolean withSizePrefix) throws IOException {

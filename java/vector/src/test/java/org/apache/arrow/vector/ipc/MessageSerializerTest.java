@@ -181,6 +181,27 @@ public class MessageSerializerTest {
     verifyBatch((ArrowRecordBatch) deserialized, validity, values);
   }
 
+  @Test
+  public void testSerializeArrowBuf() throws IOException {
+    byte[] values = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
+    ArrowBuf buffer = buf(alloc, values);
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    MessageSerializer.serializeArrowBuf(buffer, 0, values.length, new WriteChannel(Channels.newChannel(out)));
+
+    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+    ReadChannel channel = new ReadChannel(Channels.newChannel(in));
+
+    ArrowBuf deserialized = alloc.buffer(values.length);
+    MessageSerializer.deserializeArrowBuf(deserialized, 0, values.length, channel);
+
+    assertEquals(1, deserialized.getByte(0));
+    assertEquals(6, deserialized.getByte(5));
+    assertEquals(10, deserialized.getByte(9));
+
+  }
+
   public static Schema testSchema() {
     return new Schema(asList(new Field(
         "testField", FieldType.nullable(new ArrowType.Int(8, true)), Collections.<Field>emptyList())));

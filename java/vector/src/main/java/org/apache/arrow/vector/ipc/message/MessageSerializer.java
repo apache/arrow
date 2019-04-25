@@ -576,4 +576,29 @@ public class MessageSerializer {
     }
     return bodyBuffer;
   }
+
+  /**
+   * Serialize an ArrowBuf to WriteChannel.
+   * @param buffer The ArrowBuf to serialize
+   * @param offset The write index in buffer
+   * @param length Length in bytes of the buffer to write
+   * @param channel WriteChannel to write the buffer
+   * @throws IOException if something went wrong
+   */
+  public static void serializeArrowBuf(ArrowBuf buffer, int offset, int length, WriteChannel channel) throws IOException {
+    channel.write(buffer, offset, length);
+  }
+
+  /**
+   * Deserialize an ArrowBuf from ReadChannel.
+   * @param buffer The ArrowBuf to deserialize to
+   * @param offset The read index in buffer
+   * @param length Length in bytes of the buffer to read
+   * @param channel ReadChannel to read the buffer
+   * @throws IOException
+   */
+  public static void deserializeArrowBuf(ArrowBuf buffer, int offset, int length, ReadChannel channel) throws IOException {
+    channel.readFully(buffer, offset, length);
+  }
+
 }
