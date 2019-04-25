@@ -22,4 +22,5 @@
    cpp
    python
    integration
+   benchmarks
    documentation

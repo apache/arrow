@@ -15,48 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apache-rat-*.jar
-arrow-src.tar
-arrow-src.tar.gz
+import logging
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-dependency-reduced-pom.xml
-MANIFEST
-compile_commands.json
-build.ninja
+""" Global logger. """
+logger = logging.getLogger("archery")
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
 
-# Linux perf sample data
-perf.data
-perf.data.old
+class LoggingContext:
+    def __init__(self, quiet=False):
+        self.quiet = quiet
 
-cpp/.idea/
-cpp/apidoc/xml/
-docs/example.gz
-docs/example1.dat
-docs/example3.dat
-python/.eggs/
-python/doc/
-# Egg metadata
-*.egg-info
 
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-docker_cache
+ctx = LoggingContext()

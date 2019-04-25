@@ -15,48 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apache-rat-*.jar
-arrow-src.tar
-arrow-src.tar.gz
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-dependency-reduced-pom.xml
-MANIFEST
-compile_commands.json
-build.ninja
+import json
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+from ..benchmark.compare import BenchmarkComparator
 
-# Linux perf sample data
-perf.data
-perf.data.old
 
-cpp/.idea/
-cpp/apidoc/xml/
-docs/example.gz
-docs/example1.dat
-docs/example3.dat
-python/.eggs/
-python/doc/
-# Egg metadata
-*.egg-info
+class JsonEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, BenchmarkComparator):
+            comparator = {
+                "benchmark": o.name,
+                "change": o.change,
+                "regression": o.regression,
+                "baseline": o.baseline.value,
+                "contender": o.contender.value,
+                "unit": o.unit,
+                "less_is_better": o.less_is_better,
+            }
 
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-docker_cache
+            suite_name = o.suite_name
+            if suite_name:
+                comparator["suite"] = suite_name
+
+            return comparator
+
+        return json.JSONEncoder.default(self, o)
