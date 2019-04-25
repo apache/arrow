@@ -92,9 +92,7 @@ std::string RowsOfOneColumn(string_view name, std::initializer_list<T> values,
   return ss.str();
 }
 
-template <typename T>
-std::string RowsOfOneColumn(string_view name, std::initializer_list<T> values,
-                            decltype(string_view(*values.begin()))* = nullptr) {
+std::string RowsOfOneColumn(string_view name, std::initializer_list<std::string> values) {
   std::stringstream ss;
   for (auto value : values) {
     ss << R"({")" << name << R"(":)" << value << "}\n";
