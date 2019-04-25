@@ -168,6 +168,8 @@ set(PARQUET_SRCS
     encoding.cc
     encryption.cc
     encryption_properties.cc
+    internal_file_decryptor.cc
+    internal_file_encryptor.cc
     file_reader.cc
     file_writer.cc
     metadata.cc

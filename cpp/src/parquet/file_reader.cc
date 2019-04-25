@@ -34,6 +34,7 @@
 #include "parquet/column_scanner.h"
 #include "parquet/deprecated_io.h"
 #include "parquet/exception.h"
+#include "parquet/internal_file_decryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -87,12 +88,13 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   SerializedRowGroup(const std::shared_ptr<ArrowInputFile>& source,
                      FileMetaData* file_metadata,
                      FileCryptoMetaData* file_crypto_metadata, int row_group_number,
-                     const ReaderProperties& props)
+                     const ReaderProperties& props, InternalFileDecryptor* file_decryptor)
       : source_(source),
         file_metadata_(file_metadata),
         file_crypto_metadata_(file_crypto_metadata),
         properties_(props),
-        row_group_ordinal_((int16_t)row_group_number){
+        row_group_ordinal_((int16_t)row_group_number),
+        file_decryptor_(file_decryptor){
     row_group_metadata_ = file_metadata->RowGroup(row_group_number);
   }
 
@@ -108,15 +110,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     else if (file_metadata_->is_plaintext_mode()) {
       algorithm = file_metadata_->encryption_algorithm();
     }
-    std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-                             std::string, parquet::schema::ColumnPath::CmpColumnPath>>
-      column_map = properties_.column_map();
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i, row_group_ordinal_,
                                                 properties_.file_decryption(),
-                                                &algorithm,
-                                                properties_.fileAAD(),
-                                                column_map);
+                                                &algorithm, file_decryptor_);
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
         col_start > col->dictionary_page_offset()) {
@@ -153,8 +150,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     if (!encrypted) {
       return PageReader::Open(stream, col->num_values(), col->compression(),
                               col->has_dictionary_page(),
-                              row_group_ordinal_, (int16_t)i/*column_ordinal*/,
-                              nullptr, properties_.memory_pool());
+                              row_group_ordinal_,
+                              (int16_t)i/* column_ordinal */,
+                              properties_.memory_pool());
     }
 
     // the column is encrypted
@@ -164,38 +162,25 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         row_group_ordinal_,
         (int16_t)i, (int16_t)-1);
     
-    auto file_decryption = properties_.file_decryption();
-
     // the column is encrypted with footer key
     if (crypto_metadata->encrypted_with_footer_key()) {
       const std::string& footer_key_metadata = file_metadata_->is_plaintext_mode()
                                   ? file_metadata_->footer_signing_key_metadata()
                                   : file_crypto_metadata_->key_metadata();
 
-      std::string footer_key = file_decryption->getFooterKey();
-      // ignore footer key metadata if footer key is explicitly set via API
-      if (footer_key.empty()) {
-        if (footer_key_metadata.empty())
-          throw ParquetException("No footer key or key metadata");
-
-        if (file_decryption->getKeyRetriever() == nullptr)
-          throw ParquetException("No footer key or key retriever");
-        footer_key = file_decryption->getKeyRetriever()->GetKey(
-            footer_key_metadata);
-      }
-      if (footer_key.empty()) {
-        throw ParquetException("column is encrypted with null footer key");
-      }
       ParquetCipher::type algorithm = file_metadata_->is_plaintext_mode()
                                 ? file_metadata_->encryption_algorithm().algorithm
                                 : file_crypto_metadata_->encryption_algorithm().algorithm;
 
-      auto footer_encryption = std::make_shared<EncryptionProperties>(
-          algorithm, footer_key, properties_.fileAAD(), aad);
+      auto meta_decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta(
+          algorithm, footer_key_metadata, aad);
+      auto data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData(
+          algorithm, footer_key_metadata, aad);
 
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              col->has_dictionary_page(), row_group_ordinal_, (int16_t)i,
-                              footer_encryption, properties_.memory_pool());
+                              col->has_dictionary_page(), row_group_ordinal_,
+                              (int16_t)i, properties_.memory_pool(),
+                              meta_decryptor, data_decryptor);
     }
 
     // file is non-uniform encrypted and the column
@@ -204,41 +189,21 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     std::string column_key_metadata = crypto_metadata->key_metadata();
     std::shared_ptr<schema::ColumnPath> column_path =
         std::make_shared<schema::ColumnPath>(crypto_metadata->path_in_schema());
-    // encrypted with column key
-    std::string column_key;
-    // first look if we already got the key from before
-    if (column_map != NULLPTR
-        && column_map->find(column_path) != column_map->end()) {
-      column_key = column_map->at(column_path);
-    } else {
-      column_key = file_decryption->getColumnKey(column_path);
-      // No explicit column key given via API. Retrieve via key metadata.
-      if (column_key.empty() && !column_key_metadata.empty() &&
-          file_decryption->getKeyRetriever() != nullptr){
-        try {
-          column_key = file_decryption->getKeyRetriever()->GetKey(
-              column_key_metadata);
-        } catch (KeyAccessDeniedException &e) {
-          std::stringstream ss;
-          ss << "HiddenColumnException, path=" +
-            column_path->ToDotString() + " "
-             << e.what() << "\n";
-          throw HiddenColumnException(ss.str());
-        }
-      }
-    }
-    if (column_key.empty()) {
-      throw HiddenColumnException("column is encrypted with null key, path=" +
-                                  column_path->ToDotString());
-    }
-    auto column_encryption = std::make_shared<EncryptionProperties>(
-	      file_crypto_metadata_->encryption_algorithm().algorithm,
-	      column_key,
-	      properties_.fileAAD(), aad);
     
-    return PageReader::Open(stream, col->num_values(), col->compression(),
-			                      col->has_dictionary_page(), row_group_ordinal_, (int16_t)i,
-                            column_encryption, properties_.memory_pool());
+    auto meta_decryptor = file_decryptor_->GetColumnMetaDecryptor(
+        column_path,
+        file_crypto_metadata_->encryption_algorithm().algorithm,
+        column_key_metadata, aad);
+    auto data_decryptor = file_decryptor_->GetColumnDataDecryptor(
+        column_path,
+        file_crypto_metadata_->encryption_algorithm().algorithm,
+        column_key_metadata, aad);
+
+    return PageReader::Open(stream, col->num_values(),
+                            col->compression(),
+                            col->has_dictionary_page(), row_group_ordinal_,
+                            (int16_t)i, properties_.memory_pool(),
+                            meta_decryptor, data_decryptor);
   }
 
  private:
@@ -248,6 +213,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   std::unique_ptr<RowGroupMetaData> row_group_metadata_;
   ReaderProperties properties_;
   int16_t row_group_ordinal_;
+  InternalFileDecryptor* file_decryptor_;
 };
 
 // ----------------------------------------------------------------------
@@ -267,7 +233,8 @@ class SerializedFile : public ParquetFileReader::Contents {
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::unique_ptr<SerializedRowGroup> contents(
         new SerializedRowGroup(source_, file_metadata_.get(),
-                               file_crypto_metadata_.get(), i, properties_));
+                               file_crypto_metadata_.get(), i, properties_,
+                               file_decryptor_.get()));
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -333,6 +300,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
       if (file_metadata_->is_plaintext_mode()) {
         auto file_decryption = properties_.file_decryption();
+        file_decryptor_.reset(new InternalFileDecryptor(file_decryption));
         if (file_decryption == nullptr) {
           throw ParquetException("No decryption properties are provided");
         }
@@ -365,41 +333,19 @@ class SerializedFile : public ParquetFileReader::Contents {
         else
           fileAAD = file_decryption->getAADPrefix() + aad_file_unique;
 
-        properties_.set_fileAAD(fileAAD);
+        file_decryptor_->file_aad(fileAAD);
         if (file_decryption->checkFooterIntegrity()) {
           if (metadata_len - read_metadata_len != 28) {
             throw ParquetException("Invalid parquet file. Cannot verify plaintext"
            "mode footer.");
           }
 
-          // get footer key
           std::string footer_key_metadata = file_metadata_->footer_signing_key_metadata();
-          std::string footer_key = file_decryption->getFooterKey();
-          // ignore footer key metadata if footer key is explicitly set via API
-          if (footer_key.empty()) {
-            if (footer_key_metadata.empty())
-              throw ParquetException("No footer key or key metadata");
-            if (file_decryption->getKeyRetriever() == nullptr)
-              throw ParquetException("No footer key or key retriever");
-            try {
-              footer_key =
-                file_decryption->getKeyRetriever()->GetKey(footer_key_metadata);
-            } catch (KeyAccessDeniedException &e) {
-              std::stringstream ss;
-              ss << "Footer key: access denied " << e.what() << "\n";
-              throw ParquetException(ss.str());
-            }
-          }
-          if (footer_key.empty()) {
-            throw ParquetException("Footer key unavailable. Could not verify "
-                                   "plaintext footer metadata");
-          }
-          std::string aad = parquet_encryption::createFooterAAD(fileAAD);
-          auto encryption = std::make_shared<EncryptionProperties>(
+          auto encryptor = file_decryptor_->GetFooterSigningEncryptor(
               file_metadata_->encryption_algorithm().algorithm,
-              footer_key, fileAAD, aad);
-          if (! file_metadata_->verify(encryption, metadata_buffer->data()
-               + read_metadata_len, 28)) {
+              footer_key_metadata);
+          if (! file_metadata_->verify(encryptor, metadata_buffer->data()
+              + read_metadata_len)) {
             throw ParquetException("Invalid parquet file. Could not verify plaintext"
                                    " footer metadata");
           }
@@ -437,6 +383,7 @@ class SerializedFile : public ParquetFileReader::Contents {
         throw ParquetException("No decryption properties are provided. Could not read "
                                "encrypted footer metadata");
       }
+      file_decryptor_.reset(new InternalFileDecryptor(file_decryption));
       uint32_t crypto_metadata_len = footer_len;
       file_crypto_metadata_ =
         FileCryptoMetaData::Make(crypto_metadata_buffer->data(), &crypto_metadata_len);
@@ -468,8 +415,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       else
         fileAAD = file_decryption->getAADPrefix() + aad_file_unique;
       // save fileAAD for later use
-      properties_.set_fileAAD(fileAAD);
-      std::string aad = parquet_encryption::createFooterAAD(fileAAD);
+      file_decryptor_->file_aad(fileAAD);
       
       int64_t metadata_offset = file_size - kFooterSize - footer_len + crypto_metadata_len;
       uint32_t metadata_len = footer_len - crypto_metadata_len;
@@ -483,32 +429,13 @@ class SerializedFile : public ParquetFileReader::Contents {
 
       // get footer key metadata
       std::string footer_key_metadata = file_crypto_metadata_->key_metadata();
-      std::string footer_key = file_decryption->getFooterKey();
-      if (footer_key.empty()) {
-        if (footer_key_metadata.empty())
-          throw ParquetException("No footer key or key metadata");
-        if (file_decryption->getKeyRetriever() == nullptr)
-          throw ParquetException("No footer key or key retriever");
-        try {
-          footer_key =
-            file_decryption->getKeyRetriever()->GetKey(footer_key_metadata);
-        } catch (KeyAccessDeniedException &e) {
-          std::stringstream ss;
-          ss << "Footer key: access denied " << e.what() << "\n";;
-          throw ParquetException(ss.str());
-        }
-      }
-      if (footer_key.empty()) {
-        throw ParquetException("Invalid footer encryption key. "
-                               "Could not parse footer metadata");
-      }
-      auto footer_encryption = std::make_shared<EncryptionProperties>(
+      
+      auto footer_decryptor = file_decryptor_->GetFooterDecryptor(
           file_crypto_metadata_->encryption_algorithm().algorithm,
-          footer_key,
-          fileAAD, aad);
+          footer_key_metadata);
       file_metadata_ = FileMetaData::Make(metadata_buffer->data(),
                                           &metadata_len,
-                                          footer_encryption);
+                                          footer_decryptor);
     }
   }
 
@@ -517,6 +444,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   std::shared_ptr<FileMetaData> file_metadata_;
   std::shared_ptr<FileCryptoMetaData> file_crypto_metadata_;
   ReaderProperties properties_;
+  std::unique_ptr<InternalFileDecryptor> file_decryptor_;
 };
 
 // ----------------------------------------------------------------------

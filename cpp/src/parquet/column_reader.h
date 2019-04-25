@@ -45,6 +45,7 @@ namespace parquet {
 
 class DictionaryPage;
 class Page;
+class Decryptor;
 
 // 16 MB is the default maximum page header size
 static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
@@ -83,8 +84,9 @@ class PARQUET_EXPORT PageReader {
       const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
       Compression::type codec,  bool column_has_dictionary = false,
       int16_t row_group_ordinal = -1, int16_t column_ordinal = -1,
-      const std::shared_ptr<EncryptionProperties>& encryption = NULLPTR,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+      std::shared_ptr<Decryptor> meta_decryptor = NULLPTR,
+      std::shared_ptr<Decryptor> data_decryptor = NULLPTR);
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise
