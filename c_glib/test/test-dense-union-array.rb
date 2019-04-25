@@ -59,7 +59,7 @@ class TestDenseUnionArray < Test::Unit::TestCase
         ]
         type_codes = [11, 13]
         @data_type = Arrow::DenseUnionDataType.new(data_type_fields, type_codes)
-        type_ids = build_int8_array([11, 13, nil, 11, 13])
+        type_ids = build_int8_array([11, 13, nil, 13, 13])
         value_offsets = build_int32_array([0, 0, 0, 1, 2])
         fields = [
           build_int16_array([1]),
