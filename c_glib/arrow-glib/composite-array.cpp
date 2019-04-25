@@ -469,7 +469,7 @@ garrow_dense_union_array_new(GArrowInt8Array *type_ids,
 
 /**
  * garrow_dense_union_array_new_data_type:
- * @data_type: The data type for the sparse array.
+ * @data_type: The data type for the dense array.
  * @type_ids: The field type IDs for each value as #GArrowInt8Array.
  * @value_offsets: The value offsets for each value as #GArrowInt32Array.
  *   Each offset is counted for each type.
