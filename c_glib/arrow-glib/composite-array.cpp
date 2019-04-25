@@ -392,7 +392,6 @@ garrow_sparse_union_array_new_data_type(GArrowSparseUnionDataType *data_type,
   for (const auto &arrow_field : arrow_union_data_type->children()) {
     arrow_field_names.push_back(arrow_field->name());
   }
-  std::vector<uint8_t> arrow_type_codes(arrow_union_data_type->type_codes());
   auto arrow_type_ids = garrow_array_get_raw(GARROW_ARRAY(type_ids));
   std::vector<std::shared_ptr<arrow::Array>> arrow_fields;
   for (auto node = fields; node; node = node->next) {
@@ -403,7 +402,7 @@ garrow_sparse_union_array_new_data_type(GArrowSparseUnionDataType *data_type,
   auto status = arrow::UnionArray::MakeSparse(*arrow_type_ids,
                                               arrow_fields,
                                               arrow_field_names,
-                                              arrow_type_codes,
+                                              arrow_union_data_type->type_codes(),
                                               &arrow_union_array);
   if (garrow_error_check(error,
                          status,
@@ -497,7 +496,6 @@ garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
   for (const auto &arrow_field : arrow_union_data_type->children()) {
     arrow_field_names.push_back(arrow_field->name());
   }
-  std::vector<uint8_t> arrow_type_codes(arrow_union_data_type->type_codes());
   auto arrow_type_ids = garrow_array_get_raw(GARROW_ARRAY(type_ids));
   auto arrow_value_offsets = garrow_array_get_raw(GARROW_ARRAY(value_offsets));
   std::vector<std::shared_ptr<arrow::Array>> arrow_fields;
@@ -510,7 +508,7 @@ garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
                                              *arrow_value_offsets,
                                              arrow_fields,
                                              arrow_field_names,
-                                             arrow_type_codes,
+                                             arrow_union_data_type->type_codes(),
                                              &arrow_union_array);
   if (garrow_error_check(error, status, "[dense-union-array][new][data-type]")) {
     return GARROW_DENSE_UNION_ARRAY(garrow_array_new_raw(&arrow_union_array));
