@@ -538,7 +538,7 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   AssertCudaRead(object_buffers[0].metadata, {42});
 }
 
-TEST_F(TestPlasmaStore, DeleteObjectsGUPTest) {
+TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
 
