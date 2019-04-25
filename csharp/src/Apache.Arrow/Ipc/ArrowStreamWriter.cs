@@ -160,7 +160,7 @@ namespace Apache.Arrow.Ipc
             _fieldTypeBuilder = new ArrowTypeFlatbufferBuilder(Builder);
         }
 
-        private protected async ValueTask WriteRecordBatchInternalAsync(RecordBatch recordBatch,
+        private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
             CancellationToken cancellationToken = default)
         {
             // TODO: Truncate buffers with extraneous padding / unused capacity
@@ -253,12 +253,12 @@ namespace Apache.Arrow.Ipc
         {
         }
 
-        public virtual ValueTask WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
+        public virtual Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
         }
 
-        public ValueTask WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
+        private ValueTask WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
         {
             return BaseStream.WriteAsync(arrowBuffer.Memory, cancellationToken);
         }
@@ -363,7 +363,7 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        protected ValueTask WritePaddingAsync(int length)
+        private protected ValueTask WritePaddingAsync(int length)
         {
             if (length > 0)
             {

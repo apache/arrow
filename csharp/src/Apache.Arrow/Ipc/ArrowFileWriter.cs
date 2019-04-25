@@ -58,7 +58,7 @@ namespace Apache.Arrow.Ipc
             RecordBatchBlocks = new List<Block>();
         }
 
-        public override async ValueTask WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
+        public override async Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             // TODO: Compare record batch schema
 
@@ -101,7 +101,7 @@ namespace Apache.Arrow.Ipc
             _currentRecordBatchOffset = -1;
         }
 
-        public async ValueTask WriteFooterAsync(CancellationToken cancellationToken = default)
+        public async Task WriteFooterAsync(CancellationToken cancellationToken = default)
         {
             if (!HasWrittenFooter)
             {
@@ -112,7 +112,7 @@ namespace Apache.Arrow.Ipc
             await BaseStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        private async ValueTask WriteHeaderAsync(CancellationToken cancellationToken)
+        private async Task WriteHeaderAsync(CancellationToken cancellationToken)
         {
             // Write magic number and empty padding up to the 8-byte boundary
 
@@ -121,7 +121,7 @@ namespace Apache.Arrow.Ipc
                 .ConfigureAwait(false);
         }
 
-        private async ValueTask WriteFooterAsync(Schema schema, CancellationToken cancellationToken)
+        private async Task WriteFooterAsync(Schema schema, CancellationToken cancellationToken)
         {
             Builder.Clear();
 
