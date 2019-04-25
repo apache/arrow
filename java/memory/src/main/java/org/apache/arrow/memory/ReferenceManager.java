@@ -122,6 +122,7 @@ public interface ReferenceManager {
 
   public static String NO_OP_ERROR_MESSAGE = "Operation not supported on NO_OP Reference Manager";
 
+  // currently used for empty ArrowBufs
   ReferenceManager NO_OP = new ReferenceManager() {
     @Override
     public int getRefCount() {
@@ -146,13 +147,11 @@ public interface ReferenceManager {
 
     @Override
     public ArrowBuf retain(ArrowBuf srcBuffer, BufferAllocator targetAllocator) {
-      Preconditions.checkArgument(srcBuffer.isEmpty(), "Illegal use of Reference Manager");
       return srcBuffer;
     }
 
     @Override
     public ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, int index, int length) {
-      Preconditions.checkArgument(sourceBuffer.isEmpty(), "Illegal use of Reference Manager");
       return sourceBuffer;
     }
 
