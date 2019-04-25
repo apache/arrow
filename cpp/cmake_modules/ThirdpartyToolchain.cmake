@@ -280,6 +280,13 @@ else()
       "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz")
 endif()
 
+if(DEFINED ENV{ARROW_JEMALLOC_URL})
+  set(JEMALLOC_SOURCE_URL "$ENV{ARROW_JEMALLOC_URL}")
+else()
+  set(JEMALLOC_SOURCE_URL
+      "https://github.com/jemalloc/jemalloc/archive/${JEMALLOC_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
@@ -320,10 +327,8 @@ endif()
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
-  set(
-    SNAPPY_SOURCE_URL
-    "https://github.com/google/snappy/releases/download/${SNAPPY_VERSION}/snappy-${SNAPPY_VERSION}.tar.gz"
-    )
+  set(SNAPPY_SOURCE_URL
+      "https://github.com/google/snappy/archive/${SNAPPY_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_THRIFT_URL})
@@ -338,8 +343,10 @@ endif()
 if(DEFINED ENV{ARROW_URIPARSER_URL})
   set(URIPARSER_SOURCE_URL "$ENV{ARROW_URIPARSER_URL}")
 else()
-  set(URIPARSER_SOURCE_URL
-      "https://github.com/uriparser/uriparser/archive/${URIPARSER_VERSION}.tar.gz")
+  set(
+    URIPARSER_SOURCE_URL
+    "https://github.com/uriparser/uriparser/archive/uriparser-${URIPARSER_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_ZLIB_URL})
@@ -560,10 +567,12 @@ macro(build_uriparser)
   add_library(uriparser::uriparser STATIC IMPORTED)
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${URIPARSER_INCLUDE_DIRS})
-  set_target_properties(
-    uriparser::uriparser
-    PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB} INTERFACE_INCLUDE_DIRECTORIES
-               ${URIPARSER_INCLUDE_DIRS})
+  set_target_properties(uriparser::uriparser
+                        PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB}
+                                   INTERFACE_INCLUDE_DIRECTORIES ${URIPARSER_INCLUDE_DIRS}
+                                   # URI_STATIC_BUILD required on Windows
+                                   INTERFACE_COMPILE_DEFINITIONS
+                                   "URI_STATIC_BUILD;URI_NO_UNICODE")
 
   add_dependencies(toolchain uriparser_ep)
   add_dependencies(uriparser::uriparser uriparser_ep)
@@ -586,79 +595,27 @@ include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 macro(build_snappy)
   message(STATUS "Building snappy from source")
   set(SNAPPY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/snappy_ep/src/snappy_ep-install")
-  if(MSVC)
-    set(SNAPPY_STATIC_LIB_NAME snappy_static)
-  else()
-    set(SNAPPY_STATIC_LIB_NAME snappy)
-  endif()
+  set(SNAPPY_STATIC_LIB_NAME snappy)
   set(
     SNAPPY_STATIC_LIB
     "${SNAPPY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${SNAPPY_STATIC_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
-  if(${UPPERCASE_BUILD_TYPE} EQUAL "RELEASE")
-    if(APPLE)
-      set(SNAPPY_CXXFLAGS "CXXFLAGS='-DNDEBUG -O1'")
-    else()
-      set(SNAPPY_CXXFLAGS "CXXFLAGS='-DNDEBUG -O2'")
-    endif()
-  endif()
+  set(SNAPPY_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF
+      "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
 
-  if(WIN32)
-    set(SNAPPY_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        -DCMAKE_AR=${CMAKE_AR}
-        -DCMAKE_RANLIB=${CMAKE_RANLIB}
-        "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
-    set(SNAPPY_UPDATE_COMMAND
-        ${CMAKE_COMMAND}
-        -E
-        copy
-        ${CMAKE_SOURCE_DIR}/cmake_modules/SnappyCMakeLists.txt
-        ./CMakeLists.txt
-        &&
-        ${CMAKE_COMMAND}
-        -E
-        copy
-        ${CMAKE_SOURCE_DIR}/cmake_modules/SnappyConfig.h
-        ./config.h)
-    externalproject_add(snappy_ep
-                        UPDATE_COMMAND
-                        ${SNAPPY_UPDATE_COMMAND}
-                        ${EP_LOG_OPTIONS}
-                        BUILD_IN_SOURCE
-                        1
-                        BUILD_COMMAND
-                        ${MAKE}
-                        INSTALL_DIR
-                        ${SNAPPY_PREFIX}
-                        URL
-                        ${SNAPPY_SOURCE_URL}
-                        CMAKE_ARGS
-                        ${SNAPPY_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS
-                        "${SNAPPY_STATIC_LIB}")
-  else()
-    externalproject_add(snappy_ep
-                        CONFIGURE_COMMAND
-                        ./configure
-                        --with-pic
-                        "AR=${CMAKE_AR}"
-                        "RANLIB=${CMAKE_RANLIB}"
-                        "--prefix=${SNAPPY_PREFIX}"
-                        ${SNAPPY_CXXFLAGS}
-                        ${EP_LOG_OPTIONS}
-                        BUILD_IN_SOURCE
-                        1
-                        BUILD_COMMAND
-                        ${MAKE}
-                        INSTALL_DIR
-                        ${SNAPPY_PREFIX}
-                        URL
-                        ${SNAPPY_SOURCE_URL}
-                        BUILD_BYPRODUCTS
-                        "${SNAPPY_STATIC_LIB}")
-  endif()
+  externalproject_add(snappy_ep
+                      ${EP_LOG_OPTIONS}
+                      BUILD_IN_SOURCE
+                      1
+                      INSTALL_DIR
+                      ${SNAPPY_PREFIX}
+                      URL
+                      ${SNAPPY_SOURCE_URL}
+                      CMAKE_ARGS
+                      ${SNAPPY_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS
+                      "${SNAPPY_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${SNAPPY_PREFIX}/include")
 
@@ -709,22 +666,18 @@ macro(build_brotli)
   message(STATUS "Building brotli from source")
   set(BROTLI_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/brotli_ep/src/brotli_ep-install")
   set(BROTLI_INCLUDE_DIR "${BROTLI_PREFIX}/include")
-  if(MSVC)
-    set(BROTLI_LIB_DIR bin)
-  else()
-    set(BROTLI_LIB_DIR lib)
-  endif()
+  set(BROTLI_LIB_DIR lib)
   set(
     BROTLI_STATIC_LIBRARY_ENC
-    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(
     BROTLI_STATIC_LIBRARY_DEC
-    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(
     BROTLI_STATIC_LIBRARY_COMMON
-    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BROTLI_PREFIX}/${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(BROTLI_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
@@ -745,23 +698,6 @@ macro(build_brotli)
                       ${BROTLI_CMAKE_ARGS}
                       STEP_TARGETS
                       headers_copy)
-  if(MSVC)
-    externalproject_get_property(brotli_ep SOURCE_DIR)
-
-    externalproject_add_step(brotli_ep
-                             headers_copy
-                             COMMAND
-                             xcopy
-                             /E
-                             /I
-                             include
-                             ..\\..\\..\\brotli_ep\\src\\brotli_ep-install\\include
-                             /Y
-                             DEPENDEES
-                             build
-                             WORKING_DIRECTORY
-                             ${SOURCE_DIR})
-  endif()
 
   add_dependencies(toolchain brotli_ep)
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
@@ -864,7 +800,6 @@ endif()
 
 macro(build_gflags)
   message(STATUS "Building gflags from source")
-  set(GFLAGS_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
 
   set(GFLAGS_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/gflags_ep-prefix/src/gflags_ep")
   set(GFLAGS_INCLUDE_DIR "${GFLAGS_PREFIX}/include")
@@ -1204,34 +1139,36 @@ if(ARROW_JEMALLOC)
       "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
   set(JEMALLOC_STATIC_LIB
       "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  # We need to disable TLS or otherwise C++ exceptions won't work anymore.
-  externalproject_add(
-    jemalloc_ep
-    URL
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
-    PATCH_COMMAND
-    touch
-    doc/jemalloc.3
-    doc/jemalloc.html
-    CONFIGURE_COMMAND
-    ./autogen.sh
-    "AR=${CMAKE_AR}"
-    "CC=${CMAKE_C_COMPILER}"
-    "--prefix=${JEMALLOC_PREFIX}"
-    "--with-jemalloc-prefix=je_arrow_"
-    "--with-private-namespace=je_arrow_private_"
-    "--disable-tls"
-    ${EP_LOG_OPTIONS}
-    BUILD_IN_SOURCE
-    1
-    BUILD_COMMAND
-    ${MAKE}
-    ${MAKE_BUILD_ARGS}
-    BUILD_BYPRODUCTS
-    "${JEMALLOC_STATIC_LIB}"
-    INSTALL_COMMAND
-    ${MAKE}
-    install)
+  externalproject_add(jemalloc_ep
+                      URL
+                      ${JEMALLOC_SOURCE_URL}
+                      PATCH_COMMAND
+                      touch
+                      doc/jemalloc.3
+                      doc/jemalloc.html
+                      CONFIGURE_COMMAND
+                      ./autogen.sh
+                      "AR=${CMAKE_AR}"
+                      "CC=${CMAKE_C_COMPILER}"
+                      "--prefix=${JEMALLOC_PREFIX}"
+                      "--with-jemalloc-prefix=je_arrow_"
+                      "--with-private-namespace=je_arrow_private_"
+                      "--without-export"
+                      # Don't override operator new()
+                      "--disable-cxx" "--disable-libdl"
+                      # See https://github.com/jemalloc/jemalloc/issues/1237
+                      "--disable-initial-exec-tls"
+                      ${EP_LOG_OPTIONS}
+                      BUILD_IN_SOURCE
+                      1
+                      BUILD_COMMAND
+                      ${MAKE}
+                      ${MAKE_BUILD_ARGS}
+                      BUILD_BYPRODUCTS
+                      "${JEMALLOC_STATIC_LIB}"
+                      INSTALL_COMMAND
+                      ${MAKE}
+                      install)
 
   # Don't use the include directory directly so that we can point to a path
   # that is unique to our codebase.
@@ -1870,6 +1807,7 @@ if(ARROW_WITH_BZ2)
 endif()
 
 macro(build_cares)
+  message(STATUS "Building c-ares from source")
   set(CARES_PREFIX "${THIRDPARTY_DIR}/cares_ep-install")
   set(CARES_INCLUDE_DIR "${CARES_PREFIX}/include")
 
