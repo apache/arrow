@@ -132,9 +132,14 @@ set(ARROW_SRCS
     util/task-group.cc
     util/thread-pool.cc
     util/trie.cc
-    util/uri.cc
     util/utf8.cc
     vendored/datetime/tz.cpp)
+
+if(ARROW_WITH_URIPARSER)
+  set(ARROW_SRCS
+      ${ARROW_SRCS}
+      util/uri.cc)
+endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
   set_property(SOURCE util/io-util.cc

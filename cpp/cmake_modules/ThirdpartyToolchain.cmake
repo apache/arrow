@@ -171,6 +171,7 @@ endif()
 
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
+  set(ARROW_WITH_URIPARSER ON)
 endif()
 
 if(ARROW_FLIGHT OR ARROW_IPC)
@@ -578,16 +579,18 @@ macro(build_uriparser)
   add_dependencies(uriparser::uriparser uriparser_ep)
 endmacro()
 
-# Unless the user overrides uriparser_SOURCE, build uriparser ourselves
-if("${uriparser_SOURCE}" STREQUAL "")
-  set(uriparser_SOURCE "BUNDLED")
-endif()
+if (ARROW_WITH_URIPARSER)
+  # Unless the user overrides uriparser_SOURCE, build uriparser ourselves
+  if("${uriparser_SOURCE}" STREQUAL "")
+    set(uriparser_SOURCE "BUNDLED")
+  endif()
 
-resolve_dependency(uriparser)
+  resolve_dependency(uriparser)
 
-get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
+  get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
                     INTERFACE_INCLUDE_DIRECTORIES)
-include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
+  include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
+endif()
 
 # ----------------------------------------------------------------------
 # Snappy
