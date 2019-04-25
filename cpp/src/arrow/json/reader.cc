@@ -75,6 +75,10 @@ class TableReaderImpl : public TableReader {
     for (std::shared_ptr<Buffer> partial = empty, completion = empty,
                                  starts_with_whole = rh.buffer;
          rh.buffer; ++block_index) {
+      // get completion of partial from previous block
+      RETURN_NOT_OK(chunker_->ProcessWithPartial(partial, rh.buffer, &completion,
+                                                 &starts_with_whole));
+
       // get all whole objects entirely inside the current buffer
       std::shared_ptr<Buffer> whole, next_partial;
       RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &next_partial));
@@ -85,8 +89,10 @@ class TableReaderImpl : public TableReader {
       });
 
       RETURN_NOT_OK(readahead_.Read(&rh));
-      DCHECK_EQ(string_view(*next_partial).find_first_not_of(" \t\n\r"),
-                string_view::npos);
+      if (rh.buffer == nullptr) {
+        DCHECK_EQ(string_view(*next_partial).find_first_not_of(" \t\n\r"),
+                  string_view::npos);
+      }
       partial = next_partial;
     }
 

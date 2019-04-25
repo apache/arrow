@@ -90,7 +90,7 @@ TEST_P(ReaderTest, Empty) {
   ASSERT_OK(reader_->Read(&table_));
 
   auto expected_table = Table::Make(schema({}), ArrayVector(), 2);
-  AssertTablesEqual(*table_, *expected_table);
+  AssertTablesEqual(*expected_table, *table_);
 }
 
 TEST_P(ReaderTest, Basics) {
@@ -104,7 +104,7 @@ TEST_P(ReaderTest, Basics) {
       ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
       ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
   });
-  AssertTablesEqual(*table_, *expected_table);
+  AssertTablesEqual(*expected_table, *table_);
 }
 
 TEST_P(ReaderTest, Nested) {
@@ -121,7 +121,7 @@ TEST_P(ReaderTest, Nested) {
       ColumnFromJSON(field("nuf", struct_({field("ps", int64())})),
                      R"([{"ps":null}, null, {"ps":78}, {"ps":90}])"),
   });
-  AssertTablesEqual(*table_, *expected_table);
+  AssertTablesEqual(*expected_table, *table_);
 }
 
 TEST_P(ReaderTest, PartialSchema) {
@@ -144,7 +144,7 @@ TEST_P(ReaderTest, PartialSchema) {
       ColumnFromJSON(field("world", boolean()), "[false, null, null, true]"),
       ColumnFromJSON(field("yo", utf8()), "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
   });
-  AssertTablesEqual(*table_, *expected_table);
+  AssertTablesEqual(*expected_table, *table_);
 }
 
 TEST_P(ReaderTest, TypeInference) {
@@ -160,7 +160,28 @@ TEST_P(ReaderTest, TypeInference) {
       Table::Make({ColumnFromJSON(field("ts", timestamp(TimeUnit::SECOND)),
                                   R"([null, "1970-01-01", "2018-11-13 17:11:10"])"),
                    ColumnFromJSON(field("f", float64()), R"([null, 3, 3.125])")});
-  AssertTablesEqual(*table_, *expected_table);
+  AssertTablesEqual(*expected_table, *table_);
+}
+
+TEST_P(ReaderTest, MutliChunk) {
+  parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+
+  auto src = scalars_only_src();
+  read_options_.block_size = src.length() / 3;
+
+  SetUpReader(src);
+  ASSERT_OK(reader_->Read(&table_));
+
+  // there is an empty chunk because the last block of the file is "  "
+  auto expected_table = Table::Make({
+      ColumnFromJSON(field("hello", float64()),
+                     {"[3.5]", "[3.25]", "[3.125, 0.0]", "[]"}),
+      ColumnFromJSON(field("world", boolean()),
+                     {"[false]", "[null]", "[null, true]", "[]"}),
+      ColumnFromJSON(field("yo", utf8()),
+                     {"[\"thing\"]", "[null]", "[\"\xe5\xbf\x8d\", null]", "[]"}),
+  });
+  AssertTablesEqual(*expected_table, *table_);
 }
 
 }  // namespace json

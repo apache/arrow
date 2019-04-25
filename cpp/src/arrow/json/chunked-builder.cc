@@ -314,6 +314,8 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   }
 
   Status Finish(std::shared_ptr<ChunkedArray>* out) override {
+    RETURN_NOT_OK(task_group_->Finish());
+
     if (promotion_graph_ != nullptr) {
       // insert absent child chunks
       for (auto&& name_index : name_to_index_) {
@@ -331,8 +333,6 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
         }
       }
     }
-
-    RETURN_NOT_OK(task_group_->Finish());
 
     std::vector<std::shared_ptr<Field>> fields(name_to_index_.size());
     std::vector<std::shared_ptr<ChunkedArray>> child_arrays(name_to_index_.size());
