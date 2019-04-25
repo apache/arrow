@@ -38,13 +38,13 @@ public class TpchQ1Test extends SqlPerormancefTestBase {
   private long projectAndFilter() {
     // create input schema
     Field[] inputFields = new Field[]{
-            new Field("inCol0", DOUBLE_TYPE, null),
-            new Field("inCol1", DOUBLE_TYPE, null),
-            new Field("inCol2", DOUBLE_TYPE, null),
-            new Field("inCol3", DOUBLE_TYPE, null),
-            new Field("inCol4", STRING_TYPE, null),
-            new Field("inCol5", STRING_TYPE, null),
-            new Field("inCol6", DATE_DAY_TYPE, null),
+      new Field("inCol0", DOUBLE_TYPE, null),
+      new Field("inCol1", DOUBLE_TYPE, null),
+      new Field("inCol2", DOUBLE_TYPE, null),
+      new Field("inCol3", DOUBLE_TYPE, null),
+      new Field("inCol4", STRING_TYPE, null),
+      new Field("inCol5", STRING_TYPE, null),
+      new Field("inCol6", DATE_DAY_TYPE, null),
     };
 
     // create input data
@@ -52,13 +52,13 @@ public class TpchQ1Test extends SqlPerormancefTestBase {
 
     // create output schema
     Field[] outputFields = new Field[]{
-            new Field("outCol0", STRING_TYPE, null),
-            new Field("outCol1", STRING_TYPE, null),
-            new Field("outCol2", DOUBLE_TYPE, null),
-            new Field("outCol3", DOUBLE_TYPE, null),
-            new Field("outCol4", DOUBLE_TYPE, null),
-            new Field("outCol5", DOUBLE_TYPE, null),
-            new Field("outCol6", DOUBLE_TYPE, null),
+      new Field("outCol0", STRING_TYPE, null),
+      new Field("outCol1", STRING_TYPE, null),
+      new Field("outCol2", DOUBLE_TYPE, null),
+      new Field("outCol3", DOUBLE_TYPE, null),
+      new Field("outCol4", DOUBLE_TYPE, null),
+      new Field("outCol5", DOUBLE_TYPE, null),
+      new Field("outCol6", DOUBLE_TYPE, null),
     };
 
     // create output data

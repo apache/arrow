@@ -17,6 +17,11 @@
 
 package org.apache.arrow.vector.performance.sql;
 
+import static org.apache.arrow.vector.types.DateUnit.DAY;
+
+import java.util.Random;
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -35,11 +40,6 @@ import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-
-import java.util.Random;
-import java.util.function.Supplier;
-
-import static org.apache.arrow.vector.types.DateUnit.DAY;
 
 /**
  * The base class for all SQL performance evaluations.
@@ -78,25 +78,35 @@ public abstract class SqlPerormancefTestBase {
 
   // /UTILITIES FOR DATA TYPES FROM HERE
 
-  public static final FieldType BOOLEAN_TYPE = new FieldType(true, new ArrowType.Bool(), null);
+  public static final FieldType BOOLEAN_TYPE =
+          new FieldType(true, new ArrowType.Bool(), null);
 
-  public static final FieldType TINY_INT_TYPE = new FieldType(true, new ArrowType.Int(8, true), null);
+  public static final FieldType TINY_INT_TYPE =
+          new FieldType(true, new ArrowType.Int(8, true), null);
 
-  public static final FieldType SMALL_INT_TYPE = new FieldType(true, new ArrowType.Int(16, true), null);
+  public static final FieldType SMALL_INT_TYPE =
+          new FieldType(true, new ArrowType.Int(16, true), null);
 
-  public static final FieldType INT_TYPE = new FieldType(true, new ArrowType.Int(32, true), null);
+  public static final FieldType INT_TYPE =
+          new FieldType(true, new ArrowType.Int(32, true), null);
 
-  public static final FieldType BIG_INT_TYPE = new FieldType(true, new ArrowType.Int(64, true), null);
+  public static final FieldType BIG_INT_TYPE =
+          new FieldType(true, new ArrowType.Int(64, true), null);
 
-  public static final FieldType FLOAT_TYPE = new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null);
+  public static final FieldType FLOAT_TYPE =
+          new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null);
 
-  public static final FieldType DOUBLE_TYPE = new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE), null);
+  public static final FieldType DOUBLE_TYPE =
+          new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE), null);
 
-  public static final FieldType STRING_TYPE = new FieldType(true, new ArrowType.Utf8(), null);
+  public static final FieldType STRING_TYPE =
+          new FieldType(true, new ArrowType.Utf8(), null);
 
-  public static final FieldType BYTE_ARRAY_TYPE = new FieldType(true, new ArrowType.Binary(), null);
+  public static final FieldType BYTE_ARRAY_TYPE =
+          new FieldType(true, new ArrowType.Binary(), null);
 
-  public static final FieldType DATE_DAY_TYPE = new FieldType(true, new ArrowType.Date(DAY), null);
+  public static final FieldType DATE_DAY_TYPE =
+          new FieldType(true, new ArrowType.Date(DAY), null);
 
   /**
    * The allocator for all vectors.
@@ -353,8 +363,7 @@ public abstract class SqlPerormancefTestBase {
 
   /**
    * Generate the length of a random byte array.
-   *
-   * @return
+   * @return the length for the byte array.
    */
   private int getVariableDataLength() {
     // first, generate a non-negative integer;
