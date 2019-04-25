@@ -1047,6 +1047,9 @@ macro(build_protobuf)
                       CONFIGURE_COMMAND
                       "./configure"
                       ${PROTOBUF_CONFIGURE_ARGS}
+                      BUILD_COMMAND
+                      ${MAKE}
+                      ${MAKE_BUILD_ARGS}
                       BUILD_IN_SOURCE
                       1
                       URL
