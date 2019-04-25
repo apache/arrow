@@ -15,23 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require_relative '../helper/list-array'
+
 class RawRecordsRecordBatchListArrayTest < Test::Unit::TestCase
-  def fields(type)
-    field_description = {
-      name: :element,
-    }
-    if type.is_a?(Hash)
-      field_description = field_description.merge(type)
-    else
-      field_description[:type] = type
-    end
-    {
-      column: {
-        type: :list,
-        field: field_description,
-      },
-    }
-  end
+  include RawRecordsListArrayHelper
 
   test("NullArray") do
     records = [
