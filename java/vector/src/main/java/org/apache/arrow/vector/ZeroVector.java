@@ -241,4 +241,8 @@ public class ZeroVector implements FieldVector {
   public boolean isNull(int index) {
     return false;
   }
+
+  @Override
+  public void resetCapacityIfNeeded(int valueCount, int dataLength) {
+  }
 }

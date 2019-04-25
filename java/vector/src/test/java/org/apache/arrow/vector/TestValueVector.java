@@ -2034,4 +2034,33 @@ public class TestValueVector {
 
     }
   }
+
+  @Test /* VarCharVector */
+  public void testResetCapacityIfNeeded() {
+    try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+
+      int valueCount = 1000;
+      /* use the default 8 data bytes on average per element */
+      vector.setInitialCapacity(valueCount);
+      vector.allocateNew();
+
+      ArrowBuf dataBuffer = vector.getDataBuffer();
+      ArrowBuf validityBuffer = vector.getValidityBuffer();
+      ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      int dataCapacity = dataBuffer.capacity();
+
+      vector.resetCapacityIfNeeded(valueCount / 2, dataCapacity / 2);
+      assertEquals(dataCapacity, vector.getDataBuffer().capacity());
+      assertTrue(vector.getDataBuffer() == dataBuffer);
+      assertTrue(vector.getValidityBuffer() == validityBuffer);
+      assertTrue(vector.getOffsetBuffer() == offsetBuffer);
+
+      vector.resetCapacityIfNeeded(valueCount * 2, dataCapacity * 2);
+      assertEquals(dataCapacity * 2, vector.getDataBuffer().capacity());
+      assertTrue(vector.getDataBuffer() != dataBuffer);
+      assertTrue(vector.getValidityBuffer() != validityBuffer);
+      assertTrue(vector.getOffsetBuffer() != offsetBuffer);
+
+    }
+  }
 }

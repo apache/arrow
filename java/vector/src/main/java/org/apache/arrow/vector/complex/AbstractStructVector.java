@@ -312,4 +312,8 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     }
     return actualBufSize;
   }
+
+  @Override
+  public void resetCapacityIfNeeded(int valueCount, int dataLength){
+  }
 }

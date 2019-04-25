@@ -1259,4 +1259,16 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     return buffer;
   }
+
+  public void resetCapacityIfNeeded(int valueCount, int dataLength){
+    if (valueCount > getValueCapacity() || dataLength > valueBuffer.capacity()) {
+      long size = dataLength;
+      checkDataBufferSize(size);
+      computeAndCheckOffsetsBufferSize(valueCount);
+      lastValueAllocationSizeInBytes = (int) size;
+      lastValueCapacity = valueCount;
+
+      allocateNew();
+    }
+  }
 }

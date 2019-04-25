@@ -803,4 +803,12 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       reAlloc();
     }
   }
+
+  @Override
+  public void resetCapacityIfNeeded(int valueCount, int dataLength){
+    if (valueCount > getValueCapacity()) {
+      setInitialCapacity(valueCount);
+      allocateNew();
+    }
+  }
 }

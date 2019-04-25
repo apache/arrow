@@ -247,6 +247,10 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   }
 
   @Override
+  public void resetCapacityIfNeeded(int valueCount, int dataLength) {
+  }
+
+  @Override
   public int getValueCapacity() {
     if (vector == ZeroVector.INSTANCE) {
       return 0;
@@ -512,5 +516,6 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
         dataPair.copyValueSafe(fromOffset + i, toOffset + i);
       }
     }
+
   }
 }

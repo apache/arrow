@@ -85,6 +85,8 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    */
   void setInitialCapacity(int numRecords);
 
+  void resetCapacityIfNeeded(int valueCount, int dataLength);
+
   /**
    * Returns the maximum number of values that can be stored in this vector instance.
    *

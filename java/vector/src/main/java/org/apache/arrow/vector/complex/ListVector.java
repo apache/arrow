@@ -107,6 +107,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     super.setInitialCapacity(numRecords);
   }
 
+  @Override
+  public void resetCapacityIfNeeded(int valueCount, int dataLength) {
+  }
+
   /**
    * Specialized version of setInitialCapacity() for ListVector. This is
    * used by some callers when they want to explicitly control and be
