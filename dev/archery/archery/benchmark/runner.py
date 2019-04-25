@@ -98,7 +98,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
         the given revision and create a fresh CMakeBuild.
         """
         build = None
-        if os.path.exists(rev_or_path) and CMakeBuild.is_build_dir(rev_or_path):
+        if CMakeBuild.is_build_dir(rev_or_path):
             build = CMakeBuild.from_path(rev_or_path)
         else:
             root_rev = os.path.join(root, rev_or_path)
