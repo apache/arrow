@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// From Apache Impala (incubating) as of 2016-01-29.
-
 #include "arrow/util/cpu-info.h"
 
 #ifdef __APPLE__
