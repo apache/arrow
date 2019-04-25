@@ -18,7 +18,6 @@
 import logging
 
 """ Global logger. """
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("archery")
 
 

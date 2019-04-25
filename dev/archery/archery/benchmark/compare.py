@@ -16,6 +16,8 @@
 # under the License.
 
 
+# Define a global regression threshold as 5%. This is purely subjective and
+# flawed. This does not track cumulative regression.
 DEFAULT_THRESHOLD = 0.05
 
 

@@ -24,12 +24,15 @@ import os
 import sys
 from tempfile import mkdtemp, TemporaryDirectory
 
-from .benchmark.compare import RunnerComparator
+from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
 from .benchmark.runner import CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.codec import JsonEncoder
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
+
+# Set default logging to INFO in command line.
+logging.basicConfig(level=logging.INFO)
 
 
 @click.group()
@@ -177,7 +180,8 @@ def benchmark(ctx):
               help="Regex filtering benchmark suites.")
 @click.option("--preserve", type=bool, default=False, show_default=True,
               is_flag=True, help="Preserve workspace for investigation.")
-@click.option("--threshold", type=float, default=0.05, show_default=True,
+@click.option("--threshold", type=float, default=DEFAULT_THRESHOLD,
+              show_default=True,
               help="Regression failure threshold in percentage.")
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
