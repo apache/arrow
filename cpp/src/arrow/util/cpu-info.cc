@@ -24,10 +24,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef _MSC_VER
-#include <unistd.h>
-#endif
-
 #ifdef _WIN32
 #include "arrow/util/windows_compatibility.h"
 #endif
