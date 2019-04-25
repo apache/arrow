@@ -1,0 +1,24 @@
+version: '{build}'
+shallow_clone: true
+
+platform: x64
+
+environment:
+  matrix:
+  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+    CMAKE_GENERATOR: "Visual Studio 15 2017 Win64"
+  - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+    CMAKE_GENERATOR: "Visual Studio 14 2015 Win64"
+
+matrix:
+  fast_finish: true
+
+before_build:
+  - cmake --version
+  - cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -H. -Bcmake_build -G "%CMAKE_GENERATOR%"
+
+build_script:
+  - cmake --build cmake_build --config Debug --target ALL_BUILD
+
+test_script:
+  - cmake --build cmake_build --config Debug --target RUN_TESTS
