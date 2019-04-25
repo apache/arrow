@@ -34,6 +34,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -48,18 +49,18 @@ void CheckStringArray(const ArrayType& array, const std::vector<std::string>& st
   int64_t length = array.length();
   int64_t base_length = static_cast<int64_t>(strings.size());
   ASSERT_EQ(base_length, static_cast<int64_t>(is_valid.size()));
+  ASSERT_EQ(base_length * repeats, length);
 
   int32_t value_pos = 0;
-  int32_t value_length;
   for (int i = 0; i < length; ++i) {
     auto j = i % base_length;
     if (is_valid[j]) {
       ASSERT_FALSE(array.IsNull(i));
-      array.GetValue(i, &value_length);
+      auto view = array.GetView(i);
       ASSERT_EQ(value_pos, array.value_offset(i));
-      ASSERT_EQ(static_cast<int32_t>(strings[j].size()), value_length);
-      ASSERT_EQ(strings[j], array.GetString(i));
-      value_pos += value_length;
+      ASSERT_EQ(strings[j].size(), view.size());
+      ASSERT_EQ(util::string_view(strings[j]), view);
+      value_pos += static_cast<int32_t>(view.size());
     } else {
       ASSERT_TRUE(array.IsNull(i));
     }

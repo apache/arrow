@@ -81,6 +81,7 @@ Status ListBuilder::Append(bool is_valid) {
 Status ListBuilder::AppendNulls(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
   RETURN_NOT_OK(CheckNextOffset());
+  UnsafeAppendToBitmap(length, false);
   const int64_t num_values = value_builder_->length();
   for (int64_t i = 0; i < length; ++i) {
     offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_values));

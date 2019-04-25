@@ -531,11 +531,20 @@ def test_string_from_buffers():
 
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
-    expected = pa.array(out_data, type=out_type)
+    if isinstance(out_data, pa.Array):
+        assert out_data.type == out_type
+        expected = out_data
+    else:
+        expected = pa.array(out_data, type=out_type)
 
     # check casting an already created array
-    in_arr = pa.array(in_data, type=in_type)
+    if isinstance(in_data, pa.Array):
+        assert in_data.type == in_type
+        in_arr = in_data
+    else:
+        in_arr = pa.array(in_data, type=in_type)
     casted = in_arr.cast(out_type, safe=safe)
+    casted.validate()
     assert casted.equals(expected)
 
     # constructing an array with out type which optionally involves casting
@@ -663,6 +672,41 @@ def test_cast_signed_to_unsigned():
 
     for case in safe_cases:
         _check_cast_case(case)
+
+
+def test_cast_from_null():
+    in_data = [None] * 3
+    in_type = pa.null()
+    out_types = [
+        pa.null(),
+        pa.uint8(),
+        pa.float16(),
+        pa.utf8(),
+        pa.binary(),
+        pa.binary(10),
+        pa.list_(pa.int16()),
+        pa.decimal128(19, 4),
+        pa.timestamp('us'),
+        pa.timestamp('us', tz='UTC'),
+        pa.timestamp('us', tz='Europe/Paris'),
+        pa.struct([pa.field('a', pa.int32()),
+                   pa.field('b', pa.list_(pa.int8())),
+                   pa.field('c', pa.string())]),
+        ]
+    for out_type in out_types:
+        _check_cast_case((in_data, in_type, in_data, out_type))
+
+    out_types = [
+        pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
+        pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
+        pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
+        ]
+    in_arr = pa.array(in_data, type=pa.null())
+    for out_type in out_types:
+        with pytest.raises(NotImplementedError):
+            in_arr.cast(out_type)
 
 
 def test_unique_simple():

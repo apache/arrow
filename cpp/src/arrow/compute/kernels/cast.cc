@@ -38,6 +38,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
 #include "arrow/util/utf8.h"
+#include "arrow/visitor_inline.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
@@ -77,6 +78,11 @@ using internal::CopyBitmap;
 namespace compute {
 
 constexpr int64_t kMillisecondsInDay = 86400000;
+
+Status CastNotImplemented(const DataType& in_type, const DataType& out_type) {
+  return Status::NotImplemented("No cast implemented from ", in_type.ToString(), " to ",
+                                out_type.ToString());
+}
 
 template <typename OutType, typename InType, typename Enable = void>
 struct CastFunctor {};
@@ -699,14 +705,42 @@ class FromNullCastKernel : public CastKernelBase {
     // however, it doesn't have any actual data, so throw it away and start anew.
     std::unique_ptr<ArrayBuilder> builder;
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out_type_, &builder));
-    RETURN_NOT_OK(builder->Reserve(length));
-    RETURN_NOT_OK(builder->AppendNulls(length));
+    NullBuilderVisitor visitor = {length, builder.get()};
+    RETURN_NOT_OK(VisitTypeInline(*out_type_, &visitor));
 
     std::shared_ptr<Array> out_array;
-    RETURN_NOT_OK(builder->Finish(&out_array));
+    RETURN_NOT_OK(visitor.builder_->Finish(&out_array));
     out->value = out_array->data();
     return Status::OK();
   }
+
+  struct NullBuilderVisitor {
+    // Generic implementation
+    Status Visit(const DataType& type) { return builder_->AppendNulls(length_); }
+
+    Status Visit(const StructType& type) {
+      RETURN_NOT_OK(builder_->AppendNulls(length_));
+      auto& struct_builder = checked_cast<StructBuilder&>(*builder_);
+      // Append nulls to all child builders too
+      for (int i = 0; i < struct_builder.num_fields(); ++i) {
+        NullBuilderVisitor visitor = {length_, struct_builder.field_builder(i)};
+        RETURN_NOT_OK(VisitTypeInline(*type.child(i)->type(), &visitor));
+      }
+      return Status::OK();
+    }
+
+    Status Visit(const DictionaryType& type) {
+      // XXX (ARROW-5215): Cannot implement this easily, as DictionaryBuilder
+      // disregards the index type given in the dictionary type, and instead
+      // chooses the smallest possible index type.
+      return CastNotImplemented(*null(), type);
+    }
+
+    Status Visit(const UnionType& type) { return CastNotImplemented(*null(), type); }
+
+    int64_t length_;
+    ArrayBuilder* builder_;
+  };
 };
 
 // ----------------------------------------------------------------------
@@ -1255,8 +1289,7 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
       break;
   }
   if (*kernel == nullptr) {
-    return Status::NotImplemented("No cast implemented from ", in_type.ToString(), " to ",
-                                  out_type->ToString());
+    return CastNotImplemented(in_type, *out_type);
   }
   return Status::OK();
 }

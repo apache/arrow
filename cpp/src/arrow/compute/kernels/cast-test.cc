@@ -1203,9 +1203,6 @@ TYPED_TEST(TestNullCast, FromNull) {
   ASSERT_TRUE(result->type()->Equals(*out_type));
   ASSERT_EQ(length, result->length());
   ASSERT_EQ(length, result->null_count());
-
-  // OK to look at bitmaps
-  ASSERT_ARRAYS_EQUAL(*result, *result);
 }
 
 // ----------------------------------------------------------------------
