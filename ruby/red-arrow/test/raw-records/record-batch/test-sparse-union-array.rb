@@ -59,11 +59,8 @@ class RawRecordsRecordBatchSparseUnionArrayTest < Test::Unit::TestCase
         type_ids << type_codes[1]
       end
     end
-    # TODO
-    # union_array = Arrow::SparseUnionArray.new(schema.fields[0].data_type,
-    #                                           Arrow::Int8Array.new(type_ids),
-    #                                           arrays)
-    union_array = Arrow::SparseUnionArray.new(Arrow::Int8Array.new(type_ids),
+    union_array = Arrow::SparseUnionArray.new(schema.fields[0].data_type,
+                                              Arrow::Int8Array.new(type_ids),
                                               arrays)
     schema = Arrow::Schema.new(column: union_array.value_data_type)
     Arrow::RecordBatch.new(schema,

@@ -69,12 +69,8 @@ class RawRecordsRecordBatchDenseUnionArrayTest < Test::Unit::TestCase
         offsets << (type_ids.count(type_id) - 1)
       end
     end
-    # TODO
-    # union_array = Arrow::DenseUnionArray.new(schema.fields[0].data_type,
-    #                                          Arrow::Int8Array.new(type_ids),
-    #                                          Arrow::Int32Array.new(offsets),
-    #                                          arrays)
-    union_array = Arrow::DenseUnionArray.new(Arrow::Int8Array.new(type_ids),
+    union_array = Arrow::DenseUnionArray.new(schema.fields[0].data_type,
+                                             Arrow::Int8Array.new(type_ids),
                                              Arrow::Int32Array.new(offsets),
                                              arrays)
     schema = Arrow::Schema.new(column: union_array.value_data_type)
