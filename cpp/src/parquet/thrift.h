@@ -43,6 +43,8 @@
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
+#include "parquet/internal_file_encryptor.h"
+#include "parquet/internal_file_decryptor.h"
 #include "parquet/statistics.h"
 #include "parquet/util/crypto.h"
 
@@ -200,9 +202,9 @@ using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 // set to the actual length of the header.
 template <class T>
 inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg,
-                                 const std::shared_ptr<EncryptionProperties>& encryption = NULLPTR,
+                                 const std::shared_ptr<Decryptor>& decryptor = NULLPTR,
                                  bool shouldReadLength = false) {
-  if (encryption == NULLPTR) {
+  if (decryptor == NULLPTR) {
     // Deserialize msg bytes into c++ thrift msg using memory transport.
     shared_ptr<ThriftBuffer> tmem_transport(
         new ThriftBuffer(const_cast<uint8_t*>(buf), *len));
@@ -231,13 +233,13 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
     }
     // decrypt
     const uint8_t* cipherBuf = shouldReadLength ? &buf[4] : buf;
-    std::vector<uint8_t> decrypted_buffer(encryption->CalculatePlainSize(clen, true));
-    uint32_t decrypted_buffer_len = parquet_encryption::Decrypt(
-        encryption, true, cipherBuf, 0, decrypted_buffer.data());
+    std::vector<uint8_t> decrypted_buffer(clen - decryptor->CiphertextSizeDelta());
+    uint32_t decrypted_buffer_len = decryptor->Decrypt(
+        cipherBuf, 0, decrypted_buffer.data());
     if (decrypted_buffer_len <= 0) {
       throw ParquetException("Couldn't decrypt buffer\n");
     }
-    *len = encryption->CalculateCipherSize(decrypted_buffer_len, true);
+    *len = decrypted_buffer_len + decryptor->CiphertextSizeDelta();
     DeserializeThriftMsg(decrypted_buffer.data(), &decrypted_buffer_len,
                          deserialized_msg);
 
@@ -273,20 +275,21 @@ class ThriftSerializer {
 
   template <class T>
   int64_t Serialize(const T* obj, ArrowOutputStream* out,
-                    const std::shared_ptr<EncryptionProperties>& encryption = NULLPTR,
+                    const std::shared_ptr<Encryptor>& encryptor = NULLPTR,
                     bool shouldWriteLength = false) {
     uint8_t* out_buffer;
     uint32_t out_length;
     SerializeToBuffer(obj, &out_length, &out_buffer);
 
-    if (encryption == NULLPTR) {
+    if (encryptor == NULLPTR) {
       PARQUET_THROW_NOT_OK(out->Write(out_buffer, out_length));
       return static_cast<int64_t>(out_length);
     } else {
-      std::vector<uint8_t> cipher_buffer(encryption->CalculateCipherSize(out_length));
-      unsigned cipher_buffer_len = parquet_encryption::Encrypt(
-          encryption, true, out_buffer, out_length, cipher_buffer.data());
-      if (cipher_buffer_len > cipher_buffer.size()) {
+      std::vector<uint8_t> cipher_buffer(encryptor->CiphertextSizeDelta() + out_length);
+      int cipher_buffer_len = encryptor->Encrypt(out_buffer, out_length,
+                                                 cipher_buffer.data());
+
+      if (cipher_buffer_len > static_cast<int>(cipher_buffer.size())) {
         std::stringstream ss;
         ss << "cipher length is greater than cipher buffer capacity: " << cipher_buffer_len << cipher_buffer.size() << "\n";
         throw ParquetException(ss.str());

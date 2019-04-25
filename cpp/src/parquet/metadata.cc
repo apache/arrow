@@ -24,6 +24,7 @@
 #include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
+#include "parquet/internal_file_decryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
@@ -180,9 +181,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       const ApplicationVersion* writer_version,
       FileDecryptionProperties* file_decryption = NULLPTR,
       const EncryptionAlgorithm* algorithm = NULLPTR,
-      const std::string& fileAAD = "",
-      std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>, std::string,
-      schema::ColumnPath::CmpColumnPath>> column_map = NULLPTR)
+      InternalFileDecryptor* file_decryptor = NULLPTR)
     : column_(column), descr_(descr), writer_version_(writer_version) {
     metadata_ = column->meta_data;
 
@@ -198,56 +197,24 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
           std::make_shared<schema::ColumnPath>(
               ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
         std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
-        std::string key;
-        if (column_map != NULLPTR
-            && (column_map->find(path) != column_map->end())) {
-          //First retrieve the key in column_map if exists
-          key = column_map->at(path);
-        } else {
-          key = file_decryption->getColumnKey(path);
-          // No explicit column key given via API. Retrieve via key metadata.
-          if (key.empty() && !key_metadata.empty()
-              && file_decryption->getKeyRetriever() != nullptr){
-            try {
-              key = file_decryption->getKeyRetriever()->GetKey(key_metadata);
-            } catch (KeyAccessDeniedException &e) {
-              // Hidden column: encrypted, but key unavailable
-              std::stringstream ss;
-              ss << "HiddenColumnException path=" + path->ToDotString() + " "
-                 << e.what() << "\n";
-              throw HiddenColumnException(ss.str());
-            }
-            if (key.empty ())
-             throw HiddenColumnException("HiddenColumnException path="
-                                         + path->ToDotString());
-          }
-          if (column_map != NULLPTR) {
-            // save column key for future use
-            (*column_map)[path]=key;
-          }
-        }
-        if (key.empty()) {
-          // Hidden column: encrypted, but key unavailable
-          throw HiddenColumnException("HiddenColumnException path= "
-                                      + path->ToDotString());
-        }
+        
         DCHECK(algorithm != NULLPTR);
-
+        DCHECK(file_decryptor != NULLPTR);
+        
         std::string aad = parquet_encryption::createModuleAAD(
-            fileAAD,
+            file_decryptor->file_aad(),
             parquet_encryption::ColumnMetaData,
             row_group_ordinal,
             column_ordinal, (int16_t)-1);
-        auto encryption = std::make_shared<EncryptionProperties>(
-            algorithm->algorithm,
-            key, fileAAD, aad);
-        uint32_t len =
-          static_cast<uint32_t>(column->encrypted_column_metadata.size());
+        auto decryptor = file_decryptor->GetColumnMetaDecryptor(
+            path, algorithm->algorithm,
+            key_metadata, aad);
+        uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
         DeserializeThriftMsg(
             reinterpret_cast<const uint8_t*>(
                 column->encrypted_column_metadata.c_str()),
             &len, &metadata_,
-            encryption,
+            decryptor,
             false);
       }
     }
@@ -348,14 +315,11 @@ std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
     const ApplicationVersion* writer_version,
     FileDecryptionProperties* file_decryption,
     const EncryptionAlgorithm* algorithm,
-    const std::string& fileAAD,
-    std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-    std::string, schema::ColumnPath::CmpColumnPath>> column_map) {
+    InternalFileDecryptor* file_decryptor) {
   return std::unique_ptr<ColumnChunkMetaData>(
       new ColumnChunkMetaData(metadata, descr, row_group_ordinal,
                               column_ordinal, writer_version,
-                              file_decryption, algorithm, fileAAD,
-                              column_map));
+                              file_decryption, algorithm, file_decryptor));
 }
 
 ColumnChunkMetaData::ColumnChunkMetaData(
@@ -366,9 +330,7 @@ ColumnChunkMetaData::ColumnChunkMetaData(
     const ApplicationVersion* writer_version,
     FileDecryptionProperties* file_decryption,
     const EncryptionAlgorithm* algorithm,
-    const std::string& fileAAD,
-    std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-    std::string, schema::ColumnPath::CmpColumnPath>> column_map)
+    InternalFileDecryptor* file_decryptor)
   : impl_{std::unique_ptr<ColumnChunkMetaDataImpl>(new ColumnChunkMetaDataImpl(
       reinterpret_cast<const format::ColumnChunk*>(metadata),
       descr,
@@ -376,7 +338,7 @@ ColumnChunkMetaData::ColumnChunkMetaData(
       column_ordinal,
       writer_version,
       file_decryption, algorithm,
-      fileAAD, column_map))} {}
+      file_decryptor))} {}
 ColumnChunkMetaData::~ColumnChunkMetaData() {}
 // column chunk
 int64_t ColumnChunkMetaData::file_offset() const { return impl_->file_offset(); }
@@ -460,10 +422,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
       int i, int16_t row_group_ordinal,
       FileDecryptionProperties* file_decryption = NULLPTR,
       const EncryptionAlgorithm* algorithm = NULLPTR,
-      const std::string& fileAAD = "",
-      std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-      std::string,
-      parquet::schema::ColumnPath::CmpColumnPath>> column_map = NULLPTR) {
+      InternalFileDecryptor* file_decryptor = NULLPTR) {
     if (!(i < num_columns())) {
       std::stringstream ss;
       ss << "The file only has " << num_columns()
@@ -473,8 +432,8 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
     return ColumnChunkMetaData::Make(
         &row_group_->columns[i], schema_->Column(i),
         row_group_ordinal, (int16_t)i,
-        writer_version_, file_decryption, algorithm, fileAAD,
-        column_map);
+        writer_version_, file_decryption, algorithm,
+        file_decryptor);
   }
 
  private:
@@ -507,11 +466,9 @@ const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(
 
 std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(
     int i, int16_t row_group_ordinal, FileDecryptionProperties* file_decryption,
-    const EncryptionAlgorithm* algorithm, const std::string& fileAAD,
-    std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>, std::string,
-    schema::ColumnPath::CmpColumnPath>> column_map) const {
+    const EncryptionAlgorithm* algorithm, InternalFileDecryptor* file_decryptor) const {
   return impl_->ColumnChunk(i, row_group_ordinal, file_decryption, algorithm,
-                            fileAAD, column_map);
+                            file_decryptor);
 }
 
 // file metadata
@@ -521,11 +478,11 @@ class FileMetaData::FileMetaDataImpl {
 
   explicit FileMetaDataImpl(
     const void* metadata, uint32_t* metadata_len,
-    const std::shared_ptr<EncryptionProperties>& encryption = nullptr)
+    const std::shared_ptr<Decryptor>& decryptor = nullptr)
       : metadata_len_(0) {
     metadata_.reset(new format::FileMetaData);
     DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(metadata), metadata_len,
-                         metadata_.get(), encryption, false);
+                         metadata_.get(), decryptor, false);
     metadata_len_ = *metadata_len;
 
     if (metadata_->__isset.created_by) {
@@ -539,8 +496,7 @@ class FileMetaData::FileMetaDataImpl {
     InitKeyValueMetadata();
   }
 
-  bool verify(std::shared_ptr<EncryptionProperties> encryption,
-              const void* tail, uint32_t tail_len) {
+  bool verify(std::shared_ptr<FooterSigningEncryptor> encryptor, const void* tail) {
     // serialize the footer
     uint8_t* serialized_data;
     uint32_t serialized_len = metadata_len_;
@@ -549,17 +505,16 @@ class FileMetaData::FileMetaDataImpl {
 
     // encrypt with nonce
     uint8_t* nonce = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(tail));
-    uint8_t* tag = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(tail)) + 12;
+    uint8_t* tag = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(tail))
+        + parquet_encryption::NonceLength;
 
-    std::vector<uint8_t> encrypted_buffer(encryption->CalculateCipherSize(serialized_len));
+    std::vector<uint8_t> encrypted_buffer(encryptor->CiphertextSizeDelta() + serialized_len);
     uint32_t encrypted_len =
-      parquet_encryption::SignedFooterEncrypt(serialized_data, serialized_len,
-                                              encryption->key_bytes(),
-                                              encryption->key_length(),
-                                              encryption->aad_bytes(),
-                                              encryption->aad_length(),
-                                              nonce, 12, encrypted_buffer.data());
-    return 0 == memcmp(encrypted_buffer.data() + encrypted_len - 16, tag, 16);
+        encryptor->SignedFooterEncrypt(serialized_data, serialized_len,
+                                       nonce, encrypted_buffer.data());
+    return 0 == memcmp(
+        encrypted_buffer.data() + encrypted_len - parquet_encryption::GCMTagLength,
+        tag, parquet_encryption::GCMTagLength);
   }
 
   inline uint32_t size() const { return metadata_len_; }
@@ -584,7 +539,7 @@ class FileMetaData::FileMetaDataImpl {
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
   void WriteTo(::arrow::io::OutputStream* dst,
-               const std::shared_ptr<EncryptionProperties>& encryption) const {
+               const std::shared_ptr<Encryptor>& encryptor) const {
     ThriftSerializer serializer;
     if (is_plaintext_mode()) {
       uint8_t* serialized_data;
@@ -592,19 +547,20 @@ class FileMetaData::FileMetaDataImpl {
       serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
 
       // encrypt the footer key
-      std::vector<uint8_t> encrypted_data(encryption->CalculateCipherSize(serialized_len));
-      unsigned encrypted_len = parquet_encryption::Encrypt(
-          encryption, true, serialized_data, serialized_len, encrypted_data.data());
+      std::vector<uint8_t> encrypted_data(encryptor->CiphertextSizeDelta() + serialized_len);
+      unsigned encrypted_len = encryptor->Encrypt(serialized_data, serialized_len,
+                                                  encrypted_data.data());
 
       // write unencrypted footer
       dst->Write(serialized_data, serialized_len);
       // write nonce
-      dst->Write(encrypted_data.data() + 4, 12);
+      dst->Write(encrypted_data.data() + 4, parquet_encryption::NonceLength);
       // write tag
-      dst->Write(encrypted_data.data() + encrypted_len - 16, 16);
+      dst->Write(encrypted_data.data() + encrypted_len - parquet_encryption::GCMTagLength,
+          parquet_encryption::GCMTagLength);
     }
     else {
-      serializer.Serialize(metadata_.get(), dst, encryption, false);
+      serializer.Serialize(metadata_.get(), dst, encryptor, false);
     }
   }
 
@@ -692,16 +648,16 @@ class FileMetaData::FileMetaDataImpl {
 std::shared_ptr<FileMetaData> FileMetaData::Make(
     const void* metadata,
     uint32_t* metadata_len,
-    const std::shared_ptr<EncryptionProperties>& encryption) {
+    const std::shared_ptr<Decryptor>& decryptor) {
   // This FileMetaData ctor is private, not compatible with std::make_shared
   return std::shared_ptr<FileMetaData>(
-      new FileMetaData(metadata, metadata_len, encryption));
+      new FileMetaData(metadata, metadata_len, decryptor));
 }
 
 FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
-                           const std::shared_ptr<EncryptionProperties>& encryption)
+                           const std::shared_ptr<Decryptor>& decryptor)
     : impl_{std::unique_ptr<FileMetaDataImpl>(
-          new FileMetaDataImpl(metadata, metadata_len, encryption))} {}
+          new FileMetaDataImpl(metadata, metadata_len, decryptor))} {}
 
 FileMetaData::FileMetaData()
     : impl_{std::unique_ptr<FileMetaDataImpl>(new FileMetaDataImpl())} {}
@@ -712,9 +668,8 @@ std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
   return impl_->RowGroup(i);
 }
 
-bool FileMetaData::verify(std::shared_ptr<EncryptionProperties> encryption,
-              const void* tail, uint32_t tail_len) {
-  return impl_->verify(encryption, tail, tail_len);
+bool FileMetaData::verify(std::shared_ptr<FooterSigningEncryptor> encryptor, const void* tail) {
+  return impl_->verify(encryptor, tail);
 }
 
 uint32_t FileMetaData::size() const { return impl_->size(); }
@@ -769,14 +724,8 @@ void FileMetaData::AppendRowGroups(const FileMetaData& other) {
 }
 
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
-			                     const std::shared_ptr<EncryptionProperties>& encryption) const {
-  if (encryption != nullptr)
-    encryption->aad(
-        parquet_encryption::createModuleAAD(encryption->fileAAD(),
-                                            parquet_encryption::Footer,
-                                            (int16_t)-1, (int16_t)-1,
-                                            (int16_t)-1));
-  return impl_->WriteTo(dst, encryption);
+			                     const std::shared_ptr<Encryptor>& encryptor) const {
+  return impl_->WriteTo(dst, encryptor);
 }
 
 class FileCryptoMetaData::FileCryptoMetaDataImpl {
@@ -1003,7 +952,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   }
 
   void WriteTo(::arrow::io::OutputStream* sink,
-	             const std::shared_ptr<EncryptionProperties>& encryption) {
+	             const std::shared_ptr<Encryptor>& encryptor) {
     ThriftSerializer serializer;
     const auto& encrypt_md = properties_->column_encryption_props(column_->path());
 
@@ -1030,30 +979,28 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       }
       column_chunk_->__set_crypto_metadata(ccmd);
 
-      auto footer_encryption = properties_->footer_encryption();
+      // TODO: check file_encryption() is null or not
+      auto footer_key = properties_->file_encryption()->getFooterEncryptionKey();
 
       // non-uniform: footer is unencrypted, or column is encrypted with a column-specific
       // key
-      if ((footer_encryption == nullptr && encrypt_md->isEncrypted()) ||
+      if ((footer_key.empty() && encrypt_md->isEncrypted()) ||
           !encrypt_md->isEncryptedWithFooterKey()) {
         // Thrift-serialize the ColumnMetaData structure,
         // encrypt it with the column key, and write to encrypted_column_metadata
-        auto encrypt_props = encryption;
         uint8_t* serialized_data;
         uint32_t serialized_len;
-
         serializer.SerializeToBuffer(&column_metadata_, &serialized_len, &serialized_data);
-        // encrypt the footer key
 
-        std::vector<uint8_t> encrypted_data(encrypt_props->CalculateCipherSize(serialized_len));
+        std::vector<uint8_t> encrypted_data(encryptor->CiphertextSizeDelta() + serialized_len);
+        unsigned encrypted_len = encryptor->Encrypt(
+            serialized_data, serialized_len, encrypted_data.data());
 
-        unsigned encrypted_len = parquet_encryption::Encrypt(
-            encrypt_props, true, serialized_data, serialized_len, encrypted_data.data());
         const char* temp = const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));
         std::string encrypted_column_metadata(temp, encrypted_len);
         column_chunk_->__set_encrypted_column_metadata(encrypted_column_metadata);
         // Keep redacted metadata version for old readers
-        if (footer_encryption == nullptr) {
+        if (footer_key.empty()) {
           format::ColumnMetaData metadata_redacted = column_metadata_;
           if (metadata_redacted.__isset.statistics) {
             metadata_redacted.__isset.statistics = false;
@@ -1075,11 +1022,6 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
       serializer.Serialize(column_chunk_, sink);
     }
-  }
-
-  std::shared_ptr<EncryptionProperties>
-  get_encryption_props(const std::shared_ptr<schema::ColumnPath>& path) {
-    return properties_->encryption(path);
   }
 
   const ColumnDescriptor* descr() const { return column_; }
@@ -1135,11 +1077,6 @@ void ColumnChunkMetaDataBuilder::set_file_path(const std::string& path) {
   impl_->set_file_path(path);
 }
 
-std::shared_ptr<EncryptionProperties>
-ColumnChunkMetaDataBuilder::get_encryption_props(const std::shared_ptr<schema::ColumnPath>& path) {
-   return impl_->get_encryption_props(path);
-}
-
 void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
                                         int64_t dictionary_page_offset,
                                         int64_t index_page_offset,
@@ -1151,8 +1088,8 @@ void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
 }
 
 void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink,
-					                               const std::shared_ptr<EncryptionProperties>& encryption) {
-  impl_->WriteTo(sink, encryption);
+					                               const std::shared_ptr<Encryptor>& encryptor) {
+  impl_->WriteTo(sink, encryptor);
 }
 
 const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
@@ -1295,7 +1232,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
       : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
     metadata_.reset(new format::FileMetaData());
-    if (props->footer_encryption() != nullptr) {
+    if (props->file_encryption() != nullptr) {
       crypto_metadata_.reset(new format::FileCryptoMetaData());
     }
   }
@@ -1377,7 +1314,6 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     }
 
     auto file_encryption = properties_->file_encryption();
-    auto footer_encryption = properties_->footer_encryption();
 
     crypto_metadata_->__set_encryption_algorithm(ToThrift(file_encryption->getAlgorithm()));
     std::string key_metadata;
