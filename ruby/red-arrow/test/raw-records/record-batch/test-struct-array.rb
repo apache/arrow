@@ -15,25 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require_relative '../helper/struct-array'
+
 class RawRecordsRecordBatchStructArrayTest < Test::Unit::TestCase
-  def fields(type)
-    field_description = {
-      name: :field,
-    }
-    if type.is_a?(Hash)
-      field_description = field_description.merge(type)
-    else
-      field_description[:type] = type
-    end
-    {
-      column: {
-        type: :struct,
-        fields: [
-          field_description,
-        ],
-      },
-    }
-  end
+  include RawRecordsStructArrayHelper
 
   test("NullArray") do
     records = [
