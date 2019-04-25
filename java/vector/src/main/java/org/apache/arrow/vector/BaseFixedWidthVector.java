@@ -49,6 +49,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   protected ArrowBuf validityBuffer;
   protected ArrowBuf valueBuffer;
   protected int valueCount;
+  protected boolean hasNull;
 
   public BaseFixedWidthVector(final String name, final BufferAllocator allocator,
                                       FieldType fieldType, final int typeWidth) {
@@ -60,6 +61,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     validityBuffer = allocator.getEmpty();
     valueBuffer = allocator.getEmpty();
     lastValueCapacity = INITIAL_VALUE_ALLOCATION;
+    hasNull = true;
   }
 
 
@@ -558,6 +560,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
     target.valueBuffer = valueBuffer.transferOwnership(target.allocator).buffer;
     target.valueCount = valueCount;
+    target.hasNull = hasNull;
     clear();
   }
 
@@ -600,6 +603,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     int offset = startIndex % 8;
 
     if (length > 0) {
+      target.hasNull = hasNull;
       if (offset == 0) {
         /* slice */
         if (target.validityBuffer != null) {
@@ -665,7 +669,42 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public int getNullCount() {
-    return BitVectorHelper.getNullCount(validityBuffer, valueCount);
+    if (hasNull) {
+      return BitVectorHelper.getNullCount(validityBuffer, valueCount);
+    }
+    return 0;
+  }
+
+  /**
+   * Set the element at the given index to null.
+   *
+   * @param index position of element
+   */
+  public void setNull(int index) {
+    handleSafe(index);
+    setNullUnsafe(index);
+  }
+
+
+  /**
+   * Set the element at the given index to null without boundary check.
+   *
+   * @param index position of element
+   */
+  public void setNullUnsafe(int index) {
+    // not really needed to set the bit to 0 as long as
+    // the buffer always starts from 0.
+    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    setHasNull(true);
+  }
+
+  /**
+   * Set the flag to indicate if the vector has null.
+   *
+   * @param hasNull flag to indicate if the vector has null
+   */
+  public void setHasNull(boolean hasNull) {
+    this.hasNull = hasNull;
   }
 
   /**
@@ -756,6 +795,10 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @return 1 if element at given index is not null, 0 otherwise
    */
   public int isSet(int index) {
+    if (!hasNull) {
+      return 1;
+    }
+
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
     final int bitIndex = index & 7;

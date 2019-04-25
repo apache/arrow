@@ -64,6 +64,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   private final FieldType fieldType;
   private int validityAllocationSizeInBytes;
   private int lastSet;
+  private boolean hasNull;
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
@@ -85,6 +86,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     this.callBack = callBack;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
     this.lastSet = 0;
+    this.hasNull = true;
   }
 
   @Override
@@ -417,6 +419,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       to.validityBuffer = validityBuffer.transferOwnership(to.allocator).buffer;
       to.offsetBuffer = offsetBuffer.transferOwnership(to.allocator).buffer;
       to.lastSet = lastSet;
+      to.hasNull = hasNull;
       if (valueCount > 0) {
         to.setValueCount(valueCount);
       }
@@ -459,6 +462,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       int offset = startIndex % 8;
 
       if (length > 0) {
+        target.hasNull = hasNull;
         if (offset == 0) {
           // slice
           if (target.validityBuffer != null) {
@@ -651,6 +655,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    * @return 1 if element at given index is not null, 0 otherwise
    */
   public int isSet(int index) {
+    if (!hasNull) {
+      return 1;
+    }
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
     final int bitIndex = index & 7;
@@ -664,7 +671,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    */
   @Override
   public int getNullCount() {
-    return BitVectorHelper.getNullCount(validityBuffer, valueCount);
+    if (hasNull) {
+      return BitVectorHelper.getNullCount(validityBuffer, valueCount);
+    }
+    return 0;
   }
 
   /**
@@ -691,6 +701,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     lastSet = index + 1;
+  }
+
+  /**
+   * Set the flag to indicate if the vector has null.
+   *
+   * @param hasNull flag to indicate if the vector has null
+   */
+  public void setHasNull(boolean hasNull) {
+    this.hasNull = hasNull;
   }
 
   /**

@@ -240,6 +240,9 @@ public class VarBinaryVector extends BaseVariableWidthVector {
     assert index >= 0;
     fillHoles(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
+    if (holder.isSet == 0) {
+      setHasNull(true);
+    }
     final int dataLength = holder.end - holder.start;
     final int startOffset = getstartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
@@ -261,6 +264,9 @@ public class VarBinaryVector extends BaseVariableWidthVector {
     fillEmpties(index);
     handleSafe(index, dataLength);
     BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
+    if (holder.isSet == 0) {
+      setHasNull(true);
+    }
     final int startOffset = getstartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
     valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);

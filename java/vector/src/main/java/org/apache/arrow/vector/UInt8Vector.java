@@ -208,23 +208,11 @@ public class UInt8Vector extends BaseFixedWidthVector {
     set(index, holder);
   }
 
-  /**
-   * Set the element at the given index to null.
-   *
-   * @param index   position of element
-   */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-  }
-
   public void set(int index, int isSet, long value) {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      setNullUnsafe(index);
     }
   }
 

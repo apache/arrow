@@ -144,7 +144,7 @@ public class TimeStampMilliVector extends TimeStampVector {
       BitVectorHelper.setValidityBitToOne(validityBuffer, index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      setNullUnsafe(index);
     }
   }
 

@@ -68,6 +68,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   private UnionFixedSizeListReader reader;
   private int valueCount;
   private int validityAllocationSizeInBytes;
+  private boolean hasNull;
 
   // deprecated, use FieldType or static constructor instead
   @Deprecated
@@ -92,6 +93,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     this.reader = new UnionFixedSizeListReader(this);
     this.valueCount = 0;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
+    this.hasNull = true;
   }
 
   @Override
@@ -404,6 +406,10 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   }
 
   public int isSet(int index) {
+    if (!hasNull) {
+      return 1;
+    }
+
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
     final int bitIndex = index & 7;
@@ -412,7 +418,10 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
 
   @Override
   public int getNullCount() {
-    return BitVectorHelper.getNullCount(validityBuffer, valueCount);
+    if (hasNull) {
+      return BitVectorHelper.getNullCount(validityBuffer, valueCount);
+    }
+    return 0;
   }
 
   @Override
@@ -429,6 +438,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       reallocValidityBuffer();
     }
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    setHasNull(true);
   }
 
   public void setNotNull(int index) {
@@ -436,6 +446,15 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       reallocValidityBuffer();
     }
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+  }
+
+  /**
+   * Set the flag to indicate if the vector has null.
+   *
+   * @param hasNull flag to indicate if the vector has null
+   */
+  public void setHasNull(boolean hasNull) {
+    this.hasNull = hasNull;
   }
 
   @Override
@@ -483,6 +502,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
       dataPair.transfer();
       to.validityBuffer = validityBuffer.transferOwnership(to.allocator).buffer;
       to.setValueCount(valueCount);
+      to.hasNull = hasNull;
       clear();
     }
 
@@ -490,6 +510,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     public void splitAndTransfer(int startIndex, int length) {
       to.clear();
       to.allocateNew();
+      to.hasNull = hasNull;
       for (int i = 0; i < length; i++) {
         copyValueSafe(startIndex + i, i);
       }

@@ -50,6 +50,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   protected int valueCount;
   protected int lastSet;
   protected final Field field;
+  protected boolean hasNull;
 
   public BaseVariableWidthVector(final String name, final BufferAllocator allocator,
                                          FieldType fieldType) {
@@ -63,6 +64,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     offsetBuffer = allocator.getEmpty();
     validityBuffer = allocator.getEmpty();
     valueBuffer = allocator.getEmpty();
+    hasNull = true;
   }
 
   /* TODO:
@@ -672,6 +674,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   public void transferTo(BaseVariableWidthVector target) {
     compareTypes(target, "transferTo");
     target.clear();
+    target.hasNull = hasNull;
     target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
     target.valueBuffer = valueBuffer.transferOwnership(target.allocator).buffer;
     target.offsetBuffer = offsetBuffer.transferOwnership(target.allocator).buffer;
@@ -733,6 +736,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     int offset = startIndex % 8;
 
     if (length > 0) {
+      target.hasNull = hasNull;
       if (offset == 0) {
         // slice
         if (target.validityBuffer != null) {
@@ -794,7 +798,10 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @return the number of null elements.
    */
   public int getNullCount() {
-    return BitVectorHelper.getNullCount(validityBuffer, valueCount);
+    if (hasNull) {
+      return BitVectorHelper.getNullCount(validityBuffer, valueCount);
+    }
+    return 0;
   }
 
   /**
@@ -819,12 +826,25 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
+   * Set the flag to indicate if the vector has null.
+   *
+   * @param hasNull flag to indicate if the vector has null
+   */
+  public void setHasNull(boolean hasNull) {
+    this.hasNull = hasNull;
+  }
+
+  /**
    * Same as {@link #isNull(int)}.
    *
    * @param index  position of element
    * @return 1 if element at given index is not null, 0 otherwise
    */
   public int isSet(int index) {
+    if (!hasNull) {
+      return 1;
+    }
+
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
     final int bitIndex = index & 7;

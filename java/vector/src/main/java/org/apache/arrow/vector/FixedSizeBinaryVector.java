@@ -300,7 +300,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     } else if (holder.isSet > 0) {
       set(index, holder.buffer);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      setNullUnsafe(index);
     }
   }
 
@@ -315,11 +315,6 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   public void setSafe(int index, NullableFixedSizeBinaryHolder holder) {
     handleSafe(index);
     set(index, holder);
-  }
-
-  public void setNull(int index) {
-    handleSafe(index);
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
   /**

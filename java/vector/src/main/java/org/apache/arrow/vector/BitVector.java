@@ -144,6 +144,7 @@ public class BitVector extends BaseFixedWidthVector {
   public void splitAndTransferTo(int startIndex, int length, BaseFixedWidthVector target) {
     compareTypes(target, "splitAndTransferTo");
     target.clear();
+    target.hasNull = hasNull;
     target.validityBuffer = splitAndTransferBuffer(startIndex, length, target,
             validityBuffer, target.validityBuffer);
     target.valueBuffer = splitAndTransferBuffer(startIndex, length, target,
@@ -402,18 +403,6 @@ public class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Set the element at the given index to null.
-   *
-   * @param index position of element
-   */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-  }
-
-  /**
    * Store the given value at a particular position in the vector. isSet indicates
    * whether the value is NULL or not.
    *
@@ -425,7 +414,7 @@ public class BitVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      setNullUnsafe(index);
     }
   }
 
