@@ -381,6 +381,7 @@
             <reuseForks>true</reuseForks>
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+              <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
             </systemPropertyVariables>
             <!-- Note: changing the below configuration might increase the max allocation size for a vector
             which in turn can cause OOM. -->
