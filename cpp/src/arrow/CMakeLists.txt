@@ -305,14 +305,16 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_LIBRARIES ${ARROW_LIBRARIES} ${ARROW_TESTING_LIBRARIES})
 endif()
 
-find_package(Backtrace)
+if (ARROW_WITH_BACKTRACE)
+  find_package(Backtrace)
 
-foreach(LIB_TARGET ${ARROW_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-  if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
-  endif()
-endforeach()
+  foreach(LIB_TARGET ${ARROW_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+    if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
+    endif()
+  endforeach()
+endif()
 
 # Headers: top level
 arrow_install_all_headers("arrow")
