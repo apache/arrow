@@ -85,6 +85,11 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    */
   void setInitialCapacity(int numRecords);
 
+  /**
+   * reset capacity with new valueCount and dataLength if needed.
+   * @param valueCount new value count
+   * @param dataLength new data capacity of valueBuffer.
+   */
   void resetCapacityIfNeeded(int valueCount, int dataLength);
 
   /**
