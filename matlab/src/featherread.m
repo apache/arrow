@@ -62,7 +62,7 @@ setVariableDescriptions = false;
 % invalid (null) array entry and 1 (true) to represent a valid
 % (non-null) array entry.
 for ii = 1:length(variables)
-    if any(~variables(ii).Valid)
+    if ~all(variables(ii).Valid)
         switch variables(ii).Type
             case {'uint8', 'uint16', 'uint32', 'uint64', 'int8', 'int16', 'int32', 'int64'}
                 % MATLAB does not support missing values for integer types, so
