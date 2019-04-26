@@ -36,9 +36,8 @@ download_dependency() {
   local url=$1
   local out=$2
 
-  # --show-progress will not output to stdout, it is safe to pipe the result of
-  # the script into eval.
-  wget --quiet --continue --output-document="${out}" "${url}"
+  wget --quiet --continue --output-document="${out}" "${url}" || \
+    (echo "Failed downloading ${url}" 1>&2; exit 1)
 }
 
 main() {
