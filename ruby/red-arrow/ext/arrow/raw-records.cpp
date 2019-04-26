@@ -727,17 +727,17 @@ namespace red_arrow {
       void convert(const ArrayType& array) {
         const auto n = array.length();
         if (array.null_count() > 0) {
-          for (int64_t i = 0; i < n; ++i) {
+          for (int64_t i = 0, ii = row_offset_; i < n; ++i, ++ii) {
             auto value = Qnil;
             if (!array.IsNull(i)) {
               value = convert_value(array, i);
             }
-            auto record = rb_ary_entry(records_, i + row_offset_);
+            auto record = rb_ary_entry(records_, ii);
             rb_ary_store(record, column_index_, value);
           }
         } else {
-          for (int64_t i = 0; i < n; ++i) {
-            auto record = rb_ary_entry(records_, i + row_offset_);
+          for (int64_t i = 0, ii = row_offset_; i < n; ++i, ++ii) {
+            auto record = rb_ary_entry(records_, ii);
             rb_ary_store(record, column_index_, convert_value(array, i));
           }
         }
