@@ -89,10 +89,12 @@ func (b *Int64Builder) AppendValues(v []int64, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Int64Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Int64Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -223,10 +225,12 @@ func (b *Uint64Builder) AppendValues(v []uint64, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Uint64Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Uint64Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -357,10 +361,12 @@ func (b *Float64Builder) AppendValues(v []float64, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Float64Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Float64Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -491,10 +497,12 @@ func (b *Int32Builder) AppendValues(v []int32, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Int32Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Int32Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -625,10 +633,12 @@ func (b *Uint32Builder) AppendValues(v []uint32, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Uint32Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Uint32Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -759,10 +769,12 @@ func (b *Float32Builder) AppendValues(v []float32, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Float32Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Float32Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -893,10 +905,12 @@ func (b *Int16Builder) AppendValues(v []int16, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Int16Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Int16Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -1027,10 +1041,12 @@ func (b *Uint16Builder) AppendValues(v []uint16, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Uint16Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Uint16Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -1161,10 +1177,12 @@ func (b *Int8Builder) AppendValues(v []int8, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Int8Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Int8Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -1295,10 +1313,12 @@ func (b *Uint8Builder) AppendValues(v []uint8, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Uint8Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Uint8Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -1430,10 +1450,12 @@ func (b *TimestampBuilder) AppendValues(v []arrow.Timestamp, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.TimestampTraits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.TimestampTraits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -1565,10 +1587,12 @@ func (b *Time32Builder) AppendValues(v []arrow.Time32, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Time32Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Time32Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -1700,10 +1724,12 @@ func (b *Time64Builder) AppendValues(v []arrow.Time64, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Time64Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Time64Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -1834,10 +1860,12 @@ func (b *Date32Builder) AppendValues(v []arrow.Date32, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Date32Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Date32Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
@@ -1968,10 +1996,12 @@ func (b *Date64Builder) AppendValues(v []arrow.Date64, valid []bool) {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.Date64Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.Date64Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 

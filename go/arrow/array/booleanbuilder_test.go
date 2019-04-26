@@ -43,3 +43,48 @@ func TestBooleanBuilder_AppendValues(t *testing.T) {
 	assert.Equal(t, exp, got)
 	a.Release()
 }
+
+func TestBooleanBuilder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewBooleanBuilder(mem)
+	defer ab.Release()
+
+	want := tools.Bools(1, 1, 0, 1, 1, 0, 1, 0)
+
+	boolValues := func(a *array.Boolean) []bool {
+		vs := make([]bool, a.Len())
+		for i := range vs {
+			vs[i] = a.Value(i)
+		}
+		return vs
+	}
+
+	ab.AppendValues([]bool{}, nil)
+	a := ab.NewBooleanArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(nil, nil)
+	a = ab.NewBooleanArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(want, nil)
+	a = ab.NewBooleanArray()
+	assert.Equal(t, want, boolValues(a))
+	a.Release()
+
+	ab.AppendValues([]bool{}, nil)
+	ab.AppendValues(want, nil)
+	a = ab.NewBooleanArray()
+	assert.Equal(t, want, boolValues(a))
+	a.Release()
+
+	ab.AppendValues(want, nil)
+	ab.AppendValues([]bool{}, nil)
+	a = ab.NewBooleanArray()
+	assert.Equal(t, want, boolValues(a))
+	a.Release()
+}

@@ -22,6 +22,7 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStringArray(t *testing.T) {
@@ -94,4 +95,44 @@ func TestStringArray(t *testing.T) {
 	if got, want := arr.String(), `["hello" "世界" (null) "bye"]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
+}
+
+func TestStringBuilder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	want := []string{"hello", "世界", "", "bye"}
+
+	ab := array.NewStringBuilder(mem)
+	defer ab.Release()
+
+	stringValues := func(a *array.String) []string {
+		vs := make([]string, a.Len())
+		for i := range vs {
+			vs[i] = a.Value(i)
+		}
+		return vs
+	}
+
+	ab.AppendValues([]string{}, nil)
+	a := ab.NewStringArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(nil, nil)
+	a = ab.NewStringArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues([]string{}, nil)
+	ab.AppendValues(want, nil)
+	a = ab.NewStringArray()
+	assert.Equal(t, want, stringValues(a))
+	a.Release()
+
+	ab.AppendValues(want, nil)
+	ab.AppendValues([]string{}, nil)
+	a = ab.NewStringArray()
+	assert.Equal(t, want, stringValues(a))
+	a.Release()
 }

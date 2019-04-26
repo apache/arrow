@@ -68,3 +68,48 @@ func TestFixedSizeBinaryBuilder(t *testing.T) {
 	b.Release()
 	a.Release()
 }
+
+func TestFixedSizeBinaryBuilder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dtype := arrow.FixedSizeBinaryType{ByteWidth: 7}
+	ab := NewFixedSizeBinaryBuilder(mem, &dtype)
+	defer ab.Release()
+
+	want := [][]byte{
+		[]byte("1234567"),
+		[]byte("AZERTYU"),
+		[]byte("7654321"),
+	}
+
+	fixedSizeValues := func(a *FixedSizeBinary) [][]byte {
+		vs := make([][]byte, a.Len())
+		for i := range vs {
+			vs[i] = a.Value(i)
+		}
+		return vs
+	}
+
+	ab.AppendValues([][]byte{}, nil)
+	a := ab.NewFixedSizeBinaryArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(nil, nil)
+	a = ab.NewFixedSizeBinaryArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues([][]byte{}, nil)
+	ab.AppendValues(want, nil)
+	a = ab.NewFixedSizeBinaryArray()
+	assert.Equal(t, want, fixedSizeValues(a))
+	a.Release()
+
+	ab.AppendValues(want, nil)
+	ab.AppendValues([][]byte{}, nil)
+	a = ab.NewFixedSizeBinaryArray()
+	assert.Equal(t, want, fixedSizeValues(a))
+	a.Release()
+}
