@@ -45,6 +45,8 @@ if PY2:
     except ImportError:
         from decimal import Decimal
 
+    from collections import Iterable, Mapping, Sequence
+
     unicode_type = unicode
     file_type = file
     lzip = zip
@@ -80,6 +82,8 @@ else:
         import pickle5 as builtin_pickle
     except ImportError:
         import pickle as builtin_pickle
+
+    from collections.abc import Iterable, Mapping, Sequence
 
     unicode_type = str
     file_type = None

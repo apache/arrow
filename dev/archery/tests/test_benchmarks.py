@@ -15,48 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apache-rat-*.jar
-arrow-src.tar
-arrow-src.tar.gz
+from archery.benchmark.core import Benchmark
+from archery.benchmark.compare import BenchmarkComparator
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-dependency-reduced-pom.xml
-MANIFEST
-compile_commands.json
-build.ninja
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+def test_benchmark_comparator():
+    unit = "micros"
 
-# Linux perf sample data
-perf.data
-perf.data.old
+    assert not BenchmarkComparator(
+        Benchmark("contender", unit, True, [10]),
+        Benchmark("baseline", unit, True, [20])).regression
 
-cpp/.idea/
-cpp/apidoc/xml/
-docs/example.gz
-docs/example1.dat
-docs/example3.dat
-python/.eggs/
-python/doc/
-# Egg metadata
-*.egg-info
+    assert BenchmarkComparator(
+        Benchmark("contender", unit, False, [10]),
+        Benchmark("baseline", unit, False, [20])).regression
 
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-docker_cache
+    assert BenchmarkComparator(
+        Benchmark("contender", unit, True, [20]),
+        Benchmark("baseline", unit, True, [10])).regression
+
+    assert not BenchmarkComparator(
+        Benchmark("contender", unit, False, [20]),
+        Benchmark("baseline", unit, False, [10])).regression

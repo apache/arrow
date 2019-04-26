@@ -15,48 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apache-rat-*.jar
-arrow-src.tar
-arrow-src.tar.gz
+import pandas as pa
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-dependency-reduced-pom.xml
-MANIFEST
-compile_commands.json
-build.ninja
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+class Benchmark:
+    def __init__(self, name, unit, less_is_better, values, stats=None):
+        self.name = name
+        self.unit = unit
+        self.less_is_better = less_is_better
+        self.values = pa.Series(values)
+        self.statistics = self.values.describe()
 
-# Linux perf sample data
-perf.data
-perf.data.old
+    @property
+    def value(self):
+        median = "50%"
+        return float(self.statistics[median])
 
-cpp/.idea/
-cpp/apidoc/xml/
-docs/example.gz
-docs/example1.dat
-docs/example3.dat
-python/.eggs/
-python/doc/
-# Egg metadata
-*.egg-info
+    def __repr__(self):
+        return f"Benchmark[name={self.name},value={self.value}]"
 
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-docker_cache
+
+class BenchmarkSuite:
+    def __init__(self, name, benchmarks):
+        self.name = name
+        self.benchmarks = benchmarks
+
+    def __repr__(self):
+        name = self.name
+        benchmarks = self.benchmarks
+        return f"BenchmarkSuite[name={name}, benchmarks={benchmarks}]"

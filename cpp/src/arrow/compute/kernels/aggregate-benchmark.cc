@@ -309,7 +309,7 @@ BENCHMARK_TEMPLATE(BenchSum, SumBitmapNaive<int64_t>)->Apply(BenchmarkSetArgs);
 BENCHMARK_TEMPLATE(BenchSum, SumBitmapReader<int64_t>)->Apply(BenchmarkSetArgs);
 BENCHMARK_TEMPLATE(BenchSum, SumBitmapVectorizeUnroll<int64_t>)->Apply(BenchmarkSetArgs);
 
-static void BenchSumKernel(benchmark::State& state) {
+static void RegressionSumKernel(benchmark::State& state) {
   const int64_t array_size = state.range(0) / sizeof(int64_t);
   const double null_percent = static_cast<double>(state.range(1)) / 100.0;
   auto rand = random::RandomArrayGenerator(1923);
@@ -328,7 +328,7 @@ static void BenchSumKernel(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
-BENCHMARK(BenchSumKernel)->Apply(BenchmarkSetArgs);
+BENCHMARK(RegressionSumKernel)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

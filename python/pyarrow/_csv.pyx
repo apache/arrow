@@ -27,9 +27,7 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, ensure_type,
                           pyarrow_wrap_table, pyarrow_wrap_data_type,
                           pyarrow_unwrap_data_type)
 
-from pyarrow.compat import frombytes, tobytes
-
-from collections import Mapping
+from pyarrow.compat import frombytes, tobytes, Mapping
 
 
 cdef unsigned char _single_char(s) except 0:

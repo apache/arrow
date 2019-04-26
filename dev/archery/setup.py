@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,48 +16,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-apache-rat-*.jar
-arrow-src.tar
-arrow-src.tar.gz
+import sys
+from setuptools import setup
 
-# Compiled source
-*.a
-*.dll
-*.o
-*.py[ocd]
-*.so
-*.so.*
-*.dylib
-.build_cache_dir
-dependency-reduced-pom.xml
-MANIFEST
-compile_commands.json
-build.ninja
 
-# Generated Visual Studio files
-*.vcxproj
-*.vcxproj.*
-*.sln
-*.iml
+if sys.version_info < (3, 5):
+    sys.exit('Python < 3.5 is not supported')
 
-# Linux perf sample data
-perf.data
-perf.data.old
 
-cpp/.idea/
-cpp/apidoc/xml/
-docs/example.gz
-docs/example1.dat
-docs/example3.dat
-python/.eggs/
-python/doc/
-# Egg metadata
-*.egg-info
-
-.vscode
-.idea/
-.pytest_cache/
-pkgs
-.Rproj.user
-arrow.Rcheck/
-docker_cache
+setup(
+    name='archery',
+    version="0.1.0",
+    description='Apache Arrow Developers Tools',
+    url='http://github.com/apache/arrow',
+    maintainer='Arrow Developers',
+    maintainer_email='dev@arrow.apache.org',
+    packages=['archery'],
+    install_requires=['click', 'pandas'],
+    entry_points='''
+        [console_scripts]
+        archery=archery.cli:archery
+    ''',
+)
