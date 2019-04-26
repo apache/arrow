@@ -31,6 +31,10 @@ import io.netty.util.internal.PlatformDependent;
  * so it provides much better performance.
  */
 public class Float8Vector extends org.apache.arrow.vector.Float8Vector {
+
+  /**
+   * The number of bits to shift to multiply/divide by the type width.
+   */
   public static final byte TYPE_LOG2_WIDTH = 3;
 
   /**
