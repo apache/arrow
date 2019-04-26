@@ -47,10 +47,10 @@ import org.apache.arrow.vector.util.VectorFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+
+import io.netty.buffer.ArrowBuf;
 
 @RunWith(Parameterized.class)
 public class TestValueVector {

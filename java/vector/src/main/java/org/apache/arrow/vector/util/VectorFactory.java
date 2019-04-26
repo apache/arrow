@@ -30,12 +30,14 @@ public class VectorFactory {
    */
   public enum VectorType {
     /**
-     * This type of vectors will do all checks, so segmentation faults can be avoided, but the performance may not be good.
+     * This type of vectors will do all checks, so segmentation faults can be avoided,
+     * but the performance may not be good.
      */
     SAFE,
 
     /**
-     * This type of vectors will try to avoid checks, so segmentation faults can happen, but the performance can be be good.
+     * This type of vectors will try to avoid checks, so segmentation faults can happen,
+     * but the performance can be be good.
      */
     UNSAFE
   }

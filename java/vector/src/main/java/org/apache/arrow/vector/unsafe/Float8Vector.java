@@ -17,12 +17,13 @@
 
 package org.apache.arrow.vector.unsafe;
 
-import io.netty.buffer.ArrowBuf;
-import io.netty.util.internal.PlatformDependent;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.holders.Float8Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.types.pojo.FieldType;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * Unsafe implementation of org.apache.arrow.vector.Float8Vector.
@@ -111,7 +112,8 @@ public class Float8Vector extends org.apache.arrow.vector.Float8Vector {
   public void copyFrom(int fromIndex, int thisIndex, org.apache.arrow.vector.Float8Vector from) {
     UnsafeBitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
 
-    // since we are not sure if the from object is an unsafe object, we get its value through the underlying buffer address.
+    // since we are not sure if the from object is an unsafe object,
+    // we get its value through the underlying buffer address.
     final double value = Double.longBitsToDouble(
             PlatformDependent.getLong(from.getDataBufferAddress() + (fromIndex >>> TYPE_LOG2_WIDTH)));
     this.set(thisIndex, value);

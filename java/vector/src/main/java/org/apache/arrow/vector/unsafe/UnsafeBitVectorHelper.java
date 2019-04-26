@@ -17,11 +17,10 @@
 
 package org.apache.arrow.vector.unsafe;
 
+import org.apache.arrow.vector.BitVectorHelper;
+
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.BitVectorHelper;
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 
 /**
  * Helper class for performing generic operations on a bit vector buffer.
