@@ -75,18 +75,18 @@ func (rcv *DictionaryBatch) Data(obj *RecordBatch) *RecordBatch {
 
 /// If isDelta is true the values in the dictionary are to be appended to a
 /// dictionary with the indicated id
-func (rcv *DictionaryBatch) IsDelta() byte {
+func (rcv *DictionaryBatch) IsDelta() bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
 	if o != 0 {
-		return rcv._tab.GetByte(o + rcv._tab.Pos)
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
 	}
-	return 0
+	return false
 }
 
 /// If isDelta is true the values in the dictionary are to be appended to a
 /// dictionary with the indicated id
-func (rcv *DictionaryBatch) MutateIsDelta(n byte) bool {
-	return rcv._tab.MutateByteSlot(8, n)
+func (rcv *DictionaryBatch) MutateIsDelta(n bool) bool {
+	return rcv._tab.MutateBoolSlot(8, n)
 }
 
 func DictionaryBatchStart(builder *flatbuffers.Builder) {
@@ -98,8 +98,8 @@ func DictionaryBatchAddId(builder *flatbuffers.Builder, id int64) {
 func DictionaryBatchAddData(builder *flatbuffers.Builder, data flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(data), 0)
 }
-func DictionaryBatchAddIsDelta(builder *flatbuffers.Builder, isDelta byte) {
-	builder.PrependByteSlot(2, isDelta, 0)
+func DictionaryBatchAddIsDelta(builder *flatbuffers.Builder, isDelta bool) {
+	builder.PrependBoolSlot(2, isDelta, false)
 }
 func DictionaryBatchEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

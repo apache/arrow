@@ -57,16 +57,16 @@ func (rcv *Field) Name() []byte {
 	return nil
 }
 
-func (rcv *Field) Nullable() byte {
+func (rcv *Field) Nullable() bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
 	if o != 0 {
-		return rcv._tab.GetByte(o + rcv._tab.Pos)
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
 	}
-	return 0
+	return false
 }
 
-func (rcv *Field) MutateNullable(n byte) bool {
-	return rcv._tab.MutateByteSlot(6, n)
+func (rcv *Field) MutateNullable(n bool) bool {
+	return rcv._tab.MutateBoolSlot(6, n)
 }
 
 func (rcv *Field) TypeType() byte {
@@ -149,8 +149,8 @@ func FieldStart(builder *flatbuffers.Builder) {
 func FieldAddName(builder *flatbuffers.Builder, name flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(name), 0)
 }
-func FieldAddNullable(builder *flatbuffers.Builder, nullable byte) {
-	builder.PrependByteSlot(1, nullable, 0)
+func FieldAddNullable(builder *flatbuffers.Builder, nullable bool) {
+	builder.PrependBoolSlot(1, nullable, false)
 }
 func FieldAddTypeType(builder *flatbuffers.Builder, typeType byte) {
 	builder.PrependByteSlot(2, typeType, 0)

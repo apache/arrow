@@ -83,20 +83,20 @@ func (rcv *DictionaryEncoding) IndexType(obj *Int) *Int {
 /// semantic meaning. In some statistical, applications, dictionary-encoding
 /// is used to represent ordered categorical data, and we provide a way to
 /// preserve that metadata here
-func (rcv *DictionaryEncoding) IsOrdered() byte {
+func (rcv *DictionaryEncoding) IsOrdered() bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
 	if o != 0 {
-		return rcv._tab.GetByte(o + rcv._tab.Pos)
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
 	}
-	return 0
+	return false
 }
 
 /// By default, dictionaries are not ordered, or the order does not have
 /// semantic meaning. In some statistical, applications, dictionary-encoding
 /// is used to represent ordered categorical data, and we provide a way to
 /// preserve that metadata here
-func (rcv *DictionaryEncoding) MutateIsOrdered(n byte) bool {
-	return rcv._tab.MutateByteSlot(8, n)
+func (rcv *DictionaryEncoding) MutateIsOrdered(n bool) bool {
+	return rcv._tab.MutateBoolSlot(8, n)
 }
 
 func DictionaryEncodingStart(builder *flatbuffers.Builder) {
@@ -108,8 +108,8 @@ func DictionaryEncodingAddId(builder *flatbuffers.Builder, id int64) {
 func DictionaryEncodingAddIndexType(builder *flatbuffers.Builder, indexType flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(indexType), 0)
 }
-func DictionaryEncodingAddIsOrdered(builder *flatbuffers.Builder, isOrdered byte) {
-	builder.PrependByteSlot(2, isOrdered, 0)
+func DictionaryEncodingAddIsOrdered(builder *flatbuffers.Builder, isOrdered bool) {
+	builder.PrependBoolSlot(2, isOrdered, false)
 }
 func DictionaryEncodingEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
