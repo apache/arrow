@@ -23,9 +23,8 @@ use crate::ipc;
 use flatbuffers::FlatBufferBuilder;
 
 /// Serialize a schema in IPC format
-///
-/// TODO(Neville) add bit-widths and other field metadata to flatbuffer Type
 fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
+    // TODO add bit-widths and other field metadata to flatbuffer Type
     use DataType::*;
     let mut fbb = FlatBufferBuilder::new();
 
@@ -63,6 +62,14 @@ fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
     fbb
 }
 
+fn fb_to_field(field: ipc::Field) -> Field {
+    Field::new(
+        field.name().unwrap(),
+        get_data_type(field),
+        field.nullable(),
+    )
+}
+
 /// Deserialize a Schema table from IPC format to Schema data type
 pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
     let mut fields: Vec<Field> = vec![];
@@ -70,12 +77,7 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
     let len = c_fields.len();
     for i in 0..len {
         let c_field: ipc::Field = c_fields.get(i);
-        let field = Field::new(
-            c_field.name().unwrap(),
-            get_data_type(c_field),
-            c_field.nullable(),
-        );
-        fields.push(field);
+        fields.push(fb_to_field(c_field));
     }
     Schema::new(fields)
 }
@@ -102,6 +104,7 @@ fn get_fbs_type(dtype: DataType) -> ipc::Type {
 
 /// Get the Arrow data type from the flatbuffer Field table
 fn get_data_type(field: ipc::Field) -> DataType {
+    // TODO add recursion protection for deeply-nested fields (struct and list)
     match field.type_type() {
         ipc::Type::Bool => DataType::Boolean,
         ipc::Type::Int => {
@@ -118,13 +121,22 @@ fn get_data_type(field: ipc::Field) -> DataType {
                 _ => panic!("Unexpected bitwidth and signed"),
             }
         }
-        ipc::Type::Utf8 | ipc::Type::Binary => DataType::Utf8,
+        ipc::Type::Utf8 | ipc::Type::Binary | ipc::Type::FixedSizeBinary => {
+            DataType::Utf8
+        }
         ipc::Type::FloatingPoint => {
             let float = field.type__as_floating_point().unwrap();
             match float.precision() {
                 ipc::Precision::HALF => DataType::Float16,
                 ipc::Precision::SINGLE => DataType::Float32,
                 ipc::Precision::DOUBLE => DataType::Float64,
+            }
+        }
+        ipc::Type::Date => {
+            let date = field.type__as_date().unwrap();
+            match date.unit() {
+                ipc::DateUnit::DAY => DataType::Date32(DateUnit::Day),
+                ipc::DateUnit::MILLISECOND => DataType::Date64(DateUnit::Millisecond),
             }
         }
         ipc::Type::Time => {
@@ -153,12 +165,22 @@ fn get_data_type(field: ipc::Field) -> DataType {
                 ipc::TimeUnit::NANOSECOND => DataType::Timestamp(TimeUnit::Nanosecond),
             }
         }
-        ipc::Type::Date => {
-            let date = field.type__as_date().unwrap();
-            match date.unit() {
-                ipc::DateUnit::DAY => DataType::Date32(DateUnit::Day),
-                ipc::DateUnit::MILLISECOND => DataType::Date64(DateUnit::Millisecond),
+        ipc::Type::List => {
+            let children = field.children().unwrap();
+            if children.len() != 1 {
+                panic!("expect a list to have one child")
             }
+            let child_field = children.get(0);
+            // returning int16 for now, to test, not sure how to get data type
+            DataType::List(Box::new(get_data_type(child_field)))
+        }
+        ipc::Type::Struct_ => {
+            let children = field.children().unwrap();
+            let mut fields = vec![];
+            for i in 0..children.len() {
+                fields.push(fb_to_field(children.get(i)));
+            }
+            DataType::Struct(fields)
         }
         // TODO add interval support
         t @ _ => unimplemented!("Type {:?} not supported", t),

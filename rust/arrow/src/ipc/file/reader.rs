@@ -38,89 +38,189 @@ fn read_buffer(c_buf: &ipc::Buffer, a_data: &Vec<u8>) -> Buffer {
     Buffer::from(&buf_data)
 }
 
-/// Reads the correct number of buffers based on data type and null_count, and creates an
-/// array ref
+/// Coordinates reading arrays based on data types
 fn create_array(
-    c_node: &ipc::FieldNode,
+    nodes: &[ipc::FieldNode],
     data_type: &DataType,
-    a_data: &Vec<u8>,
-    c_bufs: &[ipc::Buffer],
-    mut offset: usize,
-) -> (ArrayRef, usize) {
+    data: &Vec<u8>,
+    buffers: &[ipc::Buffer],
+    mut node_index: usize,
+    mut buffer_index: usize,
+) -> (ArrayRef, usize, usize) {
     use DataType::*;
-    let null_count = c_node.null_count() as usize;
+    let array = match data_type {
+        Utf8 => {
+            let array = create_primitive_array(
+                &nodes[node_index],
+                data_type,
+                buffers[buffer_index..buffer_index + 3]
+                    .iter()
+                    .map(|buf| read_buffer(buf, data))
+                    .collect(),
+            );
+            node_index = node_index + 1;
+            buffer_index = buffer_index + 3;
+            array
+        }
+        List(ref list_data_type) => {
+            let list_node = &nodes[node_index];
+            let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 2]
+                .iter()
+                .map(|buf| read_buffer(buf, data))
+                .collect();
+            node_index = node_index + 1;
+            buffer_index = buffer_index + 2;
+            let triple = create_array(
+                nodes,
+                list_data_type,
+                data,
+                buffers,
+                node_index,
+                buffer_index,
+            );
+            node_index = triple.1;
+            buffer_index = triple.2;
+
+            create_list_array(list_node, data_type, &list_buffers[..], triple.0)
+        }
+        Struct(struct_fields) => {
+            let struct_node = &nodes[node_index];
+            let null_buffer: Buffer = read_buffer(&buffers[buffer_index], data);
+            node_index = node_index + 1;
+            buffer_index = buffer_index + 1;
+
+            // read the arrays for each field
+            let mut struct_arrays = vec![];
+            // TODO investigate whether just knowing the number of buffers could
+            // still work
+            for struct_field in struct_fields {
+                let triple = create_array(
+                    nodes,
+                    struct_field.data_type(),
+                    data,
+                    buffers,
+                    node_index,
+                    buffer_index,
+                );
+                node_index = triple.1;
+                buffer_index = triple.2;
+                struct_arrays.push((struct_field.clone(), triple.0));
+            }
+            // create struct array from fields, arrays and null data
+            let struct_array = crate::array::StructArray::from((
+                struct_arrays,
+                null_buffer,
+                struct_node.null_count() as usize,
+            ));
+            Arc::new(struct_array)
+        }
+        _ => {
+            let array = create_primitive_array(
+                &nodes[node_index],
+                data_type,
+                buffers[buffer_index..buffer_index + 2]
+                    .iter()
+                    .map(|buf| read_buffer(buf, data))
+                    .collect(),
+            );
+            node_index = node_index + 1;
+            buffer_index = buffer_index + 2;
+            array
+        }
+    };
+    (array, node_index, buffer_index)
+}
+
+/// Reads the correct number of buffers based on data type and null_count, and creates a
+/// primitive array ref
+fn create_primitive_array(
+    field_node: &ipc::FieldNode,
+    data_type: &DataType,
+    buffers: Vec<Buffer>,
+) -> ArrayRef {
+    use DataType::*;
+    let length = field_node.length() as usize;
+    let null_count = field_node.null_count() as usize;
     let array_data = match data_type {
         Utf8 => {
-            if null_count > 0 {
-                // read 3 buffers
-                let array_data = ArrayData::new(
-                    data_type.clone(),
-                    c_node.length() as usize,
-                    Some(null_count),
-                    Some(read_buffer(&c_bufs[offset], a_data)),
-                    0,
-                    vec![
-                        read_buffer(&c_bufs[offset + 1], a_data),
-                        read_buffer(&c_bufs[offset + 2], a_data),
-                    ],
-                    vec![],
-                );
-                offset = offset + 3;
-                array_data
-            } else {
-                // read 2 buffers
-                let array_data = ArrayData::new(
-                    data_type.clone(),
-                    c_node.length() as usize,
-                    Some(null_count),
-                    None,
-                    0,
-                    vec![
-                        read_buffer(&c_bufs[offset], a_data),
-                        read_buffer(&c_bufs[offset + 1], a_data),
-                    ],
-                    vec![],
-                );
-                offset = offset + 2;
-                array_data
-            }
+            // read 3 buffers
+            ArrayData::new(
+                data_type.clone(),
+                length,
+                Some(null_count),
+                Some(buffers[0].clone()),
+                0,
+                buffers[1..3].to_vec(),
+                vec![],
+            )
         }
         Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float32
         | Boolean | Float64 | Time32(_) | Time64(_) | Timestamp(_) | Date32(_)
-        | Date64(_) => {
-            if null_count > 0 {
-                // read 3 buffers
-                let array_data = ArrayData::new(
-                    data_type.clone(),
-                    c_node.length() as usize,
-                    Some(null_count),
-                    Some(read_buffer(&c_bufs[offset], a_data)),
-                    0,
-                    vec![read_buffer(&c_bufs[offset + 1], a_data)],
-                    vec![],
-                );
-                offset = offset + 2;
-                array_data
-            } else {
-                // read 2 buffers
-                let array_data = ArrayData::new(
-                    data_type.clone(),
-                    c_node.length() as usize,
-                    Some(null_count),
-                    None,
-                    0,
-                    vec![read_buffer(&c_bufs[offset], a_data)],
-                    vec![],
-                );
-                offset = offset + 1;
-                array_data
-            }
-        }
-        // TODO implement list and struct if I can find/generate test data
-        t @ _ => panic!("Data type {:?} not supported", t),
+        | Date64(_) => ArrayData::new(
+            data_type.clone(),
+            length,
+            Some(null_count),
+            Some(buffers[0].clone()),
+            0,
+            buffers[1..].to_vec(),
+            vec![],
+        ),
+        t @ _ => panic!("Data type {:?} either unsupported or not primitive", t),
     };
 
-    (crate::array::make_array(Arc::new(array_data)), offset)
+    crate::array::make_array(Arc::new(array_data))
+}
+
+fn create_list_array(
+    field_node: &ipc::FieldNode,
+    data_type: &DataType,
+    buffers: &[Buffer],
+    child_array: ArrayRef,
+) -> ArrayRef {
+    if let &DataType::List(_) = data_type {
+        let array_data = ArrayData::new(
+            data_type.clone(),
+            field_node.length() as usize,
+            Some(field_node.null_count() as usize),
+            Some(buffers[0].clone()),
+            0,
+            buffers[1..2].to_vec(),
+            vec![child_array.data()],
+        );
+        crate::array::make_array(Arc::new(array_data))
+    } else {
+        panic!("Cannot create list array from {:?}", data_type)
+    }
+}
+
+fn read_record_batch(
+    buf: &Vec<u8>,
+    batch: ipc::RecordBatch,
+    schema: Arc<Schema>,
+) -> Result<Option<RecordBatch>> {
+    let buffers = batch.buffers().unwrap();
+    let field_nodes = batch.nodes().unwrap();
+    // keep track of buffer and node index, the functions that create arrays mutate these
+    let mut buffer_index = 0;
+    let mut node_index = 0;
+    let mut arrays = vec![];
+
+    // keep track of index as lists require more than one node
+    for field in schema.fields() {
+        let triple = create_array(
+            field_nodes,
+            field.data_type(),
+            &buf,
+            buffers,
+            node_index,
+            buffer_index,
+        );
+        node_index = triple.1;
+        buffer_index = triple.2;
+        arrays.push(triple.0);
+    }
+
+    RecordBatch::try_new(schema.clone(), arrays).map(|batch| Some(batch))
 }
 
 /// Arrow File reader
@@ -227,9 +327,9 @@ impl<R: Read + Seek> Reader<R> {
                 .seek(SeekFrom::Start(block.offset() as u64 + 4))?;
             self.reader.read_exact(&mut block_data)?;
 
-            let c_block = ipc::get_root_as_message(&block_data[..]);
+            let message = ipc::get_root_as_message(&block_data[..]);
 
-            match c_block.header_type() {
+            match message.header_type() {
                 ipc::MessageHeader::Schema => {
                     panic!("Not expecting a schema when messages are read")
                 }
@@ -237,43 +337,23 @@ impl<R: Read + Seek> Reader<R> {
                     unimplemented!("reading dictionary batches not yet supported")
                 }
                 ipc::MessageHeader::RecordBatch => {
-                    let c_batch = c_block.header_as_record_batch().unwrap();
-                    // read array data
-                    let mut a_data = vec![0; block.bodyLength() as usize];
+                    let batch = message.header_as_record_batch().unwrap();
+                    // read the block that makes up the record batch into a buffer
+                    let mut buf = vec![0; block.bodyLength() as usize];
                     self.reader.seek(SeekFrom::Start(
                         block.offset() as u64 + block.metaDataLength() as u64,
                     ))?;
-                    self.reader.read_exact(&mut a_data)?;
+                    self.reader.read_exact(&mut buf)?;
 
-                    // construct buffers from their blocks
-                    let c_buffers = c_batch.buffers().unwrap();
-
-                    // get fields and determine number of buffers to use for each
-                    let c_nodes = c_batch.nodes().unwrap();
-                    let mut buffer_num = 0;
-                    let mut field_num = 0;
-                    let mut arrays = vec![];
-                    for c_node in c_nodes {
-                        let field = self.schema.field(field_num);
-                        let (array, buffer) = create_array(
-                            c_node,
-                            field.data_type(),
-                            &a_data,
-                            c_buffers,
-                            buffer_num,
-                        );
-                        field_num = field_num + 1;
-                        buffer_num = buffer;
-
-                        arrays.push(array);
-                    }
-
-                    RecordBatch::try_new(self.schema.clone(), arrays)
-                        .map(|batch| Some(batch))
+                    read_record_batch(&buf, batch, self.schema())
                 }
-                ipc::MessageHeader::SparseTensor => panic!(),
-                ipc::MessageHeader::Tensor => panic!("Can't be Tensor"),
-                ipc::MessageHeader::NONE => panic!("Can't be NONE"),
+                ipc::MessageHeader::SparseTensor => {
+                    unimplemented!("reading sparse tensors not yet supported")
+                }
+                ipc::MessageHeader::Tensor => {
+                    unimplemented!("reading tensors not yet supported")
+                }
+                ipc::MessageHeader::NONE => panic!("unknown message header"),
             }
         } else {
             Ok(None)
@@ -302,17 +382,133 @@ mod tests {
     use super::*;
 
     use crate::array::*;
+    use crate::builder::{BinaryBuilder, Int32Builder, ListBuilder};
+    use crate::datatypes::*;
     use std::fs::File;
 
+    // #[test]
+    // fn test_read_primitive_file() {
+    //     let file = File::open("./test/data/primitive_types.file.dat").unwrap();
+
+    //     let mut reader = Reader::try_new(file).unwrap();
+    //     assert_eq!(3, reader.num_batches());
+    //     for _ in 0..reader.num_batches() {
+    //         let batch = reader.next().unwrap().unwrap();
+    //         validate_batch(batch);
+    //     }
+    //     // try read a batch after all batches are exhausted
+    //     let batch = reader.next().unwrap();
+    //     assert!(batch.is_none());
+
+    //     // seek a specific batch
+    //     let batch = reader.read_batch(4).unwrap().unwrap();
+    //     validate_batch(batch);
+    //     // try read a batch after seeking to the last batch
+    //     let batch = reader.next().unwrap();
+    //     assert!(batch.is_none());
+    // }
+
     #[test]
-    fn test_read_file() {
-        let file = File::open("./test/data/arrow_file.dat").unwrap();
+    fn test_read_struct_file() {
+        use DataType::*;
+        let file = File::open("./test/data/struct_types.file.dat").unwrap();
+        let schema = Schema::new(vec![Field::new(
+            "structs",
+            Struct(vec![
+                Field::new("bools", Boolean, true),
+                Field::new("int8s", Int8, true),
+                Field::new("varbinary", Utf8, true),
+                Field::new("numericlist", List(Box::new(Int32)), true),
+            ]),
+            false,
+        )]);
+
+        // batch contents
+        let list_values_builder = Int32Builder::new(10);
+        let mut list_builder = ListBuilder::new(list_values_builder);
+        // [[1,2,3,4], null, [5,6], [7], [8,9,10]]
+        list_builder.values().append_value(1).unwrap();
+        list_builder.values().append_value(2).unwrap();
+        list_builder.values().append_value(3).unwrap();
+        list_builder.values().append_value(4).unwrap();
+        list_builder.append(true).unwrap();
+        list_builder.append(false).unwrap();
+        list_builder.values().append_value(5).unwrap();
+        list_builder.values().append_value(6).unwrap();
+        list_builder.append(true).unwrap();
+        list_builder.values().append_value(7).unwrap();
+        list_builder.append(true).unwrap();
+        list_builder.values().append_value(8).unwrap();
+        list_builder.values().append_value(9).unwrap();
+        list_builder.values().append_value(10).unwrap();
+        list_builder.append(true).unwrap();
+        let list_array = list_builder.finish();
+
+        let mut binary_builder = BinaryBuilder::new(100);
+        binary_builder.append_string("foo").unwrap();
+        binary_builder.append_string("bar").unwrap();
+        binary_builder.append_string("baz").unwrap();
+        binary_builder.append_string("qux").unwrap();
+        binary_builder.append_string("quux").unwrap();
+        let binary_array = binary_builder.finish();
+        let struct_array = StructArray::from((
+            vec![
+                (
+                    Field::new("bools", Boolean, true),
+                    Arc::new(BooleanArray::from(vec![
+                        Some(true),
+                        None,
+                        None,
+                        Some(false),
+                        Some(true),
+                    ])) as Arc<Array>,
+                ),
+                (
+                    Field::new("int8s", Int8, true),
+                    Arc::new(Int8Array::from(vec![
+                        Some(-1),
+                        None,
+                        None,
+                        Some(-4),
+                        Some(-5),
+                    ])),
+                ),
+                (Field::new("varbinary", Utf8, true), Arc::new(binary_array)),
+                (
+                    Field::new("numericlist", List(Box::new(Int32)), true),
+                    Arc::new(list_array),
+                ),
+            ],
+            Buffer::from([]),
+            0,
+        ));
 
         let mut reader = Reader::try_new(file).unwrap();
-        assert_eq!(5, reader.num_batches());
+        assert_eq!(3, reader.num_batches());
         for _ in 0..reader.num_batches() {
-            let batch = reader.next().unwrap().unwrap();
-            validate_batch(batch);
+            let batch: RecordBatch = reader.next().unwrap().unwrap();
+            assert_eq!(&Arc::new(schema.clone()), batch.schema());
+            assert_eq!(1, batch.num_columns());
+            assert_eq!(5, batch.num_rows());
+            let struct_col: &StructArray = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<StructArray>()
+                .unwrap();
+            let struct_col_1: &BooleanArray = struct_col
+                .column(0)
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .unwrap();
+            assert_eq!("PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  null,\n  false,\n  true,\n]", format!("{:?}", struct_col_1));
+            assert_eq!(
+                struct_col_1.data(),
+                BooleanArray::from(
+                    vec![Some(true), None, None, Some(false), Some(true),]
+                )
+                .data()
+            );
+            assert_eq!(struct_col.data(), struct_array.data());
         }
         // try read a batch after all batches are exhausted
         let batch = reader.next().unwrap();
@@ -320,6 +516,7 @@ mod tests {
 
         // seek a specific batch
         let batch = reader.read_batch(4).unwrap().unwrap();
+        dbg!(batch.schema());
         validate_batch(batch);
         // try read a batch after seeking to the last batch
         let batch = reader.next().unwrap();
@@ -327,12 +524,13 @@ mod tests {
     }
 
     fn validate_batch(batch: RecordBatch) {
+        // primitive batches were created for
         assert_eq!(5, batch.num_rows());
-        assert_eq!(4, batch.num_columns());
+        assert_eq!(21, batch.num_columns());
         let arr_1 = batch.column(0);
-        let int32_array = Int32Array::from(arr_1.data());
+        let int32_array = arr_1.as_any().downcast_ref::<BooleanArray>().unwrap();
         assert_eq!(
-            "PrimitiveArray<Int32>\n[\n  1,\n  2,\n  3,\n  null,\n  5,\n]",
+            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  null,\n  false,\n  true,\n]",
             format!("{:?}", int32_array)
         );
         let arr_2 = batch.column(1);
