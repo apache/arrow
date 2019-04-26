@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -49,6 +50,31 @@ func TestBinaryBuilder(t *testing.T) {
 		}
 		assert.Equal(t, v, ab.Value(i), "unexpected BinaryArrayBuilder.Value(%d)", i)
 	}
+
+	ar := ab.NewBinaryArray()
+	ab.Release()
+	ar.Release()
+
+	// check state of builder after NewBinaryArray
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
+}
+
+func TestBinaryBuilder_ReserveData(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+
+	// call ReserveData and ensure the capacity doesn't change
+	// when appending entries until that count.
+	ab.ReserveData(256)
+	expCap := ab.DataCap()
+	for i := 0; i < 256 / 8; i++ {
+		ab.Append(bytes.Repeat([]byte("a"), 8))
+	}
+	assert.Equal(t, expCap, ab.DataCap(), "unexpected BinaryArrayBuilder.DataCap()")
 
 	ar := ab.NewBinaryArray()
 	ab.Release()
