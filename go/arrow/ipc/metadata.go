@@ -90,10 +90,6 @@ func (blk fileBlock) section() io.Reader {
 	return io.NewSectionReader(blk.r, blk.Offset, int64(blk.Meta)+blk.Body)
 }
 
-func nullableFromFB(v byte) bool {
-	return v != 0
-}
-
 // initFB is a helper function to handle flatbuffers' polymorphism.
 func initFB(t interface {
 	Table() flatbuffers.Table
@@ -113,7 +109,7 @@ func fieldFromFB(field *flatbuf.Field, memo *dictMemo) (arrow.Field, error) {
 	)
 
 	o.Name = string(field.Name())
-	o.Nullable = nullableFromFB(field.Nullable())
+	o.Nullable = field.Nullable()
 	o.Metadata, err = metadataFrom(field)
 	if err != nil {
 		return o, err
@@ -154,7 +150,7 @@ func fieldFromFBDict(field *flatbuf.Field) (arrow.Field, error) {
 	var (
 		o = arrow.Field{
 			Name:     string(field.Name()),
-			Nullable: nullableFromFB(field.Nullable()),
+			Nullable: field.Nullable(),
 		}
 		err  error
 		memo = newMemo()
@@ -276,36 +272,28 @@ func intFromFB(data flatbuf.Int) (arrow.DataType, error) {
 
 	switch bw {
 	case 8:
-		switch data.IsSigned() {
-		case 0:
+		if !data.IsSigned() {
 			return arrow.PrimitiveTypes.Uint8, nil
-		default:
-			return arrow.PrimitiveTypes.Int8, nil
 		}
+		return arrow.PrimitiveTypes.Int8, nil
 
 	case 16:
-		switch data.IsSigned() {
-		case 0:
+		if !data.IsSigned() {
 			return arrow.PrimitiveTypes.Uint16, nil
-		default:
-			return arrow.PrimitiveTypes.Int16, nil
 		}
+		return arrow.PrimitiveTypes.Int16, nil
 
 	case 32:
-		switch data.IsSigned() {
-		case 0:
+		if !data.IsSigned() {
 			return arrow.PrimitiveTypes.Uint32, nil
-		default:
-			return arrow.PrimitiveTypes.Int32, nil
 		}
+		return arrow.PrimitiveTypes.Int32, nil
 
 	case 64:
-		switch data.IsSigned() {
-		case 0:
+		if !data.IsSigned() {
 			return arrow.PrimitiveTypes.Uint64, nil
-		default:
-			return arrow.PrimitiveTypes.Int64, nil
 		}
+		return arrow.PrimitiveTypes.Int64, nil
 	default:
 		return nil, errors.Errorf("arrow/ipc: integers not in cstdint are not implemented")
 	}
