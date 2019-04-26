@@ -72,7 +72,9 @@ classdef tfeather < matlab.unittest.TestCase
             numRows = 1;
             numVariables = 10;
             
-            addRow = table('Size', [numRows, numVariables], 'VariableTypes', variableTypes, 'VariableNames', variableNames);
+            addRow = table('Size', [numRows, numVariables], ...
+                           'VariableTypes', variableTypes, ...
+                           'VariableNames', variableNames);
             addRow(1,:) = {NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN};
             actualTable = [t; addRow];
             expectedTable = featherRoundTrip(filename, actualTable);
