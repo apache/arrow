@@ -136,9 +136,7 @@ set(ARROW_SRCS
     vendored/datetime/tz.cpp)
 
 if(ARROW_WITH_URIPARSER)
-  set(ARROW_SRCS
-      ${ARROW_SRCS}
-      util/uri.cc)
+  set(ARROW_SRCS ${ARROW_SRCS} util/uri.cc)
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -305,7 +303,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_LIBRARIES ${ARROW_LIBRARIES} ${ARROW_TESTING_LIBRARIES})
 endif()
 
-if (ARROW_WITH_BACKTRACE)
+if(ARROW_WITH_BACKTRACE)
   find_package(Backtrace)
 
   foreach(LIB_TARGET ${ARROW_LIBRARIES})

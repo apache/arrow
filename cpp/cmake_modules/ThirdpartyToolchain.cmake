@@ -579,7 +579,7 @@ macro(build_uriparser)
   add_dependencies(uriparser::uriparser uriparser_ep)
 endmacro()
 
-if (ARROW_WITH_URIPARSER)
+if(ARROW_WITH_URIPARSER)
   # Unless the user overrides uriparser_SOURCE, build uriparser ourselves
   if("${uriparser_SOURCE}" STREQUAL "")
     set(uriparser_SOURCE "BUNDLED")
@@ -588,7 +588,7 @@ if (ARROW_WITH_URIPARSER)
   resolve_dependency(uriparser)
 
   get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
-                    INTERFACE_INCLUDE_DIRECTORIES)
+                      INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 endif()
 

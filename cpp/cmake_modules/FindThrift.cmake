@@ -74,26 +74,25 @@ if(Thrift_ROOT)
             PATH_SUFFIXES "include")
   find_program(THRIFT_COMPILER thrift PATHS ${Thrift_ROOT} PATH_SUFFIXES "bin")
 else()
-# THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
-# Starting with 0.13, they are also installed for the CMake-based installations of Thrift.
- pkg_check_modules(THRIFT_PC thrift)
- if(THRIFT_PC_FOUND)
-   set(THRIFT_INCLUDE_DIR "${THRIFT_PC_INCLUDEDIR}")
+  # THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
+  # Starting with 0.13, they are also installed for the CMake-based installations of Thrift.
+  pkg_check_modules(THRIFT_PC thrift)
+  if(THRIFT_PC_FOUND)
+    set(THRIFT_INCLUDE_DIR "${THRIFT_PC_INCLUDEDIR}")
 
-   list(APPEND THRIFT_PC_LIBRARY_DIRS "${THRIFT_PC_LIBDIR}")
+    list(APPEND THRIFT_PC_LIBRARY_DIRS "${THRIFT_PC_LIBDIR}")
 
-   find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
-                PATHS ${THRIFT_PC_LIBRARY_DIRS}
-                NO_DEFAULT_PATH)
-   find_program(THRIFT_COMPILER thrift
-                HINTS ${THRIFT_PC_PREFIX}
-                NO_DEFAULT_PATH
-                PATH_SUFFIXES "bin")
-  else ()
+    find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
+                 PATHS ${THRIFT_PC_LIBRARY_DIRS}
+                 NO_DEFAULT_PATH)
+    find_program(THRIFT_COMPILER thrift
+                 HINTS ${THRIFT_PC_PREFIX}
+                 NO_DEFAULT_PATH
+                 PATH_SUFFIXES "bin")
+  else()
     find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
                  PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
-    find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h
-              PATH_SUFFIXES "include")
+    find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h PATH_SUFFIXES "include")
     find_program(THRIFT_COMPILER thrift PATH_SUFFIXES "bin")
   endif()
 endif()

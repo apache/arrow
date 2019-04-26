@@ -38,7 +38,7 @@ if(ZSTD_ROOT)
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 
 else()
-# Second, find via pkg_check_modules
+  # Second, find via pkg_check_modules
   pkg_check_modules(ZSTD_PC libzstd)
   if(ZSTD_PC_FOUND)
     set(ZSTD_INCLUDE_DIR "${ZSTD_PC_INCLUDEDIR}")
@@ -48,7 +48,7 @@ else()
                  PATHS ${ZSTD_PC_LIBRARY_DIRS}
                  NO_DEFAULT_PATH
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-# Third, check all other CMake paths
+    # Third, check all other CMake paths
   else()
     find_library(ZSTD_LIB
                  NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
