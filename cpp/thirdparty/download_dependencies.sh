@@ -37,7 +37,7 @@ download_dependency() {
   local out=$2
 
   wget --quiet --continue --output-document="${out}" "${url}" || \
-    (echo "Failed downloading ${url}"; exit 1)
+    (echo "Failed downloading ${url}" 1>&2; exit 1)
 }
 
 main() {
