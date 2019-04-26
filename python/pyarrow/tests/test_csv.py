@@ -59,6 +59,13 @@ def make_random_csv(num_cols=2, num_rows=10, linesep=u'\r\n'):
     return csv, expected
 
 
+def test_nonlocal_file_errors_nicely():
+    with pytest.raises(pa.lib.ArrowIOError, match="Try using HadoopFileSystem"):
+        read_csv("hdfs://does-not-exist.csv")
+    with pytest.raises(pa.lib.ArrowIOError, match="Try using S3FSWrapper"):
+        read_csv("s3://does-not-exist.csv")
+
+
 def test_read_options():
     cls = ReadOptions
     opts = cls()

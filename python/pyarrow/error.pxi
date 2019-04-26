@@ -80,6 +80,12 @@ cdef int check_status(const CStatus& status) nogil except -1:
         if status.IsInvalid():
             raise ArrowInvalid(message)
         elif status.IsIOError():
+            # Give a helpful hint if someone passes a hdfs or s3 path
+            if "No such file or directory" in message:
+                if "hdfs:" in message:
+                    message += " Try using HadoopFileSystem."
+                elif "s3:" in message:
+                    message += " Try using S3FSWrapper."
             raise ArrowIOError(message)
         elif status.IsOutOfMemory():
             raise ArrowMemoryError(message)
