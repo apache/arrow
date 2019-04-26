@@ -41,8 +41,8 @@ mxArray* ReadVariableName(const std::shared_ptr<arrow::Column>& column) {
 
 template <typename ArrowDataType>
 mxArray* ReadNumericVariableData(const std::shared_ptr<arrow::Column>& column) {
-  typedef typename MatlabTraits<ArrowDataType>::MatlabType MatlabType;
-  typedef typename arrow::TypeTraits<ArrowDataType>::ArrayType ArrowArrayType;
+  using MatlabType = typename MatlabTraits<ArrowDataType>::MatlabType;
+  using ArrowArrayType = typename arrow::TypeTraits<ArrowDataType>::ArrayType;
 
   std::shared_ptr<arrow::ChunkedArray> chunked_array = column->data();
   const int num_chunks = chunked_array->num_chunks();

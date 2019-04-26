@@ -31,70 +31,70 @@ struct MatlabTraits;
 template <>
 struct MatlabTraits<arrow::FloatType> {
   static constexpr mxClassID matlab_class_id = mxSINGLE_CLASS;
-  typedef mxSingle MatlabType;
+  using MatlabType = mxSingle;
   static MatlabType* GetData(mxArray* pa) { return mxGetSingles(pa); }
 };
 
 template <>
 struct MatlabTraits<arrow::DoubleType> {
   static constexpr mxClassID matlab_class_id = mxDOUBLE_CLASS;
-  typedef mxDouble MatlabType;
+  using MatlabType = mxDouble;
   static MatlabType* GetData(mxArray* pa) { return mxGetDoubles(pa); }
 };
 
 template <>
 struct MatlabTraits<arrow::UInt8Type> {
   static constexpr mxClassID matlab_class_id = mxUINT8_CLASS;
-  typedef mxUint8 MatlabType;
+  using MatlabType = mxUint8;
   static MatlabType* GetData(mxArray* pa) { return mxGetUint8s(pa); }
 };
 
 template <>
 struct MatlabTraits<arrow::UInt16Type> {
   static constexpr mxClassID matlab_class_id = mxUINT16_CLASS;
-  typedef mxUint16 MatlabType;
+  using MatlabType = mxUint16;
   static MatlabType* GetData(mxArray* pa) { return mxGetUint16s(pa); }
 };
 
 template <>
 struct MatlabTraits<arrow::UInt32Type> {
   static constexpr mxClassID matlab_class_id = mxUINT32_CLASS;
-  typedef mxUint32 MatlabType;
+  using MatlabType = mxUint32;
   static MatlabType* GetData(mxArray* pa) { return mxGetUint32s(pa); }
 };
 
 template <>
 struct MatlabTraits<arrow::UInt64Type> {
   static constexpr mxClassID matlab_class_id = mxUINT64_CLASS;
-  typedef mxUint64 MatlabType;
+  using MatlabType = mxUint64;
   static MatlabType* GetData(mxArray* pa) { return mxGetUint64s(pa); }
 };
 
 template <>
 struct MatlabTraits<arrow::Int8Type> {
   static constexpr mxClassID matlab_class_id = mxINT8_CLASS;
-  typedef mxInt8 MatlabType;
+  using MatlabType = mxInt8;
   static MatlabType* GetData(mxArray* pa) { return mxGetInt8s(pa); }
 };
 
 template <>
 struct MatlabTraits<arrow::Int16Type> {
   static constexpr mxClassID matlab_class_id = mxINT16_CLASS;
-  typedef mxInt16 MatlabType;
+  using MatlabType = mxInt16;
   static MatlabType* GetData(mxArray* pa) { return mxGetInt16s(pa); }
 };
 
 template <>
 struct MatlabTraits<arrow::Int32Type> {
   static constexpr mxClassID matlab_class_id = mxINT32_CLASS;
-  typedef mxInt32 MatlabType;
+  using MatlabType = mxInt32;
   static MatlabType* GetData(mxArray* pa) { return mxGetInt32s(pa); }
 };
 
 template <>
 struct MatlabTraits<arrow::Int64Type> {
   static constexpr mxClassID matlab_class_id = mxINT64_CLASS;
-  typedef mxInt64 MatlabType;
+  using MatlabType = mxInt64;
   static MatlabType* GetData(mxArray* pa) { return mxGetInt64s(pa); }
 };
 
