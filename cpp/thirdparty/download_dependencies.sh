@@ -38,7 +38,7 @@ download_dependency() {
 
   # --show-progress will not output to stdout, it is safe to pipe the result of
   # the script into eval.
-  wget --quiet --continue --output-document="${out}" "${url}"
+  wget --no-verbose --continue --output-document="${out}" "${url}"
 }
 
 main() {
