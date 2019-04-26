@@ -43,18 +43,32 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.VectorFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import io.netty.buffer.ArrowBuf;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-
+@RunWith(Parameterized.class)
 public class TestValueVector {
 
   private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
+
+  private VectorFactory.VectorType vectorType;
+
+  public TestValueVector(VectorFactory.VectorType vectorType) {
+    this.vectorType = vectorType;
+  }
+
+  @Parameterized.Parameters(name = "vector type: {0}")
+  public static List<VectorFactory.VectorType> getVectorTypes() {
+    return Arrays.asList(VectorFactory.VectorType.SAFE, VectorFactory.VectorType.UNSAFE);
+  }
 
   @Before
   public void init() {
@@ -361,7 +375,7 @@ public class TestValueVector {
 
   @Test /* Float8Vector */
   public void testFixedType4() {
-    try (final Float8Vector floatVector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final Float8Vector floatVector = VectorFactory.createFloat8Vector(vectorType, EMPTY_SCHEMA_PATH, allocator)) {
       boolean error = false;
       int initialCapacity = 16;
 
@@ -398,13 +412,16 @@ public class TestValueVector {
       floatVector.set(12, 7.87);
       floatVector.set(14, 8.56);
 
-      try {
-        floatVector.set(initialCapacity, 9.53);
-      } catch (IndexOutOfBoundsException ie) {
-        error = true;
-      } finally {
-        assertTrue(error);
-        error = false;
+      // for unsafe vectors, we do not check boundaries, so skip this assert
+      if (vectorType == VectorFactory.VectorType.SAFE) {
+        try {
+          floatVector.set(initialCapacity, 9.53);
+        } catch (IndexOutOfBoundsException ie) {
+          error = true;
+        } finally {
+          assertTrue(error);
+          error = false;
+        }
       }
 
       /* check floatVector contents */
@@ -417,13 +434,16 @@ public class TestValueVector {
       assertEquals(7.87, floatVector.get(12), 0);
       assertEquals(8.56, floatVector.get(14), 0);
 
-      try {
-        floatVector.get(initialCapacity);
-      } catch (IndexOutOfBoundsException ie) {
-        error = true;
-      } finally {
-        assertTrue(error);
-        error = false;
+      // for unsafe vectors, we do not check boundaries, so skip this assert
+      if (vectorType == VectorFactory.VectorType.SAFE) {
+        try {
+          floatVector.get(initialCapacity);
+        } catch (IndexOutOfBoundsException ie) {
+          error = true;
+        } finally {
+          assertTrue(error);
+          error = false;
+        }
       }
 
       /* this should trigger a realloc() */
