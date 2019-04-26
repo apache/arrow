@@ -202,7 +202,12 @@ get_known_folder(const GUID& folderid)
     if (SUCCEEDED(hr))
     {
         co_task_mem_ptr folder_ptr(pfolder);
-        folder = std::string(folder_ptr.get(), folder_ptr.get() + wcslen(folder_ptr.get()));
+        folder.clear();
+        folder.reserve(wcslen(folder_ptr.get()));
+        for (std::size_t idx = 0; idx != wcslen(folder_ptr.get()); ++idx)
+        {
+            folder.push_back(static_cast<char>(folder_ptr[idx]));
+        }
     }
     return folder;
 }
