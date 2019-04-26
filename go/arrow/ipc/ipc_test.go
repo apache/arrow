@@ -34,6 +34,7 @@ func genRecord(mem memory.Allocator) array.Record {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
+			arrow.Field{Name: "bools", Type: arrow.FixedWidthTypes.Boolean},
 			arrow.Field{Name: "i8", Type: arrow.PrimitiveTypes.Int8},
 			arrow.Field{Name: "i16", Type: arrow.PrimitiveTypes.Int16},
 			arrow.Field{Name: "i32", Type: arrow.PrimitiveTypes.Int32},
@@ -47,107 +48,113 @@ func genRecord(mem memory.Allocator) array.Record {
 		},
 		&meta,
 	)
-	col1 := func() array.Interface {
+
+	mask := []bool{true, true, false, false, true, true, true, true, true, false}
+
+	colBs := func() array.Interface {
+		ib := array.NewBooleanBuilder(mem)
+		defer ib.Release()
+
+		ib.AppendValues([]bool{true, false, true, false, true, false, true, false, true, false}, mask)
+		return ib.NewBooleanArray()
+	}()
+	defer colBs.Release()
+
+	colI8 := func() array.Interface {
 		ib := array.NewInt8Builder(mem)
 		defer ib.Release()
 
-		ib.AppendValues([]int8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		ib.AppendValues([]int8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return ib.NewInt8Array()
 	}()
-	defer col1.Release()
+	defer colI8.Release()
 
-	col2 := func() array.Interface {
+	colI16 := func() array.Interface {
 		ib := array.NewInt16Builder(mem)
 		defer ib.Release()
 
-		ib.AppendValues([]int16{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		ib.AppendValues([]int16{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return ib.NewInt16Array()
 	}()
-	defer col2.Release()
+	defer colI16.Release()
 
-	col3 := func() array.Interface {
+	colI32 := func() array.Interface {
 		ib := array.NewInt32Builder(mem)
 		defer ib.Release()
 
-		ib.AppendValues([]int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		ib.AppendValues([]int32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return ib.NewInt32Array()
 	}()
-	defer col3.Release()
+	defer colI32.Release()
 
-	col4 := func() array.Interface {
+	colI64 := func() array.Interface {
 		ib := array.NewInt64Builder(mem)
 		defer ib.Release()
 
-		ib.AppendValues([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		ib.AppendValues([]int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return ib.NewInt64Array()
 	}()
-	defer col4.Release()
+	defer colI64.Release()
 
-	col5 := func() array.Interface {
+	colU8 := func() array.Interface {
 		ib := array.NewUint8Builder(mem)
 		defer ib.Release()
 
-		ib.AppendValues([]uint8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		ib.AppendValues([]uint8{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return ib.NewUint8Array()
 	}()
-	defer col5.Release()
+	defer colU8.Release()
 
-	col6 := func() array.Interface {
+	colU16 := func() array.Interface {
 		ib := array.NewUint16Builder(mem)
 		defer ib.Release()
 
-		ib.AppendValues([]uint16{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		ib.AppendValues([]uint16{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return ib.NewUint16Array()
 	}()
-	defer col6.Release()
+	defer colU16.Release()
 
-	col7 := func() array.Interface {
+	colU32 := func() array.Interface {
 		ib := array.NewUint32Builder(mem)
 		defer ib.Release()
 
-		ib.AppendValues([]uint32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		ib.AppendValues([]uint32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return ib.NewUint32Array()
 	}()
-	defer col7.Release()
+	defer colU32.Release()
 
-	col8 := func() array.Interface {
+	colU64 := func() array.Interface {
 		ib := array.NewUint64Builder(mem)
 		defer ib.Release()
 
-		ib.AppendValues([]uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		ib.AppendValues([]uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return ib.NewUint64Array()
 	}()
-	defer col8.Release()
+	defer colU64.Release()
 
-	col9 := func() array.Interface {
+	colF32 := func() array.Interface {
 		b := array.NewFloat32Builder(mem)
 		defer b.Release()
 
-		b.AppendValues([]float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		b.AppendValues([]float32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return b.NewFloat32Array()
 	}()
-	defer col9.Release()
+	defer colF32.Release()
 
-	col10 := func() array.Interface {
+	colF64 := func() array.Interface {
 		b := array.NewFloat64Builder(mem)
 		defer b.Release()
 
-		b.AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		b.AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, mask)
 		return b.NewFloat64Array()
 	}()
-	defer col10.Release()
+	defer colF64.Release()
 
 	cols := []array.Interface{
-		col1,
-		col2,
-		col3,
-		col4,
-		col5,
-		col6,
-		col7,
-		col8,
-		col9,
-		col10,
+		colBs,
+		colI8, colI16, colI32, colI64,
+		colU8, colU16, colU32, colU64,
+		colF32, colF64,
 	}
 	return array.NewRecord(schema, cols, -1)
 }
