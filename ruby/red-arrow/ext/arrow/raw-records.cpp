@@ -647,7 +647,7 @@ namespace red_arrow {
             const auto array = record_batch.column(i).get();
             column_index_ = i;
             check_status(array->Accept(this),
-                         "[record-batch-raw-records]");
+                         "[record-batch][raw-records]");
           }
           return Qnil;
         });
@@ -668,7 +668,7 @@ namespace red_arrow {
             row_offset_ = 0;
             for (const auto array : chunked_array->chunks()) {
               check_status(array->Accept(this),
-                           "[table-raw-records]");
+                           "[table][raw-records]");
               row_offset_ += array->length();
             }
           }
