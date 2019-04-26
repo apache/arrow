@@ -163,7 +163,7 @@ TEST_P(ReaderTest, TypeInference) {
   AssertTablesEqual(*expected_table, *table_);
 }
 
-TEST_P(ReaderTest, MutliChunk) {
+TEST_P(ReaderTest, MutlipleChunks) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
 
   auto src = scalars_only_src();
@@ -182,6 +182,60 @@ TEST_P(ReaderTest, MutliChunk) {
                      {"[\"thing\"]", "[null]", "[\"\xe5\xbf\x8d\", null]", "[]"}),
   });
   AssertTablesEqual(*expected_table, *table_);
+}
+
+template <typename T>
+std::string RowsOfOneColumn(string_view name, std::initializer_list<T> values,
+                            decltype(std::to_string(*values.begin()))* = nullptr) {
+  std::stringstream ss;
+  for (auto value : values) {
+    ss << R"({")" << name << R"(":)" << std::to_string(value) << "}\n";
+  }
+  return ss.str();
+}
+
+TEST(ReaderTest, MultipleChunksParallel) {
+  int64_t count = 1 << 20;
+
+  ParseOptions parse_options;
+  parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  ReadOptions read_options;
+  read_options.block_size = count / 2;  // there will be about two dozen blocks
+
+  std::string json;
+  for (int i = 0; i < count; ++i) {
+    json += "{\"a\":" + std::to_string(i) + "}\n";
+  }
+  std::shared_ptr<io::InputStream> input;
+  std::shared_ptr<Table> serial, threaded;
+  std::shared_ptr<TableReader> reader;
+
+  read_options.use_threads = true;
+  ASSERT_OK(MakeStream(json, &input));
+  ASSERT_OK(TableReader::Make(default_memory_pool(), input, read_options, parse_options,
+                              &reader));
+  ASSERT_OK(reader->Read(&threaded));
+
+  read_options.use_threads = false;
+  ASSERT_OK(MakeStream(json, &input));
+  ASSERT_OK(TableReader::Make(default_memory_pool(), input, read_options, parse_options,
+                              &reader));
+  ASSERT_OK(reader->Read(&serial));
+
+  ASSERT_EQ(serial->column(0)->type()->id(), Type::INT64);
+  int expected = 0;
+  for (auto chunk : serial->column(0)->data()->chunks()) {
+    for (int64_t i = 0; i < chunk->length(); ++i) {
+      ASSERT_EQ(checked_cast<const Int64Array*>(chunk.get())->GetView(i), expected)
+          << " at index " << i;
+      ++expected;
+    }
+  }
+
+  // std::cout << serial->column(0)->data()->num_chunks() << " chunks, " << json.size()
+  //           << " bytes" << std::endl;
+
+  AssertTablesEqual(*serial, *threaded);
 }
 
 }  // namespace json
