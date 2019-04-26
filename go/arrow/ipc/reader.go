@@ -62,7 +62,7 @@ func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
 		mem:   cfg.alloc,
 	}
 
-	err := rr.readSchema()
+	err := rr.readSchema(cfg.schema)
 	if err != nil {
 		return nil, errors.Wrap(err, "arrow/ipc: could not read schema from stream")
 	}
@@ -76,7 +76,7 @@ func (r *Reader) Err() error { return r.err }
 
 func (r *Reader) Schema() *arrow.Schema { return r.schema }
 
-func (r *Reader) readSchema() error {
+func (r *Reader) readSchema(schema *arrow.Schema) error {
 	msg, err := r.r.Message()
 	if err != nil {
 		return errors.Wrap(err, "arrow/ipc: could not read message schema")
@@ -104,6 +104,11 @@ func (r *Reader) readSchema() error {
 	r.schema, err = schemaFromFB(&schemaFB, &r.memo)
 	if err != nil {
 		return errors.Wrap(err, "arrow/ipc: could not decode schema from message schema")
+	}
+
+	// check the provided schema match the one read from stream.
+	if schema != nil && !schema.Equal(r.schema) {
+		return errInconsistentSchema
 	}
 
 	return nil
