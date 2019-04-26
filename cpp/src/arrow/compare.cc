@@ -527,7 +527,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     if (!left.value_data() && !(right.value_data())) {
       return true;
     }
-    if (left.value_offset(left.length()) == 0) {
+    if (left.value_offset(left.length()) == left.value_offset(0)) {
       return true;
     }
 

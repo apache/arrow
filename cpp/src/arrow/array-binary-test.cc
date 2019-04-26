@@ -670,6 +670,20 @@ void CheckSliceEquality() {
 
   ASSERT_TRUE(slice->Equals(slice2));
   ASSERT_TRUE(array->RangeEquals(5, 25, 0, slice));
+
+  ASSERT_OK(builder.Append("a"));
+  for (int j = 0; j < reps; ++j) {
+    ASSERT_OK(builder.Append(""));
+  }
+  FinishAndCheckPadding(&builder, &array);
+  slice = array->Slice(1);
+
+  for (int j = 0; j < reps; ++j) {
+    ASSERT_OK(builder.Append(""));
+  }
+  FinishAndCheckPadding(&builder, &array);
+
+  AssertArraysEqual(*slice, *array);
 }
 
 TEST_F(TestBinaryArray, TestSliceEquality) { CheckSliceEquality<BinaryType>(); }
