@@ -15,23 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module RawRecordsStructArrayHelper
-  def fields(type)
-    field_description = {
-      name: :field,
-    }
-    if type.is_a?(Hash)
-      field_description = field_description.merge(type)
-    else
-      field_description[:type] = type
+class RawRecordsTableTest < Test::Unit::TestCase
+  test("2 arrays") do
+    raw_record_batches = [
+      [
+        [true, nil, "Ruby"],
+        [nil, 0, "GLib"],
+        [false, 2 ** 8 - 1, nil],
+      ],
+      [
+        [nil, 10, "A"],
+        [true, 20, "B"],
+        [false, nil, "C"],
+        [nil, 40, nil],
+      ]
+    ]
+    raw_records = raw_record_batches.inject do |all_records, record_batch|
+      all_records + record_batch
     end
-    {
-      column: {
-        type: :struct,
-        fields: [
-          field_description,
-        ],
-      },
-    }
+    schema = [
+      {name: :column0, type: :boolean},
+      {name: :column1, type: :uint8},
+      {name: :column2, type: :string},
+    ]
+    record_batches = raw_record_batches.collect do |record_batch|
+      Arrow::RecordBatch.new(schema, record_batch)
+    end
+    table = Arrow::Table.new(schema, record_batches)
+    assert_equal(raw_records, table.raw_records)
   end
 end
