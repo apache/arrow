@@ -624,13 +624,14 @@ impl ColumnDescriptor {
         self.primitive_type.as_ref()
     }
 
-    /// Returns self type [`TypePtr`](crate::schema::types::TypePtr)  for this leaf column.
+    /// Returns self type [`TypePtr`](crate::schema::types::TypePtr)  for this leaf
+    /// column.
     pub fn self_type_ptr(&self) -> TypePtr {
         self.primitive_type.clone()
     }
 
-    /// Returns root [`Type`](crate::schema::types::Type) (most top-level parent field) for
-    /// this leaf column.
+    /// Returns root [`Type`](crate::schema::types::Type) (most top-level parent field)
+    /// for this leaf column.
     pub fn root_type(&self) -> &Type {
         assert!(self.root_type.is_some());
         self.root_type.as_ref().unwrap()

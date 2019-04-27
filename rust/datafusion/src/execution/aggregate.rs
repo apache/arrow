@@ -85,8 +85,8 @@ trait AggregateFunction {
     /// Get the function name (used for debugging)
     fn name(&self) -> &str;
 
-    /// Update the current aggregate value based on a new value. A value of `None` represents a
-    /// null value.
+    /// Update the current aggregate value based on a new value. A value of `None`
+    /// represents a null value.
     fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()>;
 
     /// Update the current aggregate value based on an array.
@@ -98,8 +98,8 @@ trait AggregateFunction {
 
     /// Get the data type of the result of the aggregate function. For some operations,
     /// such as `min`, `max`, and `sum`, the data type will be the same as the data type
-    /// of the argument. For other aggregates, such as `count`, the data type is independent
-    /// of the data type of the input.
+    /// of the argument. For other aggregates, such as `count`, the data type is
+    /// independent of the data type of the input.
     fn data_type(&self) -> &DataType;
 }
 
@@ -1434,19 +1434,19 @@ mod tests {
         assert_eq!(23, count.value(0));
         assert_eq!(0.40234192123489837, avg.value(0));
 
-        assert_eq!(2, a.value(1));
-        assert_eq!(0.16301110515739792, min.value(1));
-        assert_eq!(0.991517828651004, max.value(1));
-        assert_eq!(14.400412325480858, sum.value(1));
-        assert_eq!(22, count.value(1));
-        assert_eq!(0.6545641966127662, avg.value(1));
+        assert_eq!(5, a.value(1));
+        assert_eq!(0.01479305307777301, min.value(1));
+        assert_eq!(0.9723580396501548, max.value(1));
+        assert_eq!(6.037181692266781, sum.value(1));
+        assert_eq!(14, count.value(1));
+        assert_eq!(0.4312272637333415, avg.value(1));
 
-        assert_eq!(5, a.value(2));
-        assert_eq!(0.01479305307777301, min.value(2));
-        assert_eq!(0.9723580396501548, max.value(2));
-        assert_eq!(6.037181692266781, sum.value(2));
-        assert_eq!(14, count.value(2));
-        assert_eq!(0.4312272637333415, avg.value(2));
+        assert_eq!(2, a.value(2));
+        assert_eq!(0.16301110515739792, min.value(2));
+        assert_eq!(0.991517828651004, max.value(2));
+        assert_eq!(14.400412325480858, sum.value(2));
+        assert_eq!(22, count.value(2));
+        assert_eq!(0.6545641966127662, avg.value(2));
 
         assert_eq!(3, a.value(3));
         assert_eq!(0.047343434291126085, min.value(3));

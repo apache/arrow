@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! ExecutionContext contains methods for registering data sources and executing SQL queries
+//! ExecutionContext contains methods for registering data sources and executing SQL
+//! queries
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -196,8 +197,8 @@ impl ExecutionContext {
         Ok(plan)
     }
 
-    /// Execute a logical plan and produce a Relation (a schema-aware iterator over a series
-    /// of RecordBatch instances)
+    /// Execute a logical plan and produce a Relation (a schema-aware iterator over a
+    /// series of RecordBatch instances)
     pub fn execute(
         &mut self,
         plan: &LogicalPlan,

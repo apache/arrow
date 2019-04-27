@@ -26,7 +26,8 @@ use std::sync::Arc;
 
 /// A relation emit single scalar array;
 pub(super) struct ScalarRelation {
-    /// The schema for the limit relation, which is always the same as the schema of the input relation
+    /// The schema for the limit relation, which is always the same as the schema of the
+    /// input relation
     schema: Arc<Schema>,
 
     value: Vec<ArrayRef>,
