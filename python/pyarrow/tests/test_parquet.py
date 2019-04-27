@@ -179,9 +179,6 @@ def test_chunked_table_write():
     # ARROW-232
     df = alltypes_sample(size=10)
 
-    # The nanosecond->ms conversion is a nuisance, so we just avoid it here
-    del df['datetime']
-
     batch = pa.RecordBatch.from_pandas(df)
     table = pa.Table.from_batches([batch] * 3)
     _check_roundtrip(table, version='2.0')
@@ -195,8 +192,6 @@ def test_chunked_table_write():
 @pytest.mark.pandas
 def test_no_memory_map(tempdir):
     df = alltypes_sample(size=10)
-    # The nanosecond->us conversion is a nuisance, so we just avoid it here
-    del df['datetime']
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'memory_map': False},
@@ -223,8 +218,6 @@ def test_special_chars_filename(tempdir):
 @pytest.mark.pandas
 def test_empty_table_roundtrip():
     df = alltypes_sample(size=10)
-    # The nanosecond->us conversion is a nuisance, so we just avoid it here
-    del df['datetime']
 
     # Create a non-empty table to infer the types correctly, then slice to 0
     table = pa.Table.from_pandas(df)
@@ -896,7 +889,7 @@ def test_column_of_lists(tempdir):
 
 
 @pytest.mark.pandas
-def test_date_time_types():
+def test_date_time_types(tempdir):
     t1 = pa.date32()
     data1 = np.array([17259, 17260, 17261], dtype='int32')
     a1 = pa.array(data1, type=t1)
@@ -929,12 +922,6 @@ def test_date_time_types():
                      dtype='int64')
     a7 = pa.array(data7, type=t7)
 
-    t7_us = pa.timestamp('us')
-    start = pd.Timestamp('2001-01-01').value
-    data7_us = np.array([start, start + 1000, start + 2000],
-                        dtype='int64') // 1000
-    a7_us = pa.array(data7_us, type=t7_us)
-
     table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6, a7],
                                  ['date32', 'date64', 'timestamp[us]',
                                   'time32[s]', 'time64[us]',
@@ -943,8 +930,7 @@ def test_date_time_types():
 
     # date64 as date32
     # time32[s] to time32[ms]
-    # 'timestamp[ns]' to 'timestamp[us]'
-    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6, a7_us],
+    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6, a7],
                                     ['date32', 'date64', 'timestamp[us]',
                                      'time32[s]', 'time64[us]',
                                      'time32_from64[s]',
@@ -952,35 +938,62 @@ def test_date_time_types():
 
     _check_roundtrip(table, expected=expected, version='2.0')
 
-    # date64 as date32
-    # time32[s] to time32[ms]
-    # 'timestamp[ms]' is saved as INT96 timestamp
-    # 'timestamp[ns]' is saved as INT96 timestamp
-    expected = pa.Table.from_arrays([a1, a1, a7, a4, a5, ex_a6, a7],
-                                    ['date32', 'date64', 'timestamp[us]',
-                                     'time32[s]', 'time64[us]',
-                                     'time32_from64[s]',
-                                     'timestamp[ns]'])
+    t0 = pa.timestamp('ms')
+    data0 = np.arange(4, dtype='int64')
+    a0 = pa.array(data0, type=t0)
 
-    _check_roundtrip(table, expected=expected, version='2.0',
-                     use_deprecated_int96_timestamps=True)
+    t1 = pa.timestamp('us')
+    data1 = np.arange(4, dtype='int64')
+    a1 = pa.array(data1, type=t1)
 
-    # Check that setting flavor to 'spark' uses int96 timestamps
-    _check_roundtrip(table, expected=expected, version='2.0',
-                     flavor='spark')
+    t2 = pa.timestamp('ns')
+    data2 = np.arange(4, dtype='int64')
+    a2 = pa.array(data2, type=t2)
 
-    # Unsupported stuff
-    def _assert_unsupported(array):
-        table = pa.Table.from_arrays([array], ['unsupported'])
-        buf = io.BytesIO()
+    table = pa.Table.from_arrays([a0, a1, a2],
+                                 ['ts[ms]', 'ts[us]', 'ts[ns]'])
+    expected = pa.Table.from_arrays([a0, a1, a2],
+                                    ['ts[ms]', 'ts[us]', 'ts[ns]'])
 
-        with pytest.raises(NotImplementedError):
-            _write_table(table, buf, version="2.0")
+    # int64 for all timestamps supported by default
+    filename = tempdir / 'int64_timestamps.parquet'
+    _write_table(table, filename, version='2.0')
+    parquet_schema = pq.ParquetFile(filename).schema
+    for i in range(3):
+        assert parquet_schema.column(i).physical_type == 'INT64'
+    read_table = _read_table(filename)
+    assert read_table.equals(expected)
 
-    t7 = pa.time64('ns')
-    a7 = pa.array(data4.astype('int64'), type=t7)
+    t0_ns = pa.timestamp('ns')
+    data0_ns = np.array(data0 * 1000000, dtype='int64')
+    a0_ns = pa.array(data0_ns, type=t0_ns)
 
-    _assert_unsupported(a7)
+    t1_ns = pa.timestamp('ns')
+    data1_ns = np.array(data1 * 1000, dtype='int64')
+    a1_ns = pa.array(data1_ns, type=t1_ns)
+
+    expected = pa.Table.from_arrays([a0_ns, a1_ns, a2],
+                                    ['ts[ms]', 'ts[us]', 'ts[ns]'])
+
+    # int96 nanosecond timestamps produced upon request
+    filename = tempdir / 'explicit_int96_timestamps.parquet'
+    _write_table(table, filename, version='2.0',
+                 use_deprecated_int96_timestamps=True)
+    parquet_schema = pq.ParquetFile(filename).schema
+    for i in range(3):
+        assert parquet_schema.column(i).physical_type == 'INT96'
+    read_table = _read_table(filename)
+    assert read_table.equals(expected)
+
+    # int96 nanosecond timestamps implied by flavor 'spark'
+    filename = tempdir / 'spark_int96_timestamps.parquet'
+    _write_table(table, filename, version='2.0',
+                 flavor='spark')
+    parquet_schema = pq.ParquetFile(filename).schema
+    for i in range(3):
+        assert parquet_schema.column(i).physical_type == 'INT96'
+    read_table = _read_table(filename)
+    assert read_table.equals(expected)
 
 
 @pytest.mark.pandas
@@ -2028,11 +2041,37 @@ def test_write_error_deletes_incomplete_file(tempdir):
 
     filename = tempdir / 'tmp_file'
     try:
-        _write_table(pdf, filename)
+        _write_table(pdf, filename, coerce_timestamps='ms')
     except pa.ArrowException:
         pass
 
     assert not filename.exists()
+
+
+@pytest.mark.pandas
+def test_noncoerced_nanoseconds_written_without_exception(tempdir):
+    # ARROW-1957
+    n = 9
+    df = pd.DataFrame({'x': range(n)},
+                      index=pd.DatetimeIndex(start='2017-01-01',
+                      freq='1n',
+                      periods=n))
+    tb = pa.Table.from_pandas(df)
+
+    filename = tempdir / 'written.parquet'
+    try:
+        pq.write_table(tb, filename)
+    except Exception:
+        pass
+    assert filename.exists()
+
+    recovered_table = _simple_table_roundtrip(tb)
+    assert tb.equals(recovered_table)
+
+    # Loss of data thru coercion (without explicit override) still an error
+    filename = tempdir / 'not_written.parquet'
+    with pytest.raises(ValueError):
+        pq.write_table(tb, filename, coerce_timestamps='ms')
 
 
 def test_read_non_existent_file(tempdir):

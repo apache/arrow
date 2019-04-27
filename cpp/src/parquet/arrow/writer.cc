@@ -652,18 +652,14 @@ Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_level
                                           const int16_t* rep_levels) {
   const auto& type = static_cast<const ::arrow::TimestampType&>(*values.type());
 
-  const bool is_nanosecond = type.unit() == TimeUnit::NANO;
-
   if (ctx_->properties->support_deprecated_int96_timestamps()) {
     // The user explicitly required to use Int96 storage.
     return TypedWriteBatch<Int96Type, ::arrow::TimestampType>(values, num_levels,
                                                               def_levels, rep_levels);
-  } else if (is_nanosecond ||
-             (ctx_->properties->coerce_timestamps_enabled() &&
-              (type.unit() != ctx_->properties->coerce_timestamps_unit()))) {
-    // Casting is required. This covers several cases
-    // * Nanoseconds -> cast to microseconds (until ARROW-3729 is resolved)
-    // * coerce_timestamps_enabled_, cast all timestamps to requested unit
+  } else if (ctx_->properties->coerce_timestamps_enabled() &&
+             (type.unit() != ctx_->properties->coerce_timestamps_unit())) {
+    // Casting is required: coerce_timestamps_enabled_, cast all timestamps to requested
+    // unit
     return WriteTimestampsCoerce(ctx_->properties->truncated_timestamps_allowed(), values,
                                  num_levels, def_levels, rep_levels);
   } else {
@@ -683,7 +679,8 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_
   const auto& data = static_cast<const ::arrow::TimestampArray&>(array);
 
   auto values = data.raw_values();
-  const auto& type = static_cast<const ::arrow::TimestampType&>(*array.type());
+  const auto& source_type = static_cast<const ::arrow::TimestampType&>(*array.type());
+  auto source_unit = source_type.unit();
 
   TimeUnit::type target_unit = ctx_->properties->coerce_timestamps_enabled()
                                    ? ctx_->properties->coerce_timestamps_unit()
@@ -693,7 +690,7 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_
   auto DivideBy = [&](const int64_t factor) {
     for (int64_t i = 0; i < array.length(); i++) {
       if (!truncated_timestamps_allowed && !data.IsNull(i) && (values[i] % factor != 0)) {
-        return Status::Invalid("Casting from ", type.ToString(), " to ",
+        return Status::Invalid("Casting from ", source_type.ToString(), " to ",
                                target_type->ToString(), " would lose data: ", values[i]);
       }
       buffer[i] = values[i] / factor;
@@ -708,21 +705,37 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_
     return Status::OK();
   };
 
-  if (type.unit() == TimeUnit::NANO) {
+  if (source_unit == TimeUnit::NANO) {
     if (target_unit == TimeUnit::MICRO) {
       RETURN_NOT_OK(DivideBy(1000));
     } else {
       DCHECK_EQ(TimeUnit::MILLI, target_unit);
       RETURN_NOT_OK(DivideBy(1000000));
     }
-  } else if (type.unit() == TimeUnit::SECOND) {
-    RETURN_NOT_OK(MultiplyBy(target_unit == TimeUnit::MICRO ? 1000000 : 1000));
-  } else if (type.unit() == TimeUnit::MILLI) {
-    DCHECK_EQ(TimeUnit::MICRO, target_unit);
-    RETURN_NOT_OK(MultiplyBy(1000));
+  } else if (source_unit == TimeUnit::MICRO) {
+    if (target_unit == TimeUnit::NANO) {
+      RETURN_NOT_OK(MultiplyBy(1000));
+    } else {
+      DCHECK_EQ(TimeUnit::MILLI, target_unit);
+      RETURN_NOT_OK(DivideBy(1000));
+    }
+  } else if (source_unit == TimeUnit::MILLI) {
+    if (target_unit == TimeUnit::MICRO) {
+      RETURN_NOT_OK(MultiplyBy(1000));
+    } else {
+      DCHECK_EQ(TimeUnit::NANO, target_unit);
+      RETURN_NOT_OK(MultiplyBy(1000000));
+    }
   } else {
-    DCHECK_EQ(TimeUnit::MILLI, target_unit);
-    RETURN_NOT_OK(DivideBy(1000));
+    DCHECK_EQ(TimeUnit::SECOND, source_unit);
+    if (target_unit == TimeUnit::MILLI) {
+      RETURN_NOT_OK(MultiplyBy(1000));
+    } else if (target_unit == TimeUnit::MICRO) {
+      RETURN_NOT_OK(MultiplyBy(1000000));
+    } else {
+      DCHECK_EQ(TimeUnit::NANO, target_unit);
+      RETURN_NOT_OK(MultiplyBy(INT64_C(1000000000)));
+    }
   }
 
   if (writer_->descr()->schema_node()->is_required() || (data.null_count() == 0)) {
