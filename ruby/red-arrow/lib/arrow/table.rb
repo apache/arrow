@@ -30,27 +30,154 @@ module Arrow
 
     alias_method :initialize_raw, :initialize
     private :initialize_raw
-    def initialize(schema_or_raw_table_or_columns, columns=nil)
-      if columns.nil?
-        if schema_or_raw_table_or_columns[0].is_a?(Column)
-          columns = schema_or_raw_table_or_columns
-          fields = columns.collect(&:field)
+
+    # Creates a new {Arrow::Table}.
+    #
+    # @overload initialize(columns)
+    #
+    #   @param columns [::Array<Arrow::Column>] The columns of the table.
+    #
+    #   @example Create a table from columns
+    #     count_field = Arrow::Field.new("count", :uint32)
+    #     count_array = Arrow::UInt32Array.new([0, 2, nil, 4])
+    #     count_column = Arrow::Column.new(count_field, count_array)
+    #     visible_field = Arrow::Field.new("visible", :boolean)
+    #     visible_array = Arrow::BooleanArray.new([true, nil, nil, false])
+    #     visible_column = Arrow::Column.new(visible_field, visible_array)
+    #     Arrow::Table.new([count_column, visible_column])
+    #
+    # @overload initialize(raw_table)
+    #
+    #   @param raw_table [Hash<String, Arrow::Array>]
+    #     The pairs of column name and values of the table. Column values is
+    #     `Arrow::Array`.
+    #
+    #   @example Create a table from column name and values
+    #     Arrow::Table.new("count" => Arrow::UInt32Array.new([0, 2, nil, 4]),
+    #                      "visible" => Arrow::BooleanArray.new([true, nil, nil, false]))
+    #
+    # @overload initialize(raw_table)
+    #
+    #   @param raw_table [Hash<String, Arrow::ChunkedArray>]
+    #     The pairs of column name and values of the table. Column values is
+    #     `Arrow::ChunkedArray`.
+    #
+    #   @example Create a table from column name and values
+    #     count_chunks = [
+    #       Arrow::UInt32Array.new([0, 2]),
+    #       Arrow::UInt32Array.new([nil, 4]),
+    #     ]
+    #     visible_chunks = [
+    #       Arrow::BooleanArray.new([true]),
+    #       Arrow::BooleanArray.new([nil, nil, false]),
+    #     ]
+    #     Arrow::Table.new("count" => Arrow::ChunkedArray.new(count_chunks),
+    #                      "visible" => Arrow::ChunkedArray.new(visible_chunks))
+    #
+    # @overload initialize(schema, columns)
+    #
+    #   @param schema [Arrow::Schema] The schema of the table.
+    #     You can also specify schema as primitive Ruby objects.
+    #     See {Arrow::Schema#initialize} for details.
+    #
+    #   @param columns [::Array<Arrow::Column>] The data of the table.
+    #
+    #   @example Create a table from schema and columns
+    #     count_field = Arrow::Field.new("count", :uint32)
+    #     count_array = Arrow::UInt32Array.new([0, 2, nil, 4])
+    #     count_column = Arrow::Column.new(count_field, count_array)
+    #     visible_field = Arrow::Field.new("visible", :boolean)
+    #     visible_array = Arrow::BooleanArray.new([true, nil, nil, false])
+    #     visible_column = Arrow::Column.new(visible_field, visible_array)
+    #     Arrow::Table.new(Arrow::Schema.new([count_field, visible_field]),
+    #                      [count_column, visible_column])
+    #
+    # @overload initialize(schema, arrays)
+    #
+    #   @param schema [Arrow::Schema] The schema of the table.
+    #     You can also specify schema as primitive Ruby objects.
+    #     See {Arrow::Schema#initialize} for details.
+    #
+    #   @param arrays [::Array<Arrow::Array>] The data of the table.
+    #
+    #   @example Create a table from schema and arrays
+    #     count_field = Arrow::Field.new("count", :uint32)
+    #     count_array = Arrow::UInt32Array.new([0, 2, nil, 4])
+    #     visible_field = Arrow::Field.new("visible", :boolean)
+    #     visible_array = Arrow::BooleanArray.new([true, nil, nil, false])
+    #     Arrow::Table.new(Arrow::Schema.new([count_field, visible_field]),
+    #                      [count_array, visible_array])
+    #
+    # @overload initialize(schema, record_batches)
+    #
+    #   @param schema [Arrow::Schema] The schema of the table.
+    #     You can also specify schema as primitive Ruby objects.
+    #     See {Arrow::Schema#initialize} for details.
+    #
+    #   @param arrays [::Array<Arrow::RecordBatch>] The data of the table.
+    #
+    #   @example Create a table from schema and record batches
+    #     count_field = Arrow::Field.new("count", :uint32)
+    #     visible_field = Arrow::Field.new("visible", :boolean)
+    #     schema = Arrow::Schema.new([count_field, visible_field])
+    #     record_batches = [
+    #       Arrow::RecordBatch.new(schema, [[0, true], [2, nil], [nil, nil]]),
+    #       Arrow::RecordBatch.new(schema, [[4, false]]),
+    #     ]
+    #     Arrow::Table.new(schema, record_batches)
+    #
+    # @overload initialize(schema, raw_records)
+    #
+    #   @param schema [Arrow::Schema] The schema of the table.
+    #     You can also specify schema as primitive Ruby objects.
+    #     See {Arrow::Schema#initialize} for details.
+    #
+    #   @param arrays [::Array<::Array>] The data of the table as primitive
+    #     Ruby objects.
+    #
+    #   @example Create a table from schema and raw records
+    #     schema = {
+    #       count: :uint32,
+    #       visible: :boolean,
+    #     }
+    #     raw_records = [
+    #       [0, true],
+    #       [2, nil],
+    #       [nil, nil],
+    #       [4, false],
+    #     ]
+    #     Arrow::Table.new(schema, raw_records)
+    def initialize(*args)
+      n_args = args.size
+      case n_args
+      when 1
+        if args[0][0].is_a?(Column)
+          values = args[0]
+          fields = values.collect(&:field)
           schema = Schema.new(fields)
         else
-          raw_table = schema_or_raw_table_or_columns
+          raw_table = args[0]
           fields = []
-          columns = []
+          values = []
           raw_table.each do |name, array|
             field = Field.new(name.to_s, array.value_data_type)
             fields << field
-            columns << Column.new(field, array)
+            values << Column.new(field, array)
           end
           schema = Schema.new(fields)
         end
+      when 2
+        schema = args[0]
+        schema = Schema.new(schema) unless schema.is_a?(Schema)
+        values = args[1]
+        if values[0].is_a?(::Array)
+          values = [RecordBatch.new(schema, values)]
+        end
       else
-        schema = schema_or_raw_table_or_columns
+        message = "wrong number of arguments (given, #{n_args}, expected 1..2)"
+        raise ArgumentError, message
       end
-      initialize_raw(schema, columns)
+      initialize_raw(schema, values)
     end
 
     def columns

@@ -40,6 +40,7 @@ namespace red_arrow {
   extern ID id_to_datetime;
 
   VALUE record_batch_raw_records(VALUE obj);
+  VALUE table_raw_records(VALUE obj);
 
   inline VALUE time_unit_to_scale(arrow::TimeUnit::type unit) {
     switch (unit) {
