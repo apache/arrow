@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines the projection relation. A projection determines which columns or expressions are
-//! returned from a query. The SQL statement `SELECT a, b, a+b FROM t1` is an example of a
-//! projection on table `t1` where the expressions `a`, `b`, and `a+b` are the projection
-//! expressions.
+//! Defines the projection relation. A projection determines which columns or expressions
+//! are returned from a query. The SQL statement `SELECT a, b, a+b FROM t1` is an example
+//! of a projection on table `t1` where the expressions `a`, `b`, and `a+b` are the
+//! projection expressions.
 
 use std::cell::RefCell;
 use std::rc::Rc;

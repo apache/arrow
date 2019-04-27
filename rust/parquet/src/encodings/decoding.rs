@@ -459,7 +459,8 @@ impl Decoder<BoolType> for RleValueDecoder<BoolType> {
 
 /// Delta binary packed decoder.
 /// Supports INT32 and INT64 types.
-/// See [`DeltaBitPackEncoder`](crate::encoding::DeltaBitPackEncoder) for more information.
+/// See [`DeltaBitPackEncoder`](crate::encoding::DeltaBitPackEncoder) for more
+/// information.
 pub struct DeltaBitPackDecoder<T: DataType> {
     bit_reader: BitReader,
     initialized: bool,

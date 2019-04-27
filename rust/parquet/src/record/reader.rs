@@ -625,7 +625,8 @@ pub struct RowIter<'a> {
 }
 
 impl<'a> RowIter<'a> {
-    /// Creates iterator of [`Row`](crate::record::api::Row)s for all row groups in a file.
+    /// Creates iterator of [`Row`](crate::record::api::Row)s for all row groups in a
+    /// file.
     pub fn from_file(proj: Option<Type>, reader: &'a FileReader) -> Result<Self> {
         let descr = Self::get_proj_descr(
             proj,
