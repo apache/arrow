@@ -664,7 +664,6 @@ namespace red_arrow {
             const auto column = table.column(i).get();
             const auto chunked_array = column->data();
             column_index_ = i;
-            // TODO: should we use array->offset() ?
             row_offset_ = 0;
             for (const auto array : chunked_array->chunks()) {
               check_status(array->Accept(this),
