@@ -30,9 +30,12 @@ use std::thread::JoinHandle;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
-use crossbeam::crossbeam_channel::unbounded;
-use crossbeam::crossbeam_channel::{Receiver, Sender};
+use sqlparser::sqlast::{SQLColumnDef, SQLType};
 
+use crossbeam::channel::{unbounded, Receiver, Sender};
+
+use crate::arrow::array::ArrayRef;
+use crate::arrow::builder::BooleanBuilder;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::{ParquetFile, ParquetTable};
 use crate::datasource::TableProvider;
@@ -51,6 +54,7 @@ use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::type_coercion::TypeCoercionRule;
 use crate::optimizer::utils;
+use crate::sql::parser::FileType;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
@@ -89,7 +93,9 @@ impl ExecutionPlan for ParquetScanExec {
         self.build_file_list(&self.filename, &mut filenames)?;
         let partitions = filenames
             .iter()
-            .map(|filename| Arc::new(ParquetScanPartition::new(filename)) as Arc<Partition>)
+            .map(|filename| {
+                Arc::new(ParquetScanPartition::new(filename)) as Arc<Partition>
+            })
             .collect();
         Ok(partitions)
     }
@@ -208,7 +214,7 @@ pub struct ExecutionContext {
 }
 
 impl ExecutionContext {
-    /// Create a new excution context for in-memory queries
+    /// Create a new execution context for in-memory queries
     pub fn new() -> Self {
         Self {
             datasources: Rc::new(RefCell::new(HashMap::new())),
@@ -241,9 +247,61 @@ impl ExecutionContext {
 
                 Ok(self.optimize(&plan)?)
             }
-            other => Err(ExecutionError::General(format!(
-                "Cannot create logical plan from {:?}",
-                other
+            DFASTNode::CreateExternalTable {
+                name,
+                columns,
+                file_type,
+                header_row,
+                location,
+            } => {
+                let schema = Arc::new(self.build_schema(columns)?);
+
+                Ok(Arc::new(LogicalPlan::CreateExternalTable {
+                    schema,
+                    name,
+                    location,
+                    file_type,
+                    header_row,
+                }))
+            }
+        }
+    }
+
+    fn build_schema(&self, columns: Vec<SQLColumnDef>) -> Result<Schema> {
+        let mut fields = Vec::new();
+
+        for column in columns {
+            let data_type = self.make_data_type(column.data_type)?;
+            fields.push(Field::new(&column.name, data_type, column.allow_null));
+        }
+
+        Ok(Schema::new(fields))
+    }
+
+    fn make_data_type(&self, sql_type: SQLType) -> Result<DataType> {
+        match sql_type {
+            SQLType::BigInt => Ok(DataType::Int64),
+            SQLType::Int => Ok(DataType::Int32),
+            SQLType::SmallInt => Ok(DataType::Int16),
+            SQLType::Char(_) | SQLType::Varchar(_) | SQLType::Text => Ok(DataType::Utf8),
+            SQLType::Decimal(_, _) => Ok(DataType::Float64),
+            SQLType::Float(_) => Ok(DataType::Float32),
+            SQLType::Real | SQLType::Double => Ok(DataType::Float64),
+            SQLType::Boolean => Ok(DataType::Boolean),
+            SQLType::Date => Ok(DataType::Date64(DateUnit::Day)),
+            SQLType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
+            SQLType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
+            SQLType::Uuid
+            | SQLType::Clob(_)
+            | SQLType::Binary(_)
+            | SQLType::Varbinary(_)
+            | SQLType::Blob(_)
+            | SQLType::Regclass
+            | SQLType::Bytea
+            | SQLType::Custom(_)
+            | SQLType::Array(_) => Err(ExecutionError::General(format!(
+                "Unsupported data type: {:?}.",
+                sql_type
             ))),
         }
     }
@@ -337,7 +395,7 @@ impl ExecutionContext {
 
     /// Get a table by name
     pub fn table(&mut self, table_name: &str) -> Result<Arc<Table>> {
-        match self.datasources.borrow().get(table_name) {
+        match (*self.datasources).borrow().get(table_name) {
             Some(provider) => {
                 Ok(Arc::new(TableImpl::new(Arc::new(LogicalPlan::TableScan {
                     schema_name: "".to_string(),
@@ -549,7 +607,7 @@ mod test {
         println!("{:?}", optimized_plan);
 
         let physical_plan = ctx.create_physical_plan(&optimized_plan)?;
-        let result = ctx.execute_physical_plan(physical_plan)?;
+        //let result = ctx.execute_physical_plan(physical_plan)?;
         Ok(())
     }
 }
