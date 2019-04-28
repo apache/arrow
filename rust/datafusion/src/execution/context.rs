@@ -20,8 +20,11 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs;
+use std::fs::File;
 use std::rc::Rc;
 use std::string::String;
+use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
 use std::thread::JoinHandle;
@@ -29,8 +32,11 @@ use std::thread::JoinHandle;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
+use crossbeam::crossbeam_channel::unbounded;
+use crossbeam::crossbeam_channel::{Receiver, Sender};
+
 use crate::datasource::csv::CsvFile;
-use crate::datasource::parquet::ParquetTable;
+use crate::datasource::parquet::{ParquetFile, ParquetTable};
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::aggregate::AggregateRelation;
@@ -52,6 +58,7 @@ use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
 
 struct TableScanExec {
+    filename: String,
     schema: Arc<Schema>,
 }
 
@@ -61,12 +68,70 @@ impl ExecutionPlan for TableScanExec {
     }
 
     fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
-        //TODO
-        Ok(vec![Arc::new(TableScanPartition {})])
+        let mut partitions: Vec<Arc<Partition>> = vec![];
+        for entry in fs::read_dir(&self.filename)? {
+            let entry = entry?;
+            let filename = entry.file_name();
+            partitions.push(Arc::new(TableScanPartition::new(
+                filename.to_str().unwrap(),
+            )));
+        }
+        Ok(partitions)
     }
 }
 
-struct TableScanPartition {}
+struct TableScanPartition {
+    request_tx: Sender<()>,
+    response_rx: Receiver<RecordBatch>,
+}
+
+impl TableScanPartition {
+    pub fn new(filename: &str) -> Self {
+        let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
+        let (response_tx, response_rx): (Sender<RecordBatch>, Receiver<RecordBatch>) =
+            unbounded();
+
+        let filename = filename.to_string();
+        thread::spawn(move || {
+            let table = ParquetTable::try_new(&filename).unwrap();
+            let partitions = table.scan(&None, 1024).unwrap();
+            let partition = partitions[0].clone();
+            loop {
+                let x = request_rx.recv().unwrap();
+                let batch = partition.lock().unwrap().next().unwrap().unwrap();
+                response_tx.send(batch).unwrap();
+            }
+        });
+
+        Self {
+            request_tx,
+            response_rx,
+        }
+    }
+}
+
+//impl BatchIterator for ParquetFile {
+//    fn next(&mut self) -> Result<Option<RecordBatch>> {
+//        // advance the row group reader if necessary
+//        if self.current_row_group.is_none() {
+//            self.load_next_row_group()?;
+//            self.load_batch()
+//        } else {
+//            match self.load_batch() {
+//                Ok(Some(b)) => Ok(Some(b)),
+//                Ok(None) => {
+//                    if self.row_group_index < self.reader.num_row_groups() {
+//                        self.load_next_row_group()?;
+//                        self.load_batch()
+//                    } else {
+//                        Ok(None)
+//                    }
+//                }
+//                Err(e) => Err(e),
+//            }
+//        }
+//    }
+//}
 
 impl Partition for TableScanPartition {
     fn execute(&self) -> Result<Arc<BatchIterator>> {
@@ -200,6 +265,7 @@ impl ExecutionContext {
         match logical_plan.as_ref() {
             LogicalPlan::TableScan { schema, .. } => {
                 let physical_plan = TableScanExec {
+                    filename: "/home/andy/nyc-tripdata/parquet/year=2018".to_string(), /* TODO */
                     schema: schema.clone(),
                 };
                 Ok(Arc::new(physical_plan))
