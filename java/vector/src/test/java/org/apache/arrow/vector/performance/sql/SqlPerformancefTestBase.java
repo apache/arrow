@@ -44,7 +44,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 /**
  * The base class for all SQL performance evaluations.
  */
-public abstract class SqlPerormancefTestBase {
+public abstract class SqlPerformancefTestBase {
 
   /**
    * The total amount of memory used in each evaluation.
@@ -162,7 +162,7 @@ public abstract class SqlPerormancefTestBase {
             "Num of repeats = " + numRepeats + "\n" +
             "Max duration = " + maxDuration + "ms\n" +
             "Min duration = " + minDuration + "ms\n" +
-            "Avg duration = " + totalDuration / numRepeats + "ms");
+            "Avg duration = " + totalDuration / numRepeats + "ms\n");
   }
 
   // /UTILITY METHODS FROM HERE

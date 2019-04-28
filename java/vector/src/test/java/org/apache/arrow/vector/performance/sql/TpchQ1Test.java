@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.performance.sql;
 
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.ValueVector;
@@ -28,14 +29,14 @@ import org.junit.Test;
 /**
  * Evaluate the benchmarks for TPC-H Q1.
  */
-public class TpchQ1Test extends SqlPerormancefTestBase {
+public class TpchQ1Test extends SqlPerformancefTestBase {
 
   /**
    * Evaluate the workload of an operator that produces new data by projecting and filtering the input data.
    *
    * @return the duration of the evaluation, in nano-second.
    */
-  private long projectAndFilter() {
+  private long projectAndFilter1() {
     // create input schema
     Field[] inputFields = new Field[]{
       new Field("inCol0", DOUBLE_TYPE, null),
@@ -216,8 +217,200 @@ public class TpchQ1Test extends SqlPerormancefTestBase {
     return end - start;
   }
 
+  private long projectAndFilter2() {
+    // create input schema
+    Field[] inputFields = new Field[]{
+      new Field("inCol0", STRING_TYPE, null),
+      new Field("inCol1", STRING_TYPE, null),
+      new Field("inCol2", DOUBLE_TYPE, null),
+      new Field("inCol3", DOUBLE_TYPE, null),
+      new Field("inCol4", DOUBLE_TYPE, null),
+      new Field("inCol5", DOUBLE_TYPE, null),
+      new Field("inCol6", BIG_INT_TYPE, null),
+      new Field("inCol7", DOUBLE_TYPE, null),
+    };
+
+    // create input data
+    ValueVector[] inputVectors = createVectors(inputFields, true);
+
+    // create output schema
+    Field[] outputFields = new Field[]{
+      new Field("outCol0", STRING_TYPE, null),
+      new Field("outCol1", STRING_TYPE, null),
+      new Field("outCol2", DOUBLE_TYPE, null),
+      new Field("outCol3", DOUBLE_TYPE, null),
+      new Field("outCol4", DOUBLE_TYPE, null),
+      new Field("outCol5", DOUBLE_TYPE, null),
+      new Field("outCol6", DOUBLE_TYPE, null),
+      new Field("outCol7", DOUBLE_TYPE, null),
+      new Field("outCol8", DOUBLE_TYPE, null),
+      new Field("outCol9", BIG_INT_TYPE, null),
+    };
+
+    // create output data
+    ValueVector[] outputVectors = createVectors(outputFields, false);
+
+    // vector references that will be used in the computations
+    VarCharVector inputCol0 = (VarCharVector) inputVectors[0];
+    VarCharVector inputCol1 = (VarCharVector) inputVectors[1];
+    Float8Vector inputCol2 = (Float8Vector) inputVectors[2];
+    Float8Vector inputCol3 = (Float8Vector) inputVectors[3];
+    Float8Vector inputCol4 = (Float8Vector) inputVectors[4];
+    Float8Vector inputCol5 = (Float8Vector) inputVectors[5];
+    BigIntVector inputCol6 = (BigIntVector) inputVectors[6];
+    Float8Vector inputCol7 = (Float8Vector) inputVectors[7];
+
+    VarCharVector outputCol0 = (VarCharVector) outputVectors[0];
+    VarCharVector outputCol1 = (VarCharVector) outputVectors[1];
+    Float8Vector outputCol2 = (Float8Vector) outputVectors[2];
+    Float8Vector outputCol3 = (Float8Vector) outputVectors[3];
+    Float8Vector outputCol4 = (Float8Vector) outputVectors[4];
+    Float8Vector outputCol5 = (Float8Vector) outputVectors[5];
+    Float8Vector outputCol6 = (Float8Vector) outputVectors[6];
+    Float8Vector outputCol7 = (Float8Vector) outputVectors[7];
+    Float8Vector outputCol8 = (Float8Vector) outputVectors[8];
+    BigIntVector outputCol9 = (BigIntVector) outputVectors[9];
+
+    // do evaluation
+    long start = System.nanoTime();
+    for (int i = 0; i < DEFAULT_CAPACITY; i++) {
+      boolean isInputCol6Null = inputCol6.isNull(i);
+      long inputCol6Value = -1L;
+      if (!isInputCol6Null) {
+        inputCol6Value = inputCol6.get(i);
+      }
+      boolean isInputCol5Null = inputCol5.isNull(i);
+      double inputCol5Value = -1.0d;
+      if (!isInputCol5Null) {
+        inputCol5Value = inputCol5.get(i);
+      }
+      boolean isInputCol2Null = inputCol2.isNull(i);
+      double inputCol2Value = -1.0d;
+      if (!isInputCol2Null) {
+        inputCol2Value = inputCol2.get(i);
+      }
+      boolean isInputCol0Null = inputCol0.isNull(i);
+      NullableVarCharHolder inputCol0Value = new NullableVarCharHolder();
+      if (!isInputCol0Null) {
+        inputCol0.get(i, inputCol0Value);
+      }
+      boolean isInputCol4Null = inputCol4.isNull(i);
+      double inputCol4Value = -1.0d;
+      if (!isInputCol4Null) {
+        inputCol4Value = inputCol4.get(i);
+      }
+      boolean isInputCol1Null = inputCol1.isNull(i);
+      NullableVarCharHolder inputCol1Value = new NullableVarCharHolder();
+      if (!isInputCol1Null) {
+        inputCol1.get(i, inputCol1Value);
+      }
+      boolean isInputCol7Null = inputCol7.isNull(i);
+      double inputCol7Value = -1.0d;
+      if (!isInputCol7Null) {
+        inputCol7Value = inputCol7.get(i);
+      }
+      boolean isInputCol3Null = inputCol3.isNull(i);
+      double inputCol3Value = -1.0d;
+      if (!isInputCol3Null) {
+        inputCol3Value = inputCol3.get(i);
+      }
+
+      if (isInputCol0Null) {
+        outputCol0.setNull(i);
+      } else {
+        outputCol0.setSafe(i, inputCol0Value);
+      }
+
+      if (isInputCol1Null) {
+        outputCol1.setNull(i);
+      } else {
+        outputCol1.setSafe(i, inputCol1Value);
+      }
+
+      if (isInputCol2Null) {
+        outputCol2.setNull(i);
+      } else {
+        outputCol2.set(i, inputCol2Value);
+      }
+
+      if (isInputCol3Null) {
+        outputCol3.setNull(i);
+      } else {
+        outputCol3.set(i, inputCol3Value);
+      }
+
+      if (isInputCol4Null) {
+        outputCol4.setNull(i);
+      } else {
+        outputCol4.set(i, inputCol4Value);
+      }
+
+      if (isInputCol5Null) {
+        outputCol5.setNull(i);
+      } else {
+        outputCol5.set(i, inputCol5Value);
+      }
+
+      boolean isInputCol2OrCol6Null = isInputCol2Null || isInputCol6Null;
+      double divResul1 = -1.0d;
+      if (!isInputCol2OrCol6Null) {
+        divResul1 = inputCol2Value / Long.valueOf(inputCol6Value).doubleValue();
+      }
+
+      if (isInputCol2OrCol6Null) {
+        outputCol6.setNull(i);
+      } else {
+        outputCol6.set(i, divResul1);
+      }
+
+      boolean isInputCol3OrCol6Null = isInputCol3Null || isInputCol6Null;
+      double divResult2 = -1.0d;
+      if (!isInputCol3OrCol6Null) {
+        divResult2 = inputCol3Value / Long.valueOf(inputCol6Value).doubleValue();
+      }
+
+      if (isInputCol3OrCol6Null) {
+        outputCol7.setNull(i);
+      } else {
+        outputCol7.set(i, divResult2);
+      }
+
+      boolean isInputCol7OrCol6Null = isInputCol7Null || isInputCol6Null;
+      double divResult3 = -1.0d;
+      if (!isInputCol7OrCol6Null) {
+        divResult3 = inputCol7Value / Long.valueOf(inputCol6Value).doubleValue();
+      }
+
+      if (isInputCol7OrCol6Null) {
+        outputCol8.setNull(i);
+      } else {
+        outputCol8.set(i, divResult3);
+      }
+
+      if (isInputCol6Null) {
+        outputCol9.setNull(i);
+      } else {
+        outputCol9.set(i, inputCol6Value);
+      }
+    }
+
+    long end = System.nanoTime();
+
+    // dispose input/output data
+    for (int i = 0; i < inputVectors.length; i++) {
+      inputVectors[i].clear();
+    }
+
+    for (int i = 0; i < outputVectors.length; i++) {
+      outputVectors[i].clear();
+    }
+
+    return end - start;
+  }
+
   @Test
-  public void testProjectAndFilter() {
-    runBenchmark("TPC-H Q1#Project & Filter", () -> projectAndFilter(), 1);
+  public void runBenchmarks() {
+    runBenchmark("TPC-H Q1#Project & Filter1", () -> projectAndFilter1(), 1);
+    runBenchmark("TPC-H Q1#Project & Filter2", () -> projectAndFilter2(), 1);
   }
 }
