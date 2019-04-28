@@ -316,8 +316,11 @@ impl ExecutionContext {
     ) -> Result<Arc<ExecutionPlan>> {
         match logical_plan.as_ref() {
             LogicalPlan::TableScan { schema, .. } => {
+
+
+
                 let physical_plan = ParquetScanExec {
-                    filename: "/home/andy/nyc-tripdata/parquet/year=2018/month=01"
+                    filename: "/home/andy/nyc-tripdata/parquet/year=2018"
                         .to_string(), /* TODO */
                     schema: schema.clone(),
                 };
@@ -368,7 +371,7 @@ impl ExecutionContext {
             .collect();
 
         for thread in threads {
-            thread.join().unwrap();
+            thread.join().unwrap().unwrap();
         }
 
         Ok(())

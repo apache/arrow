@@ -30,15 +30,14 @@ use datafusion::execution::context::ExecutionContext;
 /// This example demonstrates executing a simple query against an Arrow data source and
 /// fetching results
 fn main() -> Result<()> {
-    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
 
     let mut ctx = ExecutionContext::new();
     ctx.register_parquet(
-        "alltypes_plain",
-        &format!("{}/alltypes_plain.parquet", testdata),
+        "tripdata",
+        "/home/andy/nyc-tripdata/parquet/year=2018/month=12/part-00000-0d20ebb7-f5fb-44e6-ae34-3a3e51060792-c000.snappy.parquet", // hack to pick up schema
     )?;
 
-    let logical_plan = ctx.create_logical_plan("SELECT id FROM alltypes_plain")?;
+    let logical_plan = ctx.create_logical_plan("SELECT passenger_count, MIN(fare_amount), MAX(fare_amount) FROM tripdata GROUP BY passenger_count")?;
     let optimized_plan = ctx.optimize(&logical_plan)?;
     println!("{:?}", optimized_plan);
 
