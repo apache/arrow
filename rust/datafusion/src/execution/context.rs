@@ -89,18 +89,18 @@ impl ExecutionPlan for ParquetScanExec {
         self.build_file_list(&self.filename, &mut filenames)?;
         let partitions = filenames
             .iter()
-            .map(|filename| Arc::new(TableScanPartition::new(filename)) as Arc<Partition>)
+            .map(|filename| Arc::new(ParquetScanPartition::new(filename)) as Arc<Partition>)
             .collect();
         Ok(partitions)
     }
 }
 
-struct TableScanPartition {
+struct ParquetScanPartition {
     request_tx: Sender<()>,
     response_rx: Receiver<Result<Option<RecordBatch>>>,
 }
 
-impl TableScanPartition {
+impl ParquetScanPartition {
     pub fn new(filename: &str) -> Self {
         let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
         let (response_tx, response_rx): (
@@ -127,7 +127,7 @@ impl TableScanPartition {
     }
 }
 
-impl Partition for TableScanPartition {
+impl Partition for ParquetScanPartition {
     fn execute(&self) -> Result<Arc<BatchIterator>> {
         Ok(Arc::new(TablePartitionIterator {
             request_tx: self.request_tx.clone(),
