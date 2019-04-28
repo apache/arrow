@@ -55,28 +55,42 @@ use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
 
-struct TableScanExec {
+struct ParquetScanExec {
     filename: String,
     schema: Arc<Schema>,
 }
 
-impl ExecutionPlan for TableScanExec {
+impl ParquetScanExec {
+    /// Recursively build a list of parquet files in a directory
+    fn build_file_list(&self, dir: &str, filenames: &mut Vec<String>) -> Result<()> {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            let path_name = path.as_os_str().to_str().unwrap();
+            if path.is_dir() {
+                self.build_file_list(path_name, filenames)?;
+            } else {
+                if path_name.ends_with(".parquet") {
+                    filenames.push(path_name.to_string());
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ExecutionPlan for ParquetScanExec {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
     }
 
     fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
-        let mut partitions: Vec<Arc<Partition>> = vec![];
-        for entry in fs::read_dir(&self.filename)? {
-            let entry = entry?;
-            let filename = entry.file_name();
-            let filename = filename.to_str().unwrap();
-            if filename.ends_with(".parquet") {
-                let filename = format!("{}/{}", self.filename, filename);
-                println!("{}", filename);
-                partitions.push(Arc::new(TableScanPartition::new(&filename)));
-            }
-        }
+        let mut filenames: Vec<String> = vec![];
+        self.build_file_list(&self.filename, &mut filenames)?;
+        let partitions = filenames
+            .iter()
+            .map(|filename| Arc::new(TableScanPartition::new(filename)) as Arc<Partition>)
+            .collect();
         Ok(partitions)
     }
 }
@@ -89,14 +103,16 @@ struct TableScanPartition {
 impl TableScanPartition {
     pub fn new(filename: &str) -> Self {
         let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
-        let (response_tx, response_rx): (Sender<Result<Option<RecordBatch>>>, Receiver<Result<Option<RecordBatch>>>) =
-            unbounded();
+        let (response_tx, response_rx): (
+            Sender<Result<Option<RecordBatch>>>,
+            Receiver<Result<Option<RecordBatch>>>,
+        ) = unbounded();
 
         let filename = filename.to_string();
         thread::spawn(move || {
             //TODO reimplement to remove mutexes
             let table = ParquetTable::try_new(&filename).unwrap();
-            let partitions = table.scan(&None, 1024*1024).unwrap();
+            let partitions = table.scan(&None, 64 * 1024).unwrap();
             let partition = partitions[0].clone();
             while let Ok(_) = request_rx.recv() {
                 let mut partition = partition.lock().unwrap();
@@ -110,7 +126,6 @@ impl TableScanPartition {
         }
     }
 }
-
 
 impl Partition for TableScanPartition {
     fn execute(&self) -> Result<Arc<BatchIterator>> {
@@ -187,25 +202,6 @@ impl Partition for FilterPartition {
     }
 }
 
-//struct FilterResultSet {
-//    input: Rc<RefCell<ResultSet>>
-//}
-
-//impl Iterator for FilterResultSet {
-//    type Item=Result<RecordBatch>;
-//
-//    fn next(&mut self) -> Option<Self::Item> {
-//        match self.input.borrow_mut().next() {
-//            Some(Ok(batch)) => {
-//                //TODO apply filter
-//                Some(Ok(batch))
-//            },
-//            Some(_) => panic!(),
-//            None => None
-//        }
-//    }
-//}
-
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
     datasources: Rc<RefCell<HashMap<String, Rc<TableProvider>>>>,
@@ -258,8 +254,8 @@ impl ExecutionContext {
     ) -> Result<Arc<ExecutionPlan>> {
         match logical_plan.as_ref() {
             LogicalPlan::TableScan { schema, .. } => {
-                let physical_plan = TableScanExec {
-                    filename: "/home/andy/nyc-tripdata/parquet/year=2018/month=12".to_string(), /* TODO */
+                let physical_plan = ParquetScanExec {
+                    filename: "/home/andy/nyc-tripdata/parquet/year=2018".to_string(), /* TODO */
                     schema: schema.clone(),
                 };
                 Ok(Arc::new(physical_plan))
@@ -297,7 +293,11 @@ impl ExecutionContext {
                 thread::spawn(move || {
                     let it = p.execute().unwrap();
                     while let Ok(Some(batch)) = it.next() {
-                        println!("thread {} got batch with {} rows", thread_id, batch.num_rows());
+                        println!(
+                            "thread {} got batch with {} rows",
+                            thread_id,
+                            batch.num_rows()
+                        );
                     }
                     Ok(())
                 })
