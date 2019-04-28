@@ -165,9 +165,9 @@ mod test {
     //
     //        let p = TableExec {
     //            filenames: vec![
-    //                
+    //
     // "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.
-    // parquet".to_string(),                
+    // parquet".to_string(),
     // "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.
     // parquet".to_string()            ]
     //        };

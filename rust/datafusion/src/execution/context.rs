@@ -24,10 +24,13 @@ use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
 use std::thread;
+use std::thread::JoinHandle;
 
 use arrow::datatypes::*;
+use arrow::record_batch::RecordBatch;
 
 use crate::datasource::csv::CsvFile;
+use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::aggregate::AggregateRelation;
@@ -47,28 +50,59 @@ use crate::optimizer::utils;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
-use arrow::record_batch::RecordBatch;
-use std::thread::JoinHandle;
 
-struct TableScanExec {}
+struct TableScanExec {
+    schema: Arc<Schema>,
+}
 
 impl ExecutionPlan for TableScanExec {
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
+    }
+
+    fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
+        //TODO
+        Ok(vec![Arc::new(TableScanPartition {})])
+    }
+}
+
+struct TableScanPartition {}
+
+impl Partition for TableScanPartition {
+    fn execute(&self) -> Result<Arc<BatchIterator>> {
+        unimplemented!()
+    }
+}
+
+struct ProjectionExec {
+    input: Arc<ExecutionPlan>,
+    expr: Vec<CompiledExpr>,
+}
+
+impl ProjectionExec {
+    pub fn new(input: Arc<ExecutionPlan>, expr: Vec<CompiledExpr>) -> Self {
+        Self { input, expr }
+    }
+}
+
+impl ExecutionPlan for ProjectionExec {
     fn schema(&self) -> Arc<Schema> {
         unimplemented!()
     }
 
     fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
-        unimplemented!()
+        //TODO: inject projection logic
+        Ok(self.input.partitions()?.iter().map(|p| p.clone()).collect())
     }
 }
 
 struct FilterExec {
-    input: Rc<ExecutionPlan>,
+    input: Arc<ExecutionPlan>,
     expr: CompiledExpr,
 }
 
 impl FilterExec {
-    pub fn new(input: Rc<ExecutionPlan>, expr: CompiledExpr) -> Self {
+    pub fn new(input: Arc<ExecutionPlan>, expr: CompiledExpr) -> Self {
         Self { input, expr }
     }
 }
@@ -162,23 +196,35 @@ impl ExecutionContext {
     pub fn create_physical_plan(
         &mut self,
         logical_plan: &Arc<LogicalPlan>,
-    ) -> Result<Rc<ExecutionPlan>> {
+    ) -> Result<Arc<ExecutionPlan>> {
         match logical_plan.as_ref() {
-            LogicalPlan::TableScan { .. } => {
-                let physical_plan = TableScanExec {};
-                Ok(Rc::new(physical_plan))
+            LogicalPlan::TableScan { schema, .. } => {
+                let physical_plan = TableScanExec {
+                    schema: schema.clone(),
+                };
+                Ok(Arc::new(physical_plan))
+            }
+            LogicalPlan::Projection { input, expr, .. } => {
+                let input = self.create_physical_plan(input)?;
+                let input_schema = input.as_ref().schema().clone();
+                let me = self;
+                let runtime_expr = expr
+                    .iter()
+                    .map(|e| compile_expr(&me, e, &input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(ProjectionExec::new(input, runtime_expr)))
             }
             LogicalPlan::Selection { input, expr, .. } => {
                 let input = self.create_physical_plan(input)?;
                 let input_schema = input.as_ref().schema().clone();
                 let runtime_expr = compile_expr(&self, expr, &input_schema)?;
-                Ok(Rc::new(FilterExec::new(input, runtime_expr)))
+                Ok(Arc::new(FilterExec::new(input, runtime_expr)))
             }
             _ => unimplemented!(),
         }
     }
 
-    pub fn execute_physical_plan(&mut self, plan: Rc<ExecutionPlan>) -> Result<()> {
+    pub fn execute_physical_plan(&mut self, plan: Arc<ExecutionPlan>) -> Result<()> {
         // execute each partition on a thread
         let threads: Vec<JoinHandle<Result<Arc<BatchIterator>>>> = plan
             .partitions()?
@@ -189,7 +235,13 @@ impl ExecutionContext {
             })
             .collect();
 
-        unimplemented!()
+        Ok(())
+    }
+
+    /// Register a Parquet file as a table so that it can be queried from SQL
+    pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
+        self.register_table(name, Rc::new(ParquetTable::try_new(filename)?));
+        Ok(())
     }
 
     /// Register a CSV file as a table so that it can be queried from SQL
@@ -399,5 +451,32 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
 
     fn get_function_meta(&self, _name: &str) -> Option<Arc<FunctionMeta>> {
         None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::error::Result;
+    use std::env;
+
+    #[test]
+    fn execute_physical_plan() -> Result<()> {
+        let testdata =
+            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+
+        let mut ctx = ExecutionContext::new();
+        ctx.register_parquet(
+            "alltypes_plain",
+            &format!("{}/alltypes_plain.parquet", testdata),
+        )?;
+
+        let logical_plan = ctx.create_logical_plan("SELECT id FROM alltypes_plain")?;
+        let optimized_plan = ctx.optimize(&logical_plan)?;
+        println!("{:?}", optimized_plan);
+
+        let physical_plan = ctx.create_physical_plan(&optimized_plan)?;
+        let result = ctx.execute_physical_plan(physical_plan)?;
+        Ok(())
     }
 }
