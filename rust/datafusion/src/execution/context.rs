@@ -21,10 +21,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
 use std::rc::Rc;
 use std::string::String;
-use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
 use std::thread::JoinHandle;
@@ -91,16 +89,14 @@ struct TableScanPartition {
 impl TableScanPartition {
     pub fn new(filename: &str) -> Self {
         let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
-        let (response_tx, response_rx): (
-            Sender<Result<Option<RecordBatch>>>,
-            Receiver<Result<Option<RecordBatch>>>,
-        ) = unbounded();
+        let (response_tx, response_rx): (Sender<Result<Option<RecordBatch>>>, Receiver<Result<Option<RecordBatch>>>) =
+            unbounded();
 
         let filename = filename.to_string();
         thread::spawn(move || {
             //TODO reimplement to remove mutexes
             let table = ParquetTable::try_new(&filename).unwrap();
-            let partitions = table.scan(&None, 1024).unwrap();
+            let partitions = table.scan(&None, 1024*1024).unwrap();
             let partition = partitions[0].clone();
             while let Ok(_) = request_rx.recv() {
                 let mut partition = partition.lock().unwrap();
@@ -114,6 +110,7 @@ impl TableScanPartition {
         }
     }
 }
+
 
 impl Partition for TableScanPartition {
     fn execute(&self) -> Result<Arc<BatchIterator>> {
@@ -262,8 +259,7 @@ impl ExecutionContext {
         match logical_plan.as_ref() {
             LogicalPlan::TableScan { schema, .. } => {
                 let physical_plan = TableScanExec {
-                    filename: "/home/andy/nyc-tripdata/parquet/year=2018/month=12"
-                        .to_string(), /* TODO */
+                    filename: "/home/andy/nyc-tripdata/parquet/year=2018/month=12".to_string(), /* TODO */
                     schema: schema.clone(),
                 };
                 Ok(Arc::new(physical_plan))
@@ -290,14 +286,27 @@ impl ExecutionContext {
 
     pub fn execute_physical_plan(&mut self, plan: Arc<ExecutionPlan>) -> Result<()> {
         // execute each partition on a thread
-        let threads: Vec<JoinHandle<Result<Arc<BatchIterator>>>> = plan
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let thread_id = AtomicUsize::new(1);
+        let threads: Vec<JoinHandle<Result<()>>> = plan
             .partitions()?
             .iter()
             .map(|p| {
+                let thread_id = thread_id.fetch_add(1, Ordering::SeqCst);
                 let p = p.clone();
-                thread::spawn(move || p.execute())
+                thread::spawn(move || {
+                    let it = p.execute().unwrap();
+                    while let Ok(Some(batch)) = it.next() {
+                        println!("thread {} got batch with {} rows", thread_id, batch.num_rows());
+                    }
+                    Ok(())
+                })
             })
             .collect();
+
+        for thread in threads {
+            thread.join().unwrap();
+        }
 
         Ok(())
     }
