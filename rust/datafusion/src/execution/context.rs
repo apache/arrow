@@ -20,24 +20,34 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs;
 use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
+use std::thread;
+use std::thread::JoinHandle;
 
 use arrow::datatypes::*;
+use arrow::record_batch::RecordBatch;
+
+use sqlparser::sqlast::{SQLColumnDef, SQLType};
+
+use crossbeam::channel::{unbounded, Receiver, Sender};
 
 use crate::arrow::array::ArrayRef;
 use crate::arrow::builder::BooleanBuilder;
 use crate::datasource::csv::CsvFile;
+use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::aggregate::AggregateRelation;
+use crate::execution::datasource::DataSourceRelation;
 use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
+use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use crate::execution::projection::ProjectRelation;
-use crate::execution::relation::{DataSourceRelation, Relation};
-use crate::execution::scalar_relation::ScalarRelation;
+use crate::execution::relation::Relation;
 use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -48,7 +58,156 @@ use crate::sql::parser::FileType;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
-use sqlparser::sqlast::{SQLColumnDef, SQLType};
+use crate::execution::scalar_relation::ScalarRelation;
+
+struct ParquetScanExec {
+    filename: String,
+    schema: Arc<Schema>,
+}
+
+impl ParquetScanExec {
+    /// Recursively build a list of parquet files in a directory
+    fn build_file_list(&self, dir: &str, filenames: &mut Vec<String>) -> Result<()> {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            let path_name = path.as_os_str().to_str().unwrap();
+            if path.is_dir() {
+                self.build_file_list(path_name, filenames)?;
+            } else {
+                if path_name.ends_with(".parquet") {
+                    filenames.push(path_name.to_string());
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ExecutionPlan for ParquetScanExec {
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
+    }
+
+    fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
+        let mut filenames: Vec<String> = vec![];
+        self.build_file_list(&self.filename, &mut filenames)?;
+        let partitions = filenames
+            .iter()
+            .map(|filename| {
+                Arc::new(ParquetScanPartition::new(filename)) as Arc<Partition>
+            })
+            .collect();
+        Ok(partitions)
+    }
+}
+
+struct ParquetScanPartition {
+    request_tx: Sender<()>,
+    response_rx: Receiver<Result<Option<RecordBatch>>>,
+}
+
+impl ParquetScanPartition {
+    pub fn new(filename: &str) -> Self {
+        let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
+        let (response_tx, response_rx): (
+            Sender<Result<Option<RecordBatch>>>,
+            Receiver<Result<Option<RecordBatch>>>,
+        ) = unbounded();
+
+        let filename = filename.to_string();
+        thread::spawn(move || {
+            //TODO reimplement to remove mutexes
+            let table = ParquetTable::try_new(&filename).unwrap();
+            let partitions = table.scan(&None, 64 * 1024).unwrap();
+            let partition = partitions[0].clone();
+            while let Ok(_) = request_rx.recv() {
+                let mut partition = partition.lock().unwrap();
+                response_tx.send(partition.next()).unwrap();
+            }
+        });
+
+        Self {
+            request_tx,
+            response_rx,
+        }
+    }
+}
+
+impl Partition for ParquetScanPartition {
+    fn execute(&self) -> Result<Arc<BatchIterator>> {
+        Ok(Arc::new(TablePartitionIterator {
+            request_tx: self.request_tx.clone(),
+            response_rx: self.response_rx.clone(),
+        }))
+    }
+}
+
+pub struct TablePartitionIterator {
+    request_tx: Sender<()>,
+    response_rx: Receiver<Result<Option<RecordBatch>>>,
+}
+
+impl BatchIterator for TablePartitionIterator {
+    fn next(&self) -> Result<Option<RecordBatch>> {
+        self.request_tx.send(()).unwrap();
+        self.response_rx.recv().unwrap()
+    }
+}
+
+struct ProjectionExec {
+    input: Arc<ExecutionPlan>,
+    expr: Vec<CompiledExpr>,
+}
+
+impl ProjectionExec {
+    pub fn new(input: Arc<ExecutionPlan>, expr: Vec<CompiledExpr>) -> Self {
+        Self { input, expr }
+    }
+}
+
+impl ExecutionPlan for ProjectionExec {
+    fn schema(&self) -> Arc<Schema> {
+        unimplemented!()
+    }
+
+    fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
+        //TODO: inject projection logic
+        Ok(self.input.partitions()?.iter().map(|p| p.clone()).collect())
+    }
+}
+
+struct FilterExec {
+    input: Arc<ExecutionPlan>,
+    expr: CompiledExpr,
+}
+
+impl FilterExec {
+    pub fn new(input: Arc<ExecutionPlan>, expr: CompiledExpr) -> Self {
+        Self { input, expr }
+    }
+}
+
+impl ExecutionPlan for FilterExec {
+    fn schema(&self) -> Arc<Schema> {
+        unimplemented!()
+    }
+
+    fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
+        //TODO: inject filter logic
+        Ok(self.input.partitions()?.iter().map(|p| p.clone()).collect())
+    }
+}
+
+struct FilterPartition {
+    input: Arc<Partition>,
+}
+
+impl Partition for FilterPartition {
+    fn execute(&self) -> Result<Arc<BatchIterator>> {
+        unimplemented!()
+    }
+}
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
@@ -146,6 +305,75 @@ impl ExecutionContext {
                 sql_type
             ))),
         }
+    }
+
+    pub fn create_physical_plan(
+        &mut self,
+        logical_plan: &Arc<LogicalPlan>,
+    ) -> Result<Arc<ExecutionPlan>> {
+        match logical_plan.as_ref() {
+            LogicalPlan::TableScan { schema, .. } => {
+                let physical_plan = ParquetScanExec {
+                    filename: "/home/andy/nyc-tripdata/parquet/year=2018".to_string(), /* TODO */
+                    schema: schema.clone(),
+                };
+                Ok(Arc::new(physical_plan))
+            }
+            LogicalPlan::Projection { input, expr, .. } => {
+                let input = self.create_physical_plan(input)?;
+                let input_schema = input.as_ref().schema().clone();
+                let me = self;
+                let runtime_expr = expr
+                    .iter()
+                    .map(|e| compile_expr(&me, e, &input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(ProjectionExec::new(input, runtime_expr)))
+            }
+            LogicalPlan::Selection { input, expr, .. } => {
+                let input = self.create_physical_plan(input)?;
+                let input_schema = input.as_ref().schema().clone();
+                let runtime_expr = compile_expr(&self, expr, &input_schema)?;
+                Ok(Arc::new(FilterExec::new(input, runtime_expr)))
+            }
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn execute_physical_plan(&mut self, plan: Arc<ExecutionPlan>) -> Result<()> {
+        // execute each partition on a thread
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let thread_id = AtomicUsize::new(1);
+        let threads: Vec<JoinHandle<Result<()>>> = plan
+            .partitions()?
+            .iter()
+            .map(|p| {
+                let thread_id = thread_id.fetch_add(1, Ordering::SeqCst);
+                let p = p.clone();
+                thread::spawn(move || {
+                    let it = p.execute().unwrap();
+                    while let Ok(Some(batch)) = it.next() {
+                        println!(
+                            "thread {} got batch with {} rows",
+                            thread_id,
+                            batch.num_rows()
+                        );
+                    }
+                    Ok(())
+                })
+            })
+            .collect();
+
+        for thread in threads {
+            thread.join().unwrap();
+        }
+
+        Ok(())
+    }
+
+    /// Register a Parquet file as a table so that it can be queried from SQL
+    pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
+        self.register_table(name, Rc::new(ParquetTable::try_new(filename)?));
+        Ok(())
     }
 
     /// Register a CSV file as a table so that it can be queried from SQL
@@ -387,5 +615,32 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
 
     fn get_function_meta(&self, _name: &str) -> Option<Arc<FunctionMeta>> {
         None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::error::Result;
+    use std::env;
+
+    #[test]
+    fn execute_physical_plan() -> Result<()> {
+        let testdata =
+            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+
+        let mut ctx = ExecutionContext::new();
+        ctx.register_parquet(
+            "alltypes_plain",
+            &format!("{}/alltypes_plain.parquet", testdata),
+        )?;
+
+        let logical_plan = ctx.create_logical_plan("SELECT id FROM alltypes_plain")?;
+        let optimized_plan = ctx.optimize(&logical_plan)?;
+        println!("{:?}", optimized_plan);
+
+        let physical_plan = ctx.create_physical_plan(&optimized_plan)?;
+        //let result = ctx.execute_physical_plan(physical_plan)?;
+        Ok(())
     }
 }

@@ -49,6 +49,7 @@ sqlparser = "0.2.0"
 clap = "2.33.0"
 rustyline = "3.0.0"
 prettytable-rs = "0.8.0"
+crossbeam = "0.7.1"
 
 [dev-dependencies]
 criterion = "0.2.0"
