@@ -26,7 +26,9 @@ use arrow::record_batch::RecordBatch;
 
 use crate::error::Result;
 
-pub trait BatchIterator: Send + Sync {}
+pub trait BatchIterator: Send + Sync {
+    fn next(&self) -> Result<Option<RecordBatch>>;
+}
 
 pub trait ExecutionPlan {
     fn schema(&self) -> Arc<Schema>;

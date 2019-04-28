@@ -72,9 +72,12 @@ impl ExecutionPlan for TableScanExec {
         for entry in fs::read_dir(&self.filename)? {
             let entry = entry?;
             let filename = entry.file_name();
-            partitions.push(Arc::new(TableScanPartition::new(
-                filename.to_str().unwrap(),
-            )));
+            let filename = filename.to_str().unwrap();
+            if filename.ends_with(".parquet") {
+                let filename = format!("{}/{}", self.filename, filename);
+                println!("{}", filename);
+                partitions.push(Arc::new(TableScanPartition::new(&filename)));
+            }
         }
         Ok(partitions)
     }
@@ -82,24 +85,26 @@ impl ExecutionPlan for TableScanExec {
 
 struct TableScanPartition {
     request_tx: Sender<()>,
-    response_rx: Receiver<RecordBatch>,
+    response_rx: Receiver<Result<Option<RecordBatch>>>,
 }
 
 impl TableScanPartition {
     pub fn new(filename: &str) -> Self {
         let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
-        let (response_tx, response_rx): (Sender<RecordBatch>, Receiver<RecordBatch>) =
-            unbounded();
+        let (response_tx, response_rx): (
+            Sender<Result<Option<RecordBatch>>>,
+            Receiver<Result<Option<RecordBatch>>>,
+        ) = unbounded();
 
         let filename = filename.to_string();
         thread::spawn(move || {
+            //TODO reimplement to remove mutexes
             let table = ParquetTable::try_new(&filename).unwrap();
             let partitions = table.scan(&None, 1024).unwrap();
             let partition = partitions[0].clone();
-            loop {
-                let x = request_rx.recv().unwrap();
-                let batch = partition.lock().unwrap().next().unwrap().unwrap();
-                response_tx.send(batch).unwrap();
+            while let Ok(_) = request_rx.recv() {
+                let mut partition = partition.lock().unwrap();
+                response_tx.send(partition.next()).unwrap();
             }
         });
 
@@ -110,32 +115,24 @@ impl TableScanPartition {
     }
 }
 
-//impl BatchIterator for ParquetFile {
-//    fn next(&mut self) -> Result<Option<RecordBatch>> {
-//        // advance the row group reader if necessary
-//        if self.current_row_group.is_none() {
-//            self.load_next_row_group()?;
-//            self.load_batch()
-//        } else {
-//            match self.load_batch() {
-//                Ok(Some(b)) => Ok(Some(b)),
-//                Ok(None) => {
-//                    if self.row_group_index < self.reader.num_row_groups() {
-//                        self.load_next_row_group()?;
-//                        self.load_batch()
-//                    } else {
-//                        Ok(None)
-//                    }
-//                }
-//                Err(e) => Err(e),
-//            }
-//        }
-//    }
-//}
-
 impl Partition for TableScanPartition {
     fn execute(&self) -> Result<Arc<BatchIterator>> {
-        unimplemented!()
+        Ok(Arc::new(TablePartitionIterator {
+            request_tx: self.request_tx.clone(),
+            response_rx: self.response_rx.clone(),
+        }))
+    }
+}
+
+pub struct TablePartitionIterator {
+    request_tx: Sender<()>,
+    response_rx: Receiver<Result<Option<RecordBatch>>>,
+}
+
+impl BatchIterator for TablePartitionIterator {
+    fn next(&self) -> Result<Option<RecordBatch>> {
+        self.request_tx.send(()).unwrap();
+        self.response_rx.recv().unwrap()
     }
 }
 
@@ -265,7 +262,8 @@ impl ExecutionContext {
         match logical_plan.as_ref() {
             LogicalPlan::TableScan { schema, .. } => {
                 let physical_plan = TableScanExec {
-                    filename: "/home/andy/nyc-tripdata/parquet/year=2018".to_string(), /* TODO */
+                    filename: "/home/andy/nyc-tripdata/parquet/year=2018/month=12"
+                        .to_string(), /* TODO */
                     schema: schema.clone(),
                 };
                 Ok(Arc::new(physical_plan))
