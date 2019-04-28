@@ -45,10 +45,10 @@ public class VectorFactory {
 
   /**
    * Create an empty Float8Vector.
-   * @param vectorType
-   * @param name
-   * @param allocator
-   * @return
+   * @param vectorType type of the vector to create (safe or unsafe).
+   * @param name name of the vector.
+   * @param allocator the allocator to create vector.
+   * @return the created vector.
    */
   public static Float8Vector createFloat8Vector(VectorType vectorType, String name, BufferAllocator allocator) {
     switch (vectorType) {
@@ -63,10 +63,10 @@ public class VectorFactory {
 
   /**
    * Create an empty IntVector.
-   * @param vectorType
-   * @param name
-   * @param allocator
-   * @return
+   * @param vectorType type of the vector to create (safe or unsafe).
+   * @param name name of the vector.
+   * @param allocator the allocator to create vector.
+   * @return the created vector.
    */
   public static IntVector createIntVector(VectorType vectorType, String name, BufferAllocator allocator) {
     switch (vectorType) {

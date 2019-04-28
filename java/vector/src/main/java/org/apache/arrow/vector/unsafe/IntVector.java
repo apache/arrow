@@ -17,18 +17,13 @@
 
 package org.apache.arrow.vector.unsafe;
 
-import io.netty.buffer.ArrowBuf;
-import io.netty.util.internal.PlatformDependent;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.BitVectorHelper;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.complex.impl.IntReaderImpl;
-import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.IntHolder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
-import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * Unsafe implementation of org.apache.arrow.vector.IntVector.
