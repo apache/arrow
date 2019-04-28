@@ -50,5 +50,11 @@ arrow::BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
                            const BasicDecimalScalar128& y, int32_t out_precision,
                            int32_t out_scale, bool* overflow);
 
+/// Compare two decimals. Returns :
+///  0 if x == y
+///  1 if x > y
+/// -1 if x < y
+int32_t Compare(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y);
+
 }  // namespace decimalops
 }  // namespace gandiva

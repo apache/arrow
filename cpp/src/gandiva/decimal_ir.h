@@ -153,6 +153,9 @@ class DecimalIR : public FunctionIRBuilder {
   Status BuildDivideOrMod(const std::string& function_name,
                           const std::string& internal_name);
 
+  Status BuildCompare(const std::string& function_name,
+                      llvm::ICmpInst::Predicate cmp_instruction);
+
   // Add a trace in IR code.
   void AddTrace(const std::string& fmt, std::vector<llvm::Value*> args);
 

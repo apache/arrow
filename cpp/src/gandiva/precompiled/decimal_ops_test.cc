@@ -479,4 +479,72 @@ TEST_F(TestDecimalSql, DivideByZero) {
   EXPECT_FALSE(context.has_error());
 }
 
+TEST_F(TestDecimalSql, Compare) {
+  // x.scale == y.scale
+  EXPECT_EQ(
+      0, decimalops::Compare(DecimalScalar128{100, 38, 6}, DecimalScalar128{100, 38, 6}));
+  EXPECT_EQ(
+      1, decimalops::Compare(DecimalScalar128{200, 38, 6}, DecimalScalar128{100, 38, 6}));
+  EXPECT_EQ(-1, decimalops::Compare(DecimalScalar128{100, 38, 6},
+                                    DecimalScalar128{200, 38, 6}));
+
+  // x.scale == y.scale, with -ve.
+  EXPECT_EQ(0, decimalops::Compare(DecimalScalar128{-100, 38, 6},
+                                   DecimalScalar128{-100, 38, 6}));
+  EXPECT_EQ(-1, decimalops::Compare(DecimalScalar128{-200, 38, 6},
+                                    DecimalScalar128{-100, 38, 6}));
+  EXPECT_EQ(1, decimalops::Compare(DecimalScalar128{-100, 38, 6},
+                                   DecimalScalar128{-200, 38, 6}));
+  EXPECT_EQ(1, decimalops::Compare(DecimalScalar128{100, 38, 6},
+                                   DecimalScalar128{-200, 38, 6}));
+
+  for (int32_t precision : {16, 36, 38}) {
+    // x_scale > y_scale
+    EXPECT_EQ(0, decimalops::Compare(DecimalScalar128{10000, precision, 6},
+                                     DecimalScalar128{100, precision, 4}));
+    EXPECT_EQ(1, decimalops::Compare(DecimalScalar128{20000, precision, 6},
+                                     DecimalScalar128{100, precision, 4}));
+    EXPECT_EQ(-1, decimalops::Compare(DecimalScalar128{10000, precision, 6},
+                                      DecimalScalar128{200, precision, 4}));
+
+    // x.scale > y.scale, with -ve
+    EXPECT_EQ(0, decimalops::Compare(DecimalScalar128{-10000, precision, 6},
+                                     DecimalScalar128{-100, precision, 4}));
+    EXPECT_EQ(-1, decimalops::Compare(DecimalScalar128{-20000, precision, 6},
+                                      DecimalScalar128{-100, precision, 4}));
+    EXPECT_EQ(1, decimalops::Compare(DecimalScalar128{-10000, precision, 6},
+                                     DecimalScalar128{-200, precision, 4}));
+    EXPECT_EQ(1, decimalops::Compare(DecimalScalar128{10000, precision, 6},
+                                     DecimalScalar128{-200, precision, 4}));
+
+    // x.scale < y.scale
+    EXPECT_EQ(0, decimalops::Compare(DecimalScalar128{100, precision, 4},
+                                     DecimalScalar128{10000, precision, 6}));
+    EXPECT_EQ(1, decimalops::Compare(DecimalScalar128{200, precision, 4},
+                                     DecimalScalar128{10000, precision, 6}));
+    EXPECT_EQ(-1, decimalops::Compare(DecimalScalar128{100, precision, 4},
+                                      DecimalScalar128{20000, precision, 6}));
+
+    // x.scale < y.scale, with -ve
+    EXPECT_EQ(0, decimalops::Compare(DecimalScalar128{-100, precision, 4},
+                                     DecimalScalar128{-10000, precision, 6}));
+    EXPECT_EQ(-1, decimalops::Compare(DecimalScalar128{-200, precision, 4},
+                                      DecimalScalar128{-10000, precision, 6}));
+    EXPECT_EQ(1, decimalops::Compare(DecimalScalar128{-100, precision, 4},
+                                     DecimalScalar128{-20000, precision, 6}));
+    EXPECT_EQ(1, decimalops::Compare(DecimalScalar128{100, precision, 4},
+                                     DecimalScalar128{-200, precision, 6}));
+  }
+
+  // large cases.
+  EXPECT_EQ(0, decimalops::Compare(DecimalScalar128{kThirtyEight9s, 38, 6},
+                                   DecimalScalar128{kThirtyEight9s, 38, 6}));
+
+  EXPECT_EQ(1, decimalops::Compare(DecimalScalar128{kThirtyEight9s, 38, 6},
+                                   DecimalScalar128{kThirtySix9s, 38, 4}));
+
+  EXPECT_EQ(-1, decimalops::Compare(DecimalScalar128{kThirtyEight9s, 38, 6},
+                                    DecimalScalar128{kThirtyEight9s, 38, 4}));
+}
+
 }  // namespace gandiva
