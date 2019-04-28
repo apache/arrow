@@ -1,0 +1,49 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+use std::env;
+use std::sync::Arc;
+
+extern crate arrow;
+extern crate datafusion;
+
+use arrow::array::{BinaryArray, Float64Array};
+use arrow::datatypes::{DataType, Field, Schema};
+
+use datafusion::error::Result;
+use datafusion::execution::context::ExecutionContext;
+
+/// This example demonstrates executing a simple query against an Arrow data source and
+/// fetching results
+fn main() -> Result<()> {
+    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_parquet(
+        "alltypes_plain",
+        &format!("{}/alltypes_plain.parquet", testdata),
+    )?;
+
+    let logical_plan = ctx.create_logical_plan("SELECT id FROM alltypes_plain")?;
+    let optimized_plan = ctx.optimize(&logical_plan)?;
+    println!("{:?}", optimized_plan);
+
+    let physical_plan = ctx.create_physical_plan(&optimized_plan)?;
+    let result = ctx.execute_physical_plan(physical_plan)?;
+
+    Ok(())
+}

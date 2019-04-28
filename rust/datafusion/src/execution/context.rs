@@ -48,6 +48,7 @@ use crate::execution::limit::LimitRelation;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::Relation;
+use crate::execution::scalar_relation::ScalarRelation;
 use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -58,7 +59,6 @@ use crate::sql::parser::FileType;
 use crate::sql::parser::{DFASTNode, DFParser};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
-use crate::execution::scalar_relation::ScalarRelation;
 
 struct ParquetScanExec {
     filename: String,
@@ -118,8 +118,11 @@ impl ParquetScanPartition {
         let filename = filename.to_string();
         thread::spawn(move || {
             //TODO reimplement to remove mutexes
+
+            println!("Opening {}", filename);
+
             let table = ParquetTable::try_new(&filename).unwrap();
-            let partitions = table.scan(&None, 64 * 1024).unwrap();
+            let partitions = table.scan(&None, 128 * 1024).unwrap();
             let partition = partitions[0].clone();
             while let Ok(_) = request_rx.recv() {
                 let mut partition = partition.lock().unwrap();
@@ -314,7 +317,8 @@ impl ExecutionContext {
         match logical_plan.as_ref() {
             LogicalPlan::TableScan { schema, .. } => {
                 let physical_plan = ParquetScanExec {
-                    filename: "/home/andy/nyc-tripdata/parquet/year=2018".to_string(), /* TODO */
+                    filename: "/home/andy/nyc-tripdata/parquet/year=2018/month=01"
+                        .to_string(), /* TODO */
                     schema: schema.clone(),
                 };
                 Ok(Arc::new(physical_plan))
@@ -615,32 +619,5 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
 
     fn get_function_meta(&self, _name: &str) -> Option<Arc<FunctionMeta>> {
         None
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::error::Result;
-    use std::env;
-
-    #[test]
-    fn execute_physical_plan() -> Result<()> {
-        let testdata =
-            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
-
-        let mut ctx = ExecutionContext::new();
-        ctx.register_parquet(
-            "alltypes_plain",
-            &format!("{}/alltypes_plain.parquet", testdata),
-        )?;
-
-        let logical_plan = ctx.create_logical_plan("SELECT id FROM alltypes_plain")?;
-        let optimized_plan = ctx.optimize(&logical_plan)?;
-        println!("{:?}", optimized_plan);
-
-        let physical_plan = ctx.create_physical_plan(&optimized_plan)?;
-        //let result = ctx.execute_physical_plan(physical_plan)?;
-        Ok(())
     }
 }
