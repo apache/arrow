@@ -123,7 +123,7 @@ public class BitVectorHelper {
    * @return buffer size
    */
   public static int getValidityBufferSize(int valueCount) {
-    return valueCount % 8 > 0 ? valueCount / 8 + 1 : valueCount / 8;
+    return (valueCount + 7) >> 3;
   }
 
   /**

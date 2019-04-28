@@ -104,7 +104,7 @@ public abstract class BaseValueVector implements ValueVector {
 
   /* number of bytes for the validity buffer for the given valueCount */
   protected static int getValidityBufferSizeFromCount(final int valueCount) {
-    return valueCount % 8 > 0 ? valueCount / 8 + 1 : valueCount / 8;
+    return (valueCount + 7) >> 3;
   }
 
   /* round up to the next multiple of 8 */
