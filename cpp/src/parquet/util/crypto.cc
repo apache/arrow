@@ -54,8 +54,10 @@ AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadat
     throw ParquetException(ss.str());
   }
 
+  ciphertext_size_delta_ = BufferSizeLength + NonceLength;
   if (metadata || (ParquetCipher::AES_GCM_V1 == alg_id)) {
     aes_mode_ = GCM_MODE;
+    ciphertext_size_delta_ += GCMTagLength;
   } else {
     aes_mode_ = CTR_MODE;
   }
@@ -92,6 +94,10 @@ AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadat
       ENCRYPT_INIT(ctx_, EVP_aes_256_ctr());
     }
   }
+}
+
+int AesEncryptor::CiphertextSizeDelta() {
+  return ciphertext_size_delta_;
 }
 
 int AesEncryptor::gcm_encrypt(const uint8_t* plaintext, int plaintext_len, 
@@ -242,7 +248,7 @@ AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadat
 
   ciphertext_size_delta_ = BufferSizeLength + NonceLength;
   if (metadata || (ParquetCipher::AES_GCM_V1 == alg_id)) {
-   aes_mode_ = GCM_MODE;
+    aes_mode_ = GCM_MODE;
     ciphertext_size_delta_ += GCMTagLength;
   } else {
    aes_mode_ = CTR_MODE;
