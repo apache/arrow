@@ -187,7 +187,7 @@ public class TestValueVector {
 
   @Test /* IntVector */
   public void testFixedType2() {
-    try (final IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final IntVector intVector = VectorFactory.createIntVector(vectorType, EMPTY_SCHEMA_PATH, allocator)) {
       boolean error = false;
       int initialCapacity = 16;
 
@@ -221,13 +221,16 @@ public class TestValueVector {
         j++;
       }
 
-      try {
-        intVector.set(initialCapacity, j);
-      } catch (IndexOutOfBoundsException ie) {
-        error = true;
-      } finally {
-        assertTrue(error);
-        error = false;
+      // for unsafe vectors, we do not check boundaries, so skip this assert
+      if (vectorType == VectorFactory.VectorType.SAFE) {
+        try {
+          intVector.set(initialCapacity, j);
+        } catch (IndexOutOfBoundsException ie) {
+          error = true;
+        } finally {
+          assertTrue(error);
+          error = false;
+        }
       }
 
       /* check vector contents */
@@ -237,13 +240,16 @@ public class TestValueVector {
         j++;
       }
 
-      try {
-        intVector.get(initialCapacity);
-      } catch (IndexOutOfBoundsException ie) {
-        error = true;
-      } finally {
-        assertTrue(error);
-        error = false;
+      // for unsafe vectors, we do not check boundaries, so skip this assert
+      if (vectorType == VectorFactory.VectorType.SAFE) {
+        try {
+          intVector.get(initialCapacity);
+        } catch (IndexOutOfBoundsException ie) {
+          error = true;
+        } finally {
+          assertTrue(error);
+          error = false;
+        }
       }
 
       /* this should trigger a realloc() */

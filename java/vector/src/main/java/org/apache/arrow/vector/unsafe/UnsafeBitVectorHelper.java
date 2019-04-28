@@ -61,4 +61,17 @@ public class UnsafeBitVectorHelper {
     }
     PlatformDependent.putByte(validityBuffer.memoryAddress() + byteIndex, currentByte);
   }
+
+  /**
+   * Check if a validity bit is set.
+   * @param validityBuffer the validity buffer.
+   * @param index index of the bit to check.
+   * @return 1 if the bit is set, and 0 otherwise.
+   */
+  public static int isValidityBitSet(ArrowBuf validityBuffer, int index) {
+    final int byteIndex = index >> 3;
+    final byte b = PlatformDependent.getByte(validityBuffer .memoryAddress() + byteIndex);
+    final int bitIndex = index & 7;
+    return (b >> bitIndex) & 0x01;
+  }
 }

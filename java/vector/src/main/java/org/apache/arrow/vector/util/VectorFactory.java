@@ -19,6 +19,7 @@ package org.apache.arrow.vector.util;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.IntVector;
 
 /**
  * Factory methods for vectors..
@@ -42,6 +43,13 @@ public class VectorFactory {
     UNSAFE
   }
 
+  /**
+   * Create an empty Float8Vector.
+   * @param vectorType
+   * @param name
+   * @param allocator
+   * @return
+   */
   public static Float8Vector createFloat8Vector(VectorType vectorType, String name, BufferAllocator allocator) {
     switch (vectorType) {
       case SAFE:
@@ -50,6 +58,24 @@ public class VectorFactory {
         return new org.apache.arrow.vector.unsafe.Float8Vector(name, allocator);
       default:
         throw new IllegalArgumentException("Unknown vector type for Float8Vector");
+    }
+  }
+
+  /**
+   * Create an empty IntVector.
+   * @param vectorType
+   * @param name
+   * @param allocator
+   * @return
+   */
+  public static IntVector createIntVector(VectorType vectorType, String name, BufferAllocator allocator) {
+    switch (vectorType) {
+      case SAFE:
+        return new org.apache.arrow.vector.IntVector(name, allocator);
+      case UNSAFE:
+        return new org.apache.arrow.vector.unsafe.IntVector(name, allocator);
+      default:
+        throw new IllegalArgumentException("Unknown vector type for IntVector");
     }
   }
 }
