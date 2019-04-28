@@ -35,7 +35,7 @@ use crate::execution::datasource::DataSourceRelation;
 use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
-use crate::execution::physical_plan::{ExecutionPlan, Partition, ResultSet};
+use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::Relation;
 use crate::execution::table_impl::TableImpl;
@@ -50,23 +50,21 @@ use crate::table::Table;
 use arrow::record_batch::RecordBatch;
 use std::thread::JoinHandle;
 
-struct TableScanExec {
-
-}
+struct TableScanExec {}
 
 impl ExecutionPlan for TableScanExec {
     fn schema(&self) -> Arc<Schema> {
         unimplemented!()
     }
 
-    fn partitions(&self) -> Result<Vec<Rc<Partition>>> {
+    fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
         unimplemented!()
     }
 }
 
 struct FilterExec {
     input: Rc<ExecutionPlan>,
-    expr: CompiledExpr
+    expr: CompiledExpr,
 }
 
 impl FilterExec {
@@ -80,40 +78,40 @@ impl ExecutionPlan for FilterExec {
         unimplemented!()
     }
 
-    fn partitions(&self) -> Result<Vec<Rc<Partition>>> {
+    fn partitions(&self) -> Result<Vec<Arc<Partition>>> {
         //TODO: inject filter logic
         Ok(self.input.partitions()?.iter().map(|p| p.clone()).collect())
     }
 }
 
 struct FilterPartition {
-    input: Rc<RefCell<Partition>>
+    input: Arc<Partition>,
 }
 
 impl Partition for FilterPartition {
-    fn execute(&self) -> Result<Rc<Iterator<Item=Result<RecordBatch>>>> {
+    fn execute(&self) -> Result<Arc<BatchIterator>> {
         unimplemented!()
     }
 }
 
-struct FilterResultSet {
-    input: Rc<RefCell<ResultSet>>
-}
+//struct FilterResultSet {
+//    input: Rc<RefCell<ResultSet>>
+//}
 
-impl Iterator for FilterResultSet {
-    type Item=Result<RecordBatch>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.input.borrow_mut().next() {
-            Some(Ok(batch)) => {
-                //TODO apply filter
-                Some(Ok(batch))
-            },
-            Some(_) => panic!(),
-            None => None
-        }
-    }
-}
+//impl Iterator for FilterResultSet {
+//    type Item=Result<RecordBatch>;
+//
+//    fn next(&mut self) -> Option<Self::Item> {
+//        match self.input.borrow_mut().next() {
+//            Some(Ok(batch)) => {
+//                //TODO apply filter
+//                Some(Ok(batch))
+//            },
+//            Some(_) => panic!(),
+//            None => None
+//        }
+//    }
+//}
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
@@ -161,9 +159,12 @@ impl ExecutionContext {
         }
     }
 
-    pub fn create_physical_plan(&mut self, logical_plan: &Arc<LogicalPlan>) -> Result<Rc<ExecutionPlan>> {
+    pub fn create_physical_plan(
+        &mut self,
+        logical_plan: &Arc<LogicalPlan>,
+    ) -> Result<Rc<ExecutionPlan>> {
         match logical_plan.as_ref() {
-            LogicalPlan::TableScan{ .. } => {
+            LogicalPlan::TableScan { .. } => {
                 let physical_plan = TableScanExec {};
                 Ok(Rc::new(physical_plan))
             }
@@ -173,19 +174,20 @@ impl ExecutionContext {
                 let runtime_expr = compile_expr(&self, expr, &input_schema)?;
                 Ok(Rc::new(FilterExec::new(input, runtime_expr)))
             }
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 
     pub fn execute_physical_plan(&mut self, plan: Rc<ExecutionPlan>) -> Result<()> {
-
         // execute each partition on a thread
-        let threads: Vec<JoinHandle<Result<Rc<ResultSet>>>> = plan.partitions()?.iter().map(|p| {
-            let p = p.clone();
-            thread::spawn(move || {
-                p.execute()
+        let threads: Vec<JoinHandle<Result<Arc<BatchIterator>>>> = plan
+            .partitions()?
+            .iter()
+            .map(|p| {
+                let p = p.clone();
+                thread::spawn(move || p.execute())
             })
-        });
+            .collect();
 
         unimplemented!()
     }

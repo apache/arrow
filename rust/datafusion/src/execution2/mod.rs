@@ -1,21 +1,20 @@
-use std::sync::{Mutex, Arc};
-use std::sync::mpsc::{Sender, Receiver};
-use std::sync::mpsc;
-use std::thread;
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::iter::Iterator;
-
-use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
-
-use crate::error::Result;
-use std::thread::JoinHandle;
-use crate::execution::datasource::DataSourceRelation;
-use crate::execution::expression::CompiledExpr;
-use crate::datasource::RecordBatchIterator;
-use crate::datasource::parquet::ParquetTable;
-use crate::datasource::datasource::TableProvider;
+//use std::sync::{Mutex, Arc};
+//use std::sync::mpsc::{Sender, Receiver};
+//use std::sync::mpsc;
+//use std::thread;
+//use std::rc::Rc;
+//use std::cell::RefCell;
+//use std::iter::Iterator;
+//
+//use arrow::datatypes::Schema;
+//use arrow::record_batch::RecordBatch;
+//
+//use crate::error::Result;
+//use std::thread::JoinHandle;
+//use crate::execution::datasource::DataSourceRelation;
+//use crate::execution::expression::CompiledExpr;
+//use crate::datasource::RecordBatchIterator;
+//use crate::datasource::parquet::ParquetTable;
 
 //pub trait Partition {
 //    fn execute(&mut self) -> Rc<RefCell<Iterator<Item=Result<RecordBatch>>>>;
@@ -38,8 +37,8 @@ use crate::datasource::datasource::TableProvider;
 //
 //    fn partitions(&self) -> Vec<Rc<RefCell<Partition>>> {
 //        self.filenames.iter().map(|f|
-//            Rc::new(RefCell::new(TablePartition { filename: f.to_string() })) as Rc<RefCell<Partition>>
-//        ).collect()
+//            Rc::new(RefCell::new(TablePartition { filename: f.to_string() })) as
+// Rc<RefCell<Partition>>        ).collect()
 //    }
 //}
 //
@@ -62,7 +61,8 @@ use crate::datasource::datasource::TableProvider;
 //
 //    fn new(filename: &str) -> Self {
 //        let (request_tx, request_rx): (Sender<()>, Receiver<()>) = mpsc::channel();
-//        let (response_tx, response_rx): (Sender<RecordBatch>, Receiver<RecordBatch>) = mpsc::channel();
+//        let (response_tx, response_rx): (Sender<RecordBatch>, Receiver<RecordBatch>) =
+// mpsc::channel();
 //
 //        let filename = filename.to_string();
 //        thread::spawn(move || {
@@ -121,66 +121,67 @@ use crate::datasource::datasource::TableProvider;
 
 #[cfg(test)]
 mod test {
-//    use super::*;
-//    use arrow::datatypes::{Field, DataType};
-//    use arrow::builder::UInt32Builder;
-//    use core::borrow::BorrowMut;
-//    use crate::execution2::Partition;
+    //    use super::*;
+    //    use arrow::datatypes::{Field, DataType};
+    //    use arrow::builder::UInt32Builder;
+    //    use core::borrow::BorrowMut;
+    //    use crate::execution2::Partition;
 
-//    #[test]
-//    fn test() {
-//        let schema = Arc::new(Schema::new(vec![
-//            Field::new("a", DataType::UInt32, false)
-//        ]));
-//
-//        let mut array_builder = UInt32Builder::new(10);
-//        array_builder.append_value(123).unwrap();
-//        let array = array_builder.finish();
-//
-//        let b = RecordBatch::try_new(schema.clone(), vec![Arc::new(array)]).unwrap();
-//        let x = MockPartition {
-//            index: 0,
-//            data: vec![b]
-//        };
-//
-//        let mut plan = FilterExec {
-//            input: vec![Arc::new(Mutex::new(x))],
-//            expr: CompiledExpr {
-//                name: "".to_string(),
-//                f: Arc::new(|b| {
-//                    panic!()
-//                }),
-//                t: DataType::Boolean
-//            }
-//        };
-//
-//        plan.execute().unwrap();
-//
-//    }
+    //    #[test]
+    //    fn test() {
+    //        let schema = Arc::new(Schema::new(vec![
+    //            Field::new("a", DataType::UInt32, false)
+    //        ]));
+    //
+    //        let mut array_builder = UInt32Builder::new(10);
+    //        array_builder.append_value(123).unwrap();
+    //        let array = array_builder.finish();
+    //
+    //        let b = RecordBatch::try_new(schema.clone(),
+    // vec![Arc::new(array)]).unwrap();        let x = MockPartition {
+    //            index: 0,
+    //            data: vec![b]
+    //        };
+    //
+    //        let mut plan = FilterExec {
+    //            input: vec![Arc::new(Mutex::new(x))],
+    //            expr: CompiledExpr {
+    //                name: "".to_string(),
+    //                f: Arc::new(|b| {
+    //                    panic!()
+    //                }),
+    //                t: DataType::Boolean
+    //            }
+    //        };
+    //
+    //        plan.execute().unwrap();
+    //
+    //    }
 
-//    #[test]
-//    fn thread_ds() {
-//
-//        use super::Partition;
-//
-//        let p = TableExec {
-//            filenames: vec![
-//                "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.parquet".to_string(),
-//                "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.parquet".to_string()
-//            ]
-//        };
-//
-//        for i in 0..1 {
-//            let partitions = p.partitions();
-//            let mut xx = partitions[0].clone();
-//            xx.borrow_mut().execute();
+    //    #[test]
+    //    fn thread_ds() {
+    //
+    //        use super::Partition;
+    //
+    //        let p = TableExec {
+    //            filenames: vec![
+    //                
+    // "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.
+    // parquet".to_string(),                
+    // "/home/andy/git/andygrove/arrow/cpp/submodules/parquet-testing/data/alltypes_plain.
+    // parquet".to_string()            ]
+    //        };
+    //
+    //        for i in 0..1 {
+    //            let partitions = p.partitions();
+    //            let mut xx = partitions[0].clone();
+    //            xx.borrow_mut().execute();
 
+    //            let yy = xx.borrow_mut();
+    //            let batch = yy.borrow_mut().next().unwrap().unwrap();
+    //            println!("batch has {} rows", batch.num_rows());
+    //        }
 
-//            let yy = xx.borrow_mut();
-//            let batch = yy.borrow_mut().next().unwrap().unwrap();
-//            println!("batch has {} rows", batch.num_rows());
-//        }
-
-//    }
+    //    }
 
 }

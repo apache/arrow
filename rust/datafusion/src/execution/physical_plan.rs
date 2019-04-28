@@ -26,14 +26,13 @@ use arrow::record_batch::RecordBatch;
 
 use crate::error::Result;
 
-pub type ResultSet = Iterator<Item=Result<RecordBatch>>;
+pub trait BatchIterator: Send + Sync {}
 
 pub trait ExecutionPlan {
     fn schema(&self) -> Arc<Schema>;
-    fn partitions(&self) -> Result<Vec<Rc<Partition>>>;
+    fn partitions(&self) -> Result<Vec<Arc<Partition>>>;
 }
 
-pub trait Partition: Send {
-    fn execute(&self) -> Result<Rc<ResultSet>>;
+pub trait Partition: Send + Sync {
+    fn execute(&self) -> Result<Arc<BatchIterator>>;
 }
-

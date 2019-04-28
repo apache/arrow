@@ -127,9 +127,11 @@ impl<'a> SparseTensorIndexCOO<'a> {
     /// where N is the number of non-zero values,
     /// and M is the number of dimensions of a sparse tensor.
     /// indicesBuffer stores the location and size of this index matrix.
-    /// The type of index value is long, so the stride for the index matrix is unnecessary.
+    /// The type of index value is long, so the stride for the index matrix is
+    /// unnecessary.
     ///
-    /// For example, let X be a 2x3x4x5 tensor, and it has the following 6 non-zero values:
+    /// For example, let X be a 2x3x4x5 tensor, and it has the following 6 non-zero
+    /// values:
     ///
     ///   X[0, 1, 2, 0] := 1
     ///   X[1, 1, 2, 3] := 2

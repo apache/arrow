@@ -85,8 +85,8 @@ trait AggregateFunction {
     /// Get the function name (used for debugging)
     fn name(&self) -> &str;
 
-    /// Update the current aggregate value based on a new value. A value of `None` represents a
-    /// null value.
+    /// Update the current aggregate value based on a new value. A value of `None`
+    /// represents a null value.
     fn accumulate_scalar(&mut self, value: &Option<ScalarValue>) -> Result<()>;
 
     /// Update the current aggregate value based on an array.
@@ -98,8 +98,8 @@ trait AggregateFunction {
 
     /// Get the data type of the result of the aggregate function. For some operations,
     /// such as `min`, `max`, and `sum`, the data type will be the same as the data type
-    /// of the argument. For other aggregates, such as `count`, the data type is independent
-    /// of the data type of the input.
+    /// of the argument. For other aggregates, such as `count`, the data type is
+    /// independent of the data type of the input.
     fn data_type(&self) -> &DataType;
 }
 

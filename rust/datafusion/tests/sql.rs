@@ -113,7 +113,8 @@ fn csv_query_avg_multi_batch() {
     let array = column.as_any().downcast_ref::<Float64Array>().unwrap();
     let actual = array.value(0);
     let expected = 0.5089725;
-    // Due to float number's accuracy, different batch size will lead to different answers.
+    // Due to float number's accuracy, different batch size will lead to different
+    // answers.
     assert!((expected - actual).abs() < 0.01);
 }
 
@@ -142,7 +143,8 @@ fn csv_query_group_by_avg_multi_batch() {
         .iter()
         .zip(expect_vec.iter())
         .for_each(|(actual, expect)| {
-            // Due to float number's accuracy, different batch size will lead to different answers.
+            // Due to float number's accuracy, different batch size will lead to different
+            // answers.
             assert!((expect - actual).abs() < 0.01);
         });
 }
