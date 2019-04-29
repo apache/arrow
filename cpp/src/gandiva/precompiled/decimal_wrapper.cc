@@ -86,4 +86,15 @@ void mod_internal_decimal128_decimal128(int64_t context, int64_t x_high, uint64_
   *out_low = out.low_bits();
 }
 
+FORCE_INLINE
+int32_t compare_internal_decimal128_decimal128(int64_t x_high, uint64_t x_low,
+                                               int32_t x_precision, int32_t x_scale,
+                                               int64_t y_high, uint64_t y_low,
+                                               int32_t y_precision, int32_t y_scale) {
+  gandiva::BasicDecimalScalar128 x(x_high, x_low, x_precision, x_scale);
+  gandiva::BasicDecimalScalar128 y(y_high, y_low, y_precision, y_scale);
+
+  return gandiva::decimalops::Compare(x, y);
+}
+
 }  // extern "C"

@@ -27,6 +27,7 @@
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 
+using arrow::boolean;
 using arrow::Decimal128;
 
 namespace gandiva {
@@ -232,6 +233,68 @@ TEST_F(TestDecimal, TestIfElse) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
+TEST_F(TestDecimal, TestCompare) {
+  // schema for input fields
+  constexpr int32_t precision = 36;
+  constexpr int32_t scale = 18;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field_a = field("a", decimal_type);
+  auto field_b = field("b", decimal_type);
+  auto schema = arrow::schema({field_a, field_b});
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("equal", {field_a, field_b},
+                                      field("res_eq", boolean())),
+      TreeExprBuilder::MakeExpression("not_equal", {field_a, field_b},
+                                      field("res_ne", boolean())),
+      TreeExprBuilder::MakeExpression("less_than", {field_a, field_b},
+                                      field("res_lt", boolean())),
+      TreeExprBuilder::MakeExpression("less_than_or_equal_to", {field_a, field_b},
+                                      field("res_le", boolean())),
+      TreeExprBuilder::MakeExpression("greater_than", {field_a, field_b},
+                                      field("res_gt", boolean())),
+      TreeExprBuilder::MakeExpression("greater_than_or_equal_to", {field_a, field_b},
+                                      field("res_ge", boolean())),
+  };
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"1", "2", "3", "-4"}, scale),
+                            {true, true, true, true});
+  auto array_b =
+      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"1", "3", "2", "-3"}, scale),
+                            {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, false, false, false}),
+                            outputs[0]);  // equal
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({false, true, true, true}),
+                            outputs[1]);  // not_equal
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({false, true, false, true}),
+                            outputs[2]);  // less_than
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, true, false, true}),
+                            outputs[3]);  // less_than_or_equal_to
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({false, false, true, false}),
+                            outputs[4]);  // greater_than
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, false, true, false}),
+                            outputs[5]);  // greater_than_or_equal_to
 }
 
 }  // namespace gandiva

@@ -423,5 +423,45 @@ BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
   return result;
 }
 
+int32_t CompareSameScale(const BasicDecimal128& x, const BasicDecimal128& y) {
+  if (x == y) {
+    return 0;
+  } else if (x < y) {
+    return -1;
+  } else {
+    return 1;
+  }
+}
+
+int32_t Compare(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y) {
+  int32_t delta_scale = x.scale() - y.scale();
+
+  // fast-path : both are of the same scale.
+  if (delta_scale == 0) {
+    return CompareSameScale(x.value(), y.value());
+  }
+
+  // Check if we'll need more than 256-bits after adjusting the scale.
+  bool need256 =
+      (delta_scale < 0 && x.precision() - delta_scale > DecimalTypeUtil::kMaxPrecision) ||
+      (y.precision() + delta_scale > DecimalTypeUtil::kMaxPrecision);
+  if (need256) {
+    return gdv_xlarge_compare(x.value().high_bits(), x.value().low_bits(), x.scale(),
+                              y.value().high_bits(), y.value().low_bits(), y.scale());
+  } else {
+    BasicDecimal128 x_scaled;
+    BasicDecimal128 y_scaled;
+
+    if (delta_scale < 0) {
+      x_scaled = x.value().IncreaseScaleBy(-delta_scale);
+      y_scaled = y.value();
+    } else {
+      x_scaled = x.value();
+      y_scaled = y.value().IncreaseScaleBy(delta_scale);
+    }
+    return CompareSameScale(x_scaled, y_scaled);
+  }
+}
+
 }  // namespace decimalops
 }  // namespace gandiva

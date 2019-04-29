@@ -460,6 +460,48 @@ Status DecimalIR::BuildDivideOrMod(const std::string& function_name,
   return Status::OK();
 }
 
+Status DecimalIR::BuildCompare(const std::string& function_name,
+                               llvm::ICmpInst::Predicate cmp_instruction) {
+  // Create fn prototype :
+  // bool
+  // function_name(int128_t x_value, int32_t x_precision, int32_t x_scale,
+  //               int128_t y_value, int32_t y_precision, int32_t y_scale)
+
+  auto i32 = types()->i32_type();
+  auto i128 = types()->i128_type();
+  auto function = BuildFunction(function_name, types()->i1_type(),
+                                {
+                                    {"x_value", i128},
+                                    {"x_precision", i32},
+                                    {"x_scale", i32},
+                                    {"y_value", i128},
+                                    {"y_precision", i32},
+                                    {"y_scale", i32},
+                                });
+
+  auto arg_iter = function->arg_begin();
+  ValueFull x(&arg_iter[0], &arg_iter[1], &arg_iter[2]);
+  ValueFull y(&arg_iter[3], &arg_iter[4], &arg_iter[5]);
+
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
+  ir_builder()->SetInsertPoint(entry);
+
+  // Make call to pre-compiled IR function.
+  auto x_split = ValueSplit::MakeFromInt128(this, x.value());
+  auto y_split = ValueSplit::MakeFromInt128(this, y.value());
+
+  std::vector<llvm::Value*> args = {
+      x_split.high(), x_split.low(), x.precision(), x.scale(),
+      y_split.high(), y_split.low(), y.precision(), y.scale(),
+  };
+  auto cmp_value = ir_builder()->CreateCall(
+      module()->getFunction("compare_internal_decimal128_decimal128"), args);
+  auto result =
+      ir_builder()->CreateICmp(cmp_instruction, cmp_value, types()->i32_constant(0));
+  ir_builder()->CreateRet(result);
+  return Status::OK();
+}
+
 Status DecimalIR::AddFunctions(Engine* engine) {
   auto decimal_ir = std::make_shared<DecimalIR>(engine);
 
@@ -476,6 +518,19 @@ Status DecimalIR::AddFunctions(Engine* engine) {
       "divide_decimal128_decimal128", "divide_internal_decimal128_decimal128"));
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDivideOrMod("mod_decimal128_decimal128",
                                                    "mod_internal_decimal128_decimal128"));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildCompare("equal_decimal128_decimal128", llvm::ICmpInst::ICMP_EQ));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare("not_equal_decimal128_decimal128",
+                                               llvm::ICmpInst::ICMP_NE));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare("less_than_decimal128_decimal128",
+                                               llvm::ICmpInst::ICMP_SLT));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare(
+      "less_than_or_equal_to_decimal128_decimal128", llvm::ICmpInst::ICMP_SLE));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare("greater_than_decimal128_decimal128",
+                                               llvm::ICmpInst::ICMP_SGT));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare(
+      "greater_than_or_equal_to_decimal128_decimal128", llvm::ICmpInst::ICMP_SGE));
   return Status::OK();
 }
 
