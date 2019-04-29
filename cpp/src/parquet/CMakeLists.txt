@@ -168,6 +168,7 @@ set(PARQUET_SRCS
     deprecated_io.cc
     encoding.cc
     encryption.cc
+    encryption_properties.cc
     file_reader.cc
     file_writer.cc
     metadata.cc
