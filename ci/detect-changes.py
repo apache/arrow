@@ -63,6 +63,7 @@ def list_affected_files(commit_range):
     """
     Return a list of files changed by the given git commit range.
     """
+    perr("Getting affected files from", repr(commit_range))
     out = run_cmd(["git", "diff", "--name-only", commit_range])
     return list(filter(None, (s.strip() for s in out.decode().splitlines())))
 
@@ -72,10 +73,20 @@ def get_travis_head_commit():
 
 
 def get_travis_commit_range():
-    cr = os.environ['TRAVIS_COMMIT_RANGE']
-    # See
-    # https://github.com/travis-ci/travis-ci/issues/4596#issuecomment-139811122
-    return cr.replace('...', '..')
+    if os.environ['TRAVIS_EVENT_TYPE'] == 'pull_request':
+        # TRAVIS_COMMIT_RANGE is too pessimistic for PRs, as it may contain
+        # unrelated changes.  Instead, use the same strategy as on AppVeyor
+        # below.
+        run_cmd(["git", "fetch", "-q", "origin",
+                 "+refs/heads/{0}".format(os.environ['TRAVIS_BRANCH'])])
+        merge_base = run_cmd(["git", "merge-base",
+                              "HEAD", "FETCH_HEAD"]).decode().strip()
+        return "{0}..HEAD".format(merge_base)
+    else:
+        cr = os.environ['TRAVIS_COMMIT_RANGE']
+        # See
+        # https://github.com/travis-ci/travis-ci/issues/4596#issuecomment-139811122
+        return cr.replace('...', '..')
 
 
 def get_travis_commit_description():
@@ -89,17 +100,7 @@ def list_travis_affected_files():
     """
     Return a list of files affected in the current Travis build.
     """
-    if os.environ['TRAVIS_EVENT_TYPE'] == 'pull_request':
-        # TRAVIS_COMMIT_RANGE is too pessimistic for PRs, as it may contain
-        # unrelated changes.  Instead, use the same strategy as on AppVeyor
-        # below.
-        run_cmd(["git", "fetch", "-q", "origin",
-                 "+refs/heads/{0}".format(os.environ['TRAVIS_BRANCH'])])
-        merge_base = run_cmd(["git", "merge-base",
-                              "HEAD", "FETCH_HEAD"]).decode().strip()
-        commit_range = "{0}..HEAD".format(merge_base)
-    else:
-        commit_range = get_travis_commit_range()
+    commit_range = get_travis_commit_range()
     try:
         return list_affected_files(commit_range)
     except RuntimeError:
