@@ -105,11 +105,11 @@ def read_json(input_file, read_options=None, parse_options=None,
     _get_read_options(read_options, &c_read_options)
     _get_parse_options(parse_options, &c_parse_options)
 
-    # check_status(CJSONReader.Make(maybe_unbox_memory_pool(memory_pool),
-    #                               stream, c_read_options, c_parse_options,
-    #                               &reader))
+    check_status(CJSONReader.Make(maybe_unbox_memory_pool(memory_pool),
+                                  stream, c_read_options, c_parse_options,
+                                  &reader))
 
-    # with nogil:
-    #     check_status(reader.get().Read(&table))
+    with nogil:
+        check_status(reader.get().Read(&table))
 
     return pyarrow_wrap_table(table)
