@@ -1,3 +1,4 @@
+function vars = common_vars()
 % Licensed to the Apache Software Foundation (ASF) under one
 % or more contributor license agreements.  See the NOTICE file
 % distributed with this work for additional information
@@ -15,8 +16,9 @@
 % specific language governing permissions and limitations
 % under the License.
 
-scriptDir = fileparts(mfilename('fullpath'));
+fileDir = fileparts(mfilename('fullpath'));
 
-srcDir = fullfile(scriptDir, '..', 'src');
-testDir = fullfile(scriptDir, '..', 'test');
-buildDir = fullfile(scriptDir, '..', 'build');
+vars.srcDir = fullfile(fileDir, '..', 'src');
+vars.testDir = fullfile(fileDir, '..', 'test');
+vars.buildDir = fullfile(fileDir, '..', 'build');
+end

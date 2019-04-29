@@ -16,13 +16,13 @@ function test()
 % specific language governing permissions and limitations
 % under the License.
 
-common_vars;
+vars = common_vars();
 
 compile();
 
-originalPath = addpath(srcDir, buildDir);
+originalPath = addpath(vars.srcDir, vars.buildDir);
 restoreOriginalPath = onCleanup(@()path(originalPath));
 
-results = runtests(testDir, 'IncludeSubfolders', true, 'OutputDetail', 3);
+results = runtests(vars.testDir, 'IncludeSubfolders', true, 'OutputDetail', 3);
 assert(all(~[results.Failed]));
 end
