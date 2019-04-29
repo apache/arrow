@@ -18,6 +18,7 @@
 from itertools import filterfalse, groupby, tee
 import json
 import subprocess
+from tempfile import NamedTemporaryFile
 
 from .core import Benchmark
 from ..utils.command import Command
@@ -49,13 +50,16 @@ class GoogleBenchmarkCommand(Command):
         return str.splitlines(result.stdout.decode("utf-8"))
 
     def results(self):
-        argv = ["--benchmark_format=json", "--benchmark_repetitions=20"]
+        with NamedTemporaryFile() as out:
+            argv = ["--benchmark_repetitions=20",
+                    f"--benchmark_out={out.name}",
+                    "--benchmark_out_format=json"]
 
-        if self.benchmark_filter:
-            argv.append(f"--benchmark_filter={self.benchmark_filter}")
+            if self.benchmark_filter:
+                argv.append(f"--benchmark_filter={self.benchmark_filter}")
 
-        return json.loads(self.run(*argv, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE).stdout)
+            self.run(*argv, check=True)
+            return json.load(out)
 
 
 class GoogleBenchmarkObservation:
