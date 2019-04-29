@@ -519,7 +519,8 @@ void AssertStatsSet(const ApplicationVersion& version,
   auto column_chunk =
       ColumnChunkMetaData::Make(metadata_builder->contents(), column, &version);
   EncodedStatistics stats;
-  metadata_builder->SetStatistics(false /* is_signed */, stats);
+  stats.set_is_signed(false);
+  metadata_builder->SetStatistics(stats);
   ASSERT_EQ(column_chunk->is_stats_set(), expected_is_set);
 }
 

@@ -617,26 +617,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   void set_file_path(const std::string& val) { column_chunk_->__set_file_path(val); }
 
   // column metadata
-  void SetStatistics(bool is_signed, const EncodedStatistics& val) {
-    format::Statistics stats;
-    stats.null_count = val.null_count;
-    stats.distinct_count = val.distinct_count;
-    stats.max_value = val.max();
-    stats.min_value = val.min();
-    stats.__isset.min_value = val.has_min;
-    stats.__isset.max_value = val.has_max;
-    stats.__isset.null_count = val.has_null_count;
-    stats.__isset.distinct_count = val.has_distinct_count;
-    // If the order is SIGNED, then the old min/max values must be set too.
-    // This for backward compatibility
-    if (is_signed) {
-      stats.max = val.max();
-      stats.min = val.min();
-      stats.__isset.min = val.has_min;
-      stats.__isset.max = val.has_max;
-    }
-
-    column_chunk_->meta_data.__set_statistics(stats);
+  void SetStatistics(const EncodedStatistics& val) {
+    column_chunk_->meta_data.__set_statistics(ToThrift(val));
   }
 
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
@@ -748,9 +730,8 @@ const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
   return impl_->descr();
 }
 
-void ColumnChunkMetaDataBuilder::SetStatistics(bool is_signed,
-                                               const EncodedStatistics& result) {
-  impl_->SetStatistics(is_signed, result);
+void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) {
+  impl_->SetStatistics(result);
 }
 
 class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {

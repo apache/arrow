@@ -217,7 +217,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // Used when a dataset is spread across multiple files
   void set_file_path(const std::string& path);
   // column metadata
-  void SetStatistics(bool is_signed, const EncodedStatistics& stats);
+  void SetStatistics(const EncodedStatistics& stats);
   // get the column descriptor
   const ColumnDescriptor* descr() const;
   // commit the metadata
