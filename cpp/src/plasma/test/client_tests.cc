@@ -538,6 +538,52 @@ TEST_F(TestPlasmaStore, GetGPUTest) {
   AssertCudaRead(object_buffers[0].metadata, {42});
 }
 
+TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
+  ObjectID object_id1 = random_object_id();
+  ObjectID object_id2 = random_object_id();
+
+  // Test for deleting non-existance object.
+  Status result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
+  ARROW_CHECK_OK(result);
+  // Test for the object being in local Plasma store.
+  // First create object.
+  int64_t data_size = 100;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+  std::shared_ptr<Buffer> data;
+  ARROW_CHECK_OK(
+      client_.Create(object_id1, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(client_.Seal(object_id1));
+  ARROW_CHECK_OK(
+      client_.Create(object_id2, data_size, metadata, metadata_size, &data, 1));
+  ARROW_CHECK_OK(client_.Seal(object_id2));
+  // Release the ref count of Create function.
+  ARROW_CHECK_OK(client_.Release(object_id1));
+  ARROW_CHECK_OK(client_.Release(object_id2));
+  // Increase the ref count by calling Get using client2_.
+  std::vector<ObjectBuffer> object_buffers;
+  ARROW_CHECK_OK(client2_.Get({object_id1, object_id2}, 0, &object_buffers));
+  // Objects are still used by client2_.
+  result = client_.Delete(std::vector<ObjectID>{object_id1, object_id2});
+  ARROW_CHECK_OK(result);
+  // The object is used and it should not be deleted right now.
+  bool has_object = false;
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_TRUE(has_object);
+  // Decrease the ref count by deleting the PlasmaBuffer (in ObjectBuffer).
+  // client2_ won't send the release request immediately because the trigger
+  // condition is not reached. The release is only added to release cache.
+  object_buffers.clear();
+  // Delete the objects.
+  result = client2_.Delete(std::vector<ObjectID>{object_id1, object_id2});
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ASSERT_FALSE(has_object);
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ASSERT_FALSE(has_object);
+}
+
 TEST_F(TestPlasmaStore, MultipleClientGPUTest) {
   ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;

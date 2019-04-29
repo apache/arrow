@@ -218,6 +218,8 @@ class PlasmaStore {
 #ifdef PLASMA_CUDA
   Status AllocateCudaMemory(int device_num, int64_t size, uint8_t** out_pointer,
                             std::shared_ptr<CudaIpcMemHandle>* out_ipc_handle);
+
+  Status FreeCudaMemory(int device_num, int64_t size, uint8_t* out_pointer);
 #endif
 
   /// Event loop of the plasma store.
