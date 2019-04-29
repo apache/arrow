@@ -957,7 +957,8 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_datetime_case(),
         generate_nested_case(),
         generate_dictionary_case().skip_category(SKIP_FLIGHT),
-        generate_nested_dictionary_case()
+        generate_nested_dictionary_case().skip_category(SKIP_ARROW)
+                                         .skip_category(SKIP_FLIGHT),
     ]
 
     if flight:
