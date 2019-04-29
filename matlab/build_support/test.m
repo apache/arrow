@@ -20,8 +20,8 @@ common_vars;
 
 compile();
 
-mpath = addpath(srcDir, buildDir);
-restoreMpath = onCleanup(@()path(mpath));
+originalPath = addpath(srcDir, buildDir);
+restoreOriginalPath = onCleanup(@()path(originalPath));
 
 results = runtests(testDir, 'IncludeSubfolders', true, 'OutputDetail', 3);
 assert(all(~[results.Failed]));
