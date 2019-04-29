@@ -182,6 +182,9 @@ def benchmark(ctx):
 @click.option("--threshold", type=float, default=DEFAULT_THRESHOLD,
               show_default=True,
               help="Regression failure threshold in percentage.")
+@click.option("--output", metavar="<output>",
+              type=click.File("w", encoding="utf8"), default="-",
+              help="Capture output result into file.")
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
@@ -191,7 +194,7 @@ def benchmark(ctx):
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
-                   threshold, cmake_extras, contender, baseline):
+                   threshold, output, cmake_extras, contender, baseline):
     """ Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -245,6 +248,11 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
     \b
     archery benchmark diff --suite-filter="^arrow-compute-aggregate" \\
             --benchmark-filter="(Sum|Mean)Kernel"
+
+    \b
+    # Capture result in file `result.json`
+    \b
+    archery benchmark diff --output=result.json
     """
     with tmpdir(preserve) as root:
         logger.debug(f"Comparing {contender} (contender) with "
@@ -265,7 +273,7 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
         regressions = 0
         for comparator in comparisons:
             regressions += comparator.regression
-            print(json.dumps(comparator, cls=JsonEncoder))
+            json.dump(comparator, output, cls=JsonEncoder)
 
         sys.exit(regressions)
 
