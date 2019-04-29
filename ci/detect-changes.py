@@ -78,7 +78,17 @@ def list_travis_affected_files():
     """
     Return a list of files affected in the current Travis build.
     """
-    commit_range = get_travis_commit_range()
+    if os.environ['TRAVIS_EVENT_TYPE'] == 'pull_request':
+        # TRAVIS_COMMIT_RANGE is too pessimistic for PRs, as it may contain
+        # unrelated changes.  Instead, use the same strategy as on AppVeyor
+        # below.
+        run_cmd(["git", "fetch", "-q", "origin",
+                 "+refs/heads/{0}".format(os.environ['TRAVIS_BRANCH'])])
+        merge_base = run_cmd(["git", "merge-base",
+                              "HEAD", "FETCH_HEAD"]).decode().strip()
+        commit_range = "{0}..HEAD".format(merge_base)
+    else:
+        commit_range = get_travis_commit_range()
     try:
         return list_affected_files(commit_range)
     except RuntimeError:
