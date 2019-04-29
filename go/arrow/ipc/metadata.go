@@ -248,6 +248,12 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 	case flatbuf.TypeBool:
 		return arrow.FixedWidthTypes.Boolean, nil
 
+	case flatbuf.TypeList:
+		if len(children) != 1 {
+			return nil, errors.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
+		}
+		return arrow.ListOf(children[0].Type), nil
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
