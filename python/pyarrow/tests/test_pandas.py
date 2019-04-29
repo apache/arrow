@@ -505,6 +505,11 @@ class TestConvertMetadata(object):
             }
         ]
 
+    def test_metadata_pandas_version(self):
+        df = pd.DataFrame({'a': [1, 2, 3], 'b': [1, 2, 3]})
+        table = pa.Table.from_pandas(df)
+        assert table.schema.pandas_metadata['pandas_version'] is not None
+
 
 class TestConvertPrimitiveTypes(object):
     """
