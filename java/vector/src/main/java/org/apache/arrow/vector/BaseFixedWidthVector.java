@@ -408,7 +408,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     int targetValueCount = getValueCapacity() * 2;
     if (targetValueCount == 0) {
       if (lastValueCapacity > 0) {
-        targetValueCount = lastValueCapacity * 2;
+        targetValueCount = lastValueCapacity;
       } else {
         targetValueCount = INITIAL_VALUE_ALLOCATION * 2;
       }

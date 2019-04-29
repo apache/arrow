@@ -150,7 +150,7 @@ public abstract class BaseValueVector implements ValueVector {
 
   protected DataAndValidityBuffers allocFixedDataAndValidityBufs(int valueCount, int typeWidth) {
     long bufferSize = computeCombinedBufferSize(valueCount, typeWidth);
-    assert bufferSize < MAX_ALLOCATION_SIZE;
+    assert bufferSize <= MAX_ALLOCATION_SIZE;
 
     int validityBufferSize;
     int dataBufferSize;
