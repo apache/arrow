@@ -20,11 +20,22 @@ from __future__ import print_function
 import functools
 import os
 import pprint
+import re
 import sys
 import subprocess
 
 
 perr = functools.partial(print, file=sys.stderr)
+
+
+def dump_env_vars(prefix, pattern=None):
+    if pattern is not None:
+        match = lambda s: re.search(pattern, s)
+    else:
+        match = lambda s: True
+    for name in sorted(os.environ):
+        if name.startswith(prefix) and match(name):
+            perr("- {0}: {1!r}".format(name, os.environ[name]))
 
 
 def run_cmd(cmdline):
@@ -198,6 +209,8 @@ def get_windows_shell_eval(env):
 
 
 def run_from_travis():
+    perr("Environment variables (excerpt):")
+    dump_env_vars('TRAVIS_', '(BRANCH|COMMIT|PULL)')
     if (os.environ['TRAVIS_REPO_SLUG'] == 'apache/arrow' and
             os.environ['TRAVIS_BRANCH'] == 'master' and
             os.environ['TRAVIS_EVENT_TYPE'] != 'pull_request'):
@@ -224,6 +237,8 @@ def run_from_travis():
 
 
 def run_from_appveyor():
+    perr("Environment variables (excerpt):")
+    dump_env_vars('APPVEYOR_', '(PULL|REPO)')
     if not os.environ.get('APPVEYOR_PULL_REQUEST_HEAD_COMMIT'):
         # Not a PR build, test everything
         affected = dict.fromkeys(ALL_TOPICS, True)
