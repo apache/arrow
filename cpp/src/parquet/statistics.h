@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_COLUMN_STATISTICS_H
-#define PARQUET_COLUMN_STATISTICS_H
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -25,12 +24,36 @@
 
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/comparison.h"
 #include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
+
+// ----------------------------------------------------------------------
+// Value comparator interfaces
+
+/// \brief Base class for value comparators. Use with
+/// TypedComparator<T>
+class PARQUET_EXPORT Comparator {
+ public:
+  virtual ~Comparator() {}
+  static std::shared_ptr<Comparator> Make(const ColumnDescriptor* descr);
+};
+
+/// \brief Interface for comparison of physical types according to the
+/// semantics of a particular logical type
+template <typename DType>
+class TypedComparator : public Comparator {
+ public:
+  using T = typename DType::c_type;
+
+  /// \brief Scalar comparison of two elements, return true if first
+  /// is strictly less than the second
+  virtual bool Compare(const T& a, const T& b) = 0;
+};
+
+// ----------------------------------------------------------------------
 
 class PARQUET_EXPORT EncodedStatistics {
   std::shared_ptr<std::string> max_, min_;
@@ -82,12 +105,21 @@ class PARQUET_EXPORT EncodedStatistics {
   }
 };
 
-template <typename DType>
-class PARQUET_TEMPLATE_CLASS_EXPORT TypedRowGroupStatistics;
-
-class PARQUET_EXPORT RowGroupStatistics
-    : public std::enable_shared_from_this<RowGroupStatistics> {
+class PARQUET_EXPORT Statistics
+    : public std::enable_shared_from_this<Statistics> {
  public:
+  static std::shared_ptr<Statistics> Make(
+      const ColumnDescriptor* schema,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+  static  std::shared_ptr<Statistics> Make(
+      const ColumnDescriptor* schema,
+      const std::string& encoded_min,
+      const std::string& encoded_max, int64_t num_values,
+      int64_t null_count, int64_t distinct_count,
+      bool has_min_max,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
   int64_t null_count() const { return statistics_.null_count; }
   int64_t distinct_count() const { return statistics_.distinct_count; }
   int64_t num_values() const { return num_values_; }
@@ -103,19 +135,12 @@ class PARQUET_EXPORT RowGroupStatistics
 
   virtual EncodedStatistics Encode() = 0;
 
-  // Set the Corresponding Comparator
-  virtual void SetComparator() = 0;
-
-  virtual ~RowGroupStatistics() {}
+  virtual ~Statistics() {}
 
   Type::type physical_type() const { return descr_->physical_type(); }
 
  protected:
   const ColumnDescriptor* descr() const { return descr_; }
-  void SetDescr(const ColumnDescriptor* schema) {
-    descr_ = schema;
-    SetComparator();
-  }
 
   void IncrementNullCount(int64_t n) { statistics_.null_count += n; }
 
@@ -123,7 +148,7 @@ class PARQUET_EXPORT RowGroupStatistics
 
   void IncrementDistinctCount(int64_t n) { statistics_.distinct_count += n; }
 
-  void MergeCounts(const RowGroupStatistics& other) {
+  void MergeCounts(const Statistics& other) {
     this->statistics_.null_count += other.statistics_.null_count;
     this->statistics_.distinct_count += other.statistics_.distinct_count;
     this->num_values_ += other.num_values_;
@@ -141,101 +166,23 @@ class PARQUET_EXPORT RowGroupStatistics
 };
 
 template <typename DType>
-class PARQUET_TEMPLATE_CLASS_EXPORT TypedRowGroupStatistics : public RowGroupStatistics {
+class TypedStatistics : public Statistics {
  public:
   using T = typename DType::c_type;
 
-  TypedRowGroupStatistics(const ColumnDescriptor* schema,
-                          ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
-
-  TypedRowGroupStatistics(const T& min, const T& max, int64_t num_values,
-                          int64_t null_count, int64_t distinct_count);
-
-  TypedRowGroupStatistics(const ColumnDescriptor* schema, const std::string& encoded_min,
-                          const std::string& encoded_max, int64_t num_values,
-                          int64_t null_count, int64_t distinct_count, bool has_min_max,
-                          ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
-
-  bool HasMinMax() const override;
-  void Reset() override;
-  void SetComparator() override;
-  void Merge(const TypedRowGroupStatistics<DType>& other);
-
-  void Update(const T* values, int64_t num_not_null, int64_t num_null);
+  void Update(const T* values, int64_t num_not_null, int64_t num_null) = 0;
   void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
-                    int64_t num_not_null, int64_t num_null);
-  void SetMinMax(const T& min, const T& max);
-
-  const T& min() const;
-  const T& max() const;
-
-  std::string EncodeMin() override;
-  std::string EncodeMax() override;
-  EncodedStatistics Encode() override;
-
- private:
-  bool has_min_max_ = false;
-  T min_;
-  T max_;
-  ::arrow::MemoryPool* pool_;
-  std::shared_ptr<CompareDefault<DType> > comparator_;
-
-  void PlainEncode(const T& src, std::string* dst);
-  void PlainDecode(const std::string& src, T* dst);
-  void Copy(const T& src, T* dst, ResizableBuffer* buffer);
-
-  std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
+                    int64_t num_not_null, int64_t num_null) = 0;
+  void SetMinMax(const T& min, const T& max) = 0;
 };
 
-template <typename DType>
-inline void TypedRowGroupStatistics<DType>::Copy(const T& src, T* dst, ResizableBuffer*) {
-  *dst = src;
-}
-
-template <>
-inline void TypedRowGroupStatistics<FLBAType>::Copy(const FLBA& src, FLBA* dst,
-                                                    ResizableBuffer* buffer) {
-  if (dst->ptr == src.ptr) return;
-  uint32_t len = descr_->type_length();
-  PARQUET_THROW_NOT_OK(buffer->Resize(len, false));
-  std::memcpy(buffer->mutable_data(), src.ptr, len);
-  *dst = FLBA(buffer->data());
-}
-
-template <>
-inline void TypedRowGroupStatistics<ByteArrayType>::Copy(const ByteArray& src,
-                                                         ByteArray* dst,
-                                                         ResizableBuffer* buffer) {
-  if (dst->ptr == src.ptr) return;
-  PARQUET_THROW_NOT_OK(buffer->Resize(src.len, false));
-  std::memcpy(buffer->mutable_data(), src.ptr, src.len);
-  *dst = ByteArray(src.len, buffer->data());
-}
-
-template <>
-void TypedRowGroupStatistics<ByteArrayType>::PlainEncode(const T& src, std::string* dst);
-
-template <>
-void TypedRowGroupStatistics<ByteArrayType>::PlainDecode(const std::string& src, T* dst);
-
-typedef TypedRowGroupStatistics<BooleanType> BoolStatistics;
-typedef TypedRowGroupStatistics<Int32Type> Int32Statistics;
-typedef TypedRowGroupStatistics<Int64Type> Int64Statistics;
-typedef TypedRowGroupStatistics<Int96Type> Int96Statistics;
-typedef TypedRowGroupStatistics<FloatType> FloatStatistics;
-typedef TypedRowGroupStatistics<DoubleType> DoubleStatistics;
-typedef TypedRowGroupStatistics<ByteArrayType> ByteArrayStatistics;
-typedef TypedRowGroupStatistics<FLBAType> FLBAStatistics;
-
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<BooleanType>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int32Type>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int64Type>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int96Type>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<FloatType>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<DoubleType>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<ByteArrayType>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<FLBAType>;
+using BoolStatistics = TypedStatistics<BooleanType>;
+using Int32Statistics = TypedStatistics<Int32Type>;
+using Int64Statistics = TypedStatistics<Int64Type>;
+using Int96Statistics = TypedStatistics<Int96Type>;
+using FloatStatistics = TypedStatistics<FloatType>;
+using DoubleStatistics = TypedStatistics<DoubleType>;
+using ByteArrayStatistics = TypedStatistics<ByteArrayType>;
+using FLBAStatistics = TypedStatistics<FLBAType>;
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_STATISTICS_H

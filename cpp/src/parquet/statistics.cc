@@ -32,84 +32,316 @@ using arrow::MemoryPool;
 
 namespace parquet {
 
-template <typename DType>
-TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const ColumnDescriptor* schema,
-                                                        MemoryPool* pool)
-    : pool_(pool),
-      min_buffer_(AllocateBuffer(pool_, 0)),
-      max_buffer_(AllocateBuffer(pool_, 0)) {
-  SetDescr(schema);
-  Reset();
-}
+// ----------------------------------------------------------------------
+// Comparator implementations
 
 template <typename DType>
-TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(const typename DType::c_type& min,
-                                                        const typename DType::c_type& max,
-                                                        int64_t num_values,
-                                                        int64_t null_count,
-                                                        int64_t distinct_count)
-    : pool_(default_memory_pool()),
-      min_buffer_(AllocateBuffer(pool_, 0)),
-      max_buffer_(AllocateBuffer(pool_, 0)) {
-  IncrementNumValues(num_values);
-  IncrementNullCount(null_count);
-  IncrementDistinctCount(distinct_count);
-
-  Copy(min, &min_, min_buffer_.get());
-  Copy(max, &max_, max_buffer_.get());
-  has_min_max_ = true;
-}
-
-template <typename DType>
-TypedRowGroupStatistics<DType>::TypedRowGroupStatistics(
-    const ColumnDescriptor* schema, const std::string& encoded_min,
-    const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, bool has_min_max, MemoryPool* pool)
-    : pool_(pool),
-      min_buffer_(AllocateBuffer(pool_, 0)),
-      max_buffer_(AllocateBuffer(pool_, 0)) {
-  IncrementNumValues(num_values);
-  IncrementNullCount(null_count);
-  IncrementDistinctCount(distinct_count);
-
-  SetDescr(schema);
-
-  if (!encoded_min.empty()) {
-    PlainDecode(encoded_min, &min_);
+struct SignedCompare {
+  typedef typename DType::c_type T;
+  static inline bool Compare(const ColumnDescriptor* descr, const T& a,
+                             const T& b) {
+    return a < b;
   }
-  if (!encoded_max.empty()) {
-    PlainDecode(encoded_max, &max_);
+};
+
+template <>
+struct SignedCompare<Int96Type> {
+  static inline bool Compare(const ColumnDescriptor* descr, const Int96& a,
+                             const Int96& b) {
+    // Only the MSB bit is by Signed comparison
+    // For little-endian, this is the last bit of Int96 type
+    const int32_t amsb = static_cast<const int32_t>(a.value[2]);
+    const int32_t bmsb = static_cast<const int32_t>(b.value[2]);
+    if (amsb != bmsb) {
+      return (amsb < bmsb);
+    } else if (a.value[1] != b.value[1]) {
+      return (a.value[1] < b.value[1]);
+    }
+    return (a.value[0] < b.value[0]);
   }
-  has_min_max_ = has_min_max;
-}
+};
+
+template <>
+struct SignedCompare<ByteArrayType> {
+  static inline bool Compare(const ColumnDescriptor* descr, const ByteArray& a,
+                             const ByteArray& b) {
+    const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
+    const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
+    return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
+  }
+};
+
+template <>
+struct SignedCompare<FLBAType> {
+  static inline bool Compare(const ColumnDescriptor* descr, const FLBA& a,
+                             const FLBA& b) {
+    const int32_t type_length = descr->type_length();
+    const int8_t* aptr = reinterpret_cast<const int8_t*>(a.ptr);
+    const int8_t* bptr = reinterpret_cast<const int8_t*>(b.ptr);
+    return std::lexicographical_compare(aptr, aptr + type_length, bptr,
+                                        bptr + type_length);
+  }
+};
 
 template <typename DType>
-bool TypedRowGroupStatistics<DType>::HasMinMax() const {
-  return has_min_max_;
-}
+struct UnsignedCompare {};
+
+template <>
+struct UnsignedCompare<Int32Type> {
+  static inline bool Compare(const ColumnDescriptor* descr, int32_t a,
+                             int32_t b) {
+    const uint32_t ua = a;
+    const uint32_t ub = b;
+    return ua < ub;
+  }
+};
+
+template <>
+struct UnsignedCompare<Int64Type> {
+  static inline bool Compare(const ColumnDescriptor* descr, int64_t a,
+                             int64_t b) {
+    const uint64_t ua = a;
+    const uint64_t ub = b;
+    return ua < ub;
+  }
+};
+
+template <>
+struct UnsignedCompare<Int96Type> {
+  static inline bool Compare(const ColumnDescriptor* descr, const Int96& a,
+                             const Int96& b) {
+    if (a.value[2] != b.value[2]) {
+      return (a.value[2] < b.value[2]);
+    } else if (a.value[1] != b.value[1]) {
+      return (a.value[1] < b.value[1]);
+    }
+    return (a.value[0] < b.value[0]);
+  }
+};
+
+template <>
+struct UnsignedCompare<ByteArrayType> {
+  static inline bool Compare(const ColumnDescriptor* descr, const ByteArray& a,
+                             const ByteArray& b) {
+    const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
+    const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);
+    return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
+  }
+};
+
+template <>
+struct UnsignedCompare<FLBAType> {
+  static inline bool Compare(const ColumnDescriptor* descr, const FLBA& a,
+                             const FLBA& b) {
+    const int32_t type_length = descr->type_length();
+    const uint8_t* aptr = reinterpret_cast<const uint8_t*>(a.ptr);
+    const uint8_t* bptr = reinterpret_cast<const uint8_t*>(b.ptr);
+    return std::lexicographical_compare(aptr, aptr + type_length_, bptr,
+                                        bptr + type_length_);
+  }
+};
 
 template <typename DType>
-void TypedRowGroupStatistics<DType>::SetComparator() {
-  comparator_ =
-      std::static_pointer_cast<CompareDefault<DType> >(Comparator::Make(descr_));
-}
+class SignedComparator : public TypedComparator<DType> {
+ public:
+  typedef typename DType::c_type T;
+
+  SignedComparator(const ColumnDescriptor* descr = nullptr)
+      : descr_(descr) {}
+
+  bool CompareInline(const T& a, const T& b) {
+    return SignedCompare<DType>::Compare(descr_, a, b);
+  }
+
+  bool Compare(const T& a, const T& b) override {
+    return CompareInline(a, b);
+  }
+
+ private:
+  const ColumnDescriptor* descr_;
+};
 
 template <typename DType>
-void TypedRowGroupStatistics<DType>::Reset() {
-  ResetCounts();
-  has_min_max_ = false;
+class UnsignedComparator : public TypedComparator<DType> {
+ public:
+  typedef typename DType::c_type T;
+
+  UnsignedComparator(const ColumnDescriptor* descr = nullptr)
+      : descr_(descr) {}
+
+  bool CompareInline(const T& a, const T& b) {
+    return UnsignedCompare<DType>::Compare(descr_, a, b);
+  }
+
+  bool Compare(const T& a, const T& b) override {
+    return CompareInline(a, b);
+  }
+
+ private:
+  const ColumnDescriptor* descr_;
+};
+
+std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
+  if (SortOrder::SIGNED == descr->sort_order()) {
+    switch (descr->physical_type()) {
+      case Type::BOOLEAN:
+        return std::make_shared<SignedComparator<BooleanType>>();
+      case Type::INT32:
+        return std::make_shared<SignedComparator<Int32Type>>();
+      case Type::INT64:
+        return std::make_shared<SignedComparator<Int64Type>>();
+      case Type::FLOAT:
+        return std::make_shared<SignedComparator<FloatType>>();
+      case Type::DOUBLE:
+        return std::make_shared<SignedComparator<DoubleType>>();
+      case Type::BYTE_ARRAY:
+        return std::make_shared<SignedComparator<ByteArrayType>>();
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        return std::make_shared<SignedComparator<FLBAType>>();
+      default:
+        ParquetException::NYI("Signed Compare not implemented");
+    }
+  } else if (SortOrder::UNSIGNED == descr->sort_order()) {
+    switch (descr->physical_type()) {
+      case Type::INT32:
+        return std::make_shared<UnsignedComparator<Int32Type>>();
+      case Type::INT64:
+        return std::make_shared<UnsignedComparator<Int64Type>>();
+      case Type::BYTE_ARRAY:
+        return std::make_shared<UnsignedComparator<ByteArrayType>>();
+      case Type::FIXED_LEN_BYTE_ARRAY:
+        return std::make_shared<UnsignedComparator<FLBAType>>(descr);
+      default:
+        ParquetException::NYI("Unsigned Compare not implemented");
+    }
+  } else {
+    throw ParquetException("UNKNOWN Sort Order");
+  }
+  return nullptr;
 }
 
+// ----------------------------------------------------------------------
+
 template <typename DType>
-inline void TypedRowGroupStatistics<DType>::SetMinMax(const T& min, const T& max) {
-  if (!has_min_max_) {
-    has_min_max_ = true;
+class TypedStatisticsImpl : public TypedStatistics<DType> {
+ public:
+  using T = typename DType::c_type;
+
+  TypedStatistics(const ColumnDescriptor* schema, MemoryPool* pool)
+      : pool_(pool),
+        min_buffer_(AllocateBuffer(pool_, 0)),
+        max_buffer_(AllocateBuffer(pool_, 0)) {
+    descr_ = schema;
+
+    auto comp = Comparator::Make(schema);
+    comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
+    Reset();
+  }
+
+  TypedStatistics(const T& min, const T& max,
+                  int64_t num_values, int64_t null_count,
+                  int64_t distinct_count)
+      : pool_(default_memory_pool()),
+        min_buffer_(AllocateBuffer(pool_, 0)),
+        max_buffer_(AllocateBuffer(pool_, 0)) {
+    IncrementNumValues(num_values);
+    IncrementNullCount(null_count);
+    IncrementDistinctCount(distinct_count);
+
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
-  } else {
-    Copy(std::min(min_, min, std::ref(*(this->comparator_))), &min_, min_buffer_.get());
-    Copy(std::max(max_, max, std::ref(*(this->comparator_))), &max_, max_buffer_.get());
+    has_min_max_ = true;
   }
+
+  TypedStatistics(const ColumnDescriptor* schema, const std::string& encoded_min,
+                  const std::string& encoded_max, int64_t num_values, int64_t null_count,
+                  int64_t distinct_count, bool has_min_max, MemoryPool* pool)
+      : TypedStatistics(schema, pool) {
+    IncrementNumValues(num_values);
+    IncrementNullCount(null_count);
+    IncrementDistinctCount(distinct_count);
+
+    if (!encoded_min.empty()) {
+      PlainDecode(encoded_min, &min_);
+    }
+    if (!encoded_max.empty()) {
+      PlainDecode(encoded_max, &max_);
+    }
+    has_min_max_ = has_min_max;
+  }
+
+  bool HasMinMax() const {
+    return has_min_max_;
+  }
+
+  void Reset() {
+    ResetCounts();
+    has_min_max_ = false;
+  }
+
+  void SetMinMax(const T& min, const T& max) {
+    if (!has_min_max_) {
+      has_min_max_ = true;
+      Copy(min, &min_, min_buffer_.get());
+      Copy(max, &max_, max_buffer_.get());
+    } else {
+      Copy(comparator_->Compare(min_, min) ? min_ : min, &min_,
+           min_buffer_.get());
+      Copy(comparator_->Compare(max_, max) ? max : max_,
+           &max_, max_buffer_.get());
+    }
+  }
+
+  void Merge(const TypedStatistics<DType>& other);
+
+  void Update(const T* values, int64_t num_not_null, int64_t num_null);
+  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
+                    int64_t num_not_null, int64_t num_null);
+  void SetMinMax(const T& min, const T& max);
+
+  const T& min() const;
+  const T& max() const;
+
+  std::string EncodeMin() override;
+  std::string EncodeMax() override;
+  EncodedStatistics Encode() override;
+
+ private:
+  bool has_min_max_ = false;
+  T min_;
+  T max_;
+  ::arrow::MemoryPool* pool_;
+
+  void PlainEncode(const T& src, std::string* dst);
+  void PlainDecode(const std::string& src, T* dst);
+  void Copy(const T& src, T* dst, ResizableBuffer* buffer);
+
+  std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
+};
+
+template <typename DType>
+inline void TypedStatistics<DType>::Copy(const T& src, T* dst, ResizableBuffer*) {
+  *dst = src;
+}
+
+template <>
+inline void TypedStatistics<FLBAType>::Copy(const FLBA& src, FLBA* dst,
+                                                    ResizableBuffer* buffer) {
+  if (dst->ptr == src.ptr) return;
+  uint32_t len = descr_->type_length();
+  PARQUET_THROW_NOT_OK(buffer->Resize(len, false));
+  std::memcpy(buffer->mutable_data(), src.ptr, len);
+  *dst = FLBA(buffer->data());
+}
+
+template <>
+inline void TypedStatistics<ByteArrayType>::Copy(const ByteArray& src,
+                                                 ByteArray* dst,
+                                                 ResizableBuffer* buffer) {
+  if (dst->ptr == src.ptr) return;
+  PARQUET_THROW_NOT_OK(buffer->Resize(src.len, false));
+  std::memcpy(buffer->mutable_data(), src.ptr, src.len);
+  *dst = ByteArray(src.len, buffer->data());
 }
 
 template <typename T, typename Enable = void>
@@ -162,7 +394,7 @@ void SetNaN<double>(double* value) {
 }
 
 template <typename DType>
-void TypedRowGroupStatistics<DType>::Update(const T* values, int64_t num_not_null,
+void TypedStatistics<DType>::Update(const T* values, int64_t num_not_null,
                                             int64_t num_null) {
   DCHECK_GE(num_not_null, 0);
   DCHECK_GE(num_null, 0);
@@ -198,7 +430,7 @@ void TypedRowGroupStatistics<DType>::Update(const T* values, int64_t num_not_nul
 }
 
 template <typename DType>
-void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
+void TypedStatistics<DType>::UpdateSpaced(const T* values,
                                                   const uint8_t* valid_bits,
                                                   int64_t valid_bits_offset,
                                                   int64_t num_not_null,
@@ -254,17 +486,17 @@ void TypedRowGroupStatistics<DType>::UpdateSpaced(const T* values,
 }
 
 template <typename DType>
-const typename DType::c_type& TypedRowGroupStatistics<DType>::min() const {
+const typename DType::c_type& TypedStatistics<DType>::min() const {
   return min_;
 }
 
 template <typename DType>
-const typename DType::c_type& TypedRowGroupStatistics<DType>::max() const {
+const typename DType::c_type& TypedStatistics<DType>::max() const {
   return max_;
 }
 
 template <typename DType>
-void TypedRowGroupStatistics<DType>::Merge(const TypedRowGroupStatistics<DType>& other) {
+void TypedStatistics<DType>::Merge(const TypedStatistics<DType>& other) {
   this->MergeCounts(other);
 
   if (!other.HasMinMax()) return;
@@ -273,21 +505,21 @@ void TypedRowGroupStatistics<DType>::Merge(const TypedRowGroupStatistics<DType>&
 }
 
 template <typename DType>
-std::string TypedRowGroupStatistics<DType>::EncodeMin() {
+std::string TypedStatistics<DType>::EncodeMin() {
   std::string s;
   if (HasMinMax()) this->PlainEncode(min_, &s);
   return s;
 }
 
 template <typename DType>
-std::string TypedRowGroupStatistics<DType>::EncodeMax() {
+std::string TypedStatistics<DType>::EncodeMax() {
   std::string s;
   if (HasMinMax()) this->PlainEncode(max_, &s);
   return s;
 }
 
 template <typename DType>
-EncodedStatistics TypedRowGroupStatistics<DType>::Encode() {
+EncodedStatistics TypedStatistics<DType>::Encode() {
   EncodedStatistics s;
   if (HasMinMax()) {
     s.set_min(this->EncodeMin());
@@ -298,7 +530,7 @@ EncodedStatistics TypedRowGroupStatistics<DType>::Encode() {
 }
 
 template <typename DType>
-void TypedRowGroupStatistics<DType>::PlainEncode(const T& src, std::string* dst) {
+void TypedStatistics<DType>::PlainEncode(const T& src, std::string* dst) {
   auto encoder = MakeTypedEncoder<DType>(Encoding::PLAIN, false, descr(), pool_);
   encoder->Put(&src, 1);
   auto buffer = encoder->FlushValues();
@@ -307,7 +539,7 @@ void TypedRowGroupStatistics<DType>::PlainEncode(const T& src, std::string* dst)
 }
 
 template <typename DType>
-void TypedRowGroupStatistics<DType>::PlainDecode(const std::string& src, T* dst) {
+void TypedStatistics<DType>::PlainDecode(const std::string& src, T* dst) {
   auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr());
   decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
                    static_cast<int>(src.size()));
@@ -315,23 +547,33 @@ void TypedRowGroupStatistics<DType>::PlainDecode(const std::string& src, T* dst)
 }
 
 template <>
-void TypedRowGroupStatistics<ByteArrayType>::PlainEncode(const T& src, std::string* dst) {
+void TypedStatistics<ByteArrayType>::PlainEncode(const T& src, std::string* dst) {
   dst->assign(reinterpret_cast<const char*>(src.ptr), src.len);
 }
 
 template <>
-void TypedRowGroupStatistics<ByteArrayType>::PlainDecode(const std::string& src, T* dst) {
+void TypedStatistics<ByteArrayType>::PlainDecode(const std::string& src, T* dst) {
   dst->len = static_cast<uint32_t>(src.size());
   dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
 }
 
-template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<BooleanType>;
-template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<Int32Type>;
-template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<Int64Type>;
-template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<Int96Type>;
-template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<FloatType>;
-template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<DoubleType>;
-template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<ByteArrayType>;
-template class PARQUET_TEMPLATE_EXPORT TypedRowGroupStatistics<FLBAType>;
+// ----------------------------------------------------------------------
+// Public factory functions
+
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* schema,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+
+}
+
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* schema,
+    const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values,
+    int64_t null_count, int64_t distinct_count,
+    bool has_min_max,
+    ::arrow::MemoryPool* pool) {
+
+}
 
 }  // namespace parquet

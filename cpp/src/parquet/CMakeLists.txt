@@ -172,7 +172,6 @@ set(PARQUET_SRCS
     schema.cc
     statistics.cc
     types.cc
-    util/comparison.cc
     util/memory.cc)
 
 # Ensure that thrift compilation is done before using its generated headers
