@@ -58,6 +58,7 @@ cdef class _PandasAPIShim(object):
         self._array_like_types = (self._series, self._index,
                                   self._categorical_type)
 
+        self._version = pd.__version__
         from distutils.version import LooseVersion
         self._loose_version = LooseVersion(pd.__version__)
         if self._loose_version >= LooseVersion('0.20.0'):
