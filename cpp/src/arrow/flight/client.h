@@ -48,21 +48,13 @@ typedef std::chrono::duration<double, std::chrono::seconds::period> TimeoutDurat
 /// \brief Hints to the underlying RPC layer for Arrow Flight calls.
 class ARROW_EXPORT FlightCallOptions {
  public:
+  /// Create a default set of call options.
   FlightCallOptions();
-  ~FlightCallOptions();
-  /// \brief Set a timeout on this call. If the call does not complete
-  /// within the specified period, the call will complete with a
-  /// non-OK status.
-  void set_timeout(const TimeoutDuration& timeout_sec);
-  /// \brief Get the timeout for this call. Only valid if HasTimeout()
-  /// is true.
-  const TimeoutDuration& timeout() const;
-  /// \brief Check if a timeout was set for this call.
-  bool HasTimeout() const;
 
- private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+  /// \brief An optional timeout for this call. Negative durations
+  /// mean an implementation-defined default behavior will be used
+  /// instead. This is the default value.
+  TimeoutDuration timeout;
 };
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).

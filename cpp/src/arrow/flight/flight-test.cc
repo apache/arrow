@@ -364,7 +364,7 @@ TEST_F(TestFlightClient, TimeoutFires) {
   std::unique_ptr<FlightClient> client;
   ASSERT_OK(FlightClient::Connect("localhost", 30001, &client));
   FlightCallOptions options;
-  options.set_timeout(TimeoutDuration{0.2});
+  options.timeout = TimeoutDuration{0.2};
   std::unique_ptr<FlightInfo> info;
   auto start = std::chrono::system_clock::now();
   Status status = client->GetFlightInfo(options, FlightDescriptor{}, &info);
@@ -376,7 +376,7 @@ TEST_F(TestFlightClient, TimeoutFires) {
 TEST_F(TestFlightClient, NoTimeout) {
   // Call should complete quickly, so timeout should not fire
   FlightCallOptions options;
-  options.set_timeout(TimeoutDuration{0.5});
+  options.timeout = TimeoutDuration{0.5};
   std::unique_ptr<FlightInfo> info;
   auto start = std::chrono::system_clock::now();
   auto descriptor = FlightDescriptor::Path({"examples", "ints"});

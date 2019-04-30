@@ -146,7 +146,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFlightCallOptions" arrow::flight::FlightCallOptions":
         CFlightCallOptions()
-        void set_timeout(CTimeoutDuration duration)
+        CTimeoutDuration timeout
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod

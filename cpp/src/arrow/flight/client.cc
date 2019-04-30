@@ -51,24 +51,7 @@ class MemoryPool;
 
 namespace flight {
 
-class FlightCallOptions::Impl {
- private:
-  bool timeout_set_ = false;
-  TimeoutDuration timeout_;
-  friend class FlightCallOptions;
-};
-
-FlightCallOptions::FlightCallOptions() : impl_(new FlightCallOptions::Impl()) {}
-FlightCallOptions::~FlightCallOptions() = default;
-
-void FlightCallOptions::set_timeout(const TimeoutDuration& timeout_sec) {
-  impl_->timeout_set_ = true;
-  impl_->timeout_ = timeout_sec;
-}
-
-const TimeoutDuration& FlightCallOptions::timeout() const { return impl_->timeout_; }
-
-bool FlightCallOptions::HasTimeout() const { return impl_->timeout_set_; }
+FlightCallOptions::FlightCallOptions() : timeout(-1) {}
 
 struct ClientRpc {
   grpc::ClientContext context;
@@ -77,10 +60,10 @@ struct ClientRpc {
     /// XXX workaround until we have a handshake in Connect
     context.set_wait_for_ready(true);
 
-    if (options.HasTimeout()) {
+    if (options.timeout.count() >= 0) {
       std::chrono::system_clock::time_point deadline =
           std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(
-              std::chrono::system_clock::now() + options.timeout());
+              std::chrono::system_clock::now() + options.timeout);
       context.set_deadline(deadline);
     }
   }

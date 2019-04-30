@@ -41,7 +41,7 @@ cdef class FlightCallOptions:
 
     def __init__(self, timeout=None):
         if timeout is not None:
-            self.options.set_timeout(CTimeoutDuration(timeout))
+            self.options.timeout = CTimeoutDuration(timeout)
 
     @staticmethod
     cdef CFlightCallOptions* unwrap(obj):
