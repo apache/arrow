@@ -103,7 +103,7 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>,
     let dictType: Dictionary;
     let dictField: Field<Dictionary>;
 
-    // If no dictionary encoding, or in the process of decoding the children of a dictionary-encoded field
+    // If no dictionary encoding
     if (!dictionaries || !dictionaryFields || !(dictMeta = _field['dictionary'])) {
         type = typeFromJSON(_field, fieldChildrenFromJSON(_field, dictionaries, dictionaryFields));
         field = new Field(_field['name'], type, _field['nullable'], customMetadataFromJSON(_field['customMetadata']));
@@ -115,7 +115,7 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>,
     else if (!dictionaries.has(id = dictMeta['id'])) {
         // a dictionary index defaults to signed 32 bit int if unspecified
         keys = (keys = dictMeta['indexType']) ? indexTypeFromJSON(keys) as TKeys : new Int32();
-        dictionaries.set(id, type = typeFromJSON(_field, fieldChildrenFromJSON(_field)));
+        dictionaries.set(id, type = typeFromJSON(_field, fieldChildrenFromJSON(_field, dictionaries, dictionaryFields)));
         dictType = new Dictionary(type, keys, id, dictMeta['isOrdered']);
         dictField = new Field(_field['name'], dictType, _field['nullable'], customMetadataFromJSON(_field['customMetadata']));
         dictionaryFields.set(id, [field = dictField]);
