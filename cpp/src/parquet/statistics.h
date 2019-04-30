@@ -123,6 +123,11 @@ class PARQUET_EXPORT EncodedStatistics {
   bool has_null_count = false;
   bool has_distinct_count = false;
 
+  // From parquet-mr
+  // Don't write stats larger than the max size rather than truncating. The
+  // rationale is that some engines may use the minimum value in the page as
+  // the true minimum for aggregations and there is no way to mark that a
+  // value has been truncated and is a lower bound and not in the page.
   void ApplyStatSizeLimits(size_t length) {
     if (max_->length() > length) {
       has_max = false;

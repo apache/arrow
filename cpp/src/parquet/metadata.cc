@@ -140,9 +140,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   // Check if statistics are set and are valid
   // 1) Must be set in the metadata
   // 2) Statistics must not be corrupted
-  // 3) parquet-mr and parquet-cpp write statistics by SIGNED order comparison.
-  //    The statistics are corrupted if the type requires UNSIGNED order comparison.
-  //    Eg: UTF8
   inline bool is_stats_set() const {
     DCHECK(writer_version_ != nullptr);
     // If the column statistics don't exist or column sort order is unknown

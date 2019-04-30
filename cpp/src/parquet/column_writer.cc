@@ -594,11 +594,6 @@ int64_t ColumnWriterImpl::Close() {
     chunk_statistics.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
 
     // Write stats only if the column has at least one row written
-    // From parquet-mr
-    // Don't write stats larger than the max size rather than truncating. The
-    // rationale is that some engines may use the minimum value in the page as
-    // the true minimum for aggregations and there is no way to mark that a
-    // value has been truncated and is a lower bound and not in the page.
     if (rows_written_ > 0 && chunk_statistics.is_set()) {
       metadata_->SetStatistics(chunk_statistics);
     }
