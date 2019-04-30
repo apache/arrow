@@ -66,9 +66,9 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        public async Task<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken = default)
+        public ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken = default)
         {
-            return await _implementation.ReadNextRecordBatchAsync(cancellationToken).ConfigureAwait(false);
+            return _implementation.ReadNextRecordBatchAsync(cancellationToken);
         }
 
         public RecordBatch ReadNextRecordBatch()

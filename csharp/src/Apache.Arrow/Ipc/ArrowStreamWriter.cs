@@ -200,13 +200,12 @@ namespace Apache.Arrow.Ipc
             }
 
             var buffers = recordBatchBuilder.Buffers;
-            var bufferOffsets = new Offset<Flatbuf.Buffer>[buffers.Count];
 
             Flatbuf.RecordBatch.StartBuffersVector(Builder, buffers.Count);
 
             for (var i = buffers.Count - 1; i >= 0; i--)
             {
-                bufferOffsets[i] = Flatbuf.Buffer.CreateBuffer(Builder,
+                Flatbuf.Buffer.CreateBuffer(Builder,
                     buffers[i].Offset, buffers[i].Length);
             }
 
@@ -259,10 +258,9 @@ namespace Apache.Arrow.Ipc
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
         }
 
-        public async Task WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
+        private ValueTask WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
         {
-            await BaseStream.WriteAsync(arrowBuffer.Memory, cancellationToken)
-                .ConfigureAwait(false);
+            return BaseStream.WriteAsync(arrowBuffer.Memory, cancellationToken);
         }
 
         private protected Offset<Flatbuf.Schema> SerializeSchema(Schema schema)
@@ -365,11 +363,14 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        protected Task WritePaddingAsync(int length)
+        private protected ValueTask WritePaddingAsync(int length)
         {
-            if (length <= 0) return Task.CompletedTask;
+            if (length > 0)
+            {
+                return BaseStream.WriteAsync(Padding.AsMemory(0, Math.Min(Padding.Length, length)));
+            }
 
-            return BaseStream.WriteAsync(Padding, 0, Math.Min(Padding.Length, length));
+            return default;
         }
 
         public virtual void Dispose()

@@ -40,5 +40,18 @@ namespace Apache.Arrow
             Buffers = buffers?.ToArray();
             Children = children?.ToArray();
         }
+
+        public ArrayData(
+            IArrowType dataType,
+            int length, int nullCount = 0, int offset = 0,
+            ArrowBuffer[] buffers = null, ArrayData[] children = null)
+        {
+            DataType = dataType ?? NullType.Default;
+            Length = length;
+            NullCount = nullCount;
+            Offset = offset;
+            Buffers = buffers;
+            Children = children;
+        }
     }
 }
