@@ -17,6 +17,7 @@
 package ipc // import "github.com/apache/arrow/go/arrow/ipc"
 
 import (
+	"fmt"
 	"io"
 	"math"
 
@@ -239,11 +240,119 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 			values.Retain()
 		}
 		p.body = append(p.body, values)
+
+	case *arrow.BinaryType:
+		arr := arr.(*array.Binary)
+		voffsets, err := w.getZeroBasedValueOffsets(arr)
+		if err != nil {
+			return errors.Wrapf(err, "could not retrieve zero-based value offsets from %T", arr)
+		}
+		data := arr.Data()
+		values := data.Buffers()[2]
+
+		var totalDataBytes int64
+		if voffsets != nil {
+			totalDataBytes = int64(len(arr.ValueBytes()))
+		}
+
+		switch {
+		case needTruncate(int64(data.Offset()), values, totalDataBytes):
+			panic("not implemented") // FIXME(sbinet) writer.cc:264
+		default:
+			values.Retain()
+		}
+		p.body = append(p.body, voffsets)
+		p.body = append(p.body, values)
+
+	case *arrow.StringType:
+		arr := arr.(*array.String)
+		voffsets, err := w.getZeroBasedValueOffsets(arr)
+		if err != nil {
+			return errors.Wrapf(err, "could not retrieve zero-based value offsets from %T", arr)
+		}
+		data := arr.Data()
+		values := data.Buffers()[2]
+
+		var totalDataBytes int64
+		if voffsets != nil {
+			totalDataBytes = int64(arr.ValueOffset(arr.Len()) - arr.ValueOffset(0))
+		}
+
+		switch {
+		case needTruncate(int64(data.Offset()), values, totalDataBytes):
+			panic("not implemented") // FIXME(sbinet) writer.cc:264
+		default:
+			values.Retain()
+		}
+		p.body = append(p.body, voffsets)
+		p.body = append(p.body, values)
+
+	case *arrow.StructType:
+		w.depth--
+		arr := arr.(*array.Struct)
+		for i := 0; i < arr.NumField(); i++ {
+			err := w.visit(p, arr.Field(i))
+			if err != nil {
+				return errors.Wrapf(err, "could not visit field %d of struct-array", i)
+			}
+		}
+		w.depth++
+
+	case *arrow.ListType:
+		arr := arr.(*array.List)
+		voffsets, err := w.getZeroBasedValueOffsets(arr)
+		if err != nil {
+			return errors.Wrapf(err, "could not retrieve zero-based value offsets for array %T", arr)
+		}
+		p.body = append(p.body, voffsets)
+
+		w.depth--
+		var (
+			values        = arr.ListValues()
+			mustRelease   = false
+			values_offset int64
+			values_length int64
+		)
+		defer func() {
+			if mustRelease {
+				values.Release()
+			}
+		}()
+
+		if voffsets != nil {
+			values_offset = int64(arr.Offsets()[0])
+			values_length = int64(arr.Offsets()[arr.Len()]) - values_offset
+		}
+
+		if len(arr.Offsets()) != 0 || values_length < int64(values.Len()) {
+			// must also slice the values
+			values = array.NewSlice(values, values_offset, values_length)
+			mustRelease = true
+		}
+		err = w.visit(p, values)
+
+		if err != nil {
+			return errors.Wrapf(err, "could not visit list element for array %T", arr)
+		}
+		w.depth++
+
 	default:
-		panic(errors.Errorf("arrow/ipc: unknown array %T", arr))
+		panic(errors.Errorf("arrow/ipc: unknown array %T (dtype=%T)", arr, dtype))
 	}
 
 	return nil
+}
+
+func (w *recordEncoder) getZeroBasedValueOffsets(arr array.Interface) (*memory.Buffer, error) {
+	data := arr.Data()
+	voffsets := data.Buffers()[1]
+	if data.Offset() != 0 {
+		// FIXME(sbinet): writer.cc:231
+		panic(fmt.Errorf("not implemented offset=%d", data.Offset()))
+	}
+
+	voffsets.Retain()
+	return voffsets, nil
 }
 
 func (w *recordEncoder) encodeMetadata(p *payload, nrows int64) error {

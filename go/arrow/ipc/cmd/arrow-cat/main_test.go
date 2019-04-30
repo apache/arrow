@@ -18,17 +18,25 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/arrow/ipc"
+	"github.com/apache/arrow/go/arrow/memory"
 )
 
 func TestCatStream(t *testing.T) {
 	for _, tc := range []struct {
-		fname string
-		want  string
+		name string
+		want string
 	}{
 		{
-			fname: "../../testdata/primitives.stream.data",
+			name: "primitives",
 			want: `record 1...
   col[0] "bools": [true (null) (null) false true]
   col[1] "int8s": [-1 (null) (null) -4 -5]
@@ -68,26 +76,73 @@ record 3...
 `,
 		},
 		{
-			fname: "../../testdata/structs.stream.data",
+			name: "structs",
 			want: `record 1...
-  col[0] "struct_nullable": {[1402032511 (null) 137773603 410361374 1959836418 (null) (null)] [(null) "MhRNxD4" "3F9HBxK" "aVd88fp" (null) "3loZrRf" (null)]}
+  col[0] "struct_nullable": {[-1 (null) (null) -4 -5] ["111" (null) (null) "444" "555"]}
 record 2...
-  col[0] "struct_nullable": {[(null) (null) (null) (null) (null) (null) 413888857 (null) (null) (null)] ["AS5oARE" (null) (null) "JGdagcX" "78SLiRw" "vbGf7OY" "5uh5fTs" "0ilsf82" "LjS9MbU" (null)]}
+  col[0] "struct_nullable": {[-11 (null) (null) -14 -15 -16 (null) -18] ["1" (null) (null) "4" "5" "6" (null) "8"]}
 `,
 		},
 		{
-			fname: "../../testdata/lists.stream.data",
+			name: "lists",
 			want: `record 1...
-  col[0] "list_nullable": [[(null) -340485928 -259730121 -1430069283] [900706715 -630883814 (null) (null)] (null) [-1410464938 -854246234 -818241763 893338527] (null) (null) (null)]
-  col[1] "struct_nullable": {[(null) (null) (null) -724187464 (null) (null) -1169064100] ["85r6rN5" "jrDJR09" "YfZLF07" (null) (null) "8jDK2tj" "146gCTu"]}
+  col[0] "list_nullable": [[1 (null) (null) 4 5] [11 (null) (null) 14 15] [21 (null) (null) 24 25]]
 record 2...
-  col[0] "list_nullable": [(null) [(null) (null) 2968015 (null)] [(null) 1556114914 (null) 139341080] (null) [-1938030331] [(null) (null)] [] (null) (null) []]
-  col[1] "struct_nullable": {[1689993413 -379972520 441054176 -906001202 -968548682 -450386762 916507802 (null) (null) 2072407432] [(null) (null) (null) "DhKdnsR" "20Zs1ez" "ky5eL4K" "UkTkWDX" (null) (null) "OR0xSBn"]}
+  col[0] "list_nullable": [[-1 (null) (null) -4 -5] [-11 (null) (null) -14 -15] [-21 (null) (null) -24 -25]]
+record 3...
+  col[0] "list_nullable": [[-1 (null) (null) -4 -5] (null) [-21 (null) (null) -24 -25]]
+`,
+		},
+		{
+			name: "strings",
+			want: `record 1...
+  col[0] "strings": ["1é" (null) (null) "4" "5"]
+  col[1] "bytes": ["1é" (null) (null) "4" "5"]
+record 2...
+  col[0] "strings": ["11" (null) (null) "44" "55"]
+  col[1] "bytes": ["11" (null) (null) "44" "55"]
+record 3...
+  col[0] "strings": ["111" (null) (null) "444" "555"]
+  col[1] "bytes": ["111" (null) (null) "444" "555"]
 `,
 		},
 	} {
-		t.Run(tc.fname, func(t *testing.T) {
-			f, err := os.Open(tc.fname)
+		t.Run(tc.name, func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer mem.AssertSize(t, 0)
+
+			fname := func() string {
+				f, err := ioutil.TempFile("", "go-arrow-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer f.Close()
+
+				w := ipc.NewWriter(f, ipc.WithSchema(arrdata.Records[tc.name][0].Schema()), ipc.WithAllocator(mem))
+				defer w.Close()
+
+				for _, rec := range arrdata.Records[tc.name] {
+					err = w.Write(rec)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				err = w.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = f.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				return f.Name()
+			}()
+			defer os.Remove(fname)
+
+			f, err := os.Open(fname)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -108,11 +163,13 @@ record 2...
 
 func TestCatFile(t *testing.T) {
 	for _, tc := range []struct {
-		fname string
-		want  string
+		name   string
+		want   string
+		stream bool
 	}{
 		{
-			fname: "../../testdata/primitives.stream.data",
+			stream: true,
+			name:   "primitives",
 			want: `record 1...
   col[0] "bools": [true (null) (null) false true]
   col[1] "int8s": [-1 (null) (null) -4 -5]
@@ -152,7 +209,7 @@ record 3...
 `,
 		},
 		{
-			fname: "../../testdata/primitives.file.data",
+			name: "primitives",
 			want: `version: V4
 record 1/3...
   col[0] "bools": [true (null) (null) false true]
@@ -193,47 +250,124 @@ record 3/3...
 `,
 		},
 		{
-			fname: "../../testdata/structs.stream.data",
+			stream: true,
+			name:   "structs",
 			want: `record 1...
-  col[0] "struct_nullable": {[1402032511 (null) 137773603 410361374 1959836418 (null) (null)] [(null) "MhRNxD4" "3F9HBxK" "aVd88fp" (null) "3loZrRf" (null)]}
+  col[0] "struct_nullable": {[-1 (null) (null) -4 -5] ["111" (null) (null) "444" "555"]}
 record 2...
-  col[0] "struct_nullable": {[(null) (null) (null) (null) (null) (null) 413888857 (null) (null) (null)] ["AS5oARE" (null) (null) "JGdagcX" "78SLiRw" "vbGf7OY" "5uh5fTs" "0ilsf82" "LjS9MbU" (null)]}
+  col[0] "struct_nullable": {[-11 (null) (null) -14 -15 -16 (null) -18] ["1" (null) (null) "4" "5" "6" (null) "8"]}
 `,
 		},
 		{
-			fname: "../../testdata/structs.file.data",
+			name: "structs",
 			want: `version: V4
 record 1/2...
-  col[0] "struct_nullable": {[1402032511 (null) 137773603 410361374 1959836418 (null) (null)] [(null) "MhRNxD4" "3F9HBxK" "aVd88fp" (null) "3loZrRf" (null)]}
+  col[0] "struct_nullable": {[-1 (null) (null) -4 -5] ["111" (null) (null) "444" "555"]}
 record 2/2...
-  col[0] "struct_nullable": {[(null) (null) (null) (null) (null) (null) 413888857 (null) (null) (null)] ["AS5oARE" (null) (null) "JGdagcX" "78SLiRw" "vbGf7OY" "5uh5fTs" "0ilsf82" "LjS9MbU" (null)]}
+  col[0] "struct_nullable": {[-11 (null) (null) -14 -15 -16 (null) -18] ["1" (null) (null) "4" "5" "6" (null) "8"]}
 `,
 		},
 		{
-			fname: "../../testdata/lists.stream.data",
+			stream: true,
+			name:   "lists",
 			want: `record 1...
-  col[0] "list_nullable": [[(null) -340485928 -259730121 -1430069283] [900706715 -630883814 (null) (null)] (null) [-1410464938 -854246234 -818241763 893338527] (null) (null) (null)]
-  col[1] "struct_nullable": {[(null) (null) (null) -724187464 (null) (null) -1169064100] ["85r6rN5" "jrDJR09" "YfZLF07" (null) (null) "8jDK2tj" "146gCTu"]}
+  col[0] "list_nullable": [[1 (null) (null) 4 5] [11 (null) (null) 14 15] [21 (null) (null) 24 25]]
 record 2...
-  col[0] "list_nullable": [(null) [(null) (null) 2968015 (null)] [(null) 1556114914 (null) 139341080] (null) [-1938030331] [(null) (null)] [] (null) (null) []]
-  col[1] "struct_nullable": {[1689993413 -379972520 441054176 -906001202 -968548682 -450386762 916507802 (null) (null) 2072407432] [(null) (null) (null) "DhKdnsR" "20Zs1ez" "ky5eL4K" "UkTkWDX" (null) (null) "OR0xSBn"]}
+  col[0] "list_nullable": [[-1 (null) (null) -4 -5] [-11 (null) (null) -14 -15] [-21 (null) (null) -24 -25]]
+record 3...
+  col[0] "list_nullable": [[-1 (null) (null) -4 -5] (null) [-21 (null) (null) -24 -25]]
 `,
 		},
 		{
-			fname: "../../testdata/lists.file.data",
+			name: "lists",
 			want: `version: V4
-record 1/2...
-  col[0] "list_nullable": [[(null) -340485928 -259730121 -1430069283] [900706715 -630883814 (null) (null)] (null) [-1410464938 -854246234 -818241763 893338527] (null) (null) (null)]
-  col[1] "struct_nullable": {[(null) (null) (null) -724187464 (null) (null) -1169064100] ["85r6rN5" "jrDJR09" "YfZLF07" (null) (null) "8jDK2tj" "146gCTu"]}
-record 2/2...
-  col[0] "list_nullable": [(null) [(null) (null) 2968015 (null)] [(null) 1556114914 (null) 139341080] (null) [-1938030331] [(null) (null)] [] (null) (null) []]
-  col[1] "struct_nullable": {[1689993413 -379972520 441054176 -906001202 -968548682 -450386762 916507802 (null) (null) 2072407432] [(null) (null) (null) "DhKdnsR" "20Zs1ez" "ky5eL4K" "UkTkWDX" (null) (null) "OR0xSBn"]}
+record 1/3...
+  col[0] "list_nullable": [[1 (null) (null) 4 5] [11 (null) (null) 14 15] [21 (null) (null) 24 25]]
+record 2/3...
+  col[0] "list_nullable": [[-1 (null) (null) -4 -5] [-11 (null) (null) -14 -15] [-21 (null) (null) -24 -25]]
+record 3/3...
+  col[0] "list_nullable": [[-1 (null) (null) -4 -5] (null) [-21 (null) (null) -24 -25]]
+`,
+		},
+		{
+			stream: true,
+			name:   "strings",
+			want: `record 1...
+  col[0] "strings": ["1é" (null) (null) "4" "5"]
+  col[1] "bytes": ["1é" (null) (null) "4" "5"]
+record 2...
+  col[0] "strings": ["11" (null) (null) "44" "55"]
+  col[1] "bytes": ["11" (null) (null) "44" "55"]
+record 3...
+  col[0] "strings": ["111" (null) (null) "444" "555"]
+  col[1] "bytes": ["111" (null) (null) "444" "555"]
+`,
+		},
+		{
+			name: "strings",
+			want: `version: V4
+record 1/3...
+  col[0] "strings": ["1é" (null) (null) "4" "5"]
+  col[1] "bytes": ["1é" (null) (null) "4" "5"]
+record 2/3...
+  col[0] "strings": ["11" (null) (null) "44" "55"]
+  col[1] "bytes": ["11" (null) (null) "44" "55"]
+record 3/3...
+  col[0] "strings": ["111" (null) (null) "444" "555"]
+  col[1] "bytes": ["111" (null) (null) "444" "555"]
 `,
 		},
 	} {
-		t.Run(tc.fname, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s-stream=%v", tc.name, tc.stream), func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer mem.AssertSize(t, 0)
+
+			fname := func() string {
+				f, err := ioutil.TempFile("", "go-arrow-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer f.Close()
+
+				var w interface {
+					io.Closer
+					Write(array.Record) error
+				}
+
+				switch {
+				case tc.stream:
+					w = ipc.NewWriter(f, ipc.WithSchema(arrdata.Records[tc.name][0].Schema()), ipc.WithAllocator(mem))
+				default:
+					w, err = ipc.NewFileWriter(f, ipc.WithSchema(arrdata.Records[tc.name][0].Schema()), ipc.WithAllocator(mem))
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				defer w.Close()
+
+				for _, rec := range arrdata.Records[tc.name] {
+					err = w.Write(rec)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				err = w.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = f.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				return f.Name()
+			}()
+			defer os.Remove(fname)
+
 			w := new(bytes.Buffer)
-			err := processFile(w, tc.fname)
+			err := processFile(w, fname)
 			if err != nil {
 				t.Fatal(err)
 			}

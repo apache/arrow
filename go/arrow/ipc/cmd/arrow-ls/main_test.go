@@ -18,17 +18,25 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/arrow/ipc"
+	"github.com/apache/arrow/go/arrow/memory"
 )
 
 func TestLsStream(t *testing.T) {
 	for _, tc := range []struct {
-		fname string
-		want  string
+		name string
+		want string
 	}{
 		{
-			fname: "../../testdata/primitives.stream.data",
+			name: "primitives",
 			want: `schema:
   fields: 11
     - bools: type=bool, nullable
@@ -42,11 +50,12 @@ func TestLsStream(t *testing.T) {
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
+metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
 		{
-			fname: "../../testdata/structs.stream.data",
+			name: "structs",
 			want: `schema:
   fields: 1
     - struct_nullable: type=struct<f1: int32, f2: utf8>, nullable
@@ -54,17 +63,50 @@ records: 2
 `,
 		},
 		{
-			fname: "../../testdata/lists.stream.data",
+			name: "lists",
 			want: `schema:
-  fields: 2
+  fields: 1
     - list_nullable: type=list<item: int32>, nullable
-    - struct_nullable: type=struct<f1: int32, f2: utf8>, nullable
-records: 2
+records: 3
 `,
 		},
 	} {
-		t.Run(tc.fname, func(t *testing.T) {
-			f, err := os.Open(tc.fname)
+		t.Run(tc.name, func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer mem.AssertSize(t, 0)
+
+			fname := func() string {
+				f, err := ioutil.TempFile("", "go-arrow-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer f.Close()
+
+				w := ipc.NewWriter(f, ipc.WithSchema(arrdata.Records[tc.name][0].Schema()), ipc.WithAllocator(mem))
+				defer w.Close()
+
+				for _, rec := range arrdata.Records[tc.name] {
+					err = w.Write(rec)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				err = w.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = f.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				return f.Name()
+			}()
+			defer os.Remove(fname)
+
+			f, err := os.Open(fname)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -85,11 +127,13 @@ records: 2
 
 func TestLsFile(t *testing.T) {
 	for _, tc := range []struct {
-		fname string
-		want  string
+		stream bool
+		name   string
+		want   string
 	}{
 		{
-			fname: "../../testdata/primitives.stream.data",
+			stream: true,
+			name:   "primitives",
 			want: `schema:
   fields: 11
     - bools: type=bool, nullable
@@ -103,11 +147,12 @@ func TestLsFile(t *testing.T) {
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
+metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
 		{
-			fname: "../../testdata/primitives.file.data",
+			name: "primitives",
 			want: `version: V4
 schema:
   fields: 11
@@ -122,11 +167,13 @@ schema:
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
+metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
 		{
-			fname: "../../testdata/structs.stream.data",
+			stream: true,
+			name:   "structs",
 			want: `schema:
   fields: 1
     - struct_nullable: type=struct<f1: int32, f2: utf8>, nullable
@@ -134,7 +181,7 @@ records: 2
 `,
 		},
 		{
-			fname: "../../testdata/structs.file.data",
+			name: "structs",
 			want: `version: V4
 schema:
   fields: 1
@@ -143,28 +190,74 @@ records: 2
 `,
 		},
 		{
-			fname: "../../testdata/lists.file.data",
-			want: `version: V4
-schema:
-  fields: 2
+			stream: true,
+			name:   "lists",
+			want: `schema:
+  fields: 1
     - list_nullable: type=list<item: int32>, nullable
-    - struct_nullable: type=struct<f1: int32, f2: utf8>, nullable
-records: 2
+records: 3
 `,
 		},
 		{
-			fname: "../../testdata/lists.stream.data",
-			want: `schema:
-  fields: 2
+			name: "lists",
+			want: `version: V4
+schema:
+  fields: 1
     - list_nullable: type=list<item: int32>, nullable
-    - struct_nullable: type=struct<f1: int32, f2: utf8>, nullable
-records: 2
+records: 3
 `,
 		},
 	} {
-		t.Run(tc.fname, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s-stream=%v", tc.name, tc.stream), func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer mem.AssertSize(t, 0)
+
+			fname := func() string {
+				f, err := ioutil.TempFile("", "go-arrow-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer f.Close()
+
+				var w interface {
+					io.Closer
+					Write(array.Record) error
+				}
+
+				switch {
+				case tc.stream:
+					w = ipc.NewWriter(f, ipc.WithSchema(arrdata.Records[tc.name][0].Schema()), ipc.WithAllocator(mem))
+				default:
+					w, err = ipc.NewFileWriter(f, ipc.WithSchema(arrdata.Records[tc.name][0].Schema()), ipc.WithAllocator(mem))
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				defer w.Close()
+
+				for _, rec := range arrdata.Records[tc.name] {
+					err = w.Write(rec)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				err = w.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = f.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				return f.Name()
+			}()
+			defer os.Remove(fname)
+
 			w := new(bytes.Buffer)
-			err := processFile(w, tc.fname)
+			err := processFile(w, fname)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -304,6 +304,25 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 		flatbuf.TimestampAddTimezone(fv.b, tz)
 		fv.offset = flatbuf.TimestampEnd(fv.b)
 
+	case *arrow.StructType:
+		fv.dtype = flatbuf.TypeStruct_
+		offsets := make([]flatbuffers.UOffsetT, len(dt.Fields()))
+		for i, field := range dt.Fields() {
+			offsets[i] = fieldToFB(fv.b, field, fv.memo)
+		}
+		flatbuf.Struct_Start(fv.b)
+		for i := len(offsets) - 1; i >= 0; i-- {
+			fv.b.PrependUOffsetT(offsets[i])
+		}
+		fv.offset = flatbuf.Struct_End(fv.b)
+		fv.kids = append(fv.kids, offsets...)
+
+	case *arrow.ListType:
+		fv.dtype = flatbuf.TypeList
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem()}, fv.memo))
+		flatbuf.ListStart(fv.b)
+		fv.offset = flatbuf.ListEnd(fv.b)
+
 	default:
 		err := errors.Errorf("arrow/ipc: invalid data type %v", dt)
 		panic(err) // FIXME(sbinet): implement all data-types.
