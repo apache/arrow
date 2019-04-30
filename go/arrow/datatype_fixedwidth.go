@@ -16,10 +16,13 @@
 
 package arrow
 
+import "strconv"
+
 type BooleanType struct{}
 
-func (t *BooleanType) ID() Type     { return BOOL }
-func (t *BooleanType) Name() string { return "bool" }
+func (t *BooleanType) ID() Type       { return BOOL }
+func (t *BooleanType) Name() string   { return "bool" }
+func (t *BooleanType) String() string { return "bool" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *BooleanType) BitWidth() int { return 1 }
@@ -31,6 +34,10 @@ type FixedSizeBinaryType struct {
 func (*FixedSizeBinaryType) ID() Type        { return FIXED_SIZE_BINARY }
 func (*FixedSizeBinaryType) Name() string    { return "fixed_size_binary" }
 func (t *FixedSizeBinaryType) BitWidth() int { return 8 * t.ByteWidth }
+
+func (t *FixedSizeBinaryType) String() string {
+	return "fixed_size_binary[" + strconv.Itoa(t.ByteWidth) + "]"
+}
 
 type (
 	Timestamp int64
@@ -58,8 +65,9 @@ type TimestampType struct {
 	TimeZone string
 }
 
-func (*TimestampType) ID() Type     { return TIMESTAMP }
-func (*TimestampType) Name() string { return "timestamp" }
+func (*TimestampType) ID() Type         { return TIMESTAMP }
+func (*TimestampType) Name() string     { return "timestamp" }
+func (t *TimestampType) String() string { return "timestamp[" + t.Unit.String() + "]" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
@@ -69,18 +77,20 @@ type Time32Type struct {
 	Unit TimeUnit
 }
 
-func (*Time32Type) ID() Type      { return TIME32 }
-func (*Time32Type) Name() string  { return "time32" }
-func (*Time32Type) BitWidth() int { return 32 }
+func (*Time32Type) ID() Type         { return TIME32 }
+func (*Time32Type) Name() string     { return "time32" }
+func (*Time32Type) BitWidth() int    { return 32 }
+func (t *Time32Type) String() string { return "time32[" + t.Unit.String() + "]" }
 
 // Time64Type is encoded as a 64-bit signed integer, representing either microseconds or nanoseconds since midnight.
 type Time64Type struct {
 	Unit TimeUnit
 }
 
-func (*Time64Type) ID() Type      { return TIME64 }
-func (*Time64Type) Name() string  { return "time64" }
-func (*Time64Type) BitWidth() int { return 64 }
+func (*Time64Type) ID() Type         { return TIME64 }
+func (*Time64Type) Name() string     { return "time64" }
+func (*Time64Type) BitWidth() int    { return 64 }
+func (t *Time64Type) String() string { return "time64[" + t.Unit.String() + "]" }
 
 var (
 	FixedWidthTypes = struct {

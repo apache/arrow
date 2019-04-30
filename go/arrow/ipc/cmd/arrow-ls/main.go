@@ -176,7 +176,7 @@ func displayField(o io.Writer, field arrow.Field, inc int) {
 	if field.Nullable {
 		nullable = ", nullable"
 	}
-	fmt.Fprintf(o, "%*.s- %s: type=%v%v\n", inc, "", field.Name, field.Type.Name(), nullable)
+	fmt.Fprintf(o, "%*.s- %s: type=%v%v\n", inc, "", field.Name, field.Type, nullable)
 	if field.HasMetadata() {
 		fmt.Fprintf(o, "%*.smetadata: %v\n", inc, "", field.Metadata)
 	}
