@@ -23,6 +23,8 @@ function featherwrite(filename, t)
 % specific language governing permissions and limitations
 % under the License.
 
+import mlarrow.util.*;
+
 % Validate input arguments.
 narginchk(2, 2);
 filename = convertStringsToChars(filename);
@@ -39,16 +41,10 @@ featherVersion = 2;
 
 % Struct array representing the underlying data of each variable
 % in the given table.
-variables = repmat(struct('Type', '', ...
-                          'Data', [], ...
-                          'Valid', [], ...
-                          'Name', ''), 1, width(t));
+variables = repmat(createVariableStruct('', [], [], ''), 1, width(t));
 
 % Struct representing table-level metadata.
-metadata = struct('Version', featherVersion, ...
-                  'Description', t.Properties.Description, ...
-                  'NumRows', height(t), ...
-                  'NumVariables', width(t));
+metadata = createMetadataStruct(featherVersion, t.Properties.Description, height(t), width(t));
 
 % Iterate over each variable in the given table,
 % extracting the underlying array data.

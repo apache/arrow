@@ -24,6 +24,8 @@ classdef tfeather < matlab.unittest.TestCase
             testCase.applyFixture(PathFixture('util'));
             % Add featherread and featherwrite to the MATLAB path.
             testCase.applyFixture(PathFixture(fullfile('..', 'src')));
+            % Add Feather source utilities to the MATLAB path.
+            testCase.applyFixture(PathFixture(fullfile('..', 'src', 'util')));
             % featherreadmex must be on the MATLAB path.
             testCase.assertTrue(~isempty(which('featherreadmex')), ...
                 '''featherreadmex'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
