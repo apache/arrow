@@ -23,6 +23,6 @@ compile();
 originalPath = addpath(vars.srcDir, vars.buildDir);
 restoreOriginalPath = onCleanup(@()path(originalPath));
 
-results = runtests(vars.testDir, 'IncludeSubfolders', true, 'OutputDetail', 3);
+results = runtests(vars.testDir, "IncludeSubfolders", true, "OutputDetail", 3);
 assert(all(~[results.Failed]));
 end

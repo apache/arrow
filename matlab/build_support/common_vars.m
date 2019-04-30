@@ -16,9 +16,9 @@ function vars = common_vars()
 % specific language governing permissions and limitations
 % under the License.
 
-fileDir = fileparts(mfilename('fullpath'));
+fileDir = fileparts(mfilename("fullpath"));
 
-vars.srcDir = fullfile(fileDir, '..', 'src');
-vars.testDir = fullfile(fileDir, '..', 'test');
-vars.buildDir = fullfile(fileDir, '..', 'build');
+vars.srcDir = fullfile(fileDir, "..", "src");
+vars.testDir = fullfile(fileDir, "..", "test");
+vars.buildDir = fullfile(fileDir, "..", "build");
 end
