@@ -92,7 +92,7 @@ void ExportedDecimalFunctions::AddMappings(Engine* engine) const {
           types->i32_type()};  // int32_t y_scale
 
   engine->AddGlobalMappingForFunc("gdv_xlarge_compare", types->i32_type() /*return_type*/,
-                                  args, reinterpret_cast<void*>(gdv_xlarge_mod));
+                                  args, reinterpret_cast<void*>(gdv_xlarge_compare));
 }
 
 }  // namespace gandiva
