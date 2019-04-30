@@ -17,6 +17,8 @@
 package array
 
 import (
+	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/apache/arrow/go/arrow"
@@ -78,6 +80,24 @@ func (a *Binary) ValueBytes() []byte {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length
 	return a.valueBytes[a.valueOffsets[beg]:a.valueOffsets[end]]
+}
+
+func (a *Binary) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%q", a.ValueString(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
 }
 
 func (a *Binary) setData(data *Data) {
