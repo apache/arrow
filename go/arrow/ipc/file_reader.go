@@ -364,6 +364,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 	case *arrow.BinaryType, *arrow.StringType:
 		return ctx.loadBinary(dt)
 
+	case *arrow.FixedSizeBinaryType:
+		return ctx.loadFixedSizeBinary(dt)
+
 	case *arrow.ListType:
 		return ctx.loadList(dt)
 
@@ -431,6 +434,16 @@ func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) array.Interface 
 func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) array.Interface {
 	field, buffers := ctx.loadCommon(3)
 	buffers = append(buffers, ctx.buffer(), ctx.buffer())
+
+	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.MakeFromData(data)
+}
+
+func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType) array.Interface {
+	field, buffers := ctx.loadCommon(2)
+	buffers = append(buffers, nil, ctx.buffer())
 
 	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 	defer data.Release()

@@ -64,6 +64,7 @@ func TestFixedSizeBinaryBuilder(t *testing.T) {
 	assert.Zero(t, b.Len(), "unexpected ArrayBuilder.Len(), NewFixedSizeBinaryArray did not reset state")
 	assert.Zero(t, b.Cap(), "unexpected ArrayBuilder.Cap(), NewFixedSizeBinaryArray did not reset state")
 	assert.Zero(t, b.NullN(), "unexpected ArrayBuilder.NullN(), NewFixedSizeBinaryArray did not reset state")
+	assert.Equal(t, a.String(), `["1234567" (null) "ABCDEFG" (null) "7654321" (null) "AZERTYU"]`)
 
 	b.Release()
 	a.Release()

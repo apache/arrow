@@ -16,7 +16,12 @@
 
 package array
 
-import "github.com/apache/arrow/go/arrow"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/apache/arrow/go/arrow"
+)
 
 // A type which represents an immutable sequence of fixed-length binary strings.
 type FixedSizeBinary struct {
@@ -43,6 +48,24 @@ func (a *FixedSizeBinary) ValueLen(i int) int    { return int(a.valueOffsets[i+1
 func (a *FixedSizeBinary) ValueOffsets() []int32 { return a.valueOffsets }
 func (a *FixedSizeBinary) ValueBytes() []byte    { return a.valueBytes }
 
+func (a *FixedSizeBinary) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%q", a.Value(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
 func (a *FixedSizeBinary) setData(data *Data) {
 	if len(data.buffers) != 3 {
 		panic("len(data.buffers) != 3")
@@ -53,7 +76,21 @@ func (a *FixedSizeBinary) setData(data *Data) {
 	if valueBytes := data.buffers[2]; valueBytes != nil {
 		a.valueBytes = valueBytes.Bytes()
 	}
-	if valueOffsets := data.buffers[1]; valueOffsets != nil {
+
+	switch valueOffsets := data.buffers[1]; valueOffsets {
+	case nil:
+		// re-compute offsets
+		offsets := make([]int32, a.Len()+1)
+		bw := a.DataType().(arrow.FixedWidthDataType).BitWidth() / 8
+		for i := range offsets[1:] {
+			var delta int32
+			if a.IsValid(i) {
+				delta = int32(bw)
+			}
+			offsets[i+1] = offsets[i] + delta
+		}
+		a.valueOffsets = offsets
+	default:
 		a.valueOffsets = arrow.Int32Traits.CastFromBytes(valueOffsets.Bytes())
 	}
 }
