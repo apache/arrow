@@ -30,8 +30,9 @@ func TestStringArray(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	var (
-		want   = []string{"hello", "世界", "", "bye"}
-		valids = []bool{true, true, false, true}
+		want    = []string{"hello", "世界", "", "bye"}
+		valids  = []bool{true, true, false, true}
+		offsets = []int{0, 5, 11, 11, 14}
 	)
 
 	sb := array.NewStringBuilder(mem)
@@ -78,6 +79,13 @@ func TestStringArray(t *testing.T) {
 			if got != want[i] {
 				t.Fatalf("arr[%d]: got=%q, want=%q", i, got, want[i])
 			}
+		}
+
+		if got, want := arr.ValueOffset(i), offsets[i]; got != want {
+			t.Fatalf("arr-offset-beg[%d]: got=%d, want=%d", i, got, want)
+		}
+		if got, want := arr.ValueOffset(i+1), offsets[i+1]; got != want {
+			t.Fatalf("arr-offset-end[%d]: got=%d, want=%d", i+1, got, want)
 		}
 	}
 
