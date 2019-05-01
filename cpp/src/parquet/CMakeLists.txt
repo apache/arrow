@@ -209,8 +209,8 @@ if(NOT APPLE AND NOT MSVC)
   # Localize thirdparty symbols using a linker version script. This hides them
   # from the client application. The OS X linker does not support the
   # version-script option.
-  set(SHARED_LINK_FLAGS
-      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/src/parquet/symbols.map")
+  set(PARQUET_SHARED_LINK_FLAGS
+      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
 # Because of PARQUET-1420 (Thrift-generated symbols not exported in DLL),
