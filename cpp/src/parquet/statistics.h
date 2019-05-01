@@ -38,6 +38,9 @@ namespace parquet {
 class PARQUET_EXPORT Comparator {
  public:
   virtual ~Comparator() {}
+  static std::shared_ptr<Comparator> Make(Type::type physical_type,
+                                          SortOrder::type sort_order,
+                                          int type_length = -1);
   static std::shared_ptr<Comparator> Make(const ColumnDescriptor* descr);
 };
 
@@ -48,9 +51,24 @@ class TypedComparator : public Comparator {
  public:
   using T = typename DType::c_type;
 
+  static std::shared_ptr<TypedComparator<DType>> Make(Type::type physical_type,
+                                                      SortOrder::type sort_order,
+                                                      int type_length = -1) {
+    return std::static_pointer_cast<TypedComparator<DType>>(
+        Comparator::Make(physical_type, sort_order, type_length));
+  }
+
+  static std::shared_ptr<TypedComparator<DType>> Make(const ColumnDescriptor* descr) {
+    return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
+  }
+
   /// \brief Scalar comparison of two elements, return true if first
   /// is strictly less than the second
   virtual bool Compare(const T& a, const T& b) = 0;
+
+  virtual void GetMinMax(const T* values, int64_t length, T* out_min, T* out_max) = 0;
+  virtual void GetMinMaxSpaced(const T* values, int64_t length, const uint8_t* valid_bits,
+                               int64_t valid_bits_offset, T* out_min, T* out_max) = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -105,25 +123,21 @@ class PARQUET_EXPORT EncodedStatistics {
   }
 };
 
-class PARQUET_EXPORT Statistics
-    : public std::enable_shared_from_this<Statistics> {
+class PARQUET_EXPORT Statistics : public std::enable_shared_from_this<Statistics> {
  public:
   static std::shared_ptr<Statistics> Make(
-      const ColumnDescriptor* schema,
+      const ColumnDescriptor* descr,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
-  static  std::shared_ptr<Statistics> Make(
-      const ColumnDescriptor* schema,
-      const std::string& encoded_min,
-      const std::string& encoded_max, int64_t num_values,
-      int64_t null_count, int64_t distinct_count,
-      bool has_min_max,
+  static std::shared_ptr<Statistics> Make(
+      const ColumnDescriptor* descr, const std::string& encoded_min,
+      const std::string& encoded_max, int64_t num_values, int64_t null_count,
+      int64_t distinct_count, bool has_min_max,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
-  int64_t null_count() const { return statistics_.null_count; }
-  int64_t distinct_count() const { return statistics_.distinct_count; }
-  int64_t num_values() const { return num_values_; }
-
+  virtual int64_t null_count() const = 0;
+  virtual int64_t distinct_count() const = 0;
+  virtual int64_t num_values() const = 0;
   virtual bool HasMinMax() const = 0;
   virtual void Reset() = 0;
 
@@ -137,32 +151,12 @@ class PARQUET_EXPORT Statistics
 
   virtual ~Statistics() {}
 
-  Type::type physical_type() const { return descr_->physical_type(); }
+  // Type::type physical_type() const { return descr_->physical_type(); }
 
  protected:
-  const ColumnDescriptor* descr() const { return descr_; }
-
-  void IncrementNullCount(int64_t n) { statistics_.null_count += n; }
-
-  void IncrementNumValues(int64_t n) { num_values_ += n; }
-
-  void IncrementDistinctCount(int64_t n) { statistics_.distinct_count += n; }
-
-  void MergeCounts(const Statistics& other) {
-    this->statistics_.null_count += other.statistics_.null_count;
-    this->statistics_.distinct_count += other.statistics_.distinct_count;
-    this->num_values_ += other.num_values_;
-  }
-
-  void ResetCounts() {
-    this->statistics_.null_count = 0;
-    this->statistics_.distinct_count = 0;
-    this->num_values_ = 0;
-  }
-
-  const ColumnDescriptor* descr_ = NULLPTR;
-  int64_t num_values_ = 0;
-  EncodedStatistics statistics_;
+  static std::shared_ptr<Statistics> Make(Type::type physical_type, const void* min,
+                                          const void* max, int64_t num_values,
+                                          int64_t null_count, int64_t distinct_count);
 };
 
 template <typename DType>
@@ -170,11 +164,47 @@ class TypedStatistics : public Statistics {
  public:
   using T = typename DType::c_type;
 
-  void Update(const T* values, int64_t num_not_null, int64_t num_null) = 0;
-  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
-                    int64_t num_not_null, int64_t num_null) = 0;
-  void SetMinMax(const T& min, const T& max) = 0;
+  static std::shared_ptr<TypedStatistics<DType>> Make(
+      const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    return std::static_pointer_cast<TypedStatistics<DType>>(
+        Statistics::Make(descr, pool));
+  }
+
+  static std::shared_ptr<TypedStatistics<DType>> Make(const T& min, const T& max,
+                                                      int64_t num_values,
+                                                      int64_t null_count,
+                                                      int64_t distinct_count) {
+    return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
+        DType::type_num, &min, &max, num_values, null_count, distinct_count));
+  }
+
+  static std::shared_ptr<TypedStatistics<DType>> Make(
+      const ColumnDescriptor* descr, const std::string& encoded_min,
+      const std::string& encoded_max, int64_t num_values, int64_t null_count,
+      int64_t distinct_count, bool has_min_max,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    return std::static_pointer_cast<TypedStatistics<DType>>(
+        Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                         distinct_count, has_min_max, pool));
+  }
+
+  virtual const T& min() const = 0;
+  virtual const T& max() const = 0;
+
+  virtual void Merge(const TypedStatistics<DType>& other) = 0;
+
+  virtual void Update(const T* values, int64_t num_not_null, int64_t num_null) = 0;
+  virtual void UpdateSpaced(const T* values, const uint8_t* valid_bits,
+                            int64_t valid_bits_spaced, int64_t num_not_null,
+                            int64_t num_null) = 0;
+  virtual void SetMinMax(const T& min, const T& max) = 0;
 };
+
+#ifndef ARROW_NO_DEPRECATED_API
+// TODO(wesm): Remove after Arrow 0.14.0
+using RowGroupStatistics = Statistics;
+#endif
 
 using BoolStatistics = TypedStatistics<BooleanType>;
 using Int32Statistics = TypedStatistics<Int32Type>;

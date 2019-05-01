@@ -27,7 +27,6 @@
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
-#include "parquet/statistics.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"

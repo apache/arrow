@@ -100,7 +100,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     // Print column metadata
     for (auto i : selected_columns) {
       auto column_chunk = group_metadata->ColumnChunk(i);
-      std::shared_ptr<RowGroupStatistics> stats = column_chunk->statistics();
+      std::shared_ptr<Statistics> stats = column_chunk->statistics();
 
       const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
       stream << "Column " << i << std::endl << ", Values: " << column_chunk->num_values();
@@ -220,7 +220,7 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     int c1 = 0;
     for (auto i : selected_columns) {
       auto column_chunk = group_metadata->ColumnChunk(i);
-      std::shared_ptr<RowGroupStatistics> stats = column_chunk->statistics();
+      std::shared_ptr<Statistics> stats = column_chunk->statistics();
 
       const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
       stream << "          {\"Id\": \"" << i << "\", \"Values\": \""

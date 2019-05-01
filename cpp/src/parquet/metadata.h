@@ -35,7 +35,7 @@ namespace parquet {
 class ColumnDescriptor;
 class EncodedStatistics;
 class OutputStream;
-class RowGroupStatistics;
+class Statistics;
 class SchemaDescriptor;
 
 namespace schema {
@@ -117,7 +117,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t num_values() const;
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
-  std::shared_ptr<RowGroupStatistics> statistics() const;
+  std::shared_ptr<Statistics> statistics() const;
   Compression::type compression() const;
   const std::vector<Encoding::type>& encodings() const;
   bool has_dictionary_page() const;
