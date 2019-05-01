@@ -244,13 +244,14 @@ SortOrder::type DefaultSortOrder(Type::type primitive) {
     case Type::BOOLEAN:
     case Type::INT32:
     case Type::INT64:
-    case Type::INT96:
     case Type::FLOAT:
     case Type::DOUBLE:
       return SortOrder::SIGNED;
     case Type::BYTE_ARRAY:
     case Type::FIXED_LEN_BYTE_ARRAY:
       return SortOrder::UNSIGNED;
+    case Type::INT96:
+      return SortOrder::UNKNOWN;
   }
   return SortOrder::UNKNOWN;
 }

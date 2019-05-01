@@ -145,10 +145,7 @@ TEST(Comparison, SignedInt96) {
   parquet::Int96 aa{{1, 41, 14}}, bb{{1, 41, 14}};
   parquet::Int96 aaa{{1, 41, static_cast<uint32_t>(-14)}}, bbb{{1, 41, 42}};
 
-  NodePtr node = PrimitiveNode::Make("SignedInt96", Repetition::REQUIRED, Type::INT96);
-  ColumnDescriptor descr(node, 0, 0);
-
-  auto comparator = TypedComparator<Int96Type>::Make(&descr);
+  auto comparator = TypedComparator<Int96Type>::Make(Type::INT96, SortOrder::SIGNED);
 
   ASSERT_TRUE(comparator->Compare(a, b));
   ASSERT_TRUE(!comparator->Compare(aa, bb) && !comparator->Compare(bb, aa));
@@ -247,6 +244,10 @@ TEST(Comparison, UnknownSortOrder) {
   ColumnDescriptor descr(node, 0, 0);
 
   ASSERT_THROW(Comparator::Make(&descr), ParquetException);
+
+  NodePtr int96_node = PrimitiveNode::Make("Unknown", Repetition::REQUIRED, Type::INT96);
+  ColumnDescriptor int96_descr(node, 0, 0);
+  ASSERT_THROW(Comparator::Make(&int96_descr), ParquetException);
 }
 
 // ----------------------------------------------------------------------

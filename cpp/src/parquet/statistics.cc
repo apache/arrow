@@ -308,6 +308,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   const T& max() const override { return max_; }
 
+  Type::type physical_type() const override { return descr_->physical_type(); }
+
   std::string EncodeMin() override {
     std::string s;
     if (HasMinMax()) this->PlainEncode(min_, &s);

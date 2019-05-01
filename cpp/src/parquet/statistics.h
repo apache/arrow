@@ -151,7 +151,7 @@ class PARQUET_EXPORT Statistics : public std::enable_shared_from_this<Statistics
 
   virtual ~Statistics() {}
 
-  // Type::type physical_type() const { return descr_->physical_type(); }
+  virtual Type::type physical_type() const = 0;
 
  protected:
   static std::shared_ptr<Statistics> Make(Type::type physical_type, const void* min,
