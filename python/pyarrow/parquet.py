@@ -1426,6 +1426,7 @@ def get_minmax(where, memory_map=False):
     """
     from pandas import DataFrame
     pf = ParquetFile(where)
+
     def group_agg(pf, fun):
         result = None
         for n in range(pf.num_row_groups):
@@ -1434,6 +1435,6 @@ def get_minmax(where, memory_map=False):
                 result = s.combine(result,
                                    (lambda x1, x2: x1 if x1 < x2 else x2))
             else:
-                result=s
+                result = s
         return result
-    return group_agg(pf,DataFrame.min),group_agg(pf,DataFrame.max)
+    return group_agg(pf, DataFrame.min), group_agg(pf, DataFrame.max)
