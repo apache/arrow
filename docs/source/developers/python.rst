@@ -200,8 +200,8 @@ also:
 
    brew bundle --file=arrow/c_glib/Brewfile
 
-See `here <./cpp.html#build-dependency-management>`_
-for a list of dependencies you may need.
+See :ref:`here <cpp-build-dependency-management>` for a list of dependencies you
+may need.
 
 On Debian/Ubuntu, you need the following minimal set of dependencies. All other
 dependencies will be automatically built by Arrow's third-party toolchain.
@@ -300,10 +300,10 @@ virtualenv) enables cmake to choose the python executable which you are using.
    If you have conda installed but are not using it to manage dependencies,
    and you have trouble building the C++ library, you may need to set
    ``-DARROW_DEPENDENCY_SOURCE=AUTO`` or some other value (described
-   `here <./cpp.html#build-dependency-management>`_)
+   :ref:`here <cpp-build-dependency-management>`)
    to explicitly tell CMake not to use conda.
 
-For any other C++ build challenges, see the `C++ developer documentation <./cpp.html>`_.
+For any other C++ build challenges, see :ref:`cpp-development`.
 
 Now, build pyarrow:
 

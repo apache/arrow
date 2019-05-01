@@ -180,6 +180,8 @@ We are currently using LLVM 7 for library builds and for other developer tools
 such as code formatting with ``clang-format``. LLVM can be installed via most
 modern package managers (apt, yum, conda, Homebrew, chocolatey).
 
+.. _cpp-build-dependency-management:
+
 Build Dependency Management
 ===========================
 
