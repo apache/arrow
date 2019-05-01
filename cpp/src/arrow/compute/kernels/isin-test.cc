@@ -1,0 +1,270 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include <cstdint>
+#include <cstdio>
+#include <functional>
+#include <locale>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#include <gtest/gtest.h>
+
+#include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/util.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
+
+#include "arrow/compute/context.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/isin.h"
+#include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/test-util.h"
+
+using std::shared_ptr;
+using std::vector;
+
+namespace arrow {
+namespace compute {
+
+// ----------------------------------------------------------------------
+// IsIn tests
+
+template <typename Type, typename T>
+void CheckIsIn(FunctionContext* ctx, const shared_ptr<DataType>& type,
+                 const vector<T>& in_values, const vector<bool>& in_is_valid,
+                 const vector<T>& member_set_values, const vector<bool>& member_set_is_valid,
+                 const vector<bool>& out_values, const vector<bool>& out_is_valid) {
+  shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
+  shared_ptr<Array> member_set = _MakeArray<Type, T>(type, member_set_values, member_set_is_valid);
+  shared_ptr<Array> expected = _MakeArray<BooleanType, bool>(boolean(), out_values, out_is_valid);
+
+  Datum  datum_out;
+  ASSERT_OK(IsIn(ctx, input, member_set, &datum_out));
+  shared_ptr<Array> result = datum_out.make_array();
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+}
+
+class TestIsInKernel : public ComputeFixture, public TestBase {};
+
+template <typename Type>
+class TestIsInKernelPrimitive : public ComputeFixture, public TestBase {};
+
+typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
+                         UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType,
+                         Date32Type, Date64Type>
+    PrimitiveDictionaries;
+
+TYPED_TEST_CASE(TestIsInKernelPrimitive, PrimitiveDictionaries);
+
+TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
+  using T = typename TypeParam::c_type;
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  CheckIsIn<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3},
+                                {true, false, true, true, true, true}, {2, 1, 2, 1, 2, 3},
+                                {true, false, true, true, true, true},
+                                {true, true, true, true, true, true}, {});
+}
+
+TYPED_TEST(TestIsInKernelPrimitive, PrimitiveResizeTable) {
+  using T = typename TypeParam::c_type;
+
+  const int64_t kTotalValues = std::min<int64_t>(INT16_MAX, 1UL << sizeof(T) / 2);
+  const int64_t kRepeats = 5;
+
+  std::vector<T> values;
+  std::vector<T> member_set;
+  std::vector<bool> expected;
+  for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
+    const auto val = static_cast<T>(i % kTotalValues);
+    values.push_back(val);
+    member_set.push_back(val);
+    expected.push_back(static_cast<bool>(true));
+  }
+
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  CheckIsIn<TypeParam, T>(&this->ctx_, type, values, {}, member_set, {}, expected, {});
+}
+
+TEST_F(TestIsInKernel, IsInNull) {
+  CheckIsIn<NullType,std::nullptr_t>(&this->ctx_, null(), {0, 0, 0},
+                                   {false, false, false}, {0, 0, 0},
+                                   {false, false, false}, {true, true, true}, {});
+
+  CheckIsIn<NullType,std::nullptr_t>(&this->ctx_, null(), {NULL, NULL, NULL},
+                                   {}, {NULL, NULL, NULL},
+                                   {}, {true, true, true}, {});
+
+  CheckIsIn<NullType,std::nullptr_t>(&this->ctx_, null(), {nullptr, nullptr, nullptr},
+                                   {}, {nullptr, nullptr, nullptr},
+                                   {}, {true, true, true}, {});
+}
+
+TEST_F(TestIsInKernel, IsInTimeTimestamp) {
+  CheckIsIn<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {2, 1, 5, 1},
+                                   {true, false, true, true}, {2, 1, 2, 1},
+                                   {true, false, true, true}, {true, true, false, true}, {});
+
+  CheckIsIn<Time64Type, int64_t>(&this->ctx_, time64(TimeUnit::NANO), {2, 1, 2, 1},
+                                   {true, false, true, true}, {2, 1, 2, 1},
+                                   {true, false, true, true}, {true, true, true, true}, {});
+
+  CheckIsIn<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO),
+                                      {2, 1, 2, 1}, {true, false, true, true},
+                                      {2, 1, 2, 1}, {true, false, true, true},
+                                      {true, true, true, true}, {});
+}
+
+TEST_F(TestIsInKernel, IsInBoolean) {
+  CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
+                                 {true, false, true, true}, {true, true, false, true},
+                                 {true, false, true, true}, { true, true, true, true }, {});
+
+  CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
+                                 {true, false, true, true}, {false, true, false, true},
+                                 {true, true, false, true}, {true, true, true, true}, {});
+
+  CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true}, {},
+                                 {true, true, false, true}, {}, {true, true, true, true}, {});
+
+  CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true}, {},
+                                  {true, true, true, true}, {}, {false, true, false, true}, {});
+}
+
+TEST_F(TestIsInKernel, IsInBinary) {
+  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(),
+                                       {"test", "", "test2", "test"},
+                                       {true, false, true, true}, {"test", "", "test2", "test"},
+                                       {true, false, true, true}, {true, true, true, true}, {});
+
+  CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), {"test", "", "test2", "test"},
+                                       {true, false, true, true}, {"test","", "test2", "test"},
+                                       {true, false, true, false}, {true, true, true, true}, {});
+}
+
+TEST_F(TestIsInKernel, BinaryResizeTable) {
+  const int32_t kTotalValues = 10000;
+#if !defined(ARROW_VALGRIND)
+  const int32_t kRepeats = 10;
+#else
+  // Mitigate Valgrind's slowness
+  const int32_t kRepeats = 3;
+#endif
+
+  std::vector<std::string> values;
+  std::vector<std::string> member_set;
+  std::vector<bool> expected;
+  char buf[20] = "test";
+
+  for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
+    int32_t index = i % kTotalValues;
+
+    ASSERT_GE(snprintf(buf + 4, sizeof(buf) - 4, "%d", index), 0);
+    values.emplace_back(buf);
+    member_set.emplace_back(buf);
+    expected.push_back(true);
+  }
+
+  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(), values, {}, member_set, {},
+                                           expected, {});
+
+  CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), values, {}, member_set, {},
+                                           expected, {});
+}
+
+TEST_F(TestIsInKernel, IsInFixedSizeBinary) {
+  CheckIsIn<FixedSizeBinaryType, std::string>(
+      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {true, false, true, true, true}, {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {true, false, true, true, true}, {true, true, true, true, true}, {});
+}
+
+TEST_F(TestIsInKernel, FixedSizeBinaryResizeTable) {
+  const int32_t kTotalValues = 10000;
+#if !defined(ARROW_VALGRIND)
+  const int32_t kRepeats = 10;
+#else
+  // Mitigate Valgrind's slowness
+  const int32_t kRepeats = 3;
+#endif
+
+  std::vector<std::string> values;
+  std::vector<std::string> member_set;
+  std::vector<bool> expected;
+  char buf[7] = "test..";
+
+  for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
+    int32_t index = i % kTotalValues;
+
+    buf[4] = static_cast<char>(index / 128);
+    buf[5] = static_cast<char>(index % 128);
+    values.emplace_back(buf, 6);
+    member_set.emplace_back(buf, 6);
+
+    expected.push_back(true);
+  }
+
+  auto type = fixed_size_binary(6);
+  CheckIsIn<FixedSizeBinaryType, std::string>(&this->ctx_, type, values, {},
+                                                    member_set, {}, expected, {});
+}
+
+TEST_F(TestIsInKernel, IsInDecimal) {
+  vector<Decimal128> input{12, 12, 11, 12};
+  vector<Decimal128> member_set{12, 12, 11, 12};
+  vector<bool> expected{true, true, true, true};
+
+  CheckIsIn<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), input,
+                                          {true, false, true, true}, member_set,
+                                          {true, false, true, true}, expected, {});
+}
+
+TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
+  std::vector<std::string> values1 = {"foo", "bar", "foo"};
+  std::vector<std::string> values2 = {"bar", "baz", "quuux", "foo"};
+
+  auto type = utf8();
+  auto a1 = _MakeArray<StringType, std::string>(type, values1, {});
+  auto a2 = _MakeArray<StringType, std::string>(type, values2, {});
+
+  ArrayVector arrays = {a1, a2};
+  auto carr = std::make_shared<ChunkedArray>(arrays);
+  auto member_set = std::make_shared<ChunkedArray>(arrays);
+
+  auto i1 = _MakeArray<BooleanType, bool>(boolean(), {true, true, true}, {});
+  auto i2 = _MakeArray<BooleanType, bool>(boolean(), {true, true, true, true}, {});
+
+  ArrayVector expected = {i1, i2};
+  auto expected_carr = std::make_shared<ChunkedArray>(expected);
+
+  Datum encoded_out;
+  ASSERT_OK(IsIn(&this->ctx_, carr, member_set, &encoded_out));
+  ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
+
+  AssertChunkedEqual(*expected_carr, *encoded_out.chunked_array());
+}
+
+}  // namespace compute
+}  // namespace arrow
