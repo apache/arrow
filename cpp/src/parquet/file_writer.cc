@@ -392,8 +392,7 @@ const std::shared_ptr<const KeyValueMetadata>& ParquetFileWriter::key_value_meta
 }
 
 const std::shared_ptr<FileMetaData> ParquetFileWriter::metadata() const {
-  contents_->Close();  // ensure that file metadata is finalized
-  return contents_->metadata();
+  return file_metadata_;
 }
 
 void ParquetFileWriter::Open(std::unique_ptr<ParquetFileWriter::Contents> contents) {
@@ -403,6 +402,7 @@ void ParquetFileWriter::Open(std::unique_ptr<ParquetFileWriter::Contents> conten
 void ParquetFileWriter::Close() {
   if (contents_) {
     contents_->Close();
+    file_metadata_ = contents_->metadata();
     contents_.reset();
   }
 }

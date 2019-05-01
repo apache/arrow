@@ -68,6 +68,18 @@ cdef class RowGroupStatistics:
                                self.num_values,
                                self.physical_type)
 
+    def to_dict(self):
+        d = dict(
+            has_min_max=self.has_min_max,
+            min=self.min,
+            max=self.max,
+            null_count=self.null_count,
+            distinct_count=self.distinct_count,
+            num_values=self.num_values,
+            physical_type=self.physical_type
+        )
+        return d
+
     def __eq__(self, other):
         try:
             return self.equals(other)
@@ -191,6 +203,25 @@ cdef class ColumnChunkMetaData:
                                           self.data_page_offset,
                                           self.total_compressed_size,
                                           self.total_uncompressed_size)
+
+    def to_dict(self):
+        d = dict(
+            file_offset=self.file_offset,
+            file_path=self.file_path,
+            physical_type=self.physical_type,
+            num_values=self.num_values,
+            path_in_schema=self.path_in_schema,
+            is_stats_set=self.is_stats_set,
+            statistics=self.statistics.to_dict(),
+            compression=self.compression,
+            encodings=self.encodings,
+            has_dictionary_page=self.has_dictionary_page,
+            dictionary_page_offset=self.dictionary_page_offset,
+            data_page_offset=self.data_page_offset,
+            total_compressed_size=self.total_compressed_size,
+            total_uncompressed_size=self.total_uncompressed_size
+        )
+        return d
 
     def __eq__(self, other):
         try:
@@ -338,6 +369,18 @@ cdef class RowGroupMetaData:
                                  self.num_rows,
                                  self.total_byte_size)
 
+    def to_dict(self):
+        columns = []
+        d = dict(
+            num_columns=self.num_columns,
+            num_rows=self.num_rows,
+            total_byte_size=self.total_byte_size,
+            columns=columns,
+        )
+        for i in range(self.num_columns):
+            columns.append(self.column(i).to_dict())
+        return d
+
     @property
     def num_columns(self):
         return self.metadata.num_columns()
@@ -395,6 +438,21 @@ cdef class FileMetaData:
                                  self.num_rows, self.num_row_groups,
                                  self.format_version,
                                  self.serialized_size)
+
+    def to_dict(self):
+        row_groups = []
+        d = dict(
+            created_by=self.created_by,
+            num_columns=self.num_columns,
+            num_rows=self.num_rows,
+            num_row_groups=self.num_row_groups,
+            row_groups=row_groups,
+            format_version=self.format_version,
+            serialized_size=self.serialized_size
+        )
+        for i in range(self.num_row_groups):
+            row_groups.append(self.row_group(i).to_dict())
+        return d
 
     def __eq__(self, other):
         try:
@@ -1029,3 +1087,17 @@ cdef class ParquetWriter:
         with nogil:
             check_status(self.writer.get()
                          .WriteTable(deref(ctable), c_row_group_size))
+
+    @property
+    def metadata(self):
+        cdef:
+            shared_ptr[CFileMetaData] metadata
+            FileMetaData result
+        with nogil:
+            metadata = self.writer.get().metadata()
+        if metadata:
+            result = FileMetaData()
+            result.init(metadata)
+            return result
+        raise RuntimeError(
+            'file metadata is only available after writer close')
