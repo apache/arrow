@@ -478,14 +478,15 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocDataBuffer() {
-    long baseSize = lastValueAllocationSizeInBytes;
     final int currentBufferCapacity = valueBuffer.capacity();
-
-    if (baseSize < (long) currentBufferCapacity) {
-      baseSize = (long) currentBufferCapacity;
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (lastValueAllocationSizeInBytes > 0) {
+        newAllocationSize = lastValueAllocationSizeInBytes;
+      } else {
+        newAllocationSize = INITIAL_BYTE_COUNT * 2;
+      }
     }
-
-    long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
     assert newAllocationSize >= 1;
 
@@ -525,7 +526,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     int targetOffsetCount = (offsetBuffer.capacity() / OFFSET_WIDTH)  * 2;
     if (targetOffsetCount == 0) {
       if (lastValueCapacity > 0) {
-        targetOffsetCount = 2 * (lastValueCapacity + 1);
+        targetOffsetCount = (lastValueCapacity + 1);
       } else {
         targetOffsetCount = 2 * (INITIAL_VALUE_ALLOCATION + 1);
       }
