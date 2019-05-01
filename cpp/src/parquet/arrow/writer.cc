@@ -1058,7 +1058,7 @@ class FileWriter::Impl {
 
   virtual ~Impl() {}
 
-  const std::shared_ptr<FileMetaData> metadata() const { return writer_->metadata(); };
+  const std::shared_ptr<FileMetaData> metadata() const { return writer_->metadata(); }
 
  private:
   friend class FileWriter;
@@ -1093,7 +1093,7 @@ MemoryPool* FileWriter::memory_pool() const { return impl_->memory_pool(); }
 
 const std::shared_ptr<FileMetaData> FileWriter::metadata() const {
   return impl_->metadata();
-};
+}
 
 FileWriter::~FileWriter() {}
 
