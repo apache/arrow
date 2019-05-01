@@ -35,5 +35,6 @@
       # a system with an older libstdc++ which doesn't include the necessary
       # c++11 symbols.
       std::*;
+      *std::__once_call*;
     };
 };
