@@ -2620,3 +2620,22 @@ def test_read_column_invalid_index():
     for index in (-1, 2):
         with pytest.raises((ValueError, IndexError)):
             f.reader.read_column(index)
+
+
+def test_get_minmax():
+    dt64 = np.datetime64
+    df = pd.DataFrame({'one': [-1, np.nan, 2.5],
+                       'two': ['foo', 'bar', 'baz'],
+                       'three': [True, False, True],
+                       'four': [dt64('2000-01-03'),
+                                dt64('2000-01-04'),
+                                dt64('2000-01-05')]},
+                      index=list('abc'))
+
+    table = pa.Table.from_pandas(df)
+    pq.write_table(table, 'example.parquet')
+    minmax = pq.get_minmax('example.parquet')
+
+    assert minmax[0]['one'] == -1
+    assert minmax[0]['two'] != 'baz'
+    assert minmax[0]['two'] == 'bar'

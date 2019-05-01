@@ -1407,3 +1407,33 @@ def read_schema(where, memory_map=False):
     schema : pyarrow.Schema
     """
     return ParquetFile(where, memory_map=memory_map).schema.to_arrow_schema()
+
+
+def get_minmax(where, memory_map=False):
+    """
+    Brute Force retrieval of minmax statistics from parquet file
+
+    Parameters
+    __________
+    where: string (filepath) or file-like object
+    memory_map: boolean default False
+        Create memory matp where the soruce is a file path
+
+    Returns
+    ________
+    (min,max) : tuple of Pandas.Series objects containing the min and max
+        For each column, respectively
+    """
+    from pandas import DataFrame
+    pf = ParquetFile(where)
+    def group_agg(pf, fun):
+        result = None
+        for n in range(pf.num_row_groups):
+            s = fun(DataFrame(pf.read_row_group(n).to_pydict()))
+            if result:
+                result = s.combine(result,
+                                   (lambda x1, x2: x1 if x1 < x2 else x2))
+            else:
+                result=s
+        return result
+    return group_agg(pf,DataFrame.min),group_agg(pf,DataFrame.max)
