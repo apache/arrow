@@ -106,11 +106,8 @@ TEST(Comparison, UnsignedByteArray) {
 
 TEST(Comparison, SignedFLBA) {
   int size = 10;
-  NodePtr node = PrimitiveNode::Make("SignedFLBA", Repetition::REQUIRED,
-                                     Type::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE, size);
-  ColumnDescriptor descr(node, 0, 0);
-
-  auto comparator = TypedComparator<FLBAType>::Make(&descr);
+  auto comparator = TypedComparator<FLBAType>::Make(Type::FIXED_LEN_BYTE_ARRAY,
+                                                    SortOrder::SIGNED, size);
 
   std::string s1 = "Anti123456";
   std::string s2 = "Bunkd123456";
@@ -127,12 +124,8 @@ TEST(Comparison, SignedFLBA) {
 
 TEST(Comparison, UnsignedFLBA) {
   int size = 10;
-  NodePtr node = PrimitiveNode::Make("UnsignedFLBA", Repetition::REQUIRED,
-                                     Type::FIXED_LEN_BYTE_ARRAY, LogicalType::UTF8, size);
-  ColumnDescriptor descr(node, 0, 0);
-
-  ASSERT_EQ(SortOrder::UNSIGNED, descr.sort_order());
-  auto comparator = TypedComparator<FLBAType>::Make(&descr);
+  auto comparator = TypedComparator<FLBAType>::Make(Type::FIXED_LEN_BYTE_ARRAY,
+                                                    SortOrder::UNSIGNED, size);
 
   std::string s1 = "Anti123456";
   std::string s2 = "Bunkd123456";
@@ -167,12 +160,7 @@ TEST(Comparison, UnsignedInt96) {
   parquet::Int96 aa{{1, 41, 14}}, bb{{1, 41, static_cast<uint32_t>(-14)}};
   parquet::Int96 aaa, bbb;
 
-  NodePtr node = PrimitiveNode::Make("UnsignedInt96", Repetition::REQUIRED, Type::INT96,
-                                     LogicalType::UTF8 /* force unsigned comparator */);
-  ColumnDescriptor descr(node, 0, 0);
-
-  ASSERT_EQ(SortOrder::UNSIGNED, descr.sort_order());
-  auto comparator = TypedComparator<Int96Type>::Make(&descr);
+  auto comparator = TypedComparator<Int96Type>::Make(Type::INT96, SortOrder::UNSIGNED);
 
   ASSERT_TRUE(comparator->Compare(a, b));
   ASSERT_TRUE(comparator->Compare(aa, bb));

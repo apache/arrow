@@ -130,7 +130,7 @@ class TypedComparatorImpl : public TypedComparator<DType> {
  public:
   typedef typename DType::c_type T;
 
-  TypedComparatorImpl(int type_length = -1) : type_length_(type_length) {}
+  explicit TypedComparatorImpl(int type_length = -1) : type_length_(type_length) {}
 
   bool CompareInline(const T& a, const T& b) {
     return CompareHelper<DType, is_signed>::Compare(type_length_, a, b);
@@ -187,6 +187,8 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
         return std::make_shared<TypedComparatorImpl<Int32Type>>();
       case Type::INT64:
         return std::make_shared<TypedComparatorImpl<Int64Type>>();
+      case Type::INT96:
+        return std::make_shared<TypedComparatorImpl<Int96Type>>();
       case Type::FLOAT:
         return std::make_shared<TypedComparatorImpl<FloatType>>();
       case Type::DOUBLE:
@@ -204,6 +206,8 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
         return std::make_shared<TypedComparatorImpl<Int32Type, false>>();
       case Type::INT64:
         return std::make_shared<TypedComparatorImpl<Int64Type, false>>();
+      case Type::INT96:
+        return std::make_shared<TypedComparatorImpl<Int96Type, false>>();
       case Type::BYTE_ARRAY:
         return std::make_shared<TypedComparatorImpl<ByteArrayType, false>>();
       case Type::FIXED_LEN_BYTE_ARRAY:
@@ -218,7 +222,7 @@ std::shared_ptr<Comparator> Comparator::Make(Type::type physical_type,
 }
 
 std::shared_ptr<Comparator> Comparator::Make(const ColumnDescriptor* descr) {
-  return Make(descr->physical_type(), descr->sort_order());
+  return Make(descr->physical_type(), descr->sort_order(), descr->type_length());
 }
 
 // ----------------------------------------------------------------------
