@@ -22,11 +22,11 @@ namespace Apache.Arrow.Tests
     public class ArrowBufferTests
     {
         public class Allocate : 
-            IClassFixture<DefaultMemoryPoolFixture>
+            IClassFixture<DefaultMemoryAllocatorFixture>
         {
-            private readonly DefaultMemoryPoolFixture _memoryPoolFixture;
+            private readonly DefaultMemoryAllocatorFixture _memoryPoolFixture;
 
-            public Allocate(DefaultMemoryPoolFixture memoryPoolFixture)
+            public Allocate(DefaultMemoryAllocatorFixture memoryPoolFixture)
             {
                 _memoryPoolFixture = memoryPoolFixture;
             }

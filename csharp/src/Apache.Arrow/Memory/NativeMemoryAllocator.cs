@@ -14,16 +14,17 @@
 // limitations under the License.
 
 using System;
+using System.Buffers;
 using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.Memory
 {
-    public class NativeMemoryPool : MemoryPool
+    public class NativeMemoryAllocator : MemoryAllocator
     {
-        public NativeMemoryPool(int alignment = DefaultAlignment) 
+        public NativeMemoryAllocator(int alignment = DefaultAlignment) 
             : base(alignment) { }
 
-        protected override Memory<byte> AllocateInternal(int length, out int bytesAllocated)
+        protected override IMemoryOwner<byte> AllocateInternal(int length, out int bytesAllocated)
         {
             // TODO: Ensure memory is released if exception occurs.
 
@@ -41,14 +42,10 @@ namespace Apache.Arrow.Memory
 
             GC.AddMemoryPressure(bytesAllocated);
 
-            return manager.Memory;
-        }
+            // Ensure all allocated memory is zeroed.
+            manager.Memory.Span.Fill(0);
 
-        protected override Memory<byte> ReallocateInternal(Memory<byte> memory, int length, out int bytesAllocated)
-        {
-            var buffer = AllocateInternal(length, out bytesAllocated);
-            memory.CopyTo(buffer);
-            return buffer;
+            return manager;
         }
     }
 }

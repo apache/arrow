@@ -67,7 +67,7 @@ namespace Apache.Arrow.Tests
 
         private async Task Ctor_MemoryPool_AllocatesFromPoolHelper(
             bool shouldLeaveOpen,
-            Func<Stream, MemoryPool, ArrowStreamReader> createReaderFunc)
+            Func<Stream, MemoryAllocator, ArrowStreamReader> createReaderFunc)
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
 
@@ -78,7 +78,7 @@ namespace Apache.Arrow.Tests
 
                 stream.Position = 0;
 
-                var memoryPool = new TestMemoryPool();
+                var memoryPool = new TestMemoryAllocator();
                 ArrowStreamReader reader = createReaderFunc(stream, memoryPool);
                 reader.ReadNextRecordBatch();
 

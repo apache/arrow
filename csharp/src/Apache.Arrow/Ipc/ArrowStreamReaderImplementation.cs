@@ -27,12 +27,12 @@ namespace Apache.Arrow.Ipc
         public Stream BaseStream { get; }
         protected ArrayPool<byte> Buffers { get; }
         private readonly bool _leaveOpen;
-        private readonly MemoryPool _memoryPool;
+        private readonly MemoryAllocator _allocator;
 
-        public ArrowStreamReaderImplementation(Stream stream, MemoryPool memoryPool, bool leaveOpen)
+        public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen)
         {
             BaseStream = stream;
-            _memoryPool = memoryPool ?? MemoryPool.Default.Value;
+            _allocator = allocator ?? MemoryAllocator.Default.Value;
             _leaveOpen = leaveOpen;
             Buffers = ArrayPool<byte>.Shared;
         }
@@ -89,19 +89,16 @@ namespace Apache.Arrow.Ipc
 
                 Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                int bodyLength;
-                checked
-                {
-                    bodyLength = (int)message.BodyLength;
-                }
+                int bodyLength = checked((int)message.BodyLength);
 
-                Memory<byte> bodyBuff = _memoryPool.Allocate(bodyLength);
+                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                Memory<byte> bodyBuff = bodyBuffOwner?.Memory.Slice(0, bodyLength) ?? Memory<byte>.Empty;
                 bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
                     .ConfigureAwait(false);
                 EnsureFullRead(bodyBuff, bytesRead);
 
                 FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                result = CreateArrowObjectFromMessage(message, bodybb);
+                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
             }).ConfigureAwait(false);
 
             return result;
@@ -136,17 +133,15 @@ namespace Apache.Arrow.Ipc
 
                 Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                int bodyLength;
-                checked
-                {
-                    bodyLength = (int)message.BodyLength;
-                }
-                Memory<byte> bodyBuff = _memoryPool.Allocate(bodyLength);
+                int bodyLength = checked((int)message.BodyLength);
+
+                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                Memory<byte> bodyBuff = bodyBuffOwner?.Memory.Slice(0, bodyLength) ?? Memory<byte>.Empty;
                 bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
                 EnsureFullRead(bodyBuff, bytesRead);
 
                 FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                result = CreateArrowObjectFromMessage(message, bodybb);
+                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
             });
 
             return result;

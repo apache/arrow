@@ -14,21 +14,16 @@
 // limitations under the License.
 
 using Apache.Arrow.Memory;
-using System;
+using System.Buffers;
 
 namespace Apache.Arrow.Tests
 {
-    public class TestMemoryPool : MemoryPool
+    public class TestMemoryAllocator : MemoryAllocator
     {
-        protected override Memory<byte> AllocateInternal(int length, out int bytesAllocated)
+        protected override IMemoryOwner<byte> AllocateInternal(int length, out int bytesAllocated)
         {
             bytesAllocated = length;
-            return new byte[length];
-        }
-
-        protected override Memory<byte> ReallocateInternal(Memory<byte> memory, int length, out int bytesAllocated)
-        {
-            throw new NotImplementedException();
+            return MemoryPool<byte>.Shared.Rent(length);
         }
     }
 }

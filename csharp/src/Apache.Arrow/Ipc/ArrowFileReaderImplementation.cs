@@ -41,8 +41,8 @@ namespace Apache.Arrow.Ipc
 
         private ArrowFooter _footer;
 
-        public ArrowFileReaderImplementation(Stream stream, MemoryPool memoryPool, bool leaveOpen)
-            : base(stream, memoryPool, leaveOpen)
+        public ArrowFileReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen)
+            : base(stream, allocator, leaveOpen)
         {
         }
 

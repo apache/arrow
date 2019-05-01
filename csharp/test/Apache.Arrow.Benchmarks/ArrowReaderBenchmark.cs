@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Ipc;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Tests;
 using Apache.Arrow.Types;
 using BenchmarkDotNet.Attributes;
@@ -29,6 +30,7 @@ namespace Apache.Arrow.Benchmarks
     public class ArrowReaderBenchmark
     {
         private MemoryStream _memoryStream;
+        private static readonly MemoryAllocator s_allocator = new TestMemoryAllocator();
 
         [GlobalSetup]
         public async Task GlobalSetup()
@@ -54,6 +56,51 @@ namespace Apache.Arrow.Benchmarks
             RecordBatch recordBatch;
             while ((recordBatch = await reader.ReadNextRecordBatchAsync()) != null)
             {
+                using (recordBatch)
+                {
+                    sum += SumAllNumbers(recordBatch);
+                }
+            }
+            return sum;
+        }
+
+        [Benchmark]
+        public async Task<double> ArrowReaderWithMemoryStream_NoDispose()
+        {
+            double sum = 0;
+            var reader = new ArrowStreamReader(_memoryStream);
+            RecordBatch recordBatch;
+            while ((recordBatch = await reader.ReadNextRecordBatchAsync()) != null)
+            {
+                sum += SumAllNumbers(recordBatch);
+            }
+            return sum;
+        }
+
+        [Benchmark]
+        public async Task<double> ArrowReaderWithMemoryStream_ManagedMemory()
+        {
+            double sum = 0;
+            var reader = new ArrowStreamReader(_memoryStream, s_allocator);
+            RecordBatch recordBatch;
+            while ((recordBatch = await reader.ReadNextRecordBatchAsync()) != null)
+            {
+                using (recordBatch)
+                {
+                    sum += SumAllNumbers(recordBatch);
+                }
+            }
+            return sum;
+        }
+
+        [Benchmark]
+        public async Task<double> ArrowReaderWithMemoryStream_ManagedMemory_NoDispose()
+        {
+            double sum = 0;
+            var reader = new ArrowStreamReader(_memoryStream, s_allocator);
+            RecordBatch recordBatch;
+            while ((recordBatch = await reader.ReadNextRecordBatchAsync()) != null)
+            {
                 sum += SumAllNumbers(recordBatch);
             }
             return sum;
@@ -67,7 +114,10 @@ namespace Apache.Arrow.Benchmarks
             RecordBatch recordBatch;
             while ((recordBatch = await reader.ReadNextRecordBatchAsync()) != null)
             {
-                sum += SumAllNumbers(recordBatch);
+                using (recordBatch)
+                {
+                    sum += SumAllNumbers(recordBatch);
+                }
             }
             return sum;
         }

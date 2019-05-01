@@ -31,26 +31,26 @@ namespace Apache.Arrow.Ipc
         public Schema Schema => _implementation.Schema;
 
         public ArrowStreamReader(Stream stream)
-            : this(stream, memoryPool: null, leaveOpen: false)
+            : this(stream, allocator: null, leaveOpen: false)
         {
         }
 
-        public ArrowStreamReader(Stream stream, MemoryPool memoryPool)
-            : this(stream, memoryPool, leaveOpen: false)
+        public ArrowStreamReader(Stream stream, MemoryAllocator allocator)
+            : this(stream, allocator, leaveOpen: false)
         {
         }
 
         public ArrowStreamReader(Stream stream, bool leaveOpen)
-            : this(stream, memoryPool: null, leaveOpen)
+            : this(stream, allocator: null, leaveOpen)
         {
         }
 
-        public ArrowStreamReader(Stream stream, MemoryPool memoryPool, bool leaveOpen)
+        public ArrowStreamReader(Stream stream, MemoryAllocator allocator, bool leaveOpen)
         {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
 
-            _implementation = new ArrowStreamReaderImplementation(stream, memoryPool, leaveOpen);
+            _implementation = new ArrowStreamReaderImplementation(stream, allocator, leaveOpen);
         }
 
         public ArrowStreamReader(ReadOnlyMemory<byte> buffer)

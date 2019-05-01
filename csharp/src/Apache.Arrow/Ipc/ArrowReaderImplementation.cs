@@ -15,6 +15,7 @@
 
 using FlatBuffers;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -77,7 +78,8 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        protected RecordBatch CreateArrowObjectFromMessage(Flatbuf.Message message, ByteBuffer bodyByteBuffer)
+        protected RecordBatch CreateArrowObjectFromMessage(
+            Flatbuf.Message message, ByteBuffer bodyByteBuffer, IMemoryOwner<byte> memoryOwner)
         {
             switch (message.HeaderType)
             {
@@ -91,7 +93,7 @@ namespace Apache.Arrow.Ipc
                 case Flatbuf.MessageHeader.RecordBatch:
                     var rb = message.Header<Flatbuf.RecordBatch>().Value;
                     List<IArrowArray> arrays = BuildArrays(Schema, bodyByteBuffer, rb);
-                    return new RecordBatch(Schema, arrays, (int)rb.Length);
+                    return new RecordBatch(Schema, memoryOwner, arrays, (int)rb.Length);
                 default:
                     // NOTE: Skip unsupported message type
                     Debug.WriteLine($"Skipping unsupported message type '{message.HeaderType}'");
