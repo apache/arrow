@@ -48,6 +48,12 @@ if Cython.__version__ < '0.29':
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
 
+ext_suffix = sysconfig.get_config_var('EXT_SUFFIX')
+if ext_suffix is None:
+    # https://bugs.python.org/issue19555
+    ext_suffix = sysconfig.get_config_var('SO')
+
+
 @contextlib.contextmanager
 def changed_dir(dirname):
     oldcwd = os.getcwd()
@@ -412,10 +418,7 @@ class build_ext(_build_ext):
 
     def _get_cmake_ext_path(self, name):
         # This is the name of the arrow C-extension
-        suffix = sysconfig.get_config_var('EXT_SUFFIX')
-        if suffix is None:
-            suffix = sysconfig.get_config_var('SO')
-        filename = name + suffix
+        filename = name + ext_suffix
         return pjoin(self._get_build_dir(), filename)
 
     def get_ext_generated_cpp_source(self, name):
@@ -435,16 +438,14 @@ class build_ext(_build_ext):
     def get_ext_built(self, name):
         if sys.platform == 'win32':
             head, tail = os.path.split(name)
-            suffix = sysconfig.get_config_var('SO')
             # Visual Studio seems to differ from other generators in
             # where it places output files.
             if self.cmake_generator.startswith('Visual Studio'):
-                return pjoin(head, self.build_type, tail + suffix)
+                return pjoin(head, self.build_type, tail + ext_suffix)
             else:
-                return pjoin(head, tail + suffix)
+                return pjoin(head, tail + ext_suffix)
         else:
-            suffix = sysconfig.get_config_var('SO')
-            return pjoin(self.build_type, name + suffix)
+            return pjoin(self.build_type, name + ext_suffix)
 
     def get_names(self):
         return self._found_names
