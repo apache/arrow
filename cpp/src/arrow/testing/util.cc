@@ -35,8 +35,8 @@ void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
                 [&d, &gen, &pct_null] { return d(gen) > pct_null; });
 }
 
-void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid) {
-  const int random_seed = 0;
+void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid,
+                     int random_seed) {
   std::default_random_engine gen(random_seed);
   std::uniform_real_distribution<double> d(0.0, 1.0);
   is_valid->resize(n, false);

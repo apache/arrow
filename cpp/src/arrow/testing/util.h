@@ -18,6 +18,7 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -89,8 +90,8 @@ inline Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* poo
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
 ARROW_EXPORT void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes);
-ARROW_EXPORT void random_is_valid(int64_t n, double pct_null,
-                                  std::vector<bool>* is_valid);
+ARROW_EXPORT void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid,
+                                  int random_seed = 0);
 ARROW_EXPORT void random_bytes(int64_t n, uint32_t seed, uint8_t* out);
 ARROW_EXPORT int32_t DecimalSize(int32_t precision);
 ARROW_EXPORT void random_decimals(int64_t n, uint32_t seed, int32_t precision,
@@ -101,6 +102,10 @@ ARROW_EXPORT int64_t CountNulls(const std::vector<uint8_t>& valid_bytes);
 ARROW_EXPORT Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
                                          std::shared_ptr<ResizableBuffer>* out,
                                          uint32_t seed = 0);
+
+static inline uint64_t random_seed() {
+  return std::chrono::high_resolution_clock::now().time_since_epoch().count();
+}
 
 template <typename T, typename U>
 void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, U* out) {

@@ -32,6 +32,8 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/util.h"
+
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -126,22 +128,6 @@ static std::vector<T> slice(const std::vector<T>& values, int start, int end) {
     out[i - start] = values[i];
   }
   return out;
-}
-
-static inline std::vector<bool> flip_coins_seed(int n, double p, uint32_t seed) {
-  std::default_random_engine gen(seed);
-  std::bernoulli_distribution d(p);
-
-  std::vector<bool> draws(n);
-  for (int i = 0; i < n; ++i) {
-    draws[i] = d(gen);
-  }
-  return draws;
-}
-
-static inline std::vector<bool> flip_coins(int n, double p) {
-  uint64_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  return flip_coins_seed(n, p, static_cast<uint32_t>(seed));
 }
 
 void random_bytes(int n, uint32_t seed, std::vector<uint8_t>* out) {
@@ -645,7 +631,8 @@ static int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_pa
 template <>
 void inline InitValues<bool>(int num_values, std::vector<bool>& values,
                              std::vector<uint8_t>& buffer) {
-  values = flip_coins(num_values, 0);
+  values = {};
+  ::arrow::random_is_valid(num_values, 1., &values, ::arrow::random_seed());
 }
 
 template <>

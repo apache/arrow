@@ -54,8 +54,8 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   int nvalues = 10000;
   int nbytes = static_cast<int>(::arrow::BitUtil::BytesForBits(nvalues));
 
-  // seed the prng so failure is deterministic
-  std::vector<bool> draws = flip_coins_seed(nvalues, 0.5, 0);
+  std::vector<bool> draws;
+  ::arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
 
   std::unique_ptr<BooleanEncoder> encoder =
       MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
