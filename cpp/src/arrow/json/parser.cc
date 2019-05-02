@@ -144,9 +144,9 @@ struct BuilderPtr {
   // index of builder in its arena
   // OR the length of that builder if kind == Kind::kNull
   // (we don't allocate an arena for nulls since they're trivial)
-  uint32_t index : 28;
-  Kind::type kind : 3;
-  bool nullable : 1;
+  uint32_t index;
+  Kind::type kind;
+  bool nullable;
 
   bool operator==(BuilderPtr other) const {
     return kind == other.kind && index == other.index;

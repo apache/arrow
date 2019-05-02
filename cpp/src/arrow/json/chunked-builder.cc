@@ -351,7 +351,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
     for (size_t i = 0; i < null_bitmap_chunks_.size(); ++i) {
       ArrayVector child_chunks;
       for (const auto& child_array : child_arrays) {
-        child_chunks.push_back(child_array->chunk(i));
+        child_chunks.push_back(child_array->chunk(static_cast<int>(i)));
       }
       chunks[i] = std::make_shared<StructArray>(type, chunk_lengths_[i], child_chunks,
                                                 null_bitmap_chunks_[i]);
