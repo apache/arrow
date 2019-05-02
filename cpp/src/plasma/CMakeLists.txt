@@ -80,6 +80,14 @@ if(ARROW_CUDA)
   add_definitions(-DPLASMA_CUDA)
 endif()
 
+if(NOT APPLE AND NOT MSVC)
+  # Localize thirdparty symbols using a linker version script. This hides them
+  # from the client application. The OS X linker does not support the
+  # version-script option.
+  set(PLASMA_SHARED_LINK_FLAGS
+      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
+endif()
+
 add_arrow_lib(plasma
               SOURCES
               ${PLASMA_SRCS}
@@ -87,6 +95,8 @@ add_arrow_lib(plasma
               PLASMA_LIBRARIES
               DEPENDENCIES
               gen_plasma_fbs
+              SHARED_LINK_FLAGS
+              ${PLASMA_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
               ${PLASMA_LINK_LIBS}
               STATIC_LINK_LIBS

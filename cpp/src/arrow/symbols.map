@@ -18,11 +18,6 @@
 {
   global:
     extern "C++" {
-      # Export pthread_once-related symbols so that two SO files
-      # (e.g. libarrow.so and libplasma.so) don't use separate copies of
-      # those symbols.
-      # See https://github.com/apache/arrow/pull/1953#issuecomment-386057063
-      std::__once*;
       # The leading asterisk is required for symbols such as
       # "typeinfo for arrow::SomeClass".
       # Unfortunately this will also catch template specializations
