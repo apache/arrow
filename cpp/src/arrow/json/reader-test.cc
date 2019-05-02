@@ -167,7 +167,7 @@ TEST_P(ReaderTest, MutlipleChunks) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
 
   auto src = scalars_only_src();
-  read_options_.block_size = src.length() / 3;
+  read_options_.block_size = static_cast<int>(src.length() / 3);
 
   SetUpReader(src);
   ASSERT_OK(reader_->Read(&table_));
@@ -200,7 +200,7 @@ TEST(ReaderTest, MultipleChunksParallel) {
   ParseOptions parse_options;
   parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
   ReadOptions read_options;
-  read_options.block_size = count / 2;  // there will be about two dozen blocks
+  read_options.block_size = static_cast<int>(count / 2);  // there will be about two dozen blocks
 
   std::string json;
   for (int i = 0; i < count; ++i) {
