@@ -167,7 +167,60 @@ def benchmark(ctx):
     pass
 
 
-@benchmark.command(name="diff", short_help="Run the C++ benchmark suite")
+@benchmark.command(name="run", short_help="Run benchmark suite")
+@click.option("--src", metavar="<arrow_src>", show_default=True,
+              default=ArrowSources.find(),
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory")
+@click.option("--suite-filter", metavar="<regex>", show_default=True,
+              type=str, default=None, help="Regex filtering benchmark suites.")
+@click.option("--benchmark-filter", metavar="<regex>", show_default=True,
+              type=str, default=DEFAULT_BENCHMARK_FILTER,
+              help="Regex filtering benchmark suites.")
+@click.option("--preserve", type=bool, default=False, show_default=True,
+              is_flag=True, help="Preserve workspace for investigation.")
+@click.option("--output", metavar="<output>",
+              type=click.File("w", encoding="utf8"), default="-",
+              help="Capture output result into file.")
+@click.option("--cmake-extras", type=str, multiple=True,
+              help="Extra flags/options to pass to cmake invocation. "
+              "Can be stacked")
+@click.argument("baseline", metavar="[<baseline>]]", default="master",
+                required=False)
+@click.pass_context
+def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
+                  output, cmake_extras, baseline):
+    """ Run benchmark suite.
+
+    This command will run the benchmark suite for a single build. This is
+    used to capture (and/or publish) the results.
+
+    The caller can optionally specify a target which is either a git revision
+    (commit, tag, special values like HEAD) or a cmake build directory.
+
+
+    When a commit is referenced, a local clone of the arrow sources (specified
+    via --src) is performed and the proper branch is created. This is done in
+    a temporary directory which can be left intact with the `---preserve` flag.
+
+    The special token "WORKSPACE" is reserved to specify the current git
+    workspace. This imply that no clone will be performed.
+    """
+    with tmpdir(preserve) as root:
+        logger.debug(f"Running benchmark {baseline}")
+
+        conf = CppConfiguration(
+            build_type="release", with_tests=True, with_benchmarks=True,
+            with_python=False, cmake_extras=cmake_extras)
+
+        runner_base = CppBenchmarkRunner.from_rev_or_path(
+            src, root, baseline, conf)
+
+        for suite in runner_base.suites(suite_filter, benchmark_filter):
+            print(suite, file=output)
+
+
+@benchmark.command(name="diff", short_help="Compare benchmark suites")
 @click.option("--src", metavar="<arrow_src>", show_default=True,
               default=ArrowSources.find(),
               callback=validate_arrow_sources,
