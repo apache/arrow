@@ -82,7 +82,7 @@ On macOS, you can use `Homebrew <https://brew.sh/>`_.
 
    git clone https://github.com/apache/arrow.git
    cd arrow
-   brew update && brew bundle --file=c_glib/Brewfile
+   brew update && brew bundle --file=cpp/Brewfile
 
 Building
 ========

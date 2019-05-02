@@ -15,6 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "ccache"
+brew "automake"
 brew "boost"
+brew "ccache"
+brew "cmake"
+brew "double-conversion"
+brew "git"
+brew "glog"
+brew "llvm@7"
+brew "ninja"
 brew "thrift"
+brew "wget"

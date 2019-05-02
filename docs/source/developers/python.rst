@@ -191,14 +191,8 @@ building Arrow C++:
 
 .. code-block:: shell
 
-   brew update && brew bundle --file=arrow/python/Brewfile
+   brew update && brew bundle --file=arrow/cpp/Brewfile
 
-If you find that your system is missing additional dependencies, consider
-also:
-
-.. code-block:: shell
-
-   brew bundle --file=arrow/c_glib/Brewfile
 
 See :ref:`here <cpp-build-dependency-management>` for a list of dependencies you
 may need.
