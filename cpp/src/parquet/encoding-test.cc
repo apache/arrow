@@ -31,9 +31,9 @@
 
 #include "parquet/encoding.h"
 #include "parquet/schema.h"
+#include "parquet/test-util.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
-#include "parquet/util/test-common.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;

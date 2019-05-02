@@ -31,12 +31,13 @@
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/murmur3.h"
+#include "parquet/test-util.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"
-#include "parquet/util/test-common.h"
 
 namespace parquet {
 namespace test {
+
 TEST(Murmur3Test, TestBloomFilter) {
   uint64_t result;
   const uint8_t bitset[8] = {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7};
