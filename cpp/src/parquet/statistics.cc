@@ -274,14 +274,14 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     has_min_max_ = has_min_max;
   }
 
-  bool HasMinMax() const { return has_min_max_; }
+  bool HasMinMax() const override { return has_min_max_; }
 
-  void Reset() {
+  void Reset() override {
     ResetCounts();
     has_min_max_ = false;
   }
 
-  void SetMinMax(const T& arg_min, const T& arg_max) {
+  void SetMinMax(const T& arg_min, const T& arg_max) override {
     if (!has_min_max_) {
       has_min_max_ = true;
       Copy(arg_min, &min_, min_buffer_.get());
@@ -300,9 +300,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     SetMinMax(other.min(), other.max());
   }
 
-  void Update(const T* values, int64_t num_not_null, int64_t num_null);
+  void Update(const T* values, int64_t num_not_null, int64_t num_null) override;
   void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
-                    int64_t num_not_null, int64_t num_null);
+                    int64_t num_not_null, int64_t num_null) override;
 
   const T& min() const override { return min_; }
 
@@ -322,7 +322,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     return s;
   }
 
-  EncodedStatistics Encode() {
+  EncodedStatistics Encode() override {
     EncodedStatistics s;
     if (HasMinMax()) {
       s.set_min(this->EncodeMin());

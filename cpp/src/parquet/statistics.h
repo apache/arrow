@@ -33,24 +33,37 @@ namespace parquet {
 // ----------------------------------------------------------------------
 // Value comparator interfaces
 
-/// \brief Base class for value comparators. Use with
+/// \brief Base class for value comparators. Generally used with
 /// TypedComparator<T>
 class PARQUET_EXPORT Comparator {
  public:
   virtual ~Comparator() {}
+
+  /// \brief Create a comparator explicitly from physical type and
+  /// sort order
+  /// \param[in] physical_type the physical type for the typed
+  /// comparator
+  /// \param[in] sort_order either SortOrder::SIGNED or
+  /// SortOrder::UNSIGNED
+  /// \param[in] type_length for FIXED_LEN_BYTE_ARRAY only
   static std::shared_ptr<Comparator> Make(Type::type physical_type,
                                           SortOrder::type sort_order,
                                           int type_length = -1);
+
+  /// \brief Create typed comparator inferring default sort order from
+  /// ColumnDescriptor
+  /// \param[in] descr the Parquet column schema
   static std::shared_ptr<Comparator> Make(const ColumnDescriptor* descr);
 };
 
 /// \brief Interface for comparison of physical types according to the
-/// semantics of a particular logical type
+/// semantics of a particular logical type.
 template <typename DType>
 class TypedComparator : public Comparator {
  public:
   using T = typename DType::c_type;
 
+  /// \brief Typed version of Comparator::Make
   static std::shared_ptr<TypedComparator<DType>> Make(Type::type physical_type,
                                                       SortOrder::type sort_order,
                                                       int type_length = -1) {
@@ -58,6 +71,7 @@ class TypedComparator : public Comparator {
         Comparator::Make(physical_type, sort_order, type_length));
   }
 
+  /// \brief Typed version of Comparator::Make
   static std::shared_ptr<TypedComparator<DType>> Make(const ColumnDescriptor* descr) {
     return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
   }
@@ -66,13 +80,30 @@ class TypedComparator : public Comparator {
   /// is strictly less than the second
   virtual bool Compare(const T& a, const T& b) = 0;
 
+  /// \brief Compute maximum and minimum elements in a batch of
+  /// elements without any nulls
   virtual void GetMinMax(const T* values, int64_t length, T* out_min, T* out_max) = 0;
+
+  /// \brief Compute maximum and minimum elements in a batch of
+  /// elements with accompanying bitmap indicating which elements are
+  /// included (bit set) and excluded (bit not set)
+  ///
+  /// \param[in] values the sequence of values
+  /// \param[in] length the length of the sequence
+  /// \param[in] valid_bits a bitmap indicating which elements are
+  /// included (1) or excluded (0)
+  /// \param[in] valid_bits_offset the bit offset into the bitmap of
+  /// the first element in the sequence
+  /// \param[out] out_min the returned minimum element
+  /// \param[out] out_max the returned maximum element
   virtual void GetMinMaxSpaced(const T* values, int64_t length, const uint8_t* valid_bits,
                                int64_t valid_bits_offset, T* out_min, T* out_max) = 0;
 };
 
 // ----------------------------------------------------------------------
 
+/// \brief Structure represented encoded statistics to be written to
+/// and from Parquet serialized metadata
 class PARQUET_EXPORT EncodedStatistics {
   std::shared_ptr<std::string> max_, min_;
 
@@ -123,34 +154,61 @@ class PARQUET_EXPORT EncodedStatistics {
   }
 };
 
-class PARQUET_EXPORT Statistics : public std::enable_shared_from_this<Statistics> {
+/// \brief Base type for computing column statistics while writing a file
+class PARQUET_EXPORT Statistics {
  public:
+  virtual ~Statistics() {}
+
+  /// \brief Create a new statistics instance given a column schema
+  /// definition
+  /// \param[in] descr the column schema
+  /// \param[in] pool a memory pool to use for any memory allocations, optional
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
+  /// \brief Create a new statistics instance given a column schema
+  /// definition and pre-existing state
+  /// \param[in] descr the column schema
+  /// \param[in] encoded_min the encoded minimum value
+  /// \param[in] encoded_max the encoded maximum value
+  /// \param[in] num_values total number of values
+  /// \param[in] null_values number of null values
+  /// \param[in] distinct_count number of distinct values
+  /// \param[in] has_min_max whether the min/max statistics are set
+  /// \param[in] pool a memory pool to use for any memory allocations, optional
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::string& encoded_min,
       const std::string& encoded_max, int64_t num_values, int64_t null_count,
       int64_t distinct_count, bool has_min_max,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
+  /// \brief The number of null values, may not be set
   virtual int64_t null_count() const = 0;
+
+  /// \brief The number of distinct values, may not be set
   virtual int64_t distinct_count() const = 0;
+
+  /// \brief The total number of values in the column
   virtual int64_t num_values() const = 0;
+
+  /// \brief Return true if the min and max statistics are set. Obtain
+  /// with TypedStatistics<T>::min and max
   virtual bool HasMinMax() const = 0;
+
+  /// \brief Reset state of object to initial (no data observed) state
   virtual void Reset() = 0;
 
-  // Plain-encoded minimum value
+  /// \brief Plain-encoded minimum value
   virtual std::string EncodeMin() = 0;
 
-  // Plain-encoded maximum value
+  /// \brief Plain-encoded maximum value
   virtual std::string EncodeMax() = 0;
 
+  /// \brief The finalized encoded form of the statistics for transport
   virtual EncodedStatistics Encode() = 0;
 
-  virtual ~Statistics() {}
-
+  /// \brief The physical type of the column schema
   virtual Type::type physical_type() const = 0;
 
  protected:
@@ -159,11 +217,13 @@ class PARQUET_EXPORT Statistics : public std::enable_shared_from_this<Statistics
                                           int64_t null_count, int64_t distinct_count);
 };
 
+/// \brief A typed implementation of Statistics
 template <typename DType>
 class TypedStatistics : public Statistics {
  public:
   using T = typename DType::c_type;
 
+  /// \brief Typed version of Statistics::Make
   static std::shared_ptr<TypedStatistics<DType>> Make(
       const ColumnDescriptor* descr,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
@@ -171,6 +231,12 @@ class TypedStatistics : public Statistics {
         Statistics::Make(descr, pool));
   }
 
+  /// \brief Create Statistics initialized to a particular state
+  /// \param[in] min the minimum value
+  /// \param[in] max the minimum value
+  /// \param[in] num_values number of values
+  /// \param[in] null_count number of null values
+  /// \param[in] distinct_count number of distinct values
   static std::shared_ptr<TypedStatistics<DType>> Make(const T& min, const T& max,
                                                       int64_t num_values,
                                                       int64_t null_count,
@@ -179,6 +245,7 @@ class TypedStatistics : public Statistics {
         DType::type_num, &min, &max, num_values, null_count, distinct_count));
   }
 
+  /// \brief Typed version of Statistics::Make
   static std::shared_ptr<TypedStatistics<DType>> Make(
       const ColumnDescriptor* descr, const std::string& encoded_min,
       const std::string& encoded_max, int64_t num_values, int64_t null_count,
@@ -189,15 +256,24 @@ class TypedStatistics : public Statistics {
                          distinct_count, has_min_max, pool));
   }
 
+  /// \brief The current minimum value
   virtual const T& min() const = 0;
+
+  /// \brief The current maximum value
   virtual const T& max() const = 0;
 
+  /// \brief Update state with state of another Statistics object
   virtual void Merge(const TypedStatistics<DType>& other) = 0;
 
+  /// \brief Batch statistics update
   virtual void Update(const T* values, int64_t num_not_null, int64_t num_null) = 0;
+
+  /// \brief Batch statistics update with supplied validity bitmap
   virtual void UpdateSpaced(const T* values, const uint8_t* valid_bits,
                             int64_t valid_bits_spaced, int64_t num_not_null,
                             int64_t num_null) = 0;
+
+  /// \brief Set min and max values to particular values
   virtual void SetMinMax(const T& min, const T& max) = 0;
 };
 
