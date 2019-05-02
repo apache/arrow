@@ -140,11 +140,12 @@ public class TestBasicOperation {
         Producer producer = new Producer(a);
         FlightServer s =
             FlightTestUtil.getStartedServer(
-                (port) -> new FlightServer(a, Location.forGrpcInsecure("localhost", port), producer,
-                    ServerAuthHandler.NO_OP))) {
+                (port) -> FlightServer.builder(a, Location.forGrpcInsecure("localhost", port), producer).build()
+            )) {
 
       try (
-          FlightClient c = new FlightClient(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort()));
+          FlightClient c = FlightClient.builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort()))
+              .build()
       ) {
         try (BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE)) {
           consumer.accept(c, testAllocator);

@@ -20,7 +20,6 @@ package org.apache.arrow.flight;
 import static io.grpc.stub.ClientCalls.asyncClientStreamingCall;
 import static io.grpc.stub.ClientCalls.asyncServerStreamingCall;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
@@ -50,8 +49,8 @@ import com.google.common.util.concurrent.SettableFuture;
 
 import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
+import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.StreamObserver;
@@ -71,17 +70,9 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
 
-  /**
-   * Construct client for accessing RouteGuide server using the existing channel.
-   */
-  public FlightClient(BufferAllocator incomingAllocator, Location location) {
-    final ManagedChannelBuilder<?> channelBuilder =
-        ManagedChannelBuilder.forAddress(location.getUri().getHost(), location.getUri().getPort())
-            .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
-            .maxInboundMessageSize(FlightServer.MAX_GRPC_MESSAGE_SIZE)
-            .usePlaintext();
+  private FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
-    channel = channelBuilder.build();
+    this.channel = channel;
     blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);
     asyncStub = FlightServiceGrpc.newStub(channel).withInterceptors(authInterceptor);
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
@@ -324,4 +315,64 @@ public class FlightClient implements AutoCloseable {
     allocator.close();
   }
 
+  /**
+   * Create a builder for a Flight client.
+   * @param allocator The allocator to use for the client.
+   * @param location The location to connect to.
+   */
+  public static Builder builder(BufferAllocator allocator, Location location) {
+    return new Builder(allocator, location);
+  }
+
+  /**
+   * A builder for Flight clients.
+   */
+  public static final class Builder {
+
+    private final BufferAllocator allocator;
+    private final Location location;
+    private boolean forceTls = false;
+
+    private Builder(BufferAllocator allocator, Location location) {
+      this.allocator = allocator;
+      this.location = location;
+    }
+
+    /**
+     * Force the client to connect over TLS.
+     */
+    public Builder useTls() {
+      this.forceTls = true;
+      return this;
+    }
+
+    /**
+     * Create the client from this builder.
+     */
+    public FlightClient build() {
+      final NettyChannelBuilder builder;
+
+      switch (location.getUri().getScheme()) {
+        case LocationSchemes.GRPC:
+        case LocationSchemes.GRPC_INSECURE:
+        case LocationSchemes.GRPC_TLS: {
+          builder = NettyChannelBuilder.forAddress(location.getUri().getHost(), location.getUri().getPort());
+          break;
+        }
+        default:
+          throw new IllegalArgumentException("Scheme is not supported: " + location.getUri().getScheme());
+      }
+
+      if (this.forceTls || LocationSchemes.GRPC_TLS.equals(location.getUri().getScheme())) {
+        builder.useTransportSecurity();
+      } else {
+        builder.usePlaintext();
+      }
+
+      builder
+          .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
+          .maxInboundMessageSize(FlightServer.MAX_GRPC_MESSAGE_SIZE);
+      return new FlightClient(allocator, builder.build());
+    }
+  }
 }

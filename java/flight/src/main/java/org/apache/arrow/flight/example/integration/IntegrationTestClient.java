@@ -82,7 +82,7 @@ class IntegrationTestClient {
 
     final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     final Location defaultLocation = Location.forGrpcInsecure(host, port);
-    final FlightClient client = new FlightClient(allocator, defaultLocation);
+    final FlightClient client = FlightClient.builder(allocator, defaultLocation).build();
 
     final String inputPath = cmd.getOptionValue("j");
 
@@ -120,7 +120,7 @@ class IntegrationTestClient {
       }
       for (Location location : locations) {
         System.out.println("Verifying location " + location.getUri());
-        FlightClient readClient = new FlightClient(allocator, location);
+        FlightClient readClient = FlightClient.builder(allocator, location).build();
         FlightStream stream = readClient.getStream(endpoint.getTicket());
         VectorSchemaRoot downloadedRoot;
         try (VectorSchemaRoot root = stream.getRoot()) {

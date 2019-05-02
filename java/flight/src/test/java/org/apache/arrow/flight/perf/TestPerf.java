@@ -83,7 +83,7 @@ public class TestPerf {
           final PerformanceTestServer server =
               FlightTestUtil.getStartedServer((port) -> new PerformanceTestServer(a,
                   Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, port)));
-          final FlightClient client = new FlightClient(a, server.getLocation());
+          final FlightClient client = FlightClient.builder(a, server.getLocation()).build();
       ) {
         final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000L, 4095, 2));
         ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));

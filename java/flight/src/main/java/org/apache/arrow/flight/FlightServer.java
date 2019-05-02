@@ -17,8 +17,13 @@
 
 package org.apache.arrow.flight;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
@@ -39,41 +44,9 @@ public class FlightServer implements AutoCloseable {
   /** The maximum size of an individual gRPC message. This effectively disables the limit. */
   static final int MAX_GRPC_MESSAGE_SIZE = Integer.MAX_VALUE;
 
-  /**
-   * Constructs a new instance.
-   *
-   * @param allocator The allocator to use for storing/copying arrow data.
-   * @param location The location to serve on.
-   * @param producer The underlying business logic for the server.
-   * @param authHandler The authorization handler for the server.
-   */
-  public FlightServer(
-      BufferAllocator allocator,
-      Location location,
-      FlightProducer producer,
-      ServerAuthHandler authHandler) {
-    final NettyServerBuilder builder;
-    switch (location.getUri().getScheme()) {
-      case LocationSchemes.GRPC_DOMAIN_SOCKET: {
-        // TODO: need reflection to check if domain sockets are available
-        throw new UnsupportedOperationException("Domain sockets are not available.");
-      }
-      case LocationSchemes.GRPC:
-      case LocationSchemes.GRPC_INSECURE: {
-        builder = NettyServerBuilder
-            .forAddress(new InetSocketAddress(location.getUri().getHost(), location.getUri().getPort()));
-        break;
-      }
-      default:
-        throw new IllegalArgumentException("Scheme is not supported: " + location.getUri().getScheme());
-    }
-    this.server = builder
-        .maxInboundMessageSize(MAX_GRPC_MESSAGE_SIZE)
-        .addService(
-            ServerInterceptors.intercept(
-                new FlightBindingService(allocator, producer, authHandler),
-                new ServerAuthInterceptor(authHandler)))
-        .build();
+  /** Create a new instance from a gRPC server. For internal use only. */
+  private FlightServer(Server server) {
+    this.server = server;
   }
 
   /** Start the server. */
@@ -115,20 +88,86 @@ public class FlightServer implements AutoCloseable {
     }
   }
 
-  public interface OutputFlight {
-    void sendData(int count);
-
-    void done();
-
-    void fail(Throwable t);
+  public static Builder builder(BufferAllocator allocator, Location location, FlightProducer producer) {
+    return new Builder(allocator, location, producer);
   }
 
-  public interface FlightServerHandler {
+  public static final class Builder {
 
-    public FlightInfo getFlightInfo(String descriptor) throws Exception;
+    private final BufferAllocator allocator;
+    private final Location location;
+    private final FlightProducer producer;
+    private ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
 
-    public OutputFlight setupFlight(VectorSchemaRoot root);
+    private InputStream certChain;
+    private InputStream key;
 
+    Builder(BufferAllocator allocator, Location location, FlightProducer producer) {
+      this.allocator = allocator;
+      this.location = location;
+      this.producer = producer;
+    }
+
+    public FlightServer build() {
+      final NettyServerBuilder builder;
+      switch (location.getUri().getScheme()) {
+        case LocationSchemes.GRPC_DOMAIN_SOCKET: {
+          // TODO: need reflection to check if domain sockets are available
+          throw new UnsupportedOperationException("Domain sockets are not available.");
+        }
+        case LocationSchemes.GRPC:
+        case LocationSchemes.GRPC_INSECURE: {
+          builder = NettyServerBuilder
+              .forAddress(new InetSocketAddress(location.getUri().getHost(), location.getUri().getPort()));
+          break;
+        }
+        case LocationSchemes.GRPC_TLS: {
+          if (certChain == null) {
+            throw new IllegalArgumentException("Must provide a certificate and key to serve gRPC over TLS");
+          }
+          builder = NettyServerBuilder
+              .forAddress(new InetSocketAddress(location.getUri().getHost(), location.getUri().getPort()));
+          break;
+        }
+        default:
+          throw new IllegalArgumentException("Scheme is not supported: " + location.getUri().getScheme());
+      }
+
+      if (certChain != null) {
+        builder.useTransportSecurity(certChain, key);
+      }
+
+      final Server server = builder
+          .executor(new ForkJoinPool())
+          .maxInboundMessageSize(MAX_GRPC_MESSAGE_SIZE)
+          .addService(
+              ServerInterceptors.intercept(
+                  new FlightBindingService(allocator, producer, authHandler),
+                  new ServerAuthInterceptor(authHandler)))
+          .build();
+      return new FlightServer(server);
+    }
+
+    /**
+     * Enable TLS on the server.
+     * @param certChain The certificate chain to use.
+     * @param key The private key to use.
+     */
+    public Builder useTls(final File certChain, final File key) throws IOException {
+      this.certChain = new FileInputStream(certChain);
+      this.key = new FileInputStream(key);
+      return this;
+    }
+
+    public Builder useTls(final InputStream certChain, final InputStream key) {
+      this.certChain = certChain;
+      this.key = key;
+      return this;
+    }
+
+    public Builder setAuthHandler(ServerAuthHandler authHandler) {
+      this.authHandler = authHandler;
+      return this;
+    }
   }
-
 }

@@ -59,7 +59,7 @@ public class TestExampleServer {
     } else {
       System.out.println("Skipping server startup.");
     }
-    client = new FlightClient(allocator, l);
+    client = FlightClient.builder(allocator, l).build();
     caseAllocator = allocator.newChildAllocator("test-case", 0, Long.MAX_VALUE);
   }
 

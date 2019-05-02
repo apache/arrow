@@ -46,7 +46,7 @@ public class ExampleFlightServer implements AutoCloseable {
     this.allocator = allocator.newChildAllocator("flight-server", 0, Long.MAX_VALUE);
     this.location = location;
     this.mem = new InMemoryStore(this.allocator, location);
-    this.flightServer = new FlightServer(allocator, location, mem, ServerAuthHandler.NO_OP);
+    this.flightServer = FlightServer.builder(allocator, location, mem).build();
   }
 
   public Location getLocation() {

@@ -119,7 +119,7 @@ public class TestAuth {
       }
     };
 
-    server = FlightTestUtil.getStartedServer((port) -> new FlightServer(
+    server = FlightTestUtil.getStartedServer((port) -> FlightServer.builder(
         allocator,
         Location.forGrpcInsecure("localhost", port),
         new NoOpFlightProducer() {
@@ -149,9 +149,9 @@ public class TestAuth {
             root.clear();
             listener.completed();
           }
-        },
-        new BasicServerAuthHandler(validator)));
-    client = new FlightClient(allocator, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort()));
+        }).setAuthHandler(new BasicServerAuthHandler(validator)).build());
+    client = FlightClient.builder(allocator, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort()))
+        .build();
   }
 
   @After
