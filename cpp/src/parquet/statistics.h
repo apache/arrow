@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_COLUMN_STATISTICS_H
-#define PARQUET_COLUMN_STATISTICS_H
+#pragma once
 
 #include <algorithm>
 #include <cstdint>
@@ -25,13 +24,86 @@
 
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/comparison.h"
 #include "parquet/util/macros.h"
 #include "parquet/util/memory.h"
 #include "parquet/util/visibility.h"
 
 namespace parquet {
 
+// ----------------------------------------------------------------------
+// Value comparator interfaces
+
+/// \brief Base class for value comparators. Generally used with
+/// TypedComparator<T>
+class PARQUET_EXPORT Comparator {
+ public:
+  virtual ~Comparator() {}
+
+  /// \brief Create a comparator explicitly from physical type and
+  /// sort order
+  /// \param[in] physical_type the physical type for the typed
+  /// comparator
+  /// \param[in] sort_order either SortOrder::SIGNED or
+  /// SortOrder::UNSIGNED
+  /// \param[in] type_length for FIXED_LEN_BYTE_ARRAY only
+  static std::shared_ptr<Comparator> Make(Type::type physical_type,
+                                          SortOrder::type sort_order,
+                                          int type_length = -1);
+
+  /// \brief Create typed comparator inferring default sort order from
+  /// ColumnDescriptor
+  /// \param[in] descr the Parquet column schema
+  static std::shared_ptr<Comparator> Make(const ColumnDescriptor* descr);
+};
+
+/// \brief Interface for comparison of physical types according to the
+/// semantics of a particular logical type.
+template <typename DType>
+class TypedComparator : public Comparator {
+ public:
+  using T = typename DType::c_type;
+
+  /// \brief Typed version of Comparator::Make
+  static std::shared_ptr<TypedComparator<DType>> Make(Type::type physical_type,
+                                                      SortOrder::type sort_order,
+                                                      int type_length = -1) {
+    return std::static_pointer_cast<TypedComparator<DType>>(
+        Comparator::Make(physical_type, sort_order, type_length));
+  }
+
+  /// \brief Typed version of Comparator::Make
+  static std::shared_ptr<TypedComparator<DType>> Make(const ColumnDescriptor* descr) {
+    return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
+  }
+
+  /// \brief Scalar comparison of two elements, return true if first
+  /// is strictly less than the second
+  virtual bool Compare(const T& a, const T& b) = 0;
+
+  /// \brief Compute maximum and minimum elements in a batch of
+  /// elements without any nulls
+  virtual void GetMinMax(const T* values, int64_t length, T* out_min, T* out_max) = 0;
+
+  /// \brief Compute maximum and minimum elements in a batch of
+  /// elements with accompanying bitmap indicating which elements are
+  /// included (bit set) and excluded (bit not set)
+  ///
+  /// \param[in] values the sequence of values
+  /// \param[in] length the length of the sequence
+  /// \param[in] valid_bits a bitmap indicating which elements are
+  /// included (1) or excluded (0)
+  /// \param[in] valid_bits_offset the bit offset into the bitmap of
+  /// the first element in the sequence
+  /// \param[out] out_min the returned minimum element
+  /// \param[out] out_max the returned maximum element
+  virtual void GetMinMaxSpaced(const T* values, int64_t length, const uint8_t* valid_bits,
+                               int64_t valid_bits_offset, T* out_min, T* out_max) = 0;
+};
+
+// ----------------------------------------------------------------------
+
+/// \brief Structure represented encoded statistics to be written to
+/// and from Parquet serialized metadata
 class PARQUET_EXPORT EncodedStatistics {
   std::shared_ptr<std::string> max_, min_;
 
@@ -82,160 +154,140 @@ class PARQUET_EXPORT EncodedStatistics {
   }
 };
 
-template <typename DType>
-class PARQUET_TEMPLATE_CLASS_EXPORT TypedRowGroupStatistics;
-
-class PARQUET_EXPORT RowGroupStatistics
-    : public std::enable_shared_from_this<RowGroupStatistics> {
+/// \brief Base type for computing column statistics while writing a file
+class PARQUET_EXPORT Statistics {
  public:
-  int64_t null_count() const { return statistics_.null_count; }
-  int64_t distinct_count() const { return statistics_.distinct_count; }
-  int64_t num_values() const { return num_values_; }
+  virtual ~Statistics() {}
 
+  /// \brief Create a new statistics instance given a column schema
+  /// definition
+  /// \param[in] descr the column schema
+  /// \param[in] pool a memory pool to use for any memory allocations, optional
+  static std::shared_ptr<Statistics> Make(
+      const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+  /// \brief Create a new statistics instance given a column schema
+  /// definition and pre-existing state
+  /// \param[in] descr the column schema
+  /// \param[in] encoded_min the encoded minimum value
+  /// \param[in] encoded_max the encoded maximum value
+  /// \param[in] num_values total number of values
+  /// \param[in] null_count number of null values
+  /// \param[in] distinct_count number of distinct values
+  /// \param[in] has_min_max whether the min/max statistics are set
+  /// \param[in] pool a memory pool to use for any memory allocations, optional
+  static std::shared_ptr<Statistics> Make(
+      const ColumnDescriptor* descr, const std::string& encoded_min,
+      const std::string& encoded_max, int64_t num_values, int64_t null_count,
+      int64_t distinct_count, bool has_min_max,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+  /// \brief The number of null values, may not be set
+  virtual int64_t null_count() const = 0;
+
+  /// \brief The number of distinct values, may not be set
+  virtual int64_t distinct_count() const = 0;
+
+  /// \brief The total number of values in the column
+  virtual int64_t num_values() const = 0;
+
+  /// \brief Return true if the min and max statistics are set. Obtain
+  /// with TypedStatistics<T>::min and max
   virtual bool HasMinMax() const = 0;
+
+  /// \brief Reset state of object to initial (no data observed) state
   virtual void Reset() = 0;
 
-  // Plain-encoded minimum value
+  /// \brief Plain-encoded minimum value
   virtual std::string EncodeMin() = 0;
 
-  // Plain-encoded maximum value
+  /// \brief Plain-encoded maximum value
   virtual std::string EncodeMax() = 0;
 
+  /// \brief The finalized encoded form of the statistics for transport
   virtual EncodedStatistics Encode() = 0;
 
-  // Set the Corresponding Comparator
-  virtual void SetComparator() = 0;
-
-  virtual ~RowGroupStatistics() {}
-
-  Type::type physical_type() const { return descr_->physical_type(); }
+  /// \brief The physical type of the column schema
+  virtual Type::type physical_type() const = 0;
 
  protected:
-  const ColumnDescriptor* descr() const { return descr_; }
-  void SetDescr(const ColumnDescriptor* schema) {
-    descr_ = schema;
-    SetComparator();
-  }
-
-  void IncrementNullCount(int64_t n) { statistics_.null_count += n; }
-
-  void IncrementNumValues(int64_t n) { num_values_ += n; }
-
-  void IncrementDistinctCount(int64_t n) { statistics_.distinct_count += n; }
-
-  void MergeCounts(const RowGroupStatistics& other) {
-    this->statistics_.null_count += other.statistics_.null_count;
-    this->statistics_.distinct_count += other.statistics_.distinct_count;
-    this->num_values_ += other.num_values_;
-  }
-
-  void ResetCounts() {
-    this->statistics_.null_count = 0;
-    this->statistics_.distinct_count = 0;
-    this->num_values_ = 0;
-  }
-
-  const ColumnDescriptor* descr_ = NULLPTR;
-  int64_t num_values_ = 0;
-  EncodedStatistics statistics_;
+  static std::shared_ptr<Statistics> Make(Type::type physical_type, const void* min,
+                                          const void* max, int64_t num_values,
+                                          int64_t null_count, int64_t distinct_count);
 };
 
+/// \brief A typed implementation of Statistics
 template <typename DType>
-class PARQUET_TEMPLATE_CLASS_EXPORT TypedRowGroupStatistics : public RowGroupStatistics {
+class TypedStatistics : public Statistics {
  public:
   using T = typename DType::c_type;
 
-  TypedRowGroupStatistics(const ColumnDescriptor* schema,
-                          ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+  /// \brief Typed version of Statistics::Make
+  static std::shared_ptr<TypedStatistics<DType>> Make(
+      const ColumnDescriptor* descr,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    return std::static_pointer_cast<TypedStatistics<DType>>(
+        Statistics::Make(descr, pool));
+  }
 
-  TypedRowGroupStatistics(const T& min, const T& max, int64_t num_values,
-                          int64_t null_count, int64_t distinct_count);
+  /// \brief Create Statistics initialized to a particular state
+  /// \param[in] min the minimum value
+  /// \param[in] max the minimum value
+  /// \param[in] num_values number of values
+  /// \param[in] null_count number of null values
+  /// \param[in] distinct_count number of distinct values
+  static std::shared_ptr<TypedStatistics<DType>> Make(const T& min, const T& max,
+                                                      int64_t num_values,
+                                                      int64_t null_count,
+                                                      int64_t distinct_count) {
+    return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
+        DType::type_num, &min, &max, num_values, null_count, distinct_count));
+  }
 
-  TypedRowGroupStatistics(const ColumnDescriptor* schema, const std::string& encoded_min,
-                          const std::string& encoded_max, int64_t num_values,
-                          int64_t null_count, int64_t distinct_count, bool has_min_max,
-                          ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+  /// \brief Typed version of Statistics::Make
+  static std::shared_ptr<TypedStatistics<DType>> Make(
+      const ColumnDescriptor* descr, const std::string& encoded_min,
+      const std::string& encoded_max, int64_t num_values, int64_t null_count,
+      int64_t distinct_count, bool has_min_max,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    return std::static_pointer_cast<TypedStatistics<DType>>(
+        Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                         distinct_count, has_min_max, pool));
+  }
 
-  bool HasMinMax() const override;
-  void Reset() override;
-  void SetComparator() override;
-  void Merge(const TypedRowGroupStatistics<DType>& other);
+  /// \brief The current minimum value
+  virtual const T& min() const = 0;
 
-  void Update(const T* values, int64_t num_not_null, int64_t num_null);
-  void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_spaced,
-                    int64_t num_not_null, int64_t num_null);
-  void SetMinMax(const T& min, const T& max);
+  /// \brief The current maximum value
+  virtual const T& max() const = 0;
 
-  const T& min() const;
-  const T& max() const;
+  /// \brief Update state with state of another Statistics object
+  virtual void Merge(const TypedStatistics<DType>& other) = 0;
 
-  std::string EncodeMin() override;
-  std::string EncodeMax() override;
-  EncodedStatistics Encode() override;
+  /// \brief Batch statistics update
+  virtual void Update(const T* values, int64_t num_not_null, int64_t num_null) = 0;
 
- private:
-  bool has_min_max_ = false;
-  T min_;
-  T max_;
-  ::arrow::MemoryPool* pool_;
-  std::shared_ptr<CompareDefault<DType> > comparator_;
+  /// \brief Batch statistics update with supplied validity bitmap
+  virtual void UpdateSpaced(const T* values, const uint8_t* valid_bits,
+                            int64_t valid_bits_spaced, int64_t num_not_null,
+                            int64_t num_null) = 0;
 
-  void PlainEncode(const T& src, std::string* dst);
-  void PlainDecode(const std::string& src, T* dst);
-  void Copy(const T& src, T* dst, ResizableBuffer* buffer);
-
-  std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
+  /// \brief Set min and max values to particular values
+  virtual void SetMinMax(const T& min, const T& max) = 0;
 };
 
-template <typename DType>
-inline void TypedRowGroupStatistics<DType>::Copy(const T& src, T* dst, ResizableBuffer*) {
-  *dst = src;
-}
+#ifndef ARROW_NO_DEPRECATED_API
+// TODO(wesm): Remove after Arrow 0.14.0
+using RowGroupStatistics = Statistics;
+#endif
 
-template <>
-inline void TypedRowGroupStatistics<FLBAType>::Copy(const FLBA& src, FLBA* dst,
-                                                    ResizableBuffer* buffer) {
-  if (dst->ptr == src.ptr) return;
-  uint32_t len = descr_->type_length();
-  PARQUET_THROW_NOT_OK(buffer->Resize(len, false));
-  std::memcpy(buffer->mutable_data(), src.ptr, len);
-  *dst = FLBA(buffer->data());
-}
-
-template <>
-inline void TypedRowGroupStatistics<ByteArrayType>::Copy(const ByteArray& src,
-                                                         ByteArray* dst,
-                                                         ResizableBuffer* buffer) {
-  if (dst->ptr == src.ptr) return;
-  PARQUET_THROW_NOT_OK(buffer->Resize(src.len, false));
-  std::memcpy(buffer->mutable_data(), src.ptr, src.len);
-  *dst = ByteArray(src.len, buffer->data());
-}
-
-template <>
-void TypedRowGroupStatistics<ByteArrayType>::PlainEncode(const T& src, std::string* dst);
-
-template <>
-void TypedRowGroupStatistics<ByteArrayType>::PlainDecode(const std::string& src, T* dst);
-
-typedef TypedRowGroupStatistics<BooleanType> BoolStatistics;
-typedef TypedRowGroupStatistics<Int32Type> Int32Statistics;
-typedef TypedRowGroupStatistics<Int64Type> Int64Statistics;
-typedef TypedRowGroupStatistics<Int96Type> Int96Statistics;
-typedef TypedRowGroupStatistics<FloatType> FloatStatistics;
-typedef TypedRowGroupStatistics<DoubleType> DoubleStatistics;
-typedef TypedRowGroupStatistics<ByteArrayType> ByteArrayStatistics;
-typedef TypedRowGroupStatistics<FLBAType> FLBAStatistics;
-
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<BooleanType>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int32Type>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int64Type>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<Int96Type>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<FloatType>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<DoubleType>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<ByteArrayType>;
-PARQUET_EXTERN_TEMPLATE TypedRowGroupStatistics<FLBAType>;
+using BoolStatistics = TypedStatistics<BooleanType>;
+using Int32Statistics = TypedStatistics<Int32Type>;
+using Int64Statistics = TypedStatistics<Int64Type>;
+using FloatStatistics = TypedStatistics<FloatType>;
+using DoubleStatistics = TypedStatistics<DoubleType>;
+using ByteArrayStatistics = TypedStatistics<ByteArrayType>;
+using FLBAStatistics = TypedStatistics<FLBAType>;
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_STATISTICS_H

@@ -69,7 +69,7 @@ class ARROW_EXPORT ServerAuthHandler {
 /// \brief An authentication mechanism that does nothing.
 class ARROW_EXPORT NoOpAuthHandler : public ServerAuthHandler {
  public:
-  ~NoOpAuthHandler();
+  ~NoOpAuthHandler() override;
   Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;
   Status IsValid(const std::string& token, std::string* peer_identity) override;
 };

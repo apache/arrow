@@ -54,15 +54,6 @@
 #endif
 #endif  // Non-Windows
 
-// gcc and clang disagree about how to handle template visibility when you have
-// explicit specializations https://llvm.org/bugs/show_bug.cgi?id=24815
-
-#if defined(__clang__)
-#define PARQUET_EXTERN_TEMPLATE extern template class PARQUET_EXPORT
-#else
-#define PARQUET_EXTERN_TEMPLATE extern template class
-#endif
-
 // This is a complicated topic, some reading on it:
 // http://www.codesynthesis.com/~boris/blog/2010/01/18/dll-export-cxx-templates/
 #if defined(_MSC_VER) || defined(__clang__)

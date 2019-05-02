@@ -150,7 +150,7 @@ class FlightIpcMessageReader : public ipc::MessageReader {
   Status OverrideWithServerError(Status&& st) {
     // Get the gRPC status if not OK, to propagate any server error message
     RETURN_NOT_OK(internal::FromGrpcStatus(stream_->Finish()));
-    return st;
+    return std::move(st);
   }
 
   // The RPC context lifetime must be coupled to the ClientReader

@@ -68,26 +68,26 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 }
 
 template <typename DType>
-static std::shared_ptr<RowGroupStatistics> MakeTypedColumnStats(
+static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   // If ColumnOrder is defined, return max_value and min_value
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
-    return std::make_shared<TypedRowGroupStatistics<DType>>(
+    return TypedStatistics<DType>::Make(
         descr, metadata.statistics.min_value, metadata.statistics.max_value,
         metadata.num_values - metadata.statistics.null_count,
         metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value || metadata.statistics.__isset.min_value);
   }
   // Default behavior
-  return std::make_shared<TypedRowGroupStatistics<DType>>(
+  return TypedStatistics<DType>::Make(
       descr, metadata.statistics.min, metadata.statistics.max,
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max || metadata.statistics.__isset.min);
 }
 
-std::shared_ptr<RowGroupStatistics> MakeColumnStats(
-    const format::ColumnMetaData& meta_data, const ColumnDescriptor* descr) {
+std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
+                                            const ColumnDescriptor* descr) {
   switch (static_cast<Type::type>(meta_data.type)) {
     case Type::BOOLEAN:
       return MakeTypedColumnStats<BooleanType>(meta_data, descr);
@@ -159,7 +159,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                                  descr_->sort_order());
   }
 
-  inline std::shared_ptr<RowGroupStatistics> statistics() const {
+  inline std::shared_ptr<Statistics> statistics() const {
     return is_stats_set() ? possible_stats_ : nullptr;
   }
 
@@ -196,7 +196,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
  private:
-  mutable std::shared_ptr<RowGroupStatistics> possible_stats_;
+  mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
   const format::ColumnChunk* column_;
   const ColumnDescriptor* descr_;
@@ -232,7 +232,7 @@ std::shared_ptr<schema::ColumnPath> ColumnChunkMetaData::path_in_schema() const 
   return impl_->path_in_schema();
 }
 
-std::shared_ptr<RowGroupStatistics> ColumnChunkMetaData::statistics() const {
+std::shared_ptr<Statistics> ColumnChunkMetaData::statistics() const {
   return impl_->statistics();
 }
 

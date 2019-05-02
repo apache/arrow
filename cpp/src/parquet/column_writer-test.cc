@@ -23,11 +23,11 @@
 #include "parquet/column_writer.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
+#include "parquet/statistics.h"
 #include "parquet/test-specialization.h"
 #include "parquet/test-util.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
-#include "parquet/util/comparison.h"
 #include "parquet/util/memory.h"
 
 namespace parquet {
@@ -215,16 +215,14 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   void ReadAndCompare(Compression::type compression, int64_t num_rows) {
     this->SetupValuesOut(num_rows);
     this->ReadColumnFully(compression);
-    std::shared_ptr<CompareDefault<TestType>> compare;
-    compare = std::static_pointer_cast<CompareDefault<TestType>>(
-        Comparator::Make(this->descr_));
+    auto comparator = TypedComparator<TestType>::Make(this->descr_);
     for (size_t i = 0; i < this->values_.size(); i++) {
-      if ((*compare)(this->values_[i], this->values_out_[i]) ||
-          (*compare)(this->values_out_[i], this->values_[i])) {
+      if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
+          comparator->Compare(this->values_out_[i], this->values_[i])) {
         std::cout << "Failed at " << i << std::endl;
       }
-      ASSERT_FALSE((*compare)(this->values_[i], this->values_out_[i]));
-      ASSERT_FALSE((*compare)(this->values_out_[i], this->values_[i]));
+      ASSERT_FALSE(comparator->Compare(this->values_[i], this->values_out_[i]));
+      ASSERT_FALSE(comparator->Compare(this->values_out_[i], this->values_[i]));
     }
     ASSERT_EQ(this->values_, this->values_out_);
   }
@@ -297,15 +295,15 @@ void TestPrimitiveWriter<Int96Type>::ReadAndCompare(Compression::type compressio
                                                     int64_t num_rows) {
   this->SetupValuesOut(num_rows);
   this->ReadColumnFully(compression);
-  std::shared_ptr<CompareDefault<Int96Type>> compare;
-  compare = std::make_shared<CompareDefaultInt96>();
+
+  auto comparator = TypedComparator<Int96Type>::Make(Type::INT96, SortOrder::SIGNED);
   for (size_t i = 0; i < this->values_.size(); i++) {
-    if ((*compare)(this->values_[i], this->values_out_[i]) ||
-        (*compare)(this->values_out_[i], this->values_[i])) {
+    if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
+        comparator->Compare(this->values_out_[i], this->values_[i])) {
       std::cout << "Failed at " << i << std::endl;
     }
-    ASSERT_FALSE((*compare)(this->values_[i], this->values_out_[i]));
-    ASSERT_FALSE((*compare)(this->values_out_[i], this->values_[i]));
+    ASSERT_FALSE(comparator->Compare(this->values_[i], this->values_out_[i]));
+    ASSERT_FALSE(comparator->Compare(this->values_out_[i], this->values_[i]));
   }
   ASSERT_EQ(this->values_, this->values_out_);
 }

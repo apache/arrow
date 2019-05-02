@@ -646,8 +646,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
     if (properties->statistics_enabled(descr_->path()) &&
         (SortOrder::UNKNOWN != descr_->sort_order())) {
-      page_statistics_ = std::unique_ptr<TypedStats>(new TypedStats(descr_, allocator_));
-      chunk_statistics_ = std::unique_ptr<TypedStats>(new TypedStats(descr_, allocator_));
+      page_statistics_ = TypedStats::Make(descr_, allocator_);
+      chunk_statistics_ = TypedStats::Make(descr_, allocator_);
     }
   }
 
@@ -719,9 +719,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   using ValueEncoderType = typename EncodingTraits<DType>::Encoder;
   std::unique_ptr<Encoder> current_encoder_;
 
-  typedef TypedRowGroupStatistics<DType> TypedStats;
-  std::unique_ptr<TypedStats> page_statistics_;
-  std::unique_ptr<TypedStats> chunk_statistics_;
+  using TypedStats = TypedStatistics<DType>;
+  std::shared_ptr<TypedStats> page_statistics_;
+  std::shared_ptr<TypedStats> chunk_statistics_;
 };
 
 // Only one Dictionary Page is written.
