@@ -174,7 +174,8 @@ BENCHMARK(BM_ReadJSONBlockWithSchema)
     ->MinTime(1.0)
     ->Unit(benchmark::kMicrosecond)
     ->Arg(true)
-    ->Arg(false);
+    ->Arg(false)
+    ->UseRealTime();
 
 }  // namespace json
 }  // namespace arrow
