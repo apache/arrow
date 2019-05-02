@@ -21,11 +21,9 @@ import static io.grpc.stub.ClientCalls.asyncClientStreamingCall;
 import static io.grpc.stub.ClientCalls.asyncServerStreamingCall;
 
 import java.util.Iterator;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.flight.auth.AuthConstants;
 import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthInterceptor;
@@ -48,12 +46,9 @@ import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
-import io.grpc.Attributes;
-import io.grpc.CallCredentials;
 import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.ClientResponseObserver;
@@ -68,7 +63,6 @@ public class FlightClient implements AutoCloseable {
   private final FlightServiceBlockingStub blockingStub;
   private final FlightServiceStub asyncStub;
   private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
-  private final ArrowCallCredentials callCredentials = new ArrowCallCredentials();
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
 
@@ -85,10 +79,7 @@ public class FlightClient implements AutoCloseable {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     channel = channelBuilder.build();
     blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);
-    asyncStub = FlightServiceGrpc.newStub(channel)
-            .withInterceptors(authInterceptor)
-            .withCallCredentials(callCredentials)
-            ;
+    asyncStub = FlightServiceGrpc.newStub(channel).withInterceptors(authInterceptor);
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
     doPutDescriptor = FlightBindingService.getDoPutDescriptor(allocator);
   }
@@ -123,10 +114,8 @@ public class FlightClient implements AutoCloseable {
 
   public void authenticate(ClientAuthHandler handler) {
     Preconditions.checkArgument(!authInterceptor.hasAuthHandler(), "Auth already completed.");
-    // we don't want to use credentials till they exist. Turn off credentials for this call only
-    ClientAuthWrapper.doClientAuth(handler, asyncStub.withCallCredentials(null));
+    ClientAuthWrapper.doClientAuth(handler, asyncStub);
     authInterceptor.setAuthHandler(handler);
-    callCredentials.setToken(handler.getCallToken());
   }
 
   /**
@@ -141,7 +130,8 @@ public class FlightClient implements AutoCloseable {
 
     SetStreamObserver<PutResult> resultObserver = new SetStreamObserver<>();
     ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
-        asyncClientStreamingCall(channel.newCall(doPutDescriptor, asyncStub.getCallOptions()), resultObserver);
+        asyncClientStreamingCall(
+                authInterceptor.interceptCall(doPutDescriptor, asyncStub.getCallOptions(), channel), resultObserver);
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
@@ -155,7 +145,8 @@ public class FlightClient implements AutoCloseable {
   }
 
   public FlightStream getStream(Ticket ticket) {
-    ClientCall<Flight.Ticket, ArrowMessage> call = channel.newCall(doGetDescriptor, asyncStub.getCallOptions());
+    ClientCall<Flight.Ticket, ArrowMessage> call =
+            authInterceptor.interceptCall(doGetDescriptor, asyncStub.getCallOptions(), channel);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
@@ -275,29 +266,4 @@ public class FlightClient implements AutoCloseable {
     channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     allocator.close();
   }
-
-  private static class ArrowCallCredentials implements CallCredentials {
-
-    private byte[] token;
-
-    @Override
-    public void applyRequestMetadata(MethodDescriptor<?, ?> method, Attributes attrs, Executor appExecutor,
-                                     MetadataApplier applier) {
-      final Metadata authHeaders = new Metadata();
-      if (token != null) {
-        authHeaders.put(AuthConstants.TOKEN_KEY, token);
-      }
-      applier.apply(authHeaders);
-    }
-
-    @Override
-    public void thisUsesUnstableApi() {
-
-    }
-
-    public void setToken(byte[] token) {
-      this.token = token;
-    }
-  }
-
 }

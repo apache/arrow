@@ -17,7 +17,6 @@
 
 package org.apache.arrow.flight.auth;
 
-import static io.grpc.stub.ClientCalls.asyncServerStreamingCall;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
@@ -44,7 +43,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
