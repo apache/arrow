@@ -17,40 +17,56 @@
 
 package org.apache.arrow.flight;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 import org.apache.arrow.flight.impl.Flight;
 
+/** A URI where a Flight stream is available. */
 public class Location {
-
-  private final String host;
-  private final int port;
+  private final URI uri;
 
   /**
    * Constructs a new instance.
    *
-   * @param host the host containing a flight server
-   * @param port the port the server is listening on.
+   * @param uri the URI of the Flight service
    */
-  public Location(String host, int port) {
+  public Location(String uri) throws URISyntaxException {
     super();
-    this.host = host;
-    this.port = port;
+    this.uri = new URI(uri);
   }
 
-  Location(Flight.Location location) {
-    this.host = location.getHost();
-    this.port = location.getPort();
+  public Location(URI uri) {
+    super();
+    this.uri = uri;
   }
 
-  public String getHost() {
-    return host;
+  public URI getUri() {
+    return uri;
   }
 
-  public int getPort() {
-    return port;
+  /**
+   * Convert this Location into its protocol-level representation.
+   */
+  public Flight.Location toProtocol() {
+    return Flight.Location.newBuilder().setUri(uri.toString()).build();
   }
 
-  Flight.Location toProtocol() {
-    return Flight.Location.newBuilder().setHost(host).setPort(port).build();
+  /** Construct a URI for a Flight+gRPC server without transport security. */
+  public static Location forGrpcInsecure(String host, int port) {
+    try {
+      return new Location(new URI(LocationSchemes.GRPC_INSECURE, null, host, port, null, null, null));
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 
+  /** Construct a URI for a Flight+gRPC server with transport security. */
+  public static Location forGrpcTls(String host, int port) {
+    try {
+      return new Location(new URI(LocationSchemes.GRPC_TLS, null, host, port, null, null, null));
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
 }

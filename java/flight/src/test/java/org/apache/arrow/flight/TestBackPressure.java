@@ -47,7 +47,7 @@ public class TestBackPressure {
     try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         final PerformanceTestServer server = FlightTestUtil.getStartedServer(
-            (port) -> (new PerformanceTestServer(a, new Location(FlightTestUtil.LOCALHOST, port))));
+            (port) -> (new PerformanceTestServer(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, port))));
         final FlightClient client = new FlightClient(a, server.getLocation())
     ) {
       FlightStream fs1 = client.getStream(client.getInfo(
@@ -123,10 +123,11 @@ public class TestBackPressure {
           BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
           FlightServer server =
               FlightTestUtil.getStartedServer(
-                  (port) -> new FlightServer(serverAllocator, port, producer, ServerAuthHandler.NO_OP));
+                  (port) -> new FlightServer(serverAllocator, Location.forGrpcInsecure("localhost", port), producer,
+                      ServerAuthHandler.NO_OP));
           BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
           FlightClient client =
-              new FlightClient(clientAllocator, new Location(FlightTestUtil.LOCALHOST, server.getPort()))
+              new FlightClient(clientAllocator, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort()))
       ) {
         FlightStream stream = client.getStream(new Ticket(new byte[1]));
         VectorSchemaRoot root = stream.getRoot();

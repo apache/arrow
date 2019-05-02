@@ -18,6 +18,7 @@
 package org.apache.arrow.flight;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
@@ -26,8 +27,8 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptors;
+import io.grpc.netty.NettyServerBuilder;
 
 public class FlightServer implements AutoCloseable {
 
@@ -42,16 +43,31 @@ public class FlightServer implements AutoCloseable {
    * Constructs a new instance.
    *
    * @param allocator The allocator to use for storing/copying arrow data.
-   * @param port The port to bind to.
+   * @param location The location to serve on.
    * @param producer The underlying business logic for the server.
    * @param authHandler The authorization handler for the server.
    */
   public FlightServer(
       BufferAllocator allocator,
-      int port,
+      Location location,
       FlightProducer producer,
       ServerAuthHandler authHandler) {
-    this.server = ServerBuilder.forPort(port)
+    final NettyServerBuilder builder;
+    switch (location.getUri().getScheme()) {
+      case LocationSchemes.GRPC_DOMAIN_SOCKET: {
+        // TODO: need reflection to check if domain sockets are available
+        throw new UnsupportedOperationException("Domain sockets are not available.");
+      }
+      case LocationSchemes.GRPC:
+      case LocationSchemes.GRPC_INSECURE: {
+        builder = NettyServerBuilder
+            .forAddress(new InetSocketAddress(location.getUri().getHost(), location.getUri().getPort()));
+        break;
+      }
+      default:
+        throw new IllegalArgumentException("Scheme is not supported: " + location.getUri().getScheme());
+    }
+    this.server = builder
         .maxInboundMessageSize(MAX_GRPC_MESSAGE_SIZE)
         .addService(
             ServerInterceptors.intercept(

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import java.net.URISyntaxException;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -138,10 +139,12 @@ public class TestBasicOperation {
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
         FlightServer s =
-            FlightTestUtil.getStartedServer((port) -> new FlightServer(a, port, producer, ServerAuthHandler.NO_OP))) {
+            FlightTestUtil.getStartedServer(
+                (port) -> new FlightServer(a, Location.forGrpcInsecure("localhost", port), producer,
+                    ServerAuthHandler.NO_OP))) {
 
       try (
-          FlightClient c = new FlightClient(a, new Location(FlightTestUtil.LOCALHOST, s.getPort()));
+          FlightClient c = new FlightClient(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort()));
       ) {
         try (BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE)) {
           consumer.accept(c, testAllocator);
@@ -170,7 +173,12 @@ public class TestBasicOperation {
               .setType(DescriptorType.CMD)
               .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
           .build();
-      listener.onNext(new FlightInfo(getInfo));
+      try {
+        listener.onNext(new FlightInfo(getInfo));
+      } catch (URISyntaxException e) {
+        listener.onError(e);
+        return;
+      }
       listener.onCompleted();
     }
 
@@ -231,7 +239,11 @@ public class TestBasicOperation {
               .setType(DescriptorType.CMD)
               .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
           .build();
-      return new FlightInfo(getInfo);
+      try {
+        return new FlightInfo(getInfo);
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     @Override

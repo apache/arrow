@@ -64,13 +64,11 @@ class ARROW_EXPORT FlightClient {
   ~FlightClient();
 
   /// \brief Connect to an unauthenticated flight service
-  /// \param[in] host the hostname or IP address
-  /// \param[in] port the port on the host
+  /// \param[in] location the URI
   /// \param[out] client the created FlightClient
   /// \return Status OK status may not indicate that the connection was
   /// successful
-  static Status Connect(const std::string& host, int port,
-                        std::unique_ptr<FlightClient>* client);
+  static Status Connect(const Location& location, std::unique_ptr<FlightClient>* client);
 
   /// \brief Authenticate to the server using the given handler.
   /// \param[in] options Per-RPC options

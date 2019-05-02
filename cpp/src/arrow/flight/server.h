@@ -98,13 +98,12 @@ class ARROW_EXPORT FlightServerBase {
 
   // Lifecycle methods.
 
-  /// \brief Initialize an insecure TCP server listening on localhost
-  /// at the given port.
+  /// \brief Initialize a Flight server listening at the given location.
   /// This method must be called before any other method.
-  /// \param[in] port The port to serve on.
   /// \param[in] auth_handler The authentication handler. May be
   /// nullptr if no authentication is desired.
-  Status Init(std::unique_ptr<ServerAuthHandler> auth_handler, int port);
+  /// \param[in] location The location to serve on.
+  Status Init(std::unique_ptr<ServerAuthHandler> auth_handler, const Location& location);
 
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.

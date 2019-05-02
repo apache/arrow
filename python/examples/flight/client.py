@@ -131,7 +131,7 @@ def main():
     }
     host, port = args.host.split(':')
     port = int(port)
-    client = pyarrow.flight.FlightClient.connect(host, port)
+    client = pyarrow.flight.FlightClient.connect(f"grpc://{host}:{port}")
     while True:
         try:
             action = pyarrow.flight.Action("healthcheck", b"")

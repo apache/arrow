@@ -139,8 +139,10 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   g_server.reset(new arrow::flight::FlightTestServer);
+  arrow::flight::Location location;
+  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
   ARROW_CHECK_OK(
-      g_server->Init(std::unique_ptr<arrow::flight::NoOpAuthHandler>(), FLAGS_port));
+      g_server->Init(std::unique_ptr<arrow::flight::NoOpAuthHandler>(), location));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
 

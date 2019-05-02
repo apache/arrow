@@ -121,7 +121,7 @@ public class TestAuth {
 
     server = FlightTestUtil.getStartedServer((port) -> new FlightServer(
         allocator,
-        port,
+        Location.forGrpcInsecure("localhost", port),
         new NoOpFlightProducer() {
           @Override
           public void listFlights(CallContext context, Criteria criteria,
@@ -151,7 +151,7 @@ public class TestAuth {
           }
         },
         new BasicServerAuthHandler(validator)));
-    client = new FlightClient(allocator, new Location(FlightTestUtil.LOCALHOST, server.getPort()));
+    client = new FlightClient(allocator, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort()));
   }
 
   @After

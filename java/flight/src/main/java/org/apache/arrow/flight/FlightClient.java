@@ -20,6 +20,8 @@ package org.apache.arrow.flight;
 import static io.grpc.stub.ClientCalls.asyncClientStreamingCall;
 import static io.grpc.stub.ClientCalls.asyncServerStreamingCall;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -74,8 +76,7 @@ public class FlightClient implements AutoCloseable {
    */
   public FlightClient(BufferAllocator incomingAllocator, Location location) {
     final ManagedChannelBuilder<?> channelBuilder =
-        ManagedChannelBuilder.forAddress(location.getHost(),
-        location.getPort())
+        ManagedChannelBuilder.forAddress(location.getUri().getHost(), location.getUri().getPort())
             .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
             .maxInboundMessageSize(FlightServer.MAX_GRPC_MESSAGE_SIZE)
             .usePlaintext();
@@ -97,7 +98,15 @@ public class FlightClient implements AutoCloseable {
   public Iterable<FlightInfo> listFlights(Criteria criteria, CallOption... options) {
     return ImmutableList.copyOf(CallOptions.wrapStub(blockingStub, options).listFlights(criteria.asCriteria()))
         .stream()
-        .map(FlightInfo::new)
+        .map(t -> {
+          try {
+            return new FlightInfo(t);
+          } catch (URISyntaxException e) {
+            // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+            // itself wouldn't be able to construct an invalid Location.
+            throw new RuntimeException(e);
+          }
+        })
         .collect(Collectors.toList());
   }
 
@@ -177,7 +186,13 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    */
   public FlightInfo getInfo(FlightDescriptor descriptor, CallOption... options) {
-    return new FlightInfo(CallOptions.wrapStub(blockingStub, options).getFlightInfo(descriptor.toProtocol()));
+    try {
+      return new FlightInfo(CallOptions.wrapStub(blockingStub, options).getFlightInfo(descriptor.toProtocol()));
+    } catch (URISyntaxException e) {
+      // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+      // itself wouldn't be able to construct an invalid Location.
+      throw new RuntimeException(e);
+    }
   }
 
   /**

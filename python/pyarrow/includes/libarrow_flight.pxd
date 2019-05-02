@@ -80,9 +80,14 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CLocation" arrow::flight::Location":
         CLocation()
+        c_string ToString()
 
-        c_string host
-        int32_t port
+        @staticmethod
+        CStatus Parse(c_string& uri_string, CLocation* location)
+        @staticmethod
+        CStatus ForGrpcTcp(c_string& host, int port, CLocation* location)
+        @staticmethod
+        CStatus ForGrpcUnix(c_string& path, CLocation* location)
 
     cdef cppclass CFlightEndpoint" arrow::flight::FlightEndpoint":
         CFlightEndpoint()
@@ -150,7 +155,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
-        CStatus Connect(const c_string& host, int port,
+        CStatus Connect(const CLocation& location,
                         unique_ptr[CFlightClient]* client)
 
         CStatus Authenticate(CFlightCallOptions& options,
@@ -224,7 +229,8 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServer:
         PyFlightServer(object server, PyFlightServerVtable vtable)
 
-        CStatus Init(unique_ptr[CServerAuthHandler] auth_handler, int port)
+        CStatus Init(unique_ptr[CServerAuthHandler] auth_handler,
+                     const CLocation& location)
         CStatus ServeWithSignals() except *
         void Shutdown()
 
