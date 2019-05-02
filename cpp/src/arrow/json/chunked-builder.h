@@ -67,10 +67,10 @@ class ARROW_EXPORT ChunkedArrayBuilder {
 ///
 /// if unexpected fields and promotion need to be handled, promotion_graph must be
 /// non-null
-ARROW_EXPORT Status MakeChunkedArrayBuilder(const std::shared_ptr<internal::TaskGroup>& task_group,
-                               MemoryPool* pool, const PromotionGraph* promotion_graph,
-                               const std::shared_ptr<DataType>& type,
-                               std::unique_ptr<ChunkedArrayBuilder>* out);
+ARROW_EXPORT Status MakeChunkedArrayBuilder(
+    const std::shared_ptr<internal::TaskGroup>& task_group, MemoryPool* pool,
+    const PromotionGraph* promotion_graph, const std::shared_ptr<DataType>& type,
+    std::unique_ptr<ChunkedArrayBuilder>* out);
 
 }  // namespace json
 }  // namespace arrow

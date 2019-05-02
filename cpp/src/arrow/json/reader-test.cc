@@ -200,7 +200,8 @@ TEST(ReaderTest, MultipleChunksParallel) {
   ParseOptions parse_options;
   parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
   ReadOptions read_options;
-  read_options.block_size = static_cast<int>(count / 2);  // there will be about two dozen blocks
+  read_options.block_size =
+      static_cast<int>(count / 2);  // there will be about two dozen blocks
 
   std::string json;
   for (int i = 0; i < count; ++i) {

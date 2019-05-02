@@ -387,7 +387,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
             << "invalid unconverted_field encountered in conversion: "
             << fields[i]->name() << ":" << *fields[i]->type();
 
-	auto new_index = static_cast<int>(name_to_index_.size());
+        auto new_index = static_cast<int>(name_to_index_.size());
         it = name_to_index_.emplace(fields[i]->name(), new_index).first;
 
         std::unique_ptr<ChunkedArrayBuilder> child_builder;
