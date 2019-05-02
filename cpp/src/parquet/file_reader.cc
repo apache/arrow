@@ -161,8 +161,13 @@ class SerializedFile : public ParquetFileReader::Contents {
   void ParseMetaData() {
     int64_t file_size = source_->Size();
 
-    if (file_size < FOOTER_SIZE) {
-      throw ParquetException("Corrupted file, smaller than file footer");
+    if (file_size == 0) {
+      throw ParquetException("Invalid Parquet file size is 0 bytes");
+    } else if (file_size < FOOTER_SIZE) {
+      std::stringstream ss;
+      ss << "Invalid Parquet file size is " << file_size
+         << " bytes, smaller than standard file footer";
+      throw ParquetException(ss.str());
     }
 
     uint8_t footer_buffer[DEFAULT_FOOTER_READ_SIZE];

@@ -2651,3 +2651,18 @@ def test_dataset_metadata(tempdir):
         assert d.pop('serialized_size') == 0
         assert d2.pop('serialized_size') > 0
         assert d == d2
+
+
+def test_parquet_file_too_small(tempdir):
+    path = str(tempdir / "test.parquet")
+    with pytest.raises(pa.ArrowIOError,
+                       match='size is 0 bytes'):
+        with open(path, 'wb') as f:
+            pass
+        pq.read_table(path)
+
+    with pytest.raises(pa.ArrowIOError,
+                       match='size is 4 bytes'):
+        with open(path, 'wb') as f:
+            f.write(b'ffff')
+        pq.read_table(path)
