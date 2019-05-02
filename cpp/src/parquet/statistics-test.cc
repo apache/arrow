@@ -244,10 +244,6 @@ TEST(Comparison, UnknownSortOrder) {
   ColumnDescriptor descr(node, 0, 0);
 
   ASSERT_THROW(Comparator::Make(&descr), ParquetException);
-
-  NodePtr int96_node = PrimitiveNode::Make("Unknown", Repetition::REQUIRED, Type::INT96);
-  ColumnDescriptor int96_descr(node, 0, 0);
-  ASSERT_THROW(Comparator::Make(&int96_descr), ParquetException);
 }
 
 // ----------------------------------------------------------------------

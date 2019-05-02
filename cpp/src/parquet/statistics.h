@@ -173,7 +173,7 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] encoded_min the encoded minimum value
   /// \param[in] encoded_max the encoded maximum value
   /// \param[in] num_values total number of values
-  /// \param[in] null_values number of null values
+  /// \param[in] null_count number of null values
   /// \param[in] distinct_count number of distinct values
   /// \param[in] has_min_max whether the min/max statistics are set
   /// \param[in] pool a memory pool to use for any memory allocations, optional
@@ -285,7 +285,6 @@ using RowGroupStatistics = Statistics;
 using BoolStatistics = TypedStatistics<BooleanType>;
 using Int32Statistics = TypedStatistics<Int32Type>;
 using Int64Statistics = TypedStatistics<Int64Type>;
-using Int96Statistics = TypedStatistics<Int96Type>;
 using FloatStatistics = TypedStatistics<FloatType>;
 using DoubleStatistics = TypedStatistics<DoubleType>;
 using ByteArrayStatistics = TypedStatistics<ByteArrayType>;

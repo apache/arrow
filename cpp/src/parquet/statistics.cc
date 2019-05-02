@@ -560,8 +560,6 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
       return std::make_shared<TypedStatisticsImpl<Int32Type>>(descr, pool);
     case Type::INT64:
       return std::make_shared<TypedStatisticsImpl<Int64Type>>(descr, pool);
-    case Type::INT96:
-      return std::make_shared<TypedStatisticsImpl<Int96Type>>(descr, pool);
     case Type::FLOAT:
       return std::make_shared<TypedStatisticsImpl<FloatType>>(descr, pool);
     case Type::DOUBLE:
@@ -589,7 +587,6 @@ std::shared_ptr<Statistics> Statistics::Make(Type::type physical_type, const voi
     MAKE_STATS(BOOLEAN, BooleanType);
     MAKE_STATS(INT32, Int32Type);
     MAKE_STATS(INT64, Int64Type);
-    MAKE_STATS(INT96, Int96Type);
     MAKE_STATS(FLOAT, FloatType);
     MAKE_STATS(DOUBLE, DoubleType);
     MAKE_STATS(BYTE_ARRAY, ByteArrayType);
@@ -618,7 +615,6 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
     MAKE_STATS(BOOLEAN, BooleanType);
     MAKE_STATS(INT32, Int32Type);
     MAKE_STATS(INT64, Int64Type);
-    MAKE_STATS(INT96, Int96Type);
     MAKE_STATS(FLOAT, FloatType);
     MAKE_STATS(DOUBLE, DoubleType);
     MAKE_STATS(BYTE_ARRAY, ByteArrayType);
