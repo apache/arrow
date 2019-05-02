@@ -613,8 +613,8 @@ TEST_F(TestByteArrayValuesWriter, OmitStats) {
 // PARQUET-1405
 // Prevent writing large stats in the DataPageHeader
 TEST_F(TestByteArrayValuesWriter, OmitDataPageStats) {
-  int min_len = std::pow(10,7);
-  int max_len = std::pow(10,7);
+  int min_len = std::pow(10, 7);
+  int max_len = std::pow(10, 7);
   this->SetUpSchema(Repetition::REQUIRED);
   ColumnProperties column_properties;
   column_properties.set_statistics_enabled(false);
