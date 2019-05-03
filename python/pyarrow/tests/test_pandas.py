@@ -32,6 +32,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 import pytz
+import six
 
 from pyarrow.pandas_compat import get_logical_type
 import pyarrow as pa
@@ -376,7 +377,7 @@ class TestConvertMetadata(object):
                 pa.Table.from_pandas(df)
 
             expected = df.copy()
-            expected.columns = df.columns.astype(str)
+            expected.columns = df.columns.astype(six.text_type)
             with pytest.warns(UserWarning):
                 _check_pandas_roundtrip(df, expected=expected,
                                         preserve_index=True)
