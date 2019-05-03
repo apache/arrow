@@ -190,8 +190,9 @@ public class PerformanceTestServer implements AutoCloseable {
     }
 
     @Override
-    public Result doAction(CallContext context, Action action) {
-      return null;
+    public void doAction(CallContext context, Action action,
+        StreamListener<Result> listener) {
+      listener.onCompleted();
     }
 
     @Override
