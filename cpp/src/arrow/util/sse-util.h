@@ -117,41 +117,6 @@ static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
 #endif
 }
 
-#else  // without SSE 4.2.
-
-// __m128i may not be defined, so deduce it with a template parameter
-template <int MODE, typename __m128i>
-static inline __m128i SSE4_cmpestrm(__m128i str1, int len1, __m128i str2, int len2) {
-  DCHECK(false) << "CPU doesn't support SSE 4.2";
-  return (__m128i){0};  // NOLINT
-}
-
-template <int MODE, typename __m128i>
-static inline int SSE4_cmpestri(__m128i str1, int len1, __m128i str2, int len2) {
-  DCHECK(false) << "CPU doesn't support SSE 4.2";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u8(uint32_t, uint8_t) {
-  DCHECK(false) << "SSE support is not enabled";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u16(uint32_t, uint16_t) {
-  DCHECK(false) << "SSE support is not enabled";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u32(uint32_t, uint32_t) {
-  DCHECK(false) << "SSE support is not enabled";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u64(uint32_t, uint64_t) {
-  DCHECK(false) << "SSE support is not enabled";
-  return 0;
-}
-
 #endif  // ARROW_HAVE_SSE4_2
 
 }  // namespace arrow
