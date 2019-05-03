@@ -239,7 +239,8 @@ class TestConvertMetadata(object):
             ),
             columns=['a', None, '__index_level_0__'],
         )
-        t = pa.Table.from_pandas(df, preserve_index=True)
+        with pytest.warns(UserWarning):
+            t = pa.Table.from_pandas(df, preserve_index=True)
         js = t.schema.pandas_metadata
 
         col1, col2, col3, idx0, foo = js['columns']
@@ -363,12 +364,22 @@ class TestConvertMetadata(object):
 
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_mixed_unicode_column_names(self):
-        df = pd.DataFrame({u'あ': [u'い'], b'a': 1}, index=[u'う'])
+    def test_mixed_column_names(self):
+        df = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
 
-        # TODO(phillipc): Should this raise?
-        with pytest.raises(AssertionError):
-            _check_pandas_roundtrip(df, preserve_index=True)
+        for cols in [[u'あ', b'a'], [1, '2']]:
+            df.columns = pd.Index(cols, dtype=object)
+
+            with pytest.warns(UserWarning):
+                table = pa.Table.from_pandas(df)
+            result = table.to_pandas()
+
+            # mixed type column names are not reconstructed exactly
+            with pytest.raises(AssertionError):
+                tm.assert_frame_equal(result, df)
+
+            df.columns = df.columns.astype(str)
+            tm.assert_frame_equal(result, df)
 
     def test_binary_column_name(self):
         column_data = [u'い']
