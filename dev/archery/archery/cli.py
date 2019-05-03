@@ -24,7 +24,7 @@ import sys
 from tempfile import mkdtemp, TemporaryDirectory
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
-from .benchmark.runner import CppBenchmarkRunner
+from .benchmark.runner import BenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.codec import JsonEncoder
 from .utils.logger import logger, ctx as log_ctx
@@ -213,11 +213,11 @@ def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
             build_type="release", with_tests=True, with_benchmarks=True,
             with_python=False, cmake_extras=cmake_extras)
 
-        runner_base = CppBenchmarkRunner.from_rev_or_path(
-            src, root, baseline, conf)
+        runner_base = BenchmarkRunner.from_rev_or_path(
+            src, root, baseline, conf,
+            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
-        for suite in runner_base.suites(suite_filter, benchmark_filter):
-            print(suite, file=output)
+        json.dump(runner_base, output, cls=JsonEncoder)
 
 
 @benchmark.command(name="diff", short_help="Compare benchmark suites")
@@ -315,16 +315,16 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
             build_type="release", with_tests=True, with_benchmarks=True,
             with_python=False, cmake_extras=cmake_extras)
 
-        runner_cont = CppBenchmarkRunner.from_rev_or_path(
-            src, root, contender, conf)
-        runner_base = CppBenchmarkRunner.from_rev_or_path(
-            src, root, baseline, conf)
-
-        runner_comp = RunnerComparator(runner_cont, runner_base, threshold)
-        comparisons = runner_comp.comparisons(suite_filter, benchmark_filter)
+        runner_cont = BenchmarkRunner.from_rev_or_path(
+            src, root, contender, conf,
+            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
+        runner_base = BenchmarkRunner.from_rev_or_path(
+            src, root, baseline, conf,
+            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
         regressions = 0
-        for comparator in comparisons:
+        runner_comp = RunnerComparator(runner_cont, runner_base, threshold)
+        for comparator in runner_comp.comparisons:
             regressions += comparator.regression
             json.dump(comparator, output, cls=JsonEncoder)
 
