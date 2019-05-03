@@ -17,7 +17,6 @@
 
 package org.apache.arrow.memory;
 
-import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -157,12 +156,12 @@ public interface ReferenceManager {
 
     @Override
     public OwnershipTransferResult transferOwnership(ArrowBuf sourceBuffer, BufferAllocator targetAllocator) {
-      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
+      return new OwnershipTransferNOOP(sourceBuffer);
     }
 
     @Override
     public BufferAllocator getAllocator() {
-      throw new UnsupportedOperationException(NO_OP_ERROR_MESSAGE);
+      return new RootAllocator(0);
     }
 
     @Override
