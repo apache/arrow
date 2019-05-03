@@ -789,8 +789,6 @@ _pandas_logical_type_map = {
     'bytes': np.bytes_,
     'string': np.str_,
     'empty': np.object_,
-    'mixed': np.object_,
-    'mixed-integer': np.object_
 }
 
 
@@ -810,6 +808,8 @@ def _pandas_type_to_numpy_type(pandas_type):
     try:
         return _pandas_logical_type_map[pandas_type]
     except KeyError:
+        if 'mixed' in pandas_type:
+            return np.object_
         return np.dtype(pandas_type)
 
 

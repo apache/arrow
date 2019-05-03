@@ -367,7 +367,7 @@ class TestConvertMetadata(object):
     def test_mixed_column_names(self):
         df = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
 
-        for cols in [[u'あ', b'a'], [1, '2']]:
+        for cols in [[u'あ', b'a'], [1, '2'], [1, 1.5]]:
             df.columns = pd.Index(cols, dtype=object)
 
             with pytest.warns(UserWarning):
