@@ -393,6 +393,15 @@ std::shared_ptr<Table> Table::Make(const std::shared_ptr<Schema>& schema,
   return std::make_shared<SimpleTable>(schema, columns, num_rows);
 }
 
+std::shared_ptr<Table> Table::Make(const std::vector<std::shared_ptr<Column>>& columns,
+                                   int64_t num_rows) {
+  std::vector<std::shared_ptr<Field>> fields(columns.size());
+  std::transform(columns.begin(), columns.end(), fields.begin(),
+                 [](const std::shared_ptr<Column>& column) { return column->field(); });
+  return std::make_shared<SimpleTable>(::arrow::schema(std::move(fields)), columns,
+                                       num_rows);
+}
+
 std::shared_ptr<Table> Table::Make(const std::shared_ptr<Schema>& schema,
                                    const std::vector<std::shared_ptr<Array>>& arrays,
                                    int64_t num_rows) {
@@ -434,6 +443,30 @@ Status Table::FromRecordBatches(const std::vector<std::shared_ptr<RecordBatch>>&
   }
 
   return FromRecordBatches(batches[0]->schema(), batches, table);
+}
+
+Status Table::FromChunkedStructArray(const std::shared_ptr<ChunkedArray>& array,
+                                     std::shared_ptr<Table>* table) {
+  auto type = array->type();
+  if (type->id() != Type::STRUCT) {
+    return Status::Invalid("Expected a chunked struct array, got ", *type);
+  }
+  int num_columns = type->num_children();
+  int num_chunks = array->num_chunks();
+
+  const auto& struct_chunks = array->chunks();
+  std::vector<std::shared_ptr<Column>> columns(num_columns);
+  for (int i = 0; i < num_columns; ++i) {
+    ArrayVector chunks(num_chunks);
+    std::transform(struct_chunks.begin(), struct_chunks.end(), chunks.begin(),
+                   [i](const std::shared_ptr<Array>& struct_chunk) {
+                     return static_cast<const StructArray&>(*struct_chunk).field(i);
+                   });
+    columns[i] = std::make_shared<Column>(type->child(i), chunks);
+  }
+
+  *table = Table::Make(::arrow::schema(type->children()), columns, array->length());
+  return Status::OK();
 }
 
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,

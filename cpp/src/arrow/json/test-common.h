@@ -27,6 +27,7 @@
 #include "rapidjson/writer.h"
 
 #include "arrow/io/memory.h"
+#include "arrow/json/converter.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
 #include "arrow/testing/gtest_util.h"

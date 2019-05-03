@@ -22,7 +22,9 @@
 #include "arrow/json/chunker.h"
 #include "arrow/json/options.h"
 #include "arrow/json/parser.h"
+#include "arrow/json/reader.h"
 #include "arrow/json/test-common.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
@@ -115,6 +117,65 @@ static void BM_ParseJSONBlockWithSchema(
 }
 
 BENCHMARK(BM_ParseJSONBlockWithSchema)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+
+std::shared_ptr<Table> tables[2];
+
+static void BenchmarkJSONReading(benchmark::State& state,  // NOLINT non-const reference
+                                 const std::string& json, int32_t num_rows,
+                                 ReadOptions read_options, ParseOptions parse_options) {
+  for (auto _ : state) {
+    std::shared_ptr<io::InputStream> input;
+    ABORT_NOT_OK(MakeStream(json, &input));
+
+    std::shared_ptr<TableReader> reader;
+    ASSERT_OK(TableReader::Make(default_memory_pool(), input, read_options, parse_options,
+                                &reader));
+
+    std::shared_ptr<Table> table;
+    ABORT_NOT_OK(reader->Read(&table));
+
+    if (table->num_rows() != num_rows) {
+      std::cerr << "Parsing incomplete\n";
+      std::abort();
+    }
+
+    tables[read_options.use_threads] = table;
+  }
+  state.SetBytesProcessed(state.iterations() * json.size());
+
+  if (tables[false] && tables[true]) {
+    AssertTablesEqual(*tables[false], *tables[true]);
+  }
+}
+
+static void BM_ReadJSONBlockWithSchema(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const int32_t num_rows = 50000;
+  auto read_options = ReadOptions::Defaults();
+  read_options.use_threads = state.range(0);
+
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
+  parse_options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
+
+  std::default_random_engine engine;
+  std::string json;
+  for (int i = 0; i < num_rows; ++i) {
+    StringBuffer sb;
+    Writer writer(sb);
+    ABORT_NOT_OK(Generate(parse_options.explicit_schema, engine, &writer));
+    json += sb.GetString();
+    json += "\n";
+  }
+  BenchmarkJSONReading(state, json, num_rows, read_options, parse_options);
+}
+
+BENCHMARK(BM_ReadJSONBlockWithSchema)
+    ->MinTime(1.0)
+    ->Unit(benchmark::kMicrosecond)
+    ->Arg(true)
+    ->Arg(false)
+    ->UseRealTime();
 
 }  // namespace json
 }  // namespace arrow

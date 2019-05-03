@@ -54,9 +54,19 @@ constexpr int32_t kMaxParserNumRows = 100000;
 ///
 /// The parser takes a block of newline delimited JSON data and extracts Arrays
 /// of unconverted strings which can be fed to a Converter to obtain a usable Array.
+///
+/// Note that in addition to parse errors (such as malformed JSON) some conversion
+/// errors are caught at parse time:
+/// - A null value in non-nullable column
+/// - Change in the JSON kind of a column. For example, if an explicit schema is provided
+///   which stipulates that field "a" is integral, a row of {"a": "not a number"} will
+///   result in an error. This also applies to fields outside an explicit schema.
 class ARROW_EXPORT BlockParser {
  public:
   virtual ~BlockParser() = default;
+
+  /// \brief Reserve storage for scalars parsed from a block of json
+  virtual Status ReserveScalarStorage(int64_t nbytes) = 0;
 
   /// \brief Parse a block of data
   virtual Status Parse(const std::shared_ptr<Buffer>& json) = 0;

@@ -17,6 +17,7 @@
 
 #include "arrow/json/parser.h"
 
+#include <functional>
 #include <limits>
 #include <tuple>
 #include <unordered_map>
@@ -143,8 +144,7 @@ struct BuilderPtr {
   // index of builder in its arena
   // OR the length of that builder if kind == Kind::kNull
   // (we don't allocate an arena for nulls since they're trivial)
-  // FIXME(bkietz) GCC is emitting conversion errors for the bitfields
-  uint32_t index;  // : 28;
+  uint32_t index;
   Kind::type kind;
   bool nullable;
 
@@ -286,8 +286,8 @@ class RawArrayBuilder<Kind::kArray> {
     return null_bitmap_builder_.Append(count, false);
   }
 
-  template <typename HandlerBase>
-  Status Finish(HandlerBase& handler, std::shared_ptr<Array>* out) {
+  Status Finish(std::function<Status(BuilderPtr, std::shared_ptr<Array>*)> finish_child,
+                std::shared_ptr<Array>* out) {
     RETURN_NOT_OK(offset_builder_.Append(offset_));
     auto size = length();
     auto null_count = null_bitmap_builder_.false_count();
@@ -295,7 +295,7 @@ class RawArrayBuilder<Kind::kArray> {
     RETURN_NOT_OK(offset_builder_.Finish(&offsets));
     RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
     std::shared_ptr<Array> values;
-    RETURN_NOT_OK(handler.Finish(value_builder_, &values));
+    RETURN_NOT_OK(finish_child(value_builder_, &values));
     auto type = list(field("item", values->type(), value_builder_.nullable,
                            Kind::Tag(value_builder_.kind)));
     *out = MakeArray(ArrayData::Make(type, size, {null_bitmap, offsets}, {values->data()},
@@ -348,8 +348,8 @@ class RawArrayBuilder<Kind::kObject> {
 
   void field_builder(int index, BuilderPtr builder) { field_builders_[index] = builder; }
 
-  template <typename HandlerBase>
-  Status Finish(HandlerBase& handler, std::shared_ptr<Array>* out) {
+  Status Finish(std::function<Status(BuilderPtr, std::shared_ptr<Array>*)> finish_child,
+                std::shared_ptr<Array>* out) {
     auto size = length();
     auto null_count = null_bitmap_builder_.false_count();
     std::shared_ptr<Buffer> null_bitmap;
@@ -363,10 +363,10 @@ class RawArrayBuilder<Kind::kObject> {
     std::vector<std::shared_ptr<Field>> fields(num_fields());
     std::vector<std::shared_ptr<ArrayData>> child_data(num_fields());
     for (int i = 0; i < num_fields(); ++i) {
-      std::shared_ptr<Array> values;
-      RETURN_NOT_OK(handler.Finish(field_builders_[i], &values));
-      child_data[i] = values->data();
-      fields[i] = field(field_names[i].to_string(), values->type(),
+      std::shared_ptr<Array> field_values;
+      RETURN_NOT_OK(finish_child(field_builders_[i], &field_values));
+      child_data[i] = field_values->data();
+      fields[i] = field(field_names[i].to_string(), field_values->type(),
                         field_builders_[i].nullable, Kind::Tag(field_builders_[i].kind));
     }
 
@@ -383,18 +383,195 @@ class RawArrayBuilder<Kind::kObject> {
   TypedBufferBuilder<bool> null_bitmap_builder_;
 };
 
-/// Three implementations are provided for BlockParser, one for each
-/// UnexpectedFieldBehavior. However most of the logic is identical in each
-/// case, so the majority of the implementation is in this base class
-class HandlerBase : public BlockParser,
-                    public rj::BaseReaderHandler<rj::UTF8<>, HandlerBase> {
+class RawBuilderSet {
  public:
+  explicit RawBuilderSet(MemoryPool* pool) : pool_(pool) {}
+
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
   typename std::enable_if<kind != Kind::kNull, RawArrayBuilder<kind>*>::type Cast(
       BuilderPtr builder) {
     DCHECK_EQ(builder.kind, kind);
     return arena<kind>().data() + builder.index;
+  }
+
+  /// construct a builder of statically defined kind
+  template <Kind::type kind>
+  Status MakeBuilder(int64_t leading_nulls, BuilderPtr* builder) {
+    builder->index = static_cast<uint32_t>(arena<kind>().size());
+    builder->kind = kind;
+    builder->nullable = true;
+    arena<kind>().emplace_back(RawArrayBuilder<kind>(pool_));
+    return Cast<kind>(*builder)->AppendNull(leading_nulls);
+  }
+
+  /// construct a builder of whatever kind corresponds to a DataType
+  Status MakeBuilder(const DataType& t, int64_t leading_nulls, BuilderPtr* builder) {
+    Kind::type kind;
+    RETURN_NOT_OK(Kind::ForType(t, &kind));
+    switch (kind) {
+      case Kind::kNull:
+        *builder = BuilderPtr(Kind::kNull, static_cast<uint32_t>(leading_nulls), true);
+        return Status::OK();
+
+      case Kind::kBoolean:
+        return MakeBuilder<Kind::kBoolean>(leading_nulls, builder);
+
+      case Kind::kNumber:
+        return MakeBuilder<Kind::kNumber>(leading_nulls, builder);
+
+      case Kind::kString:
+        return MakeBuilder<Kind::kString>(leading_nulls, builder);
+
+      case Kind::kArray: {
+        RETURN_NOT_OK(MakeBuilder<Kind::kArray>(leading_nulls, builder));
+        const auto& list_type = static_cast<const ListType&>(t);
+
+        BuilderPtr value_builder;
+        RETURN_NOT_OK(MakeBuilder(*list_type.value_type(), 0, &value_builder));
+        value_builder.nullable = list_type.value_field()->nullable();
+
+        Cast<Kind::kArray>(*builder)->value_builder(value_builder);
+        return Status::OK();
+      }
+      case Kind::kObject: {
+        RETURN_NOT_OK(MakeBuilder<Kind::kObject>(leading_nulls, builder));
+        const auto& struct_type = static_cast<const StructType&>(t);
+
+        for (const auto& f : struct_type.children()) {
+          BuilderPtr field_builder;
+          RETURN_NOT_OK(MakeBuilder(*f->type(), leading_nulls, &field_builder));
+          field_builder.nullable = f->nullable();
+
+          Cast<Kind::kObject>(*builder)->AddField(f->name(), field_builder);
+        }
+        return Status::OK();
+      }
+      default:
+        return Status::NotImplemented("invalid builder type");
+    }
+  }
+
+  /// Appending null is slightly tricky since null count is stored inline
+  /// for builders of Kind::kNull. Append nulls using this helper
+  Status AppendNull(BuilderPtr parent, int field_index, BuilderPtr builder) {
+    if (ARROW_PREDICT_FALSE(!builder.nullable)) {
+      return ParseError("a required field was null");
+    }
+    switch (builder.kind) {
+      case Kind::kNull: {
+        DCHECK_EQ(builder, parent.kind == Kind::kArray
+                               ? Cast<Kind::kArray>(parent)->value_builder()
+                               : Cast<Kind::kObject>(parent)->field_builder(field_index));
+
+        // increment null count stored inline
+        builder.index += 1;
+
+        // update the parent, since changing builder doesn't affect parent
+        if (parent.kind == Kind::kArray) {
+          Cast<Kind::kArray>(parent)->value_builder(builder);
+        } else {
+          Cast<Kind::kObject>(parent)->field_builder(field_index, builder);
+        }
+        return Status::OK();
+      }
+      case Kind::kBoolean:
+        return Cast<Kind::kBoolean>(builder)->AppendNull();
+
+      case Kind::kNumber:
+        return Cast<Kind::kNumber>(builder)->AppendNull();
+
+      case Kind::kString:
+        return Cast<Kind::kString>(builder)->AppendNull();
+
+      case Kind::kArray:
+        return Cast<Kind::kArray>(builder)->AppendNull();
+
+      case Kind::kObject: {
+        auto struct_builder = Cast<Kind::kObject>(builder);
+        RETURN_NOT_OK(struct_builder->AppendNull());
+
+        for (int i = 0; i < struct_builder->num_fields(); ++i) {
+          auto field_builder = struct_builder->field_builder(i);
+          RETURN_NOT_OK(AppendNull(builder, i, field_builder));
+        }
+        return Status::OK();
+      }
+      default:
+        return Status::NotImplemented("invalid builder Kind");
+    }
+  }
+
+  Status Finish(const std::shared_ptr<Array>& scalar_values, BuilderPtr builder,
+                std::shared_ptr<Array>* out) {
+    auto finish_children = [this, &scalar_values](BuilderPtr child,
+                                                  std::shared_ptr<Array>* out) {
+      return Finish(scalar_values, child, out);
+    };
+    switch (builder.kind) {
+      case Kind::kNull: {
+        auto length = static_cast<int64_t>(builder.index);
+        *out = std::make_shared<NullArray>(length);
+        return Status::OK();
+      }
+      case Kind::kBoolean:
+        return Cast<Kind::kBoolean>(builder)->Finish(out);
+
+      case Kind::kNumber:
+        return FinishScalar(scalar_values, Cast<Kind::kNumber>(builder), out);
+
+      case Kind::kString:
+        return FinishScalar(scalar_values, Cast<Kind::kString>(builder), out);
+
+      case Kind::kArray:
+        return Cast<Kind::kArray>(builder)->Finish(std::move(finish_children), out);
+
+      case Kind::kObject:
+        return Cast<Kind::kObject>(builder)->Finish(std::move(finish_children), out);
+
+      default:
+        return Status::NotImplemented("invalid builder kind");
+    }
+  }
+
+ private:
+  /// finish a column of scalar values (string or number)
+  Status FinishScalar(const std::shared_ptr<Array>& scalar_values, ScalarBuilder* builder,
+                      std::shared_ptr<Array>* out) {
+    std::shared_ptr<Array> indices;
+    // TODO(bkietz) embed builder->values_length() in this output somehow
+    RETURN_NOT_OK(builder->Finish(&indices));
+    return DictionaryArray::FromArrays(dictionary(int32(), scalar_values), indices, out);
+  }
+
+  template <Kind::type kind>
+  std::vector<RawArrayBuilder<kind>>& arena() {
+    return std::get<static_cast<std::size_t>(kind)>(arenas_);
+  }
+
+  MemoryPool* pool_;
+  std::tuple<std::tuple<>, std::vector<RawArrayBuilder<Kind::kBoolean>>,
+             std::vector<RawArrayBuilder<Kind::kNumber>>,
+             std::vector<RawArrayBuilder<Kind::kString>>,
+             std::vector<RawArrayBuilder<Kind::kArray>>,
+             std::vector<RawArrayBuilder<Kind::kObject>>>
+      arenas_;
+};
+
+/// Three implementations are provided for BlockParser, one for each
+/// UnexpectedFieldBehavior. However most of the logic is identical in each
+/// case, so the majority of the implementation is in this base class
+class HandlerBase : public BlockParser,
+                    public rj::BaseReaderHandler<rj::UTF8<>, HandlerBase> {
+ public:
+  explicit HandlerBase(MemoryPool* pool)
+      : BlockParser(pool), builder_set_(pool), scalar_values_builder_(pool) {}
+
+  /// Retrieve a pointer to a builder from a BuilderPtr
+  template <Kind::type kind>
+  typename std::enable_if<kind != Kind::kNull, RawArrayBuilder<kind>*>::type Cast(
+      BuilderPtr builder) {
+    return builder_set_.Cast<kind>(builder);
   }
 
   /// Accessor for a stored error Status
@@ -407,22 +584,27 @@ class HandlerBase : public BlockParser,
   ///
   /// @{
   bool Null() {
-    status_ = AppendNull();
+    status_ = builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
     return status_.ok();
   }
 
   bool Bool(bool value) {
-    status_ = AppendBool(value);
+    constexpr auto kind = Kind::kBoolean;
+    if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
+      status_ = IllegallyChangedTo(kind);
+      return status_.ok();
+    }
+    status_ = Cast<kind>(builder_)->Append(value);
     return status_.ok();
   }
 
   bool RawNumber(const char* data, rj::SizeType size, ...) {
-    status_ = AppendScalar<Kind::kNumber>(string_view(data, size));
+    status_ = AppendScalar<Kind::kNumber>(builder_, string_view(data, size));
     return status_.ok();
   }
 
   bool String(const char* data, rj::SizeType size, ...) {
-    status_ = AppendScalar<Kind::kString>(string_view(data, size));
+    status_ = AppendScalar<Kind::kString>(builder_, string_view(data, size));
     return status_.ok();
   }
 
@@ -453,48 +635,16 @@ class HandlerBase : public BlockParser,
     if (s) {
       type = struct_(s->fields());
     }
-    return MakeBuilder(*type, 0, &builder_);
-  }
-
-  Status Finish(BuilderPtr builder, std::shared_ptr<Array>* out) {
-    switch (builder.kind) {
-      case Kind::kNull: {
-        auto length = static_cast<int64_t>(builder.index);
-        *out = std::make_shared<NullArray>(length);
-        return Status::OK();
-      }
-      case Kind::kBoolean:
-        return Cast<Kind::kBoolean>(builder)->Finish(out);
-      case Kind::kNumber:
-        return FinishScalar(Cast<Kind::kNumber>(builder), out);
-      case Kind::kString:
-        return FinishScalar(Cast<Kind::kString>(builder), out);
-      case Kind::kArray:
-        return Cast<Kind::kArray>(builder)->Finish(*this, out);
-      case Kind::kObject:
-        return Cast<Kind::kObject>(builder)->Finish(*this, out);
-      default:
-        return Status::NotImplemented("invalid builder kind");
-    }
+    return builder_set_.MakeBuilder(*type, 0, &builder_);
   }
 
   Status Finish(std::shared_ptr<Array>* parsed) override {
-    RETURN_NOT_OK(scalar_values_builder_.Finish(&scalar_values_));
-    return Finish(builder_, parsed);
+    std::shared_ptr<Array> scalar_values;
+    RETURN_NOT_OK(scalar_values_builder_.Finish(&scalar_values));
+    return builder_set_.Finish(scalar_values, builder_, parsed);
   }
-
-  explicit HandlerBase(MemoryPool* pool)
-      : BlockParser(pool), scalar_values_builder_(pool) {}
 
  protected:
-  /// finish a column of scalar values (string or number)
-  Status FinishScalar(ScalarBuilder* builder, std::shared_ptr<Array>* out) {
-    std::shared_ptr<Array> indices;
-    // TODO(bkietz) embed builder->values_length() in this output somehow
-    RETURN_NOT_OK(builder->Finish(&indices));
-    return DictionaryArray::FromArrays(dictionary(int32(), scalar_values_), indices, out);
-  }
-
   template <typename Handler, typename Stream>
   Status DoParse(Handler& handler, Stream&& json) {
     constexpr auto parse_flags = rj::kParseIterativeFlag | rj::kParseNanAndInfFlag |
@@ -527,134 +677,24 @@ class HandlerBase : public BlockParser,
 
   template <typename Handler>
   Status DoParse(Handler& handler, const std::shared_ptr<Buffer>& json) {
-    auto remaining_capacity = scalar_values_builder_.value_data_capacity() -
-                              scalar_values_builder_.value_data_length();
-    if (json->size() > remaining_capacity) {
-      auto additional_storage = json->size() - remaining_capacity;
-      RETURN_NOT_OK(scalar_values_builder_.ReserveData(additional_storage));
-    }
-
+    RETURN_NOT_OK(ReserveScalarStorage(json->size()));
     rj::MemoryStream ms(reinterpret_cast<const char*>(json->data()), json->size());
     using InputStream = rj::EncodedInputStream<rj::UTF8<>, rj::MemoryStream>;
     return DoParse(handler, InputStream(ms));
   }
 
-  /// construct a builder of statically defined kind in arenas_
-  template <Kind::type kind>
-  Status MakeBuilder(int64_t leading_nulls, BuilderPtr* builder) {
-    builder->index = static_cast<uint32_t>(arena<kind>().size());
-    builder->kind = kind;
-    builder->nullable = true;
-    arena<kind>().emplace_back(pool_);
-    return Cast<kind>(*builder)->AppendNull(leading_nulls);
-  }
-
-  /// construct a builder of whatever kind corresponds to a DataType
-  Status MakeBuilder(const DataType& t, int64_t leading_nulls, BuilderPtr* builder) {
-    Kind::type kind;
-    RETURN_NOT_OK(Kind::ForType(t, &kind));
-    switch (kind) {
-      case Kind::kNull:
-        *builder = BuilderPtr(Kind::kNull, static_cast<uint32_t>(leading_nulls), true);
-        return Status::OK();
-      case Kind::kBoolean:
-        return MakeBuilder<Kind::kBoolean>(leading_nulls, builder);
-      case Kind::kNumber:
-        return MakeBuilder<Kind::kNumber>(leading_nulls, builder);
-      case Kind::kString:
-        return MakeBuilder<Kind::kString>(leading_nulls, builder);
-      case Kind::kArray: {
-        RETURN_NOT_OK(MakeBuilder<Kind::kArray>(leading_nulls, builder));
-        const auto& list_type = static_cast<const ListType&>(t);
-        BuilderPtr value_builder;
-        RETURN_NOT_OK(MakeBuilder(*list_type.value_type(), 0, &value_builder));
-        value_builder.nullable = list_type.value_field()->nullable();
-        Cast<Kind::kArray>(*builder)->value_builder(value_builder);
-        return Status::OK();
-      }
-      case Kind::kObject: {
-        RETURN_NOT_OK(MakeBuilder<Kind::kObject>(leading_nulls, builder));
-        const auto& struct_type = static_cast<const StructType&>(t);
-        for (const auto& f : struct_type.children()) {
-          BuilderPtr field_builder;
-          RETURN_NOT_OK(MakeBuilder(*f->type(), leading_nulls, &field_builder));
-          field_builder.nullable = f->nullable();
-          Cast<Kind::kObject>(*builder)->AddField(f->name(), field_builder);
-        }
-        return Status::OK();
-      }
-      default:
-        return Status::NotImplemented("invalid builder type");
-    }
-  }
-
   /// \defgroup handlerbase-append-methods append non-nested values
   ///
-  /// These methods act on builder_
   /// @{
 
-  Status AppendNull() {
-    if (ARROW_PREDICT_FALSE(!builder_.nullable)) {
-      return ParseError("a required field was null");
-    }
-    switch (builder_.kind) {
-      case Kind::kNull: {
-        // increment null count stored inline
-        // update the parent, since changing builder_ doesn't affect parent
-        auto parent = builder_stack_.back();
-        if (parent.kind == Kind::kArray) {
-          auto list_builder = Cast<Kind::kArray>(parent);
-          DCHECK_EQ(list_builder->value_builder(), builder_);
-          builder_.index += 1;
-          list_builder->value_builder(builder_);
-        } else {
-          auto struct_builder = Cast<Kind::kObject>(parent);
-          DCHECK_EQ(struct_builder->field_builder(field_index_), builder_);
-          builder_.index += 1;
-          struct_builder->field_builder(field_index_, builder_);
-        }
-        return Status::OK();
-      }
-      case Kind::kBoolean:
-        return Cast<Kind::kBoolean>(builder_)->AppendNull();
-      case Kind::kNumber:
-        return Cast<Kind::kNumber>(builder_)->AppendNull();
-      case Kind::kString:
-        return Cast<Kind::kString>(builder_)->AppendNull();
-      case Kind::kArray:
-        return Cast<Kind::kArray>(builder_)->AppendNull();
-      case Kind::kObject: {
-        auto root = builder_;
-        auto struct_builder = Cast<Kind::kObject>(builder_);
-        RETURN_NOT_OK(struct_builder->AppendNull());
-        for (int i = 0; i < struct_builder->num_fields(); ++i) {
-          builder_ = struct_builder->field_builder(i);
-          RETURN_NOT_OK(AppendNull());
-        }
-        builder_ = root;
-        return Status::OK();
-      }
-      default:
-        return Status::NotImplemented("invalid builder Kind");
-    }
-  }
-
-  Status AppendBool(bool value) {
-    constexpr auto kind = Kind::kBoolean;
-    if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
-      return IllegallyChangedTo(kind);
-    }
-    return Cast<kind>(builder_)->Append(value);
-  }
-
   template <Kind::type kind>
-  Status AppendScalar(string_view scalar) {
-    if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
+  Status AppendScalar(BuilderPtr builder, string_view scalar) {
+    if (ARROW_PREDICT_FALSE(builder.kind != kind)) {
       return IllegallyChangedTo(kind);
     }
     auto index = static_cast<int32_t>(scalar_values_builder_.length());
     auto value_length = static_cast<int32_t>(scalar.size());
-    RETURN_NOT_OK(Cast<kind>(builder_)->Append(index, value_length));
+    RETURN_NOT_OK(Cast<kind>(builder)->Append(index, value_length));
     RETURN_NOT_OK(scalar_values_builder_.Reserve(1));
     scalar_values_builder_.UnsafeAppend(scalar);
     return Status::OK();
@@ -669,7 +709,7 @@ class HandlerBase : public BlockParser,
     }
     auto struct_builder = Cast<kind>(builder_);
     absent_fields_stack_.Push(struct_builder->num_fields(), true);
-    PushStacks();
+    StartNested();
     return struct_builder->Append();
   }
 
@@ -689,21 +729,21 @@ class HandlerBase : public BlockParser,
   }
 
   Status EndObjectImpl() {
-    auto parent = Cast<Kind::kObject>(builder_stack_.back());
+    auto parent = builder_stack_.back();
 
     auto expected_count = absent_fields_stack_.TopSize();
-    for (field_index_ = 0; field_index_ < expected_count; ++field_index_) {
-      if (!absent_fields_stack_[field_index_]) {
+    for (int i = 0; i < expected_count; ++i) {
+      if (!absent_fields_stack_[i]) {
         continue;
       }
-      builder_ = parent->field_builder(field_index_);
-      if (ARROW_PREDICT_FALSE(!builder_.nullable)) {
+      auto field_builder = Cast<Kind::kObject>(parent)->field_builder(i);
+      if (ARROW_PREDICT_FALSE(!field_builder.nullable)) {
         return ParseError("a required field was absent");
       }
-      RETURN_NOT_OK(AppendNull());
+      RETURN_NOT_OK(builder_set_.AppendNull(parent, i, field_builder));
     }
     absent_fields_stack_.Pop();
-    PopStacks();
+    EndNested();
     return Status::OK();
   }
 
@@ -712,14 +752,14 @@ class HandlerBase : public BlockParser,
     if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
       return IllegallyChangedTo(kind);
     }
-    PushStacks();
+    StartNested();
     // append to the list builder in EndArrayImpl
     builder_ = Cast<kind>(builder_)->value_builder();
     return Status::OK();
   }
 
   Status EndArrayImpl(rj::SizeType size) {
-    PopStacks();
+    EndNested();
     // append to list_builder here
     auto list_builder = Cast<Kind::kArray>(builder_);
     return list_builder->Append(size);
@@ -728,7 +768,7 @@ class HandlerBase : public BlockParser,
   /// helper method for StartArray and StartObject
   /// adds the current builder to a stack so its
   /// children can be visited and parsed.
-  void PushStacks() {
+  void StartNested() {
     field_index_stack_.push_back(field_index_);
     field_index_ = -1;
     builder_stack_.push_back(builder_);
@@ -737,7 +777,7 @@ class HandlerBase : public BlockParser,
   /// helper method for EndArray and EndObject
   /// replaces the current builder with its parent
   /// so parsing of the parent can continue
-  void PopStacks() {
+  void EndNested() {
     field_index_ = field_index_stack_.back();
     field_index_stack_.pop_back();
     builder_ = builder_stack_.back();
@@ -748,18 +788,18 @@ class HandlerBase : public BlockParser,
     return KindChangeError(builder_.kind, illegally_changed_to);
   }
 
-  template <Kind::type kind>
-  std::vector<RawArrayBuilder<kind>>& arena() {
-    return std::get<static_cast<std::size_t>(kind)>(arenas_);
+  /// Reserve storage for scalars, these can occupy almost all of the JSON buffer
+  Status ReserveScalarStorage(int64_t size) override {
+    auto available_storage = scalar_values_builder_.value_data_capacity() -
+                             scalar_values_builder_.value_data_length();
+    if (size <= available_storage) {
+      return Status::OK();
+    }
+    return scalar_values_builder_.ReserveData(size - available_storage);
   }
 
   Status status_;
-  std::tuple<std::tuple<>, std::vector<RawArrayBuilder<Kind::kBoolean>>,
-             std::vector<RawArrayBuilder<Kind::kNumber>>,
-             std::vector<RawArrayBuilder<Kind::kString>>,
-             std::vector<RawArrayBuilder<Kind::kArray>>,
-             std::vector<RawArrayBuilder<Kind::kObject>>>
-      arenas_;
+  RawBuilderSet builder_set_;
   BuilderPtr builder_;
   // top of this stack is the parent of builder_
   std::vector<BuilderPtr> builder_stack_;
@@ -771,7 +811,6 @@ class HandlerBase : public BlockParser,
   // top of this stack == field_index_
   std::vector<int> field_index_stack_;
   StringBuilder scalar_values_builder_;
-  std::shared_ptr<Array> scalar_values_;
 };
 
 template <UnexpectedFieldBehavior>
@@ -966,7 +1005,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
     if (parent.kind == Kind::kArray) {
       auto list_builder = Cast<Kind::kArray>(parent);
       DCHECK_EQ(list_builder->value_builder(), builder_);
-      status_ = MakeBuilder<kind>(builder_.index, &builder_);
+      status_ = builder_set_.MakeBuilder<kind>(builder_.index, &builder_);
       if (ARROW_PREDICT_FALSE(!status_.ok())) {
         return true;
       }
@@ -975,7 +1014,7 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
     } else {
       auto struct_builder = Cast<Kind::kObject>(parent);
       DCHECK_EQ(struct_builder->field_builder(field_index_), builder_);
-      status_ = MakeBuilder<kind>(builder_.index, &builder_);
+      status_ = builder_set_.MakeBuilder<kind>(builder_.index, &builder_);
       if (ARROW_PREDICT_FALSE(!status_.ok())) {
         return true;
       }
