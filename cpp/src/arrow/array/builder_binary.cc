@@ -236,6 +236,13 @@ Status FixedSizeBinaryBuilder::AppendNull() {
   return Status::OK();
 }
 
+Status FixedSizeBinaryBuilder::AppendNulls(int64_t length) {
+  RETURN_NOT_OK(Reserve(length));
+  UnsafeAppendToBitmap(length, false);
+  byte_builder_.UnsafeAdvance(length * byte_width_);
+  return Status::OK();
+}
+
 void FixedSizeBinaryBuilder::Reset() {
   ArrayBuilder::Reset();
   byte_builder_.Reset();

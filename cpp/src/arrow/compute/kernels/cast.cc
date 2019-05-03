@@ -38,6 +38,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
 #include "arrow/util/utf8.h"
+#include "arrow/visitor_inline.h"
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
@@ -78,19 +79,16 @@ namespace compute {
 
 constexpr int64_t kMillisecondsInDay = 86400000;
 
+Status CastNotImplemented(const DataType& in_type, const DataType& out_type) {
+  return Status::NotImplemented("No cast implemented from ", in_type.ToString(), " to ",
+                                out_type.ToString());
+}
+
 template <typename OutType, typename InType, typename Enable = void>
 struct CastFunctor {};
 
 // ----------------------------------------------------------------------
-// Null to other things
-
-template <typename T>
-struct CastFunctor<
-    T, NullType,
-    typename std::enable_if<std::is_base_of<FixedWidthType, T>::value>::type> {
-  void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {}
-};
+// Dictionary to null
 
 template <>
 struct CastFunctor<NullType, DictionaryType> {
@@ -689,6 +687,63 @@ class ListCastKernel : public CastKernelBase {
 };
 
 // ----------------------------------------------------------------------
+// Null to other things
+
+class FromNullCastKernel : public CastKernelBase {
+ public:
+  explicit FromNullCastKernel(std::shared_ptr<DataType> out_type)
+      : CastKernelBase(std::move(out_type)) {}
+
+  Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
+    DCHECK_EQ(Datum::ARRAY, input.kind());
+
+    const ArrayData& in_data = *input.array();
+    DCHECK_EQ(Type::NA, in_data.type->id());
+    auto length = in_data.length;
+
+    // A ArrayData may be preallocated for the output (see InvokeUnaryArrayKernel),
+    // however, it doesn't have any actual data, so throw it away and start anew.
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out_type_, &builder));
+    NullBuilderVisitor visitor = {length, builder.get()};
+    RETURN_NOT_OK(VisitTypeInline(*out_type_, &visitor));
+
+    std::shared_ptr<Array> out_array;
+    RETURN_NOT_OK(visitor.builder_->Finish(&out_array));
+    out->value = out_array->data();
+    return Status::OK();
+  }
+
+  struct NullBuilderVisitor {
+    // Generic implementation
+    Status Visit(const DataType& type) { return builder_->AppendNulls(length_); }
+
+    Status Visit(const StructType& type) {
+      RETURN_NOT_OK(builder_->AppendNulls(length_));
+      auto& struct_builder = checked_cast<StructBuilder&>(*builder_);
+      // Append nulls to all child builders too
+      for (int i = 0; i < struct_builder.num_fields(); ++i) {
+        NullBuilderVisitor visitor = {length_, struct_builder.field_builder(i)};
+        RETURN_NOT_OK(VisitTypeInline(*type.child(i)->type(), &visitor));
+      }
+      return Status::OK();
+    }
+
+    Status Visit(const DictionaryType& type) {
+      // XXX (ARROW-5215): Cannot implement this easily, as DictionaryBuilder
+      // disregards the index type given in the dictionary type, and instead
+      // chooses the smallest possible index type.
+      return CastNotImplemented(*null(), type);
+    }
+
+    Status Visit(const UnionType& type) { return CastNotImplemented(*null(), type); }
+
+    int64_t length_;
+    ArrayBuilder* builder_;
+  };
+};
+
+// ----------------------------------------------------------------------
 // Dictionary to other things
 
 template <typename IndexType>
@@ -1125,7 +1180,6 @@ class CastKernel : public CastKernelBase {
 
 #include "generated/cast-codegen-internal.h"  // NOLINT
 
-GET_CAST_FUNCTION(NULL_CASES, NullType)
 GET_CAST_FUNCTION(BOOLEAN_CASES, BooleanType)
 GET_CAST_FUNCTION(UINT8_CASES, UInt8Type)
 GET_CAST_FUNCTION(INT8_CASES, Int8Type)
@@ -1194,17 +1248,21 @@ inline bool IsZeroCopyCast(Type::type in_type, Type::type out_type) {
 Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_type,
                        const CastOptions& options, std::unique_ptr<UnaryKernel>* kernel) {
   if (in_type.Equals(out_type)) {
-    *kernel = std::unique_ptr<UnaryKernel>(new IdentityCast(std::move(out_type)));
+    kernel->reset(new IdentityCast(std::move(out_type)));
     return Status::OK();
   }
 
   if (IsZeroCopyCast(in_type.id(), out_type->id())) {
-    *kernel = std::unique_ptr<UnaryKernel>(new ZeroCopyCast(std::move(out_type)));
+    kernel->reset(new ZeroCopyCast(std::move(out_type)));
+    return Status::OK();
+  }
+
+  if (in_type.id() == Type::NA) {
+    kernel->reset(new FromNullCastKernel(std::move(out_type)));
     return Status::OK();
   }
 
   switch (in_type.id()) {
-    CAST_FUNCTION_CASE(NullType);
     CAST_FUNCTION_CASE(BooleanType);
     CAST_FUNCTION_CASE(UInt8Type);
     CAST_FUNCTION_CASE(Int8Type);
@@ -1231,8 +1289,7 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
       break;
   }
   if (*kernel == nullptr) {
-    return Status::NotImplemented("No cast implemented from ", in_type.ToString(), " to ",
-                                  out_type->ToString());
+    return CastNotImplemented(in_type, *out_type);
   }
   return Status::OK();
 }

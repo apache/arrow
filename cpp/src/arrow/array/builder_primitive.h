@@ -33,7 +33,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
       : ArrayBuilder(null(), pool) {}
 
   /// \brief Append the specified number of null elements
-  Status AppendNulls(int64_t length) {
+  Status AppendNulls(int64_t length) final {
     if (length < 0) return Status::Invalid("length must be positive");
     null_count_ += length;
     length_ += length;
@@ -41,7 +41,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   }
 
   /// \brief Append a single null element
-  Status AppendNull() { return AppendNulls(1); }
+  Status AppendNull() final { return AppendNulls(1); }
 
   Status Append(std::nullptr_t) { return AppendNull(); }
 
@@ -71,7 +71,7 @@ class NumericBuilder : public ArrayBuilder {
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   /// The memory at the corresponding data slot is set to 0 to prevent
   /// uninitialized memory access
-  Status AppendNulls(int64_t length) {
+  Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(length, static_cast<value_type>(0));
     UnsafeSetNull(length);
@@ -79,7 +79,7 @@ class NumericBuilder : public ArrayBuilder {
   }
 
   /// \brief Append a single null element
-  Status AppendNull() {
+  Status AppendNull() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
     data_builder_.UnsafeAppend(static_cast<value_type>(0));
     UnsafeAppendToBitmap(false);
@@ -263,14 +263,14 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
-  Status AppendNulls(int64_t length) {
+  Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(length, false);
     UnsafeSetNull(length);
     return Status::OK();
   }
 
-  Status AppendNull() {
+  Status AppendNull() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendNull();
     return Status::OK();

@@ -65,7 +65,9 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   /// value builder
   Status Append(bool is_valid = true);
 
-  Status AppendNull() { return Append(false); }
+  Status AppendNull() final { return Append(false); }
+
+  Status AppendNulls(int64_t length) final;
 
   ArrayBuilder* value_builder() const;
 
@@ -74,7 +76,9 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   std::shared_ptr<ArrayBuilder> value_builder_;
   std::shared_ptr<Array> values_;
 
+  Status CheckNextOffset() const;
   Status AppendNextOffset();
+  Status AppendNextOffset(int64_t num_repeats);
 };
 
 // ----------------------------------------------------------------------
@@ -110,7 +114,9 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendNull() { return Append(false); }
+  Status AppendNull() final { return Append(false); }
+
+  Status AppendNulls(int64_t length) final;
 
   void Reset() override;
 

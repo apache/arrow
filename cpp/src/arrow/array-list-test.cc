@@ -203,6 +203,29 @@ TEST_F(TestListArray, TestAppendNull) {
   ASSERT_NE(nullptr, values->data()->buffers[1]);
 }
 
+TEST_F(TestListArray, TestAppendNulls) {
+  ASSERT_OK(builder_->AppendNulls(3));
+
+  Done();
+
+  ASSERT_OK(ValidateArray(*result_));
+  ASSERT_EQ(result_->length(), 3);
+  ASSERT_EQ(result_->null_count(), 3);
+  ASSERT_TRUE(result_->IsNull(0));
+  ASSERT_TRUE(result_->IsNull(1));
+  ASSERT_TRUE(result_->IsNull(2));
+
+  ASSERT_EQ(0, result_->raw_value_offsets()[0]);
+  ASSERT_EQ(0, result_->value_offset(1));
+  ASSERT_EQ(0, result_->value_offset(2));
+  ASSERT_EQ(0, result_->value_offset(3));
+
+  auto values = result_->values();
+  ASSERT_EQ(0, values->length());
+  // Values buffer should be non-null
+  ASSERT_NE(nullptr, values->data()->buffers[1]);
+}
+
 void ValidateBasicListArray(const ListArray* result, const std::vector<int32_t>& values,
                             const std::vector<uint8_t>& is_valid) {
   ASSERT_OK(ValidateArray(*result));

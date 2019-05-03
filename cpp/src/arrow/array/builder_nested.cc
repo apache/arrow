@@ -57,12 +57,18 @@ Status ListBuilder::AppendValues(const int32_t* offsets, int64_t length,
   return Status::OK();
 }
 
-Status ListBuilder::AppendNextOffset() {
+Status ListBuilder::CheckNextOffset() const {
   const int64_t num_values = value_builder_->length();
   ARROW_RETURN_IF(
       num_values > kListMaximumElements,
       Status::CapacityError("ListArray cannot contain more then 2^31 - 1 child elements,",
                             " have ", num_values));
+  return Status::OK();
+}
+
+Status ListBuilder::AppendNextOffset() {
+  RETURN_NOT_OK(CheckNextOffset());
+  const int64_t num_values = value_builder_->length();
   return offsets_builder_.Append(static_cast<int32_t>(num_values));
 }
 
@@ -70,6 +76,17 @@ Status ListBuilder::Append(bool is_valid) {
   RETURN_NOT_OK(Reserve(1));
   UnsafeAppendToBitmap(is_valid);
   return AppendNextOffset();
+}
+
+Status ListBuilder::AppendNulls(int64_t length) {
+  RETURN_NOT_OK(Reserve(length));
+  RETURN_NOT_OK(CheckNextOffset());
+  UnsafeAppendToBitmap(length, false);
+  const int64_t num_values = value_builder_->length();
+  for (int64_t i = 0; i < length; ++i) {
+    offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_values));
+  }
+  return Status::OK();
 }
 
 Status ListBuilder::Resize(int64_t capacity) {
@@ -139,6 +156,12 @@ void StructBuilder::Reset() {
   for (const auto& field_builder : children_) {
     field_builder->Reset();
   }
+}
+
+Status StructBuilder::AppendNulls(int64_t length) {
+  ARROW_RETURN_NOT_OK(Reserve(length));
+  UnsafeAppendToBitmap(length, false);
+  return Status::OK();
 }
 
 Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {

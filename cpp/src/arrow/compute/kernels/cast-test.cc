@@ -37,6 +37,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 
 #include "arrow/compute/context.h"
@@ -48,6 +49,8 @@
 
 namespace arrow {
 namespace compute {
+
+using internal::checked_cast;
 
 static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
     uint8(), int8(),   uint16(), int16(),   uint32(),
@@ -64,6 +67,7 @@ class TestCast : public ComputeFixture, public TestBase {
                  const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
     std::shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, options, &result));
+    ASSERT_OK(ValidateArray(*result));
     ASSERT_ARRAYS_EQUAL(expected, *result);
   }
 
@@ -83,6 +87,7 @@ class TestCast : public ComputeFixture, public TestBase {
   void CheckZeroCopy(const Array& input, const std::shared_ptr<DataType>& out_type) {
     std::shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, {}, &result));
+    ASSERT_OK(ValidateArray(*result));
     ASSERT_EQ(input.data()->buffers.size(), result->data()->buffers.size());
     for (size_t i = 0; i < input.data()->buffers.size(); ++i) {
       AssertBufferSame(input, *result, static_cast<int>(i));
@@ -806,22 +811,6 @@ TEST_F(TestCast, DateTimeZeroCopy) {
   CheckZeroCopy(*arr, timestamp(TimeUnit::NANO));
 }
 
-TEST_F(TestCast, FromNull) {
-  // Null casts to everything
-  const int length = 10;
-
-  NullArray arr(length);
-
-  std::shared_ptr<Array> result;
-  ASSERT_OK(Cast(&ctx_, arr, int32(), {}, &result));
-
-  ASSERT_EQ(length, result->length());
-  ASSERT_EQ(length, result->null_count());
-
-  // OK to look at bitmaps
-  ASSERT_ARRAYS_EQUAL(*result, *result);
-}
-
 TEST_F(TestCast, PreallocatedMemory) {
   CastOptions options;
   options.allow_int_overflow = false;
@@ -1094,86 +1083,6 @@ TEST_F(TestCast, BinaryToString) {
                                                               utf8(), strings, options);
 }
 
-template <typename TestType>
-class TestDictionaryCast : public TestCast {};
-
-typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, Int32Type,
-                         UInt32Type, UInt64Type, Int64Type, FloatType, DoubleType,
-                         Date32Type, Date64Type, FixedSizeBinaryType, BinaryType>
-    TestTypes;
-
-TYPED_TEST_CASE(TestDictionaryCast, TestTypes);
-
-TYPED_TEST(TestDictionaryCast, Basic) {
-  CastOptions options;
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
-
-  Datum out;
-  ASSERT_OK(DictionaryEncode(&this->ctx_, plain_array->data(), &out));
-
-  this->CheckPass(*MakeArray(out.array()), *plain_array, plain_array->type(), options);
-}
-
-TEST_F(TestCast, DictToNumericNoNulls) {
-  // ARROW-3208
-  CastOptions options;
-
-  // Convoluted way to create an array with nullptr bitmap buffer
-  auto array_ = _MakeArray<Int32Type, int32_t>(int32(), {1, 2, 3, 4, 5, 6}, {});
-  auto data = array_->data();
-  data->buffers[0] = nullptr;
-  auto array = MakeArray(data);
-
-  Datum encoded;
-  ASSERT_OK(DictionaryEncode(&this->ctx_, array->data(), &encoded));
-
-  this->CheckPass(*MakeArray(encoded.array()), *array, array->type(), options);
-}
-
-TEST_F(TestCast, DictToNonDictNoNulls) {
-  std::vector<std::string> dict_values = {"foo", "bar", "baz"};
-  auto ex_dict = _MakeArray<StringType, std::string>(utf8(), dict_values, {});
-  auto dict_type = dictionary(int32(), ex_dict);
-
-  // Explicitly construct with nullptr for the null_bitmap_data
-  std::vector<int32_t> i1 = {1, 0, 1};
-  std::vector<int32_t> i2 = {2, 1, 0, 1};
-  auto c1 = std::make_shared<NumericArray<Int32Type>>(3, Buffer::Wrap(i1));
-  auto c2 = std::make_shared<NumericArray<Int32Type>>(4, Buffer::Wrap(i2));
-
-  ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, c1),
-                             std::make_shared<DictionaryArray>(dict_type, c2)};
-  auto dict_carr = std::make_shared<ChunkedArray>(dict_arrays);
-
-  Datum cast_input(dict_carr);
-  Datum cast_output;
-  // Ensure that casting works even when the null_bitmap_data array is a nullptr
-  ASSERT_OK(Cast(&this->ctx_, cast_input,
-                 static_cast<DictionaryType&>(*dict_type).dictionary()->type(),
-                 CastOptions(), &cast_output));
-  ASSERT_EQ(Datum::CHUNKED_ARRAY, cast_output.kind());
-
-  auto e1 = _MakeArray<StringType, std::string>(utf8(), {"bar", "foo", "bar"}, {});
-  auto e2 = _MakeArray<StringType, std::string>(utf8(), {"baz", "bar", "foo", "bar"}, {});
-
-  auto chunks = cast_output.chunked_array()->chunks();
-  ASSERT_EQ(chunks.size(), 2);
-  ASSERT_ARRAYS_EQUAL(*e1, *chunks[0]);
-  ASSERT_ARRAYS_EQUAL(*e2, *chunks[1]);
-}
-
-/*TYPED_TEST(TestDictionaryCast, Reverse) {
-  CastOptions options;
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
-
-  std::shared_ptr<Array> dict_array;
-  ASSERT_OK(EncodeArrayToDictionary(*plain_array, this->pool_, &dict_array));
-
-  this->CheckPass(*plain_array, *dict_array, dict_array->type(), options);
-}*/
-
 TEST_F(TestCast, ListToList) {
   CastOptions options;
   std::shared_ptr<Array> offsets;
@@ -1263,6 +1172,101 @@ TEST_F(TestCast, EmptyCasts) {
     CheckEmptyCast(numeric, boolean());
   }
 }
+
+// ----------------------------------------------------------------------
+// Test casting from NullType
+
+template <typename TestType>
+class TestNullCast : public TestCast {};
+
+typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, Int32Type,
+                         UInt32Type, UInt64Type, Int64Type, FloatType, DoubleType,
+                         Date32Type, Date64Type, FixedSizeBinaryType, BinaryType>
+    TestTypes;
+
+TYPED_TEST_CASE(TestNullCast, TestTypes);
+
+TYPED_TEST(TestNullCast, FromNull) {
+  // Null casts to everything
+  const int length = 10;
+
+  // Hack to get a DataType including for parametric types
+  std::shared_ptr<DataType> out_type =
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(0, 0)->type();
+
+  NullArray arr(length);
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(Cast(&this->ctx_, arr, out_type, {}, &result));
+  ASSERT_OK(ValidateArray(*result));
+
+  ASSERT_TRUE(result->type()->Equals(*out_type));
+  ASSERT_EQ(length, result->length());
+  ASSERT_EQ(length, result->null_count());
+}
+
+// ----------------------------------------------------------------------
+// Test casting to DictionaryType
+
+template <typename TestType>
+class TestDictionaryCast : public TestCast {};
+
+typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, Int32Type,
+                         UInt32Type, UInt64Type, Int64Type, FloatType, DoubleType,
+                         Date32Type, Date64Type, FixedSizeBinaryType, BinaryType>
+    TestTypes;
+
+TYPED_TEST_CASE(TestDictionaryCast, TestTypes);
+
+TYPED_TEST(TestDictionaryCast, Basic) {
+  CastOptions options;
+  std::shared_ptr<Array> plain_array =
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
+
+  Datum encoded;
+  ASSERT_OK(DictionaryEncode(&this->ctx_, plain_array->data(), &encoded));
+  ASSERT_EQ(encoded.array()->type->id(), Type::DICTIONARY);
+
+  this->CheckPass(*MakeArray(encoded.array()), *plain_array, plain_array->type(),
+                  options);
+}
+
+TYPED_TEST(TestDictionaryCast, NoNulls) {
+  // Test with a nullptr bitmap buffer (ARROW-3208)
+  if (TypeParam::type_id == Type::NA) {
+    // Skip, but gtest doesn't support skipping :-/
+    return;
+  }
+
+  CastOptions options;
+  std::shared_ptr<Array> plain_array =
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 0);
+  ASSERT_EQ(plain_array->null_count(), 0);
+
+  // Dict-encode the plain array
+  Datum encoded;
+  ASSERT_OK(DictionaryEncode(&this->ctx_, plain_array->data(), &encoded));
+
+  // Make a new dict array with nullptr bitmap buffer
+  auto data = encoded.array()->Copy();
+  data->buffers[0] = nullptr;
+  data->null_count = 0;
+  std::shared_ptr<Array> dict_array = std::make_shared<DictionaryArray>(data);
+  ASSERT_OK(ValidateArray(*dict_array));
+
+  this->CheckPass(*dict_array, *plain_array, plain_array->type(), options);
+}
+
+/*TYPED_TEST(TestDictionaryCast, Reverse) {
+  CastOptions options;
+  std::shared_ptr<Array> plain_array =
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 2);
+
+  std::shared_ptr<Array> dict_array;
+  ASSERT_OK(EncodeArrayToDictionary(*plain_array, this->pool_, &dict_array));
+
+  this->CheckPass(*plain_array, *dict_array, dict_array->type(), options);
+}*/
 
 }  // namespace compute
 }  // namespace arrow

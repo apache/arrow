@@ -258,11 +258,26 @@ Status DictionaryBuilder<T>::AppendNull() {
   return values_builder_.AppendNull();
 }
 
+template <typename T>
+Status DictionaryBuilder<T>::AppendNulls(int64_t length) {
+  length_ += length;
+  null_count_ += length;
+
+  return values_builder_.AppendNulls(length);
+}
+
 Status DictionaryBuilder<NullType>::AppendNull() {
   length_ += 1;
   null_count_ += 1;
 
   return values_builder_.AppendNull();
+}
+
+Status DictionaryBuilder<NullType>::AppendNulls(int64_t length) {
+  length_ += length;
+  null_count_ += length;
+
+  return values_builder_.AppendNulls(length);
 }
 
 template <typename T>
