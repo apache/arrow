@@ -118,7 +118,7 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
     // If the order is SIGNED, then the old max value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
-      statistics.__set_max(stats.min());
+      statistics.__set_max(stats.max());
     }
   }
   if (stats.has_null_count) {
