@@ -25,7 +25,6 @@ namespace Apache.Arrow.Ipc
     internal class ArrowStreamReaderImplementation : ArrowReaderImplementation
     {
         public Stream BaseStream { get; }
-        protected ArrayPool<byte> Buffers { get; }
         private readonly bool _leaveOpen;
         private readonly MemoryAllocator _allocator;
 
@@ -34,7 +33,6 @@ namespace Apache.Arrow.Ipc
             BaseStream = stream;
             _allocator = allocator ?? MemoryAllocator.Default.Value;
             _leaveOpen = leaveOpen;
-            Buffers = ArrayPool<byte>.Shared;
         }
 
         protected override void Dispose(bool disposing)
@@ -62,7 +60,7 @@ namespace Apache.Arrow.Ipc
             await ReadSchemaAsync().ConfigureAwait(false);
 
             int messageLength = 0;
-            await Buffers.RentReturnAsync(4, async (lengthBuffer) =>
+            await ArrayPool<byte>.Shared.RentReturnAsync(4, async (lengthBuffer) =>
             {
                 // Get Length of record batch for message header.
                 int bytesRead = await BaseStream.ReadFullBufferAsync(lengthBuffer, cancellationToken)
@@ -81,7 +79,7 @@ namespace Apache.Arrow.Ipc
             }
 
             RecordBatch result = null;
-            await Buffers.RentReturnAsync(messageLength, async (messageBuff) =>
+            await ArrayPool<byte>.Shared.RentReturnAsync(messageLength, async (messageBuff) =>
             {
                 int bytesRead = await BaseStream.ReadFullBufferAsync(messageBuff, cancellationToken)
                     .ConfigureAwait(false);
@@ -109,7 +107,7 @@ namespace Apache.Arrow.Ipc
             ReadSchema();
 
             int messageLength = 0;
-            Buffers.RentReturn(4, lengthBuffer =>
+            ArrayPool<byte>.Shared.RentReturn(4, lengthBuffer =>
             {
                 int bytesRead = BaseStream.ReadFullBuffer(lengthBuffer);
 
@@ -126,7 +124,7 @@ namespace Apache.Arrow.Ipc
             }
 
             RecordBatch result = null;
-            Buffers.RentReturn(messageLength, messageBuff =>
+            ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
             {
                 int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
                 EnsureFullRead(messageBuff, bytesRead);
@@ -156,7 +154,7 @@ namespace Apache.Arrow.Ipc
 
             // Figure out length of schema
             int schemaMessageLength = 0;
-            await Buffers.RentReturnAsync(4, async (lengthBuffer) =>
+            await ArrayPool<byte>.Shared.RentReturnAsync(4, async (lengthBuffer) =>
             {
                 int bytesRead = await BaseStream.ReadFullBufferAsync(lengthBuffer).ConfigureAwait(false);
                 EnsureFullRead(lengthBuffer, bytesRead);
@@ -164,7 +162,7 @@ namespace Apache.Arrow.Ipc
                 schemaMessageLength = BitUtility.ReadInt32(lengthBuffer);
             }).ConfigureAwait(false);
 
-            await Buffers.RentReturnAsync(schemaMessageLength, async (buff) =>
+            await ArrayPool<byte>.Shared.RentReturnAsync(schemaMessageLength, async (buff) =>
             {
                 // Read in schema
                 int bytesRead = await BaseStream.ReadFullBufferAsync(buff).ConfigureAwait(false);
@@ -184,7 +182,7 @@ namespace Apache.Arrow.Ipc
 
             // Figure out length of schema
             int schemaMessageLength = 0;
-            Buffers.RentReturn(4, lengthBuffer =>
+            ArrayPool<byte>.Shared.RentReturn(4, lengthBuffer =>
             {
                 int bytesRead = BaseStream.ReadFullBuffer(lengthBuffer);
                 EnsureFullRead(lengthBuffer, bytesRead);
@@ -192,7 +190,7 @@ namespace Apache.Arrow.Ipc
                 schemaMessageLength = BitUtility.ReadInt32(lengthBuffer);
             });
 
-            Buffers.RentReturn(schemaMessageLength, buff =>
+            ArrayPool<byte>.Shared.RentReturn(schemaMessageLength, buff =>
             {
                 int bytesRead = BaseStream.ReadFullBuffer(buff);
                 EnsureFullRead(buff, bytesRead);
