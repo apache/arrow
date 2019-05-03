@@ -205,6 +205,23 @@ def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
 
     The special token "WORKSPACE" is reserved to specify the current git
     workspace. This imply that no clone will be performed.
+
+    Examples:
+
+    \b
+    # Run the benchmarks on current git workspace
+    \b
+    archery benchmark run
+
+    \b
+    # Run the benchmarks on current previous commit
+    \b
+    archery benchmark run HEAD~1
+
+    \b
+    # Run the benchmarks on current previous commit
+    \b
+    archery benchmark run --output=run.json
     """
     with tmpdir(preserve) as root:
         logger.debug(f"Running benchmark {baseline}")
@@ -306,6 +323,17 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
     # Capture result in file `result.json`
     \b
     archery benchmark diff --output=result.json
+    \b
+    # Equivalently with no stdout clutter.
+    archery --quiet benchmark diff > result.json
+
+    \b
+    # Comparing with a cached results from `archery benchmark run`
+    \b
+    archery benchmark run --output=run.json HEAD~1
+    \b
+    # This should not recompute the benchmark from run.json
+    archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
     with tmpdir(preserve) as root:
         logger.debug(f"Comparing {contender} (contender) with "
