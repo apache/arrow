@@ -130,7 +130,8 @@ public class FlightClient implements AutoCloseable {
 
     SetStreamObserver<PutResult> resultObserver = new SetStreamObserver<>();
     ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
-        asyncClientStreamingCall(channel.newCall(doPutDescriptor, asyncStub.getCallOptions()), resultObserver);
+        asyncClientStreamingCall(
+                authInterceptor.interceptCall(doPutDescriptor, asyncStub.getCallOptions(), channel), resultObserver);
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
@@ -144,7 +145,8 @@ public class FlightClient implements AutoCloseable {
   }
 
   public FlightStream getStream(Ticket ticket) {
-    ClientCall<Flight.Ticket, ArrowMessage> call = channel.newCall(doGetDescriptor, asyncStub.getCallOptions());
+    ClientCall<Flight.Ticket, ArrowMessage> call =
+            authInterceptor.interceptCall(doGetDescriptor, asyncStub.getCallOptions(), channel);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
@@ -264,6 +266,4 @@ public class FlightClient implements AutoCloseable {
     channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     allocator.close();
   }
-
-
 }
