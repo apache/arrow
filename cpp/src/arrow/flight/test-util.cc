@@ -118,22 +118,17 @@ bool TestServer::IsRunning() { return server_process_->running(); }
 
 int TestServer::port() const { return port_; }
 
-Status InProcessTestServer::Start(std::unique_ptr<ServerAuthHandler> auth_handler) {
-  Location location;
-  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port_, &location));
-  RETURN_NOT_OK(server_->Init(std::move(auth_handler), location));
+Status InProcessTestServer::Start() {
   thread_ = std::thread([this]() { ARROW_EXPECT_OK(server_->Serve()); });
   return Status::OK();
 }
-
-Status InProcessTestServer::Start() { return Start({}); }
 
 void InProcessTestServer::Stop() {
   server_->Shutdown();
   thread_.join();
 }
 
-int InProcessTestServer::port() const { return port_; }
+const Location& InProcessTestServer::location() const { return location_; }
 
 InProcessTestServer::~InProcessTestServer() {
   // Make sure server shuts down properly

@@ -397,3 +397,13 @@ def test_token_auth_invalid():
         client = flight.FlightClient.connect(server_location)
         with pytest.raises(pa.ArrowException, match=".*unauthenticated.*"):
             client.authenticate(TokenClientAuthHandler('test', 'wrong'))
+
+
+def test_location_invalid():
+    """Test constructing invalid URIs."""
+    with pytest.raises(pa.ArrowException, match=".*Cannot parse URI:.*"):
+        flight.FlightClient.connect("%")
+
+    server = ConstantFlightServer()
+    with pytest.raises(pa.ArrowException, match=".*Cannot parse URI:.*"):
+        server.run("%")

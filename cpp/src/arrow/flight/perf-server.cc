@@ -207,8 +207,9 @@ int main(int argc, char** argv) {
 
   arrow::flight::Location location;
   ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
-  ARROW_CHECK_OK(
-      g_server->Init(std::unique_ptr<arrow::flight::NoOpAuthHandler>(), location));
+  arrow::flight::FlightServerOptions options(location);
+
+  ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
   std::cout << "Server port: " << FLAGS_port << std::endl;

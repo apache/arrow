@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -438,24 +439,38 @@ void FlightServerBase::Impl::HandleSignal(int signum) {
   }
 }
 
+FlightServerOptions::FlightServerOptions(const Location& location_)
+    : location(location_), auth_handler(nullptr) {}
+
 FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 
 FlightServerBase::~FlightServerBase() {}
 
-Status FlightServerBase::Init(std::unique_ptr<ServerAuthHandler> auth_handler,
-                              const Location& location) {
-  std::shared_ptr<ServerAuthHandler> handler = std::move(auth_handler);
+Status FlightServerBase::Init(FlightServerOptions& options) {
+  std::shared_ptr<ServerAuthHandler> handler = std::move(options.auth_handler);
   impl_->service_.reset(new FlightServiceImpl(handler, this));
 
   grpc::ServerBuilder builder;
   // Allow uploading messages of any length
   builder.SetMaxReceiveMessageSize(-1);
 
+  const Location& location = options.location;
   const std::string scheme = location.scheme();
-  if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
+  if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
     std::stringstream address;
     address << location.uri_->host() << ':' << location.uri_->port_text();
-    builder.AddListeningPort(address.str(), grpc::InsecureServerCredentials());
+
+    std::shared_ptr<grpc::ServerCredentials> creds;
+    if (scheme == kSchemeGrpcTls) {
+      grpc::SslServerCredentialsOptions ssl_options;
+      ssl_options.pem_key_cert_pairs.push_back(
+          {options.tls_private_key, options.tls_cert_chain});
+      creds = grpc::SslServerCredentials(ssl_options);
+    } else {
+      creds = grpc::InsecureServerCredentials();
+    }
+
+    builder.AddListeningPort(address.str(), creds);
   } else if (scheme == kSchemeGrpcUnix) {
     std::stringstream address;
     address << "unix:" << location.uri_->path();

@@ -231,17 +231,20 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
 
 class FlightClient::FlightClientImpl {
  public:
-  Status Connect(const Location& location) {
+  Status Connect(const Location& location, const FlightClientOptions& options) {
     const std::string& scheme = location.scheme();
 
     std::stringstream grpc_uri;
     std::shared_ptr<grpc::ChannelCredentials> creds;
     if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
-      // TODO(wesm): Support other kinds of GRPC ChannelCredentials
       grpc_uri << location.uri_->host() << ":" << location.uri_->port_text();
 
       if (scheme == "grpc+tls") {
-        creds = grpc::SslCredentials(grpc::SslCredentialsOptions());
+        grpc::SslCredentialsOptions ssl_options;
+        if (!options.tls_root_certs.empty()) {
+          ssl_options.pem_root_certs = options.tls_root_certs;
+        }
+        creds = grpc::SslCredentials(ssl_options);
       } else {
         creds = grpc::InsecureChannelCredentials();
       }
@@ -401,8 +404,13 @@ FlightClient::~FlightClient() {}
 
 Status FlightClient::Connect(const Location& location,
                              std::unique_ptr<FlightClient>* client) {
+  return Connect(location, {}, client);
+}
+
+Status FlightClient::Connect(const Location& location, const FlightClientOptions& options,
+                             std::unique_ptr<FlightClient>* client) {
   client->reset(new FlightClient);
-  return (*client)->impl_->Connect(location);
+  return (*client)->impl_->Connect(location, options);
 }
 
 Status FlightClient::Authenticate(const FlightCallOptions& options,

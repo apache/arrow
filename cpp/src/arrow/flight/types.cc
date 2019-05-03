@@ -102,7 +102,7 @@ Status Location::ForGrpcUnix(const std::string& path, Location* location) {
   return Location::Parse(uri_string.str(), location);
 }
 
-std::string Location::ToString() const { return uri_->to_string(); }
+std::string Location::ToString() const { return uri_->ToString(); }
 std::string Location::scheme() const {
   std::string scheme = uri_->scheme();
   if (scheme.empty()) {

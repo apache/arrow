@@ -153,9 +153,21 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightCallOptions()
         CTimeoutDuration timeout
 
+    cdef cppclass CFlightServerOptions" arrow::flight::FlightServerOptions":
+        CFlightServerOptions(const CLocation& location)
+        CLocation location
+        unique_ptr[CServerAuthHandler] auth_handler
+        c_string tls_cert_chain
+        c_string tls_private_key
+
+    cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
+        CFlightClientOptions()
+        c_string tls_root_certs
+
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
         CStatus Connect(const CLocation& location,
+                        const CFlightClientOptions& options,
                         unique_ptr[CFlightClient]* client)
 
         CStatus Authenticate(CFlightCallOptions& options,
@@ -229,8 +241,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServer:
         PyFlightServer(object server, PyFlightServerVtable vtable)
 
-        CStatus Init(unique_ptr[CServerAuthHandler] auth_handler,
-                     const CLocation& location)
+        CStatus Init(CFlightServerOptions& options)
         CStatus ServeWithSignals() except *
         void Shutdown()
 

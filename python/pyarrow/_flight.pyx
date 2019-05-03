@@ -72,7 +72,7 @@ cdef class Action:
         return pyarrow_wrap_buffer(self.action.body)
 
     @staticmethod
-    cdef CAction unwrap(action):
+    cdef CAction unwrap(action) except *:
         if not isinstance(action, Action):
             raise TypeError("Must provide Action, not '{}'".format(
                 type(action)))
@@ -168,11 +168,11 @@ cdef class FlightDescriptor:
         return "<FlightDescriptor type: {!r}>".format(self.descriptor_type)
 
     @staticmethod
-    cdef FlightDescriptor unwrap(descriptor):
+    cdef CFlightDescriptor unwrap(descriptor) except *:
         if not isinstance(descriptor, FlightDescriptor):
             raise TypeError("Must provide a FlightDescriptor, not '{}'".format(
                 type(descriptor)))
-        return <FlightDescriptor> descriptor
+        return (<FlightDescriptor> descriptor).descriptor
 
 
 cdef class Ticket:
@@ -225,9 +225,9 @@ cdef class Location:
         return result
 
     @staticmethod
-    cdef CLocation unwrap(object location):
+    cdef CLocation unwrap(object location) except *:
         cdef CLocation c_location
-        if isinstance(location, (six.text_type, six.binary_type)):
+        if isinstance(location, six.text_type):
             check_status(CLocation.Parse(tobytes(location), &c_location))
             return c_location
         elif not isinstance(location, Location):
@@ -381,21 +381,20 @@ cdef class FlightClient:
                         .format(self.__class__.__name__))
 
     @staticmethod
-    def connect(location):
+    def connect(location, **kwargs):
         """Connect to a Flight service on the given host and port."""
         cdef:
             FlightClient result = FlightClient.__new__(FlightClient)
             int c_port = 0
-            CLocation c_location
+            CLocation c_location = Location.unwrap(location)
+            CFlightClientOptions c_options
 
-        if isinstance(location, Location):
-            c_location = (<Location> location).location
-        else:
-            c_location = CLocation()
-            check_status(CLocation.Parse(tobytes(location), &c_location))
+        if "tls_root_certs" in kwargs:
+            c_options.tls_root_certs = tobytes(kwargs["tls_root_certs"])
 
         with nogil:
-            check_status(CFlightClient.Connect(c_location, &result.client))
+            check_status(CFlightClient.Connect(c_location, c_options,
+                                               &result.client))
 
         return result
 
@@ -478,12 +477,12 @@ cdef class FlightClient:
         cdef:
             FlightInfo result = FlightInfo.__new__(FlightInfo)
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
-            FlightDescriptor c_descriptor = \
+            CFlightDescriptor c_descriptor = \
                 FlightDescriptor.unwrap(descriptor)
 
         with nogil:
             check_status(self.client.get().GetFlightInfo(
-                deref(c_options), c_descriptor.descriptor, &result.info))
+                deref(c_options), c_descriptor, &result.info))
 
         return result
 
@@ -494,7 +493,8 @@ cdef class FlightClient:
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         with nogil:
-            check_status(self.client.get().DoGet(deref(c_options), ticket.ticket, &reader))
+            check_status(self.client.get().DoGet(
+                deref(c_options), ticket.ticket, &reader))
         result = FlightRecordBatchReader()
         result.reader.reset(reader.release())
         return result
@@ -506,12 +506,12 @@ cdef class FlightClient:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
             unique_ptr[CRecordBatchWriter] writer
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
-            FlightDescriptor c_descriptor = \
+            CFlightDescriptor c_descriptor = \
                 FlightDescriptor.unwrap(descriptor)
 
         with nogil:
             check_status(self.client.get().DoPut(
-                deref(c_options), c_descriptor.descriptor, c_schema, &writer))
+                deref(c_options), c_descriptor, c_schema, &writer))
         result = FlightRecordBatchWriter()
         result.writer.reset(writer.release())
         return result
@@ -520,7 +520,7 @@ cdef class FlightClient:
 cdef class FlightDataStream:
     """Abstract base class for Flight data streams."""
 
-    cdef CFlightDataStream* to_stream(self):
+    cdef CFlightDataStream* to_stream(self) except *:
         """Create the C++ data stream for the backing Python object.
 
         We don't expose the C++ object to Python, so we can manage its
@@ -547,7 +547,7 @@ cdef class RecordBatchStream(FlightDataStream):
                             "but got: {}".format(type(data_source)))
         self.data_source = data_source
 
-    cdef CFlightDataStream* to_stream(self):
+    cdef CFlightDataStream* to_stream(self) except *:
         cdef:
             shared_ptr[CRecordBatchReader] reader
         if isinstance(self.data_source, _CRecordBatchReader):
@@ -585,7 +585,7 @@ cdef class GeneratorStream(FlightDataStream):
         self.schema = pyarrow_unwrap_schema(schema)
         self.generator = iter(generator)
 
-    cdef CFlightDataStream* to_stream(self):
+    cdef CFlightDataStream* to_stream(self) except *:
         cdef:
             function[cb_data_stream_next] callback = &_data_stream_next
         return new CPyGeneratorFlightDataStream(self, self.schema, callback)
@@ -985,19 +985,29 @@ cdef class FlightServerBase:
     cdef:
         unique_ptr[PyFlightServer] server
 
-    def run(self, location, auth_handler=None):
+    def run(self, location, auth_handler=None, **kwargs):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
-            CLocation c_location = Location.unwrap(location)
-            unique_ptr[CServerAuthHandler] c_auth_handler
+            unique_ptr[CFlightServerOptions] c_options
+
+        c_options.reset(new CFlightServerOptions(Location.unwrap(location)))
 
         if auth_handler:
             if not isinstance(auth_handler, ServerAuthHandler):
                 raise TypeError("auth_handler must be a ServerAuthHandler, "
                                 "not a '{}'".format(type(auth_handler)))
-            c_auth_handler.reset(
+            c_options.get().auth_handler.reset(
                 (<ServerAuthHandler> auth_handler).to_handler())
+
+        if "tls_cert_chain" in kwargs:
+            if "tls_private_key" not in kwargs:
+                raise ValueError(
+                    "Must provide both cert chain and private key")
+            c_options.get().tls_cert_chain = tobytes(
+                kwargs["tls_cert_chain"])
+            c_options.get().tls_private_key = tobytes(
+                kwargs["tls_private_key"])
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
@@ -1009,7 +1019,7 @@ cdef class FlightServerBase:
         c_server = new PyFlightServer(self, vtable)
         self.server.reset(c_server)
         with nogil:
-            check_status(c_server.Init(move(c_auth_handler), c_location))
+            check_status(c_server.Init(deref(c_options)))
             check_status(c_server.ServeWithSignals())
 
     def list_flights(self, context, criteria):

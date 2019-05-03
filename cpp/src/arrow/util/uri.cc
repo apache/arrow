@@ -120,7 +120,7 @@ std::string Uri::path() const {
   return ss.str();
 }
 
-const std::string& Uri::to_string() const { return impl_->string_rep_; }
+const std::string& Uri::ToString() const { return impl_->string_rep_; }
 
 Status Uri::Parse(const std::string& uri_string) {
   impl_->Reset();

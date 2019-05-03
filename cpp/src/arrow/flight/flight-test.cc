@@ -255,24 +255,25 @@ class DoPutTestServer : public FlightServerBase {
 class TestAuthHandler : public ::testing::Test {
  public:
   void SetUp() {
-    port_ = 30000;
-    server_.reset(new InProcessTestServer(
-        std::unique_ptr<FlightServerBase>(new AuthTestServer), port_));
-    ASSERT_OK(server_->Start(std::unique_ptr<ServerAuthHandler>(
-        new TestServerAuthHandler("user", "p4ssw0rd"))));
+    Location location;
+    std::unique_ptr<FlightServerBase> server(new AuthTestServer);
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
+    FlightServerOptions options(location);
+    options.auth_handler =
+        std::unique_ptr<ServerAuthHandler>(new TestServerAuthHandler("user", "p4ssw0rd"));
+    ASSERT_OK(server->Init(options));
+
+    server_.reset(new InProcessTestServer(std::move(server), location));
+    ASSERT_OK(server_->Start());
     ASSERT_OK(ConnectClient());
   }
 
   void TearDown() { server_->Stop(); }
 
-  Status ConnectClient() {
-    Location location;
-    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port_, &location));
-    return FlightClient::Connect(location, &client_);
-  }
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
 
  protected:
-  int port_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<InProcessTestServer> server_;
 };
@@ -280,17 +281,21 @@ class TestAuthHandler : public ::testing::Test {
 class TestDoPut : public ::testing::Test {
  public:
   void SetUp() {
-    port_ = 30000;
+    Location location;
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
+
     do_put_server_ = new DoPutTestServer();
     server_.reset(new InProcessTestServer(
-        std::unique_ptr<FlightServerBase>(do_put_server_), port_));
-    ASSERT_OK(server_->Start({}));
+        std::unique_ptr<FlightServerBase>(do_put_server_), location));
+    FlightServerOptions options(location);
+    ASSERT_OK(do_put_server_->Init(options));
+    ASSERT_OK(server_->Start());
     ASSERT_OK(ConnectClient());
   }
 
   void TearDown() { server_->Stop(); }
 
-  Status ConnectClient() { return FlightClient::Connect("localhost", port_, &client_); }
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
 
   void CheckBatches(FlightDescriptor expected_descriptor,
                     const BatchVector& expected_batches) {
@@ -314,7 +319,6 @@ class TestDoPut : public ::testing::Test {
   }
 
  protected:
-  int port_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<InProcessTestServer> server_;
   DoPutTestServer* do_put_server_;
