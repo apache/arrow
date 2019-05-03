@@ -42,6 +42,7 @@
 
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
+#include "parquet/statistics.h"
 #include "parquet/util/memory.h"
 
 #include "parquet/parquet_types.h"  // IYWU pragma: export
@@ -100,6 +101,34 @@ static inline format::Encoding::type ToThrift(Encoding::type type) {
 
 static inline format::CompressionCodec::type ToThrift(Compression::type type) {
   return static_cast<format::CompressionCodec::type>(type);
+}
+
+static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
+  format::Statistics statistics;
+  if (stats.has_min) {
+    statistics.__set_min_value(stats.min());
+    // If the order is SIGNED, then the old min value must be set too.
+    // This for backward compatibility
+    if (stats.is_signed()) {
+      statistics.__set_min(stats.min());
+    }
+  }
+  if (stats.has_max) {
+    statistics.__set_max_value(stats.max());
+    // If the order is SIGNED, then the old max value must be set too.
+    // This for backward compatibility
+    if (stats.is_signed()) {
+      statistics.__set_max(stats.min());
+    }
+  }
+  if (stats.has_null_count) {
+    statistics.__set_null_count(stats.null_count);
+  }
+  if (stats.has_distinct_count) {
+    statistics.__set_distinct_count(stats.distinct_count);
+  }
+
+  return statistics;
 }
 
 // ----------------------------------------------------------------------

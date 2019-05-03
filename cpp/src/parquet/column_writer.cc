@@ -122,17 +122,6 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
 // ----------------------------------------------------------------------
 // PageWriter implementation
 
-static format::Statistics ToThrift(const EncodedStatistics& row_group_statistics) {
-  format::Statistics statistics;
-  if (row_group_statistics.has_min) statistics.__set_min(row_group_statistics.min());
-  if (row_group_statistics.has_max) statistics.__set_max(row_group_statistics.max());
-  if (row_group_statistics.has_null_count)
-    statistics.__set_null_count(row_group_statistics.null_count);
-  if (row_group_statistics.has_distinct_count)
-    statistics.__set_distinct_count(row_group_statistics.distinct_count);
-  return statistics;
-}
-
 // This subclass delimits pages appearing in a serialized stream, each preceded
 // by a serialized Thrift format::PageHeader indicating the type of each page
 // and the page metadata.
@@ -550,6 +539,8 @@ void ColumnWriterImpl::AddDataPage() {
   memcpy(uncompressed_ptr, values->data(), values->size());
 
   EncodedStatistics page_stats = GetPageStatistics();
+  page_stats.ApplyStatSizeLimits(properties_->max_statistics_size(descr_->path()));
+  page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
   ResetPageStatistics();
 
   std::shared_ptr<Buffer> compressed_data;
@@ -598,17 +589,13 @@ int64_t ColumnWriterImpl::Close() {
     FlushBufferedDataPages();
 
     EncodedStatistics chunk_statistics = GetChunkStatistics();
+    chunk_statistics.ApplyStatSizeLimits(
+        properties_->max_statistics_size(descr_->path()));
+    chunk_statistics.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
+
     // Write stats only if the column has at least one row written
-    // From parquet-mr
-    // Don't write stats larger than the max size rather than truncating. The
-    // rationale is that some engines may use the minimum value in the page as
-    // the true minimum for aggregations and there is no way to mark that a
-    // value has been truncated and is a lower bound and not in the page.
-    if (rows_written_ > 0 && chunk_statistics.is_set() &&
-        chunk_statistics.max_stat_length() <=
-            properties_->max_statistics_size(descr_->path())) {
-      metadata_->SetStatistics(SortOrder::SIGNED == descr_->sort_order(),
-                               chunk_statistics);
+    if (rows_written_ > 0 && chunk_statistics.is_set()) {
+      metadata_->SetStatistics(chunk_statistics);
     }
     pager_->Close(has_dictionary_, fallback_);
   }

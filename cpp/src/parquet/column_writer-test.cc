@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <utility>
+
 #include <gtest/gtest.h>
 
 #include <arrow/testing/gtest_util.h>
@@ -244,6 +246,17 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     auto metadata_accessor =
         ColumnChunkMetaData::Make(metadata_->contents(), this->descr_, &app_version);
     return metadata_accessor->is_stats_set();
+  }
+
+  std::pair<bool, bool> metadata_stats_has_min_max() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    ApplicationVersion app_version(this->writer_properties_->created_by());
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_, &app_version);
+    auto encoded_stats = metadata_accessor->statistics()->Encode();
+    return {encoded_stats.has_min, encoded_stats.has_max};
   }
 
   std::vector<Encoding::type> metadata_encodings() {
@@ -578,7 +591,7 @@ TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
 }
 
 // PARQUET-979
-// Prevent writing large stats
+// Prevent writing large MIN, MAX stats
 using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 TEST_F(TestByteArrayValuesWriter, OmitStats) {
   int min_len = 1024 * 4;
@@ -591,7 +604,27 @@ TEST_F(TestByteArrayValuesWriter, OmitStats) {
   writer->WriteBatch(SMALL_SIZE, nullptr, nullptr, this->values_.data());
   writer->Close();
 
-  ASSERT_FALSE(this->metadata_is_stats_set());
+  auto has_min_max = this->metadata_stats_has_min_max();
+  ASSERT_FALSE(has_min_max.first);
+  ASSERT_FALSE(has_min_max.second);
+}
+
+// PARQUET-1405
+// Prevent writing large stats in the DataPageHeader
+TEST_F(TestByteArrayValuesWriter, OmitDataPageStats) {
+  int min_len = static_cast<int>(std::pow(10, 7));
+  int max_len = static_cast<int>(std::pow(10, 7));
+  this->SetUpSchema(Repetition::REQUIRED);
+  ColumnProperties column_properties;
+  column_properties.set_statistics_enabled(false);
+  auto writer = this->BuildWriter(SMALL_SIZE, column_properties);
+
+  values_.resize(1);
+  InitWideByteArrayValues(1, this->values_, this->buffer_, min_len, max_len);
+  writer->WriteBatch(1, nullptr, nullptr, this->values_.data());
+  writer->Close();
+
+  ASSERT_NO_THROW(this->ReadColumn());
 }
 
 TEST_F(TestByteArrayValuesWriter, LimitStats) {

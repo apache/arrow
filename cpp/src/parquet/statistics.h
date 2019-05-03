@@ -106,6 +106,7 @@ class TypedComparator : public Comparator {
 /// and from Parquet serialized metadata
 class PARQUET_EXPORT EncodedStatistics {
   std::shared_ptr<std::string> max_, min_;
+  bool is_signed_ = false;
 
  public:
   EncodedStatistics()
@@ -122,12 +123,27 @@ class PARQUET_EXPORT EncodedStatistics {
   bool has_null_count = false;
   bool has_distinct_count = false;
 
+  // From parquet-mr
+  // Don't write stats larger than the max size rather than truncating. The
+  // rationale is that some engines may use the minimum value in the page as
+  // the true minimum for aggregations and there is no way to mark that a
+  // value has been truncated and is a lower bound and not in the page.
+  void ApplyStatSizeLimits(size_t length) {
+    if (max_->length() > length) {
+      has_max = false;
+    }
+    if (min_->length() > length) {
+      has_min = false;
+    }
+  }
+
   inline bool is_set() const {
     return has_min || has_max || has_null_count || has_distinct_count;
   }
 
-  // larger of the max_ and min_ stat values
-  inline size_t max_stat_length() { return std::max(max_->length(), min_->length()); }
+  inline bool is_signed() const { return is_signed_; }
+
+  inline void set_is_signed(bool is_signed) { is_signed_ = is_signed; }
 
   inline EncodedStatistics& set_max(const std::string& value) {
     *max_ = value;
