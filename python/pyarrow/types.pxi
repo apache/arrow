@@ -1430,8 +1430,7 @@ cpdef ListType list_(value_type):
     return out
 
 
-cpdef DictionaryType dictionary(DataType index_type, Array dict_values,
-                                bint ordered=False):
+cpdef DictionaryType dictionary(index_type, dict_values, bint ordered=False):
     """
     Dictionary (categorical, or simply encoded) type
 
@@ -1445,10 +1444,16 @@ cpdef DictionaryType dictionary(DataType index_type, Array dict_values,
     -------
     type : DictionaryType
     """
-    cdef DictionaryType out = DictionaryType.__new__(DictionaryType)
-    cdef shared_ptr[CDataType] dict_type
-    dict_type.reset(new CDictionaryType(index_type.sp_type,
-                                        dict_values.sp_array,
+    cdef:
+        DataType _index_type = ensure_type(index_type, allow_none=False)
+        DictionaryType out = DictionaryType.__new__(DictionaryType)
+        shared_ptr[CDataType] dict_type
+
+    if not isinstance(dict_values, Array):
+        dict_values = array(dict_values)
+
+    dict_type.reset(new CDictionaryType(_index_type.sp_type,
+                                        (<Array> dict_values).sp_array,
                                         ordered == 1))
     out.init(dict_type)
     return out
