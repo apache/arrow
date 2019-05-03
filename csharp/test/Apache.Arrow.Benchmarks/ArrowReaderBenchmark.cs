@@ -29,13 +29,16 @@ namespace Apache.Arrow.Benchmarks
     [MemoryDiagnoser]
     public class ArrowReaderBenchmark
     {
+        [Params(10_000, 1_000_000)]
+        public int Count { get; set; }
+
         private MemoryStream _memoryStream;
         private static readonly MemoryAllocator s_allocator = new TestMemoryAllocator();
 
         [GlobalSetup]
         public async Task GlobalSetup()
         {
-            RecordBatch batch = TestData.CreateSampleRecordBatch(length: 1_000_000);
+            RecordBatch batch = TestData.CreateSampleRecordBatch(length: Count);
             _memoryStream = new MemoryStream();
 
             ArrowStreamWriter writer = new ArrowStreamWriter(_memoryStream, batch.Schema);
@@ -65,19 +68,6 @@ namespace Apache.Arrow.Benchmarks
         }
 
         [Benchmark]
-        public async Task<double> ArrowReaderWithMemoryStream_NoDispose()
-        {
-            double sum = 0;
-            var reader = new ArrowStreamReader(_memoryStream);
-            RecordBatch recordBatch;
-            while ((recordBatch = await reader.ReadNextRecordBatchAsync()) != null)
-            {
-                sum += SumAllNumbers(recordBatch);
-            }
-            return sum;
-        }
-
-        [Benchmark]
         public async Task<double> ArrowReaderWithMemoryStream_ManagedMemory()
         {
             double sum = 0;
@@ -89,19 +79,6 @@ namespace Apache.Arrow.Benchmarks
                 {
                     sum += SumAllNumbers(recordBatch);
                 }
-            }
-            return sum;
-        }
-
-        [Benchmark]
-        public async Task<double> ArrowReaderWithMemoryStream_ManagedMemory_NoDispose()
-        {
-            double sum = 0;
-            var reader = new ArrowStreamReader(_memoryStream, s_allocator);
-            RecordBatch recordBatch;
-            while ((recordBatch = await reader.ReadNextRecordBatchAsync()) != null)
-            {
-                sum += SumAllNumbers(recordBatch);
             }
             return sum;
         }
