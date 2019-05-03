@@ -320,6 +320,13 @@ def test_dictionary_type():
     assert ty1.dictionary.to_pylist() == [1.0, 2.0]
     assert ty1.ordered is True
 
+    # construct from non-arrow objects
+    ty2 = pa.dictionary('int8', ['a', 'b', 'c', 'd'])
+    assert ty2.index_type == pa.int8()
+    assert isinstance(ty2.dictionary, pa.Array)
+    assert ty2.dictionary.to_pylist() == ['a', 'b', 'c', 'd']
+    assert ty2.ordered is False
+
 
 def test_types_hashable():
     many_types = get_many_types()
