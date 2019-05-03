@@ -45,7 +45,7 @@ func (rcv *Footer) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *Footer) Version() int16 {
+func (rcv *Footer) Version() MetadataVersion {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		return rcv._tab.GetInt16(o + rcv._tab.Pos)
@@ -53,7 +53,7 @@ func (rcv *Footer) Version() int16 {
 	return 0
 }
 
-func (rcv *Footer) MutateVersion(n int16) bool {
+func (rcv *Footer) MutateVersion(n MetadataVersion) bool {
 	return rcv._tab.MutateInt16Slot(4, n)
 }
 

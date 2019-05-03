@@ -42,7 +42,7 @@ func (rcv *PrimitiveArray) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *PrimitiveArray) Type() int8 {
+func (rcv *PrimitiveArray) Type() Type {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		return rcv._tab.GetInt8(o + rcv._tab.Pos)
@@ -50,11 +50,11 @@ func (rcv *PrimitiveArray) Type() int8 {
 	return 0
 }
 
-func (rcv *PrimitiveArray) MutateType(n int8) bool {
+func (rcv *PrimitiveArray) MutateType(n Type) bool {
 	return rcv._tab.MutateInt8Slot(4, n)
 }
 
-func (rcv *PrimitiveArray) Encoding() int8 {
+func (rcv *PrimitiveArray) Encoding() Encoding {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
 	if o != 0 {
 		return rcv._tab.GetInt8(o + rcv._tab.Pos)
@@ -62,7 +62,7 @@ func (rcv *PrimitiveArray) Encoding() int8 {
 	return 0
 }
 
-func (rcv *PrimitiveArray) MutateEncoding(n int8) bool {
+func (rcv *PrimitiveArray) MutateEncoding(n Encoding) bool {
 	return rcv._tab.MutateInt8Slot(6, n)
 }
 

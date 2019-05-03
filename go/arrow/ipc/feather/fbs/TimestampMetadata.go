@@ -42,7 +42,7 @@ func (rcv *TimestampMetadata) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *TimestampMetadata) Unit() int8 {
+func (rcv *TimestampMetadata) Unit() TimeUnit {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		return rcv._tab.GetInt8(o + rcv._tab.Pos)
@@ -50,7 +50,7 @@ func (rcv *TimestampMetadata) Unit() int8 {
 	return 0
 }
 
-func (rcv *TimestampMetadata) MutateUnit(n int8) bool {
+func (rcv *TimestampMetadata) MutateUnit(n TimeUnit) bool {
 	return rcv._tab.MutateInt8Slot(4, n)
 }
 

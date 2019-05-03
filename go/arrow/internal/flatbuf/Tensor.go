@@ -108,6 +108,15 @@ func (rcv *Tensor) StridesLength() int {
 }
 
 /// Non-negative byte offsets to advance one value cell along each dimension
+func (rcv *Tensor) MutateStrides(j int, n int64) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.MutateInt64(a+flatbuffers.UOffsetT(j*8), n)
+	}
+	return false
+}
+
 /// The location and size of the tensor's data
 func (rcv *Tensor) Data(obj *Buffer) *Buffer {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))

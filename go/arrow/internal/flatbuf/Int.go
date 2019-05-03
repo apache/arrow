@@ -54,16 +54,16 @@ func (rcv *Int) MutateBitWidth(n int32) bool {
 	return rcv._tab.MutateInt32Slot(4, n)
 }
 
-func (rcv *Int) IsSigned() byte {
+func (rcv *Int) IsSigned() bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
 	if o != 0 {
-		return rcv._tab.GetByte(o + rcv._tab.Pos)
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
 	}
-	return 0
+	return false
 }
 
-func (rcv *Int) MutateIsSigned(n byte) bool {
-	return rcv._tab.MutateByteSlot(6, n)
+func (rcv *Int) MutateIsSigned(n bool) bool {
+	return rcv._tab.MutateBoolSlot(6, n)
 }
 
 func IntStart(builder *flatbuffers.Builder) {
@@ -72,8 +72,8 @@ func IntStart(builder *flatbuffers.Builder) {
 func IntAddBitWidth(builder *flatbuffers.Builder, bitWidth int32) {
 	builder.PrependInt32Slot(0, bitWidth, 0)
 }
-func IntAddIsSigned(builder *flatbuffers.Builder, isSigned byte) {
-	builder.PrependByteSlot(1, isSigned, 0)
+func IntAddIsSigned(builder *flatbuffers.Builder, isSigned bool) {
+	builder.PrependBoolSlot(1, isSigned, false)
 }
 func IntEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
