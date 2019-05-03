@@ -296,7 +296,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
       Close();
     } catch (...) {
     }
-    file_metadata_.reset();
   }
 
  private:
@@ -311,7 +310,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
         num_row_groups_(0),
         num_rows_(0),
         metadata_(FileMetaDataBuilder::Make(&schema_, properties, key_value_metadata)) {
-    file_metadata_.reset();
     StartFile();
   }
 
