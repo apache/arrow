@@ -25,63 +25,99 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 public interface FlightProducer {
 
   /**
-   * Return data for the given stream.
+   * Return data for a stream.
+   *
+   * @param context Per-call context.
+   * @param ticket The application-defined ticket identifying this stream.
+   * @param listener An interface for sending data back to the client.
    */
-  void getStream(CallContext context, Ticket ticket,
-      ServerStreamListener listener);
+  void getStream(CallContext context, Ticket ticket, ServerStreamListener listener);
 
-  /** List available flights given some criteria. */
+  /**
+   * List available data streams on this service.
+   *
+   * @param context Per-call context.
+   * @param criteria Application-defined criteria for filtering streams.
+   * @param listener An interface for sending data back to the client.
+   */
   void listFlights(CallContext context, Criteria criteria,
       StreamListener<FlightInfo> listener);
 
-  /** Get information on a specific flight. */
-  FlightInfo getFlightInfo(CallContext context,
-      FlightDescriptor descriptor);
+  /**
+   * Get information about a particular data stream.
+   *
+   * @param context Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Metadata about the stream.
+   */
+  FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor);
 
-  /** Accept uploaded data for a flight. */
-  Runnable acceptPut(CallContext context,
+  /**
+   * Accept uploaded data for a particular stream.
+   *
+   * @param context Per-call context.
+   * @param flightStream The data stream being uploaded.
+   */
+  public Runnable acceptPut(CallContext context,
       FlightStream flightStream, StreamListener<PutResult> ackStream);
 
+  /**
+   * Generic handler for application-defined RPCs.
+   *
+   * @param context Per-call context.
+   * @param action Client-supplied parameters.
+   * @param listener A stream of responses.
+   */
   void doAction(CallContext context, Action action,
       StreamListener<Result> listener);
 
-  void listActions(CallContext context,
-      StreamListener<ActionType> listener);
+  /**
+   * List available application-defined RPCs.
+   * @param context Per-call context.
+   * @param listener An interface for sending data back to the client.
+   */
+  void listActions(CallContext context, StreamListener<ActionType> listener);
 
   /**
-   * Listener for creating a stream on the server side.
+   * An interface for sending Arrow data back to a client.
    */
-  interface ServerStreamListener {
+  public interface ServerStreamListener {
 
     /**
-     * Check if the client has cancelled their request.
+     * Check whether the call has been cancelled. If so, stop sending data.
      */
     boolean isCancelled();
 
     /**
-     * Check if the client is ready to receive further data.
+     * A hint indicating whether the client is ready to receive data without excessive buffering.
      */
     boolean isReady();
 
     /**
-     * Begin sending data from the specified root.
+     * Start sending data, using the schema of the given {@link VectorSchemaRoot}.
+     *
+     * <p>This method must be called before all others.
      */
     void start(VectorSchemaRoot root);
 
-    /** Send the current contents of the root to the client. */
+    /**
+     * Send the current contents of the associated {@link VectorSchemaRoot}.
+     */
     void putNext();
 
     /**
-     * Send the current contents of the root to the client, along with application-defined metadata on the side.
+     * Send the current contents of the associated {@link VectorSchemaRoot} alongside application-defined metadata.
      */
     void putNext(byte[] metadata);
 
     /**
-     *  Indicate an error to the client. Do not call {@link #completed} afterwards.
+     * Indicate an error to the client. Terminates the stream; do not call {@link #completed()} afterwards.
      */
     void error(Throwable ex);
 
-    /** Indicate that the stream is finished. */
+    /**
+     * Indicate that transmission is finished.
+     */
     void completed();
 
   }
@@ -93,10 +129,21 @@ public interface FlightProducer {
    */
   interface StreamListener<T> {
 
+    /**
+     * Send the next value to the client.
+     */
     void onNext(T val);
 
+    /**
+     * Indicate an error to the client.
+     *
+     * <p>Terminates the stream; do not call {@link #onCompleted()}.
+     */
     void onError(Throwable t);
 
+    /**
+     * Indicate that the transmission is finished.
+     */
     void onCompleted();
 
   }

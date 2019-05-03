@@ -75,6 +75,9 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
 
+  /**
+   * Create a Flight client from an allocator and a gRPC channel.
+   */
   private FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
@@ -153,11 +156,11 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Create or append a descriptor with another stream.
-   * @param descriptor FlightDescriptor
-   * @param root VectorSchemaRoot
+   * @param descriptor FlightDescriptor the descriptor for the data
+   * @param root VectorSchemaRoot the root containing data
    * @param metadataListener A handler for metadata messages from the server.
    * @param options RPC-layer hints for this call.
-   * @return ClientStreamListener
+   * @return ClientStreamListener an interface to control uploading data
    */
   public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root,
       StreamListener<PutResult> metadataListener, CallOption... options) {
@@ -168,7 +171,7 @@ public class FlightClient implements AutoCloseable {
     final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
     ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
         ClientCalls.asyncBidiStreamingCall(
-                authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
+            authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
@@ -200,7 +203,7 @@ public class FlightClient implements AutoCloseable {
   public FlightStream getStream(Ticket ticket, CallOption... options) {
     final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
     ClientCall<Flight.Ticket, ArrowMessage> call =
-            authInterceptor.interceptCall(doGetDescriptor, callOptions, channel);
+        authInterceptor.interceptCall(doGetDescriptor, callOptions, channel);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
@@ -238,6 +241,7 @@ public class FlightClient implements AutoCloseable {
   }
 
   private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
+
     private final CompletableFuture<Void> result;
     private final StreamListener<PutResult> listener;
 
@@ -275,6 +279,7 @@ public class FlightClient implements AutoCloseable {
   }
 
   private static class PutObserver implements ClientStreamListener {
+
     private final ClientCallStreamObserver<ArrowMessage> observer;
     private final VectorUnloader unloader;
     private final CompletableFuture<Void> futureResult;
@@ -326,21 +331,32 @@ public class FlightClient implements AutoCloseable {
    */
   public interface ClientStreamListener {
 
+    /**
+     * Send the current data in the corresponding {@link VectorSchemaRoot} to the server.
+     */
     void putNext();
 
     void putNext(byte[] appMetadata);
 
+    /**
+     * Indicate an error to the server. Terminates the stream; do not call {@link #completed()}.
+     */
     void error(Throwable ex);
 
     /** Indicate the stream is finished on the client side. */
     void completed();
 
-    /** Wait for the stream to finish on the server side. */
+    /**
+     * Wait for the stream to finish on the server side. You must call this to be notified of any errors that may have
+     * happened during the upload.
+     */
     void getResult();
 
   }
 
-
+  /**
+   * Shut down this client.
+   */
   public void close() throws InterruptedException {
     channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     allocator.close();
