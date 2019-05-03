@@ -365,21 +365,21 @@ class TestConvertMetadata(object):
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_mixed_column_names(self):
+        # mixed type column names are not reconstructed exactly
         df = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
 
         for cols in [[u'あ', b'a'], [1, '2'], [1, 1.5]]:
             df.columns = pd.Index(cols, dtype=object)
 
+            # assert that the from_pandas raises the warning
             with pytest.warns(UserWarning):
-                table = pa.Table.from_pandas(df)
-            result = table.to_pandas()
+                pa.Table.from_pandas(df)
 
-            # mixed type column names are not reconstructed exactly
-            with pytest.raises(AssertionError):
-                tm.assert_frame_equal(result, df)
-
-            df.columns = df.columns.astype(str)
-            tm.assert_frame_equal(result, df)
+            expected = df.copy()
+            expected.columns = df.columns.astype(str)
+            with pytest.warns(UserWarning):
+                _check_pandas_roundtrip(df, expected=expected,
+                                        preserve_index=True)
 
     def test_binary_column_name(self):
         column_data = [u'い']
@@ -2251,12 +2251,6 @@ class TestConvertMisc(object):
         assert arr.to_pylist() == [42, -43]
         arr = pa.array(data['y'], type=pa.int16())
         assert arr.to_pylist() == [-1, 2]
-
-    def test_mixed_integer_columns(self):
-        row = [[], []]
-        df = pd.DataFrame(data=[row], columns=['foo', 123])
-        expected_df = pd.DataFrame(data=[row], columns=['foo', '123'])
-        _check_pandas_roundtrip(df, expected=expected_df, preserve_index=True)
 
     def test_safe_unsafe_casts(self):
         # ARROW-2799
