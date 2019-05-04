@@ -28,7 +28,7 @@ import com.carrotsearch.hppc.ObjectIntHashMap;
 
 // Utility class for Date, DateTime, TimeStamp, Interval data types
 public class DateUtility {
-
+  private DateUtility() {}
 
   /* We have a hashmap that stores the timezone as the key and an index as the value
    * While storing the timezone in value vectors, holders we only use this index. As we

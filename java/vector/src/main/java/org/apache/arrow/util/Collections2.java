@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class Collections2 {
+  private Collections2() {}
 
   public static <T> List<T> toList(Iterator<T> iterator) {
     List<T> target = new ArrayList<>();
@@ -48,7 +49,7 @@ public class Collections2 {
   }
 
   public static <V> List<V> immutableListCopy(List<V> list) {
-    return list.stream().collect(Collectors.toList());
+    return Collections.unmodifiableList(list.stream().collect(Collectors.toList()));
   }
 
   public static <V> List<V> asImmutableList(V...values) {

@@ -34,6 +34,7 @@ import org.apache.arrow.vector.ipc.ArrowStreamWriter;
  * first argument and the output is written to standard out.
  */
 public class FileToStream {
+  private FileToStream() {}
 
   public static void convert(FileInputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);

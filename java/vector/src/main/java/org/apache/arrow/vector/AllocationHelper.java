@@ -21,6 +21,7 @@ import org.apache.arrow.vector.complex.RepeatedFixedWidthVectorLike;
 import org.apache.arrow.vector.complex.RepeatedVariableWidthVectorLike;
 
 public class AllocationHelper {
+  private AllocationHelper() {}
 
   public static void allocate(ValueVector v, int valueCount, int bytesPerValue) {
     allocate(v, valueCount, bytesPerValue, 5);

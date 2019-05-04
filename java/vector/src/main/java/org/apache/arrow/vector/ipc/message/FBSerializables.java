@@ -24,6 +24,7 @@ import java.util.List;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 public class FBSerializables {
+  private FBSerializables() {}
 
   public static int writeAllStructsToVector(FlatBufferBuilder builder, List<? extends FBSerializable> all) {
     // struct vectors have to be created in reverse order

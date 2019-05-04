@@ -28,6 +28,8 @@ import io.netty.buffer.ArrowBuf;
  */
 public class BitVectorHelper {
 
+  private BitVectorHelper() {}
+
   /**
    * Get the index of byte corresponding to bit index in validity buffer.
    */
