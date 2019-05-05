@@ -48,7 +48,7 @@ matrix:
   - language: r
   fast_finish: true
   include:
-  - name: "Lint C++, Python, R, Docker"
+  - name: "Lint, Release tests"
     os: linux
     language: python
     python: "3.6"
@@ -58,6 +58,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_release_test.sh
   - name: "C++ unit tests w/ clang 7.0, system packages"
     os: linux
     env:

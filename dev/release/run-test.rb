@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,24 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-VERSION = 0.13.0.9000
-RWINLIB = ../windows/arrow-$(VERSION)
-PKG_CPPFLAGS = -I$(RWINLIB)/include -DARROW_STATIC -DPARQUET_STATIC \
-	-DARROW_R_WITH_PARQUET
-CXX_STD = CXX11
+$VERBOSE = true
 
-PKG_LIBS = \
-	-L$(RWINLIB)/lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH) \
-	-L$(RWINLIB)/lib$(R_ARCH) \
-	-lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lz -lws2_32
+require "pathname"
 
-#all: clean
-all: $(SHLIB)
+test_dir = Pathname.new(__dir__)
 
-$(OBJECTS): winlibs
+require "test-unit"
+require_relative "test-helper"
 
-winlibs:
-	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R" $(VERSION)
+ENV["TEST_UNIT_MAX_DIFF_TARGET_STRING_SIZE"] = "10000"
 
-clean:
-	rm -f $(SHLIB) $(OBJECTS)
+exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))
