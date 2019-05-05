@@ -185,6 +185,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    |                                                                |
    *----------------------------------------------------------------*/
 
+  /** Sets the value at index to the provided one. */
   public void set(int index, byte[] value) {
     assert index >= 0;
     assert byteWidth <= value.length;
@@ -192,11 +193,18 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     valueBuffer.setBytes(index * byteWidth, value, 0, byteWidth);
   }
 
+  /**
+   * Same as {@link #set(int, byte[])} but reallocates if <code>index</code>
+   * is larger than capacity.
+   */
   public void setSafe(int index, byte[] value) {
     handleSafe(index);
     set(index, value);
   }
 
+  /**
+   * Sets the value if isSet is positive, otherwise sets the index to null/invalid.
+   */
   public void set(int index, int isSet, byte[] value) {
     if (isSet > 0) {
       set(index, value);

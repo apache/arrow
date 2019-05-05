@@ -36,7 +36,6 @@ import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
-import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -45,6 +44,9 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.flatbuffers.FlatBufferBuilder;
 
+/**
+ * A POJO abstraction for the Flatbuffer description of Vector Type.
+ */
 public class Field {
 
   public static Field nullablePrimitive(String name, ArrowType.PrimitiveType type) {
@@ -76,13 +78,17 @@ public class Field {
     this.children = children == null ? Collections.emptyList() : children.stream().collect(Collectors.toList());
   }
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public Field(String name, boolean nullable, ArrowType type, List<Field> children) {
     this(name, new FieldType(nullable, type, null, null), children);
   }
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public Field(String name, boolean nullable, ArrowType type, DictionaryEncoding dictionary, List<Field> children) {
     this(name, new FieldType(nullable, type, dictionary, null), children);
@@ -92,12 +98,18 @@ public class Field {
     this(name, fieldType, children, fieldType == null ? null : TypeLayout.getTypeLayout(fieldType.getType()));
   }
 
+  /**
+   * Construct a new vector of this type using the given allocator.
+   */
   public FieldVector createVector(BufferAllocator allocator) {
     FieldVector vector = fieldType.createNewSingleVector(name, allocator, null);
     vector.initializeChildrenFromFields(children);
     return vector;
   }
 
+  /**
+   * Constructs a new instance from a flatbuffer representation of the field.
+   */
   public static Field convertField(org.apache.arrow.flatbuf.Field field) {
     String name = field.name();
     boolean nullable = field.nullable();
@@ -105,10 +117,10 @@ public class Field {
     DictionaryEncoding dictionary = null;
     org.apache.arrow.flatbuf.DictionaryEncoding dictionaryFB = field.dictionary();
     if (dictionaryFB != null) {
-      Int indexType = null;
+      ArrowType.Int indexType = null;
       org.apache.arrow.flatbuf.Int indexTypeFB = dictionaryFB.indexType();
       if (indexTypeFB != null) {
-        indexType = new Int(indexTypeFB.bitWidth(), indexTypeFB.isSigned());
+        indexType = new ArrowType.Int(indexTypeFB.bitWidth(), indexTypeFB.isSigned());
       }
       dictionary = new DictionaryEncoding(dictionaryFB.id(), dictionaryFB.isOrdered(), indexType);
     }
@@ -151,6 +163,9 @@ public class Field {
     return originalChildField;
   }
 
+  /**
+   * Puts this object into <code>builder</code> and returns the length of the serialized flatbuffer.
+   */
   public int getField(FlatBufferBuilder builder) {
     int nameOffset = name == null ? -1 : builder.createString(name);
     int typeOffset = getType().getType(builder);

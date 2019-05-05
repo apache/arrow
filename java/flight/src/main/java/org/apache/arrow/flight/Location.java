@@ -24,6 +24,12 @@ public class Location {
   private final String host;
   private final int port;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param host the host containing a flight server
+   * @param port the port the server is listening on.
+   */
   public Location(String host, int port) {
     super();
     this.host = host;

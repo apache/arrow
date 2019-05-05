@@ -24,16 +24,28 @@ import org.apache.arrow.flight.impl.Flight;
 
 import com.google.common.collect.ImmutableList;
 
+/**
+ * POJO to convert to/from the underlying protobuf FlighEndpoint.
+ */
 public class FlightEndpoint {
   private List<Location> locations;
   private Ticket ticket;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param ticket A ticket that describe the key of a data stream.
+   * @param locations  The possible locations the stream can be retrieved from.
+   */
   public FlightEndpoint(Ticket ticket, Location... locations) {
     super();
     this.locations = ImmutableList.copyOf(locations);
     this.ticket = ticket;
   }
 
+  /**
+   * Constructs from the protocol buffer representation.
+   */
   public FlightEndpoint(Flight.FlightEndpoint flt) {
     locations = flt.getLocationList().stream()
         .map(t -> new Location(t)).collect(Collectors.toList());
@@ -48,6 +60,9 @@ public class FlightEndpoint {
     return ticket;
   }
 
+  /**
+   * Converts to the protocol buffer representation.
+   */
   Flight.FlightEndpoint toProtocol() {
     Flight.FlightEndpoint.Builder b = Flight.FlightEndpoint.newBuilder()
         .setTicket(ticket.toProtocol());

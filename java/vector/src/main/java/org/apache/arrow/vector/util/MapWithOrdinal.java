@@ -51,7 +51,6 @@ import io.netty.util.collection.IntObjectMap;
  * @param <K> key type
  * @param <V> value type
  */
-
 public class MapWithOrdinal<K, V> implements Map<K, V> {
   private static final Logger logger = LoggerFactory.getLogger(MapWithOrdinal.class);
 
@@ -237,6 +236,9 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
     return delegate.keySet();
   }
 
+  /**
+   * Returns a list of keys in ordinal order.
+   */
   public List<K> keyList() {
     int size = size();
     Set<K> keys = keySet();

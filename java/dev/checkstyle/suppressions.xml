@@ -23,6 +23,8 @@
   <suppress checks="JavadocPackage" files=".*[\\/]src[\\/]test[\\/].*"/>
   <suppress checks="JavadocPackage" files=".*[\\/]maven-archetypes[\\/].*"/>
   <suppress checks="JavadocPackage" files=".*[\\/]examples[\\/].*"/>
+  <!-- Method javadoc not required in testing directories -->
+  <suppress checks="JavadocMethod" files=".*[\\/]src[\\/]test[\\/].*"/>
 
   <!-- suppress all checks in the generated directories -->
   <suppress checks=".*" files=".+[\\/]generated[\\/].+\.java" />
@@ -31,9 +33,6 @@
 
   <!-- suppress files that include additional lines in license -->
   <suppress checks="Header" files="AutoCloseables.java|Collections2.java" />
-
-  <!-- TODO: Temporarily suppress missing Javadocs -->
-  <suppress checks="JavadocMethod" message="Missing a Javadoc comment." files=".*" />
 
   <!-- Suppress certain checks requiring many code changes, that add little benefit -->
   <suppress checks="NoFinalizer|OverloadMethodsDeclarationOrder|VariableDeclarationUsageDistance" files=".*" />

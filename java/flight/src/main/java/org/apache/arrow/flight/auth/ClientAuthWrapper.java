@@ -33,10 +33,10 @@ import io.grpc.stub.StreamObserver;
 public class ClientAuthWrapper {
 
   /**
-   * Do client auth for a client.
+   * Do client auth for a client.  The stub will be authenticated after this method returns.
+   *
    * @param authHandler The handler to use.
    * @param stub The service stub.
-   * @return The token if auth was successful.
    */
   public static void doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub) {
     AuthObserver observer = new AuthObserver();

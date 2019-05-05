@@ -53,6 +53,7 @@ import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
 
+/** A ListVector where every list value is of the same size. */
 public class FixedSizeListVector extends BaseValueVector implements FieldVector, PromotableVector {
 
   public static FixedSizeListVector empty(String name, int size, BufferAllocator allocator) {
@@ -69,7 +70,9 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
   private int valueCount;
   private int validityAllocationSizeInBytes;
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated use FieldType or static constructor instead.
+   */
   @Deprecated
   public FixedSizeListVector(String name,
                              BufferAllocator allocator,
@@ -79,11 +82,20 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     this(name, allocator, new FieldType(true, new ArrowType.FixedSizeList(listSize), dictionary), schemaChangeCallback);
   }
 
+  /**
+   * Creates a new instance.
+   *
+   * @param name The name for the vector.
+   * @param allocator The allocator to use for creating/reallocating buffers for the vector.
+   * @param fieldType The underlying data type of the vector.
+   * @param unusedSchemaChangeCallback Currently unused.
+   */
   public FixedSizeListVector(String name,
                              BufferAllocator allocator,
                              FieldType fieldType,
-                             CallBack schemaChangeCallback) {
+                             CallBack unusedSchemaChangeCallback) {
     super(name, allocator);
+
     this.validityBuffer = allocator.getEmpty();
     this.vector = ZeroVector.INSTANCE;
     this.fieldType = fieldType;
@@ -105,6 +117,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     return MinorType.FIXED_SIZE_LIST;
   }
 
+  /** Get the fixed size for each list. */
   public int getListSize() {
     return listSize;
   }
@@ -399,10 +412,16 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     return vals;
   }
 
+  /**
+   * Returns whether the value at index null.
+   */
   public boolean isNull(int index) {
     return (isSet(index) == 0);
   }
 
+  /**
+   * Returns non-zero when the value at index is non-null.
+   */
   public int isSet(int index) {
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
@@ -420,10 +439,17 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     return valueCount;
   }
 
+  /**
+   * Returns the number of elements the validity buffer can represent with its
+   * current capacity.
+   */
   private int getValidityBufferValueCapacity() {
     return (int) (validityBuffer.capacity() * 8L);
   }
 
+  /**
+   * Sets the value at index to null.  Reallocates if index is larger than capacity.
+   */
   public void setNull(int index) {
     while (index >= getValidityBufferValueCapacity()) {
       reallocValidityBuffer();
@@ -431,6 +457,7 @@ public class FixedSizeListVector extends BaseValueVector implements FieldVector,
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
+  /** Sets the value at index to not-null. Reallocates if index is larger than capacity. */
   public void setNotNull(int index) {
     while (index >= getValidityBufferValueCapacity()) {
       reallocValidityBuffer();

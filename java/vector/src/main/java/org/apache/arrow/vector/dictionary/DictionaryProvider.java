@@ -21,14 +21,21 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * A manager for association of dictionary IDs to their corresponding {@link Dictionary}.
+ */
 public interface DictionaryProvider {
 
+  /** Return the dictionary for the given ID. */
   public Dictionary lookup(long id);
 
   public static class MapDictionaryProvider implements DictionaryProvider {
 
     private final Map<Long, Dictionary> map;
 
+    /**
+     * Constructs a new instance from the given dictionaries.
+     */
     public MapDictionaryProvider(Dictionary... dictionaries) {
       this.map = new HashMap<>();
       for (Dictionary dictionary : dictionaries) {

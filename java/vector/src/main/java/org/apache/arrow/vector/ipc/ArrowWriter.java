@@ -98,6 +98,9 @@ public abstract class ArrowWriter implements AutoCloseable {
     ensureStarted();
   }
 
+  /**
+   * Write the vector this vector was constructed with.
+   */
   public void writeBatch() throws IOException {
     ensureStarted();
     try (ArrowRecordBatch batch = unloader.getRecordBatch()) {

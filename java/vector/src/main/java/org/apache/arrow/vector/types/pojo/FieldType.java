@@ -42,6 +42,14 @@ public class FieldType {
     this(nullable, type, dictionary, null);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param nullable Whether the Vector is nullable
+   * @param type The logical arrow type of the field.
+   * @param dictionary The dictionary encoding of the field.
+   * @param metadata Custom metadata for the field.
+   */
   public FieldType(boolean nullable, ArrowType type, DictionaryEncoding dictionary, Map<String, String> metadata) {
     super();
     this.nullable = nullable;

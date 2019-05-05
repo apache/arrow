@@ -76,6 +76,10 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * A writer that converts binary Vectors into a JSON format suitable
+ * for integration testing.
+ */
 public class JsonFileWriter implements AutoCloseable {
 
   public static final class JSONWriteConfig {
@@ -101,10 +105,16 @@ public class JsonFileWriter implements AutoCloseable {
   private final JsonGenerator generator;
   private Schema schema;
 
+  /**
+   * Constructs a new writer that will output to  <code>outputFile</code>.
+   */
   public JsonFileWriter(File outputFile) throws IOException {
     this(outputFile, config());
   }
 
+  /**
+   * Constructs a new writer that will output to  <code>outputFile</code> with the given options.
+   */
   public JsonFileWriter(File outputFile, JSONWriteConfig config) throws IOException {
     MappingJsonFactory jsonFactory = new MappingJsonFactory();
     this.generator = jsonFactory.createGenerator(outputFile, JsonEncoding.UTF8);
@@ -117,6 +127,9 @@ public class JsonFileWriter implements AutoCloseable {
     this.generator.configure(JsonGenerator.Feature.QUOTE_NON_NUMERIC_NUMBERS, false);
   }
 
+  /**
+   * Writes out the "header" of the file including the schema and any dictionaries required.
+   */
   public void start(Schema schema, DictionaryProvider provider) throws IOException {
     List<Field> fields = new ArrayList<>(schema.getFields().size());
     Set<Long> dictionaryIdsUsed = new HashSet<>();
@@ -160,6 +173,7 @@ public class JsonFileWriter implements AutoCloseable {
     generator.writeEndArray();
   }
 
+  /** Writes the record batch to the JSON file. */
   public void write(VectorSchemaRoot recordBatch) throws IOException {
     if (!recordBatch.getSchema().equals(schema)) {
       throw new IllegalArgumentException("record batches must have the same schema: " + schema);

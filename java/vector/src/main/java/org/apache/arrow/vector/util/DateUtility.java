@@ -26,7 +26,7 @@ import java.time.temporal.ChronoUnit;
 
 import com.carrotsearch.hppc.ObjectIntHashMap;
 
-// Utility class for Date, DateTime, TimeStamp, Interval data types
+/** Utility class for Date, DateTime, TimeStamp, Interval data types. */
 public class DateUtility {
   private DateUtility() {}
 
@@ -643,7 +643,7 @@ public class DateUtility {
     return timezoneList[index];
   }
 
-  // Function returns the date time formatter used to parse date strings
+  /** Returns the date time formatter used to parse date strings. */
   public static DateTimeFormatter getDateTimeFormatter() {
 
     if (dateTimeTZFormat == null) {
@@ -659,7 +659,7 @@ public class DateUtility {
     return dateTimeTZFormat;
   }
 
-  // Function returns time formatter used to parse time strings
+  /** Returns time formatter used to parse time strings. */
   public static DateTimeFormatter getTimeFormatter() {
     if (timeFormat == null) {
       DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");

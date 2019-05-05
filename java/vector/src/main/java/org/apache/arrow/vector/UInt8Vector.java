@@ -107,12 +107,20 @@ public class UInt8Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Copy a value and validity setting from fromIndex in <code>from</code> to this
+   * Vector at thisIndex.
+   */
   public void copyFrom(int fromIndex, int thisIndex, UInt8Vector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
     valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
   }
 
+  /**
+   * Same as {@link #copyFrom(int, int, UInt8Vector)} but reallocates if thisIndex is
+   * larger then current capacity.
+   */
   public void copyFromSafe(int fromIndex, int thisIndex, UInt8Vector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
@@ -222,6 +230,7 @@ public class UInt8Vector extends BaseFixedWidthVector {
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
+  /** Sets value at index is isSet is positive otherwise sets the index to invalid/null. */
   public void set(int index, int isSet, long value) {
     if (isSet > 0) {
       set(index, value);
@@ -230,6 +239,9 @@ public class UInt8Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Same as {@link #set(int, int, long)} but will reallocate if index is greater than current capacity.
+   */
   public void setSafe(int index, int isSet, long value) {
     handleSafe(index);
     set(index, isSet, value);

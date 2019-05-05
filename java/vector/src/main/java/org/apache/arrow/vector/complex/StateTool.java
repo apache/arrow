@@ -19,6 +19,9 @@ package org.apache.arrow.vector.complex;
 
 import java.util.Arrays;
 
+/**
+ * Utility methods for state machines based on enums.
+ */
 public class StateTool {
   private StateTool() {}
 

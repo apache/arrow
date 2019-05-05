@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthInterceptor;
-import org.apache.arrow.flight.impl.Flight.FlightInfo;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
@@ -39,6 +38,14 @@ public class FlightServer implements AutoCloseable {
   /** The maximum size of an individual gRPC message. This effectively disables the limit. */
   static final int MAX_GRPC_MESSAGE_SIZE = Integer.MAX_VALUE;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param allocator The allocator to use for storing/copying arrow data.
+   * @param port The port to bind to.
+   * @param producer The underlying business logic for the server.
+   * @param authHandler The authorization handler for the server.
+   */
   public FlightServer(
       BufferAllocator allocator,
       int port,
@@ -53,6 +60,7 @@ public class FlightServer implements AutoCloseable {
         .build();
   }
 
+  /** Start the server. */
   public FlightServer start() throws IOException {
     server.start();
     return this;
@@ -67,6 +75,7 @@ public class FlightServer implements AutoCloseable {
     server.awaitTermination();
   }
 
+  /** Shutdown the server, waits for up to 6 seconds for successful shutdown before returning. */
   public void close() throws InterruptedException {
     server.shutdown();
     final boolean terminated = server.awaitTermination(3000, TimeUnit.MILLISECONDS);

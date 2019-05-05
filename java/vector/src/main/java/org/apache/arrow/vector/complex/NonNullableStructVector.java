@@ -42,6 +42,10 @@ import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * A struct vector that has no null values (and no validity buffer).
+ * Child Vectors are handled in {@link AbstractStructVector}.
+ */
 public class NonNullableStructVector extends AbstractStructVector {
 
   public static NonNullableStructVector empty(String name, BufferAllocator allocator) {
@@ -53,12 +57,22 @@ public class NonNullableStructVector extends AbstractStructVector {
   protected final FieldType fieldType;
   public int valueCount;
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public NonNullableStructVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, new FieldType(false, ArrowType.Struct.INSTANCE, null, null), callBack);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param name The name of the instance.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param fieldType The type of this list.
+   * @param callBack A schema change callback.
+   */
   public NonNullableStructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.fieldType = checkNotNull(fieldType);
@@ -72,6 +86,10 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   private transient StructTransferPair ephPair;
 
+  /**
+   * Copies the element at fromIndex in the provided vector to thisIndex.  Reallocates buffers
+   * if thisIndex is larger then current capacity.
+   */
   public void copyFromSafe(int fromIndex, int thisIndex, NonNullableStructVector from) {
     if (ephPair == null || ephPair.from != from) {
       ephPair = (StructTransferPair) from.makeTransferPair(this);
@@ -340,6 +358,7 @@ public class NonNullableStructVector extends AbstractStructVector {
     super.close();
   }
 
+  /** Initializes the struct's members from the given Fields. */
   public void initializeChildrenFromFields(List<Field> children) {
     for (Field field : children) {
       FieldVector vector = (FieldVector) this.add(field.getName(), field.getFieldType());
