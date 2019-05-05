@@ -17,6 +17,14 @@
 
 package org.apache.arrow.performance.sql;
 
+import static org.apache.arrow.performance.sql.SqlPerformancefTestHelper.BIG_INT_TYPE;
+import static org.apache.arrow.performance.sql.SqlPerformancefTestHelper.DATE_DAY_TYPE;
+import static org.apache.arrow.performance.sql.SqlPerformancefTestHelper.DEFAULT_CAPACITY;
+import static org.apache.arrow.performance.sql.SqlPerformancefTestHelper.DOUBLE_TYPE;
+import static org.apache.arrow.performance.sql.SqlPerformancefTestHelper.STRING_TYPE;
+
+import java.util.concurrent.TimeUnit;
+
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.Float8Vector;
@@ -24,15 +32,14 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-
-import java.util.concurrent.TimeUnit;
-
-import static org.apache.arrow.performance.sql.SqlPerformancefTestHelper.*;
 
 /**
  * Evaluate the benchmarks for TPC-H Q1.

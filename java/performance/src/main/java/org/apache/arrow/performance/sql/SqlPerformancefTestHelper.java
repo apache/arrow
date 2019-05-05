@@ -17,12 +17,10 @@
 
 package org.apache.arrow.performance.sql;
 
-import static org.apache.arrow.vector.types.DateUnit.DAY;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
 import java.util.Random;
-import java.util.function.Supplier;
 
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
