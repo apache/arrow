@@ -1,4 +1,3 @@
-github.com/apache/arrow v0.0.0-20190420091023-b38936f08bcf h1:9EikFTVbwn2PyLkRdCwzya3TLwDKZwjBrnl4Hg0m7Dw=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
