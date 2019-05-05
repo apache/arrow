@@ -419,13 +419,6 @@ int AesDecryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
   return ctr_decrypt(ciphertext, ciphertext_len, key, key_len, plaintext);
 }
 
-int Decrypt(std::shared_ptr<EncryptionProperties> encryption_props, bool metadata,
-            const uint8_t* ciphertext, int ciphertext_len, uint8_t* plaintext) {
-  return Decrypt(encryption_props->algorithm(), metadata, ciphertext, ciphertext_len,
-                 encryption_props->key_bytes(), encryption_props->key_length(),
-                 encryption_props->aad_bytes(), encryption_props->aad_length(),
-                 plaintext);
-}
 
 static std::string shortToBytesLE(int16_t input) {
   int8_t output[2];
