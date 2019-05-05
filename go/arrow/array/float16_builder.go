@@ -66,10 +66,6 @@ func (b *Float16Builder) UnsafeAppend(v float16.Float16) {
 	b.length++
 }
 
-func (b *Float16Builder) AppendFloat32(v float32) {
-	b.Append(float16.NewFloat16(v))
-}
-
 func (b *Float16Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)

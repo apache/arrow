@@ -25,18 +25,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func float32Values(a *array.Float16) []float32 {
+	values := make([]float32, a.Len())
+	for i, v := range a.Values() {
+		values[i] = v.Float32()
+	}
+	return values
+}
+
 func TestNewFloat16Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewFloat16Builder(mem)
 
-	ab.AppendFloat32(1)
-	ab.AppendFloat32(2)
-	ab.AppendFloat32(3)
+	ab.Append(float16.NewFloat16(1))
+	ab.Append(float16.NewFloat16(2))
+	ab.Append(float16.NewFloat16(3))
 	ab.AppendNull()
-	ab.AppendFloat32(5)
-	ab.AppendFloat32(6)
+	ab.Append(float16.NewFloat16(5))
+	ab.Append(float16.NewFloat16(6))
 	ab.AppendNull()
 	ab.Append(float16.NewFloat16(8))
 	ab.Append(float16.NewFloat16(9))
@@ -54,29 +62,58 @@ func TestNewFloat16Builder(t *testing.T) {
 	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewFloat16Array did not reset state")
 
 	// check state of array
-
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	values := make([]float32, a.Len())
-	for i, v := range a.Values() {
-		values[i] = v.Float32()
-	}
-	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, values, "unexpected Float16Values")
+
+	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, float32Values(a), "unexpected Float16Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
 	assert.Len(t, a.Values(), 10, "unexpected length of Float16Values")
 
 	a.Release()
-	ab.AppendFloat32(7)
-	ab.AppendFloat32(8)
+	ab.Append(float16.NewFloat16(7))
+	ab.Append(float16.NewFloat16(8))
 
 	a = ab.NewFloat16Array()
 
 	assert.Equal(t, 0, a.NullN())
-	values = make([]float32, a.Len())
-	for i, v := range a.Values() {
-		values[i] = v.Float32()
-	}
-	assert.Equal(t, []float32{7, 8}, values)
+	assert.Equal(t, []float32{7, 8}, float32Values(a))
 	assert.Len(t, a.Values(), 2)
 
+	a.Release()
+}
+
+func TestFloat16Builder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewFloat16Builder(mem)
+	defer ab.Release()
+
+	want := []float16.Float16{float16.NewFloat16(3), float16.NewFloat16(4)}
+
+	ab.AppendValues([]float16.Float16{}, nil)
+	a := ab.NewFloat16Array()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(nil, nil)
+	a = ab.NewFloat16Array()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(want, nil)
+	a = ab.NewFloat16Array()
+	assert.Equal(t, want, a.Values())
+	a.Release()
+
+	ab.AppendValues([]float16.Float16{}, nil)
+	ab.AppendValues(want, nil)
+	a = ab.NewFloat16Array()
+	assert.Equal(t, want, a.Values())
+	a.Release()
+
+	ab.AppendValues(want, nil)
+	ab.AppendValues([]float16.Float16{}, nil)
+	a = ab.NewFloat16Array()
+	assert.Equal(t, want, a.Values())
 	a.Release()
 }
