@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.performance.sql;
+package org.apache.arrow.performance.sql;
 
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -24,19 +24,32 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.junit.Test;
+import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
+
+import java.util.concurrent.TimeUnit;
+
+import static org.apache.arrow.performance.sql.SqlPerformancefTestHelper.*;
 
 /**
  * Evaluate the benchmarks for TPC-H Q1.
  */
-public class TpchQ1Test extends SqlPerformancefTestBase {
+public class TpchQ1Benchmarks {
 
   /**
    * Evaluate the workload of an operator that produces new data by projecting and filtering the input data.
    *
    * @return the duration of the evaluation, in nano-second.
    */
-  private long projectAndFilter1() {
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public void projectAndFilter1() {
+    SqlPerformancefTestHelper helper = new SqlPerformancefTestHelper();
+
     // create input schema
     Field[] inputFields = new Field[]{
       new Field("inCol0", DOUBLE_TYPE, null),
@@ -49,7 +62,7 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
     };
 
     // create input data
-    ValueVector[] inputVectors = createVectors(inputFields, true);
+    ValueVector[] inputVectors = helper.createVectors(inputFields, true);
 
     // create output schema
     Field[] outputFields = new Field[]{
@@ -63,7 +76,7 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
     };
 
     // create output data
-    ValueVector[] outputVectors = createVectors(outputFields, false);
+    ValueVector[] outputVectors = helper.createVectors(outputFields, false);
 
     // vector references that will be used in the computations
     Float8Vector inputCol0 = (Float8Vector) inputVectors[0];
@@ -83,8 +96,7 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
     Float8Vector outputCol6 = (Float8Vector) outputVectors[6];
 
     // do evaluation
-    long start = System.nanoTime();
-    for (int i = 0; i < DEFAULT_CAPACITY; i++) {
+    for (int i = 0; i < helper.DEFAULT_CAPACITY; i++) {
       boolean isInputCol6Null = inputCol6.isNull(i);
       int inputCol6Value = -1;
       if (!isInputCol6Null) {
@@ -203,7 +215,6 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
         }
       }
     }
-    long end = System.nanoTime();
 
     // dispose input/output data
     for (int i = 0; i < inputVectors.length; i++) {
@@ -214,10 +225,15 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
       outputVectors[i].clear();
     }
 
-    return end - start;
+    helper.close();
   }
 
-  private long projectAndFilter2() {
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public void projectAndFilter2() {
+    SqlPerformancefTestHelper helper = new SqlPerformancefTestHelper();
+
     // create input schema
     Field[] inputFields = new Field[]{
       new Field("inCol0", STRING_TYPE, null),
@@ -231,7 +247,7 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
     };
 
     // create input data
-    ValueVector[] inputVectors = createVectors(inputFields, true);
+    ValueVector[] inputVectors = helper.createVectors(inputFields, true);
 
     // create output schema
     Field[] outputFields = new Field[]{
@@ -248,7 +264,7 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
     };
 
     // create output data
-    ValueVector[] outputVectors = createVectors(outputFields, false);
+    ValueVector[] outputVectors = helper.createVectors(outputFields, false);
 
     // vector references that will be used in the computations
     VarCharVector inputCol0 = (VarCharVector) inputVectors[0];
@@ -272,7 +288,6 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
     BigIntVector outputCol9 = (BigIntVector) outputVectors[9];
 
     // do evaluation
-    long start = System.nanoTime();
     for (int i = 0; i < DEFAULT_CAPACITY; i++) {
       boolean isInputCol6Null = inputCol6.isNull(i);
       long inputCol6Value = -1L;
@@ -394,8 +409,6 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
       }
     }
 
-    long end = System.nanoTime();
-
     // dispose input/output data
     for (int i = 0; i < inputVectors.length; i++) {
       inputVectors[i].clear();
@@ -404,13 +417,15 @@ public class TpchQ1Test extends SqlPerformancefTestBase {
     for (int i = 0; i < outputVectors.length; i++) {
       outputVectors[i].clear();
     }
-
-    return end - start;
+    helper.close();
   }
 
-  @Test
-  public void runBenchmarks() {
-    runBenchmark("TPC-H Q1#Project & Filter1", () -> projectAndFilter1(), 1);
-    runBenchmark("TPC-H Q1#Project & Filter2", () -> projectAndFilter2(), 1);
+  public static void main(String[] args) throws RunnerException {
+    Options opt = new OptionsBuilder()
+            .include(TpchQ1Benchmarks.class.getSimpleName())
+            .forks(1)
+            .build();
+
+    new Runner(opt).run();
   }
 }

@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.performance.sql;
+package org.apache.arrow.performance.sql;
 
 import static org.apache.arrow.vector.types.DateUnit.DAY;
+import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
+import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
 import java.util.Random;
 import java.util.function.Supplier;
@@ -36,15 +38,17 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VariableWidthVector;
+import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.openjdk.jmh.annotations.State;
 
 /**
  * The base class for all SQL performance evaluations.
  */
-public abstract class SqlPerformancefTestBase {
+public class SqlPerformancefTestHelper {
 
   /**
    * The total amount of memory used in each evaluation.
@@ -94,10 +98,10 @@ public abstract class SqlPerformancefTestBase {
           new FieldType(true, new ArrowType.Int(64, true), null);
 
   public static final FieldType FLOAT_TYPE =
-          new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE), null);
+          new FieldType(true, new ArrowType.FloatingPoint(SINGLE), null);
 
   public static final FieldType DOUBLE_TYPE =
-          new FieldType(true, new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE), null);
+          new FieldType(true, new ArrowType.FloatingPoint(DOUBLE), null);
 
   public static final FieldType STRING_TYPE =
           new FieldType(true, new ArrowType.Utf8(), null);
@@ -106,7 +110,7 @@ public abstract class SqlPerformancefTestBase {
           new FieldType(true, new ArrowType.Binary(), null);
 
   public static final FieldType DATE_DAY_TYPE =
-          new FieldType(true, new ArrowType.Date(DAY), null);
+          new FieldType(true, new ArrowType.Date(DateUnit.DAY), null);
 
   /**
    * The allocator for all vectors.
@@ -118,52 +122,6 @@ public abstract class SqlPerformancefTestBase {
    * A constant seed is applied so the evaluations can be reproduced with exactly the same data.
    */
   private Random random = new Random(0);
-
-  /**
-   * The number of times each benchmark runs.
-   */
-  protected int numRepeats = 10;
-
-  /**
-   * The template method for running a benchmark.
-   *
-   * @param name      name of the benchmark, used for display.
-   * @param benchmark the benchmark to run.
-   * @param warmUp    the number of warm-ups to run, if it is a positive integer.
-   */
-  protected void runBenchmark(String name, Supplier<Long> benchmark, int warmUp) {
-    if (warmUp > 0) {
-      // run warm-ups
-      for (int i = 0; i < warmUp; i++) {
-        benchmark.get();
-      }
-    }
-
-    double minDuration = Double.MAX_VALUE;
-    double maxDuration = Double.MIN_VALUE;
-    double totalDuration = 0;
-
-    // run benchmark
-    for (int i = 0; i < numRepeats; i++) {
-      double duration = benchmark.get().doubleValue() / 1e6;
-
-      totalDuration += duration;
-      if (duration > maxDuration) {
-        maxDuration = duration;
-      }
-
-      if (duration < minDuration) {
-        minDuration = duration;
-      }
-    }
-
-    // display statistics.
-    System.out.println("Statistics for benchmark " + name + ":\n" +
-            "Num of repeats = " + numRepeats + "\n" +
-            "Max duration = " + maxDuration + "ms\n" +
-            "Min duration = " + minDuration + "ms\n" +
-            "Avg duration = " + totalDuration / numRepeats + "ms\n");
-  }
 
   // /UTILITY METHODS FROM HERE
 
@@ -235,7 +193,7 @@ public abstract class SqlPerformancefTestBase {
       return new VarBinaryVector(name, allocator);
     } else if (vectorType instanceof ArrowType.Utf8) {
       return new VarCharVector(name, allocator);
-    } else if (vectorType instanceof ArrowType.Date && ((ArrowType.Date) vectorType).getUnit() == DAY) {
+    } else if (vectorType instanceof ArrowType.Date && ((ArrowType.Date) vectorType).getUnit() == DateUnit.DAY) {
       return new DateDayVector(name, allocator);
     } else {
       throw new IllegalArgumentException("Unknown arrow type: " + vectorType);
