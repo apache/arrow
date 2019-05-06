@@ -195,7 +195,7 @@ std::string RowsOfOneColumn(string_view name, std::initializer_list<T> values,
 }
 
 TEST(ReaderTest, MultipleChunksParallel) {
-  int64_t count = 1 << 20;
+  int64_t count = 1 << 10;
 
   ParseOptions parse_options;
   parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
@@ -232,9 +232,6 @@ TEST(ReaderTest, MultipleChunksParallel) {
       ++expected;
     }
   }
-
-  // std::cout << serial->column(0)->data()->num_chunks() << " chunks, " << json.size()
-  //           << " bytes" << std::endl;
 
   AssertTablesEqual(*serial, *threaded);
 }
