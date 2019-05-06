@@ -106,7 +106,9 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
   using ArrayBuilder::Finish;
+  /// \endcond
 
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
@@ -143,7 +145,9 @@ class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
   using ArrayBuilder::Finish;
+  /// \endcond
 
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 

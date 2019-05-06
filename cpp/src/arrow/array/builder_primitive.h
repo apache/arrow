@@ -47,7 +47,9 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
   using ArrayBuilder::Finish;
+  /// \endcond
 
   Status Finish(std::shared_ptr<NullArray>* out) { return FinishTyped(out); }
 };
@@ -164,7 +166,9 @@ class NumericBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  /// \cond FALSE
   using ArrayBuilder::Finish;
+  /// \endcond
 
   Status Finish(std::shared_ptr<ArrayType>* out) { return FinishTyped(out); }
 
@@ -412,7 +416,9 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
   using ArrayBuilder::Finish;
+  /// \endcond
 
   Status Finish(std::shared_ptr<BooleanArray>* out) { return FinishTyped(out); }
 

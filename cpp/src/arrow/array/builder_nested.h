@@ -52,7 +52,9 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   void Reset() override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
   using ArrayBuilder::Finish;
+  /// \endcond
 
   Status Finish(std::shared_ptr<ListArray>* out) { return FinishTyped(out); }
 
@@ -100,7 +102,9 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
   using ArrayBuilder::Finish;
+  /// \endcond
 
   Status Finish(std::shared_ptr<StructArray>* out) { return FinishTyped(out); }
 
