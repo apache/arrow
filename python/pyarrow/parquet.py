@@ -340,6 +340,11 @@ Parameters
 where : path or file-like object
 schema : arrow Schema
 {0}
+**options : dict
+    If options contains a key `metadata_collector` then the
+    corresponding value is assumed to be a list (or any object with
+    `.append` method) that will be filled with file metadata instances
+    of dataset pieces.
 """.format(_parquet_writer_arg_docs)
 
     def __init__(self, where, schema, filesystem=None,
@@ -373,7 +378,7 @@ schema : arrow Schema
             sink = self.file_handle = filesystem.open(path, 'wb')
         else:
             sink = where
-
+        self._metadata_collector = options.pop('metadata_collector', None)
         self.writer = _parquet.ParquetWriter(
             sink, schema,
             version=version,
@@ -412,6 +417,8 @@ schema : arrow Schema
         if self.is_open:
             self.writer.close()
             self.is_open = False
+            if self._metadata_collector is not None:
+                self._metadata_collector.append(self.writer.metadata)
         if self.file_handle is not None:
             self.file_handle.close()
 
@@ -1270,8 +1277,7 @@ def _mkdir_if_not_exists(fs, path):
 
 def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
                      preserve_index=None, **kwargs):
-    """
-    Wrapper around parquet.write_table for writing a Table to
+    """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
     a subdirectories are created in the following
@@ -1300,7 +1306,11 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
     partition_cols : list,
         Column names by which to partition the dataset
         Columns are partitioned in the order they are given
-    **kwargs : dict, kwargs for write_table function.
+    **kwargs : dict,
+        kwargs for write_table function. Using `metadata_collector` in
+        kwargs allows one to collect the file metadata instances of
+        dataset pieces. See `ParquetWriter.__doc__` for more
+        information.
     """
     if preserve_index is not None:
         warnings.warn('preserve_index argument is deprecated as of 0.13.0 and '
