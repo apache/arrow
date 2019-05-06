@@ -111,14 +111,15 @@ namespace Apache.Arrow
 
             public ArrowBuffer Build(MemoryAllocator allocator = default)
             {
-                int length = checked((int)BitUtility.RoundUpToMultipleOf64(_buffer.Length));
+                int currentBytesLength = Length * _size;
+                int bufferLength = checked((int)BitUtility.RoundUpToMultipleOf64(currentBytesLength));
 
                 var memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
-                var memoryOwner = memoryAllocator.Allocate(length);
+                var memoryOwner = memoryAllocator.Allocate(bufferLength);
 
                 if (memoryOwner != null)
                 {
-                    Memory.CopyTo(memoryOwner.Memory);
+                    Memory.Slice(0, currentBytesLength).CopyTo(memoryOwner.Memory);
                 }
 
                 return new ArrowBuffer(memoryOwner);
