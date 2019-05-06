@@ -224,17 +224,14 @@ class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
   }
 
   template <typename T>
-  int32_t GetOrInsert(const typename TypeTraits<T>::CType& value) {
-    using ConcreteMemoTable = typename internal::HashTraits<T>::MemoTableType;
+  int32_t GetOrInsert(const T& value) {
+    using ConcreteMemoTable = typename internal::DictionaryTraits<
+        typename CTypeTraits<T>::ArrowType>::MemoTableType;
     return static_cast<ConcreteMemoTable*>(memo_table_.get())->GetOrInsert(value);
   }
 
-  template <typename T>
-  int32_t GetOrInsert(
-      typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value,
-                              const util::string_view&>::type value) {
-    using ConcreteMemoTable = typename internal::HashTraits<T>::MemoTableType;
-    return static_cast<ConcreteMemoTable*>(memo_table_.get())->GetOrInsert(value);
+  int32_t GetOrInsert(const util::string_view& value) {
+    return static_cast<BinaryMemoTable*>(memo_table_.get())->GetOrInsert(value);
   }
 
   Status GetArrayData(MemoryPool* pool, int64_t start_offset,
@@ -262,51 +259,51 @@ internal::DictionaryMemoTable::DictionaryMemoTable(
 internal::DictionaryMemoTable::~DictionaryMemoTable() = default;
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const bool& value) {
-  return impl_->GetOrInsert<BooleanType>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const int8_t& value) {
-  return impl_->GetOrInsert<Int8Type>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const int16_t& value) {
-  return impl_->GetOrInsert<Int16Type>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const int32_t& value) {
-  return impl_->GetOrInsert<Int32Type>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const int64_t& value) {
-  return impl_->GetOrInsert<Int64Type>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const uint8_t& value) {
-  return impl_->GetOrInsert<UInt8Type>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const uint16_t& value) {
-  return impl_->GetOrInsert<UInt16Type>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const uint32_t& value) {
-  return impl_->GetOrInsert<UInt32Type>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const uint64_t& value) {
-  return impl_->GetOrInsert<UInt64Type>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const float& value) {
-  return impl_->GetOrInsert<FloatType>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const double& value) {
-  return impl_->GetOrInsert<DoubleType>(value);
+  return impl_->GetOrInsert(value);
 }
 
 int32_t internal::DictionaryMemoTable::GetOrInsert(const util::string_view& value) {
-  return impl_->GetOrInsert<FixedSizeBinaryType>(value);
+  return impl_->GetOrInsert(value);
 }
 
 Status internal::DictionaryMemoTable::GetArrayData(MemoryPool* pool, int64_t start_offset,
