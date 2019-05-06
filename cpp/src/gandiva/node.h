@@ -73,16 +73,16 @@ class GANDIVA_EXPORT LiteralNode : public Node {
       return ss.str();
     }
 
-    ss << holder();
+    ss << gandiva::ToString(holder_);
     // The default formatter prints in decimal can cause a loss in precision. so,
     // print in hex. Can't use hexfloat since gcc 4.9 doesn't support it.
     if (return_type()->id() == arrow::Type::DOUBLE) {
-      double dvalue = holder_.get<double>();
+      double dvalue = arrow::util::get<double>(holder_);
       uint64_t bits;
       memcpy(&bits, &dvalue, sizeof(bits));
       ss << " raw(" << std::hex << bits << ")";
     } else if (return_type()->id() == arrow::Type::FLOAT) {
-      float fvalue = holder_.get<float>();
+      float fvalue = arrow::util::get<float>(holder_);
       uint32_t bits;
       memcpy(&bits, &fvalue, sizeof(bits));
       ss << " raw(" << std::hex << bits << ")";

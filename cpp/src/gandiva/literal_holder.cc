@@ -15,21 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_VARIANT_H
-#define ARROW_UTIL_VARIANT_H
+#include <sstream>
 
-#include "arrow/vendored/variant.hpp"  // IWYU pragma: export
+#include "gandiva/literal_holder.h"
 
-namespace arrow {
-namespace util {
+namespace gandiva {
 
-using ::mpark::bad_variant_access;
-using ::mpark::get;
-using ::mpark::get_if;
-using ::mpark::variant;
-using ::mpark::visit;
+namespace {
 
-}  // namespace util
-}  // namespace arrow
+template <typename OStream>
+struct LiteralToStream {
+  OStream& ostream_;
 
-#endif  // ARROW_UTIL_VARIANT_H
+  template <typename Value>
+  void operator()(const Value& v) {
+    ostream_ << v;
+  }
+};
+
+}  // namespace
+
+std::string ToString(const LiteralHolder& holder) {
+  std::stringstream ss;
+  LiteralToStream<std::stringstream> visitor{ss};
+  ::arrow::util::visit(visitor, holder);
+  return ss.str();
+}
+
+}  // namespace gandiva
