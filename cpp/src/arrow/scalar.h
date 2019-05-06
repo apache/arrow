@@ -30,7 +30,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

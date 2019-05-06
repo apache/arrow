@@ -107,7 +107,7 @@ Status ExprValidator::Visit(const IfNode& node) {
 Status ExprValidator::Visit(const LiteralNode& node) {
   auto llvm_type = types_->IRType(node.return_type()->id());
   ARROW_RETURN_IF(llvm_type == nullptr,
-                  Status::ExpressionValidationError("Value ", node.holder(),
+                  Status::ExpressionValidationError("Value ", ToString(node.holder()),
                                                     " has unsupported data type ",
                                                     node.return_type()->name()));
 
