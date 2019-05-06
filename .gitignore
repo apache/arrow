@@ -61,3 +61,5 @@ pkgs
 arrow.Rcheck/
 docker_cache
 .gdb_history
+.DS_Store
+*.orig
