@@ -23,7 +23,7 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/file_reader.h"
 #include "parquet/schema.h"
-#include "parquet/util/test-common.h"
+#include "parquet/test-util.h"
 
 #include "arrow/api.h"
 #include "arrow/testing/gtest_util.h"

@@ -27,10 +27,8 @@
 #include "parquet/column_page.h"
 #include "parquet/column_scanner.h"
 #include "parquet/schema.h"
-#include "parquet/test-specialization.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
-#include "parquet/util/test-common.h"
 
 namespace parquet {
 
