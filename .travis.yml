@@ -321,7 +321,7 @@ matrix:
     go_import_path: github.com/apache/arrow
     os: linux
     go:
-    - 1.11.x
+    - 1.12.x
     before_script:
     - if [ $ARROW_CI_GO_AFFECTED != "1" ]; then exit; fi
     script:

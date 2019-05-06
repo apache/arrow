@@ -86,7 +86,7 @@ environment:
       MINGW_PREFIX: c:\msys64\mingw64
       MSYSTEM: MINGW64
       USE_CLCACHE: false
-      GOROOT: 'c:\go111'
+      GOROOT: 'c:\go112'
       GOPATH: c:\gopath
       GO111MODULE: on
       GOTOOLDIR: '%GOROOT%\pkg\tool\windows_amd64'
