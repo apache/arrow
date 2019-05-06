@@ -311,7 +311,8 @@ struct _GArrowJSONReadOptionsClass
 GARROW_AVAILABLE_IN_0_14
 GArrowJSONReadOptions *garrow_json_read_options_new(void);
 GARROW_AVAILABLE_IN_0_14
-void garrow_json_read_options_set_explicit_schema(GArrowJSONReadOptions *options,                                                            GArrowSchema *schema);
+void garrow_json_read_options_set_explicit_schema(GArrowJSONReadOptions *options,
+                                                  GArrowSchema *schema);
 GARROW_AVAILABLE_IN_0_14
 GArrowSchema *garrow_json_read_options_get_explicit_schema(GArrowJSONReadOptions *options);
 

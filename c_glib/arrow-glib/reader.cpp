@@ -1547,7 +1547,8 @@ garrow_json_read_options_set_property(GObject *object,
     priv->parse_options.newlines_in_values = g_value_get_boolean(value);
     break;
   case PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR:
-    priv->parse_options.unexpected_field_behavior = static_cast<arrow::json::UnexpectedFieldBehavior>(g_value_get_enum(value));
+    priv->parse_options.unexpected_field_behavior =
+      static_cast<arrow::json::UnexpectedFieldBehavior>(g_value_get_enum(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1606,7 +1607,9 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                               "The raw arrow::MemoryPool *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_JSON_READER_POOL, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_POOL,
+                                  spec);
 
   auto read_options = arrow::json::ReadOptions::Defaults();
 
@@ -1622,7 +1625,9 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                               "Whether to use the global CPU thread pool",
                               read_options.use_threads,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_JSON_READER_USE_THREADS, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_USE_THREADS,
+                                  spec);
 
   /**
    * GArrowJSONReadOptions:block-size:
@@ -1641,7 +1646,9 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                           G_MAXINT,
                           read_options.block_size,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_JSON_READER_BLOCK_SIZE, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_BLOCK_SIZE,
+                                  spec);
 
 
   auto parse_options = arrow::json::ParseOptions::Defaults();
@@ -1709,7 +1716,8 @@ garrow_json_read_options_new(void)
  * Since: 0.14.0
  */
 void
-garrow_json_read_options_set_explicit_schema(GArrowJSONReadOptions *options,                                                         GArrowSchema *schema)
+garrow_json_read_options_set_explicit_schema(GArrowJSONReadOptions *options,
+                                             GArrowSchema *schema)
 {
   auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(options);
   auto arrow_schema = garrow_schema_get_raw(schema);
