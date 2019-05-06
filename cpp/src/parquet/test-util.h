@@ -632,7 +632,8 @@ template <>
 void inline InitValues<bool>(int num_values, std::vector<bool>& values,
                              std::vector<uint8_t>& buffer) {
   values = {};
-  ::arrow::random_is_valid(num_values, 1., &values, ::arrow::random_seed());
+  ::arrow::random_is_valid(num_values, 1., &values,
+                           static_cast<int>(::arrow::random_seed()));
 }
 
 template <>
