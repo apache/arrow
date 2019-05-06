@@ -19,13 +19,31 @@ package ipc // import "github.com/apache/arrow/go/arrow/ipc"
 import (
 	"io"
 
+	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
 const (
 	errNotArrowFile             = errString("arrow/ipc: not an Arrow file")
 	errInconsistentFileMetadata = errString("arrow/ipc: file is smaller than indicated metadata size")
+	errInconsistentSchema       = errString("arrow/ipc: tried to write record batch with different schema")
+	errMaxRecursion             = errString("arrow/ipc: max recursion depth reached")
+	errBigArray                 = errString("arrow/ipc: array larger than 2^31-1 in length")
+
+	kArrowAlignment    = 64 // buffers are padded to 64b boundaries (for SIMD)
+	kTensorAlignment   = 64 // tensors are padded to 64b boundaries
+	kArrowIPCAlignment = 8  // align on 8b boundaries in IPC
 )
+
+var (
+	paddingBytes [kArrowAlignment]byte
+	kEOS         = [4]byte{0, 0, 0, 0} // end of stream message
+)
+
+func paddedLength(nbytes int64, alignment int32) int64 {
+	align := int64(alignment)
+	return ((nbytes + align - 1) / align) * align
+}
 
 type errString string
 
@@ -41,15 +59,22 @@ type ReadAtSeeker interface {
 
 type config struct {
 	alloc  memory.Allocator
+	schema *arrow.Schema
 	footer struct {
 		offset int64
 	}
 }
 
-func newConfig() *config {
-	return &config{
+func newConfig(opts ...Option) *config {
+	cfg := &config{
 		alloc: memory.NewGoAllocator(),
 	}
+
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	return cfg
 }
 
 // Option is a functional option to configure opening or creating Arrow files
@@ -67,5 +92,12 @@ func WithFooterOffset(offset int64) Option {
 func WithAllocator(mem memory.Allocator) Option {
 	return func(cfg *config) {
 		cfg.alloc = mem
+	}
+}
+
+// WithSchema specifies the Arrow schema to be used for reading or writing.
+func WithSchema(schema *arrow.Schema) Option {
+	return func(cfg *config) {
+		cfg.schema = schema
 	}
 }
