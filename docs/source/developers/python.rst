@@ -140,9 +140,11 @@ Using Conda
 
 .. note::
 
-   As of April 2019, using conda to build Arrow on macOS is complicated by the
+   Using conda to build Arrow on macOS is complicated by the
    fact that the `conda-forge compilers require an older macOS SDK <https://stackoverflow.com/a/55798942>`_.
-   Homebrew may be a better choice on macOS until this is resolved.
+   Conda offers some `installation instructions <https://docs.conda.io/projects/conda-build/en/latest/resources/compiler-tools.html#macos-sdk>`_;
+   the alternative would be to use :ref:`Homebrew <python-homebrew>` and
+   ``pip`` instead.
 
 Let's create a conda environment with all the C++ build and Python dependencies
 from conda-forge, targeting development for Python 3.7:
@@ -186,13 +188,14 @@ Using pip
    to manage your development. Please follow the conda-based development
    instructions instead.
 
+.. _python-homebrew:
+
 On macOS, use Homebrew to install all dependencies required for
 building Arrow C++:
 
 .. code-block:: shell
 
    brew update && brew bundle --file=arrow/cpp/Brewfile
-
 
 See :ref:`here <cpp-build-dependency-management>` for a list of dependencies you
 may need.
