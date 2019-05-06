@@ -36,16 +36,8 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
  * fate (same reference count).
  */
 public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, ReferenceManager  {
-  // TODO: check this.
-  //  since ArrowBuf interface has been cleaned to just include the length
-  // of memory chunk it has access to and starting virtual address in the chunk,
-  // ArrowBuf no longer tracks its offset within the chunk and that info
-  // is kept by the ReferenceManager/BufferLedger here. thus we need this map
-  // to track offsets of ArrowBufs managed by this ledger. the downside is
-  // that there could be potential increase in heap overhead as earlier
-  // map was created in debug mode only but now it will always be created
-  // per instance creation of BufferLedger
-  private final IdentityHashMap<ArrowBuf, Integer> buffers = new IdentityHashMap<>();
+  private final IdentityHashMap<ArrowBuf, Object> buffers =
+          BaseAllocator.DEBUG ? new IdentityHashMap<>() : null;
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
   // unique ID assigned to each ledger
   private final long ledgerId = LEDGER_ID_GENERATOR.incrementAndGet();
@@ -206,9 +198,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * particular length (in bytes) of data in memory chunk.
    * <p>
    * This method is also used as a helper for transferring ownership and retain to target
-   * allocator and in that case the source ArrowBuf is not associated with the reference
-   * manager on which we invoke this method so callers can pass null for sourceBuffer
-   * in such cases.
+   * allocator.
    * </p>
    * @param sourceBuffer source ArrowBuf
    * @param index index (relative to source ArrowBuf) new ArrowBuf should be
@@ -219,46 +209,44 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    */
   @Override
   public ArrowBuf deriveBuffer(final ArrowBuf sourceBuffer, int index, int length) {
-    ArrowBuf derivedBuf;
-    synchronized (buffers) {
-      // compute the start virtual address in the underlying memory chunk from which the new buffer
-      // will have access to
-      final int derivedBufferOffset;
-      if (sourceBuffer != null) {
-        // used for slicing where index represents a relative index in the source ArrowBuf
-        // as the slice start point and that is why we need to add the source buffer offset
-        // to compute the start virtual address of derived buffer within the underlying chunk
-        final int srcBufferOffset = buffers.get(sourceBuffer);
-        derivedBufferOffset = srcBufferOffset + index;
-      } else {
-        // used for retain(target allocator) and transferOwnership(target allocator)
-        // currently where index represents the source buffer offset. these operations
-        // simply create a new ArrowBuf associated with another combination of allocator
-        // buffer ledger for the same underlying memory
-        derivedBufferOffset = index;
-      }
+    /*
+     * Usage type 1 for deriveBuffer():
+     * Used for slicing where index represents a relative index in the source ArrowBuf
+     * as the slice start point. This is why we need to add the source buffer offset
+     * to compute the start virtual address of derived buffer within the
+     * underlying chunk.
+     *
+     * Usage type 2 for deriveBuffer():
+     * Used for retain(target allocator) and transferOwnership(target allocator)
+     * where index is 0 since these operations simply create a new ArrowBuf associated
+     * with another combination of allocator buffer ledger for the same underlying memory
+     */
 
-      final long startAddress = allocationManager.getMemoryChunk().memoryAddress() + derivedBufferOffset;
+    // the memory address stored inside ArrowBuf is its starting virtual
+    // address in the underlying memory chunk from the point it has
+    // access. so it is already accounting for the offset of the source buffer
+    // we can simply add the index to get the starting address of new buffer.
+    final long derivedBufferAddress = sourceBuffer.memoryAddress() + index;
 
-      // create new ArrowBuf
-      derivedBuf = new ArrowBuf(
-        this,
-        null,
-        length, // length (in bytes) in the underlying memory chunk for this new ArrowBuf
-        startAddress, // starting byte address in the underlying memory for this new ArrowBuf
-        false);
+    // create new ArrowBuf
+    final ArrowBuf derivedBuf = new ArrowBuf(
+            this,
+            null,
+            length, // length (in bytes) in the underlying memory chunk for this new ArrowBuf
+            derivedBufferAddress, // starting byte address in the underlying memory for this new ArrowBuf,
+            false);
 
-      // store the offset of new buffer
-      buffers.put(derivedBuf, derivedBufferOffset);
-
-      // logging
-      if (BaseAllocator.DEBUG) {
-        historicalLog.recordEvent(
-            "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
-                "UnsafeDirectLittleEndian[identityHashCode == " +
-                "%d](%s)) => ledger hc == %d",
+    // logging
+    if (BaseAllocator.DEBUG) {
+      historicalLog.recordEvent(
+              "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
+                      "UnsafeDirectLittleEndian[identityHashCode == " +
+                      "%d](%s)) => ledger hc == %d",
               allocator.name, System.identityHashCode(derivedBuf), derivedBuf.toString(),
               System.identityHashCode(this));
+
+      synchronized (buffers) {
+        buffers.put(derivedBuf, null);
       }
     }
 
@@ -286,11 +274,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // create ArrowBuf
     final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress, false);
 
-    // store the offset (within the underlying memory chunk) of new buffer
-    synchronized (buffers) {
-      buffers.put(buf, 0);
-    }
-
     // logging
     if (BaseAllocator.DEBUG) {
       historicalLog.recordEvent(
@@ -298,6 +281,10 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
           "UnsafeDirectLittleEndian[identityHashCode == " + "%d](%s)) => ledger hc == %d",
           allocator.name, System.identityHashCode(buf), buf.toString(),
           System.identityHashCode(this));
+
+      synchronized (buffers) {
+        buffers.put(buf, null);
+      }
     }
 
     return buf;
@@ -339,9 +326,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // and this will be true for all the existing buffers currently managed by targetrefmanager
     final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator)target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
-    final int targetBufOffset = buffers.get(srcBuffer);
     final int targetBufLength = srcBuffer.capacity();
-    ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(null, targetBufOffset, targetBufLength);
+    ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);
     targetArrowBuf.readerIndex(srcBuffer.readerIndex());
     targetArrowBuf.writerIndex(srcBuffer.writerIndex());
     return targetArrowBuf;
@@ -437,9 +423,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     // and this will be true for all the existing buffers currently managed by targetrefmanager
     final BufferLedger targetRefManager = allocationManager.associate((BaseAllocator)target);
     // create a new ArrowBuf to associate with new allocator and target ref manager
-    final int targetBufOffset = buffers.get(srcBuffer);
     final int targetBufLength = srcBuffer.capacity();
-    final ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(null, targetBufOffset, targetBufLength);
+    final ArrowBuf targetArrowBuf = targetRefManager.deriveBuffer(srcBuffer, 0, targetBufLength);
     targetArrowBuf.readerIndex(srcBuffer.readerIndex());
     targetArrowBuf.writerIndex(srcBuffer.writerIndex());
     final boolean allocationFit = transferBalance(targetRefManager);

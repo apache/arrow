@@ -595,11 +595,23 @@ public final class ArrowBuf implements AutoCloseable {
     ++writerIndex;
   }
 
+  /**
+   * Write the bytes from given byte array into this
+   * ArrowBuf starting at writerIndex.
+   * @param src src byte array
+   */
   public void writeBytes(byte[] src) {
     Preconditions.checkArgument(src != null, "expecting valid src array");
     writeBytes(src, 0, src.length);
   }
 
+  /**
+   * Write the bytes from given byte array starting at srcIndex
+   * into this ArrowBuf starting at writerIndex.
+   * @param src src byte array
+   * @param srcIndex index in the byte array where the copy will being from
+   * @param length length of data to copy
+   */
   public void writeBytes(byte[] src, int srcIndex, int length) {
     ensureWritable(length);
     setBytes(writerIndex, src, srcIndex, length);
@@ -946,17 +958,27 @@ public final class ArrowBuf implements AutoCloseable {
    * @param src src ArrowBuf where the data will be copied from
    */
   public void setBytes(int index, ArrowBuf src) {
+    // null check
+    Preconditions.checkArgument(src != null, "expecting valid ArrowBuf");
     final int length = src.readableBytes();
     // bound check for this ArrowBuf where the data will be copied into
     checkIndex(index, length);
-    // null check
-    Preconditions.checkArgument(src != null, "expecting valid ArrowBuf");
     final long srcAddress = src.memoryAddress() + (long)src.readerIndex;
     final long dstAddress = addr(index);
     PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
     src.readerIndex(src.readerIndex + length);
   }
 
+  /**
+   * Copy a certain length of bytes from given InputStream
+   * into this ArrowBuf at the provided index.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param in src stream to copy from
+   * @param length length of data to copy
+   * @return number of bytes copied from stream into ArrowBuf
+   * @throws IOException on failing to read from stream
+   */
   public int setBytes(int index, InputStream in, int length) throws IOException {
     Preconditions.checkArgument(in != null, "expecting valid input stream");
     checkIndex(index, length);
@@ -974,6 +996,15 @@ public final class ArrowBuf implements AutoCloseable {
     return readBytes;
   }
 
+  /**
+   * Copy a certain length of bytes from this ArrowBuf at a given
+   * index into the given OutputStream.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param out dst stream to copy data into
+   * @param length length of data to copy
+   * @throws IOException on failing to write to stream
+   */
   public void getBytes(int index, OutputStream out, int length) throws IOException {
     Preconditions.checkArgument(out != null, "expecting valid output stream");
     checkIndex(index, length);
@@ -1039,7 +1070,6 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Get the integer id assigned to this ArrowBuf for debugging purposes.
-   *
    * @return integer id
    */
   public long getId() {
@@ -1063,24 +1093,50 @@ public final class ArrowBuf implements AutoCloseable {
     }
   }
 
+  /**
+   * Get the index at which the next byte will be read from.
+   * @return reader index
+   */
   public int readerIndex() {
     return readerIndex;
   }
 
+  /**
+   * Get the index at which next byte will be written to.
+   * @return writer index
+   */
   public int writerIndex() {
     return writerIndex;
   }
 
+  /**
+   * Set the reader index for this ArrowBuf.
+   * @param readerIndex new reader index
+   * @return this ArrowBuf
+   */
   public ArrowBuf readerIndex(int readerIndex) {
     this.readerIndex = readerIndex;
     return this;
   }
 
+  /**
+   * Set the writer index for this ArrowBuf.
+   * @param writerIndex new writer index
+   * @return this ArrowBuf
+   */
   public ArrowBuf writerIndex(int writerIndex) {
     this.writerIndex = writerIndex;
     return this;
   }
 
+  /**
+   * Zero-out the bytes in this ArrowBuf starting at
+   * the given index for the given length.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param length length of bytes to zero-out
+   * @return this ArrowBuf
+   */
   public ArrowBuf setZero(int index, int length) {
     if (length == 0) {
       return this;
@@ -1088,13 +1144,11 @@ public final class ArrowBuf implements AutoCloseable {
       this.checkIndex(index, length);
       int nLong = length >>> 3;
       int nBytes = length & 7;
-
       int i;
       for (i = nLong; i > 0; --i) {
         setLong(index, 0L);
         index += 8;
       }
-
       if (nBytes == 4) {
         setInt(index, 0);
       } else if (nBytes < 4) {
@@ -1110,7 +1164,6 @@ public final class ArrowBuf implements AutoCloseable {
           ++index;
         }
       }
-
       return this;
     }
   }
