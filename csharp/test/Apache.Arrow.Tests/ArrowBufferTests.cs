@@ -15,6 +15,7 @@
 
 using Apache.Arrow.Tests.Fixtures;
 using System;
+using System.Runtime.InteropServices;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -80,6 +81,23 @@ namespace Apache.Arrow.Tests
                 }
             }
 
+        }
+
+        [Fact]
+        public void TestExternalMemoryWrappedAsArrowBuffer()
+        {
+            Memory<byte> memory = new byte[sizeof(int) * 3];
+            Span<byte> spanOfBytes = memory.Span;
+            var span = spanOfBytes.CastTo<int>();
+            span[0] = 0;
+            span[1] = 1;
+            span[2] = 2;
+
+            ArrowBuffer buffer = new ArrowBuffer(memory);
+            Assert.Equal(2, buffer.Span.CastTo<int>()[2]);
+
+            span[2] = 10;
+            Assert.Equal(10, buffer.Span.CastTo<int>()[2]);
         }
     }
 }
