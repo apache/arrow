@@ -270,7 +270,7 @@ const uint8_t* BufferedInputStream::Peek(int64_t num_to_peek, int64_t* num_bytes
     DCHECK(buffer_size_ >= *num_bytes);
   }
   // Read more data when buffer has insufficient left or when resized
-  if (*num_bytes > (buffer_size_ - buffer_offset_)) {
+  if (*num_bytes >= (buffer_size_ - buffer_offset_)) {
     buffer_size_ = std::min(buffer_size_, stream_end_ - stream_offset_);
     int64_t bytes_read =
         source_->ReadAt(stream_offset_, buffer_size_, buffer_->mutable_data());
