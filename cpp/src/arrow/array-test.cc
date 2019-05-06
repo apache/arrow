@@ -748,6 +748,26 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValues) {
   this->Check(this->builder_nn_, false);
 }
 
+TYPED_TEST(TestPrimitiveBuilder, TestTypedFinish) {
+  DECL_T();
+
+  int64_t size = 1000;
+  this->RandomData(size);
+
+  std::vector<T>& draws = this->draws_;
+  std::vector<uint8_t>& valid_bytes = this->valid_bytes_;
+
+  ASSERT_OK(this->builder_->AppendValues(draws.data(), size, valid_bytes.data()));
+  std::shared_ptr<Array> result_untyped;
+  ASSERT_OK(this->builder_->Finish(&result_untyped));
+
+  ASSERT_OK(this->builder_->AppendValues(draws.data(), size, valid_bytes.data()));
+  std::shared_ptr<typename TestFixture::ArrayType> result;
+  ASSERT_OK(this->builder_->Finish(&result));
+
+  AssertArraysEqual(*result_untyped, *result);
+}
+
 TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesIter) {
   int64_t size = 10000;
   this->RandomData(size);
