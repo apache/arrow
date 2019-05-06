@@ -20,32 +20,7 @@ limitations under the License.
 {% endcomment %}
 -->
 
-## Powered By
-
-### Project and Product names using "Apache Arrow"
-
-Organizations creating products and projects for use with Apache Arrow, along
-with associated marketing materials, should take care to respect the trademark
-in "Apache Arrow" and its logo. Please refer to [ASF Trademarks Guidance][1]
-and associated [FAQ][2] for comprehensive and authoritative guidance on proper
-usage of ASF trademarks.
-
-Names that do not include "Apache Arrow" at all have no potential trademark
-issue with the Apache Arrow project. This is recommended.
-
-Names like "Apache Arrow BigCoProduct" are not OK, as are names including
-"Apache Arrow" in general. The above links, however, describe some exceptions,
-like for names such as "BigCoProduct, powered by Apache Arrow" or
-"BigCoProduct for Apache Arrow".
-
-It is common practice to create software identifiers (Maven coordinates, module
-names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
-in descriptions is also always allowed, as in "BigCoProduct is a widget for
-Apache Arrow".
-
-To add yourself to the list, please open a [pull request][27] adding your
-organization name, URL, a list of which Arrow components you are using, and a
-short description of your use case. See the following for some examples.
+## Projects Powered By Apache Arrow
 
 * **[Apache Parquet][3]:** A columnar storage format available to any project
   in the Hadoop ecosystem, regardless of the choice of data processing
@@ -82,10 +57,10 @@ short description of your use case. See the following for some examples.
   early contributing member to GOAI and Arrow\[JS\] focused on bringing these
   technologies to the enterprise.
 * **[InAccel][29]:** A machine learning acceleration framework which leverages
-  FPGAs-as-a-service. InAccel supports dataframes backed by Apache Arrow to 
-  serve as input for our implemented ML algorithms. Those dataframes can be 
+  FPGAs-as-a-service. InAccel supports dataframes backed by Apache Arrow to
+  serve as input for our implemented ML algorithms. Those dataframes can be
   accessed from the FPGAs with a single DMA operation by implementing a shared
-  memory communication schema. 
+  memory communication schema.
 * **[libgdf][14]:** A C library of CUDA-based analytics functions and GPU IPC
   support for structured data. Uses the Arrow IPC format and targets the Arrow
   memory layout in its analytic functions. This work is part of the [GPU Open
@@ -100,10 +75,10 @@ short description of your use case. See the following for some examples.
   supports reading and writing Parquet files using pyarrow. Several pandas
   core developers are also contributors to Apache Arrow.
 * **[Perspective][23]:** Perspective is a streaming data visualization engine in JavaScript for building real-time & user-configurable analytics entirely in the browser.
-* **[Petastorm][28]:** Petastorm enables single machine or distributed training 
-  and evaluation of deep learning models directly from datasets in Apache 
+* **[Petastorm][28]:** Petastorm enables single machine or distributed training
+  and evaluation of deep learning models directly from datasets in Apache
   Parquet format. Petastorm supports popular Python-based machine learning
-  (ML) frameworks such as Tensorflow, Pytorch, and PySpark. It can also be 
+  (ML) frameworks such as Tensorflow, Pytorch, and PySpark. It can also be
   used from pure Python code.
 * **[Quilt Data][13]:** Quilt is a data package manager, designed to make
   managing data as easy as managing code. It supports Parquet format via
@@ -138,6 +113,36 @@ short description of your use case. See the following for some examples.
   stream and batch processing. It supports Arrow as input and output, uses
   Arrow internally to maximize performance, and can be used with existing
   Apache Spark™ APIs.
+
+To add yourself to the list, please open a [pull request][27] adding your
+organization name, URL, a list of which Arrow components you are using, and a
+short description of your use case.
+
+### The "Apache Arrow" Trademark and Logo
+
+Organizations creating products and projects for use with Apache Arrow, along
+with associated marketing materials, should take care to respect the trademark
+in "Apache Arrow" and its logo. Please refer to [ASF Trademarks Guidance][1]
+and associated [FAQ][2] for comprehensive and authoritative guidance on proper
+usage of ASF trademarks.
+
+Names that do not include "Apache Arrow" at all have no potential trademark
+issue with the Apache Arrow project. This is recommended.
+
+Names like "Apache Arrow BigCoProduct" are not OK, as are names including
+"Apache Arrow" in general. The above links, however, describe some exceptions,
+like for names such as "BigCoProduct, powered by Apache Arrow" or
+"BigCoProduct for Apache Arrow".
+
+It is common practice to create software identifiers (Maven coordinates, module
+names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
+in descriptions is also always allowed, as in "BigCoProduct is a widget for
+Apache Arrow".
+
+Projects and documents that want to include a logo for Apache Arrow should use
+the official logo:
+
+<img src="{{ site.baseurl }}/img/arrow.png" style="max-width: 100%;"/>
 
 [1]: https://www.apache.org/foundation/marks/
 [2]: https://www.apache.org/foundation/marks/faq/
