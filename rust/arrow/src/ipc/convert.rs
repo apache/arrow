@@ -20,32 +20,28 @@
 use crate::datatypes::{DataType, DateUnit, Field, Schema, TimeUnit};
 use crate::ipc;
 
-use flatbuffers::FlatBufferBuilder;
+use flatbuffers::{
+    FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, Vector, WIPOffset,
+};
 
 /// Serialize a schema in IPC format
 fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
-    // TODO add bit-widths and other field metadata to flatbuffer Type
-    use DataType::*;
     let mut fbb = FlatBufferBuilder::new();
 
     let mut fields = vec![];
     for field in schema.fields() {
         let fb_field_name = fbb.create_string(field.name().as_str());
+        let (ipc_type_type, ipc_type, ipc_children) =
+            get_fb_field_type(field.data_type(), &mut fbb);
         let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
         field_builder.add_name(fb_field_name);
-        let ipc_type = match field.data_type() {
-            Boolean => ipc::Type::Bool,
-            UInt8 | UInt16 | UInt32 | UInt64 => ipc::Type::Int,
-            Int8 | Int16 | Int32 | Int64 => ipc::Type::Int,
-            Float32 | Float64 => ipc::Type::FloatingPoint,
-            Utf8 => ipc::Type::Utf8,
-            Date32(_) | Date64(_) => ipc::Type::Date,
-            Time32(_) | Time64(_) => ipc::Type::Time,
-            Timestamp(_) => ipc::Type::Timestamp,
-            _ => ipc::Type::NONE,
-        };
-        field_builder.add_type_type(ipc_type);
+        field_builder.add_type_type(ipc_type_type);
         field_builder.add_nullable(field.is_nullable());
+        match ipc_children {
+            None => {}
+            Some(children) => field_builder.add_children(children),
+        };
+        field_builder.add_type_(ipc_type);
         fields.push(field_builder.finish());
     }
 
@@ -62,12 +58,15 @@ fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
     fbb
 }
 
-fn fb_to_field(field: ipc::Field) -> Field {
-    Field::new(
-        field.name().unwrap(),
-        get_data_type(field),
-        field.nullable(),
-    )
+/// Convert an IPC Field to Arrow Field
+impl<'a> From<ipc::Field<'a>> for Field {
+    fn from(field: ipc::Field) -> Field {
+        Field::new(
+            field.name().unwrap(),
+            get_data_type(field),
+            field.nullable(),
+        )
+    }
 }
 
 /// Deserialize a Schema table from IPC format to Schema data type
@@ -77,34 +76,13 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
     let len = c_fields.len();
     for i in 0..len {
         let c_field: ipc::Field = c_fields.get(i);
-        fields.push(fb_to_field(c_field));
+        fields.push(c_field.into());
     }
     Schema::new(fields)
 }
 
-fn get_fbs_type(dtype: DataType) -> ipc::Type {
-    use ipc::Type::*;
-    use DataType::*;
-
-    match dtype {
-        Boolean => Bool,
-        Int8 | Int16 | Int32 | Int64 => Int,
-        UInt8 | UInt16 | UInt32 | UInt64 => Int,
-        Float16 => unimplemented!("Float16 type not supported in Rust Arrow"),
-        Float32 | Float64 => FloatingPoint,
-        DataType::Timestamp(_) => ipc::Type::Timestamp,
-        Date32(_) | Date64(_) => Date,
-        Time32(_) | Time64(_) => Time,
-        DataType::Interval(_) => unimplemented!("Interval type not supported"),
-        DataType::Utf8 => ipc::Type::Utf8,
-        DataType::List(_) => ipc::Type::List,
-        Struct(_) => Struct_,
-    }
-}
-
 /// Get the Arrow data type from the flatbuffer Field table
 fn get_data_type(field: ipc::Field) -> DataType {
-    // TODO add recursion protection for deeply-nested fields (struct and list)
     match field.type_type() {
         ipc::Type::Bool => DataType::Boolean,
         ipc::Type::Int => {
@@ -175,15 +153,174 @@ fn get_data_type(field: ipc::Field) -> DataType {
             DataType::List(Box::new(get_data_type(child_field)))
         }
         ipc::Type::Struct_ => {
-            let children = field.children().unwrap();
             let mut fields = vec![];
-            for i in 0..children.len() {
-                fields.push(fb_to_field(children.get(i)));
-            }
+            if let Some(children) = field.children() {
+                for i in 0..children.len() {
+                    fields.push(children.get(i).into());
+                }
+            };
+
             DataType::Struct(fields)
         }
         // TODO add interval support
         t @ _ => unimplemented!("Type {:?} not supported", t),
+    }
+}
+
+/// Get the IPC type of a data type
+fn get_fb_field_type<'a: 'b, 'b>(
+    data_type: &DataType,
+    mut fbb: &mut FlatBufferBuilder<'a>,
+) -> (
+    ipc::Type,
+    WIPOffset<UnionWIPOffset>,
+    Option<WIPOffset<Vector<'b, ForwardsUOffset<ipc::Field<'b>>>>>,
+) {
+    use DataType::*;
+    match data_type {
+        Boolean => (
+            ipc::Type::Bool,
+            ipc::BoolBuilder::new(&mut fbb).finish().as_union_value(),
+            None,
+        ),
+        UInt8 | UInt16 | UInt32 | UInt64 => {
+            let mut builder = ipc::IntBuilder::new(&mut fbb);
+            builder.add_is_signed(false);
+            match data_type {
+                UInt8 => builder.add_bitWidth(8),
+                UInt16 => builder.add_bitWidth(16),
+                UInt32 => builder.add_bitWidth(32),
+                UInt64 => builder.add_bitWidth(64),
+                _ => {}
+            };
+            (ipc::Type::Int, builder.finish().as_union_value(), None)
+        }
+        Int8 | Int16 | Int32 | Int64 => {
+            let mut builder = ipc::IntBuilder::new(&mut fbb);
+            builder.add_is_signed(true);
+            match data_type {
+                Int8 => builder.add_bitWidth(8),
+                Int16 => builder.add_bitWidth(16),
+                Int32 => builder.add_bitWidth(32),
+                Int64 => builder.add_bitWidth(64),
+                _ => {}
+            };
+            (ipc::Type::Int, builder.finish().as_union_value(), None)
+        }
+        Float16 | Float32 | Float64 => {
+            let mut builder = ipc::FloatingPointBuilder::new(&mut fbb);
+            match data_type {
+                Float16 => builder.add_precision(ipc::Precision::HALF),
+                Float32 => builder.add_precision(ipc::Precision::SINGLE),
+                Float64 => builder.add_precision(ipc::Precision::DOUBLE),
+                _ => {}
+            };
+            (
+                ipc::Type::FloatingPoint,
+                builder.finish().as_union_value(),
+                None,
+            )
+        }
+        Utf8 => (
+            ipc::Type::Utf8,
+            ipc::Utf8Builder::new(&mut fbb).finish().as_union_value(),
+            None,
+        ),
+        Date32(_) => {
+            let mut builder = ipc::DateBuilder::new(&mut fbb);
+            builder.add_unit(ipc::DateUnit::DAY);
+            (ipc::Type::Date, builder.finish().as_union_value(), None)
+        }
+        Date64(_) => {
+            let mut builder = ipc::DateBuilder::new(&mut fbb);
+            builder.add_unit(ipc::DateUnit::MILLISECOND);
+            (ipc::Type::Date, builder.finish().as_union_value(), None)
+        }
+        Time32(unit) | Time64(unit) => {
+            let mut builder = ipc::TimeBuilder::new(&mut fbb);
+            match unit {
+                TimeUnit::Second => {
+                    builder.add_bitWidth(32);
+                    builder.add_unit(ipc::TimeUnit::SECOND);
+                }
+                TimeUnit::Millisecond => {
+                    builder.add_bitWidth(32);
+                    builder.add_unit(ipc::TimeUnit::MILLISECOND);
+                }
+                TimeUnit::Microsecond => {
+                    builder.add_bitWidth(64);
+                    builder.add_unit(ipc::TimeUnit::MICROSECOND);
+                }
+                TimeUnit::Nanosecond => {
+                    builder.add_bitWidth(64);
+                    builder.add_unit(ipc::TimeUnit::NANOSECOND);
+                }
+            }
+            (ipc::Type::Time, builder.finish().as_union_value(), None)
+        }
+        Timestamp(unit) => {
+            let mut builder = ipc::TimestampBuilder::new(&mut fbb);
+            let time_unit = match unit {
+                TimeUnit::Second => ipc::TimeUnit::SECOND,
+                TimeUnit::Millisecond => ipc::TimeUnit::MILLISECOND,
+                TimeUnit::Microsecond => ipc::TimeUnit::MICROSECOND,
+                TimeUnit::Nanosecond => ipc::TimeUnit::NANOSECOND,
+            };
+            builder.add_unit(time_unit);
+            (
+                ipc::Type::Timestamp,
+                builder.finish().as_union_value(),
+                None,
+            )
+        }
+        List(ref list_type) => {
+            let inner_types = get_fb_field_type(list_type, &mut fbb);
+            let child = ipc::Field::create(
+                &mut fbb,
+                &ipc::FieldArgs {
+                    name: None,
+                    nullable: false,
+                    type_type: inner_types.0,
+                    type_: Some(inner_types.1),
+                    dictionary: None,
+                    children: inner_types.2,
+                    custom_metadata: None,
+                },
+            );
+            let children = fbb.create_vector(&[child]);
+            (
+                ipc::Type::List,
+                ipc::ListBuilder::new(&mut fbb).finish().as_union_value(),
+                Some(children),
+            )
+        }
+        Struct(fields) => {
+            // struct's fields are children
+            let mut children = vec![];
+            for field in fields {
+                let inner_types = get_fb_field_type(field.data_type(), &mut fbb);
+                let field_name = fbb.create_string(field.name());
+                children.push(ipc::Field::create(
+                    &mut fbb,
+                    &ipc::FieldArgs {
+                        name: Some(field_name),
+                        nullable: field.is_nullable(),
+                        type_type: inner_types.0,
+                        type_: Some(inner_types.1),
+                        dictionary: None,
+                        children: inner_types.2,
+                        custom_metadata: None,
+                    },
+                ));
+            }
+            let children = fbb.create_vector(&children[..]);
+            (
+                ipc::Type::Struct_,
+                ipc::Struct_Builder::new(&mut fbb).finish().as_union_value(),
+                Some(children),
+            )
+        }
+        t @ _ => panic!("Unsupported Arrow Data Type {:?}", t),
     }
 }
 
@@ -193,10 +330,80 @@ mod tests {
     use crate::datatypes::{DataType, Field, Schema};
 
     #[test]
-    fn convert_schema() {
-        let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
+    fn convert_schema_round_trip() {
+        let schema = Schema::new(vec![
+            Field::new("uint8", DataType::UInt8, false),
+            Field::new("uint16", DataType::UInt16, true),
+            Field::new("uint32", DataType::UInt32, false),
+            Field::new("uint64", DataType::UInt64, true),
+            Field::new("int8", DataType::Int8, true),
+            Field::new("int16", DataType::Int16, false),
+            Field::new("int32", DataType::Int32, true),
+            Field::new("int64", DataType::Int64, false),
+            Field::new("float16", DataType::Float16, true),
+            Field::new("float32", DataType::Float32, false),
+            Field::new("float64", DataType::Float64, true),
+            Field::new("bool", DataType::Boolean, false),
+            Field::new("date32", DataType::Date32(DateUnit::Day), false),
+            Field::new("date64", DataType::Date64(DateUnit::Millisecond), true),
+            Field::new("time32[s]", DataType::Time32(TimeUnit::Second), true),
+            Field::new("time32[ms]", DataType::Time32(TimeUnit::Millisecond), false),
+            Field::new("time64[us]", DataType::Time64(TimeUnit::Microsecond), false),
+            Field::new("time64[ns]", DataType::Time64(TimeUnit::Nanosecond), true),
+            Field::new("timestamp[s]", DataType::Timestamp(TimeUnit::Second), false),
+            Field::new(
+                "timestamp[ms]",
+                DataType::Timestamp(TimeUnit::Millisecond),
+                true,
+            ),
+            Field::new(
+                "timestamp[us]",
+                DataType::Timestamp(TimeUnit::Microsecond),
+                false,
+            ),
+            Field::new(
+                "timestamp[ns]",
+                DataType::Timestamp(TimeUnit::Nanosecond),
+                true,
+            ),
+            Field::new("utf8", DataType::Utf8, false),
+            Field::new("list[u8]", DataType::List(Box::new(DataType::UInt8)), true),
+            Field::new(
+                "list[struct<float32, int32, bool>]",
+                DataType::List(Box::new(DataType::Struct(vec![
+                    Field::new("float32", DataType::UInt8, false),
+                    Field::new("int32", DataType::Int32, true),
+                    Field::new("bool", DataType::Boolean, true),
+                ]))),
+                false,
+            ),
+            Field::new(
+                "struct<int64, list[struct<date32, list[struct<>]>]>",
+                DataType::Struct(vec![
+                    Field::new("int64", DataType::Int64, true),
+                    Field::new(
+                        "list[struct<date32, list[struct<>]>]",
+                        DataType::List(Box::new(DataType::Struct(vec![
+                            Field::new("date32", DataType::Date32(DateUnit::Day), true),
+                            Field::new(
+                                "list[struct<>]",
+                                DataType::List(Box::new(DataType::Struct(vec![]))),
+                                false,
+                            ),
+                        ]))),
+                        false,
+                    ),
+                ]),
+                false,
+            ),
+            Field::new("struct<>", DataType::Struct(vec![]), true),
+        ]);
 
-        let ipc = schema_to_fb(&schema);
-        assert_eq!(60, ipc.finished_data().len());
+        let fb = schema_to_fb(&schema);
+
+        // read back fields
+        let ipc = ipc::get_root_as_schema(fb.finished_data());
+        let schema2 = fb_to_schema(ipc);
+        assert_eq!(schema, schema2);
     }
 }
