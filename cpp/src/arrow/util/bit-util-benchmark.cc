@@ -119,8 +119,13 @@ static void BenchmarkBitmapReader(benchmark::State& state, int64_t nbytes) {
       benchmark::DoNotOptimize(total);
     }
   }
-  state.SetBytesProcessed(2 * int64_t(state.iterations()) * nbytes);
+  state.SetBytesProcessed(2LL * state.iterations() * nbytes);
 }
+
+constexpr bool pattern[] = {false, false, false, true, true, true};
+static_assert(
+    (sizeof(pattern) / sizeof(pattern[0])) % 8 != 0,
+    "pattern must not be a multiple of 8, otherwise gcc can optimize with a memset");
 
 template <typename BitmapWriterType>
 static void BenchmarkBitmapWriter(benchmark::State& state, int64_t nbytes) {
@@ -128,11 +133,10 @@ static void BenchmarkBitmapWriter(benchmark::State& state, int64_t nbytes) {
 
   const int64_t num_bits = nbytes * 8;
   uint8_t* bitmap = buffer->mutable_data();
-  const bool pattern[] = {false, false, false, true, true, true};
 
-  while (state.KeepRunning()) {
-    int64_t pattern_index = 0;
+  for (auto _ : state) {
     BitmapWriterType writer(bitmap, 0, num_bits);
+    int64_t pattern_index = 0;
     for (int64_t i = 0; i < num_bits; i++) {
       if (pattern[pattern_index++]) {
         writer.Set();
@@ -147,7 +151,7 @@ static void BenchmarkBitmapWriter(benchmark::State& state, int64_t nbytes) {
     writer.Finish();
     benchmark::ClobberMemory();
   }
-  state.SetBytesProcessed(int64_t(state.iterations()) * nbytes);
+  state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
 template <typename GenerateBitsFunctorType>
@@ -156,8 +160,6 @@ static void BenchmarkGenerateBits(benchmark::State& state, int64_t nbytes) {
 
   const int64_t num_bits = nbytes * 8;
   uint8_t* bitmap = buffer->mutable_data();
-  // pattern should be the same as in BenchmarkBitmapWriter
-  const bool pattern[] = {false, false, false, true, true, true};
 
   while (state.KeepRunning()) {
     int64_t pattern_index = 0;
@@ -171,26 +173,26 @@ static void BenchmarkGenerateBits(benchmark::State& state, int64_t nbytes) {
     GenerateBitsFunctorType()(bitmap, 0, num_bits, generate);
     benchmark::ClobberMemory();
   }
-  state.SetBytesProcessed(2 * int64_t(state.iterations()) * nbytes);
+  state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
-static void BM_NaiveBitmapReader(benchmark::State& state) {
+static void ReferenceNaiveBitmapReader(benchmark::State& state) {
   BenchmarkBitmapReader<NaiveBitmapReader>(state, state.range(0));
 }
 
-static void BM_BitmapReader(benchmark::State& state) {
+static void RegressionBitmapReader(benchmark::State& state) {
   BenchmarkBitmapReader<internal::BitmapReader>(state, state.range(0));
 }
 
-static void BM_NaiveBitmapWriter(benchmark::State& state) {
+static void ReferenceNaiveBitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<NaiveBitmapWriter>(state, state.range(0));
 }
 
-static void BM_BitmapWriter(benchmark::State& state) {
+static void RegressionBitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<internal::BitmapWriter>(state, state.range(0));
 }
 
-static void BM_FirstTimeBitmapWriter(benchmark::State& state) {
+static void RegressionFirstTimeBitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<internal::FirstTimeBitmapWriter>(state, state.range(0));
 }
 
@@ -208,72 +210,59 @@ struct GenerateBitsUnrolledFunctor {
   }
 };
 
-static void BM_GenerateBits(benchmark::State& state) {
+static void RegressionGenerateBits(benchmark::State& state) {
   BenchmarkGenerateBits<GenerateBitsFunctor>(state, state.range(0));
 }
 
-static void BM_GenerateBitsUnrolled(benchmark::State& state) {
+static void RegressionGenerateBitsUnrolled(benchmark::State& state) {
   BenchmarkGenerateBits<GenerateBitsUnrolledFunctor>(state, state.range(0));
 }
 
-static void BM_CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
-  const int kBufferSize = static_cast<int>(state.range(0));
-  std::shared_ptr<Buffer> buffer = CreateRandomBuffer(kBufferSize);
+constexpr int64_t kBufferSize = 1024 * 8;
 
-  const int num_bits = kBufferSize * 8;
+template <int64_t Offset = 0>
+static void RegressionCopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
+  const int64_t buffer_size = state.range(0);
+  const int64_t bits_size = buffer_size * 8;
+  std::shared_ptr<Buffer> buffer = CreateRandomBuffer(buffer_size);
+
   const uint8_t* src = buffer->data();
+  const int64_t offset = Offset;
+  const int64_t length = bits_size - offset;
 
   std::shared_ptr<Buffer> copy;
-  while (state.KeepRunning()) {
-    ABORT_NOT_OK(CopyBitmap(default_memory_pool(), src, state.range(1), num_bits, &copy));
+  auto pool = default_memory_pool();
+  ABORT_NOT_OK(AllocateEmptyBitmap(pool, length, &copy));
+
+  for (auto _ : state) {
+    CopyBitmap(src, offset, length, copy->mutable_data(), 0, false);
   }
-  state.SetBytesProcessed(state.iterations() * kBufferSize * sizeof(int8_t));
+
+  state.SetBytesProcessed(state.iterations() * buffer_size);
 }
 
-BENCHMARK(BM_CopyBitmap)
-    ->Args({100000, 0})
-    ->Args({1000000, 0})
-    ->Args({100000, 4})
-    ->Args({1000000, 4})
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond);
+static void RegressionCopyBitmapWithoutOffset(
+    benchmark::State& state) {  // NOLINT non-const reference
+  RegressionCopyBitmap<0>(state);
+}
 
-BENCHMARK(BM_NaiveBitmapReader)
-    ->Args({1000000})
-    ->MinTime(5.0)
-    ->Unit(benchmark::kMicrosecond);
+// Trigger the slow path where the buffer is not byte aligned.
+static void RegressionCopyBitmapWithOffset(
+    benchmark::State& state) {  // NOLINT non-const reference
+  RegressionCopyBitmap<4>(state);
+}
 
-BENCHMARK(BM_BitmapReader)->Args({1000000})->MinTime(5.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(RegressionCopyBitmapWithoutOffset)->Arg(kBufferSize);
+BENCHMARK(RegressionCopyBitmapWithOffset)->Arg(kBufferSize);
 
-BENCHMARK(BM_NaiveBitmapWriter)
-    ->Args({100000})
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
+BENCHMARK(RegressionBitmapReader)->Arg(kBufferSize);
+BENCHMARK(ReferenceNaiveBitmapWriter)->Arg(kBufferSize);
+BENCHMARK(RegressionBitmapWriter)->Arg(kBufferSize);
 
-BENCHMARK(BM_BitmapWriter)
-    ->Args({100000})
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_FirstTimeBitmapWriter)
-    ->Args({100000})
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_GenerateBits)
-    ->Args({100000})
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_GenerateBitsUnrolled)
-    ->Args({100000})
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(RegressionFirstTimeBitmapWriter)->Arg(kBufferSize);
+BENCHMARK(RegressionGenerateBits)->Arg(kBufferSize);
+BENCHMARK(RegressionGenerateBitsUnrolled)->Arg(kBufferSize);
 
 }  // namespace BitUtil
 }  // namespace arrow
