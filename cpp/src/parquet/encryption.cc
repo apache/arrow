@@ -22,11 +22,11 @@
 namespace parquet {
 
 // integer key retriever
-void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
+void IntegerKeyIdRetriever::putKey(uint32_t key_id, const std::string& key) {
   key_map_.insert(std::make_pair(key_id, key));
 }
 
-const std::string& IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
+const std::string& IntegerKeyIdRetriever::getKey(const std::string& key_metadata) {
   uint32_t key_id;
   memcpy(reinterpret_cast<uint8_t*>(&key_id), key_metadata.c_str(), 4);
 
@@ -34,11 +34,11 @@ const std::string& IntegerKeyIdRetriever::GetKey(const std::string& key_metadata
 }
 
 // string key retriever
-void StringKeyIdRetriever::PutKey(const std::string& key_id, const std::string& key) {
+void StringKeyIdRetriever::putKey(const std::string& key_id, const std::string& key) {
   key_map_.insert(std::make_pair(key_id, key));
 }
 
-const std::string& StringKeyIdRetriever::GetKey(const std::string& key_id) {
+const std::string& StringKeyIdRetriever::getKey(const std::string& key_id) {
   return key_map_[key_id];
 }
 
