@@ -13,28 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
+using Apache.Arrow.Memory;
+using System.Buffers;
 
-namespace Apache.Arrow
+namespace Apache.Arrow.Tests
 {
-    public interface IArrowArray : IDisposable
+    public class TestMemoryAllocator : MemoryAllocator
     {
-        bool IsNull(int index);
-
-        bool IsValid(int index);
-
-        int Length { get; }
-
-        int Offset { get; }
-
-        int NullCount { get; }
-
-        ArrayData Data { get; }
-
-        void Accept(IArrowArrayVisitor visitor);
-
-        //IArrowArray Slice(int offset);
-
-        //IArrowArray Slice(int offset, int length);
+        protected override IMemoryOwner<byte> AllocateInternal(int length, out int bytesAllocated)
+        {
+            bytesAllocated = length;
+            return MemoryPool<byte>.Shared.Rent(length);
+        }
     }
 }

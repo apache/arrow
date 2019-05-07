@@ -14,12 +14,13 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Apache.Arrow
 {
-    public sealed class ArrayData
+    public sealed class ArrayData : IDisposable
     {
         public readonly IArrowType DataType;
         public readonly int Length;
@@ -52,6 +53,25 @@ namespace Apache.Arrow
             Offset = offset;
             Buffers = buffers;
             Children = children;
+        }
+
+        public void Dispose()
+        {
+            if (Buffers != null)
+            {
+                foreach (ArrowBuffer buffer in Buffers)
+                {
+                    buffer.Dispose();
+                }
+            }
+
+            if (Children != null)
+            {
+                foreach (ArrayData child in Children)
+                {
+                    child?.Dispose();
+                }
+            }
         }
     }
 }
