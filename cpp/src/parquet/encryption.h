@@ -28,15 +28,15 @@ namespace parquet {
 
 class PARQUET_EXPORT DecryptionKeyRetriever {
  public:
-  virtual const std::string& GetKey(const std::string& key_metadata) = 0;
+  virtual const std::string& getKey(const std::string& key_metadata) = 0;
   virtual ~DecryptionKeyRetriever() {}
 };
 
 // Simple integer key retriever
 class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
  public:
-  void PutKey(uint32_t key_id, const std::string& key);
-  const std::string& GetKey(const std::string& key_metadata);
+  void putKey(uint32_t key_id, const std::string& key);
+  const std::string& getKey(const std::string& key_metadata);
 
  private:
   std::map<uint32_t, std::string> key_map_;
@@ -45,8 +45,8 @@ class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
 // Simple string key retriever
 class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
  public:
-  void PutKey(const std::string& key_id, const std::string& key);
-  const std::string& GetKey(const std::string& key_metadata);
+  void putKey(const std::string& key_id, const std::string& key);
+  const std::string& getKey(const std::string& key_metadata);
 
  private:
   std::map<std::string, std::string> key_map_;

@@ -68,7 +68,7 @@ std::shared_ptr<FooterSigningEncryptor> InternalFileDecryptor::GetFooterSigningE
       throw ParquetException("No footer key or key retriever");
     try {
       footer_key =
-        properties_->getKeyRetriever()->GetKey(footer_key_metadata);
+        properties_->getKeyRetriever()->getKey(footer_key_metadata);
     } catch (KeyAccessDeniedException &e) {
       std::stringstream ss;
       ss << "Footer key: access denied " << e.what() << "\n";
@@ -118,7 +118,7 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     if (properties_->getKeyRetriever() == nullptr)
       throw ParquetException("No footer key or key retriever");
     try {
-      footer_key = properties_->getKeyRetriever()->GetKey(footer_key_metadata);
+      footer_key = properties_->getKeyRetriever()->getKey(footer_key_metadata);
     } catch (KeyAccessDeniedException &e) {
       std::stringstream ss;
       ss << "Footer key: access denied " << e.what() << "\n";;
@@ -168,7 +168,7 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     if (column_key.empty() && !column_key_metadata.empty() &&
         properties_->getKeyRetriever() != nullptr){
       try {
-        column_key = properties_->getKeyRetriever()->GetKey(column_key_metadata);
+        column_key = properties_->getKeyRetriever()->getKey(column_key_metadata);
       } catch (KeyAccessDeniedException &e) {
         std::stringstream ss;
         ss << "HiddenColumnException, path=" +
