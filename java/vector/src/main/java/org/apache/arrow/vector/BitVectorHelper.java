@@ -196,7 +196,7 @@ public class BitVectorHelper {
       /* mixed byte pattern -- create another ArrowBuf associated with the
        * target allocator
        */
-      newBuffer = sourceValidityBuffer.retain(allocator);
+      newBuffer = sourceValidityBuffer.getReferenceManager().retain(sourceValidityBuffer, allocator);
     }
 
     return newBuffer;

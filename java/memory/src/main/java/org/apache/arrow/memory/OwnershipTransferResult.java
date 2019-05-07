@@ -15,19 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.memory;
 
 import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.ByteBuf;
 
-public class VectorTrimmer {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(VectorTrimmer.class);
+public interface OwnershipTransferResult {
 
-  public static void trim(ByteBuf data, int idx) {
-    data.writerIndex(idx);
-    if (data instanceof ArrowBuf) {
-      // data.capacity(idx);
-      data.writerIndex(idx);
-    }
-  }
+  boolean getAllocationFit();
+
+  ArrowBuf getTransferredBuffer();
 }

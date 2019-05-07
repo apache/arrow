@@ -53,7 +53,7 @@ public class ArrowByteBufAllocator extends AbstractByteBufAllocator {
 
   @Override
   public ByteBuf buffer(int initialCapacity) {
-    return new ExpandableByteBuf(allocator.buffer(initialCapacity), allocator);
+    return new ExpandableByteBuf(allocator.buffer(initialCapacity).asNettyBuffer(), allocator);
   }
 
   @Override
@@ -83,7 +83,7 @@ public class ArrowByteBufAllocator extends AbstractByteBufAllocator {
 
   @Override
   public ByteBuf directBuffer(int initialCapacity) {
-    return allocator.buffer(initialCapacity);
+    return allocator.buffer(initialCapacity).asNettyBuffer();
   }
 
   @Override

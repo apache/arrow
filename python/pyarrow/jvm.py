@@ -46,7 +46,7 @@ def jvm_buffer(arrowbuf):
     """
     address = arrowbuf.memoryAddress()
     size = arrowbuf.capacity()
-    return pa.foreign_buffer(address, size, arrowbuf.unwrap())
+    return pa.foreign_buffer(address, size, arrowbuf.asNettyBuffer())
 
 
 def _from_jvm_int_type(jvm_type):

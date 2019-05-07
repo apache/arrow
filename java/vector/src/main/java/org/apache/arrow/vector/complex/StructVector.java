@@ -92,7 +92,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
     ArrowBuf bitBuffer = ownBuffers.get(0);
 
-    validityBuffer.release();
+    validityBuffer.getReferenceManager().release();
     validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
     valueCount = fieldNode.getLength();
     validityAllocationSizeInBytes = validityBuffer.capacity();
@@ -159,7 +159,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     @Override
     public void transfer() {
       target.clear();
-      target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
+      target.validityBuffer = BaseValueVector.transferBuffer(validityBuffer, target.allocator);
       super.transfer();
       clear();
     }
@@ -195,10 +195,10 @@ public class StructVector extends NonNullableStructVector implements FieldVector
       if (offset == 0) {
         // slice
         if (target.validityBuffer != null) {
-          target.validityBuffer.release();
+          target.validityBuffer.getReferenceManager().release();
         }
         target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
-        target.validityBuffer.retain(1);
+        target.validityBuffer.getReferenceManager().retain(1);
       } else {
         /* Copy data
          * When the first bit starts from the middle of a byte (offset != 0),
@@ -283,7 +283,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {
-        buffer.retain();
+        buffer.getReferenceManager().retain();
       }
       clear();
     }
@@ -322,7 +322,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
    * Release the validity buffer.
    */
   private void clearValidityBuffer() {
-    validityBuffer.release();
+    validityBuffer.getReferenceManager().release();
     validityBuffer = allocator.getEmpty();
   }
 
@@ -423,7 +423,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    validityBuffer.release(1);
+    validityBuffer.getReferenceManager().release(1);
     validityBuffer = newBuf;
     validityAllocationSizeInBytes = (int) newAllocationSize;
   }

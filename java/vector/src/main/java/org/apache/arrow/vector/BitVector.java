@@ -168,10 +168,10 @@ public class BitVector extends BaseFixedWidthVector {
       if (offset == 0) {
         /* slice */
         if (destBuffer != null) {
-          destBuffer.release();
+          destBuffer.getReferenceManager().release();
         }
         destBuffer = sourceBuffer.slice(firstByteSource, byteSizeTarget);
-        destBuffer.retain(1);
+        destBuffer.getReferenceManager().retain(1);
       } else {
         /* Copy data
          * When the first bit starts from the middle of a byte (offset != 0),

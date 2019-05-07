@@ -17,25 +17,22 @@
 
 package org.apache.arrow.memory;
 
-import static org.junit.Assert.assertEquals;
+import io.netty.buffer.ArrowBuf;
 
-import org.junit.Test;
+public class OwnershipTransferNOOP implements OwnershipTransferResult {
+  private final ArrowBuf buffer;
 
-import io.netty.buffer.ByteBuf;
-
-public class TestEndianess {
-
-  @Test
-  public void testLittleEndian() {
-    final BufferAllocator a = new RootAllocator(10000);
-    final ByteBuf b = a.buffer(4).asNettyBuffer();
-    b.setInt(0, 35);
-    assertEquals(b.getByte(0), 35);
-    assertEquals(b.getByte(1), 0);
-    assertEquals(b.getByte(2), 0);
-    assertEquals(b.getByte(3), 0);
-    b.release();
-    a.close();
+  OwnershipTransferNOOP(final ArrowBuf buf) {
+    this.buffer = buf;
   }
 
+  @Override
+  public ArrowBuf getTransferredBuffer() {
+    return buffer;
+  }
+
+  @Override
+  public boolean getAllocationFit() {
+    return true;
+  }
 }

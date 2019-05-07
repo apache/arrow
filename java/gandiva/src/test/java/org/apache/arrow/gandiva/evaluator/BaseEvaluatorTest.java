@@ -278,7 +278,7 @@ class BaseEvaluatorTest {
     List<ArrowBuf> buffers = recordBatch.getBuffers();
     recordBatch.close();
     for (ArrowBuf buf : buffers) {
-      buf.release();
+      buf.getReferenceManager().release();
     }
   }
 
