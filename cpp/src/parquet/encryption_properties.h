@@ -398,6 +398,8 @@ class PARQUET_EXPORT FileEncryptionProperties {
     // Skip storing AAD Prefix in file.
     // If not called, and if AAD Prefix is set, it will be stored.
     Builder* withoutAADPrefixStorage() {
+      DCHECK(!aad_prefix_.empty());
+
       store_aad_prefix_in_file_ = false;
       return this;
     }
