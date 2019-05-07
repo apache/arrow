@@ -142,7 +142,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     // file is unencrypted
     // or file is encrypted but column is unencrypted
-    if ((!file_crypto_metadata_ && !file_metadata_->is_plaintext_mode()) || !crypto_metadata) {
+    if (!crypto_metadata) {
       encrypted = false;
     }
 
@@ -164,7 +164,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     ParquetCipher::type footer_algorithm = file_metadata_->is_plaintext_mode()
                           ? file_metadata_->encryption_algorithm().algorithm
                           : file_crypto_metadata_->encryption_algorithm().algorithm;
-    
+
     // the column is encrypted with footer key
     if (crypto_metadata->encrypted_with_footer_key()) {
       const std::string& footer_key_metadata = file_metadata_->is_plaintext_mode()
@@ -182,13 +182,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                               meta_decryptor, data_decryptor);
     }
 
-    // file is non-uniform encrypted and the column
-    // is encrypted with its own key
+    // file is encrypted and the column is encrypted with its own key
 
     std::string column_key_metadata = crypto_metadata->key_metadata();
     std::shared_ptr<schema::ColumnPath> column_path =
         std::make_shared<schema::ColumnPath>(crypto_metadata->path_in_schema());
-    
+
     auto meta_decryptor = file_decryptor_->GetColumnMetaDecryptor(
         column_path, footer_algorithm,
         column_key_metadata, aad_column_meta_data);
@@ -297,10 +296,10 @@ class SerializedFile : public ParquetFileReader::Contents {
 
       if (file_metadata_->is_plaintext_mode()) {
         auto file_decryption = properties_.file_decryption();
-        file_decryptor_.reset(new InternalFileDecryptor(file_decryption));
-        if (file_decryption == nullptr) {
+        if (file_decryption == NULLPTR) {
           throw ParquetException("No decryption properties are provided");
         }
+        file_decryptor_.reset(new InternalFileDecryptor(file_decryption));
 
         std::string aad_prefix = file_decryption->getAADPrefix();
 
