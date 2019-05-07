@@ -169,7 +169,7 @@ FileEncryptionProperties::FileEncryptionProperties(ParquetCipher::type cipher,
   algorithm_.aad.aad_file_unique = aad_file_unique_str;
   algorithm_.aad.supply_aad_prefix = supply_aad_prefix;
   if (!aad_prefix.empty() && store_aad_prefix_in_file) {
-        algorithm_.aad.aad_prefix = aad_prefix;
+    algorithm_.aad.aad_prefix = aad_prefix;
   }
 }
 
