@@ -46,6 +46,12 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   Status Append(std::nullptr_t) { return AppendNull(); }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<NullArray>* out) { return FinishTyped(out); }
 };
 
 /// Base class for all Builders that emit an Array of a scalar numerical type.
@@ -53,6 +59,7 @@ template <typename T>
 class NumericBuilder : public ArrayBuilder {
  public:
   using value_type = typename T::c_type;
+  using ArrayType = typename TypeTraits<T>::ArrayType;
   using ArrayBuilder::ArrayBuilder;
 
   template <typename T1 = T>
@@ -158,6 +165,12 @@ class NumericBuilder : public ArrayBuilder {
     capacity_ = length_ = null_count_ = 0;
     return Status::OK();
   }
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<ArrayType>* out) { return FinishTyped(out); }
 
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values_begin InputIterator to the beginning of the values
@@ -402,6 +415,13 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<BooleanArray>* out) { return FinishTyped(out); }
+
   void Reset() override;
   Status Resize(int64_t capacity) override;
 

@@ -120,6 +120,12 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<BinaryArray>* out) { return FinishTyped(out); }
+
   /// \return size of values buffer so far
   int64_t value_data_length() const { return value_data_builder_.length(); }
   /// \return capacity of values buffer
@@ -186,6 +192,12 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   /// \return Status
   Status AppendValues(const char** values, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<StringArray>* out) { return FinishTyped(out); }
 };
 
 // ----------------------------------------------------------------------
@@ -253,6 +265,12 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   void Reset() override;
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<FixedSizeBinaryArray>* out) { return FinishTyped(out); }
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return byte_builder_.length(); }
