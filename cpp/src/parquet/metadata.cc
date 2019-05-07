@@ -1220,7 +1220,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
       : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
     metadata_.reset(new format::FileMetaData());
-    if (props->file_encryption() != nullptr) {
+    if (props->file_encryption() != nullptr
+      && props->file_encryption()->getFooterSigningKey() == NULL_STRING) {
       crypto_metadata_.reset(new format::FileCryptoMetaData());
     }
   }
