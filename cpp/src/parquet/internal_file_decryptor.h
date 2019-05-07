@@ -84,7 +84,9 @@ class InternalFileDecryptor {
 
  private:
   FileDecryptionProperties* properties_;
+  // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
+  // A map between ColumnPath and their encryption keys:
   std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
                   std::string, parquet::schema::ColumnPath::CmpColumnPath>> column_map_;
 

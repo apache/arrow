@@ -95,11 +95,6 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
 
 ReaderProperties default_reader_properties() {
   static ReaderProperties default_reader_properties;
-  // reset column_map and fileAAD as default_reader_properties is static but
-  // can be used when reading parquet file with different reading options.
-  if (default_reader_properties.column_map() != NULLPTR
-      && default_reader_properties.column_map()->size () != 0)
-    default_reader_properties.column_map()->clear();
 
   return default_reader_properties;
 }
