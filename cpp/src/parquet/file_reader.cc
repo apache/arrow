@@ -157,7 +157,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     // the column is encrypted
     std::string aad_column_meta_data = parquet_encryption::createModuleAAD(
-        properties_.fileAAD(),
+        file_decryptor_->file_aad(),
         parquet_encryption::ColumnMetaData,
         row_group_ordinal_,
         (int16_t)i, (int16_t)-1);
