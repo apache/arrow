@@ -179,7 +179,7 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     }
   }
   if (column_key.empty()) {
-    throw HiddenColumnException("column is encrypted with null key, path=" +
+    throw HiddenColumnException("HiddenColumnException, path=" +
                                 column_path->ToDotString());
   }
 
