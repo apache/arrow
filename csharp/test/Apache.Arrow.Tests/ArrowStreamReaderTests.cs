@@ -49,25 +49,10 @@ namespace Apache.Arrow.Tests
             Assert.Equal(0, stream.Position);
         }
 
-        [Fact]
-        public async Task Ctor_MemoryPool_AllocatesFromPool()
-        {
-            await Ctor_MemoryPool_AllocatesFromPoolHelper(
-                shouldLeaveOpen: false,
-                (stream, memoryPool) => new ArrowStreamReader(stream, memoryPool));
-        }
-
-        [Fact]
-        public async Task Ctor_MemoryPool_LeaveOpen_AllocatesFromPool()
-        {
-            await Ctor_MemoryPool_AllocatesFromPoolHelper(
-                shouldLeaveOpen: true,
-                (stream, memoryPool) => new ArrowStreamReader(stream, memoryPool, true));
-        }
-
-        private async Task Ctor_MemoryPool_AllocatesFromPoolHelper(
-            bool shouldLeaveOpen,
-            Func<Stream, MemoryAllocator, ArrowStreamReader> createReaderFunc)
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task Ctor_MemoryPool_AllocatesFromPool(bool shouldLeaveOpen)
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
 
@@ -79,7 +64,7 @@ namespace Apache.Arrow.Tests
                 stream.Position = 0;
 
                 var memoryPool = new TestMemoryAllocator();
-                ArrowStreamReader reader = createReaderFunc(stream, memoryPool);
+                ArrowStreamReader reader = new ArrowStreamReader(stream, memoryPool, shouldLeaveOpen);
                 reader.ReadNextRecordBatch();
 
                 Assert.Equal(1, memoryPool.Statistics.Allocations);
