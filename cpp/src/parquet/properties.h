@@ -49,10 +49,6 @@ class PARQUET_EXPORT ReaderProperties {
       : pool_(pool) {
     buffered_stream_enabled_ = DEFAULT_USE_BUFFERED_STREAM;
     buffer_size_ = DEFAULT_BUFFER_SIZE;
-    column_map_ = std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-      std::string, parquet::schema::ColumnPath::CmpColumnPath>>(new std::map<std::shared_ptr<schema::ColumnPath>,
-                                                                std::string,
-                                                                schema::ColumnPath::CmpColumnPath>());
   }
 
   MemoryPool* memory_pool() const { return pool_; }
@@ -70,11 +66,6 @@ class PARQUET_EXPORT ReaderProperties {
 
   int64_t buffer_size() const { return buffer_size_; }
 
-  std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-    std::string, parquet::schema::ColumnPath::CmpColumnPath>> column_map () {
-    return column_map_;
-  }
-
   void file_decryption(const std::shared_ptr<FileDecryptionProperties>& decryption) {
     file_decryption_ = decryption;
   }
@@ -86,9 +77,6 @@ class PARQUET_EXPORT ReaderProperties {
   int64_t buffer_size_;
   bool buffered_stream_enabled_;
   std::shared_ptr<FileDecryptionProperties> file_decryption_;
-  std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-    std::string, parquet::schema::ColumnPath::CmpColumnPath>> column_map_; // a map between
-  //ColumnPath and their encryption keys
 };
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
