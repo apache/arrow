@@ -99,17 +99,17 @@ set PYARROW_PARALLEL=2
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
-python setup.py build_ext ^
-    install -q --single-version-externally-managed --record=record.text ^
-    bdist_wheel -q || exit /B
+python setup.py develop -q || exit /B
+
+py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
+
+@rem
+@rem Build wheel
+@rem
+
+python setup.py bdist_wheel -q || exit /B
 
 for /F %%i in ('dir /B /S dist\*.whl') do set WHEEL_PATH=%%i
-
-@rem Test directly from installed location
-@rem (needed for test_cython)
-
-set PYARROW_PATH=%CONDA_PREFIX%\Lib\site-packages\pyarrow
-py.test -r sxX --durations=15 %PYARROW_PATH% || exit /B
 
 popd
 

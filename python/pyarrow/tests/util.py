@@ -104,5 +104,9 @@ def get_modified_env_with_pythonpath():
     module_path = os.path.abspath(
         os.path.dirname(os.path.dirname(pa.__file__)))
 
-    env['PYTHONPATH'] = os.pathsep.join((module_path, existing_pythonpath))
+    if existing_pythonpath:
+        new_pythonpath = os.pathsep.join((module_path, existing_pythonpath))
+    else:
+        new_pythonpath = module_path
+    env['PYTHONPATH'] = new_pythonpath
     return env

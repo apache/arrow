@@ -344,7 +344,6 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
                          PyObject** out) {
   PyAcquireGIL lock;
   PyDateTime_IMPORT;
-  import_pyarrow();
   return DeserializeList(context, *obj.batch->column(0), 0, obj.batch->num_rows(), base,
                          obj, out);
 }

@@ -22,6 +22,8 @@ import pytest
 import collections
 import datetime
 import os
+import pickle
+import subprocess
 import string
 import sys
 
@@ -706,6 +708,29 @@ def test_serialize_to_components_invalid_cases():
         pa.deserialize_components(components)
 
 
+def test_deserialize_components_in_different_process():
+    arr = pa.array([1, 2, 5, 6], type=pa.int8())
+    ser = pa.serialize(arr)
+    data = pickle.dumps(ser.to_components(), protocol=-1)
+
+    code = """if 1:
+        import pickle
+
+        import pyarrow as pa
+
+        data = {0!r}
+        components = pickle.loads(data)
+        arr = pa.deserialize_components(components)
+
+        assert arr.to_pylist() == [1, 2, 5, 6], arr
+        """.format(data)
+
+    subprocess_env = test_util.get_modified_env_with_pythonpath()
+    print("** sys.path =", sys.path)
+    print("** setting PYTHONPATH to:", subprocess_env['PYTHONPATH'])
+    subprocess.check_call(["python", "-c", code], env=subprocess_env)
+
+
 def test_serialize_read_concatenated_records():
     # ARROW-1996 -- see stream alignment work in ARROW-2840, ARROW-3212
     f = pa.BufferOutputStream()
@@ -744,7 +769,6 @@ def test_deserialize_in_different_process():
 
 def test_deserialize_buffer_in_different_process():
     import tempfile
-    import subprocess
 
     f = tempfile.NamedTemporaryFile(delete=False)
     b = pa.serialize(pa.py_buffer(b'hello')).to_buffer()

@@ -34,7 +34,11 @@ from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow as libarrow
 cimport cpython as cp
 
+# Initialize NumPy C API
 arrow_init_numpy()
+# Initialize PyArrow C++ API
+# (used from some of our C++ code, see e.g. ARROW-5260)
+import_pyarrow()
 set_numpy_nan(np.nan)
 
 
