@@ -156,7 +156,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     // the column is encrypted
-    std::string aad = parquet_encryption::createModuleAAD(
+    std::string aad_column_meta_data = parquet_encryption::createModuleAAD(
         properties_.fileAAD(),
         parquet_encryption::ColumnMetaData,
         row_group_ordinal_,
@@ -173,9 +173,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                                   : file_crypto_metadata_->key_metadata();
 
       auto meta_decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta(
-          footer_algorithm, footer_key_metadata, aad);
+          footer_algorithm, footer_key_metadata, aad_column_meta_data);
       auto data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData(
-          footer_algorithm, footer_key_metadata, aad);
+          footer_algorithm, footer_key_metadata, aad_column_meta_data);
 
       return PageReader::Open(stream, col->num_values(), col->compression(),
                               col->has_dictionary_page(), row_group_ordinal_,
@@ -192,10 +192,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     
     auto meta_decryptor = file_decryptor_->GetColumnMetaDecryptor(
         column_path, footer_algorithm,
-        column_key_metadata, aad);
+        column_key_metadata, aad_column_meta_data);
     auto data_decryptor = file_decryptor_->GetColumnDataDecryptor(
         column_path, footer_algorithm,
-        column_key_metadata, aad);
+        column_key_metadata, aad_column_meta_data);
 
     return PageReader::Open(stream, col->num_values(),
                             col->compression(),
@@ -303,33 +303,28 @@ class SerializedFile : public ParquetFileReader::Contents {
           throw ParquetException("No decryption properties are provided");
         }
 
+        std::string aad_prefix = file_decryption->getAADPrefix();
+
         EncryptionAlgorithm algo = file_metadata_->encryption_algorithm();
-        bool supply_aad_prefix = algo.aad.supply_aad_prefix;
-        std::string aad_file_unique = algo.aad.aad_file_unique;
-        std::string aad_prefix = algo.aad.aad_prefix;
-        if (algo.algorithm != ParquetCipher::AES_GCM_CTR_V1
-            && algo.algorithm != ParquetCipher::AES_GCM_V1)
-          throw ParquetException("Unsupported algorithm");
-        if (!file_decryption->getAADPrefix().empty()) {
-          if (file_decryption->getAADPrefix().compare(aad_prefix) != 0) {
-            throw ParquetException("ADD Prefix in file and "
-                                   "in properties is not the same");
+        if (!algo.aad.aad_prefix.empty()) {
+          if (!aad_prefix.empty()) {
+            if (aad_prefix.compare(algo.aad.aad_prefix) != 0) {
+              throw ParquetException("ADD Prefix in file and "
+                                     "in properties is not the same");
+            }
           }
+          aad_prefix = algo.aad.aad_prefix;
           std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
             file_decryption->getAADPrefixVerifier();
           if (aad_prefix_verifier != NULLPTR)
             aad_prefix_verifier->check(aad_prefix);
         }
-        if (supply_aad_prefix && file_decryption->getAADPrefix().empty()) {
+        if (algo.aad.supply_aad_prefix && aad_prefix.empty()) {
           throw ParquetException("AAD prefix used for file encryption, "
                                  "but not stored in file and not supplied "
                                  "in decryption properties");
         }
-        std::string fileAAD;
-        if (!supply_aad_prefix)
-          fileAAD = aad_prefix + aad_file_unique;
-        else
-          fileAAD = file_decryption->getAADPrefix() + aad_file_unique;
+        std::string fileAAD = aad_prefix + algo.aad.aad_file_unique;
 
         file_decryptor_->file_aad(fileAAD);
         if (file_decryption->checkFooterIntegrity()) {
@@ -386,32 +381,28 @@ class SerializedFile : public ParquetFileReader::Contents {
       file_crypto_metadata_ =
         FileCryptoMetaData::Make(crypto_metadata_buffer->data(), &crypto_metadata_len);
       EncryptionAlgorithm algo = file_crypto_metadata_->encryption_algorithm();
-      bool supply_aad_prefix = algo.aad.supply_aad_prefix;
-      std::string aad_file_unique = algo.aad.aad_file_unique;
-      std::string aad_prefix = algo.aad.aad_prefix;
-      if (algo.algorithm != ParquetCipher::AES_GCM_CTR_V1 
-          && algo.algorithm != ParquetCipher::AES_GCM_V1)
-        throw ParquetException("Unsupported algorithm");
-      if (!file_decryption->getAADPrefix().empty()) {
-        if (file_decryption->getAADPrefix().compare(aad_prefix) != 0) {
-          throw ParquetException("ADD Prefix in file and in properties "
-                                 "is not the same");
+
+      std::string aad_prefix = file_decryption->getAADPrefix();
+
+      if (!algo.aad.aad_prefix.empty()) {
+        if (!aad_prefix.empty()) {
+          if (aad_prefix.compare(algo.aad.aad_prefix) != 0) {
+            throw ParquetException("ADD Prefix in file and in properties "
+                                   "is not the same");
+          }
         }
+        aad_prefix = algo.aad.aad_prefix;
         std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
           file_decryption->getAADPrefixVerifier();
         if (aad_prefix_verifier != NULLPTR)
           aad_prefix_verifier->check(aad_prefix);
       }
-      if (supply_aad_prefix && file_decryption->getAADPrefix().empty()) {
+      if (algo.aad.supply_aad_prefix && aad_prefix.empty()) {
         throw ParquetException("AAD prefix used for file encryption, "
                                "but not stored in file and not supplied "
                                "in decryption properties");
       }
-      std::string fileAAD;
-      if (!supply_aad_prefix)
-        fileAAD = aad_prefix + aad_file_unique;
-      else
-        fileAAD = file_decryption->getAADPrefix() + aad_file_unique;
+      std::string fileAAD = aad_prefix + algo.aad.aad_file_unique;
       // save fileAAD for later use
       file_decryptor_->file_aad(fileAAD);
       
