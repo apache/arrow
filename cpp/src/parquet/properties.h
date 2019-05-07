@@ -75,10 +75,6 @@ class PARQUET_EXPORT ReaderProperties {
     return column_map_;
   }
 
-  const std::string& fileAAD() { return fileAAD_; }
-
-  void set_fileAAD (std::string fileAAD) { fileAAD_ = fileAAD; }
-
   void file_decryption(const std::shared_ptr<FileDecryptionProperties>& decryption) {
     file_decryption_ = decryption;
   }
@@ -93,7 +89,6 @@ class PARQUET_EXPORT ReaderProperties {
   std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
     std::string, parquet::schema::ColumnPath::CmpColumnPath>> column_map_; // a map between
   //ColumnPath and their encryption keys
-  std::string fileAAD_;
 };
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();

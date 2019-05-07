@@ -108,8 +108,6 @@ ReaderProperties default_reader_properties() {
   if (default_reader_properties.column_map() != NULLPTR
       && default_reader_properties.column_map()->size () != 0)
     default_reader_properties.column_map()->clear();
-  if (!default_reader_properties.fileAAD().empty())
-    default_reader_properties.set_fileAAD ("");
 
   return default_reader_properties;
 }
