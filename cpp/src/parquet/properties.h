@@ -388,19 +388,6 @@ class PARQUET_EXPORT WriterProperties {
     return parquet_file_encryption_.get();
   }
 
-  inline std::shared_ptr<EncryptionProperties> footer_encryption() const {
-    if (parquet_file_encryption_ == NULLPTR) {
-      return NULLPTR;
-    } else {
-      std::string footer_key = parquet_file_encryption_->getFooterEncryptionKey ();
-      if (footer_key.empty())
-        footer_key = parquet_file_encryption_->getFooterSigningKey ();
-      return std::make_shared<EncryptionProperties>(parquet_file_encryption_->getAlgorithm().algorithm,
-                                                    footer_key, parquet_file_encryption_->getFileAAD());
-
-    }
-  }
-
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
       return Encoding::PLAIN_DICTIONARY;
@@ -448,32 +435,6 @@ class PARQUET_EXPORT WriterProperties {
       std::shared_ptr<schema::ColumnPath>& path) const {
     if (parquet_file_encryption_) {
       return parquet_file_encryption_->getColumnProperties(path);
-    } else {
-      return NULLPTR;
-    }
-  }
-
-  std::shared_ptr<EncryptionProperties> encryption(
-                                                   const std::shared_ptr<schema::ColumnPath>& path) const {
-    if (parquet_file_encryption_) {
-      auto column_prop = parquet_file_encryption_->getColumnProperties(path);
-      if (column_prop == NULLPTR)
-        return NULLPTR;
-      if (column_prop->isEncryptedWithFooterKey()) {
-        if (parquet_file_encryption_->encryptedFooter ()) {
-          return std::make_shared<EncryptionProperties>(parquet_file_encryption_->getAlgorithm().algorithm,
-                                                        parquet_file_encryption_->getFooterEncryptionKey(),
-                                                        parquet_file_encryption_->getFileAAD());
-        } else {
-          return std::make_shared<EncryptionProperties>(parquet_file_encryption_->getAlgorithm().algorithm,
-                                                        parquet_file_encryption_->getFooterSigningKey(),
-                                                        parquet_file_encryption_->getFileAAD());
-        }
-      }
-
-      return std::make_shared<EncryptionProperties>(parquet_file_encryption_->getAlgorithm().algorithm,
-                                                    column_prop->getKey(),
-                                                    parquet_file_encryption_->getFileAAD());
     } else {
       return NULLPTR;
     }
