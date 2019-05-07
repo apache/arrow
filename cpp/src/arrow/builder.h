@@ -18,7 +18,6 @@
 #pragma once
 
 #include <memory>
-#include <utility>
 
 #include "arrow/array/builder_adaptive.h"   // IWYU pragma: export
 #include "arrow/array/builder_base.h"       // IWYU pragma: export
@@ -28,7 +27,6 @@
 #include "arrow/array/builder_nested.h"     // IWYU pragma: export
 #include "arrow/array/builder_primitive.h"  // IWYU pragma: export
 #include "arrow/status.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
