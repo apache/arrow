@@ -160,6 +160,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         parquet_encryption::ColumnMetaData,
         row_group_ordinal_,
         (int16_t)i, (int16_t)-1);
+
+    ParquetCipher::type footer_algorithm = file_metadata_->is_plaintext_mode()
+                          ? file_metadata_->encryption_algorithm().algorithm
+                          : file_crypto_metadata_->encryption_algorithm().algorithm;
     
     // the column is encrypted with footer key
     if (crypto_metadata->encrypted_with_footer_key()) {
@@ -167,14 +171,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                                   ? file_metadata_->footer_signing_key_metadata()
                                   : file_crypto_metadata_->key_metadata();
 
-      ParquetCipher::type algorithm = file_metadata_->is_plaintext_mode()
-                                ? file_metadata_->encryption_algorithm().algorithm
-                                : file_crypto_metadata_->encryption_algorithm().algorithm;
-
       auto meta_decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta(
-          algorithm, footer_key_metadata, aad);
+          footer_algorithm, footer_key_metadata, aad);
       auto data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData(
-          algorithm, footer_key_metadata, aad);
+          footer_algorithm, footer_key_metadata, aad);
 
       return PageReader::Open(stream, col->num_values(), col->compression(),
                               col->has_dictionary_page(), row_group_ordinal_,
@@ -190,12 +190,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         std::make_shared<schema::ColumnPath>(crypto_metadata->path_in_schema());
     
     auto meta_decryptor = file_decryptor_->GetColumnMetaDecryptor(
-        column_path,
-        file_crypto_metadata_->encryption_algorithm().algorithm,
+        column_path, footer_algorithm,
         column_key_metadata, aad);
     auto data_decryptor = file_decryptor_->GetColumnDataDecryptor(
-        column_path,
-        file_crypto_metadata_->encryption_algorithm().algorithm,
+        column_path, footer_algorithm,
         column_key_metadata, aad);
 
     return PageReader::Open(stream, col->num_values(),
