@@ -180,7 +180,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       int16_t column_ordinal,
       const ApplicationVersion* writer_version,
       FileDecryptionProperties* file_decryption = NULLPTR,
-      const EncryptionAlgorithm* algorithm = NULLPTR,
       InternalFileDecryptor* file_decryptor = NULLPTR)
     : column_(column), descr_(descr), writer_version_(writer_version) {
     metadata_ = column->meta_data;
@@ -190,25 +189,24 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
         if (file_decryption == NULLPTR) {
-          throw ParquetException("Cannot decrypt ColumnMetadata. FileDecryptionProperties must be provided.");
+          throw ParquetException("Cannot decrypt ColumnMetadata. "
+                                 "FileDecryptionProperties must be provided.");
         }
         // should decrypt metadata
         std::shared_ptr<schema::ColumnPath> path =
           std::make_shared<schema::ColumnPath>(
               ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
         std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
-        
-        DCHECK(algorithm != NULLPTR);
+
         DCHECK(file_decryptor != NULLPTR);
-        
-        std::string aad = parquet_encryption::createModuleAAD(
+
+        std::string aad_column_metadata = parquet_encryption::createModuleAAD(
             file_decryptor->file_aad(),
             parquet_encryption::ColumnMetaData,
             row_group_ordinal,
             column_ordinal, (int16_t)-1);
         auto decryptor = file_decryptor->GetColumnMetaDecryptor(
-            path, algorithm->algorithm,
-            key_metadata, aad);
+            path, key_metadata, aad_column_metadata);
         uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
         DeserializeThriftMsg(
             reinterpret_cast<const uint8_t*>(
@@ -314,12 +312,11 @@ std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
     int16_t row_group_ordinal, int16_t column_ordinal,
     const ApplicationVersion* writer_version,
     FileDecryptionProperties* file_decryption,
-    const EncryptionAlgorithm* algorithm,
     InternalFileDecryptor* file_decryptor) {
   return std::unique_ptr<ColumnChunkMetaData>(
       new ColumnChunkMetaData(metadata, descr, row_group_ordinal,
                               column_ordinal, writer_version,
-                              file_decryption, algorithm, file_decryptor));
+                              file_decryption, file_decryptor));
 }
 
 ColumnChunkMetaData::ColumnChunkMetaData(
@@ -329,7 +326,6 @@ ColumnChunkMetaData::ColumnChunkMetaData(
     int16_t column_ordinal,
     const ApplicationVersion* writer_version,
     FileDecryptionProperties* file_decryption,
-    const EncryptionAlgorithm* algorithm,
     InternalFileDecryptor* file_decryptor)
   : impl_{std::unique_ptr<ColumnChunkMetaDataImpl>(new ColumnChunkMetaDataImpl(
       reinterpret_cast<const format::ColumnChunk*>(metadata),
@@ -337,7 +333,7 @@ ColumnChunkMetaData::ColumnChunkMetaData(
       row_group_ordinal,
       column_ordinal,
       writer_version,
-      file_decryption, algorithm,
+      file_decryption,
       file_decryptor))} {}
 ColumnChunkMetaData::~ColumnChunkMetaData() {}
 // column chunk
@@ -421,7 +417,6 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(
       int i, int16_t row_group_ordinal,
       FileDecryptionProperties* file_decryption = NULLPTR,
-      const EncryptionAlgorithm* algorithm = NULLPTR,
       InternalFileDecryptor* file_decryptor = NULLPTR) {
     if (!(i < num_columns())) {
       std::stringstream ss;
@@ -432,7 +427,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
     return ColumnChunkMetaData::Make(
         &row_group_->columns[i], schema_->Column(i),
         row_group_ordinal, (int16_t)i,
-        writer_version_, file_decryption, algorithm,
+        writer_version_, file_decryption,
         file_decryptor);
   }
 
@@ -466,9 +461,8 @@ const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(
 
 std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(
     int i, int16_t row_group_ordinal, FileDecryptionProperties* file_decryption,
-    const EncryptionAlgorithm* algorithm, InternalFileDecryptor* file_decryptor) const {
-  return impl_->ColumnChunk(i, row_group_ordinal, file_decryption, algorithm,
-                            file_decryptor);
+    InternalFileDecryptor* file_decryptor) const {
+  return impl_->ColumnChunk(i, row_group_ordinal, file_decryption, file_decryptor);
 }
 
 // file metadata
