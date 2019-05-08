@@ -72,7 +72,10 @@ impl Drop for BufferData {
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
-        assert!(memory::is_aligned(ptr, memory::ALIGNMENT), "memory not aligned");
+        assert!(
+            memory::is_aligned(ptr, memory::ALIGNMENT),
+            "memory not aligned"
+        );
         let buf_data = BufferData { ptr, len };
         Buffer {
             data: Arc::new(buf_data),
