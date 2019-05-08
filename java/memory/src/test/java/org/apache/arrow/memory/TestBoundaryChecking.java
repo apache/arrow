@@ -17,17 +17,17 @@
 
 package org.apache.arrow.memory;
 
-import org.junit.Assert;
-import org.junit.Test;
-
 import java.lang.reflect.Field;
 import java.net.URLClassLoader;
+
+import org.junit.Assert;
+import org.junit.Test;
 
 public class TestBoundaryChecking {
 
   /**
    * Get a copy of the current class loader.
-   * @return
+   * @return the newly created class loader.
    */
   private ClassLoader copyClassLoader() {
     URLClassLoader curClassLoader = (URLClassLoader) this.getClass().getClassLoader();
@@ -36,8 +36,8 @@ public class TestBoundaryChecking {
 
   /**
    * Get the value of flag BoundsChecking.BOUNDS_CHECKING_ENABLED.
-   * @param classLoader
-   * @return
+   * @param classLoader the class loader from which to get the flag value.
+   * @return value of the flag.
    */
   private boolean getFlagValue(ClassLoader classLoader) throws Exception {
     Class<?> clazz = classLoader.loadClass("org.apache.arrow.memory.BoundsChecking");
