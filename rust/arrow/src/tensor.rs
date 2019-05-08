@@ -86,11 +86,6 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
     ) -> Self {
         match &shape {
             None => {
-                assert_eq!(
-                    buffer.len(),
-                    mem::size_of::<T::Native>(),
-                    "underlying buffer should only contain a single tensor element"
-                );
                 assert_eq!(None, strides);
                 assert_eq!(None, names);
             }
@@ -187,7 +182,10 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
 
     /// The total number of elements in the `Tensor`
     pub fn size(&self) -> usize {
-        (self.buffer.len() / mem::size_of::<T::Native>())
+        match self.shape {
+            None => 0,
+            Some(ref s) => s.iter().fold(1, |a, b| a * b),
+        }
     }
 
     /// Indicates if the data is laid out contiguously in memory
@@ -255,7 +253,7 @@ mod tests {
     fn test_zero_dim() {
         let buf = Buffer::from(&[1]);
         let tensor = UInt8Tensor::new(buf, None, None, None);
-        assert_eq!(1, tensor.size());
+        assert_eq!(0, tensor.size());
         assert_eq!(None, tensor.shape());
         assert_eq!(None, tensor.names());
         assert_eq!(0, tensor.ndim());
@@ -265,7 +263,7 @@ mod tests {
 
         let buf = Buffer::from(&[1, 2, 2, 2]);
         let tensor = Int32Tensor::new(buf, None, None, None);
-        assert_eq!(1, tensor.size());
+        assert_eq!(0, tensor.size());
         assert_eq!(None, tensor.shape());
         assert_eq!(None, tensor.names());
         assert_eq!(0, tensor.ndim());

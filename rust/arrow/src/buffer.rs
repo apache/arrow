@@ -234,7 +234,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let buffer = memory::allocate_aligned(capacity);
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
-            Buffer::from_raw_parts(buffer, len)
+            Buffer::from_raw_parts(buffer, capacity)
         }
     }
 }
@@ -503,7 +503,7 @@ impl MutableBuffer {
     pub fn freeze(self) -> Buffer {
         let buffer_data = BufferData {
             ptr: self.data,
-            len: self.len,
+            len: self.capacity,
             owned: true,
         };
         std::mem::forget(self);
@@ -590,26 +590,26 @@ mod tests {
         assert!(buf.raw_data().is_null());
 
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
-        assert_eq!(5, buf.len());
+        assert_eq!(64, buf.len());
         assert!(!buf.raw_data().is_null());
-        assert_eq!(&[0, 1, 2, 3, 4], buf.data());
+        assert_eq!([0, 1, 2, 3, 4], buf.data()[..5]);
     }
 
     #[test]
     fn test_from_vec() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
-        assert_eq!(5, buf.len());
+        assert_eq!(64, buf.len());
         assert!(!buf.raw_data().is_null());
-        assert_eq!(&[0, 1, 2, 3, 4], buf.data());
+        assert_eq!([0, 1, 2, 3, 4], buf.data()[..5]);
     }
 
     #[test]
     fn test_copy() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
         let buf2 = buf.clone();
-        assert_eq!(5, buf2.len());
+        assert_eq!(64, buf2.len());
         assert!(!buf2.raw_data().is_null());
-        assert_eq!(&[0, 1, 2, 3, 4], buf2.data());
+        assert_eq!([0, 1, 2, 3, 4], buf2.data()[..5]);
     }
 
     #[test]
@@ -617,20 +617,17 @@ mod tests {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
         let buf2 = buf.slice(2);
 
-        assert_eq!(&[6, 8, 10], buf2.data());
-        assert_eq!(3, buf2.len());
+        assert_eq!([6, 8, 10], buf2.data()[0..3]);
+        assert_eq!(62, buf2.len());
         assert_eq!(unsafe { buf.raw_data().offset(2) }, buf2.raw_data());
 
         let buf3 = buf2.slice(1);
-        assert_eq!(&[8, 10], buf3.data());
-        assert_eq!(2, buf3.len());
+        assert_eq!([8, 10], buf3.data()[..2]);
+        assert_eq!(61, buf3.len());
         assert_eq!(unsafe { buf.raw_data().offset(3) }, buf3.raw_data());
 
         let buf4 = buf.slice(5);
-        let empty_slice: [u8; 0] = [];
-        assert_eq!(empty_slice, buf4.data());
-        assert_eq!(0, buf4.len());
-        assert!(buf4.is_empty());
+        assert_eq!(59, buf4.len());
     }
 
     #[test]
@@ -639,7 +636,7 @@ mod tests {
     )]
     fn test_slice_offset_out_of_bound() {
         let buf = Buffer::from(&[2, 4, 6, 8, 10]);
-        buf.slice(6);
+        buf.slice(65);
     }
 
     #[test]
@@ -683,14 +680,15 @@ mod tests {
     #[test]
     fn test_bitwise_not() {
         let buf = Buffer::from([0b01101010]);
-        assert_eq!(Buffer::from([0b10010101]), !&buf);
+        assert_eq!(Buffer::from([0b10010101]).data()[..1], (!&buf).data()[..1]);
     }
 
     #[test]
     #[should_panic(expected = "Buffers must be the same size to apply Bitwise OR.")]
     fn test_buffer_bitand_different_sizes() {
-        let buf1 = Buffer::from([1_u8, 1_u8]);
-        let buf2 = Buffer::from([0b01001110]);
+        let size = memory::ALIGNMENT * 2;
+        let buf1 = Buffer::from_raw_parts(memory::allocate_aligned(size), size);
+        let buf2 = Buffer::from([0x00]);
         let _buf3 = (&buf1 | &buf2).unwrap();
     }
 
@@ -778,18 +776,22 @@ mod tests {
         buf.write("aaaa bbbb cccc dddd".as_bytes())
             .expect("write should be OK");
         assert_eq!(19, buf.len());
+        assert_eq!(64, buf.capacity());
         assert_eq!("aaaa bbbb cccc dddd".as_bytes(), buf.data());
 
         let immutable_buf = buf.freeze();
-        assert_eq!(19, immutable_buf.len());
-        assert_eq!("aaaa bbbb cccc dddd".as_bytes(), immutable_buf.data());
+        assert_eq!(64, immutable_buf.len());
+        assert_eq!(
+            "aaaa bbbb cccc dddd".as_bytes(),
+            &immutable_buf.data()[..19]
+        );
     }
 
     #[test]
     fn test_access_concurrently() {
         let buffer = Buffer::from(vec![1, 2, 3, 4, 5]);
         let buffer2 = buffer.clone();
-        assert_eq!(&[1, 2, 3, 4, 5], buffer.data());
+        assert_eq!([1, 2, 3, 4, 5], buffer.data()[..5]);
 
         let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.

@@ -26,7 +26,7 @@ pub const ALIGNMENT: usize = 64;
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
         let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
-        std::alloc::alloc(layout)
+        std::alloc::alloc_zeroed(layout)
     }
 }
 
