@@ -209,7 +209,7 @@ class PARQUET_EXPORT FileMetaData {
   int num_columns() const;
   int64_t num_rows() const;
   int num_row_groups() const;
-  bool is_plaintext_mode() const;
+  bool is_encryption_algorithm_set() const;
   EncryptionAlgorithm encryption_algorithm() const;
   const std::string& footer_signing_key_metadata() const;
   ParquetVersion::type version() const;

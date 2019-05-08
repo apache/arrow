@@ -503,7 +503,7 @@ class FileMetaData::FileMetaDataImpl {
   inline int num_schema_elements() const {
     return static_cast<int>(metadata_->schema.size());
   }
-  inline bool is_plaintext_mode() const { return metadata_->__isset.encryption_algorithm; }
+  inline bool is_encryption_algorithm_set() const { return metadata_->__isset.encryption_algorithm; }
   inline EncryptionAlgorithm encryption_algorithm() {
     return FromThrift(metadata_->encryption_algorithm);
   }
@@ -516,7 +516,7 @@ class FileMetaData::FileMetaDataImpl {
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor) const {
     ThriftSerializer serializer;
-    if (is_plaintext_mode()) {
+    if (is_encryption_algorithm_set()) {
       uint8_t* serialized_data;
       uint32_t serialized_len;
       serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
@@ -655,7 +655,7 @@ int64_t FileMetaData::num_rows() const { return impl_->num_rows(); }
 
 int FileMetaData::num_row_groups() const { return impl_->num_row_groups(); }
 
-bool FileMetaData::is_plaintext_mode() const { return impl_->is_plaintext_mode(); }
+bool FileMetaData::is_encryption_algorithm_set() const { return impl_->is_encryption_algorithm_set(); }
 
 EncryptionAlgorithm FileMetaData::encryption_algorithm() const {
   return impl_->encryption_algorithm();
