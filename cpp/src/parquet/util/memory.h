@@ -276,13 +276,16 @@ class PARQUET_EXPORT BufferedInputStream : public InputStream {
 
   virtual void Advance(int64_t num_bytes);
 
+  // Return the number of bytes remaining in buffer (i.e. without reading from source).
+  int64_t remaining_in_buffer() const;
+
  private:
   std::shared_ptr<ResizableBuffer> buffer_;
   RandomAccessSource* source_;
   int64_t stream_offset_;
   int64_t stream_end_;
   int64_t buffer_offset_;
-  int64_t buffer_size_;
+  int64_t buffer_end_;
 };
 
 std::shared_ptr<ResizableBuffer> PARQUET_EXPORT AllocateBuffer(
