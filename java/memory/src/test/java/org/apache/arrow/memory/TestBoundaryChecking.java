@@ -20,14 +20,97 @@ package org.apache.arrow.memory;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.lang.reflect.Field;
+import java.net.URLClassLoader;
+
 public class TestBoundaryChecking {
+
+  /**
+   * Get a copy of the current class loader.
+   * @return
+   */
+  private ClassLoader copyClassLoader() {
+    URLClassLoader curClassLoader = (URLClassLoader) this.getClass().getClassLoader();
+    return new URLClassLoader(curClassLoader.getURLs(), null);
+  }
+
+  /**
+   * Get the value of flag BoundsChecking.BOUNDS_CHECKING_ENABLED.
+   * @param classLoader
+   * @return
+   */
+  private boolean getFlagValue(ClassLoader classLoader) throws Exception {
+    Class<?> clazz = classLoader.loadClass("org.apache.arrow.memory.BoundsChecking");
+    Field field = clazz.getField("BOUNDS_CHECKING_ENABLED");
+    return (Boolean) field.get(null);
+  }
 
   /**
    * Ensure the flag for bounds checking is enabled by default.
    * This will protect users from JVM crashes.
    */
   @Test
-  public void testDefaultValue() {
-    Assert.assertTrue(BoundsChecking.BOUNDS_CHECKING_ENABLED);
+  public void testDefaultValue() throws Exception {
+    boolean boundsCheckingEnabled = getFlagValue(copyClassLoader());
+    Assert.assertTrue(boundsCheckingEnabled);
+  }
+
+  @Test
+  public void testEnableOldProperty() throws Exception {
+    String savedOldProperty = System.getProperty("drill.enable_unsafe_memory_access");
+    System.setProperty("drill.enable_unsafe_memory_access", "true");
+
+    boolean boundsCheckingEnabled = getFlagValue(copyClassLoader());
+    Assert.assertFalse(boundsCheckingEnabled);
+
+    // restore system property
+    if (savedOldProperty != null) {
+      System.setProperty("drill.enable_unsafe_memory_access", savedOldProperty);
+    } else {
+      System.clearProperty("drill.enable_unsafe_memory_access");
+    }
+  }
+
+  @Test
+  public void testEnableNewProperty() throws Exception {
+    String savedNewProperty = System.getProperty("arrow.enable_unsafe_memory_access");
+
+    System.setProperty("arrow.enable_unsafe_memory_access", "true");
+
+    boolean boundsCheckingEnabled = getFlagValue(copyClassLoader());
+    Assert.assertFalse(boundsCheckingEnabled);
+
+    // restore system property
+    if (savedNewProperty != null) {
+      System.setProperty("arrow.enable_unsafe_memory_access", savedNewProperty);
+    } else {
+      System.clearProperty("arrow.enable_unsafe_memory_access");
+    }
+  }
+
+  @Test
+  public void testEnableBothProperties() throws Exception {
+    String savedOldProperty = System.getProperty("drill.enable_unsafe_memory_access");
+    String savedNewProperty = System.getProperty("arrow.enable_unsafe_memory_access");
+
+    System.setProperty("drill.enable_unsafe_memory_access", "false");
+    System.setProperty("arrow.enable_unsafe_memory_access", "true");
+
+    // new property takes precedence.
+    boolean boundsCheckingEnabled = getFlagValue(copyClassLoader());
+    Assert.assertFalse(boundsCheckingEnabled);
+
+    // restore system property
+    if (savedOldProperty != null) {
+      System.setProperty("drill.enable_unsafe_memory_access", savedOldProperty);
+    } else {
+      System.clearProperty("drill.enable_unsafe_memory_access");
+    }
+
+    if (savedNewProperty != null) {
+      System.setProperty("arrow.enable_unsafe_memory_access", savedNewProperty);
+    } else {
+      System.clearProperty("arrow.enable_unsafe_memory_access");
+    }
   }
 }

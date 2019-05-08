@@ -44,9 +44,7 @@ public class BoundsChecking {
     // 2. The new system property takes precedence over the new system property.
     String unsafeFlagValue = newProperty != null ? newProperty : (oldProperty != null ? oldProperty : envProperty);
 
-    boolean isAssertEnabled = false;
-    assert isAssertEnabled = true;
-    BOUNDS_CHECKING_ENABLED = isAssertEnabled || !"true".equals(unsafeFlagValue);
+    BOUNDS_CHECKING_ENABLED = !"true".equals(unsafeFlagValue);
   }
 
   private BoundsChecking() {
