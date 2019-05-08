@@ -15,6 +15,10 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+****************************
+Development and Contributing
+****************************
+
 .. toctree::
    :maxdepth: 2
 
