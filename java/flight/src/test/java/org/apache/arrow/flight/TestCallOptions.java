@@ -24,7 +24,6 @@ import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import org.apache.arrow.flight.FlightClient.CallOptions;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -37,7 +36,7 @@ public class TestCallOptions {
   public void timeoutFires() {
     test((client) -> {
       Instant start = Instant.now();
-      Iterator<Result> results = client.doAction(new CallOptions().setTimeout(1, TimeUnit.SECONDS), new Action("hang"));
+      Iterator<Result> results = client.doAction(new Action("hang"), CallOptions.timeout(1, TimeUnit.SECONDS));
       try {
         results.next();
         Assert.fail("Call should have failed");
@@ -54,7 +53,7 @@ public class TestCallOptions {
     test((client) -> {
       Instant start = Instant.now();
       // This shouldn't fail and it should complete within the timeout
-      Iterator<Result> results = client.doAction(new CallOptions().setTimeout(2, TimeUnit.SECONDS), new Action("fast"));
+      Iterator<Result> results = client.doAction(new Action("fast"), CallOptions.timeout(2, TimeUnit.SECONDS));
       Assert.assertArrayEquals(new byte[]{42, 42}, results.next().getBody());
       Instant end = Instant.now();
       Assert.assertTrue("Call took over 2500 ms despite timeout", Duration.between(start, end).toMillis() < 2500);
