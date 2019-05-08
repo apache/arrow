@@ -432,6 +432,23 @@ TEST_F(TestTable, ConcatenateTables) {
   ASSERT_RAISES(Invalid, ConcatenateTables({t1, t3}, &result));
 }
 
+TEST_F(TestTable, Slice) {
+  const int64_t length = 10;
+
+  MakeExample1(length);
+  auto batch = RecordBatch::Make(schema_, length, arrays_);
+
+  std::shared_ptr<Table> half, whole, three;
+  ASSERT_OK(Table::FromRecordBatches({batch}, &half));
+  ASSERT_OK(Table::FromRecordBatches({batch, batch}, &whole));
+  ASSERT_OK(Table::FromRecordBatches({batch, batch, batch}, &three));
+
+  AssertTablesEqual(*whole->Slice(0, length), *half);
+  AssertTablesEqual(*whole->Slice(length), *half);
+  AssertTablesEqual(*whole->Slice(length / 3, 2 * (length - length / 3)),
+                    *three->Slice(length + length / 3, 2 * (length - length / 3)));
+}
+
 TEST_F(TestTable, RemoveColumn) {
   const int64_t length = 10;
   MakeExample1(length);
