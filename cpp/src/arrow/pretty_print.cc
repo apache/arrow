@@ -146,10 +146,7 @@ class ArrayPrinter : public PrettyPrinter {
 
   template <typename T>
   inline typename std::enable_if<
-      IsInteger<T>::value && !is_date<typename T::TypeClass>::value &&
-          !is_time<typename T::TypeClass>::value &&
-          !std::is_same<TimestampType, typename T::TypeClass>::value,
-      Status>::type
+      IsInteger<T>::value && !is_time<typename T::TypeClass>::value, Status>::type
   WriteDataValues(const T& array) {
     const auto data = array.raw_values();
     WriteValues(array, [&](int64_t i) { (*sink_) << static_cast<int64_t>(data[i]); });
