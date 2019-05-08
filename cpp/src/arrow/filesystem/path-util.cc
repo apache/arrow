@@ -16,27 +16,37 @@
 // under the License.
 
 #include "arrow/filesystem/path-util.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace fs {
 namespace internal {
 
-// TODO Add unit tests for these functions.
+static constexpr char kSep = '/';
 
-std::vector<std::string> SplitAbstractPath(const std::string& s) {
+std::vector<std::string> SplitAbstractPath(const std::string& path) {
   std::vector<std::string> parts;
-  if (s.length() == 0) {
+  auto v = util::string_view(path);
+  // Strip trailing slash
+  if (v.length() > 0 && v.back() == kSep) {
+    v = v.substr(0, v.length() - 1);
+  }
+  // Strip leading slash
+  if (v.length() > 0 && v.front() == kSep) {
+    v = v.substr(1);
+  }
+  if (v.length() == 0) {
     return parts;
   }
 
-  auto append_part = [&parts, &s](size_t start, size_t end) {
-    parts.push_back(s.substr(start, end - start));
+  auto append_part = [&parts, &v](size_t start, size_t end) {
+    parts.push_back(std::string(v.substr(start, end - start)));
   };
-  // XXX should strip leading and trailing slashes?
 
   size_t start = 0;
   while (true) {
-    size_t end = s.find_first_of('/', start);
+    size_t end = v.find_first_of(kSep, start);
     append_part(start, end);
     if (end == std::string::npos) {
       break;
@@ -49,12 +59,12 @@ std::vector<std::string> SplitAbstractPath(const std::string& s) {
 std::pair<std::string, std::string> GetAbstractPathParent(const std::string& s) {
   // XXX should strip trailing slash?
 
-  auto pos = s.find_last_of('/');
+  auto pos = s.find_last_of(kSep);
   if (pos == std::string::npos) {
     // Empty parent
     return {{}, s};
   }
-  return {s.substr(0, pos - 1), s.substr(pos + 1)};
+  return {s.substr(0, pos), s.substr(pos + 1)};
 }
 
 Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
@@ -62,12 +72,16 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
     if (part.length() == 0) {
       return Status::Invalid("Empty path component");
     }
+    if (part.find_first_of(kSep) != std::string::npos) {
+      return Status::Invalid("Separator in component '", part, "'");
+    }
   }
   return Status::OK();
 }
 
 std::string ConcatAbstractPath(const std::string& base, const std::string& stem) {
-  return base.empty() ? stem : base + "/" + stem;
+  DCHECK(!stem.empty());
+  return base.empty() ? stem : base + kSep + stem;
 }
 
 }  // namespace internal

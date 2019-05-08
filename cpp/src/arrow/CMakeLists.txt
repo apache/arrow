@@ -284,6 +284,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_arrow_lib(arrow_testing
                 SOURCES
                 ipc/test-common.cc
+                filesystem/test-util.cc
                 testing/gtest_util.cc
                 testing/random.cc
                 OUTPUTS
