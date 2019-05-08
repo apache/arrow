@@ -104,7 +104,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i, row_group_ordinal_,
-                                                properties_.file_decryption(),
+                                                properties_.file_decryption_properties(),
                                                 file_decryptor_);
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
@@ -273,13 +273,13 @@ class SerializedFile : public ParquetFileReader::Contents {
       file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len);
 
       if (file_metadata_->is_plaintext_mode()) {
-        auto file_decryption = properties_.file_decryption();
-        if (file_decryption == NULLPTR) {
+        auto file_decryption_properties = properties_.file_decryption_properties();
+        if (file_decryption_properties == NULLPTR) {
           throw ParquetException("No decryption properties are provided");
         }
-        file_decryptor_.reset(new InternalFileDecryptor(file_decryption));
+        file_decryptor_.reset(new InternalFileDecryptor(file_decryption_properties));
 
-        std::string aad_prefix = file_decryption->getAADPrefix();
+        std::string aad_prefix = file_decryption_properties->getAADPrefix();
 
         EncryptionAlgorithm algo = file_metadata_->encryption_algorithm();
         if (!algo.aad.aad_prefix.empty()) {
@@ -291,7 +291,7 @@ class SerializedFile : public ParquetFileReader::Contents {
           }
           aad_prefix = algo.aad.aad_prefix;
           std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
-            file_decryption->getAADPrefixVerifier();
+            file_decryption_properties->getAADPrefixVerifier();
           if (aad_prefix_verifier != NULLPTR)
             aad_prefix_verifier->check(aad_prefix);
         }
@@ -305,7 +305,7 @@ class SerializedFile : public ParquetFileReader::Contents {
         file_decryptor_->file_aad(fileAAD);
         file_decryptor_->algorithm(algo.algorithm);
         file_decryptor_->footer_key_metadata(file_metadata_->footer_signing_key_metadata());
-        if (file_decryption->checkFooterIntegrity()) {
+        if (file_decryption_properties->checkFooterIntegrity()) {
           if (metadata_len - read_metadata_len != 28) {
             throw ParquetException("Invalid parquet file. Cannot verify plaintext"
            "mode footer.");
@@ -346,18 +346,18 @@ class SerializedFile : public ParquetFileReader::Contents {
           throw ParquetException("Invalid parquet file. Could not read metadata bytes.");
         }
       }
-      auto file_decryption = properties_.file_decryption();
-      if (file_decryption == nullptr) {
+      auto file_decryption_properties = properties_.file_decryption_properties();
+      if (file_decryption_properties == nullptr) {
         throw ParquetException("No decryption properties are provided. Could not read "
                                "encrypted footer metadata");
       }
-      file_decryptor_.reset(new InternalFileDecryptor(file_decryption));
+      file_decryptor_.reset(new InternalFileDecryptor(file_decryption_properties));
       uint32_t crypto_metadata_len = footer_len;
       file_crypto_metadata_ =
         FileCryptoMetaData::Make(crypto_metadata_buffer->data(), &crypto_metadata_len);
       EncryptionAlgorithm algo = file_crypto_metadata_->encryption_algorithm();
 
-      std::string aad_prefix = file_decryption->getAADPrefix();
+      std::string aad_prefix = file_decryption_properties->getAADPrefix();
 
       if (!algo.aad.aad_prefix.empty()) {
         if (!aad_prefix.empty()) {
@@ -368,7 +368,7 @@ class SerializedFile : public ParquetFileReader::Contents {
         }
         aad_prefix = algo.aad.aad_prefix;
         std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
-          file_decryption->getAADPrefixVerifier();
+          file_decryption_properties->getAADPrefixVerifier();
         if (aad_prefix_verifier != NULLPTR)
           aad_prefix_verifier->check(aad_prefix);
       }

@@ -243,7 +243,7 @@ int main(int argc, char** argv) {
 
     try {
       parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
-      reader_properties.file_decryption(file_decryption_properties[example_id]);
+      reader_properties.file_decryption_properties(file_decryption_properties[example_id]);
 
       // Create a ParquetReader instance
       std::unique_ptr<parquet::ParquetFileReader> parquet_reader =

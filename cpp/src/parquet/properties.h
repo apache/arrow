@@ -66,17 +66,20 @@ class PARQUET_EXPORT ReaderProperties {
 
   int64_t buffer_size() const { return buffer_size_; }
 
-  void file_decryption(const std::shared_ptr<FileDecryptionProperties>& decryption) {
-    file_decryption_ = decryption;
+  void file_decryption_properties(
+      const std::shared_ptr<FileDecryptionProperties>& decryption) {
+    file_decryption_properties_ = decryption;
   }
 
-  FileDecryptionProperties* file_decryption() { return file_decryption_.get(); }
+  FileDecryptionProperties* file_decryption_properties() {
+    return file_decryption_properties_.get();
+  }
 
  private:
   MemoryPool* pool_;
   int64_t buffer_size_;
   bool buffered_stream_enabled_;
-  std::shared_ptr<FileDecryptionProperties> file_decryption_;
+  std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
