@@ -128,7 +128,6 @@ class PARQUET_EXPORT ColumnChunkMetaData {
       const void* metadata, const ColumnDescriptor* descr,
       int16_t row_group_ordinal = -1, int16_t column_ordinal = -1,
       const ApplicationVersion* writer_version = NULLPTR,
-      FileDecryptionProperties* file_decryption = NULLPTR,
       InternalFileDecryptor* file_decryptor = NULLPTR);
 
   ~ColumnChunkMetaData();
@@ -160,7 +159,6 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   explicit ColumnChunkMetaData(const void* metadata, const ColumnDescriptor* descr,
                                int16_t row_group_ordinal, int16_t column_ordinal,
                                const ApplicationVersion* writer_version = NULLPTR,
-                               FileDecryptionProperties* file_decryption = NULLPTR,
                                InternalFileDecryptor* file_decryptor = NULLPTR);
   // PIMPL Idiom
   class ColumnChunkMetaDataImpl;
@@ -183,7 +181,6 @@ class PARQUET_EXPORT RowGroupMetaData {
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i, int16_t row_group_ordinal = -1,
-                                                   FileDecryptionProperties* file_decryption = NULLPTR,
                                                    InternalFileDecryptor* file_decryptor = NULLPTR) const;
 
  private:

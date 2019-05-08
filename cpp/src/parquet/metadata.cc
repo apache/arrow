@@ -167,7 +167,6 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       int16_t row_group_ordinal,
       int16_t column_ordinal,
       const ApplicationVersion* writer_version,
-      FileDecryptionProperties* file_decryption = NULLPTR,
       InternalFileDecryptor* file_decryptor = NULLPTR)
     : column_(column), descr_(descr), writer_version_(writer_version) {
     metadata_ = column->meta_data;
@@ -176,7 +175,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
-        if (file_decryption == NULLPTR) {
+        if (file_decryptor->properties() == NULLPTR) {
           throw ParquetException("Cannot decrypt ColumnMetadata. "
                                  "FileDecryptionProperties must be provided.");
         }
@@ -299,12 +298,11 @@ std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
     const void* metadata, const ColumnDescriptor* descr,
     int16_t row_group_ordinal, int16_t column_ordinal,
     const ApplicationVersion* writer_version,
-    FileDecryptionProperties* file_decryption,
     InternalFileDecryptor* file_decryptor) {
   return std::unique_ptr<ColumnChunkMetaData>(
       new ColumnChunkMetaData(metadata, descr, row_group_ordinal,
                               column_ordinal, writer_version,
-                              file_decryption, file_decryptor));
+                              file_decryptor));
 }
 
 ColumnChunkMetaData::ColumnChunkMetaData(
@@ -313,7 +311,6 @@ ColumnChunkMetaData::ColumnChunkMetaData(
     int16_t row_group_ordinal,
     int16_t column_ordinal,
     const ApplicationVersion* writer_version,
-    FileDecryptionProperties* file_decryption,
     InternalFileDecryptor* file_decryptor)
   : impl_{std::unique_ptr<ColumnChunkMetaDataImpl>(new ColumnChunkMetaDataImpl(
       reinterpret_cast<const format::ColumnChunk*>(metadata),
@@ -321,7 +318,6 @@ ColumnChunkMetaData::ColumnChunkMetaData(
       row_group_ordinal,
       column_ordinal,
       writer_version,
-      file_decryption,
       file_decryptor))} {}
 ColumnChunkMetaData::~ColumnChunkMetaData() {}
 // column chunk
@@ -404,7 +400,6 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(
       int i, int16_t row_group_ordinal,
-      FileDecryptionProperties* file_decryption = NULLPTR,
       InternalFileDecryptor* file_decryptor = NULLPTR) {
     if (!(i < num_columns())) {
       std::stringstream ss;
@@ -415,8 +410,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
     return ColumnChunkMetaData::Make(
         &row_group_->columns[i], schema_->Column(i),
         row_group_ordinal, (int16_t)i,
-        writer_version_, file_decryption,
-        file_decryptor);
+        writer_version_, file_decryptor);
   }
 
  private:
@@ -448,9 +442,8 @@ int64_t RowGroupMetaData::total_byte_size() const { return impl_->total_byte_siz
 const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(); }
 
 std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(
-    int i, int16_t row_group_ordinal, FileDecryptionProperties* file_decryption,
-    InternalFileDecryptor* file_decryptor) const {
-  return impl_->ColumnChunk(i, row_group_ordinal, file_decryption, file_decryptor);
+    int i, int16_t row_group_ordinal, InternalFileDecryptor* file_decryptor) const {
+  return impl_->ColumnChunk(i, row_group_ordinal, file_decryptor);
 }
 
 // file metadata
