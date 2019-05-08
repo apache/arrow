@@ -26,6 +26,7 @@ namespace util {
 using ::mpark::bad_variant_access;
 using ::mpark::get;
 using ::mpark::get_if;
+using ::mpark::holds_alternative;
 using ::mpark::variant;
 using ::mpark::visit;
 

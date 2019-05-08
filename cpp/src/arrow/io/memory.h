@@ -161,6 +161,8 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
  protected:
+  inline Status CheckClosed() const;
+
   std::shared_ptr<Buffer> buffer_;
   const uint8_t* data_;
   int64_t size_;

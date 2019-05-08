@@ -48,48 +48,48 @@
 
 #define ASSERT_RAISES(ENUM, expr)                                                     \
   do {                                                                                \
-    ::arrow::Status s = (expr);                                                       \
-    if (!s.Is##ENUM()) {                                                              \
+    ::arrow::Status _st = (expr);                                                     \
+    if (!_st.Is##ENUM()) {                                                            \
       FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                                \
-             << s.ToString();                                                         \
+             << _st.ToString();                                                       \
     }                                                                                 \
   } while (false)
 
 #define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
   do {                                                                                \
-    ::arrow::Status s = (expr);                                                       \
-    if (!s.Is##ENUM()) {                                                              \
+    ::arrow::Status _st = (expr);                                                     \
+    if (!_st.Is##ENUM()) {                                                            \
       FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                                \
-             << s.ToString();                                                         \
+             << _st.ToString();                                                       \
     }                                                                                 \
-    ASSERT_EQ((message), s.ToString());                                               \
+    ASSERT_EQ((message), _st.ToString());                                             \
   } while (false)
 
-#define ASSERT_OK(expr)                                                      \
-  do {                                                                       \
-    ::arrow::Status _s = (expr);                                             \
-    if (!_s.ok()) {                                                          \
-      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _s.ToString(); \
-    }                                                                        \
+#define ASSERT_OK(expr)                                                       \
+  do {                                                                        \
+    ::arrow::Status _st = (expr);                                             \
+    if (!_st.ok()) {                                                          \
+      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
+    }                                                                         \
   } while (false)
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
-#define ARROW_EXPECT_OK(expr)   \
-  do {                          \
-    ::arrow::Status s = (expr); \
-    EXPECT_TRUE(s.ok());        \
+#define ARROW_EXPECT_OK(expr)     \
+  do {                            \
+    ::arrow::Status _st = (expr); \
+    EXPECT_TRUE(_st.ok());        \
   } while (false)
 
-#define ABORT_NOT_OK(expr)                \
-  do {                                    \
-    ::arrow::Status _s = (expr);          \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) {  \
-      std::cerr << _s.ToString() << "\n"; \
-      std::abort();                       \
-    }                                     \
+#define ABORT_NOT_OK(expr)                 \
+  do {                                     \
+    ::arrow::Status _st = (expr);          \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) {  \
+      std::cerr << _st.ToString() << "\n"; \
+      std::abort();                        \
+    }                                      \
   } while (false);
 
 namespace arrow {
