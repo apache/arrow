@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cpp_brewfile_path = File.expand_path("../cpp/Brewfile", __dir__)
-binding.eval(File.read(cpp_brewfile_path), cpp_brewfile_path)
-
 brew "autoconf-archive"
 brew "gobject-introspection"
 brew "gtk-doc"
