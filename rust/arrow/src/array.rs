@@ -1905,7 +1905,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_primitive_array_alignment() {
-        let ptr = memory::allocate_aligned(8).unwrap();
+        let ptr = memory::allocate_aligned(8);
         let buf = Buffer::from_raw_parts(ptr, 8);
         let buf2 = buf.slice(1);
         let array_data = ArrayData::builder(DataType::Int32).add_buffer(buf2).build();
@@ -1915,7 +1915,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_list_array_alignment() {
-        let ptr = memory::allocate_aligned(8).unwrap();
+        let ptr = memory::allocate_aligned(8);
         let buf = Buffer::from_raw_parts(ptr, 8);
         let buf2 = buf.slice(1);
 
@@ -1935,7 +1935,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_binary_array_alignment() {
-        let ptr = memory::allocate_aligned(8).unwrap();
+        let ptr = memory::allocate_aligned(8);
         let buf = Buffer::from_raw_parts(ptr, 8);
         let buf2 = buf.slice(1);
 
