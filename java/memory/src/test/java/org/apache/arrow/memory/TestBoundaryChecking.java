@@ -30,8 +30,14 @@ public class TestBoundaryChecking {
    * @return the newly created class loader.
    */
   private ClassLoader copyClassLoader() {
-    URLClassLoader curClassLoader = (URLClassLoader) this.getClass().getClassLoader();
-    return new URLClassLoader(curClassLoader.getURLs(), null);
+    ClassLoader curClassLoader = this.getClass().getClassLoader();
+    if (curClassLoader instanceof URLClassLoader) {
+      // for Java 1.8
+      return new URLClassLoader(((URLClassLoader) curClassLoader).getURLs(), null);
+    }
+
+    // for Java 1.9 and Java 11.
+    return null;
   }
 
   /**
@@ -51,8 +57,11 @@ public class TestBoundaryChecking {
    */
   @Test
   public void testDefaultValue() throws Exception {
-    boolean boundsCheckingEnabled = getFlagValue(copyClassLoader());
-    Assert.assertTrue(boundsCheckingEnabled);
+    ClassLoader classLoader = copyClassLoader();
+    if (classLoader != null) {
+      boolean boundsCheckingEnabled = getFlagValue(classLoader);
+      Assert.assertTrue(boundsCheckingEnabled);
+    }
   }
 
   @Test
@@ -60,8 +69,11 @@ public class TestBoundaryChecking {
     String savedOldProperty = System.getProperty("drill.enable_unsafe_memory_access");
     System.setProperty("drill.enable_unsafe_memory_access", "true");
 
-    boolean boundsCheckingEnabled = getFlagValue(copyClassLoader());
-    Assert.assertFalse(boundsCheckingEnabled);
+    ClassLoader classLoader = copyClassLoader();
+    if (classLoader != null) {
+      boolean boundsCheckingEnabled = getFlagValue(classLoader);
+      Assert.assertFalse(boundsCheckingEnabled);
+    }
 
     // restore system property
     if (savedOldProperty != null) {
@@ -77,8 +89,11 @@ public class TestBoundaryChecking {
 
     System.setProperty("arrow.enable_unsafe_memory_access", "true");
 
-    boolean boundsCheckingEnabled = getFlagValue(copyClassLoader());
-    Assert.assertFalse(boundsCheckingEnabled);
+    ClassLoader classLoader = copyClassLoader();
+    if (classLoader != null) {
+      boolean boundsCheckingEnabled = getFlagValue(classLoader);
+      Assert.assertFalse(boundsCheckingEnabled);
+    }
 
     // restore system property
     if (savedNewProperty != null) {
@@ -97,8 +112,11 @@ public class TestBoundaryChecking {
     System.setProperty("arrow.enable_unsafe_memory_access", "true");
 
     // new property takes precedence.
-    boolean boundsCheckingEnabled = getFlagValue(copyClassLoader());
-    Assert.assertFalse(boundsCheckingEnabled);
+    ClassLoader classLoader = copyClassLoader();
+    if (classLoader != null) {
+      boolean boundsCheckingEnabled = getFlagValue(classLoader);
+      Assert.assertFalse(boundsCheckingEnabled);
+    }
 
     // restore system property
     if (savedOldProperty != null) {
