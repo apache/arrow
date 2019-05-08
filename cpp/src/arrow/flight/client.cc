@@ -51,12 +51,21 @@ class MemoryPool;
 
 namespace flight {
 
+FlightCallOptions::FlightCallOptions() : timeout(-1) {}
+
 struct ClientRpc {
   grpc::ClientContext context;
 
-  ClientRpc() {
+  explicit ClientRpc(const FlightCallOptions& options) {
     /// XXX workaround until we have a handshake in Connect
     context.set_wait_for_ready(true);
+
+    if (options.timeout.count() >= 0) {
+      std::chrono::system_clock::time_point deadline =
+          std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(
+              std::chrono::system_clock::now() + options.timeout);
+      context.set_deadline(deadline);
+    }
   }
 
   Status IOError(const std::string& error_message) {
@@ -237,11 +246,12 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status Authenticate(std::unique_ptr<ClientAuthHandler> auth_handler) {
+  Status Authenticate(const FlightCallOptions& options,
+                      std::unique_ptr<ClientAuthHandler> auth_handler) {
     auth_handler_ = std::move(auth_handler);
-    grpc::ClientContext context{};
+    ClientRpc rpc(options);
     std::shared_ptr<grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
-        stream = stub_->Handshake(&context);
+        stream = stub_->Handshake(&rpc.context);
     GrpcClientAuthSender outgoing{stream};
     GrpcClientAuthReader incoming{stream};
     RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
@@ -249,11 +259,12 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status ListFlights(const Criteria& criteria, std::unique_ptr<FlightListing>* listing) {
+  Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
+                     std::unique_ptr<FlightListing>* listing) {
     // TODO(wesm): populate criteria
     pb::Criteria pb_criteria;
 
-    ClientRpc rpc;
+    ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     std::unique_ptr<grpc::ClientReader<pb::FlightInfo>> stream(
         stub_->ListFlights(&rpc.context, pb_criteria));
@@ -271,11 +282,12 @@ class FlightClient::FlightClientImpl {
     return internal::FromGrpcStatus(stream->Finish());
   }
 
-  Status DoAction(const Action& action, std::unique_ptr<ResultStream>* results) {
+  Status DoAction(const FlightCallOptions& options, const Action& action,
+                  std::unique_ptr<ResultStream>* results) {
     pb::Action pb_action;
     RETURN_NOT_OK(internal::ToProto(action, &pb_action));
 
-    ClientRpc rpc;
+    ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     std::unique_ptr<grpc::ClientReader<pb::Result>> stream(
         stub_->DoAction(&rpc.context, pb_action));
@@ -294,10 +306,10 @@ class FlightClient::FlightClientImpl {
     return internal::FromGrpcStatus(stream->Finish());
   }
 
-  Status ListActions(std::vector<ActionType>* types) {
+  Status ListActions(const FlightCallOptions& options, std::vector<ActionType>* types) {
     pb::Empty empty;
 
-    ClientRpc rpc;
+    ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     std::unique_ptr<grpc::ClientReader<pb::ActionType>> stream(
         stub_->ListActions(&rpc.context, empty));
@@ -311,14 +323,15 @@ class FlightClient::FlightClientImpl {
     return internal::FromGrpcStatus(stream->Finish());
   }
 
-  Status GetFlightInfo(const FlightDescriptor& descriptor,
+  Status GetFlightInfo(const FlightCallOptions& options,
+                       const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* info) {
     pb::FlightDescriptor pb_descriptor;
     pb::FlightInfo pb_response;
 
     RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
 
-    ClientRpc rpc;
+    ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
     Status s = internal::FromGrpcStatus(
         stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response));
@@ -330,11 +343,12 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
-  Status DoGet(const Ticket& ticket, std::unique_ptr<RecordBatchReader>* out) {
+  Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
+               std::unique_ptr<RecordBatchReader>* out) {
     pb::Ticket pb_ticket;
     internal::ToProto(ticket, &pb_ticket);
 
-    std::unique_ptr<ClientRpc> rpc(new ClientRpc);
+    std::unique_ptr<ClientRpc> rpc(new ClientRpc(options));
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream(
         stub_->DoGet(&rpc->context, pb_ticket));
@@ -344,9 +358,10 @@ class FlightClient::FlightClientImpl {
     return ipc::RecordBatchStreamReader::Open(std::move(message_reader), out);
   }
 
-  Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
+  Status DoPut(const FlightCallOptions& options, const FlightDescriptor& descriptor,
+               const std::shared_ptr<Schema>& schema,
                std::unique_ptr<ipc::RecordBatchWriter>* out) {
-    std::unique_ptr<ClientRpc> rpc(new ClientRpc);
+    std::unique_ptr<ClientRpc> rpc(new ClientRpc(options));
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::unique_ptr<protocol::PutResult> response(new protocol::PutResult);
     std::unique_ptr<grpc::ClientWriter<pb::FlightData>> writer(
@@ -374,42 +389,47 @@ Status FlightClient::Connect(const std::string& host, int port,
   return (*client)->impl_->Connect(host, port);
 }
 
-Status FlightClient::Authenticate(std::unique_ptr<ClientAuthHandler> auth_handler) {
-  return impl_->Authenticate(std::move(auth_handler));
+Status FlightClient::Authenticate(const FlightCallOptions& options,
+                                  std::unique_ptr<ClientAuthHandler> auth_handler) {
+  return impl_->Authenticate(options, std::move(auth_handler));
 }
 
-Status FlightClient::DoAction(const Action& action,
+Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
                               std::unique_ptr<ResultStream>* results) {
-  return impl_->DoAction(action, results);
+  return impl_->DoAction(options, action, results);
 }
 
-Status FlightClient::ListActions(std::vector<ActionType>* actions) {
-  return impl_->ListActions(actions);
+Status FlightClient::ListActions(const FlightCallOptions& options,
+                                 std::vector<ActionType>* actions) {
+  return impl_->ListActions(options, actions);
 }
 
-Status FlightClient::GetFlightInfo(const FlightDescriptor& descriptor,
+Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
+                                   const FlightDescriptor& descriptor,
                                    std::unique_ptr<FlightInfo>* info) {
-  return impl_->GetFlightInfo(descriptor, info);
+  return impl_->GetFlightInfo(options, descriptor, info);
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
-  return ListFlights({}, listing);
+  return ListFlights({}, {}, listing);
 }
 
-Status FlightClient::ListFlights(const Criteria& criteria,
+Status FlightClient::ListFlights(const FlightCallOptions& options,
+                                 const Criteria& criteria,
                                  std::unique_ptr<FlightListing>* listing) {
-  return impl_->ListFlights(criteria, listing);
+  return impl_->ListFlights(options, criteria, listing);
 }
 
-Status FlightClient::DoGet(const Ticket& ticket,
+Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
                            std::unique_ptr<RecordBatchReader>* stream) {
-  return impl_->DoGet(ticket, stream);
+  return impl_->DoGet(options, ticket, stream);
 }
 
-Status FlightClient::DoPut(const FlightDescriptor& descriptor,
+Status FlightClient::DoPut(const FlightCallOptions& options,
+                           const FlightDescriptor& descriptor,
                            const std::shared_ptr<Schema>& schema,
                            std::unique_ptr<ipc::RecordBatchWriter>* stream) {
-  return impl_->DoPut(descriptor, schema, stream);
+  return impl_->DoPut(options, descriptor, schema, stream);
 }
 
 }  // namespace flight

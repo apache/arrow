@@ -132,6 +132,15 @@ def main():
     host, port = args.host.split(':')
     port = int(port)
     client = pyarrow.flight.FlightClient.connect(host, port)
+    while True:
+        try:
+            action = pyarrow.flight.Action("healthcheck", b"")
+            options = pyarrow.flight.FlightCallOptions(timeout=1)
+            list(client.do_action(action, options=options))
+            break
+        except pyarrow.ArrowIOError as e:
+            if "Deadline" in str(e):
+                print("Server is not ready, waiting...")
     commands[args.action](args, client)
 
 

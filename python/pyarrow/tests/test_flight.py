@@ -20,6 +20,7 @@ import base64
 import contextlib
 import socket
 import threading
+import time
 
 import pytest
 
@@ -91,6 +92,14 @@ class InvalidStreamFlightServer(flight.FlightServerBase):
         assert table1.schema == self.schema
 
         return flight.GeneratorStream(self.schema, [table1, table2])
+
+
+class SlowFlightServer(flight.FlightServerBase):
+    """A Flight server that delays its responses to test timeouts."""
+
+    def do_action(self, context, action):
+        time.sleep(0.5)
+        return iter([])
 
 
 class HttpBasicServerAuthHandler(flight.ServerAuthHandler):
@@ -255,6 +264,26 @@ def test_flight_invalid_generator_stream():
         client = flight.FlightClient.connect('localhost', server_port)
         with pytest.raises(pa.ArrowException):
             client.do_get(flight.Ticket(b'')).read_all()
+
+
+def test_timeout_fires():
+    """Make sure timeouts fire on slow requests."""
+    # Do this in a separate thread so that if it fails, we don't hang
+    # the entire test process
+    with flight_server(SlowFlightServer) as server_port:
+        client = flight.FlightClient.connect('localhost', server_port)
+        action = flight.Action("", b"")
+        options = flight.FlightCallOptions(timeout=0.2)
+        with pytest.raises(pa.ArrowIOError, match="Deadline Exceeded"):
+            list(client.do_action(action, options=options))
+
+
+def test_timeout_passes():
+    """Make sure timeouts do not fire on fast requests."""
+    with flight_server(ConstantFlightServer) as server_port:
+        client = flight.FlightClient.connect('localhost', server_port)
+        options = flight.FlightCallOptions(timeout=0.2)
+        client.do_get(flight.Ticket(b''), options=options).read_all()
 
 
 basic_auth_handler = HttpBasicServerAuthHandler(creds={

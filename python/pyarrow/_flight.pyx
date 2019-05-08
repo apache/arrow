@@ -30,6 +30,29 @@ from pyarrow.ipc import _ReadPandasOption
 import pyarrow.lib as lib
 
 
+cdef CFlightCallOptions DEFAULT_CALL_OPTIONS
+
+
+cdef class FlightCallOptions:
+    """RPC-layer options for a Flight call."""
+
+    cdef:
+        CFlightCallOptions options
+
+    def __init__(self, timeout=None):
+        if timeout is not None:
+            self.options.timeout = CTimeoutDuration(timeout)
+
+    @staticmethod
+    cdef CFlightCallOptions* unwrap(obj):
+        if not obj:
+            return &DEFAULT_CALL_OPTIONS
+        elif isinstance(obj, FlightCallOptions):
+            return &((<FlightCallOptions> obj).options)
+        raise TypeError("Expected a FlightCallOptions object, not "
+                        "'{}'".format(type(obj)))
+
+
 cdef class Action:
     """An action executable on a Flight service."""
     cdef:
@@ -312,24 +335,30 @@ cdef class FlightClient:
 
         return result
 
-    def authenticate(self, auth_handler):
+    def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server."""
-        cdef unique_ptr[CClientAuthHandler] handler
+        cdef:
+            unique_ptr[CClientAuthHandler] handler
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+
         if not isinstance(auth_handler, ClientAuthHandler):
             raise TypeError(
                 "FlightClient.authenticate takes a ClientAuthHandler, "
                 "not '{}'".format(type(auth_handler)))
         handler.reset((<ClientAuthHandler> auth_handler).to_handler())
         with nogil:
-            check_status(self.client.get().Authenticate(move(handler)))
+            check_status(self.client.get().Authenticate(deref(c_options),
+                                                        move(handler)))
 
-    def list_actions(self):
+    def list_actions(self, options: FlightCallOptions = None):
         """List the actions available on a service."""
         cdef:
             vector[CActionType] results
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         with nogil:
-            check_status(self.client.get().ListActions(&results))
+            check_status(
+                self.client.get().ListActions(deref(c_options), &results))
 
         result = []
         for action_type in results:
@@ -339,13 +368,15 @@ cdef class FlightClient:
 
         return result
 
-    def do_action(self, action: Action):
+    def do_action(self, action: Action, options: FlightCallOptions = None):
         """Execute an action on a service."""
         cdef:
             unique_ptr[CResultStream] results
             Result result
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
         with nogil:
-            check_status(self.client.get().DoAction(action.action, &results))
+            check_status(self.client.get().DoAction(deref(c_options),
+                                                    action.action, &results))
 
         while True:
             result = Result.__new__(Result)
@@ -355,14 +386,17 @@ cdef class FlightClient:
                     break
             yield result
 
-    def list_flights(self):
+    def list_flights(self, options: FlightCallOptions = None):
         """List the flights available on a service."""
         cdef:
             unique_ptr[CFlightListing] listing
             FlightInfo result
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+            CCriteria c_criteria
 
         with nogil:
-            check_status(self.client.get().ListFlights(&listing))
+            check_status(self.client.get().ListFlights(deref(c_options),
+                                                       c_criteria, &listing))
 
         while True:
             result = FlightInfo.__new__(FlightInfo)
@@ -372,40 +406,46 @@ cdef class FlightClient:
                     break
             yield result
 
-    def get_flight_info(self, descriptor: FlightDescriptor):
+    def get_flight_info(self, descriptor: FlightDescriptor,
+                        options: FlightCallOptions = None):
         """Request information about an available flight."""
         cdef:
             FlightInfo result = FlightInfo.__new__(FlightInfo)
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         with nogil:
             check_status(self.client.get().GetFlightInfo(
-                descriptor.descriptor, &result.info))
+                deref(c_options), descriptor.descriptor, &result.info))
 
         return result
 
-    def do_get(self, ticket: Ticket):
+    def do_get(self, ticket: Ticket, options: FlightCallOptions = None):
         """Request the data for a flight."""
         cdef:
             # TODO: introduce unwrap
             CTicket c_ticket
             unique_ptr[CRecordBatchReader] reader
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         c_ticket.ticket = ticket.ticket
         with nogil:
-            check_status(self.client.get().DoGet(c_ticket, &reader))
+            check_status(
+                self.client.get().DoGet(deref(c_options), c_ticket, &reader))
         result = FlightRecordBatchReader()
         result.reader.reset(reader.release())
         return result
 
-    def do_put(self, descriptor: FlightDescriptor, schema: Schema):
+    def do_put(self, descriptor: FlightDescriptor, schema: Schema,
+               options: FlightCallOptions = None):
         """Upload data to a flight."""
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
             unique_ptr[CRecordBatchWriter] writer
+            CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         with nogil:
             check_status(self.client.get().DoPut(
-                descriptor.descriptor, c_schema, &writer))
+                deref(c_options), descriptor.descriptor, c_schema, &writer))
         result = FlightRecordBatchWriter()
         result.writer.reset(writer.release())
         return result
@@ -932,5 +972,10 @@ cdef class FlightServerBase:
         request to finish. Instead, call this method from a background
         thread.
         """
-        if self.server.get() != NULL:
-            self.server.get().Shutdown()
+        # Must not hold the GIL: shutdown waits for pending RPCs to
+        # complete. Holding the GIL means Python-implemented Flight
+        # methods will never get to run, so this will hang
+        # indefinitely.
+        with nogil:
+            if self.server.get() != NULL:
+                self.server.get().Shutdown()

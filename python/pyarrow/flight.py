@@ -19,6 +19,7 @@ from pyarrow._flight import (  # noqa
     Action,
     ActionType,
     DescriptorType,
+    FlightCallOptions,
     FlightClient,
     FlightDescriptor,
     FlightEndpoint,

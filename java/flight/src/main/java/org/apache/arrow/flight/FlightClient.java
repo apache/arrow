@@ -86,25 +86,41 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Get a list of available flights.
+   *
    * @param criteria Criteria for selecting flights
+   * @param options RPC-layer hints for the call.
    * @return FlightInfo Iterable
    */
-  public Iterable<FlightInfo> listFlights(Criteria criteria) {
-    return ImmutableList.copyOf(blockingStub.listFlights(criteria.asCriteria()))
+  public Iterable<FlightInfo> listFlights(Criteria criteria, CallOption... options) {
+    return ImmutableList.copyOf(CallOptions.wrapStub(blockingStub, options).listFlights(criteria.asCriteria()))
         .stream()
-        .map(t -> new FlightInfo(t))
+        .map(FlightInfo::new)
         .collect(Collectors.toList());
   }
 
-  public Iterable<ActionType> listActions() {
-    return ImmutableList.copyOf(blockingStub.listActions(Empty.getDefaultInstance()))
+  /**
+   * List actions available on the Flight service.
+   *
+   * @param options RPC-layer hints for the call.
+   */
+  public Iterable<ActionType> listActions(CallOption... options) {
+    return ImmutableList.copyOf(CallOptions.wrapStub(blockingStub, options)
+        .listActions(Empty.getDefaultInstance()))
         .stream()
-        .map(t -> new ActionType(t))
+        .map(ActionType::new)
         .collect(Collectors.toList());
   }
 
-  public Iterator<Result> doAction(Action action) {
-    return Iterators.transform(blockingStub.doAction(action.toProtocol()), t -> new Result(t));
+  /**
+   * Perform an action on the Flight service.
+   *
+   * @param action The action to perform.
+   * @param options RPC-layer hints for this call.
+   * @return An iterator of results.
+   */
+  public Iterator<Result> doAction(Action action, CallOption... options) {
+    return Iterators
+        .transform(CallOptions.wrapStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
   }
 
   public void authenticateBasic(String username, String password) {
@@ -112,9 +128,15 @@ public class FlightClient implements AutoCloseable {
     authenticate(basicClient);
   }
 
-  public void authenticate(ClientAuthHandler handler) {
+  /**
+   * Authenticate against the Flight service.
+   *
+   * @param options RPC-layer hints for this call.
+   * @param handler The auth mechanism to use.
+   */
+  public void authenticate(ClientAuthHandler handler, CallOption... options) {
     Preconditions.checkArgument(!authInterceptor.hasAuthHandler(), "Auth already completed.");
-    ClientAuthWrapper.doClientAuth(handler, asyncStub);
+    ClientAuthWrapper.doClientAuth(handler, CallOptions.wrapStub(asyncStub, options));
     authInterceptor.setAuthHandler(handler);
   }
 
@@ -122,16 +144,19 @@ public class FlightClient implements AutoCloseable {
    * Create or append a descriptor with another stream.
    * @param descriptor FlightDescriptor
    * @param root VectorSchemaRoot
+   * @param options RPC-layer hints for this call.
    * @return ClientStreamListener
    */
-  public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root) {
+  public ClientStreamListener startPut(
+      FlightDescriptor descriptor, VectorSchemaRoot root, CallOption... options) {
     Preconditions.checkNotNull(descriptor);
     Preconditions.checkNotNull(root);
 
     SetStreamObserver<PutResult> resultObserver = new SetStreamObserver<>();
+    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
     ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
         asyncClientStreamingCall(
-                authInterceptor.interceptCall(doPutDescriptor, asyncStub.getCallOptions(), channel), resultObserver);
+                authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
@@ -140,13 +165,24 @@ public class FlightClient implements AutoCloseable {
         observer, resultObserver.getFuture());
   }
 
-  public FlightInfo getInfo(FlightDescriptor descriptor) {
-    return new FlightInfo(blockingStub.getFlightInfo(descriptor.toProtocol()));
+  /**
+   * Get info on a stream.
+   * @param descriptor The descriptor for the stream.
+   * @param options RPC-layer hints for this call.
+   */
+  public FlightInfo getInfo(FlightDescriptor descriptor, CallOption... options) {
+    return new FlightInfo(CallOptions.wrapStub(blockingStub, options).getFlightInfo(descriptor.toProtocol()));
   }
 
-  public FlightStream getStream(Ticket ticket) {
+  /**
+   * Retrieve a stream from the server.
+   * @param ticket The ticket granting access to the data stream.
+   * @param options RPC-layer hints for this call.
+   */
+  public FlightStream getStream(Ticket ticket, CallOption... options) {
+    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
     ClientCall<Flight.Ticket, ArrowMessage> call =
-            authInterceptor.interceptCall(doGetDescriptor, asyncStub.getCallOptions(), channel);
+            authInterceptor.interceptCall(doGetDescriptor, callOptions, channel);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
@@ -157,27 +193,27 @@ public class FlightClient implements AutoCloseable {
     ClientResponseObserver<Flight.Ticket, ArrowMessage> clientResponseObserver =
         new ClientResponseObserver<Flight.Ticket, ArrowMessage>() {
 
-      @Override
-      public void beforeStart(ClientCallStreamObserver<org.apache.arrow.flight.impl.Flight.Ticket> requestStream) {
-        requestStream.disableAutoInboundFlowControl();
-      }
+          @Override
+          public void beforeStart(ClientCallStreamObserver<org.apache.arrow.flight.impl.Flight.Ticket> requestStream) {
+            requestStream.disableAutoInboundFlowControl();
+          }
 
-      @Override
-      public void onNext(ArrowMessage value) {
-        delegate.onNext(value);
-      }
+          @Override
+          public void onNext(ArrowMessage value) {
+            delegate.onNext(value);
+          }
 
-      @Override
-      public void onError(Throwable t) {
-        delegate.onError(t);
-      }
+          @Override
+          public void onError(Throwable t) {
+            delegate.onError(t);
+          }
 
-      @Override
-      public void onCompleted() {
-        delegate.onCompleted();
-      }
+          @Override
+          public void onCompleted() {
+            delegate.onCompleted();
+          }
 
-    };
+        };
 
     asyncServerStreamingCall(call, ticket.toProtocol(), clientResponseObserver);
     return stream;
@@ -266,4 +302,5 @@ public class FlightClient implements AutoCloseable {
     channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     allocator.close();
   }
+
 }
