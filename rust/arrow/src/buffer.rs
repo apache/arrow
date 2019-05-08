@@ -137,7 +137,8 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         // allocate aligned memory buffer
         let slice = p.as_ref();
         let len = slice.len() * mem::size_of::<u8>();
-        let buffer = memory::allocate_aligned(len);
+        let capacity = bit_util::round_upto_multiple_of_64(len);
+        let buffer = memory::allocate_aligned(capacity);
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
         }
