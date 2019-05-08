@@ -22,70 +22,12 @@ import org.junit.Test;
 
 public class TestBoundaryChecking {
 
+  /**
+   * Ensure the flag for bounds checking is enabled by default.
+   * This will protect users from JVM crashes.
+   */
   @Test
   public void testDefaultValue() {
-    BoundsChecking.evaluate();
     Assert.assertTrue(BoundsChecking.BOUNDS_CHECKING_ENABLED);
-  }
-
-  @Test
-  public void testEnableOldProperty() {
-    String savedOldProperty = System.getProperty("drill.enable_unsafe_memory_access");
-
-    System.setProperty("drill.enable_unsafe_memory_access", "true");
-    BoundsChecking.evaluate();
-
-    Assert.assertFalse(BoundsChecking.BOUNDS_CHECKING_ENABLED);
-
-    // restore system property
-    if (savedOldProperty != null) {
-      System.setProperty("drill.enable_unsafe_memory_access", savedOldProperty);
-    } else {
-      System.clearProperty("drill.enable_unsafe_memory_access");
-    }
-  }
-
-  @Test
-  public void testEnableNewProperty() {
-    String savedNewProperty = System.getProperty("arrow.enable_unsafe_memory_access");
-
-    System.setProperty("arrow.enable_unsafe_memory_access", "true");
-    BoundsChecking.evaluate();
-
-    Assert.assertFalse(BoundsChecking.BOUNDS_CHECKING_ENABLED);
-
-    // restore system property
-    if (savedNewProperty != null) {
-      System.setProperty("arrow.enable_unsafe_memory_access", savedNewProperty);
-    } else {
-      System.clearProperty("arrow.enable_unsafe_memory_access");
-    }
-  }
-
-  @Test
-  public void testEnableBothProperties() {
-    String savedOldProperty = System.getProperty("drill.enable_unsafe_memory_access");
-    String savedNewProperty = System.getProperty("arrow.enable_unsafe_memory_access");
-
-    System.setProperty("drill.enable_unsafe_memory_access", "false");
-    System.setProperty("arrow.enable_unsafe_memory_access", "true");
-
-    BoundsChecking.evaluate();
-
-    // new property takes precedence.
-    Assert.assertFalse(BoundsChecking.BOUNDS_CHECKING_ENABLED);
-
-    // restore system property
-    if (savedOldProperty != null) {
-      System.setProperty("drill.enable_unsafe_memory_access", savedOldProperty);
-    } else {
-      System.clearProperty("drill.enable_unsafe_memory_access");
-    }
-
-    if (savedNewProperty != null) {
-      System.setProperty("arrow.enable_unsafe_memory_access", savedNewProperty);
-    } else {
-      System.clearProperty("arrow.enable_unsafe_memory_access");
-    }
   }
 }

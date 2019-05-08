@@ -26,26 +26,27 @@ package org.apache.arrow.memory;
  */
 public class BoundsChecking {
 
-  public static boolean BOUNDS_CHECKING_ENABLED;
+  public static final boolean BOUNDS_CHECKING_ENABLED;
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BoundsChecking.class);
 
   static {
-    evaluate();
-  }
-
-  public static void evaluate() {
+    String envProperty = System.getenv("ARROW_ENABLE_UNSAFE_MEMORY_ACCESS");
     String oldProperty = System.getProperty("drill.enable_unsafe_memory_access");
     if (oldProperty != null) {
       logger.warn("\"drill.enable_unsafe_memory_access\" has been renamed to \"arrow.enable_unsafe_memory_access\"");
       logger.warn("\"arrow.enable_unsafe_memory_access\" can be set to: " +
               " true (to not check) or false (to check, default)");
     }
-
     String newProperty = System.getProperty("arrow.enable_unsafe_memory_access");
 
-    // new property has higher priority
-    String unsafeProperty = newProperty != null ? newProperty : oldProperty;
-    BOUNDS_CHECKING_ENABLED = !"true".equals(unsafeProperty);
+    // The priority of determining the unsafe flag:
+    // 1. The system properties take precedence over the environmental variable.
+    // 2. The new system property takes precedence over the new system property.
+    String unsafeFlagValue = newProperty != null ? newProperty : (oldProperty != null ? oldProperty : envProperty);
+
+    boolean isAssertEnabled = false;
+    assert isAssertEnabled = true;
+    BOUNDS_CHECKING_ENABLED = isAssertEnabled || !"true".equals(unsafeFlagValue);
   }
 
   private BoundsChecking() {
