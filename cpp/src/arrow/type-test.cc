@@ -369,6 +369,27 @@ TEST(TestListType, Basics) {
   ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
 }
 
+TEST(TestFixedSizeListType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  FixedSizeListType fixed_size_list_type(vt, 4);
+  ASSERT_EQ(fixed_size_list_type.id(), Type::FIXED_SIZE_LIST);
+
+  ASSERT_EQ(4, fixed_size_list_type.list_size());
+  ASSERT_EQ("fixed_size_list", fixed_size_list_type.name());
+  ASSERT_EQ("fixed_size_list<item: uint8>[4]", fixed_size_list_type.ToString());
+
+  ASSERT_EQ(fixed_size_list_type.value_type()->id(), vt->id());
+  ASSERT_EQ(fixed_size_list_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<FixedSizeListType>(st, 3);
+  ASSERT_EQ("fixed_size_list<item: string>[3]", lt->ToString());
+
+  FixedSizeListType lt2(lt, 7);
+  ASSERT_EQ("fixed_size_list<item: fixed_size_list<item: string>[3]>[7]", lt2.ToString());
+}
+
 TEST(TestDateTypes, Attrs) {
   auto t1 = date32();
   auto t2 = date64();

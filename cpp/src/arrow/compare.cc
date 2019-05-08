@@ -345,6 +345,14 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const FixedSizeListArray& left) {
+    const auto& right = checked_cast<const FixedSizeListArray&>(right_);
+    result_ = left.values()->RangeEquals(
+        left.value_offset(left_start_idx_), left.value_offset(left_end_idx_),
+        right.value_offset(right_start_idx_), right.values());
+    return Status::OK();
+  }
+
   Status Visit(const StructArray& left) {
     result_ = CompareStructs(left);
     return Status::OK();
@@ -576,9 +584,19 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       return Status::OK();
     }
 
+    // XXX this looks like an error where the author expected RangeEquals to take
+    // offset, length instead of begin_index, end_index
     result_ = left.values()->RangeEquals(
         left.value_offset(0), left.value_offset(left.length()) - left.value_offset(0),
         right.value_offset(0), right.values());
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListArray& left) {
+    const auto& right = checked_cast<const FixedSizeListArray&>(right_);
+    result_ =
+        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
+                                   right.value_offset(0), right.values());
     return Status::OK();
   }
 
@@ -735,6 +753,8 @@ class TypeEqualsVisitor {
 
   Status Visit(const ListType& left) { return VisitChildren(left); }
 
+  Status Visit(const FixedSizeListType& left) { return VisitChildren(left); }
+
   Status Visit(const StructType& left) { return VisitChildren(left); }
 
   Status Visit(const UnionType& left) {
@@ -823,6 +843,12 @@ class ScalarEqualsVisitor {
 
   Status Visit(const ListScalar& left) {
     const auto& right = checked_cast<const ListScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListScalar& left) {
+    const auto& right = checked_cast<const FixedSizeListScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
   }

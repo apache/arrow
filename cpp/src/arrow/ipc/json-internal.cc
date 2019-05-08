@@ -556,6 +556,12 @@ class ArrayWriter {
     return WriteChildren(type.children(), {array.values()});
   }
 
+  Status Visit(const FixedSizeListArray& array) {
+    WriteValidityField(array);
+    const auto& type = checked_cast<const ListType&>(*array.type());
+    return WriteChildren(type.children(), {array.values()});
+  }
+
   Status Visit(const StructArray& array) {
     WriteValidityField(array);
     const auto& type = checked_cast<const StructType&>(*array.type());

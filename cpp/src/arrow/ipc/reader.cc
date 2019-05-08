@@ -266,6 +266,19 @@ class ArrayLoader {
     return LoadChildren(type.children());
   }
 
+  Status Visit(const FixedSizeListType& type) {
+    out_->buffers.resize(1);
+
+    RETURN_NOT_OK(LoadCommon());
+
+    const int num_children = type.num_children();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.children());
+  }
+
   Status Visit(const StructType& type) {
     out_->buffers.resize(1);
     RETURN_NOT_OK(LoadCommon());

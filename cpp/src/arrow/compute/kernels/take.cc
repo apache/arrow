@@ -173,6 +173,10 @@ struct UnpackValues {
     return Status::NotImplemented("gathering values of type ", t);
   }
 
+  Status Visit(const FixedSizeListType& t) {
+    return Status::NotImplemented("gathering values of type ", t);
+  }
+
   Status Visit(const StructType& t) {
     return Status::NotImplemented("gathering values of type ", t);
   }
