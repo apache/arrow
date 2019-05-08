@@ -181,13 +181,14 @@ TEST_F(TestPrettyPrint, DateTimeTypes) {
   }
 
   {
-    std::vector<int64_t> values = {0, 1, 2,
-                                   678 + 1000 * (5 + 60 * (4 + 60 * (3 + 24 * 1))), 4};
+    constexpr int64_t ms_per_day = 24 * 60 * 60 * 1000;
+    std::vector<int64_t> values = {0 * ms_per_day, 1 * ms_per_day, 2 * ms_per_day,
+                                   31 * ms_per_day, 4 * ms_per_day};
     static const char* expected = R"expected([
-  1970-01-01 00:00:00.000,
-  1970-01-01 00:00:00.001,
+  1970-01-01,
+  1970-01-02,
   null,
-  1970-01-02 03:04:05.678,
+  1970-02-01,
   null
 ])expected";
     CheckPrimitive<Date64Type, int64_t>({0, 10}, is_valid, values, expected);

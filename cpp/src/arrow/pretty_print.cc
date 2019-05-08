@@ -145,26 +145,23 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
-  inline typename std::enable_if<
-      IsInteger<T>::value && !is_time<typename T::TypeClass>::value, Status>::type
+  inline typename std::enable_if<IsInteger<T>::value &&
+                                     !is_date<typename T::TypeClass>::value &&
+                                     !is_time<typename T::TypeClass>::value,
+                                 Status>::type
   WriteDataValues(const T& array) {
     const auto data = array.raw_values();
     WriteValues(array, [&](int64_t i) { (*sink_) << static_cast<int64_t>(data[i]); });
     return Status::OK();
   }
 
-  Status WriteDataValues(const Date32Array& array) {
-    const int32_t* data = array.raw_values();
-    WriteValues(
-        array, [&](int64_t i) { FormatDateTime<util::date::days>("%F", data[i], true); });
-    return Status::OK();
-  }
-
-  Status WriteDataValues(const Date64Array& array) {
-    const int64_t* data = array.raw_values();
-    WriteValues(array, [&](int64_t i) {
-      FormatDateTime<std::chrono::milliseconds>("%F %T", data[i], true);
-    });
+  template <typename T>
+  enable_if_date<typename T::TypeClass, Status> WriteDataValues(const T& array) {
+    const auto data = array.raw_values();
+    using unit =
+        typename std::conditional<std::is_same<T, Date32Array>::value, util::date::days,
+                                  std::chrono::milliseconds>::type;
+    WriteValues(array, [&](int64_t i) { FormatDateTime<unit>("%F", data[i], true); });
     return Status::OK();
   }
 
