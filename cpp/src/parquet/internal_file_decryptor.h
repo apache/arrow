@@ -51,44 +51,46 @@ class Decryptor {
 
 class InternalFileDecryptor {
  public:
-  explicit InternalFileDecryptor(FileDecryptionProperties* propperties);
+  explicit InternalFileDecryptor(FileDecryptionProperties* properties);
 
   void file_aad(const std::string& file_aad) { file_aad_ = file_aad; }
   std::string& file_aad() { return file_aad_; }
 
-  std::shared_ptr<FooterSigningEncryptor> GetFooterSigningEncryptor(
-      ParquetCipher::type algorithm,
-      const std::string& footer_key_metadata);
+  void algorithm(ParquetCipher::type algorithm) { algorithm_ = algorithm; }
+  ParquetCipher::type algorithm() { return algorithm_; }
 
-  std::shared_ptr<Decryptor> GetFooterDecryptor(
-      ParquetCipher::type algorithm,
-      const std::string& footer_key_metadata);
+  void footer_key_metadata(const std::string& footer_key_metadata) {
+    footer_key_metadata_ = footer_key_metadata;
+  }
+  std::string& footer_key_metadata() { return footer_key_metadata_; }
+
+  std::shared_ptr<FooterSigningEncryptor> GetFooterSigningEncryptor();
+
+  std::shared_ptr<Decryptor> GetFooterDecryptor();
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnMeta(
-      ParquetCipher::type algorithm,
-      const std::string& footer_key_metadata,
-      const std::string& aad);
+      const std::string& aad = "");
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnData(
-      ParquetCipher::type algorithm,
-      const std::string& footer_key_metadata,
-      const std::string& aad);
+      const std::string& aad = "");
   std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
       std::shared_ptr<schema::ColumnPath> column_path,
-      ParquetCipher::type algorithm,
       const std::string& column_key_metadata,
-      const std::string& aad);
+      const std::string& aad = "");
   std::shared_ptr<Decryptor> GetColumnDataDecryptor(
       std::shared_ptr<schema::ColumnPath> column_path,
-      ParquetCipher::type algorithm,
       const std::string& column_key_metadata,
-      const std::string& aad);
+      const std::string& aad = "");
 
  private:
   FileDecryptionProperties* properties_;
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
-  // A map between ColumnPath and their encryption keys:
+  // A map between ColumnPath and their encryption keys
   std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
                   std::string, parquet::schema::ColumnPath::CmpColumnPath>> column_map_;
+  ParquetCipher::type algorithm_;
+  std::string footer_key_metadata_;
+  std::shared_ptr<Decryptor> footer_decryptor_;
+  std::shared_ptr<FooterSigningEncryptor> footer_signing_encryptor_;
 
   std::unique_ptr<parquet_encryption::AesDecryptor> meta_decryptor_128_;
   std::unique_ptr<parquet_encryption::AesDecryptor> meta_decryptor_196_;
@@ -98,19 +100,14 @@ class InternalFileDecryptor {
   std::unique_ptr<parquet_encryption::AesDecryptor> data_decryptor_256_;
 
   std::shared_ptr<Decryptor> GetFooterDecryptor(
-      ParquetCipher::type algorithm,
-      const std::string& footer_key_metadata,
       const std::string& aad, bool metadata);
   std::shared_ptr<Decryptor> GetColumnDecryptor(
       std::shared_ptr<schema::ColumnPath> column_path,
-      ParquetCipher::type algorithm,
       const std::string& column_key_metadata,
       const std::string& aad, bool metadata = false);
 
-  parquet_encryption::AesDecryptor* GetMetaAesDecryptor(ParquetCipher::type algorithm,
-                                                        size_t key_size);
-  parquet_encryption::AesDecryptor* GetDataAesDecryptor(ParquetCipher::type algorithm,
-                                                        size_t key_size);
+  parquet_encryption::AesDecryptor* GetMetaAesDecryptor(size_t key_size);
+  parquet_encryption::AesDecryptor* GetDataAesDecryptor(size_t key_size);
 };
 
 }

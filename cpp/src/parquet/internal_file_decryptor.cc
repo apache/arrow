@@ -55,20 +55,20 @@ int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* p
 InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* properties)
     : properties_(properties) {}
 
-std::shared_ptr<FooterSigningEncryptor> InternalFileDecryptor::GetFooterSigningEncryptor(
-    ParquetCipher::type algorithm,
-    const std::string& footer_key_metadata)
+std::shared_ptr<FooterSigningEncryptor> InternalFileDecryptor::GetFooterSigningEncryptor()
 {
+  if (footer_signing_encryptor_ != NULLPTR)
+    return footer_signing_encryptor_;
   std::string footer_key = properties_->getFooterKey();
   // ignore footer key metadata if footer key is explicitly set via API
   if (footer_key.empty()) {
-    if (footer_key_metadata.empty())
+    if (footer_key_metadata_.empty())
       throw ParquetException("No footer key or key metadata");
     if (properties_->getKeyRetriever() == nullptr)
       throw ParquetException("No footer key or key retriever");
     try {
       footer_key =
-        properties_->getKeyRetriever()->getKey(footer_key_metadata);
+        properties_->getKeyRetriever()->getKey(footer_key_metadata_);
     } catch (KeyAccessDeniedException &e) {
       std::stringstream ss;
       ss << "Footer key: access denied " << e.what() << "\n";
@@ -82,43 +82,39 @@ std::shared_ptr<FooterSigningEncryptor> InternalFileDecryptor::GetFooterSigningE
 
   std::string aad = parquet_encryption::createFooterAAD(file_aad_);
 
-  return std::make_shared<FooterSigningEncryptor>(
-      algorithm, footer_key, file_aad_, aad);
+  footer_signing_encryptor_ = std::make_shared<FooterSigningEncryptor>(
+      algorithm_, footer_key, file_aad_, aad);
+  return footer_signing_encryptor_;
 }
 
-std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
-    ParquetCipher::type algorithm,
-    const std::string& footer_key_metadata) {
+std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor() {
   std::string aad = parquet_encryption::createFooterAAD(file_aad_);
-  return GetFooterDecryptor(algorithm, footer_key_metadata, aad, true);
+  return GetFooterDecryptor(aad, true);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptorForColumnMeta(
-    ParquetCipher::type algorithm,
-    const std::string& footer_key_metadata,
-    const std::string& aad) {
-  return GetFooterDecryptor(algorithm, footer_key_metadata, aad, true);
+    const std::string& aad)
+{
+  return GetFooterDecryptor(aad, true);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptorForColumnData(
-    ParquetCipher::type algorithm,
-    const std::string& footer_key_metadata,
     const std::string& aad) {
-  return GetFooterDecryptor(algorithm, footer_key_metadata, aad, false);
+  return GetFooterDecryptor(aad, false);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
-    ParquetCipher::type algorithm,
-    const std::string& footer_key_metadata,
     const std::string& aad, bool metadata) {
+  if (footer_decryptor_ != NULLPTR)
+    return footer_decryptor_;
   std::string footer_key = properties_->getFooterKey();
   if (footer_key.empty()) {
-    if (footer_key_metadata.empty())
+    if (footer_key_metadata_.empty())
       throw ParquetException("No footer key or key metadata");
     if (properties_->getKeyRetriever() == nullptr)
       throw ParquetException("No footer key or key retriever");
     try {
-      footer_key = properties_->getKeyRetriever()->getKey(footer_key_metadata);
+      footer_key = properties_->getKeyRetriever()->getKey(footer_key_metadata_);
     } catch (KeyAccessDeniedException &e) {
       std::stringstream ss;
       ss << "Footer key: access denied " << e.what() << "\n";;
@@ -131,30 +127,28 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
   }
 
   auto aes_decryptor = metadata
-      ? GetMetaAesDecryptor(algorithm, footer_key.size())
-      : GetDataAesDecryptor(algorithm, footer_key.size());
-  return std::make_shared<Decryptor>(aes_decryptor, footer_key, file_aad_, aad);
+      ? GetMetaAesDecryptor(footer_key.size())
+      : GetDataAesDecryptor(footer_key.size());
+  footer_decryptor_ = std::make_shared<Decryptor>(aes_decryptor, footer_key, file_aad_, aad);
+  return footer_decryptor_;
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnMetaDecryptor(
     std::shared_ptr<schema::ColumnPath> column_path,
-    ParquetCipher::type algorithm,
     const std::string& column_key_metadata,
     const std::string& aad) {
-  return GetColumnDecryptor(column_path, algorithm, column_key_metadata, aad, true);
+  return GetColumnDecryptor(column_path, column_key_metadata, aad, true);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDataDecryptor(
     std::shared_ptr<schema::ColumnPath> column_path,
-    ParquetCipher::type algorithm,
     const std::string& column_key_metadata,
     const std::string& aad) {
-  return GetColumnDecryptor(column_path, algorithm, column_key_metadata, aad, false);
+  return GetColumnDecryptor(column_path, column_key_metadata, aad, false);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     std::shared_ptr<schema::ColumnPath> column_path,
-    ParquetCipher::type algorithm,
     const std::string& column_key_metadata,
     const std::string& aad, bool metadata) {
   std::string column_key;
@@ -189,30 +183,30 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   }
 
   auto aes_decryptor = metadata
-      ? GetMetaAesDecryptor(algorithm, column_key.size())
-      : GetDataAesDecryptor(algorithm, column_key.size());
+      ? GetMetaAesDecryptor(column_key.size())
+      : GetDataAesDecryptor(column_key.size());
 
   return std::make_shared<Decryptor>(aes_decryptor, column_key, file_aad_, aad);
 }
 
 parquet_encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
-    ParquetCipher::type algorithm, size_t key_size) {
+    size_t key_size) {
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (meta_decryptor_128_ == NULLPTR) {
-      meta_decryptor_128_.reset(new parquet_encryption::AesDecryptor(algorithm, key_len, false));
+      meta_decryptor_128_.reset(new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
     }
     return meta_decryptor_128_.get();
   }
   else if (key_len == 24) {
     if (meta_decryptor_196_ == NULLPTR) {
-      meta_decryptor_196_.reset(new parquet_encryption::AesDecryptor(algorithm, key_len, false));
+      meta_decryptor_196_.reset(new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
     }
     return meta_decryptor_196_.get();
   }
   else if (key_len == 32) {
     if (meta_decryptor_256_ == NULLPTR) {
-      meta_decryptor_256_.reset(new parquet_encryption::AesDecryptor(algorithm, key_len, false));
+      meta_decryptor_256_.reset(new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
     }
     return meta_decryptor_256_.get();
   }
@@ -220,23 +214,23 @@ parquet_encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
 }
 
 parquet_encryption::AesDecryptor* InternalFileDecryptor::GetDataAesDecryptor(
-    ParquetCipher::type algorithm, size_t key_size) {
+    size_t key_size) {
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (data_decryptor_128_ == NULLPTR) {
-      data_decryptor_128_.reset(new parquet_encryption::AesDecryptor(algorithm, key_len, false));
+      data_decryptor_128_.reset(new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
     }
     return data_decryptor_128_.get();
   }
   else if (key_len == 24) {
     if (data_decryptor_196_ == NULLPTR) {
-      data_decryptor_196_.reset(new parquet_encryption::AesDecryptor(algorithm, key_len, false));
+      data_decryptor_196_.reset(new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
     }
     return data_decryptor_196_.get();
   }
   else if (key_len == 32) {
     if (data_decryptor_256_ == NULLPTR) {
-      data_decryptor_256_.reset(new parquet_encryption::AesDecryptor(algorithm, key_len, false));
+      data_decryptor_256_.reset(new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
     }
     return data_decryptor_256_.get();
   }
