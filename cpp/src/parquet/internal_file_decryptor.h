@@ -66,6 +66,8 @@ class InternalFileDecryptor {
 
   std::shared_ptr<FooterSigningEncryptor> GetFooterSigningEncryptor();
 
+  FileDecryptionProperties* properties() { return properties_; }
+
   std::shared_ptr<Decryptor> GetFooterDecryptor();
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnMeta(
       const std::string& aad = "");
