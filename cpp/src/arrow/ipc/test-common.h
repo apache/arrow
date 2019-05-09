@@ -83,6 +83,9 @@ ARROW_EXPORT
 Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT
+Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out);
+
+ARROW_EXPORT
 Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_EXPORT

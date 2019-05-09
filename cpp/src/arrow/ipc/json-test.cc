@@ -193,6 +193,12 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   TestArrayRoundTrip(list_array);
 
+  // FixedSizeList
+  FixedSizeListArray fixed_size_list_array(fixed_size_list(value_type, 2), 3,
+                                           values_array->Slice(1), list_bitmap, 1);
+
+  TestArrayRoundTrip(fixed_size_list_array);
+
   // Struct
   std::vector<bool> struct_is_valid = {true, false, true, true, true, false, true};
   std::shared_ptr<Buffer> struct_bitmap;
@@ -364,12 +370,12 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
   ASSERT_TRUE(batch->column(1)->Equals(bar));
 }
 
-#define BATCH_CASES()                                                                   \
-  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
-                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
-                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,      \
-                    &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary,             \
-                    &MakeDecimal, &MakeDictionary);
+#define BATCH_CASES()                                                             \
+  ::testing::Values(                                                              \
+      &MakeIntRecordBatch, &MakeListRecordBatch, &MakeFixedSizeListRecordBatch,   \
+      &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, \
+      &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, &MakeDates,  \
+      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeDictionary);
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
