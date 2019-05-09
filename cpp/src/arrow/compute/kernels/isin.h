@@ -19,31 +19,26 @@
 
 #include <memory>
 
+#include "arrow/array.h"
+#include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/status.h"
+#include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-class DataType;
-struct ArrayData;
-
 namespace compute {
-
-class FunctionContext;
 
 /// \brief IsIn returns boolean values
 /// \param[in] context the FunctionContext
-/// \param[in] data array-like input
+/// \param[in] left array-like input
+/// \param[in] right array-like input
 /// \param[out] out result with same shape and type as input
 ///
 /// \since 0.14.0
 /// \note API not yet finalized
-
 ARROW_EXPORT
-Status IsIn(FunctionContext* context, const Datum& values, const Datum& member_set,
-              Datum* out);
+Status IsIn(FunctionContext* context, const Datum& left, const Datum& right, Datum* out);
 
 }  // namespace compute
 }  // namespace arrow

@@ -28,6 +28,11 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/context.h"
+#include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/isin.h"
+#include "arrow/compute/kernels/util-internal.h"
+#include "arrow/compute/test-util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -37,33 +42,28 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 
-#include "arrow/compute/context.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/isin.h"
-#include "arrow/compute/kernels/util-internal.h"
-#include "arrow/compute/test-util.h"
-
-using std::shared_ptr;
-using std::vector;
-
 namespace arrow {
 namespace compute {
 
 // ----------------------------------------------------------------------
 // IsIn tests
 
-template <typename Type, typename T>
-void CheckIsIn(FunctionContext* ctx, const shared_ptr<DataType>& type,
-                 const vector<T>& in_values, const vector<bool>& in_is_valid,
-                 const vector<T>& member_set_values, const vector<bool>& member_set_is_valid,
-                 const vector<bool>& out_values, const vector<bool>& out_is_valid) {
-  shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
-  shared_ptr<Array> member_set = _MakeArray<Type, T>(type, member_set_values, member_set_is_valid);
-  shared_ptr<Array> expected = _MakeArray<BooleanType, bool>(boolean(), out_values, out_is_valid);
+template <typename Type, typename T = typename TypeTraits<Type>::c_type>
+void CheckIsIn(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
+               const std::vector<T>& in_values, const std::vector<bool>& in_is_valid,
+               const std::vector<T>& member_set_values,
+               const std::vector<bool>& member_set_is_valid,
+               const std::vector<bool>& out_values,
+               const std::vector<bool>& out_is_valid) {
+  std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
+  std::shared_ptr<Array> member_set =
+      _MakeArray<Type, T>(type, member_set_values, member_set_is_valid);
+  std::shared_ptr<Array> expected =
+      _MakeArray<BooleanType, bool>(boolean(), out_values, out_is_valid);
 
-  Datum  datum_out;
+  Datum datum_out;
   ASSERT_OK(IsIn(ctx, input, member_set, &datum_out));
-  shared_ptr<Array> result = datum_out.make_array();
+  std::shared_ptr<Array> result = datum_out.make_array();
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
 
@@ -83,9 +83,9 @@ TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckIsIn<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3},
-                                {true, false, true, true, true, true}, {2, 1, 2, 1, 2, 3},
-                                {true, false, true, true, true, true},
-                                {true, true, true, true, true, true}, {});
+                          {true, false, true, true, true, true}, {2, 1, 2, 1, 2, 3},
+                          {true, false, true, true, true, true},
+                          {true, true, true, true, true, true}, {});
 }
 
 TYPED_TEST(TestIsInKernelPrimitive, PrimitiveResizeTable) {
@@ -109,59 +109,188 @@ TYPED_TEST(TestIsInKernelPrimitive, PrimitiveResizeTable) {
 }
 
 TEST_F(TestIsInKernel, IsInNull) {
-  CheckIsIn<NullType,std::nullptr_t>(&this->ctx_, null(), {0, 0, 0},
-                                   {false, false, false}, {0, 0, 0},
-                                   {false, false, false}, {true, true, true}, {});
+  CheckIsIn<NullType, std::nullptr_t>(&this->ctx_, null(), {0, 0, 0},
+                                      {false, false, false}, {0, 0, 0},
+                                      {false, false, false}, {true, true, true}, {});
 
-  CheckIsIn<NullType,std::nullptr_t>(&this->ctx_, null(), {NULL, NULL, NULL},
-                                   {}, {NULL, NULL, NULL},
-                                   {}, {true, true, true}, {});
+  CheckIsIn<NullType, std::nullptr_t>(&this->ctx_, null(), {NULL, NULL, NULL}, {},
+                                      {NULL, NULL, NULL}, {}, {true, true, true}, {});
 
-  CheckIsIn<NullType,std::nullptr_t>(&this->ctx_, null(), {nullptr, nullptr, nullptr},
-                                   {}, {nullptr, nullptr, nullptr},
-                                   {}, {true, true, true}, {});
+  CheckIsIn<NullType, std::nullptr_t>(&this->ctx_, null(), {nullptr, nullptr, nullptr},
+                                      {}, {nullptr, nullptr, nullptr}, {},
+                                      {true, true, true}, {});
+  // empty left array
+  CheckIsIn<NullType, std::nullptr_t>(&this->ctx_, null(), {}, {},
+                                      {nullptr, nullptr, nullptr}, {}, {}, {});
+
+  // empty right array
+  CheckIsIn<NullType, std::nullptr_t>(&this->ctx_, null(), {nullptr, nullptr, nullptr},
+                                      {}, {}, {}, {false, false, false}, {});
+
+  // empty arrays
+  CheckIsIn<NullType, std::nullptr_t>(&this->ctx_, null(), {}, {}, {}, {}, {}, {});
 }
 
 TEST_F(TestIsInKernel, IsInTimeTimestamp) {
-  CheckIsIn<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {2, 1, 5, 1},
-                                   {true, false, true, true}, {2, 1, 2, 1},
-                                   {true, false, true, true}, {true, true, false, true}, {});
+  CheckIsIn<Time32Type, int32_t>(
+      &this->ctx_, time32(TimeUnit::SECOND), {2, 1, 5, 1}, {true, false, true, true},
+      {2, 1, 2, 1}, {true, false, true, true}, {true, true, false, true}, {});
+
+  // right array has no nulls
+  CheckIsIn<Time32Type, int32_t>(
+      &this->ctx_, time32(TimeUnit::SECOND), {2, 1, 5, 1}, {true, false, true, true},
+      {2, 1, 2, 1}, {true, true, true, true}, {true, false, false, true}, {});
+
+  // no match
+  CheckIsIn<Time32Type, int32_t>(
+      &this->ctx_, time32(TimeUnit::SECOND), {3, 5, 5, 3}, {true, false, true, true},
+      {2, 1, 2, 1}, {true, true, true, true}, {false, false, false, false}, {});
+
+  // empty arrays
+  CheckIsIn<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {}, {}, {}, {},
+                                 {}, {});
 
   CheckIsIn<Time64Type, int64_t>(&this->ctx_, time64(TimeUnit::NANO), {2, 1, 2, 1},
-                                   {true, false, true, true}, {2, 1, 2, 1},
-                                   {true, false, true, true}, {true, true, true, true}, {});
+                                 {true, false, true, true}, {2, 1, 2, 1},
+                                 {true, false, true, true}, {true, true, true, true}, {});
 
-  CheckIsIn<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO),
-                                      {2, 1, 2, 1}, {true, false, true, true},
-                                      {2, 1, 2, 1}, {true, false, true, true},
-                                      {true, true, true, true}, {});
+  CheckIsIn<TimestampType, int64_t>(
+      &this->ctx_, timestamp(TimeUnit::NANO), {2, 1, 2, 1}, {true, false, true, true},
+      {2, 1, 2, 1}, {true, false, true, true}, {true, true, true, true}, {});
+
+  // empty left array
+  CheckIsIn<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO), {}, {},
+                                    {2, 1, 2, 1}, {true, false, true, true}, {}, {});
+
+  // empty right array
+  CheckIsIn<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO), {2, 1, 2, 1},
+                                    {true, false, true, true}, {}, {},
+                                    {false, false, false, false}, {});
+
+  // both array have nulls
+  CheckIsIn<Time32Type, int32_t>(
+      &this->ctx_, time32(TimeUnit::SECOND), {2, 1, 2, 1}, {false, false, false, false},
+      {2, 1, 2, 1}, {false, false, false, false}, {true, true, true, true}, {});
+
+  CheckIsIn<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND),
+                                 {NULL, NULL, NULL, NULL}, {}, {NULL, NULL, NULL}, {},
+                                 {true, true, true, true}, {});
 }
 
 TEST_F(TestIsInKernel, IsInBoolean) {
   CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
-                                 {true, false, true, true}, {true, true, false, true},
-                                 {true, false, true, true}, { true, true, true, true }, {});
+                               {true, false, true, true}, {true, true, false, true},
+                               {true, false, true, true}, {true, true, true, true}, {});
 
   CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
-                                 {true, false, true, true}, {false, true, false, true},
-                                 {true, true, false, true}, {true, true, true, true}, {});
+                               {true, false, true, true}, {false, true, false, true},
+                               {true, true, false, true}, {true, true, true, true}, {});
 
   CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true}, {},
-                                 {true, true, false, true}, {}, {true, true, true, true}, {});
+                               {true, true, false, true}, {}, {true, true, true, true},
+                               {});
 
   CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true}, {},
-                                  {true, true, true, true}, {}, {false, true, false, true}, {});
+                               {true, true, true, true}, {}, {false, true, false, true},
+                               {});
+
+  // no match
+  CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {true, true, true, true}, {},
+                               {false, false, false, false}, {},
+                               {false, false, false, false}, {});
+
+  // nulls in left array
+  CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
+                               {false, false, false, false}, {true, true, true, true}, {},
+                               {false, false, false, false}, {});
+
+  // nulls in right array
+  CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true}, {},
+                               {true, true, false, true}, {false, false, false, false},
+                               {false, false, false, false}, {});
+
+  // both array have nulls
+  CheckIsIn<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
+                               {false, false, false, false}, {true, true, true, true},
+                               {false, false, false, false}, {true, true, true, true},
+                               {});
 }
 
 TEST_F(TestIsInKernel, IsInBinary) {
-  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(),
-                                       {"test", "", "test2", "test"},
-                                       {true, false, true, true}, {"test", "", "test2", "test"},
-                                       {true, false, true, true}, {true, true, true, true}, {});
+  CheckIsIn<BinaryType, std::string>(
+      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "", "test2", "test"}, {true, false, true, true}, {true, true, true, true},
+      {});
 
+  // no match
+  CheckIsIn<BinaryType, std::string>(
+      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test3", "test4", "test3"}, {true, true, true}, {false, false, false, false}, {});
+
+  // nulls in left array
+  CheckIsIn<BinaryType, std::string>(
+      &this->ctx_, binary(), {"test", "", "test2", "test"}, {false, false, false, false},
+      {"test", "test2", "test"}, {true, true, true}, {false, false, false, false}, {});
+
+  // nulls in right array
+  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(), {"test", "test2", "test"},
+                                     {true, true, true}, {"test", "", "test2", "test"},
+                                     {false, false, false, false}, {false, false, false},
+                                     {});
+
+  // both array have nulls
+  CheckIsIn<BinaryType, std::string>(
+      &this->ctx_, binary(), {"test", "", "test2", "test"}, {false, false, false, false},
+      {"test", "", "test2", "test"}, {false, false, false, false},
+      {true, true, true, true}, {});
+
+  // empty arrays
+  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(), {}, {}, {}, {}, {}, {});
+
+  // empty left array
+  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(), {}, {},
+                                     {"test", "", "test2", "test"},
+                                     {true, false, true, false}, {}, {});
+
+  // empty right array
+  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(), {"test", "", "test2", "test"},
+                                     {true, false, true, true}, {}, {},
+                                     {false, false, false, false}, {});
+
+  CheckIsIn<StringType, std::string>(
+      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "", "test2", "test"}, {true, false, true, false}, {true, true, true, true},
+      {});
+
+  // nulls in left array
+  CheckIsIn<StringType, std::string>(
+      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {false, false, false, false},
+      {"test", "test2", "test"}, {true, true, true}, {false, false, false, false}, {});
+
+  // nulls in right array
+  CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), {"test", "test2", "test"},
+                                     {true, true, true}, {"test", "", "test2", "test"},
+                                     {false, false, false, false}, {false, false, false},
+                                     {});
+
+  // both array have nulls
+  CheckIsIn<StringType, std::string>(
+      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {false, false, false, false},
+      {"test", "", "test2", "test"}, {false, false, false, false},
+      {true, true, true, true}, {});
+
+  // both array are empty
+  CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), {}, {}, {}, {}, {}, {});
+
+  // empty left array
+  CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), {}, {},
+                                     {"test", "", "test2", "test"},
+                                     {true, false, true, false}, {}, {});
+
+  // empty right array
   CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), {"test", "", "test2", "test"},
-                                       {true, false, true, true}, {"test","", "test2", "test"},
-                                       {true, false, true, false}, {true, true, true, true}, {});
+                                     {true, false, true, true}, {}, {},
+                                     {false, false, false, false}, {});
 }
 
 TEST_F(TestIsInKernel, BinaryResizeTable) {
@@ -188,10 +317,10 @@ TEST_F(TestIsInKernel, BinaryResizeTable) {
   }
 
   CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(), values, {}, member_set, {},
-                                           expected, {});
+                                     expected, {});
 
   CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), values, {}, member_set, {},
-                                           expected, {});
+                                     expected, {});
 }
 
 TEST_F(TestIsInKernel, IsInFixedSizeBinary) {
@@ -199,6 +328,44 @@ TEST_F(TestIsInKernel, IsInFixedSizeBinary) {
       &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
       {true, false, true, true, true}, {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
       {true, false, true, true, true}, {true, true, true, true, true}, {});
+
+  // nulls in left
+  CheckIsIn<FixedSizeBinaryType, std::string>(
+      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {false, false, false, false, false}, {"bbbbb", "bbbbb", "aaaaa", "ccccc"},
+      {true, true, true, true, true}, {false, false, false, false, false}, {});
+
+  // nulls in right
+  CheckIsIn<FixedSizeBinaryType, std::string>(
+      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {true, false, true, true, true}, {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {false, false, false, false, false}, {false, true, false, false, false}, {});
+
+  // both array have nulls
+  CheckIsIn<FixedSizeBinaryType, std::string>(
+      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {false, false, false, false, false}, {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {false, false, false, false, false}, {true, true, true, true, true}, {});
+
+  // no match
+  CheckIsIn<FixedSizeBinaryType, std::string>(
+      &this->ctx_, fixed_size_binary(5), {"bbbbc", "bbbbc", "aaaad", "cccca"},
+      {true, true, true, true}, {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {true, false, true, true, true}, {false, false, false, false}, {});
+
+  // empty left array
+  CheckIsIn<FixedSizeBinaryType, std::string>(&this->ctx_, fixed_size_binary(5), {}, {},
+                                              {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+                                              {true, false, true, true, true}, {}, {});
+
+  // empty right array
+  CheckIsIn<FixedSizeBinaryType, std::string>(
+      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      {true, false, true, true, true}, {}, {}, {false, false, false, false, false}, {});
+
+  // empty arrays
+  CheckIsIn<FixedSizeBinaryType, std::string>(&this->ctx_, fixed_size_binary(0), {}, {},
+                                              {}, {}, {}, {});
 }
 
 TEST_F(TestIsInKernel, FixedSizeBinaryResizeTable) {
@@ -227,43 +394,18 @@ TEST_F(TestIsInKernel, FixedSizeBinaryResizeTable) {
   }
 
   auto type = fixed_size_binary(6);
-  CheckIsIn<FixedSizeBinaryType, std::string>(&this->ctx_, type, values, {},
-                                                    member_set, {}, expected, {});
+  CheckIsIn<FixedSizeBinaryType, std::string>(&this->ctx_, type, values, {}, member_set,
+                                              {}, expected, {});
 }
 
 TEST_F(TestIsInKernel, IsInDecimal) {
-  vector<Decimal128> input{12, 12, 11, 12};
-  vector<Decimal128> member_set{12, 12, 11, 12};
-  vector<bool> expected{true, true, true, true};
+  std::vector<Decimal128> input{12, 12, 11, 12};
+  std::vector<Decimal128> member_set{12, 12, 11, 12};
+  std::vector<bool> expected{true, true, true, true};
 
   CheckIsIn<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), input,
-                                          {true, false, true, true}, member_set,
-                                          {true, false, true, true}, expected, {});
-}
-
-TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
-  std::vector<std::string> values1 = {"foo", "bar", "foo"};
-  std::vector<std::string> values2 = {"bar", "baz", "quuux", "foo"};
-
-  auto type = utf8();
-  auto a1 = _MakeArray<StringType, std::string>(type, values1, {});
-  auto a2 = _MakeArray<StringType, std::string>(type, values2, {});
-
-  ArrayVector arrays = {a1, a2};
-  auto carr = std::make_shared<ChunkedArray>(arrays);
-  auto member_set = std::make_shared<ChunkedArray>(arrays);
-
-  auto i1 = _MakeArray<BooleanType, bool>(boolean(), {true, true, true}, {});
-  auto i2 = _MakeArray<BooleanType, bool>(boolean(), {true, true, true, true}, {});
-
-  ArrayVector expected = {i1, i2};
-  auto expected_carr = std::make_shared<ChunkedArray>(expected);
-
-  Datum encoded_out;
-  ASSERT_OK(IsIn(&this->ctx_, carr, member_set, &encoded_out));
-  ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());
-
-  AssertChunkedEqual(*expected_carr, *encoded_out.chunked_array());
+                                        {true, false, true, true}, member_set,
+                                        {true, false, true, true}, expected, {});
 }
 
 }  // namespace compute
