@@ -111,8 +111,9 @@ if __name__ == "__main__":
         cmd.append('-fix')
         results = lintutils.run_parallel(
             [cmd + some for some in lintutils.chunk(linted_filenames, 16)])
-        for result in results:
-            result.check_returncode()
+        for returncode, stdout, stderr in results:
+            if returncode != 0:
+                sys.exit(returncode)
 
     else:
         _check_all(cmd, linted_filenames)
