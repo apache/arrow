@@ -37,10 +37,12 @@ logging.basicConfig(level=logging.INFO)
 @click.group()
 @click.option("--debug", type=bool, is_flag=True, default=False,
               help="Increase logging with debugging output.")
+@click.option("--pdb", type=bool, is_flag=True, default=False,
+              help="Invoke pdb on uncaught exception.")
 @click.option("-q", "--quiet", type=bool, is_flag=True, default=False,
               help="Silence executed commands.")
 @click.pass_context
-def archery(ctx, debug, quiet):
+def archery(ctx, debug, pdb, quiet):
     """ Apache Arrow developer utilities.
 
     See sub-commands help with `archery <cmd> --help`.
@@ -52,6 +54,10 @@ def archery(ctx, debug, quiet):
     log_ctx.quiet = quiet
     if debug:
         logger.setLevel(logging.DEBUG)
+
+    if pdb:
+        import pdb
+        sys.excepthook = lambda t, v, e: pdb.pm()
 
 
 def validate_arrow_sources(ctx, param, src):
@@ -357,7 +363,7 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
         for comparator in runner_comp.comparisons:
             regressions += comparator.regression
             json.dump(comparator, output, cls=JsonEncoder)
-            output.write('\n')
+            output.write("\n")
 
         sys.exit(regressions)
 

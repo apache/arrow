@@ -87,13 +87,14 @@ class GoogleBenchmarkObservation:
     """
 
     def __init__(self, name, real_time, cpu_time, time_unit, size=None,
-                 bytes_per_second=None, **kwargs):
+                 bytes_per_second=None, items_per_second=None, **kwargs):
         self._name = name
         self.real_time = real_time
         self.cpu_time = cpu_time
         self.time_unit = time_unit
         self.size = size
         self.bytes_per_second = bytes_per_second
+        self.items_per_second = items_per_second
 
     @property
     def is_agg(self):
@@ -118,11 +119,21 @@ class GoogleBenchmarkObservation:
     @property
     def value(self):
         """ Return the benchmark value."""
-        return self.bytes_per_second if self.size else self.time
+        if self.bytes_per_second:
+            return self.bytes_per_second
+        elif self.items_per_second:
+            return self.items_per_second
+        else:
+            return self.time
 
     @property
     def unit(self):
-        return "bytes_per_second" if self.size else self.time_unit
+        if self.bytes_per_second:
+            return "bytes_per_second"
+        elif self.items_per_second:
+            return "items_per_second"
+        else:
+            return self.time_unit
 
     def __repr__(self):
         return f"{self.value}"
@@ -147,9 +158,7 @@ class GoogleBenchmark(Benchmark):
         _, runs = partition(lambda b: b.is_agg, runs)
         self.runs = sorted(runs, key=lambda b: b.value)
         unit = self.runs[0].unit
-        # If `size` is found in the json dict, then the benchmark is reported
-        # in bytes per second
-        less_is_better = self.runs[0].size is None
+        less_is_better = not unit.endswith("per_second")
         values = [b.value for b in self.runs]
         super().__init__(name, unit, less_is_better, values)
 
