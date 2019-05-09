@@ -38,8 +38,8 @@ namespace mlarrow {
 
 namespace internal {
 
-// Verify that the input mxArray struct field has the right field name and type.
-// Returns void since these errors should stop execution and throw in the MATLAB layer.
+// Utility that helps verify the input mxArray struct field name and type.
+// Returns void since any errors will throw and terminate MEX execution.
 void ValidateMxStructField(const mxArray* struct_array, const char* fieldname,
                            const mxClassID expected_class_id, const bool can_be_empty) {
   // Check that the input mxArray is a struct array.
@@ -144,7 +144,7 @@ size_t GetNumberOfElements(const mxArray* array) {
 }
 
 // Write an mxLogicalArray* into a bit-packed arrow::MutableBuffer
-void MxLogicalArray2Buffer(const mxArray* logical_array,
+void BitPackBuffer(const mxArray* logical_array,
                            std::shared_ptr<arrow::MutableBuffer> packed_buffer) {
   // Error out if the incorrect type is passed in.
   if (!mxIsLogical(logical_array)) {
@@ -169,21 +169,15 @@ void MxLogicalArray2Buffer(const mxArray* logical_array,
       reinterpret_cast<const uint8_t*>(mxGetLogicals(logical_array));
 
   // Iterate over the mxLogical array and write bit-packed bools to the arrow::Buffer.
-  for (int64_t idx = 0; idx < unpacked_buffer_length; ++idx) {
+  for (int64_t i = 0; i < unpacked_buffer_length; ++i) {
     // If the mxLogical value is true, set the corresponding bit in the bit-packed
     // buffer. Otherwise, clear that bit.
-    if (unpacked_buffer_ptr[idx]) {
-      arrow::BitUtil::SetBit(packed_buffer_ptr, idx);
+    if (unpacked_buffer_ptr[i]) {
+      arrow::BitUtil::SetBit(packed_buffer_ptr, i);
     } else {
-      arrow::BitUtil::ClearBit(packed_buffer_ptr, idx);
+      arrow::BitUtil::ClearBit(packed_buffer_ptr, i);
     }
   }
-}
-
-void WriteVariableValidityBitmap(const mxArray* valid,
-                                 std::shared_ptr<arrow::MutableBuffer> validity_bitmap) {
-  // Call a helper function that writes mxLogical values into a bit-packed arrow::Buffer.
-  MxLogicalArray2Buffer(valid, validity_bitmap);
 }
 
 // Write numeric datatypes to the Feather file.
@@ -211,7 +205,8 @@ std::unique_ptr<arrow::Array> WriteNumericData(
                         mxGetElementSize(data) * mxGetNumberOfElements(data)));
 
   // Construct arrow::NumericArray specialization using arrow::Buffer.
-  // pass in nulls information...we could compute and provide the number of nulls here too
+  // Pass in nulls information...we could compute and provide the number of nulls here too,
+  // but passing -1 for now so that Arrow recomputes it if necessary.
   std::unique_ptr<arrow::Array> array_wrapper(new arrow::NumericArray<ArrowDataType>(
       mxGetNumberOfElements(data), buffer, validity_bitmap, -1));
 
@@ -301,7 +296,7 @@ arrow::Status FeatherWriter::WriteMetadata(const mxArray* metadata) {
       static_cast<int64_t>(mxGetScalar(mxGetField(metadata, 0, "NumVariables")));
 
   // Store the version information so we could handle possible future API changes.
-  this->version_ = static_cast<int>(mxGetScalar(mxGetField(metadata, 0, "Version")));
+  this->version_ = static_cast<int32_t>(mxGetScalar(mxGetField(metadata, 0, "Version")));
 
   return arrow::Status::OK();
 }
@@ -348,7 +343,7 @@ arrow::Status FeatherWriter::WriteVariables(const mxArray* variables) {
         packed_validity_buffer.get(), packed_validity_buffer_len));
 
     // Populate bit-packed arrow::Buffer using validity data in the mxArray*.
-    internal::WriteVariableValidityBitmap(valid, validity_bitmap);
+    internal::BitPackBuffer(valid, validity_bitmap);
 
     // Wrap mxArray data in an arrow::Array of the equivalent type.
     std::unique_ptr<arrow::Array> array =

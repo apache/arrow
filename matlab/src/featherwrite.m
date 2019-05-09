@@ -49,7 +49,7 @@ metadata = createMetadataStruct(featherVersion, t.Properties.Description, height
 % Iterate over each variable in the given table,
 % extracting the underlying array data.
 for ii = 1:width(t)
-    data = t{:, ii};
+    data = t.(ii);
     % Multi-column table variables are unsupported.
     if ~isvector(data)
         error('MATLAB:arrow:MultiColumnVariablesUnsupported', ...

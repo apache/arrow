@@ -71,7 +71,7 @@ class FeatherReader {
   int64_t num_rows_;
   int64_t num_variables_;
   std::string description_;
-  int version_;
+  int32_t version_;
 };
 
 }  // namespace mlarrow

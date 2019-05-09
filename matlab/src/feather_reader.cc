@@ -29,6 +29,7 @@
 #include "feather_reader.h"
 #include "matlab_traits.h"
 #include "util/handle_status.h"
+#include "util/unicode_conversion.h"
 
 namespace mlarrow {
 
@@ -36,7 +37,7 @@ namespace internal {
 
 // Read the name of variable i from the Feather file as a mxArray*.
 mxArray* ReadVariableName(const std::shared_ptr<arrow::Column>& column) {
-  return mxCreateString(column->name().c_str());
+  return mlarrow::util::ConvertUTF8StringToUTF16CharMatrix(column->name());
 }
 
 template <typename ArrowDataType>
@@ -45,7 +46,7 @@ mxArray* ReadNumericVariableData(const std::shared_ptr<arrow::Column>& column) {
   using ArrowArrayType = typename arrow::TypeTraits<ArrowDataType>::ArrayType;
 
   std::shared_ptr<arrow::ChunkedArray> chunked_array = column->data();
-  const int num_chunks = chunked_array->num_chunks();
+  const int32_t num_chunks = chunked_array->num_chunks();
 
   const mxClassID matlab_class_id = MatlabTraits<ArrowDataType>::matlab_class_id;
   // Allocate a numeric mxArray* with the correct mxClassID based on the type of the
@@ -55,13 +56,18 @@ mxArray* ReadNumericVariableData(const std::shared_ptr<arrow::Column>& column) {
 
   int64_t mx_array_offset = 0;
   // Iterate over each arrow::Array in the arrow::ChunkedArray.
-  for (int i = 0; i < num_chunks; ++i) {
+  for (int32_t i = 0; i < num_chunks; ++i) {
     std::shared_ptr<arrow::Array> array = chunked_array->chunk(i);
     const int64_t chunk_length = array->length();
-    std::shared_ptr<ArrowArrayType> arr = std::static_pointer_cast<ArrowArrayType>(array);
-    const auto data = arr->raw_values();
-    MatlabType* dt = MatlabTraits<ArrowDataType>::GetData(variable_data);
-    std::copy(data, data + chunk_length, dt + mx_array_offset);
+    std::shared_ptr<ArrowArrayType> integer_array = std::static_pointer_cast<ArrowArrayType>(array);
+
+    // Get a raw pointer to the Arrow array data.
+    const MatlabType* source = integer_array->raw_values();
+
+    // Get a mutable pointer to the MATLAB array data and std::copy the
+    // Arrow array data into it.
+    MatlabType* destination = MatlabTraits<ArrowDataType>::GetData(variable_data);
+    std::copy(source, source + chunk_length, destination + mx_array_offset);
     mx_array_offset += chunk_length;
   }
 
@@ -105,6 +111,29 @@ mxArray* ReadVariableData(const std::shared_ptr<arrow::Column>& column) {
   return nullptr;
 }
 
+// arrow::Buffers are bit-packed, while mxLogical arrays aren't. This utility
+// uses arrow::BitUtil::GetBit to copy each bit of an arrow::Buffer into
+// each byte of an mxLogical array.
+void BitUnpackBuffer(const std::shared_ptr<arrow::Buffer>& source, const int64_t length,
+                     bool* destination) {
+
+  // If the arrow::Buffer's null_bitmap pointer is nullptr, then fill
+  // the destination with values to signify valid elements.
+  if (!source) {
+    std::fill(destination, destination + length, true);
+    return;
+  }
+
+  const uint8_t* source_data = source->data();
+
+  // Unpack the bit-packed validity (null) bitmap.
+  for (int64_t i = 0; i < length; ++i) {
+    // Here arrow::BitUtil::GetBit will return an expanded 8-bit bool representation 
+    // of a single bit in the validity bitmap.
+    destination[i] = arrow::BitUtil::GetBit(source_data, i);
+  }
+}
+
 // Read the validity (null) bitmap of variable i from the Feather
 // file as an mxArray*.
 mxArray* ReadVariableValidityBitmap(const std::shared_ptr<arrow::Column>& column) {
@@ -126,33 +155,30 @@ mxArray* ReadVariableValidityBitmap(const std::shared_ptr<arrow::Column>& column
   }
 
   std::shared_ptr<arrow::ChunkedArray> chunked_array = column->data();
-  const int num_chunks = chunked_array->num_chunks();
+  const int32_t num_chunks = chunked_array->num_chunks();
 
   int64_t mx_array_offset = 0;
   // Iterate over each arrow::Array in the arrow::ChunkedArray.
-  for (int i = 0; i < num_chunks; ++i) {
-    std::shared_ptr<arrow::Array> array = chunked_array->chunk(i);
-    const int64_t chunk_length = array->length();
+  for (int32_t chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
 
-    const uint8_t* validity_bitmap_packed = array->null_bitmap()->data();
-    // Unpack the bit-packed validity (null) bitmap.
-    for (int64_t j = 0; j < chunk_length; ++j) {
-      validity_bitmap_unpacked[mx_array_offset + j] =
-          arrow::BitUtil::GetBit(validity_bitmap_packed, j);
-    }
+    std::shared_ptr<arrow::Array> array = chunked_array->chunk(chunk_index);
+    const int64_t array_length = array->length();
 
-    mx_array_offset += chunk_length;
+    internal::BitUnpackBuffer(array->null_bitmap(), array_length,
+                              validity_bitmap_unpacked + mx_array_offset);
+
+    mx_array_offset += array_length;
   }
 
   return validity_bitmap;
 }
 
-// Read the type of variable i from the Feather file as a mxArray*.
+// Read the type name of an Arrow column as an mxChar array.
 mxArray* ReadVariableType(const std::shared_ptr<arrow::Column>& column) {
-  return mxCreateString(column->type()->name().c_str());
+  return mlarrow::util::ConvertUTF8StringToUTF16CharMatrix(column->type()->name());
 }
 
-// MATLAB arrays cannot be larger than 2^48.
+// MATLAB arrays cannot be larger than 2^48 elements.
 static constexpr uint64_t MAX_MATLAB_SIZE = static_cast<uint64_t>(0x01) << 48;
 
 }  // namespace internal
@@ -160,14 +186,18 @@ static constexpr uint64_t MAX_MATLAB_SIZE = static_cast<uint64_t>(0x01) << 48;
 arrow::Status FeatherReader::Open(const std::string& filename,
                                   std::shared_ptr<FeatherReader>* feather_reader) {
   *feather_reader = std::shared_ptr<FeatherReader>(new FeatherReader());
+ 
   // Open file with given filename as a ReadableFile.
   std::shared_ptr<arrow::io::ReadableFile> readable_file(nullptr);
-  auto status = arrow::io::ReadableFile::Open(filename, &readable_file);
+  
+  arrow::Status status = arrow::io::ReadableFile::Open(filename, &readable_file);
   if (!status.ok()) {
     return status;
   }
+  
   // TableReader expects a RandomAccessFile.
   std::shared_ptr<arrow::io::RandomAccessFile> random_access_file(readable_file);
+  
   // Open the Feather file for reading with a TableReader.
   status = arrow::ipc::feather::TableReader::Open(random_access_file,
                                                   &(*feather_reader)->table_reader_);
@@ -196,7 +226,7 @@ arrow::Status FeatherReader::Open(const std::string& filename,
 
 // Read the table metadata from the Feather file as a mxArray*.
 mxArray* FeatherReader::ReadMetadata() const {
-  const int num_metadata_fields = 4;
+  const int32_t num_metadata_fields = 4;
   const char* fieldnames[] = {"NumRows", "NumVariables", "Description", "Version"};
 
   // Create a mxArray struct array containing the table metadata to be passed back to
@@ -214,7 +244,7 @@ mxArray* FeatherReader::ReadMetadata() const {
              mxCreateDoubleScalar(static_cast<double>(num_variables_)));
 
   // Set the description.
-  mxSetField(metadata, 0, "Description", mxCreateString(description_.c_str()));
+  mxSetField(metadata, 0, "Description", mlarrow::util::ConvertUTF8StringToUTF16CharMatrix(description_));
 
   // Set the version.
   mxSetField(metadata, 0, "Version", mxCreateDoubleScalar(static_cast<double>(version_)));
@@ -224,7 +254,7 @@ mxArray* FeatherReader::ReadMetadata() const {
 
 // Read the table variables from the Feather file as a mxArray*.
 mxArray* FeatherReader::ReadVariables() const {
-  const int num_variable_fields = 4;
+  const int32_t num_variable_fields = 4;
   const char* fieldnames[] = {"Name", "Type", "Data", "Valid"};
 
   // Create an mxArray* struct array containing the table variables to be passed back to
