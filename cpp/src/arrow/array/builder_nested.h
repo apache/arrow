@@ -92,12 +92,6 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 
 /// \class FixedSizeListBuilder
 /// \brief Builder class for fixed-length list array value types
-///
-/// A note on types.  Per arrow/type.h all types in the c++ implementation are
-/// logical so even though this class always builds list array, this can
-/// represent multiple different logical types.  If no logical type is provided
-/// at construction time, the class defaults to List<T> where t is taken from the
-/// value_builder/values that the object is constructed with.
 class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
  public:
   FixedSizeListBuilder(MemoryPool* pool,

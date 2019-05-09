@@ -467,9 +467,6 @@ TEST_F(TestFixedSizeListArray, TestBasics) {
 
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
 
-  ASSERT_OK(builder_->Reserve(values.size() / list_size()));
-  ASSERT_OK(vb->Reserve(values.size()));
-
   int pos = 0;
   for (size_t i = 0; i < values.size() / list_size(); ++i) {
     if (is_valid[i] == 0) {
@@ -493,9 +490,6 @@ TEST_F(TestFixedSizeListArray, BulkAppend) {
 
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
 
-  ASSERT_OK(builder_->Reserve(values.size() / list_size()));
-  ASSERT_OK(vb->Reserve(values.size()));
-
   ASSERT_OK(builder_->AppendValues(values.size() / list_size(), is_valid.data()));
   for (int32_t value : values) {
     ASSERT_OK(vb->Append(value));
@@ -509,9 +503,6 @@ TEST_F(TestFixedSizeListArray, BulkAppendInvalid) {
   std::vector<uint8_t> is_valid = {1, 0, 1};
 
   Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
-
-  ASSERT_OK(builder_->Reserve(values.size() / list_size()));
-  ASSERT_OK(vb->Reserve(values.size()));
 
   ASSERT_OK(builder_->AppendValues(values.size() / list_size(), is_valid.data()));
   for (int32_t value : values) {

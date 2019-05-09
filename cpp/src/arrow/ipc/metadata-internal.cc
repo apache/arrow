@@ -295,7 +295,7 @@ static Status ConcreteTypeFromFlatbuffer(
       return Status::OK();
     case flatbuf::Type_FixedSizeList:
       if (children.size() != 1) {
-        return Status::Invalid("List must have exactly 1 child field");
+        return Status::Invalid("FixedSizeList must have exactly 1 child field");
       } else {
         auto fs_list = static_cast<const flatbuf::FixedSizeList*>(type_data);
         *out = std::make_shared<FixedSizeListType>(children[0], fs_list->listSize());

@@ -525,7 +525,7 @@ class ARROW_EXPORT ListArray : public Array {
 // ----------------------------------------------------------------------
 // FixedSizeListArray
 
-/// Concrete Array class for list data
+/// Concrete Array class for fixed size list data
 class ARROW_EXPORT FixedSizeListArray : public Array {
  public:
   using TypeClass = FixedSizeListType;

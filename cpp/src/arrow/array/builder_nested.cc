@@ -156,7 +156,8 @@ FixedSizeListBuilder::FixedSizeListBuilder(
     MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
     const std::shared_ptr<DataType>& type)
     : ArrayBuilder(type, pool),
-      list_size_(static_cast<const FixedSizeListType*>(type.get())->list_size()),
+      list_size_(
+          internal::checked_cast<const FixedSizeListType*>(type.get())->list_size()),
       value_builder_(value_builder) {}
 
 void FixedSizeListBuilder::Reset() {
