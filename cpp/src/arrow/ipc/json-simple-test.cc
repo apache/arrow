@@ -66,19 +66,19 @@ void JSONArrayInternal(std::ostream* ss, uint8_t value) {
 }
 
 template <typename Value>
-void JSONArrayInternal(std::ostream* ss, const Value& value) {
+void JSONArrayInternal(std::ostream* ss, Value&& value) {
   *ss << value;
 }
 
 template <typename Value, typename... Tail>
-void JSONArrayInternal(std::ostream* ss, const Value& value, Tail... tail) {
-  JSONArrayInternal(ss, value);
+void JSONArrayInternal(std::ostream* ss, Value&& value, Tail&&... tail) {
+  JSONArrayInternal(ss, std::forward<Value>(value));
   *ss << ", ";
   JSONArrayInternal(ss, std::forward<Tail>(tail)...);
 }
 
 template <typename... Args>
-std::string JSONArray(Args... args) {
+std::string JSONArray(Args&&... args) {
   std::stringstream ss;
   ss << "[";
   JSONArrayInternal(&ss, std::forward<Args>(args)...);
@@ -533,6 +533,129 @@ TEST(TestList, IntegerListList) {
     ASSERT_OK(child_builder.Append());
     ASSERT_OK(list_builder.Finish(&expected));
   }
+}
+
+TEST(TestFixedSizeList, IntegerList) {
+  auto pool = default_memory_pool();
+  std::shared_ptr<DataType> type = fixed_size_list(int64(), 2);
+  std::shared_ptr<Array> values, expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  ArrayFromVector<Int64Type>({}, &values);
+  expected = std::make_shared<FixedSizeListArray>(type, 0, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[4, 5], [0, 0], [6, 7]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  ArrayFromVector<Int64Type>({4, 5, 0, 0, 6, 7}, &values);
+  expected = std::make_shared<FixedSizeListArray>(type, 3, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[null, null], [0, null], [6, null]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  auto is_valid = std::vector<bool>{false, false, true, false, true, false};
+  ArrayFromVector<Int64Type>(is_valid, {0, 0, 0, 0, 6, 0}, &values);
+  expected = std::make_shared<FixedSizeListArray>(type, 3, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[null, [null, null], null]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  {
+    std::unique_ptr<ArrayBuilder> builder;
+    ASSERT_OK(MakeBuilder(pool, type, &builder));
+    auto& list_builder = checked_cast<FixedSizeListBuilder&>(*builder);
+    auto value_builder = checked_cast<Int64Builder*>(list_builder.value_builder());
+    ASSERT_OK(list_builder.AppendNull());
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(value_builder->AppendNull());
+    ASSERT_OK(value_builder->AppendNull());
+    ASSERT_OK(list_builder.AppendNull());
+    ASSERT_OK(list_builder.Finish(&expected));
+  }
+  AssertArraysEqual(*expected, *actual);
+}
+
+TEST(TestFixedSizeList, IntegerListErrors) {
+  std::shared_ptr<DataType> type = fixed_size_list(int64(), 2);
+  std::shared_ptr<Array> array;
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0.0, 1.0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[9223372036854775808, 0]]", &array));
+}
+
+TEST(TestFixedSizeList, NullList) {
+  auto pool = default_memory_pool();
+  std::shared_ptr<DataType> type = fixed_size_list(null(), 2);
+  std::shared_ptr<Array> values, expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  values = std::make_shared<NullArray>(0);
+  expected = std::make_shared<FixedSizeListArray>(type, 0, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[null, null], [null, null], [null, null]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  values = std::make_shared<NullArray>(6);
+  expected = std::make_shared<FixedSizeListArray>(type, 3, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[null, [null, null], null]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  {
+    std::unique_ptr<ArrayBuilder> builder;
+    ASSERT_OK(MakeBuilder(pool, type, &builder));
+    auto& list_builder = checked_cast<FixedSizeListBuilder&>(*builder);
+    auto value_builder = checked_cast<NullBuilder*>(list_builder.value_builder());
+    ASSERT_OK(list_builder.AppendNull());
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(value_builder->AppendNull());
+    ASSERT_OK(value_builder->AppendNull());
+    ASSERT_OK(list_builder.AppendNull());
+    ASSERT_OK(list_builder.Finish(&expected));
+  }
+  AssertArraysEqual(*expected, *actual);
+}
+
+TEST(TestFixedSizeList, IntegerListList) {
+  auto pool = default_memory_pool();
+  auto nested_type = fixed_size_list(uint8(), 2);
+  std::shared_ptr<DataType> type = fixed_size_list(nested_type, 1);
+  std::shared_ptr<Array> values, nested, expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, "[[[1, 4]], [[2, 5]], [[3, 6]]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  ArrayFromVector<UInt8Type>({1, 4, 2, 5, 3, 6}, &values);
+  nested = std::make_shared<FixedSizeListArray>(nested_type, 3, values);
+  expected = std::make_shared<FixedSizeListArray>(type, 3, nested);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[[1, null]], [null], null]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  {
+    std::unique_ptr<ArrayBuilder> builder;
+    ASSERT_OK(MakeBuilder(pool, type, &builder));
+    auto& list_builder = checked_cast<FixedSizeListBuilder&>(*builder);
+    auto nested_builder =
+        checked_cast<FixedSizeListBuilder*>(list_builder.value_builder());
+    auto value_builder = checked_cast<UInt8Builder*>(nested_builder->value_builder());
+
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(nested_builder->Append());
+    ASSERT_OK(value_builder->Append(1));
+    ASSERT_OK(value_builder->AppendNull());
+
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(nested_builder->AppendNull());
+
+    ASSERT_OK(list_builder.AppendNull());
+
+    ASSERT_OK(list_builder.Finish(&expected));
+  }
+  AssertArraysEqual(*expected, *actual);
 }
 
 TEST(TestStruct, SimpleStruct) {

@@ -442,6 +442,46 @@ class ListConverter final : public ConcreteConverter<ListConverter> {
 };
 
 // ------------------------------------------------------------------------
+// Converter for fixed size list arrays
+
+class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConverter> {
+ public:
+  explicit FixedSizeListConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
+
+  Status Init() override {
+    const auto& list_type = checked_cast<const FixedSizeListType&>(*type_);
+    list_size_ = list_type.list_size();
+    RETURN_NOT_OK(GetConverter(list_type.value_type(), &child_converter_));
+    auto child_builder = child_converter_->builder();
+    builder_ = std::make_shared<FixedSizeListBuilder>(default_memory_pool(),
+                                                      child_builder, type_);
+    return Status::OK();
+  }
+
+  Status AppendNull() override { return builder_->AppendNull(); }
+
+  Status AppendValue(const rj::Value& json_obj) override {
+    if (json_obj.IsNull()) {
+      return AppendNull();
+    }
+    RETURN_NOT_OK(builder_->Append());
+    // Extend the child converter with this JSON array
+    RETURN_NOT_OK(child_converter_->AppendValues(json_obj));
+    if (json_obj.GetArray().Size() != static_cast<rj::SizeType>(list_size_)) {
+      return Status::Invalid("incorrect list size ", json_obj.GetArray().Size());
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
+
+ private:
+  int32_t list_size_;
+  std::shared_ptr<FixedSizeListBuilder> builder_;
+  std::shared_ptr<Converter> child_converter_;
+};
+
+// ------------------------------------------------------------------------
 // Converter for struct arrays
 
 class StructConverter final : public ConcreteConverter<StructConverter> {
@@ -547,6 +587,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::FLOAT, FloatConverter<FloatType>)
     SIMPLE_CONVERTER_CASE(Type::DOUBLE, FloatConverter<DoubleType>)
     SIMPLE_CONVERTER_CASE(Type::LIST, ListConverter)
+    SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_LIST, FixedSizeListConverter)
     SIMPLE_CONVERTER_CASE(Type::STRUCT, StructConverter)
     SIMPLE_CONVERTER_CASE(Type::STRING, StringConverter)
     SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter)
