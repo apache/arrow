@@ -168,10 +168,8 @@ class ArrayPrinter : public PrettyPrinter {
   Status WriteDataValues(const TimestampArray& array) {
     const int64_t* data = array.raw_values();
     const auto type = static_cast<const TimestampType*>(array.type().get());
-    const auto fmt = "%F %T" + type->timezone();
-    WriteValues(array, [&](int64_t i) {
-      FormatDateTime(type->unit(), fmt.c_str(), data[i], true);
-    });
+    WriteValues(array,
+                [&](int64_t i) { FormatDateTime(type->unit(), "%F %T", data[i], true); });
     return Status::OK();
   }
 

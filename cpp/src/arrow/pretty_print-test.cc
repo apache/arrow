@@ -198,14 +198,14 @@ TEST_F(TestPrettyPrint, DateTimeTypes) {
     std::vector<int64_t> values = {
         0, 1, 2, 678 + 1000000 * (5 + 60 * (4 + 60 * (3 + 24 * int64_t(1)))), 4};
     static const char* expected = R"expected([
-  1970-01-01 00:00:00.000000Z,
-  1970-01-01 00:00:00.000001Z,
+  1970-01-01 00:00:00.000000,
+  1970-01-01 00:00:00.000001,
   null,
-  1970-01-02 03:04:05.000678Z,
+  1970-01-02 03:04:05.000678,
   null
 ])expected";
-    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MICRO, "Z"), {0, 10},
-                                           is_valid, values, expected);
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MICRO, "Transylvania"),
+                                           {0, 10}, is_valid, values, expected);
   }
 
   {
