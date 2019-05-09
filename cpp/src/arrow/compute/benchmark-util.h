@@ -32,40 +32,42 @@ static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::L1_CACHE);
 static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::L2_CACHE);
 static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
 static const int64_t kCantFitInL3Size = kL3Size * 4;
+static const std::vector<int64_t> kMemorySizes = {kL1Size, kL2Size, kL3Size,
+                                                  kCantFitInL3Size};
 
 template <typename Func>
 struct BenchmarkArgsType;
 
+// Pattern matching that extracts the vector element type of Benchmark::Args()
 template <typename Values>
 struct BenchmarkArgsType<benchmark::internal::Benchmark* (
     benchmark::internal::Benchmark::*)(const std::vector<Values>&)> {
   using type = Values;
 };
 
-void BenchmarkSetArgs(benchmark::internal::Benchmark* bench) {
-  // Benchmark changed its parameter type between releases from
-  // int to int64_t. As it doesn't have version macros, we need
-  // to apply C++ template magic.
-  using ArgsType =
-      typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
+// Benchmark changed its parameter type between releases from
+// int to int64_t. As it doesn't have version macros, we need
+// to apply C++ template magic.
+using ArgsType =
+    typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
+
+void BenchmarkSetArgsWithSizes(benchmark::internal::Benchmark* bench,
+                               const std::vector<int64_t>& sizes = kMemorySizes) {
   bench->Unit(benchmark::kMicrosecond);
 
-  for (auto size : {kL1Size, kL2Size, kL3Size, kCantFitInL3Size})
+  for (auto size : sizes)
     for (auto nulls : std::vector<ArgsType>({0, 1, 10, 50}))
       bench->Args({static_cast<ArgsType>(size), nulls});
 }
 
-void RegressionSetArgs(benchmark::internal::Benchmark* bench) {
-  // Benchmark changed its parameter type between releases from
-  // int to int64_t. As it doesn't have version macros, we need
-  // to apply C++ template magic.
-  using ArgsType =
-      typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
-  bench->Unit(benchmark::kMicrosecond);
+void BenchmarkSetArgs(benchmark::internal::Benchmark* bench) {
+  BenchmarkSetArgsWithSizes(bench, kMemorySizes);
+}
 
-  // Regressions should only bench L1 data for better stability
-  for (auto nulls : std::vector<ArgsType>({0, 1, 10, 50}))
-    bench->Args({static_cast<ArgsType>(kL1Size), nulls});
+void RegressionSetArgs(benchmark::internal::Benchmark* bench) {
+  // Regression do not need to account for cache hierarchy, thus optimize for
+  // the best case.
+  BenchmarkSetArgsWithSizes(bench, {kL1Size});
 }
 
 }  // namespace compute
