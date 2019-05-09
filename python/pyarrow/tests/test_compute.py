@@ -61,6 +61,12 @@ def test_take(ty, values):
         expected = pa.array([values[0], values[4], values[2], None], type=ty)
         assert result.equals(expected)
 
+        # empty indices
+        indices = pa.array([], type=indices_type)
+        result = arr.take(indices)
+        expected = pa.array([], type=ty)
+        assert result.equals(expected)
+
     indices = pa.array([2, 5])
     with pytest.raises(ValueError):
         # TODO should be IndexError ?
@@ -72,8 +78,15 @@ def test_take(ty, values):
         arr.take(indices)
 
 
-def test_take_invalid_indices():
+def test_take_indices_types():
     arr = pa.array(range(5))
+
+    for indices_type in ['uint8', 'int8', 'uint16', 'int16',
+                         'uint32', 'int32', 'uint64', 'int64']:
+        indices = pa.array([0, 4, 2, None], type=indices_type)
+        result = arr.take(indices)
+        expected = pa.array([0, 4, 2, None])
+        assert result.equals(expected)
 
     for indices_type in [pa.float32(), pa.float64()]:
         indices = pa.array([0, 4, 2], type=indices_type)
