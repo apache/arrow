@@ -944,7 +944,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     const auto& encrypt_md = properties_->column_encryption_props(column_->path());
 
     // column is unencrypted
-    if (!encrypt_md || !encrypt_md->isEncrypted()) {
+    if (!encrypt_md || !encrypt_md->is_encrypted()) {
       column_chunk_->__isset.meta_data = true;
       column_chunk_->__set_meta_data(column_metadata_);
 
@@ -954,12 +954,12 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
       // encrypted with footer key
       format::ColumnCryptoMetaData ccmd;
-      if (encrypt_md->isEncryptedWithFooterKey()) {
+      if (encrypt_md->is_encrypted_with_footer_key()) {
         ccmd.__isset.ENCRYPTION_WITH_FOOTER_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_FOOTER_KEY(format::EncryptionWithFooterKey());
       } else {  // encrypted with column key
         format::EncryptionWithColumnKey eck;
-        eck.__set_key_metadata(encrypt_md->getKeyMetaData());
+        eck.__set_key_metadata(encrypt_md->key_metadata());
         eck.__set_path_in_schema(column_->path()->ToDotVector());
         ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_COLUMN_KEY(eck);
@@ -967,12 +967,12 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       column_chunk_->__set_crypto_metadata(ccmd);
 
       // TODO: check file_encryption() is null or not
-      auto footer_key = properties_->file_encryption()->getFooterEncryptionKey();
+      auto footer_key = properties_->file_encryption()->footer_encryption_key();
 
       // non-uniform: footer is unencrypted, or column is encrypted with a column-specific
       // key
-      if ((footer_key.empty() && encrypt_md->isEncrypted()) ||
-          !encrypt_md->isEncryptedWithFooterKey()) {
+      if ((footer_key.empty() && encrypt_md->is_encrypted()) ||
+          !encrypt_md->is_encrypted_with_footer_key()) {
         // Thrift-serialize the ColumnMetaData structure,
         // encrypt it with the column key, and write to encrypted_column_metadata
         uint8_t* serialized_data;
@@ -1220,7 +1220,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
     metadata_.reset(new format::FileMetaData());
     if (props->file_encryption() != nullptr
-      && props->file_encryption()->getFooterSigningKey() == NULL_STRING) {
+      && props->file_encryption()->footer_signing_key() == NULL_STRING) {
       crypto_metadata_.reset(new format::FileCryptoMetaData());
     }
   }
@@ -1303,12 +1303,12 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 
     auto file_encryption = properties_->file_encryption();
 
-    crypto_metadata_->__set_encryption_algorithm(ToThrift(file_encryption->getAlgorithm()));
+    crypto_metadata_->__set_encryption_algorithm(ToThrift(file_encryption->algorithm()));
     std::string key_metadata;
-    if (file_encryption->encryptedFooter())
-      key_metadata = file_encryption->getFooterEncryptionKeyMetadata();
+    if (file_encryption->encrypted_footer())
+      key_metadata = file_encryption->footer_encryption_key_metadata();
     else
-      key_metadata = file_encryption->getFooterSigningKeyMetadata();
+      key_metadata = file_encryption->footer_signing_key_metadata();
 
     if (!key_metadata.empty()) {
       crypto_metadata_->__set_key_metadata(key_metadata);

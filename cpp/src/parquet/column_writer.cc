@@ -160,14 +160,14 @@ class SerializedPageWriter : public PageWriter {
     if (data_encryptor_ != NULLPTR) {
       //prepare the add for quick update later
       data_pageAAD_ = parquet_encryption::createModuleAAD(
-          data_encryptor_->fileAAD(),
+          data_encryptor_->file_aad(),
           parquet_encryption::DataPage,
           row_group_ordinal_,
           column_ordinal_, (int16_t)-1);
     }
     if (meta_encryptor_ != NULLPTR) {
       data_page_headerAAD_ = parquet_encryption::createModuleAAD(
-          meta_encryptor_->fileAAD(),
+          meta_encryptor_->file_aad(),
           parquet_encryption::DataPageHeader,
           row_group_ordinal_,
           column_ordinal_, (int16_t)-1);
@@ -199,7 +199,7 @@ class SerializedPageWriter : public PageWriter {
     std::shared_ptr<Buffer> encrypted_data_buffer = nullptr;
     if (data_encryptor_.get()) {
       data_encryptor_->aad(
-          parquet_encryption::createModuleAAD(data_encryptor_->fileAAD(),
+          parquet_encryption::createModuleAAD(data_encryptor_->file_aad(),
                                               parquet_encryption::DictionaryPage,
                                               row_group_ordinal_,
                                               column_ordinal_, (int16_t)-1));
@@ -225,7 +225,7 @@ class SerializedPageWriter : public PageWriter {
 
     if (meta_encryptor_) {
       meta_encryptor_->aad(
-          parquet_encryption::createModuleAAD(meta_encryptor_->fileAAD(),
+          parquet_encryption::createModuleAAD(meta_encryptor_->file_aad(),
                                               parquet_encryption::DictionaryPageHeader,
                                               row_group_ordinal_,
                                               column_ordinal_, (int16_t)-1));
@@ -248,7 +248,7 @@ class SerializedPageWriter : public PageWriter {
                       fallback);
     if (meta_encryptor_ != nullptr){
       meta_encryptor_->aad(
-          parquet_encryption::createModuleAAD(meta_encryptor_->fileAAD(),
+          parquet_encryption::createModuleAAD(meta_encryptor_->file_aad(),
                                               parquet_encryption::ColumnMetaData,
                                               row_group_ordinal_,
                                               column_ordinal_, (int16_t)-1));
