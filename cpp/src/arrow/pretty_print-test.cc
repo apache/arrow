@@ -355,6 +355,49 @@ TEST_F(TestPrettyPrint, ListType) {
   CheckStream(*array, {0, 1}, ex_3);
 }
 
+TEST_F(TestPrettyPrint, FixedSizeListType) {
+  auto list_type = fixed_size_list(int32(), 3);
+  auto array = ArrayFromJSON(list_type,
+                             "[[null, 0, 1], [2, 3, null], null, [4, 6, 7], [8, 9, 5]]");
+
+  CheckArray(*array, {0, 10}, R"expected([
+  [
+    null,
+    0,
+    1
+  ],
+  [
+    2,
+    3,
+    null
+  ],
+  null,
+  [
+    4,
+    6,
+    7
+  ],
+  [
+    8,
+    9,
+    5
+  ]
+])expected");
+  CheckStream(*array, {0, 1}, R"expected([
+  [
+    null,
+    ...
+    1
+  ],
+  ...
+  [
+    8,
+    ...
+    5
+  ]
+])expected");
+}
+
 TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   std::vector<bool> is_valid = {true, true, false, true, false};
 
