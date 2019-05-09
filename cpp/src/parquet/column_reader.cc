@@ -130,18 +130,18 @@ class SerializedPageReader : public PageReader {
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
     decompressor_ = GetCodecFromArrow(codec);
     if (data_decryptor_ != NULLPTR) {
-      DCHECK (!data_decryptor_->fileAAD().empty());
+      DCHECK (!data_decryptor_->file_aad().empty());
       //prepare the AAD for quick update later
       data_pageAAD_ = parquet_encryption::createModuleAAD(
-          data_decryptor_->fileAAD(),
+          data_decryptor_->file_aad(),
           parquet_encryption::DataPage,
           row_group_ordinal_,
           column_ordinal_, (int16_t)-1);
     }
     if (meta_decryptor_ != NULLPTR) {
-      DCHECK (!meta_decryptor_->fileAAD().empty());
+      DCHECK (!meta_decryptor_->file_aad().empty());
       data_page_headerAAD_ = parquet_encryption::createModuleAAD(
-          meta_decryptor_->fileAAD(),
+          meta_decryptor_->file_aad(),
           parquet_encryption::DataPageHeader,
           row_group_ordinal_,
           column_ordinal_, (int16_t)-1);
@@ -221,7 +221,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         if (meta_decryptor_ != NULLPTR) {
           if (current_page_is_dictionary) {
             aad = parquet_encryption::createModuleAAD(
-                meta_decryptor_->fileAAD(),
+                meta_decryptor_->file_aad(),
                 parquet_encryption::DictionaryPageHeader,
                 row_group_ordinal_,
                 column_ordinal_, (int16_t)-1);
@@ -253,10 +253,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
     if (data_decryptor_ != NULLPTR){
-      DCHECK(!data_decryptor_->fileAAD().empty());
+      DCHECK(!data_decryptor_->file_aad().empty());
       if (current_page_is_dictionary){
         aad = parquet_encryption::createModuleAAD(
-            data_decryptor_->fileAAD(),
+            data_decryptor_->file_aad(),
             parquet_encryption::DictionaryPage,
             row_group_ordinal_,
             column_ordinal_, (int16_t)-1);

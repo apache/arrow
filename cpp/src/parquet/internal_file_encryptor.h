@@ -14,7 +14,7 @@ class Encryptor {
   Encryptor(parquet_encryption::AesEncryptor* aes_encryptor,
             const std::string& key, const std::string& file_aad,
             const std::string& aad);
-  const std::string& fileAAD() { return file_aad_; }
+  const std::string& file_aad() { return file_aad_; }
   void aad(const std::string& aad) { aad_ = aad; }
 
   int CiphertextSizeDelta();

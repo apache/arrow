@@ -59,16 +59,16 @@ std::shared_ptr<FooterSigningEncryptor> InternalFileDecryptor::GetFooterSigningE
 {
   if (footer_signing_encryptor_ != NULLPTR)
     return footer_signing_encryptor_;
-  std::string footer_key = properties_->getFooterKey();
+  std::string footer_key = properties_->footer_key();
   // ignore footer key metadata if footer key is explicitly set via API
   if (footer_key.empty()) {
     if (footer_key_metadata_.empty())
       throw ParquetException("No footer key or key metadata");
-    if (properties_->getKeyRetriever() == nullptr)
+    if (properties_->key_retriever() == nullptr)
       throw ParquetException("No footer key or key retriever");
     try {
       footer_key =
-        properties_->getKeyRetriever()->getKey(footer_key_metadata_);
+        properties_->key_retriever()->GetKey(footer_key_metadata_);
     } catch (KeyAccessDeniedException &e) {
       std::stringstream ss;
       ss << "Footer key: access denied " << e.what() << "\n";
@@ -107,14 +107,14 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     const std::string& aad, bool metadata) {
   if (footer_decryptor_ != NULLPTR)
     return footer_decryptor_;
-  std::string footer_key = properties_->getFooterKey();
+  std::string footer_key = properties_->footer_key();
   if (footer_key.empty()) {
     if (footer_key_metadata_.empty())
       throw ParquetException("No footer key or key metadata");
-    if (properties_->getKeyRetriever() == nullptr)
+    if (properties_->key_retriever() == nullptr)
       throw ParquetException("No footer key or key retriever");
     try {
-      footer_key = properties_->getKeyRetriever()->getKey(footer_key_metadata_);
+      footer_key = properties_->key_retriever()->GetKey(footer_key_metadata_);
     } catch (KeyAccessDeniedException &e) {
       std::stringstream ss;
       ss << "Footer key: access denied " << e.what() << "\n";;
@@ -157,12 +157,12 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
       && column_map_->find(column_path) != column_map_->end()) {
     column_key = column_map_->at(column_path);
   } else {
-    column_key = properties_->getColumnKey(column_path);
+    column_key = properties_->column_key(column_path);
     // No explicit column key given via API. Retrieve via key metadata.
     if (column_key.empty() && !column_key_metadata.empty() &&
-        properties_->getKeyRetriever() != nullptr){
+        properties_->key_retriever() != nullptr){
       try {
-        column_key = properties_->getKeyRetriever()->getKey(column_key_metadata);
+        column_key = properties_->key_retriever()->GetKey(column_key_metadata);
       } catch (KeyAccessDeniedException &e) {
         std::stringstream ss;
         ss << "HiddenColumnException, path=" +

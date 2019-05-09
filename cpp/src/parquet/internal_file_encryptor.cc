@@ -33,23 +33,23 @@ InternalFileEncryptor::InternalFileEncryptor(FileEncryptionProperties* propertie
     : properties_(properties) {}
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
-  ParquetCipher::type algorithm = properties_->getAlgorithm().algorithm;
-  std::string aad = parquet_encryption::createFooterAAD(properties_->getFileAAD());
-  std::string footer_key = properties_->getFooterEncryptionKey();
+  ParquetCipher::type algorithm = properties_->algorithm().algorithm;
+  std::string aad = parquet_encryption::createFooterAAD(properties_->file_aad());
+  std::string footer_key = properties_->footer_encryption_key();
   auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_key.size());
 
   return std::make_shared<Encryptor>(aes_encryptor, footer_key,
-                                     properties_->getFileAAD(), aad);
+                                     properties_->file_aad(), aad);
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {
-  ParquetCipher::type algorithm = properties_->getAlgorithm().algorithm;
-  std::string aad = parquet_encryption::createFooterAAD(properties_->getFileAAD());
-  std::string footer_signing_key = properties_->getFooterSigningKey();
+  ParquetCipher::type algorithm = properties_->algorithm().algorithm;
+  std::string aad = parquet_encryption::createFooterAAD(properties_->file_aad());
+  std::string footer_signing_key = properties_->footer_signing_key();
   auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_signing_key.size());
 
   return std::make_shared<Encryptor>(aes_encryptor, footer_signing_key,
-                                     properties_->getFileAAD(), aad);
+                                     properties_->file_aad(), aad);
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetColumnMetaEncryptor(
@@ -65,29 +65,29 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetColumnDataEncryptor(
 std::shared_ptr<Encryptor> InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
       const std::shared_ptr<schema::ColumnPath>& column_path,
       bool metadata) {
-  auto column_prop = properties_->getColumnProperties(column_path);
+  auto column_prop = properties_->column_properties(column_path);
   if (column_prop == NULLPTR) {
     return NULLPTR;
   }
 
   std::string key;
-  if (column_prop->isEncryptedWithFooterKey()) {
-    if (properties_->encryptedFooter()) {
-      key = properties_->getFooterEncryptionKey();
+  if (column_prop->is_encrypted_with_footer_key()) {
+    if (properties_->encrypted_footer()) {
+      key = properties_->footer_encryption_key();
     } else {
-      key = properties_->getFooterSigningKey();
+      key = properties_->footer_signing_key();
     }
   }
   else {
-    key = column_prop->getKey();
+    key = column_prop->key();
   }
   
-  ParquetCipher::type algorithm = properties_->getAlgorithm().algorithm;
+  ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   auto aes_encryptor = metadata
       ? GetMetaAesEncryptor(algorithm, key.size())
       : GetDataAesEncryptor(algorithm, key.size());
   
-  std::string file_aad = properties_->getFileAAD();
+  std::string file_aad = properties_->file_aad();
 
   // TODO: aad
   return std::make_shared<Encryptor>(aes_encryptor, key, file_aad, "");

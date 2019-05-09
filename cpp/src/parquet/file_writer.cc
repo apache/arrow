@@ -294,9 +294,9 @@ class FileSerializer : public ParquetFileWriter::Contents {
       auto file_encryption = properties_->file_encryption();
       if (file_encryption == nullptr) {
         file_metadata_ = metadata_->Finish();
-        WriteFileMetaData(*metadata, sink_.get());
+        WriteFileMetaData(*file_metadata_, sink_.get());
       } else {
-        if (file_encryption->encryptedFooter()) {
+        if (file_encryption->encrypted_footer()) {
           // encrypted footer
           file_metadata_ = metadata_->Finish();
 
@@ -312,7 +312,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
         } else {
           // footer plain mode
           EncryptionAlgorithm signing_encryption;
-          EncryptionAlgorithm algo =  file_encryption->getAlgorithm();
+          EncryptionAlgorithm algo =  file_encryption->algorithm();
           signing_encryption.aad.aad_file_unique = algo.aad.aad_file_unique;
           signing_encryption.aad.supply_aad_prefix = algo.aad.supply_aad_prefix;
           if (!algo.aad.supply_aad_prefix)
@@ -320,7 +320,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
           signing_encryption.algorithm = ParquetCipher::AES_GCM_V1;
           file_metadata_ = metadata_->Finish(
                &signing_encryption,
-               file_encryption->getFooterSigningKeyMetadata ());
+               file_encryption->footer_signing_key_metadata ());
           auto footer_signing_encryptor = file_encryptor_->GetFooterSigningEncryptor();
           WriteFileMetaData(*file_metadata_, sink_.get(), footer_signing_encryptor, false);
         }
@@ -398,7 +398,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       PARQUET_THROW_NOT_OK(sink_->Write(PARQUET_MAGIC, 4));
     } else {
       file_encryptor_.reset(new InternalFileEncryptor(file_encryption));
-      if (file_encryption->encryptedFooter()) {
+      if (file_encryption->encrypted_footer()) {
         PARQUET_THROW_NOT_OK(sink_->Write(PARQUET_EMAGIC, 4));
       }
       else {
