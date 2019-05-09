@@ -24,7 +24,7 @@ import sys
 from tempfile import mkdtemp, TemporaryDirectory
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
-from .benchmark.runner import CppBenchmarkRunner
+from .benchmark.runner import BenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.codec import JsonEncoder
 from .utils.logger import logger, ctx as log_ctx
@@ -167,7 +167,77 @@ def benchmark(ctx):
     pass
 
 
-@benchmark.command(name="diff", short_help="Run the C++ benchmark suite")
+@benchmark.command(name="run", short_help="Run benchmark suite")
+@click.option("--src", metavar="<arrow_src>", show_default=True,
+              default=ArrowSources.find(),
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory")
+@click.option("--suite-filter", metavar="<regex>", show_default=True,
+              type=str, default=None, help="Regex filtering benchmark suites.")
+@click.option("--benchmark-filter", metavar="<regex>", show_default=True,
+              type=str, default=DEFAULT_BENCHMARK_FILTER,
+              help="Regex filtering benchmark suites.")
+@click.option("--preserve", type=bool, default=False, show_default=True,
+              is_flag=True, help="Preserve workspace for investigation.")
+@click.option("--output", metavar="<output>",
+              type=click.File("w", encoding="utf8"), default="-",
+              help="Capture output result into file.")
+@click.option("--cmake-extras", type=str, multiple=True,
+              help="Extra flags/options to pass to cmake invocation. "
+              "Can be stacked")
+@click.argument("baseline", metavar="[<baseline>]]", default="master",
+                required=False)
+@click.pass_context
+def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
+                  output, cmake_extras, baseline):
+    """ Run benchmark suite.
+
+    This command will run the benchmark suite for a single build. This is
+    used to capture (and/or publish) the results.
+
+    The caller can optionally specify a target which is either a git revision
+    (commit, tag, special values like HEAD) or a cmake build directory.
+
+
+    When a commit is referenced, a local clone of the arrow sources (specified
+    via --src) is performed and the proper branch is created. This is done in
+    a temporary directory which can be left intact with the `---preserve` flag.
+
+    The special token "WORKSPACE" is reserved to specify the current git
+    workspace. This imply that no clone will be performed.
+
+    Examples:
+
+    \b
+    # Run the benchmarks on current git workspace
+    \b
+    archery benchmark run
+
+    \b
+    # Run the benchmarks on current previous commit
+    \b
+    archery benchmark run HEAD~1
+
+    \b
+    # Run the benchmarks on current previous commit
+    \b
+    archery benchmark run --output=run.json
+    """
+    with tmpdir(preserve) as root:
+        logger.debug(f"Running benchmark {baseline}")
+
+        conf = CppConfiguration(
+            build_type="release", with_tests=True, with_benchmarks=True,
+            with_python=False, cmake_extras=cmake_extras)
+
+        runner_base = BenchmarkRunner.from_rev_or_path(
+            src, root, baseline, conf,
+            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
+
+        json.dump(runner_base, output, cls=JsonEncoder)
+
+
+@benchmark.command(name="diff", short_help="Compare benchmark suites")
 @click.option("--src", metavar="<arrow_src>", show_default=True,
               default=ArrowSources.find(),
               callback=validate_arrow_sources,
@@ -182,6 +252,9 @@ def benchmark(ctx):
 @click.option("--threshold", type=float, default=DEFAULT_THRESHOLD,
               show_default=True,
               help="Regression failure threshold in percentage.")
+@click.option("--output", metavar="<output>",
+              type=click.File("w", encoding="utf8"), default="-",
+              help="Capture output result into file.")
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
@@ -191,7 +264,7 @@ def benchmark(ctx):
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
-                   threshold, cmake_extras, contender, baseline):
+                   threshold, output, cmake_extras, contender, baseline):
     """ Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -245,6 +318,22 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
     \b
     archery benchmark diff --suite-filter="^arrow-compute-aggregate" \\
             --benchmark-filter="(Sum|Mean)Kernel"
+
+    \b
+    # Capture result in file `result.json`
+    \b
+    archery benchmark diff --output=result.json
+    \b
+    # Equivalently with no stdout clutter.
+    archery --quiet benchmark diff > result.json
+
+    \b
+    # Comparing with a cached results from `archery benchmark run`
+    \b
+    archery benchmark run --output=run.json HEAD~1
+    \b
+    # This should not recompute the benchmark from run.json
+    archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
     with tmpdir(preserve) as root:
         logger.debug(f"Comparing {contender} (contender) with "
@@ -254,18 +343,18 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
             build_type="release", with_tests=True, with_benchmarks=True,
             with_python=False, cmake_extras=cmake_extras)
 
-        runner_cont = CppBenchmarkRunner.from_rev_or_path(
-            src, root, contender, conf)
-        runner_base = CppBenchmarkRunner.from_rev_or_path(
-            src, root, baseline, conf)
-
-        runner_comp = RunnerComparator(runner_cont, runner_base, threshold)
-        comparisons = runner_comp.comparisons(suite_filter, benchmark_filter)
+        runner_cont = BenchmarkRunner.from_rev_or_path(
+            src, root, contender, conf,
+            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
+        runner_base = BenchmarkRunner.from_rev_or_path(
+            src, root, baseline, conf,
+            suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
         regressions = 0
-        for comparator in comparisons:
+        runner_comp = RunnerComparator(runner_cont, runner_base, threshold)
+        for comparator in runner_comp.comparisons:
             regressions += comparator.regression
-            print(json.dumps(comparator, cls=JsonEncoder))
+            json.dump(comparator, output, cls=JsonEncoder)
 
         sys.exit(regressions)
 

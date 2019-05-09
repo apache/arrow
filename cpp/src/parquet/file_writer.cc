@@ -258,8 +258,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       row_group_writer_.reset();
 
       // Write magic bytes and metadata
-      auto metadata = metadata_->Finish();
-      WriteFileMetaData(*metadata, sink_.get());
+      file_metadata_ = metadata_->Finish();
+      WriteFileMetaData(*file_metadata_, sink_.get());
 
       sink_->Close();
     }
@@ -389,6 +389,10 @@ const std::shared_ptr<const KeyValueMetadata>& ParquetFileWriter::key_value_meta
   return contents_->key_value_metadata();
 }
 
+const std::shared_ptr<FileMetaData> ParquetFileWriter::metadata() const {
+  return file_metadata_;
+}
+
 void ParquetFileWriter::Open(std::unique_ptr<ParquetFileWriter::Contents> contents) {
   contents_ = std::move(contents);
 }
@@ -396,6 +400,7 @@ void ParquetFileWriter::Open(std::unique_ptr<ParquetFileWriter::Contents> conten
 void ParquetFileWriter::Close() {
   if (contents_) {
     contents_->Close();
+    file_metadata_ = contents_->metadata();
     contents_.reset();
   }
 }

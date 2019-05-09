@@ -2620,3 +2620,34 @@ def test_read_column_invalid_index():
     for index in (-1, 2):
         with pytest.raises((ValueError, IndexError)):
             f.reader.read_column(index)
+
+
+def test_dataset_metadata(tempdir):
+    path = tempdir / "ARROW-1983-dataset"
+
+    # create and write a test dataset
+    df = pd.DataFrame({
+        'one': [1, 2, 3],
+        'two': [-1, -2, -3],
+        'three': [[1, 2], [2, 3], [3, 4]],
+        })
+    table = pa.Table.from_pandas(df)
+
+    metadata_list = []
+    pq.write_to_dataset(table, root_path=str(path),
+                        partition_cols=['one', 'two'],
+                        metadata_collector=metadata_list)
+
+    # open the dataset and collect metadata from pieces:
+    dataset = pq.ParquetDataset(path)
+    metadata_list2 = [p.get_metadata() for p in dataset.pieces]
+
+    # compare metadata list content:
+    assert len(metadata_list) == len(metadata_list2)
+    for md, md2 in zip(metadata_list, metadata_list2):
+        d = md.to_dict()
+        d2 = md2.to_dict()
+        # serialized_size is initialized in the reader:
+        assert d.pop('serialized_size') == 0
+        assert d2.pop('serialized_size') > 0
+        assert d == d2

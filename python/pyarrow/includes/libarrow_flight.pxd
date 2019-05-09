@@ -141,23 +141,36 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CServerCallContext" arrow::flight::ServerCallContext":
         c_string& peer_identity()
 
+    cdef cppclass CTimeoutDuration" arrow::flight::TimeoutDuration":
+        CTimeoutDuration(double)
+
+    cdef cppclass CFlightCallOptions" arrow::flight::FlightCallOptions":
+        CFlightCallOptions()
+        CTimeoutDuration timeout
+
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
         CStatus Connect(const c_string& host, int port,
                         unique_ptr[CFlightClient]* client)
 
-        CStatus Authenticate(unique_ptr[CClientAuthHandler] auth_handler)
+        CStatus Authenticate(CFlightCallOptions& options,
+                             unique_ptr[CClientAuthHandler] auth_handler)
 
-        CStatus DoAction(CAction& action, unique_ptr[CResultStream]* results)
-        CStatus ListActions(vector[CActionType]* actions)
+        CStatus DoAction(CFlightCallOptions& options, CAction& action,
+                         unique_ptr[CResultStream]* results)
+        CStatus ListActions(CFlightCallOptions& options,
+                            vector[CActionType]* actions)
 
-        CStatus ListFlights(unique_ptr[CFlightListing]* listing)
-        CStatus GetFlightInfo(CFlightDescriptor& descriptor,
+        CStatus ListFlights(CFlightCallOptions& options, CCriteria criteria,
+                            unique_ptr[CFlightListing]* listing)
+        CStatus GetFlightInfo(CFlightCallOptions& options,
+                              CFlightDescriptor& descriptor,
                               unique_ptr[CFlightInfo]* info)
 
-        CStatus DoGet(CTicket& ticket,
+        CStatus DoGet(CFlightCallOptions& options, CTicket& ticket,
                       unique_ptr[CRecordBatchReader]* stream)
-        CStatus DoPut(CFlightDescriptor& descriptor,
+        CStatus DoPut(CFlightCallOptions& options,
+                      CFlightDescriptor& descriptor,
                       shared_ptr[CSchema]& schema,
                       unique_ptr[CRecordBatchWriter]* stream)
 

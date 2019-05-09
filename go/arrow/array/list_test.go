@@ -55,6 +55,9 @@ func TestListArray(t *testing.T) {
 		arr := lb.NewArray().(*array.List)
 		defer arr.Release()
 
+		arr.Retain()
+		arr.Release()
+
 		if got, want := arr.DataType().ID(), arrow.LIST; got != want {
 			t.Fatalf("got=%v, want=%v", got, want)
 		}

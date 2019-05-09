@@ -171,10 +171,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     ArrowBuf bitBuffer = ownBuffers.get(0);
     ArrowBuf offBuffer = ownBuffers.get(1);
 
-    validityBuffer.release();
+    validityBuffer.getReferenceManager().release();
     validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
-    offsetBuffer.release();
-    offsetBuffer = offBuffer.retain(allocator);
+    offsetBuffer.getReferenceManager().release();
+    offsetBuffer = offBuffer.getReferenceManager().retain(offBuffer, allocator);
 
     validityAllocationSizeInBytes = validityBuffer.capacity();
     offsetAllocationSizeInBytes = offsetBuffer.capacity();
@@ -301,7 +301,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    validityBuffer.release(1);
+    validityBuffer.getReferenceManager().release(1);
     validityBuffer = newBuf;
     validityAllocationSizeInBytes = (int) newAllocationSize;
   }
@@ -414,8 +414,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     public void transfer() {
       to.clear();
       dataTransferPair.transfer();
-      to.validityBuffer = validityBuffer.transferOwnership(to.allocator).buffer;
-      to.offsetBuffer = offsetBuffer.transferOwnership(to.allocator).buffer;
+      to.validityBuffer = transferBuffer(validityBuffer, to.allocator);
+      to.offsetBuffer = transferBuffer(offsetBuffer, to.allocator);
       to.lastSet = lastSet;
       if (valueCount > 0) {
         to.setValueCount(valueCount);
@@ -462,10 +462,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
         if (offset == 0) {
           // slice
           if (target.validityBuffer != null) {
-            target.validityBuffer.release();
+            target.validityBuffer.getReferenceManager().release();
           }
           target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
-          target.validityBuffer.retain(1);
+          target.validityBuffer.getReferenceManager().retain(1);
         } else {
           /* Copy data
            * When the first bit starts from the middle of a byte (offset != 0),
@@ -594,7 +594,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {
-        buffer.retain();
+        buffer.getReferenceManager().retain();
       }
       clear();
     }

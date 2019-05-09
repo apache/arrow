@@ -125,12 +125,6 @@ static void AssertEventualPosition(const FileInterface& file, int64_t expected) 
   ASSERT_EQ(pos, expected) << "File didn't reach expected position";
 }
 
-static void AssertPosition(const FileInterface& file, int64_t expected) {
-  int64_t pos = -1;
-  ABORT_NOT_OK(file.Tell(&pos));
-  ASSERT_EQ(pos, expected) << "File didn't reach expected position";
-}
-
 template <typename Expected>
 static void AssertReadaheadBuffer(const ReadaheadBuffer& buf,
                                   std::set<int64_t> left_paddings,
@@ -199,16 +193,6 @@ TEST(ReadaheadSpooler, Close) {
 
   AssertEventualPosition(*data_reader, 2 * 2);
   ASSERT_OK(spooler.Close());
-
-  // XXX not sure this makes sense
-  ASSERT_OK(spooler.Read(&buf));
-  AssertReadaheadBuffer(buf, {0}, {0}, "01");
-  ASSERT_OK(spooler.Read(&buf));
-  AssertReadaheadBuffer(buf, {0}, {0}, "23");
-  ASSERT_OK(spooler.Read(&buf));
-  AssertReadaheadBufferEOF(buf);
-  AssertPosition(*data_reader, 2 * 2);
-
   // Idempotency
   ASSERT_OK(spooler.Close());
 }

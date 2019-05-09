@@ -50,18 +50,15 @@ type FileReader struct {
 // NewFileReader opens an Arrow file using the provided reader r.
 func NewFileReader(r ReadAtSeeker, opts ...Option) (*FileReader, error) {
 	var (
+		cfg = newConfig(opts...)
+		err error
+
 		f = FileReader{
 			r:      r,
 			fields: make(dictTypeMap),
 			memo:   newMemo(),
 		}
-		cfg = newConfig()
-		err error
 	)
-
-	for _, opt := range opts {
-		opt(cfg)
-	}
 
 	if cfg.footer.offset <= 0 {
 		cfg.footer.offset, err = f.r.Seek(0, io.SeekEnd)
@@ -81,6 +78,10 @@ func NewFileReader(r ReadAtSeeker, opts ...Option) (*FileReader, error) {
 		return nil, errors.Wrap(err, "arrow/ipc: could not decode schema")
 	}
 
+	if cfg.schema != nil && !cfg.schema.Equal(f.schema) {
+		return nil, errors.Errorf("arrow/ipc: inconsitent schema for reading (got: %v, want: %v)", f.schema, cfg.schema)
+	}
+
 	return &f, err
 }
 
@@ -88,7 +89,7 @@ func (f *FileReader) readFooter() error {
 	var err error
 
 	if f.footer.offset <= int64(len(Magic)*2+4) {
-		return fmt.Errorf("arrow/ipc: file too small (%d)", f.footer.offset)
+		return fmt.Errorf("arrow/ipc: file too small (size=%d)", f.footer.offset)
 	}
 
 	eof := int64(len(Magic) + 4)

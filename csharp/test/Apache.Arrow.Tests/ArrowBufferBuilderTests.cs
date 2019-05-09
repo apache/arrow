@@ -155,22 +155,29 @@ namespace Apache.Arrow.Tests
 
         public class Clear
         {
-            [Fact]
-            public void SetsAllValuesToDefault()
+            [Theory]
+            [InlineData(10)]
+            [InlineData(100)]
+            public void SetsAllValuesToDefault(int sizeBeforeClear)
             {
                 var builder = new ArrowBuffer.Builder<int>(1);
-                var data = Enumerable.Range(0, 10).Select(x => x).ToArray();
+                var data = Enumerable.Range(0, sizeBeforeClear).Select(x => x).ToArray();
 
                 builder.AppendRange(data);
                 builder.Clear();
+                builder.Append(0);
 
                 var buffer = builder.Build();
-                var zeros = Enumerable.Range(0, 10).Select(x => 0).ToArray();
-                var values = buffer.Span.CastTo<int>().Slice(0, 10).ToArray();
+                // No matter the sizeBeforeClear, we only appended a single 0,
+                // so the buffer length should be the smallest possible.
+                Assert.Equal(64, buffer.Length);
+
+                // check all 16 int elements are default
+                var zeros = Enumerable.Range(0, 16).Select(x => 0).ToArray();
+                var values = buffer.Span.CastTo<int>().Slice(0, 16).ToArray();
 
                 Assert.True(zeros.SequenceEqual(values));
             }
         }
-
     }
 }

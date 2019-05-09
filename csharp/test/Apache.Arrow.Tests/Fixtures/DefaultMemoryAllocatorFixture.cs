@@ -17,15 +17,15 @@ using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Tests.Fixtures
 {
-    public class DefaultMemoryPoolFixture
+    public class DefaultMemoryAllocatorFixture
     {
-        public MemoryPool MemoryPool { get; }
+        public MemoryAllocator MemoryAllocator { get; }
 
-        public DefaultMemoryPoolFixture()
+        public DefaultMemoryAllocatorFixture()
         {
             const int alignment = 64;
 
-            MemoryPool = new NativeMemoryPool(alignment);
+            MemoryAllocator = new NativeMemoryAllocator(alignment);
         }
     }
 }

@@ -295,12 +295,12 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     ArrowBuf offBuffer = ownBuffers.get(1);
     ArrowBuf dataBuffer = ownBuffers.get(2);
 
-    validityBuffer.release();
+    validityBuffer.getReferenceManager().release();
     validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
-    offsetBuffer.release();
-    offsetBuffer = offBuffer.retain(allocator);
-    valueBuffer.release();
-    valueBuffer = dataBuffer.retain(allocator);
+    offsetBuffer.getReferenceManager().release();
+    offsetBuffer = offBuffer.getReferenceManager().retain(offBuffer, allocator);
+    valueBuffer.getReferenceManager().release();
+    valueBuffer = dataBuffer.getReferenceManager().retain(dataBuffer, allocator);
 
     lastSet = fieldNode.getLength() - 1;
     valueCount = fieldNode.getLength();
@@ -494,7 +494,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, valueBuffer, 0, currentBufferCapacity);
-    valueBuffer.release();
+    valueBuffer.getReferenceManager().release();
     valueBuffer = newBuf;
     lastValueAllocationSizeInBytes = valueBuffer.capacity();
   }
@@ -537,13 +537,13 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final ArrowBuf newOffsetBuffer = buffers.getDataBuf();
     newOffsetBuffer.setBytes(0, offsetBuffer, 0, offsetBuffer.capacity());
     newOffsetBuffer.setZero(offsetBuffer.capacity(), newOffsetBuffer.capacity() - offsetBuffer.capacity());
-    offsetBuffer.release();
+    offsetBuffer.getReferenceManager().release();
     offsetBuffer = newOffsetBuffer;
 
     final ArrowBuf newValidityBuffer = buffers.getValidityBuf();
     newValidityBuffer.setBytes(0, validityBuffer, 0, validityBuffer.capacity());
     newValidityBuffer.setZero(validityBuffer.capacity(), newValidityBuffer.capacity() - validityBuffer.capacity());
-    validityBuffer.release();
+    validityBuffer.getReferenceManager().release();
     validityBuffer = newValidityBuffer;
 
     lastValueCapacity = getValueCapacity();
@@ -627,7 +627,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     }
     if (clear) {
       for (final ArrowBuf buffer : buffers) {
-        buffer.retain(1);
+        buffer.getReferenceManager().retain();
       }
       clear();
     }
@@ -673,9 +673,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   public void transferTo(BaseVariableWidthVector target) {
     compareTypes(target, "transferTo");
     target.clear();
-    target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
-    target.valueBuffer = valueBuffer.transferOwnership(target.allocator).buffer;
-    target.offsetBuffer = offsetBuffer.transferOwnership(target.allocator).buffer;
+    target.validityBuffer = transferBuffer(validityBuffer, target.allocator);
+    target.valueBuffer = transferBuffer(valueBuffer, target.allocator);
+    target.offsetBuffer = transferBuffer(offsetBuffer, target.allocator);
     target.setLastSet(this.lastSet);
     if (this.valueCount > 0) {
       target.setValueCount(this.valueCount);
@@ -719,7 +719,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       final int relativeSourceOffset = offsetBuffer.getInt((startIndex + i) * OFFSET_WIDTH) - start;
       target.offsetBuffer.setInt(i * OFFSET_WIDTH, relativeSourceOffset);
     }
-    target.valueBuffer = valueBuffer.slice(start, dataLength).transferOwnership(target.allocator).buffer;
+    final ArrowBuf slicedBuffer = valueBuffer.slice(start, dataLength);
+    target.valueBuffer = transferBuffer(slicedBuffer, target.allocator);
   }
 
   /*
@@ -737,10 +738,10 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       if (offset == 0) {
         // slice
         if (target.validityBuffer != null) {
-          target.validityBuffer.release();
+          target.validityBuffer.getReferenceManager().release();
         }
         target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
-        target.validityBuffer.retain(1);
+        target.validityBuffer.getReferenceManager().retain();
       } else {
         /* Copy data
          * When the first bit starts from the middle of a byte (offset != 0),

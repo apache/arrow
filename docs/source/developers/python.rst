@@ -51,7 +51,7 @@ like so:
    pytest pyarrow
 
 Package requirements to run the unit tests are found in
-``requirements-test.txt`` and can be installed if needed with ``pip -r
+``requirements-test.txt`` and can be installed if needed with ``pip install -r
 requirements-test.txt``.
 
 The project has a number of custom command line options for its test

@@ -323,6 +323,8 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         CStatus NewRowGroup(int64_t chunk_size)
         CStatus Close()
 
+        const shared_ptr[CFileMetaData] metadata() const
+
     cdef cppclass ArrowWriterProperties:
         cppclass Builder:
             Builder()

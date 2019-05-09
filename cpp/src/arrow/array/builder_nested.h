@@ -52,6 +52,12 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   void Reset() override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<ListArray>* out) { return FinishTyped(out); }
+
   /// \brief Vector append
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte
@@ -95,6 +101,12 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
                 std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<StructArray>* out) { return FinishTyped(out); }
 
   /// Null bitmap is of equal length to every child field, and any zero byte
   /// will be considered as a null for that field, but users must using app-

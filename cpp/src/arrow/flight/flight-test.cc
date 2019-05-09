@@ -359,8 +359,37 @@ TEST_F(TestFlightClient, Issue5095) {
   ASSERT_THAT(status.message(), ::testing::HasSubstr("No data"));
 }
 
+TEST_F(TestFlightClient, TimeoutFires) {
+  // Server does not exist on this port, so call should fail
+  std::unique_ptr<FlightClient> client;
+  ASSERT_OK(FlightClient::Connect("localhost", 30001, &client));
+  FlightCallOptions options;
+  options.timeout = TimeoutDuration{0.2};
+  std::unique_ptr<FlightInfo> info;
+  auto start = std::chrono::system_clock::now();
+  Status status = client->GetFlightInfo(options, FlightDescriptor{}, &info);
+  auto end = std::chrono::system_clock::now();
+  EXPECT_LE(end - start, std::chrono::milliseconds{400});
+  ASSERT_RAISES(IOError, status);
+}
+
+TEST_F(TestFlightClient, NoTimeout) {
+  // Call should complete quickly, so timeout should not fire
+  FlightCallOptions options;
+  options.timeout = TimeoutDuration{0.5};
+  std::unique_ptr<FlightInfo> info;
+  auto start = std::chrono::system_clock::now();
+  auto descriptor = FlightDescriptor::Path({"examples", "ints"});
+  Status status = client_->GetFlightInfo(options, descriptor, &info);
+  auto end = std::chrono::system_clock::now();
+  EXPECT_LE(end - start, std::chrono::milliseconds{600});
+  ASSERT_OK(status);
+  ASSERT_NE(nullptr, info);
+}
+
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
   ASSERT_OK(client_->Authenticate(
+      {},
       std::unique_ptr<ClientAuthHandler>(new TestClientAuthHandler("user", "p4ssw0rd"))));
 
   Status status;
@@ -437,6 +466,7 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
 
 TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_OK(client_->Authenticate(
+      {},
       std::unique_ptr<ClientAuthHandler>(new TestClientAuthHandler("user", "p4ssw0rd"))));
 
   Action action;

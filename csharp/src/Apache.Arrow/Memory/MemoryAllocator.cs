@@ -14,16 +14,16 @@
 // limitations under the License.
 
 using System;
+using System.Buffers;
 using System.Threading;
 
 namespace Apache.Arrow.Memory
 {
-
-    public abstract class MemoryPool
+    public abstract class MemoryAllocator
     {
         public const int DefaultAlignment = 64;
 
-        public static Lazy<MemoryPool> Default { get; } = new Lazy<MemoryPool>(BuildDefault, true);
+        public static Lazy<MemoryAllocator> Default { get; } = new Lazy<MemoryAllocator>(BuildDefault, true);
 
         public class Stats
         {
@@ -44,13 +44,13 @@ namespace Apache.Arrow.Memory
 
         protected int Alignment { get; }
 
-        protected MemoryPool(int alignment = DefaultAlignment)
+        protected MemoryAllocator(int alignment = DefaultAlignment)
         {
             Statistics = new Stats();
             Alignment = alignment;
         }
 
-        public Memory<byte> Allocate(int length)
+        public IMemoryOwner<byte> Allocate(int length)
         {
             if (length < 0)
             {
@@ -59,56 +59,21 @@ namespace Apache.Arrow.Memory
 
             if (length == 0)
             {
-                return Memory<byte>.Empty;
+                return null;
             }
 
-            var memory = AllocateInternal(length, out var bytesAllocated);
+            var memoryOwner = AllocateInternal(length, out var bytesAllocated);
 
             Statistics.Allocate(bytesAllocated);
 
-            // Ensure all allocated memory is zeroed.
-
-            ZeroMemory(memory.Span);
-            
-            return memory;
+            return memoryOwner;
         }
 
-        public Memory<byte> Reallocate(Memory<byte> memory, int length)
+        private static MemoryAllocator BuildDefault()
         {
-            if (length < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(length));
-            }
-
-            if (length == 0)
-            {
-                return Memory<byte>.Empty;
-            }
-
-            var buffer = ReallocateInternal(memory, length, out var bytesAllocated);
-
-            Statistics.Allocate(bytesAllocated);
-
-            if (length > memory.Length)
-            {
-                ZeroMemory(buffer.Span.Slice(
-                    memory.Length, length - memory.Length));
-            }
-
-            return buffer;
+            return new NativeMemoryAllocator(DefaultAlignment);
         }
 
-        private static void ZeroMemory(Span<byte> span)
-        {
-            span.Fill(0);
-        }
-
-        private static MemoryPool BuildDefault()
-        {
-            return new NativeMemoryPool(DefaultAlignment);
-        }
-
-        protected abstract Memory<byte> AllocateInternal(int length, out int bytesAllocated);
-        protected abstract Memory<byte> ReallocateInternal(Memory<byte> memory, int length, out int bytesAllocated);
+        protected abstract IMemoryOwner<byte> AllocateInternal(int length, out int bytesAllocated);
     }
 }

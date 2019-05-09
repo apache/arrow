@@ -148,6 +148,9 @@ class PARQUET_EXPORT ParquetFileWriter {
 
     /// This should be the only place this is stored. Everything else is a const reference
     std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
+
+    const std::shared_ptr<FileMetaData> metadata() const { return file_metadata_; }
+    std::shared_ptr<FileMetaData> file_metadata_;
   };
 
   ParquetFileWriter();
@@ -216,9 +219,13 @@ class PARQUET_EXPORT ParquetFileWriter {
   /// Returns the file custom metadata
   const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const;
 
+  /// Returns the file metadata, only available after calling Close().
+  const std::shared_ptr<FileMetaData> metadata() const;
+
  private:
   // Holds a pointer to an instance of Contents implementation
   std::unique_ptr<Contents> contents_;
+  std::shared_ptr<FileMetaData> file_metadata_;
 };
 
 }  // namespace parquet

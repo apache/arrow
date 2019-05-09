@@ -118,7 +118,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, offsetBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    offsetBuffer.release(1);
+    offsetBuffer.getReferenceManager().release(1);
     offsetBuffer = newBuf;
     offsetAllocationSizeInBytes = (int) newAllocationSize;
   }
@@ -247,7 +247,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {
-        buffer.retain();
+        buffer.getReferenceManager().retain();
       }
       clear();
     }

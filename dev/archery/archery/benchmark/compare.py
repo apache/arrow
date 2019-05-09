@@ -105,18 +105,17 @@ class RunnerComparator:
         self.baseline = baseline
         self.threshold = threshold
 
-    def comparisons(self, suite_filter=None, benchmark_filter=None):
-        """
-        """
-        contender = self.contender.suites(suite_filter, benchmark_filter)
-        baseline = self.baseline.suites(suite_filter, benchmark_filter)
+    @property
+    def comparisons(self):
+        contender = self.contender.suites
+        baseline = self.baseline.suites
         suites = pairwise_compare(contender, baseline)
 
         for suite_name, (suite_cont, suite_base) in suites:
             benchmarks = pairwise_compare(
                 suite_cont.benchmarks, suite_base.benchmarks)
 
-            for bench_name, (bench_cont, bench_base) in benchmarks:
+            for _, (bench_cont, bench_base) in benchmarks:
                 yield BenchmarkComparator(bench_cont, bench_base,
                                           threshold=self.threshold,
                                           suite_name=suite_name)

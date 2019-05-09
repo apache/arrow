@@ -256,42 +256,60 @@ BufferedInputStream::BufferedInputStream(MemoryPool* pool, int64_t buffer_size,
                                          int64_t num_bytes)
     : source_(source), stream_offset_(start), stream_end_(start + num_bytes) {
   buffer_ = AllocateBuffer(pool, buffer_size);
-  buffer_size_ = buffer_->size();
-  // Required to force a lazy read
-  buffer_offset_ = buffer_size_;
+  buffer_offset_ = 0;
+  buffer_end_ = 0;
+}
+
+int64_t BufferedInputStream::remaining_in_buffer() const {
+  return buffer_end_ - buffer_offset_;
 }
 
 const uint8_t* BufferedInputStream::Peek(int64_t num_to_peek, int64_t* num_bytes) {
-  *num_bytes = std::min(num_to_peek, stream_end_ - stream_offset_);
-  // increase the buffer size if needed
-  if (*num_bytes > buffer_size_) {
-    PARQUET_THROW_NOT_OK(buffer_->Resize(*num_bytes));
-    buffer_size_ = buffer_->size();
-    DCHECK(buffer_size_ >= *num_bytes);
+  int64_t buffer_avail = buffer_end_ - buffer_offset_;
+  int64_t stream_avail = stream_end_ - stream_offset_;
+  // Do not try to peek more than the total remaining number of bytes.
+  *num_bytes = std::min(num_to_peek, buffer_avail + stream_avail);
+  // Increase the buffer size if needed
+  if (*num_bytes > buffer_->size() - buffer_offset_) {
+    // XXX Should adopt a shrinking heuristic if buffer_offset_ is close
+    // to buffer_end_.
+    PARQUET_THROW_NOT_OK(buffer_->Resize(*num_bytes + buffer_offset_));
+    DCHECK(buffer_->size() - buffer_offset_ >= *num_bytes);
   }
-  // Read more data when buffer has insufficient left or when resized
-  if (*num_bytes > (buffer_size_ - buffer_offset_)) {
-    buffer_size_ = std::min(buffer_size_, stream_end_ - stream_offset_);
+  // Read more data when buffer has insufficient left
+  if (*num_bytes > buffer_avail) {
+    // Read as much as possible to fill the buffer, but not past stream end
+    int64_t read_size = std::min(buffer_->size() - buffer_end_, stream_avail);
     int64_t bytes_read =
-        source_->ReadAt(stream_offset_, buffer_size_, buffer_->mutable_data());
-    if (bytes_read < *num_bytes) {
+        source_->ReadAt(stream_offset_, read_size, buffer_->mutable_data() + buffer_end_);
+    stream_offset_ += bytes_read;
+    buffer_end_ += bytes_read;
+    if (bytes_read < read_size) {
       throw ParquetException("Failed reading column data from source");
     }
-    buffer_offset_ = 0;
   }
+  DCHECK(*num_bytes <= buffer_end_ - buffer_offset_);  // Enough bytes available
   return buffer_->data() + buffer_offset_;
 }
 
 const uint8_t* BufferedInputStream::Read(int64_t num_to_read, int64_t* num_bytes) {
   const uint8_t* result = Peek(num_to_read, num_bytes);
-  stream_offset_ += *num_bytes;
   buffer_offset_ += *num_bytes;
+  if (buffer_offset_ == buffer_end_) {
+    // Rewind pointer to reuse beginning of buffer
+    buffer_offset_ = 0;
+    buffer_end_ = 0;
+  }
   return result;
 }
 
 void BufferedInputStream::Advance(int64_t num_bytes) {
-  stream_offset_ += num_bytes;
   buffer_offset_ += num_bytes;
+  if (buffer_offset_ == buffer_end_) {
+    // Rewind pointer to reuse beginning of buffer
+    buffer_offset_ = 0;
+    buffer_end_ = 0;
+  }
 }
 
 std::shared_ptr<ResizableBuffer> AllocateBuffer(MemoryPool* pool, int64_t size) {

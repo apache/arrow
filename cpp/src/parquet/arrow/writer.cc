@@ -1058,6 +1058,8 @@ class FileWriter::Impl {
 
   virtual ~Impl() {}
 
+  const std::shared_ptr<FileMetaData> metadata() const { return writer_->metadata(); }
+
  private:
   friend class FileWriter;
 
@@ -1088,6 +1090,10 @@ Status FileWriter::WriteColumnChunk(const std::shared_ptr<::arrow::ChunkedArray>
 Status FileWriter::Close() { return impl_->Close(); }
 
 MemoryPool* FileWriter::memory_pool() const { return impl_->memory_pool(); }
+
+const std::shared_ptr<FileMetaData> FileWriter::metadata() const {
+  return impl_->metadata();
+}
 
 FileWriter::~FileWriter() {}
 

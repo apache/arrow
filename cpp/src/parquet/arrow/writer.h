@@ -181,6 +181,8 @@ class PARQUET_EXPORT FileWriter {
 
   ::arrow::MemoryPool* memory_pool() const;
 
+  const std::shared_ptr<FileMetaData> metadata() const;
+
  private:
   class PARQUET_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;

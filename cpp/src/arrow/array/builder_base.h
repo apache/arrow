@@ -23,6 +23,7 @@
 #include <limits>
 #include <memory>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/buffer-builder.h"
@@ -176,6 +177,15 @@ class ARROW_EXPORT ArrayBuilder {
   void UnsafeSetNull(int64_t length);
 
   static Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer);
+
+  /// \brief Finish to an array of the specified ArrayType
+  template <typename ArrayType>
+  Status FinishTyped(std::shared_ptr<ArrayType>* out) {
+    std::shared_ptr<Array> out_untyped;
+    ARROW_RETURN_NOT_OK(Finish(&out_untyped));
+    *out = std::static_pointer_cast<ArrayType>(std::move(out_untyped));
+    return Status::OK();
+  }
 
   static Status CheckCapacity(int64_t new_capacity, int64_t old_capacity) {
     if (new_capacity < 0) {

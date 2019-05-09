@@ -22,7 +22,6 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.arrow.memory.AllocationManager.BufferLedger;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
@@ -43,8 +42,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   public static final int DEBUG_LOG_LENGTH = 6;
   public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled() ||
       Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator
-      .class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   final String name;
   final RootAllocator root;
@@ -71,11 +69,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    *                          construction
    */
   protected BaseAllocator(
-          final BaseAllocator parentAllocator,
-          final AllocationListener listener,
-          final String name,
-          final long initReservation,
-          final long maxAllocation) throws OutOfMemoryException {
+      final BaseAllocator parentAllocator,
+      final AllocationListener listener,
+      final String name,
+      final long initReservation,
+      final long maxAllocation) throws OutOfMemoryException {
     super(parentAllocator, initReservation, maxAllocation);
 
     this.listener = listener;
@@ -88,7 +86,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       empty = createEmpty();
     } else {
       throw new IllegalStateException("An parent allocator must either carry a root or be the " +
-          "root.");
+        "root.");
     }
 
     this.parentAllocator = parentAllocator;
@@ -111,6 +109,10 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   }
 
+  AllocationListener getListener() {
+    return listener;
+  }
+
   private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
     if (rounded != requested) {
       return String.format(
@@ -119,7 +121,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     } else {
       return String.format(
         "Unable to allocate buffer of size %d due to memory limit. Current " +
-           "allocation: %d", rounded, allocator.getAllocatedMemory());
+          "allocation: %d", rounded, allocator.getAllocatedMemory());
     }
   }
 
@@ -259,7 +261,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   private ArrowBuf createEmpty() {
-    return new ArrowBuf(new AtomicInteger(), null, AllocationManager.EMPTY, null, null, 0, 0, true);
+    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, 0, true);
   }
 
   @Override
@@ -274,9 +276,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     // round to next largest power of two if we're within a chunk since that is how our allocator
     // operates
-    final int actualRequestSize = initialRequestSize < AllocationManager.CHUNK_SIZE ?
-        nextPowerOfTwo(initialRequestSize)
-        : initialRequestSize;
+    final int actualRequestSize =
+        initialRequestSize < AllocationManager.CHUNK_SIZE ?
+          nextPowerOfTwo(initialRequestSize) : initialRequestSize;
 
     listener.onPreAllocation(actualRequestSize);
 
@@ -317,17 +319,17 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   /**
-   * Used by usual allocation as well as for allocating a pre-reserved buffer. Skips the typical
-   * accounting associated
-   * with creating a new buffer.
+   * Used by usual allocation as well as for allocating a pre-reserved buffer.
+   * Skips the typical accounting associated with creating a new buffer.
    */
-  private ArrowBuf bufferWithoutReservation(final int size, BufferManager bufferManager) throws
-      OutOfMemoryException {
+  private ArrowBuf bufferWithoutReservation(
+      final int size,
+      BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();
 
     final AllocationManager manager = new AllocationManager(this, size);
     final BufferLedger ledger = manager.associate(this); // +1 ref cnt (required)
-    final ArrowBuf buffer = ledger.newArrowBuf(0, size, bufferManager);
+    final ArrowBuf buffer = ledger.newArrowBuf(size, bufferManager);
 
     // make sure that our allocation is equal to what we expected.
     Preconditions.checkArgument(buffer.capacity() == size,
@@ -357,8 +359,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       final long maxAllocation) {
     assertOpen();
 
-    final ChildAllocator childAllocator = new ChildAllocator(listener, this, name, initReservation,
-        maxAllocation);
+    final ChildAllocator childAllocator =
+        new ChildAllocator(listener, this, name, initReservation, maxAllocation);
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
@@ -406,23 +408,23 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           }
 
           throw new IllegalStateException(
-              String.format("Allocator[%s] closed with outstanding child allocators.\n%s", name,
-                  toString()));
+            String.format("Allocator[%s] closed with outstanding child allocators.\n%s", name,
+              toString()));
         }
 
         // are there outstanding buffers?
         final int allocatedCount = childLedgers.size();
         if (allocatedCount > 0) {
           throw new IllegalStateException(
-              String.format("Allocator[%s] closed with outstanding buffers allocated (%d).\n%s",
-                  name, allocatedCount, toString()));
+            String.format("Allocator[%s] closed with outstanding buffers allocated (%d).\n%s",
+              name, allocatedCount, toString()));
         }
 
         if (reservations.size() != 0) {
           throw new IllegalStateException(
-              String.format("Allocator[%s] closed with outstanding reservations (%d).\n%s", name,
-                  reservations.size(),
-                  toString()));
+            String.format("Allocator[%s] closed with outstanding reservations (%d).\n%s", name,
+              reservations.size(),
+              toString()));
         }
 
       }
@@ -432,8 +434,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     final long allocated = getAllocatedMemory();
     if (allocated > 0) {
       throw new IllegalStateException(
-          String.format("Memory was leaked by query. Memory leaked: (%d)\n%s", allocated,
-              toString()));
+        String.format("Memory was leaked by query. Memory leaked: (%d)\n%s", allocated,
+          toString()));
     }
 
     // we need to release our memory to our parent before we tell it we've closed.
@@ -446,9 +448,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     if (DEBUG) {
       historicalLog.recordEvent("closed");
-      logger.debug(String.format(
-          "closed allocator[%s].",
-          name));
+      logger.debug(String.format("closed allocator[%s].", name));
     }
 
 
@@ -487,24 +487,21 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @throws IllegalStateException when any problems are found
    */
   void verifyAllocator() {
-    final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> buffersSeen = new
-        IdentityHashMap<>();
-    verifyAllocator(buffersSeen);
+    final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> seen = new IdentityHashMap<>();
+    verifyAllocator(seen);
   }
 
   /**
-   * Verifies the accounting state of the allocator. Only works for DEBUG.
-   *
-   * <p>This overload is used for recursive calls, allowing for checking that ArrowBufs are unique
-   * across all allocators
-   * that are checked.
+   * Verifies the accounting state of the allocator (Only works for DEBUG)
+   * This overload is used for recursive calls, allowing for checking
+   * that ArrowBufs are unique across all allocators that are checked.
    *
    * @param buffersSeen a map of buffers that have already been seen when walking a tree of
    *                    allocators
    * @throws IllegalStateException when any problems are found
    */
-  private void verifyAllocator(final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator>
-                                   buffersSeen) {
+  private void verifyAllocator(
+      final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> buffersSeen) {
     // The remaining tests can only be performed if we're in debug mode.
     if (!DEBUG) {
       return;
@@ -538,8 +535,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         }
         logger.debug("allocator[" + name + "] child event logs END");
         throw new IllegalStateException(
-            "Child allocators own more memory (" + childTotal + ") than their parent (name = " +
-                name + " ) has allocated (" + getAllocatedMemory() + ')');
+          "Child allocators own more memory (" + childTotal + ") than their parent (name = " +
+            name + " ) has allocated (" + getAllocatedMemory() + ')');
       }
 
       // Furthermore, the amount I've allocated should be that plus buffers I've allocated.
@@ -559,7 +556,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         final BaseAllocator otherOwner = buffersSeen.get(udle);
         if (otherOwner != null) {
           throw new IllegalStateException("This allocator's ArrowBuf already owned by another " +
-              "allocator");
+            "allocator");
         }
         buffersSeen.put(udle, this);
 
@@ -620,13 +617,13 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
         if (allocated2 != allocated) {
           throw new IllegalStateException(String.format(
-              "allocator[%s]: allocated t1 (%d) + allocated t2 (%d). Someone released memory while in verification.",
-              name, allocated, allocated2));
+            "allocator[%s]: allocated t1 (%d) + allocated t2 (%d). Someone released memory while in verification.",
+            name, allocated, allocated2));
 
         }
         throw new IllegalStateException(String.format(
-            "allocator[%s]: buffer space (%d) + prealloc space (%d) + child space (%d) != allocated (%d)",
-            name, bufferTotal, reservedTotal, childTotal, allocated));
+          "allocator[%s]: buffer space (%d) + prealloc space (%d) + child space (%d) != allocated (%d)",
+          name, bufferTotal, reservedTotal, childTotal, allocated));
       }
     }
   }
@@ -634,18 +631,18 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   void print(StringBuilder sb, int level, Verbosity verbosity) {
 
     indent(sb, level)
-        .append("Allocator(")
-        .append(name)
-        .append(") ")
-        .append(reservation)
-        .append('/')
-        .append(getAllocatedMemory())
-        .append('/')
-        .append(getPeakMemoryAllocation())
-        .append('/')
-        .append(getLimit())
-        .append(" (res/actual/peak/limit)")
-        .append('\n');
+      .append("Allocator(")
+      .append(name)
+      .append(") ")
+      .append(reservation)
+      .append('/')
+      .append(getAllocatedMemory())
+      .append('/')
+      .append(getPeakMemoryAllocation())
+      .append('/')
+      .append(getLimit())
+      .append(" (res/actual/peak/limit)")
+      .append('\n');
 
     if (DEBUG) {
       indent(sb, level + 1).append(String.format("child allocators: %d\n", childAllocators.size()));
@@ -719,7 +716,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     public Reservation() {
       if (DEBUG) {
         historicalLog = new HistoricalLog("Reservation[allocator[%s], %d]", name, System
-            .identityHashCode(this));
+          .identityHashCode(this));
         historicalLog.recordEvent("created");
         synchronized (DEBUG_LOCK) {
           reservations.put(this, this);
@@ -800,7 +797,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
             print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);
             logger.debug(sb.toString());
             throw new IllegalStateException(String.format("Didn't find closing reservation[%d]",
-                System.identityHashCode(this)));
+              System.identityHashCode(this)));
           }
 
           historicalLog.recordEvent("closed");

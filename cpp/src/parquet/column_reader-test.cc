@@ -30,7 +30,6 @@
 #include "parquet/schema.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
-#include "parquet/util/test-common.h"
 
 namespace parquet {
 

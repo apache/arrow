@@ -106,6 +106,12 @@ class ARROW_EXPORT DictionaryBuilder : public ArrayBuilder {
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
+
   /// is the dictionary builder in the delta building mode
   bool is_building_delta() { return delta_offset_ > 0; }
 
@@ -138,6 +144,12 @@ class ARROW_EXPORT DictionaryBuilder<NullType> : public ArrayBuilder {
 
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
  protected:
   AdaptiveIntBuilder values_builder_;

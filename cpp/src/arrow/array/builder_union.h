@@ -76,6 +76,12 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<UnionArray>* out) { return FinishTyped(out); }
+
   /// \brief Make a new child builder available to the UnionArray
   ///
   /// \param[in] child the child builder

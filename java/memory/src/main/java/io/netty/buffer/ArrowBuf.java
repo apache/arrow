@@ -22,150 +22,90 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.FileChannel;
-import java.nio.channels.GatheringByteChannel;
-import java.nio.channels.ScatteringByteChannel;
-import java.nio.charset.Charset;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.nio.ReadOnlyBufferException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.arrow.memory.AllocationManager.BufferLedger;
-import org.apache.arrow.memory.ArrowByteBufAllocator;
+import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.BoundsChecking;
-import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.BufferLedger;
 import org.apache.arrow.memory.BufferManager;
+import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 
 import io.netty.util.internal.PlatformDependent;
 
 /**
- * ArrowBuf is the abstraction around raw byte arrays that
- * comprise arrow data structures.
- *
- *
- * <p>Specifically, it serves as a facade over
- * {@linkplain UnsafeDirectLittleEndian} memory objects that hides the details
- * of raw memory addresses.
- *
- * <p>ArrowBuf supports reference counting and ledgering to closely track where
- * memory is being used.
+ * ArrowBuf serves as a facade over underlying memory by providing
+ * several access APIs to read/write data into a chunk of direct
+ * memory. All the accounting, ownership and reference management
+ * is done by {@link ReferenceManager} and ArrowBuf can work
+ * with a custom user provided implementation of ReferenceManager
+ * <p>
+ * Two important instance variables of an ArrowBuf:
+ * (1) address - starting virtual address in the underlying memory
+ * chunk that this ArrowBuf has access to
+ * (2) length - length (in bytes) in the underlying memory chunk
+ * that this ArrowBuf has access to
+ * </p>
+ * <p>
+ * The mangement (allocation, deallocation, reference counting etc) for
+ * the memory chunk is not done by ArrowBuf.
+ * Default implementation of ReferenceManager, allocation is in
+ * {@link BaseAllocator}, {@link BufferLedger} and {@link AllocationManager}
+ * </p>
  */
-public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
+public final class ArrowBuf implements AutoCloseable {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ArrowBuf.class);
+
+  private static final int SHORT_SIZE = Short.BYTES;
+  private static final int INT_SIZE = Integer.BYTES;
+  private static final int FLOAT_SIZE = Float.BYTES;
+  private static final int DOUBLE_SIZE = Double.BYTES;
+  private static final int LONG_SIZE = Long.BYTES;
 
   private static final AtomicLong idGenerator = new AtomicLong(0);
   private static final int LOG_BYTES_PER_ROW = 10;
   private final long id = idGenerator.incrementAndGet();
-  private final AtomicInteger refCnt;
-  private final UnsafeDirectLittleEndian udle;
+  private final ReferenceManager referenceManager;
+  private final BufferManager bufferManager;
   private final long addr;
-  private final int offset;
-  private final BufferLedger ledger;
-  private final BufferManager bufManager;
-  private final ArrowByteBufAllocator alloc;
   private final boolean isEmpty;
+  private int readerIndex;
+  private int writerIndex;
   private final HistoricalLog historicalLog = BaseAllocator.DEBUG ?
       new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
   private volatile int length;
 
   /**
    * Constructs a new ArrowBuf
-   * @param refCnt The atomic integer to use for reference counting this buffer.
-   * @param ledger The ledger to use for tracking memory usage of this buffer.
-   * @param byteBuf The underlying storage for this buffer.
-   * @param manager The manager that handles replacing this buffer.
-   * @param alloc The allocator for the buffer (needed for superclass compatibility)
-   * @param offset The byte offset into <code>byteBuf</code> this buffer starts at.
+   * @param referenceManager The memory manager to track memory usage and reference count of this buffer
    * @param length The  byte length of this buffer
    * @param isEmpty  Indicates if this buffer is empty which enables some optimizations.
    */
   public ArrowBuf(
-      final AtomicInteger refCnt,
-      final BufferLedger ledger,
-      final UnsafeDirectLittleEndian byteBuf,
-      final BufferManager manager,
-      final ArrowByteBufAllocator alloc,
-      final int offset,
+      final ReferenceManager referenceManager,
+      final BufferManager bufferManager,
       final int length,
+      final long memoryAddress,
       boolean isEmpty) {
-    // TODO(emkornfield): Should this be byteBuf.maxCapacity - offset?
-    super(byteBuf.maxCapacity());
-    this.refCnt = refCnt;
-    this.udle = byteBuf;
+    this.referenceManager = referenceManager;
+    this.bufferManager = bufferManager;
     this.isEmpty = isEmpty;
-    this.bufManager = manager;
-    this.alloc = alloc;
-    this.addr = byteBuf.memoryAddress() + offset;
-    this.ledger = ledger;
+    this.addr = memoryAddress;
     this.length = length;
-    this.offset = offset;
-
+    this.readerIndex = 0;
+    this.writerIndex = 0;
     if (BaseAllocator.DEBUG) {
       historicalLog.recordEvent("create()");
     }
-
   }
 
-  /** Returns a debug friendly string for the given ByteBuf. */
-  public static String bufferState(final ByteBuf buf) {
-    final int cap = buf.capacity();
-    final int mcap = buf.maxCapacity();
-    final int ri = buf.readerIndex();
-    final int rb = buf.readableBytes();
-    final int wi = buf.writerIndex();
-    final int wb = buf.writableBytes();
-    return String.format("cap/max: %d/%d, ri: %d, rb: %d, wi: %d, wb: %d",
-        cap, mcap, ri, rb, wi, wb);
-  }
-
-  /**
-   * Returns <code>this</code> if size is less then {@link #capacity()}, otherwise
-   * delegates to {@link BufferManager#replace(ArrowBuf, int)} to get a new buffer.
-   */
-  public ArrowBuf reallocIfNeeded(final int size) {
-    Preconditions.checkArgument(size >= 0, "reallocation size must be non-negative");
-
-    if (this.capacity() >= size) {
-      return this;
-    }
-
-    if (bufManager != null) {
-      return bufManager.replace(this, size);
-    } else {
-      throw new UnsupportedOperationException("Realloc is only available in the context of an " +
-          "operator's UDFs");
-    }
-  }
-
-  @Override
   public int refCnt() {
-    if (isEmpty) {
-      return 1;
-    } else {
-      return refCnt.get();
-    }
-  }
-
-  private long addr(int index) {
-    return addr + index;
-  }
-
-  private final void checkIndexD(int index, int fieldLength) {
-    ensureAccessible();
-    if (fieldLength < 0) {
-      throw new IllegalArgumentException("length: " + fieldLength + " (expected: >= 0)");
-    }
-    if (index < 0 || index > capacity() - fieldLength) {
-      if (BaseAllocator.DEBUG) {
-        historicalLog.logHistory(logger);
-      }
-      throw new IndexOutOfBoundsException(String.format(
-          "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
-    }
+    return isEmpty ? 1 : referenceManager.getRefCount();
   }
 
   /**
@@ -184,142 +124,47 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
   }
 
-  private void chk(int index, int width) {
-    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
-      checkIndexD(index, width);
-    }
-  }
-
-  private void ensure(int width) {
-    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
-      ensureWritable(width);
+  /**
+   * For get/set operations, reference count should be >= 1.
+   */
+  private void ensureAccessible() {
+    if (this.refCnt() == 0) {
+      throw new IllegalStateException("Ref count should be >= 1 for accessing the ArrowBuf");
     }
   }
 
   /**
-   * Create a new ArrowBuf that is associated with an alternative allocator for the purposes of
-   * memory ownership and
-   * accounting. This has no impact on the reference counting for the current ArrowBuf except in
-   * the situation where the
-   * passed in Allocator is the same as the current buffer.
-   *
-   * <p>This operation has no impact on the reference count of this ArrowBuf. The newly created
-   * ArrowBuf with either have a
-   * reference count of 1 (in the case that this is the first time this memory is being
-   * associated with the new
-   * allocator) or the current value of the reference count + 1 for the other
-   * AllocationManager/BufferLedger combination
-   * in the case that the provided allocator already had an association to this underlying memory.
-   *
-   * @param target The target allocator to create an association with.
-   * @return A new ArrowBuf which shares the same underlying memory as this ArrowBuf.
+   * Get a wrapper buffer to comply with Netty interfaces and
+   * can be used in RPC/RPC allocator code.
+   * @return netty compliant {@link NettyArrowBuf}
    */
-  public ArrowBuf retain(BufferAllocator target) {
+  public NettyArrowBuf asNettyBuffer() {
 
-    if (isEmpty) {
-      return this;
-    }
-
-    if (BaseAllocator.DEBUG) {
-      historicalLog.recordEvent("retain(%s)", target.getName());
-    }
-    final BufferLedger otherLedger = this.ledger.getLedgerForAllocator(target);
-    ArrowBuf newArrowBuf = otherLedger.newArrowBuf(offset, length, null);
-    newArrowBuf.readerIndex(this.readerIndex);
-    newArrowBuf.writerIndex(this.writerIndex);
-    return newArrowBuf;
+    final NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
+            this,
+            isEmpty ? null : referenceManager.getAllocator().getAsByteBufAllocator(),
+            length);
+    nettyArrowBuf.readerIndex(readerIndex);
+    nettyArrowBuf.writerIndex(writerIndex);
+    return nettyArrowBuf;
   }
 
   /**
-   * Transfer the memory accounting ownership of this ArrowBuf to another allocator. This will
-   * generate a new ArrowBuf
-   * that carries an association with the underlying memory of this ArrowBuf. If this ArrowBuf is
-   * connected to the
-   * owning BufferLedger of this memory, that memory ownership/accounting will be transferred to
-   * the target allocator. If
-   * this ArrowBuf does not currently own the memory underlying it (and is only associated with
-   * it), this does not
-   * transfer any ownership to the newly created ArrowBuf.
-   *
-   * <p>This operation has no impact on the reference count of this ArrowBuf. The newly created
-   * ArrowBuf with either have a
-   * reference count of 1 (in the case that this is the first time this memory is being
-   * associated with the new
-   * allocator) or the current value of the reference count for the other
-   * AllocationManager/BufferLedger combination in
-   * the case that the provided allocator already had an association to this underlying memory.
-   *
-   * <p>Transfers will always succeed, even if that puts the other allocator into an overlimit
-   * situation. This is possible
-   * due to the fact that the original owning allocator may have allocated this memory out of a
-   * local reservation
-   * whereas the target allocator may need to allocate new memory from a parent or RootAllocator.
-   * This operation is done
-   * in a mostly-lockless but consistent manner. As such, the overlimit==true situation could
-   * occur slightly prematurely
-   * to an actual overlimit==true condition. This is simply conservative behavior which means we
-   * may return overlimit
-   * slightly sooner than is necessary.
-   *
-   * @param target The allocator to transfer ownership to.
-   * @return A new transfer result with the impact of the transfer (whether it was overlimit) as
-   *         well as the newly created ArrowBuf.
+   * Get reference manager for this ArrowBuf.
+   * @return user provided implementation of {@link ReferenceManager}
    */
-  public TransferResult transferOwnership(BufferAllocator target) {
-
-    if (isEmpty) {
-      return new TransferResult(true, this);
-    }
-
-    final BufferLedger otherLedger = this.ledger.getLedgerForAllocator(target);
-    final ArrowBuf newBuf = otherLedger.newArrowBuf(offset, length, null);
-    newBuf.setIndex(this.readerIndex, this.writerIndex);
-    final boolean allocationFit = this.ledger.transferBalance(otherLedger);
-    return new TransferResult(allocationFit, newBuf);
+  public ReferenceManager getReferenceManager() {
+    return referenceManager;
   }
 
-  @Override
-  public boolean release() {
-    return release(1);
+  public boolean isEmpty() {
+    return isEmpty;
   }
 
-  /**
-   * Release the provided number of reference counts.
-   */
-  @Override
-  public boolean release(int decrement) {
-
-    if (isEmpty) {
-      return false;
-    }
-
-    if (decrement < 1) {
-      throw new IllegalStateException(String.format("release(%d) argument is not positive. Buffer Info: %s",
-          decrement, toVerboseString()));
-    }
-
-    final int refCnt = ledger.decrement(decrement);
-
-    if (BaseAllocator.DEBUG) {
-      historicalLog.recordEvent("release(%d). original value: %d", decrement, refCnt + decrement);
-    }
-
-    if (refCnt < 0) {
-      throw new IllegalStateException(
-          String.format("ArrowBuf[%d] refCnt has gone negative. Buffer Info: %s", id,
-              toVerboseString()));
-    }
-
-    return refCnt == 0;
-
-  }
-
-  @Override
   public int capacity() {
     return length;
   }
 
-  @Override
   public synchronized ArrowBuf capacity(int newCapacity) {
 
     if (newCapacity == length) {
@@ -336,61 +181,25 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     throw new UnsupportedOperationException("Buffers don't support resizing that increases the size.");
   }
 
-  @Override
-  public ArrowByteBufAllocator alloc() {
-    return alloc;
-  }
-
-  @Override
   public ByteOrder order() {
     return ByteOrder.LITTLE_ENDIAN;
   }
 
-  @Override
-  public ArrowBuf order(ByteOrder endianness) {
-    return this;
+  public int readableBytes() {
+    Preconditions.checkState(writerIndex >= readerIndex,
+            "Writer index cannot be less than reader index");
+    return writerIndex - readerIndex;
   }
 
-  @Override
-  public ByteBuf unwrap() {
-    return udle;
+  public int writableBytes() {
+    return capacity() - writerIndex;
   }
 
-  @Override
-  public boolean isDirect() {
-    return true;
-  }
-
-  @Override
-  public ByteBuf readBytes(int length) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ByteBuf readSlice(int length) {
-    final ByteBuf slice = slice(readerIndex(), length);
-    readerIndex(readerIndex() + length);
-    return slice;
-  }
-
-  @Override
-  public ByteBuf copy() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ByteBuf copy(int index, int length) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public ArrowBuf slice() {
-    return slice(readerIndex(), readableBytes());
+    return slice(readerIndex, readableBytes());
   }
 
-  @Override
   public ArrowBuf slice(int index, int length) {
-
     if (isEmpty) {
       return this;
     }
@@ -403,89 +212,26 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
      * .html#wiki-h3-5, which
      * explains that derived buffers share their reference count with their parent
      */
-    final ArrowBuf newBuf = ledger.newArrowBuf(offset + index, length);
+    final ArrowBuf newBuf = referenceManager.deriveBuffer(this, index, length);
     newBuf.writerIndex(length);
     return newBuf;
   }
 
-  @Override
-  public ArrowBuf duplicate() {
-    return slice(0, length);
-  }
-
-  @Override
-  public int nioBufferCount() {
-    return 1;
-  }
-
-  @Override
   public ByteBuffer nioBuffer() {
-    return nioBuffer(readerIndex(), readableBytes());
+    return isEmpty ? ByteBuffer.allocateDirect(0) : asNettyBuffer().nioBuffer();
   }
 
-  @Override
   public ByteBuffer nioBuffer(int index, int length) {
-    return udle.nioBuffer(offset + index, length);
+    return isEmpty ? ByteBuffer.allocateDirect(0) : asNettyBuffer().nioBuffer(index, length);
   }
 
-  @Override
-  public ByteBuffer internalNioBuffer(int index, int length) {
-    return udle.internalNioBuffer(offset + index, length);
-  }
-
-  @Override
-  public ByteBuffer[] nioBuffers() {
-    return new ByteBuffer[] {nioBuffer()};
-  }
-
-  @Override
-  public ByteBuffer[] nioBuffers(int index, int length) {
-    return new ByteBuffer[] {nioBuffer(index, length)};
-  }
-
-  @Override
-  public boolean hasArray() {
-    return udle.hasArray();
-  }
-
-  @Override
-  public byte[] array() {
-    return udle.array();
-  }
-
-  @Override
-  public int arrayOffset() {
-    return udle.arrayOffset();
-  }
-
-  @Override
-  public boolean hasMemoryAddress() {
-    return true;
-  }
-
-  @Override
   public long memoryAddress() {
     return this.addr;
   }
 
   @Override
   public String toString() {
-    return String.format("ArrowBuf[%d], udle: [%d %d..%d]", id, udle.id, offset, offset + capacity());
-  }
-
-  @Override
-  public String toString(Charset charset) {
-    return toString(readerIndex, readableBytes(), charset);
-  }
-
-  @Override
-  public String toString(int index, int length, Charset charset) {
-
-    if (length == 0) {
-      return "";
-    }
-
-    return ByteBufUtil.decodeString(this, index, length, charset);
+    return String.format("ArrowBuf[%d], address:%d, length:%d", id, memoryAddress(), length);
   }
 
   @Override
@@ -499,552 +245,800 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this == obj;
   }
 
-  @Override
-  public ArrowBuf retain(int increment) {
-    Preconditions.checkArgument(increment > 0, "retain(%d) argument is not positive", increment);
+  /*
+   * IMPORTANT NOTE
+   * The data getters and setters work with a caller provided
+   * index. This index is 0 based and since ArrowBuf has access
+   * to a portion of underlying chunk of memory starting at
+   * some address, we convert the given relative index into
+   * absolute index as memory address + index.
+   *
+   * Example:
+   *
+   * Let's say we have an underlying chunk of memory of length 64 bytes
+   * Now let's say we have an ArrowBuf that has access to the chunk
+   * from offset 4 for length of 16 bytes.
+   *
+   * If the starting virtual address of chunk is MAR, then memory
+   * address of this ArrowBuf is MAR + offset -- this is what is stored
+   * in variable addr. See the BufferLedger and AllocationManager code
+   * for the implementation of ReferenceManager that manages a
+   * chunk of memory and creates ArrowBuf with access to a range of
+   * bytes within the chunk (or the entire chunk)
+   *
+   * So now to get/set data, we will do => addr + index
+   * This logic is put in method addr(index) and is frequently
+   * used in get/set data methods to compute the absolute
+   * byte address for get/set operation in the underlying chunk
+   *
+   * @param index the index at which we the user wants to read/write
+   * @return the absolute address within the memro
+   */
+  private long addr(int index) {
+    return addr + index;
+  }
 
-    if (isEmpty) {
-      return this;
+
+
+  /*-------------------------------------------------*
+   | Following are a set of fast path data set and   |
+   | get APIs to write/read data from ArrowBuf       |
+   | at a given index (0 based relative to this      |
+   | ArrowBuf and not relative to the underlying     |
+   | memory chunk).                                  |
+   |                                                 |
+   *-------------------------------------------------*/
+
+
+
+  /**
+   * Helper function to do bounds checking at a particular
+   * index for particular length of data.
+   * @param index index (0 based relative to this ArrowBuf)
+   * @param length provided length of data for get/set
+   */
+  private void chk(int index, int length) {
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      checkIndexD(index, length);
     }
+  }
 
-    if (BaseAllocator.DEBUG) {
-      historicalLog.recordEvent("retain(%d)", increment);
+  private void checkIndexD(int index, int fieldLength) {
+    // check reference count
+    ensureAccessible();
+    // check bounds
+    Preconditions.checkArgument(fieldLength >= 0, "expecting non-negative data length");
+    if (index < 0 || index > capacity() - fieldLength) {
+      if (BaseAllocator.DEBUG) {
+        historicalLog.logHistory(logger);
+      }
+      throw new IndexOutOfBoundsException(String.format(
+        "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
     }
-
-    final int originalReferenceCount = refCnt.getAndAdd(increment);
-    Preconditions.checkArgument(originalReferenceCount > 0);
-    return this;
   }
 
-  @Override
-  public ArrowBuf retain() {
-    return retain(1);
-  }
-
-  @Override
-  public ByteBuf touch() {
-    return this;
-  }
-
-  @Override
-  public ByteBuf touch(Object hint) {
-    return this;
-  }
-
-  @Override
+  /**
+   * Get long value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte long value
+   */
   public long getLong(int index) {
-    chk(index, 8);
-    final long v = PlatformDependent.getLong(addr(index));
-    return v;
+    chk(index, LONG_SIZE);
+    return PlatformDependent.getLong(addr(index));
   }
 
-  @Override
+  /**
+   * Set long value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setLong(int index, long value) {
+    chk(index, LONG_SIZE);
+    PlatformDependent.putLong(addr(index), value);
+  }
+
+  /**
+   * Get float value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte float value
+   */
   public float getFloat(int index) {
     return Float.intBitsToFloat(getInt(index));
   }
 
   /**
-   * Gets a 64-bit long integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
+   * Set float value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
    */
-  @Override
-  public long getLongLE(int index) {
-    chk(index, 8);
-    final long v = PlatformDependent.getLong(addr(index));
-    return Long.reverseBytes(v);
+  public void setFloat(int index, float value) {
+    chk(index, FLOAT_SIZE);
+    PlatformDependent.putInt(addr(index), Float.floatToRawIntBits(value));
   }
 
-  @Override
+  /**
+   * Get double value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 8 byte double value
+   */
   public double getDouble(int index) {
     return Double.longBitsToDouble(getLong(index));
   }
 
-  @Override
+  /**
+   * Set double value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setDouble(int index, double value) {
+    chk(index, DOUBLE_SIZE);
+    PlatformDependent.putLong(addr(index), Double.doubleToRawLongBits(value));
+  }
+
+  /**
+   * Get char value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte char value
+   */
   public char getChar(int index) {
     return (char) getShort(index);
   }
 
-  @Override
-  public long getUnsignedInt(int index) {
-    return getInt(index) & 0xFFFFFFFFL;
+  /**
+   * Set char value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setChar(int index, int value) {
+    chk(index, SHORT_SIZE);
+    PlatformDependent.putShort(addr(index), (short) value);
   }
 
-  @Override
+  /**
+   * Get int value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte int value
+   */
   public int getInt(int index) {
-    chk(index, 4);
-    final int v = PlatformDependent.getInt(addr(index));
-    return v;
+    chk(index, INT_SIZE);
+    return PlatformDependent.getInt(addr(index));
   }
 
   /**
-   * Gets a 32-bit integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
+   * Set int value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
    */
-  @Override
-  public int getIntLE(int index) {
-    chk(index, 4);
-    final int v = PlatformDependent.getInt(addr(index));
-    return Integer.reverseBytes(v);
-  }
-
-  @Override
-  public int getUnsignedShort(int index) {
-    return getShort(index) & 0xFFFF;
-  }
-
-  @Override
-  public short getShort(int index) {
-    chk(index, 2);
-    final short v = PlatformDependent.getShort(addr(index));
-    return v;
-  }
-
-  /**
-   * Gets a 16-bit short integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
-   */
-  @Override
-  public short getShortLE(int index) {
-    final short v = PlatformDependent.getShort(addr(index));
-    return Short.reverseBytes(v);
-  }
-
-  /**
-   * Gets an unsigned 24-bit medium integer at the specified absolute
-   * {@code index} in this buffer.
-   */
-  @Override
-  public int getUnsignedMedium(int index) {
-    chk(index, 3);
-    final long addr = addr(index);
-    return (PlatformDependent.getByte(addr) & 0xff) << 16 |
-        (PlatformDependent.getShort(addr + 1) & 0xffff);
-  }
-
-  /**
-   * Gets an unsigned 24-bit medium integer at the specified absolute {@code index} in
-   * this buffer in Big Endian Byte Order.
-   */
-  @Override
-  public int getUnsignedMediumLE(int index) {
-    chk(index, 3);
-    final long addr = addr(index);
-    return (PlatformDependent.getByte(addr) & 0xff) |
-        (Short.reverseBytes(PlatformDependent.getShort(addr + 1)) & 0xffff) << 8;
-  }
-
-  @Override
-  public ArrowBuf setShort(int index, int value) {
-    chk(index, 2);
-    PlatformDependent.putShort(addr(index), (short) value);
-    return this;
-  }
-
-  /**
-   * Sets the specified 16-bit short integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
-   */
-  @Override
-  public ByteBuf setShortLE(int index, int value) {
-    chk(index, 2);
-    PlatformDependent.putShort(addr(index), Short.reverseBytes((short) value));
-    return this;
-  }
-
-  /**
-   * Sets the specified 24-bit medium integer at the specified absolute
-   * {@code index} in this buffer.
-   */
-  @Override
-  public ByteBuf setMedium(int index, int value) {
-    chk(index, 3);
-    final long addr = addr(index);
-    PlatformDependent.putByte(addr, (byte) (value >>> 16));
-    PlatformDependent.putShort(addr + 1, (short) value);
-    return this;
-  }
-
-
-  /**
-   * Sets the specified 24-bit medium integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
-   */
-  @Override
-  public ByteBuf setMediumLE(int index, int value) {
-    chk(index, 3);
-    final long addr = addr(index);
-    PlatformDependent.putByte(addr, (byte) value);
-    PlatformDependent.putShort(addr + 1, Short.reverseBytes((short) (value >>> 8)));
-    return this;
-  }
-
-  @Override
-  public ArrowBuf setInt(int index, int value) {
-    chk(index, 4);
+  public void setInt(int index, int value) {
+    chk(index, INT_SIZE);
     PlatformDependent.putInt(addr(index), value);
-    return this;
   }
 
   /**
-   * Sets the specified 32-bit integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
+   * Get short value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 2 byte short value
    */
-  @Override
-  public ByteBuf setIntLE(int index, int value) {
-    chk(index, 4);
-    PlatformDependent.putInt(addr(index), Integer.reverseBytes(value));
-    return this;
-  }
-
-  @Override
-  public ArrowBuf setLong(int index, long value) {
-    chk(index, 8);
-    PlatformDependent.putLong(addr(index), value);
-    return this;
+  public short getShort(int index) {
+    chk(index, SHORT_SIZE);
+    return PlatformDependent.getShort(addr(index));
   }
 
   /**
-   * Sets the specified 64-bit long integer at the specified absolute {@code index}
-   * in this buffer with Big Endian byte order.
+   * Set short value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
    */
-  @Override
-  public ByteBuf setLongLE(int index, long value) {
-    chk(index, 8);
-    PlatformDependent.putLong(addr(index), Long.reverseBytes(value));
-    return this;
+  public void setShort(int index, int value) {
+    setShort(index, (short)value);
   }
 
-  @Override
-  public ArrowBuf setChar(int index, int value) {
-    chk(index, 2);
-    PlatformDependent.putShort(addr(index), (short) value);
-    return this;
+  /**
+   * Set short value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setShort(int index, short value) {
+    chk(index, SHORT_SIZE);
+    PlatformDependent.putShort(addr(index), value);
   }
 
-  @Override
-  public ArrowBuf setFloat(int index, float value) {
-    chk(index, 4);
-    PlatformDependent.putInt(addr(index), Float.floatToRawIntBits(value));
-    return this;
-  }
-
-  @Override
-  public ArrowBuf setDouble(int index, double value) {
-    chk(index, 8);
-    PlatformDependent.putLong(addr(index), Double.doubleToRawLongBits(value));
-    return this;
-  }
-
-  @Override
-  public ArrowBuf writeShort(int value) {
-    ensure(2);
-    PlatformDependent.putShort(addr(writerIndex), (short) value);
-    writerIndex += 2;
-    return this;
-  }
-
-  @Override
-  public ArrowBuf writeInt(int value) {
-    ensure(4);
-    PlatformDependent.putInt(addr(writerIndex), value);
-    writerIndex += 4;
-    return this;
-  }
-
-  @Override
-  public ArrowBuf writeLong(long value) {
-    ensure(8);
-    PlatformDependent.putLong(addr(writerIndex), value);
-    writerIndex += 8;
-    return this;
-  }
-
-  @Override
-  public ArrowBuf writeChar(int value) {
-    ensure(2);
-    PlatformDependent.putShort(addr(writerIndex), (short) value);
-    writerIndex += 2;
-    return this;
-  }
-
-  @Override
-  public ArrowBuf writeFloat(float value) {
-    ensure(4);
-    PlatformDependent.putInt(addr(writerIndex), Float.floatToRawIntBits(value));
-    writerIndex += 4;
-    return this;
-  }
-
-  @Override
-  public ArrowBuf writeDouble(double value) {
-    ensure(8);
-    PlatformDependent.putLong(addr(writerIndex), Double.doubleToRawLongBits(value));
-    writerIndex += 8;
-    return this;
-  }
-
-  @Override
-  public ArrowBuf getBytes(int index, byte[] dst, int dstIndex, int length) {
-    udle.getBytes(index + offset, dst, dstIndex, length);
-    return this;
-  }
-
-  @Override
-  public ArrowBuf getBytes(int index, ByteBuffer dst) {
-    udle.getBytes(index + offset, dst);
-    return this;
-  }
-
-  @Override
-  public ArrowBuf setByte(int index, int value) {
+  /**
+   * Set byte value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setByte(int index, int value) {
     chk(index, 1);
     PlatformDependent.putByte(addr(index), (byte) value);
-    return this;
   }
 
-  public void setByte(int index, byte b) {
+  /**
+   * Set byte value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setByte(int index, byte value) {
     chk(index, 1);
-    PlatformDependent.putByte(addr(index), b);
-  }
-
-  public void writeByteUnsafe(byte b) {
-    PlatformDependent.putByte(addr(readerIndex), b);
-    readerIndex++;
-  }
-
-  @Override
-  protected byte _getByte(int index) {
-    return getByte(index);
-  }
-
-  @Override
-  protected short _getShort(int index) {
-    return getShort(index);
+    PlatformDependent.putByte(addr(index), value);
   }
 
   /**
-   * @see ArrowBuf#getShortLE(int).
+   * Get byte value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return byte value
    */
-  @Override
-  protected short _getShortLE(int index) {
-    return getShortLE(index);
-  }
-
-  @Override
-  protected int _getInt(int index) {
-    return getInt(index);
-  }
-
-  /**
-   * @see ArrowBuf#getIntLE(int).
-   */
-  @Override
-  protected int _getIntLE(int index) {
-    return getIntLE(index);
-  }
-
-  /**
-   * @see ArrowBuf#getUnsignedMedium(int).
-   */
-  @Override
-  protected int _getUnsignedMedium(int index) {
-    return getUnsignedMedium(index);
-  }
-
-  /**
-   * @see ArrowBuf#getUnsignedMediumLE(int).
-   */
-  @Override
-  protected int _getUnsignedMediumLE(int index) {
-    return getUnsignedMediumLE(index);
-  }
-
-  @Override
-  protected long _getLong(int index) {
-    return getLong(index);
-  }
-
-  /**
-   * @see ArrowBuf#getLongLE(int).
-   */
-  @Override
-  protected long _getLongLE(int index) {
-    return getLongLE(index);
-  }
-
-  @Override
-  protected void _setByte(int index, int value) {
-    setByte(index, value);
-  }
-
-  @Override
-  protected void _setShort(int index, int value) {
-    setShort(index, value);
-  }
-
-  /**
-   * @see ArrowBuf#setShortLE(int, int).
-   */
-  @Override
-  protected void _setShortLE(int index, int value) {
-    setShortLE(index, value);
-  }
-
-  @Override
-  protected void _setMedium(int index, int value) {
-    setMedium(index, value);
-  }
-
-  /**
-   * @see ArrowBuf#setMediumLE(int, int).
-   */
-  @Override
-  protected void _setMediumLE(int index, int value) {
-    setMediumLE(index, value);
-  }
-
-  @Override
-  protected void _setInt(int index, int value) {
-    setInt(index, value);
-  }
-
-  /**
-   * @see ArrowBuf#setIntLE(int, int).
-   */
-  @Override
-  protected void _setIntLE(int index, int value) {
-    setIntLE(index, value);
-  }
-
-  @Override
-  protected void _setLong(int index, long value) {
-    setLong(index, value);
-  }
-
-  /**
-   * @see ArrowBuf#setLongLE(int, long).
-   */
-  @Override
-  public void _setLongLE(int index, long value) {
-    setLongLE(index, value);
-  }
-
-  @Override
-  public ArrowBuf getBytes(int index, ByteBuf dst, int dstIndex, int length) {
-    udle.getBytes(index + offset, dst, dstIndex, length);
-    return this;
-  }
-
-  @Override
-  public ArrowBuf getBytes(int index, OutputStream out, int length) throws IOException {
-    udle.getBytes(index + offset, out, length);
-    return this;
-  }
-
-  @Override
-  public int getBytes(int index, GatheringByteChannel out, int length) throws IOException {
-    return udle.getBytes(index + offset, out, length);
-  }
-
-  @Override
-  public int getBytes(int index, FileChannel out, long position, int length) throws IOException {
-    return udle.getBytes(index + offset, out, position, length);
-  }
-
-  @Override
-  public ArrowBuf setBytes(int index, ByteBuf src, int srcIndex, int length) {
-    udle.setBytes(index + offset, src, srcIndex, length);
-    return this;
-  }
-
-  /**
-   * Copies length bytes from src starting at srcIndex
-   * to this buffer starting at index.
-   */
-  public ArrowBuf setBytes(int index, ByteBuffer src, int srcIndex, int length) {
-    if (src.isDirect()) {
-      checkIndex(index, length);
-      PlatformDependent.copyMemory(PlatformDependent.directBufferAddress(src) + srcIndex, this
-              .memoryAddress() + index,
-          length);
-    } else {
-      if (srcIndex == 0 && src.capacity() == length) {
-        udle.setBytes(index + offset, src);
-      } else {
-        ByteBuffer newBuf = src.duplicate();
-        newBuf.position(srcIndex);
-        newBuf.limit(srcIndex + length);
-        udle.setBytes(index + offset, newBuf);
-      }
-    }
-
-    return this;
-  }
-
-  @Override
-  public ArrowBuf setBytes(int index, byte[] src, int srcIndex, int length) {
-    udle.setBytes(index + offset, src, srcIndex, length);
-    return this;
-  }
-
-  @Override
-  public ArrowBuf setBytes(int index, ByteBuffer src) {
-    udle.setBytes(index + offset, src);
-    return this;
-  }
-
-  @Override
-  public int setBytes(int index, InputStream in, int length) throws IOException {
-    return udle.setBytes(index + offset, in, length);
-  }
-
-  @Override
-  public int setBytes(int index, ScatteringByteChannel in, int length) throws IOException {
-    return udle.setBytes(index + offset, in, length);
-  }
-
-  @Override
-  public int setBytes(int index, FileChannel in, long position, int length) throws IOException {
-    return udle.setBytes(index + offset, in, position, length);
-  }
-
-  @Override
   public byte getByte(int index) {
     chk(index, 1);
     return PlatformDependent.getByte(addr(index));
   }
 
-  @Override
-  public void close() {
-    release();
+
+
+  /*--------------------------------------------------*
+   | Following are another set of data set APIs       |
+   | that directly work with writerIndex              |
+   |                                                  |
+   *--------------------------------------------------*/
+
+
+
+  /**
+   * Helper function to do bound checking w.r.t writerIndex
+   * by checking if we can set "length" bytes of data at the
+   * writerIndex in this ArrowBuf.
+   * @param length provided length of data for set
+   */
+  private void ensureWritable(final int length) {
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      Preconditions.checkArgument(length >= 0, "expecting non-negative length");
+      // check reference count
+      this.ensureAccessible();
+      // check bounds
+      if (length > writableBytes()) {
+        throw new IndexOutOfBoundsException(
+          String.format("writerIndex(%d) + length(%d) exceeds capacity(%d)", writerIndex, length, capacity()));
+      }
+    }
   }
 
   /**
-   * Returns the possible memory consumed by this ArrowBuf in the worse case scenario. (not
-   * shared, connected to larger
-   * underlying buffer of allocated memory)
-   *
+   * Helper function to do bound checking w.r.t readerIndex
+   * by checking if we can read "length" bytes of data at the
+   * readerIndex in this ArrowBuf.
+   * @param length provided length of data for get
+   */
+  private void ensureReadable(final int length) {
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      Preconditions.checkArgument(length >= 0, "expecting non-negative length");
+      // check reference count
+      this.ensureAccessible();
+      // check bounds
+      if (length > readableBytes()) {
+        throw new IndexOutOfBoundsException(
+          String.format("readerIndex(%d) + length(%d) exceeds writerIndex(%d)", readerIndex, length, writerIndex));
+      }
+    }
+  }
+
+  /**
+   * Read the byte at readerIndex.
+   * @return byte value
+   */
+  public byte readByte() {
+    ensureReadable(1);
+    final byte b = getByte(readerIndex);
+    ++readerIndex;
+    return b;
+  }
+
+  /**
+   * Read dst.length bytes at readerIndex into dst byte array
+   * @param dst byte array where the data will be written
+   */
+  public void readBytes(byte[] dst) {
+    Preconditions.checkArgument(dst != null, "expecting valid dst bytearray");
+    ensureReadable(dst.length);
+    getBytes(readerIndex, dst, 0, dst.length);
+  }
+
+  /**
+   * Set the provided byte value at the writerIndex.
+   * @param value value to set
+   */
+  public void writeByte(byte value) {
+    ensureWritable(1);
+    PlatformDependent.putByte(addr(writerIndex), value);
+    ++writerIndex;
+  }
+
+  /**
+   * Set the lower order byte for the provided value at
+   * the writerIndex.
+   * @param value value to be set
+   */
+  public void writeByte(int value) {
+    ensureWritable(1);
+    PlatformDependent.putByte(addr(writerIndex), (byte)value);
+    ++writerIndex;
+  }
+
+  /**
+   * Write the bytes from given byte array into this
+   * ArrowBuf starting at writerIndex.
+   * @param src src byte array
+   */
+  public void writeBytes(byte[] src) {
+    Preconditions.checkArgument(src != null, "expecting valid src array");
+    writeBytes(src, 0, src.length);
+  }
+
+  /**
+   * Write the bytes from given byte array starting at srcIndex
+   * into this ArrowBuf starting at writerIndex.
+   * @param src src byte array
+   * @param srcIndex index in the byte array where the copy will being from
+   * @param length length of data to copy
+   */
+  public void writeBytes(byte[] src, int srcIndex, int length) {
+    ensureWritable(length);
+    setBytes(writerIndex, src, srcIndex, length);
+    writerIndex += length;
+  }
+
+  /**
+   * Set the provided int value as short at the writerIndex.
+   * @param value value to set
+   */
+  public void writeShort(int value) {
+    ensureWritable(SHORT_SIZE);
+    PlatformDependent.putShort(addr(writerIndex), (short) value);
+    writerIndex += SHORT_SIZE;
+  }
+
+  /**
+   * Set the provided int value at the writerIndex.
+   * @param value value to set
+   */
+  public void writeInt(int value) {
+    ensureWritable(INT_SIZE);
+    PlatformDependent.putInt(addr(writerIndex), value);
+    writerIndex += INT_SIZE;
+  }
+
+  /**
+   * Set the provided long value at the writerIndex.
+   * @param value value to set
+   */
+  public void writeLong(long value) {
+    ensureWritable(LONG_SIZE);
+    PlatformDependent.putLong(addr(writerIndex), value);
+    writerIndex += LONG_SIZE;
+  }
+
+  /**
+   * Set the provided float value at the writerIndex.
+   * @param value value to set
+   */
+  public void writeFloat(float value) {
+    ensureWritable(FLOAT_SIZE);
+    PlatformDependent.putInt(addr(writerIndex), Float.floatToRawIntBits(value));
+    writerIndex += FLOAT_SIZE;
+  }
+
+  /**
+   * Set the provided double value at the writerIndex.
+   * @param value value to set
+   */
+  public void writeDouble(double value) {
+    ensureWritable(DOUBLE_SIZE);
+    PlatformDependent.putLong(addr(writerIndex), Double.doubleToRawLongBits(value));
+    writerIndex += DOUBLE_SIZE;
+  }
+
+
+  /*--------------------------------------------------*
+   | Following are another set of data set/get APIs   |
+   | that read and write stream of bytes from/to byte |
+   | arrays, ByteBuffer, ArrowBuf etc                 |
+   |                                                  |
+   *--------------------------------------------------*/
+
+  /**
+   * Determine if the requested {@code index} and {@code length} will fit within {@code capacity}.
+   * @param index The starting index.
+   * @param length The length which will be utilized (starting from {@code index}).
+   * @param capacity The capacity that {@code index + length} is allowed to be within.
+   * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code capacity}.
+   * {@code false} if this would result in an index out of bounds exception.
+   */
+  private static boolean isOutOfBounds(int index, int length, int capacity) {
+    return (index | length | (index + length) | (capacity - (index + length))) < 0;
+  }
+
+  private void checkIndex(int index, int fieldLength) {
+    // check reference count
+    this.ensureAccessible();
+    // check bounds
+    if (isOutOfBounds(index, fieldLength, this.capacity())) {
+      throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
+        index, fieldLength, this.capacity()));
+    }
+  }
+
+  /**
+   * Copy data from this ArrowBuf at a given index in into destination
+   * byte array.
+   * @param index starting index (0 based relative to the portion of memory)
+   *              this ArrowBuf has access to
+   * @param dst byte array to copy the data into
+   */
+  public void getBytes(int index, byte[] dst) {
+    getBytes(index, dst, 0, dst.length);
+  }
+
+  /**
+   * Copy data from this ArrowBuf at a given index into destination byte array.
+   * @param index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param dst byte array to copy the data into
+   * @param dstIndex starting index in dst byte array to copy into
+   * @param length length of data to copy from this ArrowBuf
+   */
+  public void getBytes(int index, byte[] dst, int dstIndex, int length) {
+    // bound check for this ArrowBuf where the data will be copied from
+    checkIndex(index, length);
+    // null check
+    Preconditions.checkArgument(dst != null, "expecting a valid dst byte array");
+    // bound check for dst byte array where the data will be copied to
+    if (isOutOfBounds(dstIndex, length, dst.length)) {
+      // not enough space to copy "length" bytes into dst array from dstIndex onwards
+      throw new IndexOutOfBoundsException("Not enough space to copy data into destination" + dstIndex);
+    }
+    if (length != 0) {
+      // copy "length" bytes from this ArrowBuf starting at addr(index) address
+      // into dst byte array at dstIndex onwards
+      PlatformDependent.copyMemory(addr(index), dst, dstIndex, (long)length);
+    }
+  }
+
+  /**
+   * Copy data from a given byte array into this ArrowBuf starting at
+   * a given index.
+   * @param index starting index (0 based relative to the portion of memory)
+   *              this ArrowBuf has access to
+   * @param src byte array to copy the data from
+   */
+  public void setBytes(int index, byte[] src) {
+    setBytes(index, src, 0, src.length);
+  }
+
+  /**
+   * Copy data from a given byte array starting at the given source index into
+   * this ArrowBuf at a given index.
+   * @param index index (0 based relative to the portion of memory this ArrowBuf
+   *              has access to)
+   * @param src src byte array to copy the data from
+   * @param srcIndex index in the byte array where the copy will start from
+   * @param length length of data to copy from byte array
+   */
+  public void setBytes(int index, byte[] src, int srcIndex, int length) {
+    // bound check for this ArrowBuf where the data will be copied into
+    checkIndex(index, length);
+    // null check
+    Preconditions.checkArgument(src != null, "expecting a valid src byte array");
+    // bound check for src byte array where the data will be copied from
+    if (isOutOfBounds(srcIndex, length, src.length)) {
+      // not enough space to copy "length" bytes into dst array from dstIndex onwards
+      throw new IndexOutOfBoundsException("Not enough space to copy data from byte array" + srcIndex);
+    }
+    if (length > 0) {
+      // copy "length" bytes from src byte array at the starting index (srcIndex)
+      // into this ArrowBuf starting at address "addr(index)"
+      PlatformDependent.copyMemory(src, srcIndex, addr(index), (long)length);
+    }
+  }
+
+  /**
+   * Copy data from this ArrowBuf at a given index into the destination
+   * ByteBuffer.
+   * @param index index (0 based relative to the portion of memory this ArrowBuf
+   *              has access to)
+   * @param dst dst ByteBuffer where the data will be copied into
+   */
+  public void getBytes(int index, ByteBuffer dst) {
+    // bound check for this ArrowBuf where the data will be copied from
+    checkIndex(index, dst.remaining());
+    // dst.remaining() bytes of data will be copied into dst ByteBuffer
+    if (dst.remaining() != 0) {
+      // address in this ArrowBuf where the copy will begin from
+      final long srcAddress = addr(index);
+      if (dst.isDirect()) {
+        if (dst.isReadOnly()) {
+          throw new ReadOnlyBufferException();
+        }
+        // copy dst.remaining() bytes of data from this ArrowBuf starting
+        // at address srcAddress into the dst ByteBuffer starting at
+        // address dstAddress
+        final long dstAddress = PlatformDependent.directBufferAddress(dst) + (long)dst.position();
+        PlatformDependent.copyMemory(srcAddress, dstAddress, (long)dst.remaining());
+        // after copy, bump the next write position for the dst ByteBuffer
+        dst.position(dst.position() + dst.remaining());
+      } else if (dst.hasArray()) {
+        // copy dst.remaining() bytes of data from this ArrowBuf starting
+        // at address srcAddress into the dst ByteBuffer starting at
+        // index dstIndex
+        final int dstIndex = dst.arrayOffset() + dst.position();
+        PlatformDependent.copyMemory(srcAddress, dst.array(), dstIndex, (long)dst.remaining());
+        // after copy, bump the next write position for the dst ByteBuffer
+        dst.position(dst.position() + dst.remaining());
+      } else {
+        throw new UnsupportedOperationException("Copy from this ArrowBuf to ByteBuffer is not supported");
+      }
+    }
+  }
+
+  /**
+   * Copy data into this ArrowBuf at a given index onwards from
+   * a source ByteBuffer.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param src src ByteBuffer where the data will be copied from
+   */
+  public void setBytes(int index, ByteBuffer src) {
+    // bound check for this ArrowBuf where the data will be copied into
+    checkIndex(index, src.remaining());
+    // length of data to copy
+    int length = src.remaining();
+    // address in this ArrowBuf where the data will be copied to
+    long dstAddress = addr(index);
+    if (length != 0) {
+      if (src.isDirect()) {
+        // copy src.remaining() bytes of data from src ByteBuffer starting at
+        // address srcAddress into this ArrowBuf starting at address dstAddress
+        final long srcAddress = PlatformDependent.directBufferAddress(src) + (long)src.position();
+        PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+        // after copy, bump the next read position for the src ByteBuffer
+        src.position(src.position() + length);
+      } else if (src.hasArray()) {
+        // copy src.remaining() bytes of data from src ByteBuffer starting at
+        // index srcIndex into this ArrowBuf starting at address dstAddress
+        final int srcIndex = src.arrayOffset() + src.position();
+        PlatformDependent.copyMemory(src.array(), srcIndex, dstAddress, (long)length);
+        // after copy, bump the next read position for the src ByteBuffer
+        src.position(src.position() + length);
+      } else {
+        // copy word at a time
+        while (length >= LONG_SIZE) {
+          PlatformDependent.putLong(dstAddress, src.getLong());
+          length -= LONG_SIZE;
+          dstAddress += LONG_SIZE;
+        }
+        // copy last byte
+        while (length > 0) {
+          PlatformDependent.putByte(dstAddress, src.get());
+          --length;
+          ++dstAddress;
+        }
+      }
+    }
+  }
+
+  /**
+   * Copy data into this ArrowBuf at a given index onwards from
+   * a source ByteBuffer starting at a given srcIndex for a certain
+   * length.
+   * @param index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param src src ByteBuffer where the data will be copied from
+   * @param srcIndex starting index in the src ByteBuffer where the data copy
+   *                 will start from
+   * @param length length of data to copy from src ByteBuffer
+   */
+  public void setBytes(int index, ByteBuffer src, int srcIndex, int length) {
+    // bound check for this ArrowBuf where the data will be copied into
+    checkIndex(index, length);
+    if (src.isDirect()) {
+      // copy length bytes of data from src ByteBuffer starting at address
+      // srcAddress into this ArrowBuf at address dstAddres
+      final long srcAddress = PlatformDependent.directBufferAddress(src) + (long)srcIndex;
+      final long dstAddress = addr(index);
+      PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+    } else {
+      if (srcIndex == 0 && src.capacity() == length) {
+        // copy the entire ByteBuffer from start to end of length
+        setBytes(index, src);
+      } else {
+        ByteBuffer newBuf = src.duplicate();
+        newBuf.position(srcIndex);
+        newBuf.limit(srcIndex + length);
+        setBytes(index, newBuf);
+      }
+    }
+  }
+
+  /**
+   * Copy a given length of data from this ArrowBuf starting at a given index
+   * into a dst ArrowBuf at dstIndex.
+   * @param index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param dst dst ArrowBuf where the data will be copied into
+   * @param dstIndex index (0 based relative to the portion of memory
+   *              dst ArrowBuf has access to)
+   * @param length length of data to copy
+   */
+  public void getBytes(int index, ArrowBuf dst, int dstIndex, int length) {
+    // bound check for this ArrowBuf where the data will be copied from
+    checkIndex(index, length);
+    // bound check for this ArrowBuf where the data will be copied into
+    Preconditions.checkArgument(dst != null, "expecting a valid ArrowBuf");
+    // bound check for dst ArrowBuf
+    if (isOutOfBounds(dstIndex, length, dst.capacity())) {
+      throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
+        dstIndex, length, dst.capacity()));
+    }
+    if (length != 0) {
+      // copy length bytes of data from this ArrowBuf starting at
+      // address srcAddress into dst ArrowBuf starting at address
+      // dstAddress
+      final long srcAddress = addr(index);
+      final long dstAddress = dst.memoryAddress() + (long)dstIndex;
+      PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+    }
+  }
+
+  /**
+   * Copy data from src ArrowBuf starting at index srcIndex into this
+   * ArrowBuf at given index.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param src src ArrowBuf where the data will be copied from
+   * @param srcIndex starting index in the src ArrowBuf where the copy
+   *                 will begin from
+   * @param length length of data to copy from src ArrowBuf
+   */
+  public void setBytes(int index, ArrowBuf src, int srcIndex, int length) {
+    // bound check for this ArrowBuf where the data will be copied into
+    checkIndex(index, length);
+    // null check
+    Preconditions.checkArgument(src != null, "expecting a valid ArrowBuf");
+    // bound check for src ArrowBuf
+    if (isOutOfBounds(srcIndex, length, src.capacity())) {
+      throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
+        index, length, src.capacity()));
+    }
+    if (length != 0) {
+      // copy length bytes of data from src ArrowBuf starting at
+      // address srcAddress into this ArrowBuf starting at address
+      // dstAddress
+      final long srcAddress = src.memoryAddress() + (long)srcIndex;
+      final long dstAddress = addr(index);
+      PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+    }
+  }
+
+  /**
+   * Copy readableBytes() number of bytes from src ArrowBuf
+   * starting from its readerIndex into this ArrowBuf starting
+   * at the given index.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param src src ArrowBuf where the data will be copied from
+   */
+  public void setBytes(int index, ArrowBuf src) {
+    // null check
+    Preconditions.checkArgument(src != null, "expecting valid ArrowBuf");
+    final int length = src.readableBytes();
+    // bound check for this ArrowBuf where the data will be copied into
+    checkIndex(index, length);
+    final long srcAddress = src.memoryAddress() + (long)src.readerIndex;
+    final long dstAddress = addr(index);
+    PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+    src.readerIndex(src.readerIndex + length);
+  }
+
+  /**
+   * Copy a certain length of bytes from given InputStream
+   * into this ArrowBuf at the provided index.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param in src stream to copy from
+   * @param length length of data to copy
+   * @return number of bytes copied from stream into ArrowBuf
+   * @throws IOException on failing to read from stream
+   */
+  public int setBytes(int index, InputStream in, int length) throws IOException {
+    Preconditions.checkArgument(in != null, "expecting valid input stream");
+    checkIndex(index, length);
+    int readBytes = 0;
+    if (length > 0) {
+      byte[] tmp = new byte[length];
+      // read the data from input stream into tmp byte array
+      readBytes = in.read(tmp);
+      if (readBytes > 0) {
+        // copy readBytes length of data from the tmp byte array starting
+        // at srcIndex 0 into this ArrowBuf starting at address addr(index)
+        PlatformDependent.copyMemory(tmp, 0, addr(index), readBytes);
+      }
+    }
+    return readBytes;
+  }
+
+  /**
+   * Copy a certain length of bytes from this ArrowBuf at a given
+   * index into the given OutputStream.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param out dst stream to copy data into
+   * @param length length of data to copy
+   * @throws IOException on failing to write to stream
+   */
+  public void getBytes(int index, OutputStream out, int length) throws IOException {
+    Preconditions.checkArgument(out != null, "expecting valid output stream");
+    checkIndex(index, length);
+    if (length > 0) {
+      // copy length bytes of data from this ArrowBuf starting at
+      // address addr(index) into the tmp byte array starting at index 0
+      byte[] tmp = new byte[length];
+      PlatformDependent.copyMemory(addr(index), tmp, 0, length);
+      // write the copied data to output stream
+      out.write(tmp);
+    }
+  }
+
+  @Override
+  public void close() {
+    referenceManager.release();
+  }
+
+  /**
+   * Returns the possible memory consumed by this ArrowBuf in the worse case scenario.
+   * (not shared, connected to larger underlying buffer of allocated memory)
    * @return Size in bytes.
    */
   public int getPossibleMemoryConsumed() {
-    if (isEmpty) {
-      return 0;
-    }
-    return ledger.getSize();
+    return isEmpty ? 0 : referenceManager.getSize();
   }
 
   /**
    * Return that is Accounted for by this buffer (and its potentially shared siblings within the
-   * context of the
-   * associated allocator).
-   *
+   * context of the associated allocator).
    * @return Size in bytes.
    */
   public int getActualMemoryConsumed() {
-    if (isEmpty) {
-      return 0;
-    }
-    return ledger.getAccountedSize();
+    return isEmpty ? 0 : referenceManager.getAccountedSize();
   }
 
   /**
@@ -1076,22 +1070,10 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   /**
    * Get the integer id assigned to this ArrowBuf for debugging purposes.
-   *
    * @return integer id
    */
   public long getId() {
     return id;
-  }
-
-  /** Returns all ledger information with stack traces as a string. */
-  public String toVerboseString() {
-    if (isEmpty) {
-      return toString();
-    }
-
-    StringBuilder sb = new StringBuilder();
-    ledger.print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);
-    return sb.toString();
   }
 
   /**
@@ -1111,39 +1093,95 @@ public final class ArrowBuf extends AbstractByteBuf implements AutoCloseable {
     }
   }
 
-  @Override
-  public ArrowBuf readerIndex(int readerIndex) {
-    super.readerIndex(readerIndex);
-    return this;
+  /**
+   * Get the index at which the next byte will be read from.
+   * @return reader index
+   */
+  public int readerIndex() {
+    return readerIndex;
   }
 
-  @Override
-  public ArrowBuf writerIndex(int writerIndex) {
-    super.writerIndex(writerIndex);
+  /**
+   * Get the index at which next byte will be written to.
+   * @return writer index
+   */
+  public int writerIndex() {
+    return writerIndex;
+  }
+
+  /**
+   * Set the reader index for this ArrowBuf.
+   * @param readerIndex new reader index
+   * @return this ArrowBuf
+   */
+  public ArrowBuf readerIndex(int readerIndex) {
+    this.readerIndex = readerIndex;
     return this;
   }
 
   /**
-   * The outcome of a Transfer.
+   * Set the writer index for this ArrowBuf.
+   * @param writerIndex new writer index
+   * @return this ArrowBuf
    */
-  public class TransferResult {
-
-    /**
-     * Whether this transfer fit within the target allocator's capacity.
-     */
-    public final boolean allocationFit;
-
-    /**
-     * The newly created buffer associated with the target allocator.
-     */
-    public final ArrowBuf buffer;
-
-    private TransferResult(boolean allocationFit, ArrowBuf buffer) {
-      this.allocationFit = allocationFit;
-      this.buffer = buffer;
-    }
-
+  public ArrowBuf writerIndex(int writerIndex) {
+    this.writerIndex = writerIndex;
+    return this;
   }
 
+  /**
+   * Zero-out the bytes in this ArrowBuf starting at
+   * the given index for the given length.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param length length of bytes to zero-out
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setZero(int index, int length) {
+    if (length == 0) {
+      return this;
+    } else {
+      this.checkIndex(index, length);
+      int nLong = length >>> 3;
+      int nBytes = length & 7;
+      int i;
+      for (i = nLong; i > 0; --i) {
+        setLong(index, 0L);
+        index += 8;
+      }
+      if (nBytes == 4) {
+        setInt(index, 0);
+      } else if (nBytes < 4) {
+        for (i = nBytes; i > 0; --i) {
+          setByte(index, 0);
+          ++index;
+        }
+      } else {
+        setInt(index, 0);
+        index += 4;
+        for (i = nBytes - 4; i > 0; --i) {
+          setByte(index, 0);
+          ++index;
+        }
+      }
+      return this;
+    }
+  }
 
+  /**
+   * Returns <code>this</code> if size is less then {@link #capacity()}, otherwise
+   * delegates to {@link BufferManager#replace(ArrowBuf, int)} to get a new buffer.
+   */
+  public ArrowBuf reallocIfNeeded(final int size) {
+    Preconditions.checkArgument(size >= 0, "reallocation size must be non-negative");
+    if (this.capacity() >= size) {
+      return this;
+    }
+    if (bufferManager != null) {
+      return bufferManager.replace(this, size);
+    } else {
+      throw new UnsupportedOperationException(
+              "Realloc is only available in the context of operator's UDFs");
+    }
+  }
 }

@@ -15,4 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arrow_install_all_headers("arrow/vendored/variant")
+# Headers: top level
+arrow_install_all_headers("arrow/filesystem")
+
+add_arrow_test(filesystem-test)

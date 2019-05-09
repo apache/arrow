@@ -30,8 +30,8 @@
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
 #include "parquet/printer.h"
+#include "parquet/test-util.h"
 #include "parquet/util/memory.h"
-#include "parquet/util/test-common.h"
 
 namespace parquet {
 

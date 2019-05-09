@@ -105,6 +105,9 @@ set(ARROW_SRCS
     csv/options.cc
     csv/parser.cc
     csv/reader.cc
+    filesystem/filesystem.cc
+    filesystem/mockfs.cc
+    filesystem/path-util.cc
     json/options.cc
     json/chunked-builder.cc
     json/chunker.cc
@@ -364,6 +367,7 @@ add_arrow_benchmark(column-benchmark)
 
 add_subdirectory(array)
 add_subdirectory(csv)
+add_subdirectory(filesystem)
 add_subdirectory(json)
 add_subdirectory(io)
 add_subdirectory(util)

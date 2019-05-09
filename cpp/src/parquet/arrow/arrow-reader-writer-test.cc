@@ -43,7 +43,7 @@
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/file_writer.h"
-#include "parquet/util/test-common.h"
+#include "parquet/test-util.h"
 
 using arrow::Array;
 using arrow::ArrayVisitor;
