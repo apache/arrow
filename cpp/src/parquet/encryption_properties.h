@@ -44,7 +44,7 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   class Builder {
    public:
     // Convenience builder for regular (not nested) columns.
-    Builder(const std::string name) {
+    Builder(const std::string& name) {
       Builder(schema::ColumnPath::FromDotString(name), true);
     }
 
@@ -66,7 +66,7 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     }
 
     // Set a key retrieval metadata.
-    // use either withKeyMetaData or withKeyID, not both
+    // use either key_metadata() or key_id(), not both
     Builder* key_metadata(const std::string& key_metadata) {
       DCHECK(!key_metadata.empty());
       DCHECK(key_metadata_.empty());
@@ -75,9 +75,9 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     }
 
     // Set a key retrieval metadata (converted from String).
-    // use either withKeyMetaData or withKeyID, not both
+    // use either key_metadata() or key_id(), not both
     // key_id will be converted to metadata (UTF-8 array).
-    Builder* key_id(std::string key_id);
+    Builder* key_id(const std::string& key_id);
 
     std::shared_ptr<ColumnEncryptionProperties> build() {
       return std::shared_ptr<ColumnEncryptionProperties>(
@@ -125,7 +125,7 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
   class Builder {
    public:
     // convenience builder for regular (not nested) columns.
-    Builder(const std::string name) {
+    Builder(const std::string& name) {
       Builder(schema::ColumnPath::FromDotString(name));
     }
 
@@ -181,7 +181,7 @@ class PARQUET_EXPORT AADPrefixVerifier {
   // Throws exception if an AAD prefix is wrong.
   // In a data set, AAD Prefixes should be collected,
   // and then checked for missing files.
-  virtual void check(std::string aad_prefix) = 0;
+  virtual void check(const std::string& aad_prefix) = 0;
 };
 
 class PARQUET_EXPORT FileDecryptionProperties {
@@ -198,7 +198,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     // If explicit key is not set, footer key will be fetched from
     // key retriever.
     // param footerKey Key length must be either 16, 24 or 32 bytes.
-    Builder* footer_key(std::string footer_key) {
+    Builder* footer_key(const std::string& footer_key) {
       if (footer_key.empty ()) {
         return this;
       }
@@ -258,7 +258,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     // A must when a prefix is used for file encryption, but not stored in file.
     // If AAD prefix is stored in file, it will be compared to the explicitly
     // supplied value and an exception will be thrown if they differ.
-    Builder* aad_prefix(std::string aad_prefix) {
+    Builder* aad_prefix(const std::string& aad_prefix) {
       if (aad_prefix.empty()) {
         return this;
       }
@@ -337,11 +337,11 @@ class PARQUET_EXPORT FileDecryptionProperties {
       const std::string& footer_key,
       const std::shared_ptr<DecryptionKeyRetriever>& key_retriever,
       bool check_plaintext_footer_integrity,
-      std::string aad_prefix,
+      const std::string& aad_prefix,
       std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
-      std::map<std::shared_ptr<schema::ColumnPath>,
+      const std::map<std::shared_ptr<schema::ColumnPath>,
       std::shared_ptr<ColumnDecryptionProperties>,
-      schema::ColumnPath::CmpColumnPath> column_properties);
+      schema::ColumnPath::CmpColumnPath>& column_properties);
 };
 
 class PARQUET_EXPORT FileEncryptionProperties {
@@ -371,7 +371,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
     // Set a key retrieval metadata (converted from String).
     // use either footer_key_metadata or footer_key_id, not both.
-    Builder* footer_key_id(std::string key_id);
+    Builder* footer_key_id(const std::string& key_id);
 
     // Set a key retrieval metadata.
     // use either footer_key_metadata or footer_key_id, not both.
@@ -484,8 +484,8 @@ class PARQUET_EXPORT FileEncryptionProperties {
     schema::ColumnPath::CmpColumnPath> column_properties_;
 
   FileEncryptionProperties(ParquetCipher::type cipher,
-                           std::string footer_key,
-                           std::string footer_key_metadata,
+                           const std::string& footer_key,
+                           const std::string& footer_key_metadata,
                            bool encrypted_footer,
                            const std::string& aad_prefix,
                            bool store_aad_prefix_in_file,

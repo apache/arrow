@@ -24,7 +24,7 @@
 namespace parquet {
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id(
-    std::string key_id) {
+    const std::string& key_id) {
   //key_id is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
   const uint8_t *data = reinterpret_cast<const uint8_t*>(key_id.c_str());
@@ -88,11 +88,11 @@ FileDecryptionProperties::FileDecryptionProperties(
     const std::string& footer_key,
     const std::shared_ptr<DecryptionKeyRetriever>& key_retriever,
     bool check_plaintext_footer_integrity,
-    std::string aad_prefix,
+    const std::string& aad_prefix,
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
-    std::map<std::shared_ptr<schema::ColumnPath>,
+    const std::map<std::shared_ptr<schema::ColumnPath>,
     std::shared_ptr<ColumnDecryptionProperties>,
-    schema::ColumnPath::CmpColumnPath> column_properties) {
+    schema::ColumnPath::CmpColumnPath>& column_properties) {
   DCHECK(!footer_key.empty() ||
          NULLPTR != key_retriever ||
          0 != column_properties.size());
@@ -113,7 +113,7 @@ FileDecryptionProperties::FileDecryptionProperties(
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_id(
-    std::string key_id) {
+    const std::string& key_id) {
   //key_id is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
   const uint8_t* data = reinterpret_cast<const uint8_t*>(key_id.c_str());
@@ -143,8 +143,8 @@ std::shared_ptr<ColumnEncryptionProperties> FileEncryptionProperties::column_pro
 }
 
 FileEncryptionProperties::FileEncryptionProperties(ParquetCipher::type cipher,
-                                                   std::string footer_key,
-                                                   std::string footer_key_metadata,
+                                                   const std::string& footer_key,
+                                                   const std::string& footer_key_metadata,
                                                    bool encrypted_footer,
                                                    const std::string& aad_prefix,
                                                    bool store_aad_prefix_in_file,
