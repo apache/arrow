@@ -37,7 +37,7 @@ struct ARROW_EXPORT TakeOptions {};
 ///
 /// The output array will be of the same type as the input values
 /// array, with elements taken from the values array at the given
-/// indices. If an index is null then the taken element will null.
+/// indices. If an index is null then the taken element will be null.
 ///
 /// For example given values = ["a", "b", "c", null, "e", "f"] and
 /// indices = [2, 1, null, 3], the output will be
