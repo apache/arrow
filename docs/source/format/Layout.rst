@@ -376,7 +376,7 @@ array is stored in an ``N``-long slice of the values array, starting at an offse
 ``j * N``.
 
 Example Layout: ``FixedSizeList<byte>[4]`` Array
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Let's consider an example, the type ``FixedSizeList<byte>[4]``.
 
