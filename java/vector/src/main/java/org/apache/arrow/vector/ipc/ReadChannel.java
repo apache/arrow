@@ -80,6 +80,10 @@ public class ReadChannel implements AutoCloseable {
     return n;
   }
 
+  public int read(byte[] buffer) throws IOException {
+    return readFully(ByteBuffer.wrap(buffer));
+  }
+
   @Override
   public void close() throws IOException {
     if (this.in != null) {
