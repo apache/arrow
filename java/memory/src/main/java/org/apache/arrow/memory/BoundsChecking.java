@@ -42,7 +42,13 @@ public class BoundsChecking {
     // The priority of determining the unsafe flag:
     // 1. The system properties take precedence over the environmental variable.
     // 2. The new system property takes precedence over the new system property.
-    String unsafeFlagValue = newProperty != null ? newProperty : (oldProperty != null ? oldProperty : envProperty);
+    String unsafeFlagValue = newProperty;
+    if (unsafeFlagValue == null) {
+      unsafeFlagValue = oldProperty;
+    }
+    if (unsafeFlagValue == null) {
+      unsafeFlagValue = envProperty;
+    }
 
     BOUNDS_CHECKING_ENABLED = !"true".equals(unsafeFlagValue);
   }
