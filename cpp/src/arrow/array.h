@@ -533,7 +533,6 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   explicit FixedSizeListArray(const std::shared_ptr<ArrayData>& data);
 
   FixedSizeListArray(const std::shared_ptr<DataType>& type, int64_t length,
-                     const std::shared_ptr<Buffer>& value_offsets,
                      const std::shared_ptr<Array>& values,
                      const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
@@ -550,7 +549,7 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
     i += data_->offset;
     return static_cast<int32_t>(list_size_ * i);
   }
-  int32_t value_length(...) const { return list_size_; }
+  int32_t value_length(int64_t i = 0) const { return list_size_; }
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);

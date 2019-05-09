@@ -69,11 +69,13 @@ ListScalar::ListScalar(const std::shared_ptr<Array>& value,
 ListScalar::ListScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : ListScalar(value, value->type(), is_valid) {}
 
-// XXX DCHECK(value.length() == list_size) ?
 FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
                                          const std::shared_ptr<DataType>& type,
                                          bool is_valid)
-    : Scalar{type, is_valid}, value(value) {}
+    : Scalar{type, is_valid}, value(value) {
+  DCHECK_EQ(value->length(),
+            checked_cast<const FixedSizeListType*>(type.get())->list_size());
+}
 
 FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
                                          bool is_valid)

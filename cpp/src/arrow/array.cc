@@ -304,12 +304,10 @@ FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<ArrayData>& data) {
 
 FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<DataType>& type,
                                        int64_t length,
-                                       const std::shared_ptr<Buffer>& value_offsets,
                                        const std::shared_ptr<Array>& values,
                                        const std::shared_ptr<Buffer>& null_bitmap,
                                        int64_t null_count, int64_t offset) {
-  auto internal_data =
-      ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
+  auto internal_data = ArrayData::Make(type, length, {null_bitmap}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
   SetData(internal_data);
 }
@@ -318,6 +316,7 @@ void FixedSizeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   DCHECK_EQ(data->type->id(), Type::FIXED_SIZE_LIST);
   this->Array::SetData(data);
 
+  DCHECK(list_type()->value_type()->Equals(data->child_data[0]->type));
   list_size_ = list_type()->list_size();
 
   DCHECK_EQ(data_->child_data.size(), 1);
