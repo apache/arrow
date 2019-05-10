@@ -25,9 +25,14 @@ reset_owner() {
   fi
 }
 
+run_clang_format() {
+  ninja clang-format
+}
+
 mkdir -p /build/lint
 pushd /build/lint
   cmake -GNinja /arrow/cpp
   trap reset_owner EXIT
+  trap run_clang_format EXIT
   ninja clang-tidy
 popd
