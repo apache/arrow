@@ -23,8 +23,10 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
@@ -126,7 +128,7 @@ class SerializedPageReader : public PageReader {
       : stream_(stream),
         decompression_buffer_(AllocateBuffer(pool, 0)),
         first_page_(true),
-        column_has_dictionary_ (column_has_dictionary),
+        column_has_dictionary_(column_has_dictionary),
         row_group_ordinal_(row_group_ordinal),
         column_ordinal_(column_ordinal),
         page_ordinal_(-1),
@@ -138,21 +140,17 @@ class SerializedPageReader : public PageReader {
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
     decompressor_ = GetCodecFromArrow(codec);
     if (data_decryptor_ != NULLPTR) {
-      DCHECK (!data_decryptor_->file_aad().empty());
-      //prepare the AAD for quick update later
+      DCHECK(!data_decryptor_->file_aad().empty());
+      // prepare the AAD for quick update later
       data_pageAAD_ = parquet_encryption::createModuleAAD(
-          data_decryptor_->file_aad(),
-          parquet_encryption::DataPage,
-          row_group_ordinal_,
+          data_decryptor_->file_aad(), parquet_encryption::DataPage, row_group_ordinal_,
           column_ordinal_, (int16_t)-1);
     }
     if (meta_decryptor_ != NULLPTR) {
-      DCHECK (!meta_decryptor_->file_aad().empty());
+      DCHECK(!meta_decryptor_->file_aad().empty());
       data_page_headerAAD_ = parquet_encryption::createModuleAAD(
-          meta_decryptor_->file_aad(),
-          parquet_encryption::DataPageHeader,
-          row_group_ordinal_,
-          column_ordinal_, (int16_t)-1);
+          meta_decryptor_->file_aad(), parquet_encryption::DataPageHeader,
+          row_group_ordinal_, column_ordinal_, (int16_t)-1);
     }
   }
 
@@ -198,15 +196,16 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
   bool current_page_is_dictionary = false;
-  if (column_has_dictionary_ ){
+  if (column_has_dictionary_) {
     if (first_page_) {
       current_page_is_dictionary = true;
       first_page_ = false;
-    } else
+    } else {
       page_ordinal_++;
-  } else
+    }
+  } else {
     page_ordinal_++;
-
+  }
 
   while (seen_num_rows_ < total_num_rows_) {
     uint32_t header_size = 0;
@@ -229,14 +228,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         if (meta_decryptor_ != NULLPTR) {
           if (current_page_is_dictionary) {
             aad = parquet_encryption::createModuleAAD(
-                meta_decryptor_->file_aad(),
-                parquet_encryption::DictionaryPageHeader,
-                row_group_ordinal_,
-                column_ordinal_, (int16_t)-1);
+                meta_decryptor_->file_aad(), parquet_encryption::DictionaryPageHeader,
+                row_group_ordinal_, column_ordinal_, (int16_t)-1);
             meta_decryptor_->aad(aad);
           } else {
-            parquet_encryption::quickUpdatePageAAD(data_page_headerAAD_,
-                                                   page_ordinal_);
+            parquet_encryption::quickUpdatePageAAD(data_page_headerAAD_, page_ordinal_);
             meta_decryptor_->aad(data_page_headerAAD_);
           }
         }
@@ -260,14 +256,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
-    if (data_decryptor_ != NULLPTR){
+    if (data_decryptor_ != NULLPTR) {
       DCHECK(!data_decryptor_->file_aad().empty());
-      if (current_page_is_dictionary){
+      if (current_page_is_dictionary) {
         aad = parquet_encryption::createModuleAAD(
-            data_decryptor_->file_aad(),
-            parquet_encryption::DictionaryPage,
-            row_group_ordinal_,
-            column_ordinal_, (int16_t)-1);
+            data_decryptor_->file_aad(), parquet_encryption::DictionaryPage,
+            row_group_ordinal_, column_ordinal_, (int16_t)-1);
         data_decryptor_->aad(aad);
       } else {
         parquet_encryption::quickUpdatePageAAD(data_pageAAD_, page_ordinal_);
@@ -288,8 +282,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Decrypt it if we need to
     if (data_decryptor_ != nullptr) {
       decryption_buffer_->Resize(compressed_len - data_decryptor_->CiphertextSizeDelta());
-      compressed_len = data_decryptor_->Decrypt(
-          buffer, compressed_len, decryption_buffer_->mutable_data());
+      compressed_len = data_decryptor_->Decrypt(buffer, compressed_len,
+                                                decryption_buffer_->mutable_data());
 
       buffer = decryption_buffer_->data();
     }
@@ -360,15 +354,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
-std::unique_ptr<PageReader> PageReader::Open(const std::shared_ptr<ArrowInputStream>& stream,
-                                             int64_t total_num_rows,
-                                             Compression::type codec,
-                                             bool column_has_dictionary,
-                                             int16_t row_group_ordinal,
-                                             int16_t column_ordinal,
-                                             ::arrow::MemoryPool* pool,
-                                             std::shared_ptr<Decryptor> meta_decryptor,
-                                             std::shared_ptr<Decryptor> data_decryptor) {
+std::unique_ptr<PageReader> PageReader::Open(
+    const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
+    Compression::type codec, bool column_has_dictionary, int16_t row_group_ordinal,
+    int16_t column_ordinal, ::arrow::MemoryPool* pool,
+    std::shared_ptr<Decryptor> meta_decryptor, std::shared_ptr<Decryptor> data_decryptor) {
   return std::unique_ptr<PageReader>(
       new SerializedPageReader(stream, total_num_rows, codec, column_has_dictionary,
       row_group_ordinal, column_ordinal, pool, meta_decryptor, data_decryptor));

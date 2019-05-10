@@ -22,17 +22,16 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 #include "arrow/type.h"
 
+#include "parquet/encryption_properties.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "arrow/util/logging.h"
-#include "arrow/util/utf8.h"
-#include "parquet/encryption_properties.h"
 
 namespace parquet {
 
@@ -420,8 +419,8 @@ class PARQUET_EXPORT WriterProperties {
     return column_properties(path).max_statistics_size();
   }
 
-  std::shared_ptr<ColumnEncryptionProperties> column_encryption_props(const
-      std::shared_ptr<schema::ColumnPath>& path) const {
+  std::shared_ptr<ColumnEncryptionProperties> column_encryption_props(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
     if (file_encryption_) {
       return file_encryption_->column_properties(path);
     } else {

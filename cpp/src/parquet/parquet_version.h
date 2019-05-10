@@ -15,32 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/encryption.h"
+#ifndef PARQUET_VERSION_H
+#define PARQUET_VERSION_H
 
-#include <string.h>
-#include <utility>
+// define the parquet created by version
+#define CREATED_BY_VERSION "parquet-cpp version 1.5.1-SNAPSHOT"
 
-namespace parquet {
-
-// integer key retriever
-void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
-  key_map_.insert(std::make_pair(key_id, key));
-}
-
-const std::string& IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
-  uint32_t key_id;
-  memcpy(reinterpret_cast<uint8_t*>(&key_id), key_metadata.c_str(), 4);
-
-  return key_map_[key_id];
-}
-
-// string key retriever
-void StringKeyIdRetriever::PutKey(const std::string& key_id, const std::string& key) {
-  key_map_.insert(std::make_pair(key_id, key));
-}
-
-const std::string& StringKeyIdRetriever::GetKey(const std::string& key_id) {
-  return key_map_[key_id];
-}
-
-}  // namespace parquet
+#endif  // PARQUET_VERSION_H
