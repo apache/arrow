@@ -16,6 +16,7 @@
 # under the License.
 ---
 Checks:          'clang-diagnostic-*,clang-analyzer-*,-clang-analyzer-alpha*,google-*,modernize-*,readability-*'
+FormatStyle: file
 HeaderFilterRegex: 'arrow/.*'
 AnalyzeTemporaryDtors: true
 CheckOptions:

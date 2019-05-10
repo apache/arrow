@@ -30,7 +30,4 @@ pushd /build/lint
   cmake -GNinja /arrow/cpp
   trap reset_owner EXIT
   ninja clang-tidy
-  # clang-tidy munges formatting, sometimes even in ways
-  # clang-format will not help with
-  ninja format
 popd
