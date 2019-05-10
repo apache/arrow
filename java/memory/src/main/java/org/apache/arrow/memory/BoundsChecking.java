@@ -20,9 +20,13 @@ package org.apache.arrow.memory;
 /**
  * Configuration class to determine if bounds checking should be turned on or off.
  *
- * <p>Bounds checking is on by default.  To disable it you must set the system properties
- * "arrow.enable_unsafe_memory_access" and "drill.enable_unsafe_memory_access" to "true"
- * and disable java assertions.
+ * <p>
+ * Bounds checking is on by default.  You can disable it by setting either the system property or
+ * the environmental variable to "true". The system property can be "arrow.enable_unsafe_memory_access"
+ * or "drill.enable_unsafe_memory_access". The latter is depreciated. The environmental variable is named
+ * "ARROW_ENABLE_UNSAFE_MEMORY_ACCESS".
+ * When both the system property and the environmental variable are set, the system property takes precedence.
+ * </p>
  */
 public class BoundsChecking {
 
