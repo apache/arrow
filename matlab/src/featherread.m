@@ -23,6 +23,8 @@ function t = featherread(filename)
 % specific language governing permissions and limitations
 % under the License.
 
+import mlarrow.util.*;
+
 % Validate input arguments.
 narginchk(1, 1);
 filename = convertStringsToChars(filename);
@@ -46,14 +48,10 @@ end
 % libarrow.
 [variables, metadata] = featherreadmex(filename);
 
-% Preallocate a cell array for the case in which
-% the table VariableDescriptions property needs to be modified.
-variableDescriptions = cell(1, numel(variables));
-
-% This flag indicates whether the variableDescriptions property needs to be set
-% in the MATLAB table generated from the Feather file. This is only necessary if
-% the Feather file has column names that cannot be converted to valid MATLAB identifiers.
-setVariableDescriptions = false;
+% Make valid MATLAB table variable names out of any of the
+% Feather table column names that are not valid MATLAB table
+% variable names.
+[variableNames, variableDescriptions] = makeValidMATLABTableVariableNames({variables.Name});
 
 % Iterate over each table variable, handling invalid (null) entries
 % and invalid MATLAB table variable names appropriately.
@@ -74,26 +72,17 @@ for ii = 1:length(variables)
         % logical indexing.
         variables(ii).Data(~variables(ii).Valid) = missing;
     end
-
-    % Store invalid variable names in the VariableDescriptons
-    % property, and convert any invalid variable names into valid variable
-    % names.
-    if ~isvarname(variables(ii).Name)
-        variableDescriptions{ii} = sprintf('Original variable name: ''%s''', variables(ii).Name);
-        setVariableDescriptions = true;
-    else
-        variableDescriptions{ii} = '';
-    end
 end
 
 % Construct a MATLAB table from the Feather file data.
-t = table(variables.Data, 'VariableNames', matlab.lang.makeValidName({variables.Name}));
+t = table(variables.Data, 'VariableNames', variableNames);
 
-% Store original variable names in the VariableDescriptions property
-% if they were modified to be valid MATLAB table variable names.
-if setVariableDescriptions
+% Store original Feather table column names in the table.Properties.VariableDescriptions
+% property if they were modified to be valid MATLAB table variable names.
+if ~isempty(variableDescriptions)
     t.Properties.VariableDescriptions = variableDescriptions;
 end
+
 % Set the Description property of the table based on the Feather file
 % description.
 t.Properties.Description = metadata.Description;

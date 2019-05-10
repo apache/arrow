@@ -24,8 +24,6 @@ classdef tfeathermex < matlab.unittest.TestCase
             testCase.applyFixture(PathFixture('util'));
             % Add featherread and featherwrite to the MATLAB path.
             testCase.applyFixture(PathFixture(fullfile('..', 'src')));
-            % Add Feather source utilities to the MATLAB path.
-            testCase.applyFixture(PathFixture(fullfile('..', 'src', 'util')));
             % featherreadmex must be on the MATLAB path.
             testCase.assertTrue(~isempty(which('featherreadmex')), ...
                 '''featherreadmex'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
@@ -53,6 +51,24 @@ classdef tfeathermex < matlab.unittest.TestCase
             [expectedVariables, expectedMetadata] = createVariablesAndMetadataStructs();
             [actualVariables, ~] = featherMEXRoundTrip(filename, expectedVariables, expectedMetadata);
             testCase.verifyEqual([actualVariables.Valid], [expectedVariables.Valid]);
+        end
+        
+        function InvalidMATLABTableVariableNames(testCase)
+            filename = fullfile(pwd, 'temp.feather');
+            
+            % Create a table with an invalid MATLAB table variable name.
+            invalidVariable = mlarrow.util.createVariableStruct('double', 1, true, '@');
+            validVariable = mlarrow.util.createVariableStruct('double', 1, true, 'Valid');
+            variables = [invalidVariable, validVariable];
+            metadata = mlarrow.util.createMetadataStruct(2, '', 1, 2);
+            featherwritemex(filename, variables, metadata);
+            t = featherread(filename);
+            
+            testCase.verifyEqual(t.Properties.VariableNames{1}, 'x_');
+            testCase.verifyEqual(t.Properties.VariableNames{2}, 'Valid');
+            
+            testCase.verifyEqual(t.Properties.VariableDescriptions{1}, 'Original variable name: ''@''');
+            testCase.verifyEqual(t.Properties.VariableDescriptions{2}, '');
         end
         
     end
