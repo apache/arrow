@@ -18,8 +18,16 @@
 
 set -ex
 
+reset_owner() {
+  if [ $OWNER ]
+  then
+    chown -R $OWNER /arrow/cpp
+  fi
+}
+
 mkdir -p /build/lint
 pushd /build/lint
   cmake -GNinja /arrow/cpp
+  trap reset_owner EXIT
   ninja format
 popd

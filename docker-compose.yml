@@ -348,7 +348,9 @@ services:
     #   docker-compose build cpp
     #   docker-compose build python
     #   docker-compose build lint
-    #   docker-compose run clang-format
+    #   OWNER=`id -u`:`id -g` docker-compose run clang-format
+    environment:
+      - OWNER=${OWNER}
     image: arrow:lint
     command: arrow/dev/lint/run_clang_format.sh
     volumes: *ubuntu-volumes
@@ -358,7 +360,9 @@ services:
     #   docker-compose build cpp
     #   docker-compose build python
     #   docker-compose build lint
-    #   docker-compose run clang-tidy
+    #   OWNER=`id -u`:`id -g` docker-compose run clang-tidy
+    environment:
+      - OWNER=${OWNER}
     image: arrow:lint
     command: arrow/dev/lint/run_clang_tidy.sh
     volumes: *ubuntu-volumes

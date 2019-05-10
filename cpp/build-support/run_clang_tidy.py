@@ -94,8 +94,13 @@ if __name__ == "__main__":
                         help="If specified, only print errors")
     arguments = parser.parse_args()
 
+    exclude_globs = []
+    if arguments.exclude_globs:
+        for line in open(arguments.exclude_globs):
+            exclude_globs.append(line.strip())
+
     linted_filenames = []
-    for path in lintutils.get_sources(arguments.source_dir):
+    for path in lintutils.get_sources(arguments.source_dir, exclude_globs):
         linted_filenames.append(path)
 
     if not arguments.quiet:

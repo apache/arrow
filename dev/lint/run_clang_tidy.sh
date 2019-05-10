@@ -18,10 +18,19 @@
 
 set -ex
 
+reset_owner() {
+  if [ $OWNER ]
+  then
+    chown -R $OWNER /arrow/cpp
+  fi
+}
+
 mkdir -p /build/lint
 pushd /build/lint
   cmake -GNinja /arrow/cpp
+  trap reset_owner EXIT
   ninja clang-tidy
-  # clang-tidy can munge formatting
+  # clang-tidy munges formatting, sometimes even in ways
+  # clang-format will not help with
   ninja format
 popd
