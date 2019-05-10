@@ -124,6 +124,14 @@ TEST_F(TestListArray, Equality) {
   ASSERT_TRUE(array->RangeEquals(1, 5, 0, slice));
 }
 
+TEST_F(TestListArray, ValuesEquality) {
+  auto type = list(int32());
+  auto left = ArrayFromJSON(type, "[[1, 2], [3], [0]]");
+  auto right = ArrayFromJSON(type, "[[1, 2], [3], [100000]]");
+  auto offset = 2;
+  EXPECT_FALSE(left->Slice(offset)->Equals(right->Slice(offset)));
+}
+
 TEST_F(TestListArray, TestResize) {}
 
 TEST_F(TestListArray, TestFromArrays) {

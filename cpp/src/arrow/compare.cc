@@ -584,11 +584,9 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       return Status::OK();
     }
 
-    // XXX this looks like an error where the author expected RangeEquals to take
-    // offset, length instead of begin_index, end_index
-    result_ = left.values()->RangeEquals(
-        left.value_offset(0), left.value_offset(left.length()) - left.value_offset(0),
-        right.value_offset(0), right.values());
+    result_ =
+        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
+                                   right.value_offset(0), right.values());
     return Status::OK();
   }
 
