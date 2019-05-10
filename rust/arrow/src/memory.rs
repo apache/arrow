@@ -20,7 +20,6 @@
 
 use std::alloc::Layout;
 
-/// Memory alignment, in bytes.
 pub const ALIGNMENT: usize = 64;
 
 pub fn allocate_aligned(size: usize) -> *mut u8 {
