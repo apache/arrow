@@ -27,11 +27,11 @@ use crate::data_type::DataType;
 use crate::errors::ParquetError;
 use crate::errors::Result;
 use crate::schema::types::ColumnDescPtr;
+use arrow::bitmap::Bitmap;
 use arrow::buffer::Buffer;
 use arrow::buffer::MutableBuffer;
 use arrow::builder::BooleanBufferBuilder;
 use arrow::builder::BufferBuilderTrait;
-use arrow::bitmap::Bitmap;
 
 const MIN_BATCH_SIZE: usize = 1024;
 
@@ -63,10 +63,7 @@ struct FatPtr<T> {
 
 impl<T> FatPtr<T> {
     fn new(ptr: *const T, len: usize) -> Self {
-        Self {
-            ptr,
-            len,
-        }
+        Self { ptr, len }
     }
 
     unsafe fn to_slice(&self) -> &[T] {
@@ -78,12 +75,13 @@ impl<T> FatPtr<T> {
     }
 }
 
-
 impl<T: DataType> RecordReader<T> {
     pub fn new(column_schema: ColumnDescPtr) -> Self {
         let (def_levels, nullity_bitmap) = if column_schema.max_def_level() > 0 {
-            (Some(MutableBuffer::new(MIN_BATCH_SIZE)),
-             Some(BooleanBufferBuilder::new(MIN_BATCH_SIZE)))
+            (
+                Some(MutableBuffer::new(MIN_BATCH_SIZE)),
+                Some(BooleanBufferBuilder::new(MIN_BATCH_SIZE)),
+            )
         } else {
             (None, None)
         };
@@ -128,11 +126,12 @@ impl<T: DataType> RecordReader<T> {
         let mut end_of_column = false;
 
         loop {
-            let mut iter_record_num =
-                self.split_records(num_records - records_read)?;
+            let mut iter_record_num = self.split_records(num_records - records_read)?;
 
-            if end_of_column && self.values_seen >= self.values_written &&  self
-                .in_middle_of_record {
+            if end_of_column
+                && self.values_seen >= self.values_written
+                && self.in_middle_of_record
+            {
                 self.records_num += 1;
                 self.values_pos = self.values_seen - 1;
                 self.in_middle_of_record = false;
@@ -173,10 +172,8 @@ impl<T: DataType> RecordReader<T> {
             None
         };
 
-        replace(&mut self.def_levels, empty_def_buffer)
-            .map(|x| x.freeze())
+        replace(&mut self.def_levels, empty_def_buffer).map(|x| x.freeze())
     }
-
 
     /// Returns currently stored buffer data.
     pub fn consume_record_data(&mut self) -> Buffer {
@@ -210,7 +207,6 @@ impl<T: DataType> RecordReader<T> {
                 .map(|_| ())
         })?;
 
-
         // Convert mutable buffer spaces to mutable slices
         let data_buf = self.records_buf(self.values_written);
         let mut def_levels_buf = self.def_levels_buf(self.values_written);
@@ -229,16 +225,15 @@ impl<T: DataType> RecordReader<T> {
             // This means that there are null values in column data
             //TODO: Move this into ColumnReader
 
-            let data_buf = unsafe {
-                data_buf.to_slice_mut()
-            };
+            let data_buf = unsafe { data_buf.to_slice_mut() };
 
-            let def_levels_buf = def_levels_buf.as_mut()
+            let def_levels_buf = def_levels_buf
+                .as_mut()
                 .map(|b| unsafe { b.to_slice_mut() })
                 .ok_or_else(|| {
                     general_err!(
-                    "Definition levels should exist when data is less than levels!"
-                )
+                        "Definition levels should exist when data is less than levels!"
+                    )
                 })?;
 
             // Fill spaces in column data with default values
@@ -262,12 +257,13 @@ impl<T: DataType> RecordReader<T> {
 
         // Fill in bitmap data
         if let Some(nullity_buffer) = self.nullity_bitmap.as_mut() {
-            let def_levels_buf = def_levels_buf.as_mut()
+            let def_levels_buf = def_levels_buf
+                .as_mut()
                 .map(|b| unsafe { b.to_slice_mut() })
                 .ok_or_else(|| {
                     general_err!(
-                    "Definition levels should exist when data is less than levels!"
-                )
+                        "Definition levels should exist when data is less than levels!"
+                    )
                 })?;
             (0..levels_read).try_for_each(|idx| {
                 nullity_buffer.append(def_levels_buf[idx] == max_def_level)
@@ -281,13 +277,9 @@ impl<T: DataType> RecordReader<T> {
 
     /// Split values into records according repetition definition and returns number of
     /// records read.
-    fn split_records(
-        &mut self,
-        records_to_read: usize,
-    ) -> Result<usize> {
+    fn split_records(&mut self, records_to_read: usize) -> Result<usize> {
         let rep_levels_buf = self.rep_levels_buf(0usize);
-        let rep_levels_buf = rep_levels_buf.as_ref()
-            .map(|x| unsafe { x.to_slice() });
+        let rep_levels_buf = rep_levels_buf.as_ref().map(|x| unsafe { x.to_slice() });
 
         match rep_levels_buf {
             Some(buf) => {
@@ -295,17 +287,17 @@ impl<T: DataType> RecordReader<T> {
 
                 while (self.values_seen < self.values_written)
                     && (records_read < records_to_read)
-                    {
-                        if buf[self.values_seen] == 0 {
-                            if self.in_middle_of_record {
-                                records_read += 1;
-                                self.values_pos = self.values_seen - 1;
-                                self.records_num += 1;
-                            }
-                            self.in_middle_of_record = true;
+                {
+                    if buf[self.values_seen] == 0 {
+                        if self.in_middle_of_record {
+                            records_read += 1;
+                            self.values_pos = self.values_seen - 1;
+                            self.records_num += 1;
                         }
-                        self.values_seen += 1;
+                        self.in_middle_of_record = true;
                     }
+                    self.values_seen += 1;
+                }
 
                 Ok(records_read)
             }
@@ -374,27 +366,29 @@ impl<T: DataType> RecordReader<T> {
 
 #[cfg(test)]
 mod tests {
+    use super::RecordReader;
+    use crate::basic::Encoding;
     use crate::column::page::Page;
     use crate::column::page::PageReader;
+    use crate::data_type::Int32Type;
     use crate::errors::Result;
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::SchemaDescriptor;
-    use std::rc::Rc;
-    use crate::basic::Encoding;
-    use crate::data_type::Int32Type;
     use crate::util::test_common::page_util::{DataPageBuilder, DataPageBuilderImpl};
-    use arrow::builder::{Int32BufferBuilder, BufferBuilderTrait, Int16BufferBuilder, BooleanBufferBuilder};
-    use super::RecordReader;
     use arrow::bitmap::Bitmap;
+    use arrow::builder::{
+        BooleanBufferBuilder, BufferBuilderTrait, Int16BufferBuilder, Int32BufferBuilder,
+    };
+    use std::rc::Rc;
 
     struct TestPageReader {
-        pages: Box<Iterator<Item = Page>>
+        pages: Box<Iterator<Item = Page>>,
     }
 
     impl TestPageReader {
         pub fn new(pages: Vec<Page>) -> Self {
             Self {
-                pages: Box::new(pages.into_iter())
+                pages: Box::new(pages.into_iter()),
             }
         }
     }
@@ -413,14 +407,13 @@ mod tests {
           REQUIRED INT32 leaf;
         }
         ";
-        let desc =  parse_message_type(message_type)
+        let desc = parse_message_type(message_type)
             .map(|t| SchemaDescriptor::new(Rc::new(t)))
             .map(|s| s.column(0))
             .unwrap();
 
         // Construct record reader
         let mut record_reader = RecordReader::<Int32Type>::new(desc.clone());
-
 
         // First page
 
@@ -449,7 +442,6 @@ mod tests {
             assert_eq!(5, record_reader.records_num());
         }
 
-
         // Second page
 
         // Records data:
@@ -469,8 +461,7 @@ mod tests {
             assert_eq!(7, record_reader.records_num());
         }
 
-
-        let mut bb  = Int32BufferBuilder::new(7);
+        let mut bb = Int32BufferBuilder::new(7);
         bb.append_slice(&[4, 7, 6, 3, 2, 8, 9]).unwrap();
         let expected_buffer = bb.finish();
         assert_eq!(expected_buffer, record_reader.consume_record_data());
@@ -489,14 +480,13 @@ mod tests {
         }
         ";
 
-        let desc =  parse_message_type(message_type)
+        let desc = parse_message_type(message_type)
             .map(|t| SchemaDescriptor::new(Rc::new(t)))
             .map(|s| s.column(0))
             .unwrap();
 
         // Construct record reader
         let mut record_reader = RecordReader::<Int32Type>::new(desc.clone());
-
 
         // First page
 
@@ -530,8 +520,6 @@ mod tests {
             assert_eq!(5, record_reader.records_num());
         }
 
-
-
         // Second page
 
         // Records data:
@@ -555,20 +543,25 @@ mod tests {
         }
 
         // Verify result record data
-        let mut bb  = Int32BufferBuilder::new(7);
+        let mut bb = Int32BufferBuilder::new(7);
         bb.append_slice(&[0, 7, 0, 6, 3, 0, 8]).unwrap();
         let expected_buffer = bb.finish();
         assert_eq!(expected_buffer, record_reader.consume_record_data());
 
         // Verify result def levels
         let mut bb = Int16BufferBuilder::new(7);
-        bb.append_slice(&[1i16, 2i16, 0i16, 2i16, 2i16, 0i16, 2i16]).unwrap();
+        bb.append_slice(&[1i16, 2i16, 0i16, 2i16, 2i16, 0i16, 2i16])
+            .unwrap();
         let expected_def_levels = bb.finish();
-        assert_eq!(Some(expected_def_levels ), record_reader.consume_def_levels());
+        assert_eq!(
+            Some(expected_def_levels),
+            record_reader.consume_def_levels()
+        );
 
         // Verify bitmap
         let mut bb = BooleanBufferBuilder::new(7);
-        bb.append_slice(&[false, true, false, true, true, false, true]).unwrap();
+        bb.append_slice(&[false, true, false, true, true, false, true])
+            .unwrap();
         let expected_bitmap = Bitmap::from(bb.finish());
         assert_eq!(Some(expected_bitmap), record_reader.consume_bitmap());
     }
@@ -584,14 +577,13 @@ mod tests {
         }
         ";
 
-        let desc =  parse_message_type(message_type)
+        let desc = parse_message_type(message_type)
             .map(|t| SchemaDescriptor::new(Rc::new(t)))
             .map(|s| s.column(0))
             .unwrap();
 
         // Construct record reader
         let mut record_reader = RecordReader::<Int32Type>::new(desc.clone());
-
 
         // First page
 
@@ -627,8 +619,6 @@ mod tests {
             assert_eq!(3, record_reader.records_num());
         }
 
-
-
         // Second page
 
         // Records data:
@@ -653,18 +643,21 @@ mod tests {
             assert_eq!(4, record_reader.records_num());
         }
 
-
         // Verify result record data
-        let mut bb  = Int32BufferBuilder::new(9);
+        let mut bb = Int32BufferBuilder::new(9);
         bb.append_slice(&[4, 0, 0, 7, 6, 3, 2, 8, 9]).unwrap();
         let expected_buffer = bb.finish();
         assert_eq!(expected_buffer, record_reader.consume_record_data());
 
         // Verify result def levels
         let mut bb = Int16BufferBuilder::new(9);
-        bb.append_slice(&[2i16, 0i16, 1i16, 2i16, 2i16, 2i16, 2i16, 2i16, 2i16]).unwrap();
+        bb.append_slice(&[2i16, 0i16, 1i16, 2i16, 2i16, 2i16, 2i16, 2i16, 2i16])
+            .unwrap();
         let expected_def_levels = bb.finish();
-        assert_eq!(Some(expected_def_levels ), record_reader.consume_def_levels());
+        assert_eq!(
+            Some(expected_def_levels),
+            record_reader.consume_def_levels()
+        );
 
         // Verify bitmap
         let mut bb = BooleanBufferBuilder::new(9);
@@ -674,5 +667,3 @@ mod tests {
         assert_eq!(Some(expected_bitmap), record_reader.consume_bitmap());
     }
 }
-
-
