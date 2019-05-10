@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.vector;
 
 import java.lang.reflect.Field;
 import java.net.URLClassLoader;
@@ -49,7 +49,7 @@ public class TestNullCheckingForGet {
    * @return value of the flag.
    */
   private boolean getFlagValue(ClassLoader classLoader) throws Exception {
-    Class<?> clazz = classLoader.loadClass("org.apache.arrow.memory.NullCheckingForGet");
+    Class<?> clazz = classLoader.loadClass("org.apache.arrow.vector.NullCheckingForGet");
     Field field = clazz.getField("NULL_CHECKING_ENABLED");
     return (Boolean) field.get(null);
   }

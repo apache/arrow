@@ -17,7 +17,7 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.memory.NullCheckingForGet.NULL_CHECKING_ENABLED;
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.FieldType;

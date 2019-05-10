@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.vector;
 
 /**
  * Configuration class to determine if null checking should be enabled or disabled for the "get" methods.
