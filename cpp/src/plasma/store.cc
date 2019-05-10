@@ -604,6 +604,7 @@ int PlasmaStore::AbortObject(const ObjectID& object_id, Client* client) {
   } else {
     // The client requesting the abort is the creator. Free the object.
     EraseFromObjectTable(object_id);
+    client->object_ids.erase(it);
     return 1;
   }
 }
@@ -727,7 +728,7 @@ void PlasmaStore::DisconnectClient(int client_fd) {
       sealed_objects[it->first] = it->second.get();
     } else {
       // Abort unsealed object.
-      AbortObject(it->first, client);
+      EraseFromObjectTable(object_id);
     }
   }
 
