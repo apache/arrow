@@ -17,7 +17,7 @@
 ---
 Checks:          'clang-diagnostic-*,clang-analyzer-*,-clang-analyzer-alpha*,google-*,modernize-*,readability-*'
 FormatStyle: file
-HeaderFilterRegex: 'arrow/.*'
+HeaderFilterRegex: '^cpp/src/(arrow/(?!util/windows_compatibility.h|python/(pyarrow_api.h|pyarrow_lib.h|config.h|platform.h)|vendored/)|plasma/(?!thirdparty/ae/))'
 AnalyzeTemporaryDtors: true
 CheckOptions:
   - key:             google-readability-braces-around-statements.ShortStatementLines
