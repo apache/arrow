@@ -18,6 +18,7 @@
 #include "parquet/encryption_properties.h"
 
 #include <openssl/rand.h>
+#include <map>
 
 #include "arrow/util/utf8.h"
 
@@ -25,9 +26,9 @@ namespace parquet {
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id(
     const std::string& key_id) {
-  //key_id is expected to be in UTF8 encoding
+  // key_id is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
-  const uint8_t *data = reinterpret_cast<const uint8_t*>(key_id.c_str());
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(key_id.c_str());
   if (!::arrow::util::ValidateUTF8(data, key_id.size())) {
     throw ParquetException("key id should be in UTF8 encoding");
   }
@@ -38,10 +39,9 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id
 }
 
 ColumnEncryptionProperties::ColumnEncryptionProperties(
-    bool encrypted,
-    const std::shared_ptr<schema::ColumnPath>& column_path,
-    const std::string& key,
-    const std::string& key_metadata):column_path_(column_path) {
+    bool encrypted, const std::shared_ptr<schema::ColumnPath>& column_path,
+    const std::string& key, const std::string& key_metadata)
+    : column_path_(column_path) {
   DCHECK(column_path != nullptr);
   if (!encrypted) {
     DCHECK(key.empty() && key_metadata.empty());
@@ -52,7 +52,7 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(
   }
 
   encrypted_with_footer_key_ = (encrypted && key.empty());
-  if (encrypted_with_footer_key_){
+  if (encrypted_with_footer_key_) {
     DCHECK(key_metadata.empty());
   }
 
@@ -62,8 +62,8 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(
 }
 
 ColumnDecryptionProperties::ColumnDecryptionProperties(
-    const std::shared_ptr<schema::ColumnPath>& column_path,
-    const std::string& key):column_path_(column_path){
+    const std::shared_ptr<schema::ColumnPath>& column_path, const std::string& key)
+    : column_path_(column_path) {
   DCHECK(column_path != nullptr);
 
   if (!key.empty()) {
@@ -87,14 +87,12 @@ const std::string& FileDecryptionProperties::column_key(
 FileDecryptionProperties::FileDecryptionProperties(
     const std::string& footer_key,
     const std::shared_ptr<DecryptionKeyRetriever>& key_retriever,
-    bool check_plaintext_footer_integrity,
-    const std::string& aad_prefix,
+    bool check_plaintext_footer_integrity, const std::string& aad_prefix,
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     const std::map<std::shared_ptr<schema::ColumnPath>,
-    std::shared_ptr<ColumnDecryptionProperties>,
-    schema::ColumnPath::CmpColumnPath>& column_properties) {
-  DCHECK(!footer_key.empty() ||
-         NULLPTR != key_retriever ||
+                   std::shared_ptr<ColumnDecryptionProperties>,
+                   schema::ColumnPath::CmpColumnPath>& column_properties) {
+  DCHECK(!footer_key.empty() || NULLPTR != key_retriever ||
          0 != column_properties.size());
 
   if (!footer_key.empty()) {
@@ -114,7 +112,7 @@ FileDecryptionProperties::FileDecryptionProperties(
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_id(
     const std::string& key_id) {
-  //key_id is expected to be in UTF8 encoding
+  // key_id is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
   const uint8_t* data = reinterpret_cast<const uint8_t*>(key_id.c_str());
   if (!::arrow::util::ValidateUTF8(data, key_id.size())) {
@@ -130,7 +128,7 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
 
 std::shared_ptr<ColumnEncryptionProperties> FileEncryptionProperties::column_properties(
     const std::shared_ptr<schema::ColumnPath>& column_path) {
-  if (column_properties_.size () == 0) {
+  if (column_properties_.size() == 0) {
     auto builder = std::shared_ptr<ColumnEncryptionProperties::Builder>(
         new ColumnEncryptionProperties::Builder(column_path));
     return builder->build();
@@ -142,38 +140,32 @@ std::shared_ptr<ColumnEncryptionProperties> FileEncryptionProperties::column_pro
   return NULLPTR;
 }
 
-FileEncryptionProperties::FileEncryptionProperties(ParquetCipher::type cipher,
-                                                   const std::string& footer_key,
-                                                   const std::string& footer_key_metadata,
-                                                   bool encrypted_footer,
-                                                   const std::string& aad_prefix,
-                                                   bool store_aad_prefix_in_file,
-                                                   const std::map<std::shared_ptr<schema::ColumnPath>,
-                                                   std::shared_ptr<ColumnEncryptionProperties>,
-                                                   schema::ColumnPath::CmpColumnPath>&
-                                                   column_properties)
-: footer_key_(footer_key),
-  footer_key_metadata_(footer_key_metadata),
-  encrypted_footer_(encrypted_footer),
-  column_properties_(column_properties) {
+FileEncryptionProperties::FileEncryptionProperties(
+    ParquetCipher::type cipher, const std::string& footer_key,
+    const std::string& footer_key_metadata, bool encrypted_footer,
+    const std::string& aad_prefix, bool store_aad_prefix_in_file,
+    const std::map<std::shared_ptr<schema::ColumnPath>,
+                   std::shared_ptr<ColumnEncryptionProperties>,
+                   schema::ColumnPath::CmpColumnPath>& column_properties)
+    : footer_key_(footer_key),
+      footer_key_metadata_(footer_key_metadata),
+      encrypted_footer_(encrypted_footer),
+      column_properties_(column_properties) {
   DCHECK(!footer_key.empty());
   // footer_key must be either 16, 24 or 32 bytes.
-  DCHECK(footer_key.length() == 16
-         || footer_key.length() == 24
-         || footer_key.length() == 32);
+  DCHECK(footer_key.length() == 16 || footer_key.length() == 24 ||
+         footer_key.length() == 32);
 
   uint8_t aad_file_unique[AAD_FILE_UNIQUE_LENGTH];
   memset(aad_file_unique, 0, AAD_FILE_UNIQUE_LENGTH);
   RAND_bytes(aad_file_unique, sizeof(AAD_FILE_UNIQUE_LENGTH));
-  std::string aad_file_unique_str(
-      reinterpret_cast<char const*>(aad_file_unique),
-      AAD_FILE_UNIQUE_LENGTH) ;
+  std::string aad_file_unique_str(reinterpret_cast<char const*>(aad_file_unique),
+                                  AAD_FILE_UNIQUE_LENGTH);
 
   bool supply_aad_prefix = false;
   if (aad_prefix.empty()) {
     file_aad_ = aad_file_unique_str;
-  }
-  else {
+  } else {
     file_aad_ = aad_prefix + aad_file_unique_str;
     if (!store_aad_prefix_in_file) supply_aad_prefix = true;
   }

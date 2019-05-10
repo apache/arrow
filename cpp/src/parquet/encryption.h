@@ -54,20 +54,20 @@ class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
 
 class PARQUET_EXPORT HiddenColumnException : public ParquetException {
  public:
-  HiddenColumnException(const std::string& columnPath)
-    : ParquetException(columnPath.c_str()) {}
+  explicit HiddenColumnException(const std::string& columnPath)
+      : ParquetException(columnPath.c_str()) {}
 };
 
 class PARQUET_EXPORT KeyAccessDeniedException : public ParquetException {
  public:
- KeyAccessDeniedException(const std::string& columnPath)
-   : ParquetException(columnPath.c_str()) {}
+  explicit KeyAccessDeniedException(const std::string& columnPath)
+      : ParquetException(columnPath.c_str()) {}
 };
 
 class PARQUET_EXPORT UnsupportedOperationException : public ParquetException {
  public:
- UnsupportedOperationException(const std::string& columnPath)
-   : ParquetException(columnPath.c_str()) {}
+  explicit UnsupportedOperationException(const std::string& columnPath)
+      : ParquetException(columnPath.c_str()) {}
 };
 
 }  // namespace parquet
