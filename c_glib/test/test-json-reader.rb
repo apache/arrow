@@ -40,12 +40,12 @@ class TestJSONReader < Test::Unit::TestCase
                    table.read)
     end
 
-    sub_test_case("options") do
+    sub_test_case("unexpected-field-behavior") do
       def setup
         @options = Arrow::JSONReadOptions.new
         field = Arrow::Field.new("message", Arrow::StringDataType.new)
         schema = Arrow::Schema.new([field])
-        @options.explicit_schema = schema
+        @options.schema = schema
       end
 
       def test_ignore
