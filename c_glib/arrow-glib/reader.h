@@ -311,10 +311,6 @@ struct _GArrowJSONReadOptionsClass
 GARROW_AVAILABLE_IN_0_14
 GArrowJSONReadOptions *garrow_json_read_options_new(void);
 GARROW_AVAILABLE_IN_0_14
-void garrow_json_read_options_set_explicit_schema(GArrowJSONReadOptions *options,
-                                                  GArrowSchema *schema);
-GARROW_AVAILABLE_IN_0_14
-GArrowSchema *garrow_json_read_options_get_explicit_schema(GArrowJSONReadOptions *options);
 
 #define GARROW_TYPE_JSON_READER (garrow_json_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowJSONReader,

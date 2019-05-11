@@ -1506,6 +1506,7 @@ typedef struct GArrowJSONReadOptionsPrivate_ {
   arrow::MemoryPool *pool;
   arrow::json::ReadOptions read_options;
   arrow::json::ParseOptions parse_options;
+  GArrowSchema *schema;
 } GArrowJSONReadOptionsPrivate;
 
 enum {
@@ -1513,7 +1514,8 @@ enum {
   PROP_JSON_READER_USE_THREADS,
   PROP_JSON_READER_BLOCK_SIZE,
   PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES,
-  PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR
+  PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR,
+  PROP_JSON_READER_SCHEMA
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowJSONReadOptions,
@@ -1524,6 +1526,19 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowJSONReadOptions,
   static_cast<GArrowJSONReadOptionsPrivate *>(       \
     garrow_json_read_options_get_instance_private(   \
       GARROW_JSON_READ_OPTIONS(object)))
+
+static void
+garrow_json_read_options_dispose(GObject *object)
+{
+  auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->schema) {
+    g_object_unref(priv->schema);
+    priv->schema = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_json_read_options_parent_class)->dispose(object);
+}
 
 static void
 garrow_json_read_options_set_property(GObject *object,
@@ -1549,6 +1564,10 @@ garrow_json_read_options_set_property(GObject *object,
   case PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR:
     priv->parse_options.unexpected_field_behavior =
       static_cast<arrow::json::UnexpectedFieldBehavior>(g_value_get_enum(value));
+    break;
+  case PROP_JSON_READER_SCHEMA:
+    priv->schema = GARROW_SCHEMA(g_value_dup_object(value));
+    priv->parse_options.explicit_schema = garrow_schema_get_raw(priv->schema);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1577,6 +1596,13 @@ garrow_json_read_options_get_property(GObject *object,
   case PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR:
     g_value_set_enum(value, static_cast<char>(priv->parse_options.unexpected_field_behavior));
     break;
+  case PROP_JSON_READER_SCHEMA:
+    if (priv->schema) {
+      g_value_set_object(value, priv->schema);
+    } else {
+      g_value_set_object(value, nullptr);
+    }
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -1599,6 +1625,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose      = garrow_json_read_options_dispose;
   gobject_class->set_property = garrow_json_read_options_set_property;
   gobject_class->get_property = garrow_json_read_options_get_property;
 
@@ -1688,6 +1715,22 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
   g_object_class_install_property(gobject_class,
                                   PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR,
                                   spec);
+
+  /**
+   * GArrowJSONReadOptions:schema:
+   *
+   * Schema for passing custom conversion rules.
+   *
+   * Since: 0.14.0
+   */
+  spec = g_param_spec_object("schema",
+                             "Schema",
+                             "Schema for passing custom conversion rules.",
+                              GARROW_TYPE_SCHEMA,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_SCHEMA,
+                                  spec);
 }
 
 /**
@@ -1704,40 +1747,6 @@ garrow_json_read_options_new(void)
                                         "pool", arrow::default_memory_pool(),
                                         NULL);
   return GARROW_JSON_READ_OPTIONS(json_read_options);
-}
-
-/**
- * garrow_json_read_options_set_explicit_schema:
- * @options: A #GArrowJSONReadOptions.
- * @schema: The optional explicit #GArrowSchema.
- *
- * Set optional explicit schema for passing custom conversion rules.
- *
- * Since: 0.14.0
- */
-void
-garrow_json_read_options_set_explicit_schema(GArrowJSONReadOptions *options,
-                                             GArrowSchema *schema)
-{
-  auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(options);
-  auto arrow_schema = garrow_schema_get_raw(schema);
-  priv->parse_options.explicit_schema = arrow_schema;
-}
-
-/**
- * garrow_json_read_options_get_explicit_schema:
- * @options: A #GArrowCSVReadOptions.
- *
- * Returns: (transfer full): The optional explicit schema.
- *
- * Since: 0.14.0
- */
-GArrowSchema *
-garrow_json_read_options_get_explicit_schema(GArrowJSONReadOptions *options)
-{
-  auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(options);
-  auto arrow_schema = priv->parse_options.explicit_schema;
-  return garrow_schema_new_raw(&arrow_schema);
 }
 
 
