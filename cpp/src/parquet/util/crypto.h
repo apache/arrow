@@ -19,10 +19,11 @@
 #define PARQUET_UTIL_CRYPTO_H
 
 #include <memory>
+#include <string>
 
+#include <openssl/evp.h>
 #include "parquet/properties.h"
 #include "parquet/types.h"
-#include <openssl/evp.h>
 
 using parquet::ParquetCipher;
 
@@ -41,7 +42,6 @@ const int8_t DictionaryPageHeader = 5;
 const int8_t ColumnIndex = 6;
 const int8_t OffsetIndex = 7;
 
-
 class AesEncryptor {
  public:
   // Can serve one key length only. Possible values: 16, 24, 32 bytes.
@@ -52,14 +52,15 @@ class AesEncryptor {
 
   // Key length is passed only for validation. If different from value in
   // constructor, exception will be thrown.
-  int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len, 
+  int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
               uint8_t* aad, int aad_len, uint8_t* ciphertext);
 
-  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key, int key_len,
-                          uint8_t* aad, int aad_len, uint8_t* nonce, uint8_t* encrypted_footer);
-  
+  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key,
+                          int key_len, uint8_t* aad, int aad_len, uint8_t* nonce,
+                          uint8_t* encrypted_footer);
+
   ~AesEncryptor() {
-    if (nullptr != ctx_) {
+    if (NULLPTR != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
     }
   }
@@ -87,11 +88,11 @@ class AesDecryptor {
 
   // Key length is passed only for validation. If different from value in
   // constructor, exception will be thrown.
-  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len, 
+  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
               uint8_t* aad, int aad_len, uint8_t* plaintext);
-  
+
   ~AesDecryptor() {
-    if (nullptr != ctx_) {
+    if (NULLPTR != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
     }
   }
@@ -102,22 +103,21 @@ class AesDecryptor {
   int key_length_;
   int ciphertext_size_delta_;
 
-  int gcm_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
-                  uint8_t* aad, int aad_len, uint8_t* plaintext);
+  int gcm_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key,
+                  int key_len, uint8_t* aad, int aad_len, uint8_t* plaintext);
 
-  int ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
-                  uint8_t* plaintext);
+  int ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key,
+                  int key_len, uint8_t* plaintext);
 };
 
-
 std::string createModuleAAD(const std::string& fileAAD, int8_t module_type,
-			    int16_t row_group_ordinal, int16_t column_ordinal,
-			    int16_t page_ordinal);
+                            int16_t row_group_ordinal, int16_t column_ordinal,
+                            int16_t page_ordinal);
 
 std::string createFooterAAD(const std::string& aad_prefix_bytes);
 
 // Update last two bytes of page (or page header) module AAD
-void quickUpdatePageAAD(const std::string &AAD, int16_t new_page_ordinal);
+void quickUpdatePageAAD(const std::string& AAD, int16_t new_page_ordinal);
 
 }  // namespace parquet_encryption
 
