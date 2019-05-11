@@ -1684,7 +1684,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                            "UnexpectedFieldBehavior",
                            "How to parse handle fields outside the explicit schema.",
                            GARROW_TYPE_JSON_READ_UNEXPECTED_FIELD_BEHAVIOR,
-                           GARROW_JSON_READ_INFERTYPE,
+                           GARROW_JSON_READ_INFER_TYPE,
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR,

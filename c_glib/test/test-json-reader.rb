@@ -72,8 +72,8 @@ class TestJSONReader < Test::Unit::TestCase
         end
       end
 
-      def test_infertype
-        @options.unexpected_field_behavior = :infertype
+      def test_infer_type
+        @options.unexpected_field_behavior = :infer_type
         table = Arrow::JSONReader.new(open_input(<<-JSON), @options)
 { "message": "Hello", "count": 3.5, "valid": false }
 { "message": "World", "count": 3.25, "valid": true }

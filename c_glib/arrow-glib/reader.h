@@ -287,14 +287,14 @@ GArrowTable *garrow_csv_reader_read(GArrowCSVReader *reader,
  * GArrowJSONReadUnexpectedFieldBehavior:
  * @GARROW_JSON_READ_IGNORE: Ignore other fields.
  * @GARROW_JSON_READ_ERROR: Return error.
- * @GARROW_JSON_READ_INFERTYPE: Infer a type.
+ * @GARROW_JSON_READ_INFER_TYPE: Infer a type.
  *
  * They are corresponding to `arrow::json::UnexpectedFieldBehavior` values.
  */
 typedef enum {
   GARROW_JSON_READ_IGNORE,
   GARROW_JSON_READ_ERROR,
-  GARROW_JSON_READ_INFERTYPE,
+  GARROW_JSON_READ_INFER_TYPE,
 } GArrowJSONReadUnexpectedFieldBehavior;
 
 #define GARROW_TYPE_JSON_READ_OPTIONS (garrow_json_read_options_get_type())
