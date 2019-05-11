@@ -908,8 +908,7 @@ typedef struct GArrowCSVReadOptionsPrivate_ {
 } GArrowCSVReadOptionsPrivate;
 
 enum {
-  PROP_POOL = 1,
-  PROP_USE_THREADS,
+  PROP_USE_THREADS = 1,
   PROP_BLOCK_SIZE,
   PROP_DELIMITER,
   PROP_IS_QUOTED,
@@ -941,9 +940,6 @@ garrow_csv_read_options_set_property(GObject *object,
   auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_POOL:
-    priv->pool = static_cast<arrow::MemoryPool *>(g_value_get_pointer(value));
-    break;
   case PROP_USE_THREADS:
     priv->read_options.use_threads = g_value_get_boolean(value);
     break;
@@ -1056,13 +1052,6 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
 
   gobject_class->set_property = garrow_csv_read_options_set_property;
   gobject_class->get_property = garrow_csv_read_options_get_property;
-
-  spec = g_param_spec_pointer("pool",
-                              "Pool",
-                              "The raw arrow::MemoryPool *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_POOL, spec);
 
   auto read_options = arrow::csv::ReadOptions::Defaults();
 
@@ -1278,9 +1267,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
 GArrowCSVReadOptions *
 garrow_csv_read_options_new(void)
 {
-  auto csv_read_options = g_object_new(GARROW_TYPE_CSV_READ_OPTIONS,
-                                       "pool", arrow::default_memory_pool(),
-                                       NULL);
+  auto csv_read_options = g_object_new(GARROW_TYPE_CSV_READ_OPTIONS, NULL);
   return GARROW_CSV_READ_OPTIONS(csv_read_options);
 }
 
@@ -1510,8 +1497,7 @@ typedef struct GArrowJSONReadOptionsPrivate_ {
 } GArrowJSONReadOptionsPrivate;
 
 enum {
-  PROP_JSON_READER_POOL = 1,
-  PROP_JSON_READER_USE_THREADS,
+  PROP_JSON_READER_USE_THREADS = 1,
   PROP_JSON_READER_BLOCK_SIZE,
   PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES,
   PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR,
@@ -1549,9 +1535,6 @@ garrow_json_read_options_set_property(GObject *object,
   auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_JSON_READER_POOL:
-    priv->pool = static_cast<arrow::MemoryPool *>(g_value_get_pointer(value));
-    break;
   case PROP_JSON_READER_USE_THREADS:
     priv->read_options.use_threads = g_value_get_boolean(value);
     break;
@@ -1628,15 +1611,6 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
   gobject_class->dispose      = garrow_json_read_options_dispose;
   gobject_class->set_property = garrow_json_read_options_set_property;
   gobject_class->get_property = garrow_json_read_options_get_property;
-
-  spec = g_param_spec_pointer("pool",
-                              "Pool",
-                              "The raw arrow::MemoryPool *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class,
-                                  PROP_JSON_READER_POOL,
-                                  spec);
 
   auto read_options = arrow::json::ReadOptions::Defaults();
 
@@ -1743,9 +1717,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
 GArrowJSONReadOptions *
 garrow_json_read_options_new(void)
 {
-  auto json_read_options = g_object_new(GARROW_TYPE_JSON_READ_OPTIONS,
-                                        "pool", arrow::default_memory_pool(),
-                                        NULL);
+  auto json_read_options = g_object_new(GARROW_TYPE_JSON_READ_OPTIONS, NULL);
   return GARROW_JSON_READ_OPTIONS(json_read_options);
 }
 
