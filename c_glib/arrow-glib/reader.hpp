@@ -21,9 +21,9 @@
 
 #include <arrow/api.h>
 #include <arrow/csv/api.h>
-#include <arrow/json/api.h>
 #include <arrow/ipc/api.h>
 #include <arrow/ipc/feather.h>
+#include <arrow/json/api.h>
 
 #include <arrow-glib/reader.h>
 
