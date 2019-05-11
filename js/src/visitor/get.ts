@@ -183,9 +183,9 @@ const getTimeSecond      = <T extends TimeSecond>     ({ values, stride }: Vecto
 /** @ignore */
 const getTimeMillisecond = <T extends TimeMillisecond>({ values, stride }: Vector<T>, index: number): T['TValue'] => values[stride * index];
 /** @ignore */
-const getTimeMicrosecond = <T extends TimeMicrosecond>({ values         }: Vector<T>, index: number): T['TValue'] => BN.new(values.subarray(2 * index, 2 * (index + 1)), true);
+const getTimeMicrosecond = <T extends TimeMicrosecond>({ values         }: Vector<T>, index: number): T['TValue'] => BN.signed(values.subarray(2 * index, 2 * (index + 1)));
 /** @ignore */
-const getTimeNanosecond  = <T extends TimeNanosecond> ({ values         }: Vector<T>, index: number): T['TValue'] => BN.new(values.subarray(2 * index, 2 * (index + 1)), true);
+const getTimeNanosecond  = <T extends TimeNanosecond> ({ values         }: Vector<T>, index: number): T['TValue'] => BN.signed(values.subarray(2 * index, 2 * (index + 1)));
 /* istanbul ignore next */
 /** @ignore */
 const getTime            = <T extends Time>(vector: Vector<T>, index: number): T['TValue'] => {
@@ -198,7 +198,7 @@ const getTime            = <T extends Time>(vector: Vector<T>, index: number): T
 };
 
 /** @ignore */
-const getDecimal = <T extends Decimal>({ values }: Vector<T>, index: number): T['TValue'] => BN.new(values.subarray(4 * index, 4 * (index + 1)), false);
+const getDecimal = <T extends Decimal>({ values }: Vector<T>, index: number): T['TValue'] => BN.decimal(values.subarray(4 * index, 4 * (index + 1)));
 
 /** @ignore */
 const getList = <T extends List>(vector: Vector<T>, index: number): T['TValue'] => {

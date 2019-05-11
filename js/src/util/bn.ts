@@ -15,97 +15,66 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { ArrayBufferViewInput } from './buffer';
+import { TypedArray, TypedArrayConstructor } from '../interfaces';
 import { BigIntArray, BigIntArrayConstructor } from '../interfaces';
-import { toArrayBufferView, ArrayBufferViewInput } from './buffer';
 import { BigIntAvailable, BigInt64Array, BigUint64Array } from './compat';
 
-/** @ignore */
-type BigNumArray = IntArray | UintArray;
-/** @ignore */
-type IntArray = Int8Array | Int16Array | Int32Array;
-/** @ignore */
-type UintArray = Uint8Array | Uint16Array | Uint32Array | Uint8ClampedArray;
+/** @ignore */ type BigNumArray = IntArray | UintArray;
+/** @ignore */ type IntArray = Int8Array | Int16Array | Int32Array;
+/** @ignore */ type UintArray = Uint8Array | Uint16Array | Uint32Array | Uint8ClampedArray;
 
 /** @ignore */
-const BigNumNMixin = {
-    toJSON(this: BN<BigNumArray>) { return `"${bignumToString(this)}"`; },
-    valueOf(this: BN<BigNumArray>) { return bignumToNumber(this); },
-    toString(this: BN<BigNumArray>) { return bignumToString(this); },
-    [Symbol.toPrimitive]<T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default') {
-        switch (hint) {
-            case 'number': return bignumToNumber(this);
-            case 'string': return bignumToString(this);
-            case 'default': return bignumToBigInt(this);
-        }
-        return bignumToString(this);
-    }
-};
+function BigNum(this: any, x: any, ...xs: any) {
+    const Ctor = this.TypedArray;
+    const bn = x instanceof Ctor ? x : new Ctor(x, ...xs);
+    return Object.setPrototypeOf(bn, this.constructor.prototype);
+}
 
-/** @ignore */
-const SignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: true, BigIntArray: BigInt64Array });
-/** @ignore */
-const UnsignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: false, BigIntArray: BigUint64Array });
-
-/** @ignore */
-export class BN<T extends BigNumArray> {
-    public static new<T extends BigNumArray>(input: ArrayBufferViewInput, signed?: boolean): T;
-    /** @nocollapse */
-    public static new<T extends BigNumArray>(input: ArrayBufferViewInput, signed = (input instanceof Int8Array || input instanceof Int16Array || input instanceof Int32Array)): T {
-        return (signed === true) ? BN.signed(input) as T : BN.unsigned(input) as T;
+BigNum.prototype.toJSON = function<T extends BN<BigNumArray>>(this: T) { return `"${bignumToString(this)}"`; };
+BigNum.prototype.valueOf = function<T extends BN<BigNumArray>>(this: T) { return bignumToNumber(this); };
+BigNum.prototype.toString = function<T extends BN<BigNumArray>>(this: T) { return bignumToString(this); };
+BigNum.prototype[Symbol.toPrimitive] = function<T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default') {
+    switch (hint) {
+        case 'number': return bignumToNumber(this);
+        case 'string': return bignumToString(this);
+        case 'default': return bignumToBigInt(this);
     }
-    /** @nocollapse */
-    public static signed<T extends IntArray>(input: ArrayBufferViewInput): T {
-        const Ctor: any = ArrayBuffer.isView(input) ? <any> input.constructor : Int32Array;
-        const { buffer, byteOffset, length } = toArrayBufferView<T>(<any> Ctor, input) as T;
-        const bn = new Ctor(buffer, byteOffset, length);
-        return Object.assign(bn, SignedBigNumNMixin);
-    }
-    /** @nocollapse */
-    public static unsigned<T extends UintArray>(input: ArrayBufferViewInput): T {
-        const Ctor: any = ArrayBuffer.isView(input) ? <any> input.constructor : Uint32Array;
-        const { buffer, byteOffset, length } = toArrayBufferView<T>(<any> Ctor, input) as T;
-        const bn = new Ctor(buffer, byteOffset, length);
-        return Object.assign(bn, UnsignedBigNumNMixin);
-    }
-    constructor(input: ArrayBufferViewInput, signed = input instanceof Int32Array) {
-        return BN.new(input, signed) as any;
-    }
+    return bignumToString(this);
 }
 
 /** @ignore */
-export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
+type TypedArrayConstructorArgs = 
+    [number | void] |
+    [Iterable<number> | Iterable<bigint>] |
+    [ArrayBufferLike, number | void, number | void] ;
 
-    new<T extends ArrayBufferViewInput>(buffer: T, signed?: boolean): T;
+/** @ignore */
+function SignedBigNum(this: any, ...args: TypedArrayConstructorArgs) { return BigNum.apply(this, args); }
+/** @ignore */
+function UnsignedBigNum(this: any, ...args: TypedArrayConstructorArgs) { return BigNum.apply(this, args); }
+/** @ignore */
+function DecimalBigNum(this: any, ...args: TypedArrayConstructorArgs) { return BigNum.apply(this, args); }
 
-    readonly signed: boolean;
-    readonly BigIntArray: BigIntArrayConstructor<BigIntArray>;
+Object.setPrototypeOf(SignedBigNum.prototype, Int32Array.prototype);
+Object.setPrototypeOf(UnsignedBigNum.prototype, Uint32Array.prototype);
+Object.setPrototypeOf(DecimalBigNum.prototype, Uint32Array.prototype);
 
-    [Symbol.toStringTag]:
-        'Int8Array'         |
-        'Int16Array'        |
-        'Int32Array'        |
-        'Uint8Array'        |
-        'Uint16Array'       |
-        'Uint32Array'       |
-        'Uint8ClampedArray';
+(SignedBigNum.prototype as any) = Object.create(SignedBigNum.prototype);
+(SignedBigNum.prototype as any) = Object.assign(SignedBigNum.prototype, BigNum.prototype, {
+    signed: true, constructor: SignedBigNum, TypedArray: Int32Array, BigIntArray: BigInt64Array
+});
 
-    /**
-     * Convert the bytes to their (positive) decimal representation for printing
-     */
-    toString(): string;
-    /**
-     * Down-convert the bytes to a 53-bit precision integer. Invoked by JS for
-     * arithmatic operators, like `+`. Easy (and unsafe) way to convert BN to
-     * number via `+bn_inst`
-     */
-    valueOf(): number;
-    /**
-     * Return the JSON representation of the bytes. Must be wrapped in double-quotes,
-     * so it's compatible with JSON.stringify().
-     */
-    toJSON(): string;
-    [Symbol.toPrimitive](hint: any): number | string | bigint;
-}
+(UnsignedBigNum.prototype as any) = Object.create(UnsignedBigNum.prototype);
+(UnsignedBigNum.prototype as any) = Object.assign(UnsignedBigNum.prototype, BigNum.prototype, {
+    signed: false, constructor: UnsignedBigNum, TypedArray: Uint32Array, BigIntArray: BigUint64Array
+});
+
+(DecimalBigNum.prototype as any) = Object.create(DecimalBigNum.prototype);
+(DecimalBigNum.prototype as any) = Object.assign(DecimalBigNum.prototype, BigNum.prototype, {
+    signed: true, constructor: DecimalBigNum, TypedArray: Uint32Array, BigIntArray: BigUint64Array
+});
+
 
 /** @ignore */
 function bignumToNumber<T extends BN<BigNumArray>>({ buffer, byteOffset, length, signed }: T) {
@@ -133,6 +102,7 @@ if (!BigIntAvailable) {
     bignumToString = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? `${new a.BigIntArray(a.buffer, a.byteOffset, 1)[0]}` : decimalToString(a));
 }
 
+/** @ignore */
 function decimalToString<T extends BN<BigNumArray>>(a: T) {
     let digits = '';
     let base64 = new Uint32Array(2);
@@ -149,6 +119,76 @@ function decimalToString<T extends BN<BigNumArray>>(a: T) {
         digits = `${base64[0]}${digits}`;
     } while (checks[0] || checks[1] || checks[2] || checks[3]);
     return digits ? digits : `0`;
+}
+
+/** @ignore */
+export class BN<T extends BigNumArray> {
+    /** @nocollapse */
+    public static new<T extends BigNumArray>(num: T, isSigned?: boolean): T {
+        switch (isSigned) {
+            case true: return new (<any> SignedBigNum)(num) as T;
+            case false: return new (<any> UnsignedBigNum)(num) as T;
+        }
+        switch (num.constructor) {
+            case Int8Array:
+            case Int16Array:
+            case Int32Array:
+            case BigInt64Array:
+                return new (<any> SignedBigNum)(num) as T;
+        }
+        return new (<any> UnsignedBigNum)(num) as T;
+    }
+    /** @nocollapse */
+    public static signed<T extends IntArray>(num: T): T {
+        return new (<any> SignedBigNum)(num) as T;
+    }
+    /** @nocollapse */
+    public static unsigned<T extends UintArray>(num: T): T {
+        return new (<any> UnsignedBigNum)(num) as T;
+    }
+    /** @nocollapse */
+    public static decimal<T extends UintArray>(num: T): T {
+        return new (<any> DecimalBigNum)(num) as T;
+    }
+    constructor(num: T, isSigned?: boolean) {
+        return BN.new(num, isSigned) as any;
+    }
+}
+
+/** @ignore */
+export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
+
+    new<T extends ArrayBufferViewInput>(buffer: T, signed?: boolean): T;
+
+    readonly signed: boolean;
+    readonly TypedArray: TypedArrayConstructor<TypedArray>;
+    readonly BigIntArray: BigIntArrayConstructor<BigIntArray>;
+
+    [Symbol.toStringTag]:
+        'Int8Array'         |
+        'Int16Array'        |
+        'Int32Array'        |
+        'Uint8Array'        |
+        'Uint16Array'       |
+        'Uint32Array'       |
+        'Uint8ClampedArray';
+
+    /**
+     * Convert the bytes to their (positive) decimal representation for printing
+     */
+    toString(): string;
+    /**
+     * Down-convert the bytes to a 53-bit precision integer. Invoked by JS for
+     * arithmatic operators, like `+`. Easy (and unsafe) way to convert BN to
+     * number via `+bn_inst`
+     */
+    valueOf(): number;
+    /**
+     * Return the JSON representation of the bytes. Must be wrapped in double-quotes,
+     * so it's compatible with JSON.stringify().
+     */
+    toJSON(): string;
+    [Symbol.toPrimitive](hint: any): number | string | bigint;
 }
 
 /** @ignore */
