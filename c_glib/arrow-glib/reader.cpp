@@ -1594,7 +1594,7 @@ garrow_json_read_options_get_property(GObject *object,
     g_value_set_boolean(value, priv->parse_options.newlines_in_values);
     break;
   case PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR:
-    g_value_set_enum(value, static_cast<char>(priv->parse_options.unexpected_field_behavior));
+    g_value_set_enum(value, static_cast<int>(priv->parse_options.unexpected_field_behavior));
     break;
   case PROP_JSON_READER_SCHEMA:
     if (priv->schema) {
