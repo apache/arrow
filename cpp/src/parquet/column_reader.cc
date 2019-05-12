@@ -230,10 +230,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
             aad = parquet_encryption::createModuleAAD(
                 meta_decryptor_->file_aad(), parquet_encryption::DictionaryPageHeader,
                 row_group_ordinal_, column_ordinal_, (int16_t)-1);
-            meta_decryptor_->aad(aad);
+            meta_decryptor_->update_aad(aad);
           } else {
             parquet_encryption::quickUpdatePageAAD(data_page_headerAAD_, page_ordinal_);
-            meta_decryptor_->aad(data_page_headerAAD_);
+            meta_decryptor_->update_aad(data_page_headerAAD_);
           }
         }
         DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
@@ -262,10 +262,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         aad = parquet_encryption::createModuleAAD(
             data_decryptor_->file_aad(), parquet_encryption::DictionaryPage,
             row_group_ordinal_, column_ordinal_, (int16_t)-1);
-        data_decryptor_->aad(aad);
+        data_decryptor_->update_aad(aad);
       } else {
         parquet_encryption::quickUpdatePageAAD(data_pageAAD_, page_ordinal_);
-        data_decryptor_->aad(data_pageAAD_);
+        data_decryptor_->update_aad(data_pageAAD_);
       }
     }
 

@@ -56,7 +56,7 @@ class Decryptor {
             const std::string& file_aad, const std::string& aad);
 
   const std::string& file_aad() const { return file_aad_; }
-  void aad(const std::string& aad) { aad_ = aad; }
+  void update_aad(const std::string& aad) { aad_ = aad; }
 
   int CiphertextSizeDelta();
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* plaintext);
