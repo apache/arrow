@@ -167,7 +167,6 @@ set(PARQUET_SRCS
     deprecated_io.cc
     encoding.cc
     encryption.cc
-    encryption_properties.cc
     internal_file_decryptor.cc
     internal_file_encryptor.cc
     file_reader.cc
