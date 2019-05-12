@@ -23,7 +23,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "parquet/encryption_properties.h"
+#include "parquet/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
 #include "parquet/platform.h"
