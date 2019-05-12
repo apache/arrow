@@ -70,17 +70,15 @@ class Decryptor {
 
 class InternalFileDecryptor {
  public:
-  explicit InternalFileDecryptor(FileDecryptionProperties* properties);
+  explicit InternalFileDecryptor(FileDecryptionProperties* properties,
+				 const std::string& file_aad,
+				 ParquetCipher::type algorithm,
+				 const std::string& footer_key_metadata);
 
-  void file_aad(const std::string& file_aad) { file_aad_ = file_aad; }
   std::string& file_aad() { return file_aad_; }
 
-  void algorithm(ParquetCipher::type algorithm) { algorithm_ = algorithm; }
   ParquetCipher::type algorithm() { return algorithm_; }
 
-  void footer_key_metadata(const std::string& footer_key_metadata) {
-    footer_key_metadata_ = footer_key_metadata;
-  }
   std::string& footer_key_metadata() { return footer_key_metadata_; }
 
   std::shared_ptr<FooterSigningEncryptor> GetFooterSigningEncryptor();
