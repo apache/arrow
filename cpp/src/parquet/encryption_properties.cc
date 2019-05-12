@@ -91,7 +91,8 @@ FileDecryptionProperties::FileDecryptionProperties(
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     const std::map<std::shared_ptr<schema::ColumnPath>,
                    std::shared_ptr<ColumnDecryptionProperties>,
-                   schema::ColumnPath::CmpColumnPath>& column_properties) {
+    schema::ColumnPath::CmpColumnPath>& column_properties,
+    bool plaintext_files_allowed) {
   DCHECK(!footer_key.empty() || NULLPTR != key_retriever ||
          0 != column_properties.size());
 
@@ -108,6 +109,7 @@ FileDecryptionProperties::FileDecryptionProperties(
   key_retriever_ = key_retriever;
   aad_prefix_ = aad_prefix;
   column_properties_ = column_properties;
+  plaintext_files_allowed_ = plaintext_files_allowed;
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_id(
