@@ -347,11 +347,10 @@ class SerializedFile : public ParquetFileReader::Contents {
             "No decryption properties are provided. Could not read "
             "encrypted footer metadata");
       }
-      file_decryptor_.reset(new InternalFileDecryptor(file_decryption_properties));
       uint32_t crypto_metadata_len = footer_len;
       std::shared_ptr<FileCryptoMetaData> file_crypto_metadata =
           FileCryptoMetaData::Make(crypto_metadata_buffer->data(), &crypto_metadata_len);
-      EncryptionAlgorithm algo = file_crypto_metadata_->encryption_algorithm();
+      EncryptionAlgorithm algo = file_crypto_metadata->encryption_algorithm();
 
       std::string aad_prefix = file_decryption_properties->aad_prefix();
 

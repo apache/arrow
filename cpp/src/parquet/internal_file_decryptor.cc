@@ -70,7 +70,7 @@ int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
 					       const std::string& file_aad,
 					       ParquetCipher::type algorithm,
 					       const std::string& footer_key_metadata)
-    : properties_(properties), file_add_(file_aad),
+    : properties_(properties), file_aad_(file_aad),
       algorithm_(algorithm), footer_key_metadata_(footer_key_metadata) {}
 
 std::shared_ptr<FooterSigningEncryptor>
