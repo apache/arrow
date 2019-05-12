@@ -286,12 +286,12 @@ class FileSerializer : public ParquetFileWriter::Contents {
       row_group_writer_.reset();
 
       // Write magic bytes and metadata
-      auto file_encryption = properties_->file_encryption();
-      if (file_encryption == nullptr) {
+      auto file_encryption_properties = properties_->file_encryption();
+      if (file_encryption_properties == nullptr) {
         file_metadata_ = metadata_->Finish();
         WriteFileMetaData(*file_metadata_, sink_.get());
       } else {
-        if (file_encryption->encrypted_footer()) {
+        if (file_encryption_properties->encrypted_footer()) {
           // encrypted footer
           file_metadata_ = metadata_->Finish();
 
@@ -308,14 +308,14 @@ class FileSerializer : public ParquetFileWriter::Contents {
         } else {
           // footer plain mode
           EncryptionAlgorithm signing_encryption;
-          EncryptionAlgorithm algo = file_encryption->algorithm();
+          EncryptionAlgorithm algo = file_encryption_properties->algorithm();
           signing_encryption.aad.aad_file_unique = algo.aad.aad_file_unique;
           signing_encryption.aad.supply_aad_prefix = algo.aad.supply_aad_prefix;
           if (!algo.aad.supply_aad_prefix)
             signing_encryption.aad.aad_prefix = algo.aad.aad_prefix;
           signing_encryption.algorithm = ParquetCipher::AES_GCM_V1;
           file_metadata_ = metadata_->Finish(
-              &signing_encryption, file_encryption->footer_signing_key_metadata());
+              &signing_encryption, file_encryption_properties->footer_signing_key_metadata());
           auto footer_signing_encryptor = file_encryptor_->GetFooterSigningEncryptor();
           WriteFileMetaData(*file_metadata_, sink_.get(), footer_signing_encryptor,
                             false);
@@ -388,13 +388,13 @@ class FileSerializer : public ParquetFileWriter::Contents {
   std::unique_ptr<InternalFileEncryptor> file_encryptor_;
 
   void StartFile() {
-    auto file_encryption = properties_->file_encryption();
-    if (file_encryption == nullptr) {
+    auto file_encryption_properties = properties_->file_encryption();
+    if (file_encryption_properties == nullptr) {
       // Unencrypted parquet files always start with PAR1
       PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
     } else {
-      file_encryptor_.reset(new InternalFileEncryptor(file_encryption));
-      if (file_encryption->encrypted_footer()) {
+      file_encryptor_.reset(new InternalFileEncryptor(file_encryption_properties));
+      if (file_encryption_properties->encrypted_footer()) {
         PARQUET_THROW_NOT_OK(sink_->Write(kParquetEMagic, 4));
       }
       else {
