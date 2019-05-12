@@ -67,11 +67,25 @@ int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
 
 // InternalFileDecryptor
   InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* properties,
-					       const std::string& file_aad,
-					       ParquetCipher::type algorithm,
-					       const std::string& footer_key_metadata)
+                                               const std::string& file_aad,
+                                               ParquetCipher::type algorithm,
+                                               const std::string& footer_key_metadata)
     : properties_(properties), file_aad_(file_aad),
-      algorithm_(algorithm), footer_key_metadata_(footer_key_metadata) {}
+      algorithm_(algorithm), footer_key_metadata_(footer_key_metadata) {
+    column_data_map_ = std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
+                                                std::shared_ptr<Decryptor>,
+                                                parquet::schema::ColumnPath::CmpColumnPath>>(
+                                                   new std::map<std::shared_ptr<schema::ColumnPath>,
+                                                   std::shared_ptr<Decryptor>,
+                                                   schema::ColumnPath::CmpColumnPath>());
+
+    column_metadata_map_ = std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
+                                                    std::shared_ptr<Decryptor>,
+                                                parquet::schema::ColumnPath::CmpColumnPath>>(
+                                                   new std::map<std::shared_ptr<schema::ColumnPath>,
+                                                   std::shared_ptr<Decryptor>,
+                                                   schema::ColumnPath::CmpColumnPath>());
+  }
 
 std::shared_ptr<FooterSigningEncryptor>
 InternalFileDecryptor::GetFooterSigningEncryptor() {
@@ -100,7 +114,7 @@ InternalFileDecryptor::GetFooterSigningEncryptor() {
   std::string aad = parquet_encryption::createFooterAAD(file_aad_);
 
   footer_signing_encryptor_ =
-      std::make_shared<FooterSigningEncryptor>(algorithm_, footer_key, file_aad_, aad);
+    std::make_shared<FooterSigningEncryptor>(algorithm_, footer_key, file_aad_, aad);
   return footer_signing_encryptor_;
 }
 
@@ -121,7 +135,12 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptorForColumnDat
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     const std::string& aad, bool metadata) {
-  if (footer_decryptor_ != NULLPTR) return footer_decryptor_;
+  if (metadata) {
+    if (footer_metadata_decryptor_ != NULLPTR) return footer_metadata_decryptor_;
+  } else {
+    if (footer_data_decryptor_ != NULLPTR) return footer_data_decryptor_;
+  }
+
   std::string footer_key = properties_->footer_key();
   if (footer_key.empty()) {
     if (footer_key_metadata_.empty())
@@ -144,9 +163,15 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
 
   auto aes_decryptor = metadata ? GetMetaAesDecryptor(footer_key.size())
                                 : GetDataAesDecryptor(footer_key.size());
-  footer_decryptor_ =
-      std::make_shared<Decryptor>(aes_decryptor, footer_key, file_aad_, aad);
-  return footer_decryptor_;
+  std::shared_ptr<Decryptor> decryptor =
+    std::make_shared<Decryptor>(aes_decryptor, footer_key, file_aad_, aad);
+
+  if (metadata)
+    footer_metadata_decryptor_ = decryptor;
+  else
+    footer_data_decryptor_ = decryptor;
+
+  return decryptor;
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnMetaDecryptor(
@@ -165,10 +190,17 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     std::shared_ptr<schema::ColumnPath> column_path,
     const std::string& column_key_metadata, const std::string& aad, bool metadata) {
   std::string column_key;
-  // first look if we already got the key from before
-  if (column_map_ != NULLPTR && column_map_->find(column_path) != column_map_->end()) {
-    column_key = column_map_->at(column_path);
+  // first look if we already got the decryptor from before
+  if (metadata) {
+    if (column_metadata_map_->find(column_path) != column_metadata_map_->end()) {
+      return column_metadata_map_->at(column_path);
+    }
   } else {
+    if (column_data_map_->find(column_path) != column_data_map_->end()) {
+      return column_data_map_->at(column_path);
+    }
+  }
+
     column_key = properties_->column_key(column_path);
     // No explicit column key given via API. Retrieve via key metadata.
     if (column_key.empty() && !column_key_metadata.empty() &&
@@ -182,21 +214,23 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
         throw HiddenColumnException(ss.str());
       }
     }
-  }
   if (column_key.empty()) {
     throw HiddenColumnException("HiddenColumnException, path=" +
                                 column_path->ToDotString());
   }
 
-  if (column_map_ != NULLPTR) {
-    // save column key for future use
-    (*column_map_)[column_path] = column_key;
-  }
-
   auto aes_decryptor = metadata ? GetMetaAesDecryptor(column_key.size())
-                                : GetDataAesDecryptor(column_key.size());
+    : GetDataAesDecryptor(column_key.size());
 
-  return std::make_shared<Decryptor>(aes_decryptor, column_key, file_aad_, aad);
+  std::shared_ptr<Decryptor> decryptor = std::make_shared<Decryptor>(
+      aes_decryptor, column_key, file_aad_, aad);
+  if (metadata)
+    (*column_metadata_map_)[column_path] = decryptor;
+  else
+    (*column_data_map_)[column_path] = decryptor;
+
+  return decryptor;
+
 }
 
 parquet_encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
