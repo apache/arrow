@@ -210,7 +210,24 @@ class ConcatenateImpl {
 
   Status Visit(const DictionaryType& d) {
     auto fixed = internal::checked_cast<const FixedWidthType*>(d.index_type().get());
-    return ConcatenateBuffers(Buffers(1, *fixed), pool_, &out_.buffers[1]);
+
+    // Two cases: all the dictionaries are the same, or unification is
+    // required
+    bool dictionaries_same = true;
+    const Array& dictionary0 = *in_[0].dictionary;
+    for (size_t i = 1; i < in_.size(); ++i) {
+      if (!in_[i].dictionary->Equals(dictionary0)) {
+        dictionaries_same = false;
+        break;
+      }
+    }
+
+    if (dictionaries_same) {
+      out_.dictionary = in_[0].dictionary;
+      return ConcatenateBuffers(Buffers(1, *fixed), pool_, &out_.buffers[1]);
+    } else {
+      return Status::NotImplemented("Concat with dictionary unification NYI");
+    }
   }
 
   Status Visit(const UnionType& u) {
@@ -313,7 +330,7 @@ Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
                              *arrays[0]->type(), " and ", *arrays[i]->type(),
                              " were encountered.");
     }
-    data[i] = ArrayData(*arrays[i]->data());
+    data[i] = *arrays[i]->data();
   }
 
   ArrayData out_data;

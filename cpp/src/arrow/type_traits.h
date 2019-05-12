@@ -312,8 +312,7 @@ struct TypeTraits<UnionType> {
 template <>
 struct TypeTraits<DictionaryType> {
   using ArrayType = DictionaryArray;
-  // TODO(wesm): Not sure what to do about this
-  // using ScalarType = DictionaryScalar;
+  using ScalarType = DictionaryScalar;
   constexpr static bool is_parameter_free = false;
 };
 

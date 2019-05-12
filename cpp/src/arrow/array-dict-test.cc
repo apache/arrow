@@ -171,7 +171,7 @@ TYPED_TEST(TestDictionaryBuilder, DoubleTableSize) {
     // Finalize expected data
     std::shared_ptr<Array> dict_array;
     ASSERT_OK(dict_builder.Finish(&dict_array));
-    auto dtype = std::make_shared<DictionaryType>(int16(), dict_array);
+    auto dtype = dictionary(int16(), dict_array);
     std::shared_ptr<Array> int_array;
     ASSERT_OK(int_builder.Finish(&int_array));
 
@@ -372,7 +372,7 @@ TEST(TestStringDictionaryBuilder, DoubleTableSize) {
   // Finalize expected data
   std::shared_ptr<Array> str_array;
   ASSERT_OK(str_builder.Finish(&str_array));
-  auto dtype = std::make_shared<DictionaryType>(int16(), str_array);
+  auto dtype = dictionary(int16(), str_array);
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
@@ -434,7 +434,7 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
 
   std::shared_ptr<Array> str_array1;
   ASSERT_OK(str_builder1.Finish(&str_array1));
-  auto dtype1 = std::make_shared<DictionaryType>(int16(), str_array1);
+  auto dtype1 = dictionary(int16(), str_array1);
 
   std::shared_ptr<Array> int_array1;
   ASSERT_OK(int_builder1.Finish(&int_array1));
@@ -462,7 +462,7 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
 
   std::shared_ptr<Array> str_array2;
   ASSERT_OK(str_builder2.Finish(&str_array2));
-  auto dtype2 = std::make_shared<DictionaryType>(int16(), str_array2);
+  auto dtype2 = dictionary(int16(), str_array2);
 
   std::shared_ptr<Array> int_array2;
   ASSERT_OK(int_builder2.Finish(&int_array2));
@@ -490,7 +490,7 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
 
   std::shared_ptr<Array> str_array3;
   ASSERT_OK(str_builder3.Finish(&str_array3));
-  auto dtype3 = std::make_shared<DictionaryType>(int16(), str_array3);
+  auto dtype3 = dictionary(int16(), str_array3);
 
   std::shared_ptr<Array> int_array3;
   ASSERT_OK(int_builder3.Finish(&int_array3));
@@ -518,7 +518,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
   ASSERT_OK(fsb_builder.Append(test2.data()));
   std::shared_ptr<Array> fsb_array;
   ASSERT_OK(fsb_builder.Finish(&fsb_array));
-  auto dtype = std::make_shared<DictionaryType>(int8(), fsb_array);
+  auto dtype = dictionary(int8(), fsb_array);
 
   Int8Builder int_builder;
   ASSERT_OK(int_builder.Append(0));
@@ -591,7 +591,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(fsb_builder1.Append(test2.data()));
   std::shared_ptr<Array> fsb_array1;
   ASSERT_OK(fsb_builder1.Finish(&fsb_array1));
-  auto dtype1 = std::make_shared<DictionaryType>(int8(), fsb_array1);
+  auto dtype1 = dictionary(int8(), fsb_array1);
 
   Int8Builder int_builder1;
   ASSERT_OK(int_builder1.Append(0));
@@ -616,7 +616,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(fsb_builder2.Append(test3.data()));
   std::shared_ptr<Array> fsb_array2;
   ASSERT_OK(fsb_builder2.Finish(&fsb_array2));
-  auto dtype2 = std::make_shared<DictionaryType>(int8(), fsb_array2);
+  auto dtype2 = dictionary(int8(), fsb_array2);
 
   Int8Builder int_builder2;
   ASSERT_OK(int_builder2.Append(0));
@@ -659,7 +659,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {
   // Finalize expected data
   std::shared_ptr<Array> fsb_array;
   ASSERT_OK(fsb_builder.Finish(&fsb_array));
-  auto dtype = std::make_shared<DictionaryType>(int16(), fsb_array);
+  auto dtype = dictionary(int16(), fsb_array);
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
@@ -749,7 +749,7 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
   std::shared_ptr<Array> fsb_array;
   ASSERT_OK(fsb_builder.Finish(&fsb_array));
 
-  auto dtype = std::make_shared<DictionaryType>(int16(), fsb_array);
+  auto dtype = dictionary(int16(), fsb_array);
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 

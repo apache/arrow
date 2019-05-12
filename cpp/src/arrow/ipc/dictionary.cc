@@ -26,6 +26,7 @@
 
 namespace arrow {
 namespace ipc {
+namespace internal {
 
 DictionaryMemo::DictionaryMemo() {}
 
@@ -40,24 +41,36 @@ Status DictionaryMemo::GetDictionary(int64_t id,
   return Status::OK();
 }
 
-int64_t DictionaryMemo::GetId(const std::shared_ptr<Array>& dictionary) {
-  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
-  auto it = dictionary_to_id_.find(address);
-  if (it != dictionary_to_id_.end()) {
-    // Dictionary already observed, return the id
+int64_t DictionaryMemo::GetOrAssignId(const std::shared_ptr<DataType>& type) {
+  intptr_t address = reinterpret_cast<intptr_t>(type.get());
+  auto it = type_to_id_.find(address);
+  if (it != type_to_id_.end()) {
+    // Type already observed, return the id
     return it->second;
   } else {
-    int64_t new_id = static_cast<int64_t>(dictionary_to_id_.size());
-    dictionary_to_id_[address] = new_id;
-    id_to_dictionary_[new_id] = dictionary;
+    int64_t new_id = static_cast<int64_t>(type_to_id_.size());
+    type_to_id_[address] = new_id;
+    id_to_type_[new_id] = type;
     return new_id;
   }
 }
 
-bool DictionaryMemo::HasDictionary(const std::shared_ptr<Array>& dictionary) const {
-  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
-  auto it = dictionary_to_id_.find(address);
-  return it != dictionary_to_id_.end();
+Status DictionaryMemo::GetId(const DataType& type, int64_t* id) {
+  intptr_t address = reinterpret_cast<intptr_t>(&type);
+  auto it = type_to_id_.find(address);
+  if (it != type_to_id_.end()) {
+    // Type already observed, return the id
+    *id = it->second;
+    return Status::OK();
+  } else {
+    return Status::KeyError("Type with memory address ", address, " not found");
+  }
+}
+
+bool DictionaryMemo::HasDictionary(const std::shared_ptr<DataType>& type) const {
+  intptr_t address = reinterpret_cast<intptr_t>(type.get());
+  auto it = type_to_id_.find(address);
+  return it != type_to_id_.end();
 }
 
 bool DictionaryMemo::HasDictionaryId(int64_t id) const {
@@ -76,5 +89,6 @@ Status DictionaryMemo::AddDictionary(int64_t id,
   return Status::OK();
 }
 
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

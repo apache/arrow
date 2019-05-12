@@ -34,25 +34,33 @@ class Array;
 class Field;
 
 namespace ipc {
+namespace internal {
 
 using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
 using DictionaryTypeMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
 
-/// \brief Memoization data structure for handling shared dictionaries
+/// \brief Memoization data structure for assigning id numbers to
+/// dictionaries and tracking their current state through possible
+/// deltas in an IPC stream
 class ARROW_EXPORT DictionaryMemo {
  public:
   DictionaryMemo();
   DictionaryMemo(DictionaryMemo&&) = default;
   DictionaryMemo& operator=(DictionaryMemo&&) = default;
 
-  /// \brief Returns KeyError if dictionary not found
+  /// \brief Return current dictionary corresponding to a particular
+  /// id. Returns KeyError if dictionary not found
   Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;
 
   /// \brief Return id for dictionary, computing new id if necessary
-  int64_t GetId(const std::shared_ptr<Array>& dictionary);
+  int64_t GetOrAssignId(const std::shared_ptr<DataType>& type);
 
-  /// \brief Return true if dictionary array object is in this memo
-  bool HasDictionary(const std::shared_ptr<Array>& dictionary) const;
+  /// \brief Return id for dictionary if it exists, otherwise return
+  /// KeyError
+  Status GetId(const DataType& type, int64_t* id) const;
+
+  /// \brief Return true if dictionary for type is in this memo
+  bool HasDictionary(const std::shared_ptr<DataType>& type) const;
 
   /// \brief Return true if we have a dictionary for the input id
   bool HasDictionaryId(int64_t id) const;
@@ -67,16 +75,18 @@ class ARROW_EXPORT DictionaryMemo {
   int size() const { return static_cast<int>(id_to_dictionary_.size()); }
 
  private:
-  // Dictionary memory addresses, to track whether a dictionary has been seen
-  // before
-  std::unordered_map<intptr_t, int64_t> dictionary_to_id_;
+  // Dictionary memory addresses, to track whether a particular
+  // dictionary type has been seen before
+  std::unordered_map<intptr_t, int64_t> type_to_id_;
 
   // Map of dictionary id to dictionary array
   DictionaryMap id_to_dictionary_;
+  DictionaryTypeMap id_to_type_;
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(DictionaryMemo);
 };
 
+}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
 

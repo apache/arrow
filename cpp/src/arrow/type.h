@@ -129,7 +129,10 @@ struct Type {
     /// Unions of logical types
     UNION,
 
-    /// Dictionary aka Category type
+    /// Dictionary-encoded type, also called "categorical" or "factor"
+    /// in other programming languages. Holds the dictionary value
+    /// type but not the dictionary itself, which is part of the
+    /// ArrayData struct
     DICTIONARY,
 
     /// Map, a repeated struct logical type
@@ -838,48 +841,54 @@ class ARROW_EXPORT DurationType : public FixedWidthType, public ParametricType {
 };
 
 // ----------------------------------------------------------------------
-// DictionaryType (for categorical or dictionary-encoded data)
+// Dictionary type (for representing categorical or dictionary-encoded
+// in memory)
 
-/// Concrete type class for dictionary data
+/// \brief Dictionary-encoded value type with data-dependent, possibly
+/// variable dictionary
 class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;
 
   DictionaryType(const std::shared_ptr<DataType>& index_type,
-                 const std::shared_ptr<Array>& dictionary, bool ordered = false);
-
-  int bit_width() const override;
-
-  std::shared_ptr<DataType> index_type() const { return index_type_; }
-
-  std::shared_ptr<Array> dictionary() const;
+                 const std::shared_ptr<DataType>& value_type, bool ordered = false);
 
   std::string ToString() const override;
   std::string name() const override { return "dictionary"; }
 
+  int bit_width() const override;
+
+  std::shared_ptr<DataType> index_type() const { return index_type_; }
+  std::shared_ptr<DataType> value_type() const { return value_type_; }
+
   bool ordered() const { return ordered_; }
 
-  /// \brief Unify several dictionary types
+  /// \brief Unify dictionaries types
   ///
   /// Compute a resulting dictionary that will allow the union of values
   /// of all input dictionary types.  The input types must all have the
   /// same value type.
   /// \param[in] pool Memory pool to allocate dictionary values from
   /// \param[in] types A sequence of input dictionary types
+  /// \param[in] dictionaries A sequence of input dictionaries
+  /// corresponding to each type
   /// \param[out] out_type The unified dictionary type
+  /// \param[out] out_dictionary The unified dictionary
   /// \param[out] out_transpose_maps (optionally) A sequence of integer vectors,
   ///     one per input type.  Each integer vector represents the transposition
   ///     of input type indices into unified type indices.
   // XXX Should we return something special (an empty transpose map?) when
   // the transposition is the identity function?
   static Status Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
+                      const std::vector<const Array*>& dictionaries,
                       std::shared_ptr<DataType>* out_type,
+                      std::shared_ptr<Array>* out_dictionary,
                       std::vector<std::vector<int32_t>>* out_transpose_maps = NULLPTR);
 
- private:
+ protected:
   // Must be an integer type (not currently checked)
   std::shared_ptr<DataType> index_type_;
-  std::shared_ptr<Array> dictionary_;
+  std::shared_ptr<DataType> value_type_;
   bool ordered_;
 };
 
@@ -1050,9 +1059,15 @@ union_(const std::vector<std::shared_ptr<Array>>& children,
 }
 
 /// \brief Create a DictionaryType instance
-std::shared_ptr<DataType> ARROW_EXPORT
-dictionary(const std::shared_ptr<DataType>& index_type,
-           const std::shared_ptr<Array>& values, bool ordered = false);
+/// \param[in] index_type the type of the dictionary indices (must be
+/// a signed integer)
+/// \param[in] dict_type the type of the values in the variable dictionary
+/// \param[in] ordered true if the order of the dictionary values has
+/// semantic meaning and should be preserved where possible
+ARROW_EXPORT
+std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
+                                     const std::shared_ptr<DataType>& dict_type,
+                                     bool ordered = false);
 
 /// @}
 

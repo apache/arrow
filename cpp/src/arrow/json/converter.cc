@@ -39,24 +39,32 @@ Status GenericConversionError(const DataType& type, Args&&... args) {
                          std::forward<Args>(args)...);
 }
 
-const DictionaryArray* GetDictionaryArray(const std::shared_ptr<Array>& in) {
+namespace {
+
+const DictionaryArray& GetDictionaryArray(const std::shared_ptr<Array>& in) {
   DCHECK_EQ(in->type_id(), Type::DICTIONARY);
   auto dict_type = static_cast<const DictionaryType*>(in->type().get());
   DCHECK_EQ(dict_type->index_type()->id(), Type::INT32);
-  DCHECK_EQ(dict_type->dictionary()->type_id(), Type::STRING);
-  return static_cast<const DictionaryArray*>(in.get());
+  DCHECK_EQ(dict_type->value_type()->id(), Type::STRING);
+  return static_cast<const DictionaryArray&>(*in);
 }
 
-template <typename Vis>
-Status VisitDictionaryEntries(const DictionaryArray* dict_array, Vis&& vis) {
-  const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
-  const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
+template <typename ValidVisitor, typename NullVisitor>
+Status VisitDictionaryEntries(const DictionaryArray& dict_array,
+                              ValidVisitor&& visit_valid, NullVisitor&& visit_null) {
+  const StringArray& dict = static_cast<const StringArray&>(*dict_array.dictionary());
+  const Int32Array& indices = static_cast<const Int32Array&>(*dict_array.indices());
   for (int64_t i = 0; i < indices.length(); ++i) {
-    bool is_valid = indices.IsValid(i);
-    RETURN_NOT_OK(vis(is_valid, is_valid ? dict.GetView(indices.GetView(i)) : ""));
+    if (indices.IsValid(i)) {
+      RETURN_NOT_OK(visit_valid(dict.GetView(indices.GetView(i))));
+    } else {
+      RETURN_NOT_OK(visit_null());
+    }
   }
   return Status::OK();
 }
+
+}  // namespace
 
 // base class for types which accept and output non-nested types
 class PrimitiveConverter : public Converter {
@@ -127,18 +135,13 @@ class NumericConverter : public PrimitiveConverter {
     if (in->type_id() == Type::NA) {
       return PrimitiveFromNull(pool_, out_type_, *in, out);
     }
-    auto dict_array = GetDictionaryArray(in);
+    const auto& dict_array = GetDictionaryArray(in);
 
     using Builder = typename TypeTraits<T>::BuilderType;
     Builder builder(out_type_, pool_);
-    RETURN_NOT_OK(builder.Resize(dict_array->indices()->length()));
+    RETURN_NOT_OK(builder.Resize(dict_array.indices()->length()));
 
-    auto visit = [&](bool is_valid, string_view repr) {
-      if (!is_valid) {
-        builder.UnsafeAppendNull();
-        return Status::OK();
-      }
-
+    auto visit_valid = [&](string_view repr) {
       value_type value;
       if (!convert_one_(repr.data(), repr.size(), &value)) {
         return GenericConversionError(*out_type_, ", couldn't parse:", repr);
@@ -148,7 +151,12 @@ class NumericConverter : public PrimitiveConverter {
       return Status::OK();
     };
 
-    RETURN_NOT_OK(VisitDictionaryEntries(dict_array, visit));
+    auto visit_null = [&]() {
+      builder.UnsafeAppendNull();
+      return Status::OK();
+    };
+
+    RETURN_NOT_OK(VisitDictionaryEntries(dict_array, visit_valid, visit_null));
     return builder.Finish(out);
   }
 
@@ -193,32 +201,39 @@ class BinaryConverter : public PrimitiveConverter {
     if (in->type_id() == Type::NA) {
       return BinaryFromNull(pool_, out_type_, *in, out);
     }
-    auto dict_array = GetDictionaryArray(in);
+    const auto& dict_array = GetDictionaryArray(in);
 
     using Builder = typename TypeTraits<T>::BuilderType;
     Builder builder(out_type_, pool_);
-    RETURN_NOT_OK(builder.Resize(dict_array->indices()->length()));
+    RETURN_NOT_OK(builder.Resize(dict_array.indices()->length()));
 
     // TODO(bkietz) this can be computed during parsing at low cost
     int64_t data_length = 0;
-    auto visit_lengths = [&](bool is_valid, string_view value) {
-      if (is_valid) {
-        data_length += value.size();
-      }
+    auto visit_lengths_valid = [&](string_view value) {
+      data_length += value.size();
       return Status::OK();
     };
-    RETURN_NOT_OK(VisitDictionaryEntries(dict_array, visit_lengths));
+
+    auto visit_lengths_null = [&]() {
+      // no-op
+      return Status::OK();
+    };
+
+    RETURN_NOT_OK(
+        VisitDictionaryEntries(dict_array, visit_lengths_valid, visit_lengths_null));
     RETURN_NOT_OK(builder.ReserveData(data_length));
 
-    auto visit = [&](bool is_valid, string_view value) {
-      if (is_valid) {
-        builder.UnsafeAppend(value);
-      } else {
-        builder.UnsafeAppendNull();
-      }
+    auto visit_valid = [&](string_view value) {
+      builder.UnsafeAppend(value);
       return Status::OK();
     };
-    RETURN_NOT_OK(VisitDictionaryEntries(dict_array, visit));
+
+    auto visit_null = [&]() {
+      builder.UnsafeAppendNull();
+      return Status::OK();
+    };
+
+    RETURN_NOT_OK(VisitDictionaryEntries(dict_array, visit_valid, visit_null));
     return builder.Finish(out);
   }
 };

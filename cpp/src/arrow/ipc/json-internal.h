@@ -76,23 +76,33 @@ using RjObject = rj::Value::ConstObject;
 namespace arrow {
 namespace ipc {
 namespace internal {
+
+class DictionaryMemo;
+
 namespace json {
 
-ARROW_EXPORT Status WriteSchema(const Schema& schema, RjWriter* writer);
+/// \brief Append integration test Schema format to rapidjson writer
+ARROW_EXPORT
+Status WriteSchema(const Schema& schema, const DictionaryMemo& dictionary_memo,
+                   RjWriter* writer);
+
 ARROW_EXPORT Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
 ARROW_EXPORT Status WriteArray(const std::string& name, const Array& array,
                                RjWriter* writer);
 
 ARROW_EXPORT Status ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
+                               DictionaryMemo* dictionary_memo,
                                std::shared_ptr<Schema>* schema);
 
 ARROW_EXPORT Status ReadRecordBatch(const rj::Value& json_obj,
                                     const std::shared_ptr<Schema>& schema,
+                                    const DictionaryMemo& dictionary_memo,
                                     MemoryPool* pool,
                                     std::shared_ptr<RecordBatch>* batch);
 
 ARROW_EXPORT Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
                               const std::shared_ptr<DataType>& type,
+                              const DictionaryMemo& dictionary_memo,
                               std::shared_ptr<Array>* array);
 
 ARROW_EXPORT Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,

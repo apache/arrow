@@ -139,6 +139,7 @@ class JsonReader::JsonReaderImpl {
 
   const rj::Value* record_batches_;
   std::shared_ptr<Schema> schema_;
+  DictionaryMemo dictionary_memo_;
 };
 
 JsonReader::JsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data) {

@@ -556,9 +556,9 @@ Status SchemaPrinter::PrintType(const DataType& type) {
   if (type.id() == Type::DICTIONARY) {
     indent_ += indent_size_;
     Newline();
-    Write("dictionary:\n");
+    Write("dictionary type: ");
     const auto& dict_type = checked_cast<const DictionaryType&>(type);
-    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_ + indent_size_, sink_));
+    RETURN_NOT_OK(PrintType(*dict_type.value_type()));
     indent_ -= indent_size_;
   } else {
     for (int i = 0; i < type.num_children(); ++i) {

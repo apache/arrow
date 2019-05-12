@@ -334,13 +334,17 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
 }
 
 // ----------------------------------------------------------------------
-// DictionaryType
+// Dictionary-encoded type
+
+int DictionaryType::bit_width() const {
+  return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
+}
 
 DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
-                               const std::shared_ptr<Array>& dictionary, bool ordered)
+                               const std::shared_ptr<DataType>& value_type, bool ordered)
     : FixedWidthType(Type::DICTIONARY),
       index_type_(index_type),
-      dictionary_(dictionary),
+      value_type_(value_type),
       ordered_(ordered) {
 #ifndef NDEBUG
   const auto& int_type = checked_cast<const Integer&>(*index_type);
@@ -348,15 +352,9 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
 #endif
 }
 
-int DictionaryType::bit_width() const {
-  return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
-}
-
-std::shared_ptr<Array> DictionaryType::dictionary() const { return dictionary_; }
-
 std::string DictionaryType::ToString() const {
   std::stringstream ss;
-  ss << "dictionary<values=" << dictionary_->type()->ToString()
+  ss << this->name() << "<values=" << value_type_->ToString()
      << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_ << ">";
   return ss.str();
 }
@@ -632,9 +630,9 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& chil
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
-                                     const std::shared_ptr<Array>& dict_values,
+                                     const std::shared_ptr<DataType>& dict_type,
                                      bool ordered) {
-  return std::make_shared<DictionaryType>(index_type, dict_values, ordered);
+  return std::make_shared<DictionaryType>(index_type, dict_type, ordered);
 }
 
 std::shared_ptr<Field> field(const std::string& name,
