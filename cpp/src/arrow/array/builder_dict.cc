@@ -114,13 +114,17 @@ Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*
   }
 
   // XXX Should we check the ordered flag?
-  auto value_type = dict_types[0]->dictionary()->type();
+  auto value_type = dict_types[0]->value_type();
+  for (size_t i = 0; i < types.size(); ++i) {
+
+  }
   for (const auto& type : dict_types) {
     auto values = type->dictionary();
-    if (!values->type()->Equals(value_type)) {
-      return Status::TypeError("input types have different value types");
+    if (!(dictionaries[i]->type()->Equals(*value_type) &&
+          dict_types[i]->value_type()->Equals(*value_type))) {
+      return Status::TypeError("dictionary value types were not all consistent");
     }
-    if (values->null_count() != 0) {
+    if (dictionaries[i]->null_count() != 0) {
       return Status::TypeError("input types have null values");
     }
   }
