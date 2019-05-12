@@ -16,7 +16,7 @@
 // under the License.
 
 #include "parquet/internal_file_decryptor.h"
-#include "parquet/encryption_properties.h"
+#include "parquet/encryption.h"
 #include "parquet/util/crypto.h"
 
 namespace parquet {
