@@ -38,6 +38,7 @@ static constexpr ParquetCipher::type DEFAULT_ENCRYPTION_ALGORITHM =
 static constexpr int32_t MAXIMAL_AAD_METADATA_LENGTH = 256;
 static constexpr bool DEFAULT_ENCRYPTED_FOOTER = true;
 static constexpr bool DEFAULT_CHECK_SIGNATURE = true;
+static constexpr bool DEFAULT_ALLOW_PLAINTEXT_FILES = false;
 static constexpr int32_t AAD_FILE_UNIQUE_LENGTH = 8;
 
 class PARQUET_EXPORT ColumnEncryptionProperties {
@@ -180,7 +181,10 @@ class PARQUET_EXPORT FileDecryptionProperties {
  public:
   class Builder {
    public:
-    Builder() { check_plaintext_footer_integrity_ = DEFAULT_CHECK_SIGNATURE; }
+    Builder() {
+      check_plaintext_footer_integrity_ = DEFAULT_CHECK_SIGNATURE;
+      plaintext_files_allowed_ = DEFAULT_ALLOW_PLAINTEXT_FILES;
+    }
 
     // Set an explicit footer key. If applied on a file that contains
     // footer key metadata the metadata will be ignored, the footer
@@ -263,10 +267,21 @@ class PARQUET_EXPORT FileDecryptionProperties {
       return this;
     }
 
+    // By default, reading plaintext (unencrypted) files is not
+    // allowed when using a decryptor
+    // - in order to detect files that were not encrypted by mistake.
+    // However, the default behavior can be overriden by calling this method.
+    // The caller should use then a different method to ensure encryption
+    // of files with sensitive data.
+    Builder* plaintext_files_allowed() {
+      plaintext_files_allowed_  = true;
+      return this;
+    }
+
     std::shared_ptr<FileDecryptionProperties> build() {
       return std::shared_ptr<FileDecryptionProperties>(new FileDecryptionProperties(
           footer_key_, key_retriever_, check_plaintext_footer_integrity_, aad_prefix_,
-          aad_prefix_verifier_, column_properties_));
+          aad_prefix_verifier_, column_properties_, plaintext_files_allowed_));
     }
 
    private:
@@ -281,6 +296,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
 
     std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
     bool check_plaintext_footer_integrity_;
+    bool plaintext_files_allowed_;
   };
 
   const std::string& column_key(const std::shared_ptr<schema::ColumnPath>& column_path);
@@ -291,6 +307,8 @@ class PARQUET_EXPORT FileDecryptionProperties {
   std::shared_ptr<DecryptionKeyRetriever> key_retriever() { return key_retriever_; }
 
   bool check_plaintext_footer_integrity() { return check_plaintext_footer_integrity_; }
+
+  bool plaintext_files_allowed() { return plaintext_files_allowed_; }
 
   const std::shared_ptr<AADPrefixVerifier>& aad_prefix_verifier() {
     return aad_prefix_verifier_;
@@ -307,6 +325,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
 
   std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
   bool check_plaintext_footer_integrity_;
+  bool plaintext_files_allowed_;
 
   FileDecryptionProperties(
       const std::string& footer_key,
@@ -315,7 +334,8 @@ class PARQUET_EXPORT FileDecryptionProperties {
       std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
       const std::map<std::shared_ptr<schema::ColumnPath>,
                      std::shared_ptr<ColumnDecryptionProperties>,
-                     schema::ColumnPath::CmpColumnPath>& column_properties);
+      schema::ColumnPath::CmpColumnPath>& column_properties,
+      bool plaintext_files_allowed);
 };
 
 class PARQUET_EXPORT FileEncryptionProperties {

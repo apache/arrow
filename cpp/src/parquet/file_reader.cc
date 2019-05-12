@@ -263,7 +263,14 @@ class SerializedFile : public ParquetFileReader::Contents {
       uint32_t read_metadata_len = metadata_len;
       file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len);
 
-      if (file_metadata_->is_encryption_algorithm_set()) {
+      if (!file_metadata_->is_encryption_algorithm_set()) { // Plaintext file
+	auto file_decryption_properties = properties_.file_decryption_properties();
+	if (file_decryption_properties != NULLPTR) {
+	  if (!file_decryption_properties->plaintext_files_allowed()) {
+	    throw ParquetException("Applying decryption properties on plaintext file");
+	  }
+	}	
+      } else {
         auto file_decryption_properties = properties_.file_decryption_properties();
         if (file_decryption_properties == NULLPTR) {
           throw ParquetException("No decryption properties are provided");
