@@ -17,7 +17,6 @@
 
 #include "arrow/array/builder_dict.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <sstream>
@@ -145,229 +144,173 @@ Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*
 // ----------------------------------------------------------------------
 // DictionaryBuilder
 
-template <typename T>
-class DictionaryBuilder<T>::MemoTableImpl
-    : public internal::HashTraits<T>::MemoTableType {
- public:
-  using MemoTableType = typename internal::HashTraits<T>::MemoTableType;
-  using MemoTableType::MemoTableType;
+class internal::DictionaryMemoTable::DictionaryMemoTableImpl {
+  struct MemoTableInitializer {
+    std::shared_ptr<DataType> value_type_;
+    std::unique_ptr<MemoTable>* memo_table_;
 
-  MemoTableImpl(const std::shared_ptr<Array>& dictionary)
-      : MemoTableImpl(dictionary->length()) {
-    const auto& values =
-        static_cast<const typename TypeTraits<T>::ArrayType&>(*dictionary);
-    for (int64_t i = 0; i < values.length(); ++i) {
-      ARROW_IGNORE_EXPR(this->GetOrInsert(values.GetView(i)));
+    Status Visit(const DataType&, void* = nullptr) {
+      return Status::NotImplemented("Initialization of ", value_type_,
+                                    " memo table is not implemented");
     }
+
+    template <typename T>
+    Status Visit(const T&,
+                 typename internal::DictionaryTraits<T>::MemoTableType* = nullptr) {
+      using MemoTable = typename internal::DictionaryTraits<T>::MemoTableType;
+      memo_table_->reset(new MemoTable(0));
+      return Status::OK();
+    }
+  };
+
+  struct ArrayValuesInserter {
+    DictionaryMemoTableImpl* impl_;
+
+    template <typename T>
+    Status Visit(const T& array) {
+      return InsertValues(array.type(), array);
+    }
+
+   private:
+    template <typename DataType, typename Array>
+    Status InsertValues(const DataType& type, const Array&, void* = nullptr) {
+      return Status::NotImplemented("Inserting array values of ", type,
+                                    " is not implemented");
+    }
+
+    template <typename DataType, typename Array>
+    Status InsertValues(
+        const DataType&, const Array& array,
+        typename internal::DictionaryTraits<DataType>::MemoTableType* = nullptr) {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        ARROW_IGNORE_EXPR(impl_->GetOrInsert(array.GetView(i)));
+      }
+      return Status::OK();
+    }
+  };
+
+  struct ArrayDataGetter {
+    std::shared_ptr<DataType> value_type_;
+    MemoTable* memo_table_;
+    MemoryPool* pool_;
+    int64_t start_offset_;
+    std::shared_ptr<ArrayData>* out_;
+
+    Status Visit(const DataType&, void* = nullptr) {
+      return Status::NotImplemented("Getting array data of ", value_type_,
+                                    " is not implemented");
+    }
+
+    template <typename T>
+    Status Visit(const T&,
+                 typename internal::DictionaryTraits<T>::MemoTableType* = nullptr) {
+      using ConcreteMemoTable = typename internal::DictionaryTraits<T>::MemoTableType;
+      auto memo_table = static_cast<ConcreteMemoTable*>(memo_table_);
+      return internal::DictionaryTraits<T>::GetDictionaryArrayData(
+          pool_, value_type_, *memo_table, start_offset_, out_);
+    }
+  };
+
+ public:
+  explicit DictionaryMemoTableImpl(const std::shared_ptr<DataType>& type)
+      : type_(type), memo_table_(nullptr) {
+    MemoTableInitializer visitor{type_, &memo_table_};
+    ARROW_IGNORE_EXPR(VisitTypeInline(*type_, &visitor));
   }
+
+  Status InsertValues(const std::shared_ptr<Array>& array) {
+    ArrayValuesInserter visitor{this};
+    return VisitArrayInline(*array, &visitor);
+  }
+
+  template <typename T>
+  int32_t GetOrInsert(const T& value) {
+    using ConcreteMemoTable = typename internal::DictionaryTraits<
+        typename CTypeTraits<T>::ArrowType>::MemoTableType;
+    return static_cast<ConcreteMemoTable*>(memo_table_.get())->GetOrInsert(value);
+  }
+
+  int32_t GetOrInsert(const util::string_view& value) {
+    return static_cast<BinaryMemoTable*>(memo_table_.get())->GetOrInsert(value);
+  }
+
+  Status GetArrayData(MemoryPool* pool, int64_t start_offset,
+                      std::shared_ptr<ArrayData>* out) {
+    ArrayDataGetter visitor{type_, memo_table_.get(), pool, start_offset, out};
+    return VisitTypeInline(*type_, &visitor);
+  }
+
+  int32_t size() const { return memo_table_->size(); }
+
+ private:
+  std::shared_ptr<DataType> type_;
+  std::unique_ptr<MemoTable> memo_table_;
 };
 
-template <typename T>
-DictionaryBuilder<T>::~DictionaryBuilder() {}
+internal::DictionaryMemoTable::DictionaryMemoTable(const std::shared_ptr<DataType>& type)
+    : impl_(new DictionaryMemoTableImpl(type)) {}
 
-template <typename T>
-DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<Array>& dictionary,
-                                        MemoryPool* pool)
-    : ArrayBuilder(dictionary->type(), pool),
-      memo_table_(new MemoTableImpl(dictionary)),
-      delta_offset_(0),
-      byte_width_(-1),
-      values_builder_(pool) {
-  DCHECK_EQ(T::type_id, type_->id()) << "inconsistent type passed to DictionaryBuilder";
+internal::DictionaryMemoTable::DictionaryMemoTable(
+    const std::shared_ptr<Array>& dictionary)
+    : impl_(new DictionaryMemoTableImpl(dictionary->type())) {
+  ARROW_IGNORE_EXPR(impl_->InsertValues(dictionary));
 }
 
-template <typename T>
-DictionaryBuilder<T>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
-                                        MemoryPool* pool)
-    : ArrayBuilder(type, pool),
-      memo_table_(new MemoTableImpl(0)),
-      delta_offset_(0),
-      byte_width_(-1),
-      values_builder_(pool) {
-  DCHECK_EQ(T::type_id, type->id()) << "inconsistent type passed to DictionaryBuilder";
+internal::DictionaryMemoTable::~DictionaryMemoTable() = default;
+
+int32_t internal::DictionaryMemoTable::GetOrInsert(const bool& value) {
+  return impl_->GetOrInsert(value);
 }
 
-DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<DataType>& type,
-                                               MemoryPool* pool)
-    : ArrayBuilder(type, pool), values_builder_(pool) {
-  DCHECK_EQ(Type::NA, type->id()) << "inconsistent type passed to DictionaryBuilder";
+int32_t internal::DictionaryMemoTable::GetOrInsert(const int8_t& value) {
+  return impl_->GetOrInsert(value);
 }
 
-DictionaryBuilder<NullType>::DictionaryBuilder(const std::shared_ptr<Array>& dictionary,
-                                               MemoryPool* pool)
-    : ArrayBuilder(dictionary->type(), pool), values_builder_(pool) {
-  DCHECK_EQ(Type::NA, type_->id()) << "inconsistent type passed to DictionaryBuilder";
+int32_t internal::DictionaryMemoTable::GetOrInsert(const int16_t& value) {
+  return impl_->GetOrInsert(value);
 }
 
-template <>
-DictionaryBuilder<FixedSizeBinaryType>::DictionaryBuilder(
-    const std::shared_ptr<DataType>& type, MemoryPool* pool)
-    : ArrayBuilder(type, pool),
-      memo_table_(new MemoTableImpl(0)),
-      delta_offset_(0),
-      byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
-
-template <typename T>
-void DictionaryBuilder<T>::Reset() {
-  ArrayBuilder::Reset();
-  values_builder_.Reset();
-  memo_table_.reset(new MemoTableImpl(0));
-  delta_offset_ = 0;
+int32_t internal::DictionaryMemoTable::GetOrInsert(const int32_t& value) {
+  return impl_->GetOrInsert(value);
 }
 
-template <typename T>
-Status DictionaryBuilder<T>::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
-  capacity = std::max(capacity, kMinBuilderCapacity);
-
-  if (capacity_ == 0) {
-    // Initialize hash table
-    // XXX should we let the user pass additional size heuristics?
-    delta_offset_ = 0;
-  }
-  RETURN_NOT_OK(values_builder_.Resize(capacity));
-  capacity_ = values_builder_.capacity();
-  return Status::OK();
+int32_t internal::DictionaryMemoTable::GetOrInsert(const int64_t& value) {
+  return impl_->GetOrInsert(value);
 }
 
-Status DictionaryBuilder<NullType>::Resize(int64_t capacity) {
-  RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
-  capacity = std::max(capacity, kMinBuilderCapacity);
-
-  RETURN_NOT_OK(values_builder_.Resize(capacity));
-  capacity_ = values_builder_.capacity();
-  return Status::OK();
+int32_t internal::DictionaryMemoTable::GetOrInsert(const uint8_t& value) {
+  return impl_->GetOrInsert(value);
 }
 
-template <typename T>
-Status DictionaryBuilder<T>::Append(const Scalar& value) {
-  RETURN_NOT_OK(Reserve(1));
-
-  auto memo_index = memo_table_->GetOrInsert(value);
-  RETURN_NOT_OK(values_builder_.Append(memo_index));
-  length_ += 1;
-
-  return Status::OK();
+int32_t internal::DictionaryMemoTable::GetOrInsert(const uint16_t& value) {
+  return impl_->GetOrInsert(value);
 }
 
-template <typename T>
-Status DictionaryBuilder<T>::AppendNull() {
-  length_ += 1;
-  null_count_ += 1;
-
-  return values_builder_.AppendNull();
+int32_t internal::DictionaryMemoTable::GetOrInsert(const uint32_t& value) {
+  return impl_->GetOrInsert(value);
 }
 
-template <typename T>
-Status DictionaryBuilder<T>::AppendNulls(int64_t length) {
-  length_ += length;
-  null_count_ += length;
-
-  return values_builder_.AppendNulls(length);
+int32_t internal::DictionaryMemoTable::GetOrInsert(const uint64_t& value) {
+  return impl_->GetOrInsert(value);
 }
 
-Status DictionaryBuilder<NullType>::AppendNull() {
-  length_ += 1;
-  null_count_ += 1;
-
-  return values_builder_.AppendNull();
+int32_t internal::DictionaryMemoTable::GetOrInsert(const float& value) {
+  return impl_->GetOrInsert(value);
 }
 
-Status DictionaryBuilder<NullType>::AppendNulls(int64_t length) {
-  length_ += length;
-  null_count_ += length;
-
-  return values_builder_.AppendNulls(length);
+int32_t internal::DictionaryMemoTable::GetOrInsert(const double& value) {
+  return impl_->GetOrInsert(value);
 }
 
-template <typename T>
-Status DictionaryBuilder<T>::AppendArray(const Array& array) {
-  using ArrayType = typename TypeTraits<T>::ArrayType;
-
-  const auto& concrete_array = checked_cast<const ArrayType&>(array);
-  for (int64_t i = 0; i < array.length(); i++) {
-    if (array.IsNull(i)) {
-      RETURN_NOT_OK(AppendNull());
-    } else {
-      RETURN_NOT_OK(Append(concrete_array.GetView(i)));
-    }
-  }
-  return Status::OK();
+int32_t internal::DictionaryMemoTable::GetOrInsert(const util::string_view& value) {
+  return impl_->GetOrInsert(value);
 }
 
-template <>
-Status DictionaryBuilder<FixedSizeBinaryType>::AppendArray(const Array& array) {
-  if (!type_->Equals(*array.type())) {
-    return Status::Invalid("Cannot append FixedSizeBinary array with non-matching type");
-  }
-
-  const auto& typed_array = checked_cast<const FixedSizeBinaryArray&>(array);
-  for (int64_t i = 0; i < array.length(); i++) {
-    if (array.IsNull(i)) {
-      RETURN_NOT_OK(AppendNull());
-    } else {
-      RETURN_NOT_OK(Append(typed_array.GetValue(i)));
-    }
-  }
-  return Status::OK();
+Status internal::DictionaryMemoTable::GetArrayData(MemoryPool* pool, int64_t start_offset,
+                                                   std::shared_ptr<ArrayData>* out) {
+  return impl_->GetArrayData(pool, start_offset, out);
 }
 
-Status DictionaryBuilder<NullType>::AppendArray(const Array& array) {
-  for (int64_t i = 0; i < array.length(); i++) {
-    RETURN_NOT_OK(AppendNull());
-  }
-  return Status::OK();
-}
-
-template <typename T>
-Status DictionaryBuilder<T>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  // Finalize indices array
-  RETURN_NOT_OK(values_builder_.FinishInternal(out));
-
-  // Generate dictionary array from hash table contents
-  std::shared_ptr<Array> dictionary;
-  std::shared_ptr<ArrayData> dictionary_data;
-
-  RETURN_NOT_OK(internal::DictionaryTraits<T>::GetDictionaryArrayData(
-      pool_, type_, *memo_table_, delta_offset_, &dictionary_data));
-  dictionary = MakeArray(dictionary_data);
-
-  // Set type of array data to the right dictionary type
-  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
-
-  // Update internals for further uses of this DictionaryBuilder
-  delta_offset_ = memo_table_->size();
-  values_builder_.Reset();
-
-  return Status::OK();
-}
-
-Status DictionaryBuilder<NullType>::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  std::shared_ptr<Array> dictionary = std::make_shared<NullArray>(0);
-
-  RETURN_NOT_OK(values_builder_.FinishInternal(out));
-  (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
-
-  return Status::OK();
-}
-
-template class DictionaryBuilder<UInt8Type>;
-template class DictionaryBuilder<UInt16Type>;
-template class DictionaryBuilder<UInt32Type>;
-template class DictionaryBuilder<UInt64Type>;
-template class DictionaryBuilder<Int8Type>;
-template class DictionaryBuilder<Int16Type>;
-template class DictionaryBuilder<Int32Type>;
-template class DictionaryBuilder<Int64Type>;
-template class DictionaryBuilder<Date32Type>;
-template class DictionaryBuilder<Date64Type>;
-template class DictionaryBuilder<Time32Type>;
-template class DictionaryBuilder<Time64Type>;
-template class DictionaryBuilder<TimestampType>;
-template class DictionaryBuilder<FloatType>;
-template class DictionaryBuilder<DoubleType>;
-template class DictionaryBuilder<FixedSizeBinaryType>;
-template class DictionaryBuilder<BinaryType>;
-template class DictionaryBuilder<StringType>;
+int32_t internal::DictionaryMemoTable::size() const { return impl_->size(); }
 
 }  // namespace arrow
