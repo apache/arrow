@@ -184,7 +184,7 @@ class SerializedPageWriter : public PageWriter {
 
     std::shared_ptr<Buffer> encrypted_data_buffer = nullptr;
     if (data_encryptor_.get()) {
-      data_encryptor_->aad(
+      data_encryptor_->update_aad(
           parquet_encryption::createModuleAAD(data_encryptor_->file_aad(),
                                               parquet_encryption::DictionaryPage,
                                               row_group_ordinal_,
@@ -210,7 +210,7 @@ class SerializedPageWriter : public PageWriter {
     }
 
     if (meta_encryptor_) {
-      meta_encryptor_->aad(parquet_encryption::createModuleAAD(
+      meta_encryptor_->update_aad(parquet_encryption::createModuleAAD(
           meta_encryptor_->file_aad(), parquet_encryption::DictionaryPageHeader,
           row_group_ordinal_, column_ordinal_, (int16_t)-1));
     }
@@ -232,7 +232,7 @@ class SerializedPageWriter : public PageWriter {
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
                       fallback);
     if (meta_encryptor_ != nullptr) {
-      meta_encryptor_->aad(parquet_encryption::createModuleAAD(
+      meta_encryptor_->update_aad(parquet_encryption::createModuleAAD(
           meta_encryptor_->file_aad(), parquet_encryption::ColumnMetaData,
           row_group_ordinal_, column_ordinal_, (int16_t)-1));
     }
@@ -279,7 +279,7 @@ class SerializedPageWriter : public PageWriter {
     std::shared_ptr<ResizableBuffer> encrypted_data_buffer = AllocateBuffer(pool_, 0);
     if (data_encryptor_.get()) {
       parquet_encryption::quickUpdatePageAAD(data_pageAAD_, page_ordinal_);
-      data_encryptor_->aad(data_pageAAD_);
+      data_encryptor_->update_aad(data_pageAAD_);
       encrypted_data_buffer->Resize(data_encryptor_->CiphertextSizeDelta() +
                                     output_data_len);
       output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
@@ -302,7 +302,7 @@ class SerializedPageWriter : public PageWriter {
 
     if (meta_encryptor_) {
       parquet_encryption::quickUpdatePageAAD(data_page_headerAAD_, page_ordinal_);
-      meta_encryptor_->aad(data_page_headerAAD_);
+      meta_encryptor_->update_aad(data_page_headerAAD_);
     }
     int64_t header_size =
         thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
