@@ -66,8 +66,12 @@ int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
 }
 
 // InternalFileDecryptor
-InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* properties)
-    : properties_(properties) {}
+  InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* properties,
+					       const std::string& file_aad,
+					       ParquetCipher::type algorithm,
+					       const std::string& footer_key_metadata)
+    : properties_(properties), file_add_(file_aad),
+      algorithm_(algorithm), footer_key_metadata_(footer_key_metadata) {}
 
 std::shared_ptr<FooterSigningEncryptor>
 InternalFileDecryptor::GetFooterSigningEncryptor() {

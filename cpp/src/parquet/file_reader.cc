@@ -260,19 +260,17 @@ class SerializedFile : public ParquetFileReader::Contents {
       uint32_t read_metadata_len = metadata_len;
       file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len);
 
+      auto file_decryption_properties = properties_.file_decryption_properties();
       if (!file_metadata_->is_encryption_algorithm_set()) { // Plaintext file
-	auto file_decryption_properties = properties_.file_decryption_properties();
 	if (file_decryption_properties != NULLPTR) {
 	  if (!file_decryption_properties->plaintext_files_allowed()) {
 	    throw ParquetException("Applying decryption properties on plaintext file");
 	  }
 	}	
       } else {
-        auto file_decryption_properties = properties_.file_decryption_properties();
         if (file_decryption_properties == NULLPTR) {
           throw ParquetException("No decryption properties are provided");
         }
-        file_decryptor_.reset(new InternalFileDecryptor(file_decryption_properties));
 
         std::string aad_prefix = file_decryption_properties->aad_prefix();
 
@@ -298,10 +296,10 @@ class SerializedFile : public ParquetFileReader::Contents {
         }
         std::string file_aad = aad_prefix + algo.aad.aad_file_unique;
 
-        file_decryptor_->file_aad(file_aad);
-        file_decryptor_->algorithm(algo.algorithm);
-        file_decryptor_->footer_key_metadata(
-            file_metadata_->footer_signing_key_metadata());
+	file_decryptor_.reset(new InternalFileDecryptor(file_decryption_properties,
+							file_aad, algo.algorithm,
+							file_metadata_->footer_signing_key_metadata()));
+	
         if (file_decryption_properties->check_plaintext_footer_integrity()) {
           if (metadata_len - read_metadata_len != 28) {
             throw ParquetException(
@@ -376,11 +374,11 @@ class SerializedFile : public ParquetFileReader::Contents {
             "but not stored in file and not supplied "
             "in decryption properties");
       }
-      std::string fileAAD = aad_prefix + algo.aad.aad_file_unique;
-      // save fileAAD for later use
-      file_decryptor_->file_aad(fileAAD);
-      file_decryptor_->algorithm(algo.algorithm);
-      file_decryptor_->footer_key_metadata(file_crypto_metadata->key_metadata());
+      std::string file_aad = aad_prefix + algo.aad.aad_file_unique;
+      file_decryptor_.reset(new InternalFileDecryptor(file_decryption_properties,
+						      file_aad, algo.algorithm,
+						      file_crypto_metadata->key_metadata()));
+      
 
       int64_t metadata_offset =
           file_size - kFooterSize - footer_len + crypto_metadata_len;
