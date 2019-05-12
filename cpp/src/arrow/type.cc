@@ -116,11 +116,17 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
 
 std::string BooleanType::ToString() const { return name(); }
 
-FloatingPoint::Precision HalfFloatType::precision() const { return FloatingPoint::HALF; }
+FloatingPointType::Precision HalfFloatType::precision() const {
+  return FloatingPointType::HALF;
+}
 
-FloatingPoint::Precision FloatType::precision() const { return FloatingPoint::SINGLE; }
+FloatingPointType::Precision FloatType::precision() const {
+  return FloatingPointType::SINGLE;
+}
 
-FloatingPoint::Precision DoubleType::precision() const { return FloatingPoint::DOUBLE; }
+FloatingPointType::Precision DoubleType::precision() const {
+  return FloatingPointType::DOUBLE;
+}
 
 std::string StringType::ToString() const { return std::string("string"); }
 
@@ -149,7 +155,7 @@ std::string FixedSizeBinaryType::ToString() const {
 // ----------------------------------------------------------------------
 // Date types
 
-DateType::DateType(Type::type type_id) : FixedWidthType(type_id) {}
+DateType::DateType(Type::type type_id) : TemporalType(type_id) {}
 
 Date32Type::Date32Type() : DateType(Type::DATE32) {}
 
@@ -163,7 +169,7 @@ std::string Date32Type::ToString() const { return std::string("date32[day]"); }
 // Time types
 
 TimeType::TimeType(Type::type type_id, TimeUnit::type unit)
-    : FixedWidthType(type_id), unit_(unit) {}
+    : TemporalType(type_id), unit_(unit) {}
 
 Time32Type::Time32Type(TimeUnit::type unit) : TimeType(Type::TIME32, unit) {
   DCHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
@@ -347,7 +353,7 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
       value_type_(value_type),
       ordered_(ordered) {
 #ifndef NDEBUG
-  const auto& int_type = checked_cast<const Integer&>(*index_type);
+  const auto& int_type = checked_cast<const IntegerType&>(*index_type);
   DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
 #endif
 }

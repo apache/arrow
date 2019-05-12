@@ -519,13 +519,13 @@ Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
   // Create the dictionary type
   DCHECK_EQ(indices_outputs[0].kind(), Datum::ARRAY);
   std::shared_ptr<DataType> dict_type =
-      ::arrow::dictionary(indices_outputs[0].array()->type, dictionary);
+      ::arrow::dictionary(indices_outputs[0].array()->type, dictionary->type());
 
   // Create DictionaryArray for each piece yielded by the kernel invocations
   std::vector<std::shared_ptr<Array>> dict_chunks;
   for (const Datum& datum : indices_outputs) {
-    dict_chunks.emplace_back(
-        std::make_shared<DictionaryArray>(dict_type, MakeArray(datum.array())));
+    dict_chunks.emplace_back(std::make_shared<DictionaryArray>(
+        dict_type, MakeArray(datum.array()), dictionary));
   }
 
   *out = detail::WrapArraysLike(value, dict_chunks);

@@ -1007,8 +1007,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
   explicit DictionaryArray(const std::shared_ptr<ArrayData>& data);
 
   DictionaryArray(const std::shared_ptr<DataType>& type,
-                  const std::shared_ptr<Array>& dictionary,
-                  const std::shared_ptr<Array>& indices);
+                  const std::shared_ptr<Array>& indices,
+                  const std::shared_ptr<Array>& dictionary);
 
   /// \brief Construct DictionaryArray from dictionary and indices
   /// array and validate
@@ -1023,8 +1023,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// integers smaller than the size of the dictionary
   /// \param[out] out the resulting DictionaryArray instance
   static Status FromArrays(const std::shared_ptr<DataType>& type,
-                           const std::shared_ptr<Array>& dictionary,
                            const std::shared_ptr<Array>& indices,
+                           const std::shared_ptr<Array>& dictionary,
                            std::shared_ptr<Array>* out);
 
   /// \brief Transpose this DictionaryArray

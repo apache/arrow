@@ -123,7 +123,7 @@ struct CastFunctor<T, BooleanType, enable_if_number<T>> {
 // Number to Boolean
 template <typename I>
 struct CastFunctor<BooleanType, I,
-                   typename std::enable_if<std::is_base_of<Number, I>::value &&
+                   typename std::enable_if<is_number_type<I>::value &&
                                            !std::is_same<BooleanType, I>::value>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
@@ -154,8 +154,7 @@ struct is_number_downcast {
 template <typename O, typename I>
 struct is_number_downcast<
     O, I,
-    typename std::enable_if<std::is_base_of<Number, O>::value &&
-                            std::is_base_of<Number, I>::value>::type> {
+    typename std::enable_if<is_number_type<O>::value && is_number_type<I>::value>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -177,8 +176,8 @@ struct is_integral_signed_to_unsigned {
 template <typename O, typename I>
 struct is_integral_signed_to_unsigned<
     O, I,
-    typename std::enable_if<std::is_base_of<Integer, O>::value &&
-                            std::is_base_of<Integer, I>::value>::type> {
+    typename std::enable_if<std::is_base_of<IntegerType, O>::value &&
+                            std::is_base_of<IntegerType, I>::value>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -195,8 +194,8 @@ struct is_integral_unsigned_to_signed {
 template <typename O, typename I>
 struct is_integral_unsigned_to_signed<
     O, I,
-    typename std::enable_if<std::is_base_of<Integer, O>::value &&
-                            std::is_base_of<Integer, I>::value>::type> {
+    typename std::enable_if<std::is_base_of<IntegerType, O>::value &&
+                            std::is_base_of<IntegerType, I>::value>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -321,10 +320,9 @@ struct is_float_truncate {
 template <typename O, typename I>
 struct is_float_truncate<
     O, I,
-    typename std::enable_if<(std::is_base_of<Integer, O>::value &&
-                             std::is_base_of<FloatingPoint, I>::value) ||
-                            (std::is_base_of<Integer, I>::value &&
-                             std::is_base_of<FloatingPoint, O>::value)>::type> {
+    typename std::enable_if<(is_integer_type<O>::value && is_floating_type<I>::value) ||
+                            (is_integer_type<I>::value &&
+                             is_floating_type<O>::value)>::type> {
   static constexpr bool value = true;
 };
 
@@ -383,8 +381,7 @@ struct is_safe_numeric_cast {
 template <typename O, typename I>
 struct is_safe_numeric_cast<
     O, I,
-    typename std::enable_if<std::is_base_of<Number, O>::value &&
-                            std::is_base_of<Number, I>::value>::type> {
+    typename std::enable_if<is_number_type<O>::value && is_number_type<I>::value>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -830,7 +827,8 @@ struct UnpackHelper<
 };
 
 template <typename T>
-struct UnpackHelper<T, typename std::enable_if<std::is_base_of<Number, T>::value>::type> {
+struct UnpackHelper<
+    T, typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value>::type> {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
   template <typename IndexType>
@@ -841,7 +839,7 @@ struct UnpackHelper<T, typename std::enable_if<std::is_base_of<Number, T>::value
 
     const index_type* in = indices.GetValues<index_type>(1);
     value_type* out = output->GetMutableValues<value_type>(1);
-    const value_type* dict_values = dictionary.data()->GetValues<value_type>(1);
+    const value_type* dict_values = dictionary.data()->template GetValues<value_type>(1);
 
     if (indices.GetNullCount() == 0) {
       for (int64_t i = 0; i < indices.length; ++i) {
@@ -849,10 +847,11 @@ struct UnpackHelper<T, typename std::enable_if<std::is_base_of<Number, T>::value
       }
     } else {
       internal::BitmapReader valid_bits_reader(indices.GetValues<uint8_t>(0),
-                                               indices.offset(), length);
-      for (int64_t i = 0; i < length; ++i) {
+                                               indices.offset, indices.length);
+      for (int64_t i = 0; i < indices.length; ++i) {
         if (valid_bits_reader.IsSet()) {
-          out[i] = dictionary[in[i]];
+          // TODO(wesm): is it worth removing the branch here?
+          out[i] = dict_values[in[i]];
         }
         valid_bits_reader.Next();
       }
@@ -866,6 +865,8 @@ template <typename T>
 struct CastFunctor<T, DictionaryType> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
+    using ArrayType = typename TypeTraits<T>::ArrayType;
+
     const DictionaryType& type = checked_cast<const DictionaryType&>(*input.type);
     const Array& dictionary = *input.dictionary;
     const DataType& values_type = *dictionary.type();
@@ -877,20 +878,20 @@ struct CastFunctor<T, DictionaryType> {
     UnpackHelper<T> unpack_helper;
     switch (type.index_type()->id()) {
       case Type::INT8:
-        FUNC_RETURN_NOT_OK(
-            unpack_helper.Unpack<Int8Type>(ctx, input, dictionary, output));
+        FUNC_RETURN_NOT_OK(unpack_helper.template Unpack<Int8Type>(
+            ctx, input, static_cast<const ArrayType&>(dictionary), output));
         break;
       case Type::INT16:
-        FUNC_RETURN_NOT_OK(
-            unpack_helper.Unpack<Int16Type>(ctx, input, dictionary, output));
+        FUNC_RETURN_NOT_OK(unpack_helper.template Unpack<Int16Type>(
+            ctx, input, static_cast<const ArrayType&>(dictionary), output));
         break;
       case Type::INT32:
-        FUNC_RETURN_NOT_OK(
-            unpack_helper.Unpack<Int32Type>(ctx, input, dictionary, output));
+        FUNC_RETURN_NOT_OK(unpack_helper.template Unpack<Int32Type>(
+            ctx, input, static_cast<const ArrayType&>(dictionary), output));
         break;
       case Type::INT64:
-        FUNC_RETURN_NOT_OK(
-            unpack_helper.Unpack<Int64Type>(ctx, input, dictionary, output));
+        FUNC_RETURN_NOT_OK(unpack_helper.template Unpack<Int64Type>(
+            ctx, input, static_cast<const ArrayType&>(dictionary), output));
         break;
       default:
         ctx->SetStatus(

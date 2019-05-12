@@ -764,7 +764,7 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
     return is_valid;
   }
 
-  *out = std::make_shared<DictionaryArray>(type, dictionary, indices);
+  *out = std::make_shared<DictionaryArray>(type, indices, dictionary);
   return is_valid;
 }
 

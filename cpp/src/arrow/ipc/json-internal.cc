@@ -63,13 +63,13 @@ namespace json {
 using ::arrow::ipc::internal::DictionaryMemo;
 using ::arrow::ipc::internal::DictionaryTypeMap;
 
-static std::string GetFloatingPrecisionName(FloatingPoint::Precision precision) {
+static std::string GetFloatingPrecisionName(FloatingPointType::Precision precision) {
   switch (precision) {
-    case FloatingPoint::HALF:
+    case FloatingPointType::HALF:
       return "HALF";
-    case FloatingPoint::SINGLE:
+    case FloatingPointType::SINGLE:
       return "SINGLE";
-    case FloatingPoint::DOUBLE:
+    case FloatingPointType::DOUBLE:
       return "DOUBLE";
     default:
       break;
@@ -197,14 +197,14 @@ class SchemaWriter {
                           void>::type
   WriteTypeMetadata(const T& type) {}
 
-  void WriteTypeMetadata(const Integer& type) {
+  void WriteTypeMetadata(const IntegerType& type) {
     writer_->Key("bitWidth");
     writer_->Int(type.bit_width());
     writer_->Key("isSigned");
     writer_->Bool(type.is_signed());
   }
 
-  void WriteTypeMetadata(const FloatingPoint& type) {
+  void WriteTypeMetadata(const FloatingPointType& type) {
     writer_->Key("precision");
     writer_->String(GetFloatingPrecisionName(type.precision()));
   }
@@ -324,9 +324,9 @@ class SchemaWriter {
 
   Status Visit(const NullType& type) { return WritePrimitive("null", type); }
   Status Visit(const BooleanType& type) { return WritePrimitive("bool", type); }
-  Status Visit(const Integer& type) { return WritePrimitive("int", type); }
+  Status Visit(const IntegerType& type) { return WritePrimitive("int", type); }
 
-  Status Visit(const FloatingPoint& type) {
+  Status Visit(const FloatingPointType& type) {
     return WritePrimitive("floatingpoint", type);
   }
 
@@ -1374,7 +1374,7 @@ class ArrayReader {
     std::shared_ptr<Array> dictionary;
     RETURN_NOT_OK(dictionary_memo_.GetDictionary(dictionary_id, &dictionary));
 
-    result_ = std::make_shared<DictionaryArray>(type_, dictionary, result_);
+    result_ = std::make_shared<DictionaryArray>(type_, result_, dictionary);
     return Status::OK();
   }
 

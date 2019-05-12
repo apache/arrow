@@ -167,8 +167,9 @@ TEST_F(ConcatenateTest, StructType) {
 TEST_F(ConcatenateTest, DictionaryType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     auto indices = this->GeneratePrimitive<Int32Type>(size, null_probability);
-    auto type = dictionary(int32(), this->GeneratePrimitive<DoubleType>(128, 0));
-    *out = std::make_shared<DictionaryArray>(type, indices);
+    auto dict = this->GeneratePrimitive<DoubleType>(128, 0);
+    auto type = dictionary(int32(), dict->type());
+    *out = std::make_shared<DictionaryArray>(type, indices, dict);
   });
 }
 

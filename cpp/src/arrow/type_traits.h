@@ -327,7 +327,13 @@ struct TypeTraits<ExtensionType> {
 //
 
 template <typename T>
-using is_number = std::is_base_of<Number, T>;
+using is_number_type = std::is_base_of<NumberType, T>;
+
+template <typename T>
+using is_integer_type = std::is_base_of<IntegerType, T>;
+
+template <typename T>
+using is_floating_type = std::is_base_of<IntegerType, T>;
 
 template <typename T>
 struct has_c_type {
@@ -353,11 +359,11 @@ using enable_if_primitive_ctype =
 
 template <typename T, typename R = void>
 using enable_if_integer =
-    typename std::enable_if<std::is_base_of<Integer, T>::value, R>::type;
+    typename std::enable_if<std::is_base_of<IntegerType, T>::value, R>::type;
 
 template <typename T>
 using is_signed_integer =
-    std::integral_constant<bool, std::is_base_of<Integer, T>::value &&
+    std::integral_constant<bool, std::is_base_of<IntegerType, T>::value &&
                                      std::is_signed<typename T::c_type>::value>;
 
 template <typename T, typename R = void>
@@ -366,13 +372,13 @@ using enable_if_signed_integer =
 
 template <typename T, typename R = void>
 using enable_if_unsigned_integer =
-    typename std::enable_if<std::is_base_of<Integer, T>::value &&
+    typename std::enable_if<std::is_base_of<IntegerType, T>::value &&
                                 std::is_unsigned<typename T::c_type>::value,
                             R>::type;
 
 template <typename T, typename R = void>
 using enable_if_floating_point =
-    typename std::enable_if<std::is_base_of<FloatingPoint, T>::value, R>::type;
+    typename std::enable_if<std::is_base_of<FloatingPointType, T>::value, R>::type;
 
 template <typename T>
 using is_date = std::is_base_of<DateType, T>;
@@ -425,7 +431,7 @@ using enable_if_fixed_size_list =
     typename std::enable_if<std::is_base_of<FixedSizeListType, T>::value, R>::type;
 
 template <typename T, typename R = void>
-using enable_if_number = typename std::enable_if<is_number<T>::value, R>::type;
+using enable_if_number = typename std::enable_if<is_number_type<T>::value, R>::type;
 
 namespace detail {
 

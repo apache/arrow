@@ -1151,7 +1151,7 @@ TEST_F(TestCast, IdentityCasts) {
     auto dict_type = dictionary(int8(), dict_values->type());
     auto dict_indices = ArrayFromJSON(int8(), "[0, 1, 2, 0, null, 2]");
     auto dict_array =
-        std::make_shared<DictionaryArray>(dict_type, dict_values, dict_indices);
+        std::make_shared<DictionaryArray>(dict_type, dict_indices, dict_values);
     CheckZeroCopy(*dict_array, dict_type);
   }
 }

@@ -31,6 +31,7 @@
 namespace arrow {
 
 class Array;
+class DataType;
 class Field;
 
 namespace ipc {

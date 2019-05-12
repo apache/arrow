@@ -221,25 +221,33 @@ class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
 };
 
 /// \brief Base class for all numeric data types
-class ARROW_EXPORT Number : public PrimitiveCType {
+class ARROW_EXPORT NumberType : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
 };
 
 /// \brief Base class for all integral data types
-class ARROW_EXPORT Integer : public Number {
+class ARROW_EXPORT IntegerType : public NumberType {
  public:
-  using Number::Number;
+  using NumberType::NumberType;
   virtual bool is_signed() const = 0;
 };
 
 /// \brief Base class for all floating-point data types
-class ARROW_EXPORT FloatingPoint : public Number {
+class ARROW_EXPORT FloatingPointType : public NumberType {
  public:
-  using Number::Number;
+  using NumberType::NumberType;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
+
+#ifndef ARROW_NO_DEPRECATED_API
+/// These non-conformingly named type classes are deprecated as of
+/// 0.14
+using Number = NumberType;
+using FloatingPoint = FloatingPointType;
+using Integer = IntegerType;
+#endif
 
 /// \brief Base class for all parametric data types
 class ParametricType {};
@@ -325,7 +333,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
+class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, C_TYPE> {
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
@@ -414,7 +422,8 @@ class ARROW_EXPORT Int64Type
 
 /// Concrete type class for 16-bit floating-point data
 class ARROW_EXPORT HalfFloatType
-    : public detail::CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
+    : public detail::CTypeImpl<HalfFloatType, FloatingPointType, Type::HALF_FLOAT,
+                               uint16_t> {
  public:
   Precision precision() const override;
   std::string name() const override { return "halffloat"; }
@@ -422,7 +431,7 @@ class ARROW_EXPORT HalfFloatType
 
 /// Concrete type class for 32-bit floating-point data (C "float")
 class ARROW_EXPORT FloatType
-    : public detail::CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
+    : public detail::CTypeImpl<FloatType, FloatingPointType, Type::FLOAT, float> {
  public:
   Precision precision() const override;
   std::string name() const override { return "float"; }
@@ -430,7 +439,7 @@ class ARROW_EXPORT FloatType
 
 /// Concrete type class for 64-bit floating-point data (C "double")
 class ARROW_EXPORT DoubleType
-    : public detail::CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
+    : public detail::CTypeImpl<DoubleType, FloatingPointType, Type::DOUBLE, double> {
  public:
   Precision precision() const override;
   std::string name() const override { return "double"; }
@@ -631,8 +640,14 @@ class ARROW_EXPORT UnionType : public NestedType {
 
 enum class DateUnit : char { DAY = 0, MILLI = 1 };
 
+/// \brief Base type for all date and time types
+class ARROW_EXPORT TemporalType : public FixedWidthType {
+ public:
+  using FixedWidthType::FixedWidthType;
+};
+
 /// \brief Base type class for date data
-class ARROW_EXPORT DateType : public FixedWidthType {
+class ARROW_EXPORT DateType : public TemporalType {
  public:
   virtual DateUnit unit() const = 0;
 
@@ -700,7 +715,7 @@ static inline std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
 }
 
 /// Base type class for time data
-class ARROW_EXPORT TimeType : public FixedWidthType, public ParametricType {
+class ARROW_EXPORT TimeType : public TemporalType, public ParametricType {
  public:
   TimeUnit::type unit() const { return unit_; }
 
@@ -737,7 +752,7 @@ class ARROW_EXPORT Time64Type : public TimeType {
   std::string name() const override { return "time64"; }
 };
 
-class ARROW_EXPORT TimestampType : public FixedWidthType, public ParametricType {
+class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
 
@@ -747,10 +762,10 @@ class ARROW_EXPORT TimestampType : public FixedWidthType, public ParametricType 
   int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
   explicit TimestampType(TimeUnit::type unit = TimeUnit::MILLI)
-      : FixedWidthType(Type::TIMESTAMP), unit_(unit) {}
+      : TemporalType(Type::TIMESTAMP), unit_(unit) {}
 
   explicit TimestampType(TimeUnit::type unit, const std::string& timezone)
-      : FixedWidthType(Type::TIMESTAMP), unit_(unit), timezone_(timezone) {}
+      : TemporalType(Type::TIMESTAMP), unit_(unit), timezone_(timezone) {}
 
   std::string ToString() const override;
   std::string name() const override { return "timestamp"; }
@@ -763,11 +778,11 @@ class ARROW_EXPORT TimestampType : public FixedWidthType, public ParametricType 
   std::string timezone_;
 };
 
-// Holds different types of intervals.
-class ARROW_EXPORT IntervalType : public FixedWidthType, public ParametricType {
+// Base class for the different kinds of intervals.
+class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
   enum type { MONTHS, DAY_TIME };
-  IntervalType() : FixedWidthType(Type::INTERVAL) {}
+  IntervalType() : TemporalType(Type::INTERVAL)  {}
 
   virtual type interval_type() const = 0;
   virtual ~IntervalType() = default;
@@ -786,7 +801,7 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  MonthIntervalType() {}
+  MonthIntervalType() : IntervalType() {}
 
   std::string ToString() const override { return name(); }
   std::string name() const override { return "month_interval"; }
@@ -809,7 +824,7 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   static constexpr Type::type type_id = Type::INTERVAL;
   IntervalType::type interval_type() const override { return IntervalType::DAY_TIME; }
 
-  DayTimeIntervalType() {}
+  DayTimeIntervalType() : IntervalType() {}
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 

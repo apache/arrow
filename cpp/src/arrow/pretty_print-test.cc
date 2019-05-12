@@ -427,12 +427,12 @@ TEST_F(TestPrettyPrint, DictionaryType) {
   std::shared_ptr<Array> dict;
   std::vector<std::string> dict_values = {"foo", "bar", "baz"};
   ArrayFromVector<StringType, std::string>(dict_values, &dict);
-  std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
+  std::shared_ptr<DataType> dict_type = dictionary(int16(), utf8());
 
   std::shared_ptr<Array> indices;
   std::vector<int16_t> indices_values = {1, 2, -1, 0, 2, 0};
   ArrayFromVector<Int16Type, int16_t>(is_valid, indices_values, &indices);
-  auto arr = std::make_shared<DictionaryArray>(dict_type, indices);
+  auto arr = std::make_shared<DictionaryArray>(dict_type, indices, dict);
 
   static const char* expected = R"expected(
 -- dictionary:

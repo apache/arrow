@@ -47,7 +47,7 @@ void AssertConvert(const std::shared_ptr<DataType>& expected_type,
   ASSERT_OK(indices_builder.Finish(&indices));
 
   auto unconverted_ty = dictionary(int32(), scalar_values->type());
-  unconverted = std::make_shared<DictionaryArray>(ty, scalar_values, indices);
+  unconverted = std::make_shared<DictionaryArray>(ty, indices, scalar_values);
 
   // convert the array
   std::shared_ptr<Converter> converter;

@@ -100,7 +100,7 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
   struct {
     Status Visit(const NullType&) { return SetKind(Kind::kNull); }
     Status Visit(const BooleanType&) { return SetKind(Kind::kBoolean); }
-    Status Visit(const Number&) { return SetKind(Kind::kNumber); }
+    Status Visit(const NumberType&) { return SetKind(Kind::kNumber); }
     Status Visit(const TimeType&) { return SetKind(Kind::kNumber); }
     Status Visit(const DateType&) { return SetKind(Kind::kNumber); }
     Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
@@ -542,7 +542,7 @@ class RawBuilderSet {
     // TODO(bkietz) embed builder->values_length() in this output somehow
     RETURN_NOT_OK(builder->Finish(&indices));
     auto ty = dictionary(int32(), scalar_values->type());
-    *out = std::make_shared<DictionaryArray>(ty, scalar_values, indices);
+    *out = std::make_shared<DictionaryArray>(ty, indices, scalar_values);
     return Status::OK();
   }
 
