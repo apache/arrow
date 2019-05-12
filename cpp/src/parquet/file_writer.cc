@@ -34,10 +34,6 @@ using parquet::schema::GroupNode;
 
 namespace parquet {
 
-// FIXME: copied from reader-internal.cc
-static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
-static constexpr uint8_t PARQUET_EMAGIC[4] = {'P', 'A', 'R', 'E'};
-
 // ----------------------------------------------------------------------
 // RowGroupWriter public API
 
@@ -305,7 +301,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
           uint32_t footer_and_crypto_len =
               static_cast<uint32_t>(sink_->Tell() - metadata_start);
           sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4);
-          sink_->Write(PARQUET_EMAGIC, 4);
+          sink_->Write(kParquetEMagic, 4);
         } else {
           // footer plain mode
           EncryptionAlgorithm signing_encryption;
@@ -392,15 +388,15 @@ class FileSerializer : public ParquetFileWriter::Contents {
     auto file_encryption = properties_->file_encryption();
     if (file_encryption == nullptr) {
       // Unencrypted parquet files always start with PAR1
-      PARQUET_THROW_NOT_OK(sink_->Write(PARQUET_MAGIC, 4));
+      PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
     } else {
       file_encryptor_.reset(new InternalFileEncryptor(file_encryption));
       if (file_encryption->encrypted_footer()) {
-        PARQUET_THROW_NOT_OK(sink_->Write(PARQUET_EMAGIC, 4));
+        PARQUET_THROW_NOT_OK(sink_->Write(kParquetEMagic, 4));
       }
       else {
         // plaintext mode footer
-        PARQUET_THROW_NOT_OK(sink_->Write(PARQUET_MAGIC, 4));
+        PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
       }
     }
   }
@@ -452,7 +448,7 @@ void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sin
 
     // Write Footer
     PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));
-    PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
+    PARQUET_THROW_NOT_OK(sink->Write(kParquetMagic, 4));
   } else {
     if (encrypt_footer) {
       // encrypt and write to sink
@@ -463,7 +459,7 @@ void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sin
       metadata_len = static_cast<uint32_t>(sink->Tell()) - metadata_len;
 
       sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4);
-      sink->Write(PARQUET_MAGIC, 4);
+      sink->Write(kParquetMagic, 4);
     }
   }
 }
