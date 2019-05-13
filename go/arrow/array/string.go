@@ -60,7 +60,7 @@ func (a *String) String() string {
 		case a.IsNull(i):
 			o.WriteString("(null)")
 		default:
-			fmt.Fprintf(o, "%q", a.Value(i))
+			fmt.Fprintf(o, "%q", a.Value(i+a.array.data.offset))
 		}
 	}
 	o.WriteString("]")
