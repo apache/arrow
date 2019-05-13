@@ -101,8 +101,7 @@ matrix:
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    # TODO: This fails in re2 code
-    # - ARROW_TRAVIS_VALGRIND=1
+    - ARROW_TRAVIS_VALGRIND=1
     - ARROW_TRAVIS_VERBOSE=1
     before_script:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
