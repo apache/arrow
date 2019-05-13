@@ -278,8 +278,7 @@ class SerializedFile : public ParquetFileReader::Contents {
           if (!aad_prefix.empty()) {
             if (aad_prefix.compare(algo.aad.aad_prefix) != 0) {
               throw ParquetException(
-                  "ADD Prefix in file and "
-                  "in properties is not the same");
+                  "ADD Prefix in file and in properties is not the same");
             }
           }
           aad_prefix = algo.aad.aad_prefix;
@@ -289,9 +288,8 @@ class SerializedFile : public ParquetFileReader::Contents {
         }
         if (algo.aad.supply_aad_prefix && aad_prefix.empty()) {
           throw ParquetException(
-              "AAD prefix used for file encryption, "
-              "but not stored in file and not supplied "
-              "in decryption properties");
+              "AAD prefix used for file encryption, but not stored in file"
+              "and not supplied in decryption properties");
         }
         std::string file_aad = aad_prefix + algo.aad.aad_file_unique;
 
@@ -303,16 +301,14 @@ class SerializedFile : public ParquetFileReader::Contents {
         if (file_decryption_properties->check_plaintext_footer_integrity()) {
           if (metadata_len - read_metadata_len != 28) {
             throw ParquetException(
-                "Invalid parquet file. Cannot verify plaintext"
-                "mode footer.");
+                "Invalid parquet file. Cannot verify plaintext mode footer.");
           }
 
           auto encryptor = file_decryptor_->GetFooterSigningEncryptor();
           if (!file_metadata_->verify(encryptor,
                                       metadata_buffer->data() + read_metadata_len)) {
-            throw ParquetException(
-                "Invalid parquet file. Could not verify plaintext"
-                " footer metadata");
+            throw ParquetException("Invalid parquet file. Could not verify plaintext "
+                                   "footer metadata");
           }
         }
       }
