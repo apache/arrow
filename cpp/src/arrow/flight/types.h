@@ -157,8 +157,10 @@ struct Location {
   /// \brief Get the scheme of this URI.
   std::string scheme() const;
 
+  bool Equals(const Location& other) const;
+
   friend bool operator==(const Location& left, const Location& right) {
-    return left.ToString() == right.ToString();
+    return left.Equals(right);
   }
   friend bool operator!=(const Location& left, const Location& right) {
     return !(left == right);

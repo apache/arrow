@@ -184,6 +184,10 @@ cdef class Ticket:
     def __init__(self, ticket):
         self.ticket.ticket = tobytes(ticket)
 
+    @property
+    def ticket(self):
+        return self.ticket.ticket
+
     def __repr__(self):
         return '<Ticket {}>'.format(self.ticket.ticket)
 
@@ -198,6 +202,18 @@ cdef class Location:
 
     def __repr__(self):
         return '<Location {}>'.format(self.location.ToString())
+
+    @property
+    def uri(self):
+        return self.location.ToString()
+
+    def equals(self, Location other):
+        return self == other
+
+    def __eq__(self, other):
+        if not isinstance(other, Location):
+            return NotImplemented
+        return self.location.Equals((<Location> other).location)
 
     @staticmethod
     def for_grpc_tcp(host, port):
@@ -265,8 +281,11 @@ cdef class FlightEndpoint:
             self.endpoint.ticket.ticket = tobytes(ticket)
 
         for location in locations:
-            c_location = CLocation()
-            check_status(CLocation.Parse(tobytes(location), &c_location))
+            if isinstance(location, Location):
+                c_location = (<Location> location).location
+            else:
+                c_location = CLocation()
+                check_status(CLocation.Parse(tobytes(location), &c_location))
             self.endpoint.locations.push_back(c_location)
 
     @property

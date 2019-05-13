@@ -81,6 +81,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CLocation" arrow::flight::Location":
         CLocation()
         c_string ToString()
+        c_bool Equals(const CLocation& other)
 
         @staticmethod
         CStatus Parse(c_string& uri_string, CLocation* location)
@@ -97,8 +98,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFlightInfo" arrow::flight::FlightInfo":
         CFlightInfo(CFlightInfo info)
-        uint64_t total_records()
-        uint64_t total_bytes()
+        int64_t total_records()
+        int64_t total_bytes()
         CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
@@ -274,8 +275,8 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         shared_ptr[CSchema] schema,
         CFlightDescriptor& descriptor,
         vector[CFlightEndpoint] endpoints,
-        uint64_t total_records,
-        uint64_t total_bytes,
+        int64_t total_records,
+        int64_t total_bytes,
         unique_ptr[CFlightInfo]* out)
 
 cdef extern from "<utility>" namespace "std":

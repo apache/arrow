@@ -103,6 +103,42 @@ class EchoStreamFlightServer(EchoFlightServer):
         raise NotImplementedError
 
 
+class GetInfoFlightServer(flight.FlightServerBase):
+    """A Flight server that tests GetFlightInfo."""
+
+    def get_flight_info(self, context, descriptor):
+        return flight.FlightInfo(
+            pa.schema([('a', pa.int32())]),
+            descriptor,
+            [
+                flight.FlightEndpoint(b'', ['grpc://test']),
+                flight.FlightEndpoint(
+                    b'',
+                    [flight.Location.for_grpc_tcp('localhost', 5005)],
+                ),
+            ],
+            -1,
+            -1,
+        )
+
+
+class CheckTicketFlightServer(flight.FlightServerBase):
+    """A Flight server that compares the given ticket to an expected value."""
+
+    def __init__(self, expected_ticket):
+        super(CheckTicketFlightServer, self).__init__()
+        self.expected_ticket = expected_ticket
+
+    def do_get(self, context, ticket):
+        assert self.expected_ticket == ticket.ticket
+        data1 = [pa.array([-10, -5, 0, 5, 10], type=pa.int32())]
+        table = pa.Table.from_arrays(data1, names=['a'])
+        return flight.RecordBatchStream(table)
+
+    def do_put(self, context, descriptor, reader):
+        self.last_message = reader.read_all()
+
+
 class InvalidStreamFlightServer(flight.FlightServerBase):
     """A Flight server that tries to return messages with differing schemas."""
 
@@ -253,6 +289,34 @@ def test_flight_do_get_dicts():
         client = flight.FlightClient.connect(server_location)
         data = client.do_get(flight.Ticket(b'dicts')).read_all()
         assert data.equals(table)
+
+
+def test_flight_do_get_ticket():
+    """Make sure Tickets get passed to the server."""
+    data1 = [pa.array([-10, -5, 0, 5, 10], type=pa.int32())]
+    table = pa.Table.from_arrays(data1, names=['a'])
+    with flight_server(
+            CheckTicketFlightServer,
+            expected_ticket=b'the-ticket',
+    ) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        data = client.do_get(flight.Ticket(b'the-ticket')).read_all()
+        assert data.equals(table)
+
+
+def test_flight_get_info():
+    """Make sure FlightEndpoint accepts string and object URIs."""
+    with flight_server(GetInfoFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        info = client.get_flight_info(flight.FlightDescriptor.for_command(b''))
+        assert info.total_records == -1
+        assert info.total_bytes == -1
+        assert info.schema == pa.schema([('a', pa.int32())])
+        assert len(info.endpoints) == 2
+        assert len(info.endpoints[0].locations) == 1
+        assert info.endpoints[0].locations[0] == flight.Location('grpc://test')
+        assert info.endpoints[1].locations[0] == \
+            flight.Location.for_grpc_tcp('localhost', 5005)
 
 
 def test_flight_domain_socket():

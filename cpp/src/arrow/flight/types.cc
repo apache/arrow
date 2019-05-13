@@ -112,6 +112,10 @@ std::string Location::scheme() const {
   return scheme;
 }
 
+bool Location::Equals(const Location& other) const {
+  return ToString() == other.ToString();
+}
+
 SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)
     : position_(0), flights_(flights) {}
 
