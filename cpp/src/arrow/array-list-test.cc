@@ -124,6 +124,14 @@ TEST_F(TestListArray, Equality) {
   ASSERT_TRUE(array->RangeEquals(1, 5, 0, slice));
 }
 
+TEST_F(TestListArray, ValuesEquality) {
+  auto type = list(int32());
+  auto left = ArrayFromJSON(type, "[[1, 2], [3], [0]]");
+  auto right = ArrayFromJSON(type, "[[1, 2], [3], [100000]]");
+  auto offset = 2;
+  EXPECT_FALSE(left->Slice(offset)->Equals(right->Slice(offset)));
+}
+
 TEST_F(TestListArray, TestResize) {}
 
 TEST_F(TestListArray, TestFromArrays) {
@@ -329,6 +337,212 @@ TEST_F(TestListArray, TestBuilderPreserveFieleName) {
   ASSERT_OK(builder_->Finish(&list_array));
 
   const auto& type = checked_cast<ListType&>(*list_array->type());
+  ASSERT_EQ("counts", type.value_field()->name());
+}
+
+// ----------------------------------------------------------------------
+// FixedSizeList tests
+
+class TestFixedSizeListArray : public TestBuilder {
+ public:
+  void SetUp() {
+    TestBuilder::SetUp();
+
+    value_type_ = int32();
+    type_ = fixed_size_list(value_type_, list_size());
+
+    std::unique_ptr<ArrayBuilder> tmp;
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
+    builder_.reset(checked_cast<FixedSizeListBuilder*>(tmp.release()));
+  }
+
+  void Done() {
+    std::shared_ptr<Array> out;
+    FinishAndCheckPadding(builder_.get(), &out);
+    result_ = std::dynamic_pointer_cast<FixedSizeListArray>(out);
+  }
+
+ protected:
+  static constexpr int32_t list_size() { return 2; }
+  std::shared_ptr<DataType> value_type_;
+
+  std::shared_ptr<FixedSizeListBuilder> builder_;
+  std::shared_ptr<FixedSizeListArray> result_;
+};
+
+TEST_F(TestFixedSizeListArray, Equality) {
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+
+  std::shared_ptr<Array> array, equal_array, unequal_array;
+  std::vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2, 5, 6};
+  std::vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5, 2};
+
+  // setup two equal arrays
+  ASSERT_OK(builder_->AppendValues(equal_values.size() / list_size()));
+  ASSERT_OK(vb->AppendValues(equal_values.data(), equal_values.size()));
+  ASSERT_OK(builder_->Finish(&array));
+
+  ASSERT_OK(builder_->AppendValues(equal_values.size() / list_size()));
+  ASSERT_OK(vb->AppendValues(equal_values.data(), equal_values.size()));
+
+  ASSERT_OK(builder_->Finish(&equal_array));
+
+  // now an unequal one
+  ASSERT_OK(builder_->AppendValues(unequal_values.size() / list_size()));
+  ASSERT_OK(vb->AppendValues(unequal_values.data(), unequal_values.size()));
+  ASSERT_OK(builder_->Finish(&unequal_array));
+
+  // Test array equality
+  AssertArraysEqual(*array, *array);
+  AssertArraysEqual(*array, *equal_array);
+  EXPECT_FALSE(equal_array->Equals(unequal_array));
+  EXPECT_FALSE(unequal_array->Equals(equal_array));
+
+  // Test range equality
+  EXPECT_TRUE(array->RangeEquals(0, 1, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(0, 2, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
+  EXPECT_TRUE(array->RangeEquals(1, 3, 2, unequal_array));
+}
+
+TEST_F(TestFixedSizeListArray, TestAppendNull) {
+  ASSERT_OK(builder_->AppendNull());
+  ASSERT_OK(builder_->AppendNull());
+
+  Done();
+
+  ASSERT_OK(ValidateArray(*result_));
+  ASSERT_TRUE(result_->IsNull(0));
+  ASSERT_TRUE(result_->IsNull(1));
+
+  ASSERT_EQ(0, result_->value_offset(0));
+  ASSERT_EQ(list_size(), result_->value_offset(1));
+
+  auto values = result_->values();
+  ASSERT_EQ(list_size() * 2, values->length());
+}
+
+TEST_F(TestFixedSizeListArray, TestAppendNulls) {
+  ASSERT_OK(builder_->AppendNulls(3));
+
+  Done();
+
+  ASSERT_OK(ValidateArray(*result_));
+  ASSERT_EQ(result_->length(), 3);
+  ASSERT_EQ(result_->null_count(), 3);
+  ASSERT_TRUE(result_->IsNull(0));
+  ASSERT_TRUE(result_->IsNull(1));
+  ASSERT_TRUE(result_->IsNull(2));
+
+  ASSERT_EQ(0, result_->value_offset(0));
+  ASSERT_EQ(list_size(), result_->value_offset(1));
+  ASSERT_EQ(list_size() * 2, result_->value_offset(2));
+
+  auto values = result_->values();
+  ASSERT_EQ(list_size() * 3, values->length());
+}
+
+void ValidateBasicFixedSizeListArray(const FixedSizeListArray* result,
+                                     const std::vector<int32_t>& values,
+                                     const std::vector<uint8_t>& is_valid) {
+  ASSERT_OK(ValidateArray(*result));
+  ASSERT_EQ(1, result->null_count());
+  ASSERT_LE(result->values()->null_count(), 2);
+
+  ASSERT_EQ(3, result->length());
+  for (int32_t i = 0; i < 3; ++i) {
+    ASSERT_EQ(i * result->value_length(), result->value_offset(i));
+  }
+
+  for (int i = 0; i < result->length(); ++i) {
+    ASSERT_EQ(is_valid[i] == 0, result->IsNull(i));
+  }
+
+  ASSERT_EQ(result->length() * result->value_length(), result->values()->length());
+  auto varr = std::dynamic_pointer_cast<Int32Array>(result->values());
+
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (is_valid[i / result->value_length()] == 0) {
+      continue;
+    }
+    ASSERT_EQ(values[i], varr->Value(i));
+  }
+}
+
+TEST_F(TestFixedSizeListArray, TestBasics) {
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5};
+  std::vector<uint8_t> is_valid = {1, 0, 1};
+
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+
+  int pos = 0;
+  for (size_t i = 0; i < values.size() / list_size(); ++i) {
+    if (is_valid[i] == 0) {
+      ASSERT_OK(builder_->AppendNull());
+      pos += list_size();
+      continue;
+    }
+    ASSERT_OK(builder_->Append());
+    for (int j = 0; j < list_size(); ++j) {
+      ASSERT_OK(vb->Append(values[pos++]));
+    }
+  }
+
+  Done();
+  ValidateBasicFixedSizeListArray(result_.get(), values, is_valid);
+}
+
+TEST_F(TestFixedSizeListArray, BulkAppend) {
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5};
+  std::vector<uint8_t> is_valid = {1, 0, 1};
+
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+
+  ASSERT_OK(builder_->AppendValues(values.size() / list_size(), is_valid.data()));
+  for (int32_t value : values) {
+    ASSERT_OK(vb->Append(value));
+  }
+  Done();
+  ValidateBasicFixedSizeListArray(result_.get(), values, is_valid);
+}
+
+TEST_F(TestFixedSizeListArray, BulkAppendInvalid) {
+  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5};
+  std::vector<uint8_t> is_valid = {1, 0, 1};
+
+  Int32Builder* vb = checked_cast<Int32Builder*>(builder_->value_builder());
+
+  ASSERT_OK(builder_->AppendValues(values.size() / list_size(), is_valid.data()));
+  for (int32_t value : values) {
+    ASSERT_OK(vb->Append(value));
+  }
+  for (int32_t value : values) {
+    ASSERT_OK(vb->Append(value));
+  }
+
+  Done();
+  ASSERT_RAISES(Invalid, ValidateArray(*result_));
+}
+
+TEST_F(TestFixedSizeListArray, TestZeroLength) {
+  // All buffers are null
+  Done();
+  ASSERT_OK(ValidateArray(*result_));
+}
+
+TEST_F(TestFixedSizeListArray, TestBuilderPreserveFieleName) {
+  auto list_type_with_name = fixed_size_list(field("counts", int32()), list_size());
+
+  std::unique_ptr<ArrayBuilder> tmp;
+  ASSERT_OK(MakeBuilder(pool_, list_type_with_name, &tmp));
+  builder_.reset(checked_cast<FixedSizeListBuilder*>(tmp.release()));
+
+  ASSERT_OK(builder_->AppendValues(4));
+
+  std::shared_ptr<Array> list_array;
+  ASSERT_OK(builder_->Finish(&list_array));
+
+  const auto& type = checked_cast<FixedSizeListType&>(*list_array->type());
   ASSERT_EQ("counts", type.value_field()->name());
 }
 

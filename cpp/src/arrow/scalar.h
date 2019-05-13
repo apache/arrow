@@ -158,6 +158,15 @@ struct ARROW_EXPORT ListScalar : public Scalar {
   explicit ListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
 };
 
+struct ARROW_EXPORT FixedSizeListScalar : public Scalar {
+  std::shared_ptr<Array> value;
+
+  FixedSizeListScalar(const std::shared_ptr<Array>& value,
+                      const std::shared_ptr<DataType>& type, bool is_valid = true);
+
+  explicit FixedSizeListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
+};
+
 struct ARROW_EXPORT StructScalar : public Scalar {
   std::vector<std::shared_ptr<Scalar>> value;
 };

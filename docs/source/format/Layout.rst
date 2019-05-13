@@ -359,6 +359,49 @@ will be represented as follows: ::
 
 Note that while the inner offsets buffer encodes the start position in the inner values array, the outer offsets buffer encodes the start position of corresponding outer element in the inner offsets buffer.
 
+Fixed Size List type
+--------------------
+
+Fixed Size List is a nested type in which each array slot contains a fixed-size
+sequence of values all having the same relative type (heterogeneity can be
+achieved through unions, described later).
+
+A fixed size list type is specified like ``FixedSizeList<T>[N]``, where ``T`` is
+any relative type (primitive or nested) and ``N`` is a 32-bit signed integer
+representing the length of the lists.
+
+A fixed size list array is represented by a values array, which is a child array of
+type T. T may also be a nested type. The value in slot ``j`` of a fixed size list
+array is stored in an ``N``-long slice of the values array, starting at an offset of
+``j * N``.
+
+Example Layout: ``FixedSizeList<byte>[4]`` Array
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Let's consider an example, the type ``FixedSizeList<byte>[4]``.
+
+For an array of length 4 with respective values: ::
+
+    [[192, 168, 0, 12], null, [192, 168, 0, 25], [192, 168, 0, 1]]
+
+will have the following representation: ::
+
+    * Length: 4, Null count: 1
+    * Null bitmap buffer:
+
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
+      |--------------------------|-----------------------|
+      | 00001101                 | 0 (padding)           |
+
+    * Values array (char array):
+      * Length: 7,  Null count: 0
+      * Null bitmap buffer: Not required
+
+        | Bytes 0-3       | Bytes 4-7   | Bytes 8-15                      |
+        |-----------------|-------------|---------------------------------|
+        | 192, 168, 0, 12 | unspecified | 192, 168, 0, 25, 192, 168, 0, 1 |
+
+
 Struct type
 -----------
 

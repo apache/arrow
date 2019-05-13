@@ -88,6 +88,66 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 };
 
 // ----------------------------------------------------------------------
+// FixedSizeList builder
+
+/// \class FixedSizeListBuilder
+/// \brief Builder class for fixed-length list array value types
+class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
+ public:
+  FixedSizeListBuilder(MemoryPool* pool,
+                       std::shared_ptr<ArrayBuilder> const& value_builder,
+                       int32_t list_size);
+
+  FixedSizeListBuilder(MemoryPool* pool,
+                       std::shared_ptr<ArrayBuilder> const& value_builder,
+                       const std::shared_ptr<DataType>& type);
+
+  Status Resize(int64_t capacity) override;
+  void Reset() override;
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<FixedSizeListArray>* out) { return FinishTyped(out); }
+
+  /// \brief Append a valid fixed length list.
+  ///
+  /// This function affects only the validity bitmap; the child values must be appended
+  /// using the child array builder.
+  Status Append();
+
+  /// \brief Vector append
+  ///
+  /// If passed, valid_bytes wil be read and any zero byte
+  /// will cause the corresponding slot to be null
+  ///
+  /// This function affects only the validity bitmap; the child values must be appended
+  /// using the child array builder. This includes appending nulls for null lists.
+  /// XXX this restriction is confusing, should this method be omitted?
+  Status AppendValues(int64_t length, const uint8_t* valid_bytes = NULLPTR);
+
+  /// \brief Append a null fixed length list.
+  ///
+  /// The child array builder will have the approriate number of nulls appended
+  /// automatically.
+  Status AppendNull() final;
+
+  /// \brief Append length null fixed length lists.
+  ///
+  /// The child array builder will have the approriate number of nulls appended
+  /// automatically.
+  Status AppendNulls(int64_t length) final;
+
+  ArrayBuilder* value_builder() const { return value_builder_.get(); }
+
+ protected:
+  const int32_t list_size_;
+  std::shared_ptr<ArrayBuilder> value_builder_;
+};
+
+// ----------------------------------------------------------------------
 // Struct
 
 // ---------------------------------------------------------------------------------

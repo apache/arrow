@@ -268,6 +268,30 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  // Make the schema
+  auto f0 = field("f0", fixed_size_list(int32(), 1));
+  auto f1 = field("f1", fixed_size_list(list(int32()), 3));
+  auto f2 = field("f2", int32());
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  // Example data
+
+  MemoryPool* pool = default_memory_pool();
+  const int length = 200;
+  std::shared_ptr<Array> leaf_values, list_array, list_list_array, flat_array;
+  const bool include_nulls = true;
+  RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
+  RETURN_NOT_OK(
+      MakeRandomListArray(leaf_values, length * 3, include_nulls, pool, &list_array));
+  list_list_array = std::make_shared<FixedSizeListArray>(f1->type(), length, list_array);
+  list_array = std::make_shared<FixedSizeListArray>(f0->type(), length,
+                                                    leaf_values->Slice(0, length));
+  RETURN_NOT_OK(MakeRandomInt32Array(length, include_nulls, pool, &flat_array));
+  *out = RecordBatch::Make(schema, length, {list_array, list_list_array, flat_array});
+  return Status::OK();
+}
+
 Status MakeZeroLengthRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", list(int32()));

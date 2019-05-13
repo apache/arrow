@@ -77,6 +77,11 @@ class ListArray;
 class ListBuilder;
 struct ListScalar;
 
+class FixedSizeListType;
+class FixedSizeListArray;
+class FixedSizeListBuilder;
+struct FixedSizeListScalar;
+
 class StructType;
 class StructArray;
 class StructBuilder;

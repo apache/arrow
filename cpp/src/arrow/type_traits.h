@@ -242,6 +242,14 @@ struct TypeTraits<ListType> {
   constexpr static bool is_parameter_free = false;
 };
 
+template <>
+struct TypeTraits<FixedSizeListType> {
+  using ArrayType = FixedSizeListArray;
+  using BuilderType = FixedSizeListBuilder;
+  using ScalarType = FixedSizeListScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
 template <typename CType>
 struct CTypeTraits<std::vector<CType>> : public TypeTraits<ListType> {
   using ArrowType = ListType;
@@ -374,6 +382,10 @@ using enable_if_fixed_size_binary =
 template <typename T, typename R = void>
 using enable_if_list =
     typename std::enable_if<std::is_base_of<ListType, T>::value, R>::type;
+
+template <typename T, typename R = void>
+using enable_if_fixed_size_list =
+    typename std::enable_if<std::is_base_of<FixedSizeListType, T>::value, R>::type;
 
 template <typename T, typename R = void>
 using enable_if_number = typename std::enable_if<is_number<T>::value, R>::type;

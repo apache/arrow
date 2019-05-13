@@ -196,6 +196,10 @@ class ConcatenateImpl {
         .Concatenate(out_.child_data[0].get());
   }
 
+  Status Visit(const FixedSizeListType&) {
+    return ConcatenateImpl(ChildData(0), pool_).Concatenate(out_.child_data[0].get());
+  }
+
   Status Visit(const StructType& s) {
     for (int i = 0; i < s.num_children(); ++i) {
       RETURN_NOT_OK(

@@ -246,6 +246,11 @@ class SchemaWriter {
     writer_->Int(type.byte_width());
   }
 
+  void WriteTypeMetadata(const FixedSizeListType& type) {
+    writer_->Key("listSize");
+    writer_->Int(type.list_size());
+  }
+
   void WriteTypeMetadata(const Decimal128Type& type) {
     writer_->Key("precision");
     writer_->Int(type.precision());
@@ -326,6 +331,11 @@ class SchemaWriter {
 
   Status Visit(const ListType& type) {
     WriteName("list", type);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListType& type) {
+    WriteName("fixedsizelist", type);
     return Status::OK();
   }
 
@@ -556,6 +566,12 @@ class ArrayWriter {
     return WriteChildren(type.children(), {array.values()});
   }
 
+  Status Visit(const FixedSizeListArray& array) {
+    WriteValidityField(array);
+    const auto& type = checked_cast<const FixedSizeListType&>(*array.type());
+    return WriteChildren(type.children(), {array.values()});
+  }
+
   Status Visit(const StructArray& array) {
     WriteValidityField(array);
     const auto& type = checked_cast<const StructType&>(*array.type());
@@ -671,6 +687,21 @@ static Status GetFixedSizeBinary(const RjObject& json_type,
 
   int32_t byte_width = it_byte_width->value.GetInt();
   *type = fixed_size_binary(byte_width);
+  return Status::OK();
+}
+
+static Status GetFixedSizeList(const RjObject& json_type,
+                               const std::vector<std::shared_ptr<Field>>& children,
+                               std::shared_ptr<DataType>* type) {
+  if (children.size() != 1) {
+    return Status::Invalid("FixedSizeList must have exactly one child");
+  }
+
+  const auto& it_list_size = json_type.FindMember("listSize");
+  RETURN_NOT_INT("listSize", it_list_size, json_type);
+
+  int32_t list_size = it_list_size->value.GetInt();
+  *type = fixed_size_list(children[0], list_size);
   return Status::OK();
 }
 
@@ -828,6 +859,8 @@ static Status GetType(const RjObject& json_type,
       return Status::Invalid("List must have exactly one child");
     }
     *type = list(children[0]);
+  } else if (type_name == "fixedsizelist") {
+    return GetFixedSizeList(json_type, children, type);
   } else if (type_name == "struct") {
     *type = struct_(children);
   } else if (type_name == "union") {
@@ -1156,6 +1189,22 @@ class ArrayReader {
 
     result_ = std::make_shared<ListArray>(type_, length_, offsets_buffer, children[0],
                                           validity_buffer, null_count);
+
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListType& type) {
+    int32_t null_count = 0;
+    std::shared_ptr<Buffer> validity_buffer;
+    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
+
+    std::vector<std::shared_ptr<Array>> children;
+    RETURN_NOT_OK(GetChildren(*obj_, type, &children));
+    DCHECK_EQ(children.size(), 1);
+    DCHECK_EQ(children[0]->length(), type.list_size() * length_);
+
+    result_ = std::make_shared<FixedSizeListArray>(type_, length_, children[0],
+                                                   validity_buffer, null_count);
 
     return Status::OK();
   }

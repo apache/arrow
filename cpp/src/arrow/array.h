@@ -523,6 +523,43 @@ class ARROW_EXPORT ListArray : public Array {
 };
 
 // ----------------------------------------------------------------------
+// FixedSizeListArray
+
+/// Concrete Array class for fixed size list data
+class ARROW_EXPORT FixedSizeListArray : public Array {
+ public:
+  using TypeClass = FixedSizeListType;
+
+  explicit FixedSizeListArray(const std::shared_ptr<ArrayData>& data);
+
+  FixedSizeListArray(const std::shared_ptr<DataType>& type, int64_t length,
+                     const std::shared_ptr<Array>& values,
+                     const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                     int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  const FixedSizeListType* list_type() const;
+
+  /// \brief Return array object containing the list's values
+  std::shared_ptr<Array> values() const;
+
+  std::shared_ptr<DataType> value_type() const;
+
+  // Neither of these functions will perform boundschecking
+  int32_t value_offset(int64_t i) const {
+    i += data_->offset;
+    return static_cast<int32_t>(list_size_ * i);
+  }
+  int32_t value_length(int64_t i = 0) const { return list_size_; }
+
+ protected:
+  void SetData(const std::shared_ptr<ArrayData>& data);
+  int32_t list_size_;
+
+ private:
+  std::shared_ptr<Array> values_;
+};
+
+// ----------------------------------------------------------------------
 // Binary and String
 
 /// Concrete Array class for variable-size binary data

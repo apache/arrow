@@ -293,6 +293,14 @@ static Status ConcreteTypeFromFlatbuffer(
       }
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type_FixedSizeList:
+      if (children.size() != 1) {
+        return Status::Invalid("FixedSizeList must have exactly 1 child field");
+      } else {
+        auto fs_list = static_cast<const flatbuf::FixedSizeList*>(type_data);
+        *out = std::make_shared<FixedSizeListType>(children[0], fs_list->listSize());
+      }
+      return Status::OK();
     case flatbuf::Type_Struct_:
       *out = std::make_shared<StructType>(children);
       return Status::OK();
@@ -542,6 +550,13 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type_List;
     RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
     type_offset_ = flatbuf::CreateList(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListType& type) {
+    fb_type_ = flatbuf::Type_FixedSizeList;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateFixedSizeList(fbb_, type.list_size()).Union();
     return Status::OK();
   }
 

@@ -296,6 +296,44 @@ std::shared_ptr<DataType> ListArray::value_type() const {
 std::shared_ptr<Array> ListArray::values() const { return values_; }
 
 // ----------------------------------------------------------------------
+// FixedSizeListArray
+
+FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<ArrayData>& data) {
+  SetData(data);
+}
+
+FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<DataType>& type,
+                                       int64_t length,
+                                       const std::shared_ptr<Array>& values,
+                                       const std::shared_ptr<Buffer>& null_bitmap,
+                                       int64_t null_count, int64_t offset) {
+  auto internal_data = ArrayData::Make(type, length, {null_bitmap}, null_count, offset);
+  internal_data->child_data.emplace_back(values->data());
+  SetData(internal_data);
+}
+
+void FixedSizeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::FIXED_SIZE_LIST);
+  this->Array::SetData(data);
+
+  DCHECK(list_type()->value_type()->Equals(data->child_data[0]->type));
+  list_size_ = list_type()->list_size();
+
+  DCHECK_EQ(data_->child_data.size(), 1);
+  values_ = MakeArray(data_->child_data[0]);
+}
+
+const FixedSizeListType* FixedSizeListArray::list_type() const {
+  return checked_cast<const FixedSizeListType*>(data_->type.get());
+}
+
+std::shared_ptr<DataType> FixedSizeListArray::value_type() const {
+  return list_type()->value_type();
+}
+
+std::shared_ptr<Array> FixedSizeListArray::values() const { return values_; }
+
+// ----------------------------------------------------------------------
 // String and binary
 
 BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
@@ -837,6 +875,22 @@ struct ValidateVisitor {
     }
 
     return ValidateOffsets(array);
+  }
+
+  Status Visit(const FixedSizeListArray& array) {
+    if (array.length() < 0) {
+      return Status::Invalid("Length was negative");
+    }
+    if (!array.values()) {
+      return Status::Invalid("values was null");
+    }
+    if (array.values()->length() != array.length() * array.value_length()) {
+      return Status::Invalid(
+          "Values Length (", array.values()->length(), ") was not equal to the length (",
+          array.length(), ") multiplied by the list size (", array.value_length(), ")");
+    }
+
+    return Status::OK();
   }
 
   Status Visit(const StructArray& array) {

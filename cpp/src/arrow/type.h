@@ -136,7 +136,10 @@ struct Type {
     MAP,
 
     /// Custom data type, implemented by user
-    EXTENSION
+    EXTENSION,
+
+    /// Fixed size list of some logical type
+    FIXED_SIZE_LIST
   };
 };
 
@@ -450,6 +453,35 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
+};
+
+/// \brief Concrete type class for fixed size list data
+class ARROW_EXPORT FixedSizeListType : public NestedType {
+ public:
+  static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
+
+  // List can contain any other logical value type
+  explicit FixedSizeListType(const std::shared_ptr<DataType>& value_type,
+                             int32_t list_size)
+      : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
+
+  explicit FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+      : NestedType(Type::FIXED_SIZE_LIST), list_size_(list_size) {
+    children_ = {value_field};
+  }
+
+  std::shared_ptr<Field> value_field() const { return children_[0]; }
+
+  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "fixed_size_list"; }
+
+  int32_t list_size() const { return list_size_; }
+
+ protected:
+  int32_t list_size_;
 };
 
 /// \brief Concrete type class for variable-size binary data
@@ -889,6 +921,16 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a FixedSizeListType instance from its child Field type
+ARROW_EXPORT
+std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_type,
+                                          int32_t list_size);
+
+/// \brief Create a FixedSizeListType instance from its child DataType
+ARROW_EXPORT
+std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
+                                          int32_t list_size);
 
 /// \brief Create a TimestampType instance from its unit
 ARROW_EXPORT

@@ -229,7 +229,9 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
-  inline typename std::enable_if<std::is_base_of<ListArray, T>::value, Status>::type
+  inline typename std::enable_if<std::is_base_of<ListArray, T>::value ||
+                                     std::is_base_of<FixedSizeListArray, T>::value,
+                                 Status>::type
   WriteDataValues(const T& array) {
     bool skip_comma = true;
     for (int64_t i = 0; i < array.length(); ++i) {
@@ -265,7 +267,8 @@ class ArrayPrinter : public PrettyPrinter {
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
                               std::is_base_of<FixedSizeBinaryArray, T>::value ||
                               std::is_base_of<BinaryArray, T>::value ||
-                              std::is_base_of<ListArray, T>::value,
+                              std::is_base_of<ListArray, T>::value ||
+                              std::is_base_of<FixedSizeListArray, T>::value,
                           Status>::type
   Visit(const T& array) {
     OpenArray(array);
