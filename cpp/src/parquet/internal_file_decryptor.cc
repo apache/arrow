@@ -73,18 +73,18 @@ int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
     : properties_(properties), file_aad_(file_aad),
       algorithm_(algorithm), footer_key_metadata_(footer_key_metadata) {
     column_data_map_ = std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-                                                std::shared_ptr<Decryptor>,
-                                                parquet::schema::ColumnPath::CmpColumnPath>>(
-                                                   new std::map<std::shared_ptr<schema::ColumnPath>,
-                                                   std::shared_ptr<Decryptor>,
-                                                   schema::ColumnPath::CmpColumnPath>());
+        std::shared_ptr<Decryptor>,
+        parquet::schema::ColumnPath::CmpColumnPath>>(
+            new std::map<std::shared_ptr<schema::ColumnPath>,
+            std::shared_ptr<Decryptor>,
+            schema::ColumnPath::CmpColumnPath>());
 
     column_metadata_map_ = std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-                                                    std::shared_ptr<Decryptor>,
-                                                parquet::schema::ColumnPath::CmpColumnPath>>(
-                                                   new std::map<std::shared_ptr<schema::ColumnPath>,
-                                                   std::shared_ptr<Decryptor>,
-                                                   schema::ColumnPath::CmpColumnPath>());
+        std::shared_ptr<Decryptor>,
+        parquet::schema::ColumnPath::CmpColumnPath>>(
+            new std::map<std::shared_ptr<schema::ColumnPath>,
+            std::shared_ptr<Decryptor>,
+            schema::ColumnPath::CmpColumnPath>());
   }
 
 std::shared_ptr<FooterSigningEncryptor>
@@ -231,7 +231,6 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     (*column_data_map_)[column_path] = decryptor;
 
   return decryptor;
-
 }
 
 parquet_encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(

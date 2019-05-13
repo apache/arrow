@@ -71,7 +71,6 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
       aad);
   footer_encryptor_ = encryptor;
   return encryptor;
-
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {

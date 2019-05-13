@@ -261,11 +261,11 @@ class SerializedFile : public ParquetFileReader::Contents {
 
       auto file_decryption_properties = properties_.file_decryption_properties();
       if (!file_metadata_->is_encryption_algorithm_set()) { // Plaintext file
-	if (file_decryption_properties != NULLPTR) {
-	  if (!file_decryption_properties->plaintext_files_allowed()) {
-	    throw ParquetException("Applying decryption properties on plaintext file");
-	  }
-	}	
+        if (file_decryption_properties != NULLPTR) {
+          if (!file_decryption_properties->plaintext_files_allowed()) {
+            throw ParquetException("Applying decryption properties on plaintext file");
+          }
+        }
       } else {
         if (file_decryption_properties == NULLPTR) {
           throw ParquetException("No decryption properties are provided");
@@ -295,10 +295,11 @@ class SerializedFile : public ParquetFileReader::Contents {
         }
         std::string file_aad = aad_prefix + algo.aad.aad_file_unique;
 
-	file_decryptor_.reset(new InternalFileDecryptor(file_decryption_properties,
-							file_aad, algo.algorithm,
-							file_metadata_->footer_signing_key_metadata()));
-	
+        file_decryptor_.reset(new InternalFileDecryptor(
+            file_decryption_properties,
+            file_aad, algo.algorithm,
+            file_metadata_->footer_signing_key_metadata()));
+
         if (file_decryption_properties->check_plaintext_footer_integrity()) {
           if (metadata_len - read_metadata_len != 28) {
             throw ParquetException(
@@ -376,8 +377,6 @@ class SerializedFile : public ParquetFileReader::Contents {
       file_decryptor_.reset(new InternalFileDecryptor(file_decryption_properties,
 						      file_aad, algo.algorithm,
 						      file_crypto_metadata->key_metadata()));
-      
-
       int64_t metadata_offset =
           file_size - kFooterSize - footer_len + crypto_metadata_len;
       uint32_t metadata_len = footer_len - crypto_metadata_len;
