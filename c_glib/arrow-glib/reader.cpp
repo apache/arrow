@@ -1591,11 +1591,7 @@ garrow_json_read_options_get_property(GObject *object,
     g_value_set_enum(value, static_cast<int>(priv->parse_options.unexpected_field_behavior));
     break;
   case PROP_JSON_READER_SCHEMA:
-    if (priv->schema) {
-      g_value_set_object(value, priv->schema);
-    } else {
-      g_value_set_object(value, nullptr);
-    }
+    g_value_set_object(value, priv->schema);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
