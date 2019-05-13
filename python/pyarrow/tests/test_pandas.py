@@ -428,6 +428,12 @@ class TestConvertMetadata(object):
         assert data_column['pandas_type'] == 'list[int64]'
         assert data_column['numpy_type'] == 'object'
 
+    def test_struct_metadata(self):
+        df = pd.DataFrame({'dicts': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]})
+        table = pa.Table.from_pandas(df)
+        pandas_metadata = table.schema.pandas_metadata
+        assert pandas_metadata['columns'][0]['pandas_type'] == 'object'
+
     def test_decimal_metadata(self):
         expected = pd.DataFrame({
             'decimals': [
@@ -1579,7 +1585,7 @@ class TestConvertDecimalTypes(object):
         _check_pandas_roundtrip(df)
 
 
-class TestListTypes(object):
+class TestConvertListTypes(object):
     """
     Conversion tests for list<> types.
     """
@@ -1827,6 +1833,19 @@ class TestConvertStructTypes(object):
     Conversion tests for struct types.
     """
 
+    def test_pandas_roundtrip(self):
+        df = pd.DataFrame({'dicts': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]})
+
+        expected_schema = pa.schema([
+            ('dicts', pa.struct([('a', pa.int64()), ('b', pa.int64())])),
+        ])
+
+        _check_pandas_roundtrip(df, expected_schema=expected_schema)
+
+        # specifying schema explicitly in from_pandas
+        _check_pandas_roundtrip(
+            df, schema=expected_schema, expected_schema=expected_schema)
+
     def test_to_pandas(self):
         ints = pa.array([None, 2, 3], type=pa.int64())
         strs = pa.array([u'a', None, u'c'], type=pa.string())
@@ -1969,6 +1988,23 @@ class TestConvertStructTypes(object):
         with pytest.raises(TypeError,
                            match="Expected struct array"):
             pa.array(data, type=ty)
+
+    def test_from_tuples(self):
+        df = pd.DataFrame({'tuples': [(1, 2), (3, 4)]})
+        expected_df = pd.DataFrame(
+            {'tuples': [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]})
+
+        # conversion from tuples works when specifying expected struct type
+        struct_type = pa.struct([('a', pa.int64()), ('b', pa.int64())])
+
+        arr = np.asarray(df['tuples'])
+        _check_array_roundtrip(
+            arr, expected=expected_df['tuples'], type=struct_type)
+
+        expected_schema = pa.schema([('tuples', struct_type)])
+        _check_pandas_roundtrip(
+            df, expected=expected_df, schema=expected_schema,
+            expected_schema=expected_schema)
 
 
 class TestZeroCopyConversion(object):
