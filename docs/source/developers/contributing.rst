@@ -51,11 +51,13 @@ to manage our development "todo" list and to maintain changelogs for releases.
 In addition, the project's `Confluence site <https://cwiki.apache.org/confluence/display/ARROW>`_
 has some useful higher-level views of the JIRA issues.
 
-To create a JIRA issue, you'll need to have an account, which you can sign up
-for `here <https://issues.apache.org/jira/secure/Signup!default.jspa>`_.
-If you want to assign yourself an issue, you'll need a project maintainer to
-add you as a "Contributor" to Apache Arrow. Ask on the mailing list for help
-with this.
+To create a JIRA issue, you'll need to have an account on the ASF JIRA, which
+you can sign yourself up for
+`here <https://issues.apache.org/jira/secure/Signup!default.jspa>`_. No
+additional permissions are needed to create issues. Only once you are involved
+in the project and want to do more on JIRA, such as assign yourself an issue,
+will you need "Contributor" permissions on the Apache Arrow JIRA. To get this
+role, ask on the mailing list for a project maintainer's help.
 
 When reporting a new issue, follow these conventions to help make sure the
 right people see it:
