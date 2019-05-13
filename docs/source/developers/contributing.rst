@@ -25,7 +25,7 @@ There are many ways to contribute to Apache Arrow:
 
 * Contributing code (we call them "patches")
 * Writing documentation (another form of code, in a way)
-* Participating in discussions on `JIRA <https://issues.apache.org/jira/projects/ARROW/issues>`_ or the `mailing list <http://mail-archives.apache.org/mod_mbox/arrow-dev/>`_
+* Participating in discussions on `JIRA <https://issues.apache.org/jira/projects/ARROW/issues>`_ or the `mailing list <https://lists.apache.org/list.html?dev@arrow.apache.org>`_
 * Helping users of the libraries
 * Reporting bugs and asking questions
 
@@ -41,7 +41,7 @@ the community.
 Note that you must be subscribed to the mailing list in order to post to it. To
 subscribe, send a blank email to dev-subscribe@arrow.apache.org.
 
-Mailing list archives can be found `here <http://mail-archives.apache.org/mod_mbox/arrow-dev/>`_.
+Mailing list archives can be found `here <https://lists.apache.org/list.html?dev@arrow.apache.org>`_.
 
 Issue Tracking
 ==============

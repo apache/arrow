@@ -42,12 +42,12 @@ the procedure below.
 
 If you are looking for some ideas on what to contribute, check out the [JIRA
 issues][3] for the Apache Arrow project. Comment on the issue and/or contact
-[dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
+[dev@arrow.apache.org](https://lists.apache.org/list.html?dev@arrow.apache.org)
 with your questions and ideas.
 
 If you’d like to report a bug but don’t have time to fix it, you can still post
 it on JIRA, or email the mailing list
-[dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
+[dev@arrow.apache.org](https://lists.apache.org/list.html?dev@arrow.apache.org)
 
 To contribute a patch:
 
