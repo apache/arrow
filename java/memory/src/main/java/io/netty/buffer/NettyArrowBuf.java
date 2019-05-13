@@ -42,6 +42,13 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
   private int length;
   private final long address;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param arrowBuf The buffer to wrap.
+   * @param arrowByteBufAllocator The allocator for the buffer (assumed to be {@link ArrowByteBufAllocator}).
+   * @param length The length of this buffer.
+   */
   public NettyArrowBuf(
       final ArrowBuf arrowBuf,
       final ByteBufAllocator arrowByteBufAllocator,
