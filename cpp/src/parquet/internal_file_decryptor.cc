@@ -89,7 +89,8 @@ int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
 
 std::shared_ptr<FooterSigningEncryptor>
 InternalFileDecryptor::GetFooterSigningEncryptor() {
-  if (footer_signing_encryptor_ != NULLPTR) return footer_signing_encryptor_;
+  if (footer_signing_encryptor_ != NULLPTR)
+    return footer_signing_encryptor_;
   std::string footer_key = properties_->footer_key();
   // ignore footer key metadata if footer key is explicitly set via API
   if (footer_key.empty()) {
@@ -113,8 +114,8 @@ InternalFileDecryptor::GetFooterSigningEncryptor() {
 
   std::string aad = parquet_encryption::createFooterAAD(file_aad_);
 
-  footer_signing_encryptor_ =
-    std::make_shared<FooterSigningEncryptor>(algorithm_, footer_key, file_aad_, aad);
+  footer_signing_encryptor_ = std::make_shared<FooterSigningEncryptor>(
+     algorithm_, footer_key, file_aad_, aad);
   return footer_signing_encryptor_;
 }
 

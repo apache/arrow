@@ -112,7 +112,6 @@ class InternalFileDecryptor {
   std::shared_ptr<Decryptor> footer_data_decryptor_;
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
-  std::shared_ptr<Decryptor> footer_decryptor_;
   std::shared_ptr<FooterSigningEncryptor> footer_signing_encryptor_;
 
   std::unique_ptr<parquet_encryption::AesDecryptor> meta_decryptor_128_;
