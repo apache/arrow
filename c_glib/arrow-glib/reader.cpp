@@ -1081,7 +1081,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
                           "Block size",
                           "Block size we request from the IO layer; "
                           "also determines the size of chunks "
-                          "when ::use-threads is %TRUE",
+                          "when ::use-threads is TRUE",
                           0,
                           G_MAXINT,
                           read_options.block_size,
@@ -1211,7 +1211,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
   spec = g_param_spec_boolean("ignore-empty-lines",
                               "Ignore empty lines",
                               "Whether empty lines are ignored. "
-                              "If %FALSE, an empty line represents "
+                              "If FALSE, an empty line represents "
                               "a simple empty value "
                               "(assuming a one-column CSV file).",
                               parse_options.ignore_empty_lines,
@@ -1642,7 +1642,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                           "Block size",
                           "Block size we request from the IO layer; "
                           "also determines the size of chunks "
-                          "when ::use-threads is %TRUE",
+                          "when ::use-threads is TRUE",
                           0,
                           G_MAXINT,
                           read_options.block_size,
@@ -1666,7 +1666,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                               "Allow newlines in values",
                               "Whether objects may be printed across multiple lines "
                               "(for example pretty printed). "
-                              "if %FALSE, input must end with an empty line.",
+                              "if FALSE, input must end with an empty line.",
                               parse_options.newlines_in_values,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
