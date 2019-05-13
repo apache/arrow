@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import numpy as np
 import pytest
 
 import pyarrow as pa
@@ -34,3 +35,82 @@ import pyarrow as pa
 def test_sum(arrow_type):
     arr = pa.array([1, 2, 3, 4], type=arrow_type)
     assert arr.sum() == 10
+
+
+@pytest.mark.parametrize(('ty', 'values'), [
+    ('bool', [True, False, False, True, True]),
+    ('uint8', np.arange(5)),
+    ('int8', np.arange(5)),
+    ('uint16', np.arange(5)),
+    ('int16', np.arange(5)),
+    ('uint32', np.arange(5)),
+    ('int32', np.arange(5)),
+    ('uint64', np.arange(5, 10)),
+    ('int64', np.arange(5, 10)),
+    ('float', np.arange(0, 0.5, 0.1)),
+    ('double', np.arange(0, 0.5, 0.1)),
+    ('string', ['a', 'b', None, 'ddd', 'ee']),
+    ('binary', [b'a', b'b', b'c', b'ddd', b'ee']),
+    (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg'])
+])
+def test_take(ty, values):
+    arr = pa.array(values, type=ty)
+    for indices_type in [pa.uint8(), pa.int64()]:
+        indices = pa.array([0, 4, 2, None], type=indices_type)
+        result = arr.take(indices)
+        expected = pa.array([values[0], values[4], values[2], None], type=ty)
+        assert result.equals(expected)
+
+        # empty indices
+        indices = pa.array([], type=indices_type)
+        result = arr.take(indices)
+        expected = pa.array([], type=ty)
+        assert result.equals(expected)
+
+    indices = pa.array([2, 5])
+    with pytest.raises(ValueError):
+        # TODO should be IndexError ?
+        arr.take(indices)
+
+    indices = pa.array([2, -1])
+    with pytest.raises(ValueError):
+        # TODO should be IndexError ?
+        arr.take(indices)
+
+
+def test_take_indices_types():
+    arr = pa.array(range(5))
+
+    for indices_type in ['uint8', 'int8', 'uint16', 'int16',
+                         'uint32', 'int32', 'uint64', 'int64']:
+        indices = pa.array([0, 4, 2, None], type=indices_type)
+        result = arr.take(indices)
+        expected = pa.array([0, 4, 2, None])
+        assert result.equals(expected)
+
+    for indices_type in [pa.float32(), pa.float64()]:
+        indices = pa.array([0, 4, 2], type=indices_type)
+        with pytest.raises(ValueError):
+            arr.take(indices)
+
+
+@pytest.mark.parametrize('ordered', [
+    False, pytest.param(True, marks=pytest.mark.xfail(strict=True))])
+def test_take_dictionary(ordered):
+    arr = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1, 2], ['a', 'b', 'c'],
+                                         ordered=ordered)
+    result = arr.take(pa.array([0, 1, 3]))
+    assert result.to_pylist() == ['a', 'b', 'a']
+    assert result.dictionary.to_pylist() == ['a', 'b', 'c']
+    assert result.type.ordered is ordered
+
+
+@pytest.mark.parametrize('array', [
+    [[1, 2], [3, 4], [5, 6]],
+    [{'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}],
+], ids=['listarray', 'structarray'])
+def test_take_notimplemented(array):
+    array = pa.array(array)
+    indices = pa.array([0, 2])
+    with pytest.raises(NotImplementedError):
+        array.take(indices)
