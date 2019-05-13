@@ -323,26 +323,14 @@ arrow_add_pkg_config("arrow")
 #
 
 add_arrow_test(allocator-test)
-
-if(WIN32)
-  add_arrow_test(array-test
-                 SOURCES
-                 array-test.cc
-                 array-binary-test.cc
-                 array-list-test.cc
-                 array-struct-test.cc
-                 array-union-test.cc)
-else()
-  add_arrow_test(array-test
-                 SOURCES
-                 array-test.cc
-                 array-binary-test.cc
-                 array-dict-test.cc
-                 array-list-test.cc
-                 array-struct-test.cc
-                 array-union-test.cc)
-endif()
-
+add_arrow_test(array-test
+               SOURCES
+               array-test.cc
+               array-binary-test.cc
+               array-dict-test.cc
+               array-list-test.cc
+               array-struct-test.cc
+               array-union-test.cc)
 add_arrow_test(buffer-test)
 
 if(ARROW_IPC)

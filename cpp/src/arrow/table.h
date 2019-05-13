@@ -264,6 +264,20 @@ class ARROW_EXPORT Table {
   /// Return a column by index
   virtual std::shared_ptr<Column> column(int i) const = 0;
 
+  /// \brief Construct a zero-copy slice of the table with the
+  /// indicated offset and length
+  ///
+  /// \param[in] offset the index of the first row in the constructed
+  /// slice
+  /// \param[in] length the number of rows of the slice. If there are not enough
+  /// rows in the table, the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<Table>
+  virtual std::shared_ptr<Table> Slice(int64_t offset, int64_t length) const = 0;
+
+  /// \brief Slice from first row at offset until end of the table
+  std::shared_ptr<Table> Slice(int64_t offset) const { return Slice(offset, num_rows_); }
+
   /// \brief Return a column by name
   /// \param[in] name field name
   /// \return an Array or null if no field was found

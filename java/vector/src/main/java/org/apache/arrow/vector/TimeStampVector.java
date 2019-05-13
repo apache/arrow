@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
@@ -57,7 +59,7 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public long get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
     return valueBuffer.getLong(index * TYPE_WIDTH);

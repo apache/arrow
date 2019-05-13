@@ -691,7 +691,7 @@ class ARROW_EXPORT Time64Type : public TimeType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  explicit Time64Type(TimeUnit::type unit = TimeUnit::MILLI);
+  explicit Time64Type(TimeUnit::type unit = TimeUnit::NANO);
 
   std::string ToString() const override;
 

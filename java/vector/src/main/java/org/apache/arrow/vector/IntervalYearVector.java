@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import java.time.Period;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -97,7 +99,7 @@ public class IntervalYearVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public int get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
     return valueBuffer.getInt(index * TYPE_WIDTH);

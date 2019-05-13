@@ -71,12 +71,21 @@ void Check(const T& obj, const PrettyPrintOptions& options, const char* expected
 }
 
 template <typename TYPE, typename C_TYPE>
-void CheckPrimitive(const PrettyPrintOptions& options, const std::vector<bool>& is_valid,
+void CheckPrimitive(const std::shared_ptr<DataType>& type,
+                    const PrettyPrintOptions& options, const std::vector<bool>& is_valid,
                     const std::vector<C_TYPE>& values, const char* expected,
                     bool check_operator = true) {
   std::shared_ptr<Array> array;
-  ArrayFromVector<TYPE, C_TYPE>(is_valid, values, &array);
+  ArrayFromVector<TYPE, C_TYPE>(type, is_valid, values, &array);
   CheckArray(*array, options, expected, check_operator);
+}
+
+template <typename TYPE, typename C_TYPE>
+void CheckPrimitive(const PrettyPrintOptions& options, const std::vector<bool>& is_valid,
+                    const std::vector<C_TYPE>& values, const char* expected,
+                    bool check_operator = true) {
+  CheckPrimitive<TYPE, C_TYPE>(TypeTraits<TYPE>::type_singleton(), options, is_valid,
+                               values, expected, check_operator);
 }
 
 TEST_F(TestPrettyPrint, PrimitiveType) {
@@ -154,6 +163,77 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
     null
   ])expected";
   CheckPrimitive<StringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
+}
+
+TEST_F(TestPrettyPrint, DateTimeTypes) {
+  std::vector<bool> is_valid = {true, true, false, true, false};
+
+  {
+    std::vector<int32_t> values = {0, 1, 2, 31, 4};
+    static const char* expected = R"expected([
+  1970-01-01,
+  1970-01-02,
+  null,
+  1970-02-01,
+  null
+])expected";
+    CheckPrimitive<Date32Type, int32_t>({0, 10}, is_valid, values, expected);
+  }
+
+  {
+    constexpr int64_t ms_per_day = 24 * 60 * 60 * 1000;
+    std::vector<int64_t> values = {0 * ms_per_day, 1 * ms_per_day, 2 * ms_per_day,
+                                   31 * ms_per_day, 4 * ms_per_day};
+    static const char* expected = R"expected([
+  1970-01-01,
+  1970-01-02,
+  null,
+  1970-02-01,
+  null
+])expected";
+    CheckPrimitive<Date64Type, int64_t>({0, 10}, is_valid, values, expected);
+  }
+
+  {
+    std::vector<int64_t> values = {
+        0, 1, 2, 678 + 1000000 * (5 + 60 * (4 + 60 * (3 + 24 * int64_t(1)))), 4};
+    static const char* expected = R"expected([
+  1970-01-01 00:00:00.000000,
+  1970-01-01 00:00:00.000001,
+  null,
+  1970-01-02 03:04:05.000678,
+  null
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MICRO, "Transylvania"),
+                                           {0, 10}, is_valid, values, expected);
+  }
+
+  {
+    std::vector<int32_t> values = {1, 62, 2, 3 + 60 * (2 + 60 * 1), 4};
+    static const char* expected = R"expected([
+  00:00:01,
+  00:01:02,
+  null,
+  01:02:03,
+  null
+])expected";
+    CheckPrimitive<Time32Type, int32_t>(time32(TimeUnit::SECOND), {0, 10}, is_valid,
+                                        values, expected);
+  }
+
+  {
+    std::vector<int64_t> values = {
+        0, 1, 2, 678 + int64_t(1000000000) * (5 + 60 * (4 + 60 * 3)), 4};
+    static const char* expected = R"expected([
+  00:00:00.000000000,
+  00:00:00.000000001,
+  null,
+  03:04:05.000000678,
+  null
+])expected";
+    CheckPrimitive<Time64Type, int64_t>(time64(TimeUnit::NANO), {0, 10}, is_valid, values,
+                                        expected);
+  }
 }
 
 TEST_F(TestPrettyPrint, StructTypeBasic) {

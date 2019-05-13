@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import java.time.Duration;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -101,7 +103,7 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public ArrowBuf get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
     }
     return valueBuffer.slice(index * TYPE_WIDTH, TYPE_WIDTH);

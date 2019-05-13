@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.BitReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -238,7 +240,7 @@ public class BitVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public int get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
     return getBit(index);

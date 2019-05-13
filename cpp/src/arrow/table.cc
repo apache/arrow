@@ -288,6 +288,16 @@ class SimpleTable : public Table {
 
   std::shared_ptr<Column> column(int i) const override { return columns_[i]; }
 
+  std::shared_ptr<Table> Slice(int64_t offset, int64_t length) const override {
+    auto sliced = columns_;
+    int64_t num_rows = length;
+    for (auto& column : sliced) {
+      column = column->Slice(offset, length);
+      num_rows = column->length();
+    }
+    return Table::Make(schema_, sliced, num_rows);
+  }
+
   Status RemoveColumn(int i, std::shared_ptr<Table>* out) const override {
     std::shared_ptr<Schema> new_schema;
     RETURN_NOT_OK(schema_->RemoveField(i, &new_schema));

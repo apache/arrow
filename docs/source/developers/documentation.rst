@@ -66,7 +66,7 @@ These two steps are mandatory and must be executed in order.
       This step requires the the pyarrow library is installed
       in your python environment.  One way to accomplish
       this is to follow the build instructions at :ref:`python-development`
-      and then run `python setup.py install` in arrow/python
+      and then run ``python setup.py install`` in arrow/python
       (it is best to do this in a dedicated conda/virtual environment).
 
    .. code-block:: shell

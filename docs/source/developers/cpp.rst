@@ -82,7 +82,7 @@ On macOS, you can use `Homebrew <https://brew.sh/>`_.
 
    git clone https://github.com/apache/arrow.git
    cd arrow
-   brew update && brew bundle --file=c_glib/Brewfile
+   brew update && brew bundle --file=cpp/Brewfile
 
 Building
 ========
@@ -179,6 +179,8 @@ LLVM and Clang Tools
 We are currently using LLVM 7 for library builds and for other developer tools
 such as code formatting with ``clang-format``. LLVM can be installed via most
 modern package managers (apt, yum, conda, Homebrew, chocolatey).
+
+.. _cpp-build-dependency-management:
 
 Build Dependency Management
 ===========================

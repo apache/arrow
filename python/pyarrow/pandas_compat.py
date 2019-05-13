@@ -75,7 +75,7 @@ def get_logical_type(arrow_type):
             return 'datetimetz' if arrow_type.tz is not None else 'datetime'
         elif isinstance(arrow_type, pa.lib.Decimal128Type):
             return 'decimal'
-        raise NotImplementedError(str(arrow_type))
+        return 'object'
 
 
 _numpy_logical_type_map = {

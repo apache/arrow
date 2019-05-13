@@ -22,6 +22,7 @@
 use packed_simd::u8x64;
 
 use std::cmp;
+use std::fmt::{Debug, Formatter};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
@@ -44,7 +45,6 @@ pub struct Buffer {
     offset: usize,
 }
 
-#[derive(Debug)]
 struct BufferData {
     /// The raw pointer into the buffer bytes
     ptr: *const u8,
@@ -66,6 +66,24 @@ impl PartialEq for BufferData {
 impl Drop for BufferData {
     fn drop(&mut self) {
         memory::free_aligned(self.ptr);
+    }
+}
+
+impl Debug for BufferData {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "BufferData {{ ptr: {:?}, len: {}, data: ",
+            self.ptr, self.len
+        )?;
+
+        unsafe {
+            f.debug_list()
+                .entries(std::slice::from_raw_parts(self.ptr, self.len).iter())
+                .finish()?;
+        }
+
+        write!(f, " }}")
     }
 }
 
