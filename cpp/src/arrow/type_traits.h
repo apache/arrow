@@ -327,13 +327,16 @@ struct TypeTraits<ExtensionType> {
 //
 
 template <typename T>
-using is_number_type = std::is_base_of<NumberType, T>;
+using is_number_type = std::is_base_of<Number, T>;
 
 template <typename T>
-using is_integer_type = std::is_base_of<IntegerType, T>;
+using is_integer_type = std::is_base_of<Integer, T>;
 
 template <typename T>
-using is_floating_type = std::is_base_of<IntegerType, T>;
+using is_floating_type = std::is_base_of<FloatingPoint, T>;
+
+template <typename T>
+using is_temporal_type = std::is_base_of<TemporalType, T>;
 
 template <typename T>
 struct has_c_type {
@@ -359,11 +362,11 @@ using enable_if_primitive_ctype =
 
 template <typename T, typename R = void>
 using enable_if_integer =
-    typename std::enable_if<std::is_base_of<IntegerType, T>::value, R>::type;
+    typename std::enable_if<std::is_base_of<Integer, T>::value, R>::type;
 
 template <typename T>
 using is_signed_integer =
-    std::integral_constant<bool, std::is_base_of<IntegerType, T>::value &&
+    std::integral_constant<bool, std::is_base_of<Integer, T>::value &&
                                      std::is_signed<typename T::c_type>::value>;
 
 template <typename T, typename R = void>
@@ -372,13 +375,13 @@ using enable_if_signed_integer =
 
 template <typename T, typename R = void>
 using enable_if_unsigned_integer =
-    typename std::enable_if<std::is_base_of<IntegerType, T>::value &&
+    typename std::enable_if<std::is_base_of<Integer, T>::value &&
                                 std::is_unsigned<typename T::c_type>::value,
                             R>::type;
 
 template <typename T, typename R = void>
 using enable_if_floating_point =
-    typename std::enable_if<std::is_base_of<FloatingPointType, T>::value, R>::type;
+    typename std::enable_if<std::is_base_of<FloatingPoint, T>::value, R>::type;
 
 template <typename T>
 using is_date = std::is_base_of<DateType, T>;

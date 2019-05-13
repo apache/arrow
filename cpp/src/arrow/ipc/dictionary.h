@@ -31,14 +31,13 @@
 namespace arrow {
 
 class Array;
-class DataType;
 class Field;
 
 namespace ipc {
 namespace internal {
 
 using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
-using DictionaryTypeMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
+using DictionaryFieldMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
 
 /// \brief Memoization data structure for assigning id numbers to
 /// dictionaries and tracking their current state through possible
@@ -54,14 +53,14 @@ class ARROW_EXPORT DictionaryMemo {
   Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;
 
   /// \brief Return id for dictionary, computing new id if necessary
-  int64_t GetOrAssignId(const std::shared_ptr<DataType>& type);
+  int64_t GetOrAssignId(const std::shared_ptr<Field>& field);
 
   /// \brief Return id for dictionary if it exists, otherwise return
   /// KeyError
-  Status GetId(const DataType& type, int64_t* id) const;
+  Status GetId(const Field& type, int64_t* id) const;
 
   /// \brief Return true if dictionary for type is in this memo
-  bool HasDictionary(const std::shared_ptr<DataType>& type) const;
+  bool HasDictionary(const std::shared_ptr<Field>& type) const;
 
   /// \brief Return true if we have a dictionary for the input id
   bool HasDictionaryId(int64_t id) const;
@@ -77,12 +76,12 @@ class ARROW_EXPORT DictionaryMemo {
 
  private:
   // Dictionary memory addresses, to track whether a particular
-  // dictionary type has been seen before
-  std::unordered_map<intptr_t, int64_t> type_to_id_;
+  // dictionary-encoded field has been seen before
+  std::unordered_map<intptr_t, int64_t> field_to_id_;
 
   // Map of dictionary id to dictionary array
   DictionaryMap id_to_dictionary_;
-  DictionaryTypeMap id_to_type_;
+  DictionaryFieldMap id_to_field_;
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(DictionaryMemo);
 };

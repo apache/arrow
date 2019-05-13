@@ -649,15 +649,15 @@ TEST(TestDictionaryType, UnifyNumeric) {
   auto dict_ty = int64();
 
   auto t1 = dictionary(int8(), dict_ty);
-  auto d1 = ArrayFromJSON(dict_ty, "[3, 4, 7]")
+  auto d1 = ArrayFromJSON(dict_ty, "[3, 4, 7]");
 
-      auto t2 = dictionary(int8(), dict_ty);
-  auto d2 = ArrayFromJSON(dict_ty, "[1, 7, 4, 8]")
+  auto t2 = dictionary(int8(), dict_ty);
+  auto d2 = ArrayFromJSON(dict_ty, "[1, 7, 4, 8]");
 
-      auto t3 = dictionary(int8(), dict_ty);
-  auto d3 = ArrayFromJSON(dict_ty, "[1, -200]")
+  auto t3 = dictionary(int8(), dict_ty);
+  auto d3 = ArrayFromJSON(dict_ty, "[1, -200]");
 
-      auto expected = dictionary(int8(), dict_ty);
+  auto expected = dictionary(int8(), dict_ty);
   auto expected_dict = ArrayFromJSON(dict_ty, "[3, 4, 7, 1, 8, -200]")
 
       std::shared_ptr<DataType>

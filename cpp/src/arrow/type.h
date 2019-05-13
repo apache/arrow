@@ -221,33 +221,25 @@ class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
 };
 
 /// \brief Base class for all numeric data types
-class ARROW_EXPORT NumberType : public PrimitiveCType {
+class ARROW_EXPORT Number : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
 };
 
 /// \brief Base class for all integral data types
-class ARROW_EXPORT IntegerType : public NumberType {
+class ARROW_EXPORT Integer : public Number {
  public:
-  using NumberType::NumberType;
+  using Number::Number;
   virtual bool is_signed() const = 0;
 };
 
 /// \brief Base class for all floating-point data types
-class ARROW_EXPORT FloatingPointType : public NumberType {
+class ARROW_EXPORT FloatingPoint : public Number {
  public:
-  using NumberType::NumberType;
+  using Number::Number;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
-
-#ifndef ARROW_NO_DEPRECATED_API
-/// These non-conformingly named type classes are deprecated as of
-/// 0.14
-using Number = NumberType;
-using FloatingPoint = FloatingPointType;
-using Integer = IntegerType;
-#endif
 
 /// \brief Base class for all parametric data types
 class ParametricType {};
@@ -333,7 +325,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, C_TYPE> {
+class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
@@ -422,8 +414,7 @@ class ARROW_EXPORT Int64Type
 
 /// Concrete type class for 16-bit floating-point data
 class ARROW_EXPORT HalfFloatType
-    : public detail::CTypeImpl<HalfFloatType, FloatingPointType, Type::HALF_FLOAT,
-                               uint16_t> {
+    : public detail::CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
  public:
   Precision precision() const override;
   std::string name() const override { return "halffloat"; }
@@ -431,7 +422,7 @@ class ARROW_EXPORT HalfFloatType
 
 /// Concrete type class for 32-bit floating-point data (C "float")
 class ARROW_EXPORT FloatType
-    : public detail::CTypeImpl<FloatType, FloatingPointType, Type::FLOAT, float> {
+    : public detail::CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
  public:
   Precision precision() const override;
   std::string name() const override { return "float"; }
@@ -439,7 +430,7 @@ class ARROW_EXPORT FloatType
 
 /// Concrete type class for 64-bit floating-point data (C "double")
 class ARROW_EXPORT DoubleType
-    : public detail::CTypeImpl<DoubleType, FloatingPointType, Type::DOUBLE, double> {
+    : public detail::CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
  public:
   Precision precision() const override;
   std::string name() const override { return "double"; }

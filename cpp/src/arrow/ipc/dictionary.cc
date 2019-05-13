@@ -41,36 +41,36 @@ Status DictionaryMemo::GetDictionary(int64_t id,
   return Status::OK();
 }
 
-int64_t DictionaryMemo::GetOrAssignId(const std::shared_ptr<DataType>& type) {
-  intptr_t address = reinterpret_cast<intptr_t>(type.get());
-  auto it = type_to_id_.find(address);
-  if (it != type_to_id_.end()) {
-    // Type already observed, return the id
+int64_t DictionaryMemo::GetOrAssignId(const std::shared_ptr<Field>& field) {
+  intptr_t address = reinterpret_cast<intptr_t>(field.get());
+  auto it = field_to_id_.find(address);
+  if (it != field_to_id_.end()) {
+    // Field already observed, return the id
     return it->second;
   } else {
-    int64_t new_id = static_cast<int64_t>(type_to_id_.size());
-    type_to_id_[address] = new_id;
-    id_to_type_[new_id] = type;
+    int64_t new_id = static_cast<int64_t>(field_to_id_.size());
+    field_to_id_[address] = new_id;
+    id_to_field_[new_id] = field;
     return new_id;
   }
 }
 
-Status DictionaryMemo::GetId(const DataType& type, int64_t* id) {
-  intptr_t address = reinterpret_cast<intptr_t>(&type);
-  auto it = type_to_id_.find(address);
-  if (it != type_to_id_.end()) {
-    // Type already observed, return the id
+Status DictionaryMemo::GetId(const Field& field, int64_t* id) const {
+  intptr_t address = reinterpret_cast<intptr_t>(&field);
+  auto it = field_to_id_.find(address);
+  if (it != field_to_id_.end()) {
+    // Field already observed, return the id
     *id = it->second;
     return Status::OK();
   } else {
-    return Status::KeyError("Type with memory address ", address, " not found");
+    return Status::KeyError("Field with memory address ", address, " not found");
   }
 }
 
-bool DictionaryMemo::HasDictionary(const std::shared_ptr<DataType>& type) const {
-  intptr_t address = reinterpret_cast<intptr_t>(type.get());
-  auto it = type_to_id_.find(address);
-  return it != type_to_id_.end();
+bool DictionaryMemo::HasDictionary(const std::shared_ptr<Field>& field) const {
+  intptr_t address = reinterpret_cast<intptr_t>(field.get());
+  auto it = field_to_id_.find(address);
+  return it != field_to_id_.end();
 }
 
 bool DictionaryMemo::HasDictionaryId(int64_t id) const {
@@ -83,9 +83,7 @@ Status DictionaryMemo::AddDictionary(int64_t id,
   if (HasDictionaryId(id)) {
     return Status::KeyError("Dictionary with id ", id, " already exists");
   }
-  intptr_t address = reinterpret_cast<intptr_t>(dictionary.get());
   id_to_dictionary_[id] = dictionary;
-  dictionary_to_id_[address] = id;
   return Status::OK();
 }
 

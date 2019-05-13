@@ -21,8 +21,10 @@
 #include <memory>
 #include <string>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -40,19 +42,65 @@ namespace json {
 // ----------------------------------------------------------------------
 // Writer implementation
 
+struct DictionaryCollector {
+  DictionaryMemo* dictionary_memo_;
+
+  Status Visit(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& array) {
+    auto type = array->type();
+    if (type->id() == Type::DICTIONARY) {
+      const auto& dict_array = static_cast<const DictionaryArray&>(*array);
+      int64_t id = dictionary_memo_->GetOrAssignId(field);
+      RETURN_NOT_OK(dictionary_memo_->AddDictionary(id, dict_array.dictionary()));
+    } else {
+      for (int i = 0; i < type->num_children(); ++i) {
+        RETURN_NOT_OK(Visit(type->child(i), MakeArray(array->data()->child_data[i])));
+      }
+    }
+    return Status::OK();
+  }
+
+  Status Collect(const RecordBatch& batch) {
+    const Schema& schema = *batch.schema();
+    for (int i = 0; i < schema.num_fields(); ++i) {
+      RETURN_NOT_OK(Visit(schema.field(i), batch.column(i)));
+    }
+    return Status::OK();
+  }
+};
+
 class JsonWriter::JsonWriterImpl {
  public:
-  explicit JsonWriterImpl(const std::shared_ptr<Schema>& schema) : schema_(schema) {
+  explicit JsonWriterImpl(const std::shared_ptr<Schema>& schema)
+      : schema_(schema), first_batch_written_(false) {
     writer_.reset(new RjWriter(string_buffer_));
   }
 
   Status Start() {
     writer_->StartObject();
-    RETURN_NOT_OK(json::WriteSchema(*schema_, writer_.get()));
+    RETURN_NOT_OK(json::WriteSchema(*schema_, &dictionary_memo_, writer_.get()));
+    return Status::OK();
+  }
+
+  Status FirstRecordBatch(const RecordBatch& batch) {
+    {
+      DictionaryCollector collector{&dictionary_memo_};
+      RETURN_NOT_OK(collector.Collect(batch));
+    }
+
+    // Write dictionaries, if any
+    if (dictionary_memo_.size() > 0) {
+      writer_->Key("dictionaries");
+      writer_->StartArray();
+      for (const auto& entry : dictionary_memo_.id_to_dictionary()) {
+        RETURN_NOT_OK(WriteDictionary(entry.first, entry.second, writer_.get()));
+      }
+      writer_->EndArray();
+    }
 
     // Record batches
     writer_->Key("batches");
     writer_->StartArray();
+    first_batch_written_ = true;
     return Status::OK();
   }
 
@@ -66,11 +114,18 @@ class JsonWriter::JsonWriterImpl {
 
   Status WriteRecordBatch(const RecordBatch& batch) {
     DCHECK_EQ(batch.num_columns(), schema_->num_fields());
-    return json::WriteRecordBatch(batch, writer_.get());
+
+    if (!first_batch_written_) {
+      RETURN_NOT_OK(FirstRecordBatch(batch));
+    }
+    return json::WriteRecordBatch(batch, &dictionary_memo_, writer_.get());
   }
 
  private:
   std::shared_ptr<Schema> schema_;
+  DictionaryMemo dictionary_memo_;
+
+  bool first_batch_written_;
 
   rj::StringBuffer string_buffer_;
   std::unique_ptr<RjWriter> writer_;
@@ -109,7 +164,7 @@ class JsonReader::JsonReaderImpl {
       return Status::IOError("JSON parsing failed");
     }
 
-    RETURN_NOT_OK(json::ReadSchema(doc_, pool_, &schema_));
+    RETURN_NOT_OK(json::ReadSchema(doc_, pool_, &dictionary_memo_, &schema_));
 
     auto it = doc_.FindMember("batches");
     RETURN_NOT_ARRAY("batches", it, doc_);
@@ -118,12 +173,13 @@ class JsonReader::JsonReaderImpl {
     return Status::OK();
   }
 
-  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const {
+  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
     DCHECK_GE(i, 0) << "i out of bounds";
     DCHECK_LT(i, static_cast<int>(record_batches_->GetArray().Size()))
         << "i out of bounds";
 
-    return json::ReadRecordBatch(record_batches_->GetArray()[i], schema_, pool_, batch);
+    return json::ReadRecordBatch(record_batches_->GetArray()[i], schema_,
+                                 &dictionary_memo_, pool_, batch);
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }

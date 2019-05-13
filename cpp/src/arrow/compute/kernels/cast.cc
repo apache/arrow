@@ -176,8 +176,8 @@ struct is_integral_signed_to_unsigned {
 template <typename O, typename I>
 struct is_integral_signed_to_unsigned<
     O, I,
-    typename std::enable_if<std::is_base_of<IntegerType, O>::value &&
-                            std::is_base_of<IntegerType, I>::value>::type> {
+    typename std::enable_if<is_integer_type<O>::value &&
+                            is_integer_type<I>::value>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -194,8 +194,8 @@ struct is_integral_unsigned_to_signed {
 template <typename O, typename I>
 struct is_integral_unsigned_to_signed<
     O, I,
-    typename std::enable_if<std::is_base_of<IntegerType, O>::value &&
-                            std::is_base_of<IntegerType, I>::value>::type> {
+    typename std::enable_if<is_integer_type<O>::value &&
+                            is_integer_type<I>::value>::type> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -827,8 +827,8 @@ struct UnpackHelper<
 };
 
 template <typename T>
-struct UnpackHelper<
-    T, typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value>::type> {
+struct UnpackHelper<T, typename std::enable_if<is_number_type<T>::value ||
+                                               is_temporal_type<T>::value>::type> {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
   template <typename IndexType>
