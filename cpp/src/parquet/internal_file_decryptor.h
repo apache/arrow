@@ -99,14 +99,14 @@ class InternalFileDecryptor {
   FileDecryptionProperties* properties_;
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
-    std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-    std::shared_ptr<Decryptor>,
-    parquet::schema::ColumnPath::CmpColumnPath>>
-    column_data_map_;
-  std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-    std::shared_ptr<Decryptor>,
-    parquet::schema::ColumnPath::CmpColumnPath>>
-    column_metadata_map_;
+  std::shared_ptr<
+      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
+               parquet::schema::ColumnPath::CmpColumnPath>>
+      column_data_map_;
+  std::shared_ptr<
+      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
+               parquet::schema::ColumnPath::CmpColumnPath>>
+      column_metadata_map_;
 
   std::shared_ptr<Decryptor> footer_metadata_decryptor_;
   std::shared_ptr<Decryptor> footer_data_decryptor_;

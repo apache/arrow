@@ -18,9 +18,9 @@
 #ifndef INTERNAL_FILE_ENCRYPTOR_H
 #define INTERNAL_FILE_ENCRYPTOR_H
 
+#include <map>
 #include <memory>
 #include <string>
-#include <map>
 
 #include "parquet/schema.h"
 
@@ -63,14 +63,14 @@ class InternalFileEncryptor {
  private:
   FileEncryptionProperties* properties_;
 
-  std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-    std::shared_ptr<Encryptor>,
-    parquet::schema::ColumnPath::CmpColumnPath>>
-    column_data_map_;
-  std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-    std::shared_ptr<Encryptor>,
-    parquet::schema::ColumnPath::CmpColumnPath>>
-    column_metadata_map_;
+  std::shared_ptr<
+      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
+               parquet::schema::ColumnPath::CmpColumnPath>>
+      column_data_map_;
+  std::shared_ptr<
+      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
+               parquet::schema::ColumnPath::CmpColumnPath>>
+      column_metadata_map_;
 
   std::shared_ptr<Encryptor> footer_signing_encryptor_;
   std::shared_ptr<Encryptor> footer_encryptor_;

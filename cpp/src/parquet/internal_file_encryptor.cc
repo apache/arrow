@@ -45,17 +45,17 @@ int Encryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* cip
 // InternalFileEncryptor
 InternalFileEncryptor::InternalFileEncryptor(FileEncryptionProperties* properties)
     : properties_(properties) {
-  column_data_map_ = std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-       std::shared_ptr<Encryptor>, parquet::schema::ColumnPath::CmpColumnPath>>(
-           new std::map<std::shared_ptr<schema::ColumnPath>,
-           std::shared_ptr<Encryptor>,
-           schema::ColumnPath::CmpColumnPath>());
+  column_data_map_ = std::shared_ptr<
+      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
+               parquet::schema::ColumnPath::CmpColumnPath>>(
+      new std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
+                   schema::ColumnPath::CmpColumnPath>());
 
-  column_metadata_map_ = std::shared_ptr<std::map<std::shared_ptr<schema::ColumnPath>,
-       std::shared_ptr<Encryptor>, parquet::schema::ColumnPath::CmpColumnPath>>(
-           new std::map<std::shared_ptr<schema::ColumnPath>,
-           std::shared_ptr<Encryptor>,
-           schema::ColumnPath::CmpColumnPath>());
+  column_metadata_map_ = std::shared_ptr<
+      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
+               parquet::schema::ColumnPath::CmpColumnPath>>(
+      new std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
+                   schema::ColumnPath::CmpColumnPath>());
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
@@ -67,8 +67,7 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
   std::string footer_key = properties_->footer_encryption_key();
   auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_key.size());
   std::shared_ptr<Encryptor> encryptor = std::make_shared<Encryptor>(
-      aes_encryptor, footer_key, properties_->file_aad(),
-      aad);
+      aes_encryptor, footer_key, properties_->file_aad(), aad);
   footer_encryptor_ = encryptor;
   return encryptor;
 }
@@ -82,8 +81,7 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {
   std::string footer_signing_key = properties_->footer_signing_key();
   auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_signing_key.size());
   std::shared_ptr<Encryptor> encryptor = std::make_shared<Encryptor>(
-      aes_encryptor, footer_signing_key,
-      properties_->file_aad(), aad);
+      aes_encryptor, footer_signing_key, properties_->file_aad(), aad);
   footer_signing_encryptor_ = encryptor;
   return encryptor;
 }
@@ -132,8 +130,8 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
                                 : GetDataAesEncryptor(algorithm, key.size());
 
   std::string file_aad = properties_->file_aad();
-  std::shared_ptr<Encryptor> encryptor = std::make_shared<Encryptor>(
-      aes_encryptor, key, file_aad, "");
+  std::shared_ptr<Encryptor> encryptor =
+      std::make_shared<Encryptor>(aes_encryptor, key, file_aad, "");
   if (metadata)
     (*column_metadata_map_)[column_path] = encryptor;
   else

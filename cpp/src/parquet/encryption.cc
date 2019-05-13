@@ -17,10 +17,10 @@
 
 #include "parquet/encryption.h"
 
-#include <string.h>
-#include <utility>
 #include <openssl/rand.h>
+#include <string.h>
 #include <map>
+#include <utility>
 
 #include "arrow/util/utf8.h"
 
@@ -114,7 +114,7 @@ FileDecryptionProperties::FileDecryptionProperties(
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     const std::map<std::shared_ptr<schema::ColumnPath>,
                    std::shared_ptr<ColumnDecryptionProperties>,
-    schema::ColumnPath::CmpColumnPath>& column_properties,
+                   schema::ColumnPath::CmpColumnPath>& column_properties,
     bool plaintext_files_allowed) {
   DCHECK(!footer_key.empty() || NULLPTR != key_retriever ||
          0 != column_properties.size());
