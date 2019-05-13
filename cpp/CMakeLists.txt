@@ -252,8 +252,14 @@ endif()
 if(MSVC)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
+  set(ARROW_ORC_JNI OFF)
   # Plasma using glog is not fully tested on windows.
   set(ARROW_USE_GLOG OFF)
+endif()
+
+if(ARROW_ORC_JNI)
+  set(ARROW_ORC ON)
+  set(ARROW_BUILD_STATIC ON)
 endif()
 
 if(ARROW_ORC)

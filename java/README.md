@@ -45,6 +45,15 @@ mvn install -P gandiva -pl gandiva -am -Dgandiva.cpp.build.dir=../../debug
 This library is still in Alpha stages, and subject to API changes without
 deprecation warnings.
 
+## Building and running tests for native orc (optional)
+Arrow Cpp must be built before this step. The cpp build directory must
+be provided as the value for argument arrow.cpp.build.dir. eg.
+
+```
+cd java
+mvn install -P native-orc -pl adapter/orc -am -Dgandiva.cpp.build.dir=../../debug
+```
+
 ## Java Code Style Guide
 
 Arrow Java follows the Google style guide [here][3] with the following
