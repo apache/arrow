@@ -901,7 +901,6 @@ garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
 
 
 typedef struct GArrowCSVReadOptionsPrivate_ {
-  arrow::MemoryPool *pool;
   arrow::csv::ReadOptions read_options;
   arrow::csv::ParseOptions parse_options;
   arrow::csv::ConvertOptions convert_options;
@@ -1037,7 +1036,6 @@ static void
 garrow_csv_read_options_init(GArrowCSVReadOptions *object)
 {
   auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(object);
-  priv->pool = arrow::default_memory_pool();
   priv->read_options = arrow::csv::ReadOptions::Defaults();
   priv->parse_options = arrow::csv::ParseOptions::Defaults();
   priv->convert_options = arrow::csv::ConvertOptions::Defaults();
@@ -1442,7 +1440,7 @@ garrow_csv_reader_new(GArrowInputStream *input,
   std::shared_ptr<arrow::csv::TableReader> arrow_reader;
   if (options) {
     auto options_priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
-    status = arrow::csv::TableReader::Make(options_priv->pool,
+    status = arrow::csv::TableReader::Make(arrow::default_memory_pool(),
                                            arrow_input,
                                            options_priv->read_options,
                                            options_priv->parse_options,
@@ -1490,7 +1488,6 @@ garrow_csv_reader_read(GArrowCSVReader *reader,
 
 
 typedef struct GArrowJSONReadOptionsPrivate_ {
-  arrow::MemoryPool *pool;
   arrow::json::ReadOptions read_options;
   arrow::json::ParseOptions parse_options;
   GArrowSchema *schema;
@@ -1603,7 +1600,6 @@ static void
 garrow_json_read_options_init(GArrowJSONReadOptions *object)
 {
   auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object);
-  priv->pool = arrow::default_memory_pool();
   priv->read_options = arrow::json::ReadOptions::Defaults();
   priv->parse_options = arrow::json::ParseOptions::Defaults();
 }
@@ -1832,7 +1828,7 @@ garrow_json_reader_new(GArrowInputStream *input,
   std::shared_ptr<arrow::json::TableReader> arrow_reader;
   if (options) {
     auto options_priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(options);
-    status = arrow::json::TableReader::Make(options_priv->pool,
+    status = arrow::json::TableReader::Make(arrow::default_memory_pool(),
                                             arrow_input,
                                             options_priv->read_options,
                                             options_priv->parse_options,
