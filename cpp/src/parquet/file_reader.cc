@@ -29,11 +29,11 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
-#include "parquet/file_writer.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
 #include "parquet/deprecated_io.h"
 #include "parquet/exception.h"
+#include "parquet/file_writer.h"
 #include "parquet/internal_file_decryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
@@ -59,9 +59,9 @@ RowGroupReader::RowGroupReader(std::unique_ptr<Contents> contents)
     : contents_(std::move(contents)) {}
 
 std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
-  DCHECK(i < metadata()->num_columns())
-      << "The RowGroup only has " << metadata()->num_columns()
-      << "columns, requested column: " << i;
+  DCHECK(i < metadata()->num_columns()) << "The RowGroup only has "
+                                        << metadata()->num_columns()
+                                        << "columns, requested column: " << i;
   const ColumnDescriptor* descr = metadata()->schema()->Column(i);
 
   std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i);
@@ -71,9 +71,9 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
 }
 
 std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
-  DCHECK(i < metadata()->num_columns())
-      << "The RowGroup only has " << metadata()->num_columns()
-      << "columns, requested column: " << i;
+  DCHECK(i < metadata()->num_columns()) << "The RowGroup only has "
+                                        << metadata()->num_columns()
+                                        << "columns, requested column: " << i;
   return contents_->GetColumnPageReader(i);
 }
 
@@ -193,8 +193,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(
-        source_, file_metadata_.get(), i, properties_,
-        file_decryptor_.get()));
+        source_, file_metadata_.get(), i, properties_, file_decryptor_.get()));
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -259,7 +258,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       file_metadata_ = FileMetaData::Make(metadata_buffer->data(), &read_metadata_len);
 
       auto file_decryption_properties = properties_.file_decryption_properties();
-      if (!file_metadata_->is_encryption_algorithm_set()) { // Plaintext file
+      if (!file_metadata_->is_encryption_algorithm_set()) {  // Plaintext file
         if (file_decryption_properties != NULLPTR) {
           if (!file_decryption_properties->plaintext_files_allowed()) {
             throw ParquetException("Applying decryption properties on plaintext file");
@@ -293,8 +292,7 @@ class SerializedFile : public ParquetFileReader::Contents {
         std::string file_aad = aad_prefix + algo.aad.aad_file_unique;
 
         file_decryptor_.reset(new InternalFileDecryptor(
-            file_decryption_properties,
-            file_aad, algo.algorithm,
+            file_decryption_properties, file_aad, algo.algorithm,
             file_metadata_->footer_signing_key_metadata()));
 
         if (file_decryption_properties->check_plaintext_footer_integrity()) {
@@ -306,8 +304,9 @@ class SerializedFile : public ParquetFileReader::Contents {
           auto encryptor = file_decryptor_->GetFooterSigningEncryptor();
           if (!file_metadata_->verify(encryptor,
                                       metadata_buffer->data() + read_metadata_len)) {
-            throw ParquetException("Invalid parquet file. Could not verify plaintext "
-                                   "footer metadata");
+            throw ParquetException(
+                "Invalid parquet file. Could not verify plaintext "
+                "footer metadata");
           }
         }
       }
@@ -369,9 +368,9 @@ class SerializedFile : public ParquetFileReader::Contents {
             "in decryption properties");
       }
       std::string file_aad = aad_prefix + algo.aad.aad_file_unique;
-      file_decryptor_.reset(new InternalFileDecryptor(file_decryption_properties,
-						      file_aad, algo.algorithm,
-						      file_crypto_metadata->key_metadata()));
+      file_decryptor_.reset(
+          new InternalFileDecryptor(file_decryption_properties, file_aad, algo.algorithm,
+                                    file_crypto_metadata->key_metadata()));
       int64_t metadata_offset =
           file_size - kFooterSize - footer_len + crypto_metadata_len;
       uint32_t metadata_len = footer_len - crypto_metadata_len;
@@ -479,9 +478,9 @@ std::shared_ptr<FileMetaData> ParquetFileReader::metadata() const {
 }
 
 std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
-  DCHECK(i < metadata()->num_row_groups())
-      << "The file only has " << metadata()->num_row_groups()
-      << "row groups, requested reader for: " << i;
+  DCHECK(i < metadata()->num_row_groups()) << "The file only has "
+                                           << metadata()->num_row_groups()
+                                           << "row groups, requested reader for: " << i;
   return contents_->GetRowGroup(i);
 }
 

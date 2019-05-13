@@ -19,8 +19,8 @@
 #define PARQUET_ENCRYPTION_H
 
 #include <map>
-#include <string>
 #include <memory>
+#include <string>
 #include <unordered_map>
 
 #include "arrow/util/logging.h"
@@ -29,7 +29,6 @@
 #include "parquet/schema.h"
 #include "parquet/types.h"
 #include "parquet/util/visibility.h"
-
 
 namespace parquet {
 
@@ -318,7 +317,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     // The caller should use then a different method to ensure encryption
     // of files with sensitive data.
     Builder* plaintext_files_allowed() {
-      plaintext_files_allowed_  = true;
+      plaintext_files_allowed_ = true;
       return this;
     }
 
@@ -380,7 +379,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
       std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
       const std::map<std::shared_ptr<schema::ColumnPath>,
                      std::shared_ptr<ColumnDecryptionProperties>,
-      schema::ColumnPath::CmpColumnPath>& column_properties,
+                     schema::ColumnPath::CmpColumnPath>& column_properties,
       bool plaintext_files_allowed);
 };
 
@@ -523,7 +522,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
                      std::shared_ptr<ColumnEncryptionProperties>,
                      schema::ColumnPath::CmpColumnPath>& column_properties);
 };
-
 
 }  // namespace parquet
 
