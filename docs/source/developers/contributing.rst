@@ -52,8 +52,7 @@ In addition, the project's `Confluence site <https://cwiki.apache.org/confluence
 has some useful higher-level views of the JIRA issues.
 
 To create a JIRA issue, you'll need to have an account on the ASF JIRA, which
-you can sign yourself up for
-`here <https://issues.apache.org/jira/secure/Signup!default.jspa>`_. No
+you can `sign yourself up for <https://issues.apache.org/jira/secure/Signup!default.jspa>`_. No
 additional permissions are needed to create issues. Only once you are involved
 in the project and want to do more on JIRA, such as assign yourself an issue,
 will you need "Contributor" permissions on the Apache Arrow JIRA. To get this
