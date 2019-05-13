@@ -283,4 +283,51 @@ GArrowTable *garrow_csv_reader_read(GArrowCSVReader *reader,
                                     GError **error);
 
 
+/**
+ * GArrowJSONReadUnexpectedFieldBehavior:
+ * @GARROW_JSON_READ_IGNORE: Ignore other fields.
+ * @GARROW_JSON_READ_ERROR: Return error.
+ * @GARROW_JSON_READ_INFER_TYPE: Infer a type.
+ *
+ * They are corresponding to `arrow::json::UnexpectedFieldBehavior` values.
+ */
+typedef enum {
+  GARROW_JSON_READ_IGNORE,
+  GARROW_JSON_READ_ERROR,
+  GARROW_JSON_READ_INFER_TYPE,
+} GArrowJSONReadUnexpectedFieldBehavior;
+
+#define GARROW_TYPE_JSON_READ_OPTIONS (garrow_json_read_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowJSONReadOptions,
+                         garrow_json_read_options,
+                         GARROW,
+                         JSON_READ_OPTIONS,
+                         GObject)
+struct _GArrowJSONReadOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_14
+GArrowJSONReadOptions *garrow_json_read_options_new(void);
+
+#define GARROW_TYPE_JSON_READER (garrow_json_reader_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowJSONReader,
+                         garrow_json_reader,
+                         GARROW,
+                         JSON_READER,
+                         GObject)
+struct _GArrowJSONReaderClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_14
+GArrowJSONReader *garrow_json_reader_new(GArrowInputStream *input,
+                                         GArrowJSONReadOptions *options,
+                                         GError **error);
+GARROW_AVAILABLE_IN_0_14
+GArrowTable *garrow_json_reader_read(GArrowJSONReader *reader,
+                                     GError **error);
+
 G_END_DECLS
