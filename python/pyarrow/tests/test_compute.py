@@ -106,10 +106,11 @@ def test_take_dictionary(ordered):
 
 
 @pytest.mark.parametrize('array', [
-    pa.array([[1, 2], [3, 4], [5, 6]]),
-    pa.array([{'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}]),
+    [[1, 2], [3, 4], [5, 6]],
+    [{'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}],
 ], ids=['listarray', 'structarray'])
 def test_take_notimplemented(array):
+    array = pa.array(array)
     indices = pa.array([0, 2])
     with pytest.raises(NotImplementedError):
         array.take(indices)
