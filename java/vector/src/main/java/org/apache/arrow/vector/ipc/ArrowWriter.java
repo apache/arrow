@@ -99,7 +99,7 @@ public abstract class ArrowWriter implements AutoCloseable {
   }
 
   /**
-   * Write the vector this vector was constructed with.
+   * Writes the record batch currently loaded in this instance's VectorSchemaRoot.
    */
   public void writeBatch() throws IOException {
     ensureStarted();

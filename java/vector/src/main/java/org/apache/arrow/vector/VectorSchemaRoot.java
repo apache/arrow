@@ -93,7 +93,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Creates a new set of vectors corresponding to schema that are empty.
+   * Creates a new set of empty vectors corresponding to the given schema.
    */
   public static VectorSchemaRoot create(Schema schema, BufferAllocator allocator) {
     List<FieldVector> fieldVectors = new ArrayList<>();
@@ -186,7 +186,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Returns a a tab separated value of vectors (based on their java object representation).
+   * Returns a tab separated value of vectors (based on their java object representation).
    */
   public String contentToTSVString() {
     StringBuilder sb = new StringBuilder();

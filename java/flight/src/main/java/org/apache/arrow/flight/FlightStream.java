@@ -205,7 +205,7 @@ public class FlightStream {
   }
 
   /**
-   * Cancel's sending the stream to a client.
+   * Cancels sending the stream to a client.
    *
    * @throws UnsupportedOperationException on a stream being uploaded from the client.
    */

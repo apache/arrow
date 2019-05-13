@@ -65,8 +65,9 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * A reader for integration test JSON files that converts translates them into Vectors.
- * This class uses a streaming parser API, method naming tends to reflect this implementation
+ * A reader for JSON files that translates them into vectors. This reader is used for integration tests.
+ *
+ * <p>This class uses a streaming parser API, method naming tends to reflect this implementation
  * detail.
  */
 public class JsonFileReader implements AutoCloseable, DictionaryProvider {

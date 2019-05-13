@@ -27,7 +27,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * Helper class the handles converting a vector the a {@link ArrowRecordBatch}.
+ * Helper class that handles converting a vector the a {@link ArrowRecordBatch}.
  */
 public class VectorUnloader {
 

@@ -36,7 +36,7 @@ import org.apache.arrow.vector.ipc.ArrowStreamReader;
  */
 public class StreamToFile {
   /**
-   *  Reads a record batchs from in and writes them to out.
+   *  Reads an Arrow stream from <code>in</code> and writes it to <code>out</code>.
    */
   public static void convert(InputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
