@@ -25,7 +25,6 @@
 #include <string>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
@@ -46,10 +45,10 @@
 
 namespace arrow {
 
-using arrow::internal::BitmapReader;
 using internal::checked_cast;
 using internal::DictionaryTraits;
 using internal::HashTraits;
+
 namespace compute {
 
 #define CHECK_IMPLEMENTED(KERNEL, FUNCNAME, TYPE)                                       \
@@ -79,9 +78,12 @@ class HashBinaryKernelImpl : public BinaryKernel {
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
 };
 
+// ----------------------------------------------------------------------
+// Using a visitor create a memo_table_ for the right array
+// TODO: Implement for small lists
+
 template <typename Type, typename Scalar>
 struct MemoTableRight {
- public:
   Status VisitNull() { return Status::OK(); }
 
   Status VisitValue(const Scalar& value) {
@@ -97,6 +99,18 @@ struct MemoTableRight {
   using MemoTable = typename HashTraits<Type>::MemoTableType;
   std::unique_ptr<MemoTable> memo_table_;
 };
+
+// ----------------------------------------------------------------------
+// Check if value in both arrays or not and returns boolean values
+
+// \brief Iterate over the left array using another visitor.
+// In VisitValue, use the memo_table_ (for right array) and check if value
+// in left array is in the memo_table_. Append the true to the
+// BooleanBuilder if condition satisfied, else false.
+
+// Additional member "right_null_count" is used to check if
+// null count in right is not 0, then append true to the BooleanBuilder
+// when left array has a null, else append false.
 
 template <typename T, typename Scalar>
 class IsInKernel : public HashBinaryKernelImpl {
@@ -125,6 +139,7 @@ class IsInKernel : public HashBinaryKernelImpl {
                  std::shared_ptr<ArrayData>& out) override {
     bool_builder_.Reset();
     bool_builder_.Reserve(left.length);
+    memo_table_.reset(new MemoTable(0));
 
     MemoTableRight<T, Scalar> func;
     func.Append(right);
@@ -145,6 +160,12 @@ class IsInKernel : public HashBinaryKernelImpl {
  private:
   BooleanBuilder bool_builder_;
 };
+
+// ----------------------------------------------------------------------
+// (NullType has a separate implementation)
+
+// \brief When array is NullType, based on the null_count for the arrays,
+// append true/false tp the BooleanBuilder
 
 class NullIsInKernel : public HashBinaryKernelImpl {
  public:
@@ -171,6 +192,9 @@ class NullIsInKernel : public HashBinaryKernelImpl {
  private:
   BooleanBuilder bool_builder_;
 };
+
+// ----------------------------------------------------------------------
+// Kernel wrapper for generic hash table kernels
 
 template <typename Type, typename Enable = void>
 struct HashBinaryKernelTraits {};
