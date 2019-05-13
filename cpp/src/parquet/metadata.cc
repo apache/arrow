@@ -1204,7 +1204,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
     metadata_.reset(new format::FileMetaData());
     if (props->file_encryption() != nullptr &&
-        props->file_encryption()->footer_signing_key() == NULL_STRING) {
+        props->file_encryption()->footer_signing_key().empty()) {
       crypto_metadata_.reset(new format::FileCryptoMetaData());
     }
   }

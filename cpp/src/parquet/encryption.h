@@ -33,7 +33,6 @@
 
 namespace parquet {
 
-static const std::string NULL_STRING = "";
 static constexpr ParquetCipher::type DEFAULT_ENCRYPTION_ALGORITHM =
     ParquetCipher::AES_GCM_V1;
 static constexpr int32_t MAXIMAL_AAD_METADATA_LENGTH = 256;
@@ -364,6 +363,8 @@ class PARQUET_EXPORT FileDecryptionProperties {
   std::string aad_prefix_;
   std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier_;
 
+  const std::string empty_string_ = "";
+
   std::map<std::shared_ptr<schema::ColumnPath>,
            std::shared_ptr<ColumnDecryptionProperties>, schema::ColumnPath::CmpColumnPath>
       column_properties_;
@@ -481,19 +482,19 @@ class PARQUET_EXPORT FileEncryptionProperties {
   const EncryptionAlgorithm algorithm() { return algorithm_; }
 
   const std::string& footer_encryption_key() {
-    return (encrypted_footer_ ? footer_key_ : NULL_STRING);
+    return (encrypted_footer_ ? footer_key_ : empty_string_);
   }
 
   const std::string& footer_encryption_key_metadata() {
-    return (encrypted_footer_ ? footer_key_metadata_ : NULL_STRING);
+    return (encrypted_footer_ ? footer_key_metadata_ : empty_string_);
   }
 
   const std::string& footer_signing_key() {
-    return (encrypted_footer_ ? NULL_STRING : footer_key_);
+    return (encrypted_footer_ ? empty_string_ : footer_key_);
   }
 
   const std::string& footer_signing_key_metadata() {
-    return (encrypted_footer_ ? NULL_STRING : footer_key_metadata_);
+    return (encrypted_footer_ ? empty_string_ : footer_key_metadata_);
   }
 
   const std::string& file_aad() const { return file_aad_; }
@@ -507,6 +508,8 @@ class PARQUET_EXPORT FileEncryptionProperties {
   std::string footer_key_metadata_;
   bool encrypted_footer_;
   std::string file_aad_;
+
+  const std::string empty_string_ = "";
 
   std::map<std::shared_ptr<schema::ColumnPath>,
            std::shared_ptr<ColumnEncryptionProperties>, schema::ColumnPath::CmpColumnPath>
