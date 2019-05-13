@@ -104,7 +104,7 @@ const std::string& FileDecryptionProperties::column_key(
       return column_prop->key();
     }
   }
-  return NULL_STRING;
+  return empty_string_;
 }
 
 FileDecryptionProperties::FileDecryptionProperties(
