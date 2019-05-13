@@ -28,6 +28,7 @@ patterns = [
     # Keep an explicit list of files to format as we don't want to reformat
     # files we imported from other location.
     'cpp/cmake_modules/BuildUtils.cmake',
+    'cpp/cmake_modules/DefineOptions.cmake',
     'cpp/cmake_modules/FindArrowCuda.cmake',
     'cpp/cmake_modules/FindBrotli.cmake',
     'cpp/cmake_modules/FindClangTools.cmake',
