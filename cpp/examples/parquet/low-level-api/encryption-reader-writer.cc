@@ -22,24 +22,22 @@
 
 #include <reader_writer.h>
 
-/*
- * This example describes writing and reading Parquet Files in C++ and serves as a
- * reference to the API.
- * The file contains all the physical data types supported by Parquet.
- * This example uses the RowGroupWriter API that supports writing RowGroups optimized for
- *memory consumption
- **/
 
-/* Parquet is a structured columnar file format
- * Parquet File = "Parquet data" + "Parquet Metadata"
- * "Parquet data" is simply a vector of RowGroups. Each RowGroup is a batch of rows in a
- * columnar layout
- * "Parquet Metadata" contains the "file schema" and attributes of the RowGroups and their
- * Columns
- * "file schema" is a tree where each node is either a primitive type (leaf nodes) or a
- * complex (nested) type (internal nodes)
- * For specific details, please refer the format here:
- * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
+
+/*
+ * This example describes writing and reading Parquet Files in C++ with encrypted columns
+ * and serves as a reference to the Parquet Modular Encryption API.
+ *
+ * A detailed description of the Parquet Modular Encryption specification can be found here:
+ * https://github.com/apache/parquet-format/blob/encryption/Encryption.md
+ *
+ * The example contains writing and reading eight columns with the following four different 
+ * encryption configurations:
+ * 1) uniform encryption - footer and all columns are encrypted with footer key.
+ * 2) non-uniform encryption - footer and ba_field column are encrypted with different keys.
+ * 3) plaintext footer mode where all columns are encrypted with footer key. 
+ * 4) footer and ba_field column are encrypted with different keys. no column key 
+ *    is provided upon decryption and thus HiddenColumnException is thrown.
  **/
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
@@ -49,71 +47,83 @@ const std::string COLUMN_ENCRYPTION_KEY = "1234567890123450"; // 16 bytes
 
 int main(int argc, char** argv) {
 
-  std::vector<std::shared_ptr<parquet::FileEncryptionProperties>> file_encryption_properties;
-  std::vector<std::shared_ptr<parquet::FileDecryptionProperties>> file_decryption_properties;
+  std::vector<std::shared_ptr<parquet::FileEncryptionProperties>> vector_of_encryption_configurations;
+  std::vector<std::shared_ptr<parquet::FileDecryptionProperties>> vector_of_decryption_configurations;
 
-  // uniform encryption
+  // encryption configuration #1 - uniform encryption - all columns and footer are
+  // encrypted with footer key.
   parquet::FileEncryptionProperties::Builder file_encryption_builder_1(FOOTER_ENCRYPTION_KEY);
-  parquet::FileDecryptionProperties::Builder decryption_properties_builder_1;
-  decryption_properties_builder_1.footer_key(FOOTER_ENCRYPTION_KEY);
+  parquet::FileDecryptionProperties::Builder file_decryption_builder_1;
+  
+  // Add the properties to the appropriate configurations vectors
+  vector_of_encryption_configurations.push_back(file_encryption_builder_1.build());
+  vector_of_decryption_configurations.push_back(file_decryption_builder_1
+                                            .footer_key(FOOTER_ENCRYPTION_KEY)
+                                            ->build());
 
-  // non-uniform with column keys
+  // encryption configuration #2 - footer and ba_field column are encrypted with
+  // different keys.
   std::map<std::shared_ptr<parquet::schema::ColumnPath>,
            std::shared_ptr<parquet::ColumnEncryptionProperties>,
            parquet::schema::ColumnPath::CmpColumnPath> encryption_cols;
   std::shared_ptr<parquet::schema::ColumnPath> path_ptr = parquet::schema::ColumnPath::FromDotString("ba_field");
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_0(path_ptr);
-  encryption_col_builder_0.key(COLUMN_ENCRYPTION_KEY);
-  auto encryption_col0 = encryption_col_builder_0.build();
-  encryption_cols[path_ptr] = encryption_col0;
+  encryption_cols[path_ptr] = encryption_col_builder_0.
+    key(COLUMN_ENCRYPTION_KEY)
+    ->build();
+
+  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
+           std::shared_ptr<parquet::ColumnDecryptionProperties>,
+           parquet::schema::ColumnPath::CmpColumnPath> decryption_cols;
+  parquet::ColumnDecryptionProperties::Builder decryption_col_builder2(path_ptr);
+  decryption_cols[path_ptr] = decryption_col_builder2.
+    key(COLUMN_ENCRYPTION_KEY)
+    ->build();
 
   parquet::FileEncryptionProperties::Builder file_encryption_builder_2(FOOTER_ENCRYPTION_KEY);
-      std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-             std::shared_ptr<parquet::ColumnDecryptionProperties>,
-             parquet::schema::ColumnPath::CmpColumnPath> decryption_cols;
-    parquet::ColumnDecryptionProperties::Builder decryption_col_builder2(path_ptr);
-    decryption_col_builder2.key(COLUMN_ENCRYPTION_KEY);
-    decryption_cols[path_ptr] = decryption_col_builder2.build();
+  parquet::FileDecryptionProperties::Builder file_decryption_builder_2;
 
-  file_encryption_builder_2.column_properties(encryption_cols);
-
-  parquet::FileDecryptionProperties::Builder decryption_properties_builder_2;
-  decryption_properties_builder_2.footer_key(FOOTER_ENCRYPTION_KEY);
-  decryption_properties_builder_2.column_properties(decryption_cols);
-
-  // plain mode footer =  unencrypted footer
+  // Add the properties to the appropriate configurations vectors
+  vector_of_encryption_configurations.push_back(file_encryption_builder_2
+                                       .column_properties(encryption_cols)
+                                       ->build());
+  vector_of_decryption_configurations.push_back(file_decryption_builder_2
+                                       .footer_key(FOOTER_ENCRYPTION_KEY)
+                                       ->column_properties(decryption_cols)
+                                       ->build());
+  
+  // encryption configuration #3 - plain mode footer 
   parquet::FileEncryptionProperties::Builder file_encryption_builder_3(FOOTER_ENCRYPTION_KEY);
-  file_encryption_builder_3.enable_plaintext_footer();
+  parquet::FileDecryptionProperties::Builder file_decryption_builder_3;
 
-  parquet::FileDecryptionProperties::Builder decryption_properties_builder_3;
-  decryption_properties_builder_3.footer_key(FOOTER_ENCRYPTION_KEY);
+  // Add the properties to the appropriate configurations vectors
+  vector_of_encryption_configurations.push_back(file_encryption_builder_3
+                                       .set_plaintext_footer()
+                                       ->build());
+  vector_of_decryption_configurations.push_back(file_decryption_builder_3
+                                       .footer_key(FOOTER_ENCRYPTION_KEY)
+                                       ->build());
 
- // plaintext mode footer, hidden column
+  // encryption configuration #4 - footer and ba_field column are encrypted with different keys.
+  // no column key is provided upon decryption and thus HiddenColumnException is thrown.
   parquet::FileEncryptionProperties::Builder file_encryption_builder_4(FOOTER_ENCRYPTION_KEY);
+  parquet::FileDecryptionProperties::Builder file_decryption_builder_4;
 
-  file_encryption_builder_4.enable_plaintext_footer();
-  file_encryption_builder_4.column_properties(encryption_cols);  // reusing encryption_cols
-  parquet::FileDecryptionProperties::Builder decryption_properties_builder_4;
-  decryption_properties_builder_4.footer_key(FOOTER_ENCRYPTION_KEY);
+  // Add the properties to the appropriate configurations vectors
+  vector_of_encryption_configurations.push_back(file_encryption_builder_4
+                                       .set_plaintext_footer()
+                                       ->column_properties(encryption_cols)
+                                       ->build());
 
-  file_encryption_properties.push_back(file_encryption_builder_1.build());
-  file_encryption_properties.push_back(file_encryption_builder_2.build());
-  file_encryption_properties.push_back(file_encryption_builder_3.build());
-  file_encryption_properties.push_back(file_encryption_builder_4.build());
+  vector_of_decryption_configurations.push_back(file_decryption_builder_4
+                                       .footer_key(FOOTER_ENCRYPTION_KEY)
+                                       ->build());
 
-  file_decryption_properties.push_back(decryption_properties_builder_1.build());
-  file_decryption_properties.push_back(decryption_properties_builder_2.build());
-  file_decryption_properties.push_back(decryption_properties_builder_3.build());
-  file_decryption_properties.push_back(decryption_properties_builder_4.build());
-
-  for (unsigned example_id = 0; example_id < file_encryption_properties.size(); ++example_id) {
+  for (unsigned example_id = 0; example_id < vector_of_encryption_configurations.size(); ++example_id) {
     /**********************************************************************************
                                PARQUET WRITER EXAMPLE
     **********************************************************************************/
-    // parquet::REQUIRED fields do not need definition and repetition level values
-    // parquet::OPTIONAL fields require only definition level values
-    // parquet::REPEATED fields require both definition and repetition level values
-    // setup for encryption
+    
     try {
 
      // Create a local file output stream instance.
@@ -127,7 +137,9 @@ int main(int argc, char** argv) {
       // Add writer properties
       parquet::WriterProperties::Builder builder;
       builder.compression(parquet::Compression::SNAPPY);
-      builder.encryption(file_encryption_properties[example_id]);
+
+      // Add the current encryption configuration to WriterProperties.
+      builder.encryption(vector_of_encryption_configurations[example_id]);
 
       std::shared_ptr<parquet::WriterProperties> props = builder.build();
 
@@ -243,7 +255,9 @@ int main(int argc, char** argv) {
 
     try {
       parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
-      reader_properties.file_decryption_properties(file_decryption_properties[example_id]);
+
+      // Add the current decryption configuration to ReaderProperties.
+      reader_properties.file_decryption_properties(vector_of_decryption_configurations[example_id]);
 
       // Create a ParquetReader instance
       std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
