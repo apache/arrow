@@ -51,8 +51,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples, default OFF" OFF)
 
-  set(ARROW_TEST_LINKAGE
-      "shared"
+  set(ARROW_TEST_LINKAGE "shared"
       CACHE STRING "Linkage of Arrow libraries with unit tests executables. \
 static|shared (default shared)")
 
@@ -139,8 +138,7 @@ static|shared (default shared)")
   else()
     set(ARROW_DEPENDENCY_SOURCE_DEFAULT "AUTO")
   endif()
-  set(ARROW_DEPENDENCY_SOURCE
-      "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
+  set(ARROW_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
       CACHE STRING "Compiler flags to append when compiling Arrow")
   set_property(CACHE ARROW_DEPENDENCY_SOURCE
                PROPERTY STRINGS
@@ -197,29 +195,23 @@ Note that this requires linking Boost statically" OFF)
 
     define_option(ARROW_USE_CLCACHE "Use clcache if available" ON)
 
-    set(BROTLI_MSVC_STATIC_LIB_SUFFIX
-        "-static"
+    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static"
         CACHE STRING
               "Brotli static lib suffix used on Windows with MSVC (default -static)")
     set(
-      PROTOBUF_MSVC_STATIC_LIB_SUFFIX
-      ""
+      PROTOBUF_MSVC_STATIC_LIB_SUFFIX ""
       CACHE
         STRING
         "Protobuf static lib suffix used on Windows with MSVC (default is empty string)")
-    set(RE2_MSVC_STATIC_LIB_SUFFIX
-        "_static"
+    set(RE2_MSVC_STATIC_LIB_SUFFIX "_static"
         CACHE STRING
               "re2 static lib suffix used on Windows with MSVC (default is _static)")
-    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX
-        "_static"
+    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static"
         CACHE STRING
               "Snappy static lib suffix used on Windows with MSVC (default is _static)")
-    set(LZ4_MSVC_STATIC_LIB_SUFFIX
-        "_static"
+    set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static"
         CACHE STRING "Lz4 static lib suffix used on Windows with MSVC (default _static)")
-    set(ZSTD_MSVC_STATIC_LIB_SUFFIX
-        "_static"
+    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static"
         CACHE STRING "ZStd static lib suffix used on Windows with MSVC (default _static)")
 
     define_option(ARROW_USE_STATIC_CRT "Build Arrow with statically linked CRT" OFF)
@@ -250,8 +242,7 @@ Always OFF if building binaries" OFF)
     "Include -static-libstdc++ -static-libgcc when linking with Gandiva static libraries"
     OFF)
 
-  set(ARROW_GANDIVA_PC_CXX_FLAGS
-      ""
+  set(ARROW_GANDIVA_PC_CXX_FLAGS ""
       CACHE STRING "Compiler flags to append when pre-compiling Gandiva operations")
 
   #----------------------------------------------------------------------
@@ -322,12 +313,12 @@ macro(config_summary)
   file(APPEND ${summary} "\"source_dir\": \"${CMAKE_CURRENT_SOURCE_DIR}\",\n")
   if(${CMAKE_EXPORT_COMPILE_COMMANDS})
     file(APPEND ${summary} "\"compile_commands\": "
-                        "\"${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json\",\n")
+                "\"${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json\",\n")
   endif()
   foreach(name ${ARROW_ALL_OPTION_NAMES})
     file(APPEND ${summary} "\"${name}\": \"${${name}}\",\n")
   endforeach()
-  file(APPEND ${summary} "\"arrow_version\": \"${ARROW_VERSION}\"\n" )
+  file(APPEND ${summary} "\"arrow_version\": \"${ARROW_VERSION}\"\n")
   file(APPEND ${summary} "}\n")
 
 endmacro()
