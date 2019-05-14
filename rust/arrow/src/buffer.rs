@@ -18,7 +18,6 @@
 //! The main type in the module is `Buffer`, a contiguous immutable memory region of
 //! fixed size aligned at a 64-byte boundary. `MutableBuffer` is like `Buffer`, but it can
 //! be mutated and grown.
-//!
 use packed_simd::u8x64;
 
 use std::cmp;
@@ -65,7 +64,9 @@ impl PartialEq for BufferData {
 /// Release the underlying memory when the current buffer goes out of scope
 impl Drop for BufferData {
     fn drop(&mut self) {
-        memory::free_aligned(self.ptr as *mut u8, self.len);
+        if !self.ptr.is_null() {
+            memory::free_aligned(self.ptr as *mut u8, self.len);
+        }
     }
 }
 
@@ -427,7 +428,9 @@ impl MutableBuffer {
 
 impl Drop for MutableBuffer {
     fn drop(&mut self) {
-        memory::free_aligned(self.data, self.capacity);
+        if !self.data.is_null() {
+            memory::free_aligned(self.data, self.capacity);
+        }
     }
 }
 
