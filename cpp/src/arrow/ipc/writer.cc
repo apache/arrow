@@ -892,7 +892,7 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
     RETURN_NOT_OK(CheckStarted());
 
     if (!wrote_dictionaries_) {
-      RETURN_NOT_OK(WriteDictionaries(batch, allow_64bit));
+      RETURN_NOT_OK(WriteDictionaries(batch));
       wrote_dictionaries_ = true;
     }
 
@@ -928,11 +928,11 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
     return Status::OK();
   }
 
-  Status WriteDictionaries(const RecordBatch& batch, bool allow_64bit = false) {
+  Status WriteDictionaries(const RecordBatch& batch) {
     RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
 
-    internal::IpcPayload payload;
     for (auto& pair : dictionary_memo_->id_to_dictionary()) {
+      internal::IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;
 
