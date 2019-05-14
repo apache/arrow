@@ -523,9 +523,8 @@ class FileMetaData::FileMetaDataImpl {
 
       // write unencrypted footer
       dst->Write(serialized_data, serialized_len);
-      // write nonce
+      // Write signature (nonce and tag)
       dst->Write(encrypted_data.data() + 4, parquet_encryption::NonceLength);
-      // write tag
       dst->Write(encrypted_data.data() + encrypted_len - parquet_encryption::GCMTagLength,
                  parquet_encryption::GCMTagLength);
     } else { // either plaintext file (when encryptor is null)
