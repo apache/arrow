@@ -135,8 +135,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     if (!encrypted) {
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              col->has_dictionary_page(), row_group_ordinal_,
-                              (int16_t)i/* column_ordinal */, properties_.memory_pool());
+                              properties_.memory_pool(), col->has_dictionary_page(),
+                               row_group_ordinal_, (int16_t)i/* column_ordinal */, );
     }
 
     // The column is encrypted
@@ -147,8 +147,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       auto data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData();
 
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              col->has_dictionary_page(), row_group_ordinal_, (int16_t)i,
-                              properties_.memory_pool(), meta_decryptor, data_decryptor);
+                              properties_.memory_pool(), col->has_dictionary_page(),
+                              row_group_ordinal_, (int16_t)i, meta_decryptor,
+                              data_decryptor);
     }
 
     // The column is encrypted with its own key
@@ -162,8 +163,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         file_decryptor_->GetColumnDataDecryptor(column_path, column_key_metadata);
 
     return PageReader::Open(stream, col->num_values(), col->compression(),
-                            col->has_dictionary_page(), row_group_ordinal_, (int16_t)i,
-                            properties_.memory_pool(), meta_decryptor, data_decryptor);
+                            properties_.memory_pool(), col->has_dictionary_page(),
+                            row_group_ordinal_, (int16_t)i, meta_decryptor,
+                            data_decryptor);
   }
 
  private:

@@ -357,12 +357,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
 std::unique_ptr<PageReader> PageReader::Open(
     const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
-    Compression::type codec, bool column_has_dictionary, int16_t row_group_ordinal,
-    int16_t column_ordinal, ::arrow::MemoryPool* pool,
+    Compression::type codec, ::arrow::MemoryPool* pool,
+    bool column_has_dictionary, int16_t row_group_ordinal, int16_t column_ordinal, 
     std::shared_ptr<Decryptor> meta_decryptor, std::shared_ptr<Decryptor> data_decryptor) {
   return std::unique_ptr<PageReader>(
-      new SerializedPageReader(stream, total_num_rows, codec, column_has_dictionary,
-      row_group_ordinal, column_ordinal, pool, meta_decryptor, data_decryptor));
+      new SerializedPageReader(stream, total_num_rows, codec, pool, column_has_dictionary,
+      row_group_ordinal, column_ordinal, meta_decryptor, data_decryptor));
 }
 
 // ----------------------------------------------------------------------
