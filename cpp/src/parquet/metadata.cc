@@ -279,9 +279,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 };
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
-    const void* metadata, const ColumnDescriptor* descr, int16_t row_group_ordinal,
-    int16_t column_ordinal, const ApplicationVersion* writer_version,
-    InternalFileDecryptor* file_decryptor) {
+    const void* metadata, const ColumnDescriptor* descr,
+    const ApplicationVersion* writer_version,
+    InternalFileDecryptor* file_decryptor,
+    int16_t row_group_ordinal,
+    int16_t column_ordinal) {
   return std::unique_ptr<ColumnChunkMetaData>(
       new ColumnChunkMetaData(metadata, descr, row_group_ordinal, column_ordinal,
                               writer_version, file_decryptor));
@@ -386,8 +388,8 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
       throw ParquetException(ss.str());
     }
     return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
-                                     row_group_ordinal, (int16_t)i, writer_version_,
-                                     file_decryptor);
+                                     writer_version_, file_decryptor,
+                                     row_group_ordinal, (int16_t)i);
   }
 
  private:

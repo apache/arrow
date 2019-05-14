@@ -244,8 +244,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // This is because the ColumnChunkMetaData semantics dictate the metadata object is
     // complete (no changes to the metadata buffer can be made after instantiation)
     ApplicationVersion app_version(this->writer_properties_->created_by());
-    auto metadata_accessor = ColumnChunkMetaData::Make(
-        metadata_->contents(), this->descr_, -1, -1, &app_version);
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_, &app_version);
     return metadata_accessor->is_stats_set();
   }
 
@@ -254,8 +254,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     // This is because the ColumnChunkMetaData semantics dictate the metadata object is
     // complete (no changes to the metadata buffer can be made after instantiation)
     ApplicationVersion app_version(this->writer_properties_->created_by());
-    auto metadata_accessor = ColumnChunkMetaData::Make(
-        metadata_->contents(), this->descr_, -1, -1, &app_version);
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_, &app_version);
     auto encoded_stats = metadata_accessor->statistics()->Encode();
     return {encoded_stats.has_min, encoded_stats.has_max};
   }

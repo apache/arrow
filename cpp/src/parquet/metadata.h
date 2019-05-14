@@ -125,9 +125,11 @@ class PARQUET_EXPORT ColumnChunkMetaData {
  public:
   // API convenience to get a MetaData accessor
   static std::unique_ptr<ColumnChunkMetaData> Make(
-      const void* metadata, const ColumnDescriptor* descr, int16_t row_group_ordinal = -1,
-      int16_t column_ordinal = -1, const ApplicationVersion* writer_version = NULLPTR,
-      InternalFileDecryptor* file_decryptor = NULLPTR);
+      const void* metadata, const ColumnDescriptor* descr,
+      const ApplicationVersion* writer_version = NULLPTR,
+      InternalFileDecryptor* file_decryptor = NULLPTR,
+      int16_t row_group_ordinal = -1,
+      int16_t column_ordinal = -1);
 
   ~ColumnChunkMetaData();
 
