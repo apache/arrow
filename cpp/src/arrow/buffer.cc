@@ -18,6 +18,7 @@
 #include "arrow/buffer.h"
 
 #include <cstdint>
+#include <iostream>
 #include <utility>
 
 #include "arrow/memory_pool.h"
@@ -45,6 +46,15 @@ Status Buffer::Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
 Status Buffer::Copy(const int64_t start, const int64_t nbytes,
                     std::shared_ptr<Buffer>* out) const {
   return Copy(start, nbytes, default_memory_pool(), out);
+}
+
+void Buffer::print() {
+  const uint8_t* _data = is_mutable() ? mutable_data() : data();
+
+  for (int64_t i = 0; i < size(); ++i) {
+    std::cout << std::hex << static_cast<unsigned int>(_data[i]);
+  }
+  std::cout << std::endl;
 }
 
 bool Buffer::Equals(const Buffer& other, const int64_t nbytes) const {

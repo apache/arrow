@@ -868,6 +868,9 @@ cdef class Buffer:
         """
         return <uintptr_t> self.buffer.get().data()
 
+    def print(self):
+        self.buffer.get().print()
+
     @property
     def is_mutable(self):
         """

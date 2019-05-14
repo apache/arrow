@@ -89,6 +89,8 @@ class ARROW_EXPORT Buffer {
 
   bool is_mutable() const { return is_mutable_; }
 
+  void print();
+
   /// Return true if both buffers are the same size and contain the same bytes
   /// up to the number of compared bytes
   bool Equals(const Buffer& other, int64_t nbytes) const;
