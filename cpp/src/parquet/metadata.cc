@@ -925,7 +925,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   void WriteTo(::arrow::io::OutputStream* sink,
 	             const std::shared_ptr<Encryptor>& encryptor) {
     ThriftSerializer serializer;
-    const auto& encrypt_md = properties_->column_encryption_props(column_->path());
+    const auto& encrypt_md = properties_->column_encryption_properties(column_->path());
 
     // column is unencrypted
     if (!encrypt_md || !encrypt_md->is_encrypted()) {
