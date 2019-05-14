@@ -447,7 +447,8 @@ class FileMetaData::FileMetaDataImpl {
     InitKeyValueMetadata();
   }
 
-  bool verify(std::shared_ptr<FooterSigningEncryptor> encryptor, const void* tail) {
+  bool verify_signature(std::shared_ptr<FooterSigningEncryptor> encryptor,
+                        const void* tail) {
     // serialize the footer
     uint8_t* serialized_data;
     uint32_t serialized_len = metadata_len_;
@@ -620,9 +621,9 @@ std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
   return impl_->RowGroup(i);
 }
 
-bool FileMetaData::verify(std::shared_ptr<FooterSigningEncryptor> encryptor,
+bool FileMetaData::verify_signature(std::shared_ptr<FooterSigningEncryptor> encryptor,
                           const void* tail) {
-  return impl_->verify(encryptor, tail);
+  return impl_->verify_signature(encryptor, tail);
 }
 
 uint32_t FileMetaData::size() const { return impl_->size(); }

@@ -202,7 +202,7 @@ class PARQUET_EXPORT FileMetaData {
 
   ~FileMetaData();
 
-  bool verify(std::shared_ptr<FooterSigningEncryptor> encryptor, const void* tail);
+  bool verify_signature(std::shared_ptr<FooterSigningEncryptor> encryptor, const void* tail);
   // file metadata
   uint32_t size() const;
   int num_columns() const;
