@@ -128,8 +128,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     bool encrypted = true;
 
-    // file is unencrypted
-    // or file is encrypted but column is unencrypted
+    // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
       encrypted = false;
     }
