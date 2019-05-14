@@ -651,6 +651,7 @@ class StringColumn(BinaryColumn):
     def _encode_value(self, x):
         return frombytes(x)
 
+
 class ListType(DataType):
 
     def __init__(self, name, value_type, nullable=True):
@@ -1072,7 +1073,8 @@ def generate_map_case():
 def generate_nested_case():
     fields = [
         ListType('list_nullable', get_field('item', 'int32')),
-        FixedSizeListType('fixedsizelist_nullable', get_field('item', 'int32'), 4),
+        FixedSizeListType('fixedsizelist_nullable',
+                          get_field('item', 'int32'), 4),
         StructType('struct_nullable', [get_field('f1', 'int32'),
                                        get_field('f2', 'utf8')]),
 
