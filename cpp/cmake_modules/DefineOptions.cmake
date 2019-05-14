@@ -15,33 +15,67 @@
 # specific language governing permissions and limitations
 # under the License.
 
+macro(set_option_category name)
+  set(ARROW_OPTION_CATEGORY ${name})
+  list(APPEND "ARROW_OPTION_CATEGORIES" ${name})
+endmacro()
+
 macro(define_option name description default)
   option(${name} ${description} ${default})
-  list(APPEND ARROW_ALL_OPTION_NAMES ${name})
+  list(APPEND "ARROW_${ARROW_OPTION_CATEGORY}_OPTION_NAMES" ${name})
   set("${name}_OPTION_DESCRIPTION" ${description})
   set("${name}_OPTION_DEFAULT" ${default})
+  set("${name}_OPTION_TYPE" "bool")
+endmacro()
+
+macro(define_option_string name description default)
+  set(${name} ${default} CACHE STRING ${description})
+  list(APPEND "ARROW_${ARROW_OPTION_CATEGORY}_OPTION_NAMES" ${name})
+  set("${name}_OPTION_DESCRIPTION" ${description})
+  set("${name}_OPTION_DEFAULT" "\"${default}\"")
+  set("${name}_OPTION_TYPE" "string")
+
+  set("${name}_OPTION_ENUM" ${ARGN})
+  list(JOIN "${name}_OPTION_ENUM" "|" "${name}_OPTION_ENUM")
+  if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
+    set_property(CACHE ${name} PROPERTY STRINGS ${ARGN})
+  endif()
 endmacro()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
-  set(ARROW_CXXFLAGS "" CACHE STRING "Compiler flags to append when compiling Arrow")
+  #----------------------------------------------------------------------
+  set_option_category("Compile and link")
 
-  define_option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
+  define_option_string(ARROW_CXXFLAGS "Compiler flags to append when compiling Arrow" "")
 
   define_option(ARROW_BUILD_STATIC "Build static libraries" ON)
 
   define_option(ARROW_BUILD_SHARED "Build shared libraries" ON)
 
-  define_option(ARROW_TEST_MEMCHECK "Run the test suite using valgrind --tool=memcheck"
-                OFF)
-
-  define_option(ARROW_USE_ASAN "Enable Address Sanitizer checks" OFF)
+  define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
 
   define_option(ARROW_USE_CCACHE "Use ccache when compiling (if available)" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
 
-  define_option(ARROW_USE_TSAN "Enable Thread Sanitizer checks" OFF)
+  # Disable this option to exercise non-SIMD fallbacks
+  define_option(ARROW_USE_SIMD "Build with SIMD optimizations" ON)
+
+  define_option(ARROW_ALTIVEC "Build Arrow with Altivec" ON)
+
+  define_option(ARROW_RPATH_ORIGIN "Build Arrow libraries with RATH set to \$ORIGIN" OFF)
+
+  define_option(ARROW_INSTALL_NAME_RPATH
+                "Build Arrow libraries with install_name set to @rpath" ON)
+
+  define_option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
+
+
+  #----------------------------------------------------------------------
+  set_option_category("Test and benchmark")
+
+  define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples, default OFF" OFF)
 
   define_option(ARROW_BUILD_TESTS "Build the Arrow googletest unit tests, default OFF"
                 OFF)
@@ -49,37 +83,38 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_BUILD_BENCHMARKS "Build the Arrow micro benchmarks, default OFF"
                 OFF)
 
-  define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples, default OFF" OFF)
-
-  set(ARROW_TEST_LINKAGE "shared"
-      CACHE STRING "Linkage of Arrow libraries with unit tests executables. \
-static|shared (default shared)")
-
-  define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
+  define_option_string(ARROW_TEST_LINKAGE
+                       "Linkage of Arrow libraries with unit tests executables." "shared"
+                       "shared"
+                       "static")
 
   define_option(ARROW_FUZZING "Build Arrow Fuzzing executables" OFF)
 
-  # Disable this option to exercise non-SIMD fallbacks
-  define_option(ARROW_USE_SIMD "Build with SIMD optimizations" ON)
 
-  define_option(ARROW_ALTIVEC "Build Arrow with Altivec" ON)
+  #----------------------------------------------------------------------
+  set_option_category("Lint")
 
-  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" ON)
-
-  define_option(ARROW_RPATH_ORIGIN "Build Arrow libraries with RATH set to \$ORIGIN" OFF)
-
-  define_option(ARROW_INSTALL_NAME_RPATH
-                "Build Arrow libraries with install_name set to @rpath" ON)
-
-  define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
+  define_option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
 
   define_option(ARROW_VERBOSE_LINT "If off, 'quiet' flags will be passed to linting tools"
                 OFF)
 
-  define_option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
+  define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
+
 
   #----------------------------------------------------------------------
-  # Project components to enable / disable building
+  set_option_category("Checks")
+
+  define_option(ARROW_TEST_MEMCHECK "Run the test suite using valgrind --tool=memcheck"
+                OFF)
+
+  define_option(ARROW_USE_ASAN "Enable Address Sanitizer checks" OFF)
+
+  define_option(ARROW_USE_TSAN "Enable Thread Sanitizer checks" OFF)
+
+
+  #----------------------------------------------------------------------
+  set_option_category("Project component")
 
   define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" ON)
 
@@ -91,6 +126,8 @@ static|shared (default shared)")
   define_option(ARROW_PARQUET "Build the Parquet libraries" OFF)
 
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
+
+  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" ON)
 
   define_option(ARROW_CUDA "Build the Arrow CUDA extensions (requires CUDA toolkit)" OFF)
 
@@ -110,8 +147,9 @@ static|shared (default shared)")
 
   define_option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
 
+
   #----------------------------------------------------------------------
-  # Thirdparty toolchain options
+  set_option_category("Thirdparty toolchain")
 
   # Determine how we will look for dependencies
   # * AUTO: Guess which packaging systems we're running in and pull the
@@ -138,15 +176,14 @@ static|shared (default shared)")
   else()
     set(ARROW_DEPENDENCY_SOURCE_DEFAULT "AUTO")
   endif()
-  set(ARROW_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
-      CACHE STRING "Compiler flags to append when compiling Arrow")
-  set_property(CACHE ARROW_DEPENDENCY_SOURCE
-               PROPERTY STRINGS
-                        "AUTO"
-                        "BUNDLED"
-                        "SYSTEM"
-                        "CONDA"
-                        "BREW")
+  define_option_string(ARROW_DEPENDENCY_SOURCE
+                       "Method to use for acquiring arrow's build dependencies"
+                       "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
+                       "AUTO"
+                       "BUNDLED"
+                       "SYSTEM"
+                       "CONDA"
+                       "BREW")
 
   define_option(ARROW_VERBOSE_THIRDPARTY_BUILD
                 "Show output from ExternalProjects rather than just logging to files" OFF)
@@ -186,39 +223,44 @@ Note that this requires linking Boost statically" OFF)
   define_option(ARROW_WITH_ZSTD "Build with zstd compression" ${ARROW_WITH_ZSTD_DEFAULT})
 
   #----------------------------------------------------------------------
-  # Windows options
-
   if(MSVC)
+    set_option_category("MSVC")
+
     define_option(MSVC_LINK_VERBOSE
                   "Pass verbose linking options when linking libraries and executables"
                   OFF)
 
     define_option(ARROW_USE_CLCACHE "Use clcache if available" ON)
 
-    set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static"
-        CACHE STRING
-              "Brotli static lib suffix used on Windows with MSVC (default -static)")
-    set(
-      PROTOBUF_MSVC_STATIC_LIB_SUFFIX ""
-      CACHE
-        STRING
-        "Protobuf static lib suffix used on Windows with MSVC (default is empty string)")
-    set(RE2_MSVC_STATIC_LIB_SUFFIX "_static"
-        CACHE STRING
-              "re2 static lib suffix used on Windows with MSVC (default is _static)")
-    set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static"
-        CACHE STRING
-              "Snappy static lib suffix used on Windows with MSVC (default is _static)")
-    set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static"
-        CACHE STRING "Lz4 static lib suffix used on Windows with MSVC (default _static)")
-    set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static"
-        CACHE STRING "ZStd static lib suffix used on Windows with MSVC (default _static)")
+    define_option_string(
+      BROTLI_MSVC_STATIC_LIB_SUFFIX
+      "Brotli static lib suffix used on Windows with MSVC" "-static")
+
+    define_option_string(
+      PROTOBUF_MSVC_STATIC_LIB_SUFFIX
+      "Protobuf static lib suffix used on Windows with MSVC" "")
+
+    define_option_string(
+      RE2_MSVC_STATIC_LIB_SUFFIX
+      "re2 static lib suffix used on Windows with MSVC" "_static")
+
+    define_option_string(
+      SNAPPY_MSVC_STATIC_LIB_SUFFIX
+      "Snappy static lib suffix used on Windows with MSVC" "_static")
+
+    define_option_string(
+      LZ4_MSVC_STATIC_LIB_SUFFIX
+      "Lz4 static lib suffix used on Windows with MSVC" "_static")
+
+    define_option_string(
+      ZSTD_MSVC_STATIC_LIB_SUFFIX
+      "ZStd static lib suffix used on Windows with MSVC" "_static")
 
     define_option(ARROW_USE_STATIC_CRT "Build Arrow with statically linked CRT" OFF)
   endif()
 
   #----------------------------------------------------------------------
-  # Parquet build options
+  set_option_category("Parquet")
 
   define_option(PARQUET_MINIMAL_DEPENDENCY
                 "Depend only on Thirdparty headers to build libparquet. \
@@ -232,7 +274,7 @@ Always OFF if building binaries" OFF)
                 "Build the Parquet examples. Requires static libraries to be built." OFF)
 
   #----------------------------------------------------------------------
-  # Gandiva build options
+  set_option_category("Gandiva")
 
   define_option(ARROW_GANDIVA_JAVA "Build the Gandiva JNI wrappers" OFF)
 
@@ -242,11 +284,12 @@ Always OFF if building binaries" OFF)
     "Include -static-libstdc++ -static-libgcc when linking with Gandiva static libraries"
     OFF)
 
-  set(ARROW_GANDIVA_PC_CXX_FLAGS ""
-      CACHE STRING "Compiler flags to append when pre-compiling Gandiva operations")
+  define_option_string(ARROW_GANDIVA_PC_CXX_FLAGS
+                       "Compiler flags to append when pre-compiling Gandiva operations"
+                       "")
 
   #----------------------------------------------------------------------
-  # Advanced developer options
+  set_option_category("Advanced developer")
 
   define_option(ARROW_EXTRA_ERROR_CONTEXT
                 "Compile with extra error context (line numbers, code)" OFF)
@@ -266,59 +309,89 @@ macro(config_summary)
   message(STATUS)
   message(STATUS "Build configuration summary:")
 
-  message(STATUS " Generator: ${CMAKE_GENERATOR}")
-  message(STATUS " Build type: ${CMAKE_BUILD_TYPE}")
-  message(STATUS " Source directory: ${CMAKE_CURRENT_SOURCE_DIR}")
+  message(STATUS "  Generator: ${CMAKE_GENERATOR}")
+  message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
+  message(STATUS "  Source directory: ${CMAKE_CURRENT_SOURCE_DIR}")
   if(${CMAKE_EXPORT_COMPILE_COMMANDS})
-    message(STATUS " Compile commands: ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
+    message(STATUS "  Compile commands: ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
   endif()
 
-  message(STATUS " Arrow options:")
-  foreach(name ${ARROW_ALL_OPTION_NAMES})
-    set(value ${${name}})
-    if(${value} STREQUAL "ON")
-      set(value "ON ")
-    endif()
+  if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})
+    set(summary "${CMAKE_CURRENT_BINARY_DIR}/cmake_summary.json")
+    message(STATUS "  Outputting build configuration summary to ${summary}")
+    file(WRITE ${summary} "{\n")
+  endif()
 
-    set(default ${${name}_OPTION_DEFAULT})
-    set(description ${${name}_OPTION_DESCRIPTION})
-    string(LENGTH ${description} description_length)
-    if(${description_length} LESS 70)
-      string(
-        SUBSTRING "                                                                     "
-                  ${description_length} -1 description_padding)
-    else()
-      set(description_padding "
+  foreach(category ${ARROW_OPTION_CATEGORIES})
+
+    message(STATUS)
+    message(STATUS "${category} options:")
+
+    set(option_names ${ARROW_${category}_OPTION_NAMES})
+
+    set(max_value_length 0)
+    foreach(name ${option_names})
+      string(LENGTH "\"${${name}}\"" value_length)
+      if(${max_value_length} LESS ${value_length})
+        set(max_value_length ${value_length})
+      endif()
+    endforeach()
+
+    foreach(name ${option_names})
+      if(${${name}_OPTION_TYPE} STREQUAL "string")
+        set(value "\"${${name}}\"")
+      else()
+        set(value "${${name}}")
+      endif()
+
+      set(default ${${name}_OPTION_DEFAULT})
+      set(description ${${name}_OPTION_DESCRIPTION})
+      string(LENGTH ${description} description_length)
+      if(${description_length} LESS 70)
+        string(
+          SUBSTRING "                                                                     "
+                    ${description_length} -1 description_padding)
+      else()
+        set(description_padding "
                                                                            ")
-    endif()
+      endif()
 
-    if(${value} STREQUAL ${default})
-      set(comment "[default, change using ${name}]")
-    else()
       set(comment "[${name}]")
+
+      if(${value} STREQUAL ${default})
+        set(comment "[default] ${comment}")
+      endif()
+
+      if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
+        set(comment "${comment} [${${name}_OPTION_ENUM}]")
+      endif()
+
+      string(LENGTH "${value}" value_length)
+      string(SUBSTRING "${value}                                                          "
+        0 ${max_value_length} value)
+
+      message(STATUS "  ${description} ${description_padding} ${value} ${comment}")
+    endforeach()
+
+    if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})
+      foreach(name ${option_names})
+        file(APPEND ${summary} "\"${name}\": \"${${name}}\",\n")
+      endforeach()
     endif()
-    message(STATUS "  ${description} ${description_padding} ${value} ${comment}")
+
   endforeach()
 
-  if(NOT ${ARROW_BUILD_CONFIG_SUMMARY_JSON})
-    return()
+  if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})
+    file(APPEND ${summary} "\"generator\": \"${CMAKE_GENERATOR}\",\n")
+    file(APPEND ${summary} "\"build_type\": \"${CMAKE_BUILD_TYPE}\",\n")
+    file(APPEND ${summary} "\"source_dir\": \"${CMAKE_CURRENT_SOURCE_DIR}\",\n")
+    if(${CMAKE_EXPORT_COMPILE_COMMANDS})
+      file(APPEND ${summary} "\"compile_commands\": "
+                  "\"${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json\",\n")
+    endif()
+    file(APPEND ${summary} "\"arrow_version\": \"${ARROW_VERSION}\"\n")
+    file(APPEND ${summary} "}\n")
   endif()
 
-  set(summary "${CMAKE_CURRENT_BINARY_DIR}/cmake_summary.json")
-  message(STATUS " Outputting build configuration summary to ${summary}")
-
-  file(WRITE ${summary} "{\n")
-  file(APPEND ${summary} "\"generator\": \"${CMAKE_GENERATOR}\",\n")
-  file(APPEND ${summary} "\"build_type\": \"${CMAKE_BUILD_TYPE}\",\n")
-  file(APPEND ${summary} "\"source_dir\": \"${CMAKE_CURRENT_SOURCE_DIR}\",\n")
-  if(${CMAKE_EXPORT_COMPILE_COMMANDS})
-    file(APPEND ${summary} "\"compile_commands\": "
-                "\"${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json\",\n")
-  endif()
-  foreach(name ${ARROW_ALL_OPTION_NAMES})
-    file(APPEND ${summary} "\"${name}\": \"${${name}}\",\n")
-  endforeach()
-  file(APPEND ${summary} "\"arrow_version\": \"${ARROW_VERSION}\"\n")
-  file(APPEND ${summary} "}\n")
 
 endmacro()
