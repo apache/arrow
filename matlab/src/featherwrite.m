@@ -23,7 +23,7 @@ function featherwrite(filename, t)
 % specific language governing permissions and limitations
 % under the License.
 
-import mlarrow.util.*;
+import mlarrow.util.table2mlarrow;
 
 % Validate input arguments.
 narginchk(2, 2);
@@ -36,42 +36,7 @@ if ~istable(t)
     error('MATLAB:arrow:InvalidInputTable', 't must be a table.');
 end
 
-% Currently, featherwrite only supports Version 2 Feather files.
-featherVersion = 2;
-
-% Struct array representing the underlying data of each variable
-% in the given table.
-variables = repmat(createVariableStruct('', [], [], ''), 1, width(t));
-
-% Struct representing table-level metadata.
-metadata = createMetadataStruct(featherVersion, t.Properties.Description, height(t), width(t));
-
-% Iterate over each variable in the given table,
-% extracting the underlying array data.
-for ii = 1:width(t)
-    data = t.(ii);
-    % Multi-column table variables are unsupported.
-    if ~isvector(data)
-        error('MATLAB:arrow:MultiColumnVariablesUnsupported', ...
-              'Multi-column table variables are unsupported by featherwrite.');
-    end
-    % Get the datatype of the current variable's underlying array.
-    variables(ii).Type = class(data);
-    % Break the datatype down into its constituent components, if appropriate.
-    switch variables(ii).Type
-        % For numeric variables, the underlying array data can
-        % be passed to the C++ layer directly.
-        case {'uint8', 'uint16', 'uint32', 'uint64', ...
-              'int8', 'int16', 'int32', 'int64', ...
-              'single', 'double'}
-            variables(ii).Data = data;
-        otherwise
-            error('MATLAB:arrow:UnsupportedVariableType', ...
-                 ['Type ' variables(ii).Type ' is unsupported by featherwrite.']);
-    end
-    variables(ii).Valid = ~ismissing(data);
-    variables(ii).Name = t.Properties.VariableNames{ii};
-end
+[variables, metadata] = table2mlarrow(t);
 
 % Write the table to a Feather file.
 featherwritemex(filename, variables, metadata);
