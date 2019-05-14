@@ -245,23 +245,23 @@ table DictionaryEncoding {
 /// nested type.
 
 table Field {
-  // Name is not required, in i.e. a List
+  /// Name is not required, in i.e. a List
   name: string;
 
-  // Whether or not this field can contain nulls. Should be true in general.
+  /// Whether or not this field can contain nulls. Should be true in general.
   nullable: bool;
 
-  // This is the type of the decoded value if the field is dictionary encoded.
+  /// This is the type of the decoded value if the field is dictionary encoded.
   type: Type;
 
-  // Present only if the field is dictionary encoded.
+  /// Present only if the field is dictionary encoded.
   dictionary: DictionaryEncoding;
 
-  // children apply only to nested data types like Struct, List and Union. For
-  // primitive types children will have length 0.
+  /// children apply only to nested data types like Struct, List and Union. For
+  /// primitive types children will have length 0.
   children: [ Field ];
 
-  // User-defined metadata
+  /// User-defined metadata
   custom_metadata: [ KeyValue ];
 }
 
