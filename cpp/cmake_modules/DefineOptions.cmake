@@ -71,7 +71,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
 
-
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
 
@@ -84,12 +83,12 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 OFF)
 
   define_option_string(ARROW_TEST_LINKAGE
-                       "Linkage of Arrow libraries with unit tests executables." "shared"
+                       "Linkage of Arrow libraries with unit tests executables."
+                       "shared"
                        "shared"
                        "static")
 
   define_option(ARROW_FUZZING "Build Arrow Fuzzing executables" OFF)
-
 
   #----------------------------------------------------------------------
   set_option_category("Lint")
@@ -101,7 +100,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
 
-
   #----------------------------------------------------------------------
   set_option_category("Checks")
 
@@ -111,7 +109,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_USE_ASAN "Enable Address Sanitizer checks" OFF)
 
   define_option(ARROW_USE_TSAN "Enable Thread Sanitizer checks" OFF)
-
 
   #----------------------------------------------------------------------
   set_option_category("Project component")
@@ -146,7 +143,6 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
 
   define_option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
-
 
   #----------------------------------------------------------------------
   set_option_category("Thirdparty toolchain")
@@ -232,29 +228,23 @@ Note that this requires linking Boost statically" OFF)
 
     define_option(ARROW_USE_CLCACHE "Use clcache if available" ON)
 
-    define_option_string(
-      BROTLI_MSVC_STATIC_LIB_SUFFIX
-      "Brotli static lib suffix used on Windows with MSVC" "-static")
+    define_option_string(BROTLI_MSVC_STATIC_LIB_SUFFIX
+                         "Brotli static lib suffix used on Windows with MSVC" "-static")
 
-    define_option_string(
-      PROTOBUF_MSVC_STATIC_LIB_SUFFIX
-      "Protobuf static lib suffix used on Windows with MSVC" "")
+    define_option_string(PROTOBUF_MSVC_STATIC_LIB_SUFFIX
+                         "Protobuf static lib suffix used on Windows with MSVC" "")
 
-    define_option_string(
-      RE2_MSVC_STATIC_LIB_SUFFIX
-      "re2 static lib suffix used on Windows with MSVC" "_static")
+    define_option_string(RE2_MSVC_STATIC_LIB_SUFFIX
+                         "re2 static lib suffix used on Windows with MSVC" "_static")
 
-    define_option_string(
-      SNAPPY_MSVC_STATIC_LIB_SUFFIX
-      "Snappy static lib suffix used on Windows with MSVC" "_static")
+    define_option_string(SNAPPY_MSVC_STATIC_LIB_SUFFIX
+                         "Snappy static lib suffix used on Windows with MSVC" "_static")
 
-    define_option_string(
-      LZ4_MSVC_STATIC_LIB_SUFFIX
-      "Lz4 static lib suffix used on Windows with MSVC" "_static")
+    define_option_string(LZ4_MSVC_STATIC_LIB_SUFFIX
+                         "Lz4 static lib suffix used on Windows with MSVC" "_static")
 
-    define_option_string(
-      ZSTD_MSVC_STATIC_LIB_SUFFIX
-      "ZStd static lib suffix used on Windows with MSVC" "_static")
+    define_option_string(ZSTD_MSVC_STATIC_LIB_SUFFIX
+                         "ZStd static lib suffix used on Windows with MSVC" "_static")
 
     define_option(ARROW_USE_STATIC_CRT "Build Arrow with statically linked CRT" OFF)
   endif()
@@ -313,7 +303,8 @@ macro(config_summary)
   message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
   message(STATUS "  Source directory: ${CMAKE_CURRENT_SOURCE_DIR}")
   if(${CMAKE_EXPORT_COMPILE_COMMANDS})
-    message(STATUS "  Compile commands: ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
+    message(
+      STATUS "  Compile commands: ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
   endif()
 
   if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})
@@ -338,7 +329,7 @@ macro(config_summary)
     endforeach()
 
     foreach(name ${option_names})
-      if(${${name}_OPTION_TYPE} STREQUAL "string")
+      if("${${name}_OPTION_TYPE}" STREQUAL "string")
         set(value "\"${${name}}\"")
       else()
         set(value "${${name}}")
@@ -349,8 +340,9 @@ macro(config_summary)
       string(LENGTH ${description} description_length)
       if(${description_length} LESS 70)
         string(
-          SUBSTRING "                                                                     "
-                    ${description_length} -1 description_padding)
+          SUBSTRING
+            "                                                                     "
+            ${description_length} -1 description_padding)
       else()
         set(description_padding "
                                                                            ")
@@ -358,7 +350,7 @@ macro(config_summary)
 
       set(comment "[${name}]")
 
-      if(${value} STREQUAL ${default})
+      if("${value}" STREQUAL "${default}")
         set(comment "[default] ${comment}")
       endif()
 
@@ -366,9 +358,9 @@ macro(config_summary)
         set(comment "${comment} [${${name}_OPTION_ENUM}]")
       endif()
 
-      string(LENGTH "${value}" value_length)
-      string(SUBSTRING "${value}                                                          "
-        0 ${max_value_length} value)
+      string(
+        SUBSTRING "${value}                                                             "
+                  0 ${max_value_length} value)
 
       message(STATUS "  ${description} ${description_padding} ${value} ${comment}")
     endforeach()
@@ -392,6 +384,5 @@ macro(config_summary)
     file(APPEND ${summary} "\"arrow_version\": \"${ARROW_VERSION}\"\n")
     file(APPEND ${summary} "}\n")
   endif()
-
 
 endmacro()
