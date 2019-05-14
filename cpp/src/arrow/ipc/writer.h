@@ -215,16 +215,16 @@ ARROW_EXPORT
 Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                             io::OutputStream* out);
 
-/// \brief Serialize schema using stream writer as a sequence of one or more
-/// IPC messages
+/// \brief Serialize schema as encapsulated IPC message
 ///
 /// \param[in] schema the schema to write
+/// \param[in] dictionary_memo a DictionaryMemo for recording dictionary ids
 /// \param[in] pool a MemoryPool to allocate memory from
 /// \param[out] out the serialized schema
 /// \return Status
 ARROW_EXPORT
-Status SerializeSchema(const Schema& schema, MemoryPool* pool,
-                       std::shared_ptr<Buffer>* out);
+Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
+                       MemoryPool* pool, std::shared_ptr<Buffer>* out);
 
 /// \brief Write multiple record batches to OutputStream, including schema
 /// \param[in] batches a vector of batches. Must all have same schema
@@ -324,11 +324,15 @@ class ARROW_EXPORT IpcPayloadWriter {
 ///
 /// \param[in] sink the IpcPayloadWriter to write to
 /// \param[in] schema the schema of the record batches to be written
+/// \param[in] dictionary_memo a DictionaryMemo where dictionaries
+/// corresponding to Schema fields (and subfields) are
+/// tracked. Modified once the schema is written
 /// \param[out] out the created RecordBatchWriter
 /// \return Status
 ARROW_EXPORT
 Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
                              const std::shared_ptr<Schema>& schema,
+                             DictionaryMemo* dictionary_memo,
                              std::unique_ptr<RecordBatchWriter>* out);
 
 /// \brief Compute IpcPayload for the given schema

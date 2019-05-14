@@ -53,7 +53,6 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
 
-using internal::DictionaryMemo;
 using internal::FileBlock;
 using internal::kArrowMagicBytes;
 
@@ -138,28 +137,26 @@ class IpcComponentSource {
 /// reconstruction, for example)
 struct ArrayLoaderContext {
   IpcComponentSource* source;
+  const DictionaryMemo* dictionary_memo;
   int buffer_index;
   int field_index;
   int max_recursion_depth;
 };
 
-static Status LoadArray(const std::shared_ptr<DataType>& type,
-                        ArrayLoaderContext* context, ArrayData* out);
+static Status LoadArray(const Field& field, ArrayLoaderContext* context, ArrayData* out);
 
 class ArrayLoader {
  public:
-  ArrayLoader(const std::shared_ptr<DataType>& type, ArrayData* out,
-              ArrayLoaderContext* context)
-      : type_(type), context_(context), out_(out) {}
+  ArrayLoader(const Field& field, ArrayData* out, ArrayLoaderContext* context)
+      : field_(field), context_(context), out_(out) {}
 
   Status Load() {
     if (context_->max_recursion_depth <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
 
-    out_->type = type_;
-
-    RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    RETURN_NOT_OK(VisitTypeInline(*field_.type(), this));
+    out_->type = field_.type();
     return Status::OK();
   }
 
@@ -207,7 +204,7 @@ class ArrayLoader {
   }
 
   Status LoadChild(const Field& field, ArrayData* out) {
-    ArrayLoader loader(field.type(), out, context_);
+    ArrayLoader loader(field, out, context_);
     --context_->max_recursion_depth;
     RETURN_NOT_OK(loader.Load());
     ++context_->max_recursion_depth;
@@ -219,7 +216,7 @@ class ArrayLoader {
 
     for (const auto& child_field : child_fields) {
       auto field_array = std::make_shared<ArrayData>();
-      RETURN_NOT_OK(LoadChild(*child_field.get(), field_array.get()));
+      RETURN_NOT_OK(LoadChild(*child_field, field_array.get()));
       out_->child_data.emplace_back(field_array);
     }
     return Status::OK();
@@ -301,42 +298,48 @@ class ArrayLoader {
   }
 
   Status Visit(const DictionaryType& type) {
-    RETURN_NOT_OK(LoadArray(type.index_type(), context_, out_));
-    out_->type = type_;
+    RETURN_NOT_OK(
+        LoadArray(*::arrow::field("indices", type.index_type()), context_, out_));
+
+    // Look up dictionary
+    int64_t id = -1;
+    RETURN_NOT_OK(context_->dictionary_memo->GetId(field_, &id));
+    RETURN_NOT_OK(context_->dictionary_memo->GetDictionary(id, &out_->dictionary));
+
     return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
-    RETURN_NOT_OK(LoadArray(type.storage_type(), context_, out_));
-    out_->type = type_;
-    return Status::OK();
+    return LoadArray(*::arrow::field("storage", type.storage_type()), context_, out_);
   }
 
  private:
-  const std::shared_ptr<DataType> type_;
+  const Field& field_;
   ArrayLoaderContext* context_;
 
   // Used in visitor pattern
   ArrayData* out_;
 };
 
-static Status LoadArray(const std::shared_ptr<DataType>& type,
-                        ArrayLoaderContext* context, ArrayData* out) {
-  ArrayLoader loader(type, out, context);
+static Status LoadArray(const Field& field, ArrayLoaderContext* context, ArrayData* out) {
+  ArrayLoader loader(field, out, context);
   return loader.Load();
 }
 
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
-  return ReadRecordBatch(metadata, schema, kMaxNestingDepth, file, out);
+                       const DictionaryMemo* dictionary_memo, io::RandomAccessFile* file,
+                       std::shared_ptr<RecordBatch>* out) {
+  return ReadRecordBatch(metadata, schema, dictionary_memo, kMaxNestingDepth, file, out);
 }
 
 Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& schema,
+                       const DictionaryMemo* dictionary_memo,
                        std::shared_ptr<RecordBatch>* out) {
   CHECK_MESSAGE_TYPE(message.type(), Message::RECORD_BATCH);
   CHECK_HAS_BODY(message);
   io::BufferReader reader(message.body());
-  return ReadRecordBatch(*message.metadata(), schema, kMaxNestingDepth, &reader, out);
+  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, kMaxNestingDepth,
+                         &reader, out);
 }
 
 // ----------------------------------------------------------------------
@@ -345,17 +348,15 @@ Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& sc
 static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
                                         int64_t num_rows, int max_recursion_depth,
                                         IpcComponentSource* source,
+                                        const DictionaryMemo* dictionary_memo,
                                         std::shared_ptr<RecordBatch>* out) {
-  ArrayLoaderContext context;
-  context.source = source;
-  context.field_index = 0;
-  context.buffer_index = 0;
-  context.max_recursion_depth = max_recursion_depth;
+  ArrayLoaderContext context{source, dictionary_memo, /*field_index=*/0,
+                             /*buffer_index=*/0, max_recursion_depth};
 
   std::vector<std::shared_ptr<ArrayData>> arrays(schema->num_fields());
   for (int i = 0; i < schema->num_fields(); ++i) {
     auto arr = std::make_shared<ArrayData>();
-    RETURN_NOT_OK(LoadArray(schema->field(i)->type(), &context, arr.get()));
+    RETURN_NOT_OK(LoadArray(*schema->field(i), &context, arr.get()));
     DCHECK_EQ(num_rows, arr->length) << "Array length did not match record batch length";
     arrays[i] = std::move(arr);
   }
@@ -366,16 +367,17 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
 
 static inline Status ReadRecordBatch(const flatbuf::RecordBatch* metadata,
                                      const std::shared_ptr<Schema>& schema,
+                                     const DictionaryMemo* dictionary_memo,
                                      int max_recursion_depth, io::RandomAccessFile* file,
                                      std::shared_ptr<RecordBatch>* out) {
   IpcComponentSource source(metadata, file);
   return LoadRecordBatchFromSource(schema, metadata->length(), max_recursion_depth,
-                                   &source, out);
+                                   &source, dictionary_memo, out);
 }
 
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       int max_recursion_depth, io::RandomAccessFile* file,
-                       std::shared_ptr<RecordBatch>* out) {
+                       const DictionaryMemo* dictionary_memo, int max_recursion_depth,
+                       io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
   auto message = flatbuf::GetMessage(metadata.data());
   if (message->header_type() != flatbuf::MessageHeader_RecordBatch) {
     DCHECK_EQ(message->header_type(), flatbuf::MessageHeader_RecordBatch);
@@ -384,7 +386,7 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
     return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
   }
   auto batch = reinterpret_cast<const flatbuf::RecordBatch*>(message->header());
-  return ReadRecordBatch(batch, schema, max_recursion_depth, file, out);
+  return ReadRecordBatch(batch, schema, dictionary_memo, max_recursion_depth, file, out);
 }
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
@@ -400,16 +402,20 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   std::shared_ptr<Field> field;
   RETURN_NOT_OK(dictionary_memo->GetField(id, &field));
 
+  const auto& dict_type = static_cast<const DictionaryType&>(*field->type());
+  auto value_field = ::arrow::field("dummy", dict_type.value_type());
+
   // The dictionary is embedded in a record batch with a single column
   std::shared_ptr<RecordBatch> batch;
   auto batch_meta =
       reinterpret_cast<const flatbuf::RecordBatch*>(dictionary_batch->data());
-  RETURN_NOT_OK(ReadRecordBatch(batch_meta, ::arrow::schema({field}), kMaxNestingDepth,
-                                file, &batch));
+  RETURN_NOT_OK(ReadRecordBatch(batch_meta, ::arrow::schema({value_field}),
+                                dictionary_memo, kMaxNestingDepth, file, &batch));
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
-  return dictionary_memo->AddDictionary(id, batch->column(0));
+  auto dictionary = batch->column(0);
+  return dictionary_memo->AddDictionary(id, dictionary);
 }
 
 static Status ReadMessageAndValidate(MessageReader* reader, bool allow_null,
@@ -474,7 +480,7 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
 
     // TODO(wesm): In future, we may want to reconcile the ids in the stream with
     // those found in the schema
-    for (int i = 0; i < dictionary_memo_.size(); ++i) {
+    for (int i = 0; i < dictionary_memo_.num_fields(); ++i) {
       RETURN_NOT_OK(
           ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/false, &message));
       if (message->type() != Message::DICTIONARY_BATCH) {
@@ -509,7 +515,8 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     } else {
       CHECK_HAS_BODY(*message);
       io::BufferReader reader(message->body());
-      return ReadRecordBatch(*message->metadata(), schema_, &reader, batch);
+      return ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_, &reader,
+                             batch);
     }
   }
 
@@ -655,13 +662,15 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
 
     if (!read_dictionaries_) {
       RETURN_NOT_OK(ReadDictionaries());
+      read_dictionaries_ = true;
     }
 
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(ReadMessageFromBlock(GetRecordBatchBlock(i), &message));
 
     io::BufferReader reader(message->body());
-    return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &reader, batch);
+    return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
+                                         &reader, batch);
   }
 
   Status ReadSchema() {
@@ -758,26 +767,29 @@ static Status ReadContiguousPayload(io::InputStream* file,
   return Status::OK();
 }
 
-Status ReadSchema(io::InputStream* stream, std::shared_ptr<Schema>* out) {
-  std::shared_ptr<RecordBatchReader> reader;
-  RETURN_NOT_OK(RecordBatchStreamReader::Open(stream, &reader));
-  *out = reader->schema();
-  return Status::OK();
+Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
+                  std::shared_ptr<Schema>* out) {
+  std::unique_ptr<MessageReader> reader = MessageReader::Open(stream);
+  std::unique_ptr<Message> message;
+  RETURN_NOT_OK(ReadMessageAndValidate(reader.get(), /*allow_null=*/false, &message));
+  CHECK_MESSAGE_TYPE(message->type(), Message::SCHEMA);
+  return ReadSchema(*message, dictionary_memo, out);
 }
 
-Status ReadSchema(const Message& message, std::shared_ptr<Schema>* out) {
+Status ReadSchema(const Message& message, DictionaryMemo* dictionary_memo,
+                  std::shared_ptr<Schema>* out) {
   std::shared_ptr<RecordBatchReader> reader;
-  DictionaryMemo dictionary_memo;
-  return internal::GetSchema(message.header(), &dictionary_memo, &*out);
+  return internal::GetSchema(message.header(), dictionary_memo, &*out);
 }
 
-Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, io::InputStream* file,
+Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
+                       const DictionaryMemo* dictionary_memo, io::InputStream* file,
                        std::shared_ptr<RecordBatch>* out) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   io::BufferReader buffer_reader(message->body());
-  return ReadRecordBatch(*message->metadata(), schema, kMaxNestingDepth, &buffer_reader,
-                         out);
+  return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, kMaxNestingDepth,
+                         &buffer_reader, out);
 }
 
 Status ReadTensor(io::InputStream* file, std::shared_ptr<Tensor>* out) {

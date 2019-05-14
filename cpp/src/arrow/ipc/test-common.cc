@@ -500,13 +500,13 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   auto a4 = std::make_shared<DictionaryArray>(f4_type, indices4, dict4);
 
   // construct batch
-  auto schema = ::arrow::schema(
-      {field("dict1", f0_type), field("dict2", f1_type), field("dict3", f2_type),
-       field("list<encoded utf8>", f3_type), field("encoded list<int8>", f4_type)});
+  // auto schema = ::arrow::schema(
+  //     {field("dict1", f0_type), field("dict2", f1_type), field("dict3", f2_type),
+  //      field("list<encoded utf8>", f3_type), field("encoded list<int8>", f4_type)});
 
-  std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2, a3, a4};
+  // *out = RecordBatch::Make(schema, length, {a0, a1, a2, a3, a4});
 
-  *out = RecordBatch::Make(schema, length, arrays);
+  *out = RecordBatch::Make(::arrow::schema({field("dict1", f0_type)}), length, {a0});
   return Status::OK();
 }
 

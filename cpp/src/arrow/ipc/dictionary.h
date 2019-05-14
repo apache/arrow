@@ -35,7 +35,6 @@ class Field;
 class RecordBatch;
 
 namespace ipc {
-namespace internal {
 
 using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
 
@@ -81,15 +80,16 @@ class ARROW_EXPORT DictionaryMemo {
 
   const DictionaryMap& id_to_dictionary() const { return id_to_dictionary_; }
 
-  /// \brief The number of dictionaries stored in the memo
-  int size() const { return static_cast<int>(id_to_dictionary_.size()); }
+  /// \brief The number of fields tracked in the memo
+  int num_fields() const { return static_cast<int>(id_to_field_.size()); }
+  int num_dictionaries() const { return static_cast<int>(id_to_dictionary_.size()); }
 
  private:
   using DictionaryFieldMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
 
   // Dictionary memory addresses, to track whether a particular
   // dictionary-encoded field has been seen before
-  std::unordered_map<intptr_t, int64_t> field_to_id_;
+  std::unordered_map<const Field*, int64_t> field_to_id_;
 
   // Map of dictionary id to dictionary array
   DictionaryMap id_to_dictionary_;
@@ -101,7 +101,6 @@ class ARROW_EXPORT DictionaryMemo {
 ARROW_EXPORT
 Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo);
 
-}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow
 

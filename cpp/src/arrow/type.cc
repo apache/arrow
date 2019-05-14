@@ -58,15 +58,19 @@ std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {
     for (const auto& child : type_->children()) {
-      auto flattened_child = std::make_shared<Field>(*child);
+      auto flattened_child = child->Copy();
       flattened.push_back(flattened_child);
       flattened_child->name_.insert(0, name() + ".");
       flattened_child->nullable_ |= nullable_;
     }
   } else {
-    flattened.push_back(std::make_shared<Field>(*this));
+    flattened.push_back(this->Copy());
   }
   return flattened;
+}
+
+std::shared_ptr<Field> Field::Copy() const {
+  return ::arrow::field(name_, type_, nullable_, metadata_);
 }
 
 bool Field::Equals(const Field& other, bool check_metadata) const {

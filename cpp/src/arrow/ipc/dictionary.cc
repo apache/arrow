@@ -29,7 +29,6 @@
 
 namespace arrow {
 namespace ipc {
-namespace internal {
 
 // ----------------------------------------------------------------------
 
@@ -57,22 +56,20 @@ Status DictionaryMemo::GetDictionary(int64_t id,
 }
 
 int64_t DictionaryMemo::GetOrAssignId(const std::shared_ptr<Field>& field) {
-  intptr_t address = reinterpret_cast<intptr_t>(field.get());
-  auto it = field_to_id_.find(address);
+  auto it = field_to_id_.find(field.get());
   if (it != field_to_id_.end()) {
     // Field already observed, return the id
     return it->second;
   } else {
     int64_t new_id = static_cast<int64_t>(field_to_id_.size());
-    field_to_id_[address] = new_id;
+    field_to_id_[field.get()] = new_id;
     id_to_field_[new_id] = field;
     return new_id;
   }
 }
 
 Status DictionaryMemo::AddField(int64_t id, const std::shared_ptr<Field>& field) {
-  intptr_t address = reinterpret_cast<intptr_t>(field.get());
-  auto it = field_to_id_.find(address);
+  auto it = field_to_id_.find(field.get());
   if (it != field_to_id_.end()) {
     return Status::KeyError("Field is already in memo: ", field->ToString());
   } else {
@@ -80,27 +77,27 @@ Status DictionaryMemo::AddField(int64_t id, const std::shared_ptr<Field>& field)
     if (it2 != id_to_field_.end()) {
       return Status::KeyError("Dictionary id is already in memo: ", id);
     }
-    field_to_id_[address] = id;
+
+    field_to_id_[field.get()] = id;
     id_to_field_[id] = field;
     return Status::OK();
   }
 }
 
 Status DictionaryMemo::GetId(const Field& field, int64_t* id) const {
-  intptr_t address = reinterpret_cast<intptr_t>(&field);
-  auto it = field_to_id_.find(address);
+  auto it = field_to_id_.find(&field);
   if (it != field_to_id_.end()) {
-    // Field already observed, return the id
+    // Field recorded, return the id
     *id = it->second;
     return Status::OK();
   } else {
-    return Status::KeyError("Field with memory address ", address, " not found");
+    return Status::KeyError("Field with memory address ",
+                            reinterpret_cast<int64_t>(&field), " not found");
   }
 }
 
 bool DictionaryMemo::HasDictionary(const std::shared_ptr<Field>& field) const {
-  intptr_t address = reinterpret_cast<intptr_t>(field.get());
-  auto it = field_to_id_.find(address);
+  auto it = field_to_id_.find(field.get());
   return it != field_to_id_.end();
 }
 
@@ -168,6 +165,5 @@ Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo) {
   return collector.Collect(batch);
 }
 
-}  // namespace internal
 }  // namespace ipc
 }  // namespace arrow

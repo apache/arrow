@@ -868,18 +868,21 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
   ~RecordBatchPayloadWriter() override = default;
 
   RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter> payload_writer,
-                           const Schema& schema)
+                           const Schema& schema, DictionaryMemo* dictionary_memo)
       : payload_writer_(std::move(payload_writer)),
         schema_(schema),
-        pool_(default_memory_pool()) {}
+        pool_(default_memory_pool()),
+        dictionary_memo_(dictionary_memo) {}
 
   // A Schema-owning constructor variant
   RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter> payload_writer,
-                           const std::shared_ptr<Schema>& schema)
+                           const std::shared_ptr<Schema>& schema,
+                           DictionaryMemo* dictionary_memo)
       : payload_writer_(std::move(payload_writer)),
         shared_schema_(schema),
         schema_(*schema),
-        pool_(default_memory_pool()) {}
+        pool_(default_memory_pool()),
+        dictionary_memo_(dictionary_memo) {}
 
   Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
     if (!batch.schema()->Equals(schema_, false /* check_metadata */)) {
@@ -913,7 +916,7 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
     RETURN_NOT_OK(payload_writer_->Start());
 
     internal::IpcPayload payload;
-    RETURN_NOT_OK(GetSchemaPayload(schema_, &dictionary_memo_, &payload));
+    RETURN_NOT_OK(GetSchemaPayload(schema_, dictionary_memo_, &payload));
     return payload_writer_->WritePayload(payload);
   }
 
@@ -926,10 +929,10 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
   }
 
   Status WriteDictionaries(const RecordBatch& batch, bool allow_64bit = false) {
-    RETURN_NOT_OK(CollectDictionaries(batch, &dictionary_memo_));
+    RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
 
     internal::IpcPayload payload;
-    for (auto& pair : dictionary_memo_.id_to_dictionary()) {
+    for (auto& pair : dictionary_memo_->id_to_dictionary()) {
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;
 
@@ -950,7 +953,7 @@ class RecordBatchPayloadWriter : public RecordBatchWriter {
   std::shared_ptr<Schema> shared_schema_;
   const Schema& schema_;
   MemoryPool* pool_;
-  internal::DictionaryMemo dictionary_memo_;
+  DictionaryMemo* dictionary_memo_;
   bool started_ = false;
   bool wrote_dictionaries_ = false;
 };
@@ -1102,9 +1105,12 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl
                               const std::shared_ptr<Schema>& schema)
       : RecordBatchPayloadWriter(
             std::unique_ptr<internal::IpcPayloadWriter>(new PayloadStreamWriter(sink)),
-            schema) {}
+            schema, &own_dictionary_memo_) {}
 
   ~RecordBatchStreamWriterImpl() = default;
+
+ private:
+  DictionaryMemo own_dictionary_memo_;
 };
 
 class RecordBatchFileWriter::RecordBatchFileWriterImpl : public RecordBatchPayloadWriter {
@@ -1112,9 +1118,12 @@ class RecordBatchFileWriter::RecordBatchFileWriterImpl : public RecordBatchPaylo
   RecordBatchFileWriterImpl(io::OutputStream* sink, const std::shared_ptr<Schema>& schema)
       : RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter>(
                                      new PayloadFileWriter(sink, schema)),
-                                 schema) {}
+                                 schema, &own_dictionary_memo_) {}
 
   ~RecordBatchFileWriterImpl() = default;
+
+ private:
+  DictionaryMemo own_dictionary_memo_;
 };
 
 RecordBatchStreamWriter::RecordBatchStreamWriter() {}
@@ -1167,8 +1176,9 @@ namespace internal {
 
 Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
                              const std::shared_ptr<Schema>& schema,
+                             DictionaryMemo* dictionary_memo,
                              std::unique_ptr<RecordBatchWriter>* out) {
-  out->reset(new RecordBatchPayloadWriter(std::move(sink), schema));
+  out->reset(new RecordBatchPayloadWriter(std::move(sink), schema, dictionary_memo));
   // XXX should we call Start()?
   return Status::OK();
 }
@@ -1199,20 +1209,15 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
                           kMaxNestingDepth, true);
 }
 
-// TODO: this function also serializes dictionaries.  This is suboptimal for
-// the purpose of transmitting working set metadata without actually sending
-// the data (e.g. ListFlights() in Flight RPC).
-
-Status SerializeSchema(const Schema& schema, MemoryPool* pool,
-                       std::shared_ptr<Buffer>* out) {
+Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
+                       MemoryPool* pool, std::shared_ptr<Buffer>* out) {
   std::shared_ptr<io::BufferOutputStream> stream;
   RETURN_NOT_OK(io::BufferOutputStream::Create(1024, pool, &stream));
 
   auto payload_writer = make_unique<PayloadStreamWriter>(stream.get());
-  RecordBatchPayloadWriter writer(std::move(payload_writer), schema);
-  // Write out schema and dictionaries
+  RecordBatchPayloadWriter writer(std::move(payload_writer), schema, dictionary_memo);
+  // Write schema and populate fields (but not dictionaries) in dictionary_memo
   RETURN_NOT_OK(writer.Start());
-
   return stream->Finish(out);
 }
 

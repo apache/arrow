@@ -59,7 +59,7 @@ class JsonWriter::JsonWriterImpl {
     RETURN_NOT_OK(CollectDictionaries(batch, &dictionary_memo_));
 
     // Write dictionaries, if any
-    if (dictionary_memo_.size() > 0) {
+    if (dictionary_memo_.num_dictionaries() > 0) {
       writer_->Key("dictionaries");
       writer_->StartArray();
       for (const auto& entry : dictionary_memo_.id_to_dictionary()) {

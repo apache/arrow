@@ -75,10 +75,10 @@ using RjObject = rj::Value::ConstObject;
 
 namespace arrow {
 namespace ipc {
-namespace internal {
 
 class DictionaryMemo;
 
+namespace internal {
 namespace json {
 
 /// \brief Append integration test Schema format to rapidjson writer
