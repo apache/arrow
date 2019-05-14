@@ -1037,74 +1037,42 @@ mod tests {
     #[test]
     fn test_cast_date32_to_date64() {
         let a = Date32Array::from(vec![10000, 17890]);
-        assert_eq!(
-            "PrimitiveArray<Date32(Day)>\n[\n  1997-05-19,\n  2018-12-25,\n]",
-            format!("{:?}", a)
-        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
         let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
         assert_eq!(864000000000, c.value(0));
         assert_eq!(1545696000000, c.value(1));
-        assert_eq!(
-            "PrimitiveArray<Date64(Millisecond)>\n[\n  1997-05-19,\n  2018-12-25,\n]",
-            format!("{:?}", c)
-        );
     }
 
     #[test]
     fn test_cast_date64_to_date32() {
         let a = Date64Array::from(vec![Some(864000000005), Some(1545696000001), None]);
-        assert_eq!(
-            "PrimitiveArray<Date64(Millisecond)>\n[\n  1997-05-19,\n  2018-12-25,\n  null,\n]",
-            format!("{:?}", a)
-        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
         assert_eq!(10000, c.value(0));
         assert_eq!(17890, c.value(1));
         assert!(c.is_null(2));
-        assert_eq!(
-            "PrimitiveArray<Date32(Day)>\n[\n  1997-05-19,\n  2018-12-25,\n  null,\n]",
-            format!("{:?}", c)
-        );
     }
 
     #[test]
     fn test_cast_date32_to_int32() {
         let a = Date32Array::from(vec![10000, 17890]);
-        assert_eq!(
-            "PrimitiveArray<Date32(Day)>\n[\n  1997-05-19,\n  2018-12-25,\n]",
-            format!("{:?}", a)
-        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Int32).unwrap();
         let c = b.as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(10000, c.value(0));
         assert_eq!(17890, c.value(1));
-        assert_eq!(
-            "PrimitiveArray<Int32>\n[\n  10000,\n  17890,\n]",
-            format!("{:?}", c)
-        );
     }
 
     #[test]
     fn test_cast_int32_to_date32() {
         let a = Int32Array::from(vec![10000, 17890]);
-        assert_eq!(
-            "PrimitiveArray<Int32>\n[\n  10000,\n  17890,\n]",
-            format!("{:?}", a)
-        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
         assert_eq!(10000, c.value(0));
         assert_eq!(17890, c.value(1));
-        assert_eq!(
-            "PrimitiveArray<Date32(Day)>\n[\n  1997-05-19,\n  2018-12-25,\n]",
-            format!("{:?}", c)
-        );
     }
 
     #[test]
@@ -1114,20 +1082,12 @@ mod tests {
             Some(1545696000001),
             None,
         ]);
-        assert_eq!(
-            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  1997-05-19T00:00:00.005,\n  2018-12-25T00:00:00.001,\n  null,\n]",
-            format!("{:?}", a)
-        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();
         assert_eq!(10000, c.value(0));
         assert_eq!(17890, c.value(1));
         assert!(c.is_null(2));
-        assert_eq!(
-            "PrimitiveArray<Date32(Day)>\n[\n  1997-05-19,\n  2018-12-25,\n  null,\n]",
-            format!("{:?}", c)
-        );
     }
 
     #[test]
@@ -1137,20 +1097,12 @@ mod tests {
             Some(1545696000001),
             None,
         ]);
-        assert_eq!(
-            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  1997-05-19T00:00:00.005,\n  2018-12-25T00:00:00.001,\n  null,\n]",
-            format!("{:?}", a)
-        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
         let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
         assert_eq!(864000000005, c.value(0));
         assert_eq!(1545696000001, c.value(1));
         assert!(c.is_null(2));
-        assert_eq!(
-            "PrimitiveArray<Date64(Millisecond)>\n[\n  1997-05-19,\n  2018-12-25,\n  null,\n]",
-            format!("{:?}", c)
-        );
     }
 
     #[test]
@@ -1160,10 +1112,6 @@ mod tests {
             Some(1545696000001),
             None,
         ]);
-        assert_eq!(
-            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  1997-05-19T00:00:00.005,\n  2018-12-25T00:00:00.001,\n  null,\n]",
-            format!("{:?}", a)
-        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Int64).unwrap();
         let c = b.as_any().downcast_ref::<Int64Array>().unwrap();
@@ -1171,10 +1119,6 @@ mod tests {
         assert_eq!(864000000005, c.value(0));
         assert_eq!(1545696000001, c.value(1));
         assert!(c.is_null(2));
-        assert_eq!(
-            "PrimitiveArray<Int64>\n[\n  864000000005,\n  1545696000001,\n  null,\n]",
-            format!("{:?}", c)
-        );
     }
 
     #[test]
@@ -1184,20 +1128,12 @@ mod tests {
             Some(1545696002001),
             None,
         ]);
-        assert_eq!(
-            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  1997-05-19T00:00:03.005,\n  2018-12-25T00:00:02.001,\n  null,\n]",
-            format!("{:?}", a)
-        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Timestamp(TimeUnit::Second)).unwrap();
         let c = b.as_any().downcast_ref::<TimestampSecondArray>().unwrap();
         assert_eq!(864000003, c.value(0));
         assert_eq!(1545696002, c.value(1));
         assert!(c.is_null(2));
-        assert_eq!(
-            "PrimitiveArray<Timestamp(Second)>\n[\n  1997-05-19T00:00:03,\n  2018-12-25T00:00:02,\n  null,\n]",
-            format!("{:?}", c)
-        );
     }
 
     #[test]
