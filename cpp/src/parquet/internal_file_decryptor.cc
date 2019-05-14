@@ -161,17 +161,22 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
         "Could not parse footer metadata");
   }
 
-  auto aes_decryptor = metadata ? GetMetaAesDecryptor(footer_key.size())
-                                : GetDataAesDecryptor(footer_key.size());
-  std::shared_ptr<Decryptor> decryptor =
-      std::make_shared<Decryptor>(aes_decryptor, footer_key, file_aad_, aad);
+  // Create both data and metadata decryptors to avoid redundant retrieval of key
+  // from the key_retriever.
+  auto aes_metadata_decryptor = GetMetaAesDecryptor(footer_key.size());
+  auto aes_data_decryptor = GetDataAesDecryptor(footer_key.size());
+
+  std::shared_ptr<Decryptor> footer_metadata_decryptor =
+    std::make_shared<Decryptor>(aes_metadata_decryptor, footer_key, file_aad_, aad);
+  std::shared_ptr<Decryptor> footer_data_decryptor =
+    std::make_shared<Decryptor>(aes_data_decryptor, footer_key, file_aad_, aad);
+
+  footer_metadata_decryptor_ = footer_metadata_decryptor;
+  footer_data_decryptor_ = footer_data_decryptor;
 
   if (metadata)
-    footer_metadata_decryptor_ = decryptor;
-  else
-    footer_data_decryptor_ = decryptor;
-
-  return decryptor;
+    return footer_metadata_decryptor;
+  return footer_data_decryptor;
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnMetaDecryptor(
@@ -219,17 +224,22 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
                                 column_path->ToDotString());
   }
 
-  auto aes_decryptor = metadata ? GetMetaAesDecryptor(column_key.size())
-                                : GetDataAesDecryptor(column_key.size());
+  // Create both data and metadata decryptors to avoid redundant retrieval of key
+  // using the key_retriever.
+  auto aes_metadata_decryptor = GetMetaAesDecryptor(column_key.size());
+  auto aes_data_decryptor = GetDataAesDecryptor(column_key.size());
 
-  std::shared_ptr<Decryptor> decryptor =
-      std::make_shared<Decryptor>(aes_decryptor, column_key, file_aad_, aad);
+  std::shared_ptr<Decryptor> metadata_decryptor =
+      std::make_shared<Decryptor>(aes_metadata_decryptor, column_key, file_aad_, aad);
+  std::shared_ptr<Decryptor> data_decryptor =
+    std::make_shared<Decryptor>(aes_data_decryptor, column_key, file_aad_, aad);
+
+  (*column_metadata_map_)[column_path] = metadata_decryptor;
+  (*column_data_map_)[column_path] = data_decryptor;
+
   if (metadata)
-    (*column_metadata_map_)[column_path] = decryptor;
-  else
-    (*column_data_map_)[column_path] = decryptor;
-
-  return decryptor;
+    return metadata_decryptor;
+  return data_decryptor;
 }
 
 parquet_encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
