@@ -140,9 +140,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                               (int16_t)i/* column_ordinal */, properties_.memory_pool());
     }
 
-    // the column is encrypted
+    // The column is encrypted
 
-    // the column is encrypted with footer key
+    // The column is encrypted with footer key
     if (crypto_metadata->encrypted_with_footer_key()) {
       auto meta_decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta();
       auto data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData();
@@ -152,8 +152,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                               properties_.memory_pool(), meta_decryptor, data_decryptor);
     }
 
-    // file is encrypted and the column is encrypted with its own key
-
+    // The column is encrypted with its own key
     std::string column_key_metadata = crypto_metadata->key_metadata();
     std::shared_ptr<schema::ColumnPath> column_path =
         std::make_shared<schema::ColumnPath>(crypto_metadata->path_in_schema());
