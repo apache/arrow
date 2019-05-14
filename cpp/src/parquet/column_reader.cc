@@ -210,7 +210,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   while (seen_num_rows_ < total_num_rows_) {
     uint32_t header_size = 0;
     uint32_t allowed_page_size = kDefaultPageHeaderSize;
-    std::string aad;
 
     // Page headers can be very large because of page statistics
     // We try to deserialize a larger buffer progressively
@@ -227,10 +226,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       try {
         if (meta_decryptor_ != NULLPTR) {
           if (current_page_is_dictionary) {
-            aad = parquet_encryption::createModuleAAD(
+            std::string dictionary_page_header_aad;
+            dictionary_page_header_aad = parquet_encryption::createModuleAAD(
                 meta_decryptor_->file_aad(), parquet_encryption::DictionaryPageHeader,
                 row_group_ordinal_, column_ordinal_, (int16_t)-1);
-            meta_decryptor_->update_aad(aad);
+            meta_decryptor_->update_aad(dictionary_page_header_aad);
           } else {
             parquet_encryption::quickUpdatePageAAD(data_page_headerAAD_, page_ordinal_);
             meta_decryptor_->update_aad(data_page_headerAAD_);
@@ -259,10 +259,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     if (data_decryptor_ != NULLPTR) {
       DCHECK(!data_decryptor_->file_aad().empty());
       if (current_page_is_dictionary) {
-        aad = parquet_encryption::createModuleAAD(
+        std::string dictionary_page_aad;
+        dictionary_page_aad = parquet_encryption::createModuleAAD(
             data_decryptor_->file_aad(), parquet_encryption::DictionaryPage,
             row_group_ordinal_, column_ordinal_, (int16_t)-1);
-        data_decryptor_->update_aad(aad);
+        data_decryptor_->update_aad(dictionary_page_aad);
       } else {
         parquet_encryption::quickUpdatePageAAD(data_pageAAD_, page_ordinal_);
         data_decryptor_->update_aad(data_pageAAD_);
