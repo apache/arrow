@@ -38,7 +38,6 @@ namespace ipc {
 namespace internal {
 
 using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
-using DictionaryFieldMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
 
 /// \brief Memoization data structure for assigning id numbers to
 /// dictionaries and tracking their current state through possible
@@ -68,7 +67,10 @@ class ARROW_EXPORT DictionaryMemo {
   bool HasDictionary(const std::shared_ptr<Field>& type) const;
 
   /// \brief Return true if we have a dictionary for the input id
-  bool HasDictionaryId(int64_t id) const;
+  bool HasDictionary(int64_t id) const;
+
+  /// \brief Return true if we have a dictionary for the input id
+  bool HasField(int64_t id) const;
 
   /// \brief Add field to the memo, return KeyError if already present
   Status AddField(int64_t id, const std::shared_ptr<Field>& field);
@@ -83,6 +85,8 @@ class ARROW_EXPORT DictionaryMemo {
   int size() const { return static_cast<int>(id_to_dictionary_.size()); }
 
  private:
+  using DictionaryFieldMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
+
   // Dictionary memory addresses, to track whether a particular
   // dictionary-encoded field has been seen before
   std::unordered_map<intptr_t, int64_t> field_to_id_;

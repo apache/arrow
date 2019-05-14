@@ -104,14 +104,19 @@ bool DictionaryMemo::HasDictionary(const std::shared_ptr<Field>& field) const {
   return it != field_to_id_.end();
 }
 
-bool DictionaryMemo::HasDictionaryId(int64_t id) const {
+bool DictionaryMemo::HasDictionary(int64_t id) const {
   auto it = id_to_dictionary_.find(id);
   return it != id_to_dictionary_.end();
 }
 
+bool DictionaryMemo::HasField(int64_t id) const {
+  auto it = id_to_field_.find(id);
+  return it != id_to_field_.end();
+}
+
 Status DictionaryMemo::AddDictionary(int64_t id,
                                      const std::shared_ptr<Array>& dictionary) {
-  if (HasDictionaryId(id)) {
+  if (HasDictionary(id)) {
     return Status::KeyError("Dictionary with id ", id, " already exists");
   }
   id_to_dictionary_[id] = dictionary;
