@@ -23,12 +23,23 @@
 #include <utility>
 
 #include "arrow/status.h"
+#include "arrow/type.h"
 
 namespace arrow {
 namespace ipc {
 namespace internal {
 
 DictionaryMemo::DictionaryMemo() {}
+
+// Returns KeyError if dictionary not found
+Status DictionaryMemo::GetField(int64_t id, std::shared_ptr<Field>* field) const {
+  auto it = id_to_field_.find(id);
+  if (it == id_to_field_.end()) {
+    return Status::KeyError("Dictionary-encoded field with id ", id, " not found");
+  }
+  *field = it->second;
+  return Status::OK();
+}
 
 // Returns KeyError if dictionary not found
 Status DictionaryMemo::GetDictionary(int64_t id,
@@ -52,6 +63,22 @@ int64_t DictionaryMemo::GetOrAssignId(const std::shared_ptr<Field>& field) {
     field_to_id_[address] = new_id;
     id_to_field_[new_id] = field;
     return new_id;
+  }
+}
+
+Status DictionaryMemo::AddField(int64_t id, const std::shared_ptr<Field>& field) {
+  intptr_t address = reinterpret_cast<intptr_t>(field.get());
+  auto it = field_to_id_.find(address);
+  if (it != field_to_id_.end()) {
+    return Status::KeyError("Field is already in memo: ", field->ToString());
+  } else {
+    auto it2 = id_to_field_.find(id);
+    if (it2 != id_to_field_.end()) {
+      return Status::KeyError("Dictionary id is already in memo: ", id);
+    }
+    field_to_id_[address] = id;
+    id_to_field_[id] = field;
+    return Status::OK();
   }
 }
 

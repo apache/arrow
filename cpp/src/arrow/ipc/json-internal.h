@@ -93,12 +93,10 @@ Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
                        RjWriter* writer);
 
 ARROW_EXPORT
-Status WriteRecordBatch(const RecordBatch& batch, DictionaryMemo* dict_memo,
-                        RjWriter* writer);
+Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
 
 ARROW_EXPORT
-Status WriteArray(const std::string& name, const Array& array, DictionaryMemo* dict_memo,
-                  RjWriter* writer);
+Status WriteArray(const std::string& name, const Array& array, RjWriter* writer);
 
 ARROW_EXPORT
 Status ReadSchema(const rj::Value& json_obj, MemoryPool* pool,

@@ -45,16 +45,27 @@ namespace json {
 struct DictionaryCollector {
   DictionaryMemo* dictionary_memo_;
 
-  Status Visit(const std::shared_ptr<Field>& field, const std::shared_ptr<Array>& array) {
-    auto type = array->type();
+  Status WalkChildren(const DataType& type, const Array& array) {
+    for (int i = 0; i < type.num_children(); ++i) {
+      auto boxed_child = MakeArray(array.data()->child_data[i]);
+      RETURN_NOT_OK(Visit(type.child(i), *boxed_child));
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const std::shared_ptr<Field>& field, const Array& array) {
+    auto type = array.type();
     if (type->id() == Type::DICTIONARY) {
-      const auto& dict_array = static_cast<const DictionaryArray&>(*array);
+      const auto& dict_array = static_cast<const DictionaryArray&>(array);
+      auto dictionary = dict_array.dictionary();
       int64_t id = dictionary_memo_->GetOrAssignId(field);
-      RETURN_NOT_OK(dictionary_memo_->AddDictionary(id, dict_array.dictionary()));
+      RETURN_NOT_OK(dictionary_memo_->AddDictionary(id, dictionary));
+
+      // Traverse the dictionary to gather any nested dictionaries
+      const auto& dict_type = static_cast<const DictionaryType&>(*type);
+      RETURN_NOT_OK(WalkChildren(*dict_type.value_type(), *dictionary));
     } else {
-      for (int i = 0; i < type->num_children(); ++i) {
-        RETURN_NOT_OK(Visit(type->child(i), MakeArray(array->data()->child_data[i])));
-      }
+      RETURN_NOT_OK(WalkChildren(*type, array));
     }
     return Status::OK();
   }
@@ -62,7 +73,7 @@ struct DictionaryCollector {
   Status Collect(const RecordBatch& batch) {
     const Schema& schema = *batch.schema();
     for (int i = 0; i < schema.num_fields(); ++i) {
-      RETURN_NOT_OK(Visit(schema.field(i), batch.column(i)));
+      RETURN_NOT_OK(Visit(schema.field(i), *batch.column(i)));
     }
     return Status::OK();
   }
@@ -118,7 +129,7 @@ class JsonWriter::JsonWriterImpl {
     if (!first_batch_written_) {
       RETURN_NOT_OK(FirstRecordBatch(batch));
     }
-    return json::WriteRecordBatch(batch, &dictionary_memo_, writer_.get());
+    return json::WriteRecordBatch(batch, writer_.get());
   }
 
  private:

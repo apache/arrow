@@ -48,8 +48,12 @@ class ARROW_EXPORT DictionaryMemo {
   DictionaryMemo(DictionaryMemo&&) = default;
   DictionaryMemo& operator=(DictionaryMemo&&) = default;
 
+  /// \brief Return field corresponding to a particular dictionary
+  /// id. Returns KeyError if id not found
+  Status GetField(int64_t id, std::shared_ptr<Field>* field) const;
+
   /// \brief Return current dictionary corresponding to a particular
-  /// id. Returns KeyError if dictionary not found
+  /// id. Returns KeyError if id not found
   Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;
 
   /// \brief Return id for dictionary, computing new id if necessary
@@ -64,6 +68,9 @@ class ARROW_EXPORT DictionaryMemo {
 
   /// \brief Return true if we have a dictionary for the input id
   bool HasDictionaryId(int64_t id) const;
+
+  /// \brief Add field to the memo, return KeyError if already present
+  Status AddField(int64_t id, const std::shared_ptr<Field>& field);
 
   /// \brief Add a dictionary to the memo with a particular id. Returns
   /// KeyError if that dictionary already exists

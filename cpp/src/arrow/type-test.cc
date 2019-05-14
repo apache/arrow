@@ -658,11 +658,10 @@ TEST(TestDictionaryType, UnifyNumeric) {
   auto d3 = ArrayFromJSON(dict_ty, "[1, -200]");
 
   auto expected = dictionary(int8(), dict_ty);
-  auto expected_dict = ArrayFromJSON(dict_ty, "[3, 4, 7, 1, 8, -200]")
+  auto expected_dict = ArrayFromJSON(dict_ty, "[3, 4, 7, 1, 8, -200]");
 
-      std::shared_ptr<DataType>
-          out_type;
-  std::shared_ptr<DataType> out_dict;
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
   ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get(), t3.get()},
                                   {d1.get(), d2.get(), d3.get()}, &out_type, &out_dict));
   ASSERT_TRUE(out_type->Equals(*expected));
@@ -670,7 +669,7 @@ TEST(TestDictionaryType, UnifyNumeric) {
 
   std::vector<std::vector<int32_t>> transpose_maps;
   ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get(), t3.get()},
-                                  {d1.get(), d2.get(), d3.get()} & out_type, &out_dict,
+                                  {d1.get(), d2.get(), d3.get()}, &out_type, &out_dict,
                                   &transpose_maps));
   ASSERT_TRUE(out_type->Equals(*expected));
   ASSERT_TRUE(out_dict->Equals(*expected_dict));
@@ -693,7 +692,7 @@ TEST(TestDictionaryType, UnifyString) {
   auto expected_dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"quux\"]");
 
   std::shared_ptr<DataType> out_type;
-  std::shared_ptr<DataType> out_dict;
+  std::shared_ptr<Array> out_dict;
   ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()},
                                   {d1.get(), d2.get()}, &out_type, &out_dict));
   ASSERT_TRUE(out_type->Equals(*expected));
@@ -728,7 +727,7 @@ TEST(TestDictionaryType, UnifyFixedSizeBinary) {
   auto expected = dictionary(int8(), type);
 
   std::shared_ptr<DataType> out_type;
-  std::shared_ptr<DataType> out_dict;
+  std::shared_ptr<Array> out_dict;
   ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()},
                                   {dict1.get(), dict2.get()}, &out_type, &out_dict));
   ASSERT_TRUE(out_type->Equals(*expected));
@@ -777,7 +776,7 @@ TEST(TestDictionaryType, UnifyLarge) {
   auto expected = dictionary(int16(), int32());
 
   std::shared_ptr<DataType> out_type;
-  std::shared_ptr<DataType> dict_type;
+  std::shared_ptr<Array> out_dict;
   ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()},
                                   {dict1.get(), dict2.get()}, &out_type, &out_dict));
   ASSERT_TRUE(out_type->Equals(*expected));

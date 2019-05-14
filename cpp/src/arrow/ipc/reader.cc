@@ -53,6 +53,7 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
 
+using internal::DictionaryMemo;
 using internal::FileBlock;
 using internal::kArrowMagicBytes;
 
@@ -386,55 +387,47 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
   return ReadRecordBatch(batch, schema, max_recursion_depth, file, out);
 }
 
-Status ReadDictionary(const Buffer& metadata, const DictionaryTypeMap& dictionary_types,
-                      io::RandomAccessFile* file, int64_t* dictionary_id,
-                      std::shared_ptr<Array>* out) {
+Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
+                      io::RandomAccessFile* file) {
   auto message = flatbuf::GetMessage(metadata.data());
   auto dictionary_batch =
       reinterpret_cast<const flatbuf::DictionaryBatch*>(message->header());
 
-  int64_t id = *dictionary_id = dictionary_batch->id();
-  auto it = dictionary_types.find(id);
-  if (it == dictionary_types.end()) {
-    return Status::KeyError("Do not have type metadata for dictionary with id: ", id);
-  }
+  int64_t id = dictionary_batch->id();
 
-  std::vector<std::shared_ptr<Field>> fields = {it->second};
-
-  // We need a schema for the record batch
-  auto dummy_schema = std::make_shared<Schema>(fields);
+  // Look up the field, which must have been added to the
+  // DictionaryMemo already prior to invoking this function
+  std::shared_ptr<Field> field;
+  RETURN_NOT_OK(dictionary_memo->GetField(id, &field));
 
   // The dictionary is embedded in a record batch with a single column
   std::shared_ptr<RecordBatch> batch;
   auto batch_meta =
       reinterpret_cast<const flatbuf::RecordBatch*>(dictionary_batch->data());
-  RETURN_NOT_OK(
-      ReadRecordBatch(batch_meta, dummy_schema, kMaxNestingDepth, file, &batch));
+  RETURN_NOT_OK(ReadRecordBatch(batch_meta, ::arrow::schema({field}), kMaxNestingDepth,
+                                file, &batch));
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
-
-  *out = batch->column(0);
-  return Status::OK();
+  return dictionary_memo->AddDictionary(id, batch->column(0));
 }
 
-static Status ReadMessageAndValidate(MessageReader* reader, Message::Type expected_type,
-                                     bool allow_null, std::unique_ptr<Message>* message) {
+static Status ReadMessageAndValidate(MessageReader* reader, bool allow_null,
+                                     std::unique_ptr<Message>* message) {
   RETURN_NOT_OK(reader->ReadNextMessage(message));
 
   if (!(*message) && !allow_null) {
-    return Status::Invalid("Expected ", FormatMessageType(expected_type),
-                           " message in stream, was null or length 0");
+    return Status::Invalid("Expected message in stream, was null or length 0");
   }
 
   if ((*message) == nullptr) {
     // End of stream?
     return Status::OK();
   }
-
-  CHECK_MESSAGE_TYPE((*message)->type(), expected_type);
   return Status::OK();
 }
+
+//
 
 // ----------------------------------------------------------------------
 // RecordBatchStreamReader implementation
@@ -453,64 +446,71 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     return ReadSchema();
   }
 
-  Status ReadNextDictionary() {
-    std::unique_ptr<Message> message;
-    RETURN_NOT_OK(ReadMessageAndValidate(message_reader_.get(), Message::DICTIONARY_BATCH,
-                                         false, &message));
-    if (message == nullptr) {
-      // End of stream
-      return Status::IOError(
-          "End of IPC stream when attempting to read dictionary batch");
-    }
-
-    CHECK_HAS_BODY(*message);
-    io::BufferReader reader(message->body());
-
-    std::shared_ptr<Array> dictionary;
-    int64_t id;
-    RETURN_NOT_OK(ReadDictionary(*message->metadata(), dictionary_types_, &reader, &id,
-                                 &dictionary));
-    return dictionary_memo_.AddDictionary(id, dictionary);
-  }
-
   Status ReadSchema() {
     std::unique_ptr<Message> message;
     RETURN_NOT_OK(
-        ReadMessageAndValidate(message_reader_.get(), Message::SCHEMA, false, &message));
-    if (message == nullptr) {
-      // End of stream
-      return Status::IOError("End of IPC stream when attempting to read schema");
-    }
+        ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/false, &message));
 
+    CHECK_MESSAGE_TYPE(message->type(), Message::SCHEMA);
     CHECK_HAS_NO_BODY(*message);
     if (message->header() == nullptr) {
       return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
     }
-    RETURN_NOT_OK(internal::GetDictionaryTypes(message->header(), &dictionary_types_));
+    return internal::GetSchema(message->header(), &dictionary_memo_, &schema_);
+  }
+
+  Status ParseDictionary(const Message& message) {
+    // Only invoke this method if we already know we have a dictionary message
+    DCHECK_EQ(message.type(), Message::DICTIONARY_BATCH);
+    CHECK_HAS_BODY(message);
+    io::BufferReader reader(message.body());
+    return ReadDictionary(*message.metadata(), &dictionary_memo_, &reader);
+  }
+
+  Status ReadInitialDictionaries() {
+    // We must receive all dictionaries before reconstructing the
+    // first record batch. Subsequent dictionary deltas modify the memo
+    std::unique_ptr<Message> message;
 
     // TODO(wesm): In future, we may want to reconcile the ids in the stream with
     // those found in the schema
-    int num_dictionaries = static_cast<int>(dictionary_types_.size());
-    for (int i = 0; i < num_dictionaries; ++i) {
-      RETURN_NOT_OK(ReadNextDictionary());
+    for (int i = 0; i < dictionary_memo_.size(); ++i) {
+      RETURN_NOT_OK(
+          ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/false, &message));
+      if (message->type() != Message::DICTIONARY_BATCH) {
+        return Status::Invalid(
+            "IPC stream did not find the expected number of "
+            "dictionaries at the start of the stream");
+      }
+      RETURN_NOT_OK(ParseDictionary(*message));
     }
 
-    return internal::GetSchema(message->header(), dictionary_memo_, &schema_);
+    read_initial_dictionaries_ = true;
+    return Status::OK();
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) {
+    if (!read_initial_dictionaries_) {
+      RETURN_NOT_OK(ReadInitialDictionaries());
+    }
+
     std::unique_ptr<Message> message;
-    RETURN_NOT_OK(ReadMessageAndValidate(message_reader_.get(), Message::RECORD_BATCH,
-                                         true, &message));
+    RETURN_NOT_OK(
+        ReadMessageAndValidate(message_reader_.get(), /*allow_null=*/true, &message));
     if (message == nullptr) {
       // End of stream
       *batch = nullptr;
       return Status::OK();
     }
 
-    CHECK_HAS_BODY(*message);
-    io::BufferReader reader(message->body());
-    return ReadRecordBatch(*message->metadata(), schema_, &reader, batch);
+    if (message->type() == Message::DICTIONARY_BATCH) {
+      // TODO(wesm): implement delta dictionaries
+      return Status::NotImplemented("Delta dictionaries not yet implemented");
+    } else {
+      CHECK_HAS_BODY(*message);
+      io::BufferReader reader(message->body());
+      return ReadRecordBatch(*message->metadata(), schema_, &reader, batch);
+    }
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
@@ -518,8 +518,8 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
  private:
   std::unique_ptr<MessageReader> message_reader_;
 
-  // dictionary_id -> type
-  DictionaryTypeMap dictionary_types_;
+  bool read_initial_dictionaries_ = false;
+
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_;
 };
@@ -571,9 +571,7 @@ Status RecordBatchStreamReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
 
 class RecordBatchFileReader::RecordBatchFileReaderImpl {
  public:
-  RecordBatchFileReaderImpl() : file_(NULLPTR), footer_offset_(0), footer_(NULLPTR) {
-    dictionary_memo_ = std::make_shared<DictionaryMemo>();
-  }
+  RecordBatchFileReaderImpl() : file_(NULLPTR), footer_offset_(0), footer_(NULLPTR) {}
 
   Status ReadFooter() {
     int magic_size = static_cast<int>(strlen(kArrowMagicBytes));
@@ -619,61 +617,56 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     return internal::GetMetadataVersion(footer_->version());
   }
 
-  FileBlock record_batch(int i) const {
+  FileBlock GetRecordBatchBlock(int i) const {
     return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
   }
 
-  FileBlock dictionary(int i) const {
+  FileBlock GetDictionaryBlock(int i) const {
     return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
+  }
+
+  Status ReadMessageFromBlock(const FileBlock& block, std::unique_ptr<Message>* out) {
+    DCHECK(BitUtil::IsMultipleOf8(block.offset));
+    DCHECK(BitUtil::IsMultipleOf8(block.metadata_length));
+    DCHECK(BitUtil::IsMultipleOf8(block.body_length));
+
+    RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, out));
+
+    // TODO(wesm): this breaks integration tests, see ARROW-3256
+    // DCHECK_EQ((*out)->body_length(), block.body_length);
+    return Status::OK();
+  }
+
+  Status ReadDictionaries() {
+    // Read all the dictionaries
+    for (int i = 0; i < num_dictionaries(); ++i) {
+      std::unique_ptr<Message> message;
+      RETURN_NOT_OK(ReadMessageFromBlock(GetDictionaryBlock(i), &message));
+
+      io::BufferReader reader(message->body());
+      RETURN_NOT_OK(ReadDictionary(*message->metadata(), &dictionary_memo_, &reader));
+    }
+    return Status::OK();
   }
 
   Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, num_record_batches());
-    FileBlock block = record_batch(i);
 
-    DCHECK(BitUtil::IsMultipleOf8(block.offset));
-    DCHECK(BitUtil::IsMultipleOf8(block.metadata_length));
-    DCHECK(BitUtil::IsMultipleOf8(block.body_length));
+    if (!read_dictionaries_) {
+      RETURN_NOT_OK(ReadDictionaries());
+    }
 
     std::unique_ptr<Message> message;
-    RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, &message));
-
-    // TODO(wesm): this breaks integration tests, see ARROW-3256
-    // DCHECK_EQ(message->body_length(), block.body_length);
+    RETURN_NOT_OK(ReadMessageFromBlock(GetRecordBatchBlock(i), &message));
 
     io::BufferReader reader(message->body());
     return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &reader, batch);
   }
 
   Status ReadSchema() {
-    RETURN_NOT_OK(internal::GetDictionaryTypes(footer_->schema(), &dictionary_fields_));
-
-    // Read all the dictionaries
-    for (int i = 0; i < num_dictionaries(); ++i) {
-      FileBlock block = dictionary(i);
-
-      DCHECK(BitUtil::IsMultipleOf8(block.offset));
-      DCHECK(BitUtil::IsMultipleOf8(block.metadata_length));
-      DCHECK(BitUtil::IsMultipleOf8(block.body_length));
-
-      std::unique_ptr<Message> message;
-      RETURN_NOT_OK(ReadMessage(block.offset, block.metadata_length, file_, &message));
-
-      // TODO(wesm): this breaks integration tests, see ARROW-3256
-      // DCHECK_EQ(message->body_length(), block.body_length);
-
-      io::BufferReader reader(message->body());
-
-      std::shared_ptr<Array> dictionary;
-      int64_t dictionary_id;
-      RETURN_NOT_OK(ReadDictionary(*message->metadata(), dictionary_fields_, &reader,
-                                   &dictionary_id, &dictionary));
-      RETURN_NOT_OK(dictionary_memo_->AddDictionary(dictionary_id, dictionary));
-    }
-
-    // Get the schema
-    return internal::GetSchema(footer_->schema(), *dictionary_memo_, &schema_);
+    // Get the schema and record any observed dictionaries
+    return internal::GetSchema(footer_->schema(), &dictionary_memo_, &schema_);
   }
 
   Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset) {
@@ -703,8 +696,8 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   std::shared_ptr<Buffer> footer_buffer_;
   const flatbuf::Footer* footer_;
 
-  DictionaryTypeMap dictionary_fields_;
-  std::shared_ptr<DictionaryMemo> dictionary_memo_;
+  bool read_dictionaries_ = false;
+  DictionaryMemo dictionary_memo_;
 
   // Reconstructed schema, including any read dictionaries
   std::shared_ptr<Schema> schema_;
@@ -775,7 +768,7 @@ Status ReadSchema(io::InputStream* stream, std::shared_ptr<Schema>* out) {
 Status ReadSchema(const Message& message, std::shared_ptr<Schema>* out) {
   std::shared_ptr<RecordBatchReader> reader;
   DictionaryMemo dictionary_memo;
-  return internal::GetSchema(message.header(), dictionary_memo, &*out);
+  return internal::GetSchema(message.header(), &dictionary_memo, &*out);
 }
 
 Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, io::InputStream* file,

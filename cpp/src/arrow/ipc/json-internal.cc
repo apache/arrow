@@ -1025,30 +1025,26 @@ UnboxValue(const rj::Value& val) {
   return val.GetBool();
 }
 
-struct ArrayValueParser {
-  const RjObject* obj_;
-  MemoryPool* pool_;
-  const std::shared_ptr<DataType>& type_;
-  DictionaryMemo* dictionary_memo_;
-
-  // Parsed common attributes
-  std::vector<bool> is_valid_;
-  int32_t length_;
-  std::shared_ptr<Array> result_;
+class ArrayReader {
+ public:
+  ArrayReader(const RjObject& obj, MemoryPool* pool, const std::shared_ptr<Field>& field,
+              DictionaryMemo* dictionary_memo)
+      : obj_(obj),
+        pool_(pool),
+        field_(field),
+        type_(field->type()),
+        dictionary_memo_(dictionary_memo) {}
 
   template <typename T>
-  typename std::enable_if<
-      std::is_base_of<PrimitiveCType, T>::value || std::is_base_of<DateType, T>::value ||
-          std::is_base_of<TimestampType, T>::value ||
-          std::is_base_of<TimeType, T>::value || std::is_base_of<BooleanType, T>::value ||
-          std::is_base_of<MonthIntervalType, T>::value ||
-          std::is_base_of<DurationType, T>::value,
-      Status>::type
+  typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value ||
+                              is_temporal_type<T>::value ||
+                              std::is_base_of<BooleanType, T>::value,
+                          Status>::type
   Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
-    const auto& json_data = obj_->FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, *obj_);
+    const auto& json_data = obj_.FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
@@ -1071,8 +1067,8 @@ struct ArrayValueParser {
       const T& type) {
     typename TypeTraits<T>::BuilderType builder(pool_);
 
-    const auto& json_data = obj_->FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, *obj_);
+    const auto& json_data = obj_.FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
@@ -1112,8 +1108,8 @@ struct ArrayValueParser {
   Status Visit(const DayTimeIntervalType& type) {
     DayTimeIntervalBuilder builder(pool_);
 
-    const auto& json_data = obj_->FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, *obj_);
+    const auto& json_data = obj_.FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
@@ -1143,8 +1139,8 @@ struct ArrayValueParser {
   Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
-    const auto& json_data = obj_->FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, *obj_);
+    const auto& json_data = obj_.FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
@@ -1184,8 +1180,8 @@ struct ArrayValueParser {
       const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
-    const auto& json_data = obj_->FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, *obj_);
+    const auto& json_data = obj_.FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
@@ -1231,14 +1227,14 @@ struct ArrayValueParser {
     std::shared_ptr<Buffer> validity_buffer;
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
-    const auto& json_offsets = obj_->FindMember("OFFSET");
-    RETURN_NOT_ARRAY("OFFSET", json_offsets, *obj_);
+    const auto& json_offsets = obj_.FindMember("OFFSET");
+    RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
     std::shared_ptr<Buffer> offsets_buffer;
     RETURN_NOT_OK(GetIntArray<int32_t>(json_offsets->value.GetArray(), length_ + 1,
                                        &offsets_buffer));
 
     std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(*obj_, type, &children));
+    RETURN_NOT_OK(GetChildren(obj_, type, &children));
     DCHECK_EQ(children.size(), 1);
 
     result_ = std::make_shared<ListArray>(type_, length_, offsets_buffer, children[0],
@@ -1253,7 +1249,7 @@ struct ArrayValueParser {
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
     std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(*obj_, type, &children));
+    RETURN_NOT_OK(GetChildren(obj_, type, &children));
     DCHECK_EQ(children.size(), 1);
     DCHECK_EQ(children[0]->length(), type.list_size() * length_);
 
@@ -1269,7 +1265,7 @@ struct ArrayValueParser {
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
     std::vector<std::shared_ptr<Array>> fields;
-    RETURN_NOT_OK(GetChildren(*obj_, type, &fields));
+    RETURN_NOT_OK(GetChildren(obj_, type, &fields));
 
     result_ = std::make_shared<StructArray>(type_, length_, fields, validity_buffer,
                                             null_count);
@@ -1286,20 +1282,20 @@ struct ArrayValueParser {
 
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
-    const auto& json_type_ids = obj_->FindMember("TYPE_ID");
-    RETURN_NOT_ARRAY("TYPE_ID", json_type_ids, *obj_);
+    const auto& json_type_ids = obj_.FindMember("TYPE_ID");
+    RETURN_NOT_ARRAY("TYPE_ID", json_type_ids, obj_);
     RETURN_NOT_OK(
         GetIntArray<uint8_t>(json_type_ids->value.GetArray(), length_, &type_id_buffer));
 
     if (type.mode() == UnionMode::DENSE) {
-      const auto& json_offsets = obj_->FindMember("OFFSET");
-      RETURN_NOT_ARRAY("OFFSET", json_offsets, *obj_);
+      const auto& json_offsets = obj_.FindMember("OFFSET");
+      RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
       RETURN_NOT_OK(
           GetIntArray<int32_t>(json_offsets->value.GetArray(), length_, &offsets_buffer));
     }
 
     std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(*obj_, type, &children));
+    RETURN_NOT_OK(GetChildren(obj_, type, &children));
 
     result_ = std::make_shared<UnionArray>(type_, length_, children, type_id_buffer,
                                            offsets_buffer, validity_buffer, null_count);
@@ -1315,12 +1311,13 @@ struct ArrayValueParser {
   Status Visit(const DictionaryType& type) {
     std::shared_ptr<Array> indices;
 
-    ArrayValueParser parser{obj_, pool_, type.index_type(), dictionary_memo_};
+    ArrayReader parser(obj_, pool_, ::arrow::field("indices", type.index_type()),
+                       dictionary_memo_);
     RETURN_NOT_OK(parser.Parse(&indices));
 
     // Look up dictionary
     int64_t dictionary_id = -1;
-    RETURN_NOT_OK(dictionary_memo_->GetId(type, &dictionary_id));
+    RETURN_NOT_OK(dictionary_memo_->GetId(*field_, &dictionary_id));
 
     std::shared_ptr<Array> dictionary;
     RETURN_NOT_OK(dictionary_memo_->GetDictionary(dictionary_id, &dictionary));
@@ -1384,10 +1381,10 @@ struct ArrayValueParser {
   }
 
   Status Parse(std::shared_ptr<Array>* out) {
-    RETURN_NOT_OK(GetObjectInt(*obj_, "count", &length_));
+    RETURN_NOT_OK(GetObjectInt(obj_, "count", &length_));
 
-    const auto& json_valid_iter = obj_->FindMember("VALIDITY");
-    RETURN_NOT_ARRAY("VALIDITY", json_valid_iter, obj);
+    const auto& json_valid_iter = obj_.FindMember("VALIDITY");
+    RETURN_NOT_ARRAY("VALIDITY", json_valid_iter, obj_);
 
     const auto& json_validity = json_valid_iter->value.GetArray();
     DCHECK_EQ(static_cast<int>(json_validity.Size()), length_);
@@ -1401,34 +1398,13 @@ struct ArrayValueParser {
     *out = result_;
     return Status::OK();
   }
-};
-
-class ArrayReader {
- public:
-  explicit ArrayReader(const rj::Value& json_array, const std::shared_ptr<Field>& field,
-                       DictionaryMemo* dictionary_memo, MemoryPool* pool)
-      : json_array_(json_array),
-        field_(field),
-        dictionary_memo_(dictionary_memo),
-        pool_(pool) {}
-
-  Status GetArray(std::shared_ptr<Array>* out) {
-    if (!json_array_.IsObject()) {
-      return Status::Invalid("Array element was not a JSON object");
-    }
-
-    auto obj = json_array_.GetObject();
-
-    ArrayValueParser parser{&obj, pool_, type_, dictionary_memo_};
-    return parser.Parse(out);
-  }
 
  private:
-  const rj::Value& json_array_;
-  const RjObject* obj_;
-  std::shared_ptr<Field> field_;
-  DictionaryMemo* dictionary_memo_;
+  const RjObject& obj_;
   MemoryPool* pool_;
+  const std::shared_ptr<Field>& field_;
+  std::shared_ptr<DataType> type_;
+  DictionaryMemo* dictionary_memo_;
 
   // Parsed common attributes
   std::vector<bool> is_valid_;
@@ -1481,15 +1457,14 @@ static Status ReadDictionary(const RjObject& obj, const DictionaryFieldMap& id_t
   if (it == id_to_field.end()) {
     return Status::Invalid("No dictionary with id ", id);
   }
-  std::vector<std::shared_ptr<Field>> fields = {it->second};
 
-  // We need placeholder schema and dictionary memo to read the record batch
-  auto dummy_schema = std::make_shared<Schema>(fields);
-  DictionaryMemo dummy_memo;
-
-  // The dictionary is embedded in a record batch with a single column
+  // We need placeholder schema and dictionary memo to read the record
+  // batch, because the dictionary is embedded in a record batch with
+  // a single column
   std::shared_ptr<RecordBatch> batch;
-  RETURN_NOT_OK(ReadRecordBatch(it_data->value, dummy_schema, dummy_memo, pool, &batch));
+  DictionaryMemo dummy_memo;
+  RETURN_NOT_OK(ReadRecordBatch(it_data->value, ::arrow::schema({it->second}),
+                                &dummy_memo, pool, &batch));
 
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
@@ -1573,16 +1548,16 @@ Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>&
 
 Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
                        RjWriter* writer) {
-  writer_->StartObject();
-  writer_->Key("id");
-  writer_->Int(static_cast<int32_t>(id));
-  writer_->Key("data");
+  writer->StartObject();
+  writer->Key("id");
+  writer->Int(static_cast<int32_t>(id));
+  writer->Key("data");
 
   // Make a dummy record batch. A bit tedious as we have to make a schema
   auto schema = ::arrow::schema({arrow::field("dictionary", dictionary->type())});
   auto batch = RecordBatch::Make(schema, dictionary->length(), {dictionary});
-  RETURN_NOT_OK(WriteRecordBatch(*batch, writer_));
-  writer_->EndObject();
+  RETURN_NOT_OK(WriteRecordBatch(*batch, writer));
+  writer->EndObject();
   return Status::OK();
 }
 
@@ -1616,9 +1591,13 @@ Status WriteArray(const std::string& name, const Array& array, RjWriter* json_wr
 
 Status ReadArray(MemoryPool* pool, const rj::Value& json_array,
                  const std::shared_ptr<Field>& field, DictionaryMemo* dictionary_memo,
-                 std::shared_ptr<Array>* array) {
-  ArrayReader converter(json_array, field, dictionary_memo, pool);
-  return converter.GetArray(array);
+                 std::shared_ptr<Array>* out) {
+  if (!json_array.IsObject()) {
+    return Status::Invalid("Array element was not a JSON object");
+  }
+  auto obj = json_array.GetObject();
+  ArrayReader parser(obj, pool, field, dictionary_memo);
+  return parser.Parse(out);
 }
 
 Status ReadArray(MemoryPool* pool, const rj::Value& json_array, const Schema& schema,

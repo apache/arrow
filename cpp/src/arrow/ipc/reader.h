@@ -166,8 +166,8 @@ class ARROW_EXPORT RecordBatchFileReader {
 
 // Generic read functions; does not copy data if the input supports zero copy reads
 
-/// \brief Read Schema from stream serialized as a sequence of one or more IPC
-/// messages
+/// \brief Read Schema from stream serialized as a single IPC
+/// message. Does not read dictionaries
 ///
 /// \param[in] stream an InputStream
 /// \param[out] out the output Schema
