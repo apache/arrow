@@ -63,10 +63,6 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
     return footer_encryptor_;
   }
 
-  if (!properties_->encrypted_footer()) {
-    throw ParquetException("Requesting footer encryptor in file "
-                           "with unencrypted footer");
-  }
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   std::string footer_aad = parquet_encryption::createFooterAAD(properties_->file_aad());
   std::string footer_key = properties_->footer_key();
@@ -82,10 +78,6 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {
     return footer_signing_encryptor_;
   }
 
-  if (properties_->encrypted_footer()) {
-    throw ParquetException("Requesting signing footer encryptor in file "
-                           "with encrypted footer");
-  }
   ParquetCipher::type algorithm = properties_->algorithm().algorithm;
   std::string footer_aad = parquet_encryption::createFooterAAD(properties_->file_aad());
   std::string footer_signing_key = properties_->footer_key();
