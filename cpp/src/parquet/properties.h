@@ -281,8 +281,8 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     Builder* encryption(
-        const std::shared_ptr<FileEncryptionProperties>& file_encryption) {
-      file_encryption_ = file_encryption;
+        const std::shared_ptr<FileEncryptionProperties>& file_encryption_properties) {
+      file_encryption_properties_ = file_encryption_properties;
       return this;
     }
 
@@ -333,7 +333,7 @@ class PARQUET_EXPORT WriterProperties {
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
-          pagesize_, version_, created_by_, std::move(file_encryption_),
+          pagesize_, version_, created_by_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties));
     }
 
@@ -345,7 +345,7 @@ class PARQUET_EXPORT WriterProperties {
     int64_t pagesize_;
     ParquetVersion::type version_;
     std::string created_by_;
-    std::shared_ptr<FileEncryptionProperties> file_encryption_;
+    std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
     // Settings used for each column unless overridden in any of the maps below
     ColumnProperties default_column_properties_;
@@ -369,8 +369,8 @@ class PARQUET_EXPORT WriterProperties {
 
   inline std::string created_by() const { return parquet_created_by_; }
 
-  inline FileEncryptionProperties* file_encryption() const {
-    return file_encryption_.get();
+  inline FileEncryptionProperties* file_encryption_properties() const {
+    return file_encryption_properties_.get();
   }
 
   inline Encoding::type dictionary_index_encoding() const {
@@ -418,8 +418,8 @@ class PARQUET_EXPORT WriterProperties {
 
   std::shared_ptr<ColumnEncryptionProperties> column_encryption_props(
       const std::shared_ptr<schema::ColumnPath>& path) const {
-    if (file_encryption_) {
-      return file_encryption_->column_properties(path);
+    if (file_encryption_properties_) {
+      return file_encryption_properties_->column_properties(path);
     } else {
       return NULLPTR;
     }
@@ -430,7 +430,7 @@ class PARQUET_EXPORT WriterProperties {
       ::arrow::MemoryPool* pool, int64_t dictionary_pagesize_limit,
       int64_t write_batch_size, int64_t max_row_group_length, int64_t pagesize,
       ParquetVersion::type version, const std::string& created_by,
-      std::shared_ptr<FileEncryptionProperties> file_encryption,
+      std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties)
       : pool_(pool),
@@ -440,7 +440,7 @@ class PARQUET_EXPORT WriterProperties {
         pagesize_(pagesize),
         parquet_version_(version),
         parquet_created_by_(created_by),
-        file_encryption_(file_encryption),
+        file_encryption_properties_(file_encryption_properties),
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
 
@@ -451,7 +451,7 @@ class PARQUET_EXPORT WriterProperties {
   int64_t pagesize_;
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
-  std::shared_ptr<FileEncryptionProperties> file_encryption_;
+  std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
   ColumnProperties default_column_properties_;
   std::unordered_map<std::string, ColumnProperties> column_properties_;
 };

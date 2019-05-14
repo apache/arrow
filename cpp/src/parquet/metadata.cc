@@ -937,8 +937,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       }
       column_chunk_->__set_crypto_metadata(ccmd);
 
-      // TODO: check file_encryption() is null or not
-      auto footer_key = properties_->file_encryption()->footer_encryption_key();
+      // TODO: check file_encryption_properties() is null or not
+      auto footer_key = properties_->file_encryption_properties()->footer_encryption_key();
 
       // non-uniform: footer is unencrypted, or column is encrypted with a column-specific
       // key
@@ -1193,8 +1193,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
       : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
     metadata_.reset(new format::FileMetaData());
-    if (props->file_encryption() != nullptr &&
-        props->file_encryption()->footer_signing_key().empty()) {
+    if (props->file_encryption_properties() != nullptr &&
+        props->file_encryption_properties()->footer_signing_key().empty()) {
       crypto_metadata_.reset(new format::FileCryptoMetaData());
     }
   }
@@ -1275,14 +1275,14 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       return nullptr;
     }
 
-    auto file_encryption = properties_->file_encryption();
+    auto file_encryption_properties = properties_->file_encryption_properties();
 
-    crypto_metadata_->__set_encryption_algorithm(ToThrift(file_encryption->algorithm()));
+    crypto_metadata_->__set_encryption_algorithm(ToThrift(file_encryption_properties->algorithm()));
     std::string key_metadata;
-    if (file_encryption->encrypted_footer())
-      key_metadata = file_encryption->footer_encryption_key_metadata();
+    if (file_encryption_properties->encrypted_footer())
+      key_metadata = file_encryption_properties->footer_encryption_key_metadata();
     else
-      key_metadata = file_encryption->footer_signing_key_metadata();
+      key_metadata = file_encryption_properties->footer_signing_key_metadata();
 
     if (!key_metadata.empty()) {
       crypto_metadata_->__set_key_metadata(key_metadata);
