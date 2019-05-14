@@ -181,8 +181,7 @@ TEST_F(TestSchemaMetadata, NestedFields) {
 
 TEST_F(TestSchemaMetadata, DictionaryFields) {
   {
-    auto dict_type =
-        dictionary(int8(), ArrayFromJSON(int32(), "[6, 5, 4]"), true /* ordered */);
+    auto dict_type = dictionary(int8(), int32(), true /* ordered */);
     auto f0 = field("f0", dict_type);
     auto f1 = field("f1", list(dict_type));
 
@@ -190,7 +189,7 @@ TEST_F(TestSchemaMetadata, DictionaryFields) {
     CheckRoundtrip(schema);
   }
   {
-    auto dict_type = dictionary(int8(), ArrayFromJSON(list(int32()), "[[4, 5], [6]]"));
+    auto dict_type = dictionary(int8(), list(int32()));
     auto f0 = field("f0", dict_type);
 
     Schema schema({f0});
@@ -743,15 +742,15 @@ class ReaderWriterMixin {
     // Check that dictionaries that should be the same are the same
     auto schema = batch.schema();
 
-    const auto& t0 = checked_cast<const DictionaryType&>(*schema->field(0)->type());
-    const auto& t1 = checked_cast<const DictionaryType&>(*schema->field(1)->type());
+    const auto& b0 = checked_cast<const DictionaryArray&>(*batch.column(0));
+    const auto& b1 = checked_cast<const DictionaryArray&>(*batch.column(1));
 
-    ASSERT_EQ(t0.dictionary().get(), t1.dictionary().get());
+    ASSERT_EQ(b0.dictionary().get(), b1.dictionary().get());
 
     // Same dictionary used for list values
-    const auto& t3 = checked_cast<const ListType&>(*schema->field(3)->type());
-    const auto& t3_value = checked_cast<const DictionaryType&>(*t3.value_type());
-    ASSERT_EQ(t0.dictionary().get(), t3_value.dictionary().get());
+    const auto& b3 = checked_cast<const ListArray&>(*batch.column(3));
+    const auto& b3_value = checked_cast<const DictionaryArray&>(*b3.values());
+    ASSERT_EQ(b0.dictionary().get(), b3_value.dictionary().get());
   }
 };
 

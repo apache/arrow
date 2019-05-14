@@ -35,6 +35,47 @@ class MemoryPool;
 // ----------------------------------------------------------------------
 // Helper functions
 
+struct DictionaryBuilderCase {
+  template <typename ValueType>
+  Status Visit(const ValueType&, typename ValueType::c_type* = nullptr) {
+    return CreateFor<ValueType>();
+  }
+
+  Status Visit(const BinaryType&) { return Create<BinaryDictionaryBuilder>(); }
+  Status Visit(const StringType&) { return Create<StringDictionaryBuilder>(); }
+  Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
+
+  Status Visit(const DataType& value_type) { return NotImplemented(value_type); }
+  Status Visit(const HalfFloatType& value_type) { return NotImplemented(value_type); }
+  Status NotImplemented(const DataType& value_type) {
+    return Status::NotImplemented(
+        "MakeBuilder: cannot construct builder for dictionaries with value type ",
+        value_type);
+  }
+
+  template <typename ValueType>
+  Status CreateFor() {
+    return Create<DictionaryBuilder<ValueType>>();
+  }
+
+  template <typename BuilderType>
+  Status Create() {
+    if (dictionary != nullptr) {
+      out->reset(new BuilderType(dictionary, pool));
+    } else {
+      out->reset(new BuilderType(value_type, pool));
+    }
+    return Status::OK();
+  }
+
+  Status Make() { return VisitTypeInline(*value_type, this); }
+
+  MemoryPool* pool;
+  const std::shared_ptr<DataType>& value_type;
+  const std::shared_ptr<Array>& dictionary;
+  std::unique_ptr<ArrayBuilder>* out;
+};
+
 #define BUILDER_CASE(ENUM, BuilderType)      \
   case Type::ENUM:                           \
     out->reset(new BuilderType(type, pool)); \
@@ -70,9 +111,9 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
       BUILDER_CASE(DECIMAL, Decimal128Builder);
     case Type::DICTIONARY: {
-      return Status::NotImplemented(
-          "Use MakeDictionaryBuilder for dictionary-encoded"
-          " arrays");
+      const auto& dict_type = static_cast<const DictionaryType&>(*type);
+      DictionaryBuilderCase visitor = {pool, dict_type.value_type(), nullptr, out};
+      return visitor.Make();
     }
     case Type::INTERVAL: {
       const auto& interval_type = internal::checked_cast<const IntervalType&>(*type);
@@ -125,46 +166,12 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                                 type->ToString());
 }
 
-struct DictionaryBuilderCase {
-  template <typename ValueType>
-  Status Visit(const ValueType&, typename ValueType::c_type* = nullptr) {
-    return CreateFor<ValueType>();
-  }
-
-  Status Visit(const BinaryType&) { return Create<BinaryDictionaryBuilder>(); }
-  Status Visit(const StringType&) { return Create<StringDictionaryBuilder>(); }
-  Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
-
-  Status Visit(const DataType& value_type) { return NotImplemented(value_type); }
-  Status Visit(const HalfFloatType& value_type) { return NotImplemented(value_type); }
-  Status NotImplemented(const DataType& value_type) {
-    return Status::NotImplemented(
-        "MakeBuilder: cannot construct builder for dictionaries with value type ",
-        value_type);
-  }
-
-  template <typename ValueType>
-  Status CreateFor() {
-    return Create<DictionaryBuilder<ValueType>>();
-  }
-
-  template <typename BuilderType>
-  Status Create() {
-    out->reset(new BuilderType(dictionary, pool));
-    return Status::OK();
-  }
-
-  MemoryPool* pool;
-  const std::shared_ptr<Array>& dictionary;
-  std::unique_ptr<ArrayBuilder>* out;
-};
-
 Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                              const std::shared_ptr<Array>& dictionary,
                              std::unique_ptr<ArrayBuilder>* out) {
   const auto& dict_type = static_cast<const DictionaryType&>(*type);
-  DictionaryBuilderCase visitor = {pool, dictionary, out};
-  return VisitTypeInline(*dict_type.value_type(), &visitor);
+  DictionaryBuilderCase visitor = {pool, dict_type.value_type(), dictionary, out};
+  return visitor.Make();
 }
 
 }  // namespace arrow

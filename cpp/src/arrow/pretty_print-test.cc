@@ -563,9 +563,8 @@ TEST_F(TestPrettyPrint, SchemaWithDictionary) {
   ArrayFromVector<StringType, std::string>(dict_values, &dict);
 
   auto simple = field("one", int32());
-  auto simple_dict = field("two", dictionary(int16(), dict));
+  auto simple_dict = field("two", dictionary(int16(), utf8()));
   auto list_of_dict = field("three", list(simple_dict));
-
   auto struct_with_dict = field("four", struct_({simple, simple_dict}));
 
   auto sch = schema({simple, simple_dict, list_of_dict, struct_with_dict});

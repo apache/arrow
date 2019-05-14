@@ -69,15 +69,13 @@ TYPED_TEST(TestDictionaryBuilder, Basic) {
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
 
-  auto indices = ArrayFromJSON(int8(), "[0, 1, 0, null]");
-  auto dict = ArrayFromJSON(dict_ty, "[1, 2]");
-  DictionaryArray expected(dict_type, indices, dict);
-
+  DictionaryArray expected(dict_type, ArrayFromJSON(int8(), "[0, 1, 0, null]"),
+                           ArrayFromJSON(value_type, "[1, 2]"));
   ASSERT_TRUE(expected.Equals(result));
 }
 
 TYPED_TEST(TestDictionaryBuilder, ArrayInit) {
-  using T = typename TypeParam::c_type;
+  using c_type = typename TypeParam::c_type;
 
   auto value_type = std::make_shared<TypeParam>();
   auto dict_array = ArrayFromJSON(value_type, "[1, 2]");
@@ -317,8 +315,7 @@ TEST(TestStringDictionaryBuilder, ArrayInit) {
   ASSERT_OK(builder.Finish(&result));
 
   // Build expected data
-  DictionaryArray expected(dictionary(int8(), utf8(0), int_array,
-                           dict_array);
+  DictionaryArray expected(dictionary(int8(), utf8()), int_array, dict_array);
 
   AssertArraysEqual(expected, *result);
 }
@@ -626,7 +623,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   std::shared_ptr<Array> int_array1;
   ASSERT_OK(int_builder1.Finish(&int_array1));
 
-  DictionaryArray expected1(dtype1, int_array1, fsb_array1);
+  DictionaryArray expected1(dict_type, int_array1, fsb_array1);
   ASSERT_TRUE(expected1.Equals(result1));
 
   // build delta dictionary
@@ -776,11 +773,10 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
   std::shared_ptr<Array> fsb_array;
   ASSERT_OK(fsb_builder.Finish(&fsb_array));
 
-  auto dtype = dictionary(int16(), fsb_array);
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
-  DictionaryArray expected(dtype, int_array);
+  DictionaryArray expected(dictionary(int16(), decimal_type), int_array, fsb_array);
   ASSERT_TRUE(expected.Equals(result));
 }
 
@@ -788,24 +784,26 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
 // DictionaryArray tests
 
 TEST(TestDictionary, Basics) {
-  std::vector<int32_t> values = {100, 1000, 10000, 100000};
-  std::shared_ptr<Array> dict;
-  ArrayFromVector<Int32Type, int32_t>(values, &dict);
+  auto value_type = int32();
 
   std::shared_ptr<DictionaryType> type1 =
-      std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), dict));
+      std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), value_type));
 
-  auto type2 =
-      std::dynamic_pointer_cast<DictionaryType>(::arrow::dictionary(int16(), dict, true));
+  auto type2 = std::dynamic_pointer_cast<DictionaryType>(
+      ::arrow::dictionary(int16(), type1, true));
 
   ASSERT_TRUE(int16()->Equals(type1->index_type()));
-  ASSERT_TRUE(type1->dictionary()->Equals(dict));
+  ASSERT_TRUE(type1->value_type()->Equals(value_type));
 
   ASSERT_TRUE(int16()->Equals(type2->index_type()));
-  ASSERT_TRUE(type2->dictionary()->Equals(dict));
+  ASSERT_TRUE(type2->value_type()->Equals(type1));
 
   ASSERT_EQ("dictionary<values=int32, indices=int16, ordered=0>", type1->ToString());
-  ASSERT_EQ("dictionary<values=int32, indices=int16, ordered=1>", type2->ToString());
+  ASSERT_EQ(
+      "dictionary<values="
+      "dictionary<values=int32, indices=int16, ordered=0>, "
+      "indices=int16, ordered=1>",
+      type2->ToString());
 }
 
 TEST(TestDictionary, Equals) {
@@ -934,7 +932,7 @@ TEST(TestDictionary, TransposeBasic) {
 
     const std::vector<int32_t> transpose_map{1, 3, 2};
     ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*arr).Transpose(
-        default_memory_pool(), dict_type, transpose_map, &out));
+        default_memory_pool(), dict_type, out_dict, transpose_map, &out));
 
     auto expected_indices = ArrayFromJSON(int16(), "[3, 2, 1, 1]");
     ASSERT_OK(
@@ -972,7 +970,7 @@ TEST(TestDictionary, TransposeNulls) {
 
   const std::vector<int32_t> transpose_map{1, 3, 2};
   ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*arr).Transpose(
-      default_memory_pool(), out_dict_type, dict, transpose_map, &out));
+      default_memory_pool(), out_dict_type, out_dict, transpose_map, &out));
 
   auto expected_indices = ArrayFromJSON(int16(), "[3, 2, null, 1]");
   ASSERT_OK(

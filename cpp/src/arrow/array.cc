@@ -717,8 +717,8 @@ void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
 }
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
-                                 const std::shared_ptr<Array>& dictionary,
-                                 const std::shared_ptr<Array>& indices)
+                                 const std::shared_ptr<Array>& indices,
+                                 const std::shared_ptr<Array>& dictionary)
     : dict_type_(checked_cast<const DictionaryType*>(type.get())) {
   DCHECK_EQ(type->id(), Type::DICTIONARY);
   DCHECK(dict_type_->value_type()->Equals(*dictionary->type()));
@@ -732,8 +732,8 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
 std::shared_ptr<Array> DictionaryArray::dictionary() const { return data_->dictionary; }
 
 Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
-                                   const std::shared_ptr<Array>& dictionary,
                                    const std::shared_ptr<Array>& indices,
+                                   const std::shared_ptr<Array>& dictionary,
                                    std::shared_ptr<Array>* out) {
   DCHECK_EQ(type->id(), Type::DICTIONARY);
   const auto& dict = checked_cast<const DictionaryType&>(*type);

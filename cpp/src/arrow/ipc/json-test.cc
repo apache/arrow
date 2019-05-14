@@ -27,6 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/json-internal.h"
 #include "arrow/ipc/test-common.h"
@@ -49,8 +50,10 @@ void TestSchemaRoundTrip(const Schema& schema) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
 
+  DictionaryMemo out_memo;
+
   writer.StartObject();
-  ASSERT_OK(WriteSchema(schema, &writer));
+  ASSERT_OK(WriteSchema(schema, &out_memo, &writer));
   writer.EndObject();
 
   std::string json_schema = sb.GetString();
@@ -58,8 +61,9 @@ void TestSchemaRoundTrip(const Schema& schema) {
   rj::Document d;
   d.Parse(json_schema);
 
+  DictionaryMemo in_memo;
   std::shared_ptr<Schema> out;
-  if (!ReadSchema(d, default_memory_pool(), &out).ok()) {
+  if (!ReadSchema(d, default_memory_pool(), &in_memo, &out).ok()) {
     FAIL() << "Unable to read JSON schema: " << json_schema;
   }
 
@@ -85,8 +89,11 @@ void TestArrayRoundTrip(const Array& array) {
     FAIL() << "JSON parsing failed";
   }
 
+  DictionaryMemo out_memo;
+
   std::shared_ptr<Array> out;
-  ASSERT_OK(ReadArray(default_memory_pool(), d, array.type(), &out));
+  ASSERT_OK(ReadArray(default_memory_pool(), d, ::arrow::field(name, array.type()),
+                      &out_memo, &out));
 
   // std::cout << array_as_json << std::endl;
   CompareArraysDetailed(0, *out, array);
