@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines memory-related functions, currently mostly to make this library play nicely
-//! with C.
+//! Defines memory-related functions, such as allocate/deallocate/reallocate memory
+//! regions.
 
 use std::alloc::Layout;
 
