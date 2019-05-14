@@ -480,20 +480,12 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
   const EncryptionAlgorithm algorithm() { return algorithm_; }
 
-  const std::string& footer_encryption_key() {
-    return (encrypted_footer_ ? footer_key_ : empty_string_);
+  const std::string& footer_key() {
+    return footer_key_;
   }
 
-  const std::string& footer_encryption_key_metadata() {
-    return (encrypted_footer_ ? footer_key_metadata_ : empty_string_);
-  }
-
-  const std::string& footer_signing_key() {
-    return (encrypted_footer_ ? empty_string_ : footer_key_);
-  }
-
-  const std::string& footer_signing_key_metadata() {
-    return (encrypted_footer_ ? empty_string_ : footer_key_metadata_);
+  const std::string& footer_key_metadata() {
+    return footer_key_metadata_;
   }
 
   const std::string& file_aad() const { return file_aad_; }
@@ -507,8 +499,6 @@ class PARQUET_EXPORT FileEncryptionProperties {
   std::string footer_key_metadata_;
   bool encrypted_footer_;
   std::string file_aad_;
-
-  const std::string empty_string_ = "";
 
   std::map<std::shared_ptr<schema::ColumnPath>,
            std::shared_ptr<ColumnEncryptionProperties>, schema::ColumnPath::CmpColumnPath>
