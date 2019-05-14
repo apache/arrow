@@ -248,19 +248,19 @@ parquet_encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
   if (key_len == 16) {
     if (meta_decryptor_128_ == NULLPTR) {
       meta_decryptor_128_.reset(
-          new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
+          new parquet_encryption::AesDecryptor(algorithm_, key_len, true));
     }
     return meta_decryptor_128_.get();
   } else if (key_len == 24) {
     if (meta_decryptor_196_ == NULLPTR) {
       meta_decryptor_196_.reset(
-          new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
+          new parquet_encryption::AesDecryptor(algorithm_, key_len, true));
     }
     return meta_decryptor_196_.get();
   } else if (key_len == 32) {
     if (meta_decryptor_256_ == NULLPTR) {
       meta_decryptor_256_.reset(
-          new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
+          new parquet_encryption::AesDecryptor(algorithm_, key_len, true));
     }
     return meta_decryptor_256_.get();
   }
