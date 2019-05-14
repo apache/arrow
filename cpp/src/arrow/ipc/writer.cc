@@ -346,6 +346,16 @@ class RecordBatchSerializer : public ArrayVisitor {
 
   Status Visit(const MapArray& array) override { return VisitList(array); }
 
+  Status Visit(const FixedSizeListArray& array) override {
+    --max_recursion_depth_;
+    auto size = array.list_type()->list_size();
+    auto values = array.values()->Slice(array.offset() * size, array.length() * size);
+
+    RETURN_NOT_OK(VisitArray(*values));
+    ++max_recursion_depth_;
+    return Status::OK();
+  }
+
   Status Visit(const StructArray& array) override {
     --max_recursion_depth_;
     for (int i = 0; i < array.num_fields(); ++i) {

@@ -26,7 +26,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         g++ \
         gcc \
         git \
-        ninja-build \
         pkg-config \
         tzdata \
         wget \
