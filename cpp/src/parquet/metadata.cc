@@ -293,10 +293,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
     const void* metadata, const ColumnDescriptor* descr,
-    const ApplicationVersion* writer_version,
-    InternalFileDecryptor* file_decryptor,
-    int16_t row_group_ordinal,
-    int16_t column_ordinal) {
+    const ApplicationVersion* writer_version, InternalFileDecryptor* file_decryptor,
+    int16_t row_group_ordinal, int16_t column_ordinal) {
   return std::unique_ptr<ColumnChunkMetaData>(
       new ColumnChunkMetaData(metadata, descr, row_group_ordinal, column_ordinal,
                               writer_version, file_decryptor));
@@ -401,8 +399,8 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
       throw ParquetException(ss.str());
     }
     return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
-                                     writer_version_, file_decryptor,
-                                     row_group_ordinal, (int16_t)i);
+                                     writer_version_, file_decryptor, row_group_ordinal,
+                                     (int16_t)i);
   }
 
  private:
@@ -529,7 +527,7 @@ class FileMetaData::FileMetaDataImpl {
       dst->Write(encrypted_data.data() + 4, parquet_encryption::NonceLength);
       dst->Write(encrypted_data.data() + encrypted_len - parquet_encryption::GCMTagLength,
                  parquet_encryption::GCMTagLength);
-    } else { // either plaintext file (when encryptor is null)
+    } else {  // either plaintext file (when encryptor is null)
       // or encrypted file with encrypted footer
       serializer.Serialize(metadata_.get(), dst, encryptor, false);
     }
@@ -639,7 +637,7 @@ std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
 }
 
 bool FileMetaData::verify_signature(std::shared_ptr<FooterSigningEncryptor> encryptor,
-                          const void* tail) {
+                                    const void* tail) {
   return impl_->verify_signature(encryptor, tail);
 }
 
@@ -1292,7 +1290,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 
     auto file_encryption_properties = properties_->file_encryption_properties();
 
-    crypto_metadata_->__set_encryption_algorithm(ToThrift(file_encryption_properties->algorithm()));
+    crypto_metadata_->__set_encryption_algorithm(
+        ToThrift(file_encryption_properties->algorithm()));
     std::string key_metadata = file_encryption_properties->footer_key_metadata();
 
     if (!key_metadata.empty()) {

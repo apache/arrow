@@ -81,11 +81,9 @@ class PARQUET_EXPORT PageReader {
 
   static std::unique_ptr<PageReader> Open(
       const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
-      Compression::type codec,
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      bool column_has_dictionary = false,
-      int16_t row_group_ordinal = -1, int16_t column_ordinal = -1,
-      std::shared_ptr<Decryptor> meta_decryptor = NULLPTR,
+      Compression::type codec, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+      bool column_has_dictionary = false, int16_t row_group_ordinal = -1,
+      int16_t column_ordinal = -1, std::shared_ptr<Decryptor> meta_decryptor = NULLPTR,
       std::shared_ptr<Decryptor> data_decryptor = NULLPTR);
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>

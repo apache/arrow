@@ -480,13 +480,9 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
   const EncryptionAlgorithm algorithm() { return algorithm_; }
 
-  const std::string& footer_key() {
-    return footer_key_;
-  }
+  const std::string& footer_key() { return footer_key_; }
 
-  const std::string& footer_key_metadata() {
-    return footer_key_metadata_;
-  }
+  const std::string& footer_key_metadata() { return footer_key_metadata_; }
 
   const std::string& file_aad() const { return file_aad_; }
 
