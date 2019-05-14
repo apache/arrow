@@ -614,9 +614,8 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       // the encoding, not the schema level.
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(*field->type());
-      std::shared_ptr<::arrow::Field> unpacked_field =
-          ::arrow::field(field->name(), dict_type.dictionary()->type(), field->nullable(),
-                         field->metadata());
+      std::shared_ptr<::arrow::Field> unpacked_field = ::arrow::field(
+          field->name(), dict_type.value_type(), field->nullable(), field->metadata());
       return FieldToNode(unpacked_field, properties, arrow_properties, out);
     }
     default: {
