@@ -20,6 +20,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -242,9 +243,15 @@ CudaDeviceManager::CudaDeviceManager() { impl_.reset(new CudaDeviceManagerImpl()
 std::unique_ptr<CudaDeviceManager> CudaDeviceManager::instance_ = nullptr;
 
 Status CudaDeviceManager::GetInstance(CudaDeviceManager** manager) {
+  static std::mutex mutex;
+
   if (!instance_) {
-    instance_.reset(new CudaDeviceManager());
-    RETURN_NOT_OK(instance_->impl_->Init());
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!instance_) {
+      auto ptr = new CudaDeviceManager();
+      RETURN_NOT_OK(ptr->impl_->Init());
+      instance_.reset(ptr);
+    }
   }
   *manager = instance_.get();
   return Status::OK();
