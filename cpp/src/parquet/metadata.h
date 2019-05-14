@@ -127,8 +127,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   static std::unique_ptr<ColumnChunkMetaData> Make(
       const void* metadata, const ColumnDescriptor* descr,
       const ApplicationVersion* writer_version = NULLPTR,
-      InternalFileDecryptor* file_decryptor = NULLPTR,
-      int16_t row_group_ordinal = -1,
+      InternalFileDecryptor* file_decryptor = NULLPTR, int16_t row_group_ordinal = -1,
       int16_t column_ordinal = -1);
 
   ~ColumnChunkMetaData();
@@ -204,7 +203,8 @@ class PARQUET_EXPORT FileMetaData {
 
   ~FileMetaData();
 
-  bool verify_signature(std::shared_ptr<FooterSigningEncryptor> encryptor, const void* tail);
+  bool verify_signature(std::shared_ptr<FooterSigningEncryptor> encryptor,
+                        const void* tail);
   // file metadata
   uint32_t size() const;
   int num_columns() const;
