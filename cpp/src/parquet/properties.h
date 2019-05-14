@@ -416,7 +416,7 @@ class PARQUET_EXPORT WriterProperties {
     return column_properties(path).max_statistics_size();
   }
 
-  std::shared_ptr<ColumnEncryptionProperties> column_encryption_props(
+  std::shared_ptr<ColumnEncryptionProperties> column_encryption_properties(
       const std::shared_ptr<schema::ColumnPath>& path) const {
     if (file_encryption_properties_) {
       return file_encryption_properties_->column_properties(path);
