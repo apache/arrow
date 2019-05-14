@@ -314,7 +314,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
           signing_encryption.algorithm = ParquetCipher::AES_GCM_V1;
           file_metadata_ = metadata_->Finish(
               &signing_encryption,
-              file_encryption_properties->footer_signing_key_metadata());
+              file_encryption_properties->footer_key_metadata());
           auto footer_signing_encryptor = file_encryptor_->GetFooterSigningEncryptor();
           WriteFileMetaData(*file_metadata_, sink_.get(), footer_signing_encryptor,
                             false);
