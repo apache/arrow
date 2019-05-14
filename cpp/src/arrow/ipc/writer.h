@@ -331,19 +331,15 @@ Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
                              const std::shared_ptr<Schema>& schema,
                              std::unique_ptr<RecordBatchWriter>* out);
 
-/// \brief Compute IpcPayloads for the given schema
+/// \brief Compute IpcPayload for the given schema
 /// \param[in] schema the Schema that is being serialized
 /// \param[in,out] pool for any required temporary memory allocations
-/// \param[in,out] dictionary_memo class for tracking dictionaries and assigning
-/// dictionary ids
+/// \param[in,out] dictionary_memo class to populate with assigned dictionary ids
 /// \param[out] out the returned vector of IpcPayloads
 /// \return Status
 ARROW_EXPORT
-Status GetSchemaPayloads(const Schema& schema, MemoryPool* pool,
-                         DictionaryMemo* dictionary_memo, std::vector<IpcPayload>* out);
-ARROW_EXPORT
-Status GetSchemaPayloads(const Schema& schema, MemoryPool* pool,
-                         std::vector<IpcPayload>* out);
+Status GetSchemaPayload(const Schema& schema, DictionaryMemo* dictionary_memo,
+                        IpcPayload* out);
 
 /// \brief Compute IpcPayload for the given record batch
 /// \param[in] batch the RecordBatch that is being serialized

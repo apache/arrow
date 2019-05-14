@@ -22,12 +22,16 @@
 #include <sstream>
 #include <utility>
 
+#include "arrow/array.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 
 namespace arrow {
 namespace ipc {
 namespace internal {
+
+// ----------------------------------------------------------------------
 
 DictionaryMemo::DictionaryMemo() {}
 
@@ -112,6 +116,51 @@ Status DictionaryMemo::AddDictionary(int64_t id,
   }
   id_to_dictionary_[id] = dictionary;
   return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+// CollectDictionaries implementation
+
+struct DictionaryCollector {
+  DictionaryMemo* dictionary_memo_;
+
+  Status WalkChildren(const DataType& type, const Array& array) {
+    for (int i = 0; i < type.num_children(); ++i) {
+      auto boxed_child = MakeArray(array.data()->child_data[i]);
+      RETURN_NOT_OK(Visit(type.child(i), *boxed_child));
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const std::shared_ptr<Field>& field, const Array& array) {
+    auto type = array.type();
+    if (type->id() == Type::DICTIONARY) {
+      const auto& dict_array = static_cast<const DictionaryArray&>(array);
+      auto dictionary = dict_array.dictionary();
+      int64_t id = dictionary_memo_->GetOrAssignId(field);
+      RETURN_NOT_OK(dictionary_memo_->AddDictionary(id, dictionary));
+
+      // Traverse the dictionary to gather any nested dictionaries
+      const auto& dict_type = static_cast<const DictionaryType&>(*type);
+      RETURN_NOT_OK(WalkChildren(*dict_type.value_type(), *dictionary));
+    } else {
+      RETURN_NOT_OK(WalkChildren(*type, array));
+    }
+    return Status::OK();
+  }
+
+  Status Collect(const RecordBatch& batch) {
+    const Schema& schema = *batch.schema();
+    for (int i = 0; i < schema.num_fields(); ++i) {
+      RETURN_NOT_OK(Visit(schema.field(i), *batch.column(i)));
+    }
+    return Status::OK();
+  }
+};
+
+Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo) {
+  DictionaryCollector collector{memo};
+  return collector.Collect(batch);
 }
 
 }  // namespace internal

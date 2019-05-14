@@ -32,6 +32,7 @@ namespace arrow {
 
 class Array;
 class Field;
+class RecordBatch;
 
 namespace ipc {
 namespace internal {
@@ -92,6 +93,9 @@ class ARROW_EXPORT DictionaryMemo {
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(DictionaryMemo);
 };
+
+ARROW_EXPORT
+Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo);
 
 }  // namespace internal
 }  // namespace ipc
