@@ -495,6 +495,8 @@ class FileMetaData::FileMetaDataImpl {
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor) const {
     ThriftSerializer serializer;
+    // Only in encrypted files with plaintext footers the
+    // encryption_algorithm is set in footer
     if (is_encryption_algorithm_set()) {
       uint8_t* serialized_data;
       uint32_t serialized_len;
@@ -513,7 +515,8 @@ class FileMetaData::FileMetaDataImpl {
       // write tag
       dst->Write(encrypted_data.data() + encrypted_len - parquet_encryption::GCMTagLength,
                  parquet_encryption::GCMTagLength);
-    } else {
+    } else { // either plaintext file (when encryptor is null)
+      // or encrypted file with encrypted footer
       serializer.Serialize(metadata_.get(), dst, encryptor, false);
     }
   }
