@@ -18,21 +18,10 @@
 
 set -ex
 
-reset_owner() {
-  if [ $OWNER ]
-  then
-    chown -R $OWNER /arrow/cpp
-  fi
-}
-
-run_clang_format() {
-  ninja clang-format
-}
+source /arrow/dev/lint/lint_user.sh
 
 mkdir -p /build/lint
 pushd /build/lint
   cmake -GNinja /arrow/cpp
-  trap reset_owner EXIT
-  trap run_clang_format EXIT
-  ninja clang-tidy
+  su lint_user -c "ninja clang-tidy"
 popd

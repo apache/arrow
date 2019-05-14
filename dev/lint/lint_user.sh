@@ -16,12 +16,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+# Create lint_user with the same UID:GID as the current user
+# on the host system. Running source-modifying programs as
+# lint_user will prevent source files being overwritten with
+# root ownership.
 
-source /arrow/dev/lint/lint_user.sh
-
-mkdir -p /build/lint
-pushd /build/lint
-  cmake -GNinja /arrow/cpp
-  su lint_user -c "ninja format"
-popd
+groupadd -g `stat -c "%g" /arrow` lint_user
+useradd -l -u `stat -c "%u" /arrow` -g lint_user lint_user
