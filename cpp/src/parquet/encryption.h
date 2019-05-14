@@ -396,7 +396,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
 
     // Create files with plaintext footer.
     // If not called, the files will be created with encrypted footer (default).
-    Builder* enable_plaintext_footer() {
+    Builder* set_plaintext_footer() {
       encrypted_footer_ = false;
       return this;
     }
