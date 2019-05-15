@@ -244,13 +244,14 @@ std::unique_ptr<CudaDeviceManager> CudaDeviceManager::instance_ = nullptr;
 
 Status CudaDeviceManager::GetInstance(CudaDeviceManager** manager) {
   static std::mutex mutex;
+  static std::atomic<bool> init_end(false);
 
-  if (!instance_) {
+  if (!init_end) {
     std::lock_guard<std::mutex> lock(mutex);
-    if (!instance_) {
-      auto ptr = new CudaDeviceManager();
-      RETURN_NOT_OK(ptr->impl_->Init());
-      instance_.reset(ptr);
+    if (!init_end) {
+      instance_.reset(new CudaDeviceManager());
+      RETURN_NOT_OK(instance_->impl_->Init());
+      init_end = true;
     }
   }
   *manager = instance_.get();
