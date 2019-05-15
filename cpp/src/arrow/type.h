@@ -854,8 +854,8 @@ class ARROW_EXPORT DurationType : public FixedWidthType, public ParametricType {
 // Dictionary type (for representing categorical or dictionary-encoded
 // in memory)
 
-/// \brief Dictionary-encoded value type with data-dependent, possibly
-/// variable dictionary
+/// \brief Dictionary-encoded value type with data-dependent
+/// dictionary
 class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
   static constexpr Type::type type_id = Type::DICTIONARY;

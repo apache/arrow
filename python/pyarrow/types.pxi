@@ -901,7 +901,7 @@ cdef class Schema:
 
         return pyarrow_wrap_schema(c_schema)
 
-    def serialize(self, DictionaryMemo dict_memo, memory_pool=None):
+    def serialize(self, DictionaryMemo dictionary_memo=None, memory_pool=None):
         """
         Write Schema to Buffer as encapsulated IPC message
 
@@ -909,6 +909,10 @@ cdef class Schema:
         ----------
         memory_pool : MemoryPool, default None
             Uses default memory pool if not specified
+        dictionary_memo : DictionaryMemo, optional
+            If schema contains dictionaries, must pass a
+            DictionaryMemo to be able to deserialize RecordBatch
+            objects
 
         Returns
         -------
@@ -917,9 +921,16 @@ cdef class Schema:
         cdef:
             shared_ptr[CBuffer] buffer
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            CDictionaryMemo temp_memo
+            CDictionaryMemo* arg_dict_memo
+
+        if dictionary_memo is not None:
+            arg_dict_memo = &dictionary_memo.memo
+        else:
+            arg_dict_memo = &temp_memo
 
         with nogil:
-            check_status(SerializeSchema(deref(self.schema), &dict_memo.memo,
+            check_status(SerializeSchema(deref(self.schema), arg_dict_memo,
                                          pool, &buffer))
         return pyarrow_wrap_buffer(buffer)
 

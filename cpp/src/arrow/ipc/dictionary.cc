@@ -18,6 +18,7 @@
 #include "arrow/ipc/dictionary.h"
 
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -55,6 +56,11 @@ Status DictionaryMemo::GetDictionary(int64_t id,
   return Status::OK();
 }
 
+void DictionaryMemo::AddFieldInternal(int64_t id, const std::shared_ptr<Field>& field) {
+  field_to_id_[field.get()] = id;
+  id_to_field_[id] = field;
+}
+
 int64_t DictionaryMemo::GetOrAssignId(const std::shared_ptr<Field>& field) {
   auto it = field_to_id_.find(field.get());
   if (it != field_to_id_.end()) {
@@ -62,8 +68,7 @@ int64_t DictionaryMemo::GetOrAssignId(const std::shared_ptr<Field>& field) {
     return it->second;
   } else {
     int64_t new_id = static_cast<int64_t>(field_to_id_.size());
-    field_to_id_[field.get()] = new_id;
-    id_to_field_[new_id] = field;
+    AddFieldInternal(new_id, field);
     return new_id;
   }
 }
@@ -78,8 +83,7 @@ Status DictionaryMemo::AddField(int64_t id, const std::shared_ptr<Field>& field)
       return Status::KeyError("Dictionary id is already in memo: ", id);
     }
 
-    field_to_id_[field.get()] = id;
-    id_to_field_[id] = field;
+    AddFieldInternal(id, field);
     return Status::OK();
   }
 }

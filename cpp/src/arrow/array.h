@@ -209,8 +209,8 @@ struct ARROW_EXPORT ArrayData {
   std::vector<std::shared_ptr<Buffer>> buffers;
   std::vector<std::shared_ptr<ArrayData>> child_data;
 
-  // The dictionary for this Array, if any. Only used for variable
-  // dictionary type
+  // The dictionary for this Array, if any. Only used for dictionary
+  // type
   std::shared_ptr<Array> dictionary;
 };
 
@@ -979,8 +979,7 @@ class ARROW_EXPORT UnionArray : public Array {
 };
 
 // ----------------------------------------------------------------------
-// Dictionary-encoded arrays (categorical and dictionary-encoded in
-// memory), both static and variable dictionary varieties
+// DictionaryArray
 
 /// \brief Array type for dictionary-encoded data with a
 /// data-dependent dictionary

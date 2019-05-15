@@ -87,6 +87,8 @@ class ARROW_EXPORT DictionaryMemo {
  private:
   using DictionaryFieldMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
 
+  void AddFieldInternal(int64_t id, const std::shared_ptr<Field>& field);
+
   // Dictionary memory addresses, to track whether a particular
   // dictionary-encoded field has been seen before
   std::unordered_map<const Field*, int64_t> field_to_id_;

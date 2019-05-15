@@ -664,7 +664,7 @@ const Array* UnionArray::UnsafeChild(int i) const {
 }
 
 // ----------------------------------------------------------------------
-// Dictionary-encoded array types
+// DictionaryArray
 
 /// \brief Perform validation check to determine if all dictionary indices
 /// are within valid range (0 <= index < upper_bound)
