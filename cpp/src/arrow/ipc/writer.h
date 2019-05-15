@@ -334,7 +334,6 @@ Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
 
 /// \brief Compute IpcPayload for the given schema
 /// \param[in] schema the Schema that is being serialized
-/// \param[in,out] pool for any required temporary memory allocations
 /// \param[in,out] dictionary_memo class to populate with assigned dictionary ids
 /// \param[out] out the returned vector of IpcPayloads
 /// \return Status

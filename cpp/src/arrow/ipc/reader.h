@@ -171,7 +171,7 @@ class ARROW_EXPORT RecordBatchFileReader {
 /// and populate any dictionary-encoded fields into a DictionaryMemo
 ///
 /// \param[in] stream an InputStream
-/// \param[in] DictionaryMemo for recording dictionary-encoded fields
+/// \param[in] dictionary_memo for recording dictionary-encoded fields
 /// \param[out] out the output Schema
 /// \return Status
 ///

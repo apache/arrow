@@ -895,7 +895,7 @@ struct CastFunctor<T, DictionaryType> {
         break;
       default:
         ctx->SetStatus(
-            Status::Invalid("Invalid index type: ", type.index_type()->ToString()));
+            Status::TypeError("Invalid index type: ", type.index_type()->ToString()));
         return;
     }
   }

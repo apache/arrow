@@ -221,14 +221,15 @@ static int g_file_number = 0;
 
 class IpcTestFixture : public io::MemoryMapFixture {
  public:
-  Status DoSchemaRoundTrip(const Schema& schema, DictionaryMemo* out_memo,
-                           std::shared_ptr<Schema>* result) {
+  void DoSchemaRoundTrip(const Schema& schema, DictionaryMemo* out_memo,
+                         std::shared_ptr<Schema>* result) {
     std::shared_ptr<Buffer> serialized_schema;
-    RETURN_NOT_OK(SerializeSchema(schema, out_memo, pool_, &serialized_schema));
+    ASSERT_OK(SerializeSchema(schema, out_memo, pool_, &serialized_schema));
 
     DictionaryMemo in_memo;
     io::BufferReader buf_reader(serialized_schema);
-    return ReadSchema(&buf_reader, &in_memo, result);
+    ASSERT_OK(ReadSchema(&buf_reader, &in_memo, result));
+    ASSERT_EQ(out_memo->num_fields(), in_memo.num_fields());
   }
 
   Status DoStandardRoundTrip(const RecordBatch& batch, DictionaryMemo* dictionary_memo,
@@ -279,7 +280,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     DictionaryMemo dictionary_memo;
 
     std::shared_ptr<Schema> schema_result;
-    ASSERT_OK(DoSchemaRoundTrip(*batch.schema(), &dictionary_memo, &schema_result));
+    DoSchemaRoundTrip(*batch.schema(), &dictionary_memo, &schema_result);
     ASSERT_TRUE(batch.schema()->Equals(*schema_result));
 
     ASSERT_OK(CollectDictionaries(batch, &dictionary_memo));

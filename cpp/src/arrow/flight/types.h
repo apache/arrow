@@ -160,7 +160,8 @@ class FlightInfo {
   /// \brief Deserialize the Arrow schema of the dataset, to be passed
   /// to each call to DoGet. Populate any dictionary encoded fields
   /// into a DictionaryMemo for bookkeeping
-  /// \param[inout] dictionary_memo for dictionary bookkeeping, will be modified
+  /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
+  /// be modified
   /// \param[out] out the reconstructed Schema
   Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
                    std::shared_ptr<Schema>* out) const;

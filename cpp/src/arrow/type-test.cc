@@ -632,6 +632,29 @@ TEST(TestStructType, GetFieldDuplicates) {
   ASSERT_EQ(results.size(), 0);
 }
 
+TEST(TestDictionaryType, Basics) {
+  auto value_type = int32();
+
+  std::shared_ptr<DictionaryType> type1 =
+      std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), value_type));
+
+  auto type2 = std::dynamic_pointer_cast<DictionaryType>(
+      ::arrow::dictionary(int16(), type1, true));
+
+  ASSERT_TRUE(int16()->Equals(type1->index_type()));
+  ASSERT_TRUE(type1->value_type()->Equals(value_type));
+
+  ASSERT_TRUE(int16()->Equals(type2->index_type()));
+  ASSERT_TRUE(type2->value_type()->Equals(type1));
+
+  ASSERT_EQ("dictionary<values=int32, indices=int16, ordered=0>", type1->ToString());
+  ASSERT_EQ(
+      "dictionary<values="
+      "dictionary<values=int32, indices=int16, ordered=0>, "
+      "indices=int16, ordered=1>",
+      type2->ToString());
+}
+
 TEST(TestDictionaryType, Equals) {
   auto t1 = dictionary(int8(), int32());
   auto t2 = dictionary(int8(), int32());

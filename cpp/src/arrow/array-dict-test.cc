@@ -783,29 +783,6 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
 // ----------------------------------------------------------------------
 // DictionaryArray tests
 
-TEST(TestDictionary, Basics) {
-  auto value_type = int32();
-
-  std::shared_ptr<DictionaryType> type1 =
-      std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), value_type));
-
-  auto type2 = std::dynamic_pointer_cast<DictionaryType>(
-      ::arrow::dictionary(int16(), type1, true));
-
-  ASSERT_TRUE(int16()->Equals(type1->index_type()));
-  ASSERT_TRUE(type1->value_type()->Equals(value_type));
-
-  ASSERT_TRUE(int16()->Equals(type2->index_type()));
-  ASSERT_TRUE(type2->value_type()->Equals(type1));
-
-  ASSERT_EQ("dictionary<values=int32, indices=int16, ordered=0>", type1->ToString());
-  ASSERT_EQ(
-      "dictionary<values="
-      "dictionary<values=int32, indices=int16, ordered=0>, "
-      "indices=int16, ordered=1>",
-      type2->ToString());
-}
-
 TEST(TestDictionary, Equals) {
   std::vector<bool> is_valid = {true, true, false, true, true, true};
   std::shared_ptr<Array> dict, dict2, indices, indices2, indices3;
@@ -878,6 +855,14 @@ TEST(TestDictionary, Validate) {
 
   // Only checking index type for now
   ASSERT_OK(ValidateArray(*arr));
+
+#ifdef NDEBUG
+  std::shared_ptr<Array> null_dict_arr =
+      std::make_shared<DictionaryArray>(dict_type, indices, nullptr);
+
+  // Only checking index type for now
+  ASSERT_RAISES(Invalid, ValidateArray(*null_dict_arr));
+#endif
 
   // TODO(wesm) In ARROW-1199, there is now a DCHECK to compare the indices
   // type with the dict_type. How can we test for this?

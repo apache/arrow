@@ -55,9 +55,6 @@ using ServerWriter = grpc::ServerWriter<T>;
 namespace pb = arrow::flight::protocol;
 
 namespace arrow {
-
-using internal::make_unique;
-
 namespace flight {
 
 #define CHECK_ARG_NOT_NULL(VAL, MESSAGE)                              \
@@ -341,10 +338,10 @@ class FlightServiceImpl : public FlightService::Service {
             Status(StatusCode::Invalid, "DoPut must start with non-null descriptor"));
       } else {
         std::shared_ptr<Schema> schema;
-        auto dictionary_memo = make_unique<ipc::DictionaryMemo>();
+        auto dictionary_memo = ::arrow::internal::make_unique<ipc::DictionaryMemo>();
         GRPC_RETURN_NOT_OK(ipc::ReadSchema(*message, dictionary_memo.get(), &schema));
 
-        auto message_reader = make_unique<FlightMessageReaderImpl>(
+        auto message_reader = ::arrow::internal::make_unique<FlightMessageReaderImpl>(
             *data.descriptor.get(), schema, std::move(dictionary_memo), reader);
         return internal::ToGrpcStatus(
             server_->DoPut(flight_context, std::move(message_reader)));

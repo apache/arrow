@@ -704,7 +704,6 @@ std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
     : dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {
   DCHECK_EQ(data->type->id(), Type::DICTIONARY);
-  // Check that dictionary is not null
   DCHECK(data->dictionary);
   SetData(data);
 }
@@ -723,6 +722,7 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
   DCHECK_EQ(type->id(), Type::DICTIONARY);
   DCHECK(dict_type_->value_type()->Equals(*dictionary->type()));
   DCHECK_EQ(indices->type_id(), dict_type_->index_type()->id());
+  DCHECK(dictionary);
   auto data = indices->data()->Copy();
   data->type = type;
   data->dictionary = dictionary;
@@ -970,6 +970,9 @@ struct ValidateVisitor {
     Type::type index_type_id = array.indices()->type()->id();
     if (!is_integer(index_type_id)) {
       return Status::Invalid("Dictionary indices must be integer type");
+    }
+    if (!array.data()->dictionary) {
+      return Status::Invalid("Dictionary values must be non-null");
     }
     return Status::OK();
   }

@@ -21,6 +21,7 @@
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/take.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -145,7 +146,7 @@ struct UnpackValues {
 
   Status Visit(const DictionaryType& t) {
     std::shared_ptr<Array> taken_indices;
-    const auto& values = static_cast<const DictionaryArray&>(*params_.values);
+    const auto& values = internal::checked_cast<const DictionaryArray&>(*params_.values);
     {
       // To take from a dictionary, apply the current kernel to the dictionary's
       // indices. (Use UnpackValues<IndexType> since IndexType is already unpacked)

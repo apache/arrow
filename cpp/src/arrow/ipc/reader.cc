@@ -433,8 +433,6 @@ static Status ReadMessageAndValidate(MessageReader* reader, bool allow_null,
   return Status::OK();
 }
 
-//
-
 // ----------------------------------------------------------------------
 // RecordBatchStreamReader implementation
 

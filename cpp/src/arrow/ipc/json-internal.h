@@ -82,9 +82,6 @@ namespace internal {
 namespace json {
 
 /// \brief Append integration test Schema format to rapidjson writer
-/// \param[in] schema
-/// \param[inout] dictionary_memo memo to populate with dictionary ids
-/// \param[inout] writer rapidjson writer to append output to
 ARROW_EXPORT
 Status WriteSchema(const Schema& schema, DictionaryMemo* dict_memo, RjWriter* writer);
 
