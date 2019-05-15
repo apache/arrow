@@ -61,6 +61,9 @@ std::string Status::CodeAsString() const {
     case StatusCode::CapacityError:
       type = "Capacity error";
       break;
+    case StatusCode::IndexError:
+      type = "Index error";
+      break;
     case StatusCode::UnknownError:
       type = "Unknown error";
       break;
