@@ -59,4 +59,9 @@ such topics as:
    :maxdepth: 2
    :caption: Development and Contributing
 
-   developers/index
+   developers/contributing
+   developers/cpp
+   developers/python
+   developers/integration
+   developers/benchmarks
+   developers/documentation

@@ -25,32 +25,55 @@ There are many ways to contribute to Apache Arrow:
 
 * Contributing code (we call them "patches")
 * Writing documentation (another form of code, in a way)
-* Participating in discussions on JIRA or the mailing list
+* Participating in discussions on `JIRA <https://issues.apache.org/jira/projects/ARROW/issues>`_ or the `mailing list <https://lists.apache.org/list.html?dev@arrow.apache.org>`_
 * Helping users of the libraries
 * Reporting bugs and asking questions
 
-Mailing Lists and Issue Tracker
-===============================
+Mailing List
+============
 
 Projects in The Apache Software Foundation ("the ASF") use public, archived
 mailing lists to create a public record of each project's development
-activities and decision making process. As such, all contributors generally
+activities and decision-making process. As such, all contributors generally
 must be subscribed to the dev@arrow.apache.org mailing list to participate in
 the community.
 
 Note that you must be subscribed to the mailing list in order to post to it. To
 subscribe, send a blank email to dev-subscribe@arrow.apache.org.
 
-We use the `ASF JIRA <https://issues.apache.org/jira>`_ to manage our
-development "todo" list and to maintain changelogs for releases. You must
-create an account and be added as a "Contributor" to Apache Arrow to be able to
-assign yourself issues. Any project maintainer will be able to help you with
-this one-time setup.
+Mailing list archives can be found `here <https://lists.apache.org/list.html?dev@arrow.apache.org>`_.
+
+Issue Tracking
+==============
+
+We use the `ASF JIRA <https://issues.apache.org/jira/projects/ARROW/issues>`_
+to manage our development "todo" list and to maintain changelogs for releases.
+In addition, the project's `Confluence site <https://cwiki.apache.org/confluence/display/ARROW>`_
+has some useful higher-level views of the JIRA issues.
+
+To create a JIRA issue, you'll need to have an account on the ASF JIRA, which
+you can `sign yourself up for <https://issues.apache.org/jira/secure/Signup!default.jspa>`_. No
+additional permissions are needed to create issues. Only once you are involved
+in the project and want to do more on JIRA, such as assign yourself an issue,
+will you need "Contributor" permissions on the Apache Arrow JIRA. To get this
+role, ask on the mailing list for a project maintainer's help.
+
+When reporting a new issue, follow these conventions to help make sure the
+right people see it:
+
+* If the issue is specific to a language binding or other key component, prefix the issue name with it, like ``[Python] issue name``.
+* If you're reporting something that used to work in a previous version but doesn't work in the current release, you can add the "Affects version" field. For feature requests and other proposals, "Affects version" isn't appropriate.
+
+Project maintainers may later tweak formatting and labels to help improve their
+visibility. They may add a "Fix version" to indicate that they're considering
+it for inclusion in the next release, though adding that tag is not a
+commitment that it will be done in the next release.
 
 GitHub issues
 -------------
 
-We support GitHub issues as a lightweight way to ask questions and engage with
+We support `GitHub issues <https://github.com/apache/arrow/issues>`_ as a
+lightweight way to ask questions and engage with
 the Arrow developer community. We use JIRA for maintaining a queue of
 development work and as the public record for work on the project. So, feel
 free to open GitHub issues, but bugs and feature requests will eventually need
@@ -76,11 +99,14 @@ To contribute a patch:
 
 * Break your work into small, single-purpose patches if possible. It’s much
   harder to merge in a large change with a lot of disjoint features.
-* Create a JIRA for your patch on the Arrow Project JIRA.
+* If one doesn't already exist, create a JIRA for your patch on the
+  `Arrow Project JIRA <https://issues.apache.org/jira/projects/ARROW/issues>`_.
 * Submit the patch as a GitHub pull request against the master branch. For a
-  tutorial, see the GitHub guides on forking a repo and sending a pull
-  request. Prefix your pull request name with the JIRA name (ex:
-  https://github.com/apache/arrow/pull/240).
+  tutorial, see the GitHub guides on `forking a repo <https://help.github.com/en/articles/fork-a-repo>`_
+  and `sending a pull request <https://help.github.com/en/articles/creating-a-pull-request-from-a-fork>`_.
+  So that your pull request syncs with the JIRA issue, prefix your pull request
+  name with the JIRA issue id (ex:
+  `ARROW-767: [C++] Filesystem abstraction <https://github.com/apache/arrow/pull/4225>`_).
 * Make sure that your code passes the unit tests. You can find instructions how
   to run the unit tests for each Arrow component in its respective README file.
 * Add new unit tests for your code.
