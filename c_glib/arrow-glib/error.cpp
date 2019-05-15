@@ -57,8 +57,6 @@ static GArrowError garrow_error_code(const arrow::Status& status) {
       return GARROW_ERROR_CAPACITY;
     case arrow::StatusCode::IndexError:
       return GARROW_ERROR_INDEX;
-    case arrow::StatusCode::IndexError:
-      return GARROW_ERROR_INDEX;
     case arrow::StatusCode::UnknownError:
       return GARROW_ERROR_UNKNOWN;
     case arrow::StatusCode::NotImplemented:
