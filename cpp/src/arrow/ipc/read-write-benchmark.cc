@@ -86,11 +86,13 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
     state.SkipWithError("Failed to write!");
   }
 
+  ipc::DictionaryMemo empty_memo;
   while (state.KeepRunning()) {
     std::shared_ptr<RecordBatch> result;
     io::BufferReader reader(buffer);
 
-    if (!ipc::ReadRecordBatch(record_batch->schema(), &reader, &result).ok()) {
+    if (!ipc::ReadRecordBatch(record_batch->schema(), &empty_memo, &reader, &result)
+             .ok()) {
       state.SkipWithError("Failed to read!");
     }
   }

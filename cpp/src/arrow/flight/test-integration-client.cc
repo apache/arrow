@@ -28,6 +28,7 @@
 #include <gflags/gflags.h>
 
 #include "arrow/io/test-common.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
@@ -127,7 +128,8 @@ int main(int argc, char** argv) {
   ABORT_NOT_OK(client->GetFlightInfo(descr, &info));
 
   std::shared_ptr<arrow::Schema> schema;
-  ABORT_NOT_OK(info->GetSchema(&schema));
+  arrow::ipc::DictionaryMemo dict_memo;
+  ABORT_NOT_OK(info->GetSchema(&dict_memo, &schema));
 
   if (info->endpoints().size() == 0) {
     std::cerr << "No endpoints returned from Flight server." << std::endl;

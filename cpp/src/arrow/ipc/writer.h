@@ -29,6 +29,7 @@
 
 namespace arrow {
 
+class Array;
 class Buffer;
 class MemoryPool;
 class RecordBatch;
@@ -324,15 +325,11 @@ class ARROW_EXPORT IpcPayloadWriter {
 ///
 /// \param[in] sink the IpcPayloadWriter to write to
 /// \param[in] schema the schema of the record batches to be written
-/// \param[in] dictionary_memo a DictionaryMemo where dictionaries
-/// corresponding to Schema fields (and subfields) are
-/// tracked. Modified once the schema is written
 /// \param[out] out the created RecordBatchWriter
 /// \return Status
 ARROW_EXPORT
 Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
                              const std::shared_ptr<Schema>& schema,
-                             DictionaryMemo* dictionary_memo,
                              std::unique_ptr<RecordBatchWriter>* out);
 
 /// \brief Compute IpcPayload for the given schema
@@ -344,6 +341,15 @@ Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
 ARROW_EXPORT
 Status GetSchemaPayload(const Schema& schema, DictionaryMemo* dictionary_memo,
                         IpcPayload* out);
+
+/// \brief Compute IpcPayload for a dictionary
+/// \param[in] id the dictionary id
+/// \param[in] dictionary the dictionary values
+/// \param[out] payload the output IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
+                            MemoryPool* pool, IpcPayload* payload);
 
 /// \brief Compute IpcPayload for the given record batch
 /// \param[in] batch the RecordBatch that is being serialized

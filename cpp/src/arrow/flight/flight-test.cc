@@ -88,8 +88,10 @@ void AssertEqual(const std::vector<T>& expected, const std::vector<T>& actual) {
 
 void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
   std::shared_ptr<Schema> ex_schema, actual_schema;
-  ASSERT_OK(expected.GetSchema(&ex_schema));
-  ASSERT_OK(actual.GetSchema(&actual_schema));
+  ipc::DictionaryMemo expected_memo;
+  ipc::DictionaryMemo actual_memo;
+  ASSERT_OK(expected.GetSchema(&expected_memo, &ex_schema));
+  ASSERT_OK(actual.GetSchema(&actual_memo, &actual_schema));
 
   AssertSchemaEqual(*ex_schema, *actual_schema);
   ASSERT_EQ(expected.total_records(), actual.total_records());
@@ -181,7 +183,8 @@ class TestFlightClient : public ::testing::Test {
     check_endpoints(info->endpoints());
 
     std::shared_ptr<Schema> schema;
-    ASSERT_OK(info->GetSchema(&schema));
+    ipc::DictionaryMemo dict_memo;
+    ASSERT_OK(info->GetSchema(&dict_memo, &schema));
     AssertSchemaEqual(*expected_schema, *schema);
 
     // By convention, fetch the first endpoint

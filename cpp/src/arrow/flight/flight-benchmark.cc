@@ -90,7 +90,8 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
 
   // Read the streams in parallel
   std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(plan->GetSchema(&schema));
+  ipc::DictionaryMemo dict_memo;
+  RETURN_NOT_OK(plan->GetSchema(&dict_memo, &schema));
 
   PerformanceStats stats;
   auto ConsumeStream = [&stats, &hostname, &port](const FlightEndpoint& endpoint) {
