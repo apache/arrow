@@ -69,7 +69,9 @@ class PerfDataStream : public FlightDataStream {
     batch_ = RecordBatch::Make(schema, batch_length_, arrays_);
   }
 
-  Status GetSchema(FlightPayload* payload) override {
+  std::shared_ptr<Schema> schema() override { return schema_; }
+
+  Status GetSchemaPayload(FlightPayload* payload) override {
     return ipc::internal::GetSchemaPayload(*schema_, &dictionary_memo_,
                                            &payload->ipc_message);
   }

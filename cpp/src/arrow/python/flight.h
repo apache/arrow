@@ -159,7 +159,9 @@ class ARROW_PYTHON_EXPORT PyFlightDataStream : public arrow::flight::FlightDataS
   /// Must only be called while holding the GIL.
   explicit PyFlightDataStream(PyObject* data_source,
                               std::unique_ptr<arrow::flight::FlightDataStream> stream);
-  Status GetSchema(arrow::flight::FlightPayload* payload) override;
+
+  std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
   Status Next(arrow::flight::FlightPayload* payload) override;
 
  private:
@@ -180,7 +182,8 @@ class ARROW_PYTHON_EXPORT PyGeneratorFlightDataStream
   explicit PyGeneratorFlightDataStream(PyObject* generator,
                                        std::shared_ptr<arrow::Schema> schema,
                                        PyGeneratorFlightDataStreamCallback callback);
-  Status GetSchema(arrow::flight::FlightPayload* payload) override;
+  std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
   Status Next(arrow::flight::FlightPayload* payload) override;
 
  private:

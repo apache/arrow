@@ -46,8 +46,10 @@ class ARROW_EXPORT FlightDataStream {
  public:
   virtual ~FlightDataStream() = default;
 
+  virtual std::shared_ptr<Schema> schema() = 0;
+
   /// \brief Compute FlightPayload containing serialized RecordBatch schema
-  virtual Status GetSchema(FlightPayload* payload) = 0;
+  virtual Status GetSchemaPayload(FlightPayload* payload) = 0;
 
   // When the stream is completed, the last payload written will have null
   // metadata
@@ -62,7 +64,8 @@ class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
   explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
                              MemoryPool* pool = default_memory_pool());
 
-  Status GetSchema(FlightPayload* payload) override;
+  std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(FlightPayload* payload) override;
   Status Next(FlightPayload* payload) override;
 
  private:

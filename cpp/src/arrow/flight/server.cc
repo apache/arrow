@@ -303,7 +303,7 @@ class FlightServiceImpl : public FlightService::Service {
 
     // Write the schema as the first message in the stream
     FlightPayload schema_payload;
-    GRPC_RETURN_NOT_OK(data_stream->GetSchema(&schema_payload));
+    GRPC_RETURN_NOT_OK(data_stream->GetSchemaPayload(&schema_payload));
     if (!internal::WritePayload(schema_payload, writer)) {
       // Connection terminated?  XXX return error code?
       return grpc::Status::OK;
@@ -557,7 +557,9 @@ class RecordBatchStream::RecordBatchStreamImpl {
                         MemoryPool* pool)
       : pool_(pool), reader_(reader) {}
 
-  Status GetSchema(FlightPayload* payload) {
+  std::shared_ptr<Schema> schema() { return reader_->schema(); }
+
+  Status GetSchemaPayload(FlightPayload* payload) {
     return ipc::internal::GetSchemaPayload(*reader_->schema(), &dictionary_memo_,
                                            &payload->ipc_message);
   }
@@ -628,8 +630,10 @@ RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& r
   impl_.reset(new RecordBatchStreamImpl(reader, pool));
 }
 
-Status RecordBatchStream::GetSchema(FlightPayload* payload) {
-  return impl_->GetSchema(payload);
+std::shared_ptr<Schema> RecordBatchStream::schema() { return impl_->schema(); }
+
+Status RecordBatchStream::GetSchemaPayload(FlightPayload* payload) {
+  return impl_->GetSchemaPayload(payload);
 }
 
 Status RecordBatchStream::Next(FlightPayload* payload) { return impl_->Next(payload); }

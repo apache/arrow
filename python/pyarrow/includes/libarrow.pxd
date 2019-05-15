@@ -149,11 +149,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDictionaryArray" arrow::DictionaryArray"(CArray):
         CDictionaryArray(const shared_ptr[CDataType]& type,
-                         const shared_ptr[CArray]& indices)
+                         const shared_ptr[CArray]& indices,
+                         const shared_ptr[CArray]& dictionary)
 
         @staticmethod
         CStatus FromArrays(const shared_ptr[CDataType]& type,
                            const shared_ptr[CArray]& indices,
+                           const shared_ptr[CArray]& dictionary,
                            shared_ptr[CArray]* out)
 
         shared_ptr[CArray] indices()
@@ -180,11 +182,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
         CDictionaryType(const shared_ptr[CDataType]& index_type,
-                        const shared_ptr[CArray]& dictionary,
+                        const shared_ptr[CDataType]& value_type,
                         c_bool ordered)
 
         shared_ptr[CDataType] index_type()
-        shared_ptr[CArray] dictionary()
+        shared_ptr[CDataType] value_type()
         c_bool ordered()
 
     shared_ptr[CDataType] ctimestamp" arrow::timestamp"(TimeUnit unit)
@@ -860,6 +862,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_V3" arrow::ipc::MetadataVersion::V3"
         MessageType_V4" arrow::ipc::MetadataVersion::V4"
 
+    cdef cppclass CDictionaryMemo" arrow::ipc::DictionaryMemo":
+        pass
+
     cdef cppclass CMessage" arrow::ipc::Message":
         CStatus Open(const shared_ptr[CBuffer]& metadata,
                      const shared_ptr[CBuffer]& body,
@@ -942,18 +947,22 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     CStatus ReadRecordBatch(const CMessage& message,
                             const shared_ptr[CSchema]& schema,
+                            CDictionaryMemo* dictionary_memo,
                             shared_ptr[CRecordBatch]* out)
 
-    CStatus SerializeSchema(const CSchema& schema, CMemoryPool* pool,
-                            shared_ptr[CBuffer]* out)
+    CStatus SerializeSchema(const CSchema& schema,
+                            CDictionaryMemo* dictionary_memo,
+                            CMemoryPool* pool, shared_ptr[CBuffer]* out)
 
     CStatus SerializeRecordBatch(const CRecordBatch& schema,
                                  CMemoryPool* pool,
                                  shared_ptr[CBuffer]* out)
 
-    CStatus ReadSchema(InputStream* stream, shared_ptr[CSchema]* out)
+    CStatus ReadSchema(InputStream* stream, CDictionaryMemo* dictionary_memo,
+                       shared_ptr[CSchema]* out)
 
     CStatus ReadRecordBatch(const shared_ptr[CSchema]& schema,
+                            CDictionaryMemo* dictionary_memo,
                             InputStream* stream,
                             shared_ptr[CRecordBatch]* out)
 

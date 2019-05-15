@@ -1303,15 +1303,18 @@ cdef class DictionaryArray(Array):
         cdef c_bool c_ordered = ordered
 
         c_type.reset(new CDictionaryType(_indices.type.sp_type,
-                                         _dictionary.sp_array, c_ordered))
+                                         _dictionary.sp_array.get().type(),
+                                         c_ordered))
 
         if safe:
             with nogil:
                 check_status(
                     CDictionaryArray.FromArrays(c_type, _indices.sp_array,
+                                                _dictionary.sp_array,
                                                 &c_result))
         else:
-            c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
+            c_result.reset(new CDictionaryArray(c_type, _indices.sp_array,
+                                                _dictionary.sp_array))
 
         return pyarrow_wrap_array(c_result)
 

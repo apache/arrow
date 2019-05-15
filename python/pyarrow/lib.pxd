@@ -69,6 +69,11 @@ cdef class StructType(DataType):
     cdef Field field_by_name(self, name)
 
 
+cdef class DictionaryMemo:
+    cdef:
+        CDictionaryMemo memo
+
+
 cdef class DictionaryType(DataType):
     cdef:
         const CDictionaryType* dict_type
