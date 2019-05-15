@@ -18,7 +18,8 @@
 #include "arrow/buffer.h"
 
 #include <cstdint>
-#include <iostream>
+#include <iomanip>
+#include <sstream>
 #include <utility>
 
 #include "arrow/memory_pool.h"
@@ -48,13 +49,15 @@ Status Buffer::Copy(const int64_t start, const int64_t nbytes,
   return Copy(start, nbytes, default_memory_pool(), out);
 }
 
-void Buffer::print() {
+std::string Buffer::ToHexString() {
   const uint8_t* _data = is_mutable() ? mutable_data() : data();
+  std::stringstream ss;
 
   for (int64_t i = 0; i < size(); ++i) {
-    std::cout << std::hex << static_cast<unsigned int>(_data[i]);
+    ss << std::setfill('0') << std::setw(2) <<
+      std::hex << static_cast<unsigned int>(_data[i]);
   }
-  std::cout << std::endl;
+  return ss.str();
 }
 
 bool Buffer::Equals(const Buffer& other, const int64_t nbytes) const {

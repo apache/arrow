@@ -868,8 +868,8 @@ cdef class Buffer:
         """
         return <uintptr_t> self.buffer.get().data()
 
-    def print(self):
-        self.buffer.get().print()
+    def ToHexString(self):
+        return self.buffer.get().ToHexString()
 
     @property
     def is_mutable(self):

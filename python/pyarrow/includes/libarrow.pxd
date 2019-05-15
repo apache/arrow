@@ -208,7 +208,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t size()
         shared_ptr[CBuffer] parent()
         c_bool is_mutable() const
-        void print()
+        c_string ToHexString()
         c_bool Equals(const CBuffer& other)
 
     shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
