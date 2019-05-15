@@ -169,7 +169,7 @@ int AesEncryptor::ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8
   }
 
   // Encryption
-  if (1 != EVP_EncryptUpdate(ctx_, ciphertext + BufferSizeLength + CTRIvLength, &len,
+  if (1 != EVP_EncryptUpdate(ctx_, ciphertext + BufferSizeLength + NonceLength, &len,
                              plaintext, plaintext_len)) {
     throw ParquetException("Failed encryption update");
   }
@@ -177,7 +177,7 @@ int AesEncryptor::ctr_encrypt(const uint8_t* plaintext, int plaintext_len, uint8
   ciphertext_len = len;
 
   // Finalization
-  if (1 != EVP_EncryptFinal_ex(ctx_, ciphertext + BufferSizeLength + CTRIvLength + len,
+  if (1 != EVP_EncryptFinal_ex(ctx_, ciphertext + BufferSizeLength + NonceLength + len,
                                &len)) {
     throw ParquetException("Failed encryption finalization");
   }
@@ -380,8 +380,8 @@ int AesDecryptor::ctr_decrypt(const uint8_t* ciphertext, int ciphertext_len, uin
 
   // Decryption
   if (!EVP_DecryptUpdate(ctx_, plaintext, &len,
-                         ciphertext + BufferSizeLength + CTRIvLength,
-                         ciphertext_len - CTRIvLength)) {
+                         ciphertext + BufferSizeLength + NonceLength,
+                         ciphertext_len - NonceLength)) {
     throw ParquetException("Failed decryption update");
   }
 
