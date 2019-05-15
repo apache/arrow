@@ -41,7 +41,8 @@ use crate::column::{
 use crate::compression::{create_codec, Codec};
 use crate::errors::{ParquetError, Result};
 use crate::file::{metadata::*, statistics, FOOTER_SIZE, PARQUET_MAGIC};
-use crate::record::reader::RowIter;
+use crate::record::reader::{Iter, RowIter};
+use crate::record::Row;
 use crate::schema::types::{
     self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
 };
@@ -310,6 +311,15 @@ impl<'a> TryFrom<&'a str> for SerializedFileReader<File> {
 
     fn try_from(path: &str) -> Result<Self> {
         Self::try_from(Path::new(&path))
+    }
+}
+
+impl IntoIterator for SerializedFileReader<File> {
+    type Item = Row;
+    type IntoIter = Iter<SerializedFileReader<File>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter::from(self)
     }
 }
 
@@ -639,6 +649,7 @@ mod tests {
     use parquet_format::TypeDefinedOrder;
 
     use crate::basic::SortOrder;
+    use crate::record::RowAccessor;
     use crate::util::test_common::{get_temp_file, get_test_file, get_test_path};
 
     #[test]
@@ -794,6 +805,23 @@ mod tests {
 
         let reader = SerializedFileReader::try_from(test_path_str.to_string());
         assert!(reader.is_err());
+    }
+
+    #[test]
+    fn test_file_reader_into_iter() -> Result<()> {
+        let path = get_test_path("alltypes_plain.parquet");
+        let mut vec = vec![path.clone(), path.clone()]
+            .iter()
+            .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
+            .flat_map(|r| r.into_iter())
+            .flat_map(|r| r.get_int(0))
+            .collect::<Vec<_>>();
+
+        vec.sort();
+
+        assert_eq!(vec, vec![0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7]);
+
+        Ok(())
     }
 
     #[test]

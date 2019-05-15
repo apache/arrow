@@ -612,6 +612,26 @@ impl fmt::Display for Reader {
 // ----------------------------------------------------------------------
 // Row iterators
 
+/// Helper method to get schema descriptor for projected schema.
+/// If projection is None, then full schema is returned.
+#[inline]
+fn get_projection_descr(
+    proj: Option<Type>,
+    root_descr: SchemaDescPtr,
+) -> Result<SchemaDescPtr> {
+    match proj {
+        Some(projection) => {
+            // check if projection is part of file schema
+            let root_schema = root_descr.root_schema();
+            if !root_schema.check_contains(&projection) {
+                return Err(general_err!("Root schema does not contain projection"));
+            }
+            Ok(Rc::new(SchemaDescriptor::new(Rc::new(projection))))
+        }
+        None => Ok(root_descr),
+    }
+}
+
 /// Iterator of [`Row`](crate::record::api::Row)s.
 /// It is used either for a single row group to iterate over data in that row group, or
 /// an entire file with auto buffering of all row groups.
@@ -628,7 +648,7 @@ impl<'a> RowIter<'a> {
     /// Creates iterator of [`Row`](crate::record::api::Row)s for all row groups in a
     /// file.
     pub fn from_file(proj: Option<Type>, reader: &'a FileReader) -> Result<Self> {
-        let descr = Self::get_proj_descr(
+        let descr = get_projection_descr(
             proj,
             reader.metadata().file_metadata().schema_descr_ptr(),
         )?;
@@ -649,7 +669,7 @@ impl<'a> RowIter<'a> {
         proj: Option<Type>,
         reader: &'a RowGroupReader,
     ) -> Result<Self> {
-        let descr = Self::get_proj_descr(proj, reader.metadata().schema_descr_ptr())?;
+        let descr = get_projection_descr(proj, reader.metadata().schema_descr_ptr())?;
         let tree_builder = Self::tree_builder();
         let row_iter = tree_builder.as_iter(descr.clone(), reader);
 
@@ -670,26 +690,6 @@ impl<'a> RowIter<'a> {
     #[inline]
     fn tree_builder() -> TreeBuilder {
         TreeBuilder::new()
-    }
-
-    /// Helper method to get schema descriptor for projected schema.
-    /// If projection is None, then full schema is returned.
-    #[inline]
-    fn get_proj_descr(
-        proj: Option<Type>,
-        root_descr: SchemaDescPtr,
-    ) -> Result<SchemaDescPtr> {
-        match proj {
-            Some(projection) => {
-                // check if projection is part of file schema
-                let root_schema = root_descr.root_schema();
-                if !root_schema.check_contains(&projection) {
-                    return Err(general_err!("Root schema does not contain projection"));
-                }
-                Ok(Rc::new(SchemaDescriptor::new(Rc::new(projection))))
-            }
-            None => Ok(root_descr),
-        }
     }
 }
 
@@ -718,6 +718,103 @@ impl<'a> Iterator for RowIter<'a> {
             row = iter.next();
             self.row_iter = Some(iter);
         }
+
+        row
+    }
+}
+
+/// Iterator of [`Row`](crate::record::api::Row)s (over all row groups).
+/// Takes ownership of the [`FileReader`](crate::file::reader::FileReader).
+pub struct Iter<T> {
+    reader: T,
+    descr: SchemaDescPtr,
+    num_row_groups: usize,
+    current_row_group: usize,
+    tree_builder: TreeBuilder,
+    row_iter: Option<ReaderIter>,
+}
+
+impl<T> Iter<T>
+where
+    T: FileReader,
+{
+    /// Creates a new iterator of [`Row`](crate::record::api::Row)s.
+    fn new(reader: T, descr: SchemaDescPtr) -> Self {
+        let num_row_groups = reader.num_row_groups();
+        let tree_builder = TreeBuilder::new();
+
+        Self {
+            descr,
+            reader,
+            tree_builder,
+            num_row_groups,
+            row_iter: None,
+            current_row_group: 0,
+        }
+    }
+
+    /// Tries to create a iterator of [`Row`](crate::record::api::Row)s
+    /// for a [`FileReader`](crate::file::reader::FileReader) using projections.
+    ///
+    /// The Projected schema can be a subset of or equal to the file schema,
+    /// when it is None, full file schema is assumed.
+    pub fn from_projection(reader: T, proj: Option<Type>) -> Result<Self> {
+        let meta = reader.metadata().file_metadata();
+        let schema = meta.schema_descr_ptr();
+        let descr = get_projection_descr(proj, schema)?;
+
+        Ok(Self::new(reader, descr))
+    }
+}
+
+/// Iterator of [`Row`](crate::record::api::Row)s using the full file schema.
+impl<T> From<T> for Iter<T>
+where
+    T: FileReader,
+{
+    fn from(reader: T) -> Self {
+        let meta = reader.metadata().file_metadata();
+        let descr = meta.schema_descr_ptr();
+
+        Self::new(reader, descr)
+    }
+}
+
+impl<T> Iterator for Iter<T>
+where
+    T: FileReader,
+{
+    type Item = Row;
+
+    fn next(&mut self) -> Option<Row> {
+        let mut row = None;
+
+        if let Some(ref mut iter) = self.row_iter {
+            row = iter.next();
+        }
+
+        if row.is_some() {
+            return row;
+        }
+
+        if self.current_row_group >= self.num_row_groups {
+            return None;
+        }
+
+        // We do not expect any failures when accessing a row group.
+        let row_group_reader = &*self
+            .reader
+            .get_row_group(self.current_row_group)
+            .expect("Row group is required to advance");
+
+        let mut iter = self
+            .tree_builder
+            .as_iter(self.descr.clone(), row_group_reader);
+
+        row = iter.next();
+
+        self.row_iter = Some(iter);
+        self.current_row_group += 1;
 
         row
     }
@@ -759,9 +856,10 @@ mod tests {
 
     use crate::errors::{ParquetError, Result};
     use crate::file::reader::{FileReader, SerializedFileReader};
-    use crate::record::api::{Field, Row};
+    use crate::record::api::{Field, Row, RowAccessor, RowFormatter};
     use crate::schema::parser::parse_message_type;
-    use crate::util::test_common::get_test_file;
+    use crate::util::test_common::{get_test_file, get_test_path};
+    use std::convert::TryFrom;
 
     // Convenient macros to assemble row, list, map, and group.
 
@@ -1438,6 +1536,64 @@ mod tests {
     ";
         let schema = parse_message_type(&schema).unwrap();
         test_file_reader_rows("nested_maps.snappy.parquet", Some(schema)).unwrap();
+    }
+
+    #[test]
+    fn test_file_reader_iter() -> Result<()> {
+        let path = get_test_path("alltypes_plain.parquet");
+        let mut vec = vec![path]
+            .iter()
+            .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
+            .flat_map(|r| Iter::from(r))
+            .flat_map(|r| r.get_int(0))
+            .collect::<Vec<_>>();
+
+        vec.sort();
+
+        assert_eq!(vec, vec![0, 1, 2, 3, 4, 5, 6, 7]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_reader_iter_projection() -> Result<()> {
+        let path = get_test_path("alltypes_plain.parquet");
+        let values = vec![path]
+            .iter()
+            .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
+            .flat_map(|r| {
+                let schema = "message schema { OPTIONAL INT32 id; }";
+                let proj = parse_message_type(&schema).ok();
+
+                Iter::from_projection(r, proj).unwrap()
+            })
+            .map(|r| format!("id:{}", r.fmt(0)))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        assert_eq!(values, "id:4, id:5, id:6, id:7, id:2, id:3, id:0, id:1");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_reader_iter_projection_err() {
+        let schema = "
+      message spark_schema {
+        REQUIRED INT32 key;
+        REQUIRED BOOLEAN value;
+      }
+    ";
+        let proj = parse_message_type(&schema).ok();
+        let path = get_test_path("nested_maps.snappy.parquet");
+        let reader = SerializedFileReader::try_from(path.as_path()).unwrap();
+        let res = Iter::from_projection(reader, proj);
+
+        assert!(res.is_err());
+        assert_eq!(
+            res.err().unwrap(),
+            general_err!("Root schema does not contain projection")
+        );
     }
 
     #[test]
