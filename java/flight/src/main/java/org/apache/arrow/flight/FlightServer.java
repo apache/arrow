@@ -19,21 +19,25 @@ package org.apache.arrow.flight;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetSocketAddress;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthInterceptor;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.util.Preconditions;
 
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
+
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.ServerChannel;
 
 public class FlightServer implements AutoCloseable {
 
@@ -88,45 +92,80 @@ public class FlightServer implements AutoCloseable {
     }
   }
 
+  /** Create a builder for a Flight server. */
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /** Create a builder for a Flight server. */
   public static Builder builder(BufferAllocator allocator, Location location, FlightProducer producer) {
     return new Builder(allocator, location, producer);
   }
 
+  /** A builder for Flight servers. */
   public static final class Builder {
-
-    private final BufferAllocator allocator;
-    private final Location location;
-    private final FlightProducer producer;
+    private BufferAllocator allocator;
+    private Location location;
+    private FlightProducer producer;
+    private final Map<String, Object> builderOptions;
     private ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
-
+    private Executor executor = null;
+    private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
     private InputStream certChain;
     private InputStream key;
 
-    Builder(BufferAllocator allocator, Location location, FlightProducer producer) {
-      this.allocator = allocator;
-      this.location = location;
-      this.producer = producer;
+    Builder() {
+      builderOptions = new HashMap<>();
     }
 
+    Builder(BufferAllocator allocator, Location location, FlightProducer producer) {
+      this.allocator = Preconditions.checkNotNull(allocator);
+      this.location = Preconditions.checkNotNull(location);
+      this.producer = Preconditions.checkNotNull(producer);
+      builderOptions = new HashMap<>();
+    }
+
+    /** Create the server for this builder. */
     public FlightServer build() {
       final NettyServerBuilder builder;
       switch (location.getUri().getScheme()) {
         case LocationSchemes.GRPC_DOMAIN_SOCKET: {
-          // TODO: need reflection to check if domain sockets are available
-          throw new UnsupportedOperationException("Domain sockets are not available.");
+          // The implementation is platform-specific, so we have to find the classes at runtime
+          builder = NettyServerBuilder.forAddress(location.toSocketAddress());
+          try {
+            try {
+              // Linux
+              builder.channelType(
+                  (Class<? extends ServerChannel>) Class
+                      .forName("io.netty.channel.epoll.EpollServerDomainSocketChannel"));
+              final EventLoopGroup elg = (EventLoopGroup) Class.forName("io.netty.channel.epoll.EpollEventLoopGroup")
+                  .newInstance();
+              builder.bossEventLoopGroup(elg).workerEventLoopGroup(elg);
+            } catch (ClassNotFoundException e) {
+              // BSD
+              builder.channelType(
+                  (Class<? extends ServerChannel>) Class
+                      .forName("io.netty.channel.kqueue.KQueueServerDomainSocketChannel"));
+              final EventLoopGroup elg = (EventLoopGroup) Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup")
+                  .newInstance();
+              builder.bossEventLoopGroup(elg).workerEventLoopGroup(elg);
+            }
+          } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+            throw new UnsupportedOperationException(
+                "Could not find suitable Netty native transport implementation for domain socket address.");
+          }
+          break;
         }
         case LocationSchemes.GRPC:
         case LocationSchemes.GRPC_INSECURE: {
-          builder = NettyServerBuilder
-              .forAddress(new InetSocketAddress(location.getUri().getHost(), location.getUri().getPort()));
+          builder = NettyServerBuilder.forAddress(location.toSocketAddress());
           break;
         }
         case LocationSchemes.GRPC_TLS: {
           if (certChain == null) {
             throw new IllegalArgumentException("Must provide a certificate and key to serve gRPC over TLS");
           }
-          builder = NettyServerBuilder
-              .forAddress(new InetSocketAddress(location.getUri().getHost(), location.getUri().getPort()));
+          builder = NettyServerBuilder.forAddress(location.toSocketAddress());
           break;
         }
         default:
@@ -137,15 +176,33 @@ public class FlightServer implements AutoCloseable {
         builder.useTransportSecurity(certChain, key);
       }
 
-      final Server server = builder
-          .executor(new ForkJoinPool())
-          .maxInboundMessageSize(MAX_GRPC_MESSAGE_SIZE)
+      builder
+          .executor(executor != null ? executor : new ForkJoinPool())
+          .maxInboundMessageSize(maxInboundMessageSize)
           .addService(
               ServerInterceptors.intercept(
                   new FlightBindingService(allocator, producer, authHandler),
-                  new ServerAuthInterceptor(authHandler)))
-          .build();
-      return new FlightServer(server);
+                  new ServerAuthInterceptor(authHandler)));
+
+      // Allow setting some Netty-specific options
+      builderOptions.computeIfPresent("netty.bossEventLoopGroup", (key, elg) -> {
+        builder.bossEventLoopGroup((EventLoopGroup) elg);
+        return null;
+      });
+      builderOptions.computeIfPresent("netty.workerEventLoopGroup", (key, elg) -> {
+        builder.workerEventLoopGroup((EventLoopGroup) elg);
+        return null;
+      });
+
+      return new FlightServer(builder.build());
+    }
+
+    /**
+     * Set the maximum size of a message. Defaults to "unlimited", depending on the underlying transport.
+     */
+    public Builder maxInboundMessageSize(int maxMessageSize) {
+      this.maxInboundMessageSize = maxMessageSize;
+      return this;
     }
 
     /**
@@ -159,14 +216,53 @@ public class FlightServer implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Enable TLS on the server.
+     * @param certChain The certificate chain to use.
+     * @param key The private key to use.
+     */
     public Builder useTls(final InputStream certChain, final InputStream key) {
       this.certChain = certChain;
       this.key = key;
       return this;
     }
 
-    public Builder setAuthHandler(ServerAuthHandler authHandler) {
+    /**
+     * Set the executor used by the server.
+     */
+    public Builder executor(Executor executor) {
+      this.executor = executor;
+      return this;
+    }
+
+    /**
+     * Set the authentication handler.
+     */
+    public Builder authHandler(ServerAuthHandler authHandler) {
       this.authHandler = authHandler;
+      return this;
+    }
+
+    /**
+     * Provide a transport-specific option. Not guaranteed to have any effect.
+     */
+    public Builder transportHint(final String key, Object option) {
+      builderOptions.put(key, option);
+      return this;
+    }
+
+    public Builder allocator(BufferAllocator allocator) {
+      this.allocator = Preconditions.checkNotNull(allocator);
+      return this;
+    }
+
+    public Builder location(Location location) {
+      this.location = Preconditions.checkNotNull(location);
+      return this;
+    }
+
+    public Builder producer(FlightProducer producer) {
+      this.producer = Preconditions.checkNotNull(producer);
       return this;
     }
   }

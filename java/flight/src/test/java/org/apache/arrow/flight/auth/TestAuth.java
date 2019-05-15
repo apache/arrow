@@ -149,7 +149,7 @@ public class TestAuth {
             root.clear();
             listener.completed();
           }
-        }).setAuthHandler(new BasicServerAuthHandler(validator)).build());
+        }).authHandler(new BasicServerAuthHandler(validator)).build());
     client = FlightClient.builder(allocator, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort()))
         .build();
   }

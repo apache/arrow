@@ -465,9 +465,9 @@ def test_token_auth_invalid():
 
 def test_location_invalid():
     """Test constructing invalid URIs."""
-    with pytest.raises(pa.ArrowException, match=".*Cannot parse URI:.*"):
+    with pytest.raises(pa.ArrowInvalid, match=".*Cannot parse URI:.*"):
         flight.FlightClient.connect("%")
 
     server = ConstantFlightServer()
-    with pytest.raises(pa.ArrowException, match=".*Cannot parse URI:.*"):
+    with pytest.raises(pa.ArrowInvalid, match=".*Cannot parse URI:.*"):
         server.run("%")

@@ -157,7 +157,7 @@ public class TestBasicOperation {
   /**
    * An example FlightProducer for test purposes.
    */
-  public class Producer implements FlightProducer, AutoCloseable {
+  public static class Producer implements FlightProducer, AutoCloseable {
 
     private final BufferAllocator allocator;
 

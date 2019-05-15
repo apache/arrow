@@ -400,16 +400,26 @@ cdef class FlightClient:
                         .format(self.__class__.__name__))
 
     @staticmethod
-    def connect(location, **kwargs):
-        """Connect to a Flight service on the given host and port."""
+    def connect(location, tls_root_certs=None):
+        """
+        Connect to a Flight service on the given host and port.
+
+        Parameters
+        ----------
+        location : Location
+            location to connect to
+
+        tls_root_certs : bytes
+            PEM-encoded
+        """
         cdef:
             FlightClient result = FlightClient.__new__(FlightClient)
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
             CFlightClientOptions c_options
 
-        if "tls_root_certs" in kwargs:
-            c_options.tls_root_certs = tobytes(kwargs["tls_root_certs"])
+        if tls_root_certs:
+            c_options.tls_root_certs = tobytes(tls_root_certs)
 
         with nogil:
             check_status(CFlightClient.Connect(c_location, c_options,
@@ -1004,7 +1014,8 @@ cdef class FlightServerBase:
     cdef:
         unique_ptr[PyFlightServer] server
 
-    def run(self, location, auth_handler=None, **kwargs):
+    def run(self, location, auth_handler=None,
+            tls_cert_chain=None, tls_private_key=None):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
@@ -1019,14 +1030,12 @@ cdef class FlightServerBase:
             c_options.get().auth_handler.reset(
                 (<ServerAuthHandler> auth_handler).to_handler())
 
-        if "tls_cert_chain" in kwargs:
-            if "tls_private_key" not in kwargs:
+        if tls_cert_chain:
+            if not tls_private_key:
                 raise ValueError(
                     "Must provide both cert chain and private key")
-            c_options.get().tls_cert_chain = tobytes(
-                kwargs["tls_cert_chain"])
-            c_options.get().tls_private_key = tobytes(
-                kwargs["tls_private_key"])
+            c_options.get().tls_cert_chain = tobytes(tls_cert_chain)
+            c_options.get().tls_private_key = tobytes(tls_private_key)
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info

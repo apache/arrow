@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import java.lang.reflect.InvocationTargetException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -30,19 +33,67 @@ public class Location {
    * Constructs a new instance.
    *
    * @param uri the URI of the Flight service
+   * @throws IllegalArgumentException if the URI scheme is unsupported
    */
   public Location(String uri) throws URISyntaxException {
-    super();
-    this.uri = new URI(uri);
+    this(new URI(uri));
   }
 
+  /**
+   * Construct a new instance from an existing URI.
+   *
+   * @param uri the URI of the Flight service
+   * @throws IllegalArgumentException if the URI scheme is unsupported
+   */
   public Location(URI uri) {
     super();
     this.uri = uri;
+    // Validate the scheme
+    switch (uri.getScheme()) {
+      case LocationSchemes.GRPC:
+      case LocationSchemes.GRPC_DOMAIN_SOCKET:
+      case LocationSchemes.GRPC_INSECURE:
+      case LocationSchemes.GRPC_TLS: {
+        break;
+      }
+      default:
+        throw new IllegalArgumentException("Scheme is not supported: " + this.uri);
+    }
   }
 
   public URI getUri() {
     return uri;
+  }
+
+  /**
+   * Helper method to turn this Location into a SocketAddress.
+   *
+   * @return null if could not be converted
+   */
+  SocketAddress toSocketAddress() {
+    switch (uri.getScheme()) {
+      case LocationSchemes.GRPC:
+      case LocationSchemes.GRPC_TLS:
+      case LocationSchemes.GRPC_INSECURE: {
+        return new InetSocketAddress(uri.getHost(), uri.getPort());
+      }
+
+      case LocationSchemes.GRPC_DOMAIN_SOCKET: {
+        try {
+          // This dependency is not available on non-Unix platforms.
+          return (SocketAddress) Class.forName("io.netty.channel.unix.DomainSocketAddress")
+              .getConstructor(String.class)
+              .newInstance(uri.getPath());
+        } catch (InstantiationException | ClassNotFoundException | InvocationTargetException |
+            NoSuchMethodException | IllegalAccessException e) {
+          return null;
+        }
+      }
+
+      default: {
+        return null;
+      }
+    }
   }
 
   /**
@@ -65,6 +116,17 @@ public class Location {
   public static Location forGrpcTls(String host, int port) {
     try {
       return new Location(new URI(LocationSchemes.GRPC_TLS, null, host, port, null, null, null));
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  /**
+   * Construct a URI for a Flight+gRPC server over a Unix domain socket.
+   */
+  public static Location forGrpcDomainSocket(String path) {
+    try {
+      return new Location(new URI(LocationSchemes.GRPC_DOMAIN_SOCKET, null, path, null));
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException(e);
     }

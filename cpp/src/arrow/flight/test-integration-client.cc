@@ -102,7 +102,6 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   std::unique_ptr<arrow::flight::FlightClient> client;
-  std::stringstream uri;
   arrow::flight::Location location;
   ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
   ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, &client));

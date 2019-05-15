@@ -62,6 +62,28 @@ public class FlightTestUtil {
     return server;
   }
 
+  static boolean isEpollAvailable() {
+    try {
+      Class<?> epoll = Class.forName("io.netty.channel.epoll.Epoll");
+      return (Boolean) epoll.getMethod("isAvailable").invoke(null);
+    } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      return false;
+    }
+  }
+
+  static boolean isKqueueAvailable() {
+    try {
+      Class<?> kqueue = Class.forName("io.netty.channel.kqueue.KQueue");
+      return (Boolean) kqueue.getMethod("isAvailable").invoke(null);
+    } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      return false;
+    }
+  }
+
+  static boolean isNativeTransportAvailable() {
+    return isEpollAvailable() || isKqueueAvailable();
+  }
+
   private FlightTestUtil() {
   }
 }
