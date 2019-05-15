@@ -421,14 +421,13 @@ static Status ReadMessageAndValidate(MessageReader* reader, bool allow_null,
                                      std::unique_ptr<Message>* message) {
   RETURN_NOT_OK(reader->ReadNextMessage(message));
 
-  if (!(*message) && !allow_null) {
-    return Status::Invalid("Expected message in stream, was null or length 0");
+  if (*message == nullptr) {
+    if (!allow_null) {
+      return Status::Invalid("Expected message in stream, was null or length 0");
+    }
+    // End of stream?
   }
 
-  if ((*message) == nullptr) {
-    // End of stream?
-    return Status::OK();
-  }
   return Status::OK();
 }
 

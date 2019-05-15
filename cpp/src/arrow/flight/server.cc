@@ -62,53 +62,78 @@ namespace flight {
     return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, MESSAGE); \
   }
 
-class FlightMessageReaderImpl : public FlightMessageReader {
+namespace {
+
+// A MessageReader implementation that reads from a gRPC ServerReader
+class FlightIpcMessageReader : public ipc::MessageReader {
  public:
-  FlightMessageReaderImpl(const FlightDescriptor& descriptor,
-                          std::shared_ptr<Schema> schema,
-                          std::unique_ptr<ipc::DictionaryMemo> dict_memo,
-                          grpc::ServerReader<pb::FlightData>* reader)
-      : descriptor_(descriptor),
-        schema_(schema),
-        dictionary_memo_(std::move(dict_memo)),
-        reader_(reader),
-        stream_finished_(false) {}
+  explicit FlightIpcMessageReader(grpc::ServerReader<pb::FlightData>* reader)
+      : reader_(reader) {}
 
-  const FlightDescriptor& descriptor() const override { return descriptor_; }
-
-  std::shared_ptr<Schema> schema() const override { return schema_; }
-
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+  Status ReadNextMessage(std::unique_ptr<ipc::Message>* out) override {
     if (stream_finished_) {
       *out = nullptr;
       return Status::OK();
     }
-
     internal::FlightData data;
-    if (internal::ReadPayload(reader_, &data)) {
-      std::unique_ptr<ipc::Message> message;
-
-      // Validate IPC message
-      RETURN_NOT_OK(data.OpenMessage(&message));
-      if (message->type() == ipc::Message::Type::RECORD_BATCH) {
-        return ipc::ReadRecordBatch(*message, schema_, dictionary_memo_.get(), out);
-      } else {
-        return Status(StatusCode::Invalid, "Unrecognized message in Flight stream");
-      }
-    } else {
-      // Stream is completed
+    if (!internal::ReadPayload(reader_, &data)) {
+      // Stream is finished
       stream_finished_ = true;
+      if (first_message_) {
+        return Status::Invalid(
+            "Client provided malformed message or did not provide message");
+      }
       *out = nullptr;
       return Status::OK();
     }
+
+    if (first_message_) {
+      if (!data.descriptor) {
+        return Status::Invalid("DoPut must start with non-null descriptor");
+      }
+      descriptor_ = *data.descriptor;
+      first_message_ = false;
+    }
+
+    return data.OpenMessage(out);
+  }
+
+  const FlightDescriptor& descriptor() const { return descriptor_; }
+
+ protected:
+  grpc::ServerReader<pb::FlightData>* reader_;
+  bool stream_finished_ = false;
+  bool first_message_ = true;
+  FlightDescriptor descriptor_;
+};
+
+class FlightMessageReaderImpl : public FlightMessageReader {
+ public:
+  explicit FlightMessageReaderImpl(grpc::ServerReader<pb::FlightData>* reader)
+      : reader_(reader) {}
+
+  Status Init() {
+    message_reader_ = new FlightIpcMessageReader(reader_);
+    return ipc::RecordBatchStreamReader::Open(
+        std::unique_ptr<ipc::MessageReader>(message_reader_), &batch_reader_);
+  }
+
+  const FlightDescriptor& descriptor() const override {
+    return message_reader_->descriptor();
+  }
+
+  std::shared_ptr<Schema> schema() const override { return batch_reader_->schema(); }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+    return batch_reader_->ReadNext(out);
   }
 
  private:
-  FlightDescriptor descriptor_;
   std::shared_ptr<Schema> schema_;
   std::unique_ptr<ipc::DictionaryMemo> dictionary_memo_;
   grpc::ServerReader<pb::FlightData>* reader_;
-  bool stream_finished_;
+  FlightIpcMessageReader* message_reader_;
+  std::shared_ptr<RecordBatchReader> batch_reader_;
 };
 
 class GrpcServerAuthReader : public ServerAuthReader {
@@ -323,34 +348,12 @@ class FlightServiceImpl : public FlightService::Service {
                      pb::PutResult* response) {
     GrpcServerCallContext flight_context;
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
-    // Get metadata
-    internal::FlightData data;
-    if (internal::ReadPayload(reader, &data)) {
-      // Message only lives as long as data
-      std::unique_ptr<ipc::Message> message;
-      GRPC_RETURN_NOT_OK(data.OpenMessage(&message));
 
-      if (!message || message->type() != ipc::Message::Type::SCHEMA) {
-        return internal::ToGrpcStatus(
-            Status(StatusCode::Invalid, "DoPut must start with schema/descriptor"));
-      } else if (!data.descriptor) {
-        return internal::ToGrpcStatus(
-            Status(StatusCode::Invalid, "DoPut must start with non-null descriptor"));
-      } else {
-        std::shared_ptr<Schema> schema;
-        auto dictionary_memo = ::arrow::internal::make_unique<ipc::DictionaryMemo>();
-        GRPC_RETURN_NOT_OK(ipc::ReadSchema(*message, dictionary_memo.get(), &schema));
-
-        auto message_reader = ::arrow::internal::make_unique<FlightMessageReaderImpl>(
-            *data.descriptor.get(), schema, std::move(dictionary_memo), reader);
-        return internal::ToGrpcStatus(
-            server_->DoPut(flight_context, std::move(message_reader)));
-      }
-    } else {
-      return internal::ToGrpcStatus(
-          Status(StatusCode::Invalid,
-                 "Client provided malformed message or did not provide message"));
-    }
+    auto message_reader =
+        std::unique_ptr<FlightMessageReaderImpl>(new FlightMessageReaderImpl(reader));
+    GRPC_RETURN_NOT_OK(message_reader->Init());
+    return internal::ToGrpcStatus(
+        server_->DoPut(flight_context, std::move(message_reader)));
   }
 
   grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
@@ -399,6 +402,8 @@ class FlightServiceImpl : public FlightService::Service {
   std::shared_ptr<ServerAuthHandler> auth_handler_;
   FlightServerBase* server_;
 };
+
+}  // namespace
 
 #if (ATOMIC_INT_LOCK_FREE != 2 || ATOMIC_POINTER_LOCK_FREE != 2)
 #error "atomic ints and atomic pointers not always lock-free!"

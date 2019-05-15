@@ -124,6 +124,8 @@ Status InProcessTestServer::Start(std::unique_ptr<ServerAuthHandler> auth_handle
   return Status::OK();
 }
 
+Status InProcessTestServer::Start() { return Start({}); }
+
 void InProcessTestServer::Stop() {
   server_->Shutdown();
   thread_.join();

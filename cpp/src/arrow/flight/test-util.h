@@ -66,6 +66,7 @@ class ARROW_EXPORT InProcessTestServer {
   explicit InProcessTestServer(std::unique_ptr<FlightServerBase> server, int port)
       : server_(std::move(server)), port_(port), thread_() {}
   ~InProcessTestServer();
+  Status Start();
   Status Start(std::unique_ptr<ServerAuthHandler> auth_handler);
   void Stop();
   int port() const;
