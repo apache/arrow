@@ -44,6 +44,8 @@ before_install:
 
 
 matrix:
+  allow_failures:
+  - language: r
   fast_finish: true
   include:
   - name: "Lint C++, Python, R, Docker"
