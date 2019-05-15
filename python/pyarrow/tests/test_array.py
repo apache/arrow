@@ -697,7 +697,7 @@ def test_cast_from_null():
         _check_cast_case((in_data, in_type, in_data, out_type))
 
     out_types = [
-        pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c'])),
+        pa.dictionary(pa.int32(), pa.string()),
         pa.union([pa.field('a', pa.binary(10)),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
         pa.union([pa.field('a', pa.binary(10)),
