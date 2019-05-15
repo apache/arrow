@@ -570,7 +570,7 @@ struct PageHeader {
   /** Uncompressed page size in bytes (not including this header) **/
   2: required i32 uncompressed_page_size
 
-  /** Compressed page size in bytes (not including this header) **/
+  /** Compressed (and potentially encrypted) page size in bytes, not including this header **/
   3: required i32 compressed_page_size
 
   /** 32bit crc for the data below. This allows for disabling checksumming in HDFS
@@ -874,7 +874,7 @@ struct AesGcmV1 {
 
   /** Unique file identifier part of AAD suffix **/
   2: optional binary aad_file_unique
-
+  
   /** In files encrypted with AAD prefix without storing it,
    * readers must supply the prefix **/
   3: optional bool supply_aad_prefix
@@ -955,6 +955,7 @@ struct FileMetaData {
   9: optional binary footer_signing_key_metadata
 }
 
+/** Crypto metadata for files with encrypted footer **/
 struct FileCryptoMetaData {
   /**
    * Encryption algorithm. This field is only used for files
@@ -967,3 +968,5 @@ struct FileCryptoMetaData {
    *  and (possibly) columns **/
   2: optional binary key_metadata
 }
+
+
