@@ -468,4 +468,40 @@ TEST_F(TestUtf8, TestToDateError) {
       << status.message();
 }
 
+TEST_F(TestUtf8, TestIsNull) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("isnull", {field_a}, field("is_null", boolean())),
+      TreeExprBuilder::MakeExpression("isnotnull", {field_a},
+                                      field("is_not_null", boolean())),
+  };
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a = MakeArrowArrayUtf8({"hello", "world", "incorrect", "universe"},
+                                    {true, true, false, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+
+  // validate results
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({false, false, true, false}),
+                            outputs[0]);  // isnull
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, true, false, true}),
+                            outputs[1]);  // isnotnull
+}
+
 }  // namespace gandiva
