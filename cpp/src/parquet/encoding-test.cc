@@ -383,7 +383,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
 
     // Initialize input_data_ for the encoder from the expected_array_ values
     const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*expected_dense_);
-    input_data_.reserve(binary_array.length());
+    input_data_.resize(binary_array.length());
 
     for (int64_t i = 0; i < binary_array.length(); ++i) {
       auto view = binary_array.GetView(i);
