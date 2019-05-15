@@ -68,11 +68,11 @@ def test_take(ty, values):
         assert result.equals(expected)
 
     indices = pa.array([2, 5])
-    with pytest.raises(KeyError):
+    with pytest.raises(IndexError):
         arr.take(indices)
 
     indices = pa.array([2, -1])
-    with pytest.raises(KeyError):
+    with pytest.raises(IndexError):
         arr.take(indices)
 
 

@@ -80,7 +80,7 @@ Status TakeImpl(FunctionContext*, const ValueArray& values, const IndexArray& in
     }
     auto index = static_cast<int64_t>(raw_indices[i]);
     if (index < 0 || index >= values.length()) {
-      return Status::KeyError("take index out of bounds");
+      return Status::IndexError("take index out of bounds");
     }
     if (!AllValuesValid && values.IsNull(index)) {
       builder->UnsafeAppendNull();
@@ -136,7 +136,7 @@ struct UnpackValues {
       auto min = static_cast<int64_t>(*minmax.first);
       auto max = static_cast<int64_t>(*minmax.second);
       if (min < 0 || max >= params_.values->length()) {
-        return Status::KeyError("take index out of bounds");
+        return Status::IndexError("take index out of bounds");
       }
     }
     params_.out->reset(new NullArray(indices_length));
