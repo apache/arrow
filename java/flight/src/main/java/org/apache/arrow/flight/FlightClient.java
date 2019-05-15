@@ -127,7 +127,7 @@ public class FlightClient implements AutoCloseable {
   }
 
   /**
-   * Authenticates with a username an password.
+   * Authenticates with a username and password.
    */
   public void authenticateBasic(String username, String password) {
     BasicClientAuthHandler basicClient = new BasicClientAuthHandler(username, password);

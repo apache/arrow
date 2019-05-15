@@ -234,7 +234,9 @@ public class TypeLayout {
   }
 
   /**
-   * Returns the types of each buffer for in this layout.
+   * Returns the types of each buffer for this layout.  A layout can consist
+   * of multiple buffers for example a validity bitmap buffer, a value buffer or
+   * an offset buffer.
    */
   public List<BufferType> getBufferTypes() {
     List<BufferType> types = new ArrayList<>(bufferLayouts.size());

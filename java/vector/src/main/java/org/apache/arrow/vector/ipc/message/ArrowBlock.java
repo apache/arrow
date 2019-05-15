@@ -29,7 +29,8 @@ public class ArrowBlock implements FBSerializable {
   private final long bodyLength;
 
   /**
-   * Constructs a new instance
+   * Constructs a new instance.
+   *
    * @param offset The offset into the channel file where the block was written.
    * @param metadataLength  The length of the flatbuffer metadata in the block.
    * @param bodyLength The length of data in the block.

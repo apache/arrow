@@ -242,8 +242,10 @@ public class UInt4Vector extends BaseFixedWidthVector {
     }
   }
 
-  /** Same as {@link #set(int, int, int)} but will reallocate if the buffer if index
-   * is larger than the current capacity. */
+  /**
+   * Same as {@link #set(int, int, int)} but will reallocate if the buffer if index
+   * is larger than the current capacity.
+   */
   public void setSafe(int index, int isSet, int value) {
     handleSafe(index);
     set(index, isSet, value);

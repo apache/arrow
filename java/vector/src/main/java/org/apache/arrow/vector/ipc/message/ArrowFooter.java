@@ -39,6 +39,7 @@ public class ArrowFooter implements FBSerializable {
 
   /**
    * Constructs a new instance.
+   *
    * @param schema The schema for record batches in the file.
    * @param dictionaries  The dictionaries relevant to the file.
    * @param recordBatches  The recordBatches written to the file.

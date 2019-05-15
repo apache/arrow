@@ -80,7 +80,8 @@ public abstract class BaseValueVector implements ValueVector {
     return Collections.emptyIterator();
   }
 
-  /** Checks to ensure that every buffer <code>vv</code> uses
+  /**
+   * Checks to ensure that every buffer <code>vv</code> uses
    * has a positive reference count, throws if this precondition
    * isn't met.  Returns true otherwise.
    */

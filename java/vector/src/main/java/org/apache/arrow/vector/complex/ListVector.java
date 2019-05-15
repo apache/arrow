@@ -544,7 +544,6 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return reader;
   }
 
-
   /** Initialize the child data vector to field type.  */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     AddOrGetResult<T> result = super.addOrGetVector(fieldType);

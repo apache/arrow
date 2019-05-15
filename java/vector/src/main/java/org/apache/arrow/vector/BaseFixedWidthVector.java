@@ -50,7 +50,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   protected ArrowBuf valueBuffer;
   protected int valueCount;
 
-  /** Constructs a new instance.
+  /**
+   * Constructs a new instance.
    *
    * @param name The name of the vector.
    * @param allocator The allocator to use for allocating memory for the vector.

@@ -25,7 +25,8 @@ public class AllocationHelper {
   private AllocationHelper() {}
 
   /**
-   * Allocates the vector
+   * Allocates the vector.
+   *
    * @param v The vector to allocate.
    * @param valueCount Number of values to allocate.
    * @param bytesPerValue bytes per value.
@@ -37,6 +38,7 @@ public class AllocationHelper {
 
   /**
    * Allocates memory for a vector assuming given number of values and their width.
+   *
    * @param v The vector the allocate.
    * @param valueCount The number of elements to allocate.
    * @param bytesPerValue The bytes per value to use for allocating underlying storage
@@ -63,6 +65,7 @@ public class AllocationHelper {
 
   /**
    * Allocates memory for a vector assuming given number of values and their width.
+   *
    * @param v The vector the allocate.
    * @param valueCount The number of elements to allocate.
    * @param bytesPerValue The bytes per value to use for allocating underlying storage

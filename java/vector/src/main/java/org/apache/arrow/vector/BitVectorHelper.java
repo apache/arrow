@@ -175,11 +175,13 @@ public class BitVectorHelper {
     return (byte) ((data.getByte(index) << (8 - offset)));
   }
 
-  /** Returns a new buffer if the source validity buffer is either all null or all
+  /**
+   * Returns a new buffer if the source validity buffer is either all null or all
    * not-null, otherwise returns a buffer pointing to the same memory as source.
+   *
    * @param fieldNode The fieldNode containing the null count
    * @param sourceValidityBuffer The source validity buffer that will have its
-   *                             position copied if there is a mix of null and non-null values
+   *     position copied if there is a mix of null and non-null values
    * @param allocator The allocator to use for creating a new buffer if necessary.
    * @return A new buffer that is either allocated or points to the same memory as sourceValidityBuffer.
    */

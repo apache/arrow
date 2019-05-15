@@ -67,7 +67,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   /**
-   * Returns the appropriate stream give the ticket (streams are indexed by path and an ordinal).
+   * Returns the appropriate stream given the ticket (streams are indexed by path and an ordinal).
    */
   public Stream getStream(Ticket t) {
     ExampleTicket example = ExampleTicket.from(t);

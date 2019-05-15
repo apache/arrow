@@ -55,7 +55,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   protected int lastSet;
   protected final Field field;
 
-  /** Constructs a new instance.
+  /**
+   * Constructs a new instance.
+   *
    * @param name A name for the vector
    * @param allocator The allocator to use for creating/resizing buffers
    * @param fieldType The type of this vector.

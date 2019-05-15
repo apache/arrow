@@ -46,7 +46,8 @@ public class FlightInfo {
   private final long records;
 
   /**
-   * Constructs a new instance
+   * Constructs a new instance.
+   *
    * @param schema The schema of the Flight
    * @param descriptor An identifier for the Flight.
    * @param endpoints A list of endpoints that have the flight available.

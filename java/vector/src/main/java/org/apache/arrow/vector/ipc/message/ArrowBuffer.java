@@ -29,6 +29,7 @@ public class ArrowBuffer implements FBSerializable {
 
   /**
    * Constructs a new instance.
+   *
    * @param offset The offset to the start of the buffer in the channel.
    * @param size The size of the buffer.
    */

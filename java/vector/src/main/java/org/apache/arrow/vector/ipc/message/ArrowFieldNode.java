@@ -31,6 +31,7 @@ public class ArrowFieldNode implements FBSerializable {
 
   /**
    * Constructs a new instance.
+   *
    * @param length The number of values written.
    * @param nullCount The number of null values.
    */

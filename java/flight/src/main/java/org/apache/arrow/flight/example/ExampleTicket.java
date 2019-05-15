@@ -45,7 +45,8 @@ public class ExampleTicket {
   private final String uuid;
 
   /**
-   * Constructs a new instance
+   * Constructs a new instance.
+   *
    * @param path Path to data
    * @param ordinal A counter for the stream.
    * @param uuid  A unique identifier for this particular stream.
