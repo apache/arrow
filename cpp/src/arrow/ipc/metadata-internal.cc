@@ -288,7 +288,7 @@ static Status ConcreteTypeFromFlatbuffer(
     case flatbuf::Type_Duration: {
       auto duration = static_cast<const flatbuf::Duration*>(type_data);
       TimeUnit::type unit = FromFlatbufferUnit(duration->unit());
-      *out = duration_type(unit);
+      *out = arrow::duration(unit);
       return Status::OK();
     }
 

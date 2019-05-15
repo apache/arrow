@@ -819,7 +819,7 @@ static Status GetDuration(const RjObject& json_type, std::shared_ptr<DataType>* 
   TimeUnit::type unit;
   RETURN_NOT_OK(GetUnitFromString(unit_str, &unit));
 
-  *type = duration_type(unit);
+  *type = duration(unit);
 
   return Status::OK();
 }

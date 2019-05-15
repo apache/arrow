@@ -473,10 +473,10 @@ TEST(TestDurationType, Equals) {
 }
 
 TEST(TestDurationType, ToString) {
-  auto t1 = duration_type(TimeUnit::MILLI);
-  auto t2 = duration_type(TimeUnit::NANO);
-  auto t3 = duration_type(TimeUnit::SECOND);
-  auto t4 = duration_type(TimeUnit::MICRO);
+  auto t1 = duration(TimeUnit::MILLI);
+  auto t2 = duration(TimeUnit::NANO);
+  auto t3 = duration(TimeUnit::SECOND);
+  auto t4 = duration(TimeUnit::MICRO);
 
   ASSERT_EQ("duration[ms]", t1->ToString());
   ASSERT_EQ("duration[ns]", t2->ToString());

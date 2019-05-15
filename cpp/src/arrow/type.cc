@@ -554,7 +554,7 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {
   return std::make_shared<FixedSizeBinaryType>(byte_width);
 }
 
-std::shared_ptr<DataType> duration_type(TimeUnit::type unit) {
+std::shared_ptr<DataType> duration(TimeUnit::type unit) {
   return std::make_shared<DurationType>(unit);
 }
 

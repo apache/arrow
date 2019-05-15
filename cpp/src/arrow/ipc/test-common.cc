@@ -582,9 +582,9 @@ Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
 
 Status MakeIntervals(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
-  auto f0 = field("f0", duration_type(TimeUnit::MILLI));
-  auto f1 = field("f1", duration_type(TimeUnit::NANO));
-  auto f2 = field("f2", duration_type(TimeUnit::SECOND));
+  auto f0 = field("f0", duration(TimeUnit::MILLI));
+  auto f1 = field("f1", duration(TimeUnit::NANO));
+  auto f2 = field("f2", duration(TimeUnit::SECOND));
   auto f3 = field("f3", day_time_interval());
   auto f4 = field("f4", month_interval());
   auto schema = ::arrow::schema({f0, f1, f2, f3, f4});
