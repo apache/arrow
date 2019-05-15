@@ -6127,7 +6127,7 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
                     {
                         h = hours{H};
                         min = minutes{M};
-                        s = round<Duration>(std::chrono::system_clock::duration<long double>{S});
+                        s = round<Duration>(std::chrono::duration<long double>{S});
                     }
 #endif
                     command = nullptr;
