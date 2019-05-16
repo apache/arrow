@@ -86,6 +86,7 @@ enum class StatusCode : char {
   Invalid = 4,
   IOError = 5,
   CapacityError = 6,
+  IndexError = 7,
   UnknownError = 9,
   NotImplemented = 10,
   SerializationError = 11,
@@ -193,6 +194,13 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::Invalid, util::StringBuilder(std::forward<Args>(args)...));
   }
 
+  /// Return an error status when an index is out of bounds
+  template <typename... Args>
+  static Status IndexError(Args&&... args) {
+    return Status(StatusCode::IndexError,
+                  util::StringBuilder(std::forward<Args>(args)...));
+  }
+
   /// Return an error status when a container's capacity would exceed its limits
   template <typename... Args>
   static Status CapacityError(Args&&... args) {
@@ -275,6 +283,8 @@ class ARROW_EXPORT Status {
   bool IsIOError() const { return code() == StatusCode::IOError; }
   /// Return true iff the status indicates a container reaching capacity limits.
   bool IsCapacityError() const { return code() == StatusCode::CapacityError; }
+  /// Return true iff the status indicates an out of bounds index.
+  bool IsIndexError() const { return code() == StatusCode::IndexError; }
   /// Return true iff the status indicates a type error.
   bool IsTypeError() const { return code() == StatusCode::TypeError; }
   /// Return true iff the status indicates an unknown error.

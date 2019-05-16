@@ -81,7 +81,9 @@ Status TrieBuilder::AppendChildNode(Trie::Node* parent, uint8_t ch, Trie::Node&&
 
   DCHECK_EQ(trie_.lookup_table_[parent_lookup], -1);
   if (trie_.nodes_.size() >= static_cast<size_t>(kMaxIndex)) {
-    return Status::CapacityError("Trie out of bounds");
+    auto max_capacity = kMaxIndex;
+    return Status::CapacityError("TrieBuilder cannot contain more than ", max_capacity,
+                                 " child nodes");
   }
   trie_.nodes_.push_back(std::move(node));
   trie_.lookup_table_[parent_lookup] = static_cast<index_type>(trie_.nodes_.size() - 1);
@@ -118,7 +120,7 @@ Status TrieBuilder::ExtendLookupTable(index_type* out_index) {
   auto cur_size = trie_.lookup_table_.size();
   auto cur_index = cur_size / 256;
   if (cur_index > static_cast<size_t>(kMaxIndex)) {
-    return Status::CapacityError("Trie out of bounds");
+    return Status::CapacityError("TrieBuilder cannot extend lookup table further");
   }
   trie_.lookup_table_.resize(cur_size + 256, -1);
   *out_index = static_cast<index_type>(cur_index);

@@ -68,13 +68,11 @@ def test_take(ty, values):
         assert result.equals(expected)
 
     indices = pa.array([2, 5])
-    with pytest.raises(ValueError):
-        # TODO should be IndexError ?
+    with pytest.raises(IndexError):
         arr.take(indices)
 
     indices = pa.array([2, -1])
-    with pytest.raises(ValueError):
-        # TODO should be IndexError ?
+    with pytest.raises(IndexError):
         arr.take(indices)
 
 
@@ -90,7 +88,7 @@ def test_take_indices_types():
 
     for indices_type in [pa.float32(), pa.float64()]:
         indices = pa.array([0, 4, 2], type=indices_type)
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             arr.take(indices)
 
 

@@ -72,8 +72,15 @@ TEST_F(TestTakeKernelWithNull, TakeNull) {
   this->AssertTake("[null, null, null]", "[0, 1, 0]", options, "[null, null, null]");
 
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(Invalid, this->Take(null(), "[null, null, null]", int8(), "[0, 9, 0]",
-                                    options, &arr));
+  ASSERT_RAISES(IndexError, this->Take(null(), "[null, null, null]", int8(), "[0, 9, 0]",
+                                       options, &arr));
+}
+
+TEST_F(TestTakeKernelWithNull, InvalidIndexType) {
+  TakeOptions options;
+  std::shared_ptr<Array> arr;
+  ASSERT_RAISES(TypeError, this->Take(null(), "[null, null, null]", float32(),
+                                      "[0.0, 1.0, 0.1]", options, &arr));
 }
 
 class TestTakeKernelWithBoolean : public TestTakeKernel<BooleanType> {
@@ -92,8 +99,8 @@ TEST_F(TestTakeKernelWithBoolean, TakeBoolean) {
   this->AssertTake("[true, false, true]", "[null, 1, 0]", options, "[null, false, true]");
 
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(Invalid, this->Take(boolean(), "[true, false, true]", int8(), "[0, 9, 0]",
-                                    options, &arr));
+  ASSERT_RAISES(IndexError, this->Take(boolean(), "[true, false, true]", int8(),
+                                       "[0, 9, 0]", options, &arr));
 }
 
 template <typename ArrowType>
@@ -117,8 +124,8 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
   this->AssertTake("[7, 8, 9]", "[null, 1, 0]", options, "[null, 8, 7]");
 
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(Invalid, this->Take(this->type_singleton(), "[7, 8, 9]", int8(),
-                                    "[0, 9, 0]", options, &arr));
+  ASSERT_RAISES(IndexError, this->Take(this->type_singleton(), "[7, 8, 9]", int8(),
+                                       "[0, 9, 0]", options, &arr));
 }
 
 class TestTakeKernelWithString : public TestTakeKernel<StringType> {
@@ -149,8 +156,8 @@ TEST_F(TestTakeKernelWithString, TakeString) {
   this->AssertTake(R"(["a", "b", "c"])", "[null, 1, 0]", options, R"([null, "b", "a"])");
 
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(Invalid, this->Take(utf8(), R"(["a", "b", "c"])", int8(), "[0, 9, 0]",
-                                    options, &arr));
+  ASSERT_RAISES(IndexError, this->Take(utf8(), R"(["a", "b", "c"])", int8(), "[0, 9, 0]",
+                                       options, &arr));
 }
 
 TEST_F(TestTakeKernelWithString, TakeDictionary) {

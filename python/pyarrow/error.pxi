@@ -52,6 +52,10 @@ class ArrowCapacityError(ArrowException):
     pass
 
 
+class ArrowIndexError(IndexError, ArrowException):
+    pass
+
+
 class PlasmaObjectExists(ArrowException):
     pass
 
@@ -91,6 +95,8 @@ cdef int check_status(const CStatus& status) nogil except -1:
             raise ArrowTypeError(message)
         elif status.IsCapacityError():
             raise ArrowCapacityError(message)
+        elif status.IsIndexError():
+            raise ArrowIndexError(message)
         elif status.IsPlasmaObjectExists():
             raise PlasmaObjectExists(message)
         elif status.IsPlasmaObjectNonexistent():
