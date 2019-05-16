@@ -17,8 +17,6 @@
 
 # pandas lazy-loading API shim that reduces API call and import overhead
 
-from __future__ import absolute_import
-
 cdef class _PandasAPIShim(object):
     """
     Lazy pandas importer that isolates usages of pandas APIs and avoids

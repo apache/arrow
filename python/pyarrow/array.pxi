@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
-
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):

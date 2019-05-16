@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
-
 cdef class ChunkedArray(_PandasConvertible):
     """
     Array backed via one or more memory chunks.
