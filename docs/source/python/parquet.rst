@@ -347,16 +347,18 @@ sanitize field characters unsupported by Spark SQL.
 Multithreaded Reads
 -------------------
 
-Each of the reading functions have an ``nthreads`` argument which will read
-columns with the indicated level of parallelism. Depending on the speed of IO
+Each of the reading functions by default use multi-threading for reading
+columns in parallel. Depending on the speed of IO
 and how expensive it is to decode the columns in a particular file
 (particularly with GZIP compression), this can yield significantly higher data
-throughput:
+throughput. 
 
-.. code-block:: python
+This can be disabled by specifying ``use_threads=False``.
 
-   pq.read_table(where, nthreads=4)
-   pq.ParquetDataset(where).read(nthreads=4)
+.. note::
+   The number of threads to use concurrently is automatically inferred by Arrow
+   and can be inspected using the :func:`~pyarrow.cpu_count()` function.
+
 
 Reading a Parquet File from Azure Blob storage
 ----------------------------------------------
