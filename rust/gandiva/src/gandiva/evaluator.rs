@@ -26,7 +26,7 @@ use expression::Expr;
 struct GandivaProjector {}
 
 impl GandivaProjector {
-    /// schema is record batch's schema, it's used by gandiva to generate.
+    /// schema is record batch's schema, it's used by gandiva to generate code.
     /// exprs is expression to evaluate, for example ```a+b```
     pub fn new(schema: Schema, exprs: Vec<Expr>) -> Result<Self> {
         unimplemented!()
@@ -43,7 +43,7 @@ impl Projector for GandivaProjector {
 struct GandivaFilter {}
 
 impl GandivaFilter {
-    /// schema is record batch's schema, it's used by gandiva to generate.
+    /// schema is record batch's schema, it's used by gandiva to generate code.
     /// exprs is expression to evaluate, for example ```a+b```
     pub fn new(schema: Schema, exprs: Vec<Expr>) -> Result<Self> {
         unimplemented!()
