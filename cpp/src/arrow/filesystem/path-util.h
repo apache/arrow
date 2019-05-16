@@ -27,20 +27,24 @@ namespace arrow {
 namespace fs {
 namespace internal {
 
-// Computations on abstract paths (paths that are not local paths with
-// system-dependent behaviour).  Abstract paths are typically used in URIs.
+// Computations on abstract paths (not local paths with system-dependent behaviour).
+// Abstract paths are typically used in URIs.
 
 // Split an abstract path into its individual components.
+ARROW_EXPORT
 std::vector<std::string> SplitAbstractPath(const std::string& s);
 
 // Return the parent directory and basename of an abstract path.  Both values may be
 // empty.
+ARROW_EXPORT
 std::pair<std::string, std::string> GetAbstractPathParent(const std::string& s);
 
 // Validate the components of an abstract path.
+ARROW_EXPORT
 Status ValidateAbstractPathParts(const std::vector<std::string>& parts);
 
-// Append an abstract path to another.
+// Append a non-empty stem to an abstract path.
+ARROW_EXPORT
 std::string ConcatAbstractPath(const std::string& base, const std::string& stem);
 
 // Join the components of an abstract path.
@@ -49,7 +53,7 @@ std::string JoinAbstractPath(StringIt it, StringIt end) {
   std::string path;
   for (; it != end; ++it) {
     if (!path.empty()) {
-      path += "/";
+      path += '/';
     }
     path += *it;
   }

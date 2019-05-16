@@ -101,6 +101,7 @@ using EntryBase = util::variant<File, Directory>;
 
 class Entry : public EntryBase {
  public:
+  Entry(Entry&&) = default;
   explicit Entry(Directory&& v) : EntryBase(std::move(v)) {}
   explicit Entry(File&& v) : EntryBase(std::move(v)) {}
 
@@ -146,6 +147,16 @@ class Entry : public EntryBase {
       st.set_path(ConcatAbstractPath(base_path, file.name));
     }
     return st;
+  }
+
+  // Set the entry name
+  void SetName(const std::string& name) {
+    if (is_dir()) {
+      as_dir().name = name;
+    } else {
+      DCHECK(is_file());
+      as_file().name = name;
+    }
   }
 
  private:
@@ -253,6 +264,9 @@ class MockFileSystem::Impl {
 
   // Find the parent entry, only full matching allowed
   Entry* FindParent(const std::vector<std::string>& parts) {
+    if (parts.size() == 0) {
+      return nullptr;
+    }
     size_t consumed;
     auto entry = FindEntry(parts.begin(), --parts.end(), &consumed);
     return (consumed == parts.size() - 1) ? entry : nullptr;
@@ -462,12 +476,93 @@ Status MockFileSystem::GetTargetStats(const Selector& selector,
   return Status::OK();
 }
 
+// Helper for binary operations (move, copy)
+struct BinaryOp {
+  std::vector<std::string> src_parts;
+  std::vector<std::string> dest_parts;
+  Directory& src_dir;
+  Directory& dest_dir;
+  std::string src_name;
+  std::string dest_name;
+  Entry* src_entry;
+  Entry* dest_entry;
+
+  template <typename OpFunc>
+  static Status Run(MockFileSystem::Impl* impl, const std::string& src,
+                    const std::string& dest, OpFunc&& op_func) {
+    auto src_parts = SplitAbstractPath(src);
+    auto dest_parts = SplitAbstractPath(dest);
+    RETURN_NOT_OK(ValidateAbstractPathParts(src_parts));
+    RETURN_NOT_OK(ValidateAbstractPathParts(dest_parts));
+
+    // Both source and destination must have valid parents
+    Entry* src_parent = impl->FindParent(src_parts);
+    if (src_parent == nullptr || !src_parent->is_dir()) {
+      return PathNotFound(src);
+    }
+    Entry* dest_parent = impl->FindParent(dest_parts);
+    if (dest_parent == nullptr || !dest_parent->is_dir()) {
+      return PathNotFound(dest);
+    }
+    Directory& src_dir = src_parent->as_dir();
+    Directory& dest_dir = dest_parent->as_dir();
+    DCHECK_GE(src_parts.size(), 1);
+    DCHECK_GE(dest_parts.size(), 1);
+    const auto& src_name = src_parts.back();
+    const auto& dest_name = dest_parts.back();
+
+    BinaryOp op{std::move(src_parts),
+                std::move(dest_parts),
+                src_dir,
+                dest_dir,
+                src_name,
+                dest_name,
+                src_dir.Find(src_name),
+                dest_dir.Find(dest_name)};
+
+    return op_func(std::move(op));
+  }
+};
+
 Status MockFileSystem::Move(const std::string& src, const std::string& dest) {
-  return Status::NotImplemented("Move");
+  return BinaryOp::Run(impl_.get(), src, dest, [&](const BinaryOp& op) -> Status {
+    if (op.src_entry == nullptr) {
+      return PathNotFound(src);
+    }
+    if (op.dest_entry != nullptr && op.dest_entry->is_dir()) {
+      return Status::IOError("Cannot replace destination '", dest,
+                             "', which is a directory");
+    }
+
+    // Move original entry, fix its name
+    std::unique_ptr<Entry> new_entry(new Entry(std::move(*op.src_entry)));
+    new_entry->SetName(op.dest_name);
+    bool deleted = op.src_dir.DeleteEntry(op.src_name);
+    DCHECK(deleted);
+    op.dest_dir.AssignEntry(op.dest_name, std::move(new_entry));
+    return Status::OK();
+  });
 }
 
-Status MockFileSystem::Copy(const std::string& src, const std::string& dest) {
-  return Status::NotImplemented("Copy");
+Status MockFileSystem::CopyFile(const std::string& src, const std::string& dest) {
+  return BinaryOp::Run(impl_.get(), src, dest, [&](const BinaryOp& op) -> Status {
+    if (op.src_entry == nullptr) {
+      return PathNotFound(src);
+    }
+    if (!op.src_entry->is_file()) {
+      return NotAFile(src);
+    }
+    if (op.dest_entry != nullptr && op.dest_entry->is_dir()) {
+      return Status::IOError("Cannot replace destination '", dest,
+                             "', which is a directory");
+    }
+
+    // Copy original entry, fix its name
+    std::unique_ptr<Entry> new_entry(new Entry(File(op.src_entry->as_file())));
+    new_entry->SetName(op.dest_name);
+    op.dest_dir.AssignEntry(op.dest_name, std::move(new_entry));
+    return Status::OK();
+  });
 }
 
 Status MockFileSystem::OpenInputStream(const std::string& path,

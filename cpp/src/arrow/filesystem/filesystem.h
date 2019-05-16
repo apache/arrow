@@ -78,7 +78,7 @@ struct ARROW_EXPORT FileStats {
   std::string path() const { return path_; }
   void set_path(const std::string& path) { path_ = path; }
 
-  // The file base name (component after the last directory separator or '/').
+  // The file base name (component after the last directory separator).
   std::string base_name() const;
 
   // The size in bytes, if available.  Only regular files are guaranteed
@@ -136,7 +136,7 @@ class ARROW_EXPORT FileSystem {
   /// Create a directory and subdirectories.
   virtual Status CreateDir(const std::string& path, bool recursive = true) = 0;
 
-  /// Delete a directory and contents.
+  /// Delete a directory and its contents, recursively.
   virtual Status DeleteDir(const std::string& path) = 0;
 
   /// Delete a file.
@@ -148,13 +148,15 @@ class ARROW_EXPORT FileSystem {
 
   /// Move / rename a file or directory.
   ///
-  /// The destination will be replaced if it exists.
+  /// If the destination exists and is a directory, an error is returned.
+  /// Otherwise, it is replaced.
   virtual Status Move(const std::string& src, const std::string& dest) = 0;
 
   /// Copy a file.
   ///
-  /// The destination will be replaced if it exists.
-  virtual Status Copy(const std::string& src, const std::string& dest) = 0;
+  /// If the destination exists and is a directory, an error is returned.
+  /// Otherwise, it is replaced.
+  virtual Status CopyFile(const std::string& src, const std::string& dest) = 0;
 
   /// Open an input stream for sequential reading.
   virtual Status OpenInputStream(const std::string& path,

@@ -74,7 +74,7 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
 
   Status Move(const std::string& src, const std::string& dest) override;
 
-  Status Copy(const std::string& src, const std::string& dest) override;
+  Status CopyFile(const std::string& src, const std::string& dest) override;
 
   Status OpenInputStream(const std::string& path,
                          std::shared_ptr<io::InputStream>* out) override;
@@ -93,8 +93,9 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   std::vector<DirInfo> AllDirs();
   std::vector<FileInfo> AllFiles();
 
- protected:
   class Impl;
+
+ protected:
   std::unique_ptr<Impl> impl_;
 };
 
