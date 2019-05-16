@@ -16,9 +16,13 @@
 // under the License.
 
 #ifdef _MSC_VER
-#include <intrin.h>
+  #include <intrin.h>
+#elif defined(__GNUC__) && defined(__ARM_NEON__)
+  #include <arm_neon.h>
+#elif defined(__GNUC__) && defined(__IWMMXT__)
+  #include <mmintrin.h>
 #else
-#include <immintrin.h>
+  #include <immintrin.h>
 #endif
 
 #include <iostream>
