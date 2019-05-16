@@ -19,22 +19,11 @@
 
 #include <vector>
 
-#ifdef _MSC_VER
-  #include <intrin.h>
-#elif defined(__GNUC__) && defined(__ARM_NEON__)
-  #include <arm_neon.h>
-#elif defined(__GNUC__) && defined(__IWMMXT__)
-  #include <mmintrin.h>
-#else
-  #include <immintrin.h>
-#endif
-
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/bit-util.h"
-
 #include "arrow/compute/benchmark-util.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
