@@ -777,7 +777,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
 class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
   enum type { MONTHS, DAY_TIME };
-  IntervalType() : TemporalType(Type::INTERVAL)  {}
+  IntervalType() : TemporalType(Type::INTERVAL) {}
 
   virtual type interval_type() const = 0;
   virtual ~IntervalType() = default;
@@ -829,7 +829,7 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
 
 // \brief Represents an amount of elapsed time without any relation to a calendar
 // artifact.
-class ARROW_EXPORT DurationType : public FixedWidthType, public ParametricType {
+class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
 
@@ -839,7 +839,7 @@ class ARROW_EXPORT DurationType : public FixedWidthType, public ParametricType {
   int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
   explicit DurationType(TimeUnit::type unit = TimeUnit::MILLI)
-      : FixedWidthType(Type::DURATION), unit_(unit) {}
+      : TemporalType(Type::DURATION), unit_(unit) {}
 
   std::string ToString() const override;
   std::string name() const override { return "duration"; }
