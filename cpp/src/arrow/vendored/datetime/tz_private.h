@@ -34,7 +34,7 @@
 #include <vector>
 #endif
 
-namespace arrow
+namespace arrow_vendored
 {
 namespace util
 {
@@ -315,7 +315,7 @@ struct transition
 
 }  // namespace date
 }  // namespace util
-}  // namespace arrow
+}  // namespace arrow_vendored
 
 #if defined(_MSC_VER) && (_MSC_VER < 1900)
 #include "tz.h"

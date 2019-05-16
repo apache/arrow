@@ -23,6 +23,7 @@
       # Unfortunately this will also catch template specializations
       # (from e.g. STL or Flatbuffers) involving Arrow types.
       *arrow::*;
+      *arrow_vendored::*;
     };
     # Also export C-level helpers
     arrow_*;

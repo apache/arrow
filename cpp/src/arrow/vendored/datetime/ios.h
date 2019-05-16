@@ -32,7 +32,7 @@
 # if TARGET_OS_IPHONE
 #   include <string>
 
-    namespace arrow
+    namespace arrow_vendored
     {
     namespace util
     {
@@ -47,7 +47,7 @@
     }  // namespace iOSUtils
     }  // namespace date
     }  // namespace util
-    }  // namespace arrow
+    }  // namespace arrow_vendored
 
 # endif  // TARGET_OS_IPHONE
 #else   // !__APPLE__

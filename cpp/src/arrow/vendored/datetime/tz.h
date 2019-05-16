@@ -155,7 +155,7 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
 #  endif
 #endif
 
-namespace arrow
+namespace arrow_vendored
 {
 namespace util
 {

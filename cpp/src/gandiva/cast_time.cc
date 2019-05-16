@@ -52,12 +52,12 @@ extern "C" {
 // TODO : Do input validation or make sure the callers do that ?
 int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
                           int64_t* ret_time) {
-  using arrow::util::date::day;
-  using arrow::util::date::local_days;
-  using arrow::util::date::locate_zone;
-  using arrow::util::date::month;
-  using arrow::util::date::time_zone;
-  using arrow::util::date::year;
+  using arrow_vendored::util::date::day;
+  using arrow_vendored::util::date::local_days;
+  using arrow_vendored::util::date::locate_zone;
+  using arrow_vendored::util::date::month;
+  using arrow_vendored::util::date::time_zone;
+  using arrow_vendored::util::date::year;
   using std::chrono::hours;
   using std::chrono::milliseconds;
   using std::chrono::minutes;
