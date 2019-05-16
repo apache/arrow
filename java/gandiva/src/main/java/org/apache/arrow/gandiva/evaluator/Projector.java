@@ -142,6 +142,12 @@ public class Projector {
              numRows, 0, 0, outColumns);
   }
 
+  /**
+   * Invoke this function to evaluate a set of expressions against a {@link ArrowRecordBatch}.
+   *
+   * @param recordBatch The data to evaluate against.
+   * @param outColumns Result of applying the project on the data
+   */
   public void evaluate(ArrowRecordBatch recordBatch,
                      SelectionVector selectionVector, List<ValueVector> outColumns)
         throws GandivaException {
