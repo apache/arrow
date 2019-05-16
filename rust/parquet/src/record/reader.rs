@@ -1541,16 +1541,14 @@ mod tests {
     #[test]
     fn test_file_reader_iter() -> Result<()> {
         let path = get_test_path("alltypes_plain.parquet");
-        let mut vec = vec![path]
+        let vec = vec![path]
             .iter()
             .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
             .flat_map(|r| Iter::from(r))
             .flat_map(|r| r.get_int(0))
             .collect::<Vec<_>>();
 
-        vec.sort();
-
-        assert_eq!(vec, vec![0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(vec, vec![4, 5, 6, 7, 2, 3, 0, 1]);
 
         Ok(())
     }

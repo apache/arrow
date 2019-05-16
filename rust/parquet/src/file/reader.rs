@@ -810,16 +810,16 @@ mod tests {
     #[test]
     fn test_file_reader_into_iter() -> Result<()> {
         let path = get_test_path("alltypes_plain.parquet");
-        let mut vec = vec![path.clone(), path.clone()]
+        let vec = vec![path.clone(), path.clone()]
             .iter()
             .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
             .flat_map(|r| r.into_iter())
             .flat_map(|r| r.get_int(0))
             .collect::<Vec<_>>();
 
-        vec.sort();
-
-        assert_eq!(vec, vec![0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7]);
+        // rows in the parquet file are not sorted by "id"
+        // each file contains [id:4, id:5, id:6, id:7, id:2, id:3, id:0, id:1]
+        assert_eq!(vec, vec![4, 5, 6, 7, 2, 3, 0, 1, 4, 5, 6, 7, 2, 3, 0, 1]);
 
         Ok(())
     }
