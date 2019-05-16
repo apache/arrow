@@ -431,6 +431,59 @@ TEST(TestTimeType, ToString) {
   ASSERT_EQ("time64[us]", t4->ToString());
 }
 
+TEST(TestMonthIntervalType, Equals) {
+  MonthIntervalType t1;
+  MonthIntervalType t2;
+  DayTimeIntervalType t3;
+
+  ASSERT_TRUE(t1.Equals(t2));
+  ASSERT_FALSE(t1.Equals(t3));
+}
+
+TEST(TestMonthIntervalType, ToString) {
+  auto t1 = month_interval();
+
+  ASSERT_EQ("month_interval", t1->ToString());
+}
+
+TEST(TestDayTimeIntervalType, Equals) {
+  DayTimeIntervalType t1;
+  DayTimeIntervalType t2;
+  MonthIntervalType t3;
+
+  ASSERT_TRUE(t1.Equals(t2));
+  ASSERT_FALSE(t1.Equals(t3));
+}
+
+TEST(TestDayTimeIntervalType, ToString) {
+  auto t1 = day_time_interval();
+
+  ASSERT_EQ("day_time_interval", t1->ToString());
+}
+
+TEST(TestDurationType, Equals) {
+  DurationType t1;
+  DurationType t2;
+  DurationType t3(TimeUnit::NANO);
+  DurationType t4(TimeUnit::NANO);
+
+  ASSERT_TRUE(t1.Equals(t2));
+  ASSERT_FALSE(t1.Equals(t3));
+  ASSERT_TRUE(t3.Equals(t4));
+}
+
+TEST(TestDurationType, ToString) {
+  auto t1 = duration(TimeUnit::MILLI);
+  auto t2 = duration(TimeUnit::NANO);
+  auto t3 = duration(TimeUnit::SECOND);
+  auto t4 = duration(TimeUnit::MICRO);
+
+  ASSERT_EQ("duration[ms]", t1->ToString());
+  ASSERT_EQ("duration[ns]", t2->ToString());
+  ASSERT_EQ("duration[s]", t3->ToString());
+  ASSERT_EQ("duration[us]", t4->ToString());
+}
+
 TEST(TestTimestampType, Equals) {
   TimestampType t1;
   TimestampType t2;

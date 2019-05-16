@@ -76,6 +76,10 @@
         { class: "UInt8" },
         { class: "Float8",           javaType: "double", boxedType: "Double", fields: [{name: "value", type: "double"}] },
         { class: "DateMilli",        javaType: "long",                      friendlyType: "LocalDateTime" },
+        { class: "Duration", javaType: "long", friendlyType: "Duration",
+          arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Duration",
+          typeParams: [ {name: "unit", type: "org.apache.arrow.vector.types.TimeUnit"} ],
+          arrowTypeConstructorParams: ["unit"]}
         { class: "TimeStampSec",     javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
         { class: "TimeStampMilli",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
         { class: "TimeStampMicro",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },

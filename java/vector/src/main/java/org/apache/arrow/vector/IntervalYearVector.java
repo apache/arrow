@@ -30,6 +30,8 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
+import io.netty.buffer.ArrowBuf;
+
 /**
  * IntervalYearVector implements a fixed width (4 bytes) vector of
  * interval (years and months) values which could be null. A validity buffer
@@ -91,6 +93,20 @@ public class IntervalYearVector extends BaseFixedWidthVector {
    |                                                                |
    *----------------------------------------------------------------*/
 
+
+  /**
+   * Given a data buffer, get the value stored at a particular position
+   * in the vector.
+   *
+   * <p>This method should not be used externally.
+   *
+   * @param buffer data buffer
+   * @param index  position of the element.
+   * @return value stored at the index.
+   */
+  public static int getTotalMonths(final ArrowBuf buffer, final int index) {
+    return buffer.getInt(index * TYPE_WIDTH);
+  }
 
   /**
    * Get the element at the given index from the vector.

@@ -151,6 +151,42 @@ struct TypeTraits<TimestampType> {
 };
 
 template <>
+struct TypeTraits<DurationType> {
+  using ArrayType = DurationArray;
+  using BuilderType = DurationBuilder;
+  using ScalarType = DurationScalar;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int64_t));
+  }
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<DayTimeIntervalType> {
+  using ArrayType = DayTimeIntervalArray;
+  using BuilderType = DayTimeIntervalBuilder;
+  using ScalarType = DayTimeIntervalScalar;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(DayTimeIntervalType::DayMilliseconds));
+  }
+  constexpr static bool is_parameter_free = true;
+};
+
+template <>
+struct TypeTraits<MonthIntervalType> {
+  using ArrayType = MonthIntervalArray;
+  using BuilderType = MonthIntervalBuilder;
+  using ScalarType = MonthIntervalScalar;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(int32_t));
+  }
+  constexpr static bool is_parameter_free = true;
+};
+
+template <>
 struct TypeTraits<Time32Type> {
   using ArrayType = Time32Array;
   using BuilderType = Time32Builder;
@@ -298,7 +334,9 @@ template <typename T>
 struct has_c_type {
   static constexpr bool value =
       (std::is_base_of<PrimitiveCType, T>::value || std::is_base_of<DateType, T>::value ||
-       std::is_base_of<TimeType, T>::value || std::is_base_of<TimestampType, T>::value);
+       std::is_base_of<TimeType, T>::value || std::is_base_of<TimestampType, T>::value ||
+       std::is_base_of<IntervalType, T>::value ||
+       std::is_base_of<DurationType, T>::value);
 };
 
 template <typename T>

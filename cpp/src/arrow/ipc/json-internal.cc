@@ -43,6 +43,14 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+namespace {
+constexpr char kData[] = "DATA";
+constexpr char kDays[] = "days";
+constexpr char kDayTime[] = "DAY_TIME";
+constexpr char kDuration[] = "duration";
+constexpr char kMilliseconds[] = "milliseconds";
+constexpr char kYearMonth[] = "YEAR_MONTH";
+}  // namespace
 
 class MemoryPool;
 
@@ -203,12 +211,12 @@ class SchemaWriter {
 
   void WriteTypeMetadata(const IntervalType& type) {
     writer_->Key("unit");
-    switch (type.unit()) {
-      case IntervalType::Unit::YEAR_MONTH:
-        writer_->String("YEAR_MONTH");
+    switch (type.interval_type()) {
+      case IntervalType::MONTHS:
+        writer_->String(kYearMonth);
         break;
-      case IntervalType::Unit::DAY_TIME:
-        writer_->String("DAY_TIME");
+      case IntervalType::DAY_TIME:
+        writer_->String(kDayTime);
         break;
     }
   }
@@ -220,6 +228,11 @@ class SchemaWriter {
       writer_->Key("timezone");
       writer_->String(type.timezone());
     }
+  }
+
+  void WriteTypeMetadata(const DurationType& type) {
+    writer_->Key("unit");
+    writer_->String(GetTimeUnitName(type.unit()));
   }
 
   void WriteTypeMetadata(const TimeType& type) {
@@ -327,7 +340,12 @@ class SchemaWriter {
 
   Status Visit(const Decimal128Type& type) { return WritePrimitive("decimal", type); }
   Status Visit(const TimestampType& type) { return WritePrimitive("timestamp", type); }
-  Status Visit(const IntervalType& type) { return WritePrimitive("interval", type); }
+  Status Visit(const DurationType& type) { return WritePrimitive(kDuration, type); }
+  Status Visit(const MonthIntervalType& type) { return WritePrimitive("interval", type); }
+
+  Status Visit(const DayTimeIntervalType& type) {
+    return WritePrimitive("interval", type);
+  }
 
   Status Visit(const ListType& type) {
     WriteName("list", type);
@@ -459,6 +477,20 @@ class ArrayWriter {
     }
   }
 
+  void WriteDataValues(const DayTimeIntervalArray& arr) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      writer_->StartObject();
+      if (arr.IsValid(i)) {
+        const DayTimeIntervalType::DayMilliseconds dm = arr.GetValue(i);
+        writer_->Key(kDays);
+        writer_->Int(dm.days);
+        writer_->Key(kMilliseconds);
+        writer_->Int(dm.milliseconds);
+      }
+      writer_->EndObject();
+    }
+  }
+
   void WriteDataValues(const Decimal128Array& arr) {
     static const char null_string[] = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
@@ -483,7 +515,7 @@ class ArrayWriter {
 
   template <typename T>
   void WriteDataField(const T& arr) {
-    writer_->Key("DATA");
+    writer_->Key(kData);
     writer_->StartArray();
     WriteDataValues(arr);
     writer_->EndArray();
@@ -763,6 +795,35 @@ static Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type
   return Status::OK();
 }
 
+static Status GetUnitFromString(const std::string& unit_str, TimeUnit::type* unit) {
+  if (unit_str == "SECOND") {
+    *unit = TimeUnit::SECOND;
+  } else if (unit_str == "MILLISECOND") {
+    *unit = TimeUnit::MILLI;
+  } else if (unit_str == "MICROSECOND") {
+    *unit = TimeUnit::MICRO;
+  } else if (unit_str == "NANOSECOND") {
+    *unit = TimeUnit::NANO;
+  } else {
+    return Status::Invalid("Invalid time unit: ", unit_str);
+  }
+  return Status::OK();
+}
+
+static Status GetDuration(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  const auto& it_unit = json_type.FindMember("unit");
+  RETURN_NOT_STRING("unit", it_unit, json_type);
+
+  std::string unit_str = it_unit->value.GetString();
+
+  TimeUnit::type unit;
+  RETURN_NOT_OK(GetUnitFromString(unit_str, &unit));
+
+  *type = duration(unit);
+
+  return Status::OK();
+}
+
 static Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>* type) {
   const auto& it_unit = json_type.FindMember("unit");
   RETURN_NOT_STRING("unit", it_unit, json_type);
@@ -770,17 +831,7 @@ static Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>*
   std::string unit_str = it_unit->value.GetString();
 
   TimeUnit::type unit;
-  if (unit_str == "SECOND") {
-    unit = TimeUnit::SECOND;
-  } else if (unit_str == "MILLISECOND") {
-    unit = TimeUnit::MILLI;
-  } else if (unit_str == "MICROSECOND") {
-    unit = TimeUnit::MICRO;
-  } else if (unit_str == "NANOSECOND") {
-    unit = TimeUnit::NANO;
-  } else {
-    return Status::Invalid("Invalid time unit: ", unit_str);
-  }
+  RETURN_NOT_OK(GetUnitFromString(unit_str, &unit));
 
   const auto& it_tz = json_type.FindMember("timezone");
   if (it_tz == json_type.MemberEnd()) {
@@ -789,6 +840,22 @@ static Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>*
     *type = timestamp(unit, it_tz->value.GetString());
   }
 
+  return Status::OK();
+}
+
+static Status GetInterval(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  const auto& it_unit = json_type.FindMember("unit");
+  RETURN_NOT_STRING("unit", it_unit, json_type);
+
+  std::string unit_name = it_unit->value.GetString();
+
+  if (unit_name == kDayTime) {
+    *type = day_time_interval();
+  } else if (unit_name == kYearMonth) {
+    *type = month_interval();
+  } else {
+    return Status::Invalid("Invalid interval unit: " + unit_name);
+  }
   return Status::OK();
 }
 
@@ -854,6 +921,10 @@ static Status GetType(const RjObject& json_type,
     return GetTime(json_type, type);
   } else if (type_name == "timestamp") {
     return GetTimestamp(json_type, type);
+  } else if (type_name == "interval") {
+    return GetInterval(json_type, type);
+  } else if (type_name == kDuration) {
+    return GetDuration(json_type, type);
   } else if (type_name == "list") {
     if (children.size() != 1) {
       return Status::Invalid("List must have exactly one child");
@@ -1015,13 +1086,15 @@ class ArrayReader {
   typename std::enable_if<
       std::is_base_of<PrimitiveCType, T>::value || std::is_base_of<DateType, T>::value ||
           std::is_base_of<TimestampType, T>::value ||
-          std::is_base_of<TimeType, T>::value || std::is_base_of<BooleanType, T>::value,
+          std::is_base_of<TimeType, T>::value || std::is_base_of<BooleanType, T>::value ||
+          std::is_base_of<MonthIntervalType, T>::value ||
+          std::is_base_of<DurationType, T>::value,
       Status>::type
   Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
-    const auto& json_data = obj_->FindMember("DATA");
-    RETURN_NOT_ARRAY("DATA", json_data, *obj_);
+    const auto& json_data = obj_->FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, *obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
@@ -1044,8 +1117,8 @@ class ArrayReader {
       const T& type) {
     typename TypeTraits<T>::BuilderType builder(pool_);
 
-    const auto& json_data = obj_->FindMember("DATA");
-    RETURN_NOT_ARRAY("DATA", json_data, *obj_);
+    const auto& json_data = obj_->FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, *obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
@@ -1082,6 +1155,33 @@ class ArrayReader {
     return builder.Finish(&result_);
   }
 
+  Status Visit(const DayTimeIntervalType& type) {
+    DayTimeIntervalBuilder builder(pool_);
+
+    const auto& json_data = obj_->FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, *obj_);
+
+    const auto& json_data_arr = json_data->value.GetArray();
+
+    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_)
+        << "data length: " << json_data_arr.Size() << " != length_: " << length_;
+
+    for (int i = 0; i < length_; ++i) {
+      if (!is_valid_[i]) {
+        RETURN_NOT_OK(builder.AppendNull());
+        continue;
+      }
+
+      const rj::Value& val = json_data_arr[i];
+      DCHECK(val.IsObject());
+      DayTimeIntervalType::DayMilliseconds dm = {0, 0};
+      dm.days = val[kDays].GetInt();
+      dm.milliseconds = val[kMilliseconds].GetInt();
+      RETURN_NOT_OK(builder.Append(dm));
+    }
+    return builder.Finish(&result_);
+  }
+
   template <typename T>
   typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value &&
                               !std::is_base_of<Decimal128Type, T>::value,
@@ -1089,8 +1189,8 @@ class ArrayReader {
   Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
-    const auto& json_data = obj_->FindMember("DATA");
-    RETURN_NOT_ARRAY("DATA", json_data, *obj_);
+    const auto& json_data = obj_->FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, *obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
@@ -1130,8 +1230,8 @@ class ArrayReader {
       const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
-    const auto& json_data = obj_->FindMember("DATA");
-    RETURN_NOT_ARRAY("DATA", json_data, *obj_);
+    const auto& json_data = obj_->FindMember(kData);
+    RETURN_NOT_ARRAY(kData, json_data, *obj_);
 
     const auto& json_data_arr = json_data->value.GetArray();
 
@@ -1487,7 +1587,8 @@ Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer) {
     const std::shared_ptr<Array>& column = batch.column(i);
 
     DCHECK_EQ(batch.num_rows(), column->length())
-        << "Array length did not match record batch length";
+        << "Array length did not match record batch length: " << batch.num_rows()
+        << " != " << column->length() << " " << batch.column_name(i);
 
     RETURN_NOT_OK(WriteArray(batch.column_name(i), *column, writer));
   }

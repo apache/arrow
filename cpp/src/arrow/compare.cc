@@ -722,8 +722,17 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
+  typename std::enable_if<std::is_base_of<IntervalType, T>::value, Status>::type Visit(
+      const T& left) {
+    const auto& right = checked_cast<const IntervalType&>(right_);
+    result_ = right.interval_type() == left.interval_type();
+    return Status::OK();
+  }
+
+  template <typename T>
   typename std::enable_if<std::is_base_of<TimeType, T>::value ||
-                              std::is_base_of<DateType, T>::value,
+                              std::is_base_of<DateType, T>::value ||
+                              std::is_base_of<DurationType, T>::value,
                           Status>::type
   Visit(const T& left) {
     const auto& right = checked_cast<const T&>(right_);

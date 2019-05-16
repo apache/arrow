@@ -139,7 +139,11 @@ struct Type {
     EXTENSION,
 
     /// Fixed size list of some logical type
-    FIXED_SIZE_LIST
+    FIXED_SIZE_LIST,
+
+    /// Measure of elapsed time in either seconds, milliseconds, microseconds
+    /// or nanoseconds.
+    DURATION
   };
 };
 
@@ -756,25 +760,81 @@ class ARROW_EXPORT TimestampType : public FixedWidthType, public ParametricType 
   std::string timezone_;
 };
 
-class ARROW_EXPORT IntervalType : public FixedWidthType {
+// Holds different types of intervals.
+class ARROW_EXPORT IntervalType : public FixedWidthType, public ParametricType {
  public:
-  enum class Unit : char { YEAR_MONTH = 0, DAY_TIME = 1 };
+  enum type { MONTHS, DAY_TIME };
+  IntervalType() : FixedWidthType(Type::INTERVAL) {}
 
-  using c_type = int64_t;
+  virtual type interval_type() const = 0;
+  virtual ~IntervalType() = default;
+};
+
+/// \brief Represents a some number of months.
+///
+/// Type representing a number of months.  Corresponeds to YearMonth type
+/// in Schema.fbs (Years are defined as 12 months).
+class ARROW_EXPORT MonthIntervalType : public IntervalType {
+ public:
+  using c_type = int32_t;
   static constexpr Type::type type_id = Type::INTERVAL;
+
+  IntervalType::type interval_type() const override { return IntervalType::MONTHS; }
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
+
+  MonthIntervalType() {}
+
+  std::string ToString() const override { return name(); }
+  std::string name() const override { return "month_interval"; }
+};
+
+/// \brief Represents a number of days and milliseconds (fraction of day).
+class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
+ public:
+  struct DayMilliseconds {
+    int32_t days;
+    int32_t milliseconds;
+    bool operator==(DayMilliseconds other) {
+      return this->days == other.days && this->milliseconds == other.milliseconds;
+    }
+    bool operator!=(DayMilliseconds other) { return !(*this == other); }
+  };
+  using c_type = DayMilliseconds;
+  static_assert(sizeof(DayMilliseconds) == 8,
+                "DayMilliseconds struct assumed to be of size 8 bytes");
+  static constexpr Type::type type_id = Type::INTERVAL;
+  IntervalType::type interval_type() const override { return IntervalType::DAY_TIME; }
+
+  DayTimeIntervalType() {}
+
+  int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
+
+  std::string ToString() const override { return name(); }
+  std::string name() const override { return "day_time_interval"; }
+};
+
+// \brief Represents an amount of elapsed time without any relation to a calendar
+// artifact.
+class ARROW_EXPORT DurationType : public FixedWidthType, public ParametricType {
+ public:
+  using Unit = TimeUnit;
+
+  static constexpr Type::type type_id = Type::DURATION;
+  using c_type = int64_t;
 
   int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
 
-  explicit IntervalType(Unit unit = Unit::YEAR_MONTH)
-      : FixedWidthType(Type::INTERVAL), unit_(unit) {}
+  explicit DurationType(TimeUnit::type unit = TimeUnit::MILLI)
+      : FixedWidthType(Type::DURATION), unit_(unit) {}
 
-  std::string ToString() const override { return name(); }
-  std::string name() const override { return "interval"; }
+  std::string ToString() const override;
+  std::string name() const override { return "duration"; }
 
-  Unit unit() const { return unit_; }
+  TimeUnit::type unit() const { return unit_; }
 
  private:
-  Unit unit_;
+  TimeUnit::type unit_;
 };
 
 // ----------------------------------------------------------------------
@@ -906,7 +966,7 @@ class ARROW_EXPORT Schema {
 /// \addtogroup type-factories
 /// @{
 
-/// \brief Create a FixedSizeBinaryType instance
+/// \brief Create a FixedSizeBinaryType instance.
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
@@ -931,6 +991,15 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_ty
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
                                           int32_t list_size);
+/// \brief Return an Duration instance (naming use _type to avoid namespace conflict with
+/// built in time clases).
+std::shared_ptr<DataType> ARROW_EXPORT duration(TimeUnit::type unit);
+
+/// \brief Return an DayTimeIntervalType instance
+std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
+
+/// \brief Return an MonthIntervalType instance
+std::shared_ptr<DataType> ARROW_EXPORT month_interval();
 
 /// \brief Create a TimestampType instance from its unit
 ARROW_EXPORT

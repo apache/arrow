@@ -328,6 +328,68 @@ class TimestampType(IntegerType):
         return OrderedDict(fields)
 
 
+class DurationIntervalType(IntegerType):
+    def __init__(self, name, unit='s', nullable=True):
+        min_val, max_val = np.iinfo('int64').min, np.iinfo('int64').max,
+        super(DurationIntervalType, self).__init__(
+                name, True, 64, nullable=nullable,
+                min_value=min_val,
+                max_value=max_val)
+        self.unit = unit
+
+    def _get_type(self):
+        fields = [
+            ('name', 'duration'),
+            ('unit', TIMEUNIT_NAMES[self.unit])
+        ]
+
+        return OrderedDict(fields)
+
+
+class YearMonthIntervalType(IntegerType):
+    def __init__(self, name, nullable=True):
+        min_val, max_val = [-10000*12, 10000*12]  # +/- 10000 years.
+        super(YearMonthIntervalType, self).__init__(
+                name, True, 32, nullable=nullable,
+                min_value=min_val,
+                max_value=max_val)
+
+    def _get_type(self):
+        fields = [
+            ('name', 'interval'),
+            ('unit', 'YEAR_MONTH'),
+        ]
+
+        return OrderedDict(fields)
+
+
+class DayTimeIntervalType(PrimitiveType):
+    def __init__(self, name, nullable=True):
+        super(DayTimeIntervalType, self).__init__(name, nullable=True)
+
+    @property
+    def numpy_type(self):
+        return object
+
+    def _get_type(self):
+
+        return OrderedDict([
+            ('name', 'interval'),
+            ('unit', 'DAY_TIME'),
+        ])
+
+    def generate_column(self, size, name=None):
+        min_day_value, max_day_value = -10000*366, 10000*366
+        values = [{'days': random.randint(min_day_value, max_day_value),
+                   'milliseconds': random.randint(-86400000, +86400000)}
+                  for _ in range(size)]
+
+        is_valid = self._make_is_valid(size)
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
+
+
 class FloatingPointType(PrimitiveType):
 
     def __init__(self, name, bit_width, nullable=True):
@@ -875,11 +937,25 @@ def generate_datetime_case():
         TimestampType('f11', 's', tz='UTC'),
         TimestampType('f12', 'ms', tz='US/Eastern'),
         TimestampType('f13', 'us', tz='Europe/Paris'),
-        TimestampType('f14', 'ns', tz='US/Pacific')
+        TimestampType('f14', 'ns', tz='US/Pacific'),
     ]
 
     batch_sizes = [7, 10]
     return _generate_file("datetime", fields, batch_sizes)
+
+
+def generate_interval_case():
+    fields = [
+        DurationIntervalType('f1', 's'),
+        DurationIntervalType('f2', 'ms'),
+        DurationIntervalType('f3', 'us'),
+        DurationIntervalType('f4', 'ns'),
+        YearMonthIntervalType('f5'),
+        DayTimeIntervalType('f6'),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("interval", fields, batch_sizes)
 
 
 def generate_nested_case():
@@ -926,6 +1002,7 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
         generate_datetime_case(),
+        generate_interval_case(),
         generate_nested_case(),
         generate_dictionary_case().skip_category(SKIP_FLIGHT),
     ]
@@ -992,6 +1069,12 @@ class IntegrationRunner(object):
             name = os.path.splitext(os.path.basename(json_path))[0]
 
             file_id = guid()[:8]
+
+            if ('JS' in (producer.name, consumer.name) and
+                    "interval" in test_case.name):
+                print('TODO(ARROW-5239): Enable interval tests ' +
+                      ' for JS once, JS supports them')
+                continue
 
             # Make the random access file
             producer_file_path = os.path.join(self.temp_dir, file_id + '_' +

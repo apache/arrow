@@ -200,6 +200,13 @@ std::string TimestampType::ToString() const {
   return ss.str();
 }
 
+// Duration types
+std::string DurationType::ToString() const {
+  std::stringstream ss;
+  ss << "duration[" << this->unit_ << "]";
+  return ss.str();
+}
+
 // ----------------------------------------------------------------------
 // Union type
 
@@ -545,6 +552,18 @@ TYPE_FACTORY(date32, Date32Type)
 
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {
   return std::make_shared<FixedSizeBinaryType>(byte_width);
+}
+
+std::shared_ptr<DataType> duration(TimeUnit::type unit) {
+  return std::make_shared<DurationType>(unit);
+}
+
+std::shared_ptr<DataType> day_time_interval() {
+  return std::make_shared<DayTimeIntervalType>();
+}
+
+std::shared_ptr<DataType> month_interval() {
+  return std::make_shared<MonthIntervalType>();
 }
 
 std::shared_ptr<DataType> timestamp(TimeUnit::type unit) {

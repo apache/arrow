@@ -17,10 +17,7 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static org.apache.arrow.vector.BufferLayout.BufferType.DATA;
-import static org.apache.arrow.vector.BufferLayout.BufferType.OFFSET;
-import static org.apache.arrow.vector.BufferLayout.BufferType.TYPE;
-import static org.apache.arrow.vector.BufferLayout.BufferType.VALIDITY;
+import static org.apache.arrow.vector.BufferLayout.BufferType.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,11 +35,14 @@ import org.apache.arrow.vector.BufferLayout.BufferType;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -301,6 +301,18 @@ public class JsonFileWriter implements AutoCloseable {
           break;
         case TIMESTAMPNANOTZ:
           generator.writeNumber(TimeStampNanoTZVector.get(buffer, index));
+          break;
+        case DURATION:
+          generator.writeNumber(DurationVector.get(buffer, index));
+          break;
+        case INTERVALYEAR:
+          generator.writeNumber(IntervalYearVector.getTotalMonths(buffer, index));
+          break;
+        case INTERVALDAY:
+          generator.writeStartObject();
+          generator.writeObjectField("days", IntervalDayVector.getDays(buffer, index));
+          generator.writeObjectField("milliseconds", IntervalDayVector.getMilliseconds(buffer, index));
+          generator.writeEndObject();
           break;
         case BIT:
           generator.writeNumber(BitVectorHelper.get(buffer, index));

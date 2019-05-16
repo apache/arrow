@@ -17,15 +17,9 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
+import static com.fasterxml.jackson.core.JsonToken.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.arrow.vector.BufferLayout.BufferType.DATA;
-import static org.apache.arrow.vector.BufferLayout.BufferType.OFFSET;
-import static org.apache.arrow.vector.BufferLayout.BufferType.TYPE;
-import static org.apache.arrow.vector.BufferLayout.BufferType.VALIDITY;
+import static org.apache.arrow.vector.BufferLayout.BufferType.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,6 +41,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TypeLayout;
@@ -230,6 +225,23 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         }
 
         buf.writerIndex(bufferSize);
+        return buf;
+      }
+    };
+
+    BufferReader DAY_MILLIS = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        final int size = count * IntervalDayVector.TYPE_WIDTH;
+        ArrowBuf buf = allocator.buffer(size);
+
+        for (int i = 0; i < count; i++) {
+          readToken(START_OBJECT);
+          buf.writeInt(readNextField("days", Integer.class));
+          buf.writeInt(readNextField("milliseconds", Integer.class));
+          readToken(END_OBJECT);
+        }
+
         return buf;
       }
     };
@@ -491,6 +503,15 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         case TIMESTAMPMICROTZ:
         case TIMESTAMPMILLITZ:
         case TIMESTAMPSECTZ:
+          reader = helper.INT8;
+          break;
+        case INTERVALYEAR:
+          reader = helper.INT4;
+          break;
+        case INTERVALDAY:
+          reader = helper.DAY_MILLIS;
+          break;
+        case DURATION:
           reader = helper.INT8;
           break;
         default:

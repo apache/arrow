@@ -580,6 +580,31 @@ Status MakeTimestamps(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeIntervals(std::shared_ptr<RecordBatch>* out) {
+  std::vector<bool> is_valid = {true, true, true, false, true, true, true};
+  auto f0 = field("f0", duration(TimeUnit::MILLI));
+  auto f1 = field("f1", duration(TimeUnit::NANO));
+  auto f2 = field("f2", duration(TimeUnit::SECOND));
+  auto f3 = field("f3", day_time_interval());
+  auto f4 = field("f4", month_interval());
+  auto schema = ::arrow::schema({f0, f1, f2, f3, f4});
+
+  std::vector<int64_t> ts_values = {1489269000000, 1489270000000, 1489271000000,
+                                    1489272000000, 1489272000000, 1489273000000};
+
+  std::shared_ptr<Array> a0, a1, a2, a3, a4;
+  ArrayFromVector<DurationType, int64_t>(f0->type(), is_valid, ts_values, &a0);
+  ArrayFromVector<DurationType, int64_t>(f1->type(), is_valid, ts_values, &a1);
+  ArrayFromVector<DurationType, int64_t>(f2->type(), is_valid, ts_values, &a2);
+  ArrayFromVector<DayTimeIntervalType, DayTimeIntervalType::DayMilliseconds>(
+      f3->type(), is_valid, {{0, 0}, {0, 1}, {1, 1}, {2, 1}, {3, 4}, {-1, -1}}, &a3);
+  ArrayFromVector<MonthIntervalType, int32_t>(f4->type(), is_valid, {0, -1, 1, 2, -2, 24},
+                                              &a4);
+
+  *out = RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3, a4});
+  return Status::OK();
+}
+
 Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
   std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", time32(TimeUnit::MILLI));

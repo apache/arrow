@@ -370,12 +370,13 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
   ASSERT_TRUE(batch->column(1)->Equals(bar));
 }
 
-#define BATCH_CASES()                                                             \
-  ::testing::Values(                                                              \
-      &MakeIntRecordBatch, &MakeListRecordBatch, &MakeFixedSizeListRecordBatch,   \
-      &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, \
-      &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, &MakeDates,  \
-      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeDictionary);
+#define BATCH_CASES()                                                              \
+  ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch,                     \
+                    &MakeFixedSizeListRecordBatch, &MakeNonNullRecordBatch,        \
+                    &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,             \
+                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, \
+                    &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary,        \
+                    &MakeDecimal, &MakeDictionary, &MakeIntervals);
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:

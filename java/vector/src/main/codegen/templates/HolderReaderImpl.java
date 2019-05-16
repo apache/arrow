@@ -116,6 +116,8 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     return Duration.ofDays(holder.days).plusMillis(holder.milliseconds);
   <#elseif minor.class == "IntervalYear">
     return Period.ofMonths(holder.value);
+  <#elseif minor.class == "Duration">
+    return DurationVector.toDuration(holder.value, holder.unit);
   <#elseif minor.class == "Bit" >
     return new Boolean(holder.value != 0);
   <#elseif minor.class == "Decimal">

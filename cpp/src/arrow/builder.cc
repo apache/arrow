@@ -95,6 +95,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(INT64, Int64Builder);
       BUILDER_CASE(DATE32, Date32Builder);
       BUILDER_CASE(DATE64, Date64Builder);
+      BUILDER_CASE(DURATION, DurationBuilder);
       BUILDER_CASE(TIME32, Time32Builder);
       BUILDER_CASE(TIME64, Time64Builder);
       BUILDER_CASE(TIMESTAMP, TimestampBuilder);
@@ -110,6 +111,18 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       const auto& dict_type = static_cast<const DictionaryType&>(*type);
       DictionaryBuilderCase visitor = {pool, dict_type, out};
       return VisitTypeInline(*dict_type.dictionary()->type(), &visitor);
+    }
+    case Type::INTERVAL: {
+      const auto& interval_type = internal::checked_cast<const IntervalType&>(*type);
+      if (interval_type.interval_type() == IntervalType::MONTHS) {
+        out->reset(new MonthIntervalBuilder(type, pool));
+        return Status::OK();
+      }
+      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
+        out->reset(new DayTimeIntervalBuilder(pool));
+        return Status::OK();
+      }
+      break;
     }
     case Type::LIST: {
       std::unique_ptr<ArrayBuilder> value_builder;
@@ -146,6 +159,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                                     type->ToString());
     }
   }
+  return Status::NotImplemented("MakeBuilder: cannot construct builder for type ",
+                                type->ToString());
 }
 
 }  // namespace arrow

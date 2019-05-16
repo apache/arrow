@@ -285,8 +285,28 @@ static Status ConcreteTypeFromFlatbuffer(
       }
       return Status::OK();
     }
-    case flatbuf::Type_Interval:
-      return Status::NotImplemented("Interval");
+    case flatbuf::Type_Duration: {
+      auto duration = static_cast<const flatbuf::Duration*>(type_data);
+      TimeUnit::type unit = FromFlatbufferUnit(duration->unit());
+      *out = arrow::duration(unit);
+      return Status::OK();
+    }
+
+    case flatbuf::Type_Interval: {
+      auto i_type = static_cast<const flatbuf::Interval*>(type_data);
+      switch (i_type->unit()) {
+        case flatbuf::IntervalUnit_YEAR_MONTH: {
+          *out = month_interval();
+          return Status::OK();
+        }
+        case flatbuf::IntervalUnit_DAY_TIME: {
+          *out = day_time_interval();
+          return Status::OK();
+        }
+      }
+      return Status::NotImplemented("Unrecognized interval type.");
+    }
+
     case flatbuf::Type_List:
       if (children.size() != 1) {
         return Status::Invalid("List must have exactly 1 child field");
@@ -308,7 +328,8 @@ static Status ConcreteTypeFromFlatbuffer(
       return UnionFromFlatbuffer(static_cast<const flatbuf::Union*>(type_data), children,
                                  out);
     default:
-      return Status::Invalid("Unrecognized type");
+      return Status::Invalid("Unrecognized type:" +
+                             std::to_string(static_cast<int>(type)));
   }
 }
 
@@ -535,6 +556,26 @@ class FieldToFlatbufferVisitor {
       fb_timezone = fbb_.CreateString(ts_type.timezone());
     }
     type_offset_ = flatbuf::CreateTimestamp(fbb_, fb_unit, fb_timezone).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const DurationType& type) {
+    fb_type_ = flatbuf::Type_Duration;
+    flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(type.unit());
+    type_offset_ = flatbuf::CreateDuration(fbb_, fb_unit).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const DayTimeIntervalType& type) {
+    fb_type_ = flatbuf::Type_Interval;
+    type_offset_ = flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit_DAY_TIME).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const MonthIntervalType& type) {
+    fb_type_ = flatbuf::Type_Interval;
+    type_offset_ =
+        flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit_YEAR_MONTH).Union();
     return Status::OK();
   }
 
