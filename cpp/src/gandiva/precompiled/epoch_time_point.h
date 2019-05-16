@@ -35,8 +35,7 @@ class EpochTimePoint {
   int TmMon() const { return static_cast<unsigned int>(YearMonthDay().month()) - 1; }
 
   int TmYday() const {
-    auto to_days =
-        arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
+    auto to_days = arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
     auto first_day_in_year = arrow_vendored::date::sys_days{
         YearMonthDay().year() / arrow_vendored::date::jan / 1};
     return (to_days - first_day_in_year).count();
@@ -45,8 +44,7 @@ class EpochTimePoint {
   int TmMday() const { return static_cast<unsigned int>(YearMonthDay().day()); }
 
   int TmWday() const {
-    auto to_days =
-        arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
+    auto to_days = arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
     return (arrow_vendored::date::weekday{to_days} -  // NOLINT
             arrow_vendored::date::Sunday)
         .count();
@@ -76,9 +74,8 @@ class EpochTimePoint {
   }
 
   EpochTimePoint AddDays(int num_days) const {
-    auto days_since_epoch =
-        arrow_vendored::date::sys_days{YearMonthDay()} +  // NOLINT
-        arrow_vendored::date::days(num_days);
+    auto days_since_epoch = arrow_vendored::date::sys_days{YearMonthDay()} +  // NOLINT
+                            arrow_vendored::date::days(num_days);
     return EpochTimePoint(
         (days_since_epoch + TimeOfDay().to_duration()).time_since_epoch());
   }
@@ -94,8 +91,7 @@ class EpochTimePoint {
  private:
   arrow_vendored::date::year_month_day YearMonthDay() const {
     return arrow_vendored::date::year_month_day{
-        arrow_vendored::date::floor<arrow_vendored::date::days>(
-            tp_)};  // NOLINT
+        arrow_vendored::date::floor<arrow_vendored::date::days>(tp_)};  // NOLINT
   }
 
   arrow_vendored::date::time_of_day<std::chrono::milliseconds> TimeOfDay() const {
