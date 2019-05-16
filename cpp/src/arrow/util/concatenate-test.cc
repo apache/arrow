@@ -42,11 +42,6 @@ namespace arrow {
 
 class ConcatenateTest : public ::testing::Test {
  protected:
-  ConcatenateTest()
-      : rng_(seed_),
-        sizes_({0, 1, 2, 4, 16, 31, 1234}),
-        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
-
   std::vector<int32_t> Offsets(int32_t length, int32_t slice_count) {
     std::vector<int32_t> offsets(static_cast<std::size_t>(slice_count + 1));
     std::default_random_engine gen(seed_);
@@ -81,6 +76,24 @@ class ConcatenateTest : public ::testing::Test {
     }
   }
 
+  void CheckSlicesOfArray(const std::vector<int32_t>& offsets,
+                          const std::shared_ptr<Array>& array) {
+    auto expected = array->Slice(offsets.front(), offsets.back() - offsets.front());
+    auto slices = this->Slices(array, offsets);
+    std::shared_ptr<Array> actual;
+    ASSERT_OK(Concatenate(slices, default_memory_pool(), &actual));
+    AssertArraysEqual(*expected, *actual);
+    if (actual->null_count() == actual->length()) {
+      return;
+    }
+    if (actual->data()->buffers[0]) {
+      CheckTrailingBitsAreZeroed(actual->data()->buffers[0], actual->length());
+    }
+    if (actual->type_id() == Type::BOOL) {
+      CheckTrailingBitsAreZeroed(actual->data()->buffers[1], actual->length());
+    }
+  }
+
   template <typename ArrayFactory>
   void Check(ArrayFactory&& factory) {
     for (auto size : this->sizes_) {
@@ -88,25 +101,22 @@ class ConcatenateTest : public ::testing::Test {
       for (auto null_probability : this->null_probabilities_) {
         std::shared_ptr<Array> array;
         factory(size, null_probability, &array);
-        auto expected = array->Slice(offsets.front(), offsets.back() - offsets.front());
-        auto slices = this->Slices(array, offsets);
-        std::shared_ptr<Array> actual;
-        ASSERT_OK(Concatenate(slices, default_memory_pool(), &actual));
-        AssertArraysEqual(*expected, *actual);
-        if (actual->data()->buffers[0]) {
-          CheckTrailingBitsAreZeroed(actual->data()->buffers[0], actual->length());
-        }
-        if (actual->type_id() == Type::BOOL) {
-          CheckTrailingBitsAreZeroed(actual->data()->buffers[1], actual->length());
-        }
+        CheckSlicesOfArray(offsets, array);
+
+        auto null_prefix = MakeArrayOfNull(array->type(), 10);
+        std::shared_ptr<Array> null_prefixed;
+        ASSERT_OK(
+            Concatenate({null_prefix, array}, default_memory_pool(), &null_prefixed));
+        ASSERT_ARRAYS_EQUAL(*null_prefix, *null_prefixed->Slice(0, 10));
+        ASSERT_ARRAYS_EQUAL(*array, *null_prefixed->Slice(10));
       }
     }
   }
 
   random::SeedType seed_ = 0xdeadbeef;
-  random::RandomArrayGenerator rng_;
-  std::vector<int32_t> sizes_;
-  std::vector<double> null_probabilities_;
+  random::RandomArrayGenerator rng_{seed_};
+  std::vector<int32_t> sizes_{0, 1, 2, 4, 16, 31, 1234};
+  std::vector<double> null_probabilities_{0.0, 0.1, 0.5, 0.9, 1.0};
 };
 
 template <typename PrimitiveType>

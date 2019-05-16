@@ -45,6 +45,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/lazy.h"
+#include "arrow/visitor_inline.h"
 
 // This file is compiled together with array-*-test.cc into a single
 // executable array-test.
@@ -75,6 +76,9 @@ TEST_F(TestArray, TestNullCount) {
   std::unique_ptr<Int32Array> arr_default_null_count(
       new Int32Array(100, data, null_bitmap));
   ASSERT_EQ(kUnknownNullCount, arr_default_null_count->data()->null_count);
+
+  auto arr_all_nulls = MakeArrayOfNull(int32(), 100);
+  ASSERT_EQ(100, arr_all_nulls->null_count());
 }
 
 TEST_F(TestArray, TestLength) {
@@ -83,6 +87,9 @@ TEST_F(TestArray, TestLength) {
 
   std::unique_ptr<Int32Array> arr(new Int32Array(100, data));
   ASSERT_EQ(arr->length(), 100);
+
+  auto arr_all_nulls = MakeArrayOfNull(int32(), 100);
+  ASSERT_EQ(100, arr_all_nulls->length());
 }
 
 Status MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool,
@@ -132,6 +139,13 @@ TEST_F(TestArray, TestEquality) {
   ASSERT_FALSE(timestamp_us_array->Equals(timestamp_ns_array));
 }
 
+struct {
+  template <typename Builder>
+  Status Visit(Builder& builder) {
+    return builder.AppendNull();
+  }
+} AppendNullVisitor;
+
 TEST_F(TestArray, TestNullArrayEquality) {
   auto array_1 = std::make_shared<NullArray>(10);
   auto array_2 = std::make_shared<NullArray>(10);
@@ -140,6 +154,23 @@ TEST_F(TestArray, TestNullArrayEquality) {
   EXPECT_TRUE(array_1->Equals(array_1));
   EXPECT_TRUE(array_1->Equals(array_2));
   EXPECT_FALSE(array_1->Equals(array_3));
+
+  for (auto type : {int32(), utf8(), fixed_size_list(utf8(), 4), list(int32()),
+                    fixed_size_list(utf8(), 4), list(utf8())}) {
+    int64_t length = 100;
+    auto actual = MakeArrayOfNull(type, length);
+    ASSERT_OK(ValidateArray(*actual));
+
+    std::unique_ptr<ArrayBuilder> builder;
+    ASSERT_OK(MakeBuilder(pool_, type, &builder));
+    for (int64_t i = 0; i < length; ++i) {
+      ASSERT_OK(VisitBuilderInline(*builder, &AppendNullVisitor));
+    }
+
+    std::shared_ptr<Array> expected;
+    ASSERT_OK(builder->Finish(&expected));
+    ASSERT_ARRAYS_EQUAL(*expected, *actual);
+  }
 }
 
 TEST_F(TestArray, SliceRecomputeNullCount) {

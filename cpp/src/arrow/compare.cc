@@ -47,6 +47,7 @@ namespace arrow {
 
 using internal::BitmapEquals;
 using internal::checked_cast;
+using internal::CountSetBits;
 
 // ----------------------------------------------------------------------
 // Public method implementations
@@ -878,7 +879,7 @@ class ScalarEqualsVisitor {
 
   Status Visit(const UnionScalar& left) { return Status::NotImplemented("union"); }
 
-  Status Visit(const DictionaryScalar& left) {
+  Status Visit(const ::arrow::DictionaryScalar& left) {
     return Status::NotImplemented("dictionary");
   }
 
@@ -912,6 +913,18 @@ bool ArrayRangeEquals(const Array& left, const Array& right, int64_t left_start_
     are_equal = false;
   } else if (left.length() == 0) {
     are_equal = true;
+  } else if (left.null_count() == left.length() && right.null_count() == right.length()) {
+    are_equal = true;
+  } else if (left.null_count() == left.length() || right.null_count() == right.length()) {
+    // at least one bitmap must be read; count valid elements in whichever array has some
+    auto range_length = left_end_idx - left_start_idx;
+    auto range_valid_count =
+        left.null_count() == left.length()
+            ? CountSetBits(right.null_bitmap()->data(), right_start_idx, range_length)
+            : CountSetBits(left.null_bitmap()->data(), left_start_idx, range_length);
+
+    // if there were no valid elements in this range in either array, the ranges are equal
+    are_equal = range_valid_count == 0;
   } else {
     internal::RangeEqualsVisitor visitor(right, left_start_idx, left_end_idx,
                                          right_start_idx);

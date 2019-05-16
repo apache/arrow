@@ -20,11 +20,15 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/array.h"
-#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+struct ArrayData;
+using ArrayVector = std::vector<std::shared_ptr<Array>>;
+class MemoryPool;
 
 /// \brief Concatenate arrays
 ///
@@ -35,5 +39,15 @@ namespace arrow {
 ARROW_EXPORT
 Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
                    std::shared_ptr<Array>* out);
+
+/// \brief Concatenate array data
+///
+/// \param[in] data a vector of array data to be concatenated
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \param[out] out the resulting concatenated array data
+/// \return Status
+ARROW_EXPORT
+Status ConcatenateArrayData(const std::vector<ArrayData>& data, MemoryPool* pool,
+                            ArrayData* out);
 
 }  // namespace arrow

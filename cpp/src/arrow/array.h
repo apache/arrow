@@ -214,6 +214,14 @@ struct ARROW_EXPORT ArrayData {
 ARROW_EXPORT
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 
+/// \brief Create a strongly-typed Array instance with all elements null
+/// \param[in] type the array type
+/// \param[in] length the array length
+/// \return the resulting Array instance
+ARROW_EXPORT
+std::shared_ptr<Array> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
+                                       int64_t length);
+
 // ----------------------------------------------------------------------
 // User array accessor types
 
@@ -222,8 +230,11 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 ///
 /// Any memory is owned by the respective Buffer instance (or its parents).
 ///
-/// The base class is only required to have a null bitmap buffer if the null
-/// count is greater than 0
+/// The base class is not required to have a null bitmap buffer if the array
+/// has no null elements.
+///
+/// The base class is not required to have any non-null buffers if the array
+/// has only null elements.
 ///
 /// If known, the null count can be provided in the base Array constructor. If
 /// the null count is not known, pass -1 to indicate that the null count is to
@@ -233,16 +244,13 @@ class ARROW_EXPORT Array {
   virtual ~Array() = default;
 
   /// \brief Return true if value at index is null. Does not boundscheck
-  bool IsNull(int64_t i) const {
-    return null_bitmap_data_ != NULLPTR &&
-           !BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
-  }
+  bool IsNull(int64_t i) const { return !IsValid(i); }
 
   /// \brief Return true if value at index is valid (not null). Does not
   /// boundscheck
   bool IsValid(int64_t i) const {
-    return null_bitmap_data_ == NULLPTR ||
-           BitUtil::GetBit(null_bitmap_data_, i + data_->offset);
+    return null_count() == 0 || (null_count() < length() &&
+                                 BitUtil::GetBit(null_bitmap_data_, i + data_->offset));
   }
 
   /// Size in the number of elements this array contains.

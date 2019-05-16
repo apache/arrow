@@ -85,7 +85,13 @@ ArrayData ArrayData::Slice(int64_t off, int64_t len) const {
   auto copy = *this;
   copy.length = len;
   copy.offset = off;
-  copy.null_count = null_count != 0 ? kUnknownNullCount : 0;
+  if (null_count == 0) {
+    copy.null_count = 0;
+  } else if (null_count == length) {
+    copy.null_count = len;
+  } else {
+    copy.null_count = kUnknownNullCount;
+  }
   return copy;
 }
 
@@ -843,7 +849,8 @@ struct ValidateVisitor {
     ARROW_RETURN_IF(array.data()->buffers.size() != 2,
                     Status::Invalid("number of buffers was != 2"));
 
-    ARROW_RETURN_IF(array.values() == nullptr, Status::Invalid("values was null"));
+    ARROW_RETURN_IF(array.null_count() != array.length() && array.values() == nullptr,
+                    Status::Invalid("values was null"));
 
     return Status::OK();
   }
@@ -852,9 +859,15 @@ struct ValidateVisitor {
     if (array.data()->buffers.size() != 2) {
       return Status::Invalid("number of buffers was != 2");
     }
+
+    if (array.null_count() == array.length()) {
+      return Status::OK();
+    }
+
     if (array.values() == nullptr) {
       return Status::Invalid("values was null");
     }
+
     return Status::OK();
   }
 
@@ -862,12 +875,21 @@ struct ValidateVisitor {
     if (array.data()->buffers.size() != 3) {
       return Status::Invalid("number of buffers was != 3");
     }
+
+    if (array.null_count() == array.length()) {
+      return Status::OK();
+    }
+
     return ValidateOffsets(array);
   }
 
   Status Visit(const ListArray& array) {
     if (array.length() < 0) {
       return Status::Invalid("Length was negative");
+    }
+
+    if (array.null_count() == array.length()) {
+      return Status::OK();
     }
 
     auto value_offsets = array.value_offsets();
@@ -879,7 +901,7 @@ struct ValidateVisitor {
                              " isn't large enough for length: ", array.length());
     }
 
-    if (!array.values()) {
+    if (array.values() == nullptr) {
       return Status::Invalid("values was null");
     }
 
@@ -901,9 +923,15 @@ struct ValidateVisitor {
     if (array.length() < 0) {
       return Status::Invalid("Length was negative");
     }
+
+    if (array.null_count() == array.length()) {
+      return Status::OK();
+    }
+
     if (!array.values()) {
       return Status::Invalid("values was null");
     }
+
     if (array.values()->length() != array.length() * array.value_length()) {
       return Status::Invalid(
           "Values Length (", array.values()->length(), ") was not equal to the length (",
@@ -916,6 +944,10 @@ struct ValidateVisitor {
   Status Visit(const StructArray& array) {
     if (array.length() < 0) {
       return Status::Invalid("Length was negative");
+    }
+
+    if (array.null_count() == array.length()) {
+      return Status::OK();
     }
 
     if (array.null_count() > array.length()) {
@@ -953,9 +985,14 @@ struct ValidateVisitor {
       return Status::Invalid("Length was negative");
     }
 
+    if (array.null_count() == array.length()) {
+      return Status::OK();
+    }
+
     if (array.null_count() > array.length()) {
       return Status::Invalid("Null count exceeds the length of this struct");
     }
+
     return Status::OK();
   }
 
@@ -964,7 +1001,7 @@ struct ValidateVisitor {
     if (!is_integer(index_type_id)) {
       return Status::Invalid("Dictionary indices must be integer type");
     }
-    return Status::OK();
+    return ValidateArray(*array.indices());
   }
 
   Status Visit(const ExtensionArray& array) { return ValidateArray(*array.storage()); }
@@ -1027,6 +1064,69 @@ class ArrayDataWrapper {
   std::shared_ptr<Array>* out_;
 };
 
+// since accessing any element is undefined behavior, all
+// we need to do here is get the shape of the ArrayData right
+class NullArrayFactory {
+ public:
+  NullArrayFactory(const std::shared_ptr<DataType>& type, int64_t length) {
+    data_.type = type;
+    data_.offset = 0;
+    data_.length = length;
+    data_.null_count = length;
+    data_.child_data.resize(type->num_children());
+  }
+
+  std::shared_ptr<Array> Create() {
+    DCHECK_OK(VisitTypeInline(*data_.type, this));
+    return MakeArray(data_.Copy());
+  }
+
+  Status Visit(const NullType&) { return ResizeBuffers(1); }
+
+  Status Visit(const FixedWidthType&) { return ResizeBuffers(2); }
+
+  Status Visit(const BinaryType&) { return ResizeBuffers(3); }
+
+  Status Visit(const ListType& t) {
+    data_.child_data[0] = MakeArrayOfNull(t.value_type(), 0)->data();
+    return ResizeBuffers(2);
+  }
+
+  Status Visit(const FixedSizeListType& t) {
+    data_.child_data[0] =
+        MakeArrayOfNull(t.value_type(), t.list_size() * data_.length)->data();
+    return ResizeBuffers(1);
+  }
+
+  Status Visit(const StructType& t) {
+    for (int i = 0; i < t.num_children(); ++i) {
+      data_.child_data[i] = MakeArrayOfNull(t.child(i)->type(), data_.length)->data();
+    }
+    return ResizeBuffers(1);
+  }
+
+  Status Visit(const ExtensionType& e) {
+    data_.child_data.resize(e.storage_type()->num_children());
+    return VisitTypeInline(*e.storage_type(), this);
+  }
+
+  Status Visit(const UnionType& t) {
+    for (int i = 0; i < t.num_children(); ++i) {
+      // overkill for DENSE mode but no allocaion is happening anyway
+      data_.child_data[i] = MakeArrayOfNull(t.child(i)->type(), data_.length)->data();
+    }
+    return ResizeBuffers(t.mode() == UnionMode::DENSE ? 3 : 2);
+  }
+
+ private:
+  Status ResizeBuffers(int num_buffers) {
+    data_.buffers.resize(num_buffers);
+    return Status::OK();
+  }
+
+  ArrayData data_;
+};
+
 }  // namespace internal
 
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
@@ -1035,6 +1135,11 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
   DCHECK_OK(VisitTypeInline(*data->type, &wrapper_visitor));
   DCHECK(out);
   return out;
+}
+
+std::shared_ptr<Array> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
+                                       int64_t length) {
+  return internal::NullArrayFactory(type, length).Create();
 }
 
 // ----------------------------------------------------------------------

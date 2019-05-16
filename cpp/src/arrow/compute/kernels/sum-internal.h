@@ -72,6 +72,8 @@ class SumAggregateFunction final : public AggregateFunctionStaticState<StateType
 
     if (input.null_count() == 0) {
       *state = ConsumeDense(array);
+    } else if (input.null_count() == input.length()) {
+      *state = StateType();
     } else if (input.length() <= kTinyThreshold) {
       // In order to simplify ConsumeSparse implementation (requires at least 3
       // bytes of bitmap data), small arrays are handled differently.

@@ -83,7 +83,7 @@ class ARROW_EXPORT Buffer {
   /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
   /// we might add utility methods to help determine if a buffer satisfies this contract.
   Buffer(const std::shared_ptr<Buffer>& parent, const int64_t offset, const int64_t size)
-      : Buffer(parent->data() + offset, size) {
+      : Buffer(parent->data() ? parent->data() + offset : NULLPTR, size) {
     parent_ = parent;
   }
 

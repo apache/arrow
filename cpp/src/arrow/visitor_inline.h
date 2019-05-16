@@ -21,6 +21,7 @@
 #define ARROW_VISITOR_INLINE_H
 
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/extension_type.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -89,31 +90,51 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 
 #undef TYPE_VISIT_INLINE
 
-#define ARRAY_VISIT_INLINE(TYPE_CLASS)                                                   \
-  case TYPE_CLASS##Type::type_id:                                                        \
-    return visitor->Visit(                                                               \
-        internal::checked_cast<const typename TypeTraits<TYPE_CLASS##Type>::ArrayType&>( \
-            array));
+namespace internal {
+
+template <typename Visitor, typename Boxed, template <class T> class UnboxedFor>
+struct InlineTypeVisitor {
+  template <typename T, typename Unboxed = UnboxedFor<T>>
+  Status Visit(const T&) {
+    return visitor_->Visit(internal::checked_cast<Unboxed&>(*boxed_));
+  }
+
+  Status Visit(const DataType&) { return Status::NotImplemented("Type not implemented"); }
+
+  Visitor* visitor_;
+  Boxed* boxed_;
+};
+
+template <typename T>
+using GetArrayType = const typename TypeTraits<T>::ArrayType;
+
+template <typename T>
+using GetScalarType = const typename TypeTraits<T>::ScalarType;
+
+template <typename T>
+using GetBuilderType = typename TypeTraits<T>::BuilderType;
+
+}  // namespace internal
 
 template <typename VISITOR>
 inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
-  switch (array.type_id()) {
-    ARROW_GENERATE_FOR_ALL_TYPES(ARRAY_VISIT_INLINE);
-    case Type::INTERVAL: {
-      const auto& interval_type = dynamic_cast<const IntervalType&>(*array.type());
-      if (interval_type.interval_type() == IntervalType::MONTHS) {
-        return visitor->Visit(internal::checked_cast<const MonthIntervalArray&>(array));
-      }
-      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
-        return visitor->Visit(internal::checked_cast<const DayTimeIntervalArray&>(array));
-      }
-      break;
-    }
+  internal::InlineTypeVisitor<VISITOR, const Array, internal::GetArrayType> type_visitor{
+      visitor, &array};
+  return VisitTypeInline(*array.type(), &type_visitor);
+}
 
-    default:
-      break;
-  }
-  return Status::NotImplemented("Type not implemented");
+template <typename VISITOR>
+inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
+  internal::InlineTypeVisitor<VISITOR, const Scalar, internal::GetScalarType>
+      type_visitor{visitor, &scalar};
+  return VisitTypeInline(*scalar.type, &type_visitor);
+}
+
+template <typename VISITOR>
+inline Status VisitBuilderInline(ArrayBuilder& builder, VISITOR* visitor) {
+  internal::InlineTypeVisitor<VISITOR, ArrayBuilder, internal::GetBuilderType>
+      type_visitor{visitor, &builder};
+  return VisitTypeInline(*builder.type(), &type_visitor);
 }
 
 // Visit an array's data values, in order, without overhead.
@@ -255,23 +276,6 @@ struct ArrayDataVisitor<T, enable_if_fixed_size_binary<T>> {
     return Status::OK();
   }
 };
-
-#define SCALAR_VISIT_INLINE(TYPE_CLASS) \
-  case TYPE_CLASS##Type::type_id:       \
-    return visitor->Visit(internal::checked_cast<const TYPE_CLASS##Scalar&>(scalar));
-
-template <typename VISITOR>
-inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
-  switch (scalar.type->id()) {
-    ARROW_GENERATE_FOR_ALL_TYPES(SCALAR_VISIT_INLINE);
-    default:
-      break;
-  }
-  return Status::NotImplemented("Scalar visitor for type not implemented ",
-                                scalar.type->ToString());
-}
-
-#undef TYPE_VISIT_INLINE
 
 }  // namespace arrow
 

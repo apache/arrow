@@ -236,7 +236,9 @@ Status ConcatenateBuffers(const std::vector<std::shared_ptr<Buffer>>& buffers,
   RETURN_NOT_OK(AllocateBuffer(pool, out_length, out));
   auto out_data = (*out)->mutable_data();
   for (const auto& buffer : buffers) {
-    std::memcpy(out_data, buffer->data(), buffer->size());
+    if (buffer->data()) {
+      std::memcpy(out_data, buffer->data(), buffer->size());
+    }
     out_data += buffer->size();
   }
   return Status::OK();

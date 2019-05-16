@@ -26,7 +26,6 @@
 #include "arrow/array.h"
 #include "arrow/memory_pool.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/visibility.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -42,14 +41,26 @@ struct Range {
 /// non-owning view into a range of bits
 struct Bitmap {
   Bitmap() = default;
-  Bitmap(const uint8_t* d, Range r) : data(d), range(r) {}
-  explicit Bitmap(const std::shared_ptr<Buffer>& buffer, Range r)
-      : Bitmap(buffer ? buffer->data() : nullptr, r) {}
+
+  Bitmap(const uint8_t* d, Range r, int64_t unset_count) : data(d), range(r) {
+    if (unset_count == r.length) {
+      data = All<false>();
+    } else if (unset_count == 0 || d == nullptr) {
+      data = All<true>();
+    }
+  }
+
+  explicit Bitmap(const std::shared_ptr<Buffer>& buffer, Range r, int64_t unset_count)
+      : Bitmap(buffer ? buffer->data() : nullptr, r, unset_count) {}
+
+  template <bool>
+  static const uint8_t* All() {
+    static const uint8_t tag = '\0';
+    return &tag;
+  }
 
   const uint8_t* data;
   Range range;
-
-  bool AllSet() const { return data == nullptr; }
 };
 
 // Allocate a buffer and concatenate bitmaps into it.
@@ -65,8 +76,10 @@ static Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool*
   int64_t bitmap_offset = 0;
   for (size_t i = 0; i < bitmaps.size(); ++i) {
     auto bitmap = bitmaps[i];
-    if (bitmap.AllSet()) {
+    if (bitmap.data == Bitmap::All<true>()) {
       BitUtil::SetBitsTo(dst, bitmap_offset, bitmap.range.length, true);
+    } else if (bitmap.data == Bitmap::All<false>()) {
+      BitUtil::SetBitsTo(dst, bitmap_offset, bitmap.range.length, false);
     } else {
       internal::CopyBitmap(bitmap.data, bitmap.range.offset, bitmap.range.length, dst,
                            bitmap_offset, false);
@@ -122,6 +135,16 @@ static Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
 template <typename Offset>
 static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset,
                          Offset* dst, Range* values_range) {
+  // if the offsets buffer's data is null, fill dst with first_offset
+  if (src->data() == nullptr) {
+    values_range->offset = first_offset;
+    values_range->length = 0;
+    for (int64_t i = 0, n_offsets = src->size() / sizeof(Offset); i < n_offsets; ++i) {
+      dst[i] = first_offset;
+    }
+    return Status::OK();
+  }
+
   // Get the range of offsets to transfer from src
   auto src_begin = reinterpret_cast<const Offset*>(src->data());
   auto src_end = reinterpret_cast<const Offset*>(src->data() + src->size());
@@ -162,6 +185,10 @@ class ConcatenateImpl {
   }
 
   Status Concatenate(ArrayData* out) && {
+    if (out_.null_count == out_.length) {
+      *out = *MakeArrayOfNull(out_.type, out_.length)->data();
+      return Status::OK();
+    }
     if (out_.null_count != 0) {
       RETURN_NOT_OK(ConcatenateBitmaps(Bitmaps(0), pool_, &out_.buffers[0]));
     }
@@ -218,17 +245,73 @@ class ConcatenateImpl {
   }
 
   Status Visit(const ExtensionType& e) {
-    // XXX can we just concatenate their storage?
-    return Status::NotImplemented("concatenation of ", e);
+    return VisitTypeInline(*e.storage_type(), this);
   }
 
  private:
+  struct WrapNullVisitor {
+    Status Visit(const NullType&) { return Status::Invalid("shouldn't be reachable"); }
+
+    Status Visit(const BooleanType& t) {
+      return Status::Invalid("shouldn't be reachable");
+    }
+
+    Status Visit(const FixedWidthType& t) {
+      return BufferSize(t.bit_width() / CHAR_BIT * array_length_);
+    }
+
+    Status Visit(const BinaryType&) {
+      return buffer_index_ == 1
+                 ? BufferSize(array_length_ * offset_type->bit_width() / CHAR_BIT)
+                 : BufferSize(0);
+    }
+
+    Status Visit(const ListType& t) {
+      return BufferSize(array_length_ * offset_type->bit_width() / CHAR_BIT);
+    }
+
+    Status Visit(const FixedSizeListType&) {
+      return Status::Invalid("shouldn't be reachable");
+    }
+
+    Status Visit(const StructType&) { return Status::Invalid("shouldn't be reachable"); }
+
+    Status Visit(const ExtensionType& e) {
+      return VisitTypeInline(*e.storage_type(), this);
+    }
+
+    Status Visit(const UnionType& t) {
+      return buffer_index_ == 1 ? BufferSize(array_length_)
+                                : BufferSize(sizeof(int32_t) * array_length_);
+    }
+
+    Status BufferSize(int64_t size) {
+      buffer_ = Buffer::Wrap<uint8_t>(nullptr, size);
+      return Status::OK();
+    }
+
+    std::shared_ptr<Buffer> buffer_;
+    size_t buffer_index_;
+    int64_t array_length_;
+  };
+
+  // Wrap a null shared_ptr<Buffer> in a Buffer with data_ == nullptr
+  std::shared_ptr<Buffer> WrapIfNull(size_t buffer_index, size_t slice_index) {
+    const auto& buffer = in_[slice_index].buffers[buffer_index];
+    if (buffer != nullptr) {
+      return buffer;
+    }
+    WrapNullVisitor visitor{nullptr, buffer_index, in_[slice_index].length};
+    DCHECK_OK(VisitTypeInline(*in_[slice_index].type, &visitor));
+    return visitor.buffer_;
+  }
+
   // Gather the index-th buffer of each input into a vector.
   // Bytes are sliced with that input's offset and length.
   BufferVector Buffers(size_t index) {
     BufferVector buffers(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      buffers[i] = SliceBuffer(in_[i].buffers[index], in_[i].offset, in_[i].length);
+      buffers[i] = SliceBuffer(WrapIfNull(index, i), in_[i].offset, in_[i].length);
     }
     return buffers;
   }
@@ -239,7 +322,7 @@ class ConcatenateImpl {
     DCHECK_EQ(in_.size(), ranges.size());
     BufferVector buffers(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      buffers[i] = SliceBuffer(in_[i].buffers[index], ranges[i].offset, ranges[i].length);
+      buffers[i] = SliceBuffer(WrapIfNull(index, i), ranges[i].offset, ranges[i].length);
     }
     return buffers;
   }
@@ -252,7 +335,7 @@ class ConcatenateImpl {
     auto byte_width = fixed.bit_width() / 8;
     BufferVector buffers(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      buffers[i] = SliceBuffer(in_[i].buffers[index], in_[i].offset * byte_width,
+      buffers[i] = SliceBuffer(WrapIfNull(index, i), in_[i].offset * byte_width,
                                in_[i].length * byte_width);
     }
     return buffers;
@@ -264,7 +347,8 @@ class ConcatenateImpl {
     std::vector<Bitmap> bitmaps(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
       Range range(in_[i].offset, in_[i].length);
-      bitmaps[i] = Bitmap(in_[i].buffers[index], range);
+      auto unset_count = index == 0 ? in_[i].null_count : -1;
+      bitmaps[i] = Bitmap(in_[i].buffers[index], range, unset_count);
     }
     return bitmaps;
   }
@@ -299,6 +383,23 @@ class ConcatenateImpl {
 const std::shared_ptr<FixedWidthType> ConcatenateImpl::offset_type =
     std::static_pointer_cast<FixedWidthType>(int32());
 
+Status ConcatenateArrayData(const std::vector<ArrayData>& data, MemoryPool* pool,
+                            ArrayData* out) {
+  if (data.size() == 0) {
+    return Status::Invalid("Must pass at least one array data");
+  }
+
+  for (size_t i = 0; i < data.size(); ++i) {
+    if (!data[i].type->Equals(data[0].type)) {
+      return Status::Invalid(
+          "array data to be concatenated must be identically typed, but ", *data[0].type,
+          " and ", *data[1].type, " were encountered.");
+    }
+  }
+
+  return ConcatenateImpl(data, pool).Concatenate(out);
+}
+
 Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
                    std::shared_ptr<Array>* out) {
   if (arrays.size() == 0) {
@@ -308,11 +409,6 @@ Status Concatenate(const ArrayVector& arrays, MemoryPool* pool,
   // gather ArrayData of input arrays
   std::vector<ArrayData> data(arrays.size());
   for (size_t i = 0; i < arrays.size(); ++i) {
-    if (!arrays[i]->type()->Equals(*arrays[0]->type())) {
-      return Status::Invalid("arrays to be concatenated must be identically typed, but ",
-                             *arrays[0]->type(), " and ", *arrays[i]->type(),
-                             " were encountered.");
-    }
     data[i] = ArrayData(*arrays[i]->data());
   }
 
