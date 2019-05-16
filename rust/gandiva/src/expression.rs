@@ -19,5 +19,5 @@
 /// Currently we have only one expression since this commit is used for demonstrating
 /// basic ideas, will complement others when community reach consensus on this.
 pub enum Expr {
-    Column(String),
+    Column(usize),
 }

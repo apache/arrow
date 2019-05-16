@@ -15,6 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Gandiva is a tool set used for compiling and evaluating expressions on arrow data.
+//! The current implementation uses ffi bindings of gandiva c++ implementation, so it
+//! requires gandiva c++ installed.
+//!
+//! # Example
+//!
+//! ```rust, nobuild
+//! let projector = gandiva::evaluator::GandivaProjector::new(schema, expressions);
+//!
+//! project.eval(record_batch);
+//! ```
+
 extern crate arrow;
 extern crate libc;
 
