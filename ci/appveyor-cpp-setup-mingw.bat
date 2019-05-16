@@ -25,6 +25,7 @@ if "%MSYSTEM%" == "MINGW32" (
 set PATH=%MINGW_PREFIX%\bin;C:\msys64\usr\bin;%PATH%
 
 pacman --sync --refresh --noconfirm ^
+    "ccache" ^
     "%MINGW_PACKAGE_PREFIX%-boost" ^
     "%MINGW_PACKAGE_PREFIX%-brotli" ^
     "%MINGW_PACKAGE_PREFIX%-cmake" ^
