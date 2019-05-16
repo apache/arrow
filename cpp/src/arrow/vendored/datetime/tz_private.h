@@ -36,8 +36,6 @@
 
 namespace arrow_vendored
 {
-namespace util
-{
 namespace date
 {
 
@@ -314,7 +312,6 @@ struct transition
 }  // namespace detail
 
 }  // namespace date
-}  // namespace util
 }  // namespace arrow_vendored
 
 #if defined(_MSC_VER) && (_MSC_VER < 1900)

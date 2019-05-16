@@ -34,8 +34,6 @@
 
     namespace arrow_vendored
     {
-    namespace util
-    {
     namespace date
     {
     namespace iOSUtils
@@ -46,7 +44,6 @@
 
     }  // namespace iOSUtils
     }  // namespace date
-    }  // namespace util
     }  // namespace arrow_vendored
 
 # endif  // TARGET_OS_IPHONE

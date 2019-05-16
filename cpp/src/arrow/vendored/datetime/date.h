@@ -78,8 +78,6 @@
 
 namespace arrow_vendored
 {
-namespace util
-{
 namespace date
 {
 
@@ -8016,7 +8014,6 @@ operator<<(std::basic_ostream<CharT, Traits>& os,
 }
 
 }  // namespace date
-}  // namespace util
 }  // namespace arrow_vendored
 
 

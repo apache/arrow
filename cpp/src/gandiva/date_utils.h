@@ -69,16 +69,16 @@ static inline bool ParseTimestamp(const char* buf, const char* format,
 
   // TODO: date::parse fails parsing when the hour value is 0.
   // eg.1886-12-01 00:00:00
-  arrow_vendored::util::date::sys_seconds seconds;
+  arrow_vendored::date::sys_seconds seconds;
   if (ignoreTimeInDay) {
-    arrow_vendored::util::date::sys_days days;
-    stream >> arrow_vendored::util::date::parse(format, days);
+    arrow_vendored::date::sys_days days;
+    stream >> arrow_vendored::date::parse(format, days);
     if (stream.fail()) {
       return false;
     }
     seconds = days;
   } else {
-    stream >> arrow_vendored::util::date::parse(format, seconds);
+    stream >> arrow_vendored::date::parse(format, seconds);
     if (stream.fail()) {
       return false;
     }
@@ -93,8 +93,8 @@ static inline bool ParseTimestamp(const char* buf, const char* format,
     return false;
   }
   // ignore the time part
-  arrow_vendored::util::date::sys_seconds secs = arrow_vendored::util::date::sys_days(
-      arrow_vendored::util::date::year(result.tm_year + 1900) / (result.tm_mon + 1) /
+  arrow_vendored::date::sys_seconds secs = arrow_vendored::date::sys_days(
+      arrow_vendored::date::year(result.tm_year + 1900) / (result.tm_mon + 1) /
       result.tm_mday);
   if (!ignoreTimeInDay) {
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +

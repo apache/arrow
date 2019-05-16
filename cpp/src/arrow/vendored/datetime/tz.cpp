@@ -251,8 +251,6 @@ get_download_folder()
 
 namespace arrow_vendored
 {
-namespace util
-{
 namespace date
 {
 // +---------------------+
@@ -3789,7 +3787,6 @@ current_zone()
 }
 
 }  // namespace date
-}  // namespace util
 }  // namespace arrow_vendored
 
 #if defined(__GNUC__) && __GNUC__ < 5
