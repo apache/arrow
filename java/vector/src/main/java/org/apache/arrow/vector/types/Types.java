@@ -119,6 +119,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 
+/** An enumeration of all logical types supported by this library. */
 public class Types {
 
   public enum MinorType {
@@ -697,6 +698,9 @@ public class Types {
       this.type = type;
     }
 
+    /**
+     * Returns the {@link ArrowType} equivalent of this type.
+     */
     public final ArrowType getType() {
       if (type == null) {
         throw new UnsupportedOperationException("Cannot get simple type for type " + name());
@@ -704,6 +708,7 @@ public class Types {
       return type;
     }
 
+    /** Constructs a new vector for the given type. */
     public abstract FieldVector getNewVector(
         String name,
         FieldType fieldType,
@@ -713,6 +718,9 @@ public class Types {
     public abstract FieldWriter getNewFieldWriter(ValueVector vector);
   }
 
+  /**
+   * Maps the ArrowType to the java implementations MinorType.
+   */
   public static MinorType getMinorTypeForArrowType(ArrowType arrowType) {
     return arrowType.accept(new ArrowTypeVisitor<MinorType>() {
       @Override

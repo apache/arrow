@@ -35,6 +35,9 @@ import org.apache.arrow.vector.ipc.ArrowStreamReader;
  * Converts an Arrow stream to an Arrow file.
  */
 public class StreamToFile {
+  /**
+   *  Reads an Arrow stream from <code>in</code> and writes it to <code>out</code>.
+   */
   public static void convert(InputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {
@@ -56,6 +59,11 @@ public class StreamToFile {
     }
   }
 
+  /**
+   * Main method.  Defaults to reading from standard in and standard out.
+   * If there are two arguments the first is interpreted as the input file path,
+   * the second is the output file path.
+   */
   public static void main(String[] args) throws IOException {
     InputStream in = System.in;
     OutputStream out = System.out;

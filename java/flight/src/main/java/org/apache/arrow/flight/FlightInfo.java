@@ -35,6 +35,9 @@ import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 
+/**
+ * A POJO representation of a FlightInfo, metadata associated with a set of data records.
+ */
 public class FlightInfo {
   private Schema schema;
   private FlightDescriptor descriptor;
@@ -42,6 +45,15 @@ public class FlightInfo {
   private final long bytes;
   private final long records;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema of the Flight
+   * @param descriptor An identifier for the Flight.
+   * @param endpoints A list of endpoints that have the flight available.
+   * @param bytes The number of bytes in the flight
+   * @param records The number of records in the flight.
+   */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
       long records) {
     super();
@@ -52,6 +64,9 @@ public class FlightInfo {
     this.records = records;
   }
 
+  /**
+   * Constructs from the protocol buffer representation.
+   */
   FlightInfo(Flight.FlightInfo pbFlightInfo) {
     try {
       final ByteBuffer schemaBuf = pbFlightInfo.getSchema().asReadOnlyByteBuffer();
@@ -88,6 +103,9 @@ public class FlightInfo {
     return endpoints;
   }
 
+  /**
+   * Converts to the protocol buffer representation.
+   */
   Flight.FlightInfo toProtocol() {
     // Encode schema in a Message payload
     ByteArrayOutputStream baos = new ByteArrayOutputStream();

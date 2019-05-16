@@ -29,5 +29,4 @@ public interface BufferBacked {
   void load(ArrowFieldNode fieldNode, ArrowBuf data);
 
   ArrowBuf unLoad();
-
 }

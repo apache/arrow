@@ -25,12 +25,23 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+/**
+ * A POJO representation of Arrow Dictionary metadata.
+ */
 public class DictionaryEncoding {
 
   private final long id;
   private final boolean ordered;
   private final Int indexType;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param id The ID of the dictionary to use for iecnoding.
+   * @param ordered Whether the keys in values in the dictionary are ordered.
+   * @param indexType (nullable).  The integer type to use for indexing in the dictionary.  Defaults to a signed
+   *     32 bit integer.
+   */
   @JsonCreator
   public DictionaryEncoding(
       @JsonProperty("id") long id,

@@ -107,12 +107,19 @@ public class UInt1Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Copies the value at fromIndex to thisIndex (including validity).
+   */
   public void copyFrom(int fromIndex, int thisIndex, UInt1Vector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final byte value = from.valueBuffer.getByte(fromIndex * TYPE_WIDTH);
     valueBuffer.setByte(thisIndex * TYPE_WIDTH, value);
   }
 
+  /**
+   * Identical to {@link #copyFrom()} but reallocates buffer if index is larger
+   * than capacity.
+   */
   public void copyFromSafe(int fromIndex, int thisIndex, UInt1Vector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
@@ -250,6 +257,10 @@ public class UInt1Vector extends BaseFixedWidthVector {
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
+  /**
+   * Sets the value at index to value isSet > 0, otherwise sets the index position
+   * to invalid/null.
+   */
   public void set(int index, int isSet, byte value) {
     if (isSet > 0) {
       set(index, value);
@@ -258,6 +269,10 @@ public class UInt1Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Same as {@link #set(int, int, byte)} but will reallocate the buffer if index
+   * is larger than current capacity.
+   */
   public void setSafe(int index, int isSet, byte value) {
     handleSafe(index);
     set(index, isSet, value);

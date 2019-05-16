@@ -54,6 +54,9 @@ import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.StreamObserver;
 
+/**
+ * Client for flight servers.
+ */
 public class FlightClient implements AutoCloseable {
   private static final int PENDING_REQUESTS = 5;
   /** The maximum number of trace events to keep on the gRPC Channel. This value disables channel tracing. */
@@ -99,7 +102,7 @@ public class FlightClient implements AutoCloseable {
   }
 
   /**
-   * List actions available on the Flight service.
+   * Lists actions available on the Flight service.
    *
    * @param options RPC-layer hints for the call.
    */
@@ -112,7 +115,7 @@ public class FlightClient implements AutoCloseable {
   }
 
   /**
-   * Perform an action on the Flight service.
+   * Performs an action on the Flight service.
    *
    * @param action The action to perform.
    * @param options RPC-layer hints for this call.
@@ -123,13 +126,16 @@ public class FlightClient implements AutoCloseable {
         .transform(CallOptions.wrapStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
   }
 
+  /**
+   * Authenticates with a username and password.
+   */
   public void authenticateBasic(String username, String password) {
     BasicClientAuthHandler basicClient = new BasicClientAuthHandler(username, password);
     authenticate(basicClient);
   }
 
   /**
-   * Authenticate against the Flight service.
+   * Authenticates against the Flight service.
    *
    * @param options RPC-layer hints for this call.
    * @param handler The auth mechanism to use.

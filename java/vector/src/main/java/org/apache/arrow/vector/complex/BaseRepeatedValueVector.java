@@ -43,6 +43,7 @@ import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
 import io.netty.buffer.ArrowBuf;
 
+/** Base class for Vectors that contain repeated values. */
 public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector {
 
   public static final FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
@@ -262,6 +263,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return vector == DEFAULT_DATA_VECTOR ? 0 : 1;
   }
 
+  /**
+   * Initialize the data vector (and execute callback) if it hasn't already been done,
+   * returns the data vector.
+   */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
     if (vector instanceof ZeroVector) {
@@ -301,20 +306,23 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
 
-  /* returns the value count for inner data vector at a particular index */
+  /** Returns the value count for inner data vector at a particular index. */
   public int getInnerValueCountAt(int index) {
     return offsetBuffer.getInt((index + 1) * OFFSET_WIDTH) -
             offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
+  /** Return if value at index is null (this implementation is always false). */
   public boolean isNull(int index) {
     return false;
   }
 
+  /** Return if value at index is empty (this implementation is always false). */
   public boolean isEmpty(int index) {
     return false;
   }
 
+  /** Starts a new repeated value. */
   public int startNewValue(int index) {
     while (index >= getOffsetBufferValueCapacity()) {
       reallocOffsetBuffer();
@@ -325,6 +333,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return offset;
   }
 
+  /** Preallocates the number of repeated values. */
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;
     while (valueCount > getOffsetBufferValueCapacity()) {

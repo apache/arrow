@@ -237,6 +237,9 @@
             <property name="minLineCount" value="2"/>
             <property name="allowedAnnotations" value="Override, Test"/>
             <property name="allowThrowsTagsForSubclasses" value="true"/>
+            <!-- This seems partially broken under JDK >= 9. -->
+            <property name="suppressLoadErrors" value="true"/>
+            <property name="ignoreMethodNamesRegex" value="main"/>
         </module>
         <module name="MethodName">
             <property name="format" value="^[a-z][a-z0-9][a-zA-Z0-9_]*$"/>

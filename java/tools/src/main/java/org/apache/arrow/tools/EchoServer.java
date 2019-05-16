@@ -31,17 +31,26 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
+/**
+ * Simple server that echoes back data received.
+ */
 public class EchoServer {
   private static final Logger LOGGER = LoggerFactory.getLogger(EchoServer.class);
   private final ServerSocket serverSocket;
   private boolean closed = false;
 
+  /**
+   * Constructs a new instance that binds to the given port.
+   */
   public EchoServer(int port) throws IOException {
     LOGGER.debug("Starting echo server.");
     serverSocket = new ServerSocket(port);
     LOGGER.debug("Running echo server on port: " + port());
   }
 
+  /**
+   * Main method to run the server, the first argument is an optional port number.
+   */
   public static void main(String[] args) throws Exception {
     int port;
     if (args.length > 0) {
@@ -56,6 +65,9 @@ public class EchoServer {
     return serverSocket.getLocalPort();
   }
 
+  /**
+   * Starts the main server event loop.
+   */
   public void run() throws IOException {
     try {
       while (!closed) {
@@ -93,6 +105,9 @@ public class EchoServer {
       this.socket = socket;
     }
 
+    /**
+     * Reads a record batch off the socket and writes it back out.
+     */
     public void run() throws IOException {
       // Read the entire input stream and write it back
       try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);

@@ -79,6 +79,7 @@ public class Schema {
     return convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer));
   }
 
+  /** Converts a flatbuffer schema to its POJO representation. */
   public static Schema convertSchema(org.apache.arrow.flatbuf.Schema schema) {
     List<Field> fields = new ArrayList<>();
     for (int i = 0; i < schema.fieldsLength(); i++) {
@@ -101,6 +102,9 @@ public class Schema {
     this(fields, null);
   }
 
+  /**
+   * Constructor used for JSON deserialization.
+   */
   @JsonCreator
   public Schema(@JsonProperty("fields") Iterable<Field> fields,
                 @JsonProperty("metadata") Map<String, String> metadata) {
@@ -132,6 +136,9 @@ public class Schema {
     return findField(getFields(), name);
   }
 
+  /**
+   * Returns the JSON string representation of this schema.
+   */
   public String toJson() {
     try {
       return writer.writeValueAsString(this);
@@ -141,6 +148,9 @@ public class Schema {
     }
   }
 
+  /**
+   *  Adds this schema to the builder returning the size of the builder after adding.
+   */
   public int getSchema(FlatBufferBuilder builder) {
     int[] fieldOffsets = new int[fields.size()];
     for (int i = 0; i < fields.size(); i++) {
@@ -165,6 +175,9 @@ public class Schema {
     return org.apache.arrow.flatbuf.Schema.endSchema(builder);
   }
 
+  /**
+   * Returns the serialized flatbuffer representation of this schema.
+   */
   public byte[] toByteArray() {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int schemaOffset = this.getSchema(builder);

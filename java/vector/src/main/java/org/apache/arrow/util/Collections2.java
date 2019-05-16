@@ -30,27 +30,37 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class Collections2 {
+  private Collections2() {}
 
+  /**
+   * Creates an {@link List} from the elements remaining in iterator.
+   */
   public static <T> List<T> toList(Iterator<T> iterator) {
     List<T> target = new ArrayList<>();
     iterator.forEachRemaining(target::add);
     return target;
   }
 
+  /**
+   * Converts the iterable into a new {@link List}.
+   */
   public static <T> List<T> toList(Iterable<T> iterable) {
     return StreamSupport.stream(iterable.spliterator(), false).collect(Collectors.toList());
   }
 
+  /** Copies the elements of <code>map</code> to a new unmodifiable map. */
   public static <K,V> Map<K, V> immutableMapCopy(Map<K, V> map) {
     Map<K,V> newMap = new HashMap<>();
     newMap.putAll(map);
     return java.util.Collections.unmodifiableMap(newMap);
   }
 
+  /** Copies the elements of list to a new unmodifiable list. */
   public static <V> List<V> immutableListCopy(List<V> list) {
-    return list.stream().collect(Collectors.toList());
+    return Collections.unmodifiableList(list.stream().collect(Collectors.toList()));
   }
 
+  /** Copies the values to a new unmodifiable list. */
   public static <V> List<V> asImmutableList(V...values) {
     return Collections.unmodifiableList(Arrays.asList(values));
   }

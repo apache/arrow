@@ -48,6 +48,12 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   private final BufferAllocator allocator;
   private final Location location;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param allocator The allocator for creating new Arrow buffers.
+   * @param location The location of the storage.
+   */
   public InMemoryStore(BufferAllocator allocator, Location location) {
     super();
     this.allocator = allocator;
@@ -60,6 +66,9 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
     getStream(ticket).sendTo(allocator, listener);
   }
 
+  /**
+   * Returns the appropriate stream given the ticket (streams are indexed by path and an ordinal).
+   */
   public Stream getStream(Ticket t) {
     ExampleTicket example = ExampleTicket.from(t);
     FlightDescriptor d = FlightDescriptor.path(example.getPath());
@@ -71,6 +80,9 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
     return h.getStream(example);
   }
 
+  /**
+   * Create a new {@link Stream} with the given schema and descriptor.
+   */
   public StreamCreator putStream(final FlightDescriptor descriptor, final Schema schema) {
     final FlightHolder h = holders.computeIfAbsent(
         descriptor,

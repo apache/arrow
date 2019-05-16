@@ -165,6 +165,11 @@ public final class ArrowBuf implements AutoCloseable {
     return length;
   }
 
+  /**
+   * Adjusts the capacity of this buffer.  Size increases are NOT supported.
+   *
+   * @param newCapacity Must be in in the range [0, length).
+   */
   public synchronized ArrowBuf capacity(int newCapacity) {
 
     if (newCapacity == length) {
@@ -181,24 +186,39 @@ public final class ArrowBuf implements AutoCloseable {
     throw new UnsupportedOperationException("Buffers don't support resizing that increases the size.");
   }
 
+  /**
+   * Returns the byte order of elements in this buffer.
+   */
   public ByteOrder order() {
     return ByteOrder.LITTLE_ENDIAN;
   }
 
+  /**
+   * Returns the number of bytes still available to read in this buffer.
+   */
   public int readableBytes() {
     Preconditions.checkState(writerIndex >= readerIndex,
             "Writer index cannot be less than reader index");
     return writerIndex - readerIndex;
   }
 
+  /**
+   * Returns the number of bytes still available to write into this buffer before capacity is reached.
+   */
   public int writableBytes() {
     return capacity() - writerIndex;
   }
 
+  /**
+   * Returns a slice of only the readable bytes in the buffer.
+   */
   public ArrowBuf slice() {
     return slice(readerIndex, readableBytes());
   }
 
+  /**
+   *  Returns a slice (view) starting at <code>index</code> with the given <code>length</code>.
+   */
   public ArrowBuf slice(int index, int length) {
     if (isEmpty) {
       return this;

@@ -52,6 +52,15 @@ import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * A list vector contains lists of a specific type of elements.  Its structure contains 3 elements.
+ * <ol>
+ * <li>A validity buffer.</li>
+ * <li> An offset buffer, that denotes lists boundaries. </li>
+ * <li> A child data vector that contains the elements of lists. </li>
+ * </ol>
+ * The latter two are managed by its superclass.
+ */
 public class ListVector extends BaseRepeatedValueVector implements FieldVector, PromotableVector {
 
   public static ListVector empty(String name, BufferAllocator allocator) {
@@ -65,18 +74,30 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   private int validityAllocationSizeInBytes;
   private int lastSet;
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public ListVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), callBack);
   }
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public ListVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
     this(name, allocator, new FieldType(true, ArrowType.List.INSTANCE, dictionary, null), callBack);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param name The name of the instance.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param fieldType The type of this list.
+   * @param callBack A schema change callback.
+   */
   public ListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.validityBuffer = allocator.getEmpty();
@@ -523,6 +544,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return reader;
   }
 
+  /** Initialize the child data vector to field type.  */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     AddOrGetResult<T> result = super.addOrGetVector(fieldType);
     reader = new UnionListReader(this);
@@ -685,6 +707,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return (int) (validityBuffer.capacity() * 8L);
   }
 
+  /**
+   * Sets the list at index to be not-null.  Reallocates validity buffer if index
+   * is larger than current capacity.
+   */
   public void setNotNull(int index) {
     while (index >= getValidityAndOffsetValueCapacity()) {
       reallocValidityAndOffsetBuffers();

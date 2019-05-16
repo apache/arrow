@@ -64,6 +64,12 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * A reader for JSON files that translates them into vectors. This reader is used for integration tests.
+ *
+ * <p>This class uses a streaming parser API, method naming tends to reflect this implementation
+ * detail.
+ */
 public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   private final JsonParser parser;
   private final BufferAllocator allocator;
@@ -71,6 +77,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   private Map<Long, Dictionary> dictionaries;
   private Boolean started = false;
 
+  /**
+   * Constructs a new instance.
+   * @param inputFile The file to read.
+   * @param allocator The allocator to use for allocating buffers.
+   */
   public JsonFileReader(File inputFile, BufferAllocator allocator) throws JsonParseException, IOException {
     super();
     this.allocator = allocator;
@@ -89,6 +100,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     return dictionaries.get(id);
   }
 
+  /** Reads the beginning (schema section) of the json file and returns it. */
   public Schema start() throws JsonParseException, IOException {
     readToken(START_OBJECT);
     {
@@ -146,6 +158,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
+  /**
+   * Reads the next record batch from the file into <code>root</code>.
+   */
   public boolean read(VectorSchemaRoot root) throws IOException {
     JsonToken t = parser.nextToken();
     if (t == START_OBJECT) {
@@ -172,6 +187,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
+  /**
+   * Returns the next record batch from the file.
+   */
   public VectorSchemaRoot read() throws IOException {
     JsonToken t = parser.nextToken();
     if (t == START_OBJECT) {

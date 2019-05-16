@@ -45,6 +45,11 @@ import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * A Struct vector consists of nullability/validity buffer and children vectors
+ * that make up the struct's fields.  The children vectors are handled by the
+ * parent class.
+ */
 public class StructVector extends NonNullableStructVector implements FieldVector {
 
   public static StructVector empty(String name, BufferAllocator allocator) {
@@ -58,18 +63,30 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   protected ArrowBuf validityBuffer;
   private int validityAllocationSizeInBytes;
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public StructVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), callBack);
   }
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public StructVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
     this(name, allocator, new FieldType(true, ArrowType.Struct.INSTANCE, dictionary, null), callBack);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param name The name of the instance.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param fieldType The type of this list.
+   * @param callBack A schema change callback.
+   */
   public StructVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, checkNotNull(allocator), fieldType, callBack);
     this.validityBuffer = allocator.getEmpty();
@@ -473,14 +490,23 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     super.get(index, holder);
   }
 
+  /**
+   * Return the number of null values in the vector.
+   */
   public int getNullCount() {
     return BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
 
+  /**
+   * Returns true if the value at the provided index is null.
+   */
   public boolean isNull(int index) {
     return isSet(index) == 0;
   }
 
+  /**
+   * Returns true the value at the given index is set (i.e. not null).
+   */
   public int isSet(int index) {
     final int byteIndex = index >> 3;
     final byte b = validityBuffer.getByte(byteIndex);
@@ -488,6 +514,10 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     return (b >> bitIndex) & 0x01;
   }
 
+  /**
+   * Marks the value at index as being set.  Reallocates the validity buffer
+   * if index is larger than current capacity.
+   */
   public void setIndexDefined(int index) {
     while (index >= getValidityBufferValueCapacity()) {
       /* realloc the inner buffers if needed */
@@ -496,6 +526,9 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
   }
 
+  /**
+   * Marks the value at index as null/not set.
+   */
   public void setNull(int index) {
     while (index >= getValidityBufferValueCapacity()) {
       /* realloc the inner buffers if needed */

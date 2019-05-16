@@ -30,6 +30,9 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 
+/**
+ * POJO object used to demonstrate how an opaque ticket can be generated.
+ */
 @JsonSerialize
 public class ExampleTicket {
 
@@ -41,6 +44,13 @@ public class ExampleTicket {
   // uuid to ensure that a stream from one node is not recreated on another node and mixed up.
   private final String uuid;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param path Path to data
+   * @param ordinal A counter for the stream.
+   * @param uuid  A unique identifier for this particular stream.
+   */
   @JsonCreator
   public ExampleTicket(@JsonProperty("path") List<String> path, @JsonProperty("ordinal") int ordinal,
       @JsonProperty("uuid") String uuid) {
@@ -63,6 +73,9 @@ public class ExampleTicket {
     return uuid;
   }
 
+  /**
+   * Deserializes a new instance from the protocol buffer ticket.
+   */
   public static ExampleTicket from(Ticket ticket) {
     try {
       return MAPPER.readValue(ticket.getBytes(), ExampleTicket.class);
@@ -71,6 +84,9 @@ public class ExampleTicket {
     }
   }
 
+  /**
+   *  Creates a new protocol buffer Ticket by serializing to JSON.
+   */
   public Ticket toTicket() {
     try {
       return new Ticket(MAPPER.writeValueAsBytes(this));

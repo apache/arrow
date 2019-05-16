@@ -20,12 +20,31 @@ package org.apache.arrow.vector;
 import org.apache.arrow.vector.complex.RepeatedFixedWidthVectorLike;
 import org.apache.arrow.vector.complex.RepeatedVariableWidthVectorLike;
 
+/** Helper utility methods for allocating storage for Vectors. */
 public class AllocationHelper {
+  private AllocationHelper() {}
 
+  /**
+   * Allocates the vector.
+   *
+   * @param v The vector to allocate.
+   * @param valueCount Number of values to allocate.
+   * @param bytesPerValue bytes per value.
+   * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the memory.
+   */
   public static void allocate(ValueVector v, int valueCount, int bytesPerValue) {
     allocate(v, valueCount, bytesPerValue, 5);
   }
 
+  /**
+   * Allocates memory for a vector assuming given number of values and their width.
+   *
+   * @param v The vector the allocate.
+   * @param valueCount The number of elements to allocate.
+   * @param bytesPerValue The bytes per value to use for allocating underlying storage
+   * @param childValCount  If <code>v</code> is a repeated vector, this is number of child elements to allocate.
+   * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the memory.
+   */
   public static void allocatePrecomputedChildCount(
       ValueVector v,
       int valueCount,
@@ -44,6 +63,15 @@ public class AllocationHelper {
     }
   }
 
+  /**
+   * Allocates memory for a vector assuming given number of values and their width.
+   *
+   * @param v The vector the allocate.
+   * @param valueCount The number of elements to allocate.
+   * @param bytesPerValue The bytes per value to use for allocating underlying storage
+   * @param repeatedPerTop  If <code>v</code> is a repeated vector, this is assumed number of elements per child.
+   * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the memory
+   */
   public static void allocate(ValueVector v, int valueCount, int bytesPerValue, int repeatedPerTop) {
     allocatePrecomputedChildCount(v, valueCount, bytesPerValue, repeatedPerTop * valueCount);
   }

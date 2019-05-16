@@ -36,6 +36,9 @@ import com.google.common.util.concurrent.SettableFuture;
 
 import io.grpc.stub.StreamObserver;
 
+/**
+ * An adaptor between protobuf streams and flight data streams.
+ */
 public class FlightStream {
 
 
@@ -58,6 +61,14 @@ public class FlightStream {
   private volatile FlightDescriptor descriptor;
   private volatile Schema schema;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param allocator  The allocator to use for creating/reallocating buffers for Vectors.
+   * @param pendingTarget Target number of messages to receive.
+   * @param cancellable Only provided for streams from server to client, used to cancel mid-stream requests.
+   * @param requestor A callback do determine how many pending items there are.
+   */
   public FlightStream(BufferAllocator allocator, int pendingTarget, Cancellable cancellable, Requestor requestor) {
     this.allocator = allocator;
     this.pendingTarget = pendingTarget;
@@ -73,6 +84,11 @@ public class FlightStream {
     return descriptor;
   }
 
+  /**
+   * Closes the stream (freeing any existing resources).
+   *
+   * <p>If the stream is isn't complete and is cancellable this method will cancel the stream first.</p>
+   */
   public void close() throws Exception {
     if (!completed && cancellable != null) {
       cancel("Stream closed before end.", null);
@@ -127,6 +143,7 @@ public class FlightStream {
     }
   }
 
+  /** Get the current vector data from the stream. */
   public VectorSchemaRoot getRoot() {
     try {
       return root.get();
@@ -168,7 +185,7 @@ public class FlightStream {
         case TENSOR:
         default:
           queue.add(DONE_EX);
-          ex = new UnsupportedOperationException("Unable to handle message of type." + msg);
+          ex = new UnsupportedOperationException("Unable to handle message of type: " + msg);
 
       }
 
@@ -187,6 +204,11 @@ public class FlightStream {
     }
   }
 
+  /**
+   * Cancels sending the stream to a client.
+   *
+   * @throws UnsupportedOperationException on a stream being uploaded from the client.
+   */
   public void cancel(String message, Throwable exception) {
     if (cancellable != null) {
       cancellable.cancel(message, exception);
@@ -205,6 +227,9 @@ public class FlightStream {
   }
 
   public interface Requestor {
+    /**
+     * Requests <code>count</code> more messages from the reuqestor.
+     */
     void request(int count);
   }
 }

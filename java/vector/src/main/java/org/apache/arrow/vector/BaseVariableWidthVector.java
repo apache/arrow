@@ -34,6 +34,10 @@ import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * BaseVariableWidthVector is a base class providing functionality for variable width
+ * types (e.g. Lists, Strings, etc.)
+ */
 public abstract class BaseVariableWidthVector extends BaseValueVector
         implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
@@ -51,6 +55,13 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   protected int lastSet;
   protected final Field field;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param name A name for the vector
+   * @param allocator The allocator to use for creating/resizing buffers
+   * @param fieldType The type of this vector.
+   */
   public BaseVariableWidthVector(final String name, final BufferAllocator allocator,
                                          FieldType fieldType) {
     super(name, allocator);

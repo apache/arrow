@@ -34,7 +34,11 @@ import org.apache.arrow.vector.ipc.ArrowStreamWriter;
  * first argument and the output is written to standard out.
  */
 public class FileToStream {
+  private FileToStream() {}
 
+  /**
+   * Reads an Arrow file from in and writes it back to out.
+   */
   public static void convert(FileInputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     try (ArrowFileReader reader = new ArrowFileReader(in.getChannel(), allocator)) {
@@ -56,6 +60,10 @@ public class FileToStream {
     }
   }
 
+  /**
+   * Main method.  The first arg is the file path.  The second, optional argument,
+   * is an output file location (defaults to standard out).
+   */
   public static void main(String[] args) throws IOException {
     if (args.length != 1 && args.length != 2) {
       System.err.println("Usage: FileToStream <input file> [output file]");

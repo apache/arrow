@@ -41,6 +41,9 @@ public class VectorSchemaRoot implements AutoCloseable {
   private final Map<String, FieldVector> fieldVectorsMap = new HashMap<>();
 
 
+  /**
+   * Constructs new instance containing each of the vectors.
+   */
   public VectorSchemaRoot(Iterable<FieldVector> vectors) {
     this(
         StreamSupport.stream(vectors.spliterator(), false).map(t -> t.getField()).collect(Collectors.toList()),
@@ -49,14 +52,31 @@ public class VectorSchemaRoot implements AutoCloseable {
         );
   }
 
+  /**
+   * Constructs a new instance containing the children of parent but not the parent itself.
+   */
   public VectorSchemaRoot(FieldVector parent) {
     this(parent.getField().getChildren(), parent.getChildrenFromFields(), parent.getValueCount());
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param fields The types of each vector.
+   * @param fieldVectors The data vectors (must be equal in size to <code>fields</code>.
+   * @param rowCount The number of rows contained.
+   */
   public VectorSchemaRoot(List<Field> fields, List<FieldVector> fieldVectors, int rowCount) {
     this(new Schema(fields), fieldVectors, rowCount);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema for the vectors.
+   * @param fieldVectors The data vectors.
+   * @param rowCount  The number of rows
+   */
   public VectorSchemaRoot(Schema schema, List<FieldVector> fieldVectors, int rowCount) {
     if (schema.getFields().size() != fieldVectors.size()) {
       throw new IllegalArgumentException("Fields must match field vectors. Found " +
@@ -72,6 +92,9 @@ public class VectorSchemaRoot implements AutoCloseable {
     }
   }
 
+  /**
+   * Creates a new set of empty vectors corresponding to the given schema.
+   */
   public static VectorSchemaRoot create(Schema schema, BufferAllocator allocator) {
     List<FieldVector> fieldVectors = new ArrayList<>();
     for (Field field : schema.getFields()) {
@@ -85,6 +108,7 @@ public class VectorSchemaRoot implements AutoCloseable {
     return new VectorSchemaRoot(schema, fieldVectors, 0);
   }
 
+  /** Constructs a new instance from vectors. */
   public static VectorSchemaRoot of(FieldVector... vectors) {
     return new VectorSchemaRoot(Arrays.stream(vectors).collect(Collectors.toList()));
   }
@@ -161,6 +185,9 @@ public class VectorSchemaRoot implements AutoCloseable {
     sb.append("\n");
   }
 
+  /**
+   * Returns a tab separated value of vectors (based on their java object representation).
+   */
   public String contentToTSVString() {
     StringBuilder sb = new StringBuilder();
     List<Object> row = new ArrayList<>(schema.getFields().size());

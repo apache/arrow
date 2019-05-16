@@ -30,6 +30,10 @@ import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * Base class for other Arrow Vector Types.  Provides basic functionality around
+ * memory management.
+ */
 public abstract class BaseValueVector implements ValueVector {
   private static final Logger logger = LoggerFactory.getLogger(BaseValueVector.class);
 
@@ -76,6 +80,11 @@ public abstract class BaseValueVector implements ValueVector {
     return Collections.emptyIterator();
   }
 
+  /**
+   * Checks to ensure that every buffer <code>vv</code> uses
+   * has a positive reference count, throws if this precondition
+   * isn't met.  Returns true otherwise.
+   */
   public static boolean checkBufRefs(final ValueVector vv) {
     for (final ArrowBuf buffer : vv.getBuffers(false)) {
       if (buffer.refCnt() <= 0) {

@@ -28,6 +28,8 @@ import io.netty.buffer.ArrowBuf;
  */
 public class BitVectorHelper {
 
+  private BitVectorHelper() {}
+
   /**
    * Get the index of byte corresponding to bit index in validity buffer.
    */
@@ -161,14 +163,28 @@ public class BitVectorHelper {
     return 8 * sizeInBytes - count;
   }
 
+  /** Returns the byte at index from data right-shifted by offset. */
   public static byte getBitsFromCurrentByte(final ArrowBuf data, final int index, final int offset) {
     return (byte) ((data.getByte(index) & 0xFF) >>> offset);
   }
 
+  /**
+   * Returns the byte at <code>index</code> from left-shifted by (8 - <code>offset</code>).
+   */
   public static byte getBitsFromNextByte(ArrowBuf data, int index, int offset) {
     return (byte) ((data.getByte(index) << (8 - offset)));
   }
 
+  /**
+   * Returns a new buffer if the source validity buffer is either all null or all
+   * not-null, otherwise returns a buffer pointing to the same memory as source.
+   *
+   * @param fieldNode The fieldNode containing the null count
+   * @param sourceValidityBuffer The source validity buffer that will have its
+   *     position copied if there is a mix of null and non-null values
+   * @param allocator The allocator to use for creating a new buffer if necessary.
+   * @return A new buffer that is either allocated or points to the same memory as sourceValidityBuffer.
+   */
   public static ArrowBuf loadValidityBuffer(final ArrowFieldNode fieldNode,
                                             final ArrowBuf sourceValidityBuffer,
                                             final BufferAllocator allocator) {
