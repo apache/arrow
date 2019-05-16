@@ -399,11 +399,10 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 
   // Look up the field, which must have been added to the
   // DictionaryMemo already prior to invoking this function
-  std::shared_ptr<Field> field;
-  RETURN_NOT_OK(dictionary_memo->GetField(id, &field));
+  std::shared_ptr<DataType> value_type;
+  RETURN_NOT_OK(dictionary_memo->GetDictionaryType(id, &value_type));
 
-  const auto& dict_type = static_cast<const DictionaryType&>(*field->type());
-  auto value_field = ::arrow::field("dummy", dict_type.value_type());
+  auto value_field = ::arrow::field("dummy", value_type);
 
   // The dictionary is embedded in a record batch with a single column
   std::shared_ptr<RecordBatch> batch;

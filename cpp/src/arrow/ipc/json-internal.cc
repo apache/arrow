@@ -148,7 +148,8 @@ class SchemaWriter {
 
     if (type.id() == Type::DICTIONARY) {
       const auto& dict_type = checked_cast<const DictionaryType&>(type);
-      int64_t dictionary_id = dictionary_memo_->GetOrAssignId(field);
+      int64_t dictionary_id = -1;
+      RETURN_NOT_OK(dictionary_memo_->GetOrAssignId(field, &dictionary_id));
       RETURN_NOT_OK(WriteDictionaryMetadata(dictionary_id, dict_type));
       RETURN_NOT_OK(WriteChildren(dict_type.value_type()->children()));
     } else {
@@ -1419,11 +1420,9 @@ static Status ReadDictionary(const RjObject& obj, MemoryPool* pool,
   const auto& it_data = obj.FindMember("data");
   RETURN_NOT_OBJECT("data", it_data, obj);
 
-  std::shared_ptr<Field> field;
-  RETURN_NOT_OK(dictionary_memo->GetField(id, &field));
-
-  const auto& dict_type = static_cast<const DictionaryType&>(*field->type());
-  auto value_field = ::arrow::field("dummy", dict_type.value_type());
+  std::shared_ptr<DataType> value_type;
+  RETURN_NOT_OK(dictionary_memo->GetDictionaryType(id, &value_type));
+  auto value_field = ::arrow::field("dummy", value_type);
 
   // We need placeholder schema and dictionary memo to read the record
   // batch, because the dictionary is embedded in a record batch with

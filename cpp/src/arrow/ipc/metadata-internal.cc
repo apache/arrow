@@ -403,7 +403,8 @@ Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out
 
 Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& field,
                              DictionaryMemo* memo, DictionaryOffset* out) {
-  int64_t dictionary_id = memo->GetOrAssignId(field);
+  int64_t dictionary_id = -1;
+  RETURN_NOT_OK(memo->GetOrAssignId(field, &dictionary_id));
 
   const auto& type = checked_cast<const DictionaryType&>(*field->type());
 

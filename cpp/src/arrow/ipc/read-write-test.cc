@@ -1030,6 +1030,44 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader, &batch_reader));
 }
 
+// ----------------------------------------------------------------------
+// DictionaryMemo miscellanea
+
+TEST(TestDictionaryMemo, ReusedDictionaries) {
+  DictionaryMemo memo;
+
+  std::shared_ptr<Field> field1 = field("a", dictionary(int8(), utf8()));
+  std::shared_ptr<Field> field2 = field("b", dictionary(int16(), utf8()));
+
+  // Two fields referencing the same dictionary_id
+  int64_t dictionary_id = 0;
+  auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+
+  ASSERT_OK(memo.AddField(dictionary_id, field1));
+  ASSERT_OK(memo.AddField(dictionary_id, field2));
+
+  std::shared_ptr<DataType> value_type;
+  ASSERT_OK(memo.GetDictionaryType(dictionary_id, &value_type));
+  ASSERT_TRUE(value_type->Equals(*utf8()));
+
+  ASSERT_FALSE(memo.HasDictionary(dictionary_id));
+  ASSERT_OK(memo.AddDictionary(dictionary_id, dict));
+  ASSERT_TRUE(memo.HasDictionary(dictionary_id));
+
+  ASSERT_EQ(2, memo.num_fields());
+  ASSERT_EQ(1, memo.num_dictionaries());
+
+  ASSERT_TRUE(memo.HasDictionary(*field1));
+  ASSERT_TRUE(memo.HasDictionary(*field2));
+
+  int64_t returned_id = -1;
+  ASSERT_OK(memo.GetId(*field1, &returned_id));
+  ASSERT_EQ(0, returned_id);
+  returned_id = -1;
+  ASSERT_OK(memo.GetId(*field2, &returned_id));
+  ASSERT_EQ(0, returned_id);
+}
+
 }  // namespace test
 }  // namespace ipc
 }  // namespace arrow

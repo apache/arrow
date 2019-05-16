@@ -35,13 +35,13 @@ namespace ipc {
 
 DictionaryMemo::DictionaryMemo() {}
 
-// Returns KeyError if dictionary not found
-Status DictionaryMemo::GetField(int64_t id, std::shared_ptr<Field>* field) const {
-  auto it = id_to_field_.find(id);
-  if (it == id_to_field_.end()) {
-    return Status::KeyError("Dictionary-encoded field with id ", id, " not found");
+Status DictionaryMemo::GetDictionaryType(int64_t id,
+                                         std::shared_ptr<DataType>* type) const {
+  auto it = id_to_type_.find(id);
+  if (it == id_to_type_.end()) {
+    return Status::KeyError("No record of dictionary type with id ", id);
   }
-  *field = it->second;
+  *type = it->second;
   return Status::OK();
 }
 
@@ -56,21 +56,41 @@ Status DictionaryMemo::GetDictionary(int64_t id,
   return Status::OK();
 }
 
-void DictionaryMemo::AddFieldInternal(int64_t id, const std::shared_ptr<Field>& field) {
+Status DictionaryMemo::AddFieldInternal(int64_t id, const std::shared_ptr<Field>& field) {
   field_to_id_[field.get()] = id;
-  id_to_field_[id] = field;
+
+  if (field->type()->id() != Type::DICTIONARY) {
+    return Status::Invalid("Field type was not DictionaryType",
+                           field->type()->ToString());
+  }
+
+  std::shared_ptr<DataType> value_type =
+      static_cast<const DictionaryType&>(*field->type()).value_type();
+
+  // Add the value type for the dictionary
+  auto it = id_to_type_.find(id);
+  if (it != id_to_type_.end()) {
+    if (!it->second->Equals(*value_type)) {
+      return Status::Invalid("Field with dictionary id 0 seen but had type ",
+                             it->second->ToString(), "and not ", value_type->ToString());
+    }
+  } else {
+    // Newly-observed dictionary id
+    id_to_type_[id] = value_type;
+  }
+  return Status::OK();
 }
 
-int64_t DictionaryMemo::GetOrAssignId(const std::shared_ptr<Field>& field) {
+Status DictionaryMemo::GetOrAssignId(const std::shared_ptr<Field>& field, int64_t* out) {
   auto it = field_to_id_.find(field.get());
   if (it != field_to_id_.end()) {
     // Field already observed, return the id
-    return it->second;
+    *out = it->second;
   } else {
-    int64_t new_id = static_cast<int64_t>(field_to_id_.size());
-    AddFieldInternal(new_id, field);
-    return new_id;
+    int64_t new_id = *out = static_cast<int64_t>(field_to_id_.size());
+    RETURN_NOT_OK(AddFieldInternal(new_id, field));
   }
+  return Status::OK();
 }
 
 Status DictionaryMemo::AddField(int64_t id, const std::shared_ptr<Field>& field) {
@@ -78,12 +98,7 @@ Status DictionaryMemo::AddField(int64_t id, const std::shared_ptr<Field>& field)
   if (it != field_to_id_.end()) {
     return Status::KeyError("Field is already in memo: ", field->ToString());
   } else {
-    auto it2 = id_to_field_.find(id);
-    if (it2 != id_to_field_.end()) {
-      return Status::KeyError("Dictionary id is already in memo: ", id);
-    }
-
-    AddFieldInternal(id, field);
+    RETURN_NOT_OK(AddFieldInternal(id, field));
     return Status::OK();
   }
 }
@@ -100,19 +115,14 @@ Status DictionaryMemo::GetId(const Field& field, int64_t* id) const {
   }
 }
 
-bool DictionaryMemo::HasDictionary(const std::shared_ptr<Field>& field) const {
-  auto it = field_to_id_.find(field.get());
+bool DictionaryMemo::HasDictionary(const Field& field) const {
+  auto it = field_to_id_.find(&field);
   return it != field_to_id_.end();
 }
 
 bool DictionaryMemo::HasDictionary(int64_t id) const {
   auto it = id_to_dictionary_.find(id);
   return it != id_to_dictionary_.end();
-}
-
-bool DictionaryMemo::HasField(int64_t id) const {
-  auto it = id_to_field_.find(id);
-  return it != id_to_field_.end();
 }
 
 Status DictionaryMemo::AddDictionary(int64_t id,
@@ -143,7 +153,8 @@ struct DictionaryCollector {
     if (type->id() == Type::DICTIONARY) {
       const auto& dict_array = static_cast<const DictionaryArray&>(array);
       auto dictionary = dict_array.dictionary();
-      int64_t id = dictionary_memo_->GetOrAssignId(field);
+      int64_t id = -1;
+      RETURN_NOT_OK(dictionary_memo_->GetOrAssignId(field, &id));
       RETURN_NOT_OK(dictionary_memo_->AddDictionary(id, dictionary));
 
       // Traverse the dictionary to gather any nested dictionaries

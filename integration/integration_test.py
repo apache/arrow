@@ -1144,8 +1144,9 @@ class Tester(object):
     FLIGHT_CLIENT = False
     FLIGHT_PORT = 31337
 
-    def __init__(self, debug=False):
-        self.debug = debug
+    def __init__(self, args):
+        self.args = args
+        self.debug = args.debug
 
     def json_to_file(self, json_path, arrow_path):
         raise NotImplementedError
@@ -1416,20 +1417,28 @@ def get_static_json_files():
             for p in glob.glob(glob_pattern)]
 
 
-def run_all_tests(run_flight=False, debug=False, tempdir=None):
-    testers = [CPPTester(debug=debug),
-               JavaTester(debug=debug),
-               JSTester(debug=debug)]
+def run_all_tests(args):
+    testers = []
+
+    if args.enable_cpp:
+        testers.append(CPPTester(args))
+
+    if args.enable_java:
+        testers.append(JavaTester(args))
+
+    if args.enable_js:
+        testers.append(JSTester(args))
+
     static_json_files = get_static_json_files()
-    generated_json_files = get_generated_json_files(tempdir=tempdir,
-                                                    flight=run_flight)
+    generated_json_files = get_generated_json_files(tempdir=args.tempdir,
+                                                    flight=args.run_flight)
     json_files = static_json_files + generated_json_files
 
     runner = IntegrationRunner(json_files, testers,
-                               tempdir=tempdir, debug=debug)
+                               tempdir=args.tempdir, debug=args.debug)
     failures = []
     failures.extend(runner.run())
-    if run_flight:
+    if args.run_flight:
         failures.extend(runner.run_flight())
 
     fail_count = 0
@@ -1463,6 +1472,17 @@ def write_js_test_json(directory):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arrow integration test CLI')
+
+    parser.add_argument('--enable-c++', dest='enable_cpp',
+                        action='store', type=int, default=1,
+                        help='Include C++ in integration tests')
+    parser.add_argument('--enable-java', dest='enable_java',
+                        action='store', type=int, default=1,
+                        help='Include Java in integration tests')
+    parser.add_argument('--enable-js', dest='enable_js',
+                        action='store', type=int, default=1,
+                        help='Include JavaScript in integration tests')
+
     parser.add_argument('--write_generated_json', dest='generated_json_path',
                         action='store', default=False,
                         help='Generate test JSON')
@@ -1485,5 +1505,4 @@ if __name__ == '__main__':
                 raise
         write_js_test_json(args.generated_json_path)
     else:
-        run_all_tests(run_flight=args.run_flight,
-                      debug=args.debug, tempdir=args.tempdir)
+        run_all_tests(args)
