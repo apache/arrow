@@ -17,6 +17,8 @@
 
 # Miscellaneous utility code
 
+from __future__ import absolute_import
+
 import functools
 import six
 import warnings

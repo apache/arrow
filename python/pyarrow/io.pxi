@@ -18,6 +18,8 @@
 # Cython wrappers for IO interfaces defined in arrow::io and messaging in
 # arrow::ipc
 
+from __future__ import absolute_import
+
 from libc.stdlib cimport malloc, free
 
 import re

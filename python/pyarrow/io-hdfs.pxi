@@ -18,6 +18,8 @@
 # ----------------------------------------------------------------------
 # HDFS IO implementation
 
+from __future__ import absolute_import
+
 _HDFS_PATH_RE = re.compile(r'hdfs://(.*):(\d+)(.*)')
 
 try:

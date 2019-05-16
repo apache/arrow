@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 cdef class Message:
     """
     Container for an Arrow IPC message with metadata and optional body

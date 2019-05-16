@@ -18,6 +18,7 @@
 # ---------------------------------------------------------------------
 # Implement legacy Feather file format
 
+from __future__ import absolute_import
 
 class FeatherError(Exception):
     pass
