@@ -973,22 +973,25 @@ def generate_nested_case():
 
 
 def generate_dictionary_case():
+    dict_type0 = StringType('dictionary1')
     dict_type1 = StringType('dictionary1')
     dict_type2 = get_field('dictionary2', 'int64')
 
-    dict1 = Dictionary(0, dict_type1,
-                       dict_type1.generate_column(10, name='DICT0'))
-    dict2 = Dictionary(1, dict_type2,
-                       dict_type2.generate_column(50, name='DICT1'))
+    dict0 = Dictionary(0, dict_type0,
+                       dict_type0.generate_column(10, name='DICT0'))
+    dict1 = Dictionary(1, dict_type1,
+                       dict_type1.generate_column(5, name='DICT1'))
+    dict2 = Dictionary(2, dict_type2,
+                       dict_type2.generate_column(50, name='DICT2'))
 
     fields = [
-        DictionaryType('dict1_0', get_field('', 'int8'), dict1),
-        DictionaryType('dict1_1', get_field('', 'int32'), dict1),
-        DictionaryType('dict2_0', get_field('', 'int16'), dict2)
+        DictionaryType('dict0', get_field('', 'int8'), dict0),
+        DictionaryType('dict1', get_field('', 'int32'), dict1),
+        DictionaryType('dict2', get_field('', 'int16'), dict2)
     ]
     batch_sizes = [7, 10]
     return _generate_file("dictionary", fields, batch_sizes,
-                          dictionaries=[dict1, dict2])
+                          dictionaries=[dict0, dict1, dict2])
 
 
 def get_generated_json_files(tempdir=None, flight=False):

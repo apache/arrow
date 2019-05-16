@@ -61,6 +61,7 @@ class ARROW_EXPORT FlightDataStream {
 class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches
+  /// \param[in,out] pool a MemoryPool to use for allocations
   explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
                              MemoryPool* pool = default_memory_pool());
 
