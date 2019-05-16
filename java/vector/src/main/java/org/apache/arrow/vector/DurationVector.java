@@ -146,6 +146,9 @@ public class DurationVector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Converts the given value and unit to the appropriate {@link Duration}.
+   */
   public static Duration toDuration(long value, TimeUnit unit) {
     switch (unit) {
       case SECOND:
