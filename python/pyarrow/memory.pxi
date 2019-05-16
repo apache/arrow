@@ -19,8 +19,6 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
-from __future__ import absolute_import
-
 
 cdef class MemoryPool:
     """
