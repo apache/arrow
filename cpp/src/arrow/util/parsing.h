@@ -473,7 +473,8 @@ class StringConverter<TimestampType> {
     if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 8, 2, &day))) {
       return false;
     }
-    *out = {arrow_vendored::util::date::year{year}, arrow_vendored::util::date::month{month},
+    *out = {arrow_vendored::util::date::year{year},
+            arrow_vendored::util::date::month{month},
             arrow_vendored::util::date::day{day}};
     return out->ok();
   }

@@ -158,9 +158,9 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename T>
   enable_if_date<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     const auto data = array.raw_values();
-    using unit =
-        typename std::conditional<std::is_same<T, Date32Array>::value, arrow_vendored::util::date::days,
-                                  std::chrono::milliseconds>::type;
+    using unit = typename std::conditional<std::is_same<T, Date32Array>::value,
+                                           arrow_vendored::util::date::days,
+                                           std::chrono::milliseconds>::type;
     WriteValues(array, [&](int64_t i) { FormatDateTime<unit>("%F", data[i], true); });
     return Status::OK();
   }

@@ -35,18 +35,21 @@ class EpochTimePoint {
   int TmMon() const { return static_cast<unsigned int>(YearMonthDay().month()) - 1; }
 
   int TmYday() const {
-    auto to_days = arrow_vendored::util::date::floor<arrow_vendored::util::date::days>(tp_);
-    auto first_day_in_year =
-        arrow_vendored::util::date::sys_days{YearMonthDay().year() / arrow_vendored::util::date::jan / 1};
+    auto to_days =
+        arrow_vendored::util::date::floor<arrow_vendored::util::date::days>(tp_);
+    auto first_day_in_year = arrow_vendored::util::date::sys_days{
+        YearMonthDay().year() / arrow_vendored::util::date::jan / 1};
     return (to_days - first_day_in_year).count();
   }
 
   int TmMday() const { return static_cast<unsigned int>(YearMonthDay().day()); }
 
   int TmWday() const {
-    auto to_days = arrow_vendored::util::date::floor<arrow_vendored::util::date::days>(tp_);
-    return (arrow_vendored::util::date::weekday{to_days} - arrow_vendored::util::date::Sunday)  // NOLINT
-        .count();                                                             // NOLINT
+    auto to_days =
+        arrow_vendored::util::date::floor<arrow_vendored::util::date::days>(tp_);
+    return (arrow_vendored::util::date::weekday{to_days} -  // NOLINT
+            arrow_vendored::util::date::Sunday)
+        .count();
   }
 
   int TmHour() const { return static_cast<int>(TimeOfDay().hours().count()); }
@@ -73,8 +76,9 @@ class EpochTimePoint {
   }
 
   EpochTimePoint AddDays(int num_days) const {
-    auto days_since_epoch = arrow_vendored::util::date::sys_days{YearMonthDay()}  // NOLINT
-                            + arrow_vendored::util::date::days(num_days);
+    auto days_since_epoch =
+        arrow_vendored::util::date::sys_days{YearMonthDay()} +  // NOLINT
+        arrow_vendored::util::date::days(num_days);
     return EpochTimePoint(
         (days_since_epoch + TimeOfDay().to_duration()).time_since_epoch());
   }
@@ -90,7 +94,8 @@ class EpochTimePoint {
  private:
   arrow_vendored::util::date::year_month_day YearMonthDay() const {
     return arrow_vendored::util::date::year_month_day{
-        arrow_vendored::util::date::floor<arrow_vendored::util::date::days>(tp_)};  // NOLINT
+        arrow_vendored::util::date::floor<arrow_vendored::util::date::days>(
+            tp_)};  // NOLINT
   }
 
   arrow_vendored::util::date::time_of_day<std::chrono::milliseconds> TimeOfDay() const {

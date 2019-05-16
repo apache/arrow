@@ -93,9 +93,9 @@ static inline bool ParseTimestamp(const char* buf, const char* format,
     return false;
   }
   // ignore the time part
-  arrow_vendored::util::date::sys_seconds secs =
-      arrow_vendored::util::date::sys_days(arrow_vendored::util::date::year(result.tm_year + 1900) /
-                                  (result.tm_mon + 1) / result.tm_mday);
+  arrow_vendored::util::date::sys_seconds secs = arrow_vendored::util::date::sys_days(
+      arrow_vendored::util::date::year(result.tm_year + 1900) / (result.tm_mon + 1) /
+      result.tm_mday);
   if (!ignoreTimeInDay) {
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
