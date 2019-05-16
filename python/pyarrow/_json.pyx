@@ -65,7 +65,7 @@ cdef class ReadOptions:
 
     @block_size.setter
     def block_size(self, value):
-          self.options.block_size = value
+        self.options.block_size = value
 
 cdef class ParseOptions:
 
