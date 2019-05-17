@@ -46,7 +46,7 @@ find_package_handle_standard_args(FlatbuffersAlt
                                   FLATC)
 
 if(FlatbuffersAlt_FOUND)
-  add_library(flatbuffers::flatbuffers UNKNOWN IMPORTED)
+  add_library(flatbuffers::flatbuffers IMPORTED UNKNOWN)
   set_target_properties(flatbuffers::flatbuffers
                         PROPERTIES IMPORTED_LOCATION "${FLATBUFFERS_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES

@@ -59,7 +59,7 @@ find_package_handle_standard_args(Lz4 REQUIRED_VARS LZ4_LIB LZ4_INCLUDE_DIR)
 # CMake 3.2 does uppercase the FOUND variable
 if(Lz4_FOUND OR LZ4_FOUND)
   set(Lz4_FOUND TRUE)
-  add_library(LZ4::lz4 UNKNOWN IMPORTED)
+  add_library(LZ4::lz4 IMPORTED UNKNOWN)
   set_target_properties(LZ4::lz4
                         PROPERTIES IMPORTED_LOCATION "${LZ4_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${LZ4_INCLUDE_DIR}")

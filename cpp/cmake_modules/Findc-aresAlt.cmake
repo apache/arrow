@@ -34,7 +34,7 @@ endif()
 find_package_handle_standard_args(c-aresAlt REQUIRED_VARS CARES_INCLUDE_DIR CARES_LIB)
 
 if(c-aresAlt_FOUND)
-  add_library(c-ares::cares UNKNOWN IMPORTED)
+  add_library(c-ares::cares IMPORTED UNKNOWN)
   set_target_properties(c-ares::cares
                         PROPERTIES IMPORTED_LOCATION "${CARES_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
