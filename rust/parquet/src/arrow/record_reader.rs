@@ -44,7 +44,7 @@ pub struct RecordReader<T: DataType> {
     /// Number of records accumulated in records
     records_num: usize,
 
-    /// Last offset of ```records_num``` records
+    /// Last offset of `records_num` records
     values_pos: usize,
     values_seen: usize,
     /// Starts from 1, number of values have been written to buffer
@@ -110,7 +110,7 @@ impl<T: DataType> RecordReader<T> {
         Ok(())
     }
 
-    /// Try to read ```num_records``` of column data into internal buffer.
+    /// Try to read `num_records` of column data into internal buffer.
     ///
     /// # Returns
     ///
