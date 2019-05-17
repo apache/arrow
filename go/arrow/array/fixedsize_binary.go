@@ -40,6 +40,7 @@ func NewFixedSizeBinaryData(data *Data) *FixedSizeBinary {
 
 // Value returns the fixed-size slice at index i. This value should not be mutated.
 func (a *FixedSizeBinary) Value(i int) []byte {
+	i += a.array.data.offset
 	return a.valueBytes[a.valueOffsets[i]:a.valueOffsets[i+1]]
 }
 
