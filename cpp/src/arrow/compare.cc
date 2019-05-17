@@ -202,6 +202,40 @@ class RangeEqualsVisitor {
     return true;
   }
 
+  bool CompareMaps(const MapArray& left) {
+    auto&& right = checked_cast<const MapArray&>(right_);
+    auto&& left_keys = left.keys();
+    auto&& right_keys = right.keys();
+    auto&& left_values = left.values();
+    auto&& right_values = right.values();
+
+    for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
+         ++i, ++o_i) {
+      const bool is_null = left.IsNull(i);
+      if (is_null != right_.IsNull(o_i)) {
+        return false;
+      }
+      if (is_null) continue;
+      const int32_t begin_offset = left.value_offset(i);
+      const int32_t end_offset = left.value_offset(i + 1);
+      const int32_t right_begin_offset = right.value_offset(o_i);
+      const int32_t right_end_offset = right.value_offset(o_i + 1);
+      // Underlying can't be equal if the size isn't equal
+      if (end_offset - begin_offset != right_end_offset - right_begin_offset) {
+        return false;
+      }
+      if (!left_values->RangeEquals(begin_offset, end_offset, right_begin_offset,
+                                    right_values)) {
+        return false;
+      }
+      if (!left_keys->RangeEquals(begin_offset, end_offset, right_begin_offset,
+                                  right_keys)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   bool CompareStructs(const StructArray& left) {
     const auto& right = checked_cast<const StructArray&>(right_);
     bool equal_fields = true;
@@ -342,6 +376,11 @@ class RangeEqualsVisitor {
 
   Status Visit(const ListArray& left) {
     result_ = CompareLists(left);
+    return Status::OK();
+  }
+
+  Status Visit(const MapArray& left) {
+    result_ = CompareMaps(left);
     return Status::OK();
   }
 
@@ -590,6 +629,22 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const MapArray& left) {
+    const auto& right = checked_cast<const MapArray&>(right_);
+    bool equal_offsets = ValueOffsetsEqual<MapArray>(left);
+    if (!equal_offsets) {
+      result_ = false;
+      return Status::OK();
+    }
+
+    result_ =
+        left.keys()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
+                                 right.value_offset(0), right.keys()) &&
+        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
+                                   right.value_offset(0), right.values());
+    return Status::OK();
+  }
+
   Status Visit(const FixedSizeListArray& left) {
     const auto& right = checked_cast<const FixedSizeListArray&>(right_);
     result_ =
@@ -760,6 +815,14 @@ class TypeEqualsVisitor {
 
   Status Visit(const ListType& left) { return VisitChildren(left); }
 
+  Status Visit(const MapType& left) {
+    if (left.keys_sorted() == checked_cast<const MapType&>(right_).keys_sorted()) {
+      result_ = false;
+      return Status::OK();
+    }
+    return VisitChildren(left);
+  }
+
   Status Visit(const FixedSizeListType& left) { return VisitChildren(left); }
 
   Status Visit(const StructType& left) { return VisitChildren(left); }
@@ -851,6 +914,13 @@ class ScalarEqualsVisitor {
   Status Visit(const ListScalar& left) {
     const auto& right = checked_cast<const ListScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const MapScalar& left) {
+    const auto& right = checked_cast<const MapScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.keys, right.keys) &&
+              internal::SharedPtrEquals(left.keys, right.keys);
     return Status::OK();
   }
 
