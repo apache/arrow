@@ -71,6 +71,11 @@ class PerfDataStream : public FlightDataStream {
 
   std::shared_ptr<Schema> schema() override { return schema_; }
 
+  Status GetSchemaPayload(FlightPayload* payload) override {
+    return ipc::internal::GetSchemaPayload(*schema_, &dictionary_memo_,
+                                           &payload->ipc_message);
+  }
+
   Status Next(FlightPayload* payload) override {
     if (records_sent_ >= total_records_) {
       // Signal that iteration is over
@@ -107,6 +112,7 @@ class PerfDataStream : public FlightDataStream {
   const int64_t total_records_;
   int64_t records_sent_;
   std::shared_ptr<Schema> schema_;
+  ipc::DictionaryMemo dictionary_memo_;
   std::shared_ptr<RecordBatch> batch_;
   ArrayVector arrays_;
 };

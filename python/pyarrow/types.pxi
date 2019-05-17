@@ -176,6 +176,13 @@ cdef class DataType:
             raise NotImplementedError(str(self))
 
 
+cdef class DictionaryMemo:
+    """
+    Tracking container for dictionary-encoded fields
+    """
+    pass
+
+
 cdef class DictionaryType(DataType):
     """
     Concrete class for dictionary data types.
@@ -186,7 +193,7 @@ cdef class DictionaryType(DataType):
         self.dict_type = <const CDictionaryType*> type.get()
 
     def __reduce__(self):
-        return dictionary, (self.index_type, self.dictionary, self.ordered)
+        return dictionary, (self.index_type, self.value_type, self.ordered)
 
     @property
     def ordered(self):
@@ -204,11 +211,12 @@ cdef class DictionaryType(DataType):
         return pyarrow_wrap_data_type(self.dict_type.index_type())
 
     @property
-    def dictionary(self):
+    def value_type(self):
         """
-        The dictionary array, mapping dictionary indices to values.
+        The dictionary value type. The dictionary values are found in an
+        instance of DictionaryArray
         """
-        return pyarrow_wrap_array(self.dict_type.dictionary())
+        return pyarrow_wrap_data_type(self.dict_type.value_type())
 
 
 cdef class ListType(DataType):
@@ -893,7 +901,7 @@ cdef class Schema:
 
         return pyarrow_wrap_schema(c_schema)
 
-    def serialize(self, memory_pool=None):
+    def serialize(self, DictionaryMemo dictionary_memo=None, memory_pool=None):
         """
         Write Schema to Buffer as encapsulated IPC message
 
@@ -901,6 +909,10 @@ cdef class Schema:
         ----------
         memory_pool : MemoryPool, default None
             Uses default memory pool if not specified
+        dictionary_memo : DictionaryMemo, optional
+            If schema contains dictionaries, must pass a
+            DictionaryMemo to be able to deserialize RecordBatch
+            objects
 
         Returns
         -------
@@ -909,9 +921,16 @@ cdef class Schema:
         cdef:
             shared_ptr[CBuffer] buffer
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            CDictionaryMemo temp_memo
+            CDictionaryMemo* arg_dict_memo
+
+        if dictionary_memo is not None:
+            arg_dict_memo = &dictionary_memo.memo
+        else:
+            arg_dict_memo = &temp_memo
 
         with nogil:
-            check_status(SerializeSchema(deref(self.schema),
+            check_status(SerializeSchema(deref(self.schema), arg_dict_memo,
                                          pool, &buffer))
         return pyarrow_wrap_buffer(buffer)
 
@@ -1430,14 +1449,14 @@ cpdef ListType list_(value_type):
     return out
 
 
-cpdef DictionaryType dictionary(index_type, dict_values, bint ordered=False):
+cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
     """
     Dictionary (categorical, or simply encoded) type
 
     Parameters
     ----------
     index_type : DataType
-    dictionary : Array
+    value_type : DataType
     ordered : boolean
 
     Returns
@@ -1446,15 +1465,12 @@ cpdef DictionaryType dictionary(index_type, dict_values, bint ordered=False):
     """
     cdef:
         DataType _index_type = ensure_type(index_type, allow_none=False)
+        DataType _value_type = ensure_type(value_type, allow_none=False)
         DictionaryType out = DictionaryType.__new__(DictionaryType)
         shared_ptr[CDataType] dict_type
 
-    if not isinstance(dict_values, Array):
-        dict_values = array(dict_values)
-
     dict_type.reset(new CDictionaryType(_index_type.sp_type,
-                                        (<Array> dict_values).sp_array,
-                                        ordered == 1))
+                                        _value_type.sp_type, ordered == 1))
     out.init(dict_type)
     return out
 

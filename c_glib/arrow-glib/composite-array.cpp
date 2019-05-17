@@ -534,25 +534,37 @@ garrow_dictionary_array_class_init(GArrowDictionaryArrayClass *klass)
 
 /**
  * garrow_dictionary_array_new:
- * @data_type: The data type of dictionary.
+ * @data_type: The data type of the dictionary array.
  * @indices: The indices of values in dictionary.
+ * @dictionary: The dictionary of the dictionary array.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GArrowDictionaryArray.
+ * Returns: (nullable): A newly created #GArrowDictionaryArray
+ *   or %NULL on error.
  *
  * Since: 0.8.0
  */
 GArrowDictionaryArray *
 garrow_dictionary_array_new(GArrowDataType *data_type,
-                            GArrowArray *indices)
+                            GArrowArray *indices,
+                            GArrowArray *dictionary,
+                            GError **error)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
   const auto arrow_indices = garrow_array_get_raw(indices);
-  auto arrow_dictionary_array =
-    std::make_shared<arrow::DictionaryArray>(arrow_data_type,
-                                             arrow_indices);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_dictionary_array);
-  return GARROW_DICTIONARY_ARRAY(garrow_array_new_raw(&arrow_array));
+  const auto arrow_dictionary = garrow_array_get_raw(dictionary);
+  std::shared_ptr<arrow::Array> arrow_dictionary_array;
+  auto status = arrow::DictionaryArray::FromArrays(arrow_data_type,
+                                                   arrow_indices,
+                                                   arrow_dictionary,
+                                                   &arrow_dictionary_array);
+  if (garrow_error_check(error, status, "[dictionary-array][new]")) {
+    auto arrow_array =
+      std::static_pointer_cast<arrow::Array>(arrow_dictionary_array);
+    return GARROW_DICTIONARY_ARRAY(garrow_array_new_raw(&arrow_array));
+  } else {
+    return NULL;
+  }
 }
 
 /**

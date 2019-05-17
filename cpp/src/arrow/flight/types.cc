@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "arrow/io/memory.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 
@@ -69,15 +70,14 @@ std::string FlightDescriptor::ToString() const {
   return ss.str();
 }
 
-Status FlightInfo::GetSchema(std::shared_ptr<Schema>* out) const {
+Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
+                             std::shared_ptr<Schema>* out) const {
   if (reconstructed_schema_) {
     *out = schema_;
     return Status::OK();
   }
-  /// XXX(wesm): arrow::ipc::ReadSchema in its current form will not suffice
-  /// for reading schemas with dictionaries. See ARROW-3144
   io::BufferReader schema_reader(data_.schema);
-  RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, &schema_));
+  RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo, &schema_));
   reconstructed_schema_ = true;
   *out = schema_;
   return Status::OK();

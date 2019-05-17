@@ -364,10 +364,29 @@ static void BM_BuildStringDictionaryArray(
   state.SetBytesProcessed(state.iterations() * fodder_size);
 }
 
+static void BM_ArrayDataConstructDestruct(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<std::shared_ptr<ArrayData>> arrays;
+
+  const int kNumArrays = 1000;
+  auto InitArrays = [&]() {
+    for (int i = 0; i < kNumArrays; ++i) {
+      arrays.emplace_back(new ArrayData);
+    }
+  };
+
+  for (auto _ : state) {
+    InitArrays();
+    arrays.clear();
+  }
+}
+
 // ----------------------------------------------------------------------
 // Benchmark declarations
 
 static constexpr int32_t kRepetitions = 2;
+
+BENCHMARK(BM_ArrayDataConstructDestruct);
 
 BENCHMARK(BM_BuildPrimitiveArrayNoNulls)
     ->Repetitions(kRepetitions)

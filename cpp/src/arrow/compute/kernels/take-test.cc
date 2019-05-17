@@ -138,12 +138,13 @@ class TestTakeKernelWithString : public TestTakeKernel<StringType> {
                             const std::string& dictionary_indices,
                             const std::string& indices, TakeOptions options,
                             const std::string& expected_indices) {
-    auto type = dictionary(int8(), ArrayFromJSON(utf8(), dictionary_values));
+    auto dict = ArrayFromJSON(utf8(), dictionary_values);
+    auto type = dictionary(int8(), utf8());
     std::shared_ptr<Array> values, actual, expected;
     ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_indices),
-                                          &values));
+                                          dict, &values));
     ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices),
-                                          &expected));
+                                          dict, &expected));
     auto take_indices = ArrayFromJSON(int8(), indices);
     this->AssertTakeArrays(values, take_indices, options, expected);
   }

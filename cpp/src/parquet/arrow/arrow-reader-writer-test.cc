@@ -131,7 +131,7 @@ LogicalType::type get_logical_type(const ::DataType& type) {
     case ArrowId::DICTIONARY: {
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(type);
-      return get_logical_type(*dict_type.dictionary()->type());
+      return get_logical_type(*dict_type.value_type());
     }
     case ArrowId::DECIMAL:
       return LogicalType::DECIMAL;
@@ -180,7 +180,7 @@ ParquetType::type get_physical_type(const ::DataType& type) {
     case ArrowId::DICTIONARY: {
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(type);
-      return get_physical_type(*dict_type.dictionary()->type());
+      return get_physical_type(*dict_type.value_type());
     }
     default:
       break;
@@ -406,7 +406,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
   switch (type.id()) {
     case ::arrow::Type::DICTIONARY: {
       const auto& dict_type = static_cast<const ::arrow::DictionaryType&>(type);
-      const ::DataType& values_type = *dict_type.dictionary()->type();
+      const ::DataType& values_type = *dict_type.value_type();
       switch (values_type.id()) {
         case ::arrow::Type::FIXED_SIZE_BINARY:
           byte_width =
@@ -1077,13 +1077,14 @@ TEST_F(TestNullParquetIO, NullListColumn) {
 }
 
 TEST_F(TestNullParquetIO, NullDictionaryColumn) {
-  std::shared_ptr<Array> values = std::make_shared<::arrow::NullArray>(0);
   std::shared_ptr<Array> indices =
       std::make_shared<::arrow::Int8Array>(SMALL_SIZE, nullptr, nullptr, SMALL_SIZE);
   std::shared_ptr<::arrow::DictionaryType> dict_type =
-      std::make_shared<::arrow::DictionaryType>(::arrow::int8(), values);
+      std::make_shared<::arrow::DictionaryType>(::arrow::int8(), ::arrow::null());
+
+  std::shared_ptr<Array> dict = std::make_shared<::arrow::NullArray>(0);
   std::shared_ptr<Array> dict_values =
-      std::make_shared<::arrow::DictionaryArray>(dict_type, indices);
+      std::make_shared<::arrow::DictionaryArray>(dict_type, indices, dict);
   std::shared_ptr<Table> table = MakeSimpleTable(dict_values, true);
   this->sink_ = std::make_shared<InMemoryOutputStream>();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
@@ -1897,7 +1898,9 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   std::shared_ptr<Array> dict_values;
   ArrayFromVector<::arrow::StringType, std::string>(values, &dict_values);
 
-  auto dict_type = ::arrow::dictionary(::arrow::int32(), dict_values);
+  auto value_type = ::arrow::utf8();
+  auto dict_type = ::arrow::dictionary(::arrow::int32(), value_type);
+
   auto f0 = field("dictionary", dict_type);
   std::vector<std::shared_ptr<::arrow::Field>> fields;
   fields.emplace_back(f0);
@@ -1907,8 +1910,8 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   ArrayFromVector<::arrow::Int32Type, int32_t>({0, 1, 0, 2, 1}, &f0_values);
   ArrayFromVector<::arrow::Int32Type, int32_t>({2, 0, 1, 0, 2}, &f1_values);
   ::arrow::ArrayVector dict_arrays = {
-      std::make_shared<::arrow::DictionaryArray>(dict_type, f0_values),
-      std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values)};
+      std::make_shared<::arrow::DictionaryArray>(dict_type, f0_values, dict_values),
+      std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values, dict_values)};
 
   std::vector<std::shared_ptr<::arrow::Column>> columns;
   auto column = MakeColumn("dictionary", dict_arrays, true);

@@ -265,7 +265,9 @@ cdef class FlightInfo:
         """The schema of the data in this flight."""
         cdef:
             shared_ptr[CSchema] schema
-        check_status(self.info.get().GetSchema(&schema))
+            CDictionaryMemo dummy_memo
+
+        check_status(self.info.get().GetSchema(&dummy_memo, &schema))
         return pyarrow_wrap_schema(schema)
 
     @property

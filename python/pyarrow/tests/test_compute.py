@@ -92,8 +92,7 @@ def test_take_indices_types():
             arr.take(indices)
 
 
-@pytest.mark.parametrize('ordered', [
-    False, pytest.param(True, marks=pytest.mark.xfail(strict=True))])
+@pytest.mark.parametrize('ordered', [False, True])
 def test_take_dictionary(ordered):
     arr = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1, 2], ['a', 'b', 'c'],
                                          ordered=ordered)

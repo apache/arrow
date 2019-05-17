@@ -427,12 +427,12 @@ TEST_F(TestPrettyPrint, DictionaryType) {
   std::shared_ptr<Array> dict;
   std::vector<std::string> dict_values = {"foo", "bar", "baz"};
   ArrayFromVector<StringType, std::string>(dict_values, &dict);
-  std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
+  std::shared_ptr<DataType> dict_type = dictionary(int16(), utf8());
 
   std::shared_ptr<Array> indices;
   std::vector<int16_t> indices_values = {1, 2, -1, 0, 2, 0};
   ArrayFromVector<Int16Type, int16_t>(is_valid, indices_values, &indices);
-  auto arr = std::make_shared<DictionaryArray>(dict_type, indices);
+  auto arr = std::make_shared<DictionaryArray>(dict_type, indices, dict);
 
   static const char* expected = R"expected(
 -- dictionary:
@@ -563,38 +563,19 @@ TEST_F(TestPrettyPrint, SchemaWithDictionary) {
   ArrayFromVector<StringType, std::string>(dict_values, &dict);
 
   auto simple = field("one", int32());
-  auto simple_dict = field("two", dictionary(int16(), dict));
+  auto simple_dict = field("two", dictionary(int16(), utf8()));
   auto list_of_dict = field("three", list(simple_dict));
-
   auto struct_with_dict = field("four", struct_({simple, simple_dict}));
 
   auto sch = schema({simple, simple_dict, list_of_dict, struct_with_dict});
 
   static const char* expected = R"expected(one: int32
 two: dictionary<values=string, indices=int16, ordered=0>
-  dictionary:
-    [
-      "foo",
-      "bar",
-      "baz"
-    ]
 three: list<two: dictionary<values=string, indices=int16, ordered=0>>
   child 0, two: dictionary<values=string, indices=int16, ordered=0>
-    dictionary:
-      [
-        "foo",
-        "bar",
-        "baz"
-      ]
 four: struct<one: int32, two: dictionary<values=string, indices=int16, ordered=0>>
   child 0, one: int32
-  child 1, two: dictionary<values=string, indices=int16, ordered=0>
-    dictionary:
-      [
-        "foo",
-        "bar",
-        "baz"
-      ])expected";
+  child 1, two: dictionary<values=string, indices=int16, ordered=0>)expected";
 
   PrettyPrintOptions options{0};
 

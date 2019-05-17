@@ -94,7 +94,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightInfo(CFlightInfo info)
         uint64_t total_records()
         uint64_t total_bytes()
-        CStatus GetSchema(shared_ptr[CSchema]* out)
+        CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
 

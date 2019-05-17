@@ -24,10 +24,11 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/visibility.h"
-
 #include "arrow/flight/types.h"  // IWYU pragma: keep
+#include "arrow/ipc/dictionary.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -45,8 +46,10 @@ class ARROW_EXPORT FlightDataStream {
  public:
   virtual ~FlightDataStream() = default;
 
-  // When the stream starts, send the schema.
   virtual std::shared_ptr<Schema> schema() = 0;
+
+  /// \brief Compute FlightPayload containing serialized RecordBatch schema
+  virtual Status GetSchemaPayload(FlightPayload* payload) = 0;
 
   // When the stream is completed, the last payload written will have null
   // metadata
@@ -58,14 +61,17 @@ class ARROW_EXPORT FlightDataStream {
 class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches
-  explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader);
+  /// \param[in,out] pool a MemoryPool to use for allocations
+  explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
+                             MemoryPool* pool = default_memory_pool());
 
   std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(FlightPayload* payload) override;
   Status Next(FlightPayload* payload) override;
 
  private:
-  MemoryPool* pool_;
-  std::shared_ptr<RecordBatchReader> reader_;
+  class RecordBatchStreamImpl;
+  std::unique_ptr<RecordBatchStreamImpl> impl_;
 };
 
 /// \brief A reader for IPC payloads uploaded by a client

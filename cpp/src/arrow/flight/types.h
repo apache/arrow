@@ -35,6 +35,12 @@ class Buffer;
 class Schema;
 class Status;
 
+namespace ipc {
+
+class DictionaryMemo;
+
+}
+
 namespace flight {
 
 /// \brief A type of action that can be performed with the DoAction RPC
@@ -151,9 +157,14 @@ class FlightInfo {
   explicit FlightInfo(Data&& data)
       : data_(std::move(data)), reconstructed_schema_(false) {}
 
-  /// Deserialize the Arrow schema of the dataset, to be passed to each call to
-  /// DoGet
-  Status GetSchema(std::shared_ptr<Schema>* out) const;
+  /// \brief Deserialize the Arrow schema of the dataset, to be passed
+  /// to each call to DoGet. Populate any dictionary encoded fields
+  /// into a DictionaryMemo for bookkeeping
+  /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
+  /// be modified
+  /// \param[out] out the reconstructed Schema
+  Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
+                   std::shared_ptr<Schema>* out) const;
 
   const std::string& serialized_schema() const { return data_.schema; }
 

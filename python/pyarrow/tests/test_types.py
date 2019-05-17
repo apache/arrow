@@ -62,7 +62,7 @@ def get_many_types():
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
         pa.union([pa.field('a', pa.binary(10), nullable=False),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-        pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
+        pa.dictionary(pa.int32(), pa.string())
     )
 
 
@@ -113,9 +113,7 @@ def test_is_list():
 
 
 def test_is_dictionary():
-    assert types.is_dictionary(
-        pa.dictionary(pa.int32(),
-                      pa.array(['a', 'b', 'c'])))
+    assert types.is_dictionary(pa.dictionary(pa.int32(), pa.string()))
     assert not types.is_dictionary(pa.int32())
 
 
@@ -308,23 +306,20 @@ def test_union_type():
 
 
 def test_dictionary_type():
-    ty0 = pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
+    ty0 = pa.dictionary(pa.int32(), pa.string())
     assert ty0.index_type == pa.int32()
-    assert isinstance(ty0.dictionary, pa.Array)
-    assert ty0.dictionary.to_pylist() == ['a', 'b', 'c']
+    assert ty0.value_type == pa.string()
     assert ty0.ordered is False
 
-    ty1 = pa.dictionary(pa.int8(), pa.array([1.0, 2.0]), ordered=True)
+    ty1 = pa.dictionary(pa.int8(), pa.float64(), ordered=True)
     assert ty1.index_type == pa.int8()
-    assert isinstance(ty0.dictionary, pa.Array)
-    assert ty1.dictionary.to_pylist() == [1.0, 2.0]
+    assert ty1.value_type == pa.float64()
     assert ty1.ordered is True
 
     # construct from non-arrow objects
-    ty2 = pa.dictionary('int8', ['a', 'b', 'c', 'd'])
+    ty2 = pa.dictionary('int8', 'string')
     assert ty2.index_type == pa.int8()
-    assert isinstance(ty2.dictionary, pa.Array)
-    assert ty2.dictionary.to_pylist() == ['a', 'b', 'c', 'd']
+    assert ty2.value_type == pa.string()
     assert ty2.ordered is False
 
 

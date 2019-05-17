@@ -21,6 +21,7 @@
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/take.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -145,10 +146,11 @@ struct UnpackValues {
 
   Status Visit(const DictionaryType& t) {
     std::shared_ptr<Array> taken_indices;
+    const auto& values = internal::checked_cast<const DictionaryArray&>(*params_.values);
     {
       // To take from a dictionary, apply the current kernel to the dictionary's
       // indices. (Use UnpackValues<IndexType> since IndexType is already unpacked)
-      auto indices = static_cast<const DictionaryArray*>(params_.values.get())->indices();
+      auto indices = values.indices();
       TakeParameters params = params_;
       params.values = indices;
       params.out = &taken_indices;
@@ -156,8 +158,9 @@ struct UnpackValues {
       RETURN_NOT_OK(VisitTypeInline(*t.index_type(), &unpack));
     }
     // create output dictionary from taken indices
-    return DictionaryArray::FromArrays(dictionary(t.index_type(), t.dictionary()),
-                                       taken_indices, params_.out);
+    *params_.out = std::make_shared<DictionaryArray>(values.type(), taken_indices,
+                                                     values.dictionary());
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& t) {

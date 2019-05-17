@@ -58,15 +58,19 @@ std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {
     for (const auto& child : type_->children()) {
-      auto flattened_child = std::make_shared<Field>(*child);
+      auto flattened_child = child->Copy();
       flattened.push_back(flattened_child);
       flattened_child->name_.insert(0, name() + ".");
       flattened_child->nullable_ |= nullable_;
     }
   } else {
-    flattened.push_back(std::make_shared<Field>(*this));
+    flattened.push_back(this->Copy());
   }
   return flattened;
+}
+
+std::shared_ptr<Field> Field::Copy() const {
+  return ::arrow::field(name_, type_, nullable_, metadata_);
 }
 
 bool Field::Equals(const Field& other, bool check_metadata) const {
@@ -149,7 +153,7 @@ std::string FixedSizeBinaryType::ToString() const {
 // ----------------------------------------------------------------------
 // Date types
 
-DateType::DateType(Type::type type_id) : FixedWidthType(type_id) {}
+DateType::DateType(Type::type type_id) : TemporalType(type_id) {}
 
 Date32Type::Date32Type() : DateType(Type::DATE32) {}
 
@@ -163,7 +167,7 @@ std::string Date32Type::ToString() const { return std::string("date32[day]"); }
 // Time types
 
 TimeType::TimeType(Type::type type_id, TimeUnit::type unit)
-    : FixedWidthType(type_id), unit_(unit) {}
+    : TemporalType(type_id), unit_(unit) {}
 
 Time32Type::Time32Type(TimeUnit::type unit) : TimeType(Type::TIME32, unit) {
   DCHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
@@ -334,13 +338,17 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
 }
 
 // ----------------------------------------------------------------------
-// DictionaryType
+// Dictionary-encoded type
+
+int DictionaryType::bit_width() const {
+  return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
+}
 
 DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
-                               const std::shared_ptr<Array>& dictionary, bool ordered)
+                               const std::shared_ptr<DataType>& value_type, bool ordered)
     : FixedWidthType(Type::DICTIONARY),
       index_type_(index_type),
-      dictionary_(dictionary),
+      value_type_(value_type),
       ordered_(ordered) {
 #ifndef NDEBUG
   const auto& int_type = checked_cast<const Integer&>(*index_type);
@@ -348,15 +356,9 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
 #endif
 }
 
-int DictionaryType::bit_width() const {
-  return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
-}
-
-std::shared_ptr<Array> DictionaryType::dictionary() const { return dictionary_; }
-
 std::string DictionaryType::ToString() const {
   std::stringstream ss;
-  ss << "dictionary<values=" << dictionary_->type()->ToString()
+  ss << this->name() << "<values=" << value_type_->ToString()
      << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_ << ">";
   return ss.str();
 }
@@ -632,9 +634,9 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& chil
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
-                                     const std::shared_ptr<Array>& dict_values,
+                                     const std::shared_ptr<DataType>& dict_type,
                                      bool ordered) {
-  return std::make_shared<DictionaryType>(index_type, dict_values, ordered);
+  return std::make_shared<DictionaryType>(index_type, dict_type, ordered);
 }
 
 std::shared_ptr<Field> field(const std::string& name,

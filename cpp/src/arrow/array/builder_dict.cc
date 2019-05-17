@@ -45,6 +45,7 @@ struct UnifyDictionaryValues {
   MemoryPool* pool_;
   std::shared_ptr<DataType> value_type_;
   const std::vector<const DictionaryType*>& types_;
+  const std::vector<const Array*>& dictionaries_;
   std::shared_ptr<Array>* out_values_;
   std::vector<std::vector<int32_t>>* out_transpose_maps_;
 
@@ -73,8 +74,8 @@ struct UnifyDictionaryValues {
       out_transpose_maps_->reserve(types_.size());
     }
     // Build up the unified dictionary values and the transpose maps
-    for (const auto& type : types_) {
-      const ArrayType& values = checked_cast<const ArrayType&>(*type->dictionary());
+    for (size_t i = 0; i < types_.size(); ++i) {
+      const ArrayType& values = checked_cast<const ArrayType&>(*dictionaries_[i]);
       if (out_transpose_maps_ != nullptr) {
         std::vector<int32_t> transpose_map;
         transpose_map.reserve(values.length());
@@ -99,11 +100,16 @@ struct UnifyDictionaryValues {
 };
 
 Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*>& types,
+                             const std::vector<const Array*>& dictionaries,
                              std::shared_ptr<DataType>* out_type,
+                             std::shared_ptr<Array>* out_dictionary,
                              std::vector<std::vector<int32_t>>* out_transpose_maps) {
   if (types.size() == 0) {
     return Status::Invalid("need at least one input type");
   }
+
+  DCHECK_EQ(types.size(), dictionaries.size());
+
   std::vector<const DictionaryType*> dict_types;
   dict_types.reserve(types.size());
   for (const auto& type : types) {
@@ -114,21 +120,21 @@ Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*
   }
 
   // XXX Should we check the ordered flag?
-  auto value_type = dict_types[0]->dictionary()->type();
-  for (const auto& type : dict_types) {
-    auto values = type->dictionary();
-    if (!values->type()->Equals(value_type)) {
-      return Status::TypeError("input types have different value types");
+  auto value_type = dict_types[0]->value_type();
+  for (size_t i = 0; i < types.size(); ++i) {
+    if (!(dictionaries[i]->type()->Equals(*value_type) &&
+          dict_types[i]->value_type()->Equals(*value_type))) {
+      return Status::TypeError("dictionary value types were not all consistent");
     }
-    if (values->null_count() != 0) {
+    if (dictionaries[i]->null_count() != 0) {
       return Status::TypeError("input types have null values");
     }
   }
 
   std::shared_ptr<Array> values;
   {
-    UnifyDictionaryValues visitor{pool, value_type, dict_types, &values,
-                                  out_transpose_maps};
+    UnifyDictionaryValues visitor{pool,         value_type, dict_types,
+                                  dictionaries, &values,    out_transpose_maps};
     RETURN_NOT_OK(VisitTypeInline(*value_type, &visitor));
   }
 
@@ -143,7 +149,8 @@ Status DictionaryType::Unify(MemoryPool* pool, const std::vector<const DataType*
   } else {
     index_type = int64();
   }
-  *out_type = arrow::dictionary(index_type, values);
+  *out_type = arrow::dictionary(index_type, values->type());
+  *out_dictionary = values;
   return Status::OK();
 }
 

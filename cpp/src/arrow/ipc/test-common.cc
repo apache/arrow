@@ -456,12 +456,14 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
 
   std::vector<bool> is_valid = {true, true, false, true, true, true};
 
-  auto dict1 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
-  auto dict2 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\", \"qux\"]");
+  auto dict_ty = utf8();
 
-  auto f0_type = arrow::dictionary(arrow::int32(), dict1);
-  auto f1_type = arrow::dictionary(arrow::int8(), dict1, true);
-  auto f2_type = arrow::dictionary(arrow::int32(), dict2);
+  auto dict1 = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"baz\"]");
+  auto dict2 = ArrayFromJSON(dict_ty, "[\"fo\", \"bap\", \"bop\", \"qup\"]");
+
+  auto f0_type = arrow::dictionary(arrow::int32(), dict_ty);
+  auto f1_type = arrow::dictionary(arrow::int8(), dict_ty, true);
+  auto f2_type = arrow::dictionary(arrow::int32(), dict_ty);
 
   std::shared_ptr<Array> indices0, indices1, indices2;
   std::vector<int32_t> indices0_values = {1, 2, -1, 0, 2, 0};
@@ -472,9 +474,9 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<Int8Type, int8_t>(is_valid, indices1_values, &indices1);
   ArrayFromVector<Int32Type, int32_t>(is_valid, indices2_values, &indices2);
 
-  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0);
-  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1);
-  auto a2 = std::make_shared<DictionaryArray>(f2_type, indices2);
+  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0, dict1);
+  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1, dict1);
+  auto a2 = std::make_shared<DictionaryArray>(f2_type, indices2, dict2);
 
   // Lists of dictionary-encoded strings
   auto f3_type = list(f1_type);
@@ -487,23 +489,22 @@ Status MakeDictionary(std::shared_ptr<RecordBatch>* out) {
 
   std::shared_ptr<Array> a3 = std::make_shared<ListArray>(
       f3_type, length, std::static_pointer_cast<PrimitiveArray>(offsets3)->values(),
-      std::make_shared<DictionaryArray>(f1_type, indices3), null_bitmap, 1);
+      std::make_shared<DictionaryArray>(f1_type, indices3, dict1), null_bitmap, 1);
 
   // Dictionary-encoded lists of integers
-  auto dict4 = ArrayFromJSON(list(int8()), "[[44, 55], [], [66]]");
-  auto f4_type = dictionary(int8(), dict4);
+  auto dict4_ty = list(int8());
+  auto f4_type = dictionary(int8(), dict4_ty);
 
   auto indices4 = ArrayFromJSON(int8(), "[0, 1, 2, 0, 2, 2]");
-  auto a4 = std::make_shared<DictionaryArray>(f4_type, indices4);
+  auto dict4 = ArrayFromJSON(dict4_ty, "[[44, 55], [], [66]]");
+  auto a4 = std::make_shared<DictionaryArray>(f4_type, indices4, dict4);
 
   // construct batch
   auto schema = ::arrow::schema(
       {field("dict1", f0_type), field("dict2", f1_type), field("dict3", f2_type),
        field("list<encoded utf8>", f3_type), field("encoded list<int8>", f4_type)});
 
-  std::vector<std::shared_ptr<Array>> arrays = {a0, a1, a2, a3, a4};
-
-  *out = RecordBatch::Make(schema, length, arrays);
+  *out = RecordBatch::Make(schema, length, {a0, a1, a2, a3, a4});
   return Status::OK();
 }
 
@@ -512,12 +513,13 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
 
   std::vector<bool> is_valid = {true, true, false, true, true, true};
 
-  auto dict1 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
-  auto dict2 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\", \"qux\"]");
+  auto dict_ty = utf8();
+  auto dict1 = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"baz\"]");
+  auto dict2 = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"baz\", \"qux\"]");
 
-  auto f0_type = arrow::dictionary(arrow::int32(), dict1);
-  auto f1_type = arrow::dictionary(arrow::int8(), dict1);
-  auto f2_type = arrow::dictionary(arrow::int32(), dict2);
+  auto f0_type = arrow::dictionary(arrow::int32(), dict_ty);
+  auto f1_type = arrow::dictionary(arrow::int8(), dict_ty);
+  auto f2_type = arrow::dictionary(arrow::int32(), dict_ty);
 
   std::shared_ptr<Array> indices0, indices1, indices2;
   std::vector<int32_t> indices0_values = {1, 2, -1, 0, 2, 0};
@@ -528,9 +530,9 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
   ArrayFromVector<Int8Type, int8_t>(is_valid, indices1_values, &indices1);
   ArrayFromVector<Int32Type, int32_t>(is_valid, indices2_values, &indices2);
 
-  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0);
-  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1);
-  auto a2 = std::make_shared<DictionaryArray>(f2_type, indices2);
+  auto a0 = std::make_shared<DictionaryArray>(f0_type, indices0, dict1);
+  auto a1 = std::make_shared<DictionaryArray>(f1_type, indices1, dict1);
+  auto a2 = std::make_shared<DictionaryArray>(f2_type, indices2, dict2);
 
   // construct batch
   auto schema = ::arrow::schema(

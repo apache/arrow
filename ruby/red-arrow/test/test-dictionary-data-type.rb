@@ -19,21 +19,21 @@ class DictionaryDataTypeTest < Test::Unit::TestCase
   sub_test_case(".new") do
     def setup
       @index_data_type = :int8
-      @dictionary = Arrow::StringArray.new(["Hello", "World"])
+      @value_data_type = :string
       @ordered = true
     end
 
     test("ordered arguments") do
       assert_equal("dictionary<values=string, indices=int8, ordered=1>",
                    Arrow::DictionaryDataType.new(@index_data_type,
-                                                 @dictionary,
+                                                 @value_data_type,
                                                  @ordered).to_s)
     end
 
     test("description") do
       assert_equal("dictionary<values=string, indices=int8, ordered=1>",
                    Arrow::DictionaryDataType.new(index_data_type: @index_data_type,
-                                                 dictionary: @dictionary,
+                                                 value_data_type: @value_data_type,
                                                  ordered: @ordered).to_s)
     end
   end

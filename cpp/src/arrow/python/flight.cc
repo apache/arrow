@@ -22,6 +22,8 @@
 #include "arrow/python/flight.h"
 #include "arrow/util/logging.h"
 
+using arrow::flight::FlightPayload;
+
 namespace arrow {
 namespace py {
 namespace flight {
@@ -182,11 +184,13 @@ PyFlightDataStream::PyFlightDataStream(
   data_source_.reset(data_source);
 }
 
-std::shared_ptr<arrow::Schema> PyFlightDataStream::schema() { return stream_->schema(); }
+std::shared_ptr<Schema> PyFlightDataStream::schema() { return stream_->schema(); }
 
-Status PyFlightDataStream::Next(arrow::flight::FlightPayload* payload) {
-  return stream_->Next(payload);
+Status PyFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
+  return stream_->GetSchemaPayload(payload);
 }
+
+Status PyFlightDataStream::Next(FlightPayload* payload) { return stream_->Next(payload); }
 
 PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
     PyObject* generator, std::shared_ptr<arrow::Schema> schema,
@@ -196,9 +200,14 @@ PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
   generator_.reset(generator);
 }
 
-std::shared_ptr<arrow::Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
+std::shared_ptr<Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
 
-Status PyGeneratorFlightDataStream::Next(arrow::flight::FlightPayload* payload) {
+Status PyGeneratorFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
+  return ipc::internal::GetSchemaPayload(*schema_, &dictionary_memo_,
+                                         &payload->ipc_message);
+}
+
+Status PyGeneratorFlightDataStream::Next(FlightPayload* payload) {
   return SafeCallIntoPython([=] {
     callback_(generator_.obj(), payload);
     return CheckPyError();

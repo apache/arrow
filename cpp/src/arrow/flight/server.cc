@@ -32,12 +32,14 @@
 #endif
 
 #include "arrow/buffer.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
@@ -64,9 +66,11 @@ class FlightMessageReaderImpl : public FlightMessageReader {
  public:
   FlightMessageReaderImpl(const FlightDescriptor& descriptor,
                           std::shared_ptr<Schema> schema,
+                          std::unique_ptr<ipc::DictionaryMemo> dict_memo,
                           grpc::ServerReader<pb::FlightData>* reader)
       : descriptor_(descriptor),
         schema_(schema),
+        dictionary_memo_(std::move(dict_memo)),
         reader_(reader),
         stream_finished_(false) {}
 
@@ -87,7 +91,7 @@ class FlightMessageReaderImpl : public FlightMessageReader {
       // Validate IPC message
       RETURN_NOT_OK(data.OpenMessage(&message));
       if (message->type() == ipc::Message::Type::RECORD_BATCH) {
-        return ipc::ReadRecordBatch(*message, schema_, out);
+        return ipc::ReadRecordBatch(*message, schema_, dictionary_memo_.get(), out);
       } else {
         return Status(StatusCode::Invalid, "Unrecognized message in Flight stream");
       }
@@ -102,6 +106,7 @@ class FlightMessageReaderImpl : public FlightMessageReader {
  private:
   FlightDescriptor descriptor_;
   std::shared_ptr<Schema> schema_;
+  std::unique_ptr<ipc::DictionaryMemo> dictionary_memo_;
   grpc::ServerReader<pb::FlightData>* reader_;
   bool stream_finished_;
 };
@@ -293,25 +298,15 @@ class FlightServiceImpl : public FlightService::Service {
       return grpc::Status(grpc::StatusCode::NOT_FOUND, "No data in this flight");
     }
 
-    // Write the schema as the first message(s) in the stream
-    // (several messages may be required if there are dictionaries)
-    MemoryPool* pool = default_memory_pool();
-    std::vector<ipc::internal::IpcPayload> ipc_payloads;
-    GRPC_RETURN_NOT_OK(
-        ipc::internal::GetSchemaPayloads(*data_stream->schema(), pool, &ipc_payloads));
-
-    for (auto& ipc_payload : ipc_payloads) {
-      // For DoGet, descriptor doesn't need to be written out
-      FlightPayload schema_payload;
-      schema_payload.ipc_message = std::move(ipc_payload);
-
-      if (!internal::WritePayload(schema_payload, writer)) {
-        // Connection terminated?  XXX return error code?
-        return grpc::Status::OK;
-      }
+    // Write the schema as the first message in the stream
+    FlightPayload schema_payload;
+    GRPC_RETURN_NOT_OK(data_stream->GetSchemaPayload(&schema_payload));
+    if (!internal::WritePayload(schema_payload, writer)) {
+      // Connection terminated?  XXX return error code?
+      return grpc::Status::OK;
     }
 
-    // Write incoming data as individual messages
+    // Consume data stream and write out payloads
     while (true) {
       FlightPayload payload;
       GRPC_RETURN_NOT_OK(data_stream->Next(&payload));
@@ -343,10 +338,11 @@ class FlightServiceImpl : public FlightService::Service {
             Status(StatusCode::Invalid, "DoPut must start with non-null descriptor"));
       } else {
         std::shared_ptr<Schema> schema;
-        GRPC_RETURN_NOT_OK(ipc::ReadSchema(*message, &schema));
+        auto dictionary_memo = ::arrow::internal::make_unique<ipc::DictionaryMemo>();
+        GRPC_RETURN_NOT_OK(ipc::ReadSchema(*message, dictionary_memo.get(), &schema));
 
-        auto message_reader = std::unique_ptr<FlightMessageReader>(
-            new FlightMessageReaderImpl(*data.descriptor.get(), schema, reader));
+        auto message_reader = ::arrow::internal::make_unique<FlightMessageReaderImpl>(
+            *data.descriptor.get(), schema, std::move(dictionary_memo), reader);
         return internal::ToGrpcStatus(
             server_->DoPut(flight_context, std::move(message_reader)));
       }
@@ -545,23 +541,99 @@ Status FlightServerBase::ListActions(const ServerCallContext& context,
 // ----------------------------------------------------------------------
 // Implement RecordBatchStream
 
-RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader)
-    : pool_(default_memory_pool()), reader_(reader) {}
+class RecordBatchStream::RecordBatchStreamImpl {
+ public:
+  // Stages of the stream when producing paylaods
+  enum class Stage {
+    NEW,          // The stream has been created, but Next has not been called yet
+    DICTIONARY,   // Dictionaries have been collected, and are being sent
+    RECORD_BATCH  // Initial have been sent
+  };
 
-std::shared_ptr<Schema> RecordBatchStream::schema() { return reader_->schema(); }
+  RecordBatchStreamImpl(const std::shared_ptr<RecordBatchReader>& reader,
+                        MemoryPool* pool)
+      : pool_(pool), reader_(reader) {}
 
-Status RecordBatchStream::Next(FlightPayload* payload) {
-  std::shared_ptr<RecordBatch> batch;
-  RETURN_NOT_OK(reader_->ReadNext(&batch));
+  std::shared_ptr<Schema> schema() { return reader_->schema(); }
 
-  if (!batch) {
-    // Signal that iteration is over
-    payload->ipc_message.metadata = nullptr;
-    return Status::OK();
-  } else {
-    return ipc::internal::GetRecordBatchPayload(*batch, pool_, &payload->ipc_message);
+  Status GetSchemaPayload(FlightPayload* payload) {
+    return ipc::internal::GetSchemaPayload(*reader_->schema(), &dictionary_memo_,
+                                           &payload->ipc_message);
   }
+
+  Status Next(FlightPayload* payload) {
+    if (stage_ == Stage::NEW) {
+      RETURN_NOT_OK(reader_->ReadNext(&current_batch_));
+      if (!current_batch_) {
+        // Signal that iteration is over
+        payload->ipc_message.metadata = nullptr;
+        return Status::OK();
+      }
+      RETURN_NOT_OK(CollectDictionaries(*current_batch_));
+      stage_ = Stage::DICTIONARY;
+    }
+
+    if (stage_ == Stage::DICTIONARY) {
+      if (dictionary_index_ == static_cast<int>(dictionaries_.size())) {
+        stage_ = Stage::RECORD_BATCH;
+        return ipc::internal::GetRecordBatchPayload(*current_batch_, pool_,
+                                                    &payload->ipc_message);
+      } else {
+        return GetNextDictionary(payload);
+      }
+    }
+
+    RETURN_NOT_OK(reader_->ReadNext(&current_batch_));
+
+    // TODO(wesm): Delta dictionaries
+    if (!current_batch_) {
+      // Signal that iteration is over
+      payload->ipc_message.metadata = nullptr;
+      return Status::OK();
+    } else {
+      return ipc::internal::GetRecordBatchPayload(*current_batch_, pool_,
+                                                  &payload->ipc_message);
+    }
+  }
+
+ private:
+  Status GetNextDictionary(FlightPayload* payload) {
+    const auto& it = dictionaries_[dictionary_index_++];
+    return ipc::internal::GetDictionaryPayload(it.first, it.second, pool_,
+                                               &payload->ipc_message);
+  }
+
+  Status CollectDictionaries(const RecordBatch& batch) {
+    RETURN_NOT_OK(ipc::CollectDictionaries(batch, &dictionary_memo_));
+    for (auto& pair : dictionary_memo_.id_to_dictionary()) {
+      dictionaries_.push_back({pair.first, pair.second});
+    }
+    return Status::OK();
+  }
+
+  Stage stage_ = Stage::NEW;
+  MemoryPool* pool_;
+  std::shared_ptr<RecordBatchReader> reader_;
+  ipc::DictionaryMemo dictionary_memo_;
+  std::shared_ptr<RecordBatch> current_batch_;
+  std::vector<std::pair<int64_t, std::shared_ptr<Array>>> dictionaries_;
+
+  // Index of next dictionary to send
+  int dictionary_index_ = 0;
+};
+
+RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
+                                     MemoryPool* pool) {
+  impl_.reset(new RecordBatchStreamImpl(reader, pool));
 }
+
+std::shared_ptr<Schema> RecordBatchStream::schema() { return impl_->schema(); }
+
+Status RecordBatchStream::GetSchemaPayload(FlightPayload* payload) {
+  return impl_->GetSchemaPayload(payload);
+}
+
+Status RecordBatchStream::Next(FlightPayload* payload) { return impl_->Next(payload); }
 
 }  // namespace flight
 }  // namespace arrow
