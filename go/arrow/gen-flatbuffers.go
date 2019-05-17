@@ -25,7 +25,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 func main() {
@@ -36,7 +35,6 @@ func main() {
 	defer os.RemoveAll(dir)
 
 	genFormat(dir)
-	genFeather(dir)
 }
 
 func genFormat(dir string) {
@@ -71,37 +69,6 @@ func genFormat(dir string) {
 
 	for _, fname := range fnames {
 		dst := filepath.Join(".", "internal", "flatbuf", filepath.Base(fname))
-		process(dst, fname)
-	}
-}
-
-func genFeather(dir string) {
-	gen := exec.Command("flatc",
-		"--go", "-o", filepath.Join(dir, "feather"),
-		"../../cpp/src/arrow/ipc/feather.fbs",
-	)
-
-	gen.Stdout = os.Stdout
-	gen.Stderr = os.Stderr
-
-	err := gen.Run()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = os.MkdirAll("./ipc/feather/fbs", 0755)
-	if err != nil {
-		log.Fatalf("could not create ./feather/fbs directory: %v", err)
-	}
-
-	base := filepath.Join(dir, "feather", "arrow")
-	fnames, err := filepath.Glob(filepath.Join(base, "ipc", "feather", "*", "*.go"))
-	if err != nil {
-		log.Fatalf("could not glob ipc/feather/*.go: %v", err)
-	}
-
-	for _, fname := range fnames {
-		dst := strings.Replace(fname, base, ".", -1)
 		process(dst, fname)
 	}
 }
