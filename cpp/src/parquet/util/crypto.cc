@@ -455,8 +455,8 @@ std::string createFooterAAD(const std::string& aad_prefix_bytes) {
 void quickUpdatePageAAD(const std::string& AAD, int16_t new_page_ordinal) {
   std::string page_ordinal_bytes = shortToBytesLE(new_page_ordinal);
   int length = (int)AAD.size();
-  std::memcpy((int16_t*)(AAD.c_str() + length - 2),
-              (int16_t*)(page_ordinal_bytes.c_str()), 2);
+  std::memcpy((int16_t*)(const_cast<char*>(AAD.c_str() + length - 2)),
+              (const int16_t*)(page_ordinal_bytes.c_str()), 2);
 }
 
 }  // namespace parquet_encryption
