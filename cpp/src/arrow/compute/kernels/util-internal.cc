@@ -236,26 +236,6 @@ Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* o
   return Status::OK();
 }
 
-Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output) {
-  const int64_t length = input.length;
-  if (output->buffers.size() == 0) {
-    // Ensure we can assign a buffer
-    output->buffers.resize(1);
-  }
-
-  // Handle validity bitmap
-  if (output->buffers[0] == nullptr) {
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(ctx->Allocate(BitUtil::BytesForBits(length), &buffer));
-    output->buffers[0] = std::move(buffer);
-  }
-
-  output->null_count = length;
-  BitUtil::SetBitsTo(output->buffers[0]->mutable_data(), 0, length, false);
-
-  return Status::OK();
-}
-
 Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
                               const ArrayData& right, ArrayData* output) {
   if (output->buffers.size() == 0) {
@@ -263,7 +243,15 @@ Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
     output->buffers.resize(1);
   }
 
-  if (left.GetNullCount() > 0 && right.GetNullCount() > 0) {
+  DCHECK_EQ(left.length, right.length);
+  DCHECK_EQ(left.length, output->length);
+  ARROW_IGNORE_EXPR(left.GetNullCount());
+  ARROW_IGNORE_EXPR(right.GetNullCount());
+
+  if (left.null_count == left.length || right.null_count == right.length) {
+    output->null_count = left.length;
+    output->buffers[0] = nullptr;
+  } else if (left.null_count != 0 && right.null_count != 0) {
     RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left.buffers[0]->data(), left.offset,
                             right.buffers[0]->data(), right.offset, right.length, 0,
                             &(output->buffers[0])));

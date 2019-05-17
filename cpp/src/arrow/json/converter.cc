@@ -63,6 +63,12 @@ class PrimitiveConverter : public Converter {
  public:
   PrimitiveConverter(MemoryPool* pool, std::shared_ptr<DataType> out_type)
       : Converter(pool, out_type) {}
+
+ protected:
+  Status ConvertFromNull(int64_t length, std::shared_ptr<Array>* out) {
+    *out = MakeArrayOfNull(out_type_, length);
+    return Status::OK();
+  }
 };
 
 class NullConverter : public PrimitiveConverter {
@@ -78,34 +84,13 @@ class NullConverter : public PrimitiveConverter {
   }
 };
 
-Status PrimitiveFromNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                         const Array& null, std::shared_ptr<Array>* out) {
-  auto data = ArrayData::Make(type, null.length(), {nullptr, nullptr}, null.length());
-  RETURN_NOT_OK(AllocateBitmap(pool, null.length(), &data->buffers[0]));
-  std::memset(data->buffers[0]->mutable_data(), 0, data->buffers[0]->size());
-  *out = MakeArray(data);
-  return Status::OK();
-}
-
-Status BinaryFromNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                      const Array& null, std::shared_ptr<Array>* out) {
-  auto data =
-      ArrayData::Make(type, null.length(), {nullptr, nullptr, nullptr}, null.length());
-  RETURN_NOT_OK(AllocateBitmap(pool, null.length(), &data->buffers[0]));
-  std::memset(data->buffers[0]->mutable_data(), 0, data->buffers[0]->size());
-  RETURN_NOT_OK(AllocateBuffer(pool, sizeof(int32_t), &data->buffers[1]));
-  data->GetMutableValues<int32_t>(1)[0] = 0;
-  *out = MakeArray(data);
-  return Status::OK();
-}
-
 class BooleanConverter : public PrimitiveConverter {
  public:
   using PrimitiveConverter::PrimitiveConverter;
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return PrimitiveFromNull(pool_, boolean(), *in, out);
+      return ConvertFromNull(in->length(), out);
     }
     if (in->type_id() != Type::BOOL) {
       return GenericConversionError(*out_type_, " from ", *in->type());
@@ -125,7 +110,7 @@ class NumericConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return PrimitiveFromNull(pool_, out_type_, *in, out);
+      return ConvertFromNull(in->length(), out);
     }
     auto dict_array = GetDictionaryArray(in);
 
@@ -163,7 +148,7 @@ class DateTimeConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return PrimitiveFromNull(pool_, out_type_, *in, out);
+      return ConvertFromNull(in->length(), out);
     }
 
     std::shared_ptr<Array> repr;
@@ -191,7 +176,7 @@ class BinaryConverter : public PrimitiveConverter {
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
-      return BinaryFromNull(pool_, out_type_, *in, out);
+      return ConvertFromNull(in->length(), out);
     }
     auto dict_array = GetDictionaryArray(in);
 

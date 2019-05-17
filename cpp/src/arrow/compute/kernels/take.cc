@@ -208,6 +208,11 @@ Status TakeKernel::Call(FunctionContext* ctx, const Datum& values, const Datum& 
   params.context = ctx;
   params.values = values.make_array();
   params.indices = indices.make_array();
+  if (params.values->null_count() == params.values->length() ||
+      params.indices->null_count() == params.indices->length()) {
+    *out = MakeArrayOfNull(params.values->type(), params.indices->length());
+    return Status::OK();
+  }
   params.options = options_;
   params.out = &out_array;
   UnpackIndices unpack = {params};

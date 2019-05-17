@@ -86,6 +86,12 @@ Status ArrayBuilder::Advance(int64_t elements) {
 Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {
   std::shared_ptr<ArrayData> internal_data;
   RETURN_NOT_OK(FinishInternal(&internal_data));
+  if (internal_data->null_count == 0) {
+    internal_data->buffers[0] = nullptr;
+  } else if (internal_data->null_count == internal_data->length) {
+    *out = MakeArrayOfNull(internal_data->type, internal_data->length);
+    return Status::OK();
+  }
   *out = MakeArray(internal_data);
   return Status::OK();
 }

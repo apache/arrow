@@ -64,9 +64,10 @@ class CompareFunction final : public FilterFunction {
     // Output must be of same length
     DCHECK_EQ(output->length, input.length);
 
-    // Scalar is null, all comparisons are null.
-    if (!scalar.is_valid) {
-      return detail::SetAllNulls(ctx_, input, output);
+    // Scalar is null or input is all nulls, all comparisons are null.
+    if (!scalar.is_valid || input.GetNullCount() == input.length) {
+      *output = *MakeArrayOfNull(boolean(), input.length)->data();
+      return Status::OK();
     }
 
     // Copy null_bitmap

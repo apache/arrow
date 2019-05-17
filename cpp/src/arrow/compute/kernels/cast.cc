@@ -696,51 +696,12 @@ class FromNullCastKernel : public CastKernelBase {
 
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, input.kind());
-
     const ArrayData& in_data = *input.array();
     DCHECK_EQ(Type::NA, in_data.type->id());
     auto length = in_data.length;
-
-    // A ArrayData may be preallocated for the output (see InvokeUnaryArrayKernel),
-    // however, it doesn't have any actual data, so throw it away and start anew.
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), out_type_, &builder));
-    NullBuilderVisitor visitor = {length, builder.get()};
-    RETURN_NOT_OK(VisitTypeInline(*out_type_, &visitor));
-
-    std::shared_ptr<Array> out_array;
-    RETURN_NOT_OK(visitor.builder_->Finish(&out_array));
-    out->value = out_array->data();
+    *out = MakeArrayOfNull(out_type_, length);
     return Status::OK();
   }
-
-  struct NullBuilderVisitor {
-    // Generic implementation
-    Status Visit(const DataType& type) { return builder_->AppendNulls(length_); }
-
-    Status Visit(const StructType& type) {
-      RETURN_NOT_OK(builder_->AppendNulls(length_));
-      auto& struct_builder = checked_cast<StructBuilder&>(*builder_);
-      // Append nulls to all child builders too
-      for (int i = 0; i < struct_builder.num_fields(); ++i) {
-        NullBuilderVisitor visitor = {length_, struct_builder.field_builder(i)};
-        RETURN_NOT_OK(VisitTypeInline(*type.child(i)->type(), &visitor));
-      }
-      return Status::OK();
-    }
-
-    Status Visit(const DictionaryType& type) {
-      // XXX (ARROW-5215): Cannot implement this easily, as DictionaryBuilder
-      // disregards the index type given in the dictionary type, and instead
-      // chooses the smallest possible index type.
-      return CastNotImplemented(*null(), type);
-    }
-
-    Status Visit(const UnionType& type) { return CastNotImplemented(*null(), type); }
-
-    int64_t length_;
-    ArrayBuilder* builder_;
-  };
 };
 
 // ----------------------------------------------------------------------
@@ -1139,8 +1100,12 @@ class CastKernel : public CastKernelBase {
     DCHECK_EQ(out->kind(), Datum::ARRAY);
 
     const ArrayData& in_data = *input.array();
-    ArrayData* result = out->array().get();
+    if (in_data.null_count == in_data.length) {
+      *out = MakeArrayOfNull(out_type_, in_data.length);
+      return Status::OK();
+    }
 
+    ArrayData* result = out->array().get();
     RETURN_NOT_OK(detail::PropagateNulls(ctx, in_data, result));
 
     func_(ctx, options_, in_data, result);
