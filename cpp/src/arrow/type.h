@@ -461,6 +461,31 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string name() const override { return "list"; }
 };
 
+/// \brief Concrete type class for map data
+///
+/// Map data is nested data where each value is a variable number of
+/// key-value pairs.  Maps can be recursively nested, for example
+/// map(utf8, map(utf8, int32)).
+class ARROW_EXPORT MapType : public NestedType {
+ public:
+  static constexpr Type::type type_id = Type::MAP;
+
+  explicit MapType(const std::shared_ptr<DataType>& key_type,
+                   const std::shared_ptr<DataType>& value_type)
+      : NestedType(type_id) {
+    children_ = {std::make_shared<Field>("key", key_type, false),
+                 std::make_shared<Field>("value", value_type)};
+  }
+
+  std::shared_ptr<DataType> key_type() const { return children_[0]->type(); }
+
+  std::shared_ptr<DataType> value_type() const { return children_[1]->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "map"; }
+};
+
 /// \brief Concrete type class for fixed size list data
 class ARROW_EXPORT FixedSizeListType : public NestedType {
  public:
@@ -472,7 +497,7 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
       : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
 
   explicit FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
-      : NestedType(Type::FIXED_SIZE_LIST), list_size_(list_size) {
+      : NestedType(type_id), list_size_(list_size) {
     children_ = {value_field};
   }
 

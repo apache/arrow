@@ -370,6 +370,26 @@ TEST(TestListType, Basics) {
   ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
 }
 
+TEST(TestMapType, Basics) {
+  std::shared_ptr<DataType> kt = std::make_shared<StringType>();
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  MapType map_type(kt, vt);
+  ASSERT_EQ(map_type.id(), Type::MAP);
+
+  ASSERT_EQ("map", map_type.name());
+  ASSERT_EQ("map<string, uint8>", map_type.ToString());
+
+  ASSERT_EQ(map_type.value_type()->id(), vt->id());
+  ASSERT_EQ(map_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> mt = std::make_shared<MapType>(vt, kt);
+  ASSERT_EQ("map<uint8, string>", mt->ToString());
+
+  MapType mt2(kt, mt);
+  ASSERT_EQ("map<string, map<uint8, string>>", mt2.ToString());
+}
+
 TEST(TestFixedSizeListType, Basics) {
   std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
 
