@@ -470,9 +470,9 @@ class ARROW_EXPORT MapType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::MAP;
 
-  explicit MapType(const std::shared_ptr<DataType>& key_type,
-                   const std::shared_ptr<DataType>& value_type)
-      : NestedType(type_id) {
+  MapType(const std::shared_ptr<DataType>& key_type,
+          const std::shared_ptr<DataType>& value_type, bool keys_sorted = false)
+      : NestedType(type_id), keys_sorted_(keys_sorted) {
     children_ = {std::make_shared<Field>("key", key_type, false),
                  std::make_shared<Field>("value", value_type)};
   }
@@ -484,6 +484,11 @@ class ARROW_EXPORT MapType : public NestedType {
   std::string ToString() const override;
 
   std::string name() const override { return "map"; }
+
+  bool keys_sorted() const { return keys_sorted_; }
+
+ private:
+  bool keys_sorted_;
 };
 
 /// \brief Concrete type class for fixed size list data
@@ -492,11 +497,10 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
 
   // List can contain any other logical value type
-  explicit FixedSizeListType(const std::shared_ptr<DataType>& value_type,
-                             int32_t list_size)
+  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
       : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
 
-  explicit FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
       : NestedType(type_id), list_size_(list_size) {
     children_ = {value_field};
   }

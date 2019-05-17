@@ -149,7 +149,11 @@ std::string ListType::ToString() const {
 
 std::string MapType::ToString() const {
   std::stringstream s;
-  s << "map<" << key_type()->ToString() << ", " << value_type()->ToString() << ">";
+  s << "map<" << key_type()->ToString() << ", " << value_type()->ToString();
+  if (keys_sorted_) {
+    s << ", keys_sorted";
+  }
+  s << ">";
   return s.str();
 }
 

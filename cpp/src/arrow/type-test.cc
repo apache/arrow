@@ -386,8 +386,8 @@ TEST(TestMapType, Basics) {
   std::shared_ptr<DataType> mt = std::make_shared<MapType>(vt, kt);
   ASSERT_EQ("map<uint8, string>", mt->ToString());
 
-  MapType mt2(kt, mt);
-  ASSERT_EQ("map<string, map<uint8, string>>", mt2.ToString());
+  MapType mt2(kt, mt, true);
+  ASSERT_EQ("map<string, map<uint8, string>, keys_sorted>", mt2.ToString());
 }
 
 TEST(TestFixedSizeListType, Basics) {
