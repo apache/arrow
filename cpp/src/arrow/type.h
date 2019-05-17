@@ -1011,6 +1011,12 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
 
+/// \brief Create a MapType instance from its key and value DataTypes
+ARROW_EXPORT
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<DataType>& value_type,
+                              bool keys_sorted = false);
+
 /// \brief Create a FixedSizeListType instance from its child Field type
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_type,
