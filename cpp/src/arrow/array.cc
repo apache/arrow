@@ -296,6 +296,39 @@ std::shared_ptr<DataType> ListArray::value_type() const {
 std::shared_ptr<Array> ListArray::values() const { return values_; }
 
 // ----------------------------------------------------------------------
+// MapArray
+
+MapArray::MapArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+
+MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
+                   const std::shared_ptr<Buffer>& offsets,
+                   const std::shared_ptr<Array>& keys,
+                   const std::shared_ptr<Array>& values,
+                   const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
+                   int64_t offset) {
+  auto internal_data =
+      ArrayData::Make(type, length, {null_bitmap, offsets},
+                      {keys->data(), values->data()}, null_count, offset);
+  SetData(internal_data);
+}
+
+void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::MAP);
+  DCHECK_EQ(data->child_data.size(), 2);
+  DCHECK_EQ(data->child_data[0]->null_count, 0);
+  DCHECK_EQ(data->buffers.size(), 2);
+
+  this->Array::SetData(data);
+
+  auto offsets = data->buffers[1];
+  raw_value_offsets_ =
+      offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(offsets->data());
+
+  keys_ = MakeArray(data_->child_data[0]);
+  values_ = MakeArray(data_->child_data[1]);
+}
+
+// ----------------------------------------------------------------------
 // FixedSizeListArray
 
 FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<ArrayData>& data) {
@@ -899,6 +932,49 @@ struct ValidateVisitor {
     const Status child_valid = ValidateArray(*array.values());
     if (!child_valid.ok()) {
       return Status::Invalid("Child array invalid: ", child_valid.ToString());
+    }
+
+    return ValidateOffsets(array);
+  }
+
+  Status Visit(const MapArray& array) {
+    if (array.length() < 0) {
+      return Status::Invalid("Length was negative");
+    }
+
+    auto value_offsets = array.value_offsets();
+    if (array.length() && !value_offsets) {
+      return Status::Invalid("value_offsets_ was null");
+    }
+    if (value_offsets->size() / static_cast<int>(sizeof(int32_t)) < array.length()) {
+      return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
+                             " isn't large enough for length: ", array.length());
+    }
+
+    if (!array.keys()) {
+      return Status::Invalid("keys was null");
+    }
+    const Status key_valid = ValidateArray(*array.values());
+    if (!key_valid.ok()) {
+      return Status::Invalid("key array invalid: ", key_valid.ToString());
+    }
+
+    if (!array.values()) {
+      return Status::Invalid("values was null");
+    }
+    const Status values_valid = ValidateArray(*array.values());
+    if (!values_valid.ok()) {
+      return Status::Invalid("values array invalid: ", values_valid.ToString());
+    }
+
+    const int32_t last_offset = array.value_offset(array.length());
+    if (array.values()->length() != last_offset) {
+      return Status::Invalid("Final offset invariant not equal to values length: ",
+                             last_offset, "!=", array.values()->length());
+    }
+    if (array.keys()->length() != last_offset) {
+      return Status::Invalid("Final offset invariant not equal to keys length: ",
+                             last_offset, "!=", array.keys()->length());
     }
 
     return ValidateOffsets(array);
