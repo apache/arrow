@@ -1,12 +1,29 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 import { Data } from '../data';
 import { Vector } from '../vector';
 import { IntBuilder } from './int';
 import { Dictionary, DataType } from '../type';
-import { Builder, DataBuilderOptions } from './base';
+import { Builder, BuilderOptions } from './base';
 
 type DictionaryHashFunction = (x: any) => string | number;
 
-export interface DictionaryBuilderOptions<T extends DataType = any, TNull = any> extends DataBuilderOptions<T, TNull> {
+export interface DictionaryBuilderOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {
     dictionaryHashFunction?: DictionaryHashFunction;
 }
 
@@ -63,16 +80,16 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
         }
         return this.indices.writeValue(hashmap[id], index);
     }
-    public *readAll(source: Iterable<any>, chunkLength = Infinity) {
+    public *writeAll(source: Iterable<any>, chunkLength = Infinity) {
         const chunks = [] as Data<T>[];
-        for (const chunk of super.readAll(source, chunkLength)) {
+        for (const chunk of super.writeAll(source, chunkLength)) {
             chunks.push(chunk);
         }
         yield* chunks;
     }
-    public async *readAllAsync(source: Iterable<any> | AsyncIterable<any>, chunkLength = Infinity) {
+    public async *writeAllAsync(source: Iterable<any> | AsyncIterable<any>, chunkLength = Infinity) {
         const chunks = [] as Data<T>[];
-        for await (const chunk of super.readAllAsync(source, chunkLength)) {
+        for await (const chunk of super.writeAllAsync(source, chunkLength)) {
             chunks.push(chunk);
         }
         yield* chunks;

@@ -16,13 +16,16 @@
 // under the License.
 
 import streamAdapters from './io/adapters';
+import { Builder } from './builder/index';
 import { RecordBatchReader } from './ipc/reader';
 import { RecordBatchWriter } from './ipc/writer';
 import { toNodeStream } from './io/node/iterable';
+import { builderThroughNodeStream } from './io/node/builder';
 import { recordBatchReaderThroughNodeStream } from './io/node/reader';
 import { recordBatchWriterThroughNodeStream } from './io/node/writer';
 
 streamAdapters.toNodeStream = toNodeStream;
+Builder['throughNode'] = builderThroughNodeStream;
 RecordBatchReader['throughNode'] = recordBatchReaderThroughNodeStream;
 RecordBatchWriter['throughNode'] = recordBatchWriterThroughNodeStream;
 

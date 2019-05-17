@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 import { setBool } from '../util/bit';
 import { memcpy } from '../util/buffer';
 import { Data, Buffers } from '../data';
@@ -10,12 +27,29 @@ import {
     Float, Int, Date_, Interval, Time, Timestamp, Union, DenseUnion, SparseUnion,
 } from '../type';
 
-export interface DataBuilderOptions<T extends DataType = any, TNull = any> {
+export interface BuilderOptions<T extends DataType = any, TNull = any> {
     type: T;
     nullValues?: TNull[];
 }
 
 export class Builder<T extends DataType = any, TNull = any> {
+
+    /** @nocollapse */
+    public static throughNode<T extends DataType = any, TNull = any>(
+        // @ts-ignore
+        options: import('stream').DuplexOptions & BuilderOptions<T, TNull>
+    ): import('stream').Duplex {
+        throw new Error(`"throughNode" not available in this environment`);
+    }
+    /** @nocollapse */
+    public static throughDOM<T extends DataType = any, TNull = any>(
+        // @ts-ignore
+        writableStrategy: QueuingStrategy<T['TValue'] | TNull> & BuilderOptions<T, TNull>,
+        // @ts-ignore
+        readableStrategy?: { highWaterMark?: number, size?: any }
+    ): { writable: WritableStream<T['TValue'] | TNull>, readable: ReadableStream<Data<T>> } {
+        throw new Error(`"throughDOM" not available in this environment`);
+    }
 
     public length = 0;
     public nullCount = 0;
@@ -34,7 +68,7 @@ export class Builder<T extends DataType = any, TNull = any> {
     // @ts-ignore
     public typeIds: Int8Array;
 
-    constructor(options: DataBuilderOptions<T, TNull>) {
+    constructor(options: BuilderOptions<T, TNull>) {
         const type = options['type'];
         const nullValues = options['nullValues'];
         this.stride = strideForType(this._type = type);
@@ -54,6 +88,9 @@ export class Builder<T extends DataType = any, TNull = any> {
     protected _type: T;
     public get type() { return this._type; }
 
+    protected _finished: boolean = false;
+    public get finished() { return this._finished; }
+
     protected _bytesUsed = 0;
     public get bytesUsed() { return this._bytesUsed; }
 
@@ -67,23 +104,7 @@ export class Builder<T extends DataType = any, TNull = any> {
 
     public get ArrayType() { return this._type.ArrayType; }
 
-    // /**
-    //  * Create a clone of this Builder that uses the supplied list as values
-    //  * that indicate a null value should be written into the validity bitmap,
-    //  * indicating null instead of a valid value.
-    //  * 
-    //  * This is helpful when building Arrow Vectors from data sources that use
-    //  * inline sentinel values to indicate null elements. For example, many systems
-    //  * use `NaN` to indicate FloatingPoint null, or the strings 'null', '\0', 'na',
-    //  * or 'N/A' to indicate String null.
-    //  * @param nullValues An Array of values that should be interpreted as `null`
-    //  * when passed as the value to `Builder#set(val, idx)`.
-    //  */
-    // public withNullValues<RNull = any>(nullValues: RNull[]) {
-    //     return DataBuilder.new<T, RNull>(this.type, nullValues);
-    // }
-
-    public *readAll(source: Iterable<any>, chunkLength = Infinity) {
+    public *writeAll(source: Iterable<any>, chunkLength = Infinity) {
         for (const value of source) {
             if (this.write(value).length >= chunkLength) {
                 yield this.flush();
@@ -92,7 +113,7 @@ export class Builder<T extends DataType = any, TNull = any> {
         if (this.finish().length > 0) yield this.flush();
     }
 
-    public async *readAllAsync(source: Iterable<any> | AsyncIterable<any>, chunkLength = Infinity) {
+    public async *writeAllAsync(source: Iterable<any> | AsyncIterable<any>, chunkLength = Infinity) {
         for await (const value of source) {
             if (this.write(value).length >= chunkLength) {
                 yield this.flush();
@@ -165,6 +186,7 @@ export class Builder<T extends DataType = any, TNull = any> {
     }
 
     public finish() {
+        this._finished = true;
         this.children.forEach((child) => child.finish());
         return this;
     }
@@ -174,6 +196,7 @@ export class Builder<T extends DataType = any, TNull = any> {
         this.nullCount = 0;
         this._bytesUsed = 0;
         this._bytesReserved = 0;
+        this.children.forEach((child) => child.reset());
         this.values && (this.values = this.values.subarray(0, 0));
         this.typeIds && (this.typeIds = this.typeIds.subarray(0, 0));
         this.nullBitmap && (this.nullBitmap = this.nullBitmap.subarray(0, 0));
@@ -228,7 +251,7 @@ export class Builder<T extends DataType = any, TNull = any> {
 
 export abstract class FlatBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
     public readonly BYTES_PER_ELEMENT: number;
-    constructor(options: DataBuilderOptions<T, TNull>) {
+    constructor(options: BuilderOptions<T, TNull>) {
         super(options);
         this.values = new this.ArrayType(0);
         this.BYTES_PER_ELEMENT = this.stride * this.ArrayType.BYTES_PER_ELEMENT;
@@ -248,7 +271,7 @@ export abstract class FlatBuilder<T extends Int | Float | FixedSizeBinary | Date
 
 export abstract class FlatListBuilder<T extends Utf8 | Binary = any, TNull = any> extends Builder<T, TNull> {
     protected _values?: Map<number, undefined | Uint8Array>;
-    constructor(options: DataBuilderOptions<T, TNull>) {
+    constructor(options: BuilderOptions<T, TNull>) {
         super(options);
         this.valueOffsets = new Int32Array(0);
     }

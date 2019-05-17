@@ -16,13 +16,16 @@
 // under the License.
 
 import streamAdapters from './io/adapters';
+import { Builder } from './builder/index';
 import { RecordBatchReader } from './ipc/reader';
 import { RecordBatchWriter } from './ipc/writer';
 import { toDOMStream } from './io/whatwg/iterable';
+import { builderThroughDOMStream } from './io/whatwg/builder';
 import { recordBatchReaderThroughDOMStream } from './io/whatwg/reader';
 import { recordBatchWriterThroughDOMStream } from './io/whatwg/writer';
 
 streamAdapters.toDOMStream = toDOMStream;
+Builder['throughDOM'] = builderThroughDOMStream;
 RecordBatchReader['throughDOM'] = recordBatchReaderThroughDOMStream;
 RecordBatchWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 

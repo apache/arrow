@@ -21,7 +21,7 @@ import * as type from './type';
 import { DataType } from './type';
 import * as vecs from './vector/index';
 import * as builders from './builder/index';
-import { DataBuilderOptions } from './builder/base';
+import { BuilderOptions } from './builder/base';
 
 /** @ignore */ type FloatArray = Float32Array | Float64Array;
 /** @ignore */ type IntArray = Int8Array | Int16Array | Int32Array;
@@ -120,9 +120,9 @@ export type VectorCtorType<
 export type BuilderCtorType<
     T extends Builder<R, any>,
     R extends DataType = any,
-    TCtor extends new (options: DataBuilderOptions<R, any>) => T =
-                  new (options: DataBuilderOptions<R, any>) => T
-> = TCtor extends new (options: DataBuilderOptions<R, any>) => T ? TCtor : never;
+    TCtor extends new (options: BuilderOptions<R, any>) => T =
+                  new (options: BuilderOptions<R, any>) => T
+> = TCtor extends new (options: BuilderOptions<R, any>) => T ? TCtor : never;
 
 /** @ignore */
 export type Vector<T extends Type | DataType = any> =
