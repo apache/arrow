@@ -728,6 +728,7 @@ void PlasmaStore::DisconnectClient(int client_fd) {
       sealed_objects[it->first] = it->second.get();
     } else {
       // Abort unsealed object.
+      // Don't call AbortObject() because client->object_ids would be modified.
       EraseFromObjectTable(object_id);
     }
   }
