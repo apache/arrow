@@ -273,7 +273,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     // Decrypt it if we need to
     if (data_decryptor_ != nullptr) {
-      decryption_buffer_->Resize(compressed_len - data_decryptor_->CiphertextSizeDelta());
+      PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
+          compressed_len - data_decryptor_->CiphertextSizeDelta()));
       compressed_len = data_decryptor_->Decrypt(buffer, compressed_len,
                                                 decryption_buffer_->mutable_data());
 

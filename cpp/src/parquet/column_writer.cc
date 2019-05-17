@@ -280,8 +280,8 @@ class SerializedPageWriter : public PageWriter {
     if (data_encryptor_.get()) {
       parquet_encryption::quickUpdatePageAAD(data_pageAAD_, page_ordinal_);
       data_encryptor_->update_aad(data_pageAAD_);
-      encrypted_data_buffer->Resize(data_encryptor_->CiphertextSizeDelta() +
-                                    output_data_len);
+      PARQUET_THROW_NOT_OK(encrypted_data_buffer->Resize(
+          data_encryptor_->CiphertextSizeDelta() + output_data_len));
       output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
                                                  encrypted_data_buffer->mutable_data());
       output_data_buffer = encrypted_data_buffer->data();
