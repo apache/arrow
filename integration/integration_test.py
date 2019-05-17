@@ -994,6 +994,35 @@ def generate_dictionary_case():
                           dictionaries=[dict0, dict1, dict2])
 
 
+def generate_nested_dictionary_case():
+    str_type = StringType('str')
+    dict0 = Dictionary(0, str_type, str_type.generate_column(10, name='DICT0'))
+
+    list_type = ListType(
+        'list',
+        DictionaryType('str_dict', get_field('', 'int8'), dict0))
+    dict1 = Dictionary(1,
+                       list_type,
+                       list_type.generate_column(30, name='DICT1'))
+
+    struct_type = StructType('struct', [
+            DictionaryType('str_dict_a', get_field('', 'int8'), dict0),
+            DictionaryType('str_dict_b', get_field('', 'int8'), dict0)
+        ])
+    dict2 = Dictionary(2,
+                       struct_type,
+                       struct_type.generate_column(30, name='DICT2'))
+
+    fields = [
+        DictionaryType('list_dict', get_field('', 'int8'), dict1),
+        DictionaryType('struct_dict', get_field('', 'int8'), dict2)
+    ]
+
+    batch_sizes = [10, 13]
+    return _generate_file("nested_dictionary", fields, batch_sizes,
+                          dictionaries=[dict0, dict1, dict2])
+
+
 def get_generated_json_files(tempdir=None, flight=False):
     tempdir = tempdir or tempfile.mkdtemp()
 
@@ -1008,6 +1037,8 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_interval_case(),
         generate_nested_case(),
         generate_dictionary_case().skip_category(SKIP_FLIGHT),
+        generate_nested_dictionary_case().skip_category(SKIP_ARROW)
+                                         .skip_category(SKIP_FLIGHT),
     ]
 
     if flight:
