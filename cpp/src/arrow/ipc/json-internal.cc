@@ -170,7 +170,12 @@ class SchemaWriter {
                           void>::type
   WriteTypeMetadata(const T& type) {}
 
-  void WriteTypeMetadata(const IntegerType& type) {
+  void WriteTypeMetadata(const MapType& type) {
+    writer_->Key("keysSorted");
+    writer_->Int(type.keys_sorted());
+  }
+
+  void WriteTypeMetadata(const Integer& type) {
     writer_->Key("bitWidth");
     writer_->Int(type.bit_width());
     writer_->Key("isSigned");
@@ -322,6 +327,11 @@ class SchemaWriter {
 
   Status Visit(const ListType& type) {
     WriteName("list", type);
+    return Status::OK();
+  }
+
+  Status Visit(const MapType& type) {
+    WriteName("map", type);
     return Status::OK();
   }
 
@@ -568,6 +578,13 @@ class ArrayWriter {
     return WriteChildren(type.children(), {array.values()});
   }
 
+  Status Visit(const MapArray& array) {
+    WriteValidityField(array);
+    WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
+    const auto& type = checked_cast<const MapType&>(*array.type());
+    return WriteChildren(type.children(), {array.keys(), array.values()});
+  }
+
   Status Visit(const FixedSizeListArray& array) {
     WriteValidityField(array);
     const auto& type = checked_cast<const FixedSizeListType&>(*array.type());
@@ -679,6 +696,21 @@ static Status GetFloatingPoint(const RjObject& json_type,
   } else {
     return Status::Invalid("Invalid precision: ", precision);
   }
+  return Status::OK();
+}
+
+static Status GetMap(const RjObject& json_type,
+                     const std::vector<std::shared_ptr<Field>>& children,
+                     std::shared_ptr<DataType>* type) {
+  if (children.size() != 2) {
+    return Status::Invalid("FixedSizeList must have exactly one child");
+  }
+
+  const auto& it_keys_sorted = json_type.FindMember("keysSorted");
+  RETURN_NOT_BOOL("keysSorted", it_keys_sorted, json_type);
+
+  bool keys_sorted = it_keys_sorted->value.GetInt();
+  *type = map(children[0]->type(), children[1]->type(), keys_sorted);
   return Status::OK();
 }
 
@@ -900,6 +932,8 @@ static Status GetType(const RjObject& json_type,
       return Status::Invalid("List must have exactly one child");
     }
     *type = list(children[0]);
+  } else if (type_name == "map") {
+    return GetMap(json_type, children, type);
   } else if (type_name == "fixedsizelist") {
     return GetFixedSizeList(json_type, children, type);
   } else if (type_name == "struct") {
@@ -1233,6 +1267,27 @@ class ArrayReader {
 
     result_ = std::make_shared<ListArray>(type_, length_, offsets_buffer, children[0],
                                           validity_buffer, null_count);
+
+    return Status::OK();
+  }
+
+  Status Visit(const MapType& type) {
+    int32_t null_count = 0;
+    std::shared_ptr<Buffer> validity_buffer;
+    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
+
+    const auto& json_offsets = obj_->FindMember("OFFSET");
+    RETURN_NOT_ARRAY("OFFSET", json_offsets, *obj_);
+    std::shared_ptr<Buffer> offsets_buffer;
+    RETURN_NOT_OK(GetIntArray<int32_t>(json_offsets->value.GetArray(), length_ + 1,
+                                       &offsets_buffer));
+
+    std::vector<std::shared_ptr<Array>> children;
+    RETURN_NOT_OK(GetChildren(*obj_, type, &children));
+    DCHECK_EQ(children.size(), 2);
+
+    result_ = std::make_shared<MapArray>(type_, length_, offsets_buffer, children[0],
+                                         children[1], validity_buffer, null_count);
 
     return Status::OK();
   }

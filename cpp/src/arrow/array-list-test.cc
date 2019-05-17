@@ -35,6 +35,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // List tests
@@ -338,6 +339,81 @@ TEST_F(TestListArray, TestBuilderPreserveFieleName) {
 
   const auto& type = checked_cast<ListType&>(*list_array->type());
   ASSERT_EQ("counts", type.value_field()->name());
+}
+
+// ----------------------------------------------------------------------
+// Map tests
+
+class TestMapArray : public TestBuilder {
+ public:
+  void SetUp() {
+    TestBuilder::SetUp();
+
+    key_type_ = utf8();
+    value_type_ = int32();
+    type_ = map(key_type_, value_type_);
+
+    std::unique_ptr<ArrayBuilder> tmp;
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
+    builder_ = checked_pointer_cast<MapBuilder>(std::move(tmp));
+  }
+
+  void Done() {
+    std::shared_ptr<Array> out;
+    FinishAndCheckPadding(builder_.get(), &out);
+    result_ = std::dynamic_pointer_cast<MapArray>(out);
+  }
+
+ protected:
+  std::shared_ptr<DataType> value_type_, key_type_;
+
+  std::shared_ptr<MapBuilder> builder_;
+  std::shared_ptr<MapArray> result_;
+};
+
+TEST_F(TestMapArray, Equality) {
+  auto& kb = checked_cast<StringBuilder&>(*builder_->key_builder());
+  auto& vb = checked_cast<Int32Builder&>(*builder_->value_builder());
+
+  std::shared_ptr<Array> array, equal_array, unequal_array;
+  std::vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
+  std::vector<util::string_view> equal_keys = {"a", "a", "a", "b", "c",
+                                               "a", "a", "a", "a", "b"};
+  std::vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2, 5, 6};
+  std::vector<int32_t> unequal_offsets = {0, 1, 4, 7};
+  std::vector<util::string_view> unequal_keys = {"a", "a", "b", "c", "a", "b", "c"};
+  std::vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
+
+  // setup two equal arrays
+  for (auto out : {&array, &equal_array}) {
+    ASSERT_OK(builder_->AppendValues(equal_offsets.data(), equal_offsets.size()));
+    for (auto&& key : equal_keys) {
+      ASSERT_OK(kb.Append(key));
+    }
+    ASSERT_OK(vb.AppendValues(equal_values.data(), equal_values.size()));
+    ASSERT_OK(builder_->Finish(out));
+  }
+
+  // now an unequal one
+  ASSERT_OK(builder_->AppendValues(unequal_offsets.data(), unequal_offsets.size()));
+  for (auto&& key : unequal_keys) {
+    ASSERT_OK(kb.Append(key));
+  }
+  ASSERT_OK(vb.AppendValues(unequal_values.data(), unequal_values.size()));
+  ASSERT_OK(builder_->Finish(&unequal_array));
+
+  // Test array equality
+  EXPECT_TRUE(array->Equals(array));
+  EXPECT_TRUE(array->Equals(equal_array));
+  EXPECT_TRUE(equal_array->Equals(array));
+  EXPECT_FALSE(equal_array->Equals(unequal_array));
+  EXPECT_FALSE(unequal_array->Equals(equal_array));
+
+  // Test range equality
+  EXPECT_TRUE(array->RangeEquals(0, 1, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(0, 2, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
+  EXPECT_TRUE(array->RangeEquals(2, 3, 2, unequal_array));
 }
 
 // ----------------------------------------------------------------------
