@@ -42,10 +42,8 @@ G_BEGIN_DECLS
  * @GARROW_ERROR_PLASMA_OBJECT_ALREADY_SEALED: Object already sealed on Plasma.
  * @GARROW_ERROR_CODE_GENERATION: Error generating code for expression evaluation
  *   in Gandiva.
- * @GARROW_ERROR_EXPRESSION_VALIDATION: Validation errors in expression given for code
- * generation.
- * @GARROW_ERROR_EXECUTION: Execution error while evaluating the expression against a
- * record batch.
+ * @GARROW_ERROR_EXPRESSION_VALIDATION: Validation errors in expression given for code generation.
+ * @GARROW_ERROR_EXECUTION: Execution error while evaluating the expression against a record batch.
  *
  * The error codes are used by all arrow-glib functions.
  *
