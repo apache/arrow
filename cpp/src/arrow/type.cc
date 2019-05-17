@@ -147,6 +147,12 @@ std::string ListType::ToString() const {
   return s.str();
 }
 
+std::string MapType::ToString() const {
+  std::stringstream s;
+  s << "map<" << key_type()->ToString() << ", " << value_type()->ToString() << ">";
+  return s.str();
+}
+
 std::string FixedSizeListType::ToString() const {
   std::stringstream s;
   s << "fixed_size_list<" << value_field()->ToString() << ">[" << list_size_ << "]";
