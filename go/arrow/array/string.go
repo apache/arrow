@@ -46,7 +46,10 @@ func NewStringData(data *Data) *String {
 }
 
 // Value returns the slice at index i. This value should not be mutated.
-func (a *String) Value(i int) string    { return a.values[a.offsets[i]:a.offsets[i+1]] }
+func (a *String) Value(i int) string {
+	i = i + a.array.data.offset
+	return a.values[a.offsets[i]:a.offsets[i+1]]
+}
 func (a *String) ValueOffset(i int) int { return int(a.offsets[i]) }
 
 func (a *String) String() string {

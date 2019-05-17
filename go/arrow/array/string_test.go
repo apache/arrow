@@ -103,6 +103,20 @@ func TestStringArray(t *testing.T) {
 	if got, want := arr.String(), `["hello" "世界" (null) "bye"]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
+	slice := array.NewSliceData(arr.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.String)
+	if !ok {
+		t.Fatalf("could not type-assert to array.String")
+	}
+
+	if got, want := v.String(), `[(null) "bye"]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 }
 
 func TestStringBuilder_Empty(t *testing.T) {
