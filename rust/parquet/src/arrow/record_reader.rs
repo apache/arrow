@@ -21,28 +21,24 @@ use std::mem::size_of;
 use std::mem::transmute;
 use std::slice;
 
-use crate::column::page::PageReader;
-use crate::column::reader::ColumnReaderImpl;
+use crate::column::{page::PageReader, reader::ColumnReaderImpl};
 use crate::data_type::DataType;
-use crate::errors::ParquetError;
-use crate::errors::Result;
+use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
 use arrow::bitmap::Bitmap;
-use arrow::buffer::Buffer;
-use arrow::buffer::MutableBuffer;
-use arrow::builder::BooleanBufferBuilder;
-use arrow::builder::BufferBuilderTrait;
+use arrow::buffer::{Buffer, MutableBuffer};
+use arrow::builder::{BooleanBufferBuilder, BufferBuilderTrait};
 
 const MIN_BATCH_SIZE: usize = 1024;
 
-/// A ```RecordReader``` is a stateful column reader that delimits semantic records.
+/// A `RecordReader` is a stateful column reader that delimits semantic records.
 pub struct RecordReader<T: DataType> {
-    column_schema: ColumnDescPtr,
+    column_desc: ColumnDescPtr,
 
     records: MutableBuffer,
     def_levels: Option<MutableBuffer>,
     rep_levels: Option<MutableBuffer>,
-    nullity_bitmap: Option<BooleanBufferBuilder>,
+    null_bitmap: Option<BooleanBufferBuilder>,
     column_reader: Option<ColumnReaderImpl<T>>,
 
     /// Number of records accumulated in records
@@ -96,23 +92,21 @@ impl<T: DataType> RecordReader<T> {
             records: MutableBuffer::new(MIN_BATCH_SIZE),
             def_levels,
             rep_levels,
-            nullity_bitmap,
+            null_bitmap: nullity_bitmap,
             column_reader: None,
-            column_schema,
-            records_num: 0usize,
-            values_pos: 0usize,
-            values_seen: 0usize,
-            values_written: 0usize,
+            column_desc: column_schema,
+            records_num: 0,
+            values_pos: 0,
+            values_seen: 0,
+            values_written: 0,
             in_middle_of_record: false,
         }
     }
 
     /// Set the current page reader.
     pub fn set_page_reader(&mut self, page_reader: Box<PageReader>) -> Result<()> {
-        self.column_reader = Some(ColumnReaderImpl::new(
-            self.column_schema.clone(),
-            page_reader,
-        ));
+        self.column_reader =
+            Some(ColumnReaderImpl::new(self.column_desc.clone(), page_reader));
         Ok(())
     }
 
@@ -123,11 +117,18 @@ impl<T: DataType> RecordReader<T> {
     /// Number of actual records read.
     pub fn read_records(&mut self, num_records: usize) -> Result<usize> {
         let mut records_read = 0usize;
+
+        // end_of_column is used to mark whether we have reached the end of current page
+        // reader
         let mut end_of_column = false;
 
         loop {
+            // Try to find some records from buffers that has been read into memory
+            // but not counted as seen records.
             let mut iter_record_num = self.split_records(num_records - records_read)?;
 
+            // Since page reader contains complete records, so if we reached end of a
+            // page reader, we should reach the end of a record
             if end_of_column
                 && self.values_seen >= self.values_written
                 && self.in_middle_of_record
@@ -150,6 +151,7 @@ impl<T: DataType> RecordReader<T> {
 
             let batch_size = max(num_records - records_read, MIN_BATCH_SIZE);
 
+            // Try to more value from parquet pages
             let values_read = self.read_one_batch(batch_size)?;
             if values_read < batch_size {
                 end_of_column = true;
@@ -166,7 +168,7 @@ impl<T: DataType> RecordReader<T> {
 
     /// Returns definition level data.
     pub fn consume_def_levels(&mut self) -> Option<Buffer> {
-        let empty_def_buffer = if self.column_schema.max_def_level() > 0 {
+        let empty_def_buffer = if self.column_desc.max_def_level() > 0 {
             Some(MutableBuffer::new(MIN_BATCH_SIZE))
         } else {
             None
@@ -182,13 +184,13 @@ impl<T: DataType> RecordReader<T> {
 
     /// Returns bitmap data.
     pub fn consume_bitmap(&mut self) -> Option<Bitmap> {
-        let bitmap_builder = if self.column_schema.max_def_level() > 0 {
+        let bitmap_builder = if self.column_desc.max_def_level() > 0 {
             Some(BooleanBufferBuilder::new(MIN_BATCH_SIZE))
         } else {
             None
         };
 
-        replace(&mut self.nullity_bitmap, bitmap_builder)
+        replace(&mut self.null_bitmap, bitmap_builder)
             .map(|mut builder| builder.finish())
             .map(|buffer| Bitmap::from(buffer))
     }
@@ -219,7 +221,7 @@ impl<T: DataType> RecordReader<T> {
             unsafe { data_buf.to_slice_mut() },
         )?;
 
-        let max_def_level = self.column_schema.max_def_level();
+        let max_def_level = self.column_desc.max_def_level();
 
         if data_read < levels_read {
             // This means that there are null values in column data
@@ -256,7 +258,7 @@ impl<T: DataType> RecordReader<T> {
         }
 
         // Fill in bitmap data
-        if let Some(nullity_buffer) = self.nullity_bitmap.as_mut() {
+        if let Some(nullity_buffer) = self.null_bitmap.as_mut() {
             let def_levels_buf = def_levels_buf
                 .as_mut()
                 .map(|b| unsafe { b.to_slice_mut() })
@@ -354,12 +356,15 @@ impl<T: DataType> RecordReader<T> {
             .resize(self.values_written * T::get_type_size())?;
 
         let new_levels_len = self.values_written * size_of::<i16>();
-        self.rep_levels
-            .iter_mut()
-            .try_for_each(|buf| buf.resize(new_levels_len).map(|_| ()))?;
-        self.def_levels
-            .iter_mut()
-            .try_for_each(|buf| buf.resize(new_levels_len).map(|_| ()))?;
+
+        if let Some(ref mut buf) = self.rep_levels {
+            buf.resize(new_levels_len)?
+        };
+
+        if let Some(ref mut buf) = self.def_levels {
+            buf.resize(new_levels_len)?
+        };
+
         Ok(())
     }
 }
