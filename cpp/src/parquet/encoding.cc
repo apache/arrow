@@ -845,7 +845,6 @@ template <>
 inline void DictDecoderImpl<ByteArrayType>::SetDict(
     TypedDecoder<ByteArrayType>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
-
   dictionary_.Resize(num_dictionary_values);
   dictionary->Decode(dictionary_.data(), num_dictionary_values);
 
