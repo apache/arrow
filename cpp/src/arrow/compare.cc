@@ -887,6 +887,8 @@ class ScalarEqualsVisitor {
     return Status::NotImplemented("extension");
   }
 
+  Status Visit(const Scalar& left) { return Status::NotImplemented(*left.type); }
+
   bool result() const { return result_; }
 
  protected:
