@@ -166,8 +166,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     } else if (file_size < kFooterSize) {
       std::stringstream ss;
       ss << "Invalid Parquet file size is " << file_size
-         << " bytes, smaller than standard file footer ("
-         << kFooterSize << " bytes)";
+         << " bytes, smaller than standard file footer (" << kFooterSize << " bytes)";
       throw ParquetException(ss.str());
     }
 
