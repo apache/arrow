@@ -26,6 +26,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 
@@ -50,14 +51,7 @@ Status Buffer::Copy(const int64_t start, const int64_t nbytes,
 }
 
 std::string Buffer::ToHexString() {
-  const uint8_t* _data = is_mutable() ? mutable_data() : data();
-  std::stringstream ss;
-
-  for (int64_t i = 0; i < size(); ++i) {
-    ss << std::setfill('0') << std::setw(2) <<
-      std::hex << static_cast<unsigned int>(_data[i]);
-  }
-  return ss.str();
+  return HexEncode(data(), static_cast<size_t>(size()));
 }
 
 bool Buffer::Equals(const Buffer& other, const int64_t nbytes) const {

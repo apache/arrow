@@ -868,7 +868,7 @@ cdef class Buffer:
         """
         return <uintptr_t> self.buffer.get().data()
 
-    def ToHexString(self):
+    def hex(self):
         return self.buffer.get().ToHexString()
 
     @property
