@@ -513,7 +513,7 @@ garrow_dictionary_data_type_class_init(GArrowDictionaryDataTypeClass *klass)
 /**
  * garrow_dictionary_data_type_new:
  * @index_data_type: The data type of index.
- * @dictionary: The dictionary.
+ * @value_data_type: The data type of dictionary values.
  * @ordered: Whether dictionary contents are ordered or not.
  *
  * Returns: The newly created dictionary data type.
@@ -522,13 +522,13 @@ garrow_dictionary_data_type_class_init(GArrowDictionaryDataTypeClass *klass)
  */
 GArrowDictionaryDataType *
 garrow_dictionary_data_type_new(GArrowDataType *index_data_type,
-                                GArrowArray *dictionary,
+                                GArrowDataType *value_data_type,
                                 gboolean ordered)
 {
   auto arrow_index_data_type = garrow_data_type_get_raw(index_data_type);
-  auto arrow_dictionary = garrow_array_get_raw(dictionary);
+  auto arrow_value_data_type = garrow_data_type_get_raw(value_data_type);
   auto arrow_data_type = arrow::dictionary(arrow_index_data_type,
-                                           arrow_dictionary,
+                                           arrow_value_data_type,
                                            ordered);
   return GARROW_DICTIONARY_DATA_TYPE(garrow_data_type_new_raw(&arrow_data_type));
 }
@@ -552,21 +552,21 @@ garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *dictio
 }
 
 /**
- * garrow_dictionary_data_type_get_dictionary:
+ * garrow_dictionary_data_type_get_value_data_type:
  * @dictionary_data_type: The #GArrowDictionaryDataType.
  *
- * Returns: (transfer full): The dictionary as #GArrowArray.
+ * Returns: (transfer full): The #GArrowDataType of dictionary values.
  *
- * Since: 0.8.0
+ * Since: 0.14.0
  */
-GArrowArray *
-garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *dictionary_data_type)
+GArrowDataType *
+garrow_dictionary_data_type_get_value_data_type(GArrowDictionaryDataType *dictionary_data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(dictionary_data_type));
   auto arrow_dictionary_data_type =
     std::static_pointer_cast<arrow::DictionaryType>(arrow_data_type);
-  auto arrow_dictionary = arrow_dictionary_data_type->dictionary();
-  return garrow_array_new_raw(&arrow_dictionary);
+  auto arrow_value_data_type = arrow_dictionary_data_type->value_type();
+  return garrow_data_type_new_raw(&arrow_value_data_type);
 }
 
 /**

@@ -151,7 +151,10 @@ struct _GArrowDictionaryArrayClass
 };
 
 GArrowDictionaryArray *
-garrow_dictionary_array_new(GArrowDataType *data_type, GArrowArray *indices);
+garrow_dictionary_array_new(GArrowDataType *data_type,
+                            GArrowArray *indices,
+                            GArrowArray *dictionary,
+                            GError **error);
 GArrowArray *
 garrow_dictionary_array_get_indices(GArrowDictionaryArray *array);
 GArrowArray *
