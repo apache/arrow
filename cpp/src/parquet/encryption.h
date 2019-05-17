@@ -246,6 +246,7 @@ class PARQUET_EXPORT AADPrefixVerifier {
   // In a data set, AAD Prefixes should be collected,
   // and then checked for missing files.
   virtual void check(const std::string& aad_prefix) = 0;
+  virtual ~AADPrefixVerifier() {}
 };
 
 class PARQUET_EXPORT FileDecryptionProperties {

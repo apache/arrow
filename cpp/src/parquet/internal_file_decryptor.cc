@@ -33,7 +33,7 @@ FooterSigningEncryptor::FooterSigningEncryptor(ParquetCipher::type algorithm,
                                                const std::string& key,
                                                const std::string& file_aad,
                                                const std::string& aad)
-    : algorithm_(algorithm), key_(key), file_aad_(file_aad), aad_(aad) {
+    : key_(key), file_aad_(file_aad), aad_(aad) {
   aes_encryptor_.reset(new parquet_encryption::AesEncryptor(
       algorithm, static_cast<int>(key_.size()), true, NULLPTR));
 }
