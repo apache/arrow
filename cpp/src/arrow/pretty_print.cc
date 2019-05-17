@@ -158,9 +158,9 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename T>
   enable_if_date<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     const auto data = array.raw_values();
-    using unit =
-        typename std::conditional<std::is_same<T, Date32Array>::value, util::date::days,
-                                  std::chrono::milliseconds>::type;
+    using unit = typename std::conditional<std::is_same<T, Date32Array>::value,
+                                           arrow_vendored::date::days,
+                                           std::chrono::milliseconds>::type;
     WriteValues(array, [&](int64_t i) { FormatDateTime<unit>("%F", data[i], true); });
     return Status::OK();
   }
@@ -367,9 +367,9 @@ class ArrayPrinter : public PrettyPrinter {
   template <typename Unit>
   void FormatDateTime(const char* fmt, int64_t value, bool add_epoch) {
     if (add_epoch) {
-      (*sink_) << util::date::format(fmt, epoch_ + Unit{value});
+      (*sink_) << arrow_vendored::date::format(fmt, epoch_ + Unit{value});
     } else {
-      (*sink_) << util::date::format(fmt, Unit{value});
+      (*sink_) << arrow_vendored::date::format(fmt, Unit{value});
     }
   }
 
@@ -391,12 +391,12 @@ class ArrayPrinter : public PrettyPrinter {
     }
   }
 
-  static util::date::sys_days epoch_;
+  static arrow_vendored::date::sys_days epoch_;
   std::string null_rep_;
 };
 
-util::date::sys_days ArrayPrinter::epoch_ =
-    util::date::sys_days{util::date::jan / 1 / 1970};
+arrow_vendored::date::sys_days ArrayPrinter::epoch_ =
+    arrow_vendored::date::sys_days{arrow_vendored::date::jan / 1 / 1970};
 
 Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
   Indent();

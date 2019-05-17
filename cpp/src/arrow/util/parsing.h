@@ -405,7 +405,7 @@ class StringConverter<TimestampType> {
     // - "YYYY-MM-DD[ T]hh:mm:ss"
     // - "YYYY-MM-DD[ T]hh:mm:ssZ"
     // UTC is always assumed, and the DataType's timezone is ignored.
-    arrow::util::date::year_month_day ymd;
+    arrow_vendored::date::year_month_day ymd;
     if (ARROW_PREDICT_FALSE(length < 10)) {
       return false;
     }
@@ -413,7 +413,7 @@ class StringConverter<TimestampType> {
       if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &ymd))) {
         return false;
       }
-      return ConvertTimePoint(arrow::util::date::sys_days(ymd), out);
+      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd), out);
     }
     if (ARROW_PREDICT_FALSE(s[10] != ' ') && ARROW_PREDICT_FALSE(s[10] != 'T')) {
       return false;
@@ -429,7 +429,7 @@ class StringConverter<TimestampType> {
       if (ARROW_PREDICT_FALSE(!ParseHH_MM_SS(s + 11, &seconds))) {
         return false;
       }
-      return ConvertTimePoint(arrow::util::date::sys_days(ymd) + seconds, out);
+      return ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, out);
     }
     return false;
   }
@@ -458,7 +458,7 @@ class StringConverter<TimestampType> {
     return true;
   }
 
-  bool ParseYYYY_MM_DD(const char* s, arrow::util::date::year_month_day* out) {
+  bool ParseYYYY_MM_DD(const char* s, arrow_vendored::date::year_month_day* out) {
     uint16_t year;
     uint8_t month, day;
     if (ARROW_PREDICT_FALSE(s[4] != '-') || ARROW_PREDICT_FALSE(s[7] != '-')) {
@@ -473,8 +473,8 @@ class StringConverter<TimestampType> {
     if (ARROW_PREDICT_FALSE(!detail::ParseUnsigned(s + 8, 2, &day))) {
       return false;
     }
-    *out = {arrow::util::date::year{year}, arrow::util::date::month{month},
-            arrow::util::date::day{day}};
+    *out = {arrow_vendored::date::year{year}, arrow_vendored::date::month{month},
+            arrow_vendored::date::day{day}};
     return out->ok();
   }
 

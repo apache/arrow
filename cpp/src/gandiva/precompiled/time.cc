@@ -519,11 +519,11 @@ void set_error_for_date(int32 length, const char* input, const char* msg,
 }
 
 date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
-  using arrow::util::date::day;
-  using arrow::util::date::month;
-  using arrow::util::date::sys_days;
-  using arrow::util::date::year;
-  using arrow::util::date::year_month_day;
+  using arrow_vendored::date::day;
+  using arrow_vendored::date::month;
+  using arrow_vendored::date::sys_days;
+  using arrow_vendored::date::year;
+  using arrow_vendored::date::year_month_day;
   using gandiva::TimeFields;
   // format : 0 is year, 1 is month and 2 is day.
   int dateFields[3];
@@ -583,11 +583,11 @@ date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
  * Format is <year-month-day>[ hours:minutes:seconds][.millis][ displacement|zone]
  */
 timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
-  using arrow::util::date::day;
-  using arrow::util::date::month;
-  using arrow::util::date::sys_days;
-  using arrow::util::date::year;
-  using arrow::util::date::year_month_day;
+  using arrow_vendored::date::day;
+  using arrow_vendored::date::month;
+  using arrow_vendored::date::sys_days;
+  using arrow_vendored::date::year;
+  using arrow_vendored::date::year_month_day;
   using gandiva::TimeFields;
   using std::chrono::hours;
   using std::chrono::milliseconds;

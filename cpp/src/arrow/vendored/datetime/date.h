@@ -76,9 +76,7 @@
 # endif
 #endif
 
-namespace arrow
-{
-namespace util
+namespace arrow_vendored
 {
 namespace date
 {
@@ -1109,7 +1107,7 @@ trunc(const std::chrono::duration<Rep, Period>& d)
 {
     using namespace std::chrono;
     using rep = typename std::common_type<Rep, typename To::rep>::type;
-    return To{detail::trunc(duration_cast<To>(duration_cast<std::chrono::duration<rep>>(d)).count())};
+    return To{detail::trunc(duration_cast<To>(duration_cast<duration<rep>>(d)).count())};
 }
 
 #ifndef HAS_CHRONO_ROUNDING
@@ -1155,7 +1153,7 @@ floor(const std::chrono::duration<Rep, Period>& d)
 {
     using namespace std::chrono;
     using rep = typename std::common_type<Rep, typename To::rep>::type;
-    return floor<To>(floor<std::chrono::duration<rep>>(d));
+    return floor<To>(floor<duration<rep>>(d));
 }
 
 // round to nearest, to even on tie
@@ -6127,7 +6125,7 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
                     {
                         h = hours{H};
                         min = minutes{M};
-                        s = round<Duration>(std::chrono::duration<long double>{S});
+                        s = round<Duration>(duration<long double>{S});
                     }
 #endif
                     command = nullptr;
@@ -6508,7 +6506,7 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
                         long double S;
                         read(is, rld{S, 1, width == -1 ? w : static_cast<unsigned>(width)});
                         if (!is.fail())
-                            s = round<Duration>(std::chrono::duration<long double>{S});
+                            s = round<Duration>(duration<long double>{S});
 #if !ONLY_C_LOCALE
                     }
                     else if (modified == CharT{'O'})
@@ -6545,7 +6543,7 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
                         {
                             h = hours{H};
                             min = minutes{M};
-                            s = round<Duration>(std::chrono::duration<long double>{S});
+                            s = round<Duration>(duration<long double>{S});
                         }
                     }
                     else
@@ -8016,8 +8014,7 @@ operator<<(std::basic_ostream<CharT, Traits>& os,
 }
 
 }  // namespace date
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow_vendored
 
 
 #ifdef __GNUC__
