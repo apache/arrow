@@ -145,6 +145,7 @@ boolean flags to ``cmake``.
   gRPC
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
   Protocol Buffers, and re2
+* ``-DARROW_GANDIVA_JAVA=ON``: Gandiva JNI bindings for Java
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
 * ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
