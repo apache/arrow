@@ -41,7 +41,7 @@ const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance
-pub trait Array: Send + Sync {
+pub trait Array: Send + Sync + ArrayEqual {
     /// Returns the array as `Any` so that it can be downcast to a specific implementation
     fn as_any(&self) -> &Any;
 
@@ -194,6 +194,42 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     raw_values: RawPtrBox<T::Native>,
 }
 
+/// Common operations for primitive types, including numeric types and boolean type.
+pub trait PrimitiveArrayOps<T: ArrowPrimitiveType> {
+    fn values(&self) -> Buffer;
+    fn value(&self, i: usize) -> T::Native;
+}
+
+impl<T: ArrowPrimitiveType> PrimitiveArrayOps<T> for PrimitiveArray<T> {
+    default fn values(&self) -> Buffer {
+        unimplemented!()
+    }
+
+    default fn value(&self, _: usize) -> T::Native {
+        unimplemented!()
+    }
+}
+
+impl<T: ArrowNumericType> PrimitiveArrayOps<T> for PrimitiveArray<T> {
+    fn values(&self) -> Buffer {
+        self.values()
+    }
+
+    fn value(&self, i: usize) -> T::Native {
+        self.value(i)
+    }
+}
+
+impl PrimitiveArrayOps<BooleanType> for BooleanArray {
+    fn values(&self) -> Buffer {
+        self.values()
+    }
+
+    fn value(&self, i: usize) -> bool {
+        self.value(i)
+    }
+}
+
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     fn as_any(&self) -> &Any {
         self
@@ -271,7 +307,6 @@ where
     ///
     /// If a data type cannot be converted to `NaiveDateTime`, a `None` is returned.
     /// A valid value is expected, thus the user should first check for validity.
-    /// TODO: extract constants into static variables
     pub fn value_as_datetime(&self, i: usize) -> Option<NaiveDateTime> {
         let v = i64::from(self.value(i));
         match self.data_type() {
@@ -651,6 +686,23 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     }
 }
 
+/// Common operations for List types, currently `ListArray` and `BinaryArray`.
+pub trait ListArrayOps {
+    fn value_offset_at(&self, i: usize) -> i32;
+}
+
+impl ListArrayOps for ListArray {
+    fn value_offset_at(&self, i: usize) -> i32 {
+        self.value_offset_at(i)
+    }
+}
+
+impl ListArrayOps for BinaryArray {
+    fn value_offset_at(&self, i: usize) -> i32 {
+        self.value_offset_at(i)
+    }
+}
+
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
 pub struct ListArray {
@@ -784,6 +836,16 @@ impl BinaryArray {
         self.value_offset_at(i + 1) - self.value_offset_at(i)
     }
 
+    /// Returns a reference of the value offset buffer
+    pub fn value_offsets(&self) -> Buffer {
+        self.data.buffers()[0].clone()
+    }
+
+    /// Returns a reference of the value data buffer
+    pub fn value_data(&self) -> Buffer {
+        self.data.buffers()[1].clone()
+    }
+
     #[inline]
     fn value_offset_at(&self, i: usize) -> i32 {
         unsafe { *self.value_offsets.get().offset(i as isize) }
@@ -906,6 +968,11 @@ impl StructArray {
     /// Returns the field at `pos`.
     pub fn column(&self, pos: usize) -> &ArrayRef {
         &self.boxed_fields[pos]
+    }
+
+    /// Return the number of fields in this struct array
+    pub fn num_columns(&self) -> usize {
+        self.boxed_fields.len()
     }
 }
 
