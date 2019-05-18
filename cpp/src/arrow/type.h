@@ -20,17 +20,14 @@
 
 #include <climits>
 #include <cstdint>
+#include <iosfwd>
 #include <memory>
-#include <ostream>
 #include <string>
-#include <type_traits>
-#include <unordered_map>
 #include <vector>
 
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
@@ -201,10 +198,7 @@ class ARROW_EXPORT DataType {
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
 };
 
-inline std::ostream& operator<<(std::ostream& os, const DataType& type) {
-  os << type.ToString();
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, const DataType& type);
 
 /// \brief Base class for all fixed-width data types
 class ARROW_EXPORT FixedWidthType : public DataType {
@@ -548,6 +542,8 @@ class ARROW_EXPORT StructType : public NestedType {
 
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
 
+  ~StructType() override;
+
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
 
@@ -571,7 +567,8 @@ class ARROW_EXPORT StructType : public NestedType {
   int GetChildIndex(const std::string& name) const;
 
  private:
-  std::unordered_multimap<std::string, int> name_to_index_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 /// \brief Base type class for (fixed-size) decimal data
@@ -691,23 +688,7 @@ struct TimeUnit {
   enum type { SECOND = 0, MILLI = 1, MICRO = 2, NANO = 3 };
 };
 
-static inline std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
-  switch (unit) {
-    case TimeUnit::SECOND:
-      os << "s";
-      break;
-    case TimeUnit::MILLI:
-      os << "ms";
-      break;
-    case TimeUnit::MICRO:
-      os << "us";
-      break;
-    case TimeUnit::NANO:
-      os << "ns";
-      break;
-  }
-  return os;
-}
+std::ostream& operator<<(std::ostream& os, TimeUnit::type unit);
 
 /// Base type class for time data
 class ARROW_EXPORT TimeType : public TemporalType, public ParametricType {
@@ -916,13 +897,22 @@ class ARROW_EXPORT Schema {
   explicit Schema(std::vector<std::shared_ptr<Field>>&& fields,
                   const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
-  virtual ~Schema() = default;
+  Schema(const Schema&);
+
+  virtual ~Schema();
 
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = true) const;
 
+  /// \brief Return the number of fields (columns) in the schema
+  int num_fields() const;
+
   /// Return the ith schema element. Does not boundscheck
-  std::shared_ptr<Field> field(int i) const { return fields_[i]; }
+  std::shared_ptr<Field> field(int i) const;
+
+  const std::vector<std::shared_ptr<Field>>& fields() const;
+
+  std::vector<std::string> field_names() const;
 
   /// Returns null if name not found
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
@@ -935,10 +925,6 @@ class ARROW_EXPORT Schema {
 
   /// Return the indices of all fields having this name
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
-
-  const std::vector<std::shared_ptr<Field>>& fields() const { return fields_; }
-
-  std::vector<std::string> field_names() const;
 
   /// \brief The custom key-value metadata, if any
   ///
@@ -967,15 +953,9 @@ class ARROW_EXPORT Schema {
   /// \brief Indicates that Schema has non-empty KevValueMetadata
   bool HasMetadata() const;
 
-  /// \brief Return the number of fields (columns) in the schema
-  int num_fields() const { return static_cast<int>(fields_.size()); }
-
  private:
-  std::vector<std::shared_ptr<Field>> fields_;
-
-  std::unordered_multimap<std::string, int> name_to_index_;
-
-  std::shared_ptr<const KeyValueMetadata> metadata_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 // ----------------------------------------------------------------------

@@ -335,6 +335,9 @@ class ARROW_EXPORT Status {
   /// \brief Return the specific error message attached to this status.
   std::string message() const { return ok() ? "" : state_->msg; }
 
+  [[noreturn]] void Abort() const;
+  [[noreturn]] void Abort(const std::string& message) const;
+
  private:
   struct State {
     StatusCode code;

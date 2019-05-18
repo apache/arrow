@@ -15,26 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Non-public header
+#include "arrow/util/string_builder.h"
 
-#ifndef ARROW_GPU_CUDA_COMMON_H
-#define ARROW_GPU_CUDA_COMMON_H
+#include <sstream>
 
-#include <cuda.h>
+#include "arrow/util/stl.h"
 
 namespace arrow {
-namespace cuda {
 
-#define CU_RETURN_NOT_OK(STMT)                                                  \
-  do {                                                                          \
-    CUresult ret = (STMT);                                                      \
-    if (ret != CUDA_SUCCESS) {                                                  \
-      return Status::IOError("Cuda Driver API call in ", __FILE__, " at line ", \
-                             __LINE__, " failed with code ", ret, ": ", #STMT); \
-    }                                                                           \
-  } while (0)
+using internal::make_unique;
 
-}  // namespace cuda
+namespace util {
+namespace detail {
+
+StringStreamWrapper::StringStreamWrapper()
+    : sstream_(make_unique<std::ostringstream>()), ostream_(*sstream_) {}
+
+StringStreamWrapper::~StringStreamWrapper() {}
+
+std::string StringStreamWrapper::str() { return sstream_->str(); }
+
+}  // namespace detail
+}  // namespace util
 }  // namespace arrow
-
-#endif  // ARROW_GPU_CUDA_COMMON_H

@@ -28,8 +28,9 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
-#include <sstream>
+#include <iostream>
 #include <string>
+#include <utility>
 
 #include <fcntl.h>
 #include <stdlib.h>
@@ -47,9 +48,19 @@
 
 // For filename conversion
 #if defined(_MSC_VER)
-#include <boost/system/system_error.hpp>  // NOLINT
 #include <codecvt>
 #include <locale>
+#include <stdexcept>
+#endif
+
+#if defined(_MSC_VER)
+#define USE_BOOST_FILESYSTEM 1
+#else
+#define USE_BOOST_FILESYSTEM 0
+#endif
+
+#if USE_BOOST_FILESYSTEM
+#include <boost/filesystem.hpp>  // NOLINT
 #endif
 
 // ----------------------------------------------------------------------
@@ -92,11 +103,161 @@
 
 #endif
 
-#include "arrow/status.h"
+#include "arrow/buffer.h"
 #include "arrow/util/io-util.h"
 
 namespace arrow {
+namespace io {
+
+//
+// StdoutStream implementation
+//
+
+StdoutStream::StdoutStream() : pos_(0) { set_mode(FileMode::WRITE); }
+
+Status StdoutStream::Close() { return Status::OK(); }
+
+bool StdoutStream::closed() const { return false; }
+
+Status StdoutStream::Tell(int64_t* position) const {
+  *position = pos_;
+  return Status::OK();
+}
+
+Status StdoutStream::Write(const void* data, int64_t nbytes) {
+  pos_ += nbytes;
+  std::cout.write(reinterpret_cast<const char*>(data), nbytes);
+  return Status::OK();
+}
+
+//
+// StderrStream implementation
+//
+
+StderrStream::StderrStream() : pos_(0) { set_mode(FileMode::WRITE); }
+
+Status StderrStream::Close() { return Status::OK(); }
+
+bool StderrStream::closed() const { return false; }
+
+Status StderrStream::Tell(int64_t* position) const {
+  *position = pos_;
+  return Status::OK();
+}
+
+Status StderrStream::Write(const void* data, int64_t nbytes) {
+  pos_ += nbytes;
+  std::cerr.write(reinterpret_cast<const char*>(data), nbytes);
+  return Status::OK();
+}
+
+//
+// StdinStream implementation
+//
+
+StdinStream::StdinStream() : pos_(0) { set_mode(FileMode::READ); }
+
+Status StdinStream::Close() { return Status::OK(); }
+
+bool StdinStream::closed() const { return false; }
+
+Status StdinStream::Tell(int64_t* position) const {
+  *position = pos_;
+  return Status::OK();
+}
+
+Status StdinStream::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+  std::cin.read(reinterpret_cast<char*>(out), nbytes);
+  if (std::cin) {
+    *bytes_read = nbytes;
+    pos_ += nbytes;
+  } else {
+    *bytes_read = 0;
+  }
+  return Status::OK();
+}
+
+Status StdinStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  std::shared_ptr<ResizableBuffer> buffer;
+  ARROW_RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buffer));
+  int64_t bytes_read;
+  ARROW_RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+  ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
+  buffer->ZeroPadding();
+  *out = buffer;
+  return Status::OK();
+}
+
+}  // namespace io
+
 namespace internal {
+
+//
+// PlatformFilename implementation
+//
+
+struct PlatformFilename::Impl {
+#if USE_BOOST_FILESYSTEM
+  ::boost::filesystem::path path;
+#else
+  std::string path;  // 8-bit Unix path
+#endif
+};
+
+PlatformFilename::PlatformFilename() : impl_(new Impl{}) {}
+
+PlatformFilename::~PlatformFilename() {}
+
+PlatformFilename::PlatformFilename(const PlatformFilename& other)
+    : impl_(new Impl{other.impl_->path}) {}
+
+PlatformFilename::PlatformFilename(PlatformFilename&& other)
+    : impl_(std::move(other.impl_)) {}
+
+PlatformFilename& PlatformFilename::operator=(const PlatformFilename& other) {
+  this->impl_.reset(new Impl{other.impl_->path});
+  return *this;
+}
+
+PlatformFilename& PlatformFilename::operator=(PlatformFilename&& other) {
+  this->impl_ = std::move(other.impl_);
+  return *this;
+}
+
+#if defined(_MSC_VER)
+PlatformFilename::PlatformFilename(const std::wstring& path) : impl_(new Impl{path}) {}
+#else
+PlatformFilename::PlatformFilename(const std::string& path) : impl_(new Impl{path}) {}
+#endif
+
+#if defined(_MSC_VER)
+const std::wstring& PlatformFilename::ToNative() const { return impl_->path.native(); }
+#elif USE_BOOST_FILESYSTEM
+const std::string& PlatformFilename::ToNative() const { return impl_->path.native(); }
+#else
+const std::string& PlatformFilename::ToNative() const { return impl_->path; }
+#endif
+
+#if USE_BOOST_FILESYSTEM
+std::string PlatformFilename::ToString() const { return impl_->path.string(); }
+#else
+std::string PlatformFilename::ToString() const { return impl_->path; }
+#endif
+
+Status PlatformFilename::FromString(const std::string& file_name, PlatformFilename* out) {
+#if defined(_MSC_VER)
+  try {
+    auto wpath =
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>{}.from_bytes(file_name);
+    *out = PlatformFilename(std::move(wpath));
+  } catch (std::range_error& e) {
+    return Status::Invalid(e.what());
+  }
+#else
+  *out = PlatformFilename(file_name);
+#endif
+  return Status::OK();
+}
 
 #define CHECK_LSEEK(retval) \
   if ((retval) == -1) return Status::IOError("lseek failed");
@@ -113,7 +274,7 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
                                        const PlatformFilename& file_name,
                                        const char* opname) {
   if (ret == -1) {
-    return Status::IOError("Failed to ", opname, " file: ", file_name.string(),
+    return Status::IOError("Failed to ", opname, " file: ", file_name.ToString(),
                            " , error: ", std::strerror(errno_actual));
   }
   return Status::OK();
@@ -124,17 +285,7 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
 //
 
 Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
-#if defined(_MSC_VER)
-  try {
-    std::codecvt_utf8_utf16<wchar_t> utf16_converter;
-    out->assign(file_name, utf16_converter);
-  } catch (boost::system::system_error& e) {
-    return Status::Invalid(e.what());
-  }
-#else
-  *out = internal::PlatformFilename(file_name);
-#endif
-  return Status::OK();
+  return PlatformFilename::FromString(file_name, out);
 }
 
 //
@@ -144,11 +295,11 @@ Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
 Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   int ret, errno_actual;
 #if defined(_MSC_VER)
-  errno_actual = _wsopen_s(fd, file_name.wstring().c_str(),
+  errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(),
                            _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
   ret = *fd;
 #else
-  ret = *fd = open(file_name.c_str(), O_RDONLY | O_BINARY);
+  ret = *fd = open(file_name.ToNative().c_str(), O_RDONLY | O_BINARY);
   errno_actual = errno;
 #endif
 
@@ -161,10 +312,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
 
 #if defined(_MSC_VER)
   int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
-  int pmode = _S_IWRITE;
-  if (!write_only) {
-    pmode |= _S_IREAD;
-  }
+  int pmode = _S_IREAD | _S_IWRITE;
 
   if (truncate) {
     oflag |= _O_TRUNC;
@@ -179,7 +327,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
     oflag |= _O_RDWR;
   }
 
-  errno_actual = _wsopen_s(fd, file_name.wstring().c_str(), oflag, _SH_DENYNO, pmode);
+  errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(), oflag, _SH_DENYNO, pmode);
   ret = *fd;
 
 #else
@@ -198,7 +346,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
     oflag |= O_RDWR;
   }
 
-  ret = *fd = open(file_name.c_str(), oflag, ARROW_WRITE_SHMODE);
+  ret = *fd = open(file_name.ToNative().c_str(), oflag, ARROW_WRITE_SHMODE);
   errno_actual = errno;
 #endif
   return CheckFileOpResult(ret, errno_actual, file_name, "open local");

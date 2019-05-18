@@ -19,7 +19,6 @@
 #define ARROW_IPC_JSON_INTERNAL_H
 
 #include <memory>
-#include <sstream>
 #include <string>
 
 #include "arrow/json/rapidjson-defs.h"

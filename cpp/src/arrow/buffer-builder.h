@@ -19,7 +19,6 @@
 #define ARROW_BUFFER_BUILDER_H
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -107,18 +106,6 @@ class ARROW_EXPORT BufferBuilder {
   Status Append(const int64_t num_copies, uint8_t value) {
     ARROW_RETURN_NOT_OK(Reserve(num_copies));
     UnsafeAppend(num_copies, value);
-    return Status::OK();
-  }
-
-  /// \brief Append the given data to the buffer
-  ///
-  /// The buffer is automatically expanded if necessary.
-  template <size_t NBYTES>
-  Status Append(const std::array<uint8_t, NBYTES>& data) {
-    constexpr auto nbytes = static_cast<int64_t>(NBYTES);
-    ARROW_RETURN_NOT_OK(Reserve(NBYTES));
-    std::copy(data.cbegin(), data.cend(), data_ + size_);
-    size_ += nbytes;
     return Status::OK();
   }
 

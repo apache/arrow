@@ -17,6 +17,7 @@
 
 #include "arrow/buffer.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <utility>
 

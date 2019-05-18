@@ -25,6 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/visibility.h"
 #include "arrow/visitor_inline.h"

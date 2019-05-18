@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <condition_variable>
 #include <deque>
+#include <list>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -52,6 +53,65 @@ struct ThreadPool::State {
   bool please_shutdown_;
   bool quick_shutdown_;
 };
+
+// The worker loop is an independent function so that it can keep running
+// after the ThreadPool is destroyed.
+static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
+                       std::list<std::thread>::iterator it) {
+  std::unique_lock<std::mutex> lock(state->mutex_);
+
+  // Since we hold the lock, `it` now points to the correct thread object
+  // (LaunchWorkersUnlocked has exited)
+  DCHECK_EQ(std::this_thread::get_id(), it->get_id());
+
+  // If too many threads, we should secede from the pool
+  const auto should_secede = [&]() -> bool {
+    return state->workers_.size() > static_cast<size_t>(state->desired_capacity_);
+  };
+
+  while (true) {
+    // By the time this thread is started, some tasks may have been pushed
+    // or shutdown could even have been requested.  So we only wait on the
+    // condition variable at the end of the loop.
+
+    // Execute pending tasks if any
+    while (!state->pending_tasks_.empty() && !state->quick_shutdown_) {
+      // We check this opportunistically at each loop iteration since
+      // it releases the lock below.
+      if (should_secede()) {
+        break;
+      }
+      {
+        std::function<void()> task = std::move(state->pending_tasks_.front());
+        state->pending_tasks_.pop_front();
+        lock.unlock();
+        task();
+      }
+      lock.lock();
+    }
+    // Now either the queue is empty *or* a quick shutdown was requested
+    if (state->please_shutdown_ || should_secede()) {
+      break;
+    }
+    // Wait for next wakeup
+    state->cv_.wait(lock);
+  }
+
+  // We're done.  Move our thread object to the trashcan of finished
+  // workers.  This has two motivations:
+  // 1) the thread object doesn't get destroyed before this function finishes
+  //    (but we could call thread::detach() instead)
+  // 2) we can explicitly join() the trashcan threads to make sure all OS threads
+  //    are exited before the ThreadPool is destroyed.  Otherwise subtle
+  //    timing conditions can lead to false positives with Valgrind.
+  DCHECK_EQ(std::this_thread::get_id(), it->get_id());
+  state->finished_workers_.push_back(std::move(*it));
+  state->workers_.erase(it);
+  if (state->please_shutdown_) {
+    // Notify the function waiting in Shutdown().
+    state->cv_shutdown_.notify_one();
+  }
+}
 
 ThreadPool::ThreadPool()
     : sp_state_(std::make_shared<ThreadPool::State>()),
@@ -163,63 +223,6 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
     state_->workers_.emplace_back();
     auto it = --(state_->workers_.end());
     *it = std::thread([state, it] { WorkerLoop(state, it); });
-  }
-}
-
-void ThreadPool::WorkerLoop(std::shared_ptr<State> state,
-                            std::list<std::thread>::iterator it) {
-  std::unique_lock<std::mutex> lock(state->mutex_);
-
-  // Since we hold the lock, `it` now points to the correct thread object
-  // (LaunchWorkersUnlocked has exited)
-  DCHECK_EQ(std::this_thread::get_id(), it->get_id());
-
-  // If too many threads, we should secede from the pool
-  const auto should_secede = [&]() -> bool {
-    return state->workers_.size() > static_cast<size_t>(state->desired_capacity_);
-  };
-
-  while (true) {
-    // By the time this thread is started, some tasks may have been pushed
-    // or shutdown could even have been requested.  So we only wait on the
-    // condition variable at the end of the loop.
-
-    // Execute pending tasks if any
-    while (!state->pending_tasks_.empty() && !state->quick_shutdown_) {
-      // We check this opportunistically at each loop iteration since
-      // it releases the lock below.
-      if (should_secede()) {
-        break;
-      }
-      {
-        std::function<void()> task = std::move(state->pending_tasks_.front());
-        state->pending_tasks_.pop_front();
-        lock.unlock();
-        task();
-      }
-      lock.lock();
-    }
-    // Now either the queue is empty *or* a quick shutdown was requested
-    if (state->please_shutdown_ || should_secede()) {
-      break;
-    }
-    // Wait for next wakeup
-    state->cv_.wait(lock);
-  }
-
-  // We're done.  Move our thread object to the trashcan of finished
-  // workers.  This has two motivations:
-  // 1) the thread object doesn't get destroyed before this function finishes
-  //    (but we could call thread::detach() instead)
-  // 2) we can explicitly join() the trashcan threads to make sure all OS threads
-  //    are exited before the ThreadPool is destroyed.  Otherwise subtle
-  //    timing conditions can lead to false positives with Valgrind.
-  DCHECK_EQ(std::this_thread::get_id(), it->get_id());
-  state->finished_workers_.push_back(std::move(*it));
-  state->workers_.erase(it);
-  if (state->please_shutdown_) {
-    // Notify the function waiting in Shutdown().
-    state->cv_shutdown_.notify_one();
   }
 }
 

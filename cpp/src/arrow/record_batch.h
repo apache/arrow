@@ -23,16 +23,11 @@
 #include <string>
 #include <vector>
 
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-struct ArrayData;
-class Status;
-class Table;
 
 /// \class RecordBatch
 /// \brief Collection of equal-length arrays matching a particular Schema
@@ -95,10 +90,7 @@ class ARROW_EXPORT RecordBatch {
   /// \brief Retrieve an array from the record batch
   /// \param[in] name field name
   /// \return an Array or null if no field was found
-  std::shared_ptr<Array> GetColumnByName(const std::string& name) const {
-    auto i = schema_->GetFieldIndex(name);
-    return i == -1 ? NULLPTR : column(i);
-  }
+  std::shared_ptr<Array> GetColumnByName(const std::string& name) const;
 
   /// \brief Retrieve an array's internaldata from the record batch
   /// \param[in] i field index, does not boundscheck
@@ -141,7 +133,7 @@ class ARROW_EXPORT RecordBatch {
   const std::string& column_name(int i) const;
 
   /// \return the number of columns in the table
-  int num_columns() const { return schema_->num_fields(); }
+  int num_columns() const;
 
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }

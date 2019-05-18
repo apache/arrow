@@ -132,6 +132,7 @@ set(ARROW_SRCS
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
+    util/string_builder.cc
     util/task-group.cc
     util/thread-pool.cc
     util/trie.cc
@@ -283,6 +284,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 SOURCES
+                io/test-common.cc
                 ipc/test-common.cc
                 filesystem/test-util.cc
                 testing/gtest_util.cc

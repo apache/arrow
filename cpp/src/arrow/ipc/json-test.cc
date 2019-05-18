@@ -296,7 +296,7 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
   for (int i = 0; i < nbatches; ++i) {
     std::shared_ptr<RecordBatch> batch;
     ASSERT_OK(reader->ReadRecordBatch(i, &batch));
-    ASSERT_RECORD_BATCHES_EQUAL(*batch, *batches[i]);
+    ASSERT_BATCHES_EQUAL(*batch, *batches[i]);
   }
 }
 

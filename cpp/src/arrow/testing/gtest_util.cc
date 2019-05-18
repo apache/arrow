@@ -29,7 +29,6 @@
 #include <iostream>
 #include <limits>
 #include <memory>
-#include <random>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -46,8 +45,33 @@
 
 namespace arrow {
 
+static void PrintColumn(const Column& col, std::stringstream* ss) {
+  const ChunkedArray& carr = *col.data();
+  for (int i = 0; i < carr.num_chunks(); ++i) {
+    auto c1 = carr.chunk(i);
+    *ss << "Chunk " << i << std::endl;
+    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
+    *ss << std::endl;
+  }
+}
+
+template <typename T>
+void AssertTsEqual(const T& expected, const T& actual) {
+  if (!expected.Equals(actual)) {
+    std::stringstream pp_expected;
+    std::stringstream pp_actual;
+    ARROW_EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(actual, 0, &pp_actual));
+    FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
+  }
+}
+
 void AssertArraysEqual(const Array& expected, const Array& actual) {
-  ASSERT_ARRAYS_EQUAL(expected, actual);
+  AssertTsEqual(expected, actual);
+}
+
+void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual) {
+  AssertTsEqual(expected, actual);
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
@@ -115,16 +139,6 @@ std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
   std::shared_ptr<Array> out;
   ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
   return out;
-}
-
-void PrintColumn(const Column& col, std::stringstream* ss) {
-  const ChunkedArray& carr = *col.data();
-  for (int i = 0; i < carr.num_chunks(); ++i) {
-    auto c1 = carr.chunk(i);
-    *ss << "Chunk " << i << std::endl;
-    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
-    *ss << std::endl;
-  }
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual,

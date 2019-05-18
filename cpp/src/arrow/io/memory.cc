@@ -275,6 +275,10 @@ BufferReader::BufferReader(const uint8_t* data, int64_t size)
 BufferReader::BufferReader(const Buffer& buffer)
     : BufferReader(buffer.data(), buffer.size()) {}
 
+BufferReader::BufferReader(const util::string_view& data)
+    : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
+                   static_cast<int64_t>(data.size())) {}
+
 Status BufferReader::Close() {
   is_open_ = false;
   return Status::OK();

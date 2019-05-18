@@ -29,7 +29,9 @@
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
 #include "arrow/flight/internal.h"
@@ -125,8 +127,10 @@ Status GetPerfBatches(const perf::Token& token, const std::shared_ptr<Schema>& s
   const int32_t length = token.definition().records_per_batch();
   const int32_t ncolumns = 4;
   for (int i = 0; i < ncolumns; ++i) {
-    RETURN_NOT_OK(MakeRandomBuffer<int64_t>(length, default_memory_pool(), &buffer));
+    RETURN_NOT_OK(MakeRandomByteBuffer(length * sizeof(int64_t), default_memory_pool(),
+                                       &buffer, static_cast<int32_t>(i) /* seed */));
     arrays.push_back(std::make_shared<Int64Array>(length, buffer));
+    RETURN_NOT_OK(ValidateArray(*arrays.back()));
   }
 
   *data_stream = std::unique_ptr<FlightDataStream>(
