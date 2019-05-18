@@ -32,7 +32,6 @@ pacman --sync --refresh --noconfirm ^
     "%MINGW_PACKAGE_PREFIX%-double-conversion" ^
     "%MINGW_PACKAGE_PREFIX%-flatbuffers" ^
     "%MINGW_PACKAGE_PREFIX%-gflags" ^
-    "%MINGW_PACKAGE_PREFIX%-glog" ^
     "%MINGW_PACKAGE_PREFIX%-gobject-introspection" ^
     "%MINGW_PACKAGE_PREFIX%-gtest" ^
     "%MINGW_PACKAGE_PREFIX%-gtk-doc" ^
