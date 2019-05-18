@@ -70,6 +70,17 @@ cdef class ReadOptions:
         self.options.block_size = value
 
 cdef class ParseOptions:
+    """
+    Options for parsing JSON files.
+
+    Parameters
+    ----------
+    explicit_schema: Schema, optional (default None)
+        Optional explicit schema (no type inference, ignores other fields).
+    newlines_in_values: bool, optional (default False)
+        Whether objects may be printed across multiple lines (for example
+        pretty printed). If false, input must end with an empty line.
+    """
 
     cdef:
         CJSONParseOptions options
