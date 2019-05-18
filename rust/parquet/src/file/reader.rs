@@ -41,7 +41,7 @@ use crate::column::{
 use crate::compression::{create_codec, Codec};
 use crate::errors::{ParquetError, Result};
 use crate::file::{metadata::*, statistics, FOOTER_SIZE, PARQUET_MAGIC};
-use crate::record::reader::{Iter, RowIter};
+use crate::record::reader::RowIter;
 use crate::record::Row;
 use crate::schema::types::{
     self, ColumnDescPtr, SchemaDescPtr, SchemaDescriptor, Type as SchemaType,
@@ -314,12 +314,14 @@ impl<'a> TryFrom<&'a str> for SerializedFileReader<File> {
     }
 }
 
+/// Conversion into a [`RowIter`](crate::record::reader::RowIter)
+/// using the full file schema over all row groups.
 impl IntoIterator for SerializedFileReader<File> {
     type Item = Row;
-    type IntoIter = Iter<SerializedFileReader<File>>;
+    type IntoIter = RowIter<'static>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Iter::from(self)
+        RowIter::from_file_into(Box::new(self))
     }
 }
 
@@ -650,6 +652,7 @@ mod tests {
 
     use crate::basic::SortOrder;
     use crate::record::RowAccessor;
+    use crate::schema::parser::parse_message_type;
     use crate::util::test_common::{get_temp_file, get_test_file, get_test_path};
 
     #[test]
@@ -820,6 +823,30 @@ mod tests {
         // rows in the parquet file are not sorted by "id"
         // each file contains [id:4, id:5, id:6, id:7, id:2, id:3, id:0, id:1]
         assert_eq!(vec, vec![4, 5, 6, 7, 2, 3, 0, 1, 4, 5, 6, 7, 2, 3, 0, 1]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_reader_into_iter_project() -> Result<()> {
+        let path = get_test_path("alltypes_plain.parquet");
+        let result = vec![path]
+            .iter()
+            .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
+            .flat_map(|r| {
+                let schema = "message schema { OPTIONAL INT32 id; }";
+                let proj = parse_message_type(&schema).ok();
+
+                r.into_iter().project(proj).unwrap()
+            })
+            .map(|r| format!("{}", r))
+            .collect::<Vec<_>>()
+            .join(",");
+
+        assert_eq!(
+            result,
+            "{id: 4},{id: 5},{id: 6},{id: 7},{id: 2},{id: 3},{id: 0},{id: 1}"
+        );
 
         Ok(())
     }
