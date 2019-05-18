@@ -1127,7 +1127,7 @@ if(ARROW_WITH_PROTOBUF)
   message(STATUS "Found protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
 endif()
 
-if(MSVC)
+if(WIN32)
   # jemalloc is not supported on Windows
   set(ARROW_JEMALLOC off)
 endif()
