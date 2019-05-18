@@ -904,6 +904,9 @@ typedef struct GArrowCSVReadOptionsPrivate_ {
   arrow::csv::ReadOptions read_options;
   arrow::csv::ParseOptions parse_options;
   arrow::csv::ConvertOptions convert_options;
+  GArray *null_values;
+  GArray *true_values;
+  GArray *false_values;
 } GArrowCSVReadOptionsPrivate;
 
 enum {
@@ -918,7 +921,8 @@ enum {
   PROP_ALLOW_NEWLINES_IN_VALUES,
   PROP_IGNORE_EMPTY_LINES,
   PROP_N_HEADER_ROWS,
-  PROP_CHECK_UTF8
+  PROP_CHECK_UTF8,
+  PROP_ALLOW_NULL_STRINGS
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowCSVReadOptions,
@@ -929,6 +933,26 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowCSVReadOptions,
   static_cast<GArrowCSVReadOptionsPrivate *>(       \
     garrow_csv_read_options_get_instance_private(   \
       GARROW_CSV_READ_OPTIONS(object)))
+
+static void
+garrow_csv_read_options_finalize(GObject *object)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->null_values) {
+    g_array_free(priv->null_values, TRUE);
+  }
+
+  if (priv->true_values) {
+    g_array_free(priv->true_values, TRUE);
+  }
+
+  if (priv->false_values) {
+    g_array_free(priv->false_values, TRUE);
+  }
+
+  G_OBJECT_CLASS(garrow_csv_read_options_parent_class)->finalize(object);
+}
 
 static void
 garrow_csv_read_options_set_property(GObject *object,
@@ -974,6 +998,9 @@ garrow_csv_read_options_set_property(GObject *object,
     break;
   case PROP_CHECK_UTF8:
     priv->convert_options.check_utf8 = g_value_get_boolean(value);
+    break;
+  case PROP_ALLOW_NULL_STRINGS:
+    priv->convert_options.strings_can_be_null = g_value_get_boolean(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1026,6 +1053,9 @@ garrow_csv_read_options_get_property(GObject *object,
   case PROP_CHECK_UTF8:
     g_value_set_boolean(value, priv->convert_options.check_utf8);
     break;
+  case PROP_ALLOW_NULL_STRINGS:
+    g_value_set_boolean(value, priv->convert_options.strings_can_be_null);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -1048,6 +1078,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->finalize     = garrow_csv_read_options_finalize;
   gobject_class->set_property = garrow_csv_read_options_set_property;
   gobject_class->get_property = garrow_csv_read_options_get_property;
 
@@ -1253,6 +1284,24 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
                               convert_options.check_utf8,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_CHECK_UTF8, spec);
+
+  /**
+   * GArrowCSVReadOptions:allow-null-strings:
+   *
+   * Whether string / binary columns can have null values.
+   * If %TRUE, then strings in "null_values" are considered null for string columns.
+   * If %FALSE, then all strings are valid string values.
+   *
+   * Since: 0.14.0
+   */
+  spec = g_param_spec_boolean("allow-null-strings",
+                              "Allow null strings",
+                              "Whether string / binary columns can have null values. "
+                              "If TRUE, then strings in null_values are considered null for string columns. "
+                              "If FALSE, then all strings are valid string values.",
+                              convert_options.strings_can_be_null,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ALLOW_NULL_STRINGS, spec);
 }
 
 /**
@@ -1334,6 +1383,180 @@ garrow_csv_read_options_get_column_types(GArrowCSVReadOptions *options)
                         garrow_data_type_new_raw(&arrow_data_type));
   }
   return types;
+}
+
+/**
+ * garrow_csv_read_options_set_null_values:
+ * @options: A #GArrowCSVReadOptions.
+ * @null_values: (array length=n_null_values): The null values to be read.
+ * @n_null_values: The number of the specified null values.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_set_null_values(GArrowCSVReadOptions *options,
+                                        const gchar **null_values,
+                                        guint n_null_values)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  if (priv->null_values) {
+    g_array_free(priv->null_values, TRUE);
+  }
+  if (n_null_values == 0) {
+    priv->null_values = NULL;
+  } else {
+    priv->null_values = g_array_sized_new(FALSE,
+                                          FALSE,
+                                          sizeof(gchar *),
+                                          n_null_values);
+    g_array_append_vals(priv->null_values, null_values, n_null_values);
+
+    std::vector<std::string> cpp_null_values(n_null_values);
+    for (guint i = 0; i < n_null_values; ++i) {
+      cpp_null_values.push_back(null_values[i]);
+    }
+    priv->convert_options.null_values = cpp_null_values;
+  }
+}
+
+/**
+ * garrow_csv_read_options_get_null_values:
+ * @options: A #GArrowCSVReadOptions.
+ * @n_null_values: The number of the specified null values.
+ *
+ * Return: (nullable) (array length=n_null_values):
+ *   The null values to be read.
+ *
+ * Since: 0.14.0
+ */
+const gchar *
+garrow_csv_read_options_get_null_values(GArrowCSVReadOptions *options,
+                                        guint *n_null_values)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  if (priv->null_values) {
+    *n_null_values = priv->null_values->len;
+    return reinterpret_cast<gchar *>(priv->null_values->data);
+  } else {
+    *n_null_values = 0;
+    return NULL;
+  }
+}
+
+/**
+ * garrow_csv_read_options_set_true_values:
+ * @options: A #GArrowCSVReadOptions.
+ * @true_values: (array length=n_true_values): The true values to be read.
+ * @n_true_values: The number of the specified true values.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_set_true_values(GArrowCSVReadOptions *options,
+                                        const gchar **true_values,
+                                        guint n_true_values)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  if (priv->true_values) {
+    g_array_free(priv->true_values, TRUE);
+  }
+  if (n_true_values == 0) {
+    priv->true_values = NULL;
+  } else {
+    priv->true_values = g_array_sized_new(FALSE,
+                                          FALSE,
+                                          sizeof(gchar *),
+                                          n_true_values);
+    g_array_append_vals(priv->true_values, true_values, n_true_values);
+
+    std::vector<std::string> cpp_true_values(n_true_values);
+    for (guint i = 0; i < n_true_values; ++i) {
+      cpp_true_values.push_back(true_values[i]);
+    }
+    priv->convert_options.true_values = cpp_true_values;
+  }
+}
+
+/**
+ * garrow_csv_read_options_get_true_values:
+ * @options: A #GArrowCSVReadOptions.
+ * @n_true_values: The number of the specified true values.
+ *
+ * Return: (nullable) (array length=n_true_values):
+ *   The true values to be read.
+ *
+ * Since: 0.14.0
+ */
+const gchar *
+garrow_csv_read_options_get_true_values(GArrowCSVReadOptions *options,
+                                        guint *n_true_values)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  if (priv->true_values) {
+    *n_true_values = priv->true_values->len;
+    return reinterpret_cast<gchar *>(priv->true_values->data);
+  } else {
+    *n_true_values = 0;
+    return NULL;
+  }
+}
+
+/**
+ * garrow_csv_read_options_set_false_values:
+ * @options: A #GArrowCSVReadOptions.
+ * @false_values: (array length=n_false_values): The true values to be read.
+ * @n_false_values: The number of the specified true values.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_set_false_values(GArrowCSVReadOptions *options,
+                                         const gchar **false_values,
+                                         guint n_false_values)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  if (priv->false_values) {
+    g_array_free(priv->false_values, TRUE);
+  }
+  if (n_false_values == 0) {
+    priv->false_values = NULL;
+  } else {
+    priv->false_values = g_array_sized_new(FALSE,
+                                           FALSE,
+                                           sizeof(gchar *),
+                                           n_false_values);
+    g_array_append_vals(priv->false_values, false_values, n_false_values);
+
+    std::vector<std::string> cpp_false_values(n_false_values);
+    for (guint i = 0; i < n_false_values; ++i) {
+      cpp_false_values.push_back(false_values[i]);
+    }
+    priv->convert_options.false_values = cpp_false_values;
+  }
+}
+
+/**
+ * garrow_csv_read_options_get_false_values:
+ * @options: A #GArrowCSVReadOptions.
+ * @n_false_values: The number of the specified true values.
+ *
+ * Return: (nullable) (array length=n_false_values):
+ *   The true values to be read.
+ *
+ * Since: 0.14.0
+ */
+const gchar *
+garrow_csv_read_options_get_false_values(GArrowCSVReadOptions *options,
+                                         guint *n_false_values)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  if (priv->false_values) {
+    *n_false_values = priv->false_values->len;
+    return reinterpret_cast<gchar *>(priv->false_values->data);
+  } else {
+    *n_false_values = 0;
+    return NULL;
+  }
 }
 
 

@@ -90,6 +90,59 @@ count,valid
                      },
                      options.column_types)
       end
+
+      def test_null_values
+        options = Arrow::CSVReadOptions.new
+        options.null_values = ["2", "5"]
+        table = Arrow::CSVReader.new(open_input(<<-CSV), options)
+message,count
+"Start",2
+"Shutdown",9
+"Restart",5
+        CSV
+        columns = {
+          "message" => build_string_array(["Start", "Shutdown", "Restart"]),
+          "count" => build_int64_array([nil, 9, nil]),
+        }
+        assert_equal(build_table(columns),
+                     table.read)
+      end
+
+      def test_boolean_values
+        options = Arrow::CSVReadOptions.new
+        options.true_values = ["Start", "Restart"]
+        options.false_values = ["Shutdown"]
+        table = Arrow::CSVReader.new(open_input(<<-CSV), options)
+message,count
+"Start",2
+"Shutdown",9
+"Restart",5
+        CSV
+        columns = {
+          "message" => build_boolean_array([true, false, true]),
+          "count" => build_int64_array([2, 9, 5]),
+        }
+        assert_equal(build_table(columns),
+                     table.read)
+      end
+
+      def test_allow_null_strings
+        options = Arrow::CSVReadOptions.new
+        options.null_values = ["Start", "Restart"]
+        options.allow_null_strings = true
+        table = Arrow::CSVReader.new(open_input(<<-CSV), options)
+message,count
+"Start",2
+"Shutdown",9
+"Restart",5
+        CSV
+        columns = {
+          "message" => build_string_array([nil, "Shutdown", nil]),
+          "count" => build_int64_array([2, 9, 5]),
+        }
+        assert_equal(build_table(columns),
+                     table.read)
+      end
     end
   end
 end
