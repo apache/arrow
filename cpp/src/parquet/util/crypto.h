@@ -59,6 +59,12 @@ class AesEncryptor {
                           int key_len, uint8_t* aad, int aad_len, uint8_t* nonce,
                           uint8_t* encrypted_footer);
 
+  void WipeOut() {
+    if (NULLPTR != ctx_) {
+      EVP_CIPHER_CTX_free(ctx_);
+    }
+  }
+
   ~AesEncryptor() {
     if (NULLPTR != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
@@ -90,6 +96,12 @@ class AesDecryptor {
   // constructor, exception will be thrown.
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
               uint8_t* aad, int aad_len, uint8_t* plaintext);
+
+  void WipeOut() {
+    if (NULLPTR != ctx_) {
+      EVP_CIPHER_CTX_free(ctx_);
+    }
+  }
 
   ~AesDecryptor() {
     if (NULLPTR != ctx_) {
