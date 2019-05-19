@@ -104,13 +104,13 @@ func WithCRLF(useCRLF bool) Option {
 	}
 }
 
-func WithHeader() Option {
+func WithHeader(useHeader bool) Option {
 	return func(cfg config) {
 		switch cfg := cfg.(type) {
 		case *Reader:
-			cfg.header = true
+			cfg.header = useHeader
 		case *Writer:
-			cfg.header = true
+			cfg.header = useHeader
 		default:
 			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
 		}
