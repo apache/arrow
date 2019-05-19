@@ -162,17 +162,29 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
 
 static inline format::AesGcmV1 ToAesGcmV1Thrift(AadMetadata aad) {
   format::AesGcmV1 aesGcmV1;
-  aesGcmV1.__set_aad_prefix(aad.aad_prefix);
+  // aad_file_unique is always set
+  aesGcmV1.__isset.aad_file_unique = true;
   aesGcmV1.__set_aad_file_unique(aad.aad_file_unique);
+  aesGcmV1.__isset.supply_aad_prefix = true;
   aesGcmV1.__set_supply_aad_prefix(aad.supply_aad_prefix);
+  if (!aad.aad_prefix.empty()) {
+    aesGcmV1.__isset.aad_prefix = true;
+    aesGcmV1.__set_aad_prefix(aad.aad_prefix);
+  }
   return aesGcmV1;
 }
 
 static inline format::AesGcmCtrV1 ToAesGcmCtrV1Thrift(AadMetadata aad) {
   format::AesGcmCtrV1 aesGcmCtrV1;
-  aesGcmCtrV1.__set_aad_prefix(aad.aad_prefix);
+  // aad_file_unique is always set
+  aesGcmCtrV1.__isset.aad_file_unique = true;
   aesGcmCtrV1.__set_aad_file_unique(aad.aad_file_unique);
+  aesGcmCtrV1.__isset.supply_aad_prefix = true;
   aesGcmCtrV1.__set_supply_aad_prefix(aad.supply_aad_prefix);
+  if (!aad.aad_prefix.empty()) {
+    aesGcmCtrV1.__isset.aad_prefix = true;
+    aesGcmCtrV1.__set_aad_prefix(aad.aad_prefix);
+  }
   return aesGcmCtrV1;
 }
 
