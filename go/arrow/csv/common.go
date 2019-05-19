@@ -117,6 +117,19 @@ func WithHeader(useHeader bool) Option {
 	}
 }
 
+func WithNullString(null string) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Reader:
+			cfg.null = null
+		case *Writer:
+			cfg.null = null
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
+		}
+	}
+}
+
 func validate(schema *arrow.Schema) {
 	for i, f := range schema.Fields() {
 		switch ft := f.Type.(type) {

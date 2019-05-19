@@ -198,6 +198,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		csv.WithAllocator(mem),
 		csv.WithComment('#'), csv.WithComma(';'),
 		csv.WithHeader(withHeader),
+		csv.WithNullString("null"),
 	)
 	defer r.Release()
 
@@ -219,7 +220,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		n++
 	}
 
-	if got, want := n, 2; got != want {
+	if got, want := n, 3; got != want {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
 
@@ -247,6 +248,18 @@ rec[1]["u64"]: [2]
 rec[1]["f32"]: [2.2]
 rec[1]["f64"]: [2.2]
 rec[1]["str"]: ["str-2"]
+rec[2]["bool"]: [(null)]
+rec[2]["i8"]: [(null)]
+rec[2]["i16"]: [(null)]
+rec[2]["i32"]: [(null)]
+rec[2]["i64"]: [(null)]
+rec[2]["u8"]: [(null)]
+rec[2]["u16"]: [(null)]
+rec[2]["u32"]: [(null)]
+rec[2]["u64"]: [(null)]
+rec[2]["f32"]: [(null)]
+rec[2]["f64"]: [(null)]
+rec[2]["str"]: [(null)]
 `
 
 	if got, want := out.String(), want; got != want {

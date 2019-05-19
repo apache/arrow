@@ -48,6 +48,8 @@ type Reader struct {
 
 	header bool
 	once   sync.Once
+
+	null string
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
@@ -58,7 +60,13 @@ type Reader struct {
 func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 	validate(schema)
 
-	rr := &Reader{r: csv.NewReader(r), schema: schema, refs: 1, chunk: 1}
+	rr := &Reader{
+		r:      csv.NewReader(r),
+		schema: schema,
+		refs:   1,
+		chunk:  1,
+		null:   "NULL",
+	}
 	rr.r.ReuseRecord = true
 	for _, opt := range opts {
 		opt(rr)
@@ -226,48 +234,52 @@ func (r *Reader) validate(recs []string) {
 
 func (r *Reader) read(recs []string) {
 	for i, str := range recs {
-		switch r.schema.Field(i).Type.(type) {
-		case *arrow.BooleanType:
-			var v bool
-			switch str {
-			case "false", "False", "0":
-				v = false
-			case "true", "True", "1":
-				v = true
+		if str == r.null {
+			r.bld.Field(i).AppendNull()
+		} else {
+			switch r.schema.Field(i).Type.(type) {
+			case *arrow.BooleanType:
+				var v bool
+				switch str {
+				case "false", "False", "0":
+					v = false
+				case "true", "True", "1":
+					v = true
+				}
+				r.bld.Field(i).(*array.BooleanBuilder).Append(v)
+			case *arrow.Int8Type:
+				v := r.readI8(str)
+				r.bld.Field(i).(*array.Int8Builder).Append(v)
+			case *arrow.Int16Type:
+				v := r.readI16(str)
+				r.bld.Field(i).(*array.Int16Builder).Append(v)
+			case *arrow.Int32Type:
+				v := r.readI32(str)
+				r.bld.Field(i).(*array.Int32Builder).Append(v)
+			case *arrow.Int64Type:
+				v := r.readI64(str)
+				r.bld.Field(i).(*array.Int64Builder).Append(v)
+			case *arrow.Uint8Type:
+				v := r.readU8(str)
+				r.bld.Field(i).(*array.Uint8Builder).Append(v)
+			case *arrow.Uint16Type:
+				v := r.readU16(str)
+				r.bld.Field(i).(*array.Uint16Builder).Append(v)
+			case *arrow.Uint32Type:
+				v := r.readU32(str)
+				r.bld.Field(i).(*array.Uint32Builder).Append(v)
+			case *arrow.Uint64Type:
+				v := r.readU64(str)
+				r.bld.Field(i).(*array.Uint64Builder).Append(v)
+			case *arrow.Float32Type:
+				v := r.readF32(str)
+				r.bld.Field(i).(*array.Float32Builder).Append(v)
+			case *arrow.Float64Type:
+				v := r.readF64(str)
+				r.bld.Field(i).(*array.Float64Builder).Append(v)
+			case *arrow.StringType:
+				r.bld.Field(i).(*array.StringBuilder).Append(str)
 			}
-			r.bld.Field(i).(*array.BooleanBuilder).Append(v)
-		case *arrow.Int8Type:
-			v := r.readI8(str)
-			r.bld.Field(i).(*array.Int8Builder).Append(v)
-		case *arrow.Int16Type:
-			v := r.readI16(str)
-			r.bld.Field(i).(*array.Int16Builder).Append(v)
-		case *arrow.Int32Type:
-			v := r.readI32(str)
-			r.bld.Field(i).(*array.Int32Builder).Append(v)
-		case *arrow.Int64Type:
-			v := r.readI64(str)
-			r.bld.Field(i).(*array.Int64Builder).Append(v)
-		case *arrow.Uint8Type:
-			v := r.readU8(str)
-			r.bld.Field(i).(*array.Uint8Builder).Append(v)
-		case *arrow.Uint16Type:
-			v := r.readU16(str)
-			r.bld.Field(i).(*array.Uint16Builder).Append(v)
-		case *arrow.Uint32Type:
-			v := r.readU32(str)
-			r.bld.Field(i).(*array.Uint32Builder).Append(v)
-		case *arrow.Uint64Type:
-			v := r.readU64(str)
-			r.bld.Field(i).(*array.Uint64Builder).Append(v)
-		case *arrow.Float32Type:
-			v := r.readF32(str)
-			r.bld.Field(i).(*array.Float32Builder).Append(v)
-		case *arrow.Float64Type:
-			v := r.readF64(str)
-			r.bld.Field(i).(*array.Float64Builder).Append(v)
-		case *arrow.StringType:
-			r.bld.Field(i).(*array.StringBuilder).Append(str)
 		}
 	}
 }

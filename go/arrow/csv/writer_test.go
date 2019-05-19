@@ -171,6 +171,10 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 	b.Field(10).(*array.Float64Builder).AppendValues([]float64{0.0, 0.1, 0.2}, nil)
 	b.Field(11).(*array.StringBuilder).AppendValues([]string{"str-0", "str-1", "str-2"}, nil)
 
+	for _, field := range b.Fields() {
+		field.AppendNull()
+	}
+
 	rec := b.NewRecord()
 	defer rec.Release()
 
@@ -178,6 +182,7 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 		csv.WithComma(';'),
 		csv.WithCRLF(false),
 		csv.WithHeader(writeHeader),
+		csv.WithNullString("null"),
 	)
 	err := w.Write(rec)
 	if err != nil {
@@ -197,6 +202,7 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 	want := `true;-1;-1;-1;-1;0;0;0;0;0;0;str-0
 false;0;0;0;0;1;1;1;1;0.1;0.1;str-1
 true;1;1;1;1;2;2;2;2;0.2;0.2;str-2
+null;null;null;null;null;null;null;null;null;null;null;null
 `
 
 	if writeHeader {
