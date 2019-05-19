@@ -28,13 +28,13 @@ struct GandivaProjector {}
 impl GandivaProjector {
     /// schema is record batch's schema, it's used by gandiva to generate code.
     /// exprs is expression to evaluate, for example ```a+b```
-    pub fn new(schema: Schema, exprs: Vec<Expr>) -> Result<Self> {
+    pub fn new(_schema: Schema, _exprs: Vec<Expr>) -> Result<Self> {
         unimplemented!()
     }
 }
 
 impl Projector for GandivaProjector {
-    fn eval(&self, record_batch: RecordBatch) -> Result<RecordBatch> {
+    fn eval(&self, _record_batch: RecordBatch) -> Result<RecordBatch> {
         unimplemented!()
     }
 }
@@ -45,13 +45,13 @@ struct GandivaFilter {}
 impl GandivaFilter {
     /// schema is record batch's schema, it's used by gandiva to generate code.
     /// exprs is expression to evaluate, for example ```a+b```
-    pub fn new(schema: Schema, exprs: Vec<Expr>) -> Result<Self> {
+    pub fn new(_schema: Schema, _exprs: Vec<Expr>) -> Result<Self> {
         unimplemented!()
     }
 }
 
 impl Filter for GandivaFilter {
-    fn eval(&self, record_batch: RecordBatch) -> Result<Bitmap> {
+    fn eval(&self, _record_batch: RecordBatch) -> Result<Bitmap> {
         unimplemented!()
     }
 }

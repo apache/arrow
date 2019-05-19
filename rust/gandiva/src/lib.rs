@@ -19,6 +19,8 @@
 //! The current implementation uses ffi bindings of gandiva c++ implementation, so it
 //! requires gandiva c++ installed.
 
+#![allow(dead_code)]
+
 extern crate arrow;
 extern crate libc;
 

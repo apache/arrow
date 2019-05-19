@@ -22,10 +22,10 @@ use arrow::datatypes::Schema;
 use arrow::error::Result;
 use expression::Expr;
 
-pub fn serialize_schema_to_protobuf(schema: Schema) -> Result<Vec<u8>> {
+pub fn serialize_schema_to_protobuf(_schema: Schema) -> Result<Vec<u8>> {
     unimplemented!()
 }
 
-pub fn serialize_expression_to_protobuf(expressions: Vec<Expr>) -> Result<Vec<u8>> {
+pub fn serialize_expression_to_protobuf(_expressions: Vec<Expr>) -> Result<Vec<u8>> {
     unimplemented!()
 }
