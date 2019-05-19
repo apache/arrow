@@ -601,10 +601,9 @@ def update_wheel_links(ctx, n, gh_branch, job_prefix, dry_run):
         return '<html><body><ul>{}</ul></body></html>'.format(''.join(links))
 
     queue = ctx.obj['queue']
-    # queue.fetch()
+    queue.fetch()
 
     files = {'nightly': {'wheel': {}}}
-    latest = None
     for job in toolz.take(n, queue.jobs(prefix=job_prefix)):
         wheels = {}
 
