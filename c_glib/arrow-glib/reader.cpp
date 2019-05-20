@@ -1412,6 +1412,21 @@ garrow_csv_read_options_get_null_values(GArrowCSVReadOptions *options)
 }
 
 /**
+ * garrow_csv_read_options_add_null_value:
+ * @options: A #GArrowCSVReadOptions.
+ * @null_value: The value to be processed as null.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_add_null_value(GArrowCSVReadOptions *options,
+                                       const gchar *null_value)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->convert_options.null_values.push_back(null_value);
+}
+
+/**
  * garrow_csv_read_options_set_true_values:
  * @options: A #GArrowCSVReadOptions.
  * @true_values: (array length=n_true_values):
@@ -1462,6 +1477,21 @@ garrow_csv_read_options_get_true_values(GArrowCSVReadOptions *options)
 }
 
 /**
+ * garrow_csv_read_options_add_true_value:
+ * @options: A #GArrowCSVReadOptions.
+ * @true_value: The value to be processed as true.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_add_true_value(GArrowCSVReadOptions *options,
+                                       const gchar *true_value)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->convert_options.true_values.push_back(true_value);
+}
+
+/**
  * garrow_csv_read_options_set_false_values:
  * @options: A #GArrowCSVReadOptions.
  * @false_values: (array length=n_false_values):
@@ -1509,6 +1539,21 @@ garrow_csv_read_options_get_false_values(GArrowCSVReadOptions *options)
     false_values[n] = NULL;
     return false_values;
   }
+}
+
+/**
+ * garrow_csv_read_options_add_false_value:
+ * @options: A #GArrowCSVReadOptions.
+ * @false_value: The value to be processed as false.
+ *
+ * Since: 0.14.0
+ */
+void
+garrow_csv_read_options_add_false_value(GArrowCSVReadOptions *options,
+                                        const gchar *false_value)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  priv->convert_options.false_values.push_back(false_value);
 }
 
 

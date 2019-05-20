@@ -111,6 +111,14 @@ message,count
                      table.read)
       end
 
+      def test_add_null_value
+        options = Arrow::CSVReadOptions.new
+        null_values = ["2", "5"]
+        options.null_values = null_values
+        options.add_null_value("9")
+        assert_equal(["2", "5", "9"], options.null_values)
+      end
+
       def test_boolean_values
         options = Arrow::CSVReadOptions.new
         true_values = ["Start", "Restart"]
@@ -133,6 +141,22 @@ message,count
         }
         assert_equal(build_table(columns),
                      table.read)
+      end
+
+      def test_add_true_value
+        options = Arrow::CSVReadOptions.new
+        true_values = ["Start", "Restart"]
+        options.true_values = true_values
+        options.add_true_value("Shutdown")
+        assert_equal(["Start", "Restart", "Shutdown"], options.true_values)
+      end
+
+      def test_add_false_value
+        options = Arrow::CSVReadOptions.new
+        false_values = ["Start", "Restart"]
+        options.false_values = false_values
+        options.add_false_value("Shutdown")
+        assert_equal(["Start", "Restart", "Shutdown"], options.false_values)
       end
 
       def test_allow_null_strings
