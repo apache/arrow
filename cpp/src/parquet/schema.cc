@@ -16,17 +16,15 @@
 // under the License.
 
 #include "parquet/schema.h"
-#include "parquet/schema-internal.h"
 
 #include <algorithm>
 #include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
-
 #include "arrow/util/logging.h"
-
 #include "parquet/exception.h"
+#include "parquet/schema-internal.h"
 #include "parquet/thrift.h"
 
 using parquet::format::SchemaElement;
@@ -743,6 +741,29 @@ const schema::Node* SchemaDescriptor::GetColumnRoot(int i) const {
 std::string SchemaDescriptor::ToString() const {
   std::ostringstream ss;
   PrintSchema(schema_.get(), ss);
+  return ss.str();
+}
+
+std::string ColumnDescriptor::ToString() const {
+  std::ostringstream ss;
+  ss << "column descriptor = {" << std::endl
+     << "  name: " << name() << std::endl
+     << "  path: " << path()->ToDotString() << std::endl
+     << "  physical_type: " << TypeToString(physical_type()) << std::endl
+     << "  logical_type: " << LogicalTypeToString(logical_type()) << std::endl
+     << "  max_definition_level: " << max_definition_level() << std::endl
+     << "  max_repetition_level: " << max_repetition_level() << std::endl;
+
+  if (physical_type() == ::parquet::Type::FIXED_LEN_BYTE_ARRAY) {
+    ss << "  length: " << type_length() << std::endl;
+  }
+
+  if (logical_type() == parquet::LogicalType::DECIMAL) {
+    ss << "  precision: " << type_precision() << std::endl
+       << "  scale: " << type_scale() << std::endl;
+  }
+
+  ss << "}";
   return ss.str();
 }
 
