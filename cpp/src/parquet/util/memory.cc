@@ -65,56 +65,6 @@ std::unique_ptr<Codec> GetCodecFromArrow(Compression::type codec) {
   return result;
 }
 
-template <class T>
-Vector<T>::Vector(int64_t size, MemoryPool* pool)
-    : buffer_(AllocateBuffer(pool, size * sizeof(T))), size_(size), capacity_(size) {
-  if (size > 0) {
-    data_ = reinterpret_cast<T*>(buffer_->mutable_data());
-  } else {
-    data_ = nullptr;
-  }
-}
-
-template <class T>
-void Vector<T>::Reserve(int64_t new_capacity) {
-  if (new_capacity > capacity_) {
-    PARQUET_THROW_NOT_OK(buffer_->Resize(new_capacity * sizeof(T)));
-    data_ = reinterpret_cast<T*>(buffer_->mutable_data());
-    capacity_ = new_capacity;
-  }
-}
-
-template <class T>
-void Vector<T>::Resize(int64_t new_size) {
-  Reserve(new_size);
-  size_ = new_size;
-}
-
-template <class T>
-void Vector<T>::Assign(int64_t size, const T val) {
-  Resize(size);
-  for (int64_t i = 0; i < size_; i++) {
-    data_[i] = val;
-  }
-}
-
-template <class T>
-void Vector<T>::Swap(Vector<T>& v) {
-  buffer_.swap(v.buffer_);
-  std::swap(size_, v.size_);
-  std::swap(capacity_, v.capacity_);
-  std::swap(data_, v.data_);
-}
-
-template class Vector<int32_t>;
-template class Vector<int64_t>;
-template class Vector<bool>;
-template class Vector<float>;
-template class Vector<double>;
-template class Vector<Int96>;
-template class Vector<ByteArray>;
-template class Vector<FixedLenByteArray>;
-
 // ----------------------------------------------------------------------
 // Arrow IO wrappers
 
