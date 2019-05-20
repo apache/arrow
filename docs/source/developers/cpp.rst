@@ -84,11 +84,42 @@ On macOS, you can use `Homebrew <https://brew.sh/>`_.
    cd arrow
    brew update && brew bundle --file=cpp/Brewfile
 
+On MSYS2:
+
+.. code-block:: shell
+
+   pacman --sync --refresh --noconfirm \
+     ccache \
+     git \
+     mingw-w64-${MSYSTEM_CARCH}-boost \
+     mingw-w64-${MSYSTEM_CARCH}-brotli \
+     mingw-w64-${MSYSTEM_CARCH}-cmake \
+     mingw-w64-${MSYSTEM_CARCH}-double-conversion \
+     mingw-w64-${MSYSTEM_CARCH}-flatbuffers \
+     mingw-w64-${MSYSTEM_CARCH}-gcc \
+     mingw-w64-${MSYSTEM_CARCH}-gflags \
+     mingw-w64-${MSYSTEM_CARCH}-glog \
+     mingw-w64-${MSYSTEM_CARCH}-gtest \
+     mingw-w64-${MSYSTEM_CARCH}-lz4 \
+     mingw-w64-${MSYSTEM_CARCH}-protobuf \
+     mingw-w64-${MSYSTEM_CARCH}-python3-numpy \
+     mingw-w64-${MSYSTEM_CARCH}-rapidjson \
+     mingw-w64-${MSYSTEM_CARCH}-snappy \
+     mingw-w64-${MSYSTEM_CARCH}-thrift \
+     mingw-w64-${MSYSTEM_CARCH}-uriparser \
+     mingw-w64-${MSYSTEM_CARCH}-zlib \
+     mingw-w64-${MSYSTEM_CARCH}-zstd
+
 Building
 ========
 
 The build system uses ``CMAKE_BUILD_TYPE=release`` by default, so if this
 argument is omitted then a release build will be produced.
+
+.. note::
+
+   You need to more options to build on Windows. See
+   :ref:`developers-cpp-windows` for details.
 
 Minimal release build:
 
@@ -98,7 +129,7 @@ Minimal release build:
    cd arrow/cpp
    mkdir release
    cd release
-   cmake -DARROW_BUILD_TESTS=ON  ..
+   cmake -DARROW_BUILD_TESTS=ON ..
    make unittest
 
 Minimal debug build:
@@ -303,7 +334,7 @@ C++ codebase.
 
    Since most of the project's developers work on Linux or macOS, not all
    features or developer tools are uniformly supported on Windows. If you are
-   on Windows, have a look at the later section on Windows development.
+   on Windows, have a look at :ref:`developers-cpp-windows`.
 
 Compiler warning levels
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -570,6 +601,8 @@ generated, you can build a comparision report using
 
 The report is then generated in ``compat_reports/libarrow`` as a HTML.
 
+.. _developers-cpp-windows:
+
 Developing on Windows
 =====================
 
@@ -706,7 +739,7 @@ Building with NMake
 ~~~~~~~~~~~~~~~~~~~
 
 Change working directory in ``cmd.exe`` to the root directory of Arrow and
-do an out of source build using `nmake`:
+do an out of source build using ``nmake``:
 
 .. code-block:: shell
 
@@ -714,8 +747,43 @@ do an out of source build using `nmake`:
    mkdir build
    cd build
    cmake -G "NMake Makefiles" ..
-   cmake --build . --config Release
    nmake
+
+Building on MSYS2
+~~~~~~~~~~~~~~~~~
+
+You can build on MSYS2 terminal, ``cmd.exe`` or PowerShell terminal.
+
+On MSYS2 terminal:
+
+.. code-block:: shell
+
+   cd cpp
+   mkdir build
+   cd build
+   cmake -G "MSYS Makefiles" ..
+   make
+
+On ``cmd.exe`` or PowerShell terminal, you can use the following batch
+file:
+
+.. code-block:: batch
+
+   setlocal
+
+   REM For 64bit
+   set MINGW_PACKAGE_PREFIX=mingw-w64-x86_64
+   set MINGW_PREFIX=c:\msys64\mingw64
+   set MSYSTEM=MINGW64
+
+   set PATH=%MINGW_PREFIX%\bin;c:\msys64\usr\bin;%PATH%
+
+   rmdir /S /Q cpp\build
+   mkdir cpp\build
+   pushd cpp\build
+   cmake -G "MSYS Makefiles" .. || exit /B
+   make || exit /B
+   popd
 
 Debug builds
 ~~~~~~~~~~~~
@@ -746,7 +814,7 @@ The command line to build Arrow in Debug will look something like this:
 Windows dependency resolution issues
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Because Windows uses `.lib` files for both static and dynamic linking of
+Because Windows uses ``.lib`` files for both static and dynamic linking of
 dependencies, the static library sometimes may be named something different
 like ``%PACKAGE%_static.lib`` to distinguish itself. If you are statically
 linking some dependencies, we provide some options
