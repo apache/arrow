@@ -74,18 +74,6 @@ class ARROW_EXPORT Buffer {
 
   virtual ~Buffer() = default;
 
-  /// An offset into data that is owned by another buffer, but we want to be
-  /// able to retain a valid pointer to it even after other shared_ptr's to the
-  /// parent buffer have been destroyed
-  ///
-  /// This method makes no assertions about alignment or padding of the buffer but
-  /// in general we expected buffers to be aligned and padded to 64 bytes.  In the future
-  /// we might add utility methods to help determine if a buffer satisfies this contract.
-  Buffer(const std::shared_ptr<Buffer>& parent, const int64_t offset, const int64_t size)
-      : Buffer(parent->data() + offset, size) {
-    parent_ = parent;
-  }
-
   bool is_mutable() const { return is_mutable_; }
 
   /// Return true if both buffers are the same size and contain the same bytes
@@ -169,6 +157,7 @@ class ARROW_EXPORT Buffer {
 
   /// \brief Return a pointer to the buffer's data
   const uint8_t* data() const { return data_; }
+
   /// \brief Return a writable pointer to the buffer's data
   ///
   /// The buffer has to be mutable.  Otherwise, an assertion may be thrown
@@ -186,22 +175,41 @@ class ARROW_EXPORT Buffer {
   /// \brief Return the buffer's capacity (number of allocated bytes)
   int64_t capacity() const { return capacity_; }
 
-  std::shared_ptr<Buffer> parent() const { return parent_; }
+  virtual std::shared_ptr<Buffer> parent() const { return NULLPTR; }
 
  protected:
+  friend class SlicedBuffer;
+
   bool is_mutable_;
   const uint8_t* data_;
   uint8_t* mutable_data_;
   int64_t size_;
   int64_t capacity_;
 
-  // null by default, but may be set
-  std::shared_ptr<Buffer> parent_;
-
   void CheckMutable() const;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
+};
+
+/// \class SlicedBuffer
+/// \brief A slice of a buffer that maintains a reference to its
+/// parent, so that memory sharing can be inferred.
+class ARROW_EXPORT SlicedBuffer : public Buffer {
+ public:
+  SlicedBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
+               const int64_t size)
+      : Buffer(parent->data() + offset, size) {
+    parent_ = parent;
+    is_mutable_ = parent->is_mutable_;
+    mutable_data_ = parent->mutable_data_ + offset;
+  }
+
+  std::shared_ptr<Buffer> parent() const override { return parent_; }
+
+ private:
+  // null by default, but may be set
+  std::shared_ptr<Buffer> parent_;
 };
 
 using BufferVector = std::vector<std::shared_ptr<Buffer>>;
@@ -216,7 +224,7 @@ using BufferVector = std::vector<std::shared_ptr<Buffer>>;
 static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>& buffer,
                                                   const int64_t offset,
                                                   const int64_t length) {
-  return std::make_shared<Buffer>(buffer, offset, length);
+  return std::make_shared<SlicedBuffer>(buffer, offset, length);
 }
 
 /// \brief Construct a view on a buffer at the given offset, up to the buffer's end.
@@ -224,26 +232,7 @@ static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>&
 /// This function cannot fail and does not check for errors (except in debug builds)
 static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>& buffer,
                                                   const int64_t offset) {
-  int64_t length = buffer->size() - offset;
-  return SliceBuffer(buffer, offset, length);
-}
-
-/// \brief Like SliceBuffer, but construct a mutable buffer slice.
-///
-/// If the parent buffer is not mutable, behavior is undefined (it may abort
-/// in debug builds).
-ARROW_EXPORT
-std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
-                                           const int64_t offset, const int64_t length);
-
-/// \brief Like SliceBuffer, but construct a mutable buffer slice.
-///
-/// If the parent buffer is not mutable, behavior is undefined (it may abort
-/// in debug builds).
-static inline std::shared_ptr<Buffer> SliceMutableBuffer(
-    const std::shared_ptr<Buffer>& buffer, const int64_t offset) {
-  int64_t length = buffer->size() - offset;
-  return SliceMutableBuffer(buffer, offset, length);
+  return std::make_shared<SlicedBuffer>(buffer, offset, buffer->size() - offset);
 }
 
 /// @}
@@ -256,9 +245,6 @@ class ARROW_EXPORT MutableBuffer : public Buffer {
     mutable_data_ = data;
     is_mutable_ = true;
   }
-
-  MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
-                const int64_t size);
 
   /// \brief Create buffer referencing typed memory with some length
   /// \param[in] data the typed memory as C array

@@ -149,18 +149,6 @@ class PoolBuffer : public ResizableBuffer {
   MemoryPool* pool_;
 };
 
-std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
-                                           const int64_t offset, const int64_t length) {
-  return std::make_shared<MutableBuffer>(buffer, offset, length);
-}
-
-MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
-                             const int64_t size)
-    : MutableBuffer(parent->mutable_data() + offset, size) {
-  DCHECK(parent->is_mutable()) << "Must pass mutable buffer";
-  parent_ = parent;
-}
-
 namespace {
 // A utility that does most of the work of the `AllocateBuffer` and
 // `AllocateResizableBuffer` methods. The argument `buffer` should be a smart pointer to a

@@ -106,17 +106,13 @@ static std::mutex gpu_mutex;
 
 /// A Buffer class that automatically releases the backing plasma object
 /// when it goes out of scope. This is returned by Get.
-class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
+class ARROW_NO_EXPORT PlasmaBuffer : public arrow::SlicedBuffer {
  public:
   ~PlasmaBuffer();
 
   PlasmaBuffer(std::shared_ptr<PlasmaClient::Impl> client, const ObjectID& object_id,
                const std::shared_ptr<Buffer>& buffer)
-      : Buffer(buffer, 0, buffer->size()), client_(client), object_id_(object_id) {
-    if (buffer->is_mutable()) {
-      is_mutable_ = true;
-    }
-  }
+      : SlicedBuffer(buffer, 0, buffer->size()), client_(client), object_id_(object_id) {}
 
  private:
   std::shared_ptr<PlasmaClient::Impl> client_;

@@ -183,7 +183,7 @@ TEST(TestBuffer, SliceMutableBuffer) {
 
   memcpy(buffer->mutable_data(), data, data_str.size());
 
-  std::shared_ptr<Buffer> slice = SliceMutableBuffer(buffer, 5, 10);
+  std::shared_ptr<Buffer> slice = SliceBuffer(buffer, 5, 10);
   ASSERT_TRUE(slice->is_mutable());
   ASSERT_EQ(10, slice->size());
 

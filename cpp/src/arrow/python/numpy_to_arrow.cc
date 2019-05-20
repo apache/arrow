@@ -768,12 +768,9 @@ Status NumPyConverter::Visit(const StructType& type) {
     if (!null_buffer) {
       fixed_null_buffer = null_buffer;
     } else if (null_offset % 8 == 0) {
-      fixed_null_buffer =
-          std::make_shared<Buffer>(null_buffer,
-                                   // byte offset
-                                   null_offset / 8,
-                                   // byte size
-                                   BitUtil::BytesForBits(null_data->length));
+      fixed_null_buffer = SliceBuffer(null_buffer,
+                                      /*offset=*/null_offset / 8,
+                                      /*size=*/BitUtil::BytesForBits(null_data->length));
     } else {
       RETURN_NOT_OK(CopyBitmap(pool_, null_buffer->data(), null_offset, null_data->length,
                                &fixed_null_buffer));
