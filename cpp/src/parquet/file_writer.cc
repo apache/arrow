@@ -321,6 +321,9 @@ class FileSerializer : public ParquetFileWriter::Contents {
           WriteFileMetaData(*file_metadata_, sink_.get(), footer_signing_encryptor,
                             false);
         }
+        if (file_encryptor_) {
+          file_encryptor_->wipeout_encryption_keys();
+        }
       }
 
       sink_->Close();

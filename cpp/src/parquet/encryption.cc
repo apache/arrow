@@ -65,6 +65,12 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(
     bool encrypted, const std::shared_ptr<schema::ColumnPath>& column_path,
     const std::string& key, const std::string& key_metadata)
     : column_path_(column_path) {
+  // column encryption properties object (with a column key) can be used for writing only
+  // one file.
+  // Upon completion of file writing, the encryption keys in the properties will be wiped
+  // out (set to 0 in memory).
+  utilized_ = false;
+
   DCHECK(column_path != nullptr);
   if (!encrypted) {
     DCHECK(key.empty() && key_metadata.empty());
@@ -87,6 +93,7 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(
 ColumnDecryptionProperties::ColumnDecryptionProperties(
     const std::shared_ptr<schema::ColumnPath>& column_path, const std::string& key)
     : column_path_(column_path) {
+  utilized_ = false;
   DCHECK(column_path != nullptr);
 
   if (!key.empty()) {
@@ -133,6 +140,7 @@ FileDecryptionProperties::FileDecryptionProperties(
   aad_prefix_ = aad_prefix;
   column_properties_ = column_properties;
   plaintext_files_allowed_ = plaintext_files_allowed;
+  utilized_ = false;
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_id(
@@ -176,6 +184,11 @@ FileEncryptionProperties::FileEncryptionProperties(
       footer_key_metadata_(footer_key_metadata),
       encrypted_footer_(encrypted_footer),
       column_properties_(column_properties) {
+  // file encryption properties object can be used for writing only one file.
+  // Upon completion of file writing, the encryption keys in the properties will be wiped
+  // out (set to 0 in memory).
+  utilized_ = false;
+
   DCHECK(!footer_key.empty());
   // footer_key must be either 16, 24 or 32 bytes.
   DCHECK(footer_key.length() == 16 || footer_key.length() == 24 ||

@@ -45,6 +45,9 @@ int Encryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* cip
 // InternalFileEncryptor
 InternalFileEncryptor::InternalFileEncryptor(FileEncryptionProperties* properties)
     : properties_(properties) {
+  all_encryptors_ = std::shared_ptr<std::list<parquet_encryption::AesEncryptor*>>(
+      new std::list<parquet_encryption::AesEncryptor*>);
+
   column_data_map_ = std::shared_ptr<
       std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
                parquet::schema::ColumnPath::CmpColumnPath>>(
@@ -56,6 +59,14 @@ InternalFileEncryptor::InternalFileEncryptor(FileEncryptionProperties* propertie
                parquet::schema::ColumnPath::CmpColumnPath>>(
       new std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
                    schema::ColumnPath::CmpColumnPath>());
+}
+
+void InternalFileEncryptor::wipeout_encryption_keys() {
+  properties_->wipeout_encryption_keys();
+
+  for (auto const& i : *all_encryptors_) {
+    i->WipeOut();
+  }
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
@@ -143,20 +154,20 @@ parquet_encryption::AesEncryptor* InternalFileEncryptor::GetMetaAesEncryptor(
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (meta_encryptor_128_ == NULLPTR) {
-      meta_encryptor_128_.reset(
-          new parquet_encryption::AesEncryptor(algorithm, key_len, true));
+      meta_encryptor_128_.reset(new parquet_encryption::AesEncryptor(
+          algorithm, key_len, true, all_encryptors_));
     }
     return meta_encryptor_128_.get();
   } else if (key_len == 24) {
     if (meta_encryptor_196_ == NULLPTR) {
-      meta_encryptor_196_.reset(
-          new parquet_encryption::AesEncryptor(algorithm, key_len, true));
+      meta_encryptor_196_.reset(new parquet_encryption::AesEncryptor(
+          algorithm, key_len, true, all_encryptors_));
     }
     return meta_encryptor_196_.get();
   } else if (key_len == 32) {
     if (meta_encryptor_256_ == NULLPTR) {
-      meta_encryptor_256_.reset(
-          new parquet_encryption::AesEncryptor(algorithm, key_len, true));
+      meta_encryptor_256_.reset(new parquet_encryption::AesEncryptor(
+          algorithm, key_len, true, all_encryptors_));
     }
     return meta_encryptor_256_.get();
   }
@@ -168,20 +179,20 @@ parquet_encryption::AesEncryptor* InternalFileEncryptor::GetDataAesEncryptor(
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (data_encryptor_128_ == NULLPTR) {
-      data_encryptor_128_.reset(
-          new parquet_encryption::AesEncryptor(algorithm, key_len, false));
+      data_encryptor_128_.reset(new parquet_encryption::AesEncryptor(
+          algorithm, key_len, false, all_encryptors_));
     }
     return data_encryptor_128_.get();
   } else if (key_len == 24) {
     if (data_encryptor_196_ == NULLPTR) {
-      data_encryptor_196_.reset(
-          new parquet_encryption::AesEncryptor(algorithm, key_len, false));
+      data_encryptor_196_.reset(new parquet_encryption::AesEncryptor(
+          algorithm, key_len, false, all_encryptors_));
     }
     return data_encryptor_196_.get();
   } else if (key_len == 32) {
     if (data_encryptor_256_ == NULLPTR) {
-      data_encryptor_256_.reset(
-          new parquet_encryption::AesEncryptor(algorithm, key_len, false));
+      data_encryptor_256_.reset(new parquet_encryption::AesEncryptor(
+          algorithm, key_len, false, all_encryptors_));
     }
     return data_encryptor_256_.get();
   }

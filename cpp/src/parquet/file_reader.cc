@@ -189,7 +189,16 @@ class SerializedFile : public ParquetFileReader::Contents {
                  const ReaderProperties& props = default_reader_properties())
       : source_(source), properties_(props) {}
 
-  void Close() override {}
+  ~SerializedFile() override {
+    try {
+      Close();
+    } catch (...) {
+    }
+  }
+
+  void Close() override {
+    if (file_decryptor_) file_decryptor_->wipeout_decryption_keys();
+  }
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(

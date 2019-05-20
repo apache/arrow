@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "arrow/util/logging.h"
 #include "parquet/encryption.h"
@@ -101,11 +102,14 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     // If key is not set on an encrypted column, the column will
     // be encrypted with the footer key.
     // keyBytes Key length must be either 16, 24 or 32 bytes.
-    Builder* key(const std::string& key) {
-      if (key.empty()) return this;
+    // The key is cloned, and will be wiped out (array values set to 0) upon completion of
+    // file reading.
+    // Caller is responsible for wiping out the input key array.
+    Builder* key(std::string column_key) {
+      if (column_key.empty()) return this;
 
-      DCHECK(!key.empty());
-      key_ = key;
+      DCHECK(key_.empty());
+      key_ = column_key;
       return this;
     }
 
@@ -143,6 +147,19 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   bool is_encrypted_with_footer_key() const { return encrypted_with_footer_key_; }
   const std::string& key() const { return key_; }
   const std::string& key_metadata() const { return key_metadata_; }
+  void wipeout_encryption_key() {
+    if (!key_.empty()) {
+      std::memset((char*)(const_cast<char*>(key_.c_str())), 0, key_.size());
+    }
+  }
+
+  bool is_utilized() {
+    if (key_.empty())
+      return false;  // can re-use column properties without encryption keys
+    return utilized_;
+  }
+
+  void set_utilized() { utilized_ = true; }
 
   ColumnEncryptionProperties() = default;
   ColumnEncryptionProperties(const ColumnEncryptionProperties& other) = default;
@@ -154,6 +171,7 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   bool encrypted_with_footer_key_;
   std::string key_;
   std::string key_metadata_;
+  bool utilized_;
   explicit ColumnEncryptionProperties(
       bool encrypted, const std::shared_ptr<schema::ColumnPath>& column_path,
       const std::string& key, const std::string& key_metadata);
@@ -198,10 +216,20 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
 
   const std::shared_ptr<schema::ColumnPath>& column_path() { return column_path_; }
   const std::string& key() const { return key_; }
+  bool is_utilized() { return utilized_; }
+
+  void set_utilized() { utilized_ = true; }
+
+  void wipeout_decryption_key() {
+    if (!key_.empty()) {
+      std::memset((char*)(const_cast<char*>(key_.c_str())), 0, key_.size());
+    }
+  }
 
  private:
   const std::shared_ptr<schema::ColumnPath> column_path_;
   std::string key_;
+  bool utilized_;
 
   // This class is only required for setting explicit column decryption keys -
   // to override key retriever (or to provide keys when key metadata and/or
@@ -235,12 +263,15 @@ class PARQUET_EXPORT FileDecryptionProperties {
     // If explicit key is not set, footer key will be fetched from
     // key retriever.
     // param footerKey Key length must be either 16, 24 or 32 bytes.
-    Builder* footer_key(const std::string& footer_key) {
-      if (footer_key.empty()) {
+    // The key is cloned, and will be wiped out (array values set to 0) upon completion of
+    // file reading.
+    // Caller is responsible for wiping out the input key array.
+    Builder* footer_key(const std::string column_key) {
+      if (column_key.empty()) {
         return this;
       }
-      DCHECK(!footer_key.empty());
-      footer_key_ = footer_key;
+      DCHECK(footer_key_.empty());
+      footer_key_ = column_key;
       return this;
     }
 
@@ -258,6 +289,15 @@ class PARQUET_EXPORT FileDecryptionProperties {
 
       if (column_properties_.size() != 0)
         throw ParquetException("Column properties already set");
+
+      for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                     std::shared_ptr<ColumnDecryptionProperties>>
+               element : column_properties) {
+        if (element.second->is_utilized()) {
+          throw ParquetException("Column properties utilized in another file");
+        }
+        element.second->set_utilized();
+      }
 
       column_properties_ = column_properties;
       return this;
@@ -357,6 +397,26 @@ class PARQUET_EXPORT FileDecryptionProperties {
     return aad_prefix_verifier_;
   }
 
+  void wipeout_decryption_keys() {
+    if (!footer_key_.empty())
+      std::memset((char*)(const_cast<char*>(footer_key_.c_str())), 0, footer_key_.size());
+
+    for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                   std::shared_ptr<ColumnDecryptionProperties>>
+             element : column_properties_) {
+      element.second->wipeout_decryption_key();
+    }
+  }
+
+  bool is_utilized() {
+    if (footer_key_.empty() && column_properties_.size() == 0 && aad_prefix_.empty())
+      return false;
+
+    return utilized_;
+  }
+
+  void set_utilized() { utilized_ = true; }
+
  private:
   std::string footer_key_;
   std::string aad_prefix_;
@@ -371,6 +431,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
   std::shared_ptr<DecryptionKeyRetriever> key_retriever_;
   bool check_plaintext_footer_integrity_;
   bool plaintext_files_allowed_;
+  bool utilized_;
 
   FileDecryptionProperties(
       const std::string& footer_key,
@@ -453,6 +514,14 @@ class PARQUET_EXPORT FileEncryptionProperties {
       if (column_properties_.size() != 0)
         throw ParquetException("Column properties already set");
 
+      for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                     std::shared_ptr<ColumnEncryptionProperties>>
+               element : column_properties) {
+        if (element.second->is_utilized()) {
+          ParquetException("Column properties utilized in another file");
+        }
+        element.second->set_utilized();
+      }
       column_properties_ = column_properties;
       return this;
     }
@@ -489,12 +558,26 @@ class PARQUET_EXPORT FileEncryptionProperties {
   std::shared_ptr<ColumnEncryptionProperties> column_properties(
       const std::shared_ptr<schema::ColumnPath>& column_path);
 
+  bool is_utilized() { return utilized_; }
+
+  void set_utilized() { utilized_ = true; }
+
+  void wipeout_encryption_keys() {
+    std::memset((char*)(const_cast<char*>(footer_key_.c_str())), 0, footer_key_.size());
+    for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                   std::shared_ptr<ColumnEncryptionProperties>>
+             element : column_properties_) {
+      element.second->wipeout_encryption_key();
+    }
+  }
+
  private:
   EncryptionAlgorithm algorithm_;
   std::string footer_key_;
   std::string footer_key_metadata_;
   bool encrypted_footer_;
   std::string file_aad_;
+  bool utilized_;
 
   std::map<std::shared_ptr<schema::ColumnPath>,
            std::shared_ptr<ColumnEncryptionProperties>, schema::ColumnPath::CmpColumnPath>

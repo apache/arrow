@@ -18,6 +18,7 @@
 #ifndef INTERNAL_FILE_ENCRYPTOR_H
 #define INTERNAL_FILE_ENCRYPTOR_H
 
+#include <list>
 #include <map>
 #include <memory>
 #include <string>
@@ -59,6 +60,7 @@ class InternalFileEncryptor {
       const std::shared_ptr<schema::ColumnPath>& column_path);
   std::shared_ptr<Encryptor> GetColumnDataEncryptor(
       const std::shared_ptr<schema::ColumnPath>& column_path);
+  void wipeout_encryption_keys();
 
  private:
   FileEncryptionProperties* properties_;
@@ -74,6 +76,8 @@ class InternalFileEncryptor {
 
   std::shared_ptr<Encryptor> footer_signing_encryptor_;
   std::shared_ptr<Encryptor> footer_encryptor_;
+
+  std::shared_ptr<std::list<parquet_encryption::AesEncryptor*>> all_encryptors_;
 
   std::unique_ptr<parquet_encryption::AesEncryptor> meta_encryptor_128_;
   std::unique_ptr<parquet_encryption::AesEncryptor> meta_encryptor_196_;

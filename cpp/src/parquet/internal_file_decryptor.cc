@@ -35,7 +35,7 @@ FooterSigningEncryptor::FooterSigningEncryptor(ParquetCipher::type algorithm,
                                                const std::string& aad)
     : algorithm_(algorithm), key_(key), file_aad_(file_aad), aad_(aad) {
   aes_encryptor_.reset(new parquet_encryption::AesEncryptor(
-      algorithm, static_cast<int>(key_.size()), true));
+      algorithm, static_cast<int>(key_.size()), true, NULLPTR));
 }
 
 int FooterSigningEncryptor::CiphertextSizeDelta() {
@@ -74,6 +74,14 @@ InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* propertie
       file_aad_(file_aad),
       algorithm_(algorithm),
       footer_key_metadata_(footer_key_metadata) {
+  if (properties_->is_utilized()) {
+    throw ParquetException(
+        "Re-using decryption properties with explicit keys for another file");
+  }
+  properties_->set_utilized();
+
+  all_decryptors_ = std::shared_ptr<std::list<parquet_encryption::AesDecryptor*>>(
+      new std::list<parquet_encryption::AesDecryptor*>);
   column_data_map_ = std::shared_ptr<
       std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
                parquet::schema::ColumnPath::CmpColumnPath>>(
@@ -85,6 +93,13 @@ InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* propertie
                parquet::schema::ColumnPath::CmpColumnPath>>(
       new std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
                    schema::ColumnPath::CmpColumnPath>());
+}
+
+void InternalFileDecryptor::wipeout_decryption_keys() {
+  properties_->wipeout_decryption_keys();
+  for (auto const& i : *all_decryptors_) {
+    i->WipeOut();
+  }
 }
 
 std::shared_ptr<FooterSigningEncryptor>
@@ -245,20 +260,20 @@ parquet_encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (meta_decryptor_128_ == NULLPTR) {
-      meta_decryptor_128_.reset(
-          new parquet_encryption::AesDecryptor(algorithm_, key_len, true));
+      meta_decryptor_128_.reset(new parquet_encryption::AesDecryptor(
+          algorithm_, key_len, true, all_decryptors_));
     }
     return meta_decryptor_128_.get();
   } else if (key_len == 24) {
     if (meta_decryptor_196_ == NULLPTR) {
-      meta_decryptor_196_.reset(
-          new parquet_encryption::AesDecryptor(algorithm_, key_len, true));
+      meta_decryptor_196_.reset(new parquet_encryption::AesDecryptor(
+          algorithm_, key_len, true, all_decryptors_));
     }
     return meta_decryptor_196_.get();
   } else if (key_len == 32) {
     if (meta_decryptor_256_ == NULLPTR) {
-      meta_decryptor_256_.reset(
-          new parquet_encryption::AesDecryptor(algorithm_, key_len, true));
+      meta_decryptor_256_.reset(new parquet_encryption::AesDecryptor(
+          algorithm_, key_len, true, all_decryptors_));
     }
     return meta_decryptor_256_.get();
   }
@@ -270,20 +285,20 @@ parquet_encryption::AesDecryptor* InternalFileDecryptor::GetDataAesDecryptor(
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (data_decryptor_128_ == NULLPTR) {
-      data_decryptor_128_.reset(
-          new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
+      data_decryptor_128_.reset(new parquet_encryption::AesDecryptor(
+          algorithm_, key_len, false, all_decryptors_));
     }
     return data_decryptor_128_.get();
   } else if (key_len == 24) {
     if (data_decryptor_196_ == NULLPTR) {
-      data_decryptor_196_.reset(
-          new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
+      data_decryptor_196_.reset(new parquet_encryption::AesDecryptor(
+          algorithm_, key_len, false, all_decryptors_));
     }
     return data_decryptor_196_.get();
   } else if (key_len == 32) {
     if (data_decryptor_256_ == NULLPTR) {
-      data_decryptor_256_.reset(
-          new parquet_encryption::AesDecryptor(algorithm_, key_len, false));
+      data_decryptor_256_.reset(new parquet_encryption::AesDecryptor(
+          algorithm_, key_len, false, all_decryptors_));
     }
     return data_decryptor_256_.get();
   }
