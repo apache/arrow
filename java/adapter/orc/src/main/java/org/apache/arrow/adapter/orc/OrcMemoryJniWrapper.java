@@ -19,9 +19,14 @@ package org.apache.arrow.adapter.orc;
 
 import java.io.IOException;
 
-public class OrcReaderJniWrapper {
+public class OrcMemoryJniWrapper {
+  private final long ownershipAddress;
 
-  private long nativeReaderAddress;
+  private final long memoryAddress;
+
+  private final long size;
+
+  private final long capacity;
 
   static {
     try {
@@ -31,13 +36,28 @@ public class OrcReaderJniWrapper {
     }
   }
 
-  public native boolean open(String fileName);
+  OrcMemoryJniWrapper(long ownershipAddress, long memoryAddress, long size, long capacity) {
+    this.ownershipAddress = ownershipAddress;
+    this.memoryAddress = memoryAddress;
+    this.size = size;
+    this.capacity = capacity;
+  }
 
-  public native void close();
+  long getSize() {
+    return size;
+  }
 
-  public native boolean seek(int rowNumber);
+  long getCapacity() {
+    return capacity;
+  }
 
-  public native int getNumberOfStripes();
+  long getMemoryAddress() {
+    return memoryAddress;
+  }
 
-  public native OrcStripeReaderJniWrapper nextStripeReader(long batchSize);
+  void release() {
+    release(ownershipAddress);
+  }
+
+  private native void release(long address);
 }

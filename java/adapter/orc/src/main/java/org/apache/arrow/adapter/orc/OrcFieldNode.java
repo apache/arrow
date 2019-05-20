@@ -17,27 +17,21 @@
 
 package org.apache.arrow.adapter.orc;
 
-import java.io.IOException;
+public class OrcFieldNode {
 
-public class OrcReaderJniWrapper {
+  private final int length;
+  private final int nullCount;
 
-  private long nativeReaderAddress;
-
-  static {
-    try {
-      OrcJniUtils.loadOrcAdapterLibraryFromJar();
-    } catch (IOException e) {
-      throw new ExceptionInInitializerError(e);
-    }
+  public OrcFieldNode(int length, int nullCount) {
+    this.length = length;
+    this.nullCount = nullCount;
   }
 
-  public native boolean open(String fileName);
+  public int getLength() {
+    return length;
+  }
 
-  public native void close();
-
-  public native boolean seek(int rowNumber);
-
-  public native int getNumberOfStripes();
-
-  public native OrcStripeReaderJniWrapper nextStripeReader(long batchSize);
+  public int getNullCount() {
+    return nullCount;
+  }
 }

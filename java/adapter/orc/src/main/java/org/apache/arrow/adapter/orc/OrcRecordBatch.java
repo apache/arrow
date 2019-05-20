@@ -17,27 +17,22 @@
 
 package org.apache.arrow.adapter.orc;
 
-import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
-public class OrcReaderJniWrapper {
+public class OrcRecordBatch {
+  public final int length;
 
-  private long nativeReaderAddress;
+  /**
+   * Nodes correspond to the pre-ordered flattened logical schema.
+   */
+  public final List<OrcFieldNode> nodes;
 
-  static {
-    try {
-      OrcJniUtils.loadOrcAdapterLibraryFromJar();
-    } catch (IOException e) {
-      throw new ExceptionInInitializerError(e);
-    }
+  public final List<OrcMemoryJniWrapper> buffers;
+
+  OrcRecordBatch(int length, OrcFieldNode[] nodes, OrcMemoryJniWrapper[] buffers) {
+    this.length = length;
+    this.nodes = Arrays.asList(nodes);
+    this.buffers = Arrays.asList(buffers);
   }
-
-  public native boolean open(String fileName);
-
-  public native void close();
-
-  public native boolean seek(int rowNumber);
-
-  public native int getNumberOfStripes();
-
-  public native OrcStripeReaderJniWrapper nextStripeReader(long batchSize);
 }

@@ -70,7 +70,7 @@ public class AllocationManager {
   private volatile BufferLedger owningLedger;
   private volatile long amDestructionTime = 0;
 
-  AllocationManager(BaseAllocator accountingAllocator, int size) {
+  public AllocationManager(BaseAllocator accountingAllocator, int size) {
     Preconditions.checkNotNull(accountingAllocator);
     accountingAllocator.assertOpen();
 
@@ -174,7 +174,7 @@ public class AllocationManager {
         // underlying memory chunk as it is no longer being referenced
         ((BaseAllocator)oldLedger.getAllocator()).releaseBytes(size);
         // free the memory chunk associated with the allocation manager
-        memoryChunk.release();
+        releaseMemory();
         ((BaseAllocator)oldLedger.getAllocator()).getListener().onRelease(size);
         amDestructionTime = System.nanoTime();
         owningLedger = null;
@@ -194,6 +194,10 @@ public class AllocationManager {
       Preconditions.checkState(map.size() > 0,
           "The final removal of reference manager should be connected to owning reference manager");
     }
+  }
+
+  public void releaseMemory() {
+    memoryChunk.release();
   }
 
   /**

@@ -17,27 +17,36 @@
 
 package org.apache.arrow.adapter.orc;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.ipc.ArrowReader;
+
 import java.io.IOException;
 
-public class OrcReaderJniWrapper {
+public class OrcReader implements AutoCloseable {
 
-  private long nativeReaderAddress;
+  private static final int DEFAULT_BATCH_SIZE = 1024;
 
-  static {
-    try {
-      OrcJniUtils.loadOrcAdapterLibraryFromJar();
-    } catch (IOException e) {
-      throw new ExceptionInInitializerError(e);
-    }
+  private OrcReaderJniWrapper orcReader;
+
+  private BufferAllocator allocator;
+
+  public OrcReader(String filePath, BufferAllocator allocator) throws IOException {
+    this.allocator = allocator;
+    orcReader = new OrcReaderJniWrapper();
+    orcReader.open(filePath);
   }
 
-  public native boolean open(String fileName);
+  public ArrowReader nextStripeReader() {
+    OrcStripeReaderJniWrapper stripeReader = orcReader.nextStripeReader(DEFAULT_BATCH_SIZE);
+    if (stripeReader == null) {
+      return null;
+    }
 
-  public native void close();
+    return new OrcStripeReader(stripeReader, allocator);
+  }
 
-  public native boolean seek(int rowNumber);
-
-  public native int getNumberOfStripes();
-
-  public native OrcStripeReaderJniWrapper nextStripeReader(long batchSize);
+  @Override
+  public void close() throws Exception {
+    orcReader.close();
+  }
 }
