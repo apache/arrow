@@ -103,7 +103,7 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     // be encrypted with the footer key.
     // keyBytes Key length must be either 16, 24 or 32 bytes.
     // The key is cloned, and will be wiped out (array values set to 0) upon completion of
-    // file reading.
+    // file writing.
     // Caller is responsible for wiping out the input key array.
     Builder* key(std::string column_key) {
       if (column_key.empty()) return this;
@@ -262,16 +262,19 @@ class PARQUET_EXPORT FileDecryptionProperties {
     // will be decrypted/verified with this key.
     // If explicit key is not set, footer key will be fetched from
     // key retriever.
-    // param footerKey Key length must be either 16, 24 or 32 bytes.
-    // The key is cloned, and will be wiped out (array values set to 0) upon completion of
-    // file reading.
+    // With explicit keys or AAD prefix, new encryption properties object must be created
+    // for each encrypted file.
+    // Explicit encryption keys (footer and column) are cloned.
+    // Upon completion of file reading, the cloned encryption keys in the properties will
+    // be wiped out (array values set to 0).
     // Caller is responsible for wiping out the input key array.
-    Builder* footer_key(const std::string column_key) {
-      if (column_key.empty()) {
+    // param footerKey Key length must be either 16, 24 or 32 bytes.
+    Builder* footer_key(const std::string footer_key) {
+      if (footer_key.empty()) {
         return this;
       }
       DCHECK(footer_key_.empty());
-      footer_key_ = column_key;
+      footer_key_ = footer_key;
       return this;
     }
 
