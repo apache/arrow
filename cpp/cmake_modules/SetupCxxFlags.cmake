@@ -229,6 +229,11 @@ if("${COMPILER_FAMILY}" STREQUAL "gcc")
     # Add colors when paired with ninja
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
   endif()
+
+  if("${COMPILER_VERSION}" VERSION_LESS "6.0")
+    # Work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43407
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-attributes")
+  endif()
 endif()
 
 # Clang options for all builds
