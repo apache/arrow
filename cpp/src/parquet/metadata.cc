@@ -912,20 +912,21 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   void WriteTo(::arrow::io::OutputStream* sink,
 	             const std::shared_ptr<Encryptor>& encryptor) {
     ThriftSerializer serializer;
-    const auto& encrypt_md = properties_->column_encryption_properties(column_->path());
 
     // column is unencrypted
-    if (!encrypt_md || !encrypt_md->is_encrypted()) {
+    if (encryptor == NULLPTR) {
       column_chunk_->__isset.meta_data = true;
       column_chunk_->__set_meta_data(column_metadata_);
 
       serializer.Serialize(column_chunk_, sink);
     } else {  // column is encrypted
+      const auto& encrypt_md = properties_->column_encryption_properties(column_->path());
+      bool encrypt_metadata = encryptor->encryptColumnMetaData(
+          properties_->file_encryption_properties()->encrypted_footer(), encrypt_md);
       column_chunk_->__isset.crypto_metadata = true;
-
-      // encrypted with footer key
       format::ColumnCryptoMetaData ccmd;
       if (encrypt_md->is_encrypted_with_footer_key()) {
+        // encrypted with footer key
         ccmd.__isset.ENCRYPTION_WITH_FOOTER_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_FOOTER_KEY(format::EncryptionWithFooterKey());
       } else {  // encrypted with column key
@@ -937,17 +938,15 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       }
       column_chunk_->__set_crypto_metadata(ccmd);
 
-      DCHECK(properties_->file_encryption_properties());
-      auto footer_key = properties_->file_encryption_properties()->footer_key();
-
-      // non-uniform: footer is unencrypted, or column is encrypted with a column-specific
-      // key
-      if ((footer_key.empty() && encrypt_md->is_encrypted()) ||
-          !encrypt_md->is_encrypted_with_footer_key()) {
+      if (!encrypt_metadata) {
+        column_chunk_->__isset.meta_data = true;
+        column_chunk_->__set_meta_data(column_metadata_);
+      } else {  // Serialize and encrypt ColumnMetadata separately
         // Thrift-serialize the ColumnMetaData structure,
         // encrypt it with the column key, and write to encrypted_column_metadata
         uint8_t* serialized_data;
         uint32_t serialized_len;
+
         serializer.SerializeToBuffer(&column_metadata_, &serialized_len,
                                      &serialized_data);
 
@@ -961,25 +960,40 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         std::string encrypted_column_metadata(temp, encrypted_len);
         column_chunk_->__set_encrypted_column_metadata(encrypted_column_metadata);
         // Keep redacted metadata version for old readers
-        if (footer_key.empty()) {
-          format::ColumnMetaData metadata_redacted = column_metadata_;
-          if (metadata_redacted.__isset.statistics) {
-            metadata_redacted.__isset.statistics = false;
+        if (!properties_->file_encryption_properties()->encrypted_footer()) {
+          // metadata_redacted should be stripped of the column_metadata_ statistics.
+          format::ColumnMetaData metadata_redacted;
+          metadata_redacted.__set_type(column_metadata_.type);
+          metadata_redacted.__set_encodings(column_metadata_.encodings);
+          metadata_redacted.__set_path_in_schema(column_metadata_.path_in_schema);
+          metadata_redacted.__set_codec(column_metadata_.codec);
+          metadata_redacted.__set_num_values(column_metadata_.num_values);
+          metadata_redacted.__set_total_uncompressed_size(
+              column_metadata_.total_uncompressed_size);
+          metadata_redacted.__set_total_compressed_size(
+              column_metadata_.total_compressed_size);
+          if (column_metadata_.__isset.key_value_metadata) {
+            metadata_redacted.__isset.key_value_metadata = true;
+            metadata_redacted.__set_key_value_metadata(
+                column_metadata_.key_value_metadata);
           }
-          if (metadata_redacted.__isset.encoding_stats) {
-            metadata_redacted.__isset.encoding_stats = false;
+          metadata_redacted.__set_data_page_offset(column_metadata_.data_page_offset);
+          if (column_metadata_.__isset.index_page_offset) {
+            metadata_redacted.__isset.index_page_offset = true;
+            metadata_redacted.__set_index_page_offset(column_metadata_.index_page_offset);
           }
+          if (column_metadata_.__isset.dictionary_page_offset) {
+            metadata_redacted.__isset.dictionary_page_offset = true;
+            metadata_redacted.__set_dictionary_page_offset(
+                column_metadata_.dictionary_page_offset);
+          }
+          metadata_redacted.__isset.statistics = false;
+          metadata_redacted.__isset.encoding_stats = false;
+
           column_chunk_->__isset.meta_data = true;
           column_chunk_->__set_meta_data(metadata_redacted);
-        } else {
-          // don't set meta_data
-          column_chunk_->__isset.meta_data = true;
         }
-      } else {
-        column_chunk_->__isset.meta_data = true;
-        column_chunk_->__set_meta_data(column_metadata_);
       }
-
       serializer.Serialize(column_chunk_, sink);
     }
   }
