@@ -268,29 +268,26 @@ GARROW_AVAILABLE_IN_0_14
 void
 garrow_csv_read_options_set_null_values(GArrowCSVReadOptions *options,
                                         const gchar **null_values,
-                                        guint n_null_values);
+                                        gsize n_null_values);
 GARROW_AVAILABLE_IN_0_14
-const gchar *
-garrow_csv_read_options_get_null_values(GArrowCSVReadOptions *options,
-                                        guint *n_null_values);
+gchar **
+garrow_csv_read_options_get_null_values(GArrowCSVReadOptions *options);
 GARROW_AVAILABLE_IN_0_14
 void
 garrow_csv_read_options_set_true_values(GArrowCSVReadOptions *options,
                                         const gchar **true_values,
-                                        guint n_true_values);
+                                        gsize n_true_values);
 GARROW_AVAILABLE_IN_0_14
-const gchar *
-garrow_csv_read_options_get_true_values(GArrowCSVReadOptions *options,
-                                        guint *n_true_values);
+gchar **
+garrow_csv_read_options_get_true_values(GArrowCSVReadOptions *options);
 GARROW_AVAILABLE_IN_0_14
 void
 garrow_csv_read_options_set_false_values(GArrowCSVReadOptions *options,
                                          const gchar **false_values,
-                                         guint n_false_values);
+                                         gsize n_false_values);
 GARROW_AVAILABLE_IN_0_14
-const gchar *
-garrow_csv_read_options_get_false_values(GArrowCSVReadOptions *options,
-                                         guint *n_false_values);
+gchar **
+garrow_csv_read_options_get_false_values(GArrowCSVReadOptions *options);
 
 #define GARROW_TYPE_CSV_READER (garrow_csv_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCSVReader,

@@ -93,7 +93,10 @@ count,valid
 
       def test_null_values
         options = Arrow::CSVReadOptions.new
-        options.null_values = ["2", "5"]
+        null_values = ["2", "5"]
+        options.null_values = null_values
+        assert_equal(["2", "5"], options.null_values)
+
         table = Arrow::CSVReader.new(open_input(<<-CSV), options)
 message,count
 "Start",2
@@ -110,8 +113,14 @@ message,count
 
       def test_boolean_values
         options = Arrow::CSVReadOptions.new
-        options.true_values = ["Start", "Restart"]
-        options.false_values = ["Shutdown"]
+        true_values = ["Start", "Restart"]
+        options.true_values = true_values
+        assert_equal(["Start", "Restart"], options.true_values)
+
+        false_values = ["Shutdown"]
+        options.false_values = false_values
+        assert_equal(["Shutdown"], options.false_values)
+
         table = Arrow::CSVReader.new(open_input(<<-CSV), options)
 message,count
 "Start",2
