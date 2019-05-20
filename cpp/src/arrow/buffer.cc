@@ -18,8 +18,6 @@
 #include "arrow/buffer.h"
 
 #include <cstdint>
-#include <iomanip>
-#include <sstream>
 #include <utility>
 
 #include "arrow/memory_pool.h"
