@@ -15,6 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import sys
+
+if sys.version_info < (3,):
+    raise ImportError("Python Flight bindings require Python 3")
+
 from pyarrow._flight import (  # noqa
     Action,
     ActionType,
