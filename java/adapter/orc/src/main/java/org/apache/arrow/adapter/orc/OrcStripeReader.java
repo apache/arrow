@@ -17,18 +17,25 @@
 
 package org.apache.arrow.adapter.orc;
 
-import io.netty.buffer.ArrowBuf;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
+
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.ReadChannel;
-import org.apache.arrow.vector.ipc.message.*;
+import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.MessageChannelReader;
+import org.apache.arrow.vector.ipc.message.MessageResult;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.stream.Collectors;
+import io.netty.buffer.ArrowBuf;
+
 
 public class OrcStripeReader extends ArrowReader {
   private OrcStripeReaderJniWrapper stripeReader;
@@ -53,7 +60,7 @@ public class OrcStripeReader extends ArrowReader {
     }
 
     ArrayList<ArrowBuf> buffers = new ArrayList<>();
-    for(OrcMemoryJniWrapper buffer : recordBatch.buffers) {
+    for (OrcMemoryJniWrapper buffer : recordBatch.buffers) {
       buffers.add(new ArrowBuf(
               new OrcReferenceManager(buffer),
               null,
@@ -134,7 +141,8 @@ public class OrcStripeReader extends ArrowReader {
     }
 
     if (result.getMessage().headerType() != MessageHeader.DictionaryBatch) {
-      throw new IOException("Expected DictionaryBatch but header was " + result.getMessage().headerType());
+      throw new IOException("Expected DictionaryBatch but header was " +
+              result.getMessage().headerType());
     }
 
     ArrowBuf bodyBuffer = result.getBodyBuffer();

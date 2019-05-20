@@ -17,10 +17,11 @@
 
 package org.apache.arrow.adapter.orc;
 
+import java.io.IOException;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 
-import java.io.IOException;
 
 public class OrcReader implements AutoCloseable {
 

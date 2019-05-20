@@ -17,13 +17,14 @@
 
 package org.apache.arrow.adapter.orc;
 
-import io.netty.buffer.ArrowBuf;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OwnershipTransferResult;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import io.netty.buffer.ArrowBuf;
 
 public class OrcReferenceManager implements ReferenceManager {
   private final AtomicInteger bufRefCnt = new AtomicInteger(0);
@@ -33,6 +34,7 @@ public class OrcReferenceManager implements ReferenceManager {
   OrcReferenceManager(OrcMemoryJniWrapper memory) {
     this.memory = memory;
   }
+
   /**
    * Return the reference count.
    *
@@ -177,7 +179,7 @@ public class OrcReferenceManager implements ReferenceManager {
   }
 
   /**
-   * Get the buffer allocator associated with this reference manager
+   * Get the buffer allocator associated with this reference manager.
    *
    * @return buffer allocator.
    */
@@ -193,7 +195,7 @@ public class OrcReferenceManager implements ReferenceManager {
    */
   @Override
   public int getSize() {
-    return memory.getSize();
+    return (int)memory.getSize();
   }
 
   /**
