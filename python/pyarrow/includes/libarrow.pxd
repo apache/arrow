@@ -1220,6 +1220,10 @@ cdef extern from 'arrow/python/init.h':
     int arrow_init_numpy() except -1
 
 
+cdef extern from 'arrow/python/pyarrow.h' namespace 'arrow::py':
+    int import_pyarrow() except -1
+
+
 cdef extern from 'arrow/python/config.h' namespace 'arrow::py':
     void set_numpy_nan(object o)
 
