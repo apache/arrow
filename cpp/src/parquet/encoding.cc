@@ -798,8 +798,8 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
   int Decode(T* buffer, int max_values) override {
     max_values = std::min(max_values, num_values_);
-    int decoded_values =
-      idx_decoder_.GetBatchWithDict(reinterpret_cast<const T*>(dictionary_->data()), buffer, max_values);
+    int decoded_values = idx_decoder_.GetBatchWithDict(
+        reinterpret_cast<const T*>(dictionary_->data()), buffer, max_values);
     if (decoded_values != max_values) {
       ParquetException::EofException();
     }
@@ -809,10 +809,9 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
   int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
                    int64_t valid_bits_offset) override {
-    int decoded_values =
-        idx_decoder_.GetBatchWithDictSpaced(reinterpret_cast<const T*>(dictionary_->data()),
-                                            buffer, num_values,
-                                            null_count, valid_bits, valid_bits_offset);
+    int decoded_values = idx_decoder_.GetBatchWithDictSpaced(
+        reinterpret_cast<const T*>(dictionary_->data()), buffer, num_values, null_count,
+        valid_bits, valid_bits_offset);
     if (decoded_values != num_values) {
       ParquetException::EofException();
     }
