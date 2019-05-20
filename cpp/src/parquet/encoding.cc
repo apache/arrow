@@ -846,7 +846,7 @@ inline void DictDecoderImpl<ByteArrayType>::SetDict(
     TypedDecoder<ByteArrayType>* dictionary) {
   int num_dictionary_values = dictionary->values_left();
   dictionary_.Resize(num_dictionary_values);
-  dictionary->Decode(&dictionary_[0], num_dictionary_values);
+  dictionary->Decode(dictionary_.data(), num_dictionary_values);
 
   int total_size = 0;
   for (int i = 0; i < num_dictionary_values; ++i) {
