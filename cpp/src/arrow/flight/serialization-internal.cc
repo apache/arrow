@@ -170,9 +170,11 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
     body_size += static_cast<size_t>(BitUtil::RoundUpToMultipleOf8(buffer->size()));
   }
 
+  bool has_body = ipc::Message::HasBody(ipc_msg.type);
+  DCHECK(has_body || ipc_msg.body_length == 0);
+
   // 2 bytes for body tag
-  // Only written when there are body buffers
-  if (ipc_msg.body_length > 0) {
+  if (has_body) {
     // We write the body tag in the header but not the actual body data
     header_size += 2 + WireFormatLite::LengthDelimitedSize(body_size) - body_size;
   }
@@ -211,8 +213,7 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
                                      static_cast<int>(ipc_msg.metadata->size()));
 
-  // Don't write body tag if there are no body buffers
-  if (ipc_msg.body_length > 0) {
+  if (has_body) {
     // Write body tag
     WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
                              WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);

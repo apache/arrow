@@ -32,6 +32,23 @@ from pyarrow.compat import tobytes
 flight = pytest.importorskip("pyarrow.flight")
 
 
+def simple_ints_table():
+    data = [
+        pa.array([-10, -5, 0, 5, 10])
+    ]
+    return pa.Table.from_arrays(data, names=['some_ints'])
+
+
+def simple_dicts_table():
+    dict_values = pa.array(["foo", "baz", "quux"], type=pa.utf8())
+    data = [
+        pa.chunked_array([
+            pa.DictionaryArray.from_arrays([1, 0, None], dict_values),
+            pa.DictionaryArray.from_arrays([2, 1], dict_values)]),
+    ]
+    return pa.Table.from_arrays(data, names=['some_dicts'])
+
+
 class ConstantFlightServer(flight.FlightServerBase):
     """A Flight server that always returns the same data.
 
@@ -39,11 +56,18 @@ class ConstantFlightServer(flight.FlightServerBase):
     does not properly hold a reference to the Table object.
     """
 
+    def __init__(self):
+        super(ConstantFlightServer, self).__init__()
+        # Ticket -> Table
+        self.table_factories = {
+            b'ints': simple_ints_table,
+            b'dicts': simple_dicts_table,
+        }
+
     def do_get(self, context, ticket):
-        data = [
-            pa.array([-10, -5, 0, 5, 10])
-        ]
-        table = pa.Table.from_arrays(data, names=['a'])
+        # Return a fresh table, so that Flight is the only one keeping a
+        # reference.
+        table = self.table_factories[ticket.ticket]()
         return flight.RecordBatchStream(table)
 
 
@@ -207,16 +231,22 @@ def flight_server(server_base, *args, **kwargs):
     thread.join()
 
 
-def test_flight_do_get():
+def test_flight_do_get_ints():
     """Try a simple do_get call."""
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
-    table = pa.Table.from_arrays(data, names=['a'])
+    table = simple_ints_table()
 
     with flight_server(ConstantFlightServer) as server_port:
         client = flight.FlightClient.connect('localhost', server_port)
-        data = client.do_get(flight.Ticket(b'')).read_all()
+        data = client.do_get(flight.Ticket(b'ints')).read_all()
+        assert data.equals(table)
+
+
+def test_flight_do_get_dicts():
+    table = simple_dicts_table()
+
+    with flight_server(ConstantFlightServer) as server_port:
+        client = flight.FlightClient.connect('localhost', server_port)
+        data = client.do_get(flight.Ticket(b'dicts')).read_all()
         assert data.equals(table)
 
 
@@ -283,7 +313,7 @@ def test_timeout_passes():
     with flight_server(ConstantFlightServer) as server_port:
         client = flight.FlightClient.connect('localhost', server_port)
         options = flight.FlightCallOptions(timeout=0.2)
-        client.do_get(flight.Ticket(b''), options=options).read_all()
+        client.do_get(flight.Ticket(b'ints'), options=options).read_all()
 
 
 basic_auth_handler = HttpBasicServerAuthHandler(creds={

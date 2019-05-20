@@ -212,12 +212,27 @@ class TestFlightClient : public ::testing::Test {
 
 class AuthTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
-                  std::unique_ptr<ResultStream>* result) {
+                  std::unique_ptr<ResultStream>* result) override {
     std::shared_ptr<Buffer> buf;
     RETURN_NOT_OK(Buffer::FromString(context.peer_identity(), &buf));
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
   }
+};
+
+class DoPutTestServer : public FlightServerBase {
+ public:
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader) override {
+    descriptor_ = reader->descriptor();
+    return reader->ReadAll(&batches_);
+  }
+
+ protected:
+  FlightDescriptor descriptor_;
+  BatchVector batches_;
+
+  friend class TestDoPut;
 };
 
 class TestAuthHandler : public ::testing::Test {
@@ -239,6 +254,49 @@ class TestAuthHandler : public ::testing::Test {
   int port_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<InProcessTestServer> server_;
+};
+
+class TestDoPut : public ::testing::Test {
+ public:
+  void SetUp() {
+    port_ = 30000;
+    do_put_server_ = new DoPutTestServer();
+    server_.reset(new InProcessTestServer(
+        std::unique_ptr<FlightServerBase>(do_put_server_), port_));
+    ASSERT_OK(server_->Start({}));
+    ASSERT_OK(ConnectClient());
+  }
+
+  void TearDown() { server_->Stop(); }
+
+  Status ConnectClient() { return FlightClient::Connect("localhost", port_, &client_); }
+
+  void CheckBatches(FlightDescriptor expected_descriptor,
+                    const BatchVector& expected_batches) {
+    ASSERT_TRUE(do_put_server_->descriptor_.Equals(expected_descriptor));
+    ASSERT_EQ(do_put_server_->batches_.size(), expected_batches.size());
+    for (size_t i = 0; i < expected_batches.size(); ++i) {
+      ASSERT_BATCHES_EQUAL(*do_put_server_->batches_[i], *expected_batches[i]);
+    }
+  }
+
+  void CheckDoPut(FlightDescriptor descr, const std::shared_ptr<Schema>& schema,
+                  const BatchVector& batches) {
+    std::unique_ptr<ipc::RecordBatchWriter> stream;
+    ASSERT_OK(client_->DoPut(descr, schema, &stream));
+    for (const auto& batch : batches) {
+      ASSERT_OK(stream->WriteRecordBatch(*batch));
+    }
+    ASSERT_OK(stream->Close());
+
+    CheckBatches(descr, batches);
+  }
+
+ protected:
+  int port_;
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<InProcessTestServer> server_;
+  DoPutTestServer* do_put_server_;
 };
 
 TEST_F(TestFlightClient, ListFlights) {
@@ -388,6 +446,43 @@ TEST_F(TestFlightClient, NoTimeout) {
   EXPECT_LE(end - start, std::chrono::milliseconds{600});
   ASSERT_OK(status);
   ASSERT_NE(nullptr, info);
+}
+
+TEST_F(TestDoPut, DoPutInts) {
+  auto descr = FlightDescriptor::Path({"ints"});
+  BatchVector batches;
+  auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
+  auto schema = arrow::schema({field("f1", a1->type())});
+  batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
+
+  CheckDoPut(descr, schema, batches);
+}
+
+TEST_F(TestDoPut, DoPutEmptyBatch) {
+  // Sending and receiving a 0-sized batch shouldn't fail
+  auto descr = FlightDescriptor::Path({"ints"});
+  BatchVector batches;
+  auto a1 = ArrayFromJSON(int32(), "[]");
+  auto schema = arrow::schema({field("f1", a1->type())});
+  batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
+
+  CheckDoPut(descr, schema, batches);
+}
+
+TEST_F(TestDoPut, DoPutDicts) {
+  auto descr = FlightDescriptor::Path({"dicts"});
+  BatchVector batches;
+  auto dict_values = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]");
+  auto ty = dictionary(int8(), dict_values->type());
+  auto schema = arrow::schema({field("f1", ty)});
+  // Make several batches
+  for (const char* json : {"[1, 0, 1]", "[null]", "[null, 1]"}) {
+    auto indices = ArrayFromJSON(int8(), json);
+    auto dict_array = std::make_shared<DictionaryArray>(ty, indices, dict_values);
+    batches.push_back(RecordBatch::Make(schema, dict_array->length(), {dict_array}));
+  }
+
+  CheckDoPut(descr, schema, batches);
 }
 
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
