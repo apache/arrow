@@ -56,9 +56,11 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
     source autobrew
   fi
-  PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include -DARROW_R_WITH_PARQUET"
+  PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
   PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
 fi
+
+PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
 
 # For debugging
 echo "PKG_CFLAGS=$PKG_CFLAGS"
