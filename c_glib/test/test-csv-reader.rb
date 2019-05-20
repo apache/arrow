@@ -95,7 +95,7 @@ count,valid
         options = Arrow::CSVReadOptions.new
         null_values = ["2", "5"]
         options.null_values = null_values
-        assert_equal(["2", "5"], options.null_values)
+        assert_equal(null_values, options.null_values)
 
         table = Arrow::CSVReader.new(open_input(<<-CSV), options)
 message,count
@@ -116,18 +116,18 @@ message,count
         null_values = ["2", "5"]
         options.null_values = null_values
         options.add_null_value("9")
-        assert_equal(["2", "5", "9"], options.null_values)
+        assert_equal(null_values + ["9"], options.null_values)
       end
 
       def test_boolean_values
         options = Arrow::CSVReadOptions.new
         true_values = ["Start", "Restart"]
         options.true_values = true_values
-        assert_equal(["Start", "Restart"], options.true_values)
+        assert_equal(true_values, options.true_values)
 
         false_values = ["Shutdown"]
         options.false_values = false_values
-        assert_equal(["Shutdown"], options.false_values)
+        assert_equal(false_values, options.false_values)
 
         table = Arrow::CSVReader.new(open_input(<<-CSV), options)
 message,count
@@ -148,7 +148,7 @@ message,count
         true_values = ["Start", "Restart"]
         options.true_values = true_values
         options.add_true_value("Shutdown")
-        assert_equal(["Start", "Restart", "Shutdown"], options.true_values)
+        assert_equal(true_values + ["Shutdown"], options.true_values)
       end
 
       def test_add_false_value
@@ -156,7 +156,7 @@ message,count
         false_values = ["Start", "Restart"]
         options.false_values = false_values
         options.add_false_value("Shutdown")
-        assert_equal(["Start", "Restart", "Shutdown"], options.false_values)
+        assert_equal(false_values + ["Shutdown"], options.false_values)
       end
 
       def test_allow_null_strings
