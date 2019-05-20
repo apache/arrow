@@ -18,6 +18,7 @@
 #ifndef INTERNAL_FILE_DECRYPTOR_H
 #define INTERNAL_FILE_DECRYPTOR_H
 
+#include <list>
 #include <map>
 #include <memory>
 #include <string>
@@ -85,6 +86,8 @@ class InternalFileDecryptor {
 
   FileDecryptionProperties* properties() { return properties_; }
 
+  void wipeout_decryption_keys();
+
   std::shared_ptr<Decryptor> GetFooterDecryptor();
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnMeta(const std::string& aad = "");
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnData(const std::string& aad = "");
@@ -113,6 +116,7 @@ class InternalFileDecryptor {
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
   std::shared_ptr<FooterSigningEncryptor> footer_signing_encryptor_;
+  std::shared_ptr<std::list<parquet_encryption::AesDecryptor*>> all_decryptors_;
 
   std::unique_ptr<parquet_encryption::AesDecryptor> meta_decryptor_128_;
   std::unique_ptr<parquet_encryption::AesDecryptor> meta_decryptor_196_;
