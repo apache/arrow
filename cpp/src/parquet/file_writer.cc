@@ -19,6 +19,7 @@
 
 #include <utility>
 #include <vector>
+#include <iostream>  //RJZ (for debug printing)
 
 #include "parquet/column_writer.h"
 #include "parquet/schema.h"
@@ -76,8 +77,11 @@ inline void ThrowRowsMisMatchError(int col, int64_t prev, int64_t curr) {
 class RowGroupSerializer : public RowGroupWriter::Contents {
  public:
   RowGroupSerializer(OutputStream* sink, RowGroupMetaDataBuilder* metadata,
-                     const WriterProperties* properties, bool buffered_row_group = false)
+                     const WriterProperties* properties,
+                     bool buffered_row_group = false,
+                     std::string file_path = "RJZ.DEFAULT")
       : sink_(sink),
+        sink_file_path_(file_path),
         metadata_(metadata),
         properties_(properties),
         total_bytes_written_(0),
@@ -121,8 +125,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
     const ColumnDescriptor* column_descr = col_meta->descr();
     std::unique_ptr<PageWriter> pager =
-        PageWriter::Open(sink_, properties_->compression(column_descr->path()), col_meta,
-                         properties_->memory_pool());
+        PageWriter::Open(sink_, properties_->compression(column_descr->path()),
+                        col_meta, properties_->memory_pool(), sink_file_path_);
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
   }
@@ -190,6 +194,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   int current_column_index_;
   mutable int64_t num_rows_;
   bool buffered_row_group_;
+  std::string sink_file_path_;
 
   void CheckRowsWritten() const {
     // verify when only one column is written at a time
@@ -219,7 +224,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       const ColumnDescriptor* column_descr = col_meta->descr();
       std::unique_ptr<PageWriter> pager =
           PageWriter::Open(sink_, properties_->compression(column_descr->path()),
-                           col_meta, properties_->memory_pool(), buffered_row_group_);
+                           col_meta, properties_->memory_pool(), sink_file_path_,
+                           buffered_row_group_);
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
     }
@@ -239,9 +245,10 @@ class FileSerializer : public ParquetFileWriter::Contents {
   static std::unique_ptr<ParquetFileWriter::Contents> Open(
       const std::shared_ptr<OutputStream>& sink, const std::shared_ptr<GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties,
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+      const std::string& file_path) {
     std::unique_ptr<ParquetFileWriter::Contents> result(
-        new FileSerializer(sink, schema, properties, key_value_metadata));
+        new FileSerializer(sink, schema, properties, key_value_metadata, file_path));
 
     return result;
   }
@@ -282,7 +289,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_.get(), rg_metadata, properties_.get(), buffered_row_group));
+        sink_.get(), rg_metadata, properties_.get(), buffered_row_group, sink_file_path_));
     row_group_writer_.reset(new RowGroupWriter(std::move(contents)));
     return row_group_writer_.get();
   }
@@ -302,8 +309,9 @@ class FileSerializer : public ParquetFileWriter::Contents {
   FileSerializer(const std::shared_ptr<OutputStream>& sink,
                  const std::shared_ptr<GroupNode>& schema,
                  const std::shared_ptr<WriterProperties>& properties,
-                 const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
-      : ParquetFileWriter::Contents(schema, key_value_metadata),
+                 const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+                 const std::string& file_path)
+      : ParquetFileWriter::Contents(schema, key_value_metadata, file_path),
         sink_(sink),
         is_open_(true),
         properties_(properties),
@@ -353,8 +361,11 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
     const std::shared_ptr<OutputStream>& sink,
     const std::shared_ptr<schema::GroupNode>& schema,
     const std::shared_ptr<WriterProperties>& properties,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
-  auto contents = FileSerializer::Open(sink, schema, properties, key_value_metadata);
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    const std::string file_path) {
+  auto contents = FileSerializer::Open(sink, schema, properties,
+                                       key_value_metadata, file_path);
+                                       //key_value_metadata, "RJZ.TEST.5");
   std::unique_ptr<ParquetFileWriter> result(new ParquetFileWriter());
   result->Open(std::move(contents));
   return result;

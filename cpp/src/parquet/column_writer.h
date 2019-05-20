@@ -85,7 +85,7 @@ class PARQUET_EXPORT PageWriter {
   static std::unique_ptr<PageWriter> Open(
       OutputStream* sink, Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      bool buffered_row_group = false);
+      std::string file_path = "", bool buffered_row_group = false);
 
   // The Column Writer decides if dictionary encoding is used if set and
   // if the dictionary encoding has fallen back to default encoding on reaching dictionary

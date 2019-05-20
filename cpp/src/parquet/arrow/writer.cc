@@ -1122,7 +1122,7 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
 
   std::unique_ptr<ParquetFileWriter> base_writer =
-      ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata());
+      ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata(), "RJZ.TEST.6");
 
   auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
   writer->reset(
