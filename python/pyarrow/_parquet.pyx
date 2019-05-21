@@ -992,7 +992,7 @@ cdef class ParquetWriter:
         if file_path:
             c_file_path = file_path.encode()
         else:
-            c_file_path = "None".encode()
+            c_file_path = "".encode()
         self.use_dictionary = use_dictionary
         self.compression = compression
         self.version = version
