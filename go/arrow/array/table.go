@@ -117,7 +117,7 @@ func NewChunked(dtype arrow.DataType, chunks []Interface) *Chunked {
 		dtype:    dtype,
 	}
 	for i, chunk := range chunks {
-		if chunk.DataType() != dtype {
+		if !arrow.TypeEquals(chunk.DataType(), dtype) {
 			panic("arrow/array: mismatch data type")
 		}
 		chunk.Retain()
