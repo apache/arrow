@@ -69,32 +69,36 @@ void CheckCodecRoundtrip(Compression::type ctype, const std::vector<uint8_t>& da
   int64_t actual_size;
   ASSERT_OK(c1->Compress(data.size(), data.data(), max_compressed_len, compressed.data(),
                          &actual_size));
+  compressed.resize(actual_size);
 
   // decompress with c2
-  ASSERT_OK(c2->Decompress(actual_size, compressed.data(), decompressed.size(),
+  ASSERT_OK(c2->Decompress(compressed.size(), compressed.data(), decompressed.size(),
                            decompressed.data()));
 
   ASSERT_EQ(data, decompressed);
 
   // decompress with size with c2
   int64_t actual_decompressed_size;
-  ASSERT_OK(c2->Decompress(actual_size, compressed.data(), decompressed.size(),
+  ASSERT_OK(c2->Decompress(compressed.size(), compressed.data(), decompressed.size(),
                            decompressed.data(), &actual_decompressed_size));
 
   ASSERT_EQ(data, decompressed);
   ASSERT_EQ(data.size(), actual_decompressed_size);
 
   // compress with c2
-  int64_t actual_size2;
   ASSERT_EQ(max_compressed_len,
             static_cast<int>(c2->MaxCompressedLen(data.size(), data.data())));
+  // Resize to prevent ASAN from detecting container overflow.
   compressed.resize(max_compressed_len);
+
+  int64_t actual_size2;
   ASSERT_OK(c2->Compress(data.size(), data.data(), max_compressed_len, compressed.data(),
                          &actual_size2));
   ASSERT_EQ(actual_size2, actual_size);
+  compressed.resize(actual_size);
 
   // decompress with c1
-  ASSERT_OK(c1->Decompress(actual_size2, compressed.data(), decompressed.size(),
+  ASSERT_OK(c1->Decompress(compressed.size(), compressed.data(), decompressed.size(),
                            decompressed.data()));
 
   ASSERT_EQ(data, decompressed);
