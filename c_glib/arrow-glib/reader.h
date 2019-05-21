@@ -264,6 +264,42 @@ garrow_csv_read_options_add_schema(GArrowCSVReadOptions *options,
                                    GArrowSchema *schema);
 GHashTable *
 garrow_csv_read_options_get_column_types(GArrowCSVReadOptions *options);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_set_null_values(GArrowCSVReadOptions *options,
+                                        const gchar **null_values,
+                                        gsize n_null_values);
+GARROW_AVAILABLE_IN_0_14
+gchar **
+garrow_csv_read_options_get_null_values(GArrowCSVReadOptions *options);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_add_null_value(GArrowCSVReadOptions *options,
+                                       const gchar *null_value);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_set_true_values(GArrowCSVReadOptions *options,
+                                        const gchar **true_values,
+                                        gsize n_true_values);
+GARROW_AVAILABLE_IN_0_14
+gchar **
+garrow_csv_read_options_get_true_values(GArrowCSVReadOptions *options);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_add_true_value(GArrowCSVReadOptions *options,
+                                       const gchar *true_value);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_set_false_values(GArrowCSVReadOptions *options,
+                                         const gchar **false_values,
+                                         gsize n_false_values);
+GARROW_AVAILABLE_IN_0_14
+gchar **
+garrow_csv_read_options_get_false_values(GArrowCSVReadOptions *options);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_add_false_value(GArrowCSVReadOptions *options,
+                                        const gchar *false_value);
 
 #define GARROW_TYPE_CSV_READER (garrow_csv_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCSVReader,
