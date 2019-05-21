@@ -877,11 +877,11 @@ mod tests {
     }
 
     #[test]
-    fn test_cast_i32_to_list_i32_nullable_sliced() {
+    fn test_cast_i32_to_list_f64_nullable_sliced() {
         let a = Int32Array::from(vec![Some(5), None, Some(7), Some(8), None, Some(10)]);
         let array = Arc::new(a) as ArrayRef;
         let array = array.slice(2, 4);
-        let b = cast(&array, &DataType::List(Box::new(DataType::Int32))).unwrap();
+        let b = cast(&array, &DataType::List(Box::new(DataType::Float64))).unwrap();
         assert_eq!(4, b.len());
         assert_eq!(1, b.null_count());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
@@ -894,12 +894,12 @@ mod tests {
         assert_eq!(1, arr.value_length(2));
         assert_eq!(1, arr.value_length(3));
         let values = arr.values();
-        let c = values.as_any().downcast_ref::<Int32Array>().unwrap();
+        let c = values.as_any().downcast_ref::<Float64Array>().unwrap();
         assert_eq!(1, c.null_count());
-        assert_eq!(7, c.value(0));
-        assert_eq!(8, c.value(1));
+        assert_eq!(7.0, c.value(0));
+        assert_eq!(8.0, c.value(1));
         assert_eq!(false, c.is_valid(2));
-        assert_eq!(10, c.value(3));
+        assert_eq!(10.0, c.value(3));
     }
 
     #[test]
