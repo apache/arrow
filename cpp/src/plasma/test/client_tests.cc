@@ -55,7 +55,7 @@ class TestPlasmaStore : public ::testing::Test {
   // stdout of the object store. Consider changing that.
 
   void SetUp() {
-    ARROW_CHECK_OK(TemporaryDir::Make("plasma-client-tests-", &temp_dir_));
+    ARROW_CHECK_OK(TemporaryDir::Make("cli-test-", &temp_dir_));
     store_socket_name_ = temp_dir_->path().ToString() + "store";
 
     std::string plasma_directory =

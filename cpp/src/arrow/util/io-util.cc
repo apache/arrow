@@ -795,7 +795,7 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
   bfs::path path;
 
   BOOST_FILESYSTEM_TRY
-  auto model = bfs::path(prefix + "%%%%-%%%%-%%%%-%%%%");
+  auto model = bfs::path(prefix + "%%%%%%%%%%");
   path = bfs::temp_directory_path() / bfs::unique_path(model);
   path += "/";
   BOOST_FILESYSTEM_CATCH
