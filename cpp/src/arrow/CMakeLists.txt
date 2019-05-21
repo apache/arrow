@@ -174,6 +174,7 @@ if(ARROW_COMPUTE)
       compute/kernels/count.cc
       compute/kernels/filter.cc
       compute/kernels/hash.cc
+      compute/kernels/mask.cc
       compute/kernels/mean.cc
       compute/kernels/sum.cc
       compute/kernels/take.cc
