@@ -91,6 +91,7 @@ static constexpr ParquetVersion::type DEFAULT_WRITER_VERSION =
     ParquetVersion::PARQUET_1_0;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
+static constexpr char DEFAULT_FILE_PATH[] = "";
 
 class PARQUET_EXPORT ColumnProperties {
  public:
@@ -150,7 +151,8 @@ class PARQUET_EXPORT WriterProperties {
           max_row_group_length_(DEFAULT_MAX_ROW_GROUP_LENGTH),
           pagesize_(DEFAULT_PAGE_SIZE),
           version_(DEFAULT_WRITER_VERSION),
-          created_by_(DEFAULT_CREATED_BY) {}
+          created_by_(DEFAULT_CREATED_BY),
+          file_path_(DEFAULT_FILE_PATH) {}
     virtual ~Builder() {}
 
     Builder* memory_pool(::arrow::MemoryPool* pool) {
@@ -213,6 +215,11 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* created_by(const std::string& created_by) {
       created_by_ = created_by;
+      return this;
+    }
+
+    Builder* file_path(const std::string& file_path) {
+      file_path_ = file_path;
       return this;
     }
 
@@ -327,7 +334,8 @@ class PARQUET_EXPORT WriterProperties {
       return std::shared_ptr<WriterProperties>(
           new WriterProperties(pool_, dictionary_pagesize_limit_, write_batch_size_,
                                max_row_group_length_, pagesize_, version_, created_by_,
-                               default_column_properties_, column_properties));
+                               default_column_properties_, column_properties,
+                               file_path_));
     }
 
    private:
@@ -338,6 +346,7 @@ class PARQUET_EXPORT WriterProperties {
     int64_t pagesize_;
     ParquetVersion::type version_;
     std::string created_by_;
+    std::string file_path_;
 
     // Settings used for each column unless overridden in any of the maps below
     ColumnProperties default_column_properties_;
@@ -360,6 +369,8 @@ class PARQUET_EXPORT WriterProperties {
   inline ParquetVersion::type version() const { return parquet_version_; }
 
   inline std::string created_by() const { return parquet_created_by_; }
+
+  inline std::string file_path() const { return file_path_; }
 
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
@@ -410,7 +421,8 @@ class PARQUET_EXPORT WriterProperties {
       int64_t write_batch_size, int64_t max_row_group_length, int64_t pagesize,
       ParquetVersion::type version, const std::string& created_by,
       const ColumnProperties& default_column_properties,
-      const std::unordered_map<std::string, ColumnProperties>& column_properties)
+      const std::unordered_map<std::string, ColumnProperties>& column_properties,
+      const std::string& file_path)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -419,7 +431,8 @@ class PARQUET_EXPORT WriterProperties {
         parquet_version_(version),
         parquet_created_by_(created_by),
         default_column_properties_(default_column_properties),
-        column_properties_(column_properties) {}
+        column_properties_(column_properties),
+        file_path_(file_path)  {}
 
   ::arrow::MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -430,6 +443,7 @@ class PARQUET_EXPORT WriterProperties {
   std::string parquet_created_by_;
   ColumnProperties default_column_properties_;
   std::unordered_map<std::string, ColumnProperties> column_properties_;
+  std::string file_path_;
 };
 
 std::shared_ptr<WriterProperties> PARQUET_EXPORT default_writer_properties();

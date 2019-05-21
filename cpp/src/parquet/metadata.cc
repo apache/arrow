@@ -622,6 +622,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
               bool dictionary_fallback) {
+
+    set_file_path(properties_->file_path());
+
     if (dictionary_page_offset > 0) {
       column_chunk_->meta_data.__set_dictionary_page_offset(dictionary_page_offset);
       column_chunk_->__set_file_offset(dictionary_page_offset + compressed_size);
