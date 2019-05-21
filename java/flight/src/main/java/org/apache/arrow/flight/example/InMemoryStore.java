@@ -79,17 +79,6 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
     return h.getStream(example);
   }
 
-  /**
-   * Create a new {@link Stream} with the given schema and descriptor.
-   */
-  public StreamCreator putStream(final FlightDescriptor descriptor, final Schema schema) {
-    final FlightHolder h = holders.computeIfAbsent(
-        descriptor,
-        t -> new FlightHolder(allocator, t, schema));
-
-    return h.addStream(schema);
-  }
-
   @Override
   public void listFlights(CallContext context, Criteria criteria,
       StreamListener<FlightInfo> listener) {
@@ -123,7 +112,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
       try (VectorSchemaRoot root = flightStream.getRoot()) {
         final FlightHolder h = holders.computeIfAbsent(
             flightStream.getDescriptor(),
-            t -> new FlightHolder(allocator, t, flightStream.getSchema()));
+            t -> new FlightHolder(allocator, t, flightStream.getSchema(), flightStream.getDictionaryProvider()));
 
         creator = h.addStream(flightStream.getSchema());
 

@@ -36,6 +36,9 @@ public class PutResult {
 
   /** Create a PutResult with application-specific metadata. */
   public static PutResult metadata(byte[] metadata) {
+    if (metadata == null) {
+      return empty();
+    }
     return new PutResult(ByteBuffer.wrap(metadata));
   }
 

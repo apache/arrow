@@ -35,6 +35,7 @@ import org.apache.arrow.flight.impl.Flight.FlightData;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -147,6 +148,21 @@ class ArrowMessage implements AutoCloseable {
     this.appMetadata = appMetadata;
   }
 
+  public ArrowMessage(ArrowDictionaryBatch batch) {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int batchOffset = batch.writeTo(builder);
+    ByteBuffer serializedMessage = MessageSerializer
+        .serializeMessage(builder, MessageHeader.DictionaryBatch, batchOffset,
+            batch.computeBodyLength());
+    serializedMessage = serializedMessage.slice();
+    this.message = Message.getRootAsMessage(serializedMessage);
+    // asInputStream will free the buffers implicitly, so increment the reference count
+    batch.getDictionary().getBuffers().forEach(buf -> buf.getReferenceManager().retain());
+    this.bufs = ImmutableList.copyOf(batch.getDictionary().getBuffers());
+    this.descriptor = null;
+    this.appMetadata = null;
+  }
+
   private ArrowMessage(FlightDescriptor descriptor, Message message, byte[] appMetadata, ArrowBuf buf) {
     this.message = message;
     this.descriptor = descriptor;
@@ -182,6 +198,13 @@ class ArrowMessage implements AutoCloseable {
     ArrowBuf underlying = bufs.get(0);
     ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(recordBatch, underlying);
     return batch;
+  }
+
+  public ArrowDictionaryBatch asDictionaryBatch() throws IOException {
+    Preconditions.checkArgument(bufs.size() == 1, "A batch can only be consumed if it contains a single ArrowBuf.");
+    Preconditions.checkArgument(getMessageType() == HeaderType.DICTIONARY_BATCH);
+    ArrowBuf underlying = bufs.get(0);
+    return MessageSerializer.deserializeDictionaryBatch(message, underlying);
   }
 
   public Iterable<ArrowBuf> getBufs() {
@@ -277,7 +300,8 @@ class ArrowMessage implements AutoCloseable {
         return NO_BODY_MARSHALLER.stream(builder.build());
       }
 
-      Preconditions.checkArgument(getMessageType() == HeaderType.RECORD_BATCH);
+      Preconditions.checkArgument(getMessageType() == HeaderType.RECORD_BATCH ||
+          getMessageType() == HeaderType.DICTIONARY_BATCH);
       Preconditions.checkArgument(!bufs.isEmpty());
       Preconditions.checkArgument(descriptor == null, "Descriptor should only be included in the schema message.");
 

@@ -308,7 +308,8 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
       }
       RETURN_NOT_OK(Buffer::FromString(str_descr, &payload.descriptor));
       first_payload_ = false;
-    } else if (stream_writer_->app_metadata_) {
+    } else if (ipc_payload.type == ipc::Message::RECORD_BATCH &&
+               stream_writer_->app_metadata_) {
       payload.app_metadata = std::move(stream_writer_->app_metadata_);
     }
 

@@ -29,6 +29,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -41,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
 
   private final String uuid = UUID.randomUUID().toString();
+  private final DictionaryProvider dictionaryProvider;
   private final List<ArrowRecordBatch> batches;
   private final Schema schema;
   private final long recordCount;
@@ -54,9 +56,11 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
    */
   public Stream(
       final Schema schema,
+      final DictionaryProvider dictionaryProvider,
       List<ArrowRecordBatch> batches,
       long recordCount) {
     this.schema = schema;
+    this.dictionaryProvider = dictionaryProvider;
     this.batches = ImmutableList.copyOf(batches);
     this.recordCount = recordCount;
   }
@@ -83,7 +87,7 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
    */
   public void sendTo(BufferAllocator allocator, ServerStreamListener listener) {
     try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
-      listener.start(root);
+      listener.start(root, dictionaryProvider);
       final VectorLoader loader = new VectorLoader(root);
       int counter = 0;
       for (ArrowRecordBatch batch : batches) {
@@ -121,18 +125,22 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
     private final List<ArrowRecordBatch> batches = new ArrayList<>();
     private final Consumer<Stream> committer;
     private long recordCount = 0;
+    private DictionaryProvider dictionaryProvider;
 
     /**
      * Creates a new instance.
      *
      * @param schema The schema for batches in the stream.
+     * @param dictionaryProvider The dictionary provider for the stream.
      * @param allocator  The allocator used to copy data permanently into the stream.
      * @param committer A callback for when the the stream is ready to be finalized (no more batches).
      */
-    public StreamCreator(Schema schema, BufferAllocator allocator, Consumer<Stream> committer) {
+    public StreamCreator(Schema schema, DictionaryProvider dictionaryProvider,
+        BufferAllocator allocator, Consumer<Stream> committer) {
       this.allocator = allocator;
       this.committer = committer;
       this.schema = schema;
+      this.dictionaryProvider = dictionaryProvider;
     }
 
     /**
@@ -155,7 +163,7 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
      * Complete building the stream (no more batches can be added).
      */
     public void complete() {
-      Stream stream = new Stream(schema, batches, recordCount);
+      Stream stream = new Stream(schema, dictionaryProvider, batches, recordCount);
       committer.accept(stream);
     }
 

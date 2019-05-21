@@ -18,6 +18,7 @@
 package org.apache.arrow.flight;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 
 /**
  * API to Implement an Arrow Flight producer.
@@ -99,6 +100,13 @@ public interface FlightProducer {
      * <p>This method must be called before all others.
      */
     void start(VectorSchemaRoot root);
+
+    /**
+     * Start sending data, using the schema of the given {@link VectorSchemaRoot}.
+     *
+     * <p>This method must be called before all others.
+     */
+    void start(VectorSchemaRoot root, DictionaryProvider dictionaries);
 
     /**
      * Send the current contents of the associated {@link VectorSchemaRoot}.

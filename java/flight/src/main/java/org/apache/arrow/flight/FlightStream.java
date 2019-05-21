@@ -17,17 +17,28 @@
 
 package org.apache.arrow.flight;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.flight.ArrowMessage.HeaderType;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.DictionaryUtility;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -56,6 +67,7 @@ public class FlightStream implements AutoCloseable {
   private volatile int pending = 1;
   private boolean completed = false;
   private volatile VectorSchemaRoot fulfilledRoot;
+  private DictionaryProvider.MapDictionaryProvider dictionaries;
   private volatile VectorLoader loader;
   private volatile Throwable ex;
   private volatile FlightDescriptor descriptor;
@@ -75,10 +87,15 @@ public class FlightStream implements AutoCloseable {
     this.pendingTarget = pendingTarget;
     this.cancellable = cancellable;
     this.requestor = requestor;
+    this.dictionaries = new DictionaryProvider.MapDictionaryProvider();
   }
 
   public Schema getSchema() {
     return schema;
+  }
+
+  public DictionaryProvider getDictionaryProvider() {
+    return dictionaries;
   }
 
   public FlightDescriptor getDescriptor() {
@@ -133,15 +150,33 @@ public class FlightStream implements AutoCloseable {
         }
       } else {
         ArrowMessage msg = ((ArrowMessage) data);
-        try (ArrowRecordBatch arb = msg.asRecordBatch()) {
-          loader.load(arb);
+        if (msg.getMessageType() == HeaderType.RECORD_BATCH) {
+          try (ArrowRecordBatch arb = msg.asRecordBatch()) {
+            loader.load(arb);
+          }
+          this.applicationMetadata = msg.getApplicationMetadata();
+        } else if (msg.getMessageType() == HeaderType.DICTIONARY_BATCH) {
+          try (ArrowDictionaryBatch arb = msg.asDictionaryBatch()) {
+            final long id = arb.getDictionaryId();
+            final Dictionary dictionary = dictionaries.lookup(id);
+            if (dictionary == null) {
+              throw new IllegalArgumentException("Dictionary not defined in schema: ID " + id);
+            }
+
+            final FieldVector vector = dictionary.getVector();
+            final VectorSchemaRoot dictionaryRoot = new VectorSchemaRoot(Collections.singletonList(vector.getField()),
+                Collections.singletonList(vector), 0);
+            final VectorLoader dictionaryLoader = new VectorLoader(dictionaryRoot);
+            dictionaryLoader.load(arb.getDictionary());
+          }
+          return next();
+        } else {
+          throw new UnsupportedOperationException("Message type is unsupported: " + msg.getMessageType());
         }
-        this.applicationMetadata = msg.getApplicationMetadata();
         return true;
       }
-
     } catch (Exception e) {
-      throw Throwables.propagate(e);
+      throw new RuntimeException(e);
     }
   }
 
@@ -181,23 +216,36 @@ public class FlightStream implements AutoCloseable {
     public void onNext(ArrowMessage msg) {
       requestOutstanding();
       switch (msg.getMessageType()) {
-        case SCHEMA:
+        case SCHEMA: {
           schema = msg.asSchema();
+          final List<Field> fields = new ArrayList<>();
+          final Map<Long, Dictionary> dictionaryMap = new HashMap<>();
+          for (final Field originalField : schema.getFields()) {
+            final Field updatedField = DictionaryUtility.toMemoryFormat(originalField, allocator, dictionaryMap);
+            fields.add(updatedField);
+          }
+          for (final Map.Entry<Long, Dictionary> entry : dictionaryMap.entrySet()) {
+            dictionaries.put(entry.getValue());
+          }
+          schema = new Schema(fields, schema.getCustomMetadata());
           fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
           loader = new VectorLoader(fulfilledRoot);
           descriptor = msg.getDescriptor() != null ? new FlightDescriptor(msg.getDescriptor()) : null;
           root.set(fulfilledRoot);
 
           break;
+        }
         case RECORD_BATCH:
           queue.add(msg);
           break;
-        case NONE:
         case DICTIONARY_BATCH:
+          queue.add(msg);
+          break;
+        case NONE:
         case TENSOR:
         default:
           queue.add(DONE_EX);
-          ex = new UnsupportedOperationException("Unable to handle message of type: " + msg);
+          ex = new UnsupportedOperationException("Unable to handle message of type: " + msg.getMessageType());
 
       }
 

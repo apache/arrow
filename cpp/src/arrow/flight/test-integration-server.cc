@@ -106,7 +106,9 @@ class FlightIntegrationTestServer : public FlightServerBase {
       RETURN_NOT_OK(reader->ReadWithMetadata(&chunk, &metadata));
       if (chunk == nullptr) break;
       retrieved_chunks.push_back(chunk);
-      RETURN_NOT_OK(writer->WriteMetadata(*metadata));
+      if (metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(*metadata));
+      }
     }
     std::shared_ptr<arrow::Table> retrieved_data;
     RETURN_NOT_OK(arrow::Table::FromRecordBatches(reader->schema(), retrieved_chunks,

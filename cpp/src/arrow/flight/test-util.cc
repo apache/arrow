@@ -271,8 +271,10 @@ Status NumberingStream::GetSchemaPayload(FlightPayload* payload) {
 
 Status NumberingStream::Next(FlightPayload* payload) {
   RETURN_NOT_OK(stream_->Next(payload));
-  payload->app_metadata = Buffer::FromString(std::to_string(counter_));
-  counter_++;
+  if (payload && payload->ipc_message.type == ipc::Message::RECORD_BATCH) {
+    payload->app_metadata = Buffer::FromString(std::to_string(counter_));
+    counter_++;
+  }
   return Status::OK();
 }
 

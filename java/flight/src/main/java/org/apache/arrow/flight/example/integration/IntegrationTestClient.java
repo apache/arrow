@@ -96,27 +96,28 @@ class IntegrationTestClient {
       jsonRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
       VectorUnloader unloader = new VectorUnloader(root);
       VectorLoader jsonLoader = new VectorLoader(jsonRoot);
-      FlightClient.ClientStreamListener stream = client.startPut(descriptor, root, new StreamListener<PutResult>() {
-        int counter = 0;
+      FlightClient.ClientStreamListener stream = client.startPut(descriptor, root, reader,
+          new StreamListener<PutResult>() {
+            int counter = 0;
 
-        @Override
-        public void onNext(PutResult val) {
-          final String metadata = StandardCharsets.UTF_8.decode(val.getApplicationMetadata()).toString();
-          if (!Integer.toString(counter).equals(metadata)) {
-            throw new RuntimeException(
-                String.format("Invalid ACK from server. Expected '%d' but got '%s'.", counter, metadata));
-          }
-          counter++;
-        }
+            @Override
+            public void onNext(PutResult val) {
+              final String metadata = StandardCharsets.UTF_8.decode(val.getApplicationMetadata()).toString();
+              if (!Integer.toString(counter).equals(metadata)) {
+                throw new RuntimeException(
+                    String.format("Invalid ACK from server. Expected '%d' but got '%s'.", counter, metadata));
+              }
+              counter++;
+            }
 
-        @Override
-        public void onError(Throwable t) {
-        }
+            @Override
+            public void onError(Throwable t) {
+            }
 
-        @Override
-        public void onCompleted() {
-        }
-      });
+            @Override
+            public void onCompleted() {
+            }
+          });
       int counter = 0;
       while (reader.read(root)) {
         stream.putNext(Integer.toString(counter).getBytes(StandardCharsets.UTF_8));
