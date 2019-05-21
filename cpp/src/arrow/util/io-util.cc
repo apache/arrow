@@ -61,13 +61,7 @@
 
 #if defined(_WIN32)
 #include <io.h>
-#endif
-
-#ifdef __MINGW32__
-// MinGW lacks this definition
-#ifndef _SH_DENYNO
-#define _SH_DENYNO 0x40
-#endif
+#include <share.h>
 #endif
 
 #ifdef _WIN32  // Windows
