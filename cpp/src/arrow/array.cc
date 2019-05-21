@@ -320,6 +320,9 @@ void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
   pair_list_data->type = list(pair_data->type);
   this->ListArray::SetData(pair_list_data);
   data_->type = data->type;
+
+  keys_ = MakeArray(pair_data->child_data[0]);
+  items_ = MakeArray(pair_data->child_data[1]);
 }
 
 // ----------------------------------------------------------------------
