@@ -500,7 +500,7 @@ class ARROW_EXPORT ListArray : public Array {
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                            std::shared_ptr<Array>* out);
 
-  const ListType* list_type() const;
+  const ListType* list_type() const { return list_type_; }
 
   /// \brief Return array object containing the list's values
   std::shared_ptr<Array> values() const;
@@ -521,18 +521,23 @@ class ARROW_EXPORT ListArray : public Array {
   }
 
  protected:
+  // defer SetData to derived array class
+  ListArray() = default;
   void SetData(const std::shared_ptr<ArrayData>& data);
   const int32_t* raw_value_offsets_;
 
  private:
+  const ListType* list_type_;
   std::shared_ptr<Array> values_;
 };
 
 // ----------------------------------------------------------------------
 // MapArray
 
-/// Concrete Array class for list data
-class ARROW_EXPORT MapArray : public Array {
+/// Concrete Array class for map data
+///
+/// NB: "value" in this context refers to a pair of a key and the correspondint item
+class ARROW_EXPORT MapArray : public ListArray {
  public:
   using TypeClass = MapType;
 
@@ -544,36 +549,20 @@ class ARROW_EXPORT MapArray : public Array {
            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
-  const MapType* map_type() const {
-    return internal::checked_cast<const MapType*>(data_->type.get());
-  }
+  const MapType* map_type() const { return map_type_; }
 
-  /// \brief Return array object containing the map's keys
+  /// \brief Return array object containing all map keys
   std::shared_ptr<Array> keys() const { return keys_; }
 
-  /// \brief Return array object containing the map's values
-  std::shared_ptr<Array> values() const { return values_; }
-
-  /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
-
-  /// Return pointer to raw offsets accounting for any slice offset
-  const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
-
-  // Neither of these functions will perform boundschecking
-  int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
-  int32_t value_length(int64_t i) const {
-    i += data_->offset;
-    return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
-  }
+  /// \brief Return array object containing all mapped items
+  std::shared_ptr<Array> items() const { return items_; }
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
-  const int32_t* raw_value_offsets_;
 
  private:
-  std::shared_ptr<Array> keys_;
-  std::shared_ptr<Array> values_;
+  const MapType* map_type_;
+  std::shared_ptr<Array> keys_, items_;
 };
 
 // ----------------------------------------------------------------------

@@ -93,25 +93,25 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
 /// \class MapBuilder
 /// \brief Builder class for arrays of variable-size maps
 ///
-/// To use this class, you must append values to the key and value array builders
-/// and use the Append function to delimit each distinct map (once the keys and values
+/// To use this class, you must append values to the key and item array builders
+/// and use the Append function to delimit each distinct map (once the keys and items
 /// have been appended) or use the bulk API to append a sequence of offests and null
 /// maps.
 ///
 /// Key uniqueness and ordering are not validated.
 class ARROW_EXPORT MapBuilder : public ArrayBuilder {
  public:
-  /// Use this constructor to incrementally build the key and value arrays along with
+  /// Use this constructor to incrementally build the key and item arrays along with
   /// offsets and null bitmap.
   MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
-             const std::shared_ptr<ArrayBuilder>& value_builder,
+             const std::shared_ptr<ArrayBuilder>& item_builder,
              const std::shared_ptr<DataType>& type);
 
-  /// Derive built type from key and value builders' types
+  /// Derive built type from key and item builders' types
   MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
-             const std::shared_ptr<ArrayBuilder>& value_builder, bool keys_sorted = false)
-      : MapBuilder(pool, key_builder, value_builder,
-                   map(key_builder->type(), value_builder->type(), keys_sorted)) {}
+             const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted = false)
+      : MapBuilder(pool, key_builder, item_builder,
+                   map(key_builder->type(), item_builder->type(), keys_sorted)) {}
 
   Status Resize(int64_t capacity) override;
   void Reset() override;
@@ -129,6 +129,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   /// will be considered as a null for that slot
   Status AppendValues(const int32_t* offsets, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
+
   /// \brief Start a new variable-length map slot
   ///
   /// This function should be called before beginning to append elements to the
@@ -139,13 +140,13 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   Status AppendNulls(int64_t length) final;
 
-  ArrayBuilder* value_builder() const { return value_builder_.get(); }
   ArrayBuilder* key_builder() const { return key_builder_.get(); }
+  ArrayBuilder* item_builder() const { return item_builder_.get(); }
 
  protected:
   std::shared_ptr<ListBuilder> list_builder_;
   std::shared_ptr<ArrayBuilder> key_builder_;
-  std::shared_ptr<ArrayBuilder> value_builder_;
+  std::shared_ptr<ArrayBuilder> item_builder_;
 };
 
 // ----------------------------------------------------------------------

@@ -451,11 +451,11 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
   Status Init() override {
     const auto& map_type = checked_cast<const MapType&>(*type_);
     RETURN_NOT_OK(GetConverter(map_type.key_type(), &key_converter_));
-    RETURN_NOT_OK(GetConverter(map_type.value_type(), &value_converter_));
+    RETURN_NOT_OK(GetConverter(map_type.item_type(), &item_converter_));
     auto key_builder = key_converter_->builder();
-    auto value_builder = value_converter_->builder();
+    auto item_builder = item_converter_->builder();
     builder_ = std::make_shared<MapBuilder>(default_memory_pool(), key_builder,
-                                            value_builder, type_);
+                                            item_builder, type_);
     return Status::OK();
   }
 
@@ -486,7 +486,7 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
         return Status::Invalid("null key is invalid");
       }
       RETURN_NOT_OK(key_converter_->AppendValue(json_pair[0]));
-      RETURN_NOT_OK(value_converter_->AppendValue(json_pair[1]));
+      RETURN_NOT_OK(item_converter_->AppendValue(json_pair[1]));
     }
     return Status::OK();
   }
@@ -495,7 +495,7 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
 
  private:
   std::shared_ptr<MapBuilder> builder_;
-  std::shared_ptr<Converter> key_converter_, value_converter_;
+  std::shared_ptr<Converter> key_converter_, item_converter_;
 };
 
 // ------------------------------------------------------------------------
