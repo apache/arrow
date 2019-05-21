@@ -106,18 +106,18 @@ TEST_F(TestCudaBuffer, FromBuffer) {
   buffer = SliceBuffer(device_buffer, 0, kSize);
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize);
-  ASSERT_EQ(result->is_mutable(), false);
+  ASSERT_EQ(result->is_mutable(), true);
   AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
 
-  buffer = SliceMutableBuffer(device_buffer, 0, kSize);
+  buffer = SliceBuffer(device_buffer, 0, kSize);
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize);
   ASSERT_EQ(result->is_mutable(), true);
   ASSERT_EQ(result->mutable_data(), buffer->mutable_data());
   AssertCudaBufferEquals(*result, host_buffer->data(), kSize);
 
-  buffer = SliceMutableBuffer(device_buffer, 3, kSize - 10);
-  buffer = SliceMutableBuffer(buffer, 8, kSize - 20);
+  buffer = SliceBuffer(device_buffer, 3, kSize - 10);
+  buffer = SliceBuffer(buffer, 8, kSize - 20);
   ASSERT_OK(CudaBuffer::FromBuffer(buffer, &result));
   ASSERT_EQ(result->size(), kSize - 20);
   ASSERT_EQ(result->is_mutable(), true);

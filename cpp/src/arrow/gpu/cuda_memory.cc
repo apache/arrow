@@ -114,10 +114,11 @@ Status CudaBuffer::Close() {
 
 CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t offset,
                        const int64_t size)
-    : Buffer(parent, offset, size),
+    : Buffer(parent->data() + offset, size),
       context_(parent->context()),
       own_data_(false),
-      is_ipc_(false) {
+      is_ipc_(false),
+      parent_(parent) {
   if (parent->is_mutable()) {
     is_mutable_ = true;
     mutable_data_ = const_cast<uint8_t*>(data_);

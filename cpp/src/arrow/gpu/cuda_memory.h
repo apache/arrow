@@ -104,6 +104,8 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   bool own_data_;
   bool is_ipc_;
 
+  std::shared_ptr<CudaBuffer> parent_;
+
   virtual Status Close();
 };
 
