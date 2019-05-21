@@ -295,7 +295,7 @@ class ArrayPrinter : public PrettyPrinter {
         Indent();
         (*sink_) << "values:\n";
         auto values_slice =
-            array.values()->Slice(array.value_offset(i), array.value_length(i));
+            array.items()->Slice(array.value_offset(i), array.value_length(i));
         RETURN_NOT_OK(PrettyPrint(*values_slice, {indent_, window_}, sink_));
       }
     }
