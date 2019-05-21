@@ -56,28 +56,6 @@ using MutableBuffer = ::arrow::MutableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;
 
-template <class T>
-class PARQUET_EXPORT Vector {
- public:
-  explicit Vector(int64_t size, ::arrow::MemoryPool* pool);
-  void Resize(int64_t new_size);
-  void Reserve(int64_t new_capacity);
-  void Assign(int64_t size, const T val);
-  void Swap(Vector<T>& v);
-  inline T& operator[](int64_t i) const { return data_[i]; }
-
-  T* data() { return data_; }
-  const T* data() const { return data_; }
-
- private:
-  std::shared_ptr<ResizableBuffer> buffer_;
-  int64_t size_;
-  int64_t capacity_;
-  T* data_;
-
-  PARQUET_DISALLOW_COPY_AND_ASSIGN(Vector);
-};
-
 // File input and output interfaces that translate arrow::Status to exceptions
 
 class PARQUET_EXPORT FileInterface {
