@@ -323,6 +323,13 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
 
+	case *arrow.FixedSizeListType:
+		fv.dtype = flatbuf.TypeFixedSizeList
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem()}, fv.memo))
+		flatbuf.FixedSizeListStart(fv.b)
+		flatbuf.FixedSizeListAddListSize(fv.b, dt.Len())
+		fv.offset = flatbuf.FixedSizeListEnd(fv.b)
+
 	default:
 		err := errors.Errorf("arrow/ipc: invalid data type %v", dt)
 		panic(err) // FIXME(sbinet): implement all data-types.
@@ -499,6 +506,14 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 			return nil, errors.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
 		}
 		return arrow.ListOf(children[0].Type), nil
+
+	case flatbuf.TypeFixedSizeList:
+		var dt flatbuf.FixedSizeList
+		dt.Init(data.Bytes, data.Pos)
+		if len(children) != 1 {
+			return nil, errors.Errorf("arrow/ipc: FixedSizeList must have exactly 1 child field (got=%d)", len(children))
+		}
+		return arrow.FixedSizeListOf(dt.ListSize(), children[0].Type), nil
 
 	case flatbuf.TypeStruct_:
 		return arrow.StructOf(children...), nil

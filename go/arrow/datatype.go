@@ -110,6 +110,16 @@ const (
 
 	// MAP is a repeated struct logical type
 	MAP
+
+	// Custom data type, implemented by user
+	EXTENSION
+
+	// Fixed size list of some logical type
+	FIXED_SIZE_LIST
+
+	// Measure of elapsed time in either seconds, milliseconds, microseconds
+	// or nanoseconds.
+	DURATION
 )
 
 // DataType is the representation of an Arrow type.

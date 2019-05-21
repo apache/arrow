@@ -262,6 +262,11 @@ func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.UNION:
 	case arrow.DICTIONARY:
 	case arrow.MAP:
+	case arrow.EXTENSION:
+	case arrow.FIXED_SIZE_LIST:
+		typ := dtype.(*arrow.FixedSizeListType)
+		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())
+	case arrow.DURATION:
 	}
 	panic(fmt.Errorf("arrow/array: unsupported builder for %T", dtype))
 }

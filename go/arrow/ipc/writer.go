@@ -336,6 +336,44 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		}
 		w.depth++
 
+	case *arrow.FixedSizeListType:
+		arr := arr.(*array.FixedSizeList)
+		voffsets, err := w.getZeroBasedValueOffsets(arr)
+		if err != nil {
+			return errors.Wrapf(err, "could not retrieve zero-based value offsets for array %T", arr)
+		}
+		p.body = append(p.body, voffsets)
+
+		w.depth--
+		var (
+			values        = arr.ListValues()
+			mustRelease   = false
+			values_offset int64
+			values_length int64
+		)
+		defer func() {
+			if mustRelease {
+				values.Release()
+			}
+		}()
+
+		if voffsets != nil {
+			values_offset = int64(arr.Offsets()[0])
+			values_length = int64(arr.Offsets()[arr.Len()]) - values_offset
+		}
+
+		if len(arr.Offsets()) != 0 || values_length < int64(values.Len()) {
+			// must also slice the values
+			values = array.NewSlice(values, values_offset, values_length)
+			mustRelease = true
+		}
+		err = w.visit(p, values)
+
+		if err != nil {
+			return errors.Wrapf(err, "could not visit list element for array %T", arr)
+		}
+		w.depth++
+
 	default:
 		panic(errors.Errorf("arrow/ipc: unknown array %T (dtype=%T)", arr, dtype))
 	}
