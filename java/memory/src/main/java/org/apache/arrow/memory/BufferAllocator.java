@@ -51,6 +51,27 @@ public interface BufferAllocator extends AutoCloseable {
   public ArrowBuf buffer(int size, BufferManager manager);
 
   /**
+   * Allocate a new or reused buffer of the provided size. Note that the buffer may technically
+   * be larger or smaller than the  requested size, depending on the rounding option.
+   * However, the buffer's capacity will be set to the configured size.
+   *
+   * @param size The size in bytes.
+   * @param manager A buffer manager to manage reallocation.
+   * @param roundingOption The rounding option.
+   * @return a new ArrowBuf, or null if the request can't be satisfied
+   * @throws OutOfMemoryException if buffer cannot be allocated
+   */
+  public ArrowBuf buffer(int size, BufferManager manager, BaseAllocator.AllocationRoundingOption roundingOption);
+
+  /**
+   * Get the rounded buffer size.
+   * @param size The requested buffer size.
+   * @param roundingOption The rounding option.
+   * @return the buffer size after rounding.
+   */
+  public int getRoundedSize(final int size, BaseAllocator.AllocationRoundingOption roundingOption);
+
+  /**
    * Returns the allocator this allocator falls back to when it needs more memory.
    *
    * @return the underlying allocator used by this allocator
@@ -187,4 +208,5 @@ public interface BufferAllocator extends AutoCloseable {
    * a no-op.
    */
   public void assertOpen();
+
 }

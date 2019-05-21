@@ -144,6 +144,20 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   /**
+   * Rounds down the provided value to the nearest power of two.
+   *
+   * @param val An integer value.
+   * @return The closest power of two of that value.
+   */
+  public static int prevPowerOfTwo(int val) {
+    if (val == 0) {
+      return val;
+    } else {
+      return Integer.highestOneBit(val);
+    }
+  }
+
+  /**
    * Rounds up the provided value to the nearest power of two.
    *
    * @param val A long value.
@@ -253,6 +267,27 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     listener.onChildRemoved(this, childAllocator);
   }
 
+  /**
+   * Get the expected buffer size after rounding.
+   * @param initialRequestSize the requested buffer size.
+   * @param roundingOption the rounding option.
+   * @return the buffer size after rounding.
+   */
+  public int getRoundedSize(final int initialRequestSize, AllocationRoundingOption roundingOption) {
+    if (initialRequestSize >= AllocationManager.CHUNK_SIZE) {
+      return initialRequestSize;
+    }
+
+    switch (roundingOption) {
+      case ROUND_UP:
+        return nextPowerOfTwo(initialRequestSize);
+      case ROUND_DOWN:
+        return prevPowerOfTwo(initialRequestSize);
+      default:
+        throw new IllegalArgumentException("Illegal rounding option: " + roundingOption);
+    }
+  }
+
   @Override
   public ArrowBuf buffer(final int initialRequestSize) {
     assertOpen();
@@ -266,6 +301,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   @Override
   public ArrowBuf buffer(final int initialRequestSize, BufferManager manager) {
+    return buffer(initialRequestSize, manager, AllocationRoundingOption.ROUND_UP);
+  }
+
+  @Override
+  public ArrowBuf buffer(final int initialRequestSize, BufferManager manager, AllocationRoundingOption roundingOption) {
     assertOpen();
 
     Preconditions.checkArgument(initialRequestSize >= 0, "the requested size must be non-negative");
@@ -276,9 +316,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     // round to next largest power of two if we're within a chunk since that is how our allocator
     // operates
-    final int actualRequestSize =
-        initialRequestSize < AllocationManager.CHUNK_SIZE ?
-          nextPowerOfTwo(initialRequestSize) : initialRequestSize;
+    final int actualRequestSize = getRoundedSize(initialRequestSize, roundingOption);
 
     listener.onPreAllocation(actualRequestSize);
 
@@ -877,4 +915,21 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
 
   }
+
+  /**
+   * Options for rounding the capacity when allocating an {@link ArrowBuf}.
+   */
+  public enum AllocationRoundingOption {
+
+    /**
+     * The capacity should be rounded up, if the requested size is below {@link AllocationManager#CHUNK_SIZE}
+     */
+    ROUND_UP,
+
+    /**
+     * The capacity should be rounded down, if the requested size is below {@link AllocationManager#CHUNK_SIZE}
+     */
+    ROUND_DOWN
+  }
+
 }
