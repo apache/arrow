@@ -147,6 +147,13 @@ class CppBenchmarkRunner(BenchmarkRunner):
         return BenchmarkSuite(name, benchmarks)
 
     @property
+    def list(self):
+        for suite_name, suite_bin in self.suites_binaries.items():
+            suite_cmd = GoogleBenchmarkCommand(suite_bin)
+            for benchmark_name in suite_cmd.list_benchmarks():
+                yield f"{suite_name}.{benchmark_name}"
+
+    @property
     def suites(self):
         """ Returns all suite for a runner. """
         suite_matcher = regex_filter(self.suite_filter)

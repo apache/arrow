@@ -173,6 +173,39 @@ def benchmark(ctx):
     pass
 
 
+@benchmark.command(name="list", short_help="List benchmark suite")
+@click.option("--src", metavar="<arrow_src>", show_default=True,
+              default=ArrowSources.find(),
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory")
+@click.option("--preserve", type=bool, default=False, show_default=True,
+              is_flag=True, help="Preserve workspace for investigation.")
+@click.option("--output", metavar="<output>",
+              type=click.File("w", encoding="utf8"), default="-",
+              help="Capture output result into file.")
+@click.option("--cmake-extras", type=str, multiple=True,
+              help="Extra flags/options to pass to cmake invocation. "
+              "Can be stacked")
+@click.argument("baseline", metavar="[<baseline>]", default="WORKSPACE",
+                required=False)
+@click.pass_context
+def benchmark_list(ctx, src, preserve, output, cmake_extras, baseline):
+    """ List benchmark suite.
+    """
+    with tmpdir(preserve) as root:
+        logger.debug(f"Running benchmark {baseline}")
+
+        conf = CppConfiguration(
+            build_type="release", with_tests=True, with_benchmarks=True,
+            with_python=False, cmake_extras=cmake_extras)
+
+        runner_base = BenchmarkRunner.from_rev_or_path(
+            src, root, baseline, conf)
+
+        for b in runner_base.list:
+            print(b, file=output)
+
+
 @benchmark.command(name="run", short_help="Run benchmark suite")
 @click.option("--src", metavar="<arrow_src>", show_default=True,
               default=ArrowSources.find(),
@@ -191,7 +224,7 @@ def benchmark(ctx):
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
-@click.argument("baseline", metavar="[<baseline>]]", default="master",
+@click.argument("baseline", metavar="[<baseline>]", default="WORKSPACE",
                 required=False)
 @click.pass_context
 def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
