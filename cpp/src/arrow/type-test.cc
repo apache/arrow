@@ -372,18 +372,19 @@ TEST(TestListType, Basics) {
 
 TEST(TestMapType, Basics) {
   std::shared_ptr<DataType> kt = std::make_shared<StringType>();
-  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  std::shared_ptr<DataType> it = std::make_shared<UInt8Type>();
 
-  MapType map_type(kt, vt);
+  MapType map_type(kt, it);
   ASSERT_EQ(map_type.id(), Type::MAP);
 
   ASSERT_EQ("map", map_type.name());
   ASSERT_EQ("map<string, uint8>", map_type.ToString());
 
-  ASSERT_EQ(map_type.value_type()->id(), vt->id());
-  ASSERT_EQ(map_type.value_type()->id(), vt->id());
+  ASSERT_EQ(map_type.key_type()->id(), kt->id());
+  ASSERT_EQ(map_type.item_type()->id(), it->id());
+  ASSERT_EQ(map_type.value_type()->id(), Type::STRUCT);
 
-  std::shared_ptr<DataType> mt = std::make_shared<MapType>(vt, kt);
+  std::shared_ptr<DataType> mt = std::make_shared<MapType>(it, kt);
   ASSERT_EQ("map<uint8, string>", mt->ToString());
 
   MapType mt2(kt, mt, true);

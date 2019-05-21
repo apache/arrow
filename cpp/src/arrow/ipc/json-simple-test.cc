@@ -552,15 +552,15 @@ TEST(TestMap, IntegerToInteger) {
   ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder));
   auto& map_builder = checked_cast<MapBuilder&>(*builder);
   auto& key_builder = checked_cast<Int16Builder&>(*map_builder.key_builder());
-  auto& value_builder = checked_cast<Int16Builder&>(*map_builder.value_builder());
+  auto& item_builder = checked_cast<Int16Builder&>(*map_builder.item_builder());
 
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(key_builder.AppendValues({0, 1, 2, 3, 4, 5}));
-  ASSERT_OK(value_builder.AppendValues({1, 1, 2, 3, 5, 8}));
+  ASSERT_OK(item_builder.AppendValues({1, 1, 2, 3, 5, 8}));
   ASSERT_OK(map_builder.AppendNull());
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(key_builder.AppendValues({0, 1, 2, 3, 4, 5}));
-  ASSERT_OK(value_builder.AppendValues({-1, -1, 0, 1, -1, 2}, {0, 0, 1, 1, 0, 1}));
+  ASSERT_OK(item_builder.AppendValues({-1, -1, 0, 1, -1, 2}, {0, 0, 1, 1, 0, 1}));
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(map_builder.Finish(&expected));
 
@@ -634,30 +634,29 @@ TEST(TestMap, IntegerMapToStringList) {
   auto& map_builder = checked_cast<MapBuilder&>(*builder);
   auto& key_builder = checked_cast<MapBuilder&>(*map_builder.key_builder());
   auto& key_key_builder = checked_cast<Int16Builder&>(*key_builder.key_builder());
-  auto& key_value_builder = checked_cast<Int16Builder&>(*key_builder.value_builder());
-  auto& value_builder = checked_cast<ListBuilder&>(*map_builder.value_builder());
-  auto& value_value_builder =
-      checked_cast<StringBuilder&>(*value_builder.value_builder());
+  auto& key_item_builder = checked_cast<Int16Builder&>(*key_builder.item_builder());
+  auto& item_builder = checked_cast<ListBuilder&>(*map_builder.item_builder());
+  auto& item_value_builder = checked_cast<StringBuilder&>(*item_builder.value_builder());
 
   ASSERT_OK(map_builder.Append());
   ASSERT_OK(key_builder.Append());
-  ASSERT_OK(value_builder.Append());
-  ASSERT_OK(value_value_builder.AppendNull());
-  ASSERT_OK(value_value_builder.Append("empty"));
+  ASSERT_OK(item_builder.Append());
+  ASSERT_OK(item_value_builder.AppendNull());
+  ASSERT_OK(item_value_builder.Append("empty"));
 
   ASSERT_OK(key_builder.Append());
-  ASSERT_OK(value_builder.AppendNull());
+  ASSERT_OK(item_builder.AppendNull());
   ASSERT_OK(key_key_builder.AppendValues({0}));
-  ASSERT_OK(key_value_builder.AppendValues({1}));
+  ASSERT_OK(key_item_builder.AppendValues({1}));
 
   ASSERT_OK(key_builder.Append());
-  ASSERT_OK(value_builder.Append());
+  ASSERT_OK(item_builder.Append());
   ASSERT_OK(key_key_builder.AppendValues({0, 1}));
-  ASSERT_OK(key_value_builder.AppendValues({0, 1}));
-  ASSERT_OK(value_value_builder.Append("bootstrapping tautology?"));
-  ASSERT_OK(value_value_builder.Append("lispy"));
-  ASSERT_OK(value_value_builder.AppendNull());
-  ASSERT_OK(value_value_builder.Append("i can see eternity"));
+  ASSERT_OK(key_item_builder.AppendValues({0, 1}));
+  ASSERT_OK(item_value_builder.Append("bootstrapping tautology?"));
+  ASSERT_OK(item_value_builder.Append("lispy"));
+  ASSERT_OK(item_value_builder.AppendNull());
+  ASSERT_OK(item_value_builder.Append("i can see eternity"));
 
   ASSERT_OK(map_builder.AppendNull());
 

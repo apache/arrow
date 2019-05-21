@@ -504,9 +504,10 @@ respectively.
 
 A map array is represented by the combination of the following:
 
-* A keys array, a child array of type ``K``. This array may not contain nulls.
-* A values array, a child array of type ``V``. This array's length must be the
-  same as that of the keys array.
+* A child array (of type ``Struct<K, V>``) containing key value pairs. This has
+  child arrays:
+  * A keys array of type ``K``. This array may not contain nulls.
+  * A values array of type ``V``.
 * An offsets buffer containing 32-bit signed integers with length equal to the
   length of the top-level array plus one. Note that this limits the size of the
   child arrays to 2 :sup:`31` -1.
@@ -541,34 +542,38 @@ will have the following representation: ::
       |----------------|
       | 0, 1, 1, 3, 3  |
 
-    * 'key' array (`String`):
+    * 'pairs' array (`Struct<String, Int32>`):
       * Length: 3, Null count: 0
       * Null bitmap buffer: Not required
-      * Offsets buffer (int32):
 
-        | Bytes 0-15   |
-        |--------------|
-        | 0, 3, 7, 10  |
+      * 'key' array (`String`):
+        * Length: 3, Null count: 0
+        * Null bitmap buffer: Not required
+        * Offsets buffer (int32):
 
-       * Values buffer:
+          | Bytes 0-15   |
+          |--------------|
+          | 0, 3, 7, 10  |
 
-        | Bytes 0-10     |
-        |----------------|
-        | joemarkcap     |
+         * Values buffer:
 
-    * 'values' array (`Int32`):
-      * Length: 3, Null count: 1
-      * Null bitmap buffer:
+          | Bytes 0-10     |
+          |----------------|
+          | joemarkcap     |
 
-        | Byte 0 (validity bitmap) | Bytes 1-63            |
-        |--------------------------|-----------------------|
-        | 00000101                 | 0 (padding)           |
+      * 'values' array (`Int32`):
+        * Length: 3, Null count: 1
+        * Null bitmap buffer:
 
-      * Value Buffer (int32):
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00000101                 | 0 (padding)           |
 
-        | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  |
-        |-------------|-------------|-------------|
-        |  0          | unspecified |  8          |
+        * Value Buffer (int32):
+
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  |
+          |-------------|-------------|-------------|
+          |  0          | unspecified |  8          |
 
 
 Dense union type

@@ -135,15 +135,12 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       return Status::OK();
     }
     case Type::MAP: {
-      std::unique_ptr<ArrayBuilder> key_builder, value_builder;
-      std::shared_ptr<DataType> key_type =
-          internal::checked_cast<const MapType&>(*type).key_type();
-      std::shared_ptr<DataType> value_type =
-          internal::checked_cast<const MapType&>(*type).value_type();
-      RETURN_NOT_OK(MakeBuilder(pool, key_type, &key_builder));
-      RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
+      const auto& map_type = internal::checked_cast<const MapType&>(*type);
+      std::unique_ptr<ArrayBuilder> key_builder, item_builder;
+      RETURN_NOT_OK(MakeBuilder(pool, map_type.key_type(), &key_builder));
+      RETURN_NOT_OK(MakeBuilder(pool, map_type.item_type(), &item_builder));
       out->reset(
-          new MapBuilder(pool, std::move(key_builder), std::move(value_builder), type));
+          new MapBuilder(pool, std::move(key_builder), std::move(item_builder), type));
       return Status::OK();
     }
 

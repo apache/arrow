@@ -201,10 +201,7 @@ BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
 // ----------------------------------------------------------------------
 // ListArray
 
-ListArray::ListArray(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::LIST);
-  SetData(data);
-}
+ListArray::ListArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
 ListArray::ListArray(const std::shared_ptr<DataType>& type, int64_t length,
                      const std::shared_ptr<Buffer>& value_offsets,
@@ -275,6 +272,8 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
 void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
   DCHECK_EQ(data->buffers.size(), 2);
+  DCHECK(data->type->id() == Type::LIST);
+  list_type_ = checked_cast<const ListType*>(data->type.get());
 
   auto value_offsets = data->buffers[1];
   raw_value_offsets_ = value_offsets == nullptr
@@ -283,10 +282,6 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
 
   DCHECK_EQ(data_->child_data.size(), 1);
   values_ = MakeArray(data_->child_data[0]);
-}
-
-const ListType* ListArray::list_type() const {
-  return checked_cast<const ListType*>(data_->type.get());
 }
 
 std::shared_ptr<DataType> ListArray::value_type() const {
@@ -306,26 +301,25 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
                    const std::shared_ptr<Array>& values,
                    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                    int64_t offset) {
-  auto internal_data =
-      ArrayData::Make(type, length, {null_bitmap, offsets},
-                      {keys->data(), values->data()}, null_count, offset);
-  SetData(internal_data);
+  auto pair_data = ArrayData::Make(struct_(type->children()), keys->data()->length,
+                                   {nullptr}, {keys->data(), values->data()}, 0, offset);
+  auto map_data = ArrayData::Make(type, length, {null_bitmap, offsets}, {pair_data},
+                                  null_count, offset);
+  SetData(map_data);
 }
 
 void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
   DCHECK_EQ(data->type->id(), Type::MAP);
-  DCHECK_EQ(data->child_data.size(), 2);
-  DCHECK_EQ(data->child_data[0]->null_count, 0);
-  DCHECK_EQ(data->buffers.size(), 2);
+  auto pair_data = data->child_data[0];
+  DCHECK_EQ(pair_data->type->id(), Type::STRUCT);
+  DCHECK_EQ(pair_data->null_count, 0);
+  DCHECK_EQ(pair_data->child_data.size(), 2);
+  DCHECK_EQ(pair_data->child_data[0]->null_count, 0);
 
-  this->Array::SetData(data);
-
-  auto offsets = data->buffers[1];
-  raw_value_offsets_ =
-      offsets == nullptr ? nullptr : reinterpret_cast<const int32_t*>(offsets->data());
-
-  keys_ = MakeArray(data_->child_data[0]);
-  values_ = MakeArray(data_->child_data[1]);
+  auto pair_list_data = data->Copy();
+  pair_list_data->type = list(pair_data->type);
+  this->ListArray::SetData(pair_list_data);
+  data_->type = data->type;
 }
 
 // ----------------------------------------------------------------------

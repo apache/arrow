@@ -373,7 +373,7 @@ class TestMapArray : public TestBuilder {
 
 TEST_F(TestMapArray, Equality) {
   auto& kb = checked_cast<StringBuilder&>(*builder_->key_builder());
-  auto& vb = checked_cast<Int32Builder&>(*builder_->value_builder());
+  auto& ib = checked_cast<Int32Builder&>(*builder_->item_builder());
 
   std::shared_ptr<Array> array, equal_array, unequal_array;
   std::vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
@@ -390,7 +390,7 @@ TEST_F(TestMapArray, Equality) {
     for (auto&& key : equal_keys) {
       ASSERT_OK(kb.Append(key));
     }
-    ASSERT_OK(vb.AppendValues(equal_values.data(), equal_values.size()));
+    ASSERT_OK(ib.AppendValues(equal_values.data(), equal_values.size()));
     ASSERT_OK(builder_->Finish(out));
   }
 
@@ -399,7 +399,7 @@ TEST_F(TestMapArray, Equality) {
   for (auto&& key : unequal_keys) {
     ASSERT_OK(kb.Append(key));
   }
-  ASSERT_OK(vb.AppendValues(unequal_values.data(), unequal_values.size()));
+  ASSERT_OK(ib.AppendValues(unequal_values.data(), unequal_values.size()));
   ASSERT_OK(builder_->Finish(&unequal_array));
 
   // Test array equality

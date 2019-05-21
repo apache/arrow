@@ -147,9 +147,11 @@ std::string ListType::ToString() const {
   return s.str();
 }
 
+std::shared_ptr<DataType> MapType::value_type() const { return struct_(children_); }
+
 std::string MapType::ToString() const {
   std::stringstream s;
-  s << "map<" << key_type()->ToString() << ", " << value_type()->ToString();
+  s << "map<" << key_type()->ToString() << ", " << item_type()->ToString();
   if (keys_sorted_) {
     s << ", keys_sorted";
   }
