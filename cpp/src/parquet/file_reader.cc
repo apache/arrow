@@ -94,7 +94,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     auto col = row_group_metadata_->ColumnChunk(i);
 
     int64_t col_start = col->data_page_offset();
-    if (col->has_dictionary_page() && col_start > col->dictionary_page_offset()) {
+    if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
+        col_start > col->dictionary_page_offset()) {
       col_start = col->dictionary_page_offset();
     }
 

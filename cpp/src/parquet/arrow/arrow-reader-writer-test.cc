@@ -2354,6 +2354,12 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   TryReadDataFile(path, ::arrow::StatusCode::IOError);
 }
 
+TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
+  // PARQUET-1402: parquet-mr writes files this way which tripped up
+  // some business logic
+  TryReadDataFile(test::get_data_file("dict-page-offset-zero.parquet"));
+}
+
 class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
           std::tuple<std::string, std::shared_ptr<::DataType>>> {};
