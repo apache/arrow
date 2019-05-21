@@ -379,12 +379,14 @@ schema : arrow Schema
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)
+        file_path_ = options.pop('file_path', None)
         self.writer = _parquet.ParquetWriter(
             sink, schema,
             version=version,
             compression=compression,
             use_dictionary=use_dictionary,
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
+            file_path=file_path_,
             **options)
         self.is_open = True
 

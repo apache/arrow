@@ -969,7 +969,8 @@ cdef class ParquetWriter:
                   MemoryPool memory_pool=None,
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
-                  allow_truncated_timestamps=False):
+                  allow_truncated_timestamps=False,
+                  file_path=None):
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
@@ -988,7 +989,10 @@ cdef class ParquetWriter:
                                                    &self.sink))
             self.own_sink = True
 
-        c_file_path = "RJZ.CYTHON.TEST".encode()
+        if file_path:
+            c_file_path = file_path.encode()
+        else:
+            c_file_path = "None".encode()
         self.use_dictionary = use_dictionary
         self.compression = compression
         self.version = version
