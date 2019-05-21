@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <random>
 #include <string>
 #include <utility>
 
@@ -199,6 +200,19 @@ namespace bfs = ::boost::filesystem;
 
 static Status ToStatus(const bfs::filesystem_error& err) {
   return Status::IOError(err.what());
+}
+
+static std::string MakeRandomName(int num_chars) {
+  static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  std::random_device gen;
+  std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));
+
+  std::string s;
+  s.reserve(num_chars);
+  for (int i = 0; i < num_chars; ++i) {
+    s += chars[dist(gen)];
+  }
+  return s;
 }
 
 //
@@ -793,10 +807,10 @@ TemporaryDir::~TemporaryDir() { DCHECK_OK(DeleteDirTree(path_)); }
 
 Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
   bfs::path path;
+  std::string suffix = MakeRandomName(8);
 
   BOOST_FILESYSTEM_TRY
-  auto model = bfs::path(prefix + "%%%%%%%%%%");
-  path = bfs::temp_directory_path() / bfs::unique_path(model);
+  path = bfs::temp_directory_path() / (prefix + suffix);
   path += "/";
   BOOST_FILESYSTEM_CATCH
 
