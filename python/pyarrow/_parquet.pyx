@@ -962,6 +962,7 @@ cdef class ParquetWriter:
         object allow_truncated_timestamps
         object compression
         object version
+        object file_path
         int row_group_size
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
@@ -974,7 +975,6 @@ cdef class ParquetWriter:
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
-            c_string c_file_path
             CMemoryPool* pool
 
         try:
@@ -989,21 +989,19 @@ cdef class ParquetWriter:
                                                    &self.sink))
             self.own_sink = True
 
-        if file_path:
-            c_file_path = file_path.encode()
-        else:
-            c_file_path = "".encode()
         self.use_dictionary = use_dictionary
         self.compression = compression
         self.version = version
         self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
         self.coerce_timestamps = coerce_timestamps
         self.allow_truncated_timestamps = allow_truncated_timestamps
+        self.file_path = file_path
 
         cdef WriterProperties.Builder properties_builder
         self._set_version(&properties_builder)
         self._set_compression_props(&properties_builder)
         self._set_dictionary_props(&properties_builder)
+        self._set_file_path(&properties_builder)
         properties = properties_builder.build()
 
         cdef ArrowWriterProperties.Builder arrow_properties_builder
@@ -1017,7 +1015,7 @@ cdef class ParquetWriter:
             check_status(
                 FileWriter.Open(deref(schema.schema), pool,
                                 self.sink, properties, arrow_properties,
-                                &self.writer, c_file_path))
+                                &self.writer))
 
     cdef void _set_int96_support(self, ArrowWriterProperties.Builder* props):
         if self.use_deprecated_int96_timestamps:
@@ -1071,6 +1069,15 @@ cdef class ParquetWriter:
             props.disable_dictionary()
             for column in self.use_dictionary:
                 props.enable_dictionary(column)
+
+    cdef void _set_file_path(self, WriterProperties.Builder* props):
+        cdef c_string c_file_path
+        if self.file_path is not None:
+            if isinstance(self.file_path, str):
+                c_file_path = self.file_path.encode()
+                props.file_path(c_file_path)
+            else:
+                raise TypeError('Expecting a string for the file path')
 
     def close(self):
         with nogil:

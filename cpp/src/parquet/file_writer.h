@@ -117,10 +117,8 @@ class PARQUET_EXPORT ParquetFileWriter {
   // An implementation of the Contents class is defined in the .cc file
   struct Contents {
     Contents(const std::shared_ptr<::parquet::schema::GroupNode>& schema,
-             const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
-             std::string file_path = "na")
-        : schema_(), key_value_metadata_(key_value_metadata),
-          sink_file_path_(file_path) {
+             const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
+        : schema_(), key_value_metadata_(key_value_metadata) {
       schema_.Init(schema);
     }
     virtual ~Contents() {}
@@ -153,8 +151,6 @@ class PARQUET_EXPORT ParquetFileWriter {
 
     const std::shared_ptr<FileMetaData> metadata() const { return file_metadata_; }
     std::shared_ptr<FileMetaData> file_metadata_;
-
-    std::string sink_file_path_;
   };
 
   ParquetFileWriter();
@@ -164,15 +160,13 @@ class PARQUET_EXPORT ParquetFileWriter {
       const std::shared_ptr<::arrow::io::OutputStream>& sink,
       const std::shared_ptr<schema::GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR,
-      const std::string file_path = "");
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
 
   static std::unique_ptr<ParquetFileWriter> Open(
       const std::shared_ptr<OutputStream>& sink,
       const std::shared_ptr<schema::GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR,
-      const std::string file_path = "");
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();

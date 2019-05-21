@@ -129,12 +129,10 @@ class SerializedPageWriter : public PageWriter {
  public:
   SerializedPageWriter(OutputStream* sink, Compression::type codec,
                        ColumnChunkMetaDataBuilder* metadata,
-                       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-                       std::string file_path = "")
+                       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : sink_(sink),
         metadata_(metadata),
         pool_(pool),
-        file_path_(file_path),
         num_values_(0),
         dictionary_page_offset_(0),
         data_page_offset_(0),
@@ -182,9 +180,6 @@ class SerializedPageWriter : public PageWriter {
   }
 
   void Close(bool has_dictionary, bool fallback) override {
-
-    metadata_->set_file_path(file_path_);
-
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
@@ -266,7 +261,6 @@ class SerializedPageWriter : public PageWriter {
   OutputStream* sink_;
   ColumnChunkMetaDataBuilder* metadata_;
   ::arrow::MemoryPool* pool_;
-  std::string file_path_;
   int64_t num_values_;
   int64_t dictionary_page_offset_;
   int64_t data_page_offset_;
@@ -284,22 +278,17 @@ class BufferedPageWriter : public PageWriter {
  public:
   BufferedPageWriter(OutputStream* sink, Compression::type codec,
                      ColumnChunkMetaDataBuilder* metadata,
-                     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-                     std::string file_path = "")
+                     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : final_sink_(sink),
         metadata_(metadata),
-        sink_file_path_(file_path),
         in_memory_sink_(new InMemoryOutputStream(pool)),
-        pager_(new SerializedPageWriter(in_memory_sink_.get(), codec, metadata, pool, file_path)) {}
+        pager_(new SerializedPageWriter(in_memory_sink_.get(), codec, metadata, pool)) {}
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
     return pager_->WriteDictionaryPage(page);
   }
 
   void Close(bool has_dictionary, bool fallback) override {
-
-    metadata_->set_file_path(sink_file_path_);
-
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(
         pager_->num_values(), pager_->dictionary_page_offset() + final_sink_->Tell(), -1,
@@ -329,20 +318,18 @@ class BufferedPageWriter : public PageWriter {
   ColumnChunkMetaDataBuilder* metadata_;
   std::unique_ptr<InMemoryOutputStream> in_memory_sink_;
   std::unique_ptr<SerializedPageWriter> pager_;
-  std::string sink_file_path_;
 };
 
 std::unique_ptr<PageWriter> PageWriter::Open(OutputStream* sink, Compression::type codec,
                                              ColumnChunkMetaDataBuilder* metadata,
                                              ::arrow::MemoryPool* pool,
-                                             std::string file_path,
                                              bool buffered_row_group) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(
-        new BufferedPageWriter(sink, codec, metadata, pool, file_path));
+        new BufferedPageWriter(sink, codec, metadata, pool));
   } else {
     return std::unique_ptr<PageWriter>(
-        new SerializedPageWriter(sink, codec, metadata, pool, file_path));
+        new SerializedPageWriter(sink, codec, metadata, pool));
   }
 }
 

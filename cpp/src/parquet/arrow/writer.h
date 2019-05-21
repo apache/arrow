@@ -144,30 +144,26 @@ class PARQUET_EXPORT FileWriter {
   static ::arrow::Status Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                               const std::shared_ptr<OutputStream>& sink,
                               const std::shared_ptr<WriterProperties>& properties,
-                              std::unique_ptr<FileWriter>* writer,
-                              const std::string file_path = "");
+                              std::unique_ptr<FileWriter>* writer);
 
   static ::arrow::Status Open(
       const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
       const std::shared_ptr<OutputStream>& sink,
       const std::shared_ptr<WriterProperties>& properties,
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-      std::unique_ptr<FileWriter>* writer,
-      const std::string file_path = "");
+      std::unique_ptr<FileWriter>* writer);
 
   static ::arrow::Status Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                               const std::shared_ptr<::arrow::io::OutputStream>& sink,
                               const std::shared_ptr<WriterProperties>& properties,
-                              std::unique_ptr<FileWriter>* writer,
-                              const std::string file_path = "");
+                              std::unique_ptr<FileWriter>* writer);
 
   static ::arrow::Status Open(
       const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
       const std::shared_ptr<::arrow::io::OutputStream>& sink,
       const std::shared_ptr<WriterProperties>& properties,
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-      std::unique_ptr<FileWriter>* writer,
-      const std::string file_path = "");
+      std::unique_ptr<FileWriter>* writer);
 
   /// \brief Write a Table to Parquet.
   ::arrow::Status WriteTable(const ::arrow::Table& table, int64_t chunk_size);
@@ -191,7 +187,6 @@ class PARQUET_EXPORT FileWriter {
   class PARQUET_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
   std::shared_ptr<::arrow::Schema> schema_;
-  std::string sink_file_path_;
 };
 
 /// \brief Write Parquet file metadata only to indicated OutputStream

@@ -265,6 +265,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_dictionary()
             Builder* enable_dictionary()
             Builder* enable_dictionary(const c_string& path)
+            Builder* file_path(const c_string& path)
             shared_ptr[WriterProperties] build()
 
 
@@ -317,7 +318,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
                      const shared_ptr[OutputStream]& sink,
                      const shared_ptr[WriterProperties]& properties,
                      const shared_ptr[ArrowWriterProperties]& arrow_properties,
-                     unique_ptr[FileWriter]* writer, const c_string c_file_path)
+                     unique_ptr[FileWriter]* writer)
 
         CStatus WriteTable(const CTable& table, int64_t chunk_size)
         CStatus NewRowGroup(int64_t chunk_size)
