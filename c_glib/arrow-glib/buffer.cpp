@@ -398,9 +398,9 @@ GArrowBuffer *
 garrow_buffer_slice(GArrowBuffer *buffer, gint64 offset, gint64 size)
 {
   auto arrow_parent_buffer = garrow_buffer_get_raw(buffer);
-  auto arrow_buffer = std::make_shared<arrow::Buffer>(arrow_parent_buffer,
-                                                      offset,
-                                                      size);
+  auto arrow_buffer = arrow::SliceBuffer(arrow_parent_buffer,
+                                         offset,
+                                         size);
   auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
   return garrow_buffer_new_raw_bytes(&arrow_buffer, priv->data);
 }
@@ -434,7 +434,9 @@ garrow_mutable_buffer_class_init(GArrowMutableBufferClass *klass)
 GArrowMutableBuffer *
 garrow_mutable_buffer_new(guint8 *data, gint64 size)
 {
-  auto arrow_buffer = std::make_shared<arrow::MutableBuffer>(data, size);
+  auto arrow_mutable_buffer = arrow::MutableBuffer::Wrap(data, size);
+  auto arrow_buffer =
+    std::static_pointer_cast<arrow::Buffer>(arrow_mutable_buffer);
   return garrow_mutable_buffer_new_raw(&arrow_buffer);
 }
 
@@ -452,9 +454,11 @@ garrow_mutable_buffer_new_bytes(GBytes *data)
   size_t data_size;
   auto raw_data = g_bytes_get_data(data, &data_size);
   auto mutable_raw_data = const_cast<gpointer>(raw_data);
+  auto arrow_mutable_buffer =
+    arrow::MutableBuffer::Wrap(static_cast<uint8_t *>(mutable_raw_data),
+                               data_size);
   auto arrow_buffer =
-    std::make_shared<arrow::MutableBuffer>(static_cast<uint8_t *>(mutable_raw_data),
-                                           data_size);
+    std::static_pointer_cast<arrow::Buffer>(arrow_mutable_buffer);
   return garrow_mutable_buffer_new_raw_bytes(&arrow_buffer, data);
 }
 
@@ -477,10 +481,9 @@ garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
                             gint64 size)
 {
   auto arrow_parent_buffer = garrow_buffer_get_raw(GARROW_BUFFER(buffer));
-  auto arrow_buffer =
-    std::make_shared<arrow::MutableBuffer>(arrow_parent_buffer,
-                                           offset,
-                                           size);
+  auto arrow_buffer = arrow::SliceBuffer(arrow_parent_buffer,
+                                         offset,
+                                         size);
   auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
   return garrow_mutable_buffer_new_raw_bytes(&arrow_buffer, priv->data);
 }
@@ -636,13 +639,13 @@ garrow_buffer_get_raw(GArrowBuffer *buffer)
 }
 
 GArrowMutableBuffer *
-garrow_mutable_buffer_new_raw(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer)
+garrow_mutable_buffer_new_raw(std::shared_ptr<arrow::Buffer> *arrow_buffer)
 {
   return garrow_mutable_buffer_new_raw_bytes(arrow_buffer, nullptr);
 }
 
 GArrowMutableBuffer *
-garrow_mutable_buffer_new_raw_bytes(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer,
+garrow_mutable_buffer_new_raw_bytes(std::shared_ptr<arrow::Buffer> *arrow_buffer,
                                     GBytes *data)
 {
   auto buffer = GARROW_MUTABLE_BUFFER(g_object_new(GARROW_TYPE_MUTABLE_BUFFER,

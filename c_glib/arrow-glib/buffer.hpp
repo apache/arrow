@@ -28,8 +28,8 @@ GArrowBuffer *garrow_buffer_new_raw_bytes(std::shared_ptr<arrow::Buffer> *arrow_
                                           GBytes *data);
 std::shared_ptr<arrow::Buffer> garrow_buffer_get_raw(GArrowBuffer *buffer);
 
-GArrowMutableBuffer *garrow_mutable_buffer_new_raw(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer);
-GArrowMutableBuffer *garrow_mutable_buffer_new_raw_bytes(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer,
+GArrowMutableBuffer *garrow_mutable_buffer_new_raw(std::shared_ptr<arrow::Buffer> *arrow_buffer);
+GArrowMutableBuffer *garrow_mutable_buffer_new_raw_bytes(std::shared_ptr<arrow::Buffer> *arrow_buffer,
                                                          GBytes *data);
 GArrowResizableBuffer *
 garrow_resizable_buffer_new_raw(std::shared_ptr<arrow::ResizableBuffer> *arrow_buffer);

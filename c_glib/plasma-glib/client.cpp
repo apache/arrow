@@ -469,9 +469,7 @@ gplasma_client_create(GPlasmaClient *client,
   if (garrow_error_check(error, status, context)) {
     GArrowBuffer *data = nullptr;
     if (device_number == 0) {
-      auto plasma_mutable_data =
-        std::static_pointer_cast<arrow::MutableBuffer>(plasma_data);
-      data = GARROW_BUFFER(garrow_mutable_buffer_new_raw(&plasma_mutable_data));
+      data = GARROW_BUFFER(garrow_mutable_buffer_new_raw(&plasma_data));
 #ifdef HAVE_ARROW_CUDA
     } else {
       auto plasma_cuda_data =
