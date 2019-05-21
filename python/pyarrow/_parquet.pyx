@@ -973,6 +973,7 @@ cdef class ParquetWriter:
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
+            c_string c_file_path
             CMemoryPool* pool
 
         try:
@@ -987,6 +988,7 @@ cdef class ParquetWriter:
                                                    &self.sink))
             self.own_sink = True
 
+        c_file_path = "RJZ.CYTHON.TEST".encode()
         self.use_dictionary = use_dictionary
         self.compression = compression
         self.version = version
@@ -1011,7 +1013,7 @@ cdef class ParquetWriter:
             check_status(
                 FileWriter.Open(deref(schema.schema), pool,
                                 self.sink, properties, arrow_properties,
-                                &self.writer))
+                                &self.writer, c_file_path))
 
     cdef void _set_int96_support(self, ArrowWriterProperties.Builder* props):
         if self.use_deprecated_int96_timestamps:

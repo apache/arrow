@@ -164,14 +164,15 @@ class PARQUET_EXPORT ParquetFileWriter {
       const std::shared_ptr<::arrow::io::OutputStream>& sink,
       const std::shared_ptr<schema::GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR,
+      const std::string file_path = "RJZ.TEST.DEFAULT.1");
 
   static std::unique_ptr<ParquetFileWriter> Open(
       const std::shared_ptr<OutputStream>& sink,
       const std::shared_ptr<schema::GroupNode>& schema,
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR,
-      const std::string file_path = "RJZ.TEST.DEFAULT");
+      const std::string file_path = "RJZ.TEST.DEFAULT.2");
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();

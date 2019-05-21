@@ -352,9 +352,10 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
     const std::shared_ptr<::arrow::io::OutputStream>& sink,
     const std::shared_ptr<GroupNode>& schema,
     const std::shared_ptr<WriterProperties>& properties,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    const std::string file_path) {
   return Open(std::make_shared<ArrowOutputStream>(sink), schema, properties,
-              key_value_metadata);
+              key_value_metadata, file_path);
 }
 
 std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
@@ -365,7 +366,6 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
     const std::string file_path) {
   auto contents = FileSerializer::Open(sink, schema, properties,
                                        key_value_metadata, file_path);
-                                       //key_value_metadata, "RJZ.TEST.5");
   std::unique_ptr<ParquetFileWriter> result(new ParquetFileWriter());
   result->Open(std::move(contents));
   return result;

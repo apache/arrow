@@ -1106,15 +1106,17 @@ FileWriter::FileWriter(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writ
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
-                        std::unique_ptr<FileWriter>* writer) {
-  return Open(schema, pool, sink, properties, default_arrow_writer_properties(), writer);
+                        std::unique_ptr<FileWriter>* writer,
+                        const std::string file_path) {
+  return Open(schema, pool, sink, properties, default_arrow_writer_properties(), writer, file_path);
 }
 
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-                        std::unique_ptr<FileWriter>* writer) {
+                        std::unique_ptr<FileWriter>* writer,
+                        const std::string file_path) {
   std::shared_ptr<SchemaDescriptor> parquet_schema;
   RETURN_NOT_OK(
       ToParquetSchema(&schema, *properties, *arrow_properties, &parquet_schema));
@@ -1122,7 +1124,7 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
 
   std::unique_ptr<ParquetFileWriter> base_writer =
-      ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata(), "RJZ.TEST.6");
+      ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata(), file_path);
 
   auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
   writer->reset(
@@ -1133,18 +1135,20 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<::arrow::io::OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
-                        std::unique_ptr<FileWriter>* writer) {
+                        std::unique_ptr<FileWriter>* writer,
+                        const std::string file_path) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);
-  return Open(schema, pool, wrapper, properties, writer);
+  return Open(schema, pool, wrapper, properties, writer, file_path);
 }
 
 Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                         const std::shared_ptr<::arrow::io::OutputStream>& sink,
                         const std::shared_ptr<WriterProperties>& properties,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-                        std::unique_ptr<FileWriter>* writer) {
+                        std::unique_ptr<FileWriter>* writer,
+                        const std::string file_path) {
   auto wrapper = std::make_shared<ArrowOutputStream>(sink);
-  return Open(schema, pool, wrapper, properties, arrow_properties, writer);
+  return Open(schema, pool, wrapper, properties, arrow_properties, writer, file_path);
 }
 
 Status WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
@@ -1201,7 +1205,7 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
                   const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
   std::unique_ptr<FileWriter> writer;
   RETURN_NOT_OK(FileWriter::Open(*table.schema(), pool, sink, properties,
-                                 arrow_properties, &writer));
+                                 arrow_properties, &writer, "RJZ.TEST.WT"));
   RETURN_NOT_OK(writer->WriteTable(table, chunk_size));
   return writer->Close();
 }
