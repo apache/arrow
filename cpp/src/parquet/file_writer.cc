@@ -19,7 +19,6 @@
 
 #include <utility>
 #include <vector>
-#include <iostream>  //RJZ (for debug printing)
 
 #include "parquet/column_writer.h"
 #include "parquet/schema.h"
@@ -79,7 +78,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   RowGroupSerializer(OutputStream* sink, RowGroupMetaDataBuilder* metadata,
                      const WriterProperties* properties,
                      bool buffered_row_group = false,
-                     std::string file_path = "RJZ.DEFAULT")
+                     std::string file_path = "")
       : sink_(sink),
         sink_file_path_(file_path),
         metadata_(metadata),

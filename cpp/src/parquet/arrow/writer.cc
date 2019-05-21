@@ -1205,7 +1205,7 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
                   const std::shared_ptr<ArrowWriterProperties>& arrow_properties) {
   std::unique_ptr<FileWriter> writer;
   RETURN_NOT_OK(FileWriter::Open(*table.schema(), pool, sink, properties,
-                                 arrow_properties, &writer, "RJZ.TEST.WT"));
+                                 arrow_properties, &writer));
   RETURN_NOT_OK(writer->WriteTable(table, chunk_size));
   return writer->Close();
 }
