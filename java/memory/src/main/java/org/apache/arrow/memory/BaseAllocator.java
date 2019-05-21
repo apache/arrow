@@ -922,12 +922,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   public enum AllocationRoundingOption {
 
     /**
-     * The capacity should be rounded up, if the requested size is below {@link AllocationManager#CHUNK_SIZE}
+     * The capacity should be rounded up, if the requested size is below {@link AllocationManager#CHUNK_SIZE}.
      */
     ROUND_UP,
 
     /**
-     * The capacity should be rounded down, if the requested size is below {@link AllocationManager#CHUNK_SIZE}
+     * The capacity should be rounded down, if the requested size is below {@link AllocationManager#CHUNK_SIZE}.
      */
     ROUND_DOWN
   }

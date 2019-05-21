@@ -878,11 +878,13 @@ public class TestBaseAllocator {
     buf.close();
 
     // test large buffer
-    buf = allocator.buffer((int) AllocationManager.CHUNK_SIZE  + 1, null, BaseAllocator.AllocationRoundingOption.ROUND_UP);
+    buf = allocator.buffer(
+            (int) AllocationManager.CHUNK_SIZE  + 1, null, BaseAllocator.AllocationRoundingOption.ROUND_UP);
     assertEquals(AllocationManager.CHUNK_SIZE  + 1, buf.capacity());
     buf.close();
 
-    buf = allocator.buffer((int) AllocationManager.CHUNK_SIZE  + 1, null, BaseAllocator.AllocationRoundingOption.ROUND_DOWN);
+    buf = allocator.buffer(
+            (int) AllocationManager.CHUNK_SIZE  + 1, null, BaseAllocator.AllocationRoundingOption.ROUND_DOWN);
     assertEquals(AllocationManager.CHUNK_SIZE  + 1, buf.capacity());
     buf.close();
 
@@ -904,9 +906,11 @@ public class TestBaseAllocator {
     assertEquals(powerOfTwo, roundedSize);
 
     // test large buffer
-    roundedSize = allocator.getRoundedSize((int) AllocationManager.CHUNK_SIZE  + 1, BaseAllocator.AllocationRoundingOption.ROUND_UP);
+    roundedSize = allocator.getRoundedSize(
+            (int) AllocationManager.CHUNK_SIZE  + 1, BaseAllocator.AllocationRoundingOption.ROUND_UP);
     assertEquals(AllocationManager.CHUNK_SIZE  + 1, roundedSize);
-    roundedSize = allocator.getRoundedSize((int) AllocationManager.CHUNK_SIZE  + 1, BaseAllocator.AllocationRoundingOption.ROUND_DOWN);
+    roundedSize = allocator.getRoundedSize(
+            (int) AllocationManager.CHUNK_SIZE  + 1, BaseAllocator.AllocationRoundingOption.ROUND_DOWN);
     assertEquals(AllocationManager.CHUNK_SIZE  + 1, roundedSize);
 
     allocator.close();
