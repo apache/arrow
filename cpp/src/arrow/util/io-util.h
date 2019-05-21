@@ -96,7 +96,7 @@ namespace internal {
 
 class ARROW_EXPORT PlatformFilename {
  public:
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   using NativePathString = std::wstring;
 #else
   using NativePathString = std::string;

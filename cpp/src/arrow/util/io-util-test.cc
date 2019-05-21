@@ -81,7 +81,7 @@ TEST(TemporaryDir, Basics) {
   fn = dir->path();
   // Path has a trailing separator, for convenience
   ASSERT_EQ(fn.ToString().back(), '/');
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   ASSERT_EQ(fn.ToNative().back(), L'/');
 #else
   ASSERT_EQ(fn.ToNative().back(), '/');
@@ -90,7 +90,7 @@ TEST(TemporaryDir, Basics) {
   ASSERT_NE(fn.ToString().find("some-prefix-"), std::string::npos);
 
   // Create child contents to check that they're cleaned up at the end
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   PlatformFilename child(fn.ToNative() + L"some-child");
 #else
   PlatformFilename child(fn.ToNative() + "some-child");

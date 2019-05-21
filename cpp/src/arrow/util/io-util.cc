@@ -48,7 +48,7 @@
 #endif
 
 // For filename conversion
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #include <codecvt>
 #include <locale>
 #include <stdexcept>
@@ -59,12 +59,15 @@
 // ----------------------------------------------------------------------
 // file compatibility stuff
 
-#if defined(__MINGW32__)  // MinGW
-// nothing
-#elif defined(_MSC_VER)  // Visual Studio
+#if defined(_WIN32)
 #include <io.h>
-#else  // POSIX / Linux
-// nothing
+#endif
+
+#ifdef __MINGW32__
+// MinGW lacks this definition
+#ifndef _SH_DENYNO
+#define _SH_DENYNO 0x40
+#endif
 #endif
 
 #ifdef _WIN32  // Windows
@@ -82,7 +85,7 @@
 #endif
 
 // define max read/write count
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
 #else
 
@@ -259,7 +262,7 @@ std::string PlatformFilename::ToString() const { return impl_->path.string(); }
 namespace {
 
 Status StringToNative(const std::string& s, PlatformFilename::NativePathString* out) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   try {
     *out = std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>{}.from_bytes(s);
   } catch (std::range_error& e) {
@@ -352,7 +355,7 @@ Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
   if ((retval) == -1) return Status::IOError("lseek failed");
 
 static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   return _lseeki64(fd, pos, whence);
 #else
   return lseek(fd, pos, whence);
@@ -371,7 +374,7 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
 
 Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   int ret, errno_actual;
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(),
                            _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
   ret = *fd;
@@ -387,7 +390,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
                         bool append, int* fd) {
   int ret, errno_actual;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
   int pmode = _S_IREAD | _S_IWRITE;
 
@@ -432,7 +435,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
 Status FileTell(int fd, int64_t* pos) {
   int64_t current_pos;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   current_pos = _telli64(fd);
   if (current_pos == -1) {
     return Status::IOError("_telli64 failed");
@@ -540,7 +543,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 Status FileClose(int fd) {
   int ret;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   ret = static_cast<int>(_close(fd));
 #else
   ret = static_cast<int>(close(fd));
@@ -565,14 +568,14 @@ Status FileSeek(int fd, int64_t pos, int whence) {
 Status FileSeek(int fd, int64_t pos) { return FileSeek(fd, pos, SEEK_SET); }
 
 Status FileGetSize(int fd, int64_t* size) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   struct __stat64 st;
 #else
   struct stat st;
 #endif
   st.st_size = -1;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   int ret = _fstat64(fd, &st);
 #else
   int ret = fstat(fd, &st);
