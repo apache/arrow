@@ -112,6 +112,28 @@ func TestChunked(t *testing.T) {
 	}
 }
 
+func TestChunkedEqualDataType(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	lb1 := array.NewListBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer lb1.Release()
+
+	v1 := lb1.NewArray()
+	defer v1.Release()
+
+	lb2 := array.NewListBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer lb2.Release()
+
+	v2 := lb2.NewArray()
+	defer v2.Release()
+
+	c1 := array.NewChunked(arrow.ListOf(arrow.PrimitiveTypes.Int32), []array.Interface{
+		v1, v2,
+	})
+	defer c1.Release()
+}
+
 func TestChunkedInvalid(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
