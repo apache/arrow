@@ -1276,14 +1276,14 @@ class ArrayReader {
     std::shared_ptr<Buffer> validity_buffer;
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
 
-    const auto& json_offsets = obj_->FindMember("OFFSET");
-    RETURN_NOT_ARRAY("OFFSET", json_offsets, *obj_);
+    const auto& json_offsets = obj_.FindMember("OFFSET");
+    RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
     std::shared_ptr<Buffer> offsets_buffer;
     RETURN_NOT_OK(GetIntArray<int32_t>(json_offsets->value.GetArray(), length_ + 1,
                                        &offsets_buffer));
 
     std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(*obj_, type, &children));
+    RETURN_NOT_OK(GetChildren(obj_, type, &children));
     DCHECK_EQ(children.size(), 2);
 
     result_ = std::make_shared<MapArray>(type_, length_, offsets_buffer, children[0],
