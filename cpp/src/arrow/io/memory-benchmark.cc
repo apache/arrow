@@ -17,10 +17,6 @@
 
 #ifdef _MSC_VER
 #include <intrin.h>
-#elif defined(__GNUC__) && defined(__ARM_NEON)
-#include <arm_neon.h>
-#elif defined(__GNUC__) && defined(__IWMMXT__)
-#include <mmintrin.h>
 #else
 #include <immintrin.h>
 #endif
