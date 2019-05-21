@@ -95,7 +95,7 @@ void CheckCodecRoundtrip(Compression::type ctype, const std::vector<uint8_t>& da
   ASSERT_OK(c2->Compress(data.size(), data.data(), max_compressed_len, compressed.data(),
                          &actual_size2));
   ASSERT_EQ(actual_size2, actual_size);
-  compressed.resize(actual_size);
+  compressed.resize(actual_size2);
 
   // decompress with c1
   ASSERT_OK(c1->Decompress(compressed.size(), compressed.data(), decompressed.size(),
@@ -105,7 +105,7 @@ void CheckCodecRoundtrip(Compression::type ctype, const std::vector<uint8_t>& da
 
   // decompress with size with c1
   int64_t actual_decompressed_size2;
-  ASSERT_OK(c1->Decompress(actual_size2, compressed.data(), decompressed.size(),
+  ASSERT_OK(c1->Decompress(compressed.size(), compressed.data(), decompressed.size(),
                            decompressed.data(), &actual_decompressed_size2));
 
   ASSERT_EQ(data, decompressed);
