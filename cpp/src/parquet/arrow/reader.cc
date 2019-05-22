@@ -195,7 +195,7 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
     for (size_t i = 0; i < column_indices_.size(); ++i) {
       std::shared_ptr<ChunkedArray> array;
       RETURN_NOT_OK(column_readers_[i]->NextBatch(batch_size_, &array));
-      columns[i] = std::make_shared<Column>(schema_->field(i), array);
+      columns[i] = std::make_shared<Column>(schema_->field(static_cast<int>(i)), array);
     }
 
     // Create an intermediate table and use TableBatchReader as an adaptor to a
