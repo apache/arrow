@@ -156,7 +156,7 @@ struct UnpackValues {
     const auto& values = internal::checked_cast<const DictionaryArray&>(*params_.values);
     {
       // To take from a dictionary, apply the current kernel to the dictionary's
-      // mask. (Use UnpackValues<MaskType> since MaskType is already unpacked)
+      // indices. (Use UnpackValues<MaskType> since MaskType is already unpacked)
       MaskParameters params = params_;
       params.values = values.indices();
       params.out = &masked_indices;
