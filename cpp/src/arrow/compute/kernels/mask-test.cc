@@ -98,6 +98,7 @@ TYPED_TEST(TestMaskKernelWithNumeric, MaskNumeric) {
   this->AssertMask("[7, 8, 9]", "[0, 1, 0]", "[8]");
   this->AssertMask("[null, 8, 9]", "[0, 1, 0]", "[8]");
   this->AssertMask("[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
+  this->AssertMask("[]", "[]", "[]");
 }
 
 class TestMaskKernelWithString : public TestMaskKernel<StringType> {

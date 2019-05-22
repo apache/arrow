@@ -218,6 +218,9 @@ Status MaskKernel::Call(FunctionContext* ctx, const Datum& values, const Datum& 
   params.context = ctx;
   params.values = values.make_array();
   params.mask = mask.make_array();
+  if (params.values->length() != params.mask->length()) {
+    return Status::Invalid("Mask is not the same size as values");
+  }
   params.out = &out_array;
   UnpackMask unpack = {params};
   RETURN_NOT_OK(VisitTypeInline(*mask.type(), &unpack));
