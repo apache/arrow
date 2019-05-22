@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from '../data';
 import { Vector } from '../vector';
 import { DataType } from '../type';
 import { MessageHeader } from '../enum';
@@ -438,6 +439,10 @@ class RecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> e
                 this.dictionaries.set(header.id, vector);
             }
         }
+        if (this.schema && this._recordBatchIndex === 0) {
+            this._recordBatchIndex++;
+            return { done: false, value: new RecordBatch<T>(this.schema, 0, this.schema.fields.map((f) => Data.new(f.type, 0, 0))) };
+        }
         return this.return();
     }
     protected _readNextMessageAndValidate<T extends MessageHeader>(type?: T | null) {
@@ -507,6 +512,10 @@ class AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = a
                 const vector = this._loadDictionaryBatch(header, buffer);
                 this.dictionaries.set(header.id, vector);
             }
+        }
+        if (this.schema && this._recordBatchIndex === 0) {
+            this._recordBatchIndex++;
+            return { done: false, value: new RecordBatch<T>(this.schema, 0, this.schema.fields.map((f) => Data.new(f.type, 0, 0))) };
         }
         return await this.return();
     }
