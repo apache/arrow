@@ -94,7 +94,7 @@ public class TestCallOptions {
     }
 
     @Override
-    public Result doAction(CallContext context, Action action) {
+    public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
       switch (action.getType()) {
         case "hang": {
           try {
@@ -102,7 +102,9 @@ public class TestCallOptions {
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
-          return new Result(new byte[]{});
+          listener.onNext(new Result(new byte[]{}));
+          listener.onCompleted();
+          return;
         }
         case "fast": {
           try {
@@ -110,7 +112,9 @@ public class TestCallOptions {
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
-          return new Result(new byte[]{42, 42});
+          listener.onNext(new Result(new byte[]{42, 42}));
+          listener.onCompleted();
+          return;
         }
         default: {
           throw new UnsupportedOperationException(action.getType());

@@ -18,6 +18,7 @@
 package org.apache.arrow.flight;
 
 import java.net.URISyntaxException;
+import java.util.Iterator;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -70,8 +71,23 @@ public class TestBasicOperation {
   @Test
   public void doAction() throws Exception {
     test(c -> {
-      Result r = c.doAction(new Action("hello")).next();
-      System.out.println(new String(r.getBody(), Charsets.UTF_8));
+      Iterator<Result> stream = c.doAction(new Action("hello"));
+
+      Assert.assertTrue(stream.hasNext());
+      Result r = stream.next();
+      Assert.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+    });
+    test(c -> {
+      Iterator<Result> stream = c.doAction(new Action("hellooo"));
+
+      Assert.assertTrue(stream.hasNext());
+      Result r = stream.next();
+      Assert.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+
+      Assert.assertTrue(stream.hasNext());
+      r = stream.next();
+      Assert.assertArrayEquals("!".getBytes(Charsets.UTF_8), r.getBody());
+      Assert.assertFalse(stream.hasNext());
     });
   }
 
@@ -248,12 +264,22 @@ public class TestBasicOperation {
     }
 
     @Override
-    public Result doAction(CallContext context, Action action) {
+    public void doAction(CallContext context, Action action,
+        StreamListener<Result> listener) {
       switch (action.getType()) {
-        case "hello":
-          return new Result("world".getBytes(Charsets.UTF_8));
+        case "hello": {
+          listener.onNext(new Result("world".getBytes(Charsets.UTF_8)));
+          listener.onCompleted();
+          break;
+        }
+        case "hellooo": {
+          listener.onNext(new Result("world".getBytes(Charsets.UTF_8)));
+          listener.onNext(new Result("!".getBytes(Charsets.UTF_8)));
+          listener.onCompleted();
+          break;
+        }
         default:
-          throw new UnsupportedOperationException();
+          listener.onError(new UnsupportedOperationException());
       }
     }
 
