@@ -915,4 +915,36 @@ public class TestBaseAllocator {
 
     allocator.close();
   }
+
+  @Test
+  public void testNextPowerOfTwo() {
+    assertEquals(1, BaseAllocator.nextPowerOfTwo(0));
+    assertEquals(2, BaseAllocator.nextPowerOfTwo(1));
+    assertEquals(2, BaseAllocator.nextPowerOfTwo(2));
+    assertEquals(128, BaseAllocator.nextPowerOfTwo(75));
+    assertEquals(AllocationManager.CHUNK_SIZE, BaseAllocator.nextPowerOfTwo((int) AllocationManager.CHUNK_SIZE));
+    assertEquals(
+            AllocationManager.CHUNK_SIZE * 2, BaseAllocator.nextPowerOfTwo((int) AllocationManager.CHUNK_SIZE + 1));
+  }
+
+  @Test
+  public void testNextPowerOfTwoLong() {
+    assertEquals(1, BaseAllocator.nextPowerOfTwo(0L));
+    assertEquals(2, BaseAllocator.nextPowerOfTwo(1L));
+    assertEquals(2, BaseAllocator.nextPowerOfTwo(2L));
+    assertEquals(128, BaseAllocator.nextPowerOfTwo(75L));
+    assertEquals(AllocationManager.CHUNK_SIZE, BaseAllocator.nextPowerOfTwo(AllocationManager.CHUNK_SIZE));
+    assertEquals(AllocationManager.CHUNK_SIZE * 2, BaseAllocator.nextPowerOfTwo(AllocationManager.CHUNK_SIZE + 1));
+  }
+
+  @Test
+  public void testPrevPowerOfTwo() {
+    assertEquals(0, BaseAllocator.prevPowerOfTwo(0));
+    assertEquals(1, BaseAllocator.prevPowerOfTwo(1));
+    assertEquals(2, BaseAllocator.prevPowerOfTwo(2));
+    assertEquals(64, BaseAllocator.prevPowerOfTwo(75));
+    assertEquals(AllocationManager.CHUNK_SIZE, BaseAllocator.prevPowerOfTwo((int) AllocationManager.CHUNK_SIZE));
+    assertEquals(
+            AllocationManager.CHUNK_SIZE, BaseAllocator.prevPowerOfTwo((int) AllocationManager.CHUNK_SIZE + 1));
+  }
 }

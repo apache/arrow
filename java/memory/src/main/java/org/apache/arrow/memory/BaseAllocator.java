@@ -314,7 +314,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return empty;
     }
 
-    // round to next largest power of two if we're within a chunk since that is how our allocator
+    // round to a power of two if we're within a chunk since that is how our allocator
     // operates
     final int actualRequestSize = getRoundedSize(initialRequestSize, roundingOption);
 

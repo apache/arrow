@@ -26,7 +26,7 @@ import io.netty.buffer.ByteBufAllocator;
 public interface BufferAllocator extends AutoCloseable {
 
   /**
-   * Allocate a new or reused buffer of the provided size. Note that the buffer may technically
+   * Allocates a new or reused buffer of the provided size. Note that the buffer may technically
    * be larger than the
    * requested size for rounding purposes. However, the buffer's capacity will be set to the
    * configured size.
@@ -38,7 +38,7 @@ public interface BufferAllocator extends AutoCloseable {
   public ArrowBuf buffer(int size);
 
   /**
-   * Allocate a new or reused buffer of the provided size. Note that the buffer may technically
+   * Allocates a new or reused buffer of the provided size. Note that the buffer may technically
    * be larger than the
    * requested size for rounding purposes. However, the buffer's capacity will be set to the
    * configured size.
@@ -51,7 +51,7 @@ public interface BufferAllocator extends AutoCloseable {
   public ArrowBuf buffer(int size, BufferManager manager);
 
   /**
-   * Allocate a new or reused buffer of the provided size. Note that the buffer may technically
+   * Allocates a new or reused buffer of the provided size. Note that the buffer may technically
    * be larger or smaller than the  requested size, depending on the rounding option.
    * However, the buffer's capacity will be set to the configured size.
    *
@@ -64,7 +64,7 @@ public interface BufferAllocator extends AutoCloseable {
   public ArrowBuf buffer(int size, BufferManager manager, BaseAllocator.AllocationRoundingOption roundingOption);
 
   /**
-   * Get the rounded buffer size.
+   * Gets the rounded buffer size.
    * @param size The requested buffer size.
    * @param roundingOption The rounding option.
    * @return the buffer size after rounding.
@@ -208,5 +208,4 @@ public interface BufferAllocator extends AutoCloseable {
    * a no-op.
    */
   public void assertOpen();
-
 }
