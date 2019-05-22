@@ -249,8 +249,8 @@ std::unique_ptr<arrow::Array> WriteVariableData(
     }
   }
 
-  // We shouldn't ever reach this branch, but if we do, return a null unique_ptr.
-  return std::unique_ptr<arrow::Array>();
+  // We shouldn't ever reach this branch, but if we do, return nullptr.
+  return nullptr;
 }
 
 }  // namespace internal
