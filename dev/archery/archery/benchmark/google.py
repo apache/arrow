@@ -30,6 +30,9 @@ def partition(pred, iterable):
     return list(filter(pred, t1)), list(filterfalse(pred, t2))
 
 
+DEFAULT_REPETITIONS = 10
+
+
 class GoogleBenchmarkCommand(Command):
     """ Run a google benchmark binary.
 
@@ -49,9 +52,9 @@ class GoogleBenchmarkCommand(Command):
                           stderr=subprocess.PIPE)
         return str.splitlines(result.stdout.decode("utf-8"))
 
-    def results(self):
+    def results(self, repetitions=DEFAULT_REPETITIONS):
         with NamedTemporaryFile() as out:
-            argv = ["--benchmark_repetitions=20",
+            argv = [f"--benchmark_repetitions={repetitions}",
                     f"--benchmark_out={out.name}",
                     "--benchmark_out_format=json"]
 
