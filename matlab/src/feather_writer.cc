@@ -200,9 +200,9 @@ std::unique_ptr<arrow::Array> WriteNumericData(
   //   segfaults if the input array is used later in MATLAB.
   //   - The Doxygen doc for arrow::Buffer's constructor implies that it is not an RAII
   //     type, so this should be safe from possible double-free here.
-  std::shared_ptr<arrow::Buffer> buffer(
-      new arrow::Buffer(reinterpret_cast<const uint8_t*>(dt),
-                        mxGetElementSize(data) * mxGetNumberOfElements(data)));
+  std::shared_ptr<arrow::Buffer> buffer = std::make_shared<arrow::Buffer>(
+      reinterpret_cast<const uint8_t*>(dt),
+      mxGetElementSize(data) * mxGetNumberOfElements(data));
 
   // Construct arrow::NumericArray specialization using arrow::Buffer.
   // Pass in nulls information...we could compute and provide the number of nulls here too,
