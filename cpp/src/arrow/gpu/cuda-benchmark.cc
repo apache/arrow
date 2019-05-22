@@ -85,14 +85,12 @@ static void BM_Writer_Unbuffered(benchmark::State& state) {
 BENCHMARK(BM_Writer_Buffered)
     ->RangeMultiplier(16)
     ->Range(1 << 8, 1 << 16)
-    ->MinTime(1.0)
     ->UseRealTime();
 
 BENCHMARK(BM_Writer_Unbuffered)
     ->RangeMultiplier(4)
     ->RangeMultiplier(16)
     ->Range(1 << 8, 1 << 16)
-    ->MinTime(1.0)
     ->UseRealTime();
 
 }  // namespace cuda

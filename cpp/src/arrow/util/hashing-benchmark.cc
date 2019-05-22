@@ -114,15 +114,10 @@ static void BM_HashLargeStrings(benchmark::State& state) {  // NOLINT non-const 
 // ----------------------------------------------------------------------
 // Benchmark declarations
 
-static constexpr int32_t kRepetitions = 1;
-
-BENCHMARK(BM_HashIntegers)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_HashSmallStrings)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_HashMediumStrings)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_HashLargeStrings)->Repetitions(kRepetitions)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_HashIntegers);
+BENCHMARK(BM_HashSmallStrings);
+BENCHMARK(BM_HashMediumStrings);
+BENCHMARK(BM_HashLargeStrings);
 
 }  // namespace internal
 }  // namespace arrow

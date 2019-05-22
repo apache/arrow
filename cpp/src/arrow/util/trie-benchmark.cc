@@ -210,12 +210,10 @@ static void BM_InlinedTrieLookupNotFound(
   BenchmarkInlinedTrieLookups(state, {"None", "1.0", "", "abc"});
 }
 
-static const int kRepetitions = 2;
-
-BENCHMARK(BM_TrieLookupFound)->Repetitions(kRepetitions);
-BENCHMARK(BM_TrieLookupNotFound)->Repetitions(kRepetitions);
-BENCHMARK(BM_InlinedTrieLookupFound)->Repetitions(kRepetitions);
-BENCHMARK(BM_InlinedTrieLookupNotFound)->Repetitions(kRepetitions);
+BENCHMARK(BM_TrieLookupFound);
+BENCHMARK(BM_TrieLookupNotFound);
+BENCHMARK(BM_InlinedTrieLookupFound);
+BENCHMARK(BM_InlinedTrieLookupNotFound);
 
 }  // namespace internal
 }  // namespace arrow

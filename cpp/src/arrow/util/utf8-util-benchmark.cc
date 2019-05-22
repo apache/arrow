@@ -81,8 +81,7 @@ static void BM_ValidateTinyNonAscii(
 
 static void BM_ValidateSmallAscii(
     benchmark::State& state) {  // NOLINT non-const reference
-  BenchmarkUTF8Validation(state, valid_ascii, true);
-}
+  BenchmarkUTF8Validation(state, valid_ascii, true); }
 
 static void BM_ValidateSmallAlmostAscii(
     benchmark::State& state) {  // NOLINT non-const reference
@@ -112,16 +111,14 @@ static void BM_ValidateLargeNonAscii(
   BenchmarkUTF8Validation(state, s, true);
 }
 
-static const int kRepetitions = 1;
-
-BENCHMARK(BM_ValidateTinyAscii)->Repetitions(kRepetitions);
-BENCHMARK(BM_ValidateTinyNonAscii)->Repetitions(kRepetitions);
-BENCHMARK(BM_ValidateSmallAscii)->Repetitions(kRepetitions);
-BENCHMARK(BM_ValidateSmallAlmostAscii)->Repetitions(kRepetitions);
-BENCHMARK(BM_ValidateSmallNonAscii)->Repetitions(kRepetitions);
-BENCHMARK(BM_ValidateLargeAscii)->Repetitions(kRepetitions);
-BENCHMARK(BM_ValidateLargeAlmostAscii)->Repetitions(kRepetitions);
-BENCHMARK(BM_ValidateLargeNonAscii)->Repetitions(kRepetitions);
+BENCHMARK(BM_ValidateTinyAscii);
+BENCHMARK(BM_ValidateTinyNonAscii);
+BENCHMARK(BM_ValidateSmallAscii);
+BENCHMARK(BM_ValidateSmallAlmostAscii);
+BENCHMARK(BM_ValidateSmallNonAscii);
+BENCHMARK(BM_ValidateLargeAscii);
+BENCHMARK(BM_ValidateLargeAlmostAscii);
+BENCHMARK(BM_ValidateLargeNonAscii);
 
 }  // namespace util
 }  // namespace arrow

@@ -28,6 +28,8 @@
 
 namespace arrow {
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
 // Generate a vector of indices such as following the indices describes
 // a path over the whole vector.  The path is randomized to avoid triggering
 // automatic prefetching in the CPU.
@@ -65,6 +67,8 @@ static void BM_memory_latency(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_memory_latency)->RangeMultiplier(2)->Range(2 << 10, 2 << 24);
+BENCHMARK(BM_memory_latency)->Repetitions(1)->RangeMultiplier(2)->Range(2 << 10, 2 << 24);
+
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 }  // namespace arrow

@@ -39,7 +39,7 @@ static void BM_FromString(benchmark::State& state) {  // NOLINT non-const refere
   state.SetItemsProcessed(state.iterations() * values.size());
 }
 
-BENCHMARK(BM_FromString)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_FromString);
 
 }  // namespace Decimal
 }  // namespace arrow

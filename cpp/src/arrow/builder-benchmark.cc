@@ -70,7 +70,7 @@ static void ReferenceBuildVectorNoNulls(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void RegressionBuildPrimitiveArrayNoNulls(
+static void BuildPrimitiveArrayNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
     Int64Builder builder;
@@ -86,7 +86,7 @@ static void RegressionBuildPrimitiveArrayNoNulls(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void RegressionBuildAdaptiveIntNoNulls(
+static void BuildAdaptiveIntNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
     AdaptiveIntBuilder builder;
@@ -102,7 +102,7 @@ static void RegressionBuildAdaptiveIntNoNulls(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void RegressionBuildAdaptiveIntNoNullsScalarAppend(
+static void BuildAdaptiveIntNoNullsScalarAppend(
     benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
     AdaptiveIntBuilder builder;
@@ -120,7 +120,7 @@ static void RegressionBuildAdaptiveIntNoNullsScalarAppend(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void RegressionBuildBooleanArrayNoNulls(
+static void BuildBooleanArrayNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
 
   size_t n_bytes = kData.size() * sizeof(ValueType);
@@ -140,7 +140,7 @@ static void RegressionBuildBooleanArrayNoNulls(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void RegressionBuildBinaryArray(
+static void BuildBinaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
     BinaryBuilder builder;
@@ -156,7 +156,7 @@ static void RegressionBuildBinaryArray(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void RegressionBuildChunkedBinaryArray(
+static void BuildChunkedBinaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
   // 1MB chunks
   const int32_t kChunkSize = 1 << 20;
@@ -175,7 +175,7 @@ static void RegressionBuildChunkedBinaryArray(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void RegressionBuildFixedSizeBinaryArray(
+static void BuildFixedSizeBinaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
   auto type = fixed_size_binary(kBinaryView.size());
 
@@ -306,25 +306,25 @@ static void BenchmarkScalarDictionaryArray(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void RegressionBuildInt64DictionaryArrayRandom(
+static void BuildInt64DictionaryArrayRandom(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto fodder = MakeRandomIntDictFodder();
   BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
 }
 
-static void RegressionBuildInt64DictionaryArraySequential(
+static void BuildInt64DictionaryArraySequential(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto fodder = MakeSequentialIntDictFodder();
   BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
 }
 
-static void RegressionBuildInt64DictionaryArraySimilar(
+static void BuildInt64DictionaryArraySimilar(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto fodder = MakeSimilarIntDictFodder();
   BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
 }
 
-static void RegressionBuildStringDictionaryArray(
+static void BuildStringDictionaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto fodder = MakeStringDictFodder();
   auto fodder_size =
@@ -347,7 +347,7 @@ static void RegressionBuildStringDictionaryArray(
   state.SetBytesProcessed(state.iterations() * fodder_size * kFinalSize);
 }
 
-static void BM_ArrayDataConstructDestruct(
+static void ArrayDataConstructDestruct(
     benchmark::State& state) {  // NOLINT non-const reference
   std::vector<std::shared_ptr<ArrayData>> arrays;
 
@@ -370,21 +370,21 @@ static void BM_ArrayDataConstructDestruct(
 
 BENCHMARK(ReferenceBuildVectorNoNulls);
 
-BENCHMARK(RegressionBuildBooleanArrayNoNulls);
+BENCHMARK(BuildBooleanArrayNoNulls);
 
-BENCHMARK(RegressionBuildPrimitiveArrayNoNulls);
-BENCHMARK(RegressionBuildAdaptiveIntNoNulls);
-BENCHMARK(RegressionBuildAdaptiveIntNoNullsScalarAppend);
+BENCHMARK(BuildPrimitiveArrayNoNulls);
+BENCHMARK(BuildAdaptiveIntNoNulls);
+BENCHMARK(BuildAdaptiveIntNoNullsScalarAppend);
 
-BENCHMARK(RegressionBuildBinaryArray);
-BENCHMARK(RegressionBuildChunkedBinaryArray);
-BENCHMARK(RegressionBuildFixedSizeBinaryArray);
+BENCHMARK(BuildBinaryArray);
+BENCHMARK(BuildChunkedBinaryArray);
+BENCHMARK(BuildFixedSizeBinaryArray);
 
-BENCHMARK(RegressionBuildInt64DictionaryArrayRandom);
-BENCHMARK(RegressionBuildInt64DictionaryArraySequential);
-BENCHMARK(RegressionBuildInt64DictionaryArraySimilar);
-BENCHMARK(RegressionBuildStringDictionaryArray);
+BENCHMARK(BuildInt64DictionaryArrayRandom);
+BENCHMARK(BuildInt64DictionaryArraySequential);
+BENCHMARK(BuildInt64DictionaryArraySimilar);
+BENCHMARK(BuildStringDictionaryArray);
 
-BENCHMARK(BM_ArrayDataConstructDestruct);
+BENCHMARK(ArrayDataConstructDestruct);
 
 }  // namespace arrow

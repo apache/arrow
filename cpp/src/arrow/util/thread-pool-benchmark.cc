@@ -168,6 +168,8 @@ static void WorkloadCost_Customize(benchmark::internal::Benchmark* b) {
     b->Args({w});
   }
   b->ArgNames({"task_cost"});
+  b->UseRealTime();
+  b->Repetitions(1);
 }
 
 static void ThreadPoolSpawn_Customize(benchmark::internal::Benchmark* b) {
@@ -177,26 +179,14 @@ static void ThreadPoolSpawn_Customize(benchmark::internal::Benchmark* b) {
     }
   }
   b->ArgNames({"threads", "task_cost"});
+  b->UseRealTime();
+  b->Repetitions(1);
 }
 
-static const int kRepetitions = 1;
-
-BENCHMARK(BM_WorkloadCost)->Repetitions(kRepetitions)->Apply(WorkloadCost_Customize);
-
-BENCHMARK(BM_ThreadPoolSpawn)
-    ->UseRealTime()
-    ->Repetitions(kRepetitions)
-    ->Apply(ThreadPoolSpawn_Customize);
-
-BENCHMARK(BM_SerialTaskGroup)
-    ->UseRealTime()
-    ->Repetitions(kRepetitions)
-    ->Apply(WorkloadCost_Customize);
-
-BENCHMARK(BM_ThreadedTaskGroup)
-    ->UseRealTime()
-    ->Repetitions(kRepetitions)
-    ->Apply(ThreadPoolSpawn_Customize);
+BENCHMARK(BM_WorkloadCost)->Apply(WorkloadCost_Customize);
+BENCHMARK(BM_SerialTaskGroup)->Apply(WorkloadCost_Customize);
+BENCHMARK(BM_ThreadPoolSpawn)->Apply(ThreadPoolSpawn_Customize);
+BENCHMARK(BM_ThreadedTaskGroup)->Apply(ThreadPoolSpawn_Customize);
 
 }  // namespace internal
 }  // namespace arrow

@@ -63,7 +63,7 @@ static void BenchmarkJSONChunking(benchmark::State& state,
   state.SetBytesProcessed(state.iterations() * json->size());
 }
 
-static void RegressionChunkJSONPrettyPrinted(
+static void ChunkJSONPrettyPrinted(
     benchmark::State& state) {  // NOLINT non-const reference
   const int32_t num_rows = 5000;
 
@@ -75,7 +75,7 @@ static void RegressionChunkJSONPrettyPrinted(
   BenchmarkJSONChunking(state, std::make_shared<Buffer>(json), options);
 }
 
-static void RegressionChunkJSONLineDelimited(
+static void ChunkJSONLineDelimited(
     benchmark::State& state) {  // NOLINT non-const reference
   const int32_t num_rows = 5000;
 
@@ -102,7 +102,7 @@ static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const r
   state.SetBytesProcessed(state.iterations() * json->size());
 }
 
-static void RegressionParseJSONBlockWithSchema(
+static void ParseJSONBlockWithSchema(
     benchmark::State& state) {  // NOLINT non-const reference
   const int32_t num_rows = 5000;
   auto options = ParseOptions::Defaults();
@@ -145,7 +145,7 @@ static void BenchmarkReadJSONBlockWithSchema(
   BenchmarkJSONReading(state, json, num_rows, read_options, parse_options);
 }
 
-static void RegressionReadJSONBlockWithSchemaSingleThread(
+static void ReadJSONBlockWithSchemaSingleThread(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkReadJSONBlockWithSchema(state, false);
 }
@@ -155,11 +155,11 @@ static void ReferenceReadJSONBlockWithSchemaMultiThread(
   BenchmarkReadJSONBlockWithSchema(state, true);
 }
 
-BENCHMARK(RegressionChunkJSONPrettyPrinted);
-BENCHMARK(RegressionChunkJSONLineDelimited);
-BENCHMARK(RegressionParseJSONBlockWithSchema);
+BENCHMARK(ChunkJSONPrettyPrinted);
+BENCHMARK(ChunkJSONLineDelimited);
+BENCHMARK(ParseJSONBlockWithSchema);
 
-BENCHMARK(RegressionReadJSONBlockWithSchemaSingleThread);
+BENCHMARK(ReadJSONBlockWithSchemaSingleThread);
 BENCHMARK(ReferenceReadJSONBlockWithSchemaMultiThread)->UseRealTime();
 
 }  // namespace json

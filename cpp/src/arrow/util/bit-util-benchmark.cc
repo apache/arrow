@@ -28,8 +28,6 @@
 
 namespace arrow {
 
-using internal::CopyBitmap;
-
 namespace BitUtil {
 
 // A naive bitmap reader implementation, meant as a baseline against
@@ -180,7 +178,7 @@ static void ReferenceNaiveBitmapReader(benchmark::State& state) {
   BenchmarkBitmapReader<NaiveBitmapReader>(state, state.range(0));
 }
 
-static void RegressionBitmapReader(benchmark::State& state) {
+static void BitmapReader(benchmark::State& state) {
   BenchmarkBitmapReader<internal::BitmapReader>(state, state.range(0));
 }
 
@@ -188,11 +186,11 @@ static void ReferenceNaiveBitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<NaiveBitmapWriter>(state, state.range(0));
 }
 
-static void RegressionBitmapWriter(benchmark::State& state) {
+static void BitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<internal::BitmapWriter>(state, state.range(0));
 }
 
-static void RegressionFirstTimeBitmapWriter(benchmark::State& state) {
+static void FirstTimeBitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<internal::FirstTimeBitmapWriter>(state, state.range(0));
 }
 
@@ -210,18 +208,18 @@ struct GenerateBitsUnrolledFunctor {
   }
 };
 
-static void RegressionGenerateBits(benchmark::State& state) {
+static void GenerateBits(benchmark::State& state) {
   BenchmarkGenerateBits<GenerateBitsFunctor>(state, state.range(0));
 }
 
-static void RegressionGenerateBitsUnrolled(benchmark::State& state) {
+static void GenerateBitsUnrolled(benchmark::State& state) {
   BenchmarkGenerateBits<GenerateBitsUnrolledFunctor>(state, state.range(0));
 }
 
 constexpr int64_t kBufferSize = 1024 * 8;
 
 template <int64_t Offset = 0>
-static void RegressionCopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
+static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t buffer_size = state.range(0);
   const int64_t bits_size = buffer_size * 8;
   std::shared_ptr<Buffer> buffer = CreateRandomBuffer(buffer_size);
@@ -235,34 +233,33 @@ static void RegressionCopyBitmap(benchmark::State& state) {  // NOLINT non-const
   ABORT_NOT_OK(AllocateEmptyBitmap(pool, length, &copy));
 
   for (auto _ : state) {
-    CopyBitmap(src, offset, length, copy->mutable_data(), 0, false);
+    internal::CopyBitmap(src, offset, length, copy->mutable_data(), 0, false);
   }
 
   state.SetBytesProcessed(state.iterations() * buffer_size);
 }
 
-static void RegressionCopyBitmapWithoutOffset(
+static void CopyBitmapWithoutOffset(
     benchmark::State& state) {  // NOLINT non-const reference
-  RegressionCopyBitmap<0>(state);
+  CopyBitmap<0>(state);
 }
 
 // Trigger the slow path where the buffer is not byte aligned.
-static void RegressionCopyBitmapWithOffset(
-    benchmark::State& state) {  // NOLINT non-const reference
-  RegressionCopyBitmap<4>(state);
+static void CopyBitmapWithOffset(benchmark::State& state) {  // NOLINT non-const reference
+  CopyBitmap<4>(state);
 }
 
-BENCHMARK(RegressionCopyBitmapWithoutOffset)->Arg(kBufferSize);
-BENCHMARK(RegressionCopyBitmapWithOffset)->Arg(kBufferSize);
+BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
+BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
 
 BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
-BENCHMARK(RegressionBitmapReader)->Arg(kBufferSize);
+BENCHMARK(BitmapReader)->Arg(kBufferSize);
 BENCHMARK(ReferenceNaiveBitmapWriter)->Arg(kBufferSize);
-BENCHMARK(RegressionBitmapWriter)->Arg(kBufferSize);
+BENCHMARK(BitmapWriter)->Arg(kBufferSize);
 
-BENCHMARK(RegressionFirstTimeBitmapWriter)->Arg(kBufferSize);
-BENCHMARK(RegressionGenerateBits)->Arg(kBufferSize);
-BENCHMARK(RegressionGenerateBitsUnrolled)->Arg(kBufferSize);
+BENCHMARK(FirstTimeBitmapWriter)->Arg(kBufferSize);
+BENCHMARK(GenerateBits)->Arg(kBufferSize);
+BENCHMARK(GenerateBitsUnrolled)->Arg(kBufferSize);
 
 }  // namespace BitUtil
 }  // namespace arrow

@@ -198,19 +198,14 @@ static void BM_UniqueString100bytes(benchmark::State& state) {
   BenchUnique(state, HashParams<StringType>{0.05, 100}, state.range(0), state.range(1));
 }
 
-BENCHMARK(BM_BuildDictionary)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildStringDictionary)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_BuildDictionary);
+BENCHMARK(BM_BuildStringDictionary);
 
-constexpr int kHashBenchmarkLength = 1 << 24;
+constexpr int kHashBenchmarkLength = 1 << 22;
 
 #define ADD_HASH_ARGS(WHAT)                        \
-  WHAT->Args({kHashBenchmarkLength, 50})           \
-      ->Args({kHashBenchmarkLength, 1 << 10})      \
+  WHAT->Args({kHashBenchmarkLength, 1 << 10})      \
       ->Args({kHashBenchmarkLength, 10 * 1 << 10}) \
-      ->Args({kHashBenchmarkLength, 1 << 20})      \
-      ->MinTime(1.0)                               \
-      ->Unit(benchmark::kMicrosecond)              \
-      ->UseRealTime()
 
 ADD_HASH_ARGS(BENCHMARK(BM_UniqueInt64NoNulls));
 ADD_HASH_ARGS(BENCHMARK(BM_UniqueInt64WithNulls));
@@ -219,15 +214,11 @@ ADD_HASH_ARGS(BENCHMARK(BM_UniqueString100bytes));
 
 BENCHMARK(BM_UniqueUInt8NoNulls)
     ->Args({kHashBenchmarkLength, 200})
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond)
-    ->UseRealTime();
+    ->Unit(benchmark::kMicrosecond);
 
 BENCHMARK(BM_UniqueUInt8WithNulls)
     ->Args({kHashBenchmarkLength, 200})
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond)
-    ->UseRealTime();
+    ->Unit(benchmark::kMicrosecond);
 
 }  // namespace compute
 }  // namespace arrow

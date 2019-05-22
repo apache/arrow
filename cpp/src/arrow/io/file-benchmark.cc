@@ -224,31 +224,13 @@ static void BM_BufferedOutputStreamLargeWritesToPipe(
 // We use real time as we don't want to count CPU time spent in the
 // BackgroundReader thread
 
-BENCHMARK(BM_FileOutputStreamSmallWritesToNull)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
-BENCHMARK(BM_FileOutputStreamSmallWritesToPipe)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
-BENCHMARK(BM_FileOutputStreamLargeWritesToPipe)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
+BENCHMARK(BM_FileOutputStreamSmallWritesToNull)->UseRealTime();
+BENCHMARK(BM_FileOutputStreamSmallWritesToPipe)->UseRealTime();
+BENCHMARK(BM_FileOutputStreamLargeWritesToPipe)->UseRealTime();
 
-BENCHMARK(BM_BufferedOutputStreamSmallWritesToNull)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
-BENCHMARK(BM_BufferedOutputStreamSmallWritesToPipe)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
-BENCHMARK(BM_BufferedOutputStreamLargeWritesToPipe)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
+BENCHMARK(BM_BufferedOutputStreamSmallWritesToNull)->UseRealTime();
+BENCHMARK(BM_BufferedOutputStreamSmallWritesToPipe)->UseRealTime();
+BENCHMARK(BM_BufferedOutputStreamLargeWritesToPipe)->UseRealTime();
 
 #endif  // ifndef _WIN32
 

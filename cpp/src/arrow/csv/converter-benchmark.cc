@@ -76,7 +76,7 @@ static void BenchmarkConversion(benchmark::State& state,  // NOLINT non-const re
 
 constexpr size_t num_rows = 10000;
 
-static void RegressionInt64Conversion(
+static void Int64Conversion(
     benchmark::State& state) {  // NOLINT non-const reference
   auto parser = BuildInt64Data(num_rows);
   auto options = ConvertOptions::Defaults();
@@ -84,7 +84,7 @@ static void RegressionInt64Conversion(
   BenchmarkConversion(state, *parser, int64(), options);
 }
 
-static void RegressionFloatConversion(
+static void FloatConversion(
     benchmark::State& state) {  // NOLINT non-const reference
   auto parser = BuildFloatData(num_rows);
   auto options = ConvertOptions::Defaults();
@@ -92,8 +92,8 @@ static void RegressionFloatConversion(
   BenchmarkConversion(state, *parser, float64(), options);
 }
 
-BENCHMARK(RegressionInt64Conversion);
-BENCHMARK(RegressionFloatConversion);
+BENCHMARK(Int64Conversion);
+BENCHMARK(FloatConversion);
 
 }  // namespace csv
 }  // namespace arrow

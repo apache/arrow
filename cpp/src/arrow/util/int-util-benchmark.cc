@@ -97,13 +97,10 @@ static void BM_DetectIntWidthNulls(
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
 }
 
-BENCHMARK(BM_DetectUIntWidthNoNulls)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_DetectUIntWidthNulls)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_DetectIntWidthNoNulls)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-
-BENCHMARK(BM_DetectIntWidthNulls)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_DetectUIntWidthNoNulls);
+BENCHMARK(BM_DetectUIntWidthNulls);
+BENCHMARK(BM_DetectIntWidthNoNulls);
+BENCHMARK(BM_DetectIntWidthNulls);
 
 }  // namespace internal
 }  // namespace arrow

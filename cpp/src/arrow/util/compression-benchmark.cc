@@ -180,31 +180,15 @@ static void BM_StreamingDecompression(
   BM_StreamingDecompression(COMPRESSION, data, state);
 }
 
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::GZIP)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::BROTLI)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::ZSTD)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::LZ4)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
+BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::GZIP);
+BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::BROTLI);
+BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::LZ4);
 
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::GZIP)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::BROTLI)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::ZSTD)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::LZ4)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
+BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::GZIP);
+BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::BROTLI);
+BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::LZ4);
 
 }  // namespace util
 }  // namespace arrow

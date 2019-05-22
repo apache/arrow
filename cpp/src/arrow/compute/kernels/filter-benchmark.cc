@@ -29,7 +29,7 @@
 namespace arrow {
 namespace compute {
 
-static void RegressionCompareArrayScalarKernel(benchmark::State& state) {
+static void CompareArrayScalarKernel(benchmark::State& state) {
   const int64_t memory_size = state.range(0) / 4;
   const int64_t array_size = memory_size / sizeof(int64_t);
   const double null_percent = static_cast<double>(state.range(1)) / 100.0;
@@ -51,7 +51,7 @@ static void RegressionCompareArrayScalarKernel(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
-BENCHMARK(RegressionCompareArrayScalarKernel)->Apply(RegressionSetArgs);
+BENCHMARK(CompareArrayScalarKernel)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

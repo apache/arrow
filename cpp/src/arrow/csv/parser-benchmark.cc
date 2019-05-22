@@ -56,7 +56,7 @@ static void BenchmarkCSVChunking(benchmark::State& state,  // NOLINT non-const r
   state.SetBytesProcessed(state.iterations() * csv_size);
 }
 
-static void RegressionChunkCSVQuotedBlock(
+static void ChunkCSVQuotedBlock(
     benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCsvData(one_row, num_rows);
   auto options = ParseOptions::Defaults();
@@ -67,7 +67,7 @@ static void RegressionChunkCSVQuotedBlock(
   BenchmarkCSVChunking(state, csv, options);
 }
 
-static void RegressionChunkCSVEscapedBlock(
+static void ChunkCSVEscapedBlock(
     benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCsvData(one_row_escaped, num_rows);
   auto options = ParseOptions::Defaults();
@@ -78,7 +78,7 @@ static void RegressionChunkCSVEscapedBlock(
   BenchmarkCSVChunking(state, csv, options);
 }
 
-static void RegressionChunkCSVNoNewlinesBlock(
+static void ChunkCSVNoNewlinesBlock(
     benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCsvData(one_row_escaped, num_rows);
   auto options = ParseOptions::Defaults();
@@ -121,7 +121,7 @@ static void BenchmarkCSVParsing(benchmark::State& state,  // NOLINT non-const re
   state.SetBytesProcessed(state.iterations() * csv_size);
 }
 
-static void RegressionParseCSVQuotedBlock(
+static void ParseCSVQuotedBlock(
     benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCsvData(one_row, num_rows);
   auto options = ParseOptions::Defaults();
@@ -131,7 +131,7 @@ static void RegressionParseCSVQuotedBlock(
   BenchmarkCSVParsing(state, csv, num_rows, options);
 }
 
-static void RegressionParseCSVEscapedBlock(
+static void ParseCSVEscapedBlock(
     benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCsvData(one_row_escaped, num_rows);
   auto options = ParseOptions::Defaults();
@@ -141,11 +141,11 @@ static void RegressionParseCSVEscapedBlock(
   BenchmarkCSVParsing(state, csv, num_rows, options);
 }
 
-BENCHMARK(RegressionChunkCSVQuotedBlock);
-BENCHMARK(RegressionChunkCSVEscapedBlock);
-BENCHMARK(RegressionChunkCSVNoNewlinesBlock);
-BENCHMARK(RegressionParseCSVQuotedBlock);
-BENCHMARK(RegressionParseCSVEscapedBlock);
+BENCHMARK(ChunkCSVQuotedBlock);
+BENCHMARK(ChunkCSVEscapedBlock);
+BENCHMARK(ChunkCSVNoNewlinesBlock);
+BENCHMARK(ParseCSVQuotedBlock);
+BENCHMARK(ParseCSVEscapedBlock);
 
 }  // namespace csv
 }  // namespace arrow

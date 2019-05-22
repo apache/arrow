@@ -214,7 +214,7 @@ def benchmark_list(ctx, src, preserve, output, cmake_extras, baseline):
 @click.option("--suite-filter", metavar="<regex>", show_default=True,
               type=str, default=None, help="Regex filtering benchmark suites.")
 @click.option("--benchmark-filter", metavar="<regex>", show_default=True,
-              type=str, default=DEFAULT_BENCHMARK_FILTER,
+              type=str, default=None,
               help="Regex filtering benchmark suites.")
 @click.option("--preserve", type=bool, default=False, show_default=True,
               is_flag=True, help="Preserve workspace for investigation.")
