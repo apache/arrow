@@ -475,6 +475,23 @@ def test_socket_read_all(socket_fixture):
 # ----------------------------------------------------------------------
 # Miscellaneous IPC tests
 
+def test_ipc_file_stream_has_eos():
+    # ARROW-5395
+
+    df = pd.DataFrame({'foo': [1.5]})
+    batch = pa.RecordBatch.from_pandas(df)
+    sink = pa.BufferOutputStream()
+    write_file(batch, sink)
+    buffer = sink.getvalue()
+
+    # skip the file magic
+    reader = pa.ipc.open_stream(buffer[8:])
+
+    # will fail if encounters footer data instead of eos
+    rdf = reader.read_pandas()
+
+    assert_frame_equal(df, rdf)
+
 
 def test_ipc_zero_copy_numpy():
     df = pd.DataFrame({'foo': [1.5]})
