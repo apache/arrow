@@ -31,8 +31,6 @@ namespace compute {
 
 class FunctionContext;
 
-struct ARROW_EXPORT MaskOptions {};
-
 /// \brief Mask an array with a boolean selection filter
 ///
 /// The output array will be populated with values from the input at positions
@@ -46,28 +44,25 @@ struct ARROW_EXPORT MaskOptions {};
 /// \param[in] context the FunctionContext
 /// \param[in] values array from which to take
 /// \param[in] mask indicates which values should be masked out
-/// \param[in] options options
 /// \param[out] out resulting array
 ARROW_EXPORT
 Status Mask(FunctionContext* context, const Array& values, const Array& mask,
-            const MaskOptions& options, std::shared_ptr<Array>* out);
+            std::shared_ptr<Array>* out);
 
 /// \brief Mask an array with a boolean selection filter
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] values datum from which to take
 /// \param[in] mask indicates which values should be masked out
-/// \param[in] options options
 /// \param[out] out resulting datum
 ARROW_EXPORT
 Status Mask(FunctionContext* context, const Datum& values, const Datum& indices,
-            const MaskOptions& options, Datum* out);
+            Datum* out);
 
 /// \brief BinaryKernel implementing Mask operation
 class ARROW_EXPORT MaskKernel : public BinaryKernel {
  public:
-  explicit MaskKernel(const std::shared_ptr<DataType>& type, MaskOptions options = {})
-      : type_(type), options_(options) {}
+  explicit MaskKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
 
   Status Call(FunctionContext* ctx, const Datum& values, const Datum& indices,
               Datum* out) override;
@@ -76,7 +71,6 @@ class ARROW_EXPORT MaskKernel : public BinaryKernel {
 
  private:
   std::shared_ptr<DataType> type_;
-  MaskOptions options_;
 };
 }  // namespace compute
 }  // namespace arrow

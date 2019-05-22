@@ -35,62 +35,58 @@ template <typename ArrowType>
 class TestMaskKernel : public ComputeFixture, public TestBase {
  protected:
   void AssertMaskArrays(const std::shared_ptr<Array>& values,
-                        const std::shared_ptr<Array>& mask, MaskOptions options,
+                        const std::shared_ptr<Array>& mask,
                         const std::shared_ptr<Array>& expected) {
     std::shared_ptr<Array> actual;
-    ASSERT_OK(arrow::compute::Mask(&this->ctx_, *values, *mask, options, &actual));
+    ASSERT_OK(arrow::compute::Mask(&this->ctx_, *values, *mask, &actual));
     AssertArraysEqual(*expected, *actual);
   }
   void AssertMask(const std::shared_ptr<DataType>& type, const std::string& values,
-                  const std::string& mask, MaskOptions options,
-                  const std::string& expected) {
+                  const std::string& mask, const std::string& expected) {
     std::shared_ptr<Array> actual;
-    ASSERT_OK(this->Mask(type, values, mask, options, &actual));
+    ASSERT_OK(this->Mask(type, values, mask, &actual));
     AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
   }
   Status Mask(const std::shared_ptr<DataType>& type, const std::string& values,
-              const std::string& mask, MaskOptions options, std::shared_ptr<Array>* out) {
+              const std::string& mask, std::shared_ptr<Array>* out) {
     return arrow::compute::Mask(&this->ctx_, *ArrayFromJSON(type, values),
-                                *ArrayFromJSON(boolean(), mask), options, out);
+                                *ArrayFromJSON(boolean(), mask), out);
   }
 };
 
 class TestMaskKernelWithNull : public TestMaskKernel<NullType> {
  protected:
-  void AssertMask(const std::string& values, const std::string& mask, MaskOptions options,
+  void AssertMask(const std::string& values, const std::string& mask,
                   const std::string& expected) {
-    TestMaskKernel<NullType>::AssertMask(utf8(), values, mask, options, expected);
+    TestMaskKernel<NullType>::AssertMask(utf8(), values, mask, expected);
   }
 };
 
 TEST_F(TestMaskKernelWithNull, MaskNull) {
-  MaskOptions options;
-  this->AssertMask("[null, null, null]", "[0, 1, 0]", options, "[null]");
-  this->AssertMask("[null, null, null]", "[1, 1, 0]", options, "[null, null]");
+  this->AssertMask("[null, null, null]", "[0, 1, 0]", "[null]");
+  this->AssertMask("[null, null, null]", "[1, 1, 0]", "[null, null]");
 }
 
 class TestMaskKernelWithBoolean : public TestMaskKernel<BooleanType> {
  protected:
-  void AssertMask(const std::string& values, const std::string& mask, MaskOptions options,
+  void AssertMask(const std::string& values, const std::string& mask,
                   const std::string& expected) {
-    TestMaskKernel<BooleanType>::AssertMask(boolean(), values, mask, options, expected);
+    TestMaskKernel<BooleanType>::AssertMask(boolean(), values, mask, expected);
   }
 };
 
 TEST_F(TestMaskKernelWithBoolean, MaskBoolean) {
-  MaskOptions options;
-  this->AssertMask("[true, false, true]", "[0, 1, 0]", options, "[false]");
-  this->AssertMask("[null, false, true]", "[0, 1, 0]", options, "[false]");
-  this->AssertMask("[true, false, true]", "[null, 1, 0]", options, "[null, false]");
+  this->AssertMask("[true, false, true]", "[0, 1, 0]", "[false]");
+  this->AssertMask("[null, false, true]", "[0, 1, 0]", "[false]");
+  this->AssertMask("[true, false, true]", "[null, 1, 0]", "[null, false]");
 }
 
 template <typename ArrowType>
 class TestMaskKernelWithNumeric : public TestMaskKernel<ArrowType> {
  protected:
-  void AssertMask(const std::string& values, const std::string& mask, MaskOptions options,
+  void AssertMask(const std::string& values, const std::string& mask,
                   const std::string& expected) {
-    TestMaskKernel<ArrowType>::AssertMask(type_singleton(), values, mask, options,
-                                          expected);
+    TestMaskKernel<ArrowType>::AssertMask(type_singleton(), values, mask, expected);
   }
   std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<ArrowType>::type_singleton();
@@ -99,21 +95,20 @@ class TestMaskKernelWithNumeric : public TestMaskKernel<ArrowType> {
 
 TYPED_TEST_CASE(TestMaskKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestMaskKernelWithNumeric, MaskNumeric) {
-  MaskOptions options;
-  this->AssertMask("[7, 8, 9]", "[0, 1, 0]", options, "[8]");
-  this->AssertMask("[null, 8, 9]", "[0, 1, 0]", options, "[8]");
-  this->AssertMask("[7, 8, 9]", "[null, 1, 0]", options, "[null, 8]");
+  this->AssertMask("[7, 8, 9]", "[0, 1, 0]", "[8]");
+  this->AssertMask("[null, 8, 9]", "[0, 1, 0]", "[8]");
+  this->AssertMask("[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
 }
 
 class TestMaskKernelWithString : public TestMaskKernel<StringType> {
  protected:
-  void AssertMask(const std::string& values, const std::string& mask, MaskOptions options,
+  void AssertMask(const std::string& values, const std::string& mask,
                   const std::string& expected) {
-    TestMaskKernel<StringType>::AssertMask(utf8(), values, mask, options, expected);
+    TestMaskKernel<StringType>::AssertMask(utf8(), values, mask, expected);
   }
   void AssertMaskDictionary(const std::string& dictionary_values,
                             const std::string& dictionary_mask, const std::string& mask,
-                            MaskOptions options, const std::string& expected_mask) {
+                            const std::string& expected_mask) {
     auto dict = ArrayFromJSON(utf8(), dictionary_values);
     auto type = dictionary(int8(), utf8());
     std::shared_ptr<Array> values, actual, expected;
@@ -122,23 +117,21 @@ class TestMaskKernelWithString : public TestMaskKernel<StringType> {
     ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_mask),
                                           dict, &expected));
     auto take_mask = ArrayFromJSON(boolean(), mask);
-    this->AssertMaskArrays(values, take_mask, options, expected);
+    this->AssertMaskArrays(values, take_mask, expected);
   }
 };
 
 TEST_F(TestMaskKernelWithString, MaskString) {
-  MaskOptions options;
-  this->AssertMask(R"(["a", "b", "c"])", "[0, 1, 0]", options, R"(["b"])");
-  this->AssertMask(R"([null, "b", "c"])", "[0, 1, 0]", options, R"(["b"])");
-  this->AssertMask(R"(["a", "b", "c"])", "[null, 1, 0]", options, R"([null, "b"])");
+  this->AssertMask(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
+  this->AssertMask(R"([null, "b", "c"])", "[0, 1, 0]", R"(["b"])");
+  this->AssertMask(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b"])");
 }
 
 TEST_F(TestMaskKernelWithString, MaskDictionary) {
-  MaskOptions options;
   auto dict = R"(["a", "b", "c", "d", "e"])";
-  this->AssertMaskDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", options, "[4]");
-  this->AssertMaskDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", options, "[4]");
-  this->AssertMaskDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", options, "[null, 4]");
+  this->AssertMaskDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[4]");
+  this->AssertMaskDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[4]");
+  this->AssertMaskDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4]");
 }
 
 }  // namespace compute

@@ -31,17 +31,16 @@ namespace arrow {
 namespace compute {
 
 Status Mask(FunctionContext* context, const Array& values, const Array& mask,
-            const MaskOptions& options, std::shared_ptr<Array>* out) {
+            std::shared_ptr<Array>* out) {
   Datum out_datum;
-  RETURN_NOT_OK(
-      Mask(context, Datum(values.data()), Datum(mask.data()), options, &out_datum));
+  RETURN_NOT_OK(Mask(context, Datum(values.data()), Datum(mask.data()), &out_datum));
   *out = out_datum.make_array();
   return Status::OK();
 }
 
 Status Mask(FunctionContext* context, const Datum& values, const Datum& mask,
-            const MaskOptions& options, Datum* out) {
-  MaskKernel kernel(values.type(), options);
+            Datum* out) {
+  MaskKernel kernel(values.type());
   RETURN_NOT_OK(kernel.Call(context, values, mask, out));
   return Status::OK();
 }
@@ -49,7 +48,6 @@ Status Mask(FunctionContext* context, const Datum& values, const Datum& mask,
 struct MaskParameters {
   FunctionContext* context;
   std::shared_ptr<Array> values, mask;
-  MaskOptions options;
   std::shared_ptr<Array>* out;
 };
 
@@ -218,7 +216,6 @@ Status MaskKernel::Call(FunctionContext* ctx, const Datum& values, const Datum& 
   params.context = ctx;
   params.values = values.make_array();
   params.mask = mask.make_array();
-  params.options = options_;
   params.out = &out_array;
   UnpackMask unpack = {params};
   RETURN_NOT_OK(VisitTypeInline(*mask.type(), &unpack));
