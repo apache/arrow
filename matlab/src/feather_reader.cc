@@ -190,20 +190,14 @@ arrow::Status FeatherReader::Open(const std::string& filename,
   // Open file with given filename as a ReadableFile.
   std::shared_ptr<arrow::io::ReadableFile> readable_file(nullptr);
   
-  arrow::Status status = arrow::io::ReadableFile::Open(filename, &readable_file);
-  if (!status.ok()) {
-    return status;
-  }
+  RETURN_NOT_OK(arrow::io::ReadableFile::Open(filename, &readable_file));
   
   // TableReader expects a RandomAccessFile.
   std::shared_ptr<arrow::io::RandomAccessFile> random_access_file(readable_file);
-  
+
   // Open the Feather file for reading with a TableReader.
-  status = arrow::ipc::feather::TableReader::Open(random_access_file,
-                                                  &(*feather_reader)->table_reader_);
-  if (!status.ok()) {
-    return status;
-  }
+  RETURN_NOT_OK(arrow::ipc::feather::TableReader::Open(
+      random_access_file, &(*feather_reader)->table_reader_));
 
   // Read the table metadata from the Feather file.
   (*feather_reader)->num_rows_ = (*feather_reader)->table_reader_->num_rows();
@@ -221,7 +215,7 @@ arrow::Status FeatherReader::Open(const std::string& filename,
                       (*feather_reader)->num_rows_, (*feather_reader)->num_variables_);
   }
 
-  return status;
+  return arrow::Status::OK();
 }
 
 // Read the table metadata from the Feather file as a mxArray*.
