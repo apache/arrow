@@ -35,75 +35,81 @@ template <typename ArrowType>
 class TestTakeKernel : public ComputeFixture, public TestBase {
  protected:
   void AssertTakeArrays(const std::shared_ptr<Array>& values,
-                        const std::shared_ptr<Array>& indices,
+                        const std::shared_ptr<Array>& indices, TakeOptions options,
                         const std::shared_ptr<Array>& expected) {
     std::shared_ptr<Array> actual;
-    ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *indices, &actual));
+    ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *indices, options, &actual));
     AssertArraysEqual(*expected, *actual);
   }
   void AssertTake(const std::shared_ptr<DataType>& type, const std::string& values,
-                  const std::string& indices, const std::string& expected) {
+                  const std::string& indices, TakeOptions options,
+                  const std::string& expected) {
     std::shared_ptr<Array> actual;
 
     for (auto index_type : {int8(), uint32()}) {
-      ASSERT_OK(this->Take(type, values, index_type, indices, &actual));
+      ASSERT_OK(this->Take(type, values, index_type, indices, options, &actual));
       AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
     }
   }
   Status Take(const std::shared_ptr<DataType>& type, const std::string& values,
               const std::shared_ptr<DataType>& index_type, const std::string& indices,
-              std::shared_ptr<Array>* out) {
+              TakeOptions options, std::shared_ptr<Array>* out) {
     return arrow::compute::Take(&this->ctx_, *ArrayFromJSON(type, values),
-                                *ArrayFromJSON(index_type, indices), out);
+                                *ArrayFromJSON(index_type, indices), options, out);
   }
 };
 
 class TestTakeKernelWithNull : public TestTakeKernel<NullType> {
  protected:
   void AssertTake(const std::string& values, const std::string& indices,
-                  const std::string& expected) {
-    TestTakeKernel<NullType>::AssertTake(utf8(), values, indices, expected);
+                  TakeOptions options, const std::string& expected) {
+    TestTakeKernel<NullType>::AssertTake(utf8(), values, indices, options, expected);
   }
 };
 
 TEST_F(TestTakeKernelWithNull, TakeNull) {
-  this->AssertTake("[null, null, null]", "[0, 1, 0]", "[null, null, null]");
+  TakeOptions options;
+  this->AssertTake("[null, null, null]", "[0, 1, 0]", options, "[null, null, null]");
 
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(IndexError,
-                this->Take(null(), "[null, null, null]", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError, this->Take(null(), "[null, null, null]", int8(), "[0, 9, 0]",
+                                       options, &arr));
 }
 
 TEST_F(TestTakeKernelWithNull, InvalidIndexType) {
+  TakeOptions options;
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(TypeError, this->Take(null(), "[null, null, null]", float32(),
-                                      "[0.0, 1.0, 0.1]", &arr));
+                                      "[0.0, 1.0, 0.1]", options, &arr));
 }
 
 class TestTakeKernelWithBoolean : public TestTakeKernel<BooleanType> {
  protected:
   void AssertTake(const std::string& values, const std::string& indices,
-                  const std::string& expected) {
-    TestTakeKernel<BooleanType>::AssertTake(boolean(), values, indices, expected);
+                  TakeOptions options, const std::string& expected) {
+    TestTakeKernel<BooleanType>::AssertTake(boolean(), values, indices, options,
+                                            expected);
   }
 };
 
 TEST_F(TestTakeKernelWithBoolean, TakeBoolean) {
-  this->AssertTake("[true, false, true]", "[0, 1, 0]", "[true, false, true]");
-  this->AssertTake("[null, false, true]", "[0, 1, 0]", "[null, false, null]");
-  this->AssertTake("[true, false, true]", "[null, 1, 0]", "[null, false, true]");
+  TakeOptions options;
+  this->AssertTake("[true, false, true]", "[0, 1, 0]", options, "[true, false, true]");
+  this->AssertTake("[null, false, true]", "[0, 1, 0]", options, "[null, false, null]");
+  this->AssertTake("[true, false, true]", "[null, 1, 0]", options, "[null, false, true]");
 
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(IndexError,
-                this->Take(boolean(), "[true, false, true]", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError, this->Take(boolean(), "[true, false, true]", int8(),
+                                       "[0, 9, 0]", options, &arr));
 }
 
 template <typename ArrowType>
 class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
  protected:
   void AssertTake(const std::string& values, const std::string& indices,
-                  const std::string& expected) {
-    TestTakeKernel<ArrowType>::AssertTake(type_singleton(), values, indices, expected);
+                  TakeOptions options, const std::string& expected) {
+    TestTakeKernel<ArrowType>::AssertTake(type_singleton(), values, indices, options,
+                                          expected);
   }
   std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<ArrowType>::type_singleton();
@@ -112,25 +118,26 @@ class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
 
 TYPED_TEST_CASE(TestTakeKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
-  this->AssertTake("[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
-  this->AssertTake("[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
-  this->AssertTake("[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
-  this->AssertTake("[null, 8, 9]", "[]", "[]");
+  TakeOptions options;
+  this->AssertTake("[7, 8, 9]", "[0, 1, 0]", options, "[7, 8, 7]");
+  this->AssertTake("[null, 8, 9]", "[0, 1, 0]", options, "[null, 8, null]");
+  this->AssertTake("[7, 8, 9]", "[null, 1, 0]", options, "[null, 8, 7]");
+  this->AssertTake("[null, 8, 9]", "[]", options, "[]");
 
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError, this->Take(this->type_singleton(), "[7, 8, 9]", int8(),
-                                       "[0, 9, 0]", &arr));
+                                       "[0, 9, 0]", options, &arr));
 }
 
 class TestTakeKernelWithString : public TestTakeKernel<StringType> {
  protected:
   void AssertTake(const std::string& values, const std::string& indices,
-                  const std::string& expected) {
-    TestTakeKernel<StringType>::AssertTake(utf8(), values, indices, expected);
+                  TakeOptions options, const std::string& expected) {
+    TestTakeKernel<StringType>::AssertTake(utf8(), values, indices, options, expected);
   }
   void AssertTakeDictionary(const std::string& dictionary_values,
                             const std::string& dictionary_indices,
-                            const std::string& indices,
+                            const std::string& indices, TakeOptions options,
                             const std::string& expected_indices) {
     auto dict = ArrayFromJSON(utf8(), dictionary_values);
     auto type = dictionary(int8(), utf8());
@@ -140,25 +147,28 @@ class TestTakeKernelWithString : public TestTakeKernel<StringType> {
     ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices),
                                           dict, &expected));
     auto take_indices = ArrayFromJSON(int8(), indices);
-    this->AssertTakeArrays(values, take_indices, expected);
+    this->AssertTakeArrays(values, take_indices, options, expected);
   }
 };
 
 TEST_F(TestTakeKernelWithString, TakeString) {
-  this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
-  this->AssertTake(R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
-  this->AssertTake(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
+  TakeOptions options;
+  this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", options, R"(["a", "b", "a"])");
+  this->AssertTake(R"([null, "b", "c"])", "[0, 1, 0]", options, "[null, \"b\", null]");
+  this->AssertTake(R"(["a", "b", "c"])", "[null, 1, 0]", options, R"([null, "b", "a"])");
 
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(IndexError,
-                this->Take(utf8(), R"(["a", "b", "c"])", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError, this->Take(utf8(), R"(["a", "b", "c"])", int8(), "[0, 9, 0]",
+                                       options, &arr));
 }
 
 TEST_F(TestTakeKernelWithString, TakeDictionary) {
+  TakeOptions options;
   auto dict = R"(["a", "b", "c", "d", "e"])";
-  this->AssertTakeDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[3, 4, 3]");
-  this->AssertTakeDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[null, 4, null]");
-  this->AssertTakeDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4, 3]");
+  this->AssertTakeDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", options, "[3, 4, 3]");
+  this->AssertTakeDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", options,
+                             "[null, 4, null]");
+  this->AssertTakeDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", options, "[null, 4, 3]");
 }
 
 }  // namespace compute

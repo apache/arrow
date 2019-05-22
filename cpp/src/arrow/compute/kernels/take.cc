@@ -31,16 +31,17 @@ namespace compute {
 using internal::checked_cast;
 
 Status Take(FunctionContext* context, const Array& values, const Array& indices,
-            std::shared_ptr<Array>* out) {
+            const TakeOptions& options, std::shared_ptr<Array>* out) {
   Datum out_datum;
-  RETURN_NOT_OK(Take(context, Datum(values.data()), Datum(indices.data()), &out_datum));
+  RETURN_NOT_OK(
+      Take(context, Datum(values.data()), Datum(indices.data()), options, &out_datum));
   *out = out_datum.make_array();
   return Status::OK();
 }
 
 Status Take(FunctionContext* context, const Datum& values, const Datum& indices,
-            Datum* out) {
-  TakeKernel kernel(values.type());
+            const TakeOptions& options, Datum* out) {
+  TakeKernel kernel(values.type(), options);
   RETURN_NOT_OK(kernel.Call(context, values, indices, out));
   return Status::OK();
 }
@@ -48,6 +49,7 @@ Status Take(FunctionContext* context, const Datum& values, const Datum& indices,
 struct TakeParameters {
   FunctionContext* context;
   std::shared_ptr<Array> values, indices;
+  TakeOptions options;
   std::shared_ptr<Array>* out;
 };
 
@@ -215,6 +217,7 @@ Status TakeKernel::Call(FunctionContext* ctx, const Datum& values, const Datum& 
   params.context = ctx;
   params.values = values.make_array();
   params.indices = indices.make_array();
+  params.options = options_;
   params.out = &out_array;
   UnpackIndices unpack = {params};
   RETURN_NOT_OK(VisitTypeInline(*indices.type(), &unpack));
