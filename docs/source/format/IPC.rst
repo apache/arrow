@@ -104,7 +104,7 @@ Schematically we have: ::
 
     <magic number "ARROW1">
     <empty padding bytes [to 8 byte boundary]>
-    <STREAMING FORMAT>
+    <STREAMING FORMAT with EOS>
     <FOOTER>
     <FOOTER SIZE: int32>
     <magic number "ARROW1">

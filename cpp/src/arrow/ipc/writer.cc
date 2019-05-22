@@ -1076,6 +1076,11 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
   }
 
   Status Close() override {
+    // Close stream for compatibility with sequential readers
+    RETURN_NOT_OK(UpdatePosition());
+    int32_t end_of_stream_marker = 0;
+    RETURN_NOT_OK(Write(&end_of_stream_marker, sizeof(int32_t)));
+
     // Write file footer
     RETURN_NOT_OK(UpdatePosition());
     int64_t initial_position = position_;
