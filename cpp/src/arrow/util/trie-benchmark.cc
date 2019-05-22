@@ -191,29 +191,29 @@ static void BenchmarkInlinedTrieLookups(
   state.SetItemsProcessed(state.iterations() * lookups.size());
 }
 
-static void BM_TrieLookupFound(benchmark::State& state) {  // NOLINT non-const reference
+static void TrieLookupFound(benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkTrieLookups(state, {"N/A", "null", "-1.#IND", "N/A"});
 }
 
-static void BM_TrieLookupNotFound(
+static void TrieLookupNotFound(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkTrieLookups(state, {"None", "1.0", "", "abc"});
 }
 
-static void BM_InlinedTrieLookupFound(
+static void InlinedTrieLookupFound(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkInlinedTrieLookups(state, {"N/A", "null", "-1.#IND", "N/A"});
 }
 
-static void BM_InlinedTrieLookupNotFound(
+static void InlinedTrieLookupNotFound(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkInlinedTrieLookups(state, {"None", "1.0", "", "abc"});
 }
 
-BENCHMARK(BM_TrieLookupFound);
-BENCHMARK(BM_TrieLookupNotFound);
-BENCHMARK(BM_InlinedTrieLookupFound);
-BENCHMARK(BM_InlinedTrieLookupNotFound);
+BENCHMARK(TrieLookupFound);
+BENCHMARK(TrieLookupNotFound);
+BENCHMARK(InlinedTrieLookupFound);
+BENCHMARK(InlinedTrieLookupNotFound);
 
 }  // namespace internal
 }  // namespace arrow

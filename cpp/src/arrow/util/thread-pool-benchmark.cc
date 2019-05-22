@@ -75,8 +75,8 @@ struct Task {
 
 // This benchmark simply provides a baseline indicating the raw cost of our workload
 // depending on the workload size.  Number of items / second in this (serial)
-// benchmark can be compared to the numbers obtained in BM_ThreadPoolSpawn.
-static void BM_WorkloadCost(benchmark::State& state) {
+// benchmark can be compared to the numbers obtained in ThreadPoolSpawn.
+static void WorkloadCost(benchmark::State& state) {
   const auto workload_size = static_cast<int32_t>(state.range(0));
 
   Workload workload(workload_size);
@@ -88,7 +88,7 @@ static void BM_WorkloadCost(benchmark::State& state) {
 }
 
 // Benchmark ThreadPool::Spawn
-static void BM_ThreadPoolSpawn(benchmark::State& state) {
+static void ThreadPoolSpawn(benchmark::State& state) {
   const auto nthreads = static_cast<int>(state.range(0));
   const auto workload_size = static_cast<int32_t>(state.range(1));
 
@@ -118,7 +118,7 @@ static void BM_ThreadPoolSpawn(benchmark::State& state) {
 }
 
 // Benchmark serial TaskGroup
-static void BM_SerialTaskGroup(benchmark::State& state) {
+static void SerialTaskGroup(benchmark::State& state) {
   const auto workload_size = static_cast<int32_t>(state.range(0));
 
   Task task(workload_size);
@@ -137,7 +137,7 @@ static void BM_SerialTaskGroup(benchmark::State& state) {
 }
 
 // Benchmark threaded TaskGroup
-static void BM_ThreadedTaskGroup(benchmark::State& state) {
+static void ThreadedTaskGroup(benchmark::State& state) {
   const auto nthreads = static_cast<int>(state.range(0));
   const auto workload_size = static_cast<int32_t>(state.range(1));
 
@@ -183,10 +183,10 @@ static void ThreadPoolSpawn_Customize(benchmark::internal::Benchmark* b) {
   b->Repetitions(1);
 }
 
-BENCHMARK(BM_WorkloadCost)->Apply(WorkloadCost_Customize);
-BENCHMARK(BM_SerialTaskGroup)->Apply(WorkloadCost_Customize);
-BENCHMARK(BM_ThreadPoolSpawn)->Apply(ThreadPoolSpawn_Customize);
-BENCHMARK(BM_ThreadedTaskGroup)->Apply(ThreadPoolSpawn_Customize);
+BENCHMARK(WorkloadCost)->Apply(WorkloadCost_Customize);
+BENCHMARK(SerialTaskGroup)->Apply(WorkloadCost_Customize);
+BENCHMARK(ThreadPoolSpawn)->Apply(ThreadPoolSpawn_Customize);
+BENCHMARK(ThreadedTaskGroup)->Apply(ThreadPoolSpawn_Customize);
 
 }  // namespace internal
 }  // namespace arrow

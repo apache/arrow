@@ -70,55 +70,55 @@ static void BenchmarkUTF8Validation(
   state.SetBytesProcessed(state.iterations() * s.size());
 }
 
-static void BM_ValidateTinyAscii(benchmark::State& state) {  // NOLINT non-const reference
+static void ValidateTinyAscii(benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkUTF8Validation(state, tiny_valid_ascii, true);
 }
 
-static void BM_ValidateTinyNonAscii(
+static void ValidateTinyNonAscii(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkUTF8Validation(state, tiny_valid_non_ascii, true);
 }
 
-static void BM_ValidateSmallAscii(
+static void ValidateSmallAscii(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkUTF8Validation(state, valid_ascii, true); }
 
-static void BM_ValidateSmallAlmostAscii(
+static void ValidateSmallAlmostAscii(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkUTF8Validation(state, valid_almost_ascii, true);
 }
 
-static void BM_ValidateSmallNonAscii(
+static void ValidateSmallNonAscii(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkUTF8Validation(state, valid_non_ascii, true);
 }
 
-static void BM_ValidateLargeAscii(
+static void ValidateLargeAscii(
     benchmark::State& state) {  // NOLINT non-const reference
   auto s = MakeLargeString(valid_ascii, 100000);
   BenchmarkUTF8Validation(state, s, true);
 }
 
-static void BM_ValidateLargeAlmostAscii(
+static void ValidateLargeAlmostAscii(
     benchmark::State& state) {  // NOLINT non-const reference
   auto s = MakeLargeString(valid_almost_ascii, 100000);
   BenchmarkUTF8Validation(state, s, true);
 }
 
-static void BM_ValidateLargeNonAscii(
+static void ValidateLargeNonAscii(
     benchmark::State& state) {  // NOLINT non-const reference
   auto s = MakeLargeString(valid_non_ascii, 100000);
   BenchmarkUTF8Validation(state, s, true);
 }
 
-BENCHMARK(BM_ValidateTinyAscii);
-BENCHMARK(BM_ValidateTinyNonAscii);
-BENCHMARK(BM_ValidateSmallAscii);
-BENCHMARK(BM_ValidateSmallAlmostAscii);
-BENCHMARK(BM_ValidateSmallNonAscii);
-BENCHMARK(BM_ValidateLargeAscii);
-BENCHMARK(BM_ValidateLargeAlmostAscii);
-BENCHMARK(BM_ValidateLargeNonAscii);
+BENCHMARK(ValidateTinyAscii);
+BENCHMARK(ValidateTinyNonAscii);
+BENCHMARK(ValidateSmallAscii);
+BENCHMARK(ValidateSmallAlmostAscii);
+BENCHMARK(ValidateSmallNonAscii);
+BENCHMARK(ValidateLargeAscii);
+BENCHMARK(ValidateLargeAlmostAscii);
+BENCHMARK(ValidateLargeNonAscii);
 
 }  // namespace util
 }  // namespace arrow

@@ -53,7 +53,7 @@ std::vector<int32_t> RandomPath(int32_t size) {
 }
 
 // Cache / main memory latency, depending on the working set size
-static void BM_memory_latency(benchmark::State& state) {
+static void memory_latency(benchmark::State& state) {
   const auto niters = static_cast<int32_t>(state.range(0));
   const std::vector<int32_t> path = RandomPath(niters / 4);
 
@@ -67,7 +67,7 @@ static void BM_memory_latency(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_memory_latency)->Repetitions(1)->RangeMultiplier(2)->Range(2 << 10, 2 << 24);
+BENCHMARK(memory_latency)->Repetitions(1)->RangeMultiplier(2)->Range(2 << 10, 2 << 24);
 
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 

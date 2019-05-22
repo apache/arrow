@@ -49,7 +49,7 @@ std::vector<uint8_t> GetValidBytes(int n_values) {
   return valid_bytes;
 }
 
-static void BM_DetectUIntWidthNoNulls(
+static void DetectUIntWidthNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto values = GetUIntSequence(0x12345);
 
@@ -60,7 +60,7 @@ static void BM_DetectUIntWidthNoNulls(
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
 }
 
-static void BM_DetectUIntWidthNulls(
+static void DetectUIntWidthNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto values = GetUIntSequence(0x12345);
   const auto valid_bytes = GetValidBytes(0x12345);
@@ -73,7 +73,7 @@ static void BM_DetectUIntWidthNulls(
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
 }
 
-static void BM_DetectIntWidthNoNulls(
+static void DetectIntWidthNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto values = GetIntSequence(0x12345, -0x1234);
 
@@ -84,7 +84,7 @@ static void BM_DetectIntWidthNoNulls(
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
 }
 
-static void BM_DetectIntWidthNulls(
+static void DetectIntWidthNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto values = GetIntSequence(0x12345, -0x1234);
   const auto valid_bytes = GetValidBytes(0x12345);
@@ -97,10 +97,10 @@ static void BM_DetectIntWidthNulls(
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
 }
 
-BENCHMARK(BM_DetectUIntWidthNoNulls);
-BENCHMARK(BM_DetectUIntWidthNulls);
-BENCHMARK(BM_DetectIntWidthNoNulls);
-BENCHMARK(BM_DetectIntWidthNulls);
+BENCHMARK(DetectUIntWidthNoNulls);
+BENCHMARK(DetectUIntWidthNulls);
+BENCHMARK(DetectIntWidthNoNulls);
+BENCHMARK(DetectIntWidthNulls);
 
 }  // namespace internal
 }  // namespace arrow

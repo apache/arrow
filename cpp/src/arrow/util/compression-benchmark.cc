@@ -111,7 +111,7 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
   return compressed_size;
 }
 
-static void BM_StreamingCompression(
+static void StreamingCompression(
     Compression::type compression, const std::vector<uint8_t>& data,
     benchmark::State& state) {  // NOLINT non-const reference
   std::unique_ptr<Codec> codec;
@@ -126,14 +126,14 @@ static void BM_StreamingCompression(
 }
 
 template <Compression::type COMPRESSION>
-static void BM_StreamingCompression(
+static void StreamingCompression(
     benchmark::State& state) {                        // NOLINT non-const reference
   auto data = MakeCompressibleData(8 * 1024 * 1024);  // 8 MB
 
-  BM_StreamingCompression(COMPRESSION, data, state);
+  StreamingCompression(COMPRESSION, data, state);
 }
 
-static void BM_StreamingDecompression(
+static void StreamingDecompression(
     Compression::type compression, const std::vector<uint8_t>& data,
     benchmark::State& state) {  // NOLINT non-const reference
   std::unique_ptr<Codec> codec;
@@ -173,22 +173,22 @@ static void BM_StreamingDecompression(
 }
 
 template <Compression::type COMPRESSION>
-static void BM_StreamingDecompression(
+static void StreamingDecompression(
     benchmark::State& state) {                        // NOLINT non-const reference
   auto data = MakeCompressibleData(8 * 1024 * 1024);  // 8 MB
 
-  BM_StreamingDecompression(COMPRESSION, data, state);
+  StreamingDecompression(COMPRESSION, data, state);
 }
 
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::GZIP);
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::BROTLI);
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::LZ4);
+BENCHMARK_TEMPLATE(StreamingCompression, Compression::GZIP);
+BENCHMARK_TEMPLATE(StreamingCompression, Compression::BROTLI);
+BENCHMARK_TEMPLATE(StreamingCompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(StreamingCompression, Compression::LZ4);
 
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::GZIP);
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::BROTLI);
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::ZSTD);
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::LZ4);
+BENCHMARK_TEMPLATE(StreamingDecompression, Compression::GZIP);
+BENCHMARK_TEMPLATE(StreamingDecompression, Compression::BROTLI);
+BENCHMARK_TEMPLATE(StreamingDecompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(StreamingDecompression, Compression::LZ4);
 
 }  // namespace util
 }  // namespace arrow
