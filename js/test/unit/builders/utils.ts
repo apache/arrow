@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { AsyncIterable } from 'ix';
 import { util } from '../../Arrow';
 import { Builder } from '../../Arrow';
 import { DataType, Vector, Chunked } from '../../Arrow';
@@ -98,7 +99,7 @@ export const duplicateItems = (n: number, xs: (any | null)[]) => {
 };
 
 export function encodeAll<T extends DataType>(typeFactory: () => T) {
-    return function encodeAll<TNull = any>(values: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
+    return async function encodeAll<TNull = any>(values: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
         const builder = Builder.new({ type, nullValues });
         values.forEach(builder.write.bind(builder));
@@ -107,7 +108,7 @@ export function encodeAll<T extends DataType>(typeFactory: () => T) {
 }
 
 export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
-    return function encodeEach<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
+    return async function encodeEach<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
         const builder = Builder.new({ type, nullValues });
         const chunks = [...builder.writeAll(vals, chunkLen)];
@@ -116,19 +117,23 @@ export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: 
 }
 
 export function encodeEachDOM<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
-    return function encodeEach<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
+    return async function encodeEachDOM<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
-        const builder = Builder.new({ type, nullValues });
-        const chunks = [...builder.writeAll(vals, chunkLen)];
+        const source = AsyncIterable.from(vals).toDOMStream();
+        const transform = Builder.throughDOM({ type, nullValues }, { highWaterMark: chunkLen });
+        const chunks = await AsyncIterable.fromDOMStream(source.pipeThrough(transform)).toArray();
         return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
     }
 }
 
 export function encodeEachNode<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
-    return function encodeEach<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
+    return async function encodeEachNode<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
-        const builder = Builder.new({ type, nullValues });
-        const chunks = [...builder.writeAll(vals, chunkLen)];
+        const vals_ = vals.map((x) => x === null ? undefined : x);
+        const source = AsyncIterable.from(vals_).toNodeStream({ objectMode: true });
+        const nulls_ = nullValues ? nullValues.map((x) => x === null ? undefined : x) : nullValues;
+        const transform = Builder.throughNode({ type, nullValues: nulls_, highWaterMark: chunkLen });
+        const chunks: any[] = await AsyncIterable.fromNodeStream(source.pipe(transform), chunkLen).toArray();
         return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
     }
 }

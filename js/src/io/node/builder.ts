@@ -37,31 +37,34 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
     }
     _final(cb?: CB) {
         const builder = this._builder;
-        if (builder) { builder.finish(); }
+        if (builder) { flush(builder.finish(), this); }
         cb && cb();
     }
     _write(x: any, _: string, cb: CB) {
         const builder = this._builder;
-        if (builder) { builder.write(x); }
+        if (builder) { flush(builder.write(x), this); }
         cb && cb();
         return true;
     }
     _read(size: number) {
         const builder = this._builder;
-        if (!builder) { return; }
-        if (size === null || builder.length >= size) {
-            this.push(builder.flush());
-        }
-        if (builder.finished) {
-            if (builder.length > 0) {
-                this.push(builder.flush());
-            }
-            this.push(null);
-        }
+        if (builder) { flush(builder, this, size); }
     }
     _destroy(_err: Error | null, cb: (error: Error | null) => void) {
         const builder = this._builder;
         if (builder) { builder.reset(); }
         cb(this._builder = null);
+    }
+}
+
+function flush<T extends DataType = any, TNull = any>(builder: Builder<T, TNull>, sink: BuilderDuplex<T, TNull>, size = sink.readableHighWaterMark) {
+    if (size === null || builder.length >= size) {
+        sink.push(builder.flush());
+    }
+    if (builder.finished) {
+        if (builder.length > 0) {
+            sink.push(builder.flush());
+        }
+        sink.push(null);
     }
 }

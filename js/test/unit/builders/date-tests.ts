@@ -20,28 +20,35 @@ import { Vector, DateDay, DateMillisecond } from '../../Arrow';
 import {
     encodeAll,
     encodeEach,
+    encodeEachDOM,
+    encodeEachNode,
     date32sNoNulls,
     date64sNoNulls,
     date32sWithNulls,
     date64sWithNulls
 } from './utils';
 
+const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
+const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
+
 describe('DateDayBuilder', () => {
 
     runTestsWithEncoder('encodeAll', encodeAll(() => new DateDay()));
-    runTestsWithEncoder('encodeEach chunkLength: 5', encodeEach(() => new DateDay(), 5));
-    runTestsWithEncoder('encodeEach chunkLength: 25', encodeEach(() => new DateDay(), 25));
-    runTestsWithEncoder('encodeEach chunkLength: undefined', encodeEach(() => new DateDay()));
-    
-    function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Vector<DateDay>) {
+    runTestsWithEncoder('encodeEach: 5', encodeEach(() => new DateDay(), 5));
+    runTestsWithEncoder('encodeEach: 25', encodeEach(() => new DateDay(), 25));
+    runTestsWithEncoder('encodeEach: undefined', encodeEach(() => new DateDay()));
+    testDOMStreams && runTestsWithEncoder('encodeEachDOM: 25', encodeEachDOM(() => new DateDay(), 25));
+    testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(() => new DateDay(), 25));
+
+    function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Promise<Vector<DateDay>>) {
         describe(`${encode.name} ${name}`, () => {
-            it(`encodes dates no nulls`, () => {
+            it(`encodes dates no nulls`, async () => {
                 const vals = date32sNoNulls(20);
-                validateVector(vals, encode(vals, []), []);
+                validateVector(vals, await encode(vals, []), []);
             });
-            it(`encodes dates with nulls`, () => {
+            it(`encodes dates with nulls`, async () => {
                 const vals = date32sWithNulls(20);
-                validateVector(vals, encode(vals, [null]), [null]);
+                validateVector(vals, await encode(vals, [null]), [null]);
             });
         });
     }
@@ -53,16 +60,18 @@ describe('DateMillisecondBuilder', () => {
     runTestsWithEncoder('encodeEach: 5', encodeEach(() => new DateMillisecond(), 5));
     runTestsWithEncoder('encodeEach: 25', encodeEach(() => new DateMillisecond(), 25));
     runTestsWithEncoder('encodeEach: undefined', encodeEach(() => new DateMillisecond()));
+    testDOMStreams && runTestsWithEncoder('encodeEachDOM: 25', encodeEachDOM(() => new DateMillisecond(), 25));
+    testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(() => new DateMillisecond(), 25));
 
-    function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Vector<DateMillisecond>) {
+    function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Promise<Vector<DateMillisecond>>) {
         describe(`${encode.name} ${name}`, () => {
-            it(`encodes dates no nulls`, () => {
+            it(`encodes dates no nulls`, async () => {
                 const vals = date64sNoNulls(20);
-                validateVector(vals, encode(vals, []), []);
+                validateVector(vals, await encode(vals, []), []);
             });
-            it(`encodes dates with nulls`, () => {
+            it(`encodes dates with nulls`, async () => {
                 const vals = date64sWithNulls(20);
-                validateVector(vals, encode(vals, [null]), [null]);
+                validateVector(vals, await encode(vals, [null]), [null]);
             });
         });
     }
@@ -92,8 +101,8 @@ describe('DateMillisecondBuilder', () => {
         "2019-03-21T07:25:34.864Z",
         null
     ].map((x) => x === null ? x : new Date(x));
-    it(`encodes dates with nulls`, () => {
+    it(`encodes dates with nulls`, async () => {
         const vals = dates.slice();
-        validateVector(vals, encode(vals, [null]), [null]);
+        validateVector(vals, await encode(vals, [null]), [null]);
     });
 });

@@ -38,8 +38,8 @@
             },
             "args": [
                 // "-i",
-                // "test/unit/",
-                "test/unit/builders/",
+                "test/unit/",
+                // "test/unit/builders/",
 
                 // "test/unit/builders/date-tests.ts",
                 // "test/unit/builders/primitive-tests.ts",

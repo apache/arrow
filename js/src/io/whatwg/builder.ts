@@ -26,31 +26,40 @@ export function builderThroughDOMStream<T extends DataType = any, TNull = any>(
 ) {
 
     const builder = Builder.new<T, TNull>(writableStrategy);
+    let controller_: ReadableStreamDefaultController<Data<T>> | null = null;
 
-    const readable = new ReadableStream<Data<T>>({
-        cancel() { builder.reset(); },
-        pull(controller) {
-            const size = controller.desiredSize;
-            if (size === null || builder.length >= size) {
-                controller.enqueue(builder.flush());
-            }
-            if (builder.finished) {
-                if (builder.length > 0) {
-                    controller.enqueue(builder.flush());
-                }
-                controller.close();
-            }
-        },
-    }, readableStrategy);
+    // Access these properties by string indexers to defeat closure compiler
+    const { ['highWaterMark']: highWaterMark, ['size']: size } = writableStrategy;
 
     return {
-        readable,
+        readable: new ReadableStream<Data<T>>({
+            ['cancel']() { builder.reset(); },
+            ['start'](c) { flush(builder, controller_ = c); },
+            ['pull'](c) { flush(builder, controller_ = c); },
+        }, readableStrategy),
         writable: new WritableStream({
-            abort() { builder.reset(); },
-            close() { builder.finish(); },
-            write(value: T['TValue'] | TNull) {
-                builder.write(value);
+            ['abort']() { builder.reset(); },
+            ['close']() { flush(builder.finish(), controller_); },
+            ['write'](value: T['TValue'] | TNull) {
+                flush(builder.write(value), controller_);
             },
-        }, writableStrategy)
+        }, { 'highWaterMark': highWaterMark, 'size': size })
     };
+
+    function flush(builder: Builder<T, TNull>, controller: ReadableStreamDefaultController<Data<T>> | null) {
+        if (controller === null) { return; }
+        const size = controller.desiredSize;
+        if (size === null || builder.length >= size) {
+            controller_ = null;
+            controller.enqueue(builder.flush());
+        }
+        if (builder.finished) {
+            controller_ = null;
+            if (builder.length > 0) {
+                controller.enqueue(builder.flush());
+            } else {
+                controller.close();
+            }
+        }
+    }
 }

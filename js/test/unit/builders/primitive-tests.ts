@@ -22,7 +22,8 @@ import {
 import { util } from '../../Arrow';
 
 import {
-    validateVector, encodeAll, encodeEach,
+    validateVector,
+    encodeAll, encodeEach, encodeEachDOM, encodeEachNode,
     boolsNoNulls, boolsWithNulls,
     int8sNoNulls, int8sWithNulls, int8sWithMaxInts,
     int16sNoNulls, int16sWithNulls, int16sWithMaxInts,
@@ -37,22 +38,27 @@ import {
     float64sNoNulls, float64sWithNulls, float32sWithNaNs,
 } from './utils';
 
+const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
+const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
+
 describe('BoolBuilder', () => {
 
     runTestsWithEncoder('encodeAll: 5', encodeAll(() => new Bool()));
     runTestsWithEncoder('encodeEach: 5', encodeEach(() => new Bool(), 5));
     runTestsWithEncoder('encodeEach: 25', encodeEach(() => new Bool(), 25));
     runTestsWithEncoder('encodeEach: undefined', encodeEach(() => new Bool()));
+    testDOMStreams && runTestsWithEncoder('encodeEachDOM: 25', encodeEachDOM(() => new Bool(), 25));
+    testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(() => new Bool(), 25));
 
-    function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Vector<T>) {
+    function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Promise<Vector<T>>) {
         describe(`${encode.name} ${name}`, () => {
-            it(`encodes bools no nulls`, () => {
+            it(`encodes bools no nulls`, async () => {
                 const vals = boolsNoNulls(20);
-                validateVector(vals, encode(vals, []), []);
+                validateVector(vals, await encode(vals, []), []);
             });
-            it(`encodes bools with nulls`, () => {
+            it(`encodes bools with nulls`, async () => {
                 const vals = boolsWithNulls(20);
-                validateVector(vals, encode(vals, [null]), [null]);
+                validateVector(vals, await encode(vals, [null]), [null]);
             });
         });
     }
@@ -85,18 +91,20 @@ type PrimitiveTypeOpts<T extends DataType> = [
         runTestsWithEncoder('encodeEach: 5', encodeEach(typeFactory, 5));
         runTestsWithEncoder('encodeEach: 25', encodeEach(typeFactory, 25));
         runTestsWithEncoder('encodeEach: undefined', encodeEach(typeFactory));
-    
-        function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Vector<T>) {
+        testDOMStreams && runTestsWithEncoder('encodeEachDOM: 25', encodeEachDOM(typeFactory, 25));
+        testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(typeFactory, 25));
+
+        function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Promise<Vector<T>>) {
             describe(`${encode.name} ${name}`, () => {
-                it(`encodes ${valueName} no nulls`, () => {
+                it(`encodes ${valueName} no nulls`, async () => {
                     const vals = noNulls(20);
-                    validateVector(vals, encode(vals, []), []);
+                    validateVector(vals, await encode(vals, []), []);
                 });
-                it(`encodes ${valueName} with nulls`, () => {
+                it(`encodes ${valueName} with nulls`, async () => {
                     const vals = withNulls(20);
-                    validateVector(vals, encode(vals, [null]), [null]);
+                    validateVector(vals, await encode(vals, [null]), [null]);
                 });
-                it(`encodes ${valueName} with MAX_INT`, () => {
+                it(`encodes ${valueName} with MAX_INT`, async () => {
                     const vals = withNaNs(20);
                     const nullVals0: any[] = [0x7fffffff];
                     const nullVals1: any[] = [0x7fffffff];
@@ -106,7 +114,7 @@ type PrimitiveTypeOpts<T extends DataType> = [
                             nullVals0[0] = new Uint32Array([0x7fffffff, 0x7fffffff]);
                             nullVals1[0] = (util.BN.new(nullVals0[0]) as any)[Symbol.toPrimitive]('default');
                     }
-                    validateVector(vals, encode(vals, nullVals0), nullVals1);
+                    validateVector(vals, await encode(vals, nullVals0), nullVals1);
                 });
             });
         }
@@ -128,20 +136,22 @@ type PrimitiveTypeOpts<T extends DataType> = [
         runTestsWithEncoder('encodeEach: 5', encodeEach(typeFactory, 5));
         runTestsWithEncoder('encodeEach: 25', encodeEach(typeFactory, 25));
         runTestsWithEncoder('encodeEach: undefined', encodeEach(typeFactory));
+        testDOMStreams && runTestsWithEncoder('encodeEachDOM: 25', encodeEachDOM(typeFactory, 25));
+        testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(typeFactory, 25));
 
-        function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Vector<T>) {
+        function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Promise<Vector<T>>) {
             describe(`${encode.name} ${name}`, () => {
-                it(`encodes ${valueName} no nulls`, () => {
+                it(`encodes ${valueName} no nulls`, async () => {
                     const vals = noNulls(20);
-                    validateVector(vals, encode(vals, []), []);
+                    validateVector(vals, await encode(vals, []), []);
                 });
-                it(`encodes ${valueName} with nulls`, () => {
+                it(`encodes ${valueName} with nulls`, async () => {
                     const vals = withNulls(20);
-                    validateVector(vals, encode(vals, [null]), [null]);
+                    validateVector(vals, await encode(vals, [null]), [null]);
                 });
-                it(`encodes ${valueName} with NaNs`, () => {
+                it(`encodes ${valueName} with NaNs`, async () => {
                     const vals = withNaNs(20);
-                    validateVector(vals, encode(vals, [NaN]), [NaN]);
+                    validateVector(vals, await encode(vals, [NaN]), [NaN]);
                 });
             });
         }

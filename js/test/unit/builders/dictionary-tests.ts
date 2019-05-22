@@ -20,6 +20,8 @@ import { Dictionary, Utf8, Int32, Vector } from '../../Arrow';
 import {
     encodeAll,
     encodeEach,
+    encodeEachDOM,
+    encodeEachNode,
     duplicateItems,
     stringsNoNulls,
     stringsWithNAs,
@@ -27,32 +29,37 @@ import {
     stringsWithEmpties
 } from './utils';
 
+const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
+const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
+
 describe('DictionaryBuilder', () => {
     describe('<Utf8, Int32>', () => {
         runTestsWithEncoder('encodeAll', encodeAll(() => new Dictionary(new Utf8(), new Int32())));
         runTestsWithEncoder('encodeEach: 5', encodeEach(() => new Dictionary(new Utf8(), new Int32()), 5));
         runTestsWithEncoder('encodeEach: 25', encodeEach(() => new Dictionary(new Utf8(), new Int32()), 25));
         runTestsWithEncoder('encodeEach: undefined', encodeEach(() => new Dictionary(new Utf8(), new Int32()), void 0));
+        testDOMStreams && runTestsWithEncoder('encodeEachDOM: 25', encodeEachDOM(() => new Dictionary(new Utf8(), new Int32()), 25));
+        testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(() => new Dictionary(new Utf8(), new Int32()), 25));
     });
 });
 
-function runTestsWithEncoder(name: string, encode: (vals: (string | null)[], nullVals?: any[]) => Vector<Dictionary<Utf8, Int32>>) {
+function runTestsWithEncoder(name: string, encode: (vals: (string | null)[], nullVals?: any[]) => Promise<Vector<Dictionary<Utf8, Int32>>>) {
     describe(`${encode.name} ${name}`, () => {
-        it(`dictionary-encodes strings no nulls`, () => {
+        it(`dictionary-encodes strings no nulls`, async () => {
             const vals = duplicateItems(20, stringsNoNulls(10));
-            validateVector(vals, encode(vals, []), []);
+            validateVector(vals, await encode(vals, []), []);
         });
-        it(`dictionary-encodes strings with nulls`, () => {
+        it(`dictionary-encodes strings with nulls`, async () => {
             const vals = duplicateItems(20, stringsWithNulls(10));
-            validateVector(vals, encode(vals, [null]), [null]);
+            validateVector(vals, await encode(vals, [null]), [null]);
         });
-        it(`dictionary-encodes strings using n/a as the null value rep`, () => {
+        it(`dictionary-encodes strings using n/a as the null value rep`, async () => {
             const vals = duplicateItems(20, stringsWithNAs(10));
-            validateVector(vals, encode(vals, ['n/a']), ['n/a']);
+            validateVector(vals, await encode(vals, ['n/a']), ['n/a']);
         });
-        it(`dictionary-encodes strings using \\0 as the null value rep`, () => {
+        it(`dictionary-encodes strings using \\0 as the null value rep`, async () => {
             const vals = duplicateItems(20, stringsWithEmpties(10));
-            validateVector(vals, encode(vals, ['\0']), ['\0']);
+            validateVector(vals, await encode(vals, ['\0']), ['\0']);
         });
     });
 }

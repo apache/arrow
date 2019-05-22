@@ -20,36 +20,43 @@ import { Vector, Utf8 } from '../../Arrow';
 import {
     encodeAll,
     encodeEach,
+    encodeEachDOM,
+    encodeEachNode,
     stringsNoNulls,
     stringsWithNAs,
     stringsWithNulls,
     stringsWithEmpties
 } from './utils';
 
+const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
+const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
+
 describe('Utf8Builder', () => {
     runTestsWithEncoder('encodeAll', encodeAll(() => new Utf8()));
     runTestsWithEncoder('encodeEach: 5', encodeEach(() => new Utf8(), 5));
     runTestsWithEncoder('encodeEach: 25', encodeEach(() => new Utf8(), 25));
     runTestsWithEncoder('encodeEach: undefined', encodeEach(() => new Utf8(), void 0));
+    testDOMStreams && runTestsWithEncoder('encodeEachDOM: 25', encodeEachDOM(() => new Utf8(), 25));
+    testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(() => new Utf8(), 25));
 });
 
-function runTestsWithEncoder(name: string, encode: (vals: (string | null)[], nullVals?: any[]) => Vector<Utf8>) {
+function runTestsWithEncoder(name: string, encode: (vals: (string | null)[], nullVals?: any[]) => Promise<Vector<Utf8>>) {
     describe(`${encode.name} ${name}`, () => {
-        it(`encodes strings no nulls`, () => {
+        it(`encodes strings no nulls`, async () => {
             const vals = stringsNoNulls(20);
-            validateVector(vals, encode(vals, []), []);
+            validateVector(vals, await encode(vals, []), []);
         });
-        it(`encodes strings with nulls`, () => {
+        it(`encodes strings with nulls`, async () => {
             const vals = stringsWithNulls(20);
-            validateVector(vals, encode(vals, [null]), [null]);
+            validateVector(vals, await encode(vals, [null]), [null]);
         });
-        it(`encodes strings using n/a as the null value rep`, () => {
+        it(`encodes strings using n/a as the null value rep`, async () => {
             const vals = stringsWithNAs(20);
-            validateVector(vals, encode(vals, ['n/a']), ['n/a']);
+            validateVector(vals, await encode(vals, ['n/a']), ['n/a']);
         });
-        it(`encodes strings using \\0 as the null value rep`, () => {
+        it(`encodes strings using \\0 as the null value rep`, async () => {
             const vals = stringsWithEmpties(20);
-            validateVector(vals, encode(vals, ['\0']), ['\0']);
+            validateVector(vals, await encode(vals, ['\0']), ['\0']);
         });
     });
 }
