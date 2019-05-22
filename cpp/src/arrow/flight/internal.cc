@@ -119,14 +119,11 @@ Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria) {
 // Location
 
 Status FromProto(const pb::Location& pb_location, Location* location) {
-  location->host = pb_location.host();
-  location->port = pb_location.port();
-  return Status::OK();
+  return Location::Parse(pb_location.uri(), location);
 }
 
 void ToProto(const Location& location, pb::Location* pb_location) {
-  pb_location->set_host(location.host);
-  pb_location->set_port(location.port);
+  pb_location->set_uri(location.ToString());
 }
 
 // Ticket

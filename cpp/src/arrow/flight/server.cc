@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -40,6 +41,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
+#include "arrow/util/uri.h"
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
@@ -410,7 +412,6 @@ class FlightServiceImpl : public FlightService::Service {
 #endif
 
 struct FlightServerBase::Impl {
-  std::string address_;
   std::unique_ptr<FlightServiceImpl> service_;
   std::unique_ptr<grpc::Server> server_;
 
@@ -438,20 +439,51 @@ void FlightServerBase::Impl::HandleSignal(int signum) {
   }
 }
 
+FlightServerOptions::FlightServerOptions(const Location& location_)
+    : location(location_), auth_handler(nullptr) {}
+
 FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 
 FlightServerBase::~FlightServerBase() {}
 
-Status FlightServerBase::Init(std::unique_ptr<ServerAuthHandler> auth_handler, int port) {
-  impl_->address_ = "localhost:" + std::to_string(port);
-  std::shared_ptr<ServerAuthHandler> handler = std::move(auth_handler);
+Status FlightServerBase::Init(FlightServerOptions& options) {
+  std::shared_ptr<ServerAuthHandler> handler = std::move(options.auth_handler);
   impl_->service_.reset(new FlightServiceImpl(handler, this));
 
   grpc::ServerBuilder builder;
   // Allow uploading messages of any length
   builder.SetMaxReceiveMessageSize(-1);
-  builder.AddListeningPort(impl_->address_, grpc::InsecureServerCredentials());
+
+  const Location& location = options.location;
+  const std::string scheme = location.scheme();
+  if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
+    std::stringstream address;
+    address << location.uri_->host() << ':' << location.uri_->port_text();
+
+    std::shared_ptr<grpc::ServerCredentials> creds;
+    if (scheme == kSchemeGrpcTls) {
+      grpc::SslServerCredentialsOptions ssl_options;
+      ssl_options.pem_key_cert_pairs.push_back(
+          {options.tls_private_key, options.tls_cert_chain});
+      creds = grpc::SslServerCredentials(ssl_options);
+    } else {
+      creds = grpc::InsecureServerCredentials();
+    }
+
+    builder.AddListeningPort(address.str(), creds);
+  } else if (scheme == kSchemeGrpcUnix) {
+    std::stringstream address;
+    address << "unix:" << location.uri_->path();
+    builder.AddListeningPort(address.str(), grpc::InsecureServerCredentials());
+  } else {
+    return Status::NotImplemented("Scheme is not supported: " + scheme);
+  }
+
   builder.RegisterService(impl_->service_.get());
+
+  // Disable SO_REUSEPORT - it makes debugging/testing a pain as
+  // leftover processes can handle requests on accident
+  builder.AddChannelArgument(GRPC_ARG_ALLOW_REUSEPORT, 0);
 
   impl_->server_ = builder.BuildAndStart();
   if (!impl_->server_) {

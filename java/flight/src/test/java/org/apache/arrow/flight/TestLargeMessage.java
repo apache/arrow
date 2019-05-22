@@ -44,9 +44,11 @@ public class TestLargeMessage {
     try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
          final Producer producer = new Producer(a);
          final FlightServer s =
-             FlightTestUtil.getStartedServer((port) -> new FlightServer(a, port, producer, ServerAuthHandler.NO_OP))) {
+             FlightTestUtil.getStartedServer(
+                 (port) -> FlightServer.builder(a, Location.forGrpcInsecure("localhost", port), producer).build())) {
 
-      try (FlightClient client = new FlightClient(a, new Location(FlightTestUtil.LOCALHOST, s.getPort()))) {
+      try (FlightClient client = FlightClient
+          .builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort())).build()) {
         FlightStream stream = client.getStream(new Ticket(new byte[]{}));
         try (VectorSchemaRoot root = stream.getRoot()) {
           while (stream.next()) {
@@ -73,9 +75,12 @@ public class TestLargeMessage {
     try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
          final Producer producer = new Producer(a);
          final FlightServer s =
-             FlightTestUtil.getStartedServer((port) -> new FlightServer(a, port, producer, ServerAuthHandler.NO_OP))) {
+             FlightTestUtil.getStartedServer(
+                 (port) -> FlightServer.builder(a, Location.forGrpcInsecure("localhost", port), producer).build()
+             )) {
 
-      try (FlightClient client = new FlightClient(a, new Location(FlightTestUtil.LOCALHOST, s.getPort()));
+      try (FlightClient client = FlightClient
+          .builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort())).build();
            BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE);
            VectorSchemaRoot root = generateData(testAllocator)) {
         final FlightClient.ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root);

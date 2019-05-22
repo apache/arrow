@@ -20,6 +20,8 @@
 import collections
 import enum
 
+import six
+
 from cython.operator cimport dereference as deref
 
 from pyarrow.compat import frombytes, tobytes
@@ -68,6 +70,13 @@ cdef class Action:
 
     def body(self):
         return pyarrow_wrap_buffer(self.action.body)
+
+    @staticmethod
+    cdef CAction unwrap(action) except *:
+        if not isinstance(action, Action):
+            raise TypeError("Must provide Action, not '{}'".format(
+                type(action)))
+        return (<Action> action).action
 
 
 _ActionType = collections.namedtuple('_ActionType', ['type', 'description'])
@@ -158,18 +167,89 @@ cdef class FlightDescriptor:
     def __repr__(self):
         return "<FlightDescriptor type: {!r}>".format(self.descriptor_type)
 
+    @staticmethod
+    cdef CFlightDescriptor unwrap(descriptor) except *:
+        if not isinstance(descriptor, FlightDescriptor):
+            raise TypeError("Must provide a FlightDescriptor, not '{}'".format(
+                type(descriptor)))
+        return (<FlightDescriptor> descriptor).descriptor
 
-class Ticket:
+
+cdef class Ticket:
     """A ticket for requesting a Flight stream."""
+
+    cdef:
+        CTicket ticket
+
     def __init__(self, ticket):
-        self.ticket = ticket
+        self.ticket.ticket = tobytes(ticket)
+
+    @property
+    def ticket(self):
+        return self.ticket.ticket
 
     def __repr__(self):
-        return '<Ticket {}>'.format(self.ticket)
+        return '<Ticket {}>'.format(self.ticket.ticket)
 
 
-class Location(collections.namedtuple('Location', ['host', 'port'])):
-    """A location where a Flight stream is available."""
+cdef class Location:
+    """The location of a Flight service."""
+    cdef:
+        CLocation location
+
+    def __init__(self, uri):
+        check_status(CLocation.Parse(tobytes(uri), &self.location))
+
+    def __repr__(self):
+        return '<Location {}>'.format(self.location.ToString())
+
+    @property
+    def uri(self):
+        return self.location.ToString()
+
+    def equals(self, Location other):
+        return self == other
+
+    def __eq__(self, other):
+        if not isinstance(other, Location):
+            return NotImplemented
+        return self.location.Equals((<Location> other).location)
+
+    @staticmethod
+    def for_grpc_tcp(host, port):
+        """Create a Location for a TCP-based gRPC service."""
+        cdef:
+            c_string c_host = tobytes(host)
+            int c_port = port
+            Location result = Location.__new__(Location)
+        check_status(CLocation.ForGrpcTcp(c_host, c_port, &result.location))
+        return result
+
+    @staticmethod
+    def for_grpc_unix(path):
+        """Create a Location for a domain socket-based gRPC service."""
+        cdef:
+            c_string c_path = tobytes(path)
+            Location result = Location.__new__(Location)
+        check_status(CLocation.ForGrpcUnix(c_path, &result.location))
+        return result
+
+    @staticmethod
+    cdef Location wrap(CLocation location):
+        cdef Location result = Location.__new__(Location)
+        result.location = location
+        return result
+
+    @staticmethod
+    cdef CLocation unwrap(object location) except *:
+        cdef CLocation c_location
+        if isinstance(location, six.text_type):
+            check_status(CLocation.Parse(tobytes(location), &c_location))
+            return c_location
+        elif not isinstance(location, Location):
+            raise TypeError("Must provide a Location, not '{}'".format(
+                type(location)))
+        return (<Location> location).location
 
 
 cdef class FlightEndpoint:
@@ -184,11 +264,16 @@ cdef class FlightEndpoint:
         ----------
         ticket : Ticket or bytes
             the ticket needed to access this flight
-        locations : list of Location or tuples of (host, port)
+        locations : list of string URIs
             locations where this flight is available
+
+        Raises
+        ------
+        ArrowException
+            If one of the location URIs is not a valid URI.
         """
         cdef:
-            CLocation c_location = CLocation()
+            CLocation c_location
 
         if isinstance(ticket, Ticket):
             self.endpoint.ticket.ticket = tobytes(ticket.ticket)
@@ -196,9 +281,11 @@ cdef class FlightEndpoint:
             self.endpoint.ticket.ticket = tobytes(ticket)
 
         for location in locations:
-            # Accepts Location namedtuple or tuple
-            c_location.host = tobytes(location[0])
-            c_location.port = location[1]
+            if isinstance(location, Location):
+                c_location = (<Location> location).location
+            else:
+                c_location = CLocation()
+                check_status(CLocation.Parse(tobytes(location), &c_location))
             self.endpoint.locations.push_back(c_location)
 
     @property
@@ -207,7 +294,7 @@ cdef class FlightEndpoint:
 
     @property
     def locations(self):
-        return [Location(frombytes(location.host), location.port)
+        return [Location.wrap(location)
                 for location in self.endpoint.locations]
 
 
@@ -313,27 +400,30 @@ cdef class FlightClient:
                         .format(self.__class__.__name__))
 
     @staticmethod
-    def connect(*args):
-        """Connect to a Flight service on the given host and port."""
+    def connect(location, tls_root_certs=None):
+        """
+        Connect to a Flight service on the given host and port.
+
+        Parameters
+        ----------
+        location : Location
+            location to connect to
+
+        tls_root_certs : bytes
+            PEM-encoded
+        """
         cdef:
             FlightClient result = FlightClient.__new__(FlightClient)
             int c_port = 0
-            c_string c_host
+            CLocation c_location = Location.unwrap(location)
+            CFlightClientOptions c_options
 
-        if len(args) == 1:
-            # Accept namedtuple or plain tuple
-            c_host = tobytes(args[0][0])
-            c_port = args[0][1]
-        elif len(args) == 2:
-            # Accept separate host, port
-            c_host = tobytes(args[0])
-            c_port = args[1]
-        else:
-            raise TypeError("FlightClient.connect() takes 1 "
-                            "or 2 arguments ({} given)".format(len(args)))
+        if tls_root_certs:
+            c_options.tls_root_certs = tobytes(tls_root_certs)
 
         with nogil:
-            check_status(CFlightClient.Connect(c_host, c_port, &result.client))
+            check_status(CFlightClient.Connect(c_location, c_options,
+                                               &result.client))
 
         return result
 
@@ -375,10 +465,12 @@ cdef class FlightClient:
         cdef:
             unique_ptr[CResultStream] results
             Result result
+            CAction c_action = Action.unwrap(action)
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
         with nogil:
-            check_status(self.client.get().DoAction(deref(c_options),
-                                                    action.action, &results))
+            check_status(
+                self.client.get().DoAction(deref(c_options), c_action,
+                                           &results))
 
         while True:
             result = Result.__new__(Result)
@@ -414,25 +506,24 @@ cdef class FlightClient:
         cdef:
             FlightInfo result = FlightInfo.__new__(FlightInfo)
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+            CFlightDescriptor c_descriptor = \
+                FlightDescriptor.unwrap(descriptor)
 
         with nogil:
             check_status(self.client.get().GetFlightInfo(
-                deref(c_options), descriptor.descriptor, &result.info))
+                deref(c_options), c_descriptor, &result.info))
 
         return result
 
     def do_get(self, ticket: Ticket, options: FlightCallOptions = None):
         """Request the data for a flight."""
         cdef:
-            # TODO: introduce unwrap
-            CTicket c_ticket
             unique_ptr[CRecordBatchReader] reader
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
-        c_ticket.ticket = ticket.ticket
         with nogil:
-            check_status(
-                self.client.get().DoGet(deref(c_options), c_ticket, &reader))
+            check_status(self.client.get().DoGet(
+                deref(c_options), ticket.ticket, &reader))
         result = FlightRecordBatchReader()
         result.reader.reset(reader.release())
         return result
@@ -444,10 +535,12 @@ cdef class FlightClient:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
             unique_ptr[CRecordBatchWriter] writer
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+            CFlightDescriptor c_descriptor = \
+                FlightDescriptor.unwrap(descriptor)
 
         with nogil:
             check_status(self.client.get().DoPut(
-                deref(c_options), descriptor.descriptor, c_schema, &writer))
+                deref(c_options), c_descriptor, c_schema, &writer))
         result = FlightRecordBatchWriter()
         result.writer.reset(writer.release())
         return result
@@ -456,7 +549,7 @@ cdef class FlightClient:
 cdef class FlightDataStream:
     """Abstract base class for Flight data streams."""
 
-    cdef CFlightDataStream* to_stream(self):
+    cdef CFlightDataStream* to_stream(self) except *:
         """Create the C++ data stream for the backing Python object.
 
         We don't expose the C++ object to Python, so we can manage its
@@ -483,7 +576,7 @@ cdef class RecordBatchStream(FlightDataStream):
                             "but got: {}".format(type(data_source)))
         self.data_source = data_source
 
-    cdef CFlightDataStream* to_stream(self):
+    cdef CFlightDataStream* to_stream(self) except *:
         cdef:
             shared_ptr[CRecordBatchReader] reader
         if isinstance(self.data_source, _CRecordBatchReader):
@@ -521,7 +614,7 @@ cdef class GeneratorStream(FlightDataStream):
         self.schema = pyarrow_unwrap_schema(schema)
         self.generator = iter(generator)
 
-    cdef CFlightDataStream* to_stream(self):
+    cdef CFlightDataStream* to_stream(self) except *:
         cdef:
             function[cb_data_stream_next] callback = &_data_stream_next
         return new CPyGeneratorFlightDataStream(self, self.schema, callback)
@@ -921,19 +1014,28 @@ cdef class FlightServerBase:
     cdef:
         unique_ptr[PyFlightServer] server
 
-    def run(self, port, auth_handler=None):
+    def run(self, location, auth_handler=None,
+            tls_cert_chain=None, tls_private_key=None):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
-            int c_port = port
             PyFlightServer* c_server
-            unique_ptr[CServerAuthHandler] c_auth_handler
+            unique_ptr[CFlightServerOptions] c_options
+
+        c_options.reset(new CFlightServerOptions(Location.unwrap(location)))
 
         if auth_handler:
             if not isinstance(auth_handler, ServerAuthHandler):
                 raise TypeError("auth_handler must be a ServerAuthHandler, "
                                 "not a '{}'".format(type(auth_handler)))
-            c_auth_handler.reset(
+            c_options.get().auth_handler.reset(
                 (<ServerAuthHandler> auth_handler).to_handler())
+
+        if tls_cert_chain:
+            if not tls_private_key:
+                raise ValueError(
+                    "Must provide both cert chain and private key")
+            c_options.get().tls_cert_chain = tobytes(tls_cert_chain)
+            c_options.get().tls_private_key = tobytes(tls_private_key)
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
@@ -945,7 +1047,7 @@ cdef class FlightServerBase:
         c_server = new PyFlightServer(self, vtable)
         self.server.reset(c_server)
         with nogil:
-            check_status(c_server.Init(move(c_auth_handler), c_port))
+            check_status(c_server.Init(deref(c_options)))
             check_status(c_server.ServeWithSignals())
 
     def list_flights(self, context, criteria):

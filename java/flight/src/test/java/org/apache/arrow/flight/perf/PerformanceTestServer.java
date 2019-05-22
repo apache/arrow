@@ -64,7 +64,7 @@ public class PerformanceTestServer implements AutoCloseable {
     this.allocator = incomingAllocator.newChildAllocator("perf-server", 0, Long.MAX_VALUE);
     this.location = location;
     this.producer = new PerfProducer();
-    this.flightServer = new FlightServer(this.allocator, location.getPort(), producer, ServerAuthHandler.NO_OP);
+    this.flightServer = FlightServer.builder(this.allocator, location, producer).build();
   }
 
   public Location getLocation() {

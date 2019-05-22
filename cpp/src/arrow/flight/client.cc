@@ -37,6 +37,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/uri.h"
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/internal.h"
@@ -230,11 +231,29 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
 
 class FlightClient::FlightClientImpl {
  public:
-  Status Connect(const std::string& host, int port) {
-    // TODO(wesm): Support other kinds of GRPC ChannelCredentials
-    std::stringstream ss;
-    ss << host << ":" << port;
-    std::string uri = ss.str();
+  Status Connect(const Location& location, const FlightClientOptions& options) {
+    const std::string& scheme = location.scheme();
+
+    std::stringstream grpc_uri;
+    std::shared_ptr<grpc::ChannelCredentials> creds;
+    if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
+      grpc_uri << location.uri_->host() << ":" << location.uri_->port_text();
+
+      if (scheme == "grpc+tls") {
+        grpc::SslCredentialsOptions ssl_options;
+        if (!options.tls_root_certs.empty()) {
+          ssl_options.pem_root_certs = options.tls_root_certs;
+        }
+        creds = grpc::SslCredentials(ssl_options);
+      } else {
+        creds = grpc::InsecureChannelCredentials();
+      }
+    } else if (scheme == kSchemeGrpcUnix) {
+      grpc_uri << "unix://" << location.uri_->path();
+      creds = grpc::InsecureChannelCredentials();
+    } else {
+      return Status::NotImplemented("Flight scheme " + scheme + " is not supported.");
+    }
 
     grpc::ChannelArguments args;
     // Try to reconnect quickly at first, in case the server is still starting up
@@ -242,7 +261,7 @@ class FlightClient::FlightClientImpl {
     // Receive messages of any size
     args.SetMaxReceiveMessageSize(-1);
     stub_ = pb::FlightService::NewStub(
-        grpc::CreateCustomChannel(ss.str(), grpc::InsecureChannelCredentials(), args));
+        grpc::CreateCustomChannel(grpc_uri.str(), creds, args));
     return Status::OK();
   }
 
@@ -383,10 +402,15 @@ FlightClient::FlightClient() { impl_.reset(new FlightClientImpl); }
 
 FlightClient::~FlightClient() {}
 
-Status FlightClient::Connect(const std::string& host, int port,
+Status FlightClient::Connect(const Location& location,
+                             std::unique_ptr<FlightClient>* client) {
+  return Connect(location, {}, client);
+}
+
+Status FlightClient::Connect(const Location& location, const FlightClientOptions& options,
                              std::unique_ptr<FlightClient>* client) {
   client->reset(new FlightClient);
-  return (*client)->impl_->Connect(host, port);
+  return (*client)->impl_->Connect(location, options);
 }
 
 Status FlightClient::Authenticate(const FlightCallOptions& options,

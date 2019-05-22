@@ -25,6 +25,7 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 namespace flight {
@@ -81,6 +82,38 @@ Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
   reconstructed_schema_ = true;
   *out = schema_;
   return Status::OK();
+}
+
+Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }
+
+Status Location::Parse(const std::string& uri_string, Location* location) {
+  return location->uri_->Parse(uri_string);
+}
+
+Status Location::ForGrpcTcp(const std::string& host, const int port, Location* location) {
+  std::stringstream uri_string;
+  uri_string << "grpc+tcp://" << host << ':' << port;
+  return Location::Parse(uri_string.str(), location);
+}
+
+Status Location::ForGrpcUnix(const std::string& path, Location* location) {
+  std::stringstream uri_string;
+  uri_string << "grpc+unix://" << path;
+  return Location::Parse(uri_string.str(), location);
+}
+
+std::string Location::ToString() const { return uri_->ToString(); }
+std::string Location::scheme() const {
+  std::string scheme = uri_->scheme();
+  if (scheme.empty()) {
+    // Default to grpc+tcp
+    return "grpc+tcp";
+  }
+  return scheme;
+}
+
+bool Location::Equals(const Location& other) const {
+  return ToString() == other.ToString();
 }
 
 SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)

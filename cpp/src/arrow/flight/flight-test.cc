@@ -61,8 +61,7 @@ void AssertEqual(const Ticket& expected, const Ticket& actual) {
 }
 
 void AssertEqual(const Location& expected, const Location& actual) {
-  ASSERT_EQ(expected.host, actual.host);
-  ASSERT_EQ(expected.port, actual.port);
+  ASSERT_EQ(expected, actual);
 }
 
 void AssertEqual(const std::vector<FlightEndpoint>& expected,
@@ -146,6 +145,20 @@ TEST(TestFlight, StartStopTestServer) {
   ASSERT_FALSE(server.IsRunning());
 }
 
+TEST(TestFlight, ConnectUri) {
+  TestServer server("flight-test-server", 30000);
+  server.Start();
+  ASSERT_TRUE(server.IsRunning());
+
+  std::unique_ptr<FlightClient> client;
+  Location location1;
+  Location location2;
+  ASSERT_OK(Location::Parse("grpc://localhost:30000", &location1));
+  ASSERT_OK(Location::Parse("grpc://localhost:30000", &location2));
+  ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK(FlightClient::Connect(location2, &client));
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 
@@ -169,7 +182,11 @@ class TestFlightClient : public ::testing::Test {
 
   void TearDown() { server_->Stop(); }
 
-  Status ConnectClient() { return FlightClient::Connect("localhost", port_, &client_); }
+  Status ConnectClient() {
+    Location location;
+    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port_, &location));
+    return FlightClient::Connect(location, &client_);
+  }
 
   template <typename EndpointCheckFunc>
   void CheckDoGet(const FlightDescriptor& descr, const BatchVector& expected_batches,
@@ -238,20 +255,25 @@ class DoPutTestServer : public FlightServerBase {
 class TestAuthHandler : public ::testing::Test {
  public:
   void SetUp() {
-    port_ = 30000;
-    server_.reset(new InProcessTestServer(
-        std::unique_ptr<FlightServerBase>(new AuthTestServer), port_));
-    ASSERT_OK(server_->Start(std::unique_ptr<ServerAuthHandler>(
-        new TestServerAuthHandler("user", "p4ssw0rd"))));
+    Location location;
+    std::unique_ptr<FlightServerBase> server(new AuthTestServer);
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
+    FlightServerOptions options(location);
+    options.auth_handler =
+        std::unique_ptr<ServerAuthHandler>(new TestServerAuthHandler("user", "p4ssw0rd"));
+    ASSERT_OK(server->Init(options));
+
+    server_.reset(new InProcessTestServer(std::move(server), location));
+    ASSERT_OK(server_->Start());
     ASSERT_OK(ConnectClient());
   }
 
   void TearDown() { server_->Stop(); }
 
-  Status ConnectClient() { return FlightClient::Connect("localhost", port_, &client_); }
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
 
  protected:
-  int port_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<InProcessTestServer> server_;
 };
@@ -259,17 +281,21 @@ class TestAuthHandler : public ::testing::Test {
 class TestDoPut : public ::testing::Test {
  public:
   void SetUp() {
-    port_ = 30000;
+    Location location;
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
+
     do_put_server_ = new DoPutTestServer();
     server_.reset(new InProcessTestServer(
-        std::unique_ptr<FlightServerBase>(do_put_server_), port_));
-    ASSERT_OK(server_->Start({}));
+        std::unique_ptr<FlightServerBase>(do_put_server_), location));
+    FlightServerOptions options(location);
+    ASSERT_OK(do_put_server_->Init(options));
+    ASSERT_OK(server_->Start());
     ASSERT_OK(ConnectClient());
   }
 
   void TearDown() { server_->Stop(); }
 
-  Status ConnectClient() { return FlightClient::Connect("localhost", port_, &client_); }
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
 
   void CheckBatches(FlightDescriptor expected_descriptor,
                     const BatchVector& expected_batches) {
@@ -293,7 +319,6 @@ class TestDoPut : public ::testing::Test {
   }
 
  protected:
-  int port_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<InProcessTestServer> server_;
   DoPutTestServer* do_put_server_;
@@ -423,7 +448,9 @@ TEST_F(TestFlightClient, Issue5095) {
 TEST_F(TestFlightClient, TimeoutFires) {
   // Server does not exist on this port, so call should fail
   std::unique_ptr<FlightClient> client;
-  ASSERT_OK(FlightClient::Connect("localhost", 30001, &client));
+  Location location;
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 30001, &location));
+  ASSERT_OK(FlightClient::Connect(location, &client));
   FlightCallOptions options;
   options.timeout = TimeoutDuration{0.2};
   std::unique_ptr<FlightInfo> info;

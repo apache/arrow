@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
 #include "arrow/memory_pool.h"
@@ -37,8 +38,6 @@ class Schema;
 class Status;
 
 namespace flight {
-
-class ServerAuthHandler;
 
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
@@ -89,6 +88,16 @@ class ARROW_EXPORT ServerCallContext {
   virtual const std::string& peer_identity() const = 0;
 };
 
+class ARROW_EXPORT FlightServerOptions {
+ public:
+  explicit FlightServerOptions(const Location& location_);
+
+  Location location;
+  std::unique_ptr<ServerAuthHandler> auth_handler;
+  std::string tls_cert_chain;
+  std::string tls_private_key;
+};
+
 /// \brief Skeleton RPC server implementation which can be used to create
 /// custom servers by implementing its abstract methods
 class ARROW_EXPORT FlightServerBase {
@@ -98,13 +107,10 @@ class ARROW_EXPORT FlightServerBase {
 
   // Lifecycle methods.
 
-  /// \brief Initialize an insecure TCP server listening on localhost
-  /// at the given port.
+  /// \brief Initialize a Flight server listening at the given location.
   /// This method must be called before any other method.
-  /// \param[in] port The port to serve on.
-  /// \param[in] auth_handler The authentication handler. May be
-  /// nullptr if no authentication is desired.
-  Status Init(std::unique_ptr<ServerAuthHandler> auth_handler, int port);
+  /// \param[in] options The configuration for this server.
+  Status Init(FlightServerOptions& options);
 
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.

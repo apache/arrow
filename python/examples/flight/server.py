@@ -17,6 +17,7 @@
 
 """An example Flight Python server."""
 
+import argparse
 import ast
 import threading
 import time
@@ -76,7 +77,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
             return None
         return pyarrow.flight.RecordBatchStream(self.flights[key])
 
-    def list_actions(self, context):
+    def list_actions(self):
         return [
             ("clear", "Clear the stored flights."),
             ("shutdown", "Shut down this server."),
@@ -100,8 +101,25 @@ class FlightServer(pyarrow.flight.FlightServerBase):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=5005)
+    parser.add_argument("--tls", nargs=2, default=None)
+
+    args = parser.parse_args()
+
     server = FlightServer()
-    server.run(5005)
+    kwargs = {}
+    scheme = "grpc+tcp"
+    if args.tls:
+        scheme = "grpc+tls"
+        with open(args.tls[0], "rb") as cert_file:
+            kwargs["tls_cert_chain"] = cert_file.read()
+        with open(args.tls[1], "rb") as key_file:
+            kwargs["tls_private_key"] = key_file.read()
+
+    location = "{}://0.0.0.0:{}".format(scheme, args.port)
+    print("Serving on", location)
+    server.run(location, **kwargs)
 
 
 if __name__ == '__main__':
