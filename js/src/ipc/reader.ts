@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { Vector } from '../vector';
 import { DataType } from '../type';
 import { MessageHeader } from '../enum';
@@ -23,12 +22,12 @@ import { Footer } from './metadata/file';
 import { Schema, Field } from '../schema';
 import streamAdapters from '../io/adapters';
 import { Message } from './metadata/message';
-import { RecordBatch } from '../recordbatch';
 import * as metadata from './metadata/message';
 import { ArrayBufferViewInput } from '../util/buffer';
 import { ByteStream, AsyncByteStream } from '../io/stream';
 import { RandomAccessFile, AsyncRandomAccessFile } from '../io/file';
 import { VectorLoader, JSONVectorLoader } from '../visitor/vectorloader';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch';
 import {
     FileHandle,
     ArrowJSONLike,
@@ -441,7 +440,7 @@ class RecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> e
         }
         if (this.schema && this._recordBatchIndex === 0) {
             this._recordBatchIndex++;
-            return { done: false, value: new RecordBatch<T>(this.schema, 0, this.schema.fields.map((f) => Data.new(f.type, 0, 0))) };
+            return { done: false, value: new _InternalEmptyPlaceholderRecordBatch<T>(this.schema) };
         }
         return this.return();
     }
@@ -515,7 +514,7 @@ class AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = a
         }
         if (this.schema && this._recordBatchIndex === 0) {
             this._recordBatchIndex++;
-            return { done: false, value: new RecordBatch<T>(this.schema, 0, this.schema.fields.map((f) => Data.new(f.type, 0, 0))) };
+            return { done: false, value: new _InternalEmptyPlaceholderRecordBatch<T>(this.schema) };
         }
         return await this.return();
     }
