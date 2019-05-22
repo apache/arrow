@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <random>
 #include <string>
 #include <utility>
 
@@ -47,31 +48,20 @@
 #endif
 
 // For filename conversion
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #include <codecvt>
 #include <locale>
 #include <stdexcept>
 #endif
 
-#if defined(_MSC_VER)
-#define USE_BOOST_FILESYSTEM 1
-#else
-#define USE_BOOST_FILESYSTEM 0
-#endif
-
-#if USE_BOOST_FILESYSTEM
-#include <boost/filesystem.hpp>  // NOLINT
-#endif
+#include <boost/filesystem.hpp>
 
 // ----------------------------------------------------------------------
 // file compatibility stuff
 
-#if defined(__MINGW32__)  // MinGW
-// nothing
-#elif defined(_MSC_VER)  // Visual Studio
+#if defined(_WIN32)
 #include <io.h>
-#else  // POSIX / Linux
-// nothing
+#include <share.h>
 #endif
 
 #ifdef _WIN32  // Windows
@@ -89,7 +79,7 @@
 #endif
 
 // define max read/write count
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
 #else
 
@@ -105,6 +95,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/util/io-util.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace io {
@@ -192,24 +183,53 @@ Status StdinStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 
 namespace internal {
 
+namespace bfs = ::boost::filesystem;
+
+#define BOOST_FILESYSTEM_TRY try {
+#define BOOST_FILESYSTEM_CATCH           \
+  }                                      \
+  catch (bfs::filesystem_error & _err) { \
+    return ToStatus(_err);               \
+  }
+
+// NOTE: catching filesystem_error gives more context than system::error_code
+// (it includes the file path(s) in the error message)
+
+static Status ToStatus(const bfs::filesystem_error& err) {
+  return Status::IOError(err.what());
+}
+
+static std::string MakeRandomName(int num_chars) {
+  static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  std::random_device gen;
+  std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));
+
+  std::string s;
+  s.reserve(num_chars);
+  for (int i = 0; i < num_chars; ++i) {
+    s += chars[dist(gen)];
+  }
+  return s;
+}
+
 //
 // PlatformFilename implementation
 //
 
 struct PlatformFilename::Impl {
-#if USE_BOOST_FILESYSTEM
-  ::boost::filesystem::path path;
-#else
-  std::string path;  // 8-bit Unix path
-#endif
+  bfs::path path;
 };
 
 PlatformFilename::PlatformFilename() : impl_(new Impl{}) {}
 
 PlatformFilename::~PlatformFilename() {}
 
+PlatformFilename::PlatformFilename(const Impl& impl) : impl_(new Impl(impl)) {}
+
+PlatformFilename::PlatformFilename(Impl&& impl) : impl_(new Impl(std::move(impl))) {}
+
 PlatformFilename::PlatformFilename(const PlatformFilename& other)
-    : impl_(new Impl{other.impl_->path}) {}
+    : PlatformFilename(Impl{other.impl_->path}) {}
 
 PlatformFilename::PlatformFilename(PlatformFilename&& other)
     : impl_(std::move(other.impl_)) {}
@@ -224,46 +244,112 @@ PlatformFilename& PlatformFilename::operator=(PlatformFilename&& other) {
   return *this;
 }
 
-#if defined(_MSC_VER)
-PlatformFilename::PlatformFilename(const std::wstring& path) : impl_(new Impl{path}) {}
-#else
-PlatformFilename::PlatformFilename(const std::string& path) : impl_(new Impl{path}) {}
-#endif
+PlatformFilename::PlatformFilename(const PlatformFilename::NativePathString& path)
+    : PlatformFilename(Impl{path}) {}
 
-#if defined(_MSC_VER)
-const std::wstring& PlatformFilename::ToNative() const { return impl_->path.native(); }
-#elif USE_BOOST_FILESYSTEM
-const std::string& PlatformFilename::ToNative() const { return impl_->path.native(); }
-#else
-const std::string& PlatformFilename::ToNative() const { return impl_->path; }
-#endif
+const PlatformFilename::NativePathString& PlatformFilename::ToNative() const {
+  return impl_->path.native();
+}
 
-#if USE_BOOST_FILESYSTEM
 std::string PlatformFilename::ToString() const { return impl_->path.string(); }
-#else
-std::string PlatformFilename::ToString() const { return impl_->path; }
-#endif
 
-Status PlatformFilename::FromString(const std::string& file_name, PlatformFilename* out) {
-#if defined(_MSC_VER)
+namespace {
+
+Status StringToNative(const std::string& s, PlatformFilename::NativePathString* out) {
+#if defined(_WIN32)
   try {
-    auto wpath =
-        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>{}.from_bytes(file_name);
-    *out = PlatformFilename(std::move(wpath));
+    *out = std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>{}.from_bytes(s);
   } catch (std::range_error& e) {
     return Status::Invalid(e.what());
   }
 #else
-  *out = PlatformFilename(file_name);
+  *out = s;
 #endif
   return Status::OK();
 }
+
+}  // namespace
+
+Status PlatformFilename::FromString(const std::string& file_name, PlatformFilename* out) {
+  NativePathString ns;
+  RETURN_NOT_OK(StringToNative(file_name, &ns));
+  *out = PlatformFilename(std::move(ns));
+  return Status::OK();
+}
+
+Status PlatformFilename::Join(const std::string& child_name,
+                              PlatformFilename* out) const {
+  NativePathString ns;
+  RETURN_NOT_OK(StringToNative(child_name, &ns));
+  auto path = impl_->path / ns;
+  *out = PlatformFilename(Impl{std::move(path)});
+  return Status::OK();
+}
+
+Status CreateDir(const PlatformFilename& dir_path, bool* created) {
+  bool res;
+  BOOST_FILESYSTEM_TRY
+  res = bfs::create_directory(dir_path.impl_->path);
+  BOOST_FILESYSTEM_CATCH
+  if (created) {
+    *created = res;
+  }
+  return Status::OK();
+}
+
+Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
+  BOOST_FILESYSTEM_TRY
+  auto n_removed = bfs::remove_all(dir_path.impl_->path);
+  if (deleted) {
+    *deleted = n_removed != 0;
+  }
+  BOOST_FILESYSTEM_CATCH
+  return Status::OK();
+}
+
+Status DeleteFile(const PlatformFilename& file_path, bool* deleted) {
+  BOOST_FILESYSTEM_TRY
+  bool res = false;
+  const auto& path = file_path.impl_->path;
+  // XXX There is a race here, and boost::filesystem doesn't allow deleting
+  // only files and not empty directories.
+  auto st = bfs::symlink_status(path);
+  if (!bfs::is_directory(st)) {
+    res = bfs::remove(path);
+  } else {
+    return Status::IOError("Cannot delete directory '", path.string());
+  }
+  if (deleted) {
+    *deleted = res;
+  }
+  BOOST_FILESYSTEM_CATCH
+  return Status::OK();
+}
+
+Status FileExists(const PlatformFilename& path, bool* out) {
+  BOOST_FILESYSTEM_TRY
+  *out = bfs::exists(path.impl_->path);
+  BOOST_FILESYSTEM_CATCH
+  return Status::OK();
+}
+
+//
+// File name handling
+//
+
+Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
+  return PlatformFilename::FromString(file_name, out);
+}
+
+//
+// Functions for creating file descriptors
+//
 
 #define CHECK_LSEEK(retval) \
   if ((retval) == -1) return Status::IOError("lseek failed");
 
 static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   return _lseeki64(fd, pos, whence);
 #else
   return lseek(fd, pos, whence);
@@ -280,21 +366,9 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
   return Status::OK();
 }
 
-//
-// File name handling
-//
-
-Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
-  return PlatformFilename::FromString(file_name, out);
-}
-
-//
-// Functions for creating file descriptors
-//
-
 Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   int ret, errno_actual;
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(),
                            _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
   ret = *fd;
@@ -310,7 +384,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
                         bool append, int* fd) {
   int ret, errno_actual;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
   int pmode = _S_IREAD | _S_IWRITE;
 
@@ -355,7 +429,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
 Status FileTell(int fd, int64_t* pos) {
   int64_t current_pos;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   current_pos = _telli64(fd);
   if (current_pos == -1) {
     return Status::IOError("_telli64 failed");
@@ -463,7 +537,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 Status FileClose(int fd) {
   int ret;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   ret = static_cast<int>(_close(fd));
 #else
   ret = static_cast<int>(close(fd));
@@ -488,14 +562,14 @@ Status FileSeek(int fd, int64_t pos, int whence) {
 Status FileSeek(int fd, int64_t pos) { return FileSeek(fd, pos, SEEK_SET); }
 
 Status FileGetSize(int fd, int64_t* size) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   struct __stat64 st;
 #else
   struct stat st;
 #endif
   st.st_size = -1;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
   int ret = _fstat64(fd, &st);
 #else
   int ret = fstat(fd, &st);
@@ -723,6 +797,30 @@ Status DelEnvVar(const char* name) {
 }
 
 Status DelEnvVar(const std::string& name) { return DelEnvVar(name.c_str()); }
+
+TemporaryDir::TemporaryDir(PlatformFilename&& path) : path_(std::move(path)) {}
+
+TemporaryDir::~TemporaryDir() { DCHECK_OK(DeleteDirTree(path_)); }
+
+Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
+  bfs::path path;
+  std::string suffix = MakeRandomName(8);
+
+  BOOST_FILESYSTEM_TRY
+  path = bfs::temp_directory_path() / (prefix + suffix);
+  path += "/";
+  BOOST_FILESYSTEM_CATCH
+
+  PlatformFilename fn(path.native());
+  bool created;
+  RETURN_NOT_OK(CreateDir(fn, &created));
+  if (!created) {
+    // XXX Should we retry?
+    return Status::IOError("Path already exists: '", fn.ToString(), "'");
+  }
+  out->reset(new TemporaryDir(std::move(fn)));
+  return Status::OK();
+}
 
 }  // namespace internal
 }  // namespace arrow

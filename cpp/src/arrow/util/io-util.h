@@ -23,6 +23,13 @@
 
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
+
+// The Windows API defines DeleteFile as a macro resolving to either
+// DeleteFileA or DeleteFileW.  Need to undo it.
+#if defined(_WIN32) && defined(DeleteFile)
+#undef DeleteFile
+#endif
 
 namespace arrow {
 
@@ -89,32 +96,49 @@ namespace internal {
 
 class ARROW_EXPORT PlatformFilename {
  public:
+#if defined(_WIN32)
+  using NativePathString = std::wstring;
+#else
+  using NativePathString = std::string;
+#endif
+
   ~PlatformFilename();
   PlatformFilename();
   PlatformFilename(const PlatformFilename&);
   PlatformFilename(PlatformFilename&&);
   PlatformFilename& operator=(const PlatformFilename&);
   PlatformFilename& operator=(PlatformFilename&&);
+  explicit PlatformFilename(const NativePathString& path);
 
-#if defined(_MSC_VER)
-  const std::wstring& ToNative() const;
-#else
-  const std::string& ToNative() const;
-#endif
+  const NativePathString& ToNative() const;
   std::string ToString() const;
 
+  // These functions can fail for character encoding reasons.
   static Status FromString(const std::string& file_name, PlatformFilename* out);
+  Status Join(const std::string& child_name, PlatformFilename* out) const;
 
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
 
-#if defined(_MSC_VER)
-  explicit PlatformFilename(const std::wstring& path);
-#else
-  explicit PlatformFilename(const std::string& path);
-#endif
+  explicit PlatformFilename(const Impl& impl);
+  explicit PlatformFilename(Impl&& impl);
+
+  // Those functions need access to the embedded path object
+  friend ARROW_EXPORT Status CreateDir(const PlatformFilename&, bool*);
+  friend ARROW_EXPORT Status DeleteDirTree(const PlatformFilename&, bool*);
+  friend ARROW_EXPORT Status DeleteFile(const PlatformFilename&, bool*);
+  friend ARROW_EXPORT Status FileExists(const PlatformFilename&, bool*);
 };
+
+ARROW_EXPORT
+Status CreateDir(const PlatformFilename& dir_path, bool* created = NULLPTR);
+ARROW_EXPORT
+Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
+ARROW_EXPORT
+Status DeleteFile(const PlatformFilename& file_path, bool* deleted = NULLPTR);
+ARROW_EXPORT
+Status FileExists(const PlatformFilename& path, bool* out);
 
 ARROW_EXPORT
 Status FileNameFromString(const std::string& file_name, PlatformFilename* out);
@@ -166,6 +190,20 @@ ARROW_EXPORT
 Status DelEnvVar(const char* name);
 ARROW_EXPORT
 Status DelEnvVar(const std::string& name);
+
+class ARROW_EXPORT TemporaryDir {
+ public:
+  ~TemporaryDir();
+
+  const PlatformFilename& path() { return path_; }
+
+  static Status Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out);
+
+ private:
+  PlatformFilename path_;
+
+  explicit TemporaryDir(PlatformFilename&&);
+};
 
 }  // namespace internal
 }  // namespace arrow
