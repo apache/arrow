@@ -207,15 +207,7 @@ TEST_F(TestPlasmaSerialization, GetReply) {
   for (int i = 0; i < 2; ++i) {
     po = plasma_objects[object_ids[i]];
     po2 = plasma_objects_return[i];
-#ifdef PLASMA_CUDA
-    ASSERT_EQ(po.ipc_handle, po2.ipc_handle);
-#endif
-    ASSERT_EQ(po.store_fd, po2.store_fd);
-    ASSERT_EQ(po.data_offset, po2.data_offset);
-    ASSERT_EQ(po.metadata_offset, po2.metadata_offset);
-    ASSERT_EQ(po.data_size, po2.data_size);
-    ASSERT_EQ(po.metadata_size, po2.metadata_size);
-    ASSERT_EQ(po.device_num, po2.device_num);
+    ASSERT_EQ(po, po2);
   }
   ASSERT_TRUE(store_fds == store_fds_return);
   ASSERT_TRUE(mmap_sizes == mmap_sizes_return);
