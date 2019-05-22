@@ -31,8 +31,6 @@ namespace compute {
 
 class FunctionContext;
 
-struct ARROW_EXPORT TakeOptions {};
-
 /// \brief Take from an array of values at indices in another array
 ///
 /// The output array will be of the same type as the input values
@@ -47,28 +45,25 @@ struct ARROW_EXPORT TakeOptions {};
 /// \param[in] context the FunctionContext
 /// \param[in] values array from which to take
 /// \param[in] indices which values to take
-/// \param[in] options options
 /// \param[out] out resulting array
 ARROW_EXPORT
 Status Take(FunctionContext* context, const Array& values, const Array& indices,
-            const TakeOptions& options, std::shared_ptr<Array>* out);
+            std::shared_ptr<Array>* out);
 
 /// \brief Take from an array of values at indices in another array
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] values datum from which to take
 /// \param[in] indices which values to take
-/// \param[in] options options
 /// \param[out] out resulting datum
 ARROW_EXPORT
 Status Take(FunctionContext* context, const Datum& values, const Datum& indices,
-            const TakeOptions& options, Datum* out);
+            Datum* out);
 
 /// \brief BinaryKernel implementing Take operation
 class ARROW_EXPORT TakeKernel : public BinaryKernel {
  public:
-  explicit TakeKernel(const std::shared_ptr<DataType>& type, TakeOptions options = {})
-      : type_(type), options_(options) {}
+  explicit TakeKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
 
   Status Call(FunctionContext* ctx, const Datum& values, const Datum& indices,
               Datum* out) override;
@@ -77,7 +72,6 @@ class ARROW_EXPORT TakeKernel : public BinaryKernel {
 
  private:
   std::shared_ptr<DataType> type_;
-  TakeOptions options_;
 };
 }  // namespace compute
 }  // namespace arrow
