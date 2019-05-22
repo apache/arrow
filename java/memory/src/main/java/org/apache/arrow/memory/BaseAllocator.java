@@ -268,7 +268,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   /**
-   * Get the expected buffer size after rounding.
+   * Gets the expected buffer size after rounding.
    * @param initialRequestSize the requested buffer size.
    * @param roundingOption the rounding option.
    * @return the buffer size after rounding.
