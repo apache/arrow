@@ -106,7 +106,7 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
 
-    std::unique_ptr<MetadataRecordBatchReader> reader;
+    std::unique_ptr<FlightStreamReader> reader;
     RETURN_NOT_OK(client->DoGet(endpoint.ticket, &reader));
 
     std::shared_ptr<RecordBatch> batch;

@@ -139,7 +139,7 @@ class GrpcClientAuthReader : public ClientAuthReader {
 // metadata.
 
 class GrpcIpcMessageReader;
-class GrpcStreamReader : public MetadataRecordBatchReader {
+class GrpcStreamReader : public FlightStreamReader {
  public:
   GrpcStreamReader();
 
@@ -150,19 +150,21 @@ class GrpcStreamReader : public MetadataRecordBatchReader {
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
   Status ReadWithMetadata(std::shared_ptr<RecordBatch>* out,
                           std::shared_ptr<Buffer>* app_metadata) override;
+  void Cancel() override;
 
  private:
   friend class GrpcIpcMessageReader;
   std::unique_ptr<ipc::RecordBatchReader> batch_reader_;
   std::shared_ptr<Buffer> last_app_metadata_;
+  std::shared_ptr<ClientRpc> rpc_;
 };
 
 class GrpcIpcMessageReader : public ipc::MessageReader {
  public:
-  GrpcIpcMessageReader(GrpcStreamReader* reader, std::unique_ptr<ClientRpc> rpc,
+  GrpcIpcMessageReader(GrpcStreamReader* reader, std::shared_ptr<ClientRpc> rpc,
                        std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream)
       : flight_reader_(reader),
-        rpc_(std::move(rpc)),
+        rpc_(rpc),
         stream_(std::move(stream)),
         stream_finished_(false) {}
 
@@ -200,7 +202,7 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
  private:
   GrpcStreamReader* flight_reader_;
   // The RPC context lifetime must be coupled to the ClientReader
-  std::unique_ptr<ClientRpc> rpc_;
+  std::shared_ptr<ClientRpc> rpc_;
   std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream_;
   bool stream_finished_;
 };
@@ -211,8 +213,9 @@ Status GrpcStreamReader::Open(std::unique_ptr<ClientRpc> rpc,
                               std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream,
                               std::unique_ptr<GrpcStreamReader>* out) {
   *out = std::unique_ptr<GrpcStreamReader>(new GrpcStreamReader);
+  out->get()->rpc_ = std::move(rpc);
   std::unique_ptr<GrpcIpcMessageReader> message_reader(
-      new GrpcIpcMessageReader(out->get(), std::move(rpc), std::move(stream)));
+      new GrpcIpcMessageReader(out->get(), out->get()->rpc_, std::move(stream)));
   return ipc::RecordBatchStreamReader::Open(std::move(message_reader),
                                             &(*out)->batch_reader_);
 }
@@ -232,6 +235,8 @@ Status GrpcStreamReader::ReadWithMetadata(std::shared_ptr<RecordBatch>* out,
   *app_metadata = std::move(last_app_metadata_);
   return Status::OK();
 }
+
+void GrpcStreamReader::Cancel() { rpc_->context.TryCancel(); }
 
 // Similarly, the next two classes are intertwined. In order to get
 // application-specific metadata to the IpcPayloadWriter,
@@ -519,7 +524,7 @@ class FlightClient::FlightClientImpl {
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
-               std::unique_ptr<MetadataRecordBatchReader>* out) {
+               std::unique_ptr<FlightStreamReader>* out) {
     pb::Ticket pb_ticket;
     internal::ToProto(ticket, &pb_ticket);
 
@@ -601,7 +606,7 @@ Status FlightClient::ListFlights(const FlightCallOptions& options,
 }
 
 Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
-                           std::unique_ptr<MetadataRecordBatchReader>* stream) {
+                           std::unique_ptr<FlightStreamReader>* stream) {
   return impl_->DoGet(options, ticket, stream);
 }
 

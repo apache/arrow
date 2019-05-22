@@ -498,6 +498,15 @@ cdef class MetadataRecordBatchReader(_CRecordBatchReader, _ReadPandasOption):
         return AppMetadataRecordBatch(pyarrow_wrap_batch(batch), metadata)
 
 
+cdef class FlightStreamReader(MetadataRecordBatchReader):
+    """A reader that can also be canceled."""
+
+    def cancel(self):
+        """Cancel the read operation."""
+        with nogil:
+            (<CFlightStreamReader*> self.reader.get()).Cancel()
+
+
 cdef class FlightStreamWriter(_CRecordBatchWriter):
     """A RecordBatchWriter that also allows writing application metadata."""
 
@@ -699,17 +708,17 @@ cdef class FlightClient:
 
         Returns
         -------
-        reader : MetadataRecordBatchReader
+        reader : FlightStreamReader
         """
         cdef:
-            unique_ptr[CMetadataRecordBatchReader] reader
+            unique_ptr[CFlightStreamReader] reader
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
         with nogil:
             check_status(
                 self.client.get().DoGet(
                     deref(c_options), ticket.ticket, &reader))
-        result = MetadataRecordBatchReader()
+        result = FlightStreamReader()
         result.reader.reset(reader.release())
         result.schema = pyarrow_wrap_schema(result.reader.get().schema())
         return result

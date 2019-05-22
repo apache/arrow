@@ -126,6 +126,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus ReadWithMetadata(shared_ptr[CRecordBatch]* out,
                                  shared_ptr[CBuffer]* app_metadata)
 
+    cdef cppclass CFlightStreamReader \
+            " arrow::flight::FlightStreamReader"(CMetadataRecordBatchReader):
+        void Cancel()
+
     cdef cppclass CFlightMessageReader \
             " arrow::flight::FlightMessageReader"(CMetadataRecordBatchReader):
         CFlightDescriptor& descriptor()
@@ -211,7 +215,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
                               unique_ptr[CFlightInfo]* info)
 
         CStatus DoGet(CFlightCallOptions& options, CTicket& ticket,
-                      unique_ptr[CMetadataRecordBatchReader]* stream)
+                      unique_ptr[CFlightStreamReader]* stream)
         CStatus DoPut(CFlightCallOptions& options,
                       CFlightDescriptor& descriptor,
                       shared_ptr[CSchema]& schema,

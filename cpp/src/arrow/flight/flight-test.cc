@@ -211,7 +211,7 @@ class TestFlightClient : public ::testing::Test {
 
     // By convention, fetch the first endpoint
     Ticket ticket = info->endpoints()[0].ticket;
-    std::unique_ptr<MetadataRecordBatchReader> stream;
+    std::unique_ptr<FlightStreamReader> stream;
     ASSERT_OK(client_->DoGet(ticket, &stream));
 
     std::shared_ptr<RecordBatch> chunk;
@@ -552,7 +552,7 @@ TEST_F(TestFlightClient, Issue5095) {
   // Make sure the server-side error message is reflected to the
   // client
   Ticket ticket1{"ARROW-5095-fail"};
-  std::unique_ptr<MetadataRecordBatchReader> stream;
+  std::unique_ptr<FlightStreamReader> stream;
   Status status = client_->DoGet(ticket1, &stream);
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Server-side error"));
@@ -655,7 +655,7 @@ TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
   status = client_->GetFlightInfo(FlightDescriptor{}, &info);
   ASSERT_RAISES(NotImplemented, status);
 
-  std::unique_ptr<MetadataRecordBatchReader> stream;
+  std::unique_ptr<FlightStreamReader> stream;
   status = client_->DoGet(Ticket{}, &stream);
   ASSERT_RAISES(NotImplemented, status);
 
@@ -693,7 +693,7 @@ TEST_F(TestAuthHandler, FailUnauthenticatedCalls) {
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
 
-  std::unique_ptr<MetadataRecordBatchReader> stream;
+  std::unique_ptr<FlightStreamReader> stream;
   status = client_->DoGet(Ticket{}, &stream);
   ASSERT_RAISES(IOError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Invalid token"));
@@ -764,7 +764,7 @@ TEST_F(TestTls, OverrideHostname) {
 
 TEST_F(TestMetadata, DoGet) {
   Ticket ticket{""};
-  std::unique_ptr<MetadataRecordBatchReader> stream;
+  std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(client_->DoGet(ticket, &stream));
 
   BatchVector expected_batches;

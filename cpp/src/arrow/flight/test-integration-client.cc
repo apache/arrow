@@ -114,7 +114,7 @@ arrow::Status ConsumeFlightLocation(const arrow::flight::Location& location,
   std::unique_ptr<arrow::flight::FlightClient> read_client;
   RETURN_NOT_OK(arrow::flight::FlightClient::Connect(location, &read_client));
 
-  std::unique_ptr<arrow::flight::MetadataRecordBatchReader> stream;
+  std::unique_ptr<arrow::flight::FlightStreamReader> stream;
   RETURN_NOT_OK(read_client->DoGet(ticket, &stream));
 
   return ReadToTable(*stream, retrieved_data);

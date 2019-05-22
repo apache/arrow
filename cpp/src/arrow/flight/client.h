@@ -66,6 +66,14 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   std::string override_hostname;
 };
 
+/// \brief A RecordBatchReader exposing Flight metadata and cancel
+/// operations.
+class ARROW_EXPORT FlightStreamReader : public MetadataRecordBatchReader {
+ public:
+  /// \brief Try to cancel the call.
+  virtual void Cancel() = 0;
+};
+
 /// \brief A RecordBatchWriter that also allows sending
 /// application-defined metadata via the Flight protocol.
 class ARROW_EXPORT FlightStreamWriter : public ipc::RecordBatchWriter {
@@ -169,8 +177,8 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[out] stream the returned RecordBatchReader
   /// \return Status
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
-               std::unique_ptr<MetadataRecordBatchReader>* stream);
-  Status DoGet(const Ticket& ticket, std::unique_ptr<MetadataRecordBatchReader>* stream) {
+               std::unique_ptr<FlightStreamReader>* stream);
+  Status DoGet(const Ticket& ticket, std::unique_ptr<FlightStreamReader>* stream) {
     return DoGet({}, ticket, stream);
   }
 

@@ -18,6 +18,7 @@
 
 import base64
 import contextlib
+import multiprocessing
 import os
 import socket
 import struct
@@ -241,9 +242,22 @@ class InvalidStreamFlightServer(flight.FlightServerBase):
 class SlowFlightServer(flight.FlightServerBase):
     """A Flight server that delays its responses to test timeouts."""
 
+    def do_get(self, context, ticket):
+        return flight.GeneratorStream(pa.schema([('a', pa.int32())]),
+                                      self.slow_stream())
+
     def do_action(self, context, action):
         time.sleep(0.5)
         return iter([])
+
+    @staticmethod
+    def slow_stream():
+        data1 = [pa.array([-10, -5, 0, 5, 10], type=pa.int32())]
+        yield pa.Table.from_arrays(data1, names=['a'])
+        # The second message should never get sent; the client should
+        # cancel before we send this
+        time.sleep(10)
+        yield pa.Table.from_arrays(data1, names=['a'])
 
 
 class HttpBasicServerAuthHandler(flight.ServerAuthHandler):
@@ -682,3 +696,45 @@ def test_flight_do_put_metadata():
                 assert buf is not None
                 server_idx, = struct.unpack('<i', buf.to_pybytes())
                 assert idx == server_idx
+
+
+def test_cancel_do_get():
+    """Test canceling a DoGet operation on the client side."""
+    with flight_server(ConstantFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        reader = client.do_get(flight.Ticket(b'ints'))
+        reader.cancel()
+        with pytest.raises(pa.ArrowIOError, match=".*Cancel.*"):
+            reader.read_next_batch()
+
+
+def test_cancel_do_get_threaded():
+    """Test canceling a DoGet operation from another thread."""
+    with flight_server(SlowFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        reader = client.do_get(flight.Ticket(b'ints'))
+
+        read_first_message = threading.Event()
+        stream_canceled = threading.Event()
+        result_lock = threading.Lock()
+        raised_proper_exception = threading.Event()
+
+        def block_read():
+            reader.read_next_batch()
+            read_first_message.set()
+            stream_canceled.wait(timeout=5)
+            try:
+                reader.read_next_batch()
+            except pa.ArrowIOError:
+                with result_lock:
+                    raised_proper_exception.set()
+
+        thread = threading.Thread(target=block_read, daemon=True)
+        thread.start()
+        read_first_message.wait(timeout=5)
+        reader.cancel()
+        stream_canceled.set()
+        thread.join(timeout=1)
+
+        with result_lock:
+            assert raised_proper_exception.is_set()
