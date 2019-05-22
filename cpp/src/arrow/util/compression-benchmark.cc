@@ -111,9 +111,9 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
   return compressed_size;
 }
 
-static void StreamingCompression(
-    Compression::type compression, const std::vector<uint8_t>& data,
-    benchmark::State& state) {  // NOLINT non-const reference
+static void StreamingCompression(Compression::type compression,
+                                 const std::vector<uint8_t>& data,
+                                 benchmark::State& state) {  // NOLINT non-const reference
   std::unique_ptr<Codec> codec;
   ABORT_NOT_OK(Codec::Create(compression, &codec));
 
@@ -126,9 +126,8 @@ static void StreamingCompression(
 }
 
 template <Compression::type COMPRESSION>
-static void StreamingCompression(
-    benchmark::State& state) {                        // NOLINT non-const reference
-  auto data = MakeCompressibleData(8 * 1024 * 1024);  // 8 MB
+static void StreamingCompression(benchmark::State& state) {  // NOLINT non-const reference
+  auto data = MakeCompressibleData(8 * 1024 * 1024);         // 8 MB
 
   StreamingCompression(COMPRESSION, data, state);
 }

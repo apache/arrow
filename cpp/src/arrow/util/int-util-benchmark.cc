@@ -60,8 +60,7 @@ static void DetectUIntWidthNoNulls(
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
 }
 
-static void DetectUIntWidthNulls(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void DetectUIntWidthNulls(benchmark::State& state) {  // NOLINT non-const reference
   const auto values = GetUIntSequence(0x12345);
   const auto valid_bytes = GetValidBytes(0x12345);
 
@@ -84,8 +83,7 @@ static void DetectIntWidthNoNulls(
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(uint64_t));
 }
 
-static void DetectIntWidthNulls(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void DetectIntWidthNulls(benchmark::State& state) {  // NOLINT non-const reference
   const auto values = GetIntSequence(0x12345, -0x1234);
   const auto valid_bytes = GetValidBytes(0x12345);
 

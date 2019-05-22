@@ -76,16 +76,14 @@ static void BenchmarkConversion(benchmark::State& state,  // NOLINT non-const re
 
 constexpr size_t num_rows = 10000;
 
-static void Int64Conversion(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void Int64Conversion(benchmark::State& state) {  // NOLINT non-const reference
   auto parser = BuildInt64Data(num_rows);
   auto options = ConvertOptions::Defaults();
 
   BenchmarkConversion(state, *parser, int64(), options);
 }
 
-static void FloatConversion(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void FloatConversion(benchmark::State& state) {  // NOLINT non-const reference
   auto parser = BuildFloatData(num_rows);
   auto options = ConvertOptions::Defaults();
 

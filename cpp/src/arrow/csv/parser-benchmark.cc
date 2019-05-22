@@ -56,8 +56,7 @@ static void BenchmarkCSVChunking(benchmark::State& state,  // NOLINT non-const r
   state.SetBytesProcessed(state.iterations() * csv_size);
 }
 
-static void ChunkCSVQuotedBlock(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void ChunkCSVQuotedBlock(benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCsvData(one_row, num_rows);
   auto options = ParseOptions::Defaults();
   options.quoting = true;
@@ -67,8 +66,7 @@ static void ChunkCSVQuotedBlock(
   BenchmarkCSVChunking(state, csv, options);
 }
 
-static void ChunkCSVEscapedBlock(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void ChunkCSVEscapedBlock(benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCsvData(one_row_escaped, num_rows);
   auto options = ParseOptions::Defaults();
   options.quoting = false;
@@ -121,8 +119,7 @@ static void BenchmarkCSVParsing(benchmark::State& state,  // NOLINT non-const re
   state.SetBytesProcessed(state.iterations() * csv_size);
 }
 
-static void ParseCSVQuotedBlock(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void ParseCSVQuotedBlock(benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCsvData(one_row, num_rows);
   auto options = ParseOptions::Defaults();
   options.quoting = true;
@@ -131,8 +128,7 @@ static void ParseCSVQuotedBlock(
   BenchmarkCSVParsing(state, csv, num_rows, options);
 }
 
-static void ParseCSVEscapedBlock(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void ParseCSVEscapedBlock(benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCsvData(one_row_escaped, num_rows);
   auto options = ParseOptions::Defaults();
   options.quoting = false;

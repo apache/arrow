@@ -74,14 +74,13 @@ static void ValidateTinyAscii(benchmark::State& state) {  // NOLINT non-const re
   BenchmarkUTF8Validation(state, tiny_valid_ascii, true);
 }
 
-static void ValidateTinyNonAscii(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void ValidateTinyNonAscii(benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkUTF8Validation(state, tiny_valid_non_ascii, true);
 }
 
-static void ValidateSmallAscii(
-    benchmark::State& state) {  // NOLINT non-const reference
-  BenchmarkUTF8Validation(state, valid_ascii, true); }
+static void ValidateSmallAscii(benchmark::State& state) {  // NOLINT non-const reference
+  BenchmarkUTF8Validation(state, valid_ascii, true);
+}
 
 static void ValidateSmallAlmostAscii(
     benchmark::State& state) {  // NOLINT non-const reference
@@ -93,8 +92,7 @@ static void ValidateSmallNonAscii(
   BenchmarkUTF8Validation(state, valid_non_ascii, true);
 }
 
-static void ValidateLargeAscii(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void ValidateLargeAscii(benchmark::State& state) {  // NOLINT non-const reference
   auto s = MakeLargeString(valid_ascii, 100000);
   BenchmarkUTF8Validation(state, s, true);
 }

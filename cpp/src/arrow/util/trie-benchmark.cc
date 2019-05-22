@@ -195,8 +195,7 @@ static void TrieLookupFound(benchmark::State& state) {  // NOLINT non-const refe
   BenchmarkTrieLookups(state, {"N/A", "null", "-1.#IND", "N/A"});
 }
 
-static void TrieLookupNotFound(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void TrieLookupNotFound(benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkTrieLookups(state, {"None", "1.0", "", "abc"});
 }
 

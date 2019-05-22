@@ -140,8 +140,7 @@ static void BuildBooleanArrayNoNulls(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void BuildBinaryArray(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
     BinaryBuilder builder;
 

@@ -203,9 +203,8 @@ BENCHMARK(BuildStringDictionary);
 
 constexpr int kHashBenchmarkLength = 1 << 22;
 
-#define ADD_HASH_ARGS(WHAT)                        \
-  WHAT->Args({kHashBenchmarkLength, 1 << 10})      \
-      ->Args({kHashBenchmarkLength, 10 * 1 << 10}) \
+#define ADD_HASH_ARGS(WHAT) \
+  WHAT->Args({kHashBenchmarkLength, 1 << 10})->Args({kHashBenchmarkLength, 10 * 1 << 10})
 
 ADD_HASH_ARGS(BENCHMARK(UniqueInt64NoNulls));
 ADD_HASH_ARGS(BENCHMARK(UniqueInt64WithNulls));

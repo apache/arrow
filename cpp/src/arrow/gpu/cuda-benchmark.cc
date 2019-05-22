@@ -82,10 +82,7 @@ static void Writer_Unbuffered(benchmark::State& state) {
 }
 
 // Vary chunk write size from 256 bytes to 64K
-BENCHMARK(Writer_Buffered)
-    ->RangeMultiplier(16)
-    ->Range(1 << 8, 1 << 16)
-    ->UseRealTime();
+BENCHMARK(Writer_Buffered)->RangeMultiplier(16)->Range(1 << 8, 1 << 16)->UseRealTime();
 
 BENCHMARK(Writer_Unbuffered)
     ->RangeMultiplier(4)
