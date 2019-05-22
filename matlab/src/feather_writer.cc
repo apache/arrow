@@ -273,7 +273,7 @@ arrow::Status FeatherWriter::Open(const std::string& filename,
 }
 
 // Write table metadata to the Feather file from a mxArray*.
-arrow::Status FeatherWriter::WriteMetadata(const mxArray* metadata) {
+void FeatherWriter::WriteMetadata(const mxArray* metadata) {
   // Verify that all required fieldnames are provided.
   internal::ValidateMxStructField(metadata, "Description", mxCHAR_CLASS, true);
   internal::ValidateMxStructField(metadata, "Version", mxDOUBLE_CLASS, false);
@@ -297,8 +297,6 @@ arrow::Status FeatherWriter::WriteMetadata(const mxArray* metadata) {
 
   // Store the version information so we could handle possible future API changes.
   this->version_ = static_cast<int32_t>(mxGetScalar(mxGetField(metadata, 0, "Version")));
-
-  return arrow::Status::OK();
 }
 
 // Write mxArrays from MATLAB into a Feather file.

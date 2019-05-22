@@ -40,8 +40,7 @@ class FeatherWriter {
   ///         - "NumVariables" :: scalar mxDouble array, total number of variables
   ///         - "Version" :: scalar mxDouble array, Feather file version
   /// \param[in] metadata mxArray* scalar struct containing table-level metadata
-  /// \return status
-  arrow::Status WriteMetadata(const mxArray* metadata);
+  void WriteMetadata(const mxArray* metadata);
 
   /// \brief Write mxArrays to a Feather file. The input must be a N-by-1 mxStruct
   //         array with the following fields:
