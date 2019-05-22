@@ -30,6 +30,8 @@
 namespace arrow {
 namespace compute {
 
+using internal::checked_cast;
+
 Status Mask(FunctionContext* context, const Array& values, const Array& mask,
             std::shared_ptr<Array>* out) {
   Datum out_datum;
@@ -135,18 +137,18 @@ struct UnpackValues {
   template <typename ValueType>
   Status Visit(const ValueType&) {
     using OutBuilder = typename TypeTraits<ValueType>::BuilderType;
-    auto&& mask = static_cast<const ArrayType<MaskType>&>(*params_.mask);
-    auto&& values = static_cast<const ArrayType<ValueType>&>(*params_.values);
+    const auto& mask = checked_cast<const ArrayType<MaskType>&>(*params_.mask);
+    const auto& values = checked_cast<const ArrayType<ValueType>&>(*params_.values);
     std::unique_ptr<ArrayBuilder> builder;
     RETURN_NOT_OK(MakeBuilder(params_.context->memory_pool(), values.type(), &builder));
     RETURN_NOT_OK(builder->Reserve(OutputSize(mask)));
     RETURN_NOT_OK(UnpackValuesNullCount(params_.context, values, mask,
-                                        static_cast<OutBuilder*>(builder.get())));
+                                        checked_cast<OutBuilder*>(builder.get())));
     return builder->Finish(params_.out);
   }
 
   Status Visit(const NullType& t) {
-    auto&& mask = static_cast<const ArrayType<MaskType>&>(*params_.mask);
+    const auto& mask = checked_cast<const ArrayType<MaskType>&>(*params_.mask);
     params_.out->reset(new NullArray(OutputSize(mask)));
     return Status::OK();
   }
