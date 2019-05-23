@@ -17,9 +17,14 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-set -e
+set -ue
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <next_version>"
+  exit 1
+fi
 
 update_versions() {
   local base_version=$1
@@ -115,9 +120,9 @@ update_versions() {
   cd "${SOURCE_DIR}/../../rust"
   sed -i.bak -E -e \
     "s/^version = \".+\"/version = \"${version}\"/g" \
-    arrow/Cargo.toml parquet/Cargo.toml datafusion/Cargo.toml
-  rm -f arrow/Cargo.toml.bak parquet/Cargo.toml.bak datafusion/Cargo.toml.bak
-  git add arrow/Cargo.toml parquet/Cargo.toml datafusion/Cargo.toml
+    */Cargo.toml
+  rm -f */Cargo.toml.bak
+  git add */Cargo.toml
 
   # Update version number for parquet README
   sed -i.bak -E -e \
@@ -141,18 +146,28 @@ update_versions() {
   cd -
 }
 
-if [ "$#" -eq 2 ]; then
-  ############################## Pre-Tag Commits ##############################
+############################## Pre-Tag Commits ##############################
 
-  version=$1
-  next_version=$2
-  next_version_snapshot=${next_version}-SNAPSHOT
-  tag=apache-arrow-${version}
+version=$1
+next_version=$2
+next_version_snapshot=${next_version}-SNAPSHOT
+tag=apache-arrow-${version}
 
+: ${PREPARE_DEFAULT:=1}
+: ${PREPARE_CHANGELOG:=${PREPARE_DEFAULT}}
+: ${PREPARE_LINUX_PACKAGES:=${PREPARE_DEFAULT}}
+: ${PREPARE_VERSION_PRE_TAG:=${PREPARE_DEFAULT}}
+: ${PREPARE_TAG:=${PREPARE_DEFAULT}}
+: ${PREPARE_VERSION_POST_TAG:=${PREPARE_DEFAULT}}
+: ${PREPARE_DEB_PACKAGE_NAMES:=${PREPARE_DEFAULT}}
+
+if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
   echo "Updating changelog for $version"
   # Update changelog
   $SOURCE_DIR/update-changelog.sh $version
+fi
 
+if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
   echo "Updating .deb/.rpm changelogs for $version"
   cd $SOURCE_DIR/../tasks/linux-packages
   rake \
@@ -162,23 +177,31 @@ if [ "$#" -eq 2 ]; then
   git add debian*/changelog yum/*.spec.in
   git commit -m "[Release] Update .deb/.rpm changelogs for $version"
   cd -
+fi
 
+if [ ${PREPARE_VERSION_PRE_TAG} -gt 0 ]; then
   echo "prepare release ${version} on tag ${tag} then reset to version ${next_version_snapshot}"
 
   update_versions "${version}" "${next_version}" "release"
   git commit -m "[Release] Update versions for ${version}"
+fi
 
+if [ ${PREPARE_TAG} -gt 0 ]; then
   cd "${SOURCE_DIR}/../../java"
   mvn release:clean
   mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot}
   cd -
+fi
 
-  ############################## Post-Tag Commits #############################
+############################## Post-Tag Commits #############################
 
+if [ ${PREPARE_VERSION_POST_TAG} -gt 0 ]; then
   echo "Updating versions for ${next_version_snapshot}"
   update_versions "${version}" "${next_version}" "snapshot"
   git commit -m "[Release] Update versions for ${next_version_snapshot}"
+fi
 
+if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
   echo "Updating .deb package names for ${next_version}"
   deb_lib_suffix=$(echo $version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
   next_deb_lib_suffix=$(echo $next_version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
@@ -186,8 +209,8 @@ if [ "$#" -eq 2 ]; then
     cd $SOURCE_DIR/../tasks/linux-packages/
     for target in debian*/lib*${deb_lib_suffix}.install; do
       git mv \
-        ${target} \
-        $(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
+	${target} \
+	$(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
     done
     deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet|plasma)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
     sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control
@@ -206,10 +229,6 @@ if [ "$#" -eq 2 ]; then
     git commit -m "[Release] Update .deb package names for $next_version"
     cd -
   fi
-
-  echo "Finish staging binary artifacts by running: sh dev/release/01-perform.sh"
-
-else
-  echo "Usage: $0 <version> <next_version>"
-  exit
 fi
+
+echo "Finish staging binary artifacts by running: dev/release/01-perform.sh"
