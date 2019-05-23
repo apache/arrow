@@ -87,11 +87,15 @@ class FlightServer(pyarrow.flight.FlightServerBase):
         if action.type == "clear":
             raise NotImplementedError(
                 "{} is not implemented.".format(action.type))
-        else:
+        elif action.type == "healthcheck":
+            pass
+        elif action.type == "shutdown":
             yield pyarrow.flight.Result(pyarrow.py_buffer(b'Shutdown!'))
             # Shut down on background thread to avoid blocking current
             # request
             threading.Thread(target=self._shutdown).start()
+        else:
+            raise KeyError(f"Unknown action {action.type!r}")
 
     def _shutdown(self):
         """Shut down after a delay."""
