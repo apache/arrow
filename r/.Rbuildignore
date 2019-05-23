@@ -10,3 +10,6 @@ Dockerfile
 ^windows
 clang_format.sh
 ^cran-comments\.md$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

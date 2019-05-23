@@ -36,6 +36,7 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
     covr,
+    pkgdown,
     rmarkdown,
     roxygen2,
     testthat,
