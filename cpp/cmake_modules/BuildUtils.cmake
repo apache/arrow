@@ -179,7 +179,7 @@ function(ADD_ARROW_LIB LIB_NAME)
   else()
     # Otherwise, generate a single "objlib" from all C++ modules and link
     # that "objlib" into each library kind, to avoid compiling twice
-    add_library(${LIB_NAME}_objlib OBJECT ${ARG_SOURCES})
+    add_library(${LIB_NAME}_objlib ${ARG_SOURCES} OBJECT)
     # Necessary to make static linking into other shared libraries work properly
     set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
     if(ARG_DEPENDENCIES)

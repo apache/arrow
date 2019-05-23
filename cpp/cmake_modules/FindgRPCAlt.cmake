@@ -81,24 +81,24 @@ find_package_handle_standard_args(gRPCAlt
                                   GRPC_CPP_PLUGIN)
 
 if(gRPCAlt_FOUND)
-  add_library(gRPC::gpr UNKNOWN IMPORTED)
+  add_library(gRPC::gpr IMPORTED UNKNOWN)
   set_target_properties(gRPC::gpr
                         PROPERTIES IMPORTED_LOCATION "${GRPC_GPR_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
-  add_library(gRPC::grpc UNKNOWN IMPORTED)
+  add_library(gRPC::grpc IMPORTED UNKNOWN)
   set_target_properties(gRPC::grpc
                         PROPERTIES IMPORTED_LOCATION "${GRPC_GRPC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
-  add_library(gRPC::grpc++ UNKNOWN IMPORTED)
+  add_library(gRPC::grpc++ IMPORTED UNKNOWN)
   set_target_properties(gRPC::grpc++
                         PROPERTIES IMPORTED_LOCATION "${GRPC_GRPCPP_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   if(GRPC_ADDRESS_SORTING_LIB)
     # Address sorting is optional and not always requird.
-    add_library(gRPC::address_sorting UNKNOWN IMPORTED)
+    add_library(gRPC::address_sorting IMPORTED UNKNOWN)
     set_target_properties(gRPC::address_sorting
                           PROPERTIES IMPORTED_LOCATION "${GRPC_ADDRESS_SORTING_LIB}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")

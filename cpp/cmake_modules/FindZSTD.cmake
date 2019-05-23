@@ -61,7 +61,7 @@ endif()
 find_package_handle_standard_args(ZSTD REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
 
 if(ZSTD_FOUND)
-  add_library(ZSTD::zstd UNKNOWN IMPORTED)
+  add_library(ZSTD::zstd IMPORTED UNKNOWN)
   set_target_properties(ZSTD::zstd
                         PROPERTIES IMPORTED_LOCATION "${ZSTD_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_INCLUDE_DIR}")
