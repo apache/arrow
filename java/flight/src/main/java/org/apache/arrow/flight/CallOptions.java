@@ -53,6 +53,9 @@ public class CallOptions {
     }
   }
 
+  /**
+   * CallOPtions specific to GRPC stubs.
+   */
   interface GrpcCallOption extends CallOption {
     <T extends AbstractStub<T>> T wrapStub(T stub);
   }

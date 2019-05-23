@@ -39,6 +39,10 @@ import io.grpc.netty.NettyServerBuilder;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 
+/**
+ * Generic server of flight data that is customized via construction with delegate classes for the
+ * actual logic.  The server currently uses GRPC as its transport mechanism.
+ */
 public class FlightServer implements AutoCloseable {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FlightServer.class);

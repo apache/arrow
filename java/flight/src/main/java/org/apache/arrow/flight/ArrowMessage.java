@@ -77,6 +77,7 @@ class ArrowMessage implements AutoCloseable {
 
   private static Marshaller<FlightData> NO_BODY_MARSHALLER = ProtoUtils.marshaller(FlightData.getDefaultInstance());
 
+  /** Types of messages that can be sent. */
   public static enum HeaderType {
     NONE,
     SCHEMA,
