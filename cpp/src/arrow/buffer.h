@@ -89,6 +89,8 @@ class ARROW_EXPORT Buffer {
 
   bool is_mutable() const { return is_mutable_; }
 
+  /// \brief Construct a new std::string with a hexadecimal representation of the buffer.
+  /// \return std::string
   std::string ToHexString();
 
   /// Return true if both buffers are the same size and contain the same bytes
