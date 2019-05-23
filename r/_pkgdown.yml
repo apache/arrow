@@ -93,7 +93,6 @@ reference:
   - FeatherTableWriter
   - FileOutputStream
   - FixedSizeBufferWriter
-  - GetCpuThreadPoolCapacity
   - MessageReader
   - MockOutputStream
   - ReadableFile
@@ -101,7 +100,7 @@ reference:
   - RecordBatchFileWriter
   - RecordBatchStreamReader
   - RecordBatchStreamWriter
-  - SetCpuThreadPoolCapacity
+  - threadpool
   - cast_options
   - compression_codec
   - default_memory_pool
