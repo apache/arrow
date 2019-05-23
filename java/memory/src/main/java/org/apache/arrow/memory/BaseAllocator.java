@@ -59,7 +59,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private volatile boolean isClosed = false; // the allocator has been closed
 
   /**
-   * Initialize an allocator
+   * Initializes an allocator
    * @param parentAllocator   parent allocator. null if defining a root allocator
    * @param listener          listener callback. Must be non-null -- use
    *                          {@link AllocationListener#NOOP} if no listener desired
@@ -176,7 +176,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   /**
-   * Specify an indentation amount when using a StringBuilder.
+   * Specifies the amount of indentation when using a StringBuilder.
    *
    * @param sb StringBuilder to use
    * @param indent Indentation amount
@@ -245,7 +245,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   /**
-   * Track when a ChildAllocator of this BaseAllocator is closed. Used for debugging purposes.
+   * Tracks when a ChildAllocator of this BaseAllocator is closed. Used for debugging purposes.
    *
    * @param childAllocator The child allocator that has been closed.
    */
@@ -502,7 +502,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   /**
-   * Provide a verbose string of the current allocator state. Includes the state of all child
+   * Provides a verbose string of the current allocator state. Includes the state of all child
    * allocators, along with
    * historical logs of each object and including stacktraces.
    *
@@ -863,7 +863,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
 
     /**
-     * Allocate a buffer of the requested size.
+     * Allocates a buffer of the requested size.
      *
      * <p>The implementation of the allocator's inner class provides this.
      *
@@ -900,7 +900,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
 
     /**
-     * Return the reservation back to the allocator without having used it.
+     * Returns the reservation back to the allocator without having used it.
      *
      * @param nBytes the size of the reservation
      */
