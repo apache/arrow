@@ -137,13 +137,14 @@ TEST(TestBuffer, Copy) {
 }
 
 TEST(TestBuffer, ToHexString) {
-  std::string data_str = "\a0 hex string";
+  const uint8_t data_array[] = "\a0hex string\xa9";
+  std::basic_string<uint8_t> data_str = data_array;
 
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
 
   Buffer buf(data, data_str.size());
 
-  ASSERT_EQ(buf.ToHexString(), std::string("07302068657820737472696E67"));
+  ASSERT_EQ(buf.ToHexString(), std::string("073068657820737472696E67A9"));
 }
 
 TEST(TestBuffer, SliceBuffer) {
