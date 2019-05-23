@@ -31,8 +31,9 @@ Imports:
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
+    covr,
     testthat,
-    lubridate, 
+    lubridate,
     hms
 Collate:
     'enums.R'
