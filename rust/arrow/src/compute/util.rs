@@ -17,7 +17,7 @@
 
 //! Common utilities for computation kernels.
 
-use crate::array::{Array, ArrayRef, ListArray, UInt32Array};
+use crate::array::*;
 use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
 use crate::error::Result;
@@ -45,12 +45,15 @@ where
     }
 }
 
-/// Takes/filters a list array's inner offsets
+/// Takes/filters a list array's inner data using the offsets of the list array.
+///
+/// Where a list array has index `[0,2,5,10]`, taking an index of `[2,0]` returns
+/// an array of the indices `[5..10, 0..2]` and offsets `[0,5,7]` (5 elements and 2
+/// elements)
 pub(crate) fn take_index_from_list(
     array: &ArrayRef,
     index: &UInt32Array,
 ) -> (UInt32Array, Vec<i32>) {
-    // TODO complete documenting, and add an example
     // TODO benchmark this function, there might be a faster unsafe alternative
     // get list array's offsets
     let list: &ListArray = array.as_any().downcast_ref::<ListArray>().unwrap();
@@ -72,6 +75,7 @@ pub(crate) fn take_index_from_list(
                 // type annotation needed to guide compiler a bit
                 (start..end).map(|v| Some(v)).collect::<Vec<Option<u32>>>()
             } else {
+                new_offsets.push(current_offset);
                 vec![None]
             }
         })
@@ -82,6 +86,11 @@ pub(crate) fn take_index_from_list(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::sync::Arc;
+
+    use crate::array_data::ArrayData;
+    use crate::datatypes::{DataType, ToByteSlice};
 
     #[test]
     fn test_apply_bin_op_to_option_bitmap() {
@@ -115,4 +124,30 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_take_index_from_list() {
+        let value_data = Int32Array::from((0..10).collect::<Vec<i32>>()).data();
+        let value_offsets = Buffer::from(&[0, 2, 5, 10].to_byte_slice());
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        let array = Arc::new(ListArray::from(list_data)) as ArrayRef;
+        let index = UInt32Array::from(vec![2, 0]);
+        let (indexed, offsets) = take_index_from_list(&array, &index);
+        assert_eq!(vec![0, 5, 7], offsets);
+        let data = UInt32Array::from(vec![
+            Some(5),
+            Some(6),
+            Some(7),
+            Some(8),
+            Some(9),
+            Some(0),
+            Some(1),
+        ])
+        .data();
+        assert_eq!(data, indexed.data());
+    }
 }
