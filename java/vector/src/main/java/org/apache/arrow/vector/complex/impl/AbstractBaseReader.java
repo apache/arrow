@@ -24,7 +24,11 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.UnionHolder;
 
-
+/**
+ * Base class providing common functionality for {@link FieldReader} implementations.
+ *
+ * <p>This includes tracking the current index and throwing implementations of optional methods.
+ */
 abstract class AbstractBaseReader implements FieldReader {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBaseReader.class);

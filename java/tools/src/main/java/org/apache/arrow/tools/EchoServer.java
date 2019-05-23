@@ -98,6 +98,9 @@ public class EchoServer {
     serverSocket.close();
   }
 
+  /**
+   * Handler for each client connection to the server.
+   */
   public static class ClientConnection implements AutoCloseable {
     public final Socket socket;
 

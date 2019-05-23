@@ -20,7 +20,6 @@ package org.apache.arrow.memory;
 import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
@@ -681,6 +680,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
   }
 
+  /**
+   * Enum for logging verbosity.
+   */
   public static enum Verbosity {
     BASIC(false, false), // only include basic information
     LOG(true, false), // include basic

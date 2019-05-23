@@ -21,6 +21,10 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ScalarWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 
+/**
+ * Composite of all writer types.  Writers are convenience classes for incrementally
+ * adding values to {@linkplain org.apache.arrow.vector.ValueVector}s.
+ */
 public interface FieldWriter extends StructWriter, ListWriter, ScalarWriter {
   void allocate();
 
