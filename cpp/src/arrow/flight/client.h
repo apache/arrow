@@ -57,6 +57,11 @@ class ARROW_EXPORT FlightCallOptions {
   TimeoutDuration timeout;
 };
 
+class ARROW_EXPORT FlightClientOptions {
+ public:
+  std::string tls_root_certs;
+};
+
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
 /// API experimental for now
 class ARROW_EXPORT FlightClient {
@@ -64,12 +69,19 @@ class ARROW_EXPORT FlightClient {
   ~FlightClient();
 
   /// \brief Connect to an unauthenticated flight service
-  /// \param[in] host the hostname or IP address
-  /// \param[in] port the port on the host
+  /// \param[in] location the URI
   /// \param[out] client the created FlightClient
   /// \return Status OK status may not indicate that the connection was
   /// successful
-  static Status Connect(const std::string& host, int port,
+  static Status Connect(const Location& location, std::unique_ptr<FlightClient>* client);
+
+  /// \brief Connect to an unauthenticated flight service
+  /// \param[in] location the URI
+  /// \param[in] options Other options for setting up the client
+  /// \param[out] client the created FlightClient
+  /// \return Status OK status may not indicate that the connection was
+  /// successful
+  static Status Connect(const Location& location, const FlightClientOptions& options,
                         std::unique_ptr<FlightClient>* client);
 
   /// \brief Authenticate to the server using the given handler.

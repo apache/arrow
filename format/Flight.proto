@@ -246,7 +246,7 @@ message FlightEndpoint {
   Ticket ticket = 1;
 
   /*
-   * A list of locations where this ticket can be redeemed. If the list is
+   * A list of URIs where this ticket can be redeemed. If the list is
    * empty, the expectation is that the ticket can only be redeemed on the
    * current service where the ticket was generated.
    */
@@ -254,12 +254,11 @@ message FlightEndpoint {
 }
 
 /*
- * A location where a flight service will accept retrieval of a particular
- *  stream given a ticket.
+ * A location where a Flight service will accept retrieval of a particular
+ * stream given a ticket.
  */
 message Location {
-  string host = 1;
-  int32 port = 2;
+  string uri = 1;
 }
 
 /*

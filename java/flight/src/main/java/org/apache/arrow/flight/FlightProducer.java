@@ -39,7 +39,8 @@ public interface FlightProducer {
   public Callable<PutResult> acceptPut(CallContext context,
       FlightStream flightStream);
 
-  public Result doAction(CallContext context, Action action);
+  public void doAction(CallContext context, Action action,
+      StreamListener<Result> listener);
 
   public void listActions(CallContext context,
       StreamListener<ActionType> listener);

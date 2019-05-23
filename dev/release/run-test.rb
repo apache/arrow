@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,33 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[package]
-name = "parquet"
-version = "0.14.0-SNAPSHOT"
-license = "Apache-2.0"
-description = "Apache Parquet implementation in Rust"
-homepage = "https://github.com/apache/arrow"
-repository = "https://github.com/apache/arrow"
-authors = ["Apache Arrow <dev@arrow.apache.org>"]
-keywords = [ "arrow", "parquet", "hadoop" ]
-readme = "README.md"
-build = "build.rs"
-edition = "2018"
+$VERBOSE = true
 
-[dependencies]
-parquet-format = "2.5.0"
-quick-error = "1.2.2"
-byteorder = "1"
-thrift = "0.0.4"
-snap = "0.2"
-brotli = "2.5"
-flate2 = "1.0.2"
-lz4 = "1.23"
-zstd = "0.4"
-chrono = "0.4"
-num-bigint = "0.2"
-arrow = { path = "../arrow" }
+require "pathname"
 
-[dev-dependencies]
-lazy_static = "1"
-rand = "0.5"
+test_dir = Pathname.new(__dir__)
+
+require "test-unit"
+require_relative "test-helper"
+
+ENV["TEST_UNIT_MAX_DIFF_TARGET_STRING_SIZE"] = "10000"
+
+exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))

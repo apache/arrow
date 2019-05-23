@@ -19,8 +19,10 @@ package org.apache.arrow.flight;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -67,7 +69,7 @@ public class FlightInfo {
   /**
    * Constructs from the protocol buffer representation.
    */
-  FlightInfo(Flight.FlightInfo pbFlightInfo) {
+  FlightInfo(Flight.FlightInfo pbFlightInfo) throws URISyntaxException {
     try {
       final ByteBuffer schemaBuf = pbFlightInfo.getSchema().asReadOnlyByteBuffer();
       schema = pbFlightInfo.getSchema().size() > 0 ?
@@ -78,7 +80,10 @@ public class FlightInfo {
       throw new RuntimeException(e);
     }
     descriptor = new FlightDescriptor(pbFlightInfo.getFlightDescriptor());
-    endpoints = pbFlightInfo.getEndpointList().stream().map(t -> new FlightEndpoint(t)).collect(Collectors.toList());
+    endpoints = new ArrayList<>();
+    for (final Flight.FlightEndpoint endpoint : pbFlightInfo.getEndpointList()) {
+      endpoints.add(new FlightEndpoint(endpoint));
+    }
     bytes = pbFlightInfo.getTotalBytes();
     records = pbFlightInfo.getTotalRecords();
   }

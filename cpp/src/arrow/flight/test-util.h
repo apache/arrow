@@ -63,17 +63,17 @@ class ARROW_EXPORT TestServer {
 
 class ARROW_EXPORT InProcessTestServer {
  public:
-  explicit InProcessTestServer(std::unique_ptr<FlightServerBase> server, int port)
-      : server_(std::move(server)), port_(port), thread_() {}
+  explicit InProcessTestServer(std::unique_ptr<FlightServerBase> server,
+                               const Location& location)
+      : server_(std::move(server)), location_(location), thread_() {}
   ~InProcessTestServer();
   Status Start();
-  Status Start(std::unique_ptr<ServerAuthHandler> auth_handler);
   void Stop();
-  int port() const;
+  const Location& location() const;
 
  private:
   std::unique_ptr<FlightServerBase> server_;
-  int port_;
+  Location location_;
   std::thread thread_;
 };
 

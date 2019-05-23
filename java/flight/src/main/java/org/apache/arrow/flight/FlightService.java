@@ -31,7 +31,6 @@ import org.apache.arrow.flight.impl.Flight.Empty;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.Flight.PutResult;
-import org.apache.arrow.flight.impl.Flight.Result;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -90,12 +89,10 @@ class FlightService extends FlightServiceImplBase {
   }
 
   @Override
-  public void doAction(Flight.Action request, StreamObserver<Result> responseObserver) {
+  public void doAction(Flight.Action request, StreamObserver<Flight.Result> responseObserver) {
     try {
-      responseObserver.onNext(
-          producer.doAction(makeContext((ServerCallStreamObserver<?>) responseObserver), new Action(request))
-              .toProtocol());
-      responseObserver.onCompleted();
+      producer.doAction(makeContext((ServerCallStreamObserver<?>) responseObserver), new Action(request),
+          StreamPipe.wrap(responseObserver, Result::toProtocol));
     } catch (Exception ex) {
       responseObserver.onError(ex);
     }

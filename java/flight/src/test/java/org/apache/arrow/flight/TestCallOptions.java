@@ -70,8 +70,11 @@ public class TestCallOptions {
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
         FlightServer s =
-            FlightTestUtil.getStartedServer((port) -> new FlightServer(a, port, producer, ServerAuthHandler.NO_OP));
-        FlightClient client = new FlightClient(a, new Location(FlightTestUtil.LOCALHOST, s.getPort()))) {
+            FlightTestUtil.getStartedServer(
+                (port) -> FlightServer.builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, port), producer)
+                    .build());
+        FlightClient client = FlightClient.builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort()))
+            .build()) {
       testFn.accept(client);
     } catch (InterruptedException | IOException e) {
       throw new RuntimeException(e);
@@ -91,7 +94,7 @@ public class TestCallOptions {
     }
 
     @Override
-    public Result doAction(CallContext context, Action action) {
+    public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
       switch (action.getType()) {
         case "hang": {
           try {
@@ -99,7 +102,9 @@ public class TestCallOptions {
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
-          return new Result(new byte[]{});
+          listener.onNext(new Result(new byte[]{}));
+          listener.onCompleted();
+          return;
         }
         case "fast": {
           try {
@@ -107,7 +112,9 @@ public class TestCallOptions {
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
-          return new Result(new byte[]{42, 42});
+          listener.onNext(new Result(new byte[]{42, 42}));
+          listener.onCompleted();
+          return;
         }
         default: {
           throw new UnsupportedOperationException(action.getType());

@@ -118,20 +118,17 @@ bool TestServer::IsRunning() { return server_process_->running(); }
 
 int TestServer::port() const { return port_; }
 
-Status InProcessTestServer::Start(std::unique_ptr<ServerAuthHandler> auth_handler) {
-  RETURN_NOT_OK(server_->Init(std::move(auth_handler), port_));
+Status InProcessTestServer::Start() {
   thread_ = std::thread([this]() { ARROW_EXPECT_OK(server_->Serve()); });
   return Status::OK();
 }
-
-Status InProcessTestServer::Start() { return Start({}); }
 
 void InProcessTestServer::Stop() {
   server_->Shutdown();
   thread_.join();
 }
 
-int InProcessTestServer::port() const { return port_; }
+const Location& InProcessTestServer::location() const { return location_; }
 
 InProcessTestServer::~InProcessTestServer() {
   // Make sure server shuts down properly
@@ -169,12 +166,21 @@ std::shared_ptr<Schema> ExampleDictSchema() {
 }
 
 std::vector<FlightInfo> ExampleFlightInfo() {
+  Location location1;
+  Location location2;
+  Location location3;
+  Location location4;
+  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo1.bar.com", 12345, &location1));
+  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo2.bar.com", 12345, &location2));
+  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo3.bar.com", 12345, &location3));
+  ARROW_EXPECT_OK(Location::ForGrpcTcp("foo4.bar.com", 12345, &location4));
+
   FlightInfo::Data flight1, flight2, flight3;
 
-  FlightEndpoint endpoint1({{"ticket-ints-1"}, {{"foo1.bar.com", 92385}}});
-  FlightEndpoint endpoint2({{"ticket-ints-2"}, {{"foo2.bar.com", 92385}}});
-  FlightEndpoint endpoint3({{"ticket-cmd"}, {{"foo3.bar.com", 92385}}});
-  FlightEndpoint endpoint4({{"ticket-dicts-1"}, {{"foo4.bar.com", 92385}}});
+  FlightEndpoint endpoint1({{"ticket-ints-1"}, {location1}});
+  FlightEndpoint endpoint2({{"ticket-ints-2"}, {location2}});
+  FlightEndpoint endpoint3({{"ticket-cmd"}, {location3}});
+  FlightEndpoint endpoint4({{"ticket-dicts-1"}, {location4}});
 
   FlightDescriptor descr1{FlightDescriptor::PATH, "", {"examples", "ints"}};
   FlightDescriptor descr2{FlightDescriptor::CMD, "my_command", {}};

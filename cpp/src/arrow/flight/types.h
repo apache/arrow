@@ -39,7 +39,13 @@ namespace ipc {
 
 class DictionaryMemo;
 
-}
+}  // namespace ipc
+
+namespace internal {
+
+class Uri;
+
+}  // namespace internal
 
 namespace flight {
 
@@ -115,10 +121,55 @@ struct Ticket {
   std::string ticket;
 };
 
-/// \brief A host location (hostname and port)
+class FlightClient;
+class FlightServerBase;
+
+static const char* kSchemeGrpc = "grpc";
+static const char* kSchemeGrpcTcp = "grpc+tcp";
+static const char* kSchemeGrpcUnix = "grpc+unix";
+static const char* kSchemeGrpcTls = "grpc+tls";
+
+/// \brief A host location (a URI)
 struct Location {
-  std::string host;
-  int32_t port;
+ public:
+  /// \brief Initialize a blank location.
+  Location();
+
+  /// \brief Initialize a location by parsing a URI string
+  static Status Parse(const std::string& uri_string, Location* location);
+
+  /// \brief Initialize a location for a non-TLS, gRPC-based Flight
+  /// service from a host and port
+  /// \param[in] host The hostname to connect to
+  /// \param[in] port The port
+  /// \param[out] location The resulting location
+  static Status ForGrpcTcp(const std::string& host, const int port, Location* location);
+
+  /// \brief Initialize a location for a domain socket-based Flight
+  /// service
+  /// \param[in] path The path to the domain socket
+  /// \param[out] location The resulting location
+  static Status ForGrpcUnix(const std::string& path, Location* location);
+
+  /// \brief Get a representation of this URI as a string.
+  std::string ToString() const;
+
+  /// \brief Get the scheme of this URI.
+  std::string scheme() const;
+
+  bool Equals(const Location& other) const;
+
+  friend bool operator==(const Location& left, const Location& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const Location& left, const Location& right) {
+    return !(left == right);
+  }
+
+ private:
+  friend class FlightClient;
+  friend class FlightServerBase;
+  std::shared_ptr<arrow::internal::Uri> uri_;
 };
 
 /// \brief A flight ticket and list of locations where the ticket can be

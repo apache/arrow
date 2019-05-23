@@ -48,7 +48,8 @@ public class NoOpFlightProducer implements FlightProducer {
   }
 
   @Override
-  public Result doAction(CallContext context, Action action) {
+  public void doAction(CallContext context, Action action,
+      StreamListener<Result> listener) {
     throw new UnsupportedOperationException("NYI");
   }
 

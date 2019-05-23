@@ -136,8 +136,8 @@ endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
-    find_package(${DEPENDENCY_NAME} QUIET)
-    if(NOT ${DEPENDENCY_NAME}_FOUND)
+    find_package(${DEPENDENCY_NAME} MODULE)
+    if(NOT ${${DEPENDENCY_NAME}_FOUND})
       build_dependency(${DEPENDENCY_NAME})
     endif()
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
@@ -171,6 +171,7 @@ endif()
 
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
+  set(ARROW_WITH_URIPARSER ON)
 endif()
 
 if(ARROW_FLIGHT OR ARROW_IPC)
@@ -578,16 +579,18 @@ macro(build_uriparser)
   add_dependencies(uriparser::uriparser uriparser_ep)
 endmacro()
 
-# Unless the user overrides uriparser_SOURCE, build uriparser ourselves
-if("${uriparser_SOURCE}" STREQUAL "")
-  set(uriparser_SOURCE "BUNDLED")
+if(ARROW_WITH_URIPARSER)
+  # Unless the user overrides uriparser_SOURCE, build uriparser ourselves
+  if("${uriparser_SOURCE}" STREQUAL "")
+    set(uriparser_SOURCE "BUNDLED")
+  endif()
+
+  resolve_dependency(uriparser)
+
+  get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 endif()
-
-resolve_dependency(uriparser)
-
-get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
-                    INTERFACE_INCLUDE_DIRECTORIES)
-include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 
 # ----------------------------------------------------------------------
 # Snappy

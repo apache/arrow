@@ -141,7 +141,8 @@ Status GetPerfBatches(const perf::Token& token, const std::shared_ptr<Schema>& s
 
 class FlightPerfServer : public FlightServerBase {
  public:
-  FlightPerfServer() : location_(Location{"localhost", FLAGS_port}) {
+  FlightPerfServer() : location_() {
+    DCHECK_OK(Location::ForGrpcTcp("localhost", FLAGS_port, &location_));
     perf_schema_ = schema({field("a", int64()), field("b", int64()), field("c", int64()),
                            field("d", int64())});
   }
@@ -204,8 +205,11 @@ int main(int argc, char** argv) {
 
   g_server.reset(new arrow::flight::FlightPerfServer);
 
-  ARROW_CHECK_OK(
-      g_server->Init(std::unique_ptr<arrow::flight::NoOpAuthHandler>(), FLAGS_port));
+  arrow::flight::Location location;
+  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  arrow::flight::FlightServerOptions options(location);
+
+  ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
   std::cout << "Server port: " << FLAGS_port << std::endl;
