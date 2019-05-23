@@ -143,7 +143,7 @@ TEST(TestBuffer, ToHexString) {
 
   Buffer buf(data, data_str.size());
 
-  ASSERT_EQ(buf.ToHexString(), std::string("07302068657820737472696e67"));
+  ASSERT_EQ(buf.ToHexString(), std::string("07302068657820737472696E67"));
 }
 
 TEST(TestBuffer, SliceBuffer) {
