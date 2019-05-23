@@ -26,7 +26,7 @@ import io.netty.buffer.ByteBufAllocator;
 public interface BufferAllocator extends AutoCloseable {
 
   /**
-   * Allocates a new or reused buffer of the provided size. Note that the buffer may technically
+   * Allocate a new or reused buffer of the provided size. Note that the buffer may technically
    * be larger than the
    * requested size for rounding purposes. However, the buffer's capacity will be set to the
    * configured size.
@@ -38,7 +38,7 @@ public interface BufferAllocator extends AutoCloseable {
   public ArrowBuf buffer(int size);
 
   /**
-   * Allocates a new or reused buffer of the provided size. Note that the buffer may technically
+   * Allocate a new or reused buffer of the provided size. Note that the buffer may technically
    * be larger than the
    * requested size for rounding purposes. However, the buffer's capacity will be set to the
    * configured size.
@@ -79,7 +79,7 @@ public interface BufferAllocator extends AutoCloseable {
   public ByteBufAllocator getAsByteBufAllocator();
 
   /**
-   * Creates a new child allocator.
+   * Create a new child allocator.
    *
    * @param name            the name of the allocator.
    * @param initReservation the initial space reservation (obtained from this allocator)
@@ -89,7 +89,7 @@ public interface BufferAllocator extends AutoCloseable {
   public BufferAllocator newChildAllocator(String name, long initReservation, long maxAllocation);
 
   /**
-   * Creates a new child allocator.
+   * Create a new child allocator.
    *
    * @param name            the name of the allocator.
    * @param listener        allocation listener for the newly created child
@@ -104,7 +104,7 @@ public interface BufferAllocator extends AutoCloseable {
       long maxAllocation);
 
   /**
-   * Closes and releases all buffers generated from this buffer pool.
+   * Close and release all buffers generated from this buffer pool.
    *
    * <p>When assertions are on, complains if there are any outstanding buffers; to avoid
    * that, release all buffers before the allocator is closed.</p>
@@ -120,21 +120,21 @@ public interface BufferAllocator extends AutoCloseable {
   public long getAllocatedMemory();
 
   /**
-   * Returns the current maximum limit this allocator imposes.
+   * Return the current maximum limit this allocator imposes.
    *
    * @return Limit in number of bytes.
    */
   public long getLimit();
 
   /**
-   * Returns the initial reservation.
+   * Return the initial reservation.
    *
    * @return reservation in bytes.
    */
   public long getInitReservation();
 
   /**
-   * Sets the maximum amount of memory this allocator is allowed to allocate.
+   * Set the maximum amount of memory this allocator is allowed to allocate.
    *
    * @param newLimit The new Limit to apply to allocations
    */
@@ -156,7 +156,7 @@ public interface BufferAllocator extends AutoCloseable {
   public long getHeadroom();
 
   /**
-   * Creates an allocation reservation. A reservation is a way of building up
+   * Create an allocation reservation. A reservation is a way of building up
    * a request for a buffer whose size is not known in advance. See
    *
    * @return the newly created reservation
@@ -165,7 +165,7 @@ public interface BufferAllocator extends AutoCloseable {
   public AllocationReservation newReservation();
 
   /**
-   * Gets a reference to the empty buffer associated with this allocator. Empty buffers are
+   * Get a reference to the empty buffer associated with this allocator. Empty buffers are
    * special because we don't
    * worry about them leaking or managing reference counts on them since they don't actually
    * point to any memory.
@@ -175,7 +175,7 @@ public interface BufferAllocator extends AutoCloseable {
   public ArrowBuf getEmpty();
 
   /**
-   * Returns the name of this allocator. This is a human readable name that can help debugging.
+   * Return the name of this allocator. This is a human readable name that can help debugging.
    * Typically provides
    * coordinates about where this allocator was created
    *
@@ -184,7 +184,7 @@ public interface BufferAllocator extends AutoCloseable {
   public String getName();
 
   /**
-   * Returns whether or not this allocator (or one if its parents) is over its limits. In the case
+   * Return whether or not this allocator (or one if its parents) is over its limits. In the case
    * that an allocator is
    * over its limit, all consumers of that allocator should aggressively try to addrss the
    * overlimit situation.
@@ -194,7 +194,7 @@ public interface BufferAllocator extends AutoCloseable {
   public boolean isOverLimit();
 
   /**
-   * Returns a verbose string describing this allocator. If in DEBUG mode, this will also include
+   * Return a verbose string describing this allocator. If in DEBUG mode, this will also include
    * relevant stacktraces
    * and historical logs for underlying objects
    *
