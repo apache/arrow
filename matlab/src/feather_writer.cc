@@ -207,10 +207,8 @@ std::unique_ptr<arrow::Array> WriteNumericData(
   // Construct arrow::NumericArray specialization using arrow::Buffer.
   // Pass in nulls information...we could compute and provide the number of nulls here too,
   // but passing -1 for now so that Arrow recomputes it if necessary.
-  std::unique_ptr<arrow::Array> array_wrapper(new arrow::NumericArray<ArrowDataType>(
+  return std::unique_ptr<arrow::Array>(new arrow::NumericArray<ArrowDataType>(
       mxGetNumberOfElements(data), buffer, validity_bitmap, -1));
-
-  return array_wrapper;
 }
 
 // Dispatch MATLAB column data to the correct arrow::Array converter.
