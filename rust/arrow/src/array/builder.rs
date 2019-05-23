@@ -472,6 +472,16 @@ impl BinaryBuilder {
         Ok(())
     }
 
+    /// Appends a byte slice into the builder.
+    ///
+    /// Automatically calls the `append` method to delimit the slice appended in as a
+    /// distinct array element.
+    pub fn append_values(&mut self, value: &[u8]) -> Result<()> {
+        self.builder.values().append_slice(value)?;
+        self.builder.append(true)?;
+        Ok(())
+    }
+
     /// Appends a `&String` or `&str` into the builder.
     ///
     /// Automatically calls the `append` method to delimit the string appended in as a

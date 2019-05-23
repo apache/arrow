@@ -20,14 +20,26 @@
 use std::sync::Arc;
 
 use crate::array::*;
+use crate::array_data::ArrayData;
+use crate::buffer::Buffer;
 use crate::builder::*;
+use crate::compute::util::take_index_from_list;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 
-pub fn take(array: &ArrayRef, index: &UInt32Array) -> Result<ArrayRef> {
+pub fn take(
+    array: &ArrayRef,
+    index: &UInt32Array,
+    options: Option<&TakeOptions>,
+) -> Result<ArrayRef> {
     use TimeUnit::*;
+
+    let options = options.map(|opt| opt.clone()).unwrap_or(Default::default());
+    if options.check_bounds {
+        // TODO check bounds once, and fail early if index is out of bounds
+    }
     match array.data_type() {
-        DataType::Boolean => panic!(),
+        DataType::Boolean => take_bool(array, index),
         DataType::Int8 => take_numeric::<Int8Type>(array, index),
         DataType::Int16 => take_numeric::<Int16Type>(array, index),
         DataType::Int32 => take_numeric::<Int32Type>(array, index),
@@ -60,19 +72,37 @@ pub fn take(array: &ArrayRef, index: &UInt32Array) -> Result<ArrayRef> {
         DataType::Timestamp(Nanosecond) => {
             take_numeric::<TimestampNanosecondType>(array, index)
         }
-        DataType::Utf8 => panic!(),
-        DataType::List(_) => unimplemented!(),
+        DataType::Utf8 => take_binary(array, index),
+        DataType::List(_) => take_list(array, index),
         DataType::Struct(fields) => {
             let struct_: &StructArray =
                 array.as_any().downcast_ref::<StructArray>().unwrap();
-            let arrays: Result<Vec<ArrayRef>> =
-                struct_.columns().iter().map(|a| take(a, index)).collect();
+            let arrays: Result<Vec<ArrayRef>> = struct_
+                .columns()
+                .iter()
+                .map(|a| take(a, index, Some(&options)))
+                .collect();
             let arrays = arrays?;
             let pairs: Vec<(Field, ArrayRef)> =
                 fields.clone().into_iter().zip(arrays).collect();
             Ok(Arc::new(StructArray::from(pairs)) as ArrayRef)
         }
         t @ _ => unimplemented!("Sort not supported for data type {:?}", t),
+    }
+}
+
+/// Options that define how `take` should behave
+#[derive(Clone)]
+pub struct TakeOptions {
+    /// perform bounds check before taking
+    pub check_bounds: bool,
+}
+
+impl Default for TakeOptions {
+    fn default() -> Self {
+        Self {
+            check_bounds: false,
+        }
     }
 }
 
@@ -105,6 +135,81 @@ where
     Ok(Arc::new(builder.finish()) as ArrayRef)
 }
 
+/// `take` implementation for binary arrays
+fn take_binary(array: &ArrayRef, index: &UInt32Array) -> Result<ArrayRef> {
+    let mut builder = BinaryBuilder::new(index.len());
+    let a = array.as_any().downcast_ref::<BinaryArray>().unwrap();
+    let len = a.len();
+    for i in 0..index.len() {
+        if index.is_null(i) {
+            builder.append(false)?;
+        } else {
+            let ix = index.value(i) as usize;
+            if ix >= len {
+                return Err(ArrowError::ComputeError(
+                    format!("Array index out of bounds, cannot get item at index {} from {} length", ix, len))
+                );
+            } else {
+                if a.is_null(ix) {
+                    builder.append(false)?;
+                } else {
+                    builder.append_values(a.value(ix))?;
+                }
+            }
+        }
+    }
+    Ok(Arc::new(builder.finish()) as ArrayRef)
+}
+
+/// `take` implementation for boolean arrays
+fn take_bool(array: &ArrayRef, index: &UInt32Array) -> Result<ArrayRef> {
+    let mut builder = BooleanBuilder::new(index.len());
+    let a = array.as_any().downcast_ref::<BooleanArray>().unwrap();
+    let len = a.len();
+    for i in 0..index.len() {
+        if index.is_null(i) {
+            builder.append_null()?;
+        } else {
+            let ix = index.value(i) as usize;
+            if ix >= len {
+                return Err(ArrowError::ComputeError(
+                    format!("Array index out of bounds, cannot get item at index {} from {} length", ix, len))
+                );
+            } else {
+                if a.is_null(ix) {
+                    builder.append_null()?;
+                } else {
+                    builder.append_value(a.value(ix))?;
+                }
+            }
+        }
+    }
+    Ok(Arc::new(builder.finish()) as ArrayRef)
+}
+
+/// `take` implementation for list arrays
+///
+/// Works by calculating the index and indexed offset for the inner array,
+/// applying `take` on the inner array, then reconstructing a list array
+/// with the indexed offsets
+fn take_list(array: &ArrayRef, index: &UInt32Array) -> Result<ArrayRef> {
+    let list: &ListArray = array.as_any().downcast_ref::<ListArray>().unwrap();
+    let (indices, offsets) = take_index_from_list(array, index);
+    let taken = take(&list.values(), &indices, None)?;
+    let value_offsets = Buffer::from(offsets[..].to_byte_slice());
+    let list_data = ArrayData::new(
+        list.data_type().clone(),
+        index.len(),
+        Some(index.null_count()),
+        taken.data().null_bitmap().clone().map(|bitmap| bitmap.bits),
+        0,
+        vec![value_offsets],
+        vec![taken.data()],
+    );
+    let list_array = Arc::new(ListArray::from(Arc::new(list_data))) as ArrayRef;
+    Ok(list_array)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,11 +223,11 @@ mod tests {
         PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
         let a = PrimitiveArray::<T>::from(data);
-        take(&(Arc::new(a) as ArrayRef), index).unwrap()
+        take(&(Arc::new(a) as ArrayRef), index, None).unwrap()
     }
 
     #[test]
-    fn take_primitive() {
+    fn test_take_primitive() {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(3)]);
 
         // uint8
@@ -176,14 +281,101 @@ mod tests {
         assert_eq!(b.data(), a.data());
     }
 
-    // #[test]
-    // fn take_bool() {}
+    #[test]
+    fn test_take_bool() {
+        let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
+        let array = BooleanArray::from(vec![
+            Some(true),
+            Some(false),
+            None,
+            Some(false),
+            Some(true),
+            None,
+        ]);
+        let array = Arc::new(array) as ArrayRef;
+        let a = take(&array, &index, None).unwrap();
+        assert_eq!(a.len(), index.len());
+        let b = BooleanArray::from(vec![
+            Some(false),
+            None,
+            Some(false),
+            Some(false),
+            Some(true),
+        ]);
+        assert_eq!(a.data(), b.data());
+    }
 
-    // #[test]
-    // fn take_binary() {}
+    #[test]
+    fn test_take_binary() {
+        let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
+        let mut builder: BinaryBuilder = BinaryBuilder::new(6);
+        builder.append_string("one").unwrap();
+        builder.append_null().unwrap();
+        builder.append_string("three").unwrap();
+        builder.append_string("four").unwrap();
+        builder.append_string("five").unwrap();
+        let array = Arc::new(builder.finish()) as ArrayRef;
+        let a = take(&array, &index, None).unwrap();
+        assert_eq!(a.len(), index.len());
+        builder.append_string("four").unwrap();
+        builder.append_null().unwrap();
+        builder.append_null().unwrap();
+        builder.append_string("four").unwrap();
+        builder.append_string("five").unwrap();
+        let b = builder.finish();
+        assert_eq!(a.data(), b.data());
+    }
 
-    // #[test]
-    // fn take_list() {}
+    #[test]
+    fn test_take_list() {
+        // Construct a value array, [[0,0,0], [-1,-2,-1], [2,3]]
+        let value_data = Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 3]).data();
+        // Construct offsets
+        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
+        // Construct a list array from the above two
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
+
+        // index returns: [[2,3], null, [-1,-2,-1], [2,3], [0,0,0]]
+        let index = UInt32Array::from(vec![Some(2), None, Some(1), Some(2), Some(0)]);
+
+        let a = take(&list_array, &index, None).unwrap();
+        let a = a.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(5, a.len());
+        let b = a.values();
+        let b = Int32Array::from(b.data());
+
+        let taken_values = Int32Array::from(vec![
+            Some(2),
+            Some(3),
+            None,
+            Some(-1),
+            Some(-2),
+            Some(-1),
+            Some(2),
+            Some(3),
+            Some(0),
+            Some(0),
+            Some(0),
+        ]);
+        let taken_offsets = Buffer::from(&[0, 2, 2, 5, 7, 10].to_byte_slice());
+        let taken_list_data = ArrayData::builder(list_data_type.clone())
+            .len(5)
+            .null_count(1)
+            .add_buffer(taken_offsets.clone())
+            .add_child_data(taken_values.data().clone())
+            .build();
+        // taken values should match b
+        assert_eq!(format!("{:?}", b), format!("{:?}", taken_values));
+        // assert_eq!(b.data(), taken_values.data());
+        // list data should be equal
+        // assert_eq!(taken_list_data, a.data());
+    }
 
     // #[test]
     // fn take_struct() {}
