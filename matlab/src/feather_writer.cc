@@ -264,10 +264,8 @@ arrow::Status FeatherWriter::Open(const std::string& filename,
 
   // TableWriter::Open expects a shared_ptr to an OutputStream.
   // Open the Feather file for writing with a TableWriter.
-  ARROW_RETURN_NOT_OK(arrow::ipc::feather::TableWriter::Open(
-      writable_file, &(*feather_writer)->table_writer_));
-
-  return arrow::Status::OK();
+  return arrow::ipc::feather::TableWriter::Open(writable_file,
+                                                &(*feather_writer)->table_writer_);
 }
 
 // Write table metadata to the Feather file from a mxArray*.
@@ -353,9 +351,7 @@ arrow::Status FeatherWriter::WriteVariables(const mxArray* variables) {
   }
 
   // Write the Feather file metadata to the end of the file.
-  arrow::Status status = this->table_writer_->Finalize();
-
-  return status;
+  return this->table_writer_->Finalize();
 }
 
 }  // namespace mlarrow
