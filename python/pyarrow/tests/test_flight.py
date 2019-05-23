@@ -276,8 +276,8 @@ def test_flight_do_get_ints():
     """Try a simple do_get call."""
     table = simple_ints_table()
 
-    with flight_server(ConstantFlightServer) as server_port:
-        client = flight.FlightClient.connect('localhost', server_port)
+    with flight_server(ConstantFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
@@ -321,10 +321,7 @@ def test_flight_get_info():
 
 def test_flight_domain_socket():
     """Try a simple do_get call over a domain socket."""
-    data = [
-        pa.array([-10, -5, 0, 5, 10])
-    ]
-    table = pa.Table.from_arrays(data, names=['a'])
+    table = simple_ints_table()
 
     with tempfile.NamedTemporaryFile() as sock:
         sock.close()
@@ -332,7 +329,7 @@ def test_flight_domain_socket():
         with flight_server(ConstantFlightServer,
                            location=location) as server_location:
             client = flight.FlightClient.connect(server_location)
-            data = client.do_get(flight.Ticket(b'')).read_all()
+            data = client.do_get(flight.Ticket(b'ints')).read_all()
             assert data.equals(table)
 
 
