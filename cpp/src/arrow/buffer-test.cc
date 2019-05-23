@@ -136,6 +136,16 @@ TEST(TestBuffer, Copy) {
   ASSERT_EQ(0, memcmp(out->data() + out->size(), zeros.data(), zeros.size()));
 }
 
+TEST(TestBuffer, ToHexString) {
+  std::string data_str = "\a0 hex string";
+
+  auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
+
+  Buffer buf(data, data_str.size());
+
+  ASSERT_EQ(buf.ToHexString(), std::string("07302068657820737472696e67"));
+}
+
 TEST(TestBuffer, SliceBuffer) {
   std::string data_str = "some data to slice";
 
