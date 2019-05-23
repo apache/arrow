@@ -314,8 +314,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return empty;
     }
 
-    // round to a power of two if we're within a chunk since that is how our allocator
-    // operates
+    // The actual buffer size may not equal the requested buffer size.
+    // This happens when the requested buffer size is within a chunk size. In that case, the actual buffer size
+    // must be a power of 2, and the specific rounding behavior depends on the rounding option:
+    // 1. If rounding up is used as the option, the actual buffer size will be requested size rounded up to the nearest power of 2.
+    // 2. If rounding down is used, the actual buffer size will be the requested size rounded down to the nearest power of 2.
     final int actualRequestSize = getRoundedSize(initialRequestSize, roundingOption);
 
     listener.onPreAllocation(actualRequestSize);
