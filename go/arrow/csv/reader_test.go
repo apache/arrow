@@ -198,7 +198,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		csv.WithAllocator(mem),
 		csv.WithComment('#'), csv.WithComma(';'),
 		csv.WithHeader(withHeader),
-		csv.WithNullString("null"),
+		csv.WithNullReader(true),
 	)
 	defer r.Release()
 
@@ -275,6 +275,8 @@ rec[2]["str"]: [(null)]
 		r := csv.NewReader(bytes.NewReader(raw), schema,
 			csv.WithAllocator(mem),
 			csv.WithComment('#'), csv.WithComma(';'),
+			csv.WithHeader(withHeader),
+			csv.WithNullReader(true),
 		)
 
 		r.Next()

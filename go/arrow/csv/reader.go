@@ -18,6 +18,7 @@ package csv
 
 import (
 	"encoding/csv"
+	"fmt"
 	"io"
 	"strconv"
 	"sync"
@@ -49,7 +50,10 @@ type Reader struct {
 	header bool
 	once   sync.Once
 
-	null string
+	fieldConverter []func(field array.Builder, val string)
+
+	stringsCanBeNull bool
+	nullValues       []string
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
@@ -61,11 +65,12 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 	validate(schema)
 
 	rr := &Reader{
-		r:      csv.NewReader(r),
-		schema: schema,
-		refs:   1,
-		chunk:  1,
-		null:   "NULL",
+		r:                csv.NewReader(r),
+		schema:           schema,
+		refs:             1,
+		chunk:            1,
+		stringsCanBeNull: false,
+		nullValues:       []string{"", "NULL", "null"},
 	}
 	rr.r.ReuseRecord = true
 	for _, opt := range opts {
@@ -86,6 +91,15 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 	default:
 		rr.next = rr.next1
 	}
+
+	// Create a table of functions that will parse columns. This optimization
+	// allows us to specialize the implementation of each column's decoding
+	// and hoist type-based branches outside the inner loop.
+	rr.fieldConverter = make([]func(array.Builder, string), len(schema.Fields()))
+	for idx, field := range schema.Fields() {
+		rr.fieldConverter[idx] = rr.initFieldConverter(&field)
+	}
+
 	return rr
 }
 
@@ -232,146 +246,185 @@ func (r *Reader) validate(recs []string) {
 	}
 }
 
-func (r *Reader) read(recs []string) {
-	for i, str := range recs {
-		if str == r.null {
-			r.bld.Field(i).AppendNull()
-		} else {
-			switch r.schema.Field(i).Type.(type) {
-			case *arrow.BooleanType:
-				var v bool
-				switch str {
-				case "false", "False", "0":
-					v = false
-				case "true", "True", "1":
-					v = true
-				}
-				r.bld.Field(i).(*array.BooleanBuilder).Append(v)
-			case *arrow.Int8Type:
-				v := r.readI8(str)
-				r.bld.Field(i).(*array.Int8Builder).Append(v)
-			case *arrow.Int16Type:
-				v := r.readI16(str)
-				r.bld.Field(i).(*array.Int16Builder).Append(v)
-			case *arrow.Int32Type:
-				v := r.readI32(str)
-				r.bld.Field(i).(*array.Int32Builder).Append(v)
-			case *arrow.Int64Type:
-				v := r.readI64(str)
-				r.bld.Field(i).(*array.Int64Builder).Append(v)
-			case *arrow.Uint8Type:
-				v := r.readU8(str)
-				r.bld.Field(i).(*array.Uint8Builder).Append(v)
-			case *arrow.Uint16Type:
-				v := r.readU16(str)
-				r.bld.Field(i).(*array.Uint16Builder).Append(v)
-			case *arrow.Uint32Type:
-				v := r.readU32(str)
-				r.bld.Field(i).(*array.Uint32Builder).Append(v)
-			case *arrow.Uint64Type:
-				v := r.readU64(str)
-				r.bld.Field(i).(*array.Uint64Builder).Append(v)
-			case *arrow.Float32Type:
-				v := r.readF32(str)
-				r.bld.Field(i).(*array.Float32Builder).Append(v)
-			case *arrow.Float64Type:
-				v := r.readF64(str)
-				r.bld.Field(i).(*array.Float64Builder).Append(v)
-			case *arrow.StringType:
-				r.bld.Field(i).(*array.StringBuilder).Append(str)
-			}
+func (r *Reader) isNull(val string) bool {
+	for _, ns := range r.nullValues {
+		if val == ns {
+			return true
 		}
 	}
+	return false
 }
 
-func (r *Reader) readI8(str string) int8 {
-	v, err := strconv.ParseInt(str, 10, 8)
-	if err != nil && r.err == nil {
-		r.err = err
-		return 0
+func (r *Reader) read(recs []string) {
+	for i, str := range recs {
+		r.fieldConverter[i](r.bld.Field(i), str)
 	}
-	return int8(v)
 }
 
-func (r *Reader) readI16(str string) int16 {
-	v, err := strconv.ParseInt(str, 10, 16)
-	if err != nil && r.err == nil {
-		r.err = err
-		return 0
+func (r *Reader) initFieldConverter(field *arrow.Field) func(array.Builder, string) {
+	switch field.Type.(type) {
+	case *arrow.BooleanType:
+		return func(field array.Builder, str string) {
+			r.parseBool(field, str)
+		}
+	case *arrow.Int8Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseInt(field, str, 8)
+			if !null {
+				field.(*array.Int8Builder).Append(int8(v))
+			}
+		}
+	case *arrow.Int16Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseInt(field, str, 16)
+			if !null {
+				field.(*array.Int16Builder).Append(int16(v))
+			}
+		}
+	case *arrow.Int32Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseInt(field, str, 32)
+			if !null {
+				field.(*array.Int32Builder).Append(int32(v))
+			}
+		}
+	case *arrow.Int64Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseInt(field, str, 64)
+			if !null {
+				field.(*array.Int64Builder).Append(int64(v))
+			}
+		}
+	case *arrow.Uint8Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseUint(field, str, 8)
+			if !null {
+				field.(*array.Uint8Builder).Append(uint8(v))
+			}
+		}
+	case *arrow.Uint16Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseUint(field, str, 16)
+			if !null {
+				field.(*array.Uint16Builder).Append(uint16(v))
+			}
+		}
+	case *arrow.Uint32Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseUint(field, str, 32)
+			if !null {
+				field.(*array.Uint32Builder).Append(uint32(v))
+			}
+		}
+	case *arrow.Uint64Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseUint(field, str, 64)
+			if !null {
+				field.(*array.Uint64Builder).Append(uint64(v))
+			}
+		}
+	case *arrow.Float32Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseFloat(field, str, 32)
+			if !null {
+				field.(*array.Float32Builder).Append(float32(v))
+			}
+		}
+	case *arrow.Float64Type:
+		return func(field array.Builder, str string) {
+			v, null := r.parseFloat(field, str, 64)
+			if !null {
+				field.(*array.Float64Builder).Append(float64(v))
+			}
+		}
+	case *arrow.StringType:
+		// specialize the implementation when we know we cannot have nulls
+		if r.stringsCanBeNull {
+			return func(field array.Builder, str string) {
+				if r.isNull(str) {
+					field.AppendNull()
+				} else {
+					field.(*array.StringBuilder).Append(str)
+				}
+			}
+		} else {
+			return func(field array.Builder, str string) {
+				field.(*array.StringBuilder).Append(str)
+			}
+		}
+
+	default:
+		panic(fmt.Errorf("arrow/csv: unhandled field type %T", field.Type))
 	}
-	return int16(v)
 }
 
-func (r *Reader) readI32(str string) int32 {
-	v, err := strconv.ParseInt(str, 10, 32)
-	if err != nil && r.err == nil {
-		r.err = err
-		return 0
+func (r *Reader) parseBool(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
 	}
-	return int32(v)
+
+	var v bool
+	switch str {
+	case "false", "False", "0":
+		v = false
+	case "true", "True", "1":
+		v = true
+	default:
+		r.err = fmt.Errorf("Unrecognized boolean: %s", str)
+		field.AppendNull()
+		return
+	}
+
+	field.(*array.BooleanBuilder).Append(v)
 }
 
-func (r *Reader) readI64(str string) int64 {
-	v, err := strconv.ParseInt(str, 10, 64)
+func (r *Reader) parseInt(field array.Builder, str string, width int) (int64, bool) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return 0, true
+	}
+
+	v, err := strconv.ParseInt(str, 10, width)
 	if err != nil && r.err == nil {
 		r.err = err
-		return 0
+		field.AppendNull()
+		return 0, true
 	}
-	return int64(v)
+
+	return v, false
 }
 
-func (r *Reader) readU8(str string) uint8 {
-	v, err := strconv.ParseUint(str, 10, 8)
+func (r *Reader) parseUint(field array.Builder, str string, width int) (uint64, bool) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return 0, true
+	}
+
+	v, err := strconv.ParseUint(str, 10, width)
 	if err != nil && r.err == nil {
 		r.err = err
-		return 0
+		field.AppendNull()
+		return 0, true
 	}
-	return uint8(v)
+
+	return v, false
 }
 
-func (r *Reader) readU16(str string) uint16 {
-	v, err := strconv.ParseUint(str, 10, 16)
-	if err != nil && r.err == nil {
-		r.err = err
-		return 0
+func (r *Reader) parseFloat(field array.Builder, str string, width int) (float64, bool) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return 0.0, true
 	}
-	return uint16(v)
-}
 
-func (r *Reader) readU32(str string) uint32 {
-	v, err := strconv.ParseUint(str, 10, 32)
+	v, err := strconv.ParseFloat(str, width)
 	if err != nil && r.err == nil {
 		r.err = err
-		return 0
+		field.AppendNull()
+		return 0.0, true
 	}
-	return uint32(v)
-}
 
-func (r *Reader) readU64(str string) uint64 {
-	v, err := strconv.ParseUint(str, 10, 64)
-	if err != nil && r.err == nil {
-		r.err = err
-		return 0
-	}
-	return uint64(v)
-}
-
-func (r *Reader) readF32(str string) float32 {
-	v, err := strconv.ParseFloat(str, 32)
-	if err != nil && r.err == nil {
-		r.err = err
-		return 0
-	}
-	return float32(v)
-}
-
-func (r *Reader) readF64(str string) float64 {
-	v, err := strconv.ParseFloat(str, 64)
-	if err != nil && r.err == nil {
-		r.err = err
-		return 0
-	}
-	return float64(v)
+	return v, false
 }
 
 // Retain increases the reference count by 1.

@@ -182,7 +182,7 @@ func testCSVWriter(t *testing.T, writeHeader bool) {
 		csv.WithComma(';'),
 		csv.WithCRLF(false),
 		csv.WithHeader(writeHeader),
-		csv.WithNullString("null"),
+		csv.WithNullWriter("null"),
 	)
 	err := w.Write(rec)
 	if err != nil {

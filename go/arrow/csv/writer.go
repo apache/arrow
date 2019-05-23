@@ -28,11 +28,11 @@ import (
 
 // Writer wraps encoding/csv.Writer and writes array.Record based on a schema.
 type Writer struct {
-	w      *csv.Writer
-	schema *arrow.Schema
-	header bool
-	once   sync.Once
-	null   string
+	w         *csv.Writer
+	schema    *arrow.Schema
+	header    bool
+	once      sync.Once
+	nullValue string
 }
 
 // NewWriter returns a writer that writes array.Records to the CSV file
@@ -43,7 +43,11 @@ type Writer struct {
 func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 	validate(schema)
 
-	ww := &Writer{w: csv.NewWriter(w), schema: schema}
+	ww := &Writer{
+		w:         csv.NewWriter(w),
+		schema:    schema,
+		nullValue: "NULL", // override by passing WithNullWriter() as an option
+	}
 	for _, opt := range opts {
 		opt(ww)
 	}
@@ -82,7 +86,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatBool(arr.Value(i))
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Int8Type:
@@ -91,7 +95,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Int16Type:
@@ -100,7 +104,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Int32Type:
@@ -109,7 +113,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Int64Type:
@@ -118,7 +122,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Uint8Type:
@@ -127,7 +131,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Uint16Type:
@@ -136,7 +140,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Uint32Type:
@@ -145,7 +149,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Uint64Type:
@@ -154,7 +158,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Float32Type:
@@ -163,7 +167,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 32)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.Float64Type:
@@ -172,7 +176,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 64)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		case *arrow.StringType:
@@ -181,7 +185,7 @@ func (w *Writer) Write(record array.Record) error {
 				if arr.IsValid(i) {
 					recs[i][j] = arr.Value(i)
 				} else {
-					recs[i][j] = w.null
+					recs[i][j] = w.nullValue
 				}
 			}
 		}
