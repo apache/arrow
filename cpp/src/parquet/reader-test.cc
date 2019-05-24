@@ -330,15 +330,15 @@ Column 1
   // empty list means print all
   std::list<int> columns;
 
+  const char* file = "nested_lists.snappy.parquet";
   auto reader =
-    ParquetFileReader::OpenFile(data_file("nested_lists.snappy.parquet"),
-                                false, default_reader_properties());
+    ParquetFileReader::OpenFile(data_file(file), false, default_reader_properties());
   ParquetFilePrinter printer(reader.get());
 
-  printer.DebugPrint(ssValues, columns, true, false, false, "nested_lists.snappy.parquet");
+  printer.DebugPrint(ssValues, columns, true, false, false, file);
   ASSERT_EQ(headerOutput + valuesOutput, ssValues.str());
 
-  printer.DebugPrint(ssDump, columns, true, true, false, "nested_lists.snappy.parquet");
+  printer.DebugPrint(ssDump, columns, true, true, false, file);
   ASSERT_EQ(headerOutput + dumpOutput, ssDump.str());
 }
 
