@@ -18,7 +18,7 @@
 package org.apache.arrow.vector.types;
 
 /**
- * Resolutions that intervals (periods can be stored in).
+ * Resolutions for Interval Vectors.
  */
 public enum IntervalUnit {
   /** Values are stored as number of months (which can be converted into years and months via division). */

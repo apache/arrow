@@ -44,7 +44,7 @@ import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 
 /**
- * GRPC service implementation for a fligh server.
+ * GRPC service implementation for a flight server.
  */
 class FlightService extends FlightServiceImplBase {
 

@@ -24,7 +24,7 @@ import com.google.protobuf.ByteString;
 /**
  * Opaque result returned after executing an action.
  *
- * <p>POJO wrapper around the Fligh procol buffer message sharing the same name.
+ * <p>POJO wrapper around the Flight protocol buffer message sharing the same name.
  */
 public class Result {
 
