@@ -191,7 +191,7 @@ If you want to use NumPy's ``datetime64`` dtype instead, pass
 
 
 .. warning::
-   In Arrow versions < ``0.13`` the parameter ``date_as_object`` was ``False`` by default.
+   In Arrow versions < ``0.13`` the parameter ``date_as_object`` is ``False`` by default.
 
 Time types
 ~~~~~~~~~~
