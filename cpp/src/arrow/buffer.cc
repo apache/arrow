@@ -25,6 +25,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 
@@ -46,6 +47,10 @@ Status Buffer::Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
 Status Buffer::Copy(const int64_t start, const int64_t nbytes,
                     std::shared_ptr<Buffer>* out) const {
   return Copy(start, nbytes, default_memory_pool(), out);
+}
+
+std::string Buffer::ToHexString() {
+  return HexEncode(data(), static_cast<size_t>(size()));
 }
 
 bool Buffer::Equals(const Buffer& other, const int64_t nbytes) const {
