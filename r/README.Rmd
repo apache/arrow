@@ -58,7 +58,7 @@ First, clone the repository and install a release build of the C++ library.
 ```shell
 git clone https://github.com/apache/arrow.git
 mkdir arrow/cpp/build && cd arrow/cpp/build
-cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off
+cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off -DARROW_INSTALL_NAME_RPATH=OFF
 make install
 ```
 
@@ -79,7 +79,7 @@ unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
 dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
 ```
 
-try setting the environment variable `LD_LIBRARY_PATH` to wherever Arrow C++ was put in `make install`, e.g. `export LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package. An alternative solution on macOS is to rebuild the C++ library adding the `-DARROW_INSTALL_NAME_RPATH=OFF` option to the `cmake` command.
+try setting the environment variable `LD_LIBRARY_PATH` (or `DYLD_LIBRARY_PATH` on macOS) to wherever Arrow C++ was put in `make install`, e.g. `export LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package. 
 
 For any other build/configuration challenges, see the [C++ developer guide](http://arrow.apache.org/docs/developers/cpp.html#building).
 

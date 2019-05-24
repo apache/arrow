@@ -56,7 +56,7 @@ library.
 ``` shell
 git clone https://github.com/apache/arrow.git
 mkdir arrow/cpp/build && cd arrow/cpp/build
-cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off
+cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off -DARROW_INSTALL_NAME_RPATH=OFF
 make install
 ```
 
@@ -76,11 +76,10 @@ If the package fails to install/load with an error like this:
     unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
     dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
 
-try setting the environment variable `LD_LIBRARY_PATH` to wherever Arrow
-C++ was put in `make install`, e.g. `export
-LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package. An
-alternative solution on macOS is to rebuild the C++ library adding the
-`-DARROW_INSTALL_NAME_RPATH=OFF` option to the `cmake` command.
+try setting the environment variable `LD_LIBRARY_PATH` (or
+`DYLD_LIBRARY_PATH` on macOS) to wherever Arrow C++ was put in `make
+install`, e.g. `export LD_LIBRARY_PATH=/usr/local/lib`, and retry
+installing the R package.
 
 For any other build/configuration challenges, see the [C++ developer
 guide](http://arrow.apache.org/docs/developers/cpp.html#building).
@@ -89,6 +88,14 @@ guide](http://arrow.apache.org/docs/developers/cpp.html#building).
 
 ``` r
 library(arrow)
+#> 
+#> Attaching package: 'arrow'
+#> The following object is masked from 'package:utils':
+#> 
+#>     timestamp
+#> The following objects are masked from 'package:base':
+#> 
+#>     array, table
 
 tib <- tibble::tibble(x = 1:10, y = rnorm(10))
 tab <- table(tib)
@@ -102,16 +109,16 @@ as_tibble(tab)
 #> # A tibble: 10 x 2
 #>        x       y
 #>    <int>   <dbl>
-#>  1     1  0.0665
-#>  2     2 -0.294 
-#>  3     3 -1.17  
-#>  4     4  0.0316
-#>  5     5  0.170 
-#>  6     6 -1.74  
-#>  7     7 -0.627 
-#>  8     8 -0.398 
-#>  9     9  1.01  
-#> 10    10 -1.44
+#>  1     1  0.0606
+#>  2     2  1.18  
+#>  3     3  1.03  
+#>  4     4 -0.188 
+#>  5     5  1.59  
+#>  6     6 -0.481 
+#>  7     7 -2.05  
+#>  8     8  0.0890
+#>  9     9  0.477 
+#> 10    10 -0.222
 ```
 
 ## Developing
