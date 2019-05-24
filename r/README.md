@@ -31,7 +31,7 @@ brew install apache-arrow
 ```
 
 On Linux, see the [Arrow project installation
-page](http://arrow.apache.org/install/).
+page](https://arrow.apache.org/install/).
 
 Then, you can install the release version of the package from GitHub
 using the [`remotes`](https://remotes.r-lib.org/) package. From within
@@ -56,7 +56,7 @@ library.
 ``` shell
 git clone https://github.com/apache/arrow.git
 mkdir arrow/cpp/build && cd arrow/cpp/build
-cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off
+cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off -DARROW_INSTALL_NAME_RPATH=OFF
 make install
 ```
 
@@ -76,19 +76,26 @@ If the package fails to install/load with an error like this:
     unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
     dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
 
-try setting the environment variable `LD_LIBRARY_PATH` to wherever Arrow
-C++ was put in `make install`, e.g. `export
-LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package. An
-alternative solution on macOS is to rebuild the C++ library adding the
-`-DARROW_INSTALL_NAME_RPATH=OFF` option to the `cmake` command.
+try setting the environment variable `LD_LIBRARY_PATH` (or
+`DYLD_LIBRARY_PATH` on macOS) to wherever Arrow C++ was put in `make
+install`, e.g. `export LD_LIBRARY_PATH=/usr/local/lib`, and retry
+installing the R package.
 
 For any other build/configuration challenges, see the [C++ developer
-guide](http://arrow.apache.org/docs/developers/cpp.html#building).
+guide](https://arrow.apache.org/docs/developers/cpp.html#building).
 
 ## Example
 
 ``` r
 library(arrow)
+#> 
+#> Attaching package: 'arrow'
+#> The following object is masked from 'package:utils':
+#> 
+#>     timestamp
+#> The following objects are masked from 'package:base':
+#> 
+#>     array, table
 
 tib <- tibble::tibble(x = 1:10, y = rnorm(10))
 tab <- table(tib)
@@ -102,16 +109,16 @@ as_tibble(tab)
 #> # A tibble: 10 x 2
 #>        x       y
 #>    <int>   <dbl>
-#>  1     1  0.0665
-#>  2     2 -0.294 
-#>  3     3 -1.17  
-#>  4     4  0.0316
-#>  5     5  0.170 
-#>  6     6 -1.74  
-#>  7     7 -0.627 
-#>  8     8 -0.398 
-#>  9     9  1.01  
-#> 10    10 -1.44
+#>  1     1  0.912 
+#>  2     2  1.31  
+#>  3     3 -1.47  
+#>  4     4 -0.332 
+#>  5     5 -1.60  
+#>  6     6 -2.51  
+#>  7     7  0.903 
+#>  8     8 -2.44  
+#>  9     9  0.990 
+#> 10    10 -0.0164
 ```
 
 ## Developing
@@ -132,6 +139,7 @@ devtools::load_all() # Load the dev package
 devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
 devtools::document() # Update roxygen documentation
 rmarkdown::render("README.Rmd") # To rebuild README.md
+pkgdown::build_site() # To preview the documentation website
 devtools::check() # All package checks; see also below
 ```
 

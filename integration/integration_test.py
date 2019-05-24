@@ -1030,6 +1030,9 @@ def get_generated_json_files(tempdir=None, flight=False):
         return
 
     file_objs = [
+        (generate_primitive_case([], name='primitive_no_batches')
+         .skip_category('JS')
+         .skip_category('Java')),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
@@ -1119,6 +1122,16 @@ class IntegrationRunner(object):
             consumer_file_path = os.path.join(self.temp_dir, file_id + '_' +
                                               name +
                                               '.consumer_stream_as_file')
+
+            if producer.name in test_case.skip:
+                print('-- Skipping test because producer {0} does '
+                      'not support'.format(producer.name))
+                continue
+
+            if consumer.name in test_case.skip:
+                print('-- Skipping test because consumer {0} does '
+                      'not support'.format(consumer.name))
+                continue
 
             if SKIP_ARROW in test_case.skip:
                 print('-- Skipping test')
@@ -1498,6 +1511,8 @@ def write_js_test_json(directory):
     generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
     (generate_dictionary_case()
      .write(os.path.join(directory, 'dictionary.json')))
+    (generate_primitive_case([])
+     .write(os.path.join(directory, 'primitive_no_batches.json')))
     (generate_primitive_case([7, 10])
      .write(os.path.join(directory, 'primitive.json')))
     (generate_primitive_case([0, 0, 0])

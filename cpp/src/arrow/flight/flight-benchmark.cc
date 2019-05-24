@@ -96,7 +96,7 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
   RETURN_NOT_OK(plan->GetSchema(&dict_memo, &schema));
 
   PerformanceStats stats;
-  auto ConsumeStream = [&stats, &hostname, &port](const FlightEndpoint& endpoint) {
+  auto ConsumeStream = [&stats, &port](const FlightEndpoint& endpoint) {
     // TODO(wesm): Use location from endpoint, same host/port for now
     std::unique_ptr<FlightClient> client;
     Location location;

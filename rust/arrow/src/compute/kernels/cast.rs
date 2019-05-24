@@ -103,13 +103,6 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             "Cannot cast list to non-list data types".to_string(),
         )),
         (_, List(ref to)) => {
-            // see ARROW-4886 for this limitation
-            if array.offset() != 0 {
-                return Err(ArrowError::ComputeError(
-                    "Cast kernel does not yet support sliced (non-zero offset) arrays"
-                        .to_string(),
-                ));
-            }
             // cast primitive to list's primitive
             let cast_array = cast(array, &to)?;
             // create offsets, where if array.len() = 2, we have [0,1,2]
@@ -884,31 +877,29 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Cast kernel does not yet support sliced (non-zero offset) arrays"
-    )]
-    fn test_cast_i32_to_list_i32_nullable_sliced() {
-        let a = Int32Array::from(vec![Some(5), None, Some(7), Some(8), None]);
+    fn test_cast_i32_to_list_f64_nullable_sliced() {
+        let a = Int32Array::from(vec![Some(5), None, Some(7), Some(8), None, Some(10)]);
         let array = Arc::new(a) as ArrayRef;
-        let array = array.slice(2, 3);
-        let b = cast(&array, &DataType::List(Box::new(DataType::Int32))).unwrap();
-        assert_eq!(3, b.len());
+        let array = array.slice(2, 4);
+        let b = cast(&array, &DataType::List(Box::new(DataType::Float64))).unwrap();
+        assert_eq!(4, b.len());
         assert_eq!(1, b.null_count());
         let arr = b.as_any().downcast_ref::<ListArray>().unwrap();
         assert_eq!(0, arr.value_offset(0));
         assert_eq!(1, arr.value_offset(1));
         assert_eq!(2, arr.value_offset(2));
+        assert_eq!(3, arr.value_offset(3));
         assert_eq!(1, arr.value_length(0));
         assert_eq!(1, arr.value_length(1));
         assert_eq!(1, arr.value_length(2));
+        assert_eq!(1, arr.value_length(3));
         let values = arr.values();
-        let c = values.as_any().downcast_ref::<Int32Array>().unwrap();
+        let c = values.as_any().downcast_ref::<Float64Array>().unwrap();
         assert_eq!(1, c.null_count());
-        assert_eq!(7, c.value(0));
-        assert_eq!(8, c.value(1));
-        // if one removes the non-zero-offset limitation, this assertion passes when it
-        // shouldn't
-        assert_eq!(0, c.value(2));
+        assert_eq!(7.0, c.value(0));
+        assert_eq!(8.0, c.value(1));
+        assert_eq!(false, c.is_valid(2));
+        assert_eq!(10.0, c.value(3));
     }
 
     #[test]

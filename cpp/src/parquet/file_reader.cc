@@ -41,9 +41,9 @@
 namespace parquet {
 
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
-static constexpr int64_t DEFAULT_FOOTER_READ_SIZE = 64 * 1024;
-static constexpr uint32_t FOOTER_SIZE = 8;
-static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
+static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
+static constexpr uint32_t kFooterSize = 8;
+static constexpr uint8_t kParquetMagic[4] = {'P', 'A', 'R', '1'};
 
 // For PARQUET-816
 static constexpr int64_t kMaxDictHeaderSize = 100;
@@ -162,25 +162,30 @@ class SerializedFile : public ParquetFileReader::Contents {
   void ParseMetaData() {
     int64_t file_size = source_->Size();
 
-    if (file_size < FOOTER_SIZE) {
-      throw ParquetException("Corrupted file, smaller than file footer");
+    if (file_size == 0) {
+      throw ParquetException("Invalid Parquet file size is 0 bytes");
+    } else if (file_size < kFooterSize) {
+      std::stringstream ss;
+      ss << "Invalid Parquet file size is " << file_size
+         << " bytes, smaller than standard file footer (" << kFooterSize << " bytes)";
+      throw ParquetException(ss.str());
     }
 
-    uint8_t footer_buffer[DEFAULT_FOOTER_READ_SIZE];
-    int64_t footer_read_size = std::min(file_size, DEFAULT_FOOTER_READ_SIZE);
+    uint8_t footer_buffer[kDefaultFooterReadSize];
+    int64_t footer_read_size = std::min(file_size, kDefaultFooterReadSize);
     int64_t bytes_read =
         source_->ReadAt(file_size - footer_read_size, footer_read_size, footer_buffer);
 
     // Check if all bytes are read. Check if last 4 bytes read have the magic bits
     if (bytes_read != footer_read_size ||
-        memcmp(footer_buffer + footer_read_size - 4, PARQUET_MAGIC, 4) != 0) {
+        memcmp(footer_buffer + footer_read_size - 4, kParquetMagic, 4) != 0) {
       throw ParquetException("Invalid parquet file. Corrupt footer.");
     }
 
     uint32_t metadata_len =
-        *reinterpret_cast<uint32_t*>(footer_buffer + footer_read_size - FOOTER_SIZE);
-    int64_t metadata_start = file_size - FOOTER_SIZE - metadata_len;
-    if (FOOTER_SIZE + metadata_len > file_size) {
+        *reinterpret_cast<uint32_t*>(footer_buffer + footer_read_size - kFooterSize);
+    int64_t metadata_start = file_size - kFooterSize - metadata_len;
+    if (kFooterSize + metadata_len > file_size) {
       throw ParquetException(
           "Invalid parquet file. File is less than "
           "file metadata size.");
@@ -190,9 +195,9 @@ class SerializedFile : public ParquetFileReader::Contents {
         AllocateBuffer(properties_.memory_pool(), metadata_len);
 
     // Check if the footer_buffer contains the entire metadata
-    if (footer_read_size >= (metadata_len + FOOTER_SIZE)) {
+    if (footer_read_size >= (metadata_len + kFooterSize)) {
       memcpy(metadata_buffer->mutable_data(),
-             footer_buffer + (footer_read_size - metadata_len - FOOTER_SIZE),
+             footer_buffer + (footer_read_size - metadata_len - kFooterSize),
              metadata_len);
     } else {
       bytes_read =
