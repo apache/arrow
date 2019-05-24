@@ -31,7 +31,7 @@ brew install apache-arrow
 ```
 
 On Linux, see the [Arrow project installation
-page](http://arrow.apache.org/install/).
+page](https://arrow.apache.org/install/).
 
 Then, you can install the release version of the package from GitHub
 using the [`remotes`](https://remotes.r-lib.org/) package. From within
@@ -82,7 +82,7 @@ install`, e.g. `export LD_LIBRARY_PATH=/usr/local/lib`, and retry
 installing the R package.
 
 For any other build/configuration challenges, see the [C++ developer
-guide](http://arrow.apache.org/docs/developers/cpp.html#building).
+guide](https://arrow.apache.org/docs/developers/cpp.html#building).
 
 ## Example
 
@@ -107,18 +107,18 @@ tab
 #> arrow::Table
 as_tibble(tab)
 #> # A tibble: 10 x 2
-#>        x       y
-#>    <int>   <dbl>
-#>  1     1  0.0606
-#>  2     2  1.18  
-#>  3     3  1.03  
-#>  4     4 -0.188 
-#>  5     5  1.59  
-#>  6     6 -0.481 
-#>  7     7 -2.05  
-#>  8     8  0.0890
-#>  9     9  0.477 
-#> 10    10 -0.222
+#>        x        y
+#>    <int>    <dbl>
+#>  1     1 -1.70   
+#>  2     2  0.764  
+#>  3     3 -0.00735
+#>  4     4 -0.192  
+#>  5     5  0.513  
+#>  6     6 -1.81   
+#>  7     7 -0.371  
+#>  8     8 -1.40   
+#>  9     9 -0.0599 
+#> 10    10 -0.359
 ```
 
 ## Developing
