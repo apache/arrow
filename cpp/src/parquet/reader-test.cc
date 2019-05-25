@@ -44,9 +44,7 @@ std::string data_file(const char* file) {
   return ss.str();
 }
 
-std::string alltypes_plain() {
-  return data_file("alltypes_plain.parquet");
-}
+std::string alltypes_plain() { return data_file("alltypes_plain.parquet"); }
 
 std::string nation_dict_truncated_data_page() {
   return data_file("nation.dict-malformed.parquet");
@@ -331,8 +329,8 @@ Column 1
   std::list<int> columns;
 
   const char* file = "nested_lists.snappy.parquet";
-  auto reader =
-    ParquetFileReader::OpenFile(data_file(file), false, default_reader_properties());
+  auto reader_props = default_reader_properties();
+  auto reader = ParquetFileReader::OpenFile(data_file(file), false, reader_props);
   ParquetFilePrinter printer(reader.get());
 
   printer.DebugPrint(ssValues, columns, true, false, false, file);

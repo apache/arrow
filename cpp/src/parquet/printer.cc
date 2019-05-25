@@ -46,8 +46,7 @@ class ColumnReader;
 
 void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selected_columns,
                                     bool print_values, bool format_dump,
-                                    bool print_key_value_metadata,
-                                    const char* filename) {
+                                    bool print_key_value_metadata, const char* filename) {
   const FileMetaData* file_metadata = fileReader->metadata().get();
 
   stream << "File Name: " << filename << "\n";
