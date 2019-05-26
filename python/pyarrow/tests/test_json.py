@@ -55,7 +55,7 @@ def test_parse_options():
     assert opts.explicit_schema == schema
 
 
-class BaseTestCSVRead:
+class BaseTestJSONRead:
 
     def read_bytes(self, b, **kwargs):
         return self.read_json(pa.py_buffer(b), **kwargs)
@@ -127,7 +127,7 @@ class BaseTestCSVRead:
             }
 
 
-class TestSerialJSONRead(BaseTestCSVRead, unittest.TestCase):
+class TestSerialJSONRead(BaseTestJSONRead, unittest.TestCase):
 
     def read_json(self, *args, **kwargs):
         read_options = kwargs.setdefault('read_options', ReadOptions())
@@ -137,7 +137,7 @@ class TestSerialJSONRead(BaseTestCSVRead, unittest.TestCase):
         return table
 
 
-class TestParallelJSONRead(BaseTestCSVRead, unittest.TestCase):
+class TestParallelJSONRead(BaseTestJSONRead, unittest.TestCase):
 
     def read_json(self, *args, **kwargs):
         read_options = kwargs.setdefault('read_options', ReadOptions())
