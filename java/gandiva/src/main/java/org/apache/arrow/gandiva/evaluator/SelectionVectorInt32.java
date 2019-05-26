@@ -21,7 +21,7 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
 
 import io.netty.buffer.ArrowBuf;
 
-/*
+/**
  * Selection vector with records of arrow type INT32.
  */
 public class SelectionVectorInt32 extends SelectionVector {
