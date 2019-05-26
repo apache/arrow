@@ -522,6 +522,15 @@ cdef class FileMetaData:
     def row_group(self, int i):
         return RowGroupMetaData(self, i)
 
+    def set_file_path(self, path):
+        """
+        Modify the file_path field of each ColumnChunk in the
+        FileMetaData to be a particular value
+        """
+        cdef:
+            c_string c_path = tobytes(path)
+        self._metadata.set_file_path(c_path)
+
 
 cdef class ParquetSchema:
     cdef:
