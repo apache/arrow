@@ -591,6 +591,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
   path: 
   physical_type: BYTE_ARRAY
   logical_type: UTF8
+  logical_annotation: String
   max_definition_level: 4
   max_repetition_level: 1
 })",
@@ -610,6 +611,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
   path: 
   physical_type: FIXED_LEN_BYTE_ARRAY
   logical_type: DECIMAL
+  logical_annotation: Decimal(precision=10, scale=4)
   max_definition_level: 4
   max_repetition_level: 1
   length: 12

@@ -871,6 +871,7 @@ std::string ColumnDescriptor::ToString() const {
      << "  path: " << path()->ToDotString() << std::endl
      << "  physical_type: " << TypeToString(physical_type()) << std::endl
      << "  logical_type: " << LogicalTypeToString(logical_type()) << std::endl
+     << "  logical_annotation: " << logical_annotation()->ToString() << std::endl
      << "  max_definition_level: " << max_definition_level() << std::endl
      << "  max_repetition_level: " << max_repetition_level() << std::endl;
 
