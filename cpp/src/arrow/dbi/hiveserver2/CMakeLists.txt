@@ -101,11 +101,8 @@ set_property(SOURCE ${ARROW_HIVESERVER2_SRCS}
              APPEND_STRING
              PROPERTY COMPILE_FLAGS " -Wno-shadow-field")
 
-set(ARROW_HIVESERVER2_TEST_LINK_LIBS
-    arrow_hiveserver2_static
-    arrow_hiveserver2_thrift
-    ${ARROW_TEST_LINK_LIBS}
-    Thrift::thrift)
+set(ARROW_HIVESERVER2_TEST_LINK_LIBS arrow_hiveserver2_static arrow_hiveserver2_thrift
+                                     ${ARROW_TEST_LINK_LIBS} Thrift::thrift)
 
 if(ARROW_BUILD_TESTS)
   add_test_case(hiveserver2-test

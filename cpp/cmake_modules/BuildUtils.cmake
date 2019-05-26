@@ -281,8 +281,7 @@ function(ADD_ARROW_LIB LIB_NAME)
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            INCLUDES
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
   if(BUILD_STATIC)
@@ -333,8 +332,7 @@ function(ADD_ARROW_LIB LIB_NAME)
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            INCLUDES
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
   # Modify variable in calling scope
@@ -370,7 +368,12 @@ endfunction()
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
   set(one_value_args)
-  set(multi_value_args EXTRA_LINK_LIBS STATIC_LINK_LIBS DEPENDENCIES PREFIX LABELS)
+  set(multi_value_args
+      EXTRA_LINK_LIBS
+      STATIC_LINK_LIBS
+      DEPENDENCIES
+      PREFIX
+      LABELS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"

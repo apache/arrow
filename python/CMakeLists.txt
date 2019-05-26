@@ -158,7 +158,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
     set(MORE_ARGS "-T")
   endif()
   execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-                          ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+                                              ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
   set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}")
 endif()
@@ -418,8 +418,8 @@ if(PYARROW_BUILD_PARQUET)
   include_directories(SYSTEM ${PARQUET_INCLUDE_DIR})
 
   if(PYARROW_BUNDLE_ARROW_CPP)
-    file(COPY ${PARQUET_INCLUDE_DIR}/parquet DESTINATION
-         ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+    file(COPY ${PARQUET_INCLUDE_DIR}/parquet
+         DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
   endif()
 
   if(PYARROW_PARQUET_USE_SHARED)
@@ -466,8 +466,8 @@ if(PYARROW_BUILD_PLASMA)
   include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
   add_thirdparty_lib(libplasma SHARED_LIB ${PLASMA_SHARED_LIB})
 
-  file(COPY ${ARROW_INCLUDE_DIR}/plasma DESTINATION
-       ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+  file(COPY ${ARROW_INCLUDE_DIR}/plasma
+       DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
   if(PYARROW_BUNDLE_ARROW_CPP)
     bundle_arrow_lib(PLASMA_SHARED_LIB
@@ -512,8 +512,8 @@ if(PYARROW_BUILD_GANDIVA)
   include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
 
   if(PYARROW_BUNDLE_ARROW_CPP)
-    file(COPY ${GANDIVA_INCLUDE_DIR}/gandiva DESTINATION
-         ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+    file(COPY ${GANDIVA_INCLUDE_DIR}/gandiva
+         DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
     bundle_arrow_lib(GANDIVA_SHARED_LIB
                      ABI_VERSION

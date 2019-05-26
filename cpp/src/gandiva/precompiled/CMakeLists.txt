@@ -41,7 +41,7 @@ if(MSVC)
     set(FMS_COMPATIBILITY 19)
   endif()
   set(PLATFORM_CLANG_OPTIONS -std=c++14 -fms-compatibility
-      -fms-compatibility-version=${FMS_COMPATIBILITY})
+                             -fms-compatibility-version=${FMS_COMPATIBILITY})
 else()
   set(PLATFORM_CLANG_OPTIONS -std=c++11)
 endif()
@@ -53,8 +53,7 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   set(BC_FILE ${CMAKE_CURRENT_BINARY_DIR}/${SRC_BASE}.bc)
   add_custom_command(
     OUTPUT ${BC_FILE}
-    COMMAND ${CLANG_EXECUTABLE}
-            ${PLATFORM_CLANG_OPTIONS}
+    COMMAND ${CLANG_EXECUTABLE} ${PLATFORM_CLANG_OPTIONS}
             -DGANDIVA_IR
             -DNDEBUG # DCHECK macros not implemented in precompiled code
             -DARROW_STATIC # Do not set __declspec(dllimport) on MSVC on Arrow symbols
@@ -65,8 +64,7 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
             -c
             ${ABSOLUTE_SRC}
             -o
-            ${BC_FILE}
-            ${ARROW_GANDIVA_PC_CXX_FLAGS}
+            ${BC_FILE} ${ARROW_GANDIVA_PC_CXX_FLAGS}
             -I${CMAKE_SOURCE_DIR}/src
     DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
@@ -75,7 +73,7 @@ endforeach()
 # link all of the bitcode files into a single bitcode file.
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
                    COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_PRECOMPILED_BC_PATH}
-                           ${BC_FILES}
+                                                      ${BC_FILES}
                    DEPENDS ${BC_FILES})
 
 # write a cmake script to replace precompiled bitcode file's content into a .cc file
@@ -92,7 +90,8 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake" "\
 
 # add the previous command to the execution chain
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
-                   COMMAND ${CMAKE_COMMAND} -P
+                   COMMAND ${CMAKE_COMMAND}
+                           -P
                            "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake"
                    DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH}
                            ${GANDIVA_PRECOMPILED_BC_PATH})
