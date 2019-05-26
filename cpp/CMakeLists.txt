@@ -361,7 +361,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
     set(MORE_ARGS "-T")
   endif()
   execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-                          ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+                                              ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
   set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
 endif()
@@ -595,11 +595,8 @@ if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-set(ARROW_SHARED_PRIVATE_LINK_LIBS
-    ${ARROW_STATIC_LINK_LIBS}
-    ${BOOST_SYSTEM_LIBRARY}
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY})
+set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS} ${BOOST_SYSTEM_LIBRARY}
+                                   ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_REGEX_LIBRARY})
 
 list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY}
             ${BOOST_REGEX_LIBRARY})
@@ -623,11 +620,8 @@ if(ARROW_BUILD_BENCHMARKS)
                    toolchain-benchmarks)
 endif()
 
-set(ARROW_TEST_STATIC_LINK_LIBS
-    arrow_testing_static
-    arrow_static
-    ${ARROW_LINK_LIBS}
-    ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static ${ARROW_LINK_LIBS}
+                                ${ARROW_TEST_LINK_TOOLCHAIN})
 
 set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_testing_shared
@@ -670,7 +664,7 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main benchmark::benchmark
-      ${ARROW_TEST_LINK_LIBS})
+                                ${ARROW_TEST_LINK_LIBS})
 endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)

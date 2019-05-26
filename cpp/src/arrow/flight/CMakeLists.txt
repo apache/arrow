@@ -32,17 +32,13 @@ if(GRPC_HAS_ADDRESS_SORTING)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_TEST_LINK_LIBS
-      arrow_flight_static
-      arrow_flight_testing_static
-      ${ARROW_TEST_STATIC_LINK_LIBS}
-      ${ARROW_FLIGHT_STATIC_LINK_LIBS})
+  set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_static arrow_flight_testing_static
+                                  ${ARROW_TEST_STATIC_LINK_LIBS}
+                                  ${ARROW_FLIGHT_STATIC_LINK_LIBS})
 else()
-  set(ARROW_FLIGHT_TEST_LINK_LIBS
-      arrow_flight_shared
-      arrow_flight_testing_shared
-      ${ARROW_TEST_SHARED_LINK_LIBS}
-      ${ARROW_FLIGHT_STATIC_LINK_LIBS})
+  set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
+                                  ${ARROW_TEST_SHARED_LINK_LIBS}
+                                  ${ARROW_FLIGHT_STATIC_LINK_LIBS})
 endif()
 
 # TODO(wesm): Protobuf shared vs static linking
@@ -50,22 +46,22 @@ endif()
 set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
 set(FLIGHT_PROTO ${ARROW_SOURCE_DIR}/../format/Flight.proto)
 
-set(FLIGHT_GENERATED_PROTO_FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
-    "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h"
-    "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
-    "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
+set(FLIGHT_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
+                                 "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h"
+                                 "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
+                                 "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
 
 set(PROTO_DEPENDS ${FLIGHT_PROTO} protobuf::libprotobuf gRPC::grpc)
 
-add_custom_command(
-  OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
-  COMMAND protobuf::protoc "-I${FLIGHT_PROTO_PATH}"
-          "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
-  DEPENDS ${PROTO_DEPENDS} ARGS
-  COMMAND protobuf::protoc "-I${FLIGHT_PROTO_PATH}"
-          "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
-          "--plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}" "${FLIGHT_PROTO}")
+add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
+                   COMMAND protobuf::protoc "-I${FLIGHT_PROTO_PATH}"
+                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
+                   DEPENDS ${PROTO_DEPENDS} ARGS
+                   COMMAND protobuf::protoc
+                           "-I${FLIGHT_PROTO_PATH}"
+                           "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
+                           "--plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}"
+                           "${FLIGHT_PROTO}")
 
 set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 
@@ -152,7 +148,7 @@ endif()
 if(ARROW_BUILD_BENCHMARKS)
   # Perf server for benchmarks
   set(PERF_PROTO_GENERATED_FILES "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.cc"
-      "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.h")
+                                 "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.h")
 
   add_custom_command(OUTPUT ${PERF_PROTO_GENERATED_FILES}
                      COMMAND protobuf::protoc "-I${CMAKE_CURRENT_SOURCE_DIR}"
