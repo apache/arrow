@@ -37,20 +37,17 @@ namespace parquet {
 
 using ReadableFile = ::arrow::io::ReadableFile;
 
-std::string alltypes_plain() {
+std::string data_file(const char* file) {
   std::string dir_string(test::get_data_dir());
   std::stringstream ss;
-  ss << dir_string << "/"
-     << "alltypes_plain.parquet";
+  ss << dir_string << "/" << file;
   return ss.str();
 }
 
+std::string alltypes_plain() { return data_file("alltypes_plain.parquet"); }
+
 std::string nation_dict_truncated_data_page() {
-  std::string dir_string(test::get_data_dir());
-  std::stringstream ss;
-  ss << dir_string << "/"
-     << "nation.dict-malformed.parquet";
-  return ss.str();
+  return data_file("nation.dict-malformed.parquet");
 }
 
 class TestAllTypesPlain : public ::testing::Test {
@@ -253,6 +250,94 @@ TEST(TestFileReaderAdHoc, NationDictTruncatedDataPage) {
   // The memory-mapped reads runs over the end of the column chunk and succeeds
   // by accident
   ASSERT_EQ(ss2.str(), ss.str());
+}
+
+TEST(TestDumpWithLocalFile, DumpOutput) {
+  std::string headerOutput = R"###(File Name: nested_lists.snappy.parquet
+Version: 1.0
+Created By: parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)
+Total rows: 3
+Number of RowGroups: 1
+Number of Real Columns: 2
+Number of Columns: 2
+Number of Selected Columns: 2
+Column 0: element (BYTE_ARRAY)
+Column 1: b (INT32)
+--- Row Group 0 ---
+--- Total Bytes 155 ---
+--- Rows: 3 ---
+Column 0
+  Values: 18  Statistics Not Set
+  Compression: SNAPPY, Encodings: RLE PLAIN_DICTIONARY
+  Uncompressed Size: 103, Compressed Size: 104
+Column 1
+  Values: 3, Null Values: 0, Distinct Values: 0
+  Max: 1, Min: 1
+  Compression: SNAPPY, Encodings: BIT_PACKED PLAIN_DICTIONARY
+  Uncompressed Size: 52, Compressed Size: 56
+)###";
+  std::string valuesOutput = R"###(--- Values ---
+element                       b                             
+a                             1                             
+b                             1                             
+c                             1                             
+NULL                          
+d                             
+a                             
+b                             
+c                             
+d                             
+NULL                          
+e                             
+a                             
+b                             
+c                             
+d                             
+e                             
+NULL                          
+f                             
+
+)###";
+  std::string dumpOutput = R"###(--- Values ---
+Column 0
+  D:7 R:0 V:a
+  D:7 R:3 V:b
+  D:7 R:2 V:c
+  D:4 R:1 NULL
+  D:7 R:2 V:d
+  D:7 R:0 V:a
+  D:7 R:3 V:b
+  D:7 R:2 V:c
+  D:7 R:3 V:d
+  D:4 R:1 NULL
+  D:7 R:2 V:e
+  D:7 R:0 V:a
+  D:7 R:3 V:b
+  D:7 R:2 V:c
+  D:7 R:3 V:d
+  D:7 R:2 V:e
+  D:4 R:1 NULL
+  D:7 R:2 V:f
+Column 1
+  D:0 R:0 V:1
+  D:0 R:0 V:1
+  D:0 R:0 V:1
+)###";
+
+  std::stringstream ssValues, ssDump;
+  // empty list means print all
+  std::list<int> columns;
+
+  const char* file = "nested_lists.snappy.parquet";
+  auto reader_props = default_reader_properties();
+  auto reader = ParquetFileReader::OpenFile(data_file(file), false, reader_props);
+  ParquetFilePrinter printer(reader.get());
+
+  printer.DebugPrint(ssValues, columns, true, false, false, file);
+  ASSERT_EQ(headerOutput + valuesOutput, ssValues.str());
+
+  printer.DebugPrint(ssDump, columns, true, true, false, file);
+  ASSERT_EQ(headerOutput + dumpOutput, ssDump.str());
 }
 
 TEST(TestJSONWithLocalFile, JSONOutput) {
