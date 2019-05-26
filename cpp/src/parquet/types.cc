@@ -553,10 +553,6 @@ class LogicalAnnotation::Impl {
   Impl& operator=(const Impl&) = delete;
   virtual ~Impl() noexcept {}
 
- protected:
-  Impl(LogicalAnnotation::Type::type t, SortOrder::type o) : type_(t), order_(o) {}
-  Impl() = default;
-
   class Compatible;
   class SimpleCompatible;
   class Incompatible;
@@ -583,6 +579,10 @@ class LogicalAnnotation::Impl {
   class UUID;
   class No;
   class Unknown;
+
+ protected:
+  Impl(LogicalAnnotation::Type::type t, SortOrder::type o) : type_(t), order_(o) {}
+  Impl() = default;
 
  private:
   LogicalAnnotation::Type::type type_ = LogicalAnnotation::Type::UNKNOWN;
