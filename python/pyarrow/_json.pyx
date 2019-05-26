@@ -153,6 +153,26 @@ cdef _get_parse_options(ParseOptions parse_options, CJSONParseOptions* out):
 
 def read_json(input_file, read_options=None, parse_options=None,
               MemoryPool memory_pool=None):
+    """
+    Read a Table from a stream of JSON data.
+
+    Parameters
+    ----------
+    input_file: string, path or file-like object
+        The location of JSON data.
+    read_options: ReadOptions, optional
+        Options for the JSON reader (see ReadOptions constructor for defaults)
+    parse_options: ParseOptions, optional
+        Options for the JSON parser
+        (see ParseOptions constructor for defaults)
+    memory_pool: MemoryPool, optional
+        Pool to allocate Table memory from
+
+    Returns
+    -------
+    :class:`pyarrow.Table`
+        Contents of the JSON file as a in-memory table.
+    """
     cdef:
         shared_ptr[InputStream] stream
         CJSONReadOptions c_read_options

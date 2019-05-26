@@ -23,6 +23,7 @@ import pytest
 import pyarrow as pa
 from pyarrow.json import read_json, ReadOptions, ParseOptions
 
+
 def test_read_options():
     cls = ReadOptions
     opts = cls()
@@ -90,7 +91,8 @@ class BaseTestCSVRead:
 
     def test_simple_varied(self):
         # Infer various kinds of data
-        rows = b'{"a": 1,"b": 2, "c": "3", "d": false}\n{"a": 4.0, "b": -5, "c": "foo", "d": true}\n'
+        rows = (b'{"a": 1,"b": 2, "c": "3", "d": false}\n'
+                b'{"a": 4.0, "b": -5, "c": "foo", "d": true}\n')
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.float64()),
                             ('b', pa.int64()),
