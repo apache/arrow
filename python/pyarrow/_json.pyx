@@ -27,11 +27,23 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
                           pyarrow_wrap_table, pyarrow_wrap_data_type,
-                          pyarrow_unwrap_data_type)
+                          pyarrow_unwrap_data_type, pyarrow_wrap_schema,
+                          pyarrow_unwrap_schema)
 
 
 cdef class ReadOptions:
+    """
+    Options for reading JSON files.
 
+    Parameters
+    ----------
+    use_threads : bool, optional (default True)
+        Whether to use multiple threads to accelerate reading
+    block_size : int, optional
+        How much bytes to process at a time from the input stream.
+        This will determine multi-threading granularity as well as
+        the size of individual chunks in the Table.
+    """
     cdef:
         CJSONReadOptions options
 
@@ -87,6 +99,40 @@ cdef class ParseOptions:
 
     __slots__ = ()
 
+    def __init__(self, explicit_schema=None, newlines_in_values=None):
+        self.options = CJSONParseOptions.Defaults()
+        if explicit_schema is not None:
+            self.explicit_schema = explicit_schema
+        if newlines_in_values is not None:
+            self.newlines_in_values = newlines_in_values
+
+    @property
+    def explicit_schema(self):
+        """
+        Optional explicit schema (no type inference, ignores other fields)
+        """
+        if self.options.explicit_schema.get() == NULL:
+            return None
+        else:
+            return pyarrow_wrap_schema(self.options.explicit_schema)
+
+    @explicit_schema.setter
+    def explicit_schema(self, value):
+        self.options.explicit_schema = pyarrow_unwrap_schema(value)
+
+    @property
+    def newlines_in_values(self):
+        """
+        Whether newline characters are allowed in JSON values.
+        Setting this to True reduces the performance of multi-threaded
+        JSON reading.
+        """
+        return self.options.newlines_in_values
+
+    @newlines_in_values.setter
+    def newlines_in_values(self, value):
+        self.options.newlines_in_values = value
+
 
 cdef _get_reader(input_file, shared_ptr[InputStream]* out):
     use_memory_map = False
@@ -106,7 +152,7 @@ cdef _get_parse_options(ParseOptions parse_options, CJSONParseOptions* out):
 
 
 def read_json(input_file, read_options=None, parse_options=None,
-              convert_options=None, MemoryPool memory_pool=None):
+              MemoryPool memory_pool=None):
     cdef:
         shared_ptr[InputStream] stream
         CJSONReadOptions c_read_options
