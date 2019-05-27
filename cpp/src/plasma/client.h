@@ -102,7 +102,7 @@ class ARROW_EXPORT PlasmaClient {
   /// \param object_id The ID of the object to create.
   /// \param data The data for the object to create.
   /// \param metadata The metadata for the object to create.
-  /// \param is_pinned Whether the object can be deleted when it's no longer
+  /// \param is_pinned Whether the object can be evicted when it's no longer
   ///        referenced. A pinned object isn't managed by LRU cache in store,
   ///        and won't be evicted even after its reference count is 0, it can only
   ///        be deleted by calling Delete().
