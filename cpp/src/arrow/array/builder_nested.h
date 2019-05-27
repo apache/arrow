@@ -109,9 +109,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   /// Derive built type from key and item builders' types
   MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
-             const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted = false)
-      : MapBuilder(pool, key_builder, item_builder,
-                   map(key_builder->type(), item_builder->type(), keys_sorted)) {}
+             const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted = false);
 
   Status Resize(int64_t capacity) override;
   void Reset() override;
