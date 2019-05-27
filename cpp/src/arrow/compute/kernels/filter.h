@@ -80,10 +80,8 @@ class ARROW_EXPORT FilterBinaryKernel : public BinaryKernel {
               Datum* out) override;
 
   static int64_t out_length(const Datum& left, const Datum& right) {
-    if (left.kind() == Datum::ARRAY)
-      return left.length();
-    if (right.kind() == Datum::ARRAY)
-      return right.length();
+    if (left.kind() == Datum::ARRAY) return left.length();
+    if (right.kind() == Datum::ARRAY) return right.length();
 
     return 0;
   }

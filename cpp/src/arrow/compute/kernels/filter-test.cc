@@ -163,7 +163,7 @@ static std::vector<bool> NullBitmapFromArrays(const ArrayType& lhs,
 
   for (int64_t i = 0; i < length; i++) {
     null_bitmap[i] = left_lambda(i) && right_lambda(i);
-  };
+  }
 
   return null_bitmap;
 }
