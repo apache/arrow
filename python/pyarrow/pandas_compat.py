@@ -369,8 +369,8 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     # to be converted to Arrow format
     # columns_types : specified column types to use for coercion / casting
     # during serialization, if a Schema was provided
-    return (all_names, column_names, index_descriptors, index_levels,
-            columns_to_convert, convert_types)
+    return (all_names, column_names, index_column_names, index_descriptors,
+            index_levels, columns_to_convert, convert_types)
 
 
 def _get_range_index_descriptor(level):
@@ -407,6 +407,7 @@ def _resolve_columns_of_interest(df, schema, columns):
 def dataframe_to_types(df, preserve_index, columns=None):
     (all_names,
      column_names,
+     _,
      index_descriptors,
      index_columns,
      columns_to_convert,
@@ -435,6 +436,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                         safe=True):
     (all_names,
      column_names,
+     index_column_names,
      index_descriptors,
      index_columns,
      columns_to_convert,
@@ -474,10 +476,23 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
 
     types = [x.type for x in arrays]
 
+    if schema is not None:
+        # add index columns
+        index_types = types[len(column_names):]
+        for name, type_ in zip(index_column_names, index_types):
+            schema = schema.append(pa.field(name, type_))
+    else:
+        fields = []
+        for name, type_ in zip(all_names, types):
+            fields.append(pa.field(name, type_))
+        schema = pa.schema(fields)
+
     metadata = construct_metadata(df, column_names, index_columns,
                                   index_descriptors, preserve_index,
                                   types)
-    return all_names, arrays, metadata
+    schema = schema.add_metadata(metadata)
+
+    return arrays, schema
 
 
 def get_datetimetz_type(values, dtype, type_):
