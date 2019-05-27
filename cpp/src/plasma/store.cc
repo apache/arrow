@@ -231,11 +231,13 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     auto st = AllocateCudaMemory(device_num, total_size, &pointer, &entry->ipc_handle);
     if (!st.ok()) {
       ARROW_LOG(ERROR) << "Failed to allocate CUDA memory: " << st.ToString();
+      store_info_.objects.erase(object_id);
       return PlasmaError::OutOfMemory;
     }
     result->ipc_handle = entry->ipc_handle;
 #else
     ARROW_LOG(ERROR) << "device_num != 0 but CUDA not enabled";
+    store_info_.objects.erase(object_id);
     return PlasmaError::OutOfMemory;
 #endif
   } else {
@@ -245,6 +247,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
                        << ", data_size=" << data_size
                        << ", metadata_size=" << metadata_size
                        << ", will send a reply of PlasmaError::OutOfMemory";
+      store_info_.objects.erase(object_id);
       return PlasmaError::OutOfMemory;
     }
   }

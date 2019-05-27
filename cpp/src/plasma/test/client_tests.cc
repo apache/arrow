@@ -485,7 +485,6 @@ using TestSmallMemoryPlasmaStore = TestPlasmaStoreBase<3000>;
 TEST_F(TestSmallMemoryPlasmaStore, LRUCacheTest) {
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
-  ObjectID object_id3 = random_object_id();
   bool has_object = false;
   // only one object can be put in the store
   int64_t data_size = 2000;
@@ -528,14 +527,15 @@ TEST_F(TestSmallMemoryPlasmaStore, LRUCacheTest) {
   // We have to invoke Delete to evict an object not in LRU
   auto status = client_.Create(object_id2, data_size, nullptr, 0, &data);
   ARROW_CHECK(!status.ok());
-  // Have to abort create, otherwise the object will be in the entry
+
   ARROW_CHECK_OK(client_.Delete({object_id1}));
   ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
   ARROW_CHECK(has_object == false);
 
-  ARROW_CHECK_OK(client_.Create(object_id3, data_size, nullptr, 0, &data));
-  ARROW_CHECK_OK(client_.Seal(object_id3));
-  ARROW_CHECK_OK(client_.Contains(object_id3, &has_object));
+  ARROW_CHECK_OK(client_.Delete(object_id2));
+  ARROW_CHECK_OK(client_.Create(object_id2, data_size, nullptr, 0, &data));
+  ARROW_CHECK_OK(client_.Seal(object_id2));
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
   ARROW_CHECK(has_object == true);
 }
 
