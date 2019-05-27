@@ -236,6 +236,43 @@ Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* o
   return Status::OK();
 }
 
+Status PropagateNulls(FunctionContext* ctx, const ArrayData& lhs, const ArrayData& rhs,
+                      ArrayData* output) {
+  const int64_t length = lhs.length;
+
+  int64_t lhs_null_count = lhs.GetNullCount();
+  int64_t rhs_null_count = rhs.GetNullCount();
+
+  if (lhs_null_count == 0 && rhs_null_count == 0) {
+    // Both null, nothing to do.
+    output->null_count = 0;
+    return Status::OK();
+  } else if (lhs_null_count != 0 && rhs_null_count == 0) {
+    // Propagate lhs nulls
+    return PropagateNulls(ctx, lhs, output);
+  } else if (lhs_null_count == 0 && rhs_null_count != 0) {
+    // Propagate rhs nulls
+    return PropagateNulls(ctx, rhs, output);
+  }
+
+  if (output->buffers.size() == 0) {
+    // Ensure we can assign a buffer
+    output->buffers.resize(1);
+  }
+
+  std::shared_ptr<Buffer> buffer;
+
+  auto lhs_validity_data = lhs.buffers[0]->data();
+  auto rhs_validity_data = rhs.buffers[0]->data();
+  RETURN_NOT_OK(internal::BitmapAnd(ctx->memory_pool(), lhs_validity_data, lhs.offset,
+                                    rhs_validity_data, rhs.offset, length,
+                                    0 /* out_offset */, &buffer));
+
+  output->null_count = length - internal::CountSetBits(buffer->data(), 0, length);
+  output->buffers[0] = std::move(buffer);
+  return Status::OK();
+}
+
 Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output) {
   const int64_t length = input.length;
   if (output->buffers.size() == 0) {
@@ -282,16 +319,11 @@ Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
 
 Status PrimitiveAllocatingUnaryKernel::Call(FunctionContext* ctx, const Datum& input,
                                             Datum* out) {
-  std::vector<std::shared_ptr<Buffer>> data_buffers;
-  const ArrayData& in_data = *input.array();
-
   DCHECK_EQ(out->kind(), Datum::ARRAY);
-
   ArrayData* result = out->array().get();
-
   result->buffers.resize(2);
 
-  const int64_t length = in_data.length;
+  const int64_t length = input.length();
   // Allocate the value buffer
   RETURN_NOT_OK(AllocateValueBuffer(ctx, *out_type(), length, &(result->buffers[1])));
   return delegate_->Call(ctx, input, out);
@@ -306,17 +338,11 @@ PrimitiveAllocatingBinaryKernel::PrimitiveAllocatingBinaryKernel(BinaryKernel* d
 
 Status PrimitiveAllocatingBinaryKernel::Call(FunctionContext* ctx, const Datum& left,
                                              const Datum& right, Datum* out) {
-  std::vector<std::shared_ptr<Buffer>> data_buffers;
-  DCHECK_EQ(left.kind(), Datum::ARRAY);
-  const ArrayData& left_data = *left.array();
-
   DCHECK_EQ(out->kind(), Datum::ARRAY);
-
   ArrayData* result = out->array().get();
-
   result->buffers.resize(2);
 
-  const int64_t length = left_data.length;
+  const int64_t length = result->length;
   RETURN_NOT_OK(AllocateValueBuffer(ctx, *out_type(), length, &(result->buffers[1])));
 
   // Allocate the value buffer
