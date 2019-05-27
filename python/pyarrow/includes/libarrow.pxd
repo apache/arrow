@@ -1045,6 +1045,37 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         CStatus Read(shared_ptr[CTable]* out)
 
 
+cdef extern from "arrow/json/options.h" nogil:
+
+    cdef cppclass CJSONReadOptions" arrow::json::ReadOptions":
+        c_bool use_threads
+        int32_t block_size
+
+        @staticmethod
+        CJSONReadOptions Defaults()
+
+    cdef cppclass CJSONParseOptions" arrow::json::ParseOptions":
+        shared_ptr[CSchema] explicit_schema
+        c_bool newlines_in_values
+
+        @staticmethod
+        CJSONParseOptions Defaults()
+
+
+cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
+
+    cdef cppclass CJSONReader" arrow::json::TableReader":
+        @staticmethod
+        CStatus Make(CMemoryPool*, shared_ptr[InputStream],
+                     CJSONReadOptions, CJSONParseOptions,
+                     shared_ptr[CJSONReader]* out)
+
+        CStatus Read(shared_ptr[CTable]* out)
+
+    cdef CStatus ParseOne(CJSONParseOptions options, shared_ptr[CBuffer] json,
+                          shared_ptr[CRecordBatch]* out)
+
+
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CFunctionContext" arrow::compute::FunctionContext":

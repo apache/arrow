@@ -17,26 +17,4 @@
 
 from __future__ import absolute_import
 
-import sys
-
-if sys.version_info < (3,):
-    raise ImportError("Python Flight bindings require Python 3")
-
-from pyarrow._flight import (  # noqa
-    Action,
-    ActionType,
-    DescriptorType,
-    FlightCallOptions,
-    FlightClient,
-    FlightDescriptor,
-    FlightEndpoint,
-    FlightInfo,
-    FlightServerBase,
-    GeneratorStream,
-    Location,
-    Ticket,
-    RecordBatchStream,
-    Result,
-    ClientAuthHandler,
-    ServerAuthHandler,
-)
+from pyarrow._json import ReadOptions, ParseOptions, read_json  # noqa

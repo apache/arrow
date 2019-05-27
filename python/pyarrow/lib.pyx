@@ -19,6 +19,8 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from __future__ import absolute_import
+
 import datetime
 import decimal as _pydecimal
 import json

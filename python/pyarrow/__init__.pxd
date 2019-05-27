@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 from libcpp.memory cimport shared_ptr
 from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CDataType,
                                         CField, CRecordBatch, CSchema,
