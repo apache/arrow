@@ -49,7 +49,3 @@ add_arrow_test(adapter-test
                "orc"
                STATIC_LINK_LIBS
                ${ORC_STATIC_TEST_LINK_LIBS})
-
-if(ARROW_ORC_JNI)
-  add_subdirectory(jni)
-endif()

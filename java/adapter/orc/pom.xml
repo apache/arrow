@@ -53,7 +53,7 @@
     <build>
         <resources>
             <resource>
-                <directory>${arrow.cpp.build.dir}/src/arrow/adapters/orc/jni/</directory>
+                <directory>${arrow.cpp.build.dir}/src/jni/orc</directory>
                 <includes>
                     <include>**/libarrow_orc_jni.*</include>
                 </includes>

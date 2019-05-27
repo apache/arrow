@@ -49,7 +49,7 @@ static jint JNI_VERSION = JNI_VERSION_1_6;
 
 static arrow::concurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
 static arrow::concurrentMap<std::shared_ptr<RecordBatchReader>> orc_stripe_reader_holder_;
-static arrow::concurrentMap<std::shared_ptr<ORCFileReader>> orc_file_reader_holder_;
+static arrow::concurrentMap<std::shared_ptr<ORCFileReader>> orc_reader_holder_;
 
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   jclass local_class = env->FindClass(class_name);
@@ -108,11 +108,11 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
 
   buffer_holder_.Clear();
   orc_stripe_reader_holder_.Clear();
-  orc_file_reader_holder_.Clear();
+  orc_reader_holder_.Clear();
 }
 
 std::shared_ptr<ORCFileReader> GetNativeReader(jlong id) {
-  return orc_file_reader_holder_.Lookup(id);
+  return orc_reader_holder_.Lookup(id);
 }
 
 std::shared_ptr<RecordBatchReader> GetStripeReader(jlong id) {
@@ -167,7 +167,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_op
       env->ThrowNew(io_exception_class, std::string("Failed open file" + path).c_str());
     }
 
-    return orc_file_reader_holder_.Insert(
+    return orc_reader_holder_.Insert(
         std::shared_ptr<ORCFileReader>(reader.release()));
   }
 
@@ -176,12 +176,12 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_op
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_close(
     JNIEnv* env, jclass this_cls, jlong id) {
-  orc_file_reader_holder_.Erase(id);
+  orc_reader_holder_.Erase(id);
 }
 
 JNIEXPORT jboolean JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_seek(
     JNIEnv* env, jclass this_cls, jlong id, jint row_number) {
-  auto reader = orc_file_reader_holder_.Lookup(id);
+  auto reader = orc_reader_holder_.Lookup(id);
   return reader->Seek(row_number).ok();
 }
 
@@ -189,7 +189,7 @@ JNIEXPORT jint JNICALL
 Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_getNumberOfStripes(JNIEnv* env,
                                                                          jclass this_cls,
                                                                          jlong id) {
-  auto reader = orc_file_reader_holder_.Lookup(id);
+  auto reader = orc_reader_holder_.Lookup(id);
   return reader->NumberOfStripes();
 }
 
@@ -264,7 +264,7 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
   jobjectArray memory_array =
       env->NewObjectArray(buffers.size(), orc_memory_class, nullptr);
 
-  for (int j = 0; j < buffers.size(); ++j) {
+  for (size_t j = 0; j < buffers.size(); ++j) {
     auto buffer = buffers[j];
     jobject memory = env->NewObject(orc_memory_class, orc_memory_constructor,
                                     buffer_holder_.Insert(buffer), buffer->data(),
@@ -281,7 +281,7 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_close(
     JNIEnv* env, jclass this_cls, jlong id) {
-  buffer_holder_.Erase(id);
+  orc_stripe_reader_holder_.Erase(id);
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcMemoryJniWrapper_release(

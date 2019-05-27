@@ -43,7 +43,7 @@ class OrcStripeReaderJniWrapper {
    * Load next record batch.
    * @param readerId id of the stripe reader instance.
    * @return loaded record batch, return null when reached
-   * the end of current stripe.
+   *     the end of current stripe.
    */
   static native OrcRecordBatch next(long readerId);
 

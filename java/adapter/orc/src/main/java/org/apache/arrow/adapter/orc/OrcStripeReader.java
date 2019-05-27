@@ -17,8 +17,6 @@
 
 package org.apache.arrow.adapter.orc;
 
-import io.netty.buffer.ArrowBuf;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -35,7 +33,8 @@ import org.apache.arrow.vector.ipc.message.MessageResult;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Orc stripe that load data into ArrowRecordBatch.
@@ -114,6 +113,6 @@ public class OrcStripeReader extends ArrowReader {
 
   @Override
   protected ArrowDictionaryBatch readDictionary() throws IOException {
-    throw new NotImplementedException();
+    throw new UnsupportedOperationException();
   }
 }

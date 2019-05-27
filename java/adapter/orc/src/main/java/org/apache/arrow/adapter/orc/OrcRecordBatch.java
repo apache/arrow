@@ -31,7 +31,7 @@ class OrcRecordBatch {
   final List<OrcMemoryJniWrapper> buffers;
 
   /**
-   * Construct a new instance
+   * Construct a new instance.
    * @param length number of records included in current batch
    * @param nodes meta data for each fields
    * @param buffers buffers for underlying data

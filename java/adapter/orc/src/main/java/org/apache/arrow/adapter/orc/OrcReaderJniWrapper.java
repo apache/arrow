@@ -20,7 +20,7 @@ package org.apache.arrow.adapter.orc;
 import java.io.IOException;
 
 /**
- * JNI wrapper for Orc reader
+ * JNI wrapper for Orc reader.
  */
 class OrcReaderJniWrapper {
   static {
@@ -32,10 +32,10 @@ class OrcReaderJniWrapper {
   }
 
   /**
-   * Construct a orc file reader over the target file
+   * Construct a orc file reader over the target file.
    * @param fileName absolute file path of target file
    * @return id of the orc reader instance if file opened successfully,
-   * otherwise return error code * -1.
+   *     otherwise return error code * -1.
    */
   static native long open(String fileName);
 

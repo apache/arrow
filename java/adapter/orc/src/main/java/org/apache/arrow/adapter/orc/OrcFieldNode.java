@@ -18,7 +18,7 @@
 package org.apache.arrow.adapter.orc;
 
 /**
- * Metadata about Vectors/Arrays that is passed via JNI interface
+ * Metadata about Vectors/Arrays that is passed via JNI interface.
  */
 class OrcFieldNode {
 
