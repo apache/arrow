@@ -83,7 +83,7 @@ class ARROW_EXPORT PlasmaClient {
   ///        device_num = 0 corresponds to the host,
   ///        device_num = 1 corresponds to GPU0,
   ///        device_num = 2 corresponds to GPU1, etc.
-  /// \param is_pinned Whether the object can be deleted when it's no longer
+  /// \param is_pinned Whether the object can be evicted when it's no longer
   ///        referenced. A pinned object isn't managed by LRU cache in store,
   ///        and won't be evicted even after its reference count is 0, it can only
   ///        be deleted by calling Delete().
