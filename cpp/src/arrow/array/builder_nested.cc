@@ -152,7 +152,8 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
 }
 
 MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
-                       const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted)
+                       const std::shared_ptr<ArrayBuilder>& item_builder,
+                       bool keys_sorted)
     : MapBuilder(pool, key_builder, item_builder,
                  map(key_builder->type(), item_builder->type(), keys_sorted)) {}
 
