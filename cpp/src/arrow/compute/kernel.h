@@ -201,6 +201,20 @@ struct ARROW_EXPORT Datum {
     return NULLPTR;
   }
 
+  /// \brief The value length of the variant, if any
+  ///
+  /// \return -1 if no type
+  int64_t length() const {
+    if (this->kind() == Datum::ARRAY) {
+      return util::get<std::shared_ptr<ArrayData>>(this->value)->length;
+    } else if (this->kind() == Datum::CHUNKED_ARRAY) {
+      return util::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
+    } else if (this->kind() == Datum::SCALAR) {
+      return 1;
+    }
+    return -1;
+  }
+
   bool Equals(const Datum& other) const {
     if (this->kind() != other.kind()) return false;
 
