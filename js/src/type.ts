@@ -102,14 +102,14 @@ type Ints = Type.Int | Type.Int8 | Type.Int16 | Type.Int32 | Type.Int64 | Type.U
 /** @ignore */
 type IType = {
     [Type.Int   ]: { bitWidth: IntBitWidth; isSigned: true | false; TArray: IntArray;    TValue: number | Int32Array | Uint32Array; };
-    [Type.Int8  ]: { bitWidth:           8; isSigned: true;         TArray: Int8Array;   TValue: number;      };
-    [Type.Int16 ]: { bitWidth:          16; isSigned: true;         TArray: Int16Array;  TValue: number;      };
-    [Type.Int32 ]: { bitWidth:          32; isSigned: true;         TArray: Int32Array;  TValue: number;      };
-    [Type.Int64 ]: { bitWidth:          64; isSigned: true;         TArray: Int32Array;  TValue: Int32Array;  };
-    [Type.Uint8 ]: { bitWidth:           8; isSigned: false;        TArray: Uint8Array;  TValue: number;      };
-    [Type.Uint16]: { bitWidth:          16; isSigned: false;        TArray: Uint16Array; TValue: number;      };
-    [Type.Uint32]: { bitWidth:          32; isSigned: false;        TArray: Uint32Array; TValue: number;      };
-    [Type.Uint64]: { bitWidth:          64; isSigned: false;        TArray: Uint32Array; TValue: Uint32Array; };
+    [Type.Int8  ]: { bitWidth:           8; isSigned: true;         TArray: Int8Array;   TValue: number; };
+    [Type.Int16 ]: { bitWidth:          16; isSigned: true;         TArray: Int16Array;  TValue: number; };
+    [Type.Int32 ]: { bitWidth:          32; isSigned: true;         TArray: Int32Array;  TValue: number; };
+    [Type.Int64 ]: { bitWidth:          64; isSigned: true;         TArray: Int32Array;  TValue: bigint; };
+    [Type.Uint8 ]: { bitWidth:           8; isSigned: false;        TArray: Uint8Array;  TValue: number; };
+    [Type.Uint16]: { bitWidth:          16; isSigned: false;        TArray: Uint16Array; TValue: number; };
+    [Type.Uint32]: { bitWidth:          32; isSigned: false;        TArray: Uint32Array; TValue: number; };
+    [Type.Uint64]: { bitWidth:          64; isSigned: false;        TArray: Uint32Array; TValue: bigint; };
 };
 
 interface Int_<T extends Ints = Ints> extends DataType<T> { TArray: IType[T]['TArray']; TValue: IType[T]['TValue']; }
@@ -409,7 +409,7 @@ class Union_<T extends Unions = Unions> extends DataType<T> {
         (<any> proto).typeIds = null;
         (<any> proto).children = null;
         (<any> proto).typeIdToChildIndex = null;
-        (<any> proto).ArrayType = Int32Array;
+        (<any> proto).ArrayType = Int8Array;
         return proto[Symbol.toStringTag] = 'Union';
     })(Union_.prototype);
 }

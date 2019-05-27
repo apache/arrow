@@ -37,9 +37,9 @@ import {
 /** @ignore */ export const kUnknownNullCount = -1;
 
 /** @ignore */ export type NullBuffer = Uint8Array | null | undefined;
-/** @ignore */ export type TypeIdsBuffer = Int8Array  | ArrayLike<number> | Iterable<number>;
-/** @ignore */ export type ValueOffsetsBuffer = Int32Array  | ArrayLike<number> | Iterable<number>;
-/** @ignore */ export type DataBuffer<T extends DataType> = T['TArray'] | ArrayLike<number> | Iterable<number>;
+/** @ignore */ export type TypeIdsBuffer = Int8Array  | ArrayLike<number> | Iterable<number> | undefined;
+/** @ignore */ export type ValueOffsetsBuffer = Int32Array  | ArrayLike<number> | Iterable<number> | undefined;
+/** @ignore */ export type DataBuffer<T extends DataType> = T['TArray'] | ArrayLike<number> | Iterable<number> | undefined;
 
 /** @ignore */
 export interface Buffers<T extends DataType> {
@@ -76,6 +76,15 @@ export class Data<T extends DataType = DataType> {
     public get typeId(): T['TType'] { return this.type.typeId; }
     public get buffers() {
         return [this.valueOffsets, this.values, this.nullBitmap, this.typeIds] as Buffers<T>;
+    }
+    public get byteLength(): number {
+        let byteLength = 0;
+        const { valueOffsets, values, nullBitmap, typeIds } = this;
+        byteLength += (valueOffsets && valueOffsets.byteLength) || 0;
+        byteLength += (values && values.byteLength) || 0;
+        byteLength += (nullBitmap && nullBitmap.byteLength) || 0;
+        byteLength += (typeIds && typeIds.byteLength) || 0;
+        return this.childData.reduce((byteLength, child) => byteLength + child.byteLength, byteLength);
     }
 
     protected _nullCount: number | kUnknownNullCount;
@@ -167,24 +176,24 @@ export class Data<T extends DataType = DataType> {
     public static new<T extends DataType>(type: T, offset: number, length: number, nullCount?: number, buffers?: Partial<Buffers<T>> | Data<T>, childData?: (Data | Vector)[]): Data<T> {
         if (buffers instanceof Data) { buffers = buffers.buffers; } else if (!buffers) { buffers = [] as Partial<Buffers<T>>; }
         switch (type.typeId) {
-            case Type.Null:            return <unknown> Data.Null(            <unknown> type as Null,            offset, length, nullCount || 0, buffers[2]) as Data<T>;
-            case Type.Int:             return <unknown> Data.Int(             <unknown> type as Int,             offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.Dictionary:      return <unknown> Data.Dictionary(      <unknown> type as Dictionary,      offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.Float:           return <unknown> Data.Float(           <unknown> type as Float,           offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.Bool:            return <unknown> Data.Bool(            <unknown> type as Bool,            offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.Decimal:         return <unknown> Data.Decimal(         <unknown> type as Decimal,         offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.Date:            return <unknown> Data.Date(            <unknown> type as Date_,           offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.Time:            return <unknown> Data.Time(            <unknown> type as Time,            offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.Timestamp:       return <unknown> Data.Timestamp(       <unknown> type as Timestamp,       offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.Interval:        return <unknown> Data.Interval(        <unknown> type as Interval,        offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.FixedSizeBinary: return <unknown> Data.FixedSizeBinary( <unknown> type as FixedSizeBinary, offset, length, nullCount || 0, buffers[2], buffers[1] || []) as Data<T>;
-            case Type.Binary:          return <unknown> Data.Binary(          <unknown> type as Binary,          offset, length, nullCount || 0, buffers[2], buffers[0] || [], buffers[1] || []) as Data<T>;
-            case Type.Utf8:            return <unknown> Data.Utf8(            <unknown> type as Utf8,            offset, length, nullCount || 0, buffers[2], buffers[0] || [], buffers[1] || []) as Data<T>;
-            case Type.List:            return <unknown> Data.List(            <unknown> type as List,            offset, length, nullCount || 0, buffers[2], buffers[0] || [], (childData || [])[0]) as Data<T>;
-            case Type.FixedSizeList:   return <unknown> Data.FixedSizeList(   <unknown> type as FixedSizeList,   offset, length, nullCount || 0, buffers[2], (childData || [])[0]) as Data<T>;
-            case Type.Struct:          return <unknown> Data.Struct(          <unknown> type as Struct,          offset, length, nullCount || 0, buffers[2], childData || []) as Data<T>;
-            case Type.Map:             return <unknown> Data.Map(             <unknown> type as Map_,            offset, length, nullCount || 0, buffers[2], childData || []) as Data<T>;
-            case Type.Union:           return <unknown> Data.Union(           <unknown> type as Union,           offset, length, nullCount || 0, buffers[2], buffers[3] || [], buffers[1] || childData, childData) as Data<T>;
+            case Type.Null:            return <unknown> Data.Null(            <unknown> type as Null,            offset, length, nullCount || 0, buffers[BufferType.VALIDITY]) as Data<T>;
+            case Type.Int:             return <unknown> Data.Int(             <unknown> type as Int,             offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Dictionary:      return <unknown> Data.Dictionary(      <unknown> type as Dictionary,      offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Float:           return <unknown> Data.Float(           <unknown> type as Float,           offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Bool:            return <unknown> Data.Bool(            <unknown> type as Bool,            offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Decimal:         return <unknown> Data.Decimal(         <unknown> type as Decimal,         offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Date:            return <unknown> Data.Date(            <unknown> type as Date_,           offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Time:            return <unknown> Data.Time(            <unknown> type as Time,            offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Timestamp:       return <unknown> Data.Timestamp(       <unknown> type as Timestamp,       offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Interval:        return <unknown> Data.Interval(        <unknown> type as Interval,        offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.FixedSizeBinary: return <unknown> Data.FixedSizeBinary( <unknown> type as FixedSizeBinary, offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Binary:          return <unknown> Data.Binary(          <unknown> type as Binary,          offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.OFFSET] || [], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Utf8:            return <unknown> Data.Utf8(            <unknown> type as Utf8,            offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.OFFSET] || [], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.List:            return <unknown> Data.List(            <unknown> type as List,            offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.OFFSET] || [], (childData || [])[0]) as Data<T>;
+            case Type.FixedSizeList:   return <unknown> Data.FixedSizeList(   <unknown> type as FixedSizeList,   offset, length, nullCount || 0, buffers[BufferType.VALIDITY], (childData || [])[0]) as Data<T>;
+            case Type.Struct:          return <unknown> Data.Struct(          <unknown> type as Struct,          offset, length, nullCount || 0, buffers[BufferType.VALIDITY], childData || []) as Data<T>;
+            case Type.Map:             return <unknown> Data.Map(             <unknown> type as Map_,            offset, length, nullCount || 0, buffers[BufferType.VALIDITY], childData || []) as Data<T>;
+            case Type.Union:           return <unknown> Data.Union(           <unknown> type as Union,           offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.TYPE] || [], buffers[BufferType.OFFSET] || childData, childData) as Data<T>;
         }
         throw new Error(`Unrecognized typeId ${type.typeId}`);
     }

@@ -16,21 +16,44 @@
 // under the License.
 
 import { DataType, List } from '../type';
-import { NestedBuilder } from './base';
+import { BuilderOptions, NestedBuilder } from './base';
 
 export class ListBuilder<T extends DataType = any, TNull = any> extends NestedBuilder<List<T>, TNull> {
     private row = new RowLike<T, TNull>();
+    constructor(options: BuilderOptions<List<T>, TNull>) {
+        super(options);
+        this.valueOffsets = new Int32Array(0);
+    }
+    public reset() {
+        (this.row as any).values = null;
+        return super.reset();
+    }
+    public writeValid(isValid: boolean, offset: number) {
+        if (!super.writeValid(isValid, offset)) {
+            const length = this.length;
+            const valueOffsets = this._getValueOffsets(offset);
+            (offset - length === 0)
+                ? (valueOffsets[offset + 1] = valueOffsets[offset])
+                : (valueOffsets.fill(valueOffsets[length], length, offset + 2));
+        }
+        return isValid;
+    }
     public writeValue(value: any, offset: number) {
+        const length = this.length;
+        const valueOffsets = this._getValueOffsets(offset);
+        if (length < offset) {
+            valueOffsets.fill(valueOffsets[length], length, offset + 1);
+        }
+        valueOffsets[offset + 1] = valueOffsets[offset] + value.length;
         const row = this.row;
         row.values = value;
         super.writeValue(row as any, offset);
-        row.values = null;
     }
 }
 
 class RowLike<T extends DataType = any, TNull = any> {
-    public values: null | ArrayLike<T['TValue'] | TNull> = null;
-    get(index: number) {
-        return this.values ? this.values[index] : null;
-    }
+    // @ts-ignore
+    public values: ArrayLike<T['TValue'] | TNull>;
+    public get length() { return this.values.length; }
+    public get(index: number) { return this.values[index]; }
 }

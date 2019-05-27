@@ -16,42 +16,75 @@
 // under the License.
 
 import { Field } from '../schema';
-import { Builder, NestedBuilder, BuilderOptions } from './base';
 import { Union, SparseUnion, DenseUnion } from '../type';
+import { Builder, NestedBuilder, BuilderOptions } from './base';
+
+export interface UnionBuilderOptions<T extends Union = any, TNull = any> extends BuilderOptions<T, TNull> {
+    valueToChildTypeId?: (builder: Builder<T, TNull>, value: any, offset: number) => number;
+}
 
 export class UnionBuilder<T extends Union, TNull = any> extends NestedBuilder<T, TNull> {
-    constructor(options: BuilderOptions<T, TNull>) {
+    constructor(options: UnionBuilderOptions<T, TNull>) {
         super(options);
         this.typeIds = new Int8Array(0);
+        if (typeof options['valueToChildTypeId'] === 'function') {
+            this._valueToChildTypeId = options['valueToChildTypeId'];
+        }
     }
+    public get typeIdToChildIndex() { return this._type.typeIdToChildIndex; }
     public get bytesReserved() {
         return this.children.reduce(
             (acc, { bytesReserved }) => acc + bytesReserved,
             this.typeIds.byteLength + this.nullBitmap.byteLength
         );
     }
-    public write(value: any | TNull, childTypeId: number) {
-        const offset = this.length;
+    /** @ignore */
+    public set(offset: number, value: T['TValue'] | TNull, childTypeId?: number): void {
+        if (childTypeId === undefined) {
+            childTypeId = this._valueToChildTypeId(this, value, offset);
+        }
         if (this.writeValid(this.isValid(value), offset)) {
             this.writeValue(value, offset, childTypeId);
         }
-        this.length = offset + 1;
-        return this;
+        const length = offset + 1;
+        this.length = length;
+        this._updateBytesUsed(offset, length);
     }
-    public appendChild(child: Builder, name = `${this.children.length}`): number {
-        const childIndex = this.children.push(child);
+    public write(value: any | TNull, childTypeId?: number) {
+        const offset = this.length;
+        if (childTypeId === undefined) {
+            childTypeId = this._valueToChildTypeId(this, value, offset);
+        }
+        if (this.writeValid(this.isValid(value), offset)) {
+            this.writeValue(value, offset, childTypeId);
+        }
+        const length = offset + 1;
+        this.length = length;
+        return this._updateBytesUsed(offset, length);
+    }
+    public addChild(child: Builder, name = `${this.children.length}`): number {
+        const childTypeId = this.children.push(child);
         const { type: { children, mode, typeIds } } = this;
         const fields = [...children, new Field(name, child.type)];
-        this._type = new Union(mode, [...typeIds, childIndex], fields) as T;
-        return childIndex;
+        this._type = new Union(mode, [...typeIds, childTypeId], fields) as T;
+        return childTypeId;
     }
-    public writeValue(value: any, offset: number, typeId: number) {
-        this._getTypeIds(offset)[offset] = typeId;
+    /** @ignore */
+    public writeValue(value: any, offset: number, childTypeId?: number) {
+        this._getTypeIds(offset)[offset] = childTypeId!;
         return super.writeValue(value, offset);
     }
+    /** @ignore */
     protected _updateBytesUsed(offset: number, length: number) {
         this._bytesUsed += 1;
         return super._updateBytesUsed(offset, length);
+    }
+    /** @ignore */
+    // @ts-ignore
+    protected _valueToChildTypeId(builder: Builder<T, TNull>, value: any, offset: number): number {
+        throw new Error(`Cannot map UnionVector value to child typeId. \
+Pass the \`childTypeId\` as the second argument to unionBuilder.write(), \
+or supply a \`valueToChildTypeId\` function as part of the UnionBuilder constructor options.`);
     }
 }
 
@@ -62,11 +95,13 @@ export class DenseUnionBuilder<T extends DenseUnion, TNull = any> extends UnionB
         super(options);
         this.valueOffsets = new Int32Array(0);
     }
-    public writeValue(value: any, offset: number, childTypeId: number) {
-        const valueOffsets = this._getValueOffsets(offset);
-        valueOffsets[offset] = this.getChildAt(childTypeId)!.length;
+    /** @ignore */
+    public writeValue(value: any, offset: number, childTypeId?: number) {
+        const childIndex = this._type.typeIdToChildIndex[childTypeId!];
+        this._getValueOffsets(offset)[offset] = this.getChildAt(childIndex)!.length;
         return super.writeValue(value, offset, childTypeId);
     }
+    /** @ignore */
     protected _updateBytesUsed(offset: number, length: number) {
         this._bytesUsed += 4;
         return super._updateBytesUsed(offset, length);

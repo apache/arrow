@@ -19,6 +19,8 @@ import { Data } from '../data';
 import { Visitor } from '../visitor';
 import { Vector } from '../interfaces';
 import { encodeUtf8 } from '../util/utf8';
+import { toArrayBufferView } from '../util/buffer';
+import { isArrowBigNumSymbol } from '../util/bn';
 import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum';
 import {
     DataType, Dictionary,
@@ -130,7 +132,23 @@ const setNumeric         = <T extends Numeric1X>      ({ stride, values }: Vecto
 /** @ignore */
 const setFloat16         = <T extends Float16>        ({ stride, values }: Vector<T>, index: number, value: T['TValue']): void => { values[stride * index] = (value * 32767) + 32767; };
 /** @ignore */
-const setNumericX2       = <T extends Numeric2X>      ({ stride, values }: Vector<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
+const setNumericX2       = <T extends Numeric2X>      (vector: Vector<T>, index: number, value: T['TValue']): void => {
+    if (typeof value === 'bigint') {
+        vector.values64[index] = value;
+    } else if ((value as any)[isArrowBigNumSymbol]) {
+        vector.values.set((value as any), vector.stride * index);
+    } else {
+        let loHiPair: T['TArray'];
+        const stride = vector.stride;
+        const ArrayType = vector.ArrayType;
+        if (<any> value instanceof ArrayType) {
+            loHiPair = <any> value;
+        } else {
+            loHiPair = toArrayBufferView<T['TArray']>(ArrayType, value);
+        }
+        vector.values.set(loHiPair.subarray(0, stride), stride * index);
+    }
+};
 /** @ignore */
 const setFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: Vector<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
 
@@ -210,20 +228,31 @@ const setList = <T extends List>(vector: Vector<T>, index: number, value: T['TVa
     const values = vector.getChildAt(0)!;
     const { valueOffsets, stride } = vector;
     let idx = -1, offset = valueOffsets[index * stride];
-    let end = Math.min(value.length, valueOffsets[(index * stride) + 1] - offset);
+    let end = Math.min(offset + value.length, valueOffsets[(index * stride) + 1]);
     while (offset < end) {
         values.set(offset++, value.get(++idx));
     }
 };
 
 /** @ignore */
-const setNested = <
+const setStruct = <
+    S extends { [key: string]: DataType },
+    V extends Vector<Map_<S>> | Vector<Struct<S>>
+>(vector: V, index: number, value: V['TValue']) => {
+    vector.type.children.forEach((_field, idx) => {
+        const child = vector.getChildAt(idx);
+        child && child.set(index, value[idx]);
+    });
+};
+
+/** @ignore */
+const setMap = <
     S extends { [key: string]: DataType },
     V extends Vector<Map_<S>> | Vector<Struct<S>>
 >(vector: V, index: number, value: V['TValue']) => {
     vector.type.children.forEach(({ name }, idx) => {
-        const kid = vector.getChildAt(idx);
-        kid && kid.set(index, value[name]);
+        const child = vector.getChildAt(idx);
+        child && child.set(index, value[name]);
     });
 };
 
@@ -239,15 +268,15 @@ const setUnion = <
 
 /** @ignore */
 const setDenseUnion = <T extends DenseUnion>(vector: Vector<T>, index: number, value: T['TValue']): void => {
-    const { typeIds, type: { typeIdToChildIndex } } = vector;
-    const child = vector.getChildAt(typeIdToChildIndex[typeIds[index]]);
+    const childIndex = vector.typeIdToChildIndex[vector.typeIds[index]];
+    const child = vector.getChildAt(childIndex);
     child && child.set(vector.valueOffsets[index], value);
 };
 
 /** @ignore */
 const setSparseUnion = <T extends SparseUnion>(vector: Vector<T>, index: number, value: T['TValue']): void => {
-    const { typeIds, type: { typeIdToChildIndex } } = vector;
-    const child = vector.getChildAt(typeIdToChildIndex[typeIds[index]]);
+    const childIndex = vector.typeIdToChildIndex[vector.typeIds[index]];
+    const child = vector.getChildAt(childIndex);
     child && child.set(index, value);
 };
 
@@ -312,7 +341,7 @@ SetVisitor.prototype.visitTimeMicrosecond      =      setTimeMicrosecond;
 SetVisitor.prototype.visitTimeNanosecond       =       setTimeNanosecond;
 SetVisitor.prototype.visitDecimal              =              setDecimal;
 SetVisitor.prototype.visitList                 =                 setList;
-SetVisitor.prototype.visitStruct               =               setNested;
+SetVisitor.prototype.visitStruct               =               setStruct;
 SetVisitor.prototype.visitUnion                =                setUnion;
 SetVisitor.prototype.visitDenseUnion           =           setDenseUnion;
 SetVisitor.prototype.visitSparseUnion          =          setSparseUnion;
@@ -321,7 +350,7 @@ SetVisitor.prototype.visitInterval             =        setIntervalValue;
 SetVisitor.prototype.visitIntervalDayTime      =      setIntervalDayTime;
 SetVisitor.prototype.visitIntervalYearMonth    =    setIntervalYearMonth;
 SetVisitor.prototype.visitFixedSizeList        =        setFixedSizeList;
-SetVisitor.prototype.visitMap                  =               setNested;
+SetVisitor.prototype.visitMap                  =                  setMap;
 
 /** @ignore */
 export const instance = new SetVisitor();

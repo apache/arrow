@@ -29,7 +29,7 @@ import {
 
 export interface BuilderOptions<T extends DataType = any, TNull = any> {
     type: T;
-    nullValues?: TNull[];
+    nullValues?: TNull[] | ReadonlyArray<TNull>;
 }
 
 export class Builder<T extends DataType = any, TNull = any> {
@@ -37,22 +37,21 @@ export class Builder<T extends DataType = any, TNull = any> {
     /** @nocollapse */
     public static throughNode<T extends DataType = any, TNull = any>(
         // @ts-ignore
-        options: import('stream').DuplexOptions & BuilderOptions<T, TNull>
+        options: import('../io/node/builder').BuilderDuplexOptions<T, TNull>
     ): import('stream').Duplex {
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */
     public static throughDOM<T extends DataType = any, TNull = any>(
         // @ts-ignore
-        writableStrategy: QueuingStrategy<T['TValue'] | TNull> & BuilderOptions<T, TNull>,
-        // @ts-ignore
-        readableStrategy?: { highWaterMark?: number, size?: any }
+        options: import('../io/whatwg/builder').BuilderTransformOptions<T, TNull>
     ): { writable: WritableStream<T['TValue'] | TNull>, readable: ReadableStream<Data<T>> } {
         throw new Error(`"throughDOM" not available in this environment`);
     }
 
     public length = 0;
     public nullCount = 0;
+    public numChildren = 0;
 
     public readonly offset = 0;
     public readonly stride: number;
@@ -72,15 +71,15 @@ export class Builder<T extends DataType = any, TNull = any> {
         const type = options['type'];
         const nullValues = options['nullValues'];
         this.stride = strideForType(this._type = type);
-        this.children = (type.children || []).map((f) => new Builder(f.type));
+        this.children = (type.children || []).map((f) => Builder.new({ type: f.type }));
+        this.numChildren = this.children.length;
         this.nullValues = Object.freeze(nullValues || []) as ReadonlyArray<TNull>;
         this.nullBitmap = new Uint8Array(0);
-        if (this.nullValues.length) {
+        if (options['nullValues'] !== undefined) {
             this._isValid = compileIsValid<T, TNull>(this.nullValues);
             this.children.forEach((child: any /* <-- any so we can assign to `nullValues` */) => {
                 child._isValid = this._isValid;
                 child.nullValues = this.nullValues;
-                child.nullBitmap = new Uint8Array(0);
             });
         }
     }
@@ -130,17 +129,27 @@ export class Builder<T extends DataType = any, TNull = any> {
         return this._isValid(value);
     }
 
-    public write(value: T['TValue'] | TNull, ..._: any[]): this;
+    /** @ignore */
+    public set(offset: number, value: T['TValue'] | TNull): void {
+        if (this.writeValid(this.isValid(value), offset)) {
+            this.writeValue(value, offset);
+        }
+        const length = offset + 1;
+        this.length = length;
+        this._updateBytesUsed(offset, length);
+    }
+
     public write(value: T['TValue'] | TNull) {
         const offset = this.length;
         if (this.writeValid(this.isValid(value), offset)) {
             this.writeValue(value, offset);
         }
-        return this._updateBytesUsed(offset, this.length = offset + 1);
+        const length = offset + 1;
+        this.length = length;
+        return this._updateBytesUsed(offset, length);
     }
 
     /** @ignore */
-    public writeValue(value: T['TValue'], offset: number, ..._: any[]): void;
     public writeValue(value: T['TValue'], offset: number): void {
         this._setValue(this, offset, value);
     }
@@ -154,7 +163,7 @@ export class Builder<T extends DataType = any, TNull = any> {
 
     // @ts-ignore
     protected _updateBytesUsed(offset: number, length: number) {
-        offset % 512 || (this._bytesUsed += 64);
+        offset % 8 || ++this._bytesUsed;
         return this;
     }
 
@@ -163,17 +172,24 @@ export class Builder<T extends DataType = any, TNull = any> {
         const { length, nullCount } = this;
         let { valueOffsets, values, nullBitmap, typeIds } = this;
 
-        if (valueOffsets) {
-            valueOffsets = sliceOrExtendArray(valueOffsets, roundLengthToMultipleOf64Bytes(length, 4));
+        // Unions
+        if (typeIds) {
+            typeIds = sliceOrExtendArray(typeIds, roundLengthToMultipleOf64Bytes(length, 1));
+            valueOffsets && (valueOffsets = sliceOrExtendArray(valueOffsets, roundLengthToMultipleOf64Bytes(length, 4)));
+        }
+        // Variable-width primitives (Binary, Utf8) and Lists
+        else if (valueOffsets) {
+            valueOffsets = sliceOrExtendArray(valueOffsets, roundLengthToMultipleOf64Bytes(length + 1, 4));
+            // Binary, Utf8
             values && (values = sliceOrExtendArray(values, roundLengthToMultipleOf64Bytes(valueOffsets[length], values.BYTES_PER_ELEMENT)));
-        } else if (values) {
+        }
+        // Fixed-width primitives (Int, Float, Decimal, Time, etc.)
+        else if (values) {
             values = sliceOrExtendArray(values, roundLengthToMultipleOf64Bytes(length * this.stride, values.BYTES_PER_ELEMENT));
         }
 
         nullBitmap && (nullBitmap = nullCount === 0 ? new Uint8Array(0)
             : sliceOrExtendArray(nullBitmap, roundLengthToMultipleOf64Bytes(length >> 3, 1) || 64));
-
-        typeIds && (typeIds = sliceOrExtendArray(typeIds, roundLengthToMultipleOf64Bytes(length, 1)));
 
         const data = Data.new<T>(
             this._type, 0, length, nullCount, [
@@ -197,10 +213,10 @@ export class Builder<T extends DataType = any, TNull = any> {
         this._bytesUsed = 0;
         this._bytesReserved = 0;
         this.children.forEach((child) => child.reset());
-        this.values && (this.values = this.values.subarray(0, 0));
-        this.typeIds && (this.typeIds = this.typeIds.subarray(0, 0));
-        this.nullBitmap && (this.nullBitmap = this.nullBitmap.subarray(0, 0));
-        this.valueOffsets && (this.valueOffsets = this.valueOffsets.subarray(0, 0));
+        this.values && (this.values = this.values.slice(0, 0));
+        this.typeIds && (this.typeIds = this.typeIds.slice(0, 0));
+        this.nullBitmap && (this.nullBitmap = this.nullBitmap.slice(0, 0));
+        this.valueOffsets && (this.valueOffsets = this.valueOffsets.slice(0, 0));
         return this;
     }
 
@@ -263,14 +279,14 @@ export abstract class FlatBuilder<T extends Int | Float | FixedSizeBinary | Date
         this._getValues(offset);
         return super.writeValue(value, offset);
     }
-    protected _updateBytesUsed(offset: number, length: number) {
+    public _updateBytesUsed(offset: number, length: number) {
         this._bytesUsed += this.BYTES_PER_ELEMENT;
         return super._updateBytesUsed(offset, length);
     }
 }
 
 export abstract class FlatListBuilder<T extends Utf8 | Binary = any, TNull = any> extends Builder<T, TNull> {
-    protected _values?: Map<number, undefined | Uint8Array>;
+    protected _values?: Map<number, Uint8Array>;
     constructor(options: BuilderOptions<T, TNull>) {
         super(options);
         this.valueOffsets = new Int32Array(0);
@@ -281,13 +297,20 @@ export abstract class FlatListBuilder<T extends Utf8 | Binary = any, TNull = any
     }
     public writeValid(isValid: boolean, offset: number) {
         if (!super.writeValid(isValid, offset)) {
+            const length = this.length;
             const valueOffsets = this._getValueOffsets(offset);
-            valueOffsets[offset + 1] = valueOffsets[offset];
+            (offset - length === 0)
+                ? (valueOffsets[offset + 1] = valueOffsets[offset])
+                : (valueOffsets.fill(valueOffsets[length], length, offset + 2));
         }
         return isValid;
     }
     public writeValue(value: Uint8Array | string, offset: number) {
+        const length = this.length;
         const valueOffsets = this._getValueOffsets(offset);
+        if (length < offset) {
+            valueOffsets.fill(valueOffsets[length], length, offset + 1);
+        }
         valueOffsets[offset + 1] = valueOffsets[offset] + value.length;
         (this._values || (this._values = new Map())).set(offset, value);
         this._bytesUsed += value.length;
@@ -299,14 +322,11 @@ export abstract class FlatListBuilder<T extends Utf8 | Binary = any, TNull = any
     }
     public flush() {
         this.values = new Uint8Array(roundLengthToMultipleOf64Bytes(this.valueOffsets[this.length], 1));
-        this._values && ((xs, n) => {
-            let i = -1, x: Uint8Array | undefined;
-            while (++i < n) {
-                if ((x = xs.get(i)) !== undefined) {
-                    super.writeValue(x, i);
-                }
+        this._values && ((xs) => {
+            for (let [i, x] of xs) {
+                super.writeValue(x, i);
             }
-        })(this._values, this.length);
+        })(this._values);
         this._values = undefined;
         return super.flush();
     }

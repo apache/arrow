@@ -123,7 +123,7 @@ const getNumeric         = <T extends Numeric1X>      ({ stride, values }: Vecto
 /** @ignore */
 const getFloat16         = <T extends Float16>        ({ stride, values }: Vector<T>, index: number): T['TValue'] => (values[stride * index] - 32767) / 32767;
 /** @ignore */
-const getBigInts         = <T extends Numeric2X>({ stride, values, type }: Vector<T>, index: number): T['TValue'] => BN.new(values.subarray(stride * index, stride * (index + 1)), type.isSigned);
+const getBigInts         = <T extends Numeric2X>({ stride, values, type }: Vector<T>, index: number): T['TValue'] => <any> BN.new(values.subarray(stride * index, stride * (index + 1)), type.isSigned);
 /** @ignore */
 const getFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: Vector<T>, index: number): T['TValue'] => values.subarray(stride * index, stride * (index + 1));
 
@@ -226,15 +226,15 @@ const getUnion = <
 
 /** @ignore */
 const getDenseUnion = <T extends DenseUnion>(vector: Vector<T>, index: number): T['TValue'] => {
-    const { typeIds, type: { typeIdToChildIndex } } = vector;
-    const child = vector.getChildAt(typeIdToChildIndex[typeIds[index]]);
+    const childIndex = vector.typeIdToChildIndex[vector.typeIds[index]];
+    const child = vector.getChildAt(childIndex);
     return child ? child.get(vector.valueOffsets[index]) : null;
 };
 
 /** @ignore */
 const getSparseUnion = <T extends SparseUnion>(vector: Vector<T>, index: number): T['TValue'] => {
-    const { typeIds, type: { typeIdToChildIndex } } = vector;
-    const child = vector.getChildAt(typeIdToChildIndex[typeIds[index]]);
+    const childIndex = vector.typeIdToChildIndex[vector.typeIds[index]];
+    const child = vector.getChildAt(childIndex);
     return child ? child.get(index) : null;
 };
 

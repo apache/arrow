@@ -15,56 +15,95 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Duplex } from 'stream';
 import { DataType } from '../../type';
-import { Duplex, DuplexOptions } from 'stream';
 import { Builder, BuilderOptions } from '../../builder/index';
 
 /** @ignore */
-export function builderThroughNodeStream<T extends DataType = any, TNull = any>(
-    options: DuplexOptions & BuilderOptions<T, TNull>
-) {
+export interface BuilderDuplexOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {
+    autoDestroy?: boolean;
+    highWaterMark?: number;
+    queueingStrategy?: 'bytes' | 'count';
+    dictionaryHashFunction?: (value: any) => string | number;
+    valueToChildTypeId?: (builder: Builder<T, TNull>, value: any, offset: number) => number;
+}
+
+/** @ignore */
+export function builderThroughNodeStream<T extends DataType = any, TNull = any>(options: BuilderDuplexOptions<T, TNull>) {
     return new BuilderDuplex(Builder.new(options), options);
 }
 
 /** @ignore */
 type CB = (error?: Error | null | undefined) => void;
 
+/** @ignore */
 class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
-    private _builder: Builder<T, TNull> | null;
-    constructor(builder: Builder<T, TNull>, options?: DuplexOptions) {
-        super({ allowHalfOpen: true, ...options, writableObjectMode: true, readableObjectMode: true });
+
+    private _finished: boolean;
+    private _desiredSize: number;
+    private _builder: Builder<T, TNull>;
+    private _getSize: (builder: Builder<T, TNull>) => number;
+
+    constructor(builder: Builder<T, TNull>, options: BuilderDuplexOptions<T, TNull>) {
+
+        const isDictionary = DataType.isDictionary(builder.type);
+        const { queueingStrategy = 'length', autoDestroy = true, highWaterMark = 100 } = options;
+
+        super({ autoDestroy, highWaterMark, allowHalfOpen: true, writableObjectMode: true, readableObjectMode: true });
+
+        this._finished = false;
         this._builder = builder;
-    }
-    _final(cb?: CB) {
-        const builder = this._builder;
-        if (builder) { flush(builder.finish(), this); }
-        cb && cb();
-    }
-    _write(x: any, _: string, cb: CB) {
-        const builder = this._builder;
-        if (builder) { flush(builder.write(x), this); }
-        cb && cb();
-        return true;
+        this._desiredSize = highWaterMark;
+        this._getSize = queueingStrategy !== 'bytes' ? builderLength : builderByteLength;
+
+        if (isDictionary) {
+            let chunks: any[] = [];
+            this.push = (chunk: any, _?: string) => {
+                if (chunk !== null) {
+                    chunks.push(chunk);
+                    return true;
+                }
+                const chunks_ = chunks;
+                chunks = [];
+                chunks_.forEach((x) => super.push(x));
+                return super.push(null) && false;
+            };
+        }
     }
     _read(size: number) {
-        const builder = this._builder;
-        if (builder) { flush(builder, this, size); }
+        this._maybeFlush(this._builder, this._desiredSize = size);
     }
-    _destroy(_err: Error | null, cb: (error: Error | null) => void) {
+    _final(cb?: CB) {
+        this._maybeFlush(this._builder.finish(), this._desiredSize);
+        cb && cb();
+    }
+    _write(value: any, _: string, cb?: CB) {
         const builder = this._builder;
-        if (builder) { builder.reset(); }
-        cb(this._builder = null);
+        builder.write(value);
+        const res = this._maybeFlush(builder, this._desiredSize);
+        cb && cb();
+        return res;
+    }
+    _destroy(err: Error | null, cb?: (error: Error | null) => void) {
+        this._builder.reset();
+        cb && cb(err);
+    }
+    private _maybeFlush(builder: Builder<T, TNull>, size: number) {
+        if (this._getSize(builder) >= size) {
+            this.push(builder.flush());
+        }
+        if (builder.finished) {
+            if (builder.length > 0) {
+                this.push(builder.flush());
+            }
+            if (!this._finished && (this._finished = true)) {
+                this.push(null);
+            }
+            return false;
+        }
+        return this._getSize(builder) < this.writableHighWaterMark;
     }
 }
 
-function flush<T extends DataType = any, TNull = any>(builder: Builder<T, TNull>, sink: BuilderDuplex<T, TNull>, size = sink.readableHighWaterMark) {
-    if (size === null || builder.length >= size) {
-        sink.push(builder.flush());
-    }
-    if (builder.finished) {
-        if (builder.length > 0) {
-            sink.push(builder.flush());
-        }
-        sink.push(null);
-    }
-}
+/** @ignore */ const builderLength = <T extends DataType = any>(builder: Builder<T>) => builder.length;
+/** @ignore */ const builderByteLength = <T extends DataType = any>(builder: Builder<T>) => builder.bytesUsed;

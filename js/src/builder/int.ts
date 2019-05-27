@@ -41,7 +41,7 @@ export class Int32Builder<TNull = any> extends IntBuilder<Int32, TNull> {}
 export class Int64Builder<TNull = any> extends IntBuilder<Int64, TNull> {
     constructor(options: BuilderOptions<Int64, TNull>) {
         if (options['nullValues']) {
-            options['nullValues'] = options['nullValues'].map(toMaybeBigInt);
+            options['nullValues'] = (options['nullValues'] as TNull[]).map(toMaybeBigInt);
         }
         super(options);
     }
@@ -56,7 +56,7 @@ export class Uint32Builder<TNull = any> extends IntBuilder<Uint32, TNull> {}
 export class Uint64Builder<TNull = any> extends IntBuilder<Uint64, TNull> {
     constructor(options: BuilderOptions<Uint64, TNull>) {
         if (options['nullValues']) {
-            options['nullValues'] = options['nullValues'].map(toMaybeBigInt);
+            options['nullValues'] = (options['nullValues'] as TNull[]).map(toMaybeBigInt);
         }
         super(options);
     }
@@ -74,4 +74,4 @@ const toMaybeBigInt = ((memo: any) => (value: any) => {
         memo.buffer = null;
     }
     return value;
-})({ BigIntArray: BigInt64Array });
+})({ 'BigIntArray': BigInt64Array });

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import '../../jest-extensions';
 import { AsyncIterable } from 'ix';
 import { util } from '../../Arrow';
 import { Builder } from '../../Arrow';
@@ -119,8 +120,9 @@ export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: 
 export function encodeEachDOM<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
     return async function encodeEachDOM<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
+        const strategy = { highWaterMark: chunkLen };
         const source = AsyncIterable.from(vals).toDOMStream();
-        const transform = Builder.throughDOM({ type, nullValues }, { highWaterMark: chunkLen });
+        const transform = Builder.throughDOM({ type, nullValues, readableStrategy: strategy, writableStrategy: strategy });
         const chunks = await AsyncIterable.fromDOMStream(source.pipeThrough(transform)).toArray();
         return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
     }
@@ -156,13 +158,16 @@ export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[],
             } else if (isInt64Null(nulls, y)) {
                 expect(x).toEqual(null);
             } else {
-                expect(x).toEqual(y);
+                expect(x).toArrowCompare(y);
             }
             i++;
         }
     } catch (e) {
+        // Uncomment these two lines to catch and debug the value retrieval that failed
+        // debugger;
+        // vec.get(i);
         throw new Error([
-            `${(vec as any).VectorName}[${i}]: ${e}`,
+            `${(vec as any).VectorName}[${i}]: ${e && e.stack || e}`,
             `nulls: [${nullVals.join(', ')}]`,
             `values: [${vals.join(', ')}]`,
         ].join('\n'));

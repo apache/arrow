@@ -30,7 +30,7 @@ export interface DictionaryBuilderOptions<T extends DataType = any, TNull = any>
 export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builder<T, TNull> {
 
     protected _hash: DictionaryHashFunction;
-    protected hashmap = Object.create(null);
+    protected _codes = Object.create(null);
     public readonly indices: IntBuilder<T['indices']>;
     public readonly dictionary: Builder<T['dictionary']>;
 
@@ -45,6 +45,12 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
     public get nullBitmap() { return this.indices && this.indices.nullBitmap; }
     public set values(values: T['TArray']) { this.indices && (this.indices.values = values); }
     public set nullBitmap(nullBitmap: Uint8Array) { this.indices && (this.indices.nullBitmap = nullBitmap); }
+    public get bytesUsed() {
+        return this.indices.bytesUsed;
+    }
+    public get bytesReserved() {
+        return this.indices.bytesReserved;
+    }
     public setHashFunction(hash: DictionaryHashFunction) {
         this._hash = hash;
         return this;
@@ -52,7 +58,6 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
     public reset() {
         this.length = 0;
         this.indices.reset();
-        this.dictionary.reset();
         return this;
     }
     public flush() {
@@ -65,6 +70,11 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
         this.type.dictionaryVector = Vector.new(this.dictionary.finish().flush());
         return super.finish();
     }
+    /** @ignore */
+    public set(offset: number, value: T['TValue'] | TNull): void {
+        super.set(offset, value);
+        this.indices.length = this.length;
+    }
     public write(value: any) {
         this.indices.length = super.write(value).length;
         return this;
@@ -72,13 +82,21 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
     public writeValid(isValid: boolean, index: number) {
         return this.indices.writeValid(isValid, index);
     }
+    // @ts-ignore
+    protected _updateBytesUsed(offset: number, length: number) {
+        const indices = this.indices;
+        indices.length = length;
+        indices._updateBytesUsed(offset, length);
+        return this;
+    }
     public writeValue(value: T['TValue'], index: number) {
-        let id = this._hash(value);
-        let hashmap = this.hashmap;
-        if (hashmap[id] === undefined) {
-            hashmap[id] = this.dictionary.write(value).length - 1;
+        let code: number | void;
+        let codes = this._codes;
+        let key = this._hash(value);
+        if ((code = codes[key]) === undefined) {
+            codes[key] = code = this.dictionary.write(value).length - 1;
         }
-        return this.indices.writeValue(hashmap[id], index);
+        return this.indices.writeValue(code, index);
     }
     public *writeAll(source: Iterable<any>, chunkLength = Infinity) {
         const chunks = [] as Data<T>[];

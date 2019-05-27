@@ -90,6 +90,11 @@ export class Int64Vector extends IntVector<Int64> {
     public toBigInt64Array() {
         return toBigInt64Array(this.values);
     }
+    // @ts-ignore
+    private _values64: BigInt64Array;
+    public get values64(): BigInt64Array {
+        return this._values64 || (this._values64 = this.toBigInt64Array());
+    }
 }
 
 export class Uint8Vector extends IntVector<Uint8> {}
@@ -99,12 +104,9 @@ export class Uint64Vector extends IntVector<Uint64> {
     public toBigUint64Array() {
         return toBigUint64Array(this.values);
     }
-}
-
-export interface Int64Vector extends IntVector<Int64> {
-    indexOf(value: Int64['TValue'] | bigint | null, fromIndex?: number): number;
-}
-
-export interface Uint64Vector extends IntVector<Uint64> {
-    indexOf(value: Uint64['TValue'] | bigint | null, fromIndex?: number): number;
+    // @ts-ignore
+    private _values64: BigUint64Array;
+    public get values64(): BigUint64Array {
+        return this._values64 || (this._values64 = this.toBigUint64Array());
+    }
 }
