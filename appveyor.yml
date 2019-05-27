@@ -66,8 +66,9 @@ environment:
       GENERATOR: Visual Studio 14 2015 Win64
       CONFIGURATION: "Release"
       ARROW_BUILD_GANDIVA: "ON"
-    - JOB: "Static_Crt_Build"
-      GENERATOR: Ninja
+    # NOTE: Since ARROW-5403 we have disabled the static CRT build
+    # - JOB: "Static_Crt_Build"
+    #   GENERATOR: Ninja
     - JOB: "Build_Debug"
       GENERATOR: Ninja
       CONFIGURATION: "Debug"
