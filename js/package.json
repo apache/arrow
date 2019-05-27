@@ -77,7 +77,7 @@
     "del": "3.0.0",
     "esm": "3.2.25",
     "glob": "7.1.4",
-    "google-closure-compiler": "20190301.0.0",
+    "google-closure-compiler": "20190513.0.0",
     "gulp": "4.0.2",
     "gulp-json-transform": "0.4.6",
     "gulp-rename": "1.4.0",
