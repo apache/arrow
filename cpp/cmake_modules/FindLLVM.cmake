@@ -78,7 +78,7 @@ else()
   endif()
 endif()
 
-add_library(LLVM::LLVM_INTERFACE IMPORTED INTERFACE)
+add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
 
 set_target_properties(LLVM::LLVM_INTERFACE
                       PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
