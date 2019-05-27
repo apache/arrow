@@ -23,6 +23,7 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
@@ -164,6 +165,10 @@ inline bool ValidateUTF8(const util::string_view& str) {
 
   return ValidateUTF8(data, length);
 }
+
+// Skip UTF8 byte order mark, if any.
+ARROW_EXPORT
+Status SkipUTF8BOM(const uint8_t* data, int64_t size, const uint8_t** out);
 
 }  // namespace util
 }  // namespace arrow
