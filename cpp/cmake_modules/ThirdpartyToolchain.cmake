@@ -1080,7 +1080,7 @@ if(ARROW_WITH_PROTOBUF)
 
   # Old CMake versions don't define the targets
   if(NOT TARGET protobuf::libprotobuf)
-    add_library(protobuf::libprotobuf IMPORTED UNKNOWN)
+    add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
     set_target_properties(protobuf::libprotobuf
                           PROPERTIES IMPORTED_LOCATION "${PROTOBUF_LIBRARY}"
                                      INTERFACE_INCLUDE_DIRECTORIES
@@ -1094,7 +1094,7 @@ if(ARROW_WITH_PROTOBUF)
     if(NOT Protobuf_PROTOC_LIBRARY)
       message(FATAL_ERROR "libprotoc was set to ${Protobuf_PROTOC_LIBRARY}")
     endif()
-    add_library(protobuf::libprotoc IMPORTED UNKNOWN)
+    add_library(protobuf::libprotoc UNKNOWN IMPORTED)
     set_target_properties(protobuf::libprotoc
                           PROPERTIES IMPORTED_LOCATION "${Protobuf_PROTOC_LIBRARY}"
                                      INTERFACE_INCLUDE_DIRECTORIES
@@ -1756,7 +1756,7 @@ if(ARROW_WITH_BZ2)
   resolve_dependency(BZip2)
 
   if(NOT TARGET BZip2::BZip2)
-    add_library(BZip2::BZip2 IMPORTED UNKNOWN)
+    add_library(BZip2::BZip2 UNKNOWN IMPORTED)
     set_target_properties(BZip2::BZip2
                           PROPERTIES IMPORTED_LOCATION "${BZIP2_LIBRARIES}"
                                      INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")

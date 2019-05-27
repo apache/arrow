@@ -115,15 +115,15 @@ find_package_handle_standard_args(Brotli
                                   BROTLI_INCLUDE_DIR)
 if(Brotli_FOUND OR BROTLI_FOUND)
   set(Brotli_FOUND TRUE)
-  add_library(Brotli::brotlicommon IMPORTED UNKNOWN)
+  add_library(Brotli::brotlicommon UNKNOWN IMPORTED)
   set_target_properties(Brotli::brotlicommon
                         PROPERTIES IMPORTED_LOCATION "${BROTLI_COMMON_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
-  add_library(Brotli::brotlienc IMPORTED UNKNOWN)
+  add_library(Brotli::brotlienc UNKNOWN IMPORTED)
   set_target_properties(Brotli::brotlienc
                         PROPERTIES IMPORTED_LOCATION "${BROTLI_ENC_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
-  add_library(Brotli::brotlidec IMPORTED UNKNOWN)
+  add_library(Brotli::brotlidec UNKNOWN IMPORTED)
   set_target_properties(Brotli::brotlidec
                         PROPERTIES IMPORTED_LOCATION "${BROTLI_DEC_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")

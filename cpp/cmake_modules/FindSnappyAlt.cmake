@@ -34,7 +34,7 @@ endif()
 find_package_handle_standard_args(SnappyAlt REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
 
 if(SnappyAlt_FOUND)
-  add_library(Snappy::snappy IMPORTED UNKNOWN)
+  add_library(Snappy::snappy UNKNOWN IMPORTED)
   set_target_properties(Snappy::snappy
                         PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}")

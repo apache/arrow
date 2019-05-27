@@ -37,7 +37,7 @@ find_package_handle_standard_args(DoubleConversion REQUIRED_VARS DoubleConversio
                                   DoubleConversion_INCLUDE_DIR)
 
 if(DoubleConversion_FOUND)
-  add_library(double-conversion::double-conversion IMPORTED UNKNOWN)
+  add_library(double-conversion::double-conversion UNKNOWN IMPORTED)
   set_target_properties(double-conversion::double-conversion
                         PROPERTIES IMPORTED_LOCATION "${DoubleConversion_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES

@@ -36,7 +36,7 @@ endif()
 find_package_handle_standard_args(gflagsAlt REQUIRED_VARS gflags_LIB GFLAGS_INCLUDE_DIR)
 
 if(gflagsAlt_FOUND)
-  add_library(gflags::gflags IMPORTED UNKNOWN)
+  add_library(gflags::gflags UNKNOWN IMPORTED)
   set_target_properties(gflags::gflags
                         PROPERTIES IMPORTED_LOCATION "${gflags_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GFLAGS_INCLUDE_DIR}")
