@@ -15,10 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_UTIL_MEMORY_H
-#define PARQUET_UTIL_MEMORY_H
+// DEPRECATED IO INTERFACES: We have transitioned to using the Apache
+// Arrow file input and output abstract interfaces defined in
+// arrow/io/interfaces.h. These legacy interfaces are being preserved
+// through a wrapper layer for one to two releases
 
-#include <atomic>
+#pragma
+
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -36,8 +39,6 @@
 #include "parquet/types.h"
 
 namespace parquet {
-
-static constexpr int64_t kInMemoryDefaultCapacity = 1024;
 
 // File input and output interfaces that translate arrow::Status to exceptions
 
@@ -79,179 +80,58 @@ class PARQUET_EXPORT OutputStream : virtual public FileInterface {
   virtual void Write(const uint8_t* data, int64_t length) = 0;
 };
 
-class PARQUET_EXPORT ArrowFileMethods : virtual public FileInterface {
- public:
-  // No-op. Closing the file is the responsibility of the owner of the handle
-  void Close() override;
-
-  int64_t Tell() override;
-
- protected:
-  virtual ::arrow::io::FileInterface* file_interface() = 0;
-};
-
-// Suppress C4250 warning caused by diamond inheritance
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4250)
-#endif
-
-/// This interface depends on the threadsafety of the underlying Arrow file interface
-class PARQUET_EXPORT ArrowInputFile : public ArrowFileMethods, public RandomAccessSource {
- public:
-  explicit ArrowInputFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file);
-
-  int64_t Size() const override;
-
-  // Returns bytes read
-  int64_t Read(int64_t nbytes, uint8_t* out) override;
-
-  std::shared_ptr<Buffer> Read(int64_t nbytes) override;
-
-  std::shared_ptr<Buffer> ReadAt(int64_t position, int64_t nbytes) override;
-
-  /// Returns bytes read
-  int64_t ReadAt(int64_t position, int64_t nbytes, uint8_t* out) override;
-
-  std::shared_ptr<::arrow::io::RandomAccessFile> file() const { return file_; }
-
-  // Diamond inheritance
-  using ArrowFileMethods::Close;
-  using ArrowFileMethods::Tell;
-
- private:
-  ::arrow::io::FileInterface* file_interface() override;
-  std::shared_ptr<::arrow::io::RandomAccessFile> file_;
-};
-
-class PARQUET_EXPORT ArrowOutputStream : public ArrowFileMethods, public OutputStream {
- public:
-  explicit ArrowOutputStream(const std::shared_ptr<::arrow::io::OutputStream> file);
-
-  // Copy bytes into the output stream
-  void Write(const uint8_t* data, int64_t length) override;
-
-  std::shared_ptr<::arrow::io::OutputStream> file() { return file_; }
-
-  // Diamond inheritance
-  using ArrowFileMethods::Close;
-  using ArrowFileMethods::Tell;
-
- private:
-  ::arrow::io::FileInterface* file_interface() override;
-  std::shared_ptr<::arrow::io::OutputStream> file_;
-};
-
-// Pop C4250 pragma
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
-class PARQUET_EXPORT InMemoryOutputStream : public OutputStream {
- public:
-  explicit InMemoryOutputStream(
-      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      int64_t initial_capacity = kInMemoryDefaultCapacity);
-
-  virtual ~InMemoryOutputStream();
-
-  // Close is currently a no-op with the in-memory stream
-  virtual void Close() {}
-
-  virtual int64_t Tell();
-
-  virtual void Write(const uint8_t* data, int64_t length);
-
-  // Clears the stream
-  void Clear() { size_ = 0; }
-
-  // Get pointer to the underlying buffer
-  const Buffer& GetBufferRef() const { return *buffer_; }
-
-  // Return complete stream as Buffer
-  std::shared_ptr<Buffer> GetBuffer();
-
- private:
-  // Mutable pointer to the current write position in the stream
-  uint8_t* Head();
-
-  std::shared_ptr<ResizableBuffer> buffer_;
-  int64_t size_;
-  int64_t capacity_;
-
-  PARQUET_DISALLOW_COPY_AND_ASSIGN(InMemoryOutputStream);
-};
-
 // ----------------------------------------------------------------------
-// Streaming input interfaces
+// Wrapper classes
 
-// Interface for the column reader to get the bytes. The interface is a stream
-// interface, meaning the bytes in order and once a byte is read, it does not
-// need to be read again.
-class PARQUET_EXPORT InputStream {
+class ParquetInputWrapper : public ::arrow::io::RandomAccessFile {
  public:
-  // Returns the next 'num_to_peek' without advancing the current position.
-  // *num_bytes will contain the number of bytes returned which can only be
-  // less than num_to_peek at end of stream cases.
-  // Since the position is not advanced, calls to this function are idempotent.
-  // The buffer returned to the caller is still owned by the input stream and must
-  // stay valid until the next call to Peek() or Read().
-  virtual const uint8_t* Peek(int64_t num_to_peek, int64_t* num_bytes) = 0;
+  ParquetInputWrapper(std::unique_ptr<RandomAccessSource> source,
+                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+  ParquetInputWrapper(RandomAccessSource* source,
+                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
-  // Identical to Peek(), except the current position in the stream is advanced by
-  // *num_bytes.
-  virtual const uint8_t* Read(int64_t num_to_read, int64_t* num_bytes) = 0;
+  ~ParquetInputWrapper() override;
 
-  // Advance the stream without reading
-  virtual void Advance(int64_t num_bytes) = 0;
+  // FileInterface
+  ::arrow::Status Close() override;
+  ::arrow::Status Tell(int64_t* position) const override;
+  bool closed() const override;
 
-  virtual ~InputStream() {}
+  // Seekable
+  ::arrow::Status Seek(int64_t position) override;
 
- protected:
-  InputStream() {}
-};
-
-// Implementation of an InputStream when all the bytes are in memory.
-class PARQUET_EXPORT InMemoryInputStream : public InputStream {
- public:
-  InMemoryInputStream(RandomAccessSource* source, int64_t start, int64_t end);
-  explicit InMemoryInputStream(const std::shared_ptr<Buffer>& buffer);
-  virtual const uint8_t* Peek(int64_t num_to_peek, int64_t* num_bytes);
-  virtual const uint8_t* Read(int64_t num_to_read, int64_t* num_bytes);
-
-  virtual void Advance(int64_t num_bytes);
+  // InputStream
+  ::arrow::Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
+  ::arrow::Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  ::arrow::Status ReadAt(int64_t position, int64_t nbytes,
+                         std::shared_ptr<Buffer>* out) override;
 
  private:
-  std::shared_ptr<Buffer> buffer_;
-  int64_t len_;
-  int64_t offset_;
-};
-
-// Implementation of an InputStream when only some of the bytes are in memory.
-class PARQUET_EXPORT BufferedInputStream : public InputStream {
- public:
-  BufferedInputStream(::arrow::MemoryPool* pool, int64_t buffer_size,
-                      RandomAccessSource* source, int64_t start, int64_t end);
-  virtual const uint8_t* Peek(int64_t num_to_peek, int64_t* num_bytes);
-  virtual const uint8_t* Read(int64_t num_to_read, int64_t* num_bytes);
-
-  virtual void Advance(int64_t num_bytes);
-
-  // Return the number of bytes remaining in buffer (i.e. without reading from source).
-  int64_t remaining_in_buffer() const;
-
- private:
-  std::shared_ptr<ResizableBuffer> buffer_;
+  std::unique_ptr<RandomAccessSource> owned_source_;
   RandomAccessSource* source_;
-  int64_t stream_offset_;
-  int64_t stream_end_;
-  int64_t buffer_offset_;
-  int64_t buffer_end_;
+  MemoryPool* pool_;
+  bool closed_;
 };
 
-std::shared_ptr<ResizableBuffer> PARQUET_EXPORT AllocateBuffer(
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
+class ParquetOutputWrapper : public ::arrow::io::OutputStream {
+ public:
+  ParquetOutputWrapper(std::unique_ptr<OutputStream> sink);
+  ParquetOutputWrapper(OutputStream* sink);
+
+  ~ParquetOutputWrapper() override;
+
+  // FileInterface
+  ::arrow::Status Close() override;
+  ::arrow::Status Tell(int64_t* position) const override;
+  bool closed() const override;
+
+  // Writable
+  ::arrow::Status Write(const void* data, int64_t nbytes) override;
+
+ private:
+  std::unique_ptr<OutputStream> owned_sink_;
+  OutputStream* sink_;
+  bool closed_;
+};
 
 }  // namespace parquet
-
-#endif  // PARQUET_UTIL_MEMORY_H

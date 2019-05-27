@@ -199,7 +199,7 @@ TEST_F(TestLocalFile, FileClosedOnDestruction) {
   bool close_called = false;
   {
     auto contents = ParquetFileReader::Contents::Open(
-        std::unique_ptr<RandomAccessSource>(new HelperFileClosed(handle, &close_called)));
+        std::make_shared<HelperFileClosed>(handle, &close_called));
     std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
     result->Open(std::move(contents));
   }
@@ -277,25 +277,25 @@ Column 1
   Uncompressed Size: 52, Compressed Size: 56
 )###";
   std::string valuesOutput = R"###(--- Values ---
-element                       b                             
-a                             1                             
-b                             1                             
-c                             1                             
-NULL                          
-d                             
-a                             
-b                             
-c                             
-d                             
-NULL                          
-e                             
-a                             
-b                             
-c                             
-d                             
-e                             
-NULL                          
-f                             
+element                       b
+a                             1
+b                             1
+c                             1
+NULL
+d
+a
+b
+c
+d
+NULL
+e
+a
+b
+c
+d
+e
+NULL
+f
 
 )###";
   std::string dumpOutput = R"###(--- Values ---

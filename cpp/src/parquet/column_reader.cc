@@ -104,9 +104,10 @@ ReaderProperties default_reader_properties() {
 // and the page metadata.
 class SerializedPageReader : public PageReader {
  public:
-  SerializedPageReader(std::unique_ptr<InputStream> stream, int64_t total_num_rows,
+  SerializedPageReader(const std::shared_ptr<ArrowInputStream>& stream,
+                       int64_t total_num_rows,
                        Compression::type codec, ::arrow::MemoryPool* pool)
-      : stream_(std::move(stream)),
+      : stream_(stream),
         decompression_buffer_(AllocateBuffer(pool, 0)),
         seen_num_rows_(0),
         total_num_rows_(total_num_rows) {
@@ -120,7 +121,7 @@ class SerializedPageReader : public PageReader {
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
  private:
-  std::unique_ptr<InputStream> stream_;
+  std::shared_ptr<ArrowInputStream> stream_;
 
   format::PageHeader current_page_header_;
   std::shared_ptr<Page> current_page_;
@@ -153,15 +154,15 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // We try to deserialize a larger buffer progressively
     // until a maximum allowed header limit
     while (true) {
-      buffer = stream_->Peek(allowed_page_size, &bytes_available);
-      if (bytes_available == 0) {
+      auto buffer = stream_->Peek(allowed_page_size);
+      if (buffer.size() == 0) {
         return std::shared_ptr<Page>(nullptr);
       }
 
       // This gets used, then set by DeserializeThriftMsg
-      header_size = static_cast<uint32_t>(bytes_available);
+      header_size = static_cast<uint32_t>(buffer.size());
       try {
-        DeserializeThriftMsg(buffer, &header_size, &current_page_header_);
+        DeserializeThriftMsg(buffer.data(), &header_size, &current_page_header_);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -175,13 +176,14 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       }
     }
     // Advance the stream offset
-    stream_->Advance(header_size);
+    PARQUET_THROW_NOT_OK(stream_->Advance(header_size));
 
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
 
     // Read the compressed data page.
-    buffer = stream_->Read(compressed_len, &bytes_read);
+    std::shared_ptr<Buffer> page_buffer;
+    PARQUET_THROW_NOT_OK(stream_->Read(compressed_len, &page_buffer));
     if (bytes_read != compressed_len) {
       std::stringstream ss;
       ss << "Page was smaller (" << bytes_read << ") than expected (" << compressed_len
@@ -198,10 +200,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       PARQUET_THROW_NOT_OK(
           decompressor_->Decompress(compressed_len, buffer, uncompressed_len,
                                     decompression_buffer_->mutable_data()));
-      buffer = decompression_buffer_->data();
+      page_buffer = decompression_buffer_;
     }
-
-    auto page_buffer = std::make_shared<Buffer>(buffer, uncompressed_len);
 
     if (current_page_header_.type == format::PageType::DICTIONARY_PAGE) {
       const format::DictionaryPageHeader& dict_header =
@@ -257,12 +257,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
-std::unique_ptr<PageReader> PageReader::Open(std::unique_ptr<InputStream> stream,
+std::unique_ptr<PageReader> PageReader::Open(const std::shared_ptr<ArrowInputStream>& stream,
                                              int64_t total_num_rows,
                                              Compression::type codec,
                                              ::arrow::MemoryPool* pool) {
   return std::unique_ptr<PageReader>(
-      new SerializedPageReader(std::move(stream), total_num_rows, codec, pool));
+      new SerializedPageReader(stream, total_num_rows, codec, pool));
 }
 
 // ----------------------------------------------------------------------

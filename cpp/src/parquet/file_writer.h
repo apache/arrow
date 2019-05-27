@@ -110,6 +110,9 @@ class PARQUET_EXPORT RowGroupWriter {
 PARQUET_EXPORT
 void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
 
+PARQUET_EXPORT
+void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink);
+
 class PARQUET_EXPORT ParquetFileWriter {
  public:
   // Forward declare a virtual class 'Contents' to aid dependency injection and more

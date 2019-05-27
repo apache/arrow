@@ -127,8 +127,8 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
 // and the page metadata.
 class SerializedPageWriter : public PageWriter {
  public:
-  SerializedPageWriter(OutputStream* sink, Compression::type codec,
-                       ColumnChunkMetaDataBuilder* metadata,
+  SerializedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
+                       Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
                        ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : sink_(sink),
         metadata_(metadata),
@@ -140,6 +140,18 @@ class SerializedPageWriter : public PageWriter {
         total_compressed_size_(0) {
     compressor_ = GetCodecFromArrow(codec);
     thrift_serializer_.reset(new ThriftSerializer);
+  }
+
+  int64_t WritePageGeneric(const format::PageHeader& header, const Buffer& body) {
+    int64_t start_pos = -1;
+    PARQUET_THROW_NOT_OK(sink_->Tell(&start_pos));
+    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_);
+    PARQUET_THROW_NOT_OK(sink_->Write(body.data(), body.size()));
+
+    total_uncompressed_size_ += uncompressed_size + header_size;
+    total_compressed_size_ += compressed_data->size() + header_size;
+
+    return start_pos;
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -164,19 +176,14 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
     page_header.__set_dictionary_page_header(dict_page_header);
-    // TODO(PARQUET-594) crc checksum
 
-    int64_t start_pos = sink_->Tell();
+    int64_t start_pos = WritePageGeneric(page_header, *compressed_data);
     if (dictionary_page_offset_ == 0) {
       dictionary_page_offset_ = start_pos;
     }
-    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_);
-    sink_->Write(compressed_data->data(), compressed_data->size());
-
-    total_uncompressed_size_ += uncompressed_size + header_size;
-    total_compressed_size_ += compressed_data->size() + header_size;
-
-    return sink_->Tell() - start_pos;
+    int64_t current_pos = -1;
+    PARQUET_THROW_NOT_OK(sink_->Tell(&current_pos));
+    return current_pos - start_pos;
   }
 
   void Close(bool has_dictionary, bool fallback) override {
@@ -228,21 +235,14 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
     page_header.__set_data_page_header(data_page_header);
-    // TODO(PARQUET-594) crc checksum
 
-    int64_t start_pos = sink_->Tell();
+    int64_t start_pos = WritePageGeneric(page_header, *compressed_data);
     if (data_page_offset_ == 0) {
       data_page_offset_ = start_pos;
     }
-
-    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_);
-    sink_->Write(compressed_data->data(), compressed_data->size());
-
-    total_uncompressed_size_ += uncompressed_size + header_size;
-    total_compressed_size_ += compressed_data->size() + header_size;
-    num_values_ += page.num_values();
-
-    return sink_->Tell() - start_pos;
+    int64_t current_pos = -1;
+    PARQUET_THROW_NOT_OK(sink_->Tell(&current_pos));
+    return current_pos - start_pos;
   }
 
   bool has_compressor() override { return (compressor_ != nullptr); }
@@ -258,7 +258,7 @@ class SerializedPageWriter : public PageWriter {
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
  private:
-  OutputStream* sink_;
+  std::shared_ptr<ArrowOutputStream> sink_;
   ColumnChunkMetaDataBuilder* metadata_;
   ::arrow::MemoryPool* pool_;
   int64_t num_values_;
@@ -276,13 +276,15 @@ class SerializedPageWriter : public PageWriter {
 // This implementation of the PageWriter writes to the final sink on Close .
 class BufferedPageWriter : public PageWriter {
  public:
-  BufferedPageWriter(OutputStream* sink, Compression::type codec,
+  BufferedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
+                     Compression::type codec,
                      ColumnChunkMetaDataBuilder* metadata,
                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : final_sink_(sink),
         metadata_(metadata),
-        in_memory_sink_(new InMemoryOutputStream(pool)),
-        pager_(new SerializedPageWriter(in_memory_sink_.get(), codec, metadata, pool)) {}
+        pager_(new SerializedPageWriter(in_memory_sink_.get(), codec, metadata, pool)) {
+    in_memory_sink_ = CreateOutputStream(pool);
+  }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
     return pager_->WriteDictionaryPage(page);
@@ -299,8 +301,9 @@ class BufferedPageWriter : public PageWriter {
     metadata_->WriteTo(in_memory_sink_.get());
 
     // flush everything to the serialized sink
-    auto buffer = in_memory_sink_->GetBuffer();
-    final_sink_->Write(buffer->data(), buffer->size());
+    std::shared_ptr<Buffer> buffer;
+    PARQUET_THROW_NOT_OK(in_memory_sink_->Finish(&buffer));
+    PARQUET_THROW_NOT_OK(final_sink_->Write(buffer->data(), buffer->size()));
   }
 
   int64_t WriteDataPage(const CompressedDataPage& page) override {
@@ -314,13 +317,14 @@ class BufferedPageWriter : public PageWriter {
   bool has_compressor() override { return pager_->has_compressor(); }
 
  private:
-  OutputStream* final_sink_;
+  std::shared_ptr<ArrowOutputStream> final_sink_;
   ColumnChunkMetaDataBuilder* metadata_;
-  std::unique_ptr<InMemoryOutputStream> in_memory_sink_;
+  std::shared_ptr<ArrowOutputStream> in_memory_sink_;
   std::unique_ptr<SerializedPageWriter> pager_;
 };
 
-std::unique_ptr<PageWriter> PageWriter::Open(OutputStream* sink, Compression::type codec,
+std::unique_ptr<PageWriter> PageWriter::Open(const std::shared_ptr<ArrowOutputStream>& sink,
+                                             Compression::type codec,
                                              ColumnChunkMetaDataBuilder* metadata,
                                              ::arrow::MemoryPool* pool,
                                              bool buffered_row_group) {
@@ -361,7 +365,8 @@ class ColumnWriterImpl {
         total_compressed_bytes_(0),
         closed_(false),
         fallback_(false) {
-    definition_levels_sink_.reset(new InMemoryOutputStream(allocator_));
+    definition_levels_sink_ = CreateOutputStream(allocator_);
+    repetition_levels_sink_ = CreateOutputStream(allocator_);
     repetition_levels_sink_.reset(new InMemoryOutputStream(allocator_));
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
@@ -404,15 +409,15 @@ class ColumnWriterImpl {
   // Write multiple definition levels
   void WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
     DCHECK(!closed_);
-    definition_levels_sink_->Write(reinterpret_cast<const uint8_t*>(levels),
-                                   sizeof(int16_t) * num_levels);
+    PARQUET_THROW_NOT_OK(definition_levels_sink_->Write(
+        reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels));
   }
 
   // Write multiple repetition levels
   void WriteRepetitionLevels(int64_t num_levels, const int16_t* levels) {
     DCHECK(!closed_);
-    repetition_levels_sink_->Write(reinterpret_cast<const uint8_t*>(levels),
-                                   sizeof(int16_t) * num_levels);
+    PARQUET_THROW_NOT_OK(repetition_levels_sink_->Write(
+        reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels));
   }
 
   // RLE encode the src_buffer into dest_buffer and return the encoded size
@@ -462,8 +467,8 @@ class ColumnWriterImpl {
   // Flag to infer if dictionary encoding has fallen back to PLAIN
   bool fallback_;
 
-  std::unique_ptr<InMemoryOutputStream> definition_levels_sink_;
-  std::unique_ptr<InMemoryOutputStream> repetition_levels_sink_;
+  std::shared_ptr<ArrowOutputStream> definition_levels_sink_;
+  std::shared_ptr<ArrowOutputStream> repetition_levels_sink_;
 
   std::shared_ptr<ResizableBuffer> definition_levels_rle_;
   std::shared_ptr<ResizableBuffer> repetition_levels_rle_;
@@ -513,13 +518,13 @@ void ColumnWriterImpl::AddDataPage() {
 
   if (descr_->max_definition_level() > 0) {
     definition_levels_rle_size =
-        RleEncodeLevels(definition_levels_sink_->GetBufferRef(),
+        RleEncodeLevels(definition_levels_sink_->buffer(),
                         definition_levels_rle_.get(), descr_->max_definition_level());
   }
 
   if (descr_->max_repetition_level() > 0) {
     repetition_levels_rle_size =
-        RleEncodeLevels(repetition_levels_sink_->GetBufferRef(),
+        RleEncodeLevels(repetition_levels_sink_->buffer(),
                         repetition_levels_rle_.get(), descr_->max_repetition_level());
   }
 

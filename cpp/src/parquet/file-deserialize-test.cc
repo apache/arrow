@@ -105,12 +105,14 @@ class TestPageSerde : public ::testing::Test {
     ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
   }
 
-  void ResetStream() { out_stream_.reset(new InMemoryOutputStream); }
+  void ResetStream() {
+    out_stream_ = CreateOutputStream();
+  }
 
   void EndStream() { out_buffer_ = out_stream_->GetBuffer(); }
 
  protected:
-  std::unique_ptr<InMemoryOutputStream> out_stream_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> out_stream_;
   std::shared_ptr<Buffer> out_buffer_;
 
   std::unique_ptr<PageReader> page_reader_;
@@ -325,18 +327,19 @@ TEST_F(TestParquetFileReader, InvalidFooter) {
 }
 
 TEST_F(TestParquetFileReader, IncompleteMetadata) {
-  InMemoryOutputStream stream;
+  std::shared_ptr<ArrowOutputStream> stream = CreateOutputStream();
 
   const char* magic = "PAR1";
 
-  stream.Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic));
+  ASSERT_OK(stream->Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic)));
   std::vector<uint8_t> bytes(10);
-  stream.Write(bytes.data(), bytes.size());
+  ASSERT_OK(stream->Write(bytes.data(), bytes.size()));
   uint32_t metadata_len = 24;
-  stream.Write(reinterpret_cast<const uint8_t*>(&metadata_len), sizeof(uint32_t));
-  stream.Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic));
+  ASSERT_OK(stream->Write(reinterpret_cast<const uint8_t*>(&metadata_len), sizeof(uint32_t)));
+  ASSERT_OK(stream->Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic)));
 
-  auto buffer = stream.GetBuffer();
+  std::shared_ptr<Buffer> result;
+  ASSERT_OK(stream->Finish(&result));
   ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 

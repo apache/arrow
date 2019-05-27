@@ -73,7 +73,7 @@ class PARQUET_EXPORT ParquetFileReader {
   // An implementation of the Contents class is defined in the .cc file
   struct PARQUET_EXPORT Contents {
     static std::unique_ptr<Contents> Open(
-        std::unique_ptr<RandomAccessSource> source,
+        const std::shared_ptr<::arrow::io::RandomAccessFile>& source,
         const ReaderProperties& props = default_reader_properties(),
         const std::shared_ptr<FileMetaData>& metadata = NULLPTR);
 
@@ -92,6 +92,7 @@ class PARQUET_EXPORT ParquetFileReader {
   //
   // If you cannot provide exclusive access to your file resource, create a
   // subclass of RandomAccessSource that wraps the shared resource
+  ARROW_DEPRECATED("Use arrow::io::RandomAccessFile version");
   static std::unique_ptr<ParquetFileReader> Open(
       std::unique_ptr<RandomAccessSource> source,
       const ReaderProperties& props = default_reader_properties(),

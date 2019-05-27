@@ -62,6 +62,10 @@ Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
   return Status::OK();
 }
 
+void BufferOutputStream::Clear() {
+  position_ = 0;
+}
+
 BufferOutputStream::~BufferOutputStream() {
   // This can fail, better to explicitly call close
   if (buffer_) {

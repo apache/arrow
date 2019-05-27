@@ -84,5 +84,13 @@ using ResizableBuffer = ::arrow::ResizableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;
 using ArrowInputFile = ::arrow::io::RandomAccessFile;
 using ArrowInputStream = ::arrow::io::InputStream;
+using ArrowOutputStream = ::arrow::io::OutputStream;
+
+std::shared_ptr<ArrowOutputStream> CreateOutputStream(
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+PARQUET_EXPORT
+std::shared_ptr<ResizableBuffer> AllocateBuffer(
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
 
 }  // namespace parquet

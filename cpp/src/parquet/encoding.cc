@@ -82,41 +82,47 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   void Put(const T* buffer, int num_values) override;
 
  protected:
-  std::unique_ptr<InMemoryOutputStream> values_sink_;
+  std::shared_ptr<ArrowOutputStream> values_sink_;
 };
 
 template <typename DType>
 PlainEncoder<DType>::PlainEncoder(const ColumnDescriptor* descr,
                                   ::arrow::MemoryPool* pool)
     : EncoderImpl(descr, Encoding::PLAIN, pool) {
-  values_sink_.reset(new InMemoryOutputStream(pool));
+  values_sink_ = CreateOutputStream(pool);
 }
 template <typename DType>
 int64_t PlainEncoder<DType>::EstimatedDataEncodedSize() {
-  return values_sink_->Tell();
+  int64_t position = -1;
+  PARQUET_THROW_NOT_OK(values_sink_->Tell(&position));
+  return position;
 }
 
 template <typename DType>
 std::shared_ptr<Buffer> PlainEncoder<DType>::FlushValues() {
-  std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
-  values_sink_.reset(new InMemoryOutputStream(this->pool_));
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(values_sink_->Finish(&buffer));
+  values_sink_ = CreateOutputStream(this->pool_);
   return buffer;
 }
 
 template <typename DType>
 void PlainEncoder<DType>::Put(const T* buffer, int num_values) {
-  values_sink_->Write(reinterpret_cast<const uint8_t*>(buffer), num_values * sizeof(T));
+  PARQUET_THROW_NOT_OK(values_sink_->Write(reinterpret_cast<const uint8_t*>(buffer),
+                                           num_values * sizeof(T)));
 }
 
 template <>
 inline void PlainEncoder<ByteArrayType>::Put(const ByteArray* src, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     // Write the result to the output stream
-    values_sink_->Write(reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t));
+    PARQUET_THROW_NOT_OK(values_sink_->Write(
+        reinterpret_cast<const uint8_t*>(&src[i].len), sizeof(uint32_t)));
     if (src[i].len > 0) {
       DCHECK(nullptr != src[i].ptr) << "Value ptr cannot be NULL";
     }
-    values_sink_->Write(reinterpret_cast<const uint8_t*>(src[i].ptr), src[i].len);
+    PARQUET_THROW_NOT_OK(values_sink_->Write(
+        reinterpret_cast<const uint8_t*>(src[i].ptr), src[i].len));
   }
 }
 
@@ -127,8 +133,8 @@ inline void PlainEncoder<FLBAType>::Put(const FixedLenByteArray* src, int num_va
     if (descr_->type_length() > 0) {
       DCHECK(nullptr != src[i].ptr) << "Value ptr cannot be NULL";
     }
-    values_sink_->Write(reinterpret_cast<const uint8_t*>(src[i].ptr),
-                        descr_->type_length());
+    PARQUET_THROW_NOT_OK(values_sink_->Write(
+        reinterpret_cast<const uint8_t*>(src[i].ptr), descr_->type_length()));
   }
 }
 
@@ -163,7 +169,7 @@ class PlainBooleanEncoder : public EncoderImpl,
   int bits_available_;
   std::unique_ptr<::arrow::BitUtil::BitWriter> bit_writer_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
-  std::unique_ptr<InMemoryOutputStream> values_sink_;
+  std::shared_ptr<ArrowOutputStream> values_sink_;
 
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
@@ -182,7 +188,8 @@ void PlainBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
 
     if (bits_available_ == 0) {
       bit_writer_->Flush();
-      values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written());
+      PARQUET_THROW_NOT_OK(values_sink_->Write(
+          bit_writer_->buffer(), bit_writer_->bytes_written()));
       bit_writer_->Clear();
     }
   }
@@ -201,7 +208,8 @@ void PlainBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
 
     if (bits_available_ == 0) {
       bit_writer_->Flush();
-      values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written());
+      PARQUET_THROW_NOT_OK(values_sink_->Write(
+          bit_writer_->buffer(), bit_writer_->bytes_written()));
       bit_writer_->Clear();
     }
   }
@@ -211,26 +219,30 @@ PlainBooleanEncoder::PlainBooleanEncoder(const ColumnDescriptor* descr,
                                          ::arrow::MemoryPool* pool)
     : EncoderImpl(descr, Encoding::PLAIN, pool),
       bits_available_(kInMemoryDefaultCapacity * 8),
-      bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
-      values_sink_(new InMemoryOutputStream(pool)) {
+      bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)) {
+  values_sink_ = CreateOutputStream(pool);
   bit_writer_.reset(new BitUtil::BitWriter(bits_buffer_->mutable_data(),
                                            static_cast<int>(bits_buffer_->size())));
 }
 
 int64_t PlainBooleanEncoder::EstimatedDataEncodedSize() {
-  return values_sink_->Tell() + bit_writer_->bytes_written();
+  int64_t position = -1;
+  PARQUET_THROW_NOT_OK(values_sink_->Tell(&position));
+  return position + bit_writer_->bytes_written();
 }
 
 std::shared_ptr<Buffer> PlainBooleanEncoder::FlushValues() {
   if (bits_available_ > 0) {
     bit_writer_->Flush();
-    values_sink_->Write(bit_writer_->buffer(), bit_writer_->bytes_written());
+    PARQUET_THROW_NOT_OK(values_sink_->Write(
+        bit_writer_->buffer(), bit_writer_->bytes_written()));
     bit_writer_->Clear();
     bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;
   }
 
-  std::shared_ptr<Buffer> buffer = values_sink_->GetBuffer();
-  values_sink_.reset(new InMemoryOutputStream(this->pool_));
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(values_sink_->Finish(&buffer));
+  values_sink_ = CreateOutputStream(this->pool_);
   return buffer;
 }
 
