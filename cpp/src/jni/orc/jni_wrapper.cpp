@@ -119,17 +119,6 @@ std::shared_ptr<RecordBatchReader> GetStripeReader(jlong id) {
   return orc_stripe_reader_holder_.Lookup(id);
 }
 
-int jstr_to_cstr(JNIEnv* env, jstring jstr, char* cstr, size_t cstr_len) {
-  int32_t jlen, clen;
-
-  clen = env->GetStringUTFLength(jstr);
-  if (clen > (int32_t)cstr_len) return -ENAMETOOLONG;
-  jlen = env->GetStringLength(jstr);
-  env->GetStringUTFRegion(jstr, 0, jlen, cstr);
-  if (env->ExceptionCheck()) return -EIO;
-  return 0;
-}
-
 std::string JStringToCString(JNIEnv* env, jstring string) {
   int32_t jlen, clen;
   clen = env->GetStringUTFLength(string);
