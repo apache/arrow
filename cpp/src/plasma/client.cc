@@ -208,10 +208,11 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
                  int num_retries = -1);
 
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
-                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
+                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0,
+                bool is_pinned = true);
 
   Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
-                       const std::string& metadata);
+                       const std::string& metadata, bool is_pinned = true);
 
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
@@ -383,11 +384,12 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
 
 Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
                                   const uint8_t* metadata, int64_t metadata_size,
-                                  std::shared_ptr<Buffer>* data, int device_num) {
+                                  std::shared_ptr<Buffer>* data, int device_num,
+                                  bool is_pinned) {
   ARROW_LOG(DEBUG) << "called plasma_create on conn " << store_conn_ << " with size "
                    << data_size << " and metadata size " << metadata_size;
-  RETURN_NOT_OK(
-      SendCreateRequest(store_conn_, object_id, data_size, metadata_size, device_num));
+  RETURN_NOT_OK(SendCreateRequest(store_conn_, object_id, data_size, metadata_size,
+      device_num, is_pinned));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaCreateReply, &buffer));
   ObjectID id;
@@ -447,7 +449,8 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
 
 Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
                                          const std::string& data,
-                                         const std::string& metadata) {
+                                         const std::string& metadata,
+                                         bool is_pinned) {
   ARROW_LOG(DEBUG) << "called CreateAndSeal on conn " << store_conn_;
 
   // Compute the object hash.
@@ -460,7 +463,8 @@ Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
       reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
   memcpy(&digest[0], &hash, sizeof(hash));
 
-  RETURN_NOT_OK(SendCreateAndSealRequest(store_conn_, object_id, data, metadata, digest));
+  RETURN_NOT_OK(SendCreateAndSealRequest(store_conn_, object_id, data, metadata,
+      digest, is_pinned));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(
       PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealReply, &buffer));
@@ -939,13 +943,14 @@ Status PlasmaClient::Connect(const std::string& store_socket_name,
 
 Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
                             const uint8_t* metadata, int64_t metadata_size,
-                            std::shared_ptr<Buffer>* data, int device_num) {
-  return impl_->Create(object_id, data_size, metadata, metadata_size, data, device_num);
+                            std::shared_ptr<Buffer>* data, int device_num,
+                            bool is_pinned) {
+  return impl_->Create(object_id, data_size, metadata, metadata_size, data, device_num, is_pinned);
 }
 
 Status PlasmaClient::CreateAndSeal(const ObjectID& object_id, const std::string& data,
-                                   const std::string& metadata) {
-  return impl_->CreateAndSeal(object_id, data, metadata);
+                                   const std::string& metadata, bool is_pinned) {
+  return impl_->CreateAndSeal(object_id, data, metadata, is_pinned);
 }
 
 Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,

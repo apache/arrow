@@ -47,10 +47,11 @@ Status PlasmaReceive(int sock, MessageType message_type, std::vector<uint8_t>* b
 /* Plasma Create message functions. */
 
 Status SendCreateRequest(int sock, ObjectID object_id, int64_t data_size,
-                         int64_t metadata_size, int device_num);
+                         int64_t metadata_size, int device_num, bool is_pinned);
 
 Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
-                         int64_t* data_size, int64_t* metadata_size, int* device_num);
+                         int64_t* data_size, int64_t* metadata_size, int* device_num,
+                         bool* is_pinned);
 
 Status SendCreateReply(int sock, ObjectID object_id, PlasmaObject* object,
                        PlasmaError error, int64_t mmap_size);
@@ -60,11 +61,11 @@ Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
 
 Status SendCreateAndSealRequest(int sock, const ObjectID& object_id,
                                 const std::string& data, const std::string& metadata,
-                                unsigned char* digest);
+                                unsigned char* digest, bool is_pinned);
 
 Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
                                 std::string* object_data, std::string* metadata,
-                                unsigned char* digest);
+                                unsigned char* digest, bool* is_pinned);
 
 Status SendCreateAndSealReply(int sock, PlasmaError error);
 

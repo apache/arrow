@@ -83,12 +83,17 @@ class ARROW_EXPORT PlasmaClient {
   ///        device_num = 0 corresponds to the host,
   ///        device_num = 1 corresponds to GPU0,
   ///        device_num = 2 corresponds to GPU1, etc.
+  /// \param is_pinned Whether the object can be deleted when it's no longer
+  ///        referenced. A pinned object isn't managed by LRU cache in store,
+  ///        and won't be evicted even after its reference count is 0, it can only
+  ///        be deleted by calling Delete().
   /// \return The return status.
   ///
   /// The returned object must be released once it is done with.  It must also
   /// be either sealed or aborted.
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
-                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
+                int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0,
+                bool is_pinned = false);
 
   /// Create and seal an object in the object store. This is an optimization
   /// which allows small objects to be created quickly with fewer messages to
@@ -97,9 +102,13 @@ class ARROW_EXPORT PlasmaClient {
   /// \param object_id The ID of the object to create.
   /// \param data The data for the object to create.
   /// \param metadata The metadata for the object to create.
+  /// \param is_pinned Whether the object can be deleted when it's no longer
+  ///        referenced. A pinned object isn't managed by LRU cache in store,
+  ///        and won't be evicted even after its reference count is 0, it can only
+  ///        be deleted by calling Delete().
   /// \return The return status.
   Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
-                       const std::string& metadata);
+                       const std::string& metadata, bool is_pinned = false);
 
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the

@@ -112,6 +112,8 @@ table PlasmaCreateRequest {
   metadata_size: ulong;
   // Device to create buffer on.
   device_num: int;
+  // Whether to pin this object.
+  is_pinned: bool;
 }
 
 table CudaHandle {
@@ -144,6 +146,8 @@ table PlasmaCreateAndSealRequest {
   metadata: string;
   // Hash of the object data.
   digest: string;
+  // Whether to pin this object.
+  is_pinned: bool;
 }
 
 table PlasmaCreateAndSealReply {

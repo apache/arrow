@@ -99,15 +99,16 @@ Status PlasmaErrorStatus(fb::PlasmaError plasma_error) {
 // Create messages.
 
 Status SendCreateRequest(int sock, ObjectID object_id, int64_t data_size,
-                         int64_t metadata_size, int device_num) {
+                         int64_t metadata_size, int device_num, bool is_pinned) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = fb::CreatePlasmaCreateRequest(fbb, fbb.CreateString(object_id.binary()),
-                                               data_size, metadata_size, device_num);
+                                               data_size, metadata_size, device_num, is_pinned);
   return PlasmaSend(sock, MessageType::PlasmaCreateRequest, &fbb, message);
 }
 
 Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
-                         int64_t* data_size, int64_t* metadata_size, int* device_num) {
+                         int64_t* data_size, int64_t* metadata_size,
+                         int* device_num, bool* is_pinned) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaCreateRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
@@ -115,6 +116,7 @@ Status ReadCreateRequest(uint8_t* data, size_t size, ObjectID* object_id,
   *metadata_size = message->metadata_size();
   *object_id = ObjectID::from_binary(message->object_id()->str());
   *device_num = message->device_num();
+  *is_pinned = message->is_pinned();
   return Status::OK();
 }
 
@@ -178,18 +180,18 @@ Status ReadCreateReply(uint8_t* data, size_t size, ObjectID* object_id,
 
 Status SendCreateAndSealRequest(int sock, const ObjectID& object_id,
                                 const std::string& data, const std::string& metadata,
-                                unsigned char* digest) {
+                                unsigned char* digest, bool is_pinned) {
   flatbuffers::FlatBufferBuilder fbb;
   auto digest_string = fbb.CreateString(reinterpret_cast<char*>(digest), kDigestSize);
   auto message = fb::CreatePlasmaCreateAndSealRequest(
       fbb, fbb.CreateString(object_id.binary()), fbb.CreateString(data),
-      fbb.CreateString(metadata), digest_string);
+      fbb.CreateString(metadata), digest_string, is_pinned);
   return PlasmaSend(sock, MessageType::PlasmaCreateAndSealRequest, &fbb, message);
 }
 
 Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
                                 std::string* object_data, std::string* metadata,
-                                unsigned char* digest) {
+                                unsigned char* digest, bool* is_pinned) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
@@ -199,6 +201,7 @@ Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
   *metadata = message->metadata()->str();
   ARROW_CHECK(message->digest()->size() == kDigestSize);
   memcpy(digest, message->digest()->data(), kDigestSize);
+  *is_pinned = message->is_pinned();
   return Status::OK();
 }
 

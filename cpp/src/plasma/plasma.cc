@@ -29,7 +29,7 @@ namespace fb = plasma::flatbuf;
 
 namespace plasma {
 
-ObjectTableEntry::ObjectTableEntry() : pointer(nullptr), ref_count(0) {}
+ObjectTableEntry::ObjectTableEntry() : pointer(nullptr), ref_count(0), is_pinned(true) {}
 
 ObjectTableEntry::~ObjectTableEntry() { pointer = nullptr; }
 

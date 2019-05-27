@@ -205,7 +205,7 @@ Status PlasmaStore::FreeCudaMemory(int device_num, int64_t size, uint8_t* pointe
 
 // Create a new object buffer in the hash table.
 PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_size,
-                                      int64_t metadata_size, int device_num,
+                                      int64_t metadata_size, int device_num, bool is_pinned,
                                       Client* client, PlasmaObject* result) {
   ARROW_LOG(DEBUG) << "creating object " << object_id.hex();
 
@@ -258,6 +258,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->device_num = device_num;
   entry->create_time = std::time(nullptr);
   entry->construct_duration = -1;
+  entry->is_pinned = is_pinned;
 
   result->store_fd = fd;
   result->data_offset = offset;
@@ -525,6 +526,11 @@ int PlasmaStore::RemoveFromClientObjectIds(const ObjectID& object_id,
       } else {
         // Above code does not really delete an object. Instead, it just put an
         // object to LRU cache which will be cleaned when the memory is not enough.
+        std::vector<ObjectID> objects_to_evict;
+        eviction_policy_.EndObjectAccess(object_id, &objects_to_evict);
+        eviction_policy_.RemoveObject(object_id);
+        EvictObjects(objects_to_evict);
+
         deletion_cache_.erase(object_id);
         EvictObjects({object_id});
       }
@@ -890,10 +896,12 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       int64_t data_size;
       int64_t metadata_size;
       int device_num;
+      bool is_pinned = false;
       RETURN_NOT_OK(ReadCreateRequest(input, input_size, &object_id, &data_size,
-                                      &metadata_size, &device_num));
+                                      &metadata_size, &device_num, &is_pinned));
       PlasmaError error_code =
-          CreateObject(object_id, data_size, metadata_size, device_num, client, &object);
+          CreateObject(object_id, data_size, metadata_size, device_num, is_pinned,
+          client, &object);
       int64_t mmap_size = 0;
       if (error_code == PlasmaError::OK && device_num == 0) {
         mmap_size = GetMmapSize(object.store_fd);
@@ -912,14 +920,15 @@ Status PlasmaStore::ProcessMessage(Client* client) {
     case fb::MessageType::PlasmaCreateAndSealRequest: {
       std::string data;
       std::string metadata;
+      bool is_pinned = false;
       unsigned char digest[kDigestSize];
       RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id, &data,
-                                             &metadata, &digest[0]));
+                                             &metadata, &digest[0], &is_pinned));
       // CreateAndSeal currently only supports device_num = 0, which corresponds
       // to the host.
       int device_num = 0;
       PlasmaError error_code = CreateObject(object_id, data.size(), metadata.size(),
-                                            device_num, client, &object);
+                                            device_num, is_pinned, client, &object);
       // Reply to the client.
       HANDLE_SIGPIPE(SendCreateAndSealReply(client->fd, error_code), client->fd);
 

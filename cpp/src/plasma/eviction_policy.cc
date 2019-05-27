@@ -64,7 +64,9 @@ int64_t EvictionPolicy::ChooseObjectsToEvict(int64_t num_bytes_required,
 
 void EvictionPolicy::ObjectCreated(const ObjectID& object_id) {
   auto entry = store_info_->objects[object_id].get();
-  cache_.Add(object_id, entry->data_size + entry->metadata_size);
+  if (!entry->is_pinned) {
+    cache_.Add(object_id, entry->data_size + entry->metadata_size);
+  }
 }
 
 bool EvictionPolicy::RequireSpace(int64_t size, std::vector<ObjectID>* objects_to_evict) {
@@ -88,19 +90,27 @@ bool EvictionPolicy::RequireSpace(int64_t size, std::vector<ObjectID>* objects_t
 void EvictionPolicy::BeginObjectAccess(const ObjectID& object_id,
                                        std::vector<ObjectID>* objects_to_evict) {
   // If the object is in the LRU cache, remove it.
-  cache_.Remove(object_id);
+  auto entry = store_info_->objects[object_id].get();
+  if (!entry->is_pinned) {
+    cache_.Remove(object_id);
+  }
 }
 
 void EvictionPolicy::EndObjectAccess(const ObjectID& object_id,
                                      std::vector<ObjectID>* objects_to_evict) {
   auto entry = store_info_->objects[object_id].get();
   // Add the object to the LRU cache.
-  cache_.Add(object_id, entry->data_size + entry->metadata_size);
+  if (!entry->is_pinned) {
+    cache_.Add(object_id, entry->data_size + entry->metadata_size);
+  }
 }
 
 void EvictionPolicy::RemoveObject(const ObjectID& object_id) {
   // If the object is in the LRU cache, remove it.
-  cache_.Remove(object_id);
+  auto entry = store_info_->objects[object_id].get();
+  if (!entry->is_pinned) {
+    cache_.Remove(object_id);
+  }
 }
 
 }  // namespace plasma

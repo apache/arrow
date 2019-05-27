@@ -49,7 +49,8 @@ void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
   arrow::AssertBufferEqual(*object_buffer.data, data);
 }
 
-class TestPlasmaStore : public ::testing::Test {
+template  <unsigned int M>
+class TestPlasmaStoreBase : public ::testing::Test {
  public:
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
@@ -61,7 +62,7 @@ class TestPlasmaStore : public ::testing::Test {
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
     std::string plasma_command =
-        plasma_directory + "/plasma_store_server -m 10000000 -s " + store_socket_name_ +
+        plasma_directory + "/plasma_store_server -m " +  std::to_string(M) + " -s " + store_socket_name_ +
         " 1> /dev/null 2> /dev/null & " + "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
@@ -106,6 +107,8 @@ class TestPlasmaStore : public ::testing::Test {
   std::unique_ptr<TemporaryDir> temp_dir_;
   std::string store_socket_name_;
 };
+
+using TestPlasmaStore = TestPlasmaStoreBase<10000000>;
 
 TEST_F(TestPlasmaStore, NewSubscriberTest) {
   PlasmaClient local_client, local_client2;
@@ -475,6 +478,65 @@ TEST_F(TestPlasmaStore, ManyObjectTest) {
     }
     i++;
   }
+}
+
+using TestSmallMemoryPlasmaStore = TestPlasmaStoreBase<3000>;
+
+TEST_F(TestSmallMemoryPlasmaStore, LRUCacheTest) {
+  ObjectID object_id1 = random_object_id();
+  ObjectID object_id2 = random_object_id();
+  ObjectID object_id3 = random_object_id();
+  bool has_object = false;
+  // only one object can be put in the store
+  int64_t data_size = 2000;
+  std::shared_ptr<Buffer> data;
+  // Object will in LRU after release by default
+  ARROW_CHECK_OK(client_.Create(object_id1, data_size, nullptr, 0, &data));
+  ARROW_CHECK_OK(client_.Seal(object_id1));
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ARROW_CHECK(has_object == true);
+
+  // object 1 should in the LRU after release
+  ARROW_CHECK_OK(client_.Release(object_id1));
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ARROW_CHECK(has_object == true);
+
+  // create object 2 should success and object 1 should be evicted from LRU
+  ARROW_CHECK_OK(client_.Create(object_id2, data_size, nullptr, 0, &data));
+  ARROW_CHECK_OK(client_.Seal(object_id2));
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ARROW_CHECK(has_object == false);
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ARROW_CHECK(has_object == true);
+
+  // object 2 should in the LRU after release
+  ARROW_CHECK_OK(client_.Release(object_id2));
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ARROW_CHECK(has_object == true);
+
+  // Create object 1 which can be stored in LRU and evict object 2 in the LRU cache
+  ARROW_CHECK_OK(client_.Create(object_id1, data_size, nullptr, 0, &data, 0, true));
+  ARROW_CHECK_OK(client_.Seal(object_id1));
+  ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
+  ARROW_CHECK(has_object == false);
+
+  // Object 1 will not be in the LRU even we release it
+  ARROW_CHECK_OK(client_.Release(object_id1));
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ARROW_CHECK(has_object == true);
+
+  // We have to invoke Delete to evict an object not in LRU
+  auto status = client_.Create(object_id2, data_size, nullptr, 0, &data);
+  ARROW_CHECK(!status.ok());
+  // Have to abort create, otherwise the object will be in the entry
+  ARROW_CHECK_OK(client_.Delete({object_id1}));
+  ARROW_CHECK_OK(client_.Contains(object_id1, &has_object));
+  ARROW_CHECK(has_object == false);
+
+  ARROW_CHECK_OK(client_.Create(object_id3, data_size, nullptr, 0, &data));
+  ARROW_CHECK_OK(client_.Seal(object_id3));
+  ARROW_CHECK_OK(client_.Contains(object_id3, &has_object));
+  ARROW_CHECK(has_object == true);
 }
 
 #ifdef PLASMA_CUDA

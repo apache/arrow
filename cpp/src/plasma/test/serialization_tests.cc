@@ -97,15 +97,17 @@ TEST_F(TestPlasmaSerialization, CreateRequest) {
   int64_t data_size1 = 42;
   int64_t metadata_size1 = 11;
   int device_num1 = 0;
-  ASSERT_OK(SendCreateRequest(fd, object_id1, data_size1, metadata_size1, device_num1));
+  bool is_pinned1 = false;
+  ASSERT_OK(SendCreateRequest(fd, object_id1, data_size1, metadata_size1, device_num1, is_pinned1));
   std::vector<uint8_t> data =
       read_message_from_file(fd, MessageType::PlasmaCreateRequest);
   ObjectID object_id2;
   int64_t data_size2;
   int64_t metadata_size2;
   int device_num2;
+  bool is_pinned2;
   ASSERT_OK(ReadCreateRequest(data.data(), data.size(), &object_id2, &data_size2,
-                              &metadata_size2, &device_num2));
+                              &metadata_size2, &device_num2, &is_pinned2));
   ASSERT_EQ(data_size1, data_size2);
   ASSERT_EQ(metadata_size1, metadata_size2);
   ASSERT_EQ(object_id1, object_id2);
