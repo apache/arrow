@@ -209,10 +209,10 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0,
-                bool is_pinned = true);
+                bool is_pinned = false);
 
   Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
-                       const std::string& metadata, bool is_pinned = true);
+                       const std::string& metadata, bool is_pinned = false);
 
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
