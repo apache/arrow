@@ -151,6 +151,11 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
       pool, key_builder, list(field("key", key_builder->type(), false)));
 }
 
+MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
+                       const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted)
+    : MapBuilder(pool, key_builder, item_builder,
+                 map(key_builder->type(), item_builder->type(), keys_sorted)) {}
+
 Status MapBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(list_builder_->Resize(capacity));
   capacity_ = list_builder_->capacity();
