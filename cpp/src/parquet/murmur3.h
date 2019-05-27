@@ -26,7 +26,7 @@
 
 #include "parquet/hasher.h"
 #include "parquet/types.h"
-#include "parquet/util/visibility.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 

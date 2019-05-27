@@ -23,7 +23,7 @@
 
 #include "parquet/properties.h"
 #include "parquet/types.h"
-#include "parquet/util/visibility.h"
+#include "parquet/platform.h"
 
 #include "arrow/type.h"
 

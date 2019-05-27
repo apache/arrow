@@ -36,35 +36,6 @@ using arrow::util::Codec;
 
 namespace parquet {
 
-std::unique_ptr<Codec> GetCodecFromArrow(Compression::type codec) {
-  std::unique_ptr<Codec> result;
-  switch (codec) {
-    case Compression::UNCOMPRESSED:
-      break;
-    case Compression::SNAPPY:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::SNAPPY, &result));
-      break;
-    case Compression::GZIP:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::GZIP, &result));
-      break;
-    case Compression::LZO:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZO, &result));
-      break;
-    case Compression::BROTLI:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::BROTLI, &result));
-      break;
-    case Compression::LZ4:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZ4, &result));
-      break;
-    case Compression::ZSTD:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::ZSTD, &result));
-      break;
-    default:
-      break;
-  }
-  return result;
-}
-
 // ----------------------------------------------------------------------
 // Arrow IO wrappers
 

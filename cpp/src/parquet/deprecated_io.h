@@ -32,29 +32,12 @@
 #include "arrow/memory_pool.h"
 
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/visibility.h"
-
-namespace arrow {
-namespace util {
-
-class Codec;
-
-}  // namespace util
-}  // namespace arrow
 
 namespace parquet {
 
-PARQUET_EXPORT
-std::unique_ptr<::arrow::util::Codec> GetCodecFromArrow(Compression::type codec);
-
 static constexpr int64_t kInMemoryDefaultCapacity = 1024;
-
-using Buffer = ::arrow::Buffer;
-using MutableBuffer = ::arrow::MutableBuffer;
-using ResizableBuffer = ::arrow::ResizableBuffer;
-using ResizableBuffer = ::arrow::ResizableBuffer;
 
 // File input and output interfaces that translate arrow::Status to exceptions
 

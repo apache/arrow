@@ -23,8 +23,7 @@
 #include <string>
 
 #include "arrow/status.h"
-
-#include "parquet/util/macros.h"
+#include "parquet/platform.h"
 
 // PARQUET-1085
 #if !defined(ARROW_UNUSED)

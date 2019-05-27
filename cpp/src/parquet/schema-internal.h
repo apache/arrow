@@ -25,9 +25,9 @@
 #include <memory>
 #include <vector>
 
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
 
 namespace parquet {
 

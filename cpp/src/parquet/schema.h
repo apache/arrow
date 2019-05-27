@@ -30,9 +30,8 @@
 
 #include "arrow/util/macros.h"
 
+#include "parquet/platform.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 

@@ -28,7 +28,7 @@
 
 #include "parquet/metadata.h"  // IWYU pragma:: keep
 #include "parquet/properties.h"
-#include "parquet/util/visibility.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 

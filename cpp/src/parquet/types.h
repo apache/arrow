@@ -27,9 +27,7 @@
 #include <string>
 
 #include "arrow/util/macros.h"
-
-#include "parquet/util/macros.h"
-#include "parquet/util/visibility.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 
@@ -430,6 +428,17 @@ struct Encoding {
 struct Compression {
   enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, LZ4, ZSTD };
 };
+
+namespace arrow {
+namespace util {
+
+class Codec;
+
+}  // namespace util
+}  // namespace arrow
+
+PARQUET_EXPORT
+std::unique_ptr<::arrow::util::Codec> GetCodecFromArrow(Compression::type codec);
 
 struct Encryption {
   enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1 };

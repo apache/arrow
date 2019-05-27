@@ -15,8 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_UTIL_VISIBILITY_H
-#define PARQUET_UTIL_VISIBILITY_H
+#pragma
+
+#include "arrow/util/macros.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 
@@ -64,4 +65,24 @@
 #define PARQUET_TEMPLATE_EXPORT
 #endif
 
-#endif  // PARQUET_UTIL_VISIBILITY_H
+#define PARQUET_DISALLOW_COPY_AND_ASSIGN ARROW_DISALLOW_COPY_AND_ASSIGN
+
+#define PARQUET_NORETURN ARROW_NORETURN
+#define PARQUET_DEPRECATED ARROW_DEPRECATED
+
+// If ARROW_VALGRIND set when compiling unit tests, also define
+// PARQUET_VALGRIND
+#ifdef ARROW_VALGRIND
+#define PARQUET_VALGRIND
+#endif
+
+namespace parquet {
+
+using Buffer = ::arrow::Buffer;
+using MutableBuffer = ::arrow::MutableBuffer;
+using ResizableBuffer = ::arrow::ResizableBuffer;
+using ResizableBuffer = ::arrow::ResizableBuffer;
+using ArrowInputFile = ::arrow::io::RandomAccessFile;
+using ArrowInputStream = ::arrow::io::InputStream;
+
+}  // namespace parquet

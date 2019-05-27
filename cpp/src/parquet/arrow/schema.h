@@ -24,7 +24,7 @@
 
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
-#include "parquet/util/visibility.h"
+#include "parquet/platform.h"
 
 namespace arrow {
 
