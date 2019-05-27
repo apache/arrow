@@ -22,32 +22,64 @@ import java.io.IOException;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 
-
+/**
+ *  Orc Reader that allow accessing orc stripes in Orc file.
+ *  This orc reader basically acts like an ArrowReader iterator that
+ *  iterate over orc stripes. Each stripe will be accessed via an
+ *  ArrowReader.
+ */
 public class OrcReader implements AutoCloseable {
-
-  private static final int DEFAULT_BATCH_SIZE = 1024;
-
-  private OrcReaderJniWrapper orcReader;
-
   private BufferAllocator allocator;
 
+  private final long id;
+
+  /**
+   * Create an OrcReader that iterate over orc stripes.
+   * @param filePath file path to target file, currently only support local file.
+   * @param allocator allocator provided to ArrowReader.
+   * @throws IOException throws exception in case of file not found
+   */
   public OrcReader(String filePath, BufferAllocator allocator) throws IOException {
     this.allocator = allocator;
-    orcReader = new OrcReaderJniWrapper();
-    orcReader.open(filePath);
+    id = OrcReaderJniWrapper.open(filePath);
   }
 
-  public ArrowReader nextStripeReader() {
-    OrcStripeReaderJniWrapper stripeReader = orcReader.nextStripeReader(DEFAULT_BATCH_SIZE);
-    if (stripeReader == null) {
+  /**
+   * Seek to designated row. Invoke NextStripeReader() after seek
+   * will return stripe reader starting from designated row.
+   * @param rowNumber the rows number to seek
+   * @return true if seek operation is succeeded
+   */
+  public boolean seek(int rowNumber) {
+    return OrcReaderJniWrapper.seek(id, rowNumber);
+  }
+
+  /**
+   * Get a stripe level ArrowReader with specified batchSize in each record batch.
+   *
+   * @param batchSize the number of rows loaded on each iteration
+   * @return ArrowReader that iterate over current stripes
+   */
+  public ArrowReader nextStripeReader(long batchSize) {
+    long stripeReaderId = OrcReaderJniWrapper.nextStripeReader(id, batchSize);
+    if (stripeReaderId < 0) {
       return null;
     }
 
-    return new OrcStripeReader(stripeReader, allocator);
+    return new OrcStripeReader(stripeReaderId, allocator);
+  }
+
+  /**
+   * The number of stripes in the file.
+   *
+   * @return number of stripes
+   */
+  public int getNumberOfStripes() {
+    return OrcReaderJniWrapper.getNumberOfStripes(id);
   }
 
   @Override
   public void close() throws Exception {
-    orcReader.close();
+    OrcReaderJniWrapper.close(id);
   }
 }

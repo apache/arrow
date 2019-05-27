@@ -17,6 +17,8 @@
 
 package org.apache.arrow.adapter.orc;
 
+import io.netty.buffer.ArrowBuf;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -33,28 +35,28 @@ import org.apache.arrow.vector.ipc.message.MessageResult;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
-import io.netty.buffer.ArrowBuf;
-
-
+/**
+ * Orc stripe that load data into ArrowRecordBatch.
+ */
 public class OrcStripeReader extends ArrowReader {
-  private OrcStripeReaderJniWrapper stripeReader;
+  private final long id;
   private MessageChannelReader schemaReader;
 
-  protected OrcStripeReader(OrcStripeReaderJniWrapper stripeReader, BufferAllocator allocator) {
+  /**
+   * Construct a new instance.
+   * @param id id of the stripe reader instance
+   * @param allocator memory allocator for accounting.
+   */
+  OrcStripeReader(long id, BufferAllocator allocator) {
     super(allocator);
-    this.stripeReader = stripeReader;
+    this.id = id;
   }
 
-  /**
-   * Load the next ArrowRecordBatch to the vector schema root if available.
-   *
-   * @return true if a batch was read, false on EOS
-   * @throws IOException on error
-   */
   @Override
   public boolean loadNextBatch() throws IOException {
-    OrcRecordBatch recordBatch = stripeReader.next();
+    OrcRecordBatch recordBatch = OrcStripeReaderJniWrapper.next(id);
     if (recordBatch == null) {
       return false;
     }
@@ -78,36 +80,21 @@ public class OrcStripeReader extends ArrowReader {
     return true;
   }
 
-  /**
-   * Return the number of bytes read from the ReadChannel.
-   *
-   * @return number of bytes read
-   */
   @Override
   public long bytesRead() {
     return 0;
   }
 
-  /**
-   * Close the underlying read source.
-   *
-   * @throws IOException on error
-   */
+
   @Override
   protected void closeReadSource() throws IOException {
-    stripeReader.close();
+    OrcStripeReaderJniWrapper.close(id);
     schemaReader.close();
   }
 
-  /**
-   * Read the Schema from the source, will be invoked at the beginning the initialization.
-   *
-   * @return the read Schema
-   * @throws IOException on error
-   */
   @Override
   protected Schema readSchema() throws IOException {
-    byte[] schemaBytes = stripeReader.getSchema();
+    byte[] schemaBytes = OrcStripeReaderJniWrapper.getSchema(id);
     schemaReader = new MessageChannelReader(
                       new ReadChannel(
                         new ByteArrayReadableSeekableByteChannel(schemaBytes)), allocator);
@@ -125,33 +112,8 @@ public class OrcStripeReader extends ArrowReader {
     return MessageSerializer.deserializeSchema(result.getMessage());
   }
 
-  /**
-   * Read a dictionary batch from the source, will be invoked after the schema has been read and
-   * called N times, where N is the number of dictionaries indicated by the schema Fields.
-   *
-   * @return the read ArrowDictionaryBatch
-   * @throws IOException on error
-   */
   @Override
   protected ArrowDictionaryBatch readDictionary() throws IOException {
-    MessageResult result = schemaReader.readNext();
-
-    if (result == null) {
-      throw new IOException("Unexpected end of input. Expected DictionaryBatch");
-    }
-
-    if (result.getMessage().headerType() != MessageHeader.DictionaryBatch) {
-      throw new IOException("Expected DictionaryBatch but header was " +
-              result.getMessage().headerType());
-    }
-
-    ArrowBuf bodyBuffer = result.getBodyBuffer();
-
-    // For zero-length batches, need an empty buffer to deserialize the batch
-    if (bodyBuffer == null) {
-      bodyBuffer = allocator.getEmpty();
-    }
-
-    return MessageSerializer.deserializeDictionaryBatch(result.getMessage(), bodyBuffer);
+    throw new NotImplementedException();
   }
 }

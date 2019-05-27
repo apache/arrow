@@ -25,11 +25,18 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
-public class OrcJniUtils {
+/**
+ * Helper class for JNI related operations.
+ */
+class OrcJniUtils {
   private static final String LIBRARY_NAME = "arrow_orc_jni";
   private static boolean isLoaded = false;
 
-  public static void loadOrcAdapterLibraryFromJar()
+  /**
+   * Load arrow orc jni library from jar.
+   * @throws IOException throws IOException in case target library can not be found.
+   */
+  static void loadOrcAdapterLibraryFromJar()
           throws IOException {
     synchronized (OrcJniUtils.class) {
       if (!isLoaded) {

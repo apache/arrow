@@ -20,16 +20,22 @@ package org.apache.arrow.adapter.orc;
 import java.util.Arrays;
 import java.util.List;
 
-public class OrcRecordBatch {
-  public final int length;
+class OrcRecordBatch {
+  final int length;
 
   /**
    * Nodes correspond to the pre-ordered flattened logical schema.
    */
-  public final List<OrcFieldNode> nodes;
+  final List<OrcFieldNode> nodes;
 
-  public final List<OrcMemoryJniWrapper> buffers;
+  final List<OrcMemoryJniWrapper> buffers;
 
+  /**
+   * Construct a new instance
+   * @param length number of records included in current batch
+   * @param nodes meta data for each fields
+   * @param buffers buffers for underlying data
+   */
   OrcRecordBatch(int length, OrcFieldNode[] nodes, OrcMemoryJniWrapper[] buffers) {
     this.length = length;
     this.nodes = Arrays.asList(nodes);

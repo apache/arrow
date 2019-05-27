@@ -17,21 +17,29 @@
 
 package org.apache.arrow.adapter.orc;
 
-public class OrcFieldNode {
+/**
+ * Metadata about Vectors/Arrays that is passed via JNI interface
+ */
+class OrcFieldNode {
 
   private final int length;
   private final int nullCount;
 
+  /**
+   * Construct a new instance.
+   * @param length the number of values written.
+   * @param nullCount the number of null values.
+   */
   public OrcFieldNode(int length, int nullCount) {
     this.length = length;
     this.nullCount = nullCount;
   }
 
-  public int getLength() {
+  int getLength() {
     return length;
   }
 
-  public int getNullCount() {
+  int getNullCount() {
     return nullCount;
   }
 }

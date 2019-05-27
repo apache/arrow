@@ -51,7 +51,7 @@ be provided as the value for argument arrow.cpp.build.dir. eg.
 
 ```
 cd java
-mvn install -P native-orc -pl adapter/orc -am -Dgandiva.cpp.build.dir=../../debug
+mvn install -P native-orc -pl adapter/orc -am -Darrow.cpp.build.dir=../../debug
 ```
 
 ## Java Code Style Guide

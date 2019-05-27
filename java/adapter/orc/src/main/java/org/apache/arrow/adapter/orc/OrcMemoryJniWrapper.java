@@ -19,8 +19,11 @@ package org.apache.arrow.adapter.orc;
 
 import java.io.IOException;
 
-public class OrcMemoryJniWrapper {
-  private final long ownershipAddress;
+/**
+ * Wrapper for orc memory allocated by native code.
+ */
+class OrcMemoryJniWrapper implements AutoCloseable {
+  private final long id;
 
   private final long memoryAddress;
 
@@ -36,8 +39,15 @@ public class OrcMemoryJniWrapper {
     }
   }
 
-  OrcMemoryJniWrapper(long ownershipAddress, long memoryAddress, long size, long capacity) {
-    this.ownershipAddress = ownershipAddress;
+  /**
+   * Construct a new instance.
+   * @param id unique id of the underlying memory.
+   * @param memoryAddress starting memory address of the the underlying memory.
+   * @param size size of the valid data.
+   * @param capacity allocated memory size.
+   */
+  OrcMemoryJniWrapper(long id, long memoryAddress, long size, long capacity) {
+    this.id = id;
     this.memoryAddress = memoryAddress;
     this.size = size;
     this.capacity = capacity;
@@ -55,9 +65,10 @@ public class OrcMemoryJniWrapper {
     return memoryAddress;
   }
 
-  void release() {
-    release(ownershipAddress);
+  @Override
+  public void close() {
+    release(id);
   }
 
-  private native void release(long address);
+  private native void release(long id);
 }

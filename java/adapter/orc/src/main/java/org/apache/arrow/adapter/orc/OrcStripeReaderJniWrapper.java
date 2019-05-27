@@ -19,7 +19,10 @@ package org.apache.arrow.adapter.orc;
 
 import java.io.IOException;
 
-public class OrcStripeReaderJniWrapper {
+/**
+ * JNI wrapper for orc stripe reader.
+ */
+class OrcStripeReaderJniWrapper {
 
   static {
     try {
@@ -29,11 +32,24 @@ public class OrcStripeReaderJniWrapper {
     }
   }
 
-  private long nativeStripeReaderAddress;
+  /**
+   * Get the schema of current stripe.
+   * @param readerId id of the stripe reader instance.
+   * @return serialized schema.
+   */
+  static native byte[] getSchema(long readerId);
 
-  public native byte[] getSchema();
+  /**
+   * Load next record batch.
+   * @param readerId id of the stripe reader instance.
+   * @return loaded record batch, return null when reached
+   * the end of current stripe.
+   */
+  static native OrcRecordBatch next(long readerId);
 
-  public native OrcRecordBatch next();
-
-  public native void close();
+  /**
+   * Release resources of underlying reader.
+   * @param readerId id of the stripe reader instance.
+   */
+  static native void close(long readerId);
 }

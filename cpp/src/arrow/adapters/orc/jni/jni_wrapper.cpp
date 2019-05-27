@@ -28,140 +28,198 @@
 #include "org_apache_arrow_adapter_orc_OrcReaderJniWrapper.h"
 #include "org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper.h"
 
+#include "concurrent_map.h"
+
 using ORCFileReader = arrow::adapters::orc::ORCFileReader;
 using RecordBatchReader = arrow::RecordBatchReader;
 
-void ThrowJavaIOException(JNIEnv* env, const std::exception& e) {
-  jclass ioExceptionClass = env->FindClass("java/io/IOException");
-  if (ioExceptionClass != nullptr) {
-    if (env->ThrowNew(ioExceptionClass, e.what())) {
-      // Failed to new IOException. This means another error has occurred in Java
-      // We just propagate this error to caller by doing nothing.
-      ARROW_LOG(ERROR) << "Error occurred when throwing IOException";
-    }
-  } else {
-    ARROW_LOG(ERROR) << "Error occurred when getting IOException class";
-  }
+static jclass io_exception_class;
+static jclass exception_class;
+
+static jclass orc_field_node_class;
+static jmethodID orc_field_node_constructor;
+
+static jclass orc_memory_class;
+static jmethodID orc_memory_constructor;
+
+static jclass record_batch_class;
+static jmethodID record_batch_constructor;
+
+static jint JNI_VERSION = JNI_VERSION_1_6;
+
+static arrow::concurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
+static arrow::concurrentMap<std::shared_ptr<RecordBatchReader>> orc_stripe_reader_holder_;
+static arrow::concurrentMap<std::shared_ptr<ORCFileReader>> orc_file_reader_holder_;
+
+jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
+  jclass local_class = env->FindClass(class_name);
+  jclass global_class = (jclass)env->NewGlobalRef(local_class);
+  env->DeleteLocalRef(local_class);
+  return global_class;
 }
 
-void ThrowJavaException(JNIEnv* env, const std::string& message) {
-  jclass exception = env->FindClass("java/lang/Exception");
-  if (exception != nullptr) {
-    env->ThrowNew(exception, message.c_str());
-  } else {
-    throw std::runtime_error("Can't find java/lang/Exception class");
-  }
-}
-
-jfieldID GetFieldId(JNIEnv* env, jclass this_class, const std::string& sig) {
-  jfieldID ret = env->GetFieldID(this_class, sig.c_str(), "J");
+jmethodID GetMethodID(JNIEnv* env, jclass this_class, const char* name, const char* sig) {
+  jmethodID ret = env->GetMethodID(this_class, name, sig);
   if (ret == nullptr) {
-    ThrowJavaException(env, "Unable to get java class field: " + sig);
+    std::string error_message = "Unable to find method " + std::string(name) +
+                                " within signature" + std::string(sig);
+    env->ThrowNew(exception_class, error_message.c_str());
   }
 
   return ret;
 }
 
-std::unique_ptr<ORCFileReader>* GetNativeReader(JNIEnv* env, jobject this_obj) {
-  jlong reader = env->GetLongField(
-      this_obj, GetFieldId(env, env->GetObjectClass(this_obj), "nativeReaderAddress"));
-  return reinterpret_cast<std::unique_ptr<ORCFileReader>*>(reader);
+jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+  JNIEnv* env;
+  if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
+    return JNI_ERR;
+  }
+
+  io_exception_class = CreateGlobalClassReference(env, "java/io/IOException");
+  exception_class = CreateGlobalClassReference(env, "java/lang/Exception");
+
+  orc_field_node_class =
+      CreateGlobalClassReference(env, "/org/apache/arrow/adapter/orc/OrcFieldNode");
+  orc_field_node_constructor = GetMethodID(env, orc_field_node_class, "<init>", "(II)V");
+
+  orc_memory_class = CreateGlobalClassReference(
+      env, "/org/apache/arrow/adapter/orc/OrcMemoryJniWrapper");
+  orc_memory_constructor = GetMethodID(env, orc_memory_class, "<init>", "(JJJJ)V");
+
+  record_batch_class =
+      CreateGlobalClassReference(env, "/org/apache/arrow/adapter/orc/OrcRecordBatch");
+  record_batch_constructor = GetMethodID(env, record_batch_class, "<init>",
+                                "(I[L/org/apache/arrow/adapter/orc/OrcFieldNode;"
+                                "[L/org/apache/arrow/adapter/orc/OrcMemoryJniWrapper;)V");
+
+  env->ExceptionDescribe();
+
+  return JNI_VERSION;
 }
 
-std::shared_ptr<RecordBatchReader>* GetStripeReader(JNIEnv* env, jobject this_obj) {
-  jlong reader = env->GetLongField(
-      this_obj,
-      GetFieldId(env, env->GetObjectClass(this_obj), "nativeStripeReaderAddress"));
-  return reinterpret_cast<std::shared_ptr<RecordBatchReader>*>(reader);
+void JNI_OnUnload(JavaVM* vm, void* reserved) {
+  JNIEnv* env;
+  vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
+  env->DeleteGlobalRef(io_exception_class);
+  env->DeleteGlobalRef(exception_class);
+  env->DeleteGlobalRef(orc_field_node_class);
+  env->DeleteGlobalRef(orc_memory_class);
+  env->DeleteGlobalRef(record_batch_class);
+
+  buffer_holder_.Clear();
+  orc_stripe_reader_holder_.Clear();
+  orc_file_reader_holder_.Clear();
+}
+
+std::shared_ptr<ORCFileReader> GetNativeReader(jlong id) {
+  return orc_file_reader_holder_.Lookup(id);
+}
+
+std::shared_ptr<RecordBatchReader> GetStripeReader(jlong id) {
+  return orc_stripe_reader_holder_.Lookup(id);
+}
+
+int jstr_to_cstr(JNIEnv* env, jstring jstr, char* cstr, size_t cstr_len) {
+  int32_t jlen, clen;
+
+  clen = env->GetStringUTFLength(jstr);
+  if (clen > (int32_t)cstr_len) return -ENAMETOOLONG;
+  jlen = env->GetStringLength(jstr);
+  env->GetStringUTFRegion(jstr, 0, jlen, cstr);
+  if (env->ExceptionCheck()) return -EIO;
+  return 0;
+}
+
+std::string JStringToCString(JNIEnv* env, jstring string) {
+  int32_t jlen, clen;
+  clen = env->GetStringUTFLength(string);
+  jlen = env->GetStringLength(string);
+  std::vector<char> buffer(clen);
+  env->GetStringUTFRegion(string, 0, jlen, buffer.data());
+  return std::string(buffer.data(), clen);
 }
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-JNIEXPORT jboolean JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_open(
-    JNIEnv* env, jobject this_obj, jstring file_path) {
+JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_open(
+    JNIEnv* env, jclass this_cls, jstring file_path) {
   std::shared_ptr<arrow::io::ReadableFile> in_file;
-  const char* str = env->GetStringUTFChars(file_path, nullptr);
-  std::string path(str);
-  env->ReleaseStringUTFChars(file_path, str);
+
+  std::string path = JStringToCString(env, file_path);
 
   arrow::Status ret;
   if (path.find("hdfs://") == 0) {
-    return false;
+    env->ThrowNew(io_exception_class, "hdfs path not support yet.");
   } else {
     ret = arrow::io::ReadableFile::Open(path, &in_file);
   }
 
   if (ret.ok()) {
-    auto reader = new std::unique_ptr<ORCFileReader>();
+    std::unique_ptr<ORCFileReader> reader;
 
     ret = ORCFileReader::Open(
         std::static_pointer_cast<arrow::io::RandomAccessFile>(in_file),
-        arrow::default_memory_pool(), reader);
+        arrow::default_memory_pool(), &reader);
 
     if (!ret.ok()) {
-      delete reader;
-      ThrowJavaIOException(env, std::invalid_argument("Failed open file" + path));
+      env->ThrowNew(io_exception_class, std::string("Failed open file" + path).c_str());
     }
 
-    env->SetLongField(
-        this_obj, GetFieldId(env, env->GetObjectClass(this_obj), "nativeReaderAddress"),
-        reinterpret_cast<long>(reader));
+    return orc_file_reader_holder_.Insert(
+        std::shared_ptr<ORCFileReader>(reader.release()));
   }
 
-  return ret.ok();
+  return static_cast<jlong>(ret.code()) * -1;
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_close(
-    JNIEnv* env, jobject this_obj) {
-  delete GetNativeReader(env, this_obj);
+    JNIEnv* env, jclass this_cls, jlong id) {
+  orc_file_reader_holder_.Erase(id);
 }
 
 JNIEXPORT jboolean JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_seek(
-    JNIEnv* env, jobject this_obj, jint row_number) {
-  auto reader = GetNativeReader(env, this_obj);
-  return (*reader)->Seek(row_number).ok();
+    JNIEnv* env, jclass this_cls, jlong id, jint row_number) {
+  auto reader = orc_file_reader_holder_.Lookup(id);
+  return reader->Seek(row_number).ok();
 }
 
 JNIEXPORT jint JNICALL
-Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_getNumberOfStripes(
-    JNIEnv* env, jobject this_obj) {
-  auto reader = GetNativeReader(env, this_obj);
-  return (*reader)->NumberOfStripes();
+Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_getNumberOfStripes(JNIEnv* env,
+                                                                         jclass this_cls,
+                                                                         jlong id) {
+  auto reader = orc_file_reader_holder_.Lookup(id);
+  return reader->NumberOfStripes();
 }
 
-JNIEXPORT jobject JNICALL
+JNIEXPORT jlong JNICALL
 Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_nextStripeReader(JNIEnv* env,
-                                                                       jobject this_obj,
+                                                                       jclass this_cls,
+                                                                       jlong id,
                                                                        jlong batch_size) {
-  auto reader = GetNativeReader(env, this_obj);
-  auto stripe_reader = new std::shared_ptr<RecordBatchReader>();
-  auto status = (*reader)->NextStripeReader(batch_size, stripe_reader);
+  auto reader = GetNativeReader(id);
+  std::shared_ptr<RecordBatchReader> stripe_reader;
+  auto status = reader->NextStripeReader(batch_size, &stripe_reader);
 
-  jobject ret = nullptr;
   if (!status.ok()) {
-    delete stripe_reader;
-    return ret;
+    return static_cast<jlong>(status.code()) * -1;
+    ;
   }
 
-  jclass cls = env->FindClass("/org/apache/arrow/adapter/orc/OrcStripeReaderJniWrapper");
-  ret = env->AllocObject(cls);
-
-  env->SetLongField(ret, GetFieldId(env, cls, "nativeStripeReaderAddress"),
-                    reinterpret_cast<long>(stripe_reader));
-
-  return ret;
+  return orc_stripe_reader_holder_.Insert(stripe_reader);
 }
 
 JNIEXPORT jbyteArray JNICALL
 Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_getSchema(JNIEnv* env,
-                                                                      jobject this_obj) {
-  auto stripe_reader = GetStripeReader(env, this_obj);
-  auto schema = (*stripe_reader)->schema();
+                                                                      jclass this_cls,
+                                                                      jlong id) {
+  auto stripe_reader = GetStripeReader(id);
+  auto schema = stripe_reader->schema();
 
   std::shared_ptr<arrow::Buffer> out;
-  auto status = arrow::ipc::SerializeSchema(*schema, arrow::default_memory_pool(), &out);
+  auto status =
+      arrow::ipc::SerializeSchema(*schema, nullptr, arrow::default_memory_pool(), &out);
   if (!status.ok()) {
     return nullptr;
   }
@@ -173,29 +231,28 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_getSchema(JNIEnv* en
 
 JNIEXPORT jobject JNICALL
 Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
-                                                                 jobject this_obj) {
-  auto stripe_reader = GetStripeReader(env, this_obj);
+                                                                 jclass this_cls,
+                                                                 jlong id) {
+  auto stripe_reader = GetStripeReader(id);
   auto record_batch = new std::shared_ptr<arrow::RecordBatch>();
-  auto status = (*stripe_reader)->ReadNext(record_batch);
+  auto status = stripe_reader->ReadNext(record_batch);
   if (!status.ok()) {
     delete record_batch;
     return nullptr;
   }
 
-  auto schema = (*stripe_reader)->schema();
+  auto schema = stripe_reader->schema();
 
   // create OrcFieldNode[]
-  jclass field_class = env->FindClass("/org/apache/arrow/adapter/orc/OrcFieldNode");
-  jmethodID field_constructor = env->GetMethodID(field_class, "<init>", "(II)V");
   jobjectArray field_array =
-      env->NewObjectArray(schema->num_fields(), field_class, nullptr);
+      env->NewObjectArray(schema->num_fields(), orc_field_node_class, nullptr);
 
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
   for (int i = 0; i < schema->num_fields(); ++i) {
     auto column = (*record_batch)->column(i);
     auto dataArray = column->data();
-    jobject field = env->NewObject(field_class, field_constructor, column->length(),
-                                   column->null_count());
+    jobject field = env->NewObject(orc_field_node_class, orc_field_node_constructor,
+                                   column->length(), column->null_count());
     env->SetObjectArrayElement(field_array, i, field);
 
     for (auto& buffer : dataArray->buffers) {
@@ -204,38 +261,32 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
   }
 
   // create OrcMemoryJniWrapper[]
-  jclass memory_class =
-      env->FindClass("/org/apache/arrow/adapter/orc/OrcMemoryJniWrapper");
-  jmethodID memory_constructor = env->GetMethodID(memory_class, "<init>", "(JJJJ)V");
-  jobjectArray memory_array = env->NewObjectArray(buffers.size(), memory_class, nullptr);
+  jobjectArray memory_array =
+      env->NewObjectArray(buffers.size(), orc_memory_class, nullptr);
 
   for (int j = 0; j < buffers.size(); ++j) {
     auto buffer = buffers[j];
-    jobject memory = env->NewObject(memory_class, memory_constructor, &buffer,
-                                    buffer->data(), buffer->size(), buffer->capacity());
+    jobject memory = env->NewObject(orc_memory_class, orc_memory_constructor,
+                                    buffer_holder_.Insert(buffer), buffer->data(),
+                                    buffer->size(), buffer->capacity());
     env->SetObjectArrayElement(memory_array, j, memory);
   }
 
   // create OrcRecordBatch
-  jclass ret_cls = env->FindClass("/org/apache/arrow/adapter/orc/OrcRecordBatch");
-  jmethodID ret_constructor =
-      env->GetMethodID(ret_cls, "<init>",
-                       "(I[L/org/apache/arrow/adapter/orc/OrcFieldNode;"
-                       "[L/org/apache/arrow/adapter/orc/OrcMemoryJniWrapper;)V");
-  jobject ret = env->NewObject(ret_cls, ret_constructor, (*record_batch)->num_rows(),
-                               field_array, memory_array);
+  jobject ret = env->NewObject(record_batch_class, record_batch_constructor,
+                               (*record_batch)->num_rows(), field_array, memory_array);
 
   return ret;
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_close(
-    JNIEnv* env, jobject this_obj) {
-  delete GetStripeReader(env, this_obj);
+    JNIEnv* env, jclass this_cls, jlong id) {
+  buffer_holder_.Erase(id);
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcMemoryJniWrapper_release(
-    JNIEnv* env, jobject this_obj, jlong address) {
-  delete reinterpret_cast<std::shared_ptr<arrow::Buffer>*>(address);
+    JNIEnv* env, jobject this_obj, jlong id) {
+  buffer_holder_.Erase(id);
 }
 
 #ifdef __cplusplus

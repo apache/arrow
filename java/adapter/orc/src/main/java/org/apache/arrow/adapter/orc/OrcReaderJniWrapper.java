@@ -19,10 +19,10 @@ package org.apache.arrow.adapter.orc;
 
 import java.io.IOException;
 
-public class OrcReaderJniWrapper {
-
-  private long nativeReaderAddress;
-
+/**
+ * JNI wrapper for Orc reader
+ */
+class OrcReaderJniWrapper {
   static {
     try {
       OrcJniUtils.loadOrcAdapterLibraryFromJar();
@@ -31,13 +31,41 @@ public class OrcReaderJniWrapper {
     }
   }
 
-  public native boolean open(String fileName);
+  /**
+   * Construct a orc file reader over the target file
+   * @param fileName absolute file path of target file
+   * @return id of the orc reader instance if file opened successfully,
+   * otherwise return error code * -1.
+   */
+  static native long open(String fileName);
 
-  public native void close();
+  /**
+   * Close the underlying reader and release related resources.
+   * @param readerId id of the reader instance.
+   */
+  static native void close(long readerId);
 
-  public native boolean seek(int rowNumber);
+  /**
+   *  Seek to designated row. Invoke nextStripeReader() after seek
+   *  will return id of stripe reader starting from designated row.
+   * @param readerId id of the reader instance
+   * @param rowNumber the rows number to seek
+   * @return true if seek operation is succeeded
+   */
+  static native boolean seek(long readerId, int rowNumber);
 
-  public native int getNumberOfStripes();
+  /**
+   * The number of stripes in the file.
+   * @param readerId id of the reader instance
+   * @return number of stripes
+   */
+  static native int getNumberOfStripes(long readerId);
 
-  public native OrcStripeReaderJniWrapper nextStripeReader(long batchSize);
+  /**
+   * Get a stripe level ArrowReader with specified batchSize in each record batch.
+   * @param readerId id of the reader instance
+   * @param batchSize the number of rows loaded on each iteration
+   * @return id of the stripe reader instance.
+   */
+  static native long nextStripeReader(long readerId, long batchSize);
 }
