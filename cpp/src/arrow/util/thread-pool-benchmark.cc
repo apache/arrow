@@ -73,20 +73,6 @@ struct Task {
   Workload workload_;
 };
 
-// This benchmark simply provides a baseline indicating the raw cost of our workload
-// depending on the workload size.  Number of items / second in this (serial)
-// benchmark can be compared to the numbers obtained in ThreadPoolSpawn.
-static void WorkloadCost(benchmark::State& state) {
-  const auto workload_size = static_cast<int32_t>(state.range(0));
-
-  Workload workload(workload_size);
-  for (auto _ : state) {
-    workload();
-  }
-
-  state.SetItemsProcessed(state.iterations());
-}
-
 // Benchmark ThreadPool::Spawn
 static void ThreadPoolSpawn(benchmark::State& state) {
   const auto nthreads = static_cast<int>(state.range(0));
@@ -169,7 +155,6 @@ static void WorkloadCost_Customize(benchmark::internal::Benchmark* b) {
   }
   b->ArgNames({"task_cost"});
   b->UseRealTime();
-  b->Repetitions(1);
 }
 
 static void ThreadPoolSpawn_Customize(benchmark::internal::Benchmark* b) {
@@ -180,10 +165,28 @@ static void ThreadPoolSpawn_Customize(benchmark::internal::Benchmark* b) {
   }
   b->ArgNames({"threads", "task_cost"});
   b->UseRealTime();
-  b->Repetitions(1);
 }
 
-BENCHMARK(WorkloadCost)->Apply(WorkloadCost_Customize);
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
+// This benchmark simply provides a baseline indicating the raw cost of our workload
+// depending on the workload size.  Number of items / second in this (serial)
+// benchmark can be compared to the numbers obtained in ThreadPoolSpawn.
+static void WorkloadCost(benchmark::State& state) {
+  const auto workload_size = static_cast<int32_t>(state.range(0));
+
+  Workload workload(workload_size);
+  for (auto _ : state) {
+    workload();
+  }
+
+  state.SetItemsProcessed(state.iterations());
+}
+
+BENCHMARK(ReferenceWorkloadCost)->Apply(WorkloadCost_Customize);
+
+#endif
+
 BENCHMARK(SerialTaskGroup)->Apply(WorkloadCost_Customize);
 BENCHMARK(ThreadPoolSpawn)->Apply(ThreadPoolSpawn_Customize);
 BENCHMARK(ThreadedTaskGroup)->Apply(ThreadPoolSpawn_Customize);

@@ -150,7 +150,7 @@ static void ReadJSONBlockWithSchemaSingleThread(
   BenchmarkReadJSONBlockWithSchema(state, false);
 }
 
-static void ReferenceReadJSONBlockWithSchemaMultiThread(
+static void ReadJSONBlockWithSchemaMultiThread(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkReadJSONBlockWithSchema(state, true);
 }
@@ -160,7 +160,7 @@ BENCHMARK(ChunkJSONLineDelimited);
 BENCHMARK(ParseJSONBlockWithSchema);
 
 BENCHMARK(ReadJSONBlockWithSchemaSingleThread);
-BENCHMARK(ReferenceReadJSONBlockWithSchemaMultiThread)->UseRealTime();
+BENCHMARK(ReadJSONBlockWithSchemaMultiThread)->UseRealTime();
 
 }  // namespace json
 }  // namespace arrow

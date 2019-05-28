@@ -122,12 +122,7 @@ class GoogleBenchmarkObservation:
     @property
     def value(self):
         """ Return the benchmark value."""
-        if self.bytes_per_second:
-            return self.bytes_per_second
-        elif self.items_per_second:
-            return self.items_per_second
-        else:
-            return self.time
+        return self.bytes_per_second or self.items_per_second or self.time
 
     @property
     def unit(self):

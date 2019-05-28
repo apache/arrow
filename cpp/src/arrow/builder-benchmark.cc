@@ -47,22 +47,22 @@ static VectorType AlmostU8CompressibleVector() {
   return data;
 }
 
-constexpr int64_t kFinalSize = 256;
+constexpr int64_t kRounds = 256;
 static VectorType kData = AlmostU8CompressibleVector();
 constexpr int64_t kBytesProcessPerRound = kNumberOfElements * sizeof(ValueType);
-constexpr int64_t kBytesProcessed = kFinalSize * kBytesProcessPerRound;
+constexpr int64_t kBytesProcessed = kRounds * kBytesProcessPerRound;
 
 static const char* kBinaryString = "12345678";
 static arrow::util::string_view kBinaryView(kBinaryString);
 
 // This benchmarks acts as a reference to the native std::vector
-// implementation. It appends kFinalSize chunks into a vector.
+// implementation. It appends kRounds chunks into a vector.
 static void ReferenceBuildVectorNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
     std::vector<int64_t> builder;
 
-    for (int i = 0; i < kFinalSize; i++) {
+    for (int i = 0; i < kRounds; i++) {
       builder.insert(builder.end(), kData.cbegin(), kData.cend());
     }
   }
@@ -70,12 +70,11 @@ static void ReferenceBuildVectorNoNulls(
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void BuildPrimitiveArrayNoNulls(
-    benchmark::State& state) {  // NOLINT non-const reference
+static void BuildIntArrayNoNulls(benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
     Int64Builder builder;
 
-    for (int i = 0; i < kFinalSize; i++) {
+    for (int i = 0; i < kRounds; i++) {
       ABORT_NOT_OK(builder.AppendValues(kData.data(), kData.size(), nullptr));
     }
 
@@ -91,7 +90,7 @@ static void BuildAdaptiveIntNoNulls(
   for (auto _ : state) {
     AdaptiveIntBuilder builder;
 
-    for (int i = 0; i < kFinalSize; i++) {
+    for (int i = 0; i < kRounds; i++) {
       ABORT_NOT_OK(builder.AppendValues(kData.data(), kData.size(), nullptr));
     }
 
@@ -107,7 +106,7 @@ static void BuildAdaptiveIntNoNullsScalarAppend(
   for (auto _ : state) {
     AdaptiveIntBuilder builder;
 
-    for (int i = 0; i < kFinalSize; i++) {
+    for (int i = 0; i < kRounds; i++) {
       for (size_t j = 0; j < kData.size(); j++) {
         ABORT_NOT_OK(builder.Append(kData[i]))
       }
@@ -123,13 +122,13 @@ static void BuildAdaptiveIntNoNullsScalarAppend(
 static void BuildBooleanArrayNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
 
-  size_t n_bytes = kData.size() * sizeof(ValueType);
+  size_t n_bytes = kBytesProcessPerRound;
   const uint8_t* data = reinterpret_cast<const uint8_t*>(kData.data());
 
   for (auto _ : state) {
     BooleanBuilder builder;
 
-    for (int i = 0; i < kFinalSize; i++) {
+    for (int i = 0; i < kRounds; i++) {
       ABORT_NOT_OK(builder.AppendValues(data, n_bytes));
     }
 
@@ -144,7 +143,7 @@ static void BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const ref
   for (auto _ : state) {
     BinaryBuilder builder;
 
-    for (int64_t i = 0; i < kFinalSize * kNumberOfElements; i++) {
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
       ABORT_NOT_OK(builder.Append(kBinaryView));
     }
 
@@ -163,7 +162,7 @@ static void BuildChunkedBinaryArray(
   for (auto _ : state) {
     internal::ChunkedBinaryBuilder builder(kChunkSize);
 
-    for (int64_t i = 0; i < kFinalSize * kNumberOfElements; i++) {
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
       ABORT_NOT_OK(builder.Append(kBinaryView));
     }
 
@@ -181,7 +180,7 @@ static void BuildFixedSizeBinaryArray(
   for (auto _ : state) {
     FixedSizeBinaryBuilder builder(type);
 
-    for (int64_t i = 0; i < kFinalSize * kNumberOfElements; i++) {
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
       ABORT_NOT_OK(builder.Append(kBinaryView));
     }
 
@@ -292,7 +291,7 @@ static void BenchmarkScalarDictionaryArray(
   for (auto _ : state) {
     DictionaryBuilder<Int64Type> builder(default_memory_pool());
 
-    for (int64_t i = 0; i < kFinalSize; i++) {
+    for (int64_t i = 0; i < kRounds; i++) {
       for (const auto value : fodder) {
         ABORT_NOT_OK(builder.Append(value));
       }
@@ -333,7 +332,7 @@ static void BuildStringDictionaryArray(
   for (auto _ : state) {
     BinaryDictionaryBuilder builder(default_memory_pool());
 
-    for (int64_t i = 0; i < kFinalSize; i++) {
+    for (int64_t i = 0; i < kRounds; i++) {
       for (const auto& value : fodder) {
         ABORT_NOT_OK(builder.Append(value));
       }
@@ -343,7 +342,7 @@ static void BuildStringDictionaryArray(
     ABORT_NOT_OK(builder.Finish(&out));
   }
 
-  state.SetBytesProcessed(state.iterations() * fodder_size * kFinalSize);
+  state.SetBytesProcessed(state.iterations() * fodder_size * kRounds);
 }
 
 static void ArrayDataConstructDestruct(
@@ -371,7 +370,7 @@ BENCHMARK(ReferenceBuildVectorNoNulls);
 
 BENCHMARK(BuildBooleanArrayNoNulls);
 
-BENCHMARK(BuildPrimitiveArrayNoNulls);
+BENCHMARK(BuildIntArrayNoNulls);
 BENCHMARK(BuildAdaptiveIntNoNulls);
 BENCHMARK(BuildAdaptiveIntNoNullsScalarAppend);
 

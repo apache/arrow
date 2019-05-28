@@ -86,6 +86,12 @@ class StaticBenchmarkRunner(BenchmarkRunner):
         super().__init__(**kwargs)
 
     @property
+    def list_benchmarks(self):
+        for suite in self._suites:
+            for benchmark in suite.benchmarks:
+                yield f"{suite.name}.{benchmark.name}"
+
+    @property
     def suites(self):
         suite_fn = regex_filter(self.suite_filter)
         benchmark_fn = regex_filter(self.benchmark_filter)
@@ -147,7 +153,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
         return BenchmarkSuite(name, benchmarks)
 
     @property
-    def list(self):
+    def list_benchmarks(self):
         for suite_name, suite_bin in self.suites_binaries.items():
             suite_cmd = GoogleBenchmarkCommand(suite_bin)
             for benchmark_name in suite_cmd.list_benchmarks():

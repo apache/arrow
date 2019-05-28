@@ -30,6 +30,8 @@ namespace arrow {
 
 namespace BitUtil {
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
 // A naive bitmap reader implementation, meant as a baseline against
 // internal::BitmapReader
 
@@ -81,6 +83,8 @@ class NaiveBitmapWriter {
   uint8_t* bitmap_;
   int64_t position_;
 };
+
+#endif
 
 static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
   std::shared_ptr<Buffer> buffer;
@@ -174,16 +178,8 @@ static void BenchmarkGenerateBits(benchmark::State& state, int64_t nbytes) {
   state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
-static void ReferenceNaiveBitmapReader(benchmark::State& state) {
-  BenchmarkBitmapReader<NaiveBitmapReader>(state, state.range(0));
-}
-
 static void BitmapReader(benchmark::State& state) {
   BenchmarkBitmapReader<internal::BitmapReader>(state, state.range(0));
-}
-
-static void ReferenceNaiveBitmapWriter(benchmark::State& state) {
-  BenchmarkBitmapWriter<NaiveBitmapWriter>(state, state.range(0));
 }
 
 static void BitmapWriter(benchmark::State& state) {
@@ -249,12 +245,25 @@ static void CopyBitmapWithOffset(benchmark::State& state) {  // NOLINT non-const
   CopyBitmap<4>(state);
 }
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
+static void ReferenceNaiveBitmapReader(benchmark::State& state) {
+  BenchmarkBitmapReader<NaiveBitmapReader>(state, state.range(0));
+}
+
+static void ReferenceNaiveBitmapWriter(benchmark::State& state) {
+  BenchmarkBitmapWriter<NaiveBitmapWriter>(state, state.range(0));
+}
+
+BENCHMARK(ReferenceNaiveBitmapWriter)->Arg(kBufferSize);
+BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
+
+#endif
+
 BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
 
-BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
 BENCHMARK(BitmapReader)->Arg(kBufferSize);
-BENCHMARK(ReferenceNaiveBitmapWriter)->Arg(kBufferSize);
 BENCHMARK(BitmapWriter)->Arg(kBufferSize);
 
 BENCHMARK(FirstTimeBitmapWriter)->Arg(kBufferSize);

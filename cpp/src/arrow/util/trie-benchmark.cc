@@ -28,6 +28,64 @@
 namespace arrow {
 namespace internal {
 
+std::vector<std::string> AllNulls() {
+  return {"#N/A",    "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND",
+          "1.#QNAN", "N/A",      "NA",  "NULL",    "NaN",      "n/a",  "nan",  "null"};
+}
+
+Trie MakeNullsTrie() {
+  auto nulls = AllNulls();
+
+  TrieBuilder builder;
+  for (const auto& str : AllNulls()) {
+    ABORT_NOT_OK(builder.Append(str));
+  }
+  return builder.Finish();
+}
+
+std::vector<std::string> Expand(const std::vector<std::string>& base, size_t n) {
+  std::vector<std::string> result;
+  result.reserve(n);
+
+  while (true) {
+    for (const auto& v : base) {
+      result.push_back(v);
+      if (result.size() == n) {
+        return result;
+      }
+    }
+  }
+}
+
+static void BenchmarkTrieLookups(benchmark::State& state,  // NOLINT non-const reference
+                                 const std::vector<std::string>& strings) {
+  Trie trie = MakeNullsTrie();
+  int32_t total = 0;
+
+  auto lookups = Expand(strings, 100);
+
+  for (auto _ : state) {
+    for (const auto& s : lookups) {
+      total += trie.Find(s);
+    }
+  }
+  benchmark::DoNotOptimize(total);
+  state.SetItemsProcessed(state.iterations() * lookups.size());
+}
+
+static void TrieLookupFound(benchmark::State& state) {  // NOLINT non-const reference
+  BenchmarkTrieLookups(state, {"N/A", "null", "-1.#IND", "N/A"});
+}
+
+static void TrieLookupNotFound(benchmark::State& state) {  // NOLINT non-const reference
+  BenchmarkTrieLookups(state, {"None", "1.0", "", "abc"});
+}
+
+BENCHMARK(TrieLookupFound);
+BENCHMARK(TrieLookupNotFound);
+
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
 static inline bool InlinedNullLookup(util::string_view s) {
   // An inlined version of trie lookup for a specific set of strings
   // (see AllNulls())
@@ -130,51 +188,6 @@ static inline bool InlinedNullLookup(util::string_view s) {
   }
 }
 
-std::vector<std::string> AllNulls() {
-  return {"#N/A",    "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND",
-          "1.#QNAN", "N/A",      "NA",  "NULL",    "NaN",      "n/a",  "nan",  "null"};
-}
-
-Trie MakeNullsTrie() {
-  auto nulls = AllNulls();
-
-  TrieBuilder builder;
-  for (const auto& str : AllNulls()) {
-    ABORT_NOT_OK(builder.Append(str));
-  }
-  return builder.Finish();
-}
-
-std::vector<std::string> Expand(const std::vector<std::string>& base, size_t n) {
-  std::vector<std::string> result;
-  result.reserve(n);
-
-  while (true) {
-    for (const auto& v : base) {
-      result.push_back(v);
-      if (result.size() == n) {
-        return result;
-      }
-    }
-  }
-}
-
-static void BenchmarkTrieLookups(benchmark::State& state,  // NOLINT non-const reference
-                                 const std::vector<std::string>& strings) {
-  Trie trie = MakeNullsTrie();
-  int32_t total = 0;
-
-  auto lookups = Expand(strings, 100);
-
-  for (auto _ : state) {
-    for (const auto& s : lookups) {
-      total += trie.Find(s);
-    }
-  }
-  benchmark::DoNotOptimize(total);
-  state.SetItemsProcessed(state.iterations() * lookups.size());
-}
-
 static void BenchmarkInlinedTrieLookups(
     benchmark::State& state,  // NOLINT non-const reference
     const std::vector<std::string>& strings) {
@@ -190,15 +203,6 @@ static void BenchmarkInlinedTrieLookups(
   benchmark::DoNotOptimize(total);
   state.SetItemsProcessed(state.iterations() * lookups.size());
 }
-
-static void TrieLookupFound(benchmark::State& state) {  // NOLINT non-const reference
-  BenchmarkTrieLookups(state, {"N/A", "null", "-1.#IND", "N/A"});
-}
-
-static void TrieLookupNotFound(benchmark::State& state) {  // NOLINT non-const reference
-  BenchmarkTrieLookups(state, {"None", "1.0", "", "abc"});
-}
-
 static void InlinedTrieLookupFound(
     benchmark::State& state) {  // NOLINT non-const reference
   BenchmarkInlinedTrieLookups(state, {"N/A", "null", "-1.#IND", "N/A"});
@@ -209,10 +213,10 @@ static void InlinedTrieLookupNotFound(
   BenchmarkInlinedTrieLookups(state, {"None", "1.0", "", "abc"});
 }
 
-BENCHMARK(TrieLookupFound);
-BENCHMARK(TrieLookupNotFound);
 BENCHMARK(InlinedTrieLookupFound);
 BENCHMARK(InlinedTrieLookupNotFound);
+
+#endif
 
 }  // namespace internal
 }  // namespace arrow

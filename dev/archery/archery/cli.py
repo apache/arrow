@@ -186,24 +186,24 @@ def benchmark(ctx):
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
-@click.argument("baseline", metavar="[<baseline>]", default="WORKSPACE",
+@click.argument("rev_or_path", metavar="[<rev_or_path>]", default="WORKSPACE",
                 required=False)
 @click.pass_context
-def benchmark_list(ctx, src, preserve, output, cmake_extras, baseline):
+def benchmark_list(ctx, src, preserve, output, cmake_extras, rev_or_path):
     """ List benchmark suite.
     """
     with tmpdir(preserve) as root:
-        logger.debug(f"Running benchmark {baseline}")
+        logger.debug(f"Running benchmark {rev_or_path}")
 
         conf = CppConfiguration(
             build_type="release", with_tests=True, with_benchmarks=True,
             with_python=False, cmake_extras=cmake_extras)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
-            src, root, baseline, conf)
+            src, root, rev_or_path, conf)
 
-        for b in runner_base.list:
-            print(b, file=output)
+        for b in runner_base.list_benchmarks:
+            click.echo(b, file=output)
 
 
 @benchmark.command(name="run", short_help="Run benchmark suite")
@@ -224,11 +224,11 @@ def benchmark_list(ctx, src, preserve, output, cmake_extras, baseline):
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
-@click.argument("baseline", metavar="[<baseline>]", default="WORKSPACE",
+@click.argument("rev_or_path", metavar="[<rev_or_path>]", default="WORKSPACE",
                 required=False)
 @click.pass_context
 def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
-                  output, cmake_extras, baseline):
+                  output, cmake_extras, rev_or_path):
     """ Run benchmark suite.
 
     This command will run the benchmark suite for a single build. This is
@@ -236,7 +236,6 @@ def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
 
     The caller can optionally specify a target which is either a git revision
     (commit, tag, special values like HEAD) or a cmake build directory.
-
 
     When a commit is referenced, a local clone of the arrow sources (specified
     via --src) is performed and the proper branch is created. This is done in
@@ -263,14 +262,14 @@ def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
     archery benchmark run --output=run.json
     """
     with tmpdir(preserve) as root:
-        logger.debug(f"Running benchmark {baseline}")
+        logger.debug(f"Running benchmark {rev_or_path}")
 
         conf = CppConfiguration(
             build_type="release", with_tests=True, with_benchmarks=True,
             with_python=False, cmake_extras=cmake_extras)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
-            src, root, baseline, conf,
+            src, root, rev_or_path, conf,
             suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
         json.dump(runner_base, output, cls=JsonEncoder)
