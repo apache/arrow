@@ -367,7 +367,6 @@ class ColumnWriterImpl {
         fallback_(false) {
     definition_levels_sink_ = CreateOutputStream(allocator_);
     repetition_levels_sink_ = CreateOutputStream(allocator_);
-    repetition_levels_sink_.reset(new InMemoryOutputStream(allocator_));
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =

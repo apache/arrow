@@ -15,9 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma
+#pragma once
 
-#include "arrow/util/macros.h"
+#include "arrow/buffer.h"  // IWYU pragma: export
+#include "arrow/io/interfaces.h"  // IWYU pragma: export
+#include "arrow/memory_pool.h"  // IWYU pragma: export
+#include "arrow/status.h"  // IWYU pragma: export
+#include "arrow/util/macros.h"  // IWYU pragma: export
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 

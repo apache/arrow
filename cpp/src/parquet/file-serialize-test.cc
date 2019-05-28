@@ -53,7 +53,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
   int rows_per_batch_;
 
   void FileSerializeTest(Compression::type codec_type) {
-    std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
+    auto sink = CreateOutputStream();
     auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
 
     WriterProperties::Builder prop_builder;
@@ -140,7 +140,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
   }
 
   void UnequalNumRows(int64_t max_rows, const std::vector<int64_t> rows_per_column) {
-    std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
+    auto sink = CreateOutputStream();
     auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
 
     std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
@@ -164,7 +164,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
 
   void UnequalNumRowsBuffered(int64_t max_rows,
                               const std::vector<int64_t> rows_per_column) {
-    std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
+    auto sink = CreateOutputStream();
     auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
 
     std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
@@ -193,7 +193,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     const int kNumRows = 100;
     this->GenerateData(kNumRows);
 
-    std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
+    auto sink = CreateOutputStream();
     auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
     std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
     auto file_writer = ParquetFileWriter::Open(sink, gnode, props);
@@ -227,7 +227,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
   }
 
   void ZeroRowsRowGroup() {
-    std::shared_ptr<InMemoryOutputStream> sink(new InMemoryOutputStream());
+    auto sink = CreateOutputStream();
     auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
 
     std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();

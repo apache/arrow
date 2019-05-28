@@ -70,9 +70,9 @@ class TestPageSerde : public ::testing::Test {
   void InitSerializedPageReader(int64_t num_rows,
                                 Compression::type codec = Compression::UNCOMPRESSED) {
     EndStream();
-    std::unique_ptr<InputStream> stream;
-    stream.reset(new InMemoryInputStream(out_buffer_));
-    page_reader_ = PageReader::Open(std::move(stream), num_rows, codec);
+
+    auto stream = std::make_shared<::arrow::io::BufferReader>(out_buffer_);
+    page_reader_ = PageReader::Open(stream, num_rows, codec);
   }
 
   void WriteDataPageHeader(int max_serialized_len = 1024, int32_t uncompressed_size = 0,

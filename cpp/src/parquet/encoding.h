@@ -22,14 +22,10 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/macros.h"
 
 #include "parquet/exception.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 #include "parquet/platform.h"
 
 namespace parquet {

@@ -22,8 +22,6 @@
 #include <memory>
 #include <ostream>
 
-#include "arrow/util/macros.h"
-
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"

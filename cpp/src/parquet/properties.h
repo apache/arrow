@@ -48,20 +48,7 @@ class PARQUET_EXPORT ReaderProperties {
   ::arrow::MemoryPool* memory_pool() const { return pool_; }
 
   std::unique_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
-                                             int64_t start, int64_t num_bytes) {
-    if (buffered_stream_enabled_) {
-      std::shared_ptr<::arrow::io::BufferedInputStream> stream;
-      PARQUET_THROW_NOT_OK(source->Seek(start));
-      // TODO(wesm): ARROW-5428 set read extent
-      PARQUET_THROW_NOT_OK(::arrow::io::BufferedInputStream::Create(
-          buffer_size_, pool_, source, &stream));
-      return stream;
-    } else {
-      std::shared_ptr<Buffer> data;
-      PARQUET_THROW_NOT_OK(source->ReadAt(start, num_bytes, &data));
-      return std::make_shared<::arrow::io::BufferReader>(data);
-    }
-  }
+                                              int64_t start, int64_t num_bytes);
 
   bool is_buffered_stream_enabled() const { return buffered_stream_enabled_; }
 

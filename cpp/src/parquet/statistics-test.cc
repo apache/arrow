@@ -333,7 +333,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     auto expected_stats = TypedStats::Make(this->schema_.Column(0));
     expected_stats->Update(this->values_ptr_, num_values - null_count, null_count);
 
-    auto sink = std::make_shared<InMemoryOutputStream>();
+    auto sink = CreateOutputStream();
     auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
     std::shared_ptr<WriterProperties> writer_properties =
         WriterProperties::Builder().enable_statistics("column")->build();
@@ -363,7 +363,8 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     row_group_writer->Close();
     file_writer->Close();
 
-    auto buffer = sink->GetBuffer();
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_OK(sink->Finish(&buffer));
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     auto file_reader = ParquetFileReader::Open(source);
     auto rg_reader = file_reader->RowGroup(0);
@@ -616,7 +617,7 @@ class TestStatisticsSortOrder : public ::testing::Test {
     schema_ = std::static_pointer_cast<GroupNode>(
         GroupNode::Make("Schema", Repetition::REQUIRED, fields_));
 
-    parquet_sink_ = std::make_shared<InMemoryOutputStream>();
+    parquet_sink_ = CreateOutputStream();
   }
 
   void SetValues();
@@ -645,7 +646,8 @@ class TestStatisticsSortOrder : public ::testing::Test {
   }
 
   void VerifyParquetStats() {
-    auto pbuffer = parquet_sink_->GetBuffer();
+    std::shared_ptr<Buffer> pbuffer;
+    ASSERT_OK(parquet_sink_->Finish(&pbuffer));
 
     // Create a ParquetReader instance
     std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
@@ -668,7 +670,7 @@ class TestStatisticsSortOrder : public ::testing::Test {
   std::vector<uint8_t> values_buf_;
   std::vector<schema::NodePtr> fields_;
   std::shared_ptr<schema::GroupNode> schema_;
-  std::shared_ptr<InMemoryOutputStream> parquet_sink_;
+  std::shared_ptr<ArrowOutputStream> parquet_sink_;
   std::vector<EncodedStatistics> stats_;
 };
 

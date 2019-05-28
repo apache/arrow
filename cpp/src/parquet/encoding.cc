@@ -24,19 +24,17 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/status.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
 #include "arrow/util/rle-encoding.h"
 #include "arrow/util/string_view.h"
 
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 

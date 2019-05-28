@@ -26,8 +26,15 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/util/macros.h"
 #include "parquet/platform.h"
+
+namespace arrow {
+namespace util {
+
+class Codec;
+
+}  // namespace util
+}  // namespace arrow
 
 namespace parquet {
 
@@ -428,14 +435,6 @@ struct Encoding {
 struct Compression {
   enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, LZ4, ZSTD };
 };
-
-namespace arrow {
-namespace util {
-
-class Codec;
-
-}  // namespace util
-}  // namespace arrow
 
 PARQUET_EXPORT
 std::unique_ptr<::arrow::util::Codec> GetCodecFromArrow(Compression::type codec);

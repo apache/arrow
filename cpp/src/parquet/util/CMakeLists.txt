@@ -17,5 +17,3 @@
 
 # Headers: util
 arrow_install_all_headers("parquet/util")
-
-add_parquet_test(memory-test)

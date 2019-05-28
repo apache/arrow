@@ -17,12 +17,12 @@
 
 // Public API for different memory sharing / IO mechanisms
 
-#ifndef ARROW_IO_MEMORY_H
-#define ARROW_IO_MEMORY_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 
+#include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/util/string_view.h"
@@ -74,7 +74,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 
   /// \brief Return reference to current in-progress buffer. May
   /// become invalid after any Write calls
-  const Buffer& buffer() const { return buffer_; }
+  const Buffer& buffer() const { return *buffer_; }
 
   /// \brief Reset position to 0 without modifying capacity or zeroing data
   void Clear();
@@ -177,5 +177,3 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_MEMORY_H
