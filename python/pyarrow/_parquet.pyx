@@ -533,6 +533,16 @@ cdef class FileMetaData:
             c_string c_path = tobytes(path)
         self._metadata.set_file_path(c_path)
 
+    def append_row_groups(self, FileMetaData other):
+        """
+        Append row groups of other FileMetaData object
+        """
+        cdef:
+          shared_ptr[CFileMetaData] c_metadata
+
+        c_metadata = other.sp_metadata
+        self._metadata.AppendRowGroups(c_metadata)
+
 
 cdef class ParquetSchema:
     cdef:
@@ -975,8 +985,8 @@ cdef class ParquetWriter:
         object version
         int row_group_size
 
-    def __cinit__(self, where, Schema schema, use_dictionary=None,
-                  compression=None, version=None,
+    def __cinit__(self, where, Schema schema,
+                  use_dictionary=None, compression=None, version=None,
                   MemoryPool memory_pool=None,
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
@@ -985,6 +995,7 @@ cdef class ParquetWriter:
             shared_ptr[WriterProperties] properties
             c_string c_where
             CMemoryPool* pool
+            shared_ptr[CFileMetaData] c_metadata
 
         try:
             where = _stringify_path(where)

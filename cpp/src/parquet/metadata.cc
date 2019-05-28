@@ -20,6 +20,8 @@
 #include <string>
 #include <utility>
 
+#include <iostream>
+
 #include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
@@ -394,6 +396,25 @@ class FileMetaData::FileMetaDataImpl {
     }
   }
 
+  format::RowGroup& get_row_group(int i) {
+    if (!(i < num_row_groups())) {
+      std::stringstream ss;
+      ss << "The file only has " << num_row_groups()
+         << " row groups, requested metadata for row group: " << i;
+      throw ParquetException(ss.str());
+    }
+    return metadata_->row_groups[i];
+  }
+
+  void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
+    format::RowGroup other_rg;
+    for (int i=0; i<other->num_row_groups(); i++) {
+      other_rg = other->get_row_group(i);
+      metadata_->row_groups.push_back(other_rg);
+      metadata_->num_rows += other_rg.num_rows;
+    }
+  }
+
  private:
   friend FileMetaDataBuilder;
   uint32_t metadata_len_;
@@ -492,6 +513,10 @@ std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const
 }
 
 void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
+
+void FileMetaData::AppendRowGroups(const std::shared_ptr<FileMetaData>& other) {
+  impl_->AppendRowGroups(other->impl_);
+}
 
 void FileMetaData::WriteTo(OutputStream* dst) const { return impl_->WriteTo(dst); }
 
