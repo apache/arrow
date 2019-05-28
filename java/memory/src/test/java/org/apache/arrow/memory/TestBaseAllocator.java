@@ -857,60 +857,18 @@ public class TestBaseAllocator {
   }
 
   @Test
-  public void testRoundingBehavior() {
-    RootAllocator allocator = new RootAllocator(AllocationManager.CHUNK_SIZE * 2);
-
-    int powerOfTwo = allocator.nextPowerOfTwo((int) AllocationManager.CHUNK_SIZE  / 4);
-
-    // test default rounding option
-    ArrowBuf buf = allocator.buffer(powerOfTwo - 1);
-    assertEquals(powerOfTwo, buf.capacity());
-    buf.close();
-
-    // test rounding up
-    buf = allocator.buffer(powerOfTwo - 1, null, BaseAllocator.AllocationRoundingOption.ROUND_UP);
-    assertEquals(powerOfTwo, buf.capacity());
-    buf.close();
-
-    // test rounding down
-    buf = allocator.buffer(powerOfTwo + 1, null, BaseAllocator.AllocationRoundingOption.ROUND_DOWN);
-    assertEquals(powerOfTwo, buf.capacity());
-    buf.close();
-
-    // test large buffer
-    buf = allocator.buffer(
-            (int) AllocationManager.CHUNK_SIZE  + 1, null, BaseAllocator.AllocationRoundingOption.ROUND_UP);
-    assertEquals(AllocationManager.CHUNK_SIZE  + 1, buf.capacity());
-    buf.close();
-
-    buf = allocator.buffer(
-            (int) AllocationManager.CHUNK_SIZE  + 1, null, BaseAllocator.AllocationRoundingOption.ROUND_DOWN);
-    assertEquals(AllocationManager.CHUNK_SIZE  + 1, buf.capacity());
-    buf.close();
-
-    allocator.close();
-  }
-
-  @Test
   public void testRoundedSize() {
     RootAllocator allocator = new RootAllocator(AllocationManager.CHUNK_SIZE * 2);
 
     int powerOfTwo = allocator.nextPowerOfTwo((int) AllocationManager.CHUNK_SIZE  / 4);
 
-    // test rounding up
-    int roundedSize = allocator.getRoundedSize(powerOfTwo - 1, BaseAllocator.AllocationRoundingOption.ROUND_UP);
-    assertEquals(powerOfTwo, roundedSize);
-
-    // test rounding down
-    roundedSize = allocator.getRoundedSize(powerOfTwo + 1, BaseAllocator.AllocationRoundingOption.ROUND_DOWN);
+    // test small buffer
+    int roundedSize = allocator.getRoundedSize(powerOfTwo - 1);
     assertEquals(powerOfTwo, roundedSize);
 
     // test large buffer
     roundedSize = allocator.getRoundedSize(
-            (int) AllocationManager.CHUNK_SIZE  + 1, BaseAllocator.AllocationRoundingOption.ROUND_UP);
-    assertEquals(AllocationManager.CHUNK_SIZE  + 1, roundedSize);
-    roundedSize = allocator.getRoundedSize(
-            (int) AllocationManager.CHUNK_SIZE  + 1, BaseAllocator.AllocationRoundingOption.ROUND_DOWN);
+            (int) AllocationManager.CHUNK_SIZE  + 1);
     assertEquals(AllocationManager.CHUNK_SIZE  + 1, roundedSize);
 
     allocator.close();
@@ -935,16 +893,5 @@ public class TestBaseAllocator {
     assertEquals(128, BaseAllocator.nextPowerOfTwo(75L));
     assertEquals(AllocationManager.CHUNK_SIZE, BaseAllocator.nextPowerOfTwo(AllocationManager.CHUNK_SIZE));
     assertEquals(AllocationManager.CHUNK_SIZE * 2, BaseAllocator.nextPowerOfTwo(AllocationManager.CHUNK_SIZE + 1));
-  }
-
-  @Test
-  public void testPrevPowerOfTwo() {
-    assertEquals(0, BaseAllocator.prevPowerOfTwo(0));
-    assertEquals(1, BaseAllocator.prevPowerOfTwo(1));
-    assertEquals(2, BaseAllocator.prevPowerOfTwo(2));
-    assertEquals(64, BaseAllocator.prevPowerOfTwo(75));
-    assertEquals(AllocationManager.CHUNK_SIZE, BaseAllocator.prevPowerOfTwo((int) AllocationManager.CHUNK_SIZE));
-    assertEquals(
-            AllocationManager.CHUNK_SIZE, BaseAllocator.prevPowerOfTwo((int) AllocationManager.CHUNK_SIZE + 1));
   }
 }
