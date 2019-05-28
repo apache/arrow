@@ -133,7 +133,7 @@ extern "C" {
 #endif
 
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_open(
-    JNIEnv* env, jclass this_cls, jstring file_path) {
+    JNIEnv* env, jobject this_obj, jstring file_path) {
   std::shared_ptr<arrow::io::ReadableFile> in_file;
 
   std::string path = JStringToCString(env, file_path);
@@ -164,19 +164,19 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_op
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_close(
-    JNIEnv* env, jclass this_cls, jlong id) {
+    JNIEnv* env, jobject this_obj, jlong id) {
   orc_reader_holder_.Erase(id);
 }
 
 JNIEXPORT jboolean JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_seek(
-    JNIEnv* env, jclass this_cls, jlong id, jint row_number) {
+    JNIEnv* env, jobject this_obj, jlong id, jint row_number) {
   auto reader = orc_reader_holder_.Lookup(id);
   return reader->Seek(row_number).ok();
 }
 
 JNIEXPORT jint JNICALL
 Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_getNumberOfStripes(JNIEnv* env,
-                                                                         jclass this_cls,
+                                                                         jobject this_obj,
                                                                          jlong id) {
   auto reader = orc_reader_holder_.Lookup(id);
   return reader->NumberOfStripes();
@@ -184,7 +184,7 @@ Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_getNumberOfStripes(JNIEnv*
 
 JNIEXPORT jlong JNICALL
 Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_nextStripeReader(JNIEnv* env,
-                                                                       jclass this_cls,
+                                                                       jobject this_obj,
                                                                        jlong id,
                                                                        jlong batch_size) {
   auto reader = GetNativeReader(id);

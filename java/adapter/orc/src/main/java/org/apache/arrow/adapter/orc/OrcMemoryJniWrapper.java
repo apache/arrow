@@ -17,12 +17,11 @@
 
 package org.apache.arrow.adapter.orc;
 
-import java.io.IOException;
-
 /**
  * Wrapper for orc memory allocated by native code.
  */
 class OrcMemoryJniWrapper implements AutoCloseable {
+
   private final long id;
 
   private final long memoryAddress;
@@ -30,14 +29,6 @@ class OrcMemoryJniWrapper implements AutoCloseable {
   private final long size;
 
   private final long capacity;
-
-  static {
-    try {
-      OrcJniUtils.loadOrcAdapterLibraryFromJar();
-    } catch (IOException e) {
-      throw new ExceptionInInitializerError(e);
-    }
-  }
 
   /**
    * Construct a new instance.

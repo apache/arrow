@@ -29,6 +29,7 @@ import org.apache.arrow.vector.ipc.ArrowReader;
  *  ArrowReader.
  */
 public class OrcReader implements AutoCloseable {
+  private final OrcReaderJniWrapper jniWrapper;
   private BufferAllocator allocator;
 
   private final long id;
@@ -41,7 +42,8 @@ public class OrcReader implements AutoCloseable {
    */
   public OrcReader(String filePath, BufferAllocator allocator) throws IOException {
     this.allocator = allocator;
-    id = OrcReaderJniWrapper.open(filePath);
+    this.jniWrapper = OrcReaderJniWrapper.getInstance();
+    this.id = jniWrapper.open(filePath);
   }
 
   /**
@@ -51,7 +53,7 @@ public class OrcReader implements AutoCloseable {
    * @return true if seek operation is succeeded
    */
   public boolean seek(int rowNumber) {
-    return OrcReaderJniWrapper.seek(id, rowNumber);
+    return jniWrapper.seek(id, rowNumber);
   }
 
   /**
@@ -61,7 +63,7 @@ public class OrcReader implements AutoCloseable {
    * @return ArrowReader that iterate over current stripes
    */
   public ArrowReader nextStripeReader(long batchSize) {
-    long stripeReaderId = OrcReaderJniWrapper.nextStripeReader(id, batchSize);
+    long stripeReaderId = jniWrapper.nextStripeReader(id, batchSize);
     if (stripeReaderId < 0) {
       return null;
     }
@@ -75,11 +77,11 @@ public class OrcReader implements AutoCloseable {
    * @return number of stripes
    */
   public int getNumberOfStripes() {
-    return OrcReaderJniWrapper.getNumberOfStripes(id);
+    return jniWrapper.getNumberOfStripes(id);
   }
 
   @Override
   public void close() throws Exception {
-    OrcReaderJniWrapper.close(id);
+    jniWrapper.close(id);
   }
 }

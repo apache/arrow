@@ -23,12 +23,20 @@ import java.io.IOException;
  * JNI wrapper for Orc reader.
  */
 class OrcReaderJniWrapper {
-  static {
-    try {
-      OrcJniUtils.loadOrcAdapterLibraryFromJar();
-    } catch (IOException e) {
-      throw new ExceptionInInitializerError(e);
+
+  private static volatile OrcReaderJniWrapper INSTANCE;
+
+  static OrcReaderJniWrapper getInstance() throws IOException {
+    if (INSTANCE == null) {
+      synchronized (OrcReaderJniWrapper.class) {
+        if (INSTANCE == null) {
+          OrcJniUtils.loadOrcAdapterLibraryFromJar();
+          INSTANCE = new OrcReaderJniWrapper();
+        }
+      }
     }
+
+    return INSTANCE;
   }
 
   /**
@@ -37,13 +45,13 @@ class OrcReaderJniWrapper {
    * @return id of the orc reader instance if file opened successfully,
    *     otherwise return error code * -1.
    */
-  static native long open(String fileName);
+  native long open(String fileName);
 
   /**
-   * Close the underlying reader and release related resources.
+   * Release resources associated with designated reader instance.
    * @param readerId id of the reader instance.
    */
-  static native void close(long readerId);
+  native void close(long readerId);
 
   /**
    *  Seek to designated row. Invoke nextStripeReader() after seek
@@ -52,14 +60,14 @@ class OrcReaderJniWrapper {
    * @param rowNumber the rows number to seek
    * @return true if seek operation is succeeded
    */
-  static native boolean seek(long readerId, int rowNumber);
+  native boolean seek(long readerId, int rowNumber);
 
   /**
    * The number of stripes in the file.
    * @param readerId id of the reader instance
    * @return number of stripes
    */
-  static native int getNumberOfStripes(long readerId);
+  native int getNumberOfStripes(long readerId);
 
   /**
    * Get a stripe level ArrowReader with specified batchSize in each record batch.
@@ -67,5 +75,5 @@ class OrcReaderJniWrapper {
    * @param batchSize the number of rows loaded on each iteration
    * @return id of the stripe reader instance.
    */
-  static native long nextStripeReader(long readerId, long batchSize);
+  native long nextStripeReader(long readerId, long batchSize);
 }

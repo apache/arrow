@@ -17,20 +17,10 @@
 
 package org.apache.arrow.adapter.orc;
 
-import java.io.IOException;
-
 /**
  * JNI wrapper for orc stripe reader.
  */
 class OrcStripeReaderJniWrapper {
-
-  static {
-    try {
-      OrcJniUtils.loadOrcAdapterLibraryFromJar();
-    } catch (IOException e) {
-      throw new ExceptionInInitializerError(e);
-    }
-  }
 
   /**
    * Get the schema of current stripe.

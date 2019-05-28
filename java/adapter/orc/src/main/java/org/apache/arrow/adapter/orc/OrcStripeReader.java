@@ -45,7 +45,8 @@ public class OrcStripeReader extends ArrowReader {
 
   /**
    * Construct a new instance.
-   * @param id id of the stripe reader instance
+   * @param id id of the stripe reader instance, obtained by
+   *           calling nextStripeReader from OrcReaderJniWrapper
    * @param allocator memory allocator for accounting.
    */
   OrcStripeReader(long id, BufferAllocator allocator) {
