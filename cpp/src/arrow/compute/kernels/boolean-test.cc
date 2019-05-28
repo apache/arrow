@@ -122,7 +122,7 @@ TEST_F(TestBooleanKernel, Invert) {
   ASSERT_OK(Invert(&this->ctx_, ca1, &result));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
   std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
-  ASSERT_ARRAYS_EQUAL(*ca2, *result_ca);
+  AssertChunkedEqual(*ca2, *result_ca);
 }
 
 TEST_F(TestBooleanKernel, InvertEmptyArray) {

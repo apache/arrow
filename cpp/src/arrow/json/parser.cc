@@ -106,7 +106,7 @@ Status Kind::ForType(const DataType& type, Kind::type* kind) {
     Status Visit(const BinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const FixedSizeBinaryType&) { return SetKind(Kind::kString); }
     Status Visit(const DictionaryType& dict_type) {
-      return Kind::ForType(*dict_type.dictionary()->type(), kind_);
+      return Kind::ForType(*dict_type.value_type(), kind_);
     }
     Status Visit(const ListType&) { return SetKind(Kind::kArray); }
     Status Visit(const StructType&) { return SetKind(Kind::kObject); }
@@ -208,9 +208,9 @@ class RawArrayBuilder<Kind::kBoolean> {
 /// an index refers). This means building is faster since we don't do
 /// allocation for string/number characters but accessing is strided.
 ///
-/// On completion the indices and the character storage are combined into
-/// a DictionaryArray, which is a convenient container for indices referring
-/// into another array.
+/// On completion the indices and the character storage are combined
+/// into a dictionary-encoded array, which is a convenient container
+/// for indices referring into another array.
 class ScalarBuilder {
  public:
   explicit ScalarBuilder(MemoryPool* pool)
@@ -541,7 +541,9 @@ class RawBuilderSet {
     std::shared_ptr<Array> indices;
     // TODO(bkietz) embed builder->values_length() in this output somehow
     RETURN_NOT_OK(builder->Finish(&indices));
-    return DictionaryArray::FromArrays(dictionary(int32(), scalar_values), indices, out);
+    auto ty = dictionary(int32(), scalar_values->type());
+    *out = std::make_shared<DictionaryArray>(ty, indices, scalar_values);
+    return Status::OK();
   }
 
   template <Kind::type kind>

@@ -61,8 +61,7 @@ void AssertEqual(const Ticket& expected, const Ticket& actual) {
 }
 
 void AssertEqual(const Location& expected, const Location& actual) {
-  ASSERT_EQ(expected.host, actual.host);
-  ASSERT_EQ(expected.port, actual.port);
+  ASSERT_EQ(expected, actual);
 }
 
 void AssertEqual(const std::vector<FlightEndpoint>& expected,
@@ -88,8 +87,10 @@ void AssertEqual(const std::vector<T>& expected, const std::vector<T>& actual) {
 
 void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
   std::shared_ptr<Schema> ex_schema, actual_schema;
-  ASSERT_OK(expected.GetSchema(&ex_schema));
-  ASSERT_OK(actual.GetSchema(&actual_schema));
+  ipc::DictionaryMemo expected_memo;
+  ipc::DictionaryMemo actual_memo;
+  ASSERT_OK(expected.GetSchema(&expected_memo, &ex_schema));
+  ASSERT_OK(actual.GetSchema(&actual_memo, &actual_schema));
 
   AssertSchemaEqual(*ex_schema, *actual_schema);
   ASSERT_EQ(expected.total_records(), actual.total_records());
@@ -144,6 +145,20 @@ TEST(TestFlight, StartStopTestServer) {
   ASSERT_FALSE(server.IsRunning());
 }
 
+TEST(TestFlight, ConnectUri) {
+  TestServer server("flight-test-server", 30000);
+  server.Start();
+  ASSERT_TRUE(server.IsRunning());
+
+  std::unique_ptr<FlightClient> client;
+  Location location1;
+  Location location2;
+  ASSERT_OK(Location::Parse("grpc://localhost:30000", &location1));
+  ASSERT_OK(Location::Parse("grpc://localhost:30000", &location2));
+  ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK(FlightClient::Connect(location2, &client));
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 
@@ -167,7 +182,11 @@ class TestFlightClient : public ::testing::Test {
 
   void TearDown() { server_->Stop(); }
 
-  Status ConnectClient() { return FlightClient::Connect("localhost", port_, &client_); }
+  Status ConnectClient() {
+    Location location;
+    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port_, &location));
+    return FlightClient::Connect(location, &client_);
+  }
 
   template <typename EndpointCheckFunc>
   void CheckDoGet(const FlightDescriptor& descr, const BatchVector& expected_batches,
@@ -181,7 +200,8 @@ class TestFlightClient : public ::testing::Test {
     check_endpoints(info->endpoints());
 
     std::shared_ptr<Schema> schema;
-    ASSERT_OK(info->GetSchema(&schema));
+    ipc::DictionaryMemo dict_memo;
+    ASSERT_OK(info->GetSchema(&dict_memo, &schema));
     AssertSchemaEqual(*expected_schema, *schema);
 
     // By convention, fetch the first endpoint
@@ -209,7 +229,7 @@ class TestFlightClient : public ::testing::Test {
 
 class AuthTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
-                  std::unique_ptr<ResultStream>* result) {
+                  std::unique_ptr<ResultStream>* result) override {
     std::shared_ptr<Buffer> buf;
     RETURN_NOT_OK(Buffer::FromString(context.peer_identity(), &buf));
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
@@ -217,25 +237,91 @@ class AuthTestServer : public FlightServerBase {
   }
 };
 
+class DoPutTestServer : public FlightServerBase {
+ public:
+  Status DoPut(const ServerCallContext& context,
+               std::unique_ptr<FlightMessageReader> reader) override {
+    descriptor_ = reader->descriptor();
+    return reader->ReadAll(&batches_);
+  }
+
+ protected:
+  FlightDescriptor descriptor_;
+  BatchVector batches_;
+
+  friend class TestDoPut;
+};
+
 class TestAuthHandler : public ::testing::Test {
  public:
   void SetUp() {
-    port_ = 30000;
-    server_.reset(new InProcessTestServer(
-        std::unique_ptr<FlightServerBase>(new AuthTestServer), port_));
-    ASSERT_OK(server_->Start(std::unique_ptr<ServerAuthHandler>(
-        new TestServerAuthHandler("user", "p4ssw0rd"))));
+    Location location;
+    std::unique_ptr<FlightServerBase> server(new AuthTestServer);
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
+    FlightServerOptions options(location);
+    options.auth_handler =
+        std::unique_ptr<ServerAuthHandler>(new TestServerAuthHandler("user", "p4ssw0rd"));
+    ASSERT_OK(server->Init(options));
+
+    server_.reset(new InProcessTestServer(std::move(server), location));
+    ASSERT_OK(server_->Start());
     ASSERT_OK(ConnectClient());
   }
 
   void TearDown() { server_->Stop(); }
 
-  Status ConnectClient() { return FlightClient::Connect("localhost", port_, &client_); }
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
 
  protected:
-  int port_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<InProcessTestServer> server_;
+};
+
+class TestDoPut : public ::testing::Test {
+ public:
+  void SetUp() {
+    Location location;
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
+
+    do_put_server_ = new DoPutTestServer();
+    server_.reset(new InProcessTestServer(
+        std::unique_ptr<FlightServerBase>(do_put_server_), location));
+    FlightServerOptions options(location);
+    ASSERT_OK(do_put_server_->Init(options));
+    ASSERT_OK(server_->Start());
+    ASSERT_OK(ConnectClient());
+  }
+
+  void TearDown() { server_->Stop(); }
+
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+
+  void CheckBatches(FlightDescriptor expected_descriptor,
+                    const BatchVector& expected_batches) {
+    ASSERT_TRUE(do_put_server_->descriptor_.Equals(expected_descriptor));
+    ASSERT_EQ(do_put_server_->batches_.size(), expected_batches.size());
+    for (size_t i = 0; i < expected_batches.size(); ++i) {
+      ASSERT_BATCHES_EQUAL(*do_put_server_->batches_[i], *expected_batches[i]);
+    }
+  }
+
+  void CheckDoPut(FlightDescriptor descr, const std::shared_ptr<Schema>& schema,
+                  const BatchVector& batches) {
+    std::unique_ptr<ipc::RecordBatchWriter> stream;
+    ASSERT_OK(client_->DoPut(descr, schema, &stream));
+    for (const auto& batch : batches) {
+      ASSERT_OK(stream->WriteRecordBatch(*batch));
+    }
+    ASSERT_OK(stream->Close());
+
+    CheckBatches(descr, batches);
+  }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<InProcessTestServer> server_;
+  DoPutTestServer* do_put_server_;
 };
 
 TEST_F(TestFlightClient, ListFlights) {
@@ -362,7 +448,9 @@ TEST_F(TestFlightClient, Issue5095) {
 TEST_F(TestFlightClient, TimeoutFires) {
   // Server does not exist on this port, so call should fail
   std::unique_ptr<FlightClient> client;
-  ASSERT_OK(FlightClient::Connect("localhost", 30001, &client));
+  Location location;
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 30001, &location));
+  ASSERT_OK(FlightClient::Connect(location, &client));
   FlightCallOptions options;
   options.timeout = TimeoutDuration{0.2};
   std::unique_ptr<FlightInfo> info;
@@ -385,6 +473,43 @@ TEST_F(TestFlightClient, NoTimeout) {
   EXPECT_LE(end - start, std::chrono::milliseconds{600});
   ASSERT_OK(status);
   ASSERT_NE(nullptr, info);
+}
+
+TEST_F(TestDoPut, DoPutInts) {
+  auto descr = FlightDescriptor::Path({"ints"});
+  BatchVector batches;
+  auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
+  auto schema = arrow::schema({field("f1", a1->type())});
+  batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
+
+  CheckDoPut(descr, schema, batches);
+}
+
+TEST_F(TestDoPut, DoPutEmptyBatch) {
+  // Sending and receiving a 0-sized batch shouldn't fail
+  auto descr = FlightDescriptor::Path({"ints"});
+  BatchVector batches;
+  auto a1 = ArrayFromJSON(int32(), "[]");
+  auto schema = arrow::schema({field("f1", a1->type())});
+  batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
+
+  CheckDoPut(descr, schema, batches);
+}
+
+TEST_F(TestDoPut, DoPutDicts) {
+  auto descr = FlightDescriptor::Path({"dicts"});
+  BatchVector batches;
+  auto dict_values = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]");
+  auto ty = dictionary(int8(), dict_values->type());
+  auto schema = arrow::schema({field("f1", ty)});
+  // Make several batches
+  for (const char* json : {"[1, 0, 1]", "[null]", "[null, 1]"}) {
+    auto indices = ArrayFromJSON(int8(), json);
+    auto dict_array = std::make_shared<DictionaryArray>(ty, indices, dict_values);
+    batches.push_back(RecordBatch::Make(schema, dict_array->length(), {dict_array}));
+  }
+
+  CheckDoPut(descr, schema, batches);
 }
 
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {

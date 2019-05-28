@@ -169,6 +169,7 @@ class build_ext(_build_ext):
     CYTHON_MODULE_NAMES = [
         'lib',
         '_csv',
+        '_json',
         '_cuda',
         '_flight',
         '_parquet',

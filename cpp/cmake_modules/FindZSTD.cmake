@@ -22,16 +22,8 @@ endif()
 set(ZSTD_STATIC_LIB_SUFFIX "${ZSTD_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(ZSTD_STATIC_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}zstd${ZSTD_STATIC_LIB_SUFFIX})
 
-pkg_check_modules(ZSTD_PC libzstd)
-if(ZSTD_PC_FOUND)
-  set(ZSTD_INCLUDE_DIR "${ZSTD_PC_INCLUDEDIR}")
-
-  list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_LIBDIR}")
-  find_library(ZSTD_LIB zstd
-               PATHS ${ZSTD_PC_LIBRARY_DIRS}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-elseif(ZSTD_ROOT)
+# First, find via if specified ZTD_ROOT
+if(ZSTD_ROOT)
   message(STATUS "Using ZSTD_ROOT: ${ZSTD_ROOT}")
   find_library(ZSTD_LIB
                NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
@@ -44,12 +36,26 @@ elseif(ZSTD_ROOT)
             PATHS ${ZSTD_ROOT}
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+
 else()
-  find_library(ZSTD_LIB
-               NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
-                     "${CMAKE_SHARED_LIBRARY_PREFIX}zstd${CMAKE_SHARED_LIBRARY_SUFFIX}"
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-  find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+  # Second, find via pkg_check_modules
+  pkg_check_modules(ZSTD_PC libzstd)
+  if(ZSTD_PC_FOUND)
+    set(ZSTD_INCLUDE_DIR "${ZSTD_PC_INCLUDEDIR}")
+
+    list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_LIBDIR}")
+    find_library(ZSTD_LIB zstd
+                 PATHS ${ZSTD_PC_LIBRARY_DIRS}
+                 NO_DEFAULT_PATH
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    # Third, check all other CMake paths
+  else()
+    find_library(ZSTD_LIB
+                 NAMES zstd "${ZSTD_STATIC_LIB_NAME}" "lib${ZSTD_STATIC_LIB_NAME}"
+                       "${CMAKE_SHARED_LIBRARY_PREFIX}zstd${CMAKE_SHARED_LIBRARY_SUFFIX}"
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_path(ZSTD_INCLUDE_DIR NAMES zstd.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+  endif()
 endif()
 
 find_package_handle_standard_args(ZSTD REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)

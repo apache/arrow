@@ -197,7 +197,7 @@ TEST_F(TestLiteral, TestNullLiteralInIf) {
   auto res = field("res", float64());
 
   auto node_a = TreeExprBuilder::MakeField(field_a);
-  auto literal_5 = TreeExprBuilder::MakeLiteral((double_t)5);
+  auto literal_5 = TreeExprBuilder::MakeLiteral(5.0);
   auto a_gt_5 = TreeExprBuilder::MakeFunction("greater_than", {node_a, literal_5},
                                               arrow::boolean());
   auto literal_null = TreeExprBuilder::MakeNull(arrow::float64());

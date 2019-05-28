@@ -116,7 +116,7 @@ void CheckDictEncode(FunctionContext* ctx, const std::shared_ptr<DataType>& type
   std::shared_ptr<Array> ex_indices =
       _MakeArray<Int32Type, int32_t>(int32(), out_indices, in_is_valid);
 
-  DictionaryArray expected(dictionary(int32(), ex_dict), ex_indices);
+  DictionaryArray expected(dictionary(int32(), type), ex_indices, ex_dict);
 
   Datum datum_out;
   ASSERT_OK(DictionaryEncode(ctx, input, &datum_out));
@@ -447,13 +447,13 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   ASSERT_ARRAYS_EQUAL(*ex_dict, *result);
 
   // Dictionary encode
-  auto dict_type = dictionary(int32(), ex_dict);
+  auto dict_type = dictionary(int32(), type);
 
   auto i1 = _MakeArray<Int32Type, int32_t>(int32(), {0, 1, 0}, {});
   auto i2 = _MakeArray<Int32Type, int32_t>(int32(), {1, 2, 3, 0}, {});
 
-  ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, i1),
-                             std::make_shared<DictionaryArray>(dict_type, i2)};
+  ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, i1, ex_dict),
+                             std::make_shared<DictionaryArray>(dict_type, i2, ex_dict)};
   auto dict_carr = std::make_shared<ChunkedArray>(dict_arrays);
 
   // Unique counts

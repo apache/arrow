@@ -19,8 +19,10 @@
 
 #include <climits>
 #include <cstddef>
+#include <ostream>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -58,15 +60,19 @@ std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {
     for (const auto& child : type_->children()) {
-      auto flattened_child = std::make_shared<Field>(*child);
+      auto flattened_child = child->Copy();
       flattened.push_back(flattened_child);
       flattened_child->name_.insert(0, name() + ".");
       flattened_child->nullable_ |= nullable_;
     }
   } else {
-    flattened.push_back(std::make_shared<Field>(*this));
+    flattened.push_back(this->Copy());
   }
   return flattened;
+}
+
+std::shared_ptr<Field> Field::Copy() const {
+  return ::arrow::field(name_, type_, nullable_, metadata_);
 }
 
 bool Field::Equals(const Field& other, bool check_metadata) const {
@@ -114,6 +120,11 @@ bool DataType::Equals(const std::shared_ptr<DataType>& other) const {
   return Equals(*other.get());
 }
 
+std::ostream& operator<<(std::ostream& os, const DataType& type) {
+  os << type.ToString();
+  return os;
+}
+
 std::string BooleanType::ToString() const { return name(); }
 
 FloatingPoint::Precision HalfFloatType::precision() const { return FloatingPoint::HALF; }
@@ -149,7 +160,7 @@ std::string FixedSizeBinaryType::ToString() const {
 // ----------------------------------------------------------------------
 // Date types
 
-DateType::DateType(Type::type type_id) : FixedWidthType(type_id) {}
+DateType::DateType(Type::type type_id) : TemporalType(type_id) {}
 
 Date32Type::Date32Type() : DateType(Type::DATE32) {}
 
@@ -163,7 +174,7 @@ std::string Date32Type::ToString() const { return std::string("date32[day]"); }
 // Time types
 
 TimeType::TimeType(Type::type type_id, TimeUnit::type unit)
-    : FixedWidthType(type_id), unit_(unit) {}
+    : TemporalType(type_id), unit_(unit) {}
 
 Time32Type::Time32Type(TimeUnit::type unit) : TimeType(Type::TIME32, unit) {
   DCHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
@@ -185,6 +196,24 @@ std::string Time64Type::ToString() const {
   std::stringstream ss;
   ss << "time64[" << this->unit_ << "]";
   return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      os << "s";
+      break;
+    case TimeUnit::MILLI:
+      os << "ms";
+      break;
+    case TimeUnit::MICRO:
+      os << "us";
+      break;
+    case TimeUnit::NANO:
+      os << "ns";
+      break;
+  }
+  return os;
 }
 
 // ----------------------------------------------------------------------
@@ -267,10 +296,20 @@ int LookupNameIndex(const std::unordered_multimap<std::string, int>& name_to_ind
 
 }  // namespace
 
+class StructType::Impl {
+ public:
+  explicit Impl(const std::vector<std::shared_ptr<Field>>& fields)
+      : name_to_index_(CreateNameToIndexMap(fields)) {}
+
+  const std::unordered_multimap<std::string, int> name_to_index_;
+};
+
 StructType::StructType(const std::vector<std::shared_ptr<Field>>& fields)
-    : NestedType(Type::STRUCT), name_to_index_(CreateNameToIndexMap(fields)) {
+    : NestedType(Type::STRUCT), impl_(new Impl(fields)) {
   children_ = fields;
 }
+
+StructType::~StructType() {}
 
 std::string StructType::ToString() const {
   std::stringstream s;
@@ -292,12 +331,12 @@ std::shared_ptr<Field> StructType::GetFieldByName(const std::string& name) const
 }
 
 int StructType::GetFieldIndex(const std::string& name) const {
-  return LookupNameIndex(name_to_index_, name);
+  return LookupNameIndex(impl_->name_to_index_, name);
 }
 
 std::vector<int> StructType::GetAllFieldIndices(const std::string& name) const {
   std::vector<int> result;
-  auto p = name_to_index_.equal_range(name);
+  auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(it->second);
   }
@@ -307,7 +346,7 @@ std::vector<int> StructType::GetAllFieldIndices(const std::string& name) const {
 std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
     const std::string& name) const {
   std::vector<std::shared_ptr<Field>> result;
-  auto p = name_to_index_.equal_range(name);
+  auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(children_[it->second]);
   }
@@ -334,13 +373,17 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
 }
 
 // ----------------------------------------------------------------------
-// DictionaryType
+// Dictionary-encoded type
+
+int DictionaryType::bit_width() const {
+  return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
+}
 
 DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
-                               const std::shared_ptr<Array>& dictionary, bool ordered)
+                               const std::shared_ptr<DataType>& value_type, bool ordered)
     : FixedWidthType(Type::DICTIONARY),
       index_type_(index_type),
-      dictionary_(dictionary),
+      value_type_(value_type),
       ordered_(ordered) {
 #ifndef NDEBUG
   const auto& int_type = checked_cast<const Integer&>(*index_type);
@@ -348,15 +391,9 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
 #endif
 }
 
-int DictionaryType::bit_width() const {
-  return checked_cast<const FixedWidthType&>(*index_type_).bit_width();
-}
-
-std::shared_ptr<Array> DictionaryType::dictionary() const { return dictionary_; }
-
 std::string DictionaryType::ToString() const {
   std::stringstream ss;
-  ss << "dictionary<values=" << dictionary_->type()->ToString()
+  ss << this->name() << "<values=" << value_type_->ToString()
      << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_ << ">";
   return ss.str();
 }
@@ -369,17 +406,44 @@ std::string NullType::ToString() const { return name(); }
 // ----------------------------------------------------------------------
 // Schema implementation
 
+class Schema::Impl {
+ public:
+  Impl(const std::vector<std::shared_ptr<Field>>& fields,
+       const std::shared_ptr<const KeyValueMetadata>& metadata)
+      : fields_(fields),
+        name_to_index_(CreateNameToIndexMap(fields_)),
+        metadata_(metadata) {}
+
+  Impl(std::vector<std::shared_ptr<Field>>&& fields,
+       const std::shared_ptr<const KeyValueMetadata>& metadata)
+      : fields_(std::move(fields)),
+        name_to_index_(CreateNameToIndexMap(fields_)),
+        metadata_(metadata) {}
+
+  std::vector<std::shared_ptr<Field>> fields_;
+  std::unordered_multimap<std::string, int> name_to_index_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
+};
+
 Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : fields_(fields),
-      name_to_index_(CreateNameToIndexMap(fields_)),
-      metadata_(metadata) {}
+    : impl_(new Impl(fields, metadata)) {}
 
 Schema::Schema(std::vector<std::shared_ptr<Field>>&& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : fields_(std::move(fields)),
-      name_to_index_(CreateNameToIndexMap(fields_)),
-      metadata_(metadata) {}
+    : impl_(new Impl(std::move(fields), metadata)) {}
+
+Schema::Schema(const Schema& schema) : impl_(new Impl(*schema.impl_)) {}
+
+Schema::~Schema() {}
+
+int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
+
+std::shared_ptr<Field> Schema::field(int i) const { return impl_->fields_[i]; }
+
+const std::vector<std::shared_ptr<Field>>& Schema::fields() const {
+  return impl_->fields_;
+}
 
 bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
@@ -400,7 +464,7 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (!check_metadata) {
     return true;
   } else if (this->HasMetadata() && other.HasMetadata()) {
-    return metadata_->Equals(*other.metadata_);
+    return impl_->metadata_->Equals(*other.impl_->metadata_);
   } else if (!this->HasMetadata() && !other.HasMetadata()) {
     return true;
   } else {
@@ -410,16 +474,16 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
 
 std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
   int i = GetFieldIndex(name);
-  return i == -1 ? nullptr : fields_[i];
+  return i == -1 ? nullptr : impl_->fields_[i];
 }
 
 int Schema::GetFieldIndex(const std::string& name) const {
-  return LookupNameIndex(name_to_index_, name);
+  return LookupNameIndex(impl_->name_to_index_, name);
 }
 
 std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
   std::vector<int> result;
-  auto p = name_to_index_.equal_range(name);
+  auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(it->second);
   }
@@ -429,9 +493,9 @@ std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
 std::vector<std::shared_ptr<Field>> Schema::GetAllFieldsByName(
     const std::string& name) const {
   std::vector<std::shared_ptr<Field>> result;
-  auto p = name_to_index_.equal_range(name);
+  auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
-    result.push_back(fields_[it->second]);
+    result.push_back(impl_->fields_[it->second]);
   }
   return result;
 }
@@ -442,8 +506,8 @@ Status Schema::AddField(int i, const std::shared_ptr<Field>& field,
     return Status::Invalid("Invalid column index to add field.");
   }
 
-  *out =
-      std::make_shared<Schema>(internal::AddVectorElement(fields_, i, field), metadata_);
+  *out = std::make_shared<Schema>(internal::AddVectorElement(impl_->fields_, i, field),
+                                  impl_->metadata_);
   return Status::OK();
 }
 
@@ -453,24 +517,26 @@ Status Schema::SetField(int i, const std::shared_ptr<Field>& field,
     return Status::Invalid("Invalid column index to add field.");
   }
 
-  *out = std::make_shared<Schema>(internal::ReplaceVectorElement(fields_, i, field),
-                                  metadata_);
+  *out = std::make_shared<Schema>(
+      internal::ReplaceVectorElement(impl_->fields_, i, field), impl_->metadata_);
   return Status::OK();
 }
 
 bool Schema::HasMetadata() const {
-  return (metadata_ != nullptr) && (metadata_->size() > 0);
+  return (impl_->metadata_ != nullptr) && (impl_->metadata_->size() > 0);
 }
 
 std::shared_ptr<Schema> Schema::AddMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
-  return std::make_shared<Schema>(fields_, metadata);
+  return std::make_shared<Schema>(impl_->fields_, metadata);
 }
 
-std::shared_ptr<const KeyValueMetadata> Schema::metadata() const { return metadata_; }
+std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
+  return impl_->metadata_;
+}
 
 std::shared_ptr<Schema> Schema::RemoveMetadata() const {
-  return std::make_shared<Schema>(fields_);
+  return std::make_shared<Schema>(impl_->fields_);
 }
 
 Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
@@ -478,7 +544,8 @@ Status Schema::RemoveField(int i, std::shared_ptr<Schema>* out) const {
     return Status::Invalid("Invalid column index to remove field.");
   }
 
-  *out = std::make_shared<Schema>(internal::DeleteVectorElement(fields_, i), metadata_);
+  *out = std::make_shared<Schema>(internal::DeleteVectorElement(impl_->fields_, i),
+                                  impl_->metadata_);
   return Status::OK();
 }
 
@@ -486,7 +553,7 @@ std::string Schema::ToString() const {
   std::stringstream buffer;
 
   int i = 0;
-  for (auto field : fields_) {
+  for (const auto& field : impl_->fields_) {
     if (i > 0) {
       buffer << std::endl;
     }
@@ -494,8 +561,8 @@ std::string Schema::ToString() const {
     ++i;
   }
 
-  if (metadata_) {
-    buffer << metadata_->ToString();
+  if (impl_->metadata_) {
+    buffer << impl_->metadata_->ToString();
   }
 
   return buffer.str();
@@ -503,7 +570,7 @@ std::string Schema::ToString() const {
 
 std::vector<std::string> Schema::field_names() const {
   std::vector<std::string> names;
-  for (auto& field : fields_) {
+  for (const auto& field : impl_->fields_) {
     names.push_back(field->name());
   }
   return names;
@@ -632,9 +699,9 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& chil
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
-                                     const std::shared_ptr<Array>& dict_values,
+                                     const std::shared_ptr<DataType>& dict_type,
                                      bool ordered) {
-  return std::make_shared<DictionaryType>(index_type, dict_values, ordered);
+  return std::make_shared<DictionaryType>(index_type, dict_type, ordered);
 }
 
 std::shared_ptr<Field> field(const std::string& name,

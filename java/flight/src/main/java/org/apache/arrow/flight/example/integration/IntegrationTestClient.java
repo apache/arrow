@@ -19,6 +19,7 @@ package org.apache.arrow.flight.example.integration;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 
@@ -80,7 +81,8 @@ class IntegrationTestClient {
     final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
 
     final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    final FlightClient client = new FlightClient(allocator, new Location(host, port));
+    final Location defaultLocation = Location.forGrpcInsecure(host, port);
+    final FlightClient client = FlightClient.builder(allocator, defaultLocation).build();
 
     final String inputPath = cmd.getOptionValue("j");
 
@@ -114,11 +116,11 @@ class IntegrationTestClient {
       // 3. Download the data from the server.
       List<Location> locations = endpoint.getLocations();
       if (locations.size() == 0) {
-        locations = Collections.singletonList(new Location(host, port));
+        locations = Collections.singletonList(defaultLocation);
       }
       for (Location location : locations) {
-        System.out.println("Verifying location " + location.getHost() + ":" + location.getPort());
-        FlightClient readClient = new FlightClient(allocator, location);
+        System.out.println("Verifying location " + location.getUri());
+        FlightClient readClient = FlightClient.builder(allocator, location).build();
         FlightStream stream = readClient.getStream(endpoint.getTicket());
         VectorSchemaRoot downloadedRoot;
         try (VectorSchemaRoot root = stream.getRoot()) {

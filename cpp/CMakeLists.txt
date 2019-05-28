@@ -361,7 +361,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
     set(MORE_ARGS "-T")
   endif()
   execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-                          ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+                                              ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
   set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
 endif()
@@ -529,8 +529,16 @@ set(ARROW_LINK_LIBS ${double-conversion_LIBRARIES})
 set(ARROW_STATIC_LINK_LIBS ${double-conversion_LIBRARIES})
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS ${double-conversion_LIBRARIES})
 
-list(APPEND ARROW_STATIC_LINK_LIBS uriparser::uriparser)
-list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
+if(ARROW_WITH_URIPARSER)
+  list(APPEND ARROW_STATIC_LINK_LIBS uriparser::uriparser)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
+endif()
+
+if(PARQUET_BUILD_ENCRYPTION)
+  list(APPEND ARROW_LINK_LIBS OpenSSL::Crypto)
+  list(APPEND ARROW_STATIC_LINK_LIBS OpenSSL::Crypto)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS OpenSSL::Crypto)
+endif()
 
 if(ARROW_WITH_BROTLI)
   # Order is important for static linking
@@ -593,11 +601,8 @@ if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-set(ARROW_SHARED_PRIVATE_LINK_LIBS
-    ${ARROW_STATIC_LINK_LIBS}
-    ${BOOST_SYSTEM_LIBRARY}
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY})
+set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS} ${BOOST_SYSTEM_LIBRARY}
+                                   ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_REGEX_LIBRARY})
 
 list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY}
             ${BOOST_REGEX_LIBRARY})
@@ -621,11 +626,8 @@ if(ARROW_BUILD_BENCHMARKS)
                    toolchain-benchmarks)
 endif()
 
-set(ARROW_TEST_STATIC_LINK_LIBS
-    arrow_testing_static
-    arrow_static
-    ${ARROW_LINK_LIBS}
-    ${ARROW_TEST_LINK_TOOLCHAIN})
+set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static ${ARROW_LINK_LIBS}
+                                ${ARROW_TEST_LINK_TOOLCHAIN})
 
 set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_testing_shared
@@ -668,7 +670,7 @@ if(ARROW_BUILD_BENCHMARKS)
   endif()
 
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main benchmark::benchmark
-      ${ARROW_TEST_LINK_LIBS})
+                                ${ARROW_TEST_LINK_LIBS})
 endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)

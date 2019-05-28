@@ -21,7 +21,6 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <utility>
 
 #include "arrow/array.h"

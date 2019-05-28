@@ -553,25 +553,16 @@ class SchemaPrinter : public PrettyPrinter {
 
 Status SchemaPrinter::PrintType(const DataType& type) {
   Write(type.ToString());
-  if (type.id() == Type::DICTIONARY) {
-    indent_ += indent_size_;
+  for (int i = 0; i < type.num_children(); ++i) {
     Newline();
-    Write("dictionary:\n");
-    const auto& dict_type = checked_cast<const DictionaryType&>(type);
-    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_ + indent_size_, sink_));
+
+    std::stringstream ss;
+    ss << "child " << i << ", ";
+
+    indent_ += indent_size_;
+    WriteIndented(ss.str());
+    RETURN_NOT_OK(PrintField(*type.child(i)));
     indent_ -= indent_size_;
-  } else {
-    for (int i = 0; i < type.num_children(); ++i) {
-      Newline();
-
-      std::stringstream ss;
-      ss << "child " << i << ", ";
-
-      indent_ += indent_size_;
-      WriteIndented(ss.str());
-      RETURN_NOT_OK(PrintField(*type.child(i)));
-      indent_ -= indent_size_;
-    }
   }
   return Status::OK();
 }

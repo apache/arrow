@@ -43,7 +43,7 @@ class IntegrationTestServer {
     final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
 
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    final ExampleFlightServer efs = new ExampleFlightServer(allocator, new Location("localhost", port));
+    final ExampleFlightServer efs = new ExampleFlightServer(allocator, Location.forGrpcInsecure("localhost", port));
     efs.start();
     // Print out message for integration test script
     System.out.println("Server listening on localhost:" + port);

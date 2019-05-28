@@ -20,9 +20,13 @@ package org.apache.arrow.flight;
 import static io.grpc.stub.ClientCalls.asyncClientStreamingCall;
 import static io.grpc.stub.ClientCalls.asyncServerStreamingCall;
 
+import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import javax.net.ssl.SSLException;
 
 import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
@@ -48,14 +52,20 @@ import com.google.common.util.concurrent.SettableFuture;
 
 import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
+import io.grpc.netty.GrpcSslContexts;
+import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.StreamObserver;
 
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.ServerChannel;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+
 /**
- * Client for flight servers.
+ * Client for Flight services.
  */
 public class FlightClient implements AutoCloseable {
   private static final int PENDING_REQUESTS = 5;
@@ -69,18 +79,9 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
 
-  /**
-   * Construct client for accessing RouteGuide server using the existing channel.
-   */
-  public FlightClient(BufferAllocator incomingAllocator, Location location) {
-    final ManagedChannelBuilder<?> channelBuilder =
-        ManagedChannelBuilder.forAddress(location.getHost(),
-        location.getPort())
-            .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
-            .maxInboundMessageSize(FlightServer.MAX_GRPC_MESSAGE_SIZE)
-            .usePlaintext();
+  private FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
-    channel = channelBuilder.build();
+    this.channel = channel;
     blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);
     asyncStub = FlightServiceGrpc.newStub(channel).withInterceptors(authInterceptor);
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
@@ -97,7 +98,15 @@ public class FlightClient implements AutoCloseable {
   public Iterable<FlightInfo> listFlights(Criteria criteria, CallOption... options) {
     return ImmutableList.copyOf(CallOptions.wrapStub(blockingStub, options).listFlights(criteria.asCriteria()))
         .stream()
-        .map(FlightInfo::new)
+        .map(t -> {
+          try {
+            return new FlightInfo(t);
+          } catch (URISyntaxException e) {
+            // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+            // itself wouldn't be able to construct an invalid Location.
+            throw new RuntimeException(e);
+          }
+        })
         .collect(Collectors.toList());
   }
 
@@ -177,7 +186,13 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    */
   public FlightInfo getInfo(FlightDescriptor descriptor, CallOption... options) {
-    return new FlightInfo(CallOptions.wrapStub(blockingStub, options).getFlightInfo(descriptor.toProtocol()));
+    try {
+      return new FlightInfo(CallOptions.wrapStub(blockingStub, options).getFlightInfo(descriptor.toProtocol()));
+    } catch (URISyntaxException e) {
+      // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+      // itself wouldn't be able to construct an invalid Location.
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -309,4 +324,149 @@ public class FlightClient implements AutoCloseable {
     allocator.close();
   }
 
+  /**
+   * Create a builder for a Flight client.
+   */
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /**
+   * Create a builder for a Flight client.
+   * @param allocator The allocator to use for the client.
+   * @param location The location to connect to.
+   */
+  public static Builder builder(BufferAllocator allocator, Location location) {
+    return new Builder(allocator, location);
+  }
+
+  /**
+   * A builder for Flight clients.
+   */
+  public static final class Builder {
+
+    private BufferAllocator allocator;
+    private Location location;
+    private boolean forceTls = false;
+    private int maxInboundMessageSize = FlightServer.MAX_GRPC_MESSAGE_SIZE;
+    private InputStream trustedCertificates = null;
+    private InputStream clientCertificate = null;
+    private InputStream clientKey = null;
+
+    private Builder() {
+    }
+
+    private Builder(BufferAllocator allocator, Location location) {
+      this.allocator = Preconditions.checkNotNull(allocator);
+      this.location = Preconditions.checkNotNull(location);
+    }
+
+    /**
+     * Force the client to connect over TLS.
+     */
+    public Builder useTls() {
+      this.forceTls = true;
+      return this;
+    }
+
+    /** Set the maximum inbound message size. */
+    public Builder maxInboundMessageSize(int maxSize) {
+      Preconditions.checkArgument(maxSize > 0);
+      this.maxInboundMessageSize = maxSize;
+      return this;
+    }
+
+    /** Set the trusted TLS certificates. */
+    public Builder trustedCertificates(final InputStream stream) {
+      this.trustedCertificates = Preconditions.checkNotNull(stream);
+      return this;
+    }
+
+    /** Set the trusted TLS certificates. */
+    public Builder clientCertificate(final InputStream clientCertificate, final InputStream clientKey) {
+      Preconditions.checkNotNull(clientKey);
+      this.clientCertificate = Preconditions.checkNotNull(clientCertificate);
+      this.clientKey = Preconditions.checkNotNull(clientKey);
+      return this;
+    }
+
+    public Builder allocator(BufferAllocator allocator) {
+      this.allocator = Preconditions.checkNotNull(allocator);
+      return this;
+    }
+
+    public Builder location(Location location) {
+      this.location = Preconditions.checkNotNull(location);
+      return this;
+    }
+
+    /**
+     * Create the client from this builder.
+     */
+    public FlightClient build() {
+      final NettyChannelBuilder builder;
+
+      switch (location.getUri().getScheme()) {
+        case LocationSchemes.GRPC:
+        case LocationSchemes.GRPC_INSECURE:
+        case LocationSchemes.GRPC_TLS: {
+          builder = NettyChannelBuilder.forAddress(location.toSocketAddress());
+          break;
+        }
+        case LocationSchemes.GRPC_DOMAIN_SOCKET: {
+          // The implementation is platform-specific, so we have to find the classes at runtime
+          builder = NettyChannelBuilder.forAddress(location.toSocketAddress());
+          try {
+            try {
+              // Linux
+              builder.channelType(
+                  (Class<? extends ServerChannel>) Class.forName("io.netty.channel.epoll.EpollDomainSocketChannel"));
+              final EventLoopGroup elg = (EventLoopGroup) Class.forName("io.netty.channel.epoll.EpollEventLoopGroup")
+                  .newInstance();
+              builder.eventLoopGroup(elg);
+            } catch (ClassNotFoundException e) {
+              // BSD
+              builder.channelType(
+                  (Class<? extends ServerChannel>) Class.forName("io.netty.channel.kqueue.KQueueDomainSocketChannel"));
+              final EventLoopGroup elg = (EventLoopGroup) Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup")
+                  .newInstance();
+              builder.eventLoopGroup(elg);
+            }
+          } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+            throw new UnsupportedOperationException(
+                "Could not find suitable Netty native transport implementation for domain socket address.");
+          }
+          break;
+        }
+        default:
+          throw new IllegalArgumentException("Scheme is not supported: " + location.getUri().getScheme());
+      }
+
+      if (this.forceTls || LocationSchemes.GRPC_TLS.equals(location.getUri().getScheme())) {
+        builder.useTransportSecurity();
+
+        if (this.trustedCertificates != null || this.clientCertificate != null || this.clientKey != null) {
+          final SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
+          if (this.trustedCertificates != null) {
+            sslContextBuilder.trustManager(this.trustedCertificates);
+          }
+          if (this.clientCertificate != null && this.clientKey != null) {
+            sslContextBuilder.keyManager(this.clientCertificate, this.clientKey);
+          }
+          try {
+            builder.sslContext(sslContextBuilder.build());
+          } catch (SSLException e) {
+            throw new RuntimeException(e);
+          }
+        }
+      } else {
+        builder.usePlaintext();
+      }
+
+      builder
+          .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
+          .maxInboundMessageSize(maxInboundMessageSize);
+      return new FlightClient(allocator, builder.build());
+    }
+  }
 }

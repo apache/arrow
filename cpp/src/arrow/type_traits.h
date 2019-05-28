@@ -312,8 +312,7 @@ struct TypeTraits<UnionType> {
 template <>
 struct TypeTraits<DictionaryType> {
   using ArrayType = DictionaryArray;
-  // TODO(wesm): Not sure what to do about this
-  // using ScalarType = DictionaryScalar;
+  using ScalarType = DictionaryScalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -328,7 +327,16 @@ struct TypeTraits<ExtensionType> {
 //
 
 template <typename T>
-using is_number = std::is_base_of<Number, T>;
+using is_number_type = std::is_base_of<Number, T>;
+
+template <typename T>
+using is_integer_type = std::is_base_of<Integer, T>;
+
+template <typename T>
+using is_floating_type = std::is_base_of<FloatingPoint, T>;
+
+template <typename T>
+using is_temporal_type = std::is_base_of<TemporalType, T>;
 
 template <typename T>
 struct has_c_type {
@@ -426,7 +434,7 @@ using enable_if_fixed_size_list =
     typename std::enable_if<std::is_base_of<FixedSizeListType, T>::value, R>::type;
 
 template <typename T, typename R = void>
-using enable_if_number = typename std::enable_if<is_number<T>::value, R>::type;
+using enable_if_number = typename std::enable_if<is_number_type<T>::value, R>::type;
 
 namespace detail {
 

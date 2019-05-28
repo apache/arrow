@@ -136,9 +136,7 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
 
   /// \brief Instantiate from std::string or arrow::util::string_view. Does not
   /// own data
-  explicit BufferReader(const util::string_view& data)
-      : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
-                     static_cast<int64_t>(data.size())) {}
+  explicit BufferReader(const util::string_view& data);
 
   Status Close() override;
   bool closed() const override;

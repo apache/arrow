@@ -26,6 +26,7 @@
 
 #include "arrow/api.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 

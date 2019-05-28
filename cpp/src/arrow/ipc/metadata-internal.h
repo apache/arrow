@@ -91,14 +91,11 @@ struct FileBlock {
 // individual fields metadata can be retrieved from very large schema without
 //
 
-// Retrieve a list of all the dictionary ids and types required by the schema for
-// reconstruction. The presumption is that these will be loaded either from
-// the stream or file (or they may already be somewhere else in memory)
-Status GetDictionaryTypes(const void* opaque_schema, DictionaryTypeMap* id_to_field);
-
-// Construct a complete Schema from the message. May be expensive for very
-// large schemas if you are only interested in a few fields
-Status GetSchema(const void* opaque_schema, const DictionaryMemo& dictionary_memo,
+// Construct a complete Schema from the message and add
+// dictinory-encoded fields to a DictionaryMemo instance. May be
+// expensive for very large schemas if you are only interested in a
+// few fields
+Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
                  std::shared_ptr<Schema>* out);
 
 Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,

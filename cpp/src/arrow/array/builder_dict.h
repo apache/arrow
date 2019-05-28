@@ -83,12 +83,13 @@ class ARROW_EXPORT DictionaryMemoTable {
 
 }  // namespace internal
 
-/// \brief Array builder for created encoded DictionaryArray from dense array
+/// \brief Array builder for created encoded DictionaryArray from
+/// dense array
 ///
-/// Unlike other builders, dictionary builder does not completely reset the state
-/// on Finish calls. The arrays built after the initial Finish call will reuse
-/// the previously created encoding and build a delta dictionary when new terms
-/// occur.
+/// Unlike other builders, dictionary builder does not completely
+/// reset the state on Finish calls. The arrays built after the
+/// initial Finish call will reuse the previously created encoding and
+/// build a delta dictionary when new terms occur.
 ///
 /// data
 template <typename T>
@@ -238,15 +239,14 @@ class DictionaryBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(values_builder_.FinishInternal(out));
 
     // Generate dictionary array from hash table contents
-    std::shared_ptr<Array> dictionary;
     std::shared_ptr<ArrayData> dictionary_data;
 
     ARROW_RETURN_NOT_OK(
         memo_table_->GetArrayData(pool_, delta_offset_, &dictionary_data));
-    dictionary = MakeArray(dictionary_data);
 
     // Set type of array data to the right dictionary type
-    (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
+    (*out)->type = dictionary((*out)->type, type_);
+    (*out)->dictionary = MakeArray(dictionary_data);
 
     // Update internals for further uses of this DictionaryBuilder
     delta_offset_ = memo_table_->size();
@@ -321,7 +321,8 @@ class DictionaryBuilder<NullType> : public ArrayBuilder {
     std::shared_ptr<Array> dictionary = std::make_shared<NullArray>(0);
 
     ARROW_RETURN_NOT_OK(values_builder_.FinishInternal(out));
-    (*out)->type = std::make_shared<DictionaryType>((*out)->type, dictionary);
+    (*out)->type = std::make_shared<DictionaryType>((*out)->type, type_);
+    (*out)->dictionary = dictionary;
 
     return Status::OK();
   }

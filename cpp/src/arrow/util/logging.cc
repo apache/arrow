@@ -161,6 +161,11 @@ void ArrowLog::UninstallSignalAction() {
   // This signal list comes from glog's signalhandler.cc.
   // https://github.com/google/glog/blob/master/src/signalhandler.cc#L58-L70
   std::vector<int> installed_signals({SIGSEGV, SIGILL, SIGFPE, SIGABRT, SIGTERM});
+#ifdef WIN32
+  for (int signal_num : installed_signals) {
+    ARROW_CHECK(signal(signal_num, SIG_DFL) != SIG_ERR);
+  }
+#else
   struct sigaction sig_action;
   memset(&sig_action, 0, sizeof(sig_action));
   sigemptyset(&sig_action.sa_mask);
@@ -168,6 +173,7 @@ void ArrowLog::UninstallSignalAction() {
   for (int signal_num : installed_signals) {
     ARROW_CHECK(sigaction(signal_num, &sig_action, NULL) == 0);
   }
+#endif
 #endif
 }
 

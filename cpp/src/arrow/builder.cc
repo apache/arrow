@@ -17,7 +17,6 @@
 
 #include "arrow/builder.h"
 
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -34,11 +33,6 @@ class MemoryPool;
 
 // ----------------------------------------------------------------------
 // Helper functions
-
-#define BUILDER_CASE(ENUM, BuilderType)      \
-  case Type::ENUM:                           \
-    out->reset(new BuilderType(type, pool)); \
-    return Status::OK();
 
 struct DictionaryBuilderCase {
   template <typename ValueType>
@@ -65,19 +59,27 @@ struct DictionaryBuilderCase {
 
   template <typename BuilderType>
   Status Create() {
-    out->reset(new BuilderType(dict_type.dictionary(), pool));
+    if (dictionary != nullptr) {
+      out->reset(new BuilderType(dictionary, pool));
+    } else {
+      out->reset(new BuilderType(value_type, pool));
+    }
     return Status::OK();
   }
 
+  Status Make() { return VisitTypeInline(*value_type, this); }
+
   MemoryPool* pool;
-  const DictionaryType& dict_type;
+  const std::shared_ptr<DataType>& value_type;
+  const std::shared_ptr<Array>& dictionary;
   std::unique_ptr<ArrayBuilder>* out;
 };
 
-// Initially looked at doing this with vtables, but shared pointers makes it
-// difficult
-//
-// TODO(wesm): come up with a less monolithic strategy
+#define BUILDER_CASE(ENUM, BuilderType)      \
+  case Type::ENUM:                           \
+    out->reset(new BuilderType(type, pool)); \
+    return Status::OK();
+
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                    std::unique_ptr<ArrayBuilder>* out) {
   switch (type->id()) {
@@ -109,8 +111,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(DECIMAL, Decimal128Builder);
     case Type::DICTIONARY: {
       const auto& dict_type = static_cast<const DictionaryType&>(*type);
-      DictionaryBuilderCase visitor = {pool, dict_type, out};
-      return VisitTypeInline(*dict_type.dictionary()->type(), &visitor);
+      DictionaryBuilderCase visitor = {pool, dict_type.value_type(), nullptr, out};
+      return visitor.Make();
     }
     case Type::INTERVAL: {
       const auto& interval_type = internal::checked_cast<const IntervalType&>(*type);
@@ -161,6 +163,14 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
   }
   return Status::NotImplemented("MakeBuilder: cannot construct builder for type ",
                                 type->ToString());
+}
+
+Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                             const std::shared_ptr<Array>& dictionary,
+                             std::unique_ptr<ArrayBuilder>* out) {
+  const auto& dict_type = static_cast<const DictionaryType&>(*type);
+  DictionaryBuilderCase visitor = {pool, dict_type.value_type(), dictionary, out};
+  return visitor.Make();
 }
 
 }  // namespace arrow

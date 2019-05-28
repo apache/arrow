@@ -17,10 +17,13 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <limits>
 #include <memory>
 #include <random>
+#include <vector>
 
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
@@ -235,4 +238,35 @@ class ARROW_EXPORT RandomArrayGenerator {
 };
 
 }  // namespace random
+
+//
+// Assorted functions
+//
+
+template <typename T, typename U>
+void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
+  const int random_seed = 0;
+  std::default_random_engine gen(random_seed);
+  std::uniform_int_distribution<T> d(lower, upper);
+  out->resize(N, static_cast<T>(0));
+  std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
+}
+
+template <typename T, typename U>
+void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
+                 std::vector<U>* out) {
+  std::default_random_engine gen(seed);
+  std::uniform_real_distribution<T> d(min_value, max_value);
+  out->resize(n, static_cast<T>(0));
+  std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
+}
+
+template <typename T, typename U>
+void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, U* out) {
+  assert(out || (n == 0));
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<T> d(min_value, max_value);
+  std::generate(out, out + n, [&d, &gen] { return static_cast<U>(d(gen)); });
+}
+
 }  // namespace arrow

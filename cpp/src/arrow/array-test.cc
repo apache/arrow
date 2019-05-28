@@ -38,6 +38,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

@@ -74,6 +74,16 @@
       <artifactId>netty-buffer</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-handler</artifactId>
+      <version>${dep.netty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-transport</artifactId>
+      <version>${dep.netty.version}</version>
+    </dependency>
+    <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
@@ -302,4 +312,50 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>linux-netty-native</id>
+      <activation>
+        <os>
+          <family>linux</family>
+        </os>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-transport-native-unix-common</artifactId>
+          <version>${dep.netty.version}</version>
+          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
+        </dependency>
+        <dependency>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-transport-native-epoll</artifactId>
+          <version>${dep.netty.version}</version>
+          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>mac-netty-native</id>
+      <activation>
+        <os>
+          <family>mac</family>
+        </os>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-transport-native-unix-common</artifactId>
+          <version>${dep.netty.version}</version>
+          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
+        </dependency>
+        <dependency>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-transport-native-kqueue</artifactId>
+          <version>${dep.netty.version}</version>
+          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
 </project>

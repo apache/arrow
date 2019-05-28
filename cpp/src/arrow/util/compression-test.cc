@@ -86,10 +86,16 @@ void CheckCodecRoundtrip(Compression::type ctype, const std::vector<uint8_t>& da
   ASSERT_EQ(data.size(), actual_decompressed_size);
 
   // compress with c2
+  ASSERT_EQ(max_compressed_len,
+            static_cast<int>(c2->MaxCompressedLen(data.size(), data.data())));
+  // Resize to prevent ASAN from detecting container overflow.
+  compressed.resize(max_compressed_len);
+
   int64_t actual_size2;
   ASSERT_OK(c2->Compress(data.size(), data.data(), max_compressed_len, compressed.data(),
                          &actual_size2));
   ASSERT_EQ(actual_size2, actual_size);
+  compressed.resize(actual_size2);
 
   // decompress with c1
   ASSERT_OK(c1->Decompress(compressed.size(), compressed.data(), decompressed.size(),

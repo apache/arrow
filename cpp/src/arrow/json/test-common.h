@@ -94,7 +94,7 @@ struct GenerateImpl {
   }
   template <typename T>
   Status Visit(
-      T const& t, typename std::enable_if<!is_number<T>::value>::type* = nullptr,
+      T const& t, typename std::enable_if<!is_number_type<T>::value>::type* = nullptr,
       typename std::enable_if<!std::is_base_of<BinaryType, T>::value>::type* = nullptr) {
     return Status::Invalid("can't generate a value of type " + t.name());
   }

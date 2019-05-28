@@ -18,12 +18,14 @@
 package org.apache.arrow.flight.example;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -49,7 +51,7 @@ public class TestExampleServer {
   public void start() throws IOException {
     allocator = new RootAllocator(Long.MAX_VALUE);
 
-    Location l = new Location("localhost", 12233);
+    Location l = Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, 12233);
     if (!Boolean.getBoolean("disableServer")) {
       System.out.println("Starting server.");
       server = new ExampleFlightServer(allocator, l);
@@ -57,7 +59,7 @@ public class TestExampleServer {
     } else {
       System.out.println("Skipping server startup.");
     }
-    client = new FlightClient(allocator, l);
+    client = FlightClient.builder(allocator, l).build();
     caseAllocator = allocator.newChildAllocator("test-case", 0, Long.MAX_VALUE);
   }
 

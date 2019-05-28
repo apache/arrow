@@ -973,22 +973,54 @@ def generate_nested_case():
 
 
 def generate_dictionary_case():
+    dict_type0 = StringType('dictionary1')
     dict_type1 = StringType('dictionary1')
     dict_type2 = get_field('dictionary2', 'int64')
 
-    dict1 = Dictionary(0, dict_type1,
-                       dict_type1.generate_column(10, name='DICT0'))
-    dict2 = Dictionary(1, dict_type2,
-                       dict_type2.generate_column(50, name='DICT1'))
+    dict0 = Dictionary(0, dict_type0,
+                       dict_type0.generate_column(10, name='DICT0'))
+    dict1 = Dictionary(1, dict_type1,
+                       dict_type1.generate_column(5, name='DICT1'))
+    dict2 = Dictionary(2, dict_type2,
+                       dict_type2.generate_column(50, name='DICT2'))
 
     fields = [
-        DictionaryType('dict1_0', get_field('', 'int8'), dict1),
-        DictionaryType('dict1_1', get_field('', 'int32'), dict1),
-        DictionaryType('dict2_0', get_field('', 'int16'), dict2)
+        DictionaryType('dict0', get_field('', 'int8'), dict0),
+        DictionaryType('dict1', get_field('', 'int32'), dict1),
+        DictionaryType('dict2', get_field('', 'int16'), dict2)
     ]
     batch_sizes = [7, 10]
     return _generate_file("dictionary", fields, batch_sizes,
-                          dictionaries=[dict1, dict2])
+                          dictionaries=[dict0, dict1, dict2])
+
+
+def generate_nested_dictionary_case():
+    str_type = StringType('str')
+    dict0 = Dictionary(0, str_type, str_type.generate_column(10, name='DICT0'))
+
+    list_type = ListType(
+        'list',
+        DictionaryType('str_dict', get_field('', 'int8'), dict0))
+    dict1 = Dictionary(1,
+                       list_type,
+                       list_type.generate_column(30, name='DICT1'))
+
+    struct_type = StructType('struct', [
+            DictionaryType('str_dict_a', get_field('', 'int8'), dict0),
+            DictionaryType('str_dict_b', get_field('', 'int8'), dict0)
+        ])
+    dict2 = Dictionary(2,
+                       struct_type,
+                       struct_type.generate_column(30, name='DICT2'))
+
+    fields = [
+        DictionaryType('list_dict', get_field('', 'int8'), dict1),
+        DictionaryType('struct_dict', get_field('', 'int8'), dict2)
+    ]
+
+    batch_sizes = [10, 13]
+    return _generate_file("nested_dictionary", fields, batch_sizes,
+                          dictionaries=[dict0, dict1, dict2])
 
 
 def get_generated_json_files(tempdir=None, flight=False):
@@ -998,6 +1030,9 @@ def get_generated_json_files(tempdir=None, flight=False):
         return
 
     file_objs = [
+        (generate_primitive_case([], name='primitive_no_batches')
+         .skip_category('JS')
+         .skip_category('Java')),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
@@ -1005,6 +1040,8 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_interval_case(),
         generate_nested_case(),
         generate_dictionary_case().skip_category(SKIP_FLIGHT),
+        generate_nested_dictionary_case().skip_category(SKIP_ARROW)
+                                         .skip_category(SKIP_FLIGHT),
     ]
 
     if flight:
@@ -1086,6 +1123,16 @@ class IntegrationRunner(object):
                                               name +
                                               '.consumer_stream_as_file')
 
+            if producer.name in test_case.skip:
+                print('-- Skipping test because producer {0} does '
+                      'not support'.format(producer.name))
+                continue
+
+            if consumer.name in test_case.skip:
+                print('-- Skipping test because consumer {0} does '
+                      'not support'.format(consumer.name))
+                continue
+
             if SKIP_ARROW in test_case.skip:
                 print('-- Skipping test')
                 continue
@@ -1144,8 +1191,9 @@ class Tester(object):
     FLIGHT_CLIENT = False
     FLIGHT_PORT = 31337
 
-    def __init__(self, debug=False):
-        self.debug = debug
+    def __init__(self, args):
+        self.args = args
+        self.debug = args.debug
 
     def json_to_file(self, json_path, arrow_path):
         raise NotImplementedError
@@ -1416,20 +1464,28 @@ def get_static_json_files():
             for p in glob.glob(glob_pattern)]
 
 
-def run_all_tests(run_flight=False, debug=False, tempdir=None):
-    testers = [CPPTester(debug=debug),
-               JavaTester(debug=debug),
-               JSTester(debug=debug)]
+def run_all_tests(args):
+    testers = []
+
+    if args.enable_cpp:
+        testers.append(CPPTester(args))
+
+    if args.enable_java:
+        testers.append(JavaTester(args))
+
+    if args.enable_js:
+        testers.append(JSTester(args))
+
     static_json_files = get_static_json_files()
-    generated_json_files = get_generated_json_files(tempdir=tempdir,
-                                                    flight=run_flight)
+    generated_json_files = get_generated_json_files(tempdir=args.tempdir,
+                                                    flight=args.run_flight)
     json_files = static_json_files + generated_json_files
 
     runner = IntegrationRunner(json_files, testers,
-                               tempdir=tempdir, debug=debug)
+                               tempdir=args.tempdir, debug=args.debug)
     failures = []
     failures.extend(runner.run())
-    if run_flight:
+    if args.run_flight:
         failures.extend(runner.run_flight())
 
     fail_count = 0
@@ -1455,6 +1511,8 @@ def write_js_test_json(directory):
     generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
     (generate_dictionary_case()
      .write(os.path.join(directory, 'dictionary.json')))
+    (generate_primitive_case([])
+     .write(os.path.join(directory, 'primitive_no_batches.json')))
     (generate_primitive_case([7, 10])
      .write(os.path.join(directory, 'primitive.json')))
     (generate_primitive_case([0, 0, 0])
@@ -1463,6 +1521,17 @@ def write_js_test_json(directory):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arrow integration test CLI')
+
+    parser.add_argument('--enable-c++', dest='enable_cpp',
+                        action='store', type=int, default=1,
+                        help='Include C++ in integration tests')
+    parser.add_argument('--enable-java', dest='enable_java',
+                        action='store', type=int, default=1,
+                        help='Include Java in integration tests')
+    parser.add_argument('--enable-js', dest='enable_js',
+                        action='store', type=int, default=1,
+                        help='Include JavaScript in integration tests')
+
     parser.add_argument('--write_generated_json', dest='generated_json_path',
                         action='store', default=False,
                         help='Generate test JSON')
@@ -1485,5 +1554,4 @@ if __name__ == '__main__':
                 raise
         write_js_test_json(args.generated_json_path)
     else:
-        run_all_tests(run_flight=args.run_flight,
-                      debug=args.debug, tempdir=args.tempdir)
+        run_all_tests(args)

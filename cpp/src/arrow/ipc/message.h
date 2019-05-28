@@ -153,6 +153,9 @@ class ARROW_EXPORT Message {
   /// \brief Return true if the Message metadata passes Flatbuffer validation
   bool Verify() const;
 
+  /// \brief Whether a given message type needs a body.
+  static bool HasBody(Type type) { return type != NONE && type != SCHEMA; }
+
  private:
   // Hide serialization details from user API
   class MessageImpl;

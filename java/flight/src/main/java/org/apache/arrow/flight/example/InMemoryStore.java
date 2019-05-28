@@ -146,13 +146,18 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public Result doAction(CallContext context, Action action) {
+  public void doAction(CallContext context, Action action,
+      StreamListener<Result> listener) {
     switch (action.getType()) {
-      case "drop":
-        return new Result(new byte[0]);
+      case "drop": {
         // not implemented.
-      default:
-        throw new UnsupportedOperationException();
+        listener.onNext(new Result(new byte[0]));
+        listener.onCompleted();
+        break;
+      }
+      default: {
+        listener.onError(new UnsupportedOperationException());
+      }
     }
   }
 

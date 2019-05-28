@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow cimport CStatus
@@ -67,6 +69,11 @@ cdef class StructType(DataType):
 
     cdef Field field(self, int i)
     cdef Field field_by_name(self, name)
+
+
+cdef class DictionaryMemo:
+    cdef:
+        CDictionaryMemo memo
 
 
 cdef class DictionaryType(DataType):

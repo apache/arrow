@@ -19,7 +19,7 @@
 
 #include <cstdlib>
 #include <mutex>
-#include <sstream>
+#include <string>
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"

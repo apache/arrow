@@ -19,7 +19,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <sstream>
 
 #include <brotli/decode.h>
 #include <brotli/encode.h>

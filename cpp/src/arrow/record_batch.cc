@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cstdlib>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
 
@@ -39,6 +38,13 @@ Status RecordBatch::AddColumn(int i, const std::string& field_name,
   auto field = ::arrow::field(field_name, column->type());
   return AddColumn(i, field, column, out);
 }
+
+std::shared_ptr<Array> RecordBatch::GetColumnByName(const std::string& name) const {
+  auto i = schema_->GetFieldIndex(name);
+  return i == -1 ? NULLPTR : column(i);
+}
+
+int RecordBatch::num_columns() const { return schema_->num_fields(); }
 
 /// \class SimpleRecordBatch
 /// \brief A basic, non-lazy in-memory record batch

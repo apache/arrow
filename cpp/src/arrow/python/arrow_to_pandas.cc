@@ -24,7 +24,6 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -1178,9 +1177,13 @@ class CategoricalBlock : public PandasBlock {
       }
     }
 
+    // TODO(wesm): variable dictionaries
+    auto arr = converted_col->data()->chunk(0);
+    const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
+
     placement_data_[rel_placement] = abs_placement;
     PyObject* dict;
-    RETURN_NOT_OK(ConvertArrayToPandas(options_, dict_type.dictionary(), nullptr, &dict));
+    RETURN_NOT_OK(ConvertArrayToPandas(options_, dict_arr.dictionary(), nullptr, &dict));
     dictionary_.reset(dict);
     ordered_ = dict_type.ordered();
 

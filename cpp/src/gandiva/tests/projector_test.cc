@@ -15,9 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/projector.h"
+#include <cmath>
+
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
+
+#include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 

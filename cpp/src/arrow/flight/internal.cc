@@ -119,14 +119,11 @@ Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria) {
 // Location
 
 Status FromProto(const pb::Location& pb_location, Location* location) {
-  location->host = pb_location.host();
-  location->port = pb_location.port();
-  return Status::OK();
+  return Location::Parse(pb_location.uri(), location);
 }
 
 void ToProto(const Location& location, pb::Location* pb_location) {
-  pb_location->set_host(location.host);
-  pb_location->set_port(location.port);
+  pb_location->set_uri(location.ToString());
 }
 
 // Ticket
@@ -226,7 +223,9 @@ Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
 Status SchemaToString(const Schema& schema, std::string* out) {
   // TODO(wesm): Do we care about better memory efficiency here?
   std::shared_ptr<Buffer> serialized_schema;
-  RETURN_NOT_OK(ipc::SerializeSchema(schema, default_memory_pool(), &serialized_schema));
+  ipc::DictionaryMemo unused_dict_memo;
+  RETURN_NOT_OK(ipc::SerializeSchema(schema, &unused_dict_memo, default_memory_pool(),
+                                     &serialized_schema));
   *out = std::string(reinterpret_cast<const char*>(serialized_schema->data()),
                      static_cast<size_t>(serialized_schema->size()));
   return Status::OK();

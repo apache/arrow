@@ -95,7 +95,7 @@ if(ARROW_LLVM_VERSION)
       if("${CLANG_FORMAT_BIN}" STREQUAL "CLANG_FORMAT_BIN-NOTFOUND")
         # binary was still not found, look into Cellar
         file(GLOB CLANG_FORMAT_PATH
-                  "${HOMEBREW_PREFIX}/Cellar/llvm/${ARROW_LLVM_VERSION}.*")
+             "${HOMEBREW_PREFIX}/Cellar/llvm/${ARROW_LLVM_VERSION}.*")
         find_program(CLANG_FORMAT_BIN
                      NAMES clang-format
                      PATHS "${CLANG_FORMAT_PATH}/bin"
@@ -114,7 +114,8 @@ if(ARROW_LLVM_VERSION)
         if(
           NOT
           (
-            "${CLANG_FORMAT_FOUND_VERSION_MESSAGE}" MATCHES
+            "${CLANG_FORMAT_FOUND_VERSION_MESSAGE}"
+            MATCHES
             "^clang-format version ${ARROW_LLVM_MAJOR_VERSION}\\.${ARROW_LLVM_MINOR_VERSION}.*"
             ))
           set(CLANG_FORMAT_BIN "CLANG_FORMAT_BIN-NOTFOUND")

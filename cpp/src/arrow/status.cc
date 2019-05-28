@@ -12,8 +12,9 @@
 
 #include "arrow/status.h"
 
-#include <assert.h>
-#include <sstream>
+#include <cassert>
+#include <cstdlib>
+#include <iostream>
 
 namespace arrow {
 
@@ -112,6 +113,17 @@ std::string Status::ToString() const {
   result += ": ";
   result += state_->msg;
   return result;
+}
+
+void Status::Abort() const { Abort(std::string()); }
+
+void Status::Abort(const std::string& message) const {
+  std::cerr << "-- Arrow Fatal Error --\n";
+  if (!message.empty()) {
+    std::cerr << message << "\n";
+  }
+  std::cerr << ToString() << std::endl;
+  std::abort();
 }
 
 }  // namespace arrow

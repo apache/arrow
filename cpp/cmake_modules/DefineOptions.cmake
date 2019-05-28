@@ -266,6 +266,8 @@ Note that this requires linking Boost statically" OFF)
   #----------------------------------------------------------------------
   set_option_category("Parquet")
 
+  define_option(PARQUET_BUILD_ENCRYPTION "Build Parquet with encryption support" ON)
+
   define_option(PARQUET_MINIMAL_DEPENDENCY
                 "Depend only on Thirdparty headers to build libparquet. \
 Always OFF if building binaries" OFF)
@@ -393,7 +395,7 @@ macro(config_summary)
     file(APPEND ${summary} "\"source_dir\": \"${CMAKE_CURRENT_SOURCE_DIR}\",\n")
     if(${CMAKE_EXPORT_COMPILE_COMMANDS})
       file(APPEND ${summary} "\"compile_commands\": "
-                  "\"${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json\",\n")
+                             "\"${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json\",\n")
     endif()
     file(APPEND ${summary} "\"arrow_version\": \"${ARROW_VERSION}\"\n")
     file(APPEND ${summary} "}\n")

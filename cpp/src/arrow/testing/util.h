@@ -18,62 +18,36 @@
 #pragma once
 
 #include <algorithm>
-#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include <limits>
 #include <memory>
-#include <random>
-#include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
 
-#include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
-#include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/logging.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+class Array;
 class ChunkedArray;
 class Column;
+class MemoryPool;
+class RecordBatch;
 class Table;
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
-template <typename T, typename U>
-void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
-  const int random_seed = 0;
-  std::default_random_engine gen(random_seed);
-  std::uniform_int_distribution<T> d(lower, upper);
-  out->resize(N, static_cast<T>(0));
-  std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
-}
-
-template <typename T, typename U>
-void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
-                 std::vector<U>* out) {
-  std::default_random_engine gen(seed);
-  std::uniform_real_distribution<T> d(min_value, max_value);
-  out->resize(n, static_cast<T>(0));
-  std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
-}
-
 template <typename T>
-inline Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* pool,
-                                   std::shared_ptr<Buffer>* result) {
+Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* pool,
+                            std::shared_ptr<Buffer>* result) {
   int64_t nbytes = static_cast<int>(values.size()) * sizeof(T);
 
   std::shared_ptr<Buffer> buffer;
@@ -103,39 +77,7 @@ ARROW_EXPORT Status MakeRandomByteBuffer(int64_t length, MemoryPool* pool,
                                          std::shared_ptr<ResizableBuffer>* out,
                                          uint32_t seed = 0);
 
-static inline uint64_t random_seed() {
-  return std::chrono::high_resolution_clock::now().time_since_epoch().count();
-}
-
-template <typename T, typename U>
-void rand_uniform_int(int64_t n, uint32_t seed, T min_value, T max_value, U* out) {
-  DCHECK(out || (n == 0));
-  std::default_random_engine gen(seed);
-  std::uniform_int_distribution<T> d(min_value, max_value);
-  std::generate(out, out + n, [&d, &gen] { return static_cast<U>(d(gen)); });
-}
-
-template <typename T, typename Enable = void>
-struct GenerateRandom {};
-
-template <typename T>
-struct GenerateRandom<T, typename std::enable_if<std::is_integral<T>::value>::type> {
-  static void Gen(int64_t length, uint32_t seed, void* out) {
-    rand_uniform_int(length, seed, std::numeric_limits<T>::min(),
-                     std::numeric_limits<T>::max(), reinterpret_cast<T*>(out));
-  }
-};
-
-template <typename T>
-Status MakeRandomBuffer(int64_t length, MemoryPool* pool,
-                        std::shared_ptr<ResizableBuffer>* out, uint32_t seed = 0) {
-  DCHECK(pool);
-  std::shared_ptr<ResizableBuffer> result;
-  RETURN_NOT_OK(AllocateResizableBuffer(pool, sizeof(T) * length, &result));
-  GenerateRandom<T>::Gen(length, seed, result->mutable_data());
-  *out = result;
-  return Status::OK();
-}
+ARROW_EXPORT uint64_t random_seed();
 
 template <class T, class Builder>
 Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& values,

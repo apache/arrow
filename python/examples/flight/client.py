@@ -90,6 +90,8 @@ def get_flight(args, client):
 
 
 def _add_common_arguments(parser):
+    parser.add_argument('--tls', action='store_true')
+    parser.add_argument('--tls-roots', default=None)
     parser.add_argument('host', type=str,
                         help="The host to connect to.")
 
@@ -131,7 +133,15 @@ def main():
     }
     host, port = args.host.split(':')
     port = int(port)
-    client = pyarrow.flight.FlightClient.connect(host, port)
+    scheme = "grpc+tcp"
+    connection_args = {}
+    if args.tls:
+        scheme = "grpc+tls"
+        if args.tls_roots:
+            with open(args.tls_roots, "rb") as root_certs:
+                connection_args["tls_root_certs"] = root_certs.read()
+    client = pyarrow.flight.FlightClient.connect(f"{scheme}://{host}:{port}",
+                                                 **connection_args)
     while True:
         try:
             action = pyarrow.flight.Action("healthcheck", b"")

@@ -20,10 +20,10 @@ class TestDictionaryDataType < Test::Unit::TestCase
 
   def setup
     @index_data_type = Arrow::Int32DataType.new
-    @dictionary = build_string_array(["C", "C++", "Ruby"])
+    @value_data_type = Arrow::StringDataType.new
     @ordered = true
     @data_type = Arrow::DictionaryDataType.new(@index_data_type,
-                                               @dictionary,
+                                               @value_data_type,
                                                @ordered)
   end
 
@@ -44,8 +44,8 @@ class TestDictionaryDataType < Test::Unit::TestCase
     assert_equal(@index_data_type, @data_type.index_data_type)
   end
 
-  def test_dictionary
-    assert_equal(@dictionary, @data_type.dictionary)
+  def test_value_data_type
+    assert_equal(@value_data_type, @data_type.value_data_type)
   end
 
   def test_ordered?

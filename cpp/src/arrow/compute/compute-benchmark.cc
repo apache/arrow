@@ -22,6 +22,7 @@
 #include "arrow/builder.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 
 #include "arrow/compute/context.h"

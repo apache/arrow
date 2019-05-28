@@ -386,6 +386,14 @@ class FileMetaData::FileMetaDataImpl {
     return key_value_metadata_;
   }
 
+  void set_file_path(const std::string& path) {
+    for (format::RowGroup& row_group : metadata_->row_groups) {
+      for (format::ColumnChunk& chunk : row_group.columns) {
+        chunk.__set_file_path(path);
+      }
+    }
+  }
+
  private:
   friend FileMetaDataBuilder;
   uint32_t metadata_len_;
@@ -482,6 +490,8 @@ const SchemaDescriptor* FileMetaData::schema() const { return impl_->schema(); }
 std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const {
   return impl_->key_value_metadata();
 }
+
+void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
 
 void FileMetaData::WriteTo(OutputStream* dst) const { return impl_->WriteTo(dst); }
 

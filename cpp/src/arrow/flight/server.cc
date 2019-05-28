@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -32,12 +33,15 @@
 #endif
 
 #include "arrow/buffer.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
+#include "arrow/util/uri.h"
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/serialization-internal.h"
@@ -60,50 +64,78 @@ namespace flight {
     return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, MESSAGE); \
   }
 
-class FlightMessageReaderImpl : public FlightMessageReader {
+namespace {
+
+// A MessageReader implementation that reads from a gRPC ServerReader
+class FlightIpcMessageReader : public ipc::MessageReader {
  public:
-  FlightMessageReaderImpl(const FlightDescriptor& descriptor,
-                          std::shared_ptr<Schema> schema,
-                          grpc::ServerReader<pb::FlightData>* reader)
-      : descriptor_(descriptor),
-        schema_(schema),
-        reader_(reader),
-        stream_finished_(false) {}
+  explicit FlightIpcMessageReader(grpc::ServerReader<pb::FlightData>* reader)
+      : reader_(reader) {}
 
-  const FlightDescriptor& descriptor() const override { return descriptor_; }
-
-  std::shared_ptr<Schema> schema() const override { return schema_; }
-
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+  Status ReadNextMessage(std::unique_ptr<ipc::Message>* out) override {
     if (stream_finished_) {
       *out = nullptr;
       return Status::OK();
     }
-
     internal::FlightData data;
-    if (internal::ReadPayload(reader_, &data)) {
-      std::unique_ptr<ipc::Message> message;
-
-      // Validate IPC message
-      RETURN_NOT_OK(data.OpenMessage(&message));
-      if (message->type() == ipc::Message::Type::RECORD_BATCH) {
-        return ipc::ReadRecordBatch(*message, schema_, out);
-      } else {
-        return Status(StatusCode::Invalid, "Unrecognized message in Flight stream");
-      }
-    } else {
-      // Stream is completed
+    if (!internal::ReadPayload(reader_, &data)) {
+      // Stream is finished
       stream_finished_ = true;
+      if (first_message_) {
+        return Status::Invalid(
+            "Client provided malformed message or did not provide message");
+      }
       *out = nullptr;
       return Status::OK();
     }
+
+    if (first_message_) {
+      if (!data.descriptor) {
+        return Status::Invalid("DoPut must start with non-null descriptor");
+      }
+      descriptor_ = *data.descriptor;
+      first_message_ = false;
+    }
+
+    return data.OpenMessage(out);
+  }
+
+  const FlightDescriptor& descriptor() const { return descriptor_; }
+
+ protected:
+  grpc::ServerReader<pb::FlightData>* reader_;
+  bool stream_finished_ = false;
+  bool first_message_ = true;
+  FlightDescriptor descriptor_;
+};
+
+class FlightMessageReaderImpl : public FlightMessageReader {
+ public:
+  explicit FlightMessageReaderImpl(grpc::ServerReader<pb::FlightData>* reader)
+      : reader_(reader) {}
+
+  Status Init() {
+    message_reader_ = new FlightIpcMessageReader(reader_);
+    return ipc::RecordBatchStreamReader::Open(
+        std::unique_ptr<ipc::MessageReader>(message_reader_), &batch_reader_);
+  }
+
+  const FlightDescriptor& descriptor() const override {
+    return message_reader_->descriptor();
+  }
+
+  std::shared_ptr<Schema> schema() const override { return batch_reader_->schema(); }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
+    return batch_reader_->ReadNext(out);
   }
 
  private:
-  FlightDescriptor descriptor_;
   std::shared_ptr<Schema> schema_;
+  std::unique_ptr<ipc::DictionaryMemo> dictionary_memo_;
   grpc::ServerReader<pb::FlightData>* reader_;
-  bool stream_finished_;
+  FlightIpcMessageReader* message_reader_;
+  std::shared_ptr<RecordBatchReader> batch_reader_;
 };
 
 class GrpcServerAuthReader : public ServerAuthReader {
@@ -293,25 +325,15 @@ class FlightServiceImpl : public FlightService::Service {
       return grpc::Status(grpc::StatusCode::NOT_FOUND, "No data in this flight");
     }
 
-    // Write the schema as the first message(s) in the stream
-    // (several messages may be required if there are dictionaries)
-    MemoryPool* pool = default_memory_pool();
-    std::vector<ipc::internal::IpcPayload> ipc_payloads;
-    GRPC_RETURN_NOT_OK(
-        ipc::internal::GetSchemaPayloads(*data_stream->schema(), pool, &ipc_payloads));
-
-    for (auto& ipc_payload : ipc_payloads) {
-      // For DoGet, descriptor doesn't need to be written out
-      FlightPayload schema_payload;
-      schema_payload.ipc_message = std::move(ipc_payload);
-
-      if (!internal::WritePayload(schema_payload, writer)) {
-        // Connection terminated?  XXX return error code?
-        return grpc::Status::OK;
-      }
+    // Write the schema as the first message in the stream
+    FlightPayload schema_payload;
+    GRPC_RETURN_NOT_OK(data_stream->GetSchemaPayload(&schema_payload));
+    if (!internal::WritePayload(schema_payload, writer)) {
+      // Connection terminated?  XXX return error code?
+      return grpc::Status::OK;
     }
 
-    // Write incoming data as individual messages
+    // Consume data stream and write out payloads
     while (true) {
       FlightPayload payload;
       GRPC_RETURN_NOT_OK(data_stream->Next(&payload));
@@ -328,33 +350,12 @@ class FlightServiceImpl : public FlightService::Service {
                      pb::PutResult* response) {
     GrpcServerCallContext flight_context;
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
-    // Get metadata
-    internal::FlightData data;
-    if (internal::ReadPayload(reader, &data)) {
-      // Message only lives as long as data
-      std::unique_ptr<ipc::Message> message;
-      GRPC_RETURN_NOT_OK(data.OpenMessage(&message));
 
-      if (!message || message->type() != ipc::Message::Type::SCHEMA) {
-        return internal::ToGrpcStatus(
-            Status(StatusCode::Invalid, "DoPut must start with schema/descriptor"));
-      } else if (!data.descriptor) {
-        return internal::ToGrpcStatus(
-            Status(StatusCode::Invalid, "DoPut must start with non-null descriptor"));
-      } else {
-        std::shared_ptr<Schema> schema;
-        GRPC_RETURN_NOT_OK(ipc::ReadSchema(*message, &schema));
-
-        auto message_reader = std::unique_ptr<FlightMessageReader>(
-            new FlightMessageReaderImpl(*data.descriptor.get(), schema, reader));
-        return internal::ToGrpcStatus(
-            server_->DoPut(flight_context, std::move(message_reader)));
-      }
-    } else {
-      return internal::ToGrpcStatus(
-          Status(StatusCode::Invalid,
-                 "Client provided malformed message or did not provide message"));
-    }
+    auto message_reader =
+        std::unique_ptr<FlightMessageReaderImpl>(new FlightMessageReaderImpl(reader));
+    GRPC_RETURN_NOT_OK(message_reader->Init());
+    return internal::ToGrpcStatus(
+        server_->DoPut(flight_context, std::move(message_reader)));
   }
 
   grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
@@ -404,12 +405,13 @@ class FlightServiceImpl : public FlightService::Service {
   FlightServerBase* server_;
 };
 
+}  // namespace
+
 #if (ATOMIC_INT_LOCK_FREE != 2 || ATOMIC_POINTER_LOCK_FREE != 2)
 #error "atomic ints and atomic pointers not always lock-free!"
 #endif
 
 struct FlightServerBase::Impl {
-  std::string address_;
   std::unique_ptr<FlightServiceImpl> service_;
   std::unique_ptr<grpc::Server> server_;
 
@@ -437,20 +439,51 @@ void FlightServerBase::Impl::HandleSignal(int signum) {
   }
 }
 
+FlightServerOptions::FlightServerOptions(const Location& location_)
+    : location(location_), auth_handler(nullptr) {}
+
 FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 
 FlightServerBase::~FlightServerBase() {}
 
-Status FlightServerBase::Init(std::unique_ptr<ServerAuthHandler> auth_handler, int port) {
-  impl_->address_ = "localhost:" + std::to_string(port);
-  std::shared_ptr<ServerAuthHandler> handler = std::move(auth_handler);
+Status FlightServerBase::Init(FlightServerOptions& options) {
+  std::shared_ptr<ServerAuthHandler> handler = std::move(options.auth_handler);
   impl_->service_.reset(new FlightServiceImpl(handler, this));
 
   grpc::ServerBuilder builder;
   // Allow uploading messages of any length
   builder.SetMaxReceiveMessageSize(-1);
-  builder.AddListeningPort(impl_->address_, grpc::InsecureServerCredentials());
+
+  const Location& location = options.location;
+  const std::string scheme = location.scheme();
+  if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
+    std::stringstream address;
+    address << location.uri_->host() << ':' << location.uri_->port_text();
+
+    std::shared_ptr<grpc::ServerCredentials> creds;
+    if (scheme == kSchemeGrpcTls) {
+      grpc::SslServerCredentialsOptions ssl_options;
+      ssl_options.pem_key_cert_pairs.push_back(
+          {options.tls_private_key, options.tls_cert_chain});
+      creds = grpc::SslServerCredentials(ssl_options);
+    } else {
+      creds = grpc::InsecureServerCredentials();
+    }
+
+    builder.AddListeningPort(address.str(), creds);
+  } else if (scheme == kSchemeGrpcUnix) {
+    std::stringstream address;
+    address << "unix:" << location.uri_->path();
+    builder.AddListeningPort(address.str(), grpc::InsecureServerCredentials());
+  } else {
+    return Status::NotImplemented("Scheme is not supported: " + scheme);
+  }
+
   builder.RegisterService(impl_->service_.get());
+
+  // Disable SO_REUSEPORT - it makes debugging/testing a pain as
+  // leftover processes can handle requests on accident
+  builder.AddChannelArgument(GRPC_ARG_ALLOW_REUSEPORT, 0);
 
   impl_->server_ = builder.BuildAndStart();
   if (!impl_->server_) {
@@ -545,23 +578,99 @@ Status FlightServerBase::ListActions(const ServerCallContext& context,
 // ----------------------------------------------------------------------
 // Implement RecordBatchStream
 
-RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader)
-    : pool_(default_memory_pool()), reader_(reader) {}
+class RecordBatchStream::RecordBatchStreamImpl {
+ public:
+  // Stages of the stream when producing paylaods
+  enum class Stage {
+    NEW,          // The stream has been created, but Next has not been called yet
+    DICTIONARY,   // Dictionaries have been collected, and are being sent
+    RECORD_BATCH  // Initial have been sent
+  };
 
-std::shared_ptr<Schema> RecordBatchStream::schema() { return reader_->schema(); }
+  RecordBatchStreamImpl(const std::shared_ptr<RecordBatchReader>& reader,
+                        MemoryPool* pool)
+      : pool_(pool), reader_(reader) {}
 
-Status RecordBatchStream::Next(FlightPayload* payload) {
-  std::shared_ptr<RecordBatch> batch;
-  RETURN_NOT_OK(reader_->ReadNext(&batch));
+  std::shared_ptr<Schema> schema() { return reader_->schema(); }
 
-  if (!batch) {
-    // Signal that iteration is over
-    payload->ipc_message.metadata = nullptr;
-    return Status::OK();
-  } else {
-    return ipc::internal::GetRecordBatchPayload(*batch, pool_, &payload->ipc_message);
+  Status GetSchemaPayload(FlightPayload* payload) {
+    return ipc::internal::GetSchemaPayload(*reader_->schema(), &dictionary_memo_,
+                                           &payload->ipc_message);
   }
+
+  Status Next(FlightPayload* payload) {
+    if (stage_ == Stage::NEW) {
+      RETURN_NOT_OK(reader_->ReadNext(&current_batch_));
+      if (!current_batch_) {
+        // Signal that iteration is over
+        payload->ipc_message.metadata = nullptr;
+        return Status::OK();
+      }
+      RETURN_NOT_OK(CollectDictionaries(*current_batch_));
+      stage_ = Stage::DICTIONARY;
+    }
+
+    if (stage_ == Stage::DICTIONARY) {
+      if (dictionary_index_ == static_cast<int>(dictionaries_.size())) {
+        stage_ = Stage::RECORD_BATCH;
+        return ipc::internal::GetRecordBatchPayload(*current_batch_, pool_,
+                                                    &payload->ipc_message);
+      } else {
+        return GetNextDictionary(payload);
+      }
+    }
+
+    RETURN_NOT_OK(reader_->ReadNext(&current_batch_));
+
+    // TODO(wesm): Delta dictionaries
+    if (!current_batch_) {
+      // Signal that iteration is over
+      payload->ipc_message.metadata = nullptr;
+      return Status::OK();
+    } else {
+      return ipc::internal::GetRecordBatchPayload(*current_batch_, pool_,
+                                                  &payload->ipc_message);
+    }
+  }
+
+ private:
+  Status GetNextDictionary(FlightPayload* payload) {
+    const auto& it = dictionaries_[dictionary_index_++];
+    return ipc::internal::GetDictionaryPayload(it.first, it.second, pool_,
+                                               &payload->ipc_message);
+  }
+
+  Status CollectDictionaries(const RecordBatch& batch) {
+    RETURN_NOT_OK(ipc::CollectDictionaries(batch, &dictionary_memo_));
+    for (auto& pair : dictionary_memo_.id_to_dictionary()) {
+      dictionaries_.push_back({pair.first, pair.second});
+    }
+    return Status::OK();
+  }
+
+  Stage stage_ = Stage::NEW;
+  MemoryPool* pool_;
+  std::shared_ptr<RecordBatchReader> reader_;
+  ipc::DictionaryMemo dictionary_memo_;
+  std::shared_ptr<RecordBatch> current_batch_;
+  std::vector<std::pair<int64_t, std::shared_ptr<Array>>> dictionaries_;
+
+  // Index of next dictionary to send
+  int dictionary_index_ = 0;
+};
+
+RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
+                                     MemoryPool* pool) {
+  impl_.reset(new RecordBatchStreamImpl(reader, pool));
 }
+
+std::shared_ptr<Schema> RecordBatchStream::schema() { return impl_->schema(); }
+
+Status RecordBatchStream::GetSchemaPayload(FlightPayload* payload) {
+  return impl_->GetSchemaPayload(payload);
+}
+
+Status RecordBatchStream::Next(FlightPayload* payload) { return impl_->Next(payload); }
 
 }  // namespace flight
 }  // namespace arrow
