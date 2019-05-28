@@ -723,6 +723,27 @@ if(ARROW_WITH_BROTLI)
   include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
 endif()
 
+if(PARQUET_BUILD_ENCRYPTION OR ARROW_WITH_GRPC)
+  find_package(OpenSSL REQUIRED)
+  # OpenSSL::SSL and OpenSSL::Crypto
+  # are not available in older CMake versions (CMake < v3.2).
+  if(NOT TARGET OpenSSL::SSL)
+    add_library(OpenSSL::SSL UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::SSL
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_LIBRARIES}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENSSL_INCLUDE_DIR}")
+
+    add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
+    set_target_properties(OpenSSL::Crypto
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_LIBRARIES}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENSSL_INCLUDE_DIR}")
+  endif()
+
+  include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+endif()
+
 # ----------------------------------------------------------------------
 # GLOG
 
@@ -1891,24 +1912,6 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
-  # gRPC requires OpenSSL but it depends on OpenSSL::SSL and OpenSSL::Crypto
-  # which are not available in older CMake versions.
-  find_package(OpenSSL REQUIRED)
-  if(NOT TARGET OpenSSL::SSL)
-    add_library(OpenSSL::SSL UNKNOWN IMPORTED)
-    set_target_properties(OpenSSL::SSL
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${OPENSSL_INCLUDE_DIR}")
-  endif()
-  if(NOT TARGET OpenSSL::Crypto)
-    add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
-    set_target_properties(OpenSSL::Crypto
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${OPENSSL_INCLUDE_DIR}")
-  endif()
-
   if(gRPC_SOURCE STREQUAL "AUTO")
     find_package(gRPC QUIET)
     if(NOT gRPC_FOUND)

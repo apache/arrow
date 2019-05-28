@@ -534,6 +534,12 @@ if(ARROW_WITH_URIPARSER)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
 endif()
 
+if(PARQUET_BUILD_ENCRYPTION)
+  list(APPEND ARROW_LINK_LIBS OpenSSL::Crypto)
+  list(APPEND ARROW_STATIC_LINK_LIBS OpenSSL::Crypto)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS OpenSSL::Crypto)
+endif()
+
 if(ARROW_WITH_BROTLI)
   # Order is important for static linking
   list(APPEND ARROW_LINK_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
