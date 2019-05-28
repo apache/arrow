@@ -31,11 +31,11 @@
 #include "arrow/util/rle-encoding.h"
 
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -142,14 +142,15 @@ class SerializedPageWriter : public PageWriter {
     thrift_serializer_.reset(new ThriftSerializer);
   }
 
-  int64_t WritePageGeneric(const format::PageHeader& header, const Buffer& body) {
+  int64_t WritePageGeneric(const format::PageHeader& header, int64_t uncompressed_size,
+                           const Buffer& body) {
     int64_t start_pos = -1;
     PARQUET_THROW_NOT_OK(sink_->Tell(&start_pos));
-    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_);
+    int64_t header_size = thrift_serializer_->Serialize(&header, sink_.get());
     PARQUET_THROW_NOT_OK(sink_->Write(body.data(), body.size()));
 
     total_uncompressed_size_ += uncompressed_size + header_size;
-    total_compressed_size_ += compressed_data->size() + header_size;
+    total_compressed_size_ += body.size() + header_size;
 
     return start_pos;
   }
@@ -177,7 +178,8 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
     page_header.__set_dictionary_page_header(dict_page_header);
 
-    int64_t start_pos = WritePageGeneric(page_header, *compressed_data);
+    int64_t start_pos =
+        WritePageGeneric(page_header, uncompressed_size, *compressed_data);
     if (dictionary_page_offset_ == 0) {
       dictionary_page_offset_ = start_pos;
     }
@@ -193,7 +195,7 @@ class SerializedPageWriter : public PageWriter {
                       fallback);
 
     // Write metadata at end of column chunk
-    metadata_->WriteTo(sink_);
+    metadata_->WriteTo(sink_.get());
   }
 
   /**
@@ -236,7 +238,8 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
     page_header.__set_data_page_header(data_page_header);
 
-    int64_t start_pos = WritePageGeneric(page_header, *compressed_data);
+    int64_t start_pos =
+        WritePageGeneric(page_header, uncompressed_size, *compressed_data);
     if (data_page_offset_ == 0) {
       data_page_offset_ = start_pos;
     }
@@ -277,13 +280,12 @@ class SerializedPageWriter : public PageWriter {
 class BufferedPageWriter : public PageWriter {
  public:
   BufferedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
-                     Compression::type codec,
-                     ColumnChunkMetaDataBuilder* metadata,
+                     Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
-      : final_sink_(sink),
-        metadata_(metadata),
-        pager_(new SerializedPageWriter(in_memory_sink_.get(), codec, metadata, pool)) {
+      : final_sink_(sink), metadata_(metadata) {
     in_memory_sink_ = CreateOutputStream(pool);
+    pager_ = std::unique_ptr<SerializedPageWriter>(
+        new SerializedPageWriter(in_memory_sink_, codec, metadata, pool));
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -292,9 +294,11 @@ class BufferedPageWriter : public PageWriter {
 
   void Close(bool has_dictionary, bool fallback) override {
     // index_page_offset = -1 since they are not supported
+    int64_t final_position = -1;
+    PARQUET_THROW_NOT_OK(final_sink_->Tell(&final_position));
     metadata_->Finish(
-        pager_->num_values(), pager_->dictionary_page_offset() + final_sink_->Tell(), -1,
-        pager_->data_page_offset() + final_sink_->Tell(), pager_->total_compressed_size(),
+        pager_->num_values(), pager_->dictionary_page_offset() + final_position, -1,
+        pager_->data_page_offset() + final_position, pager_->total_compressed_size(),
         pager_->total_uncompressed_size(), has_dictionary, fallback);
 
     // Write metadata at end of column chunk
@@ -319,15 +323,14 @@ class BufferedPageWriter : public PageWriter {
  private:
   std::shared_ptr<ArrowOutputStream> final_sink_;
   ColumnChunkMetaDataBuilder* metadata_;
-  std::shared_ptr<ArrowOutputStream> in_memory_sink_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> in_memory_sink_;
   std::unique_ptr<SerializedPageWriter> pager_;
 };
 
-std::unique_ptr<PageWriter> PageWriter::Open(const std::shared_ptr<ArrowOutputStream>& sink,
-                                             Compression::type codec,
-                                             ColumnChunkMetaDataBuilder* metadata,
-                                             ::arrow::MemoryPool* pool,
-                                             bool buffered_row_group) {
+std::unique_ptr<PageWriter> PageWriter::Open(
+    const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
+    ColumnChunkMetaDataBuilder* metadata, ::arrow::MemoryPool* pool,
+    bool buffered_row_group) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(
         new BufferedPageWriter(sink, codec, metadata, pool));
@@ -466,8 +469,8 @@ class ColumnWriterImpl {
   // Flag to infer if dictionary encoding has fallen back to PLAIN
   bool fallback_;
 
-  std::shared_ptr<ArrowOutputStream> definition_levels_sink_;
-  std::shared_ptr<ArrowOutputStream> repetition_levels_sink_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> definition_levels_sink_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> repetition_levels_sink_;
 
   std::shared_ptr<ResizableBuffer> definition_levels_rle_;
   std::shared_ptr<ResizableBuffer> repetition_levels_rle_;
@@ -517,14 +520,14 @@ void ColumnWriterImpl::AddDataPage() {
 
   if (descr_->max_definition_level() > 0) {
     definition_levels_rle_size =
-        RleEncodeLevels(definition_levels_sink_->buffer(),
-                        definition_levels_rle_.get(), descr_->max_definition_level());
+        RleEncodeLevels(definition_levels_sink_->buffer(), definition_levels_rle_.get(),
+                        descr_->max_definition_level());
   }
 
   if (descr_->max_repetition_level() > 0) {
     repetition_levels_rle_size =
-        RleEncodeLevels(repetition_levels_sink_->buffer(),
-                        repetition_levels_rle_.get(), descr_->max_repetition_level());
+        RleEncodeLevels(repetition_levels_sink_->buffer(), repetition_levels_rle_.get(),
+                        descr_->max_repetition_level());
   }
 
   int64_t uncompressed_size =

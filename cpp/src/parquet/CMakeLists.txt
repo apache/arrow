@@ -169,7 +169,9 @@ set(PARQUET_SRCS
     murmur3.cc
     parquet_constants.cpp
     parquet_types.cpp
+    platform.cc
     printer.cc
+    properties.cc
     schema.cc
     statistics.cc
     types.cc)

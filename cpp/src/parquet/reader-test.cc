@@ -29,9 +29,9 @@
 #include "parquet/column_scanner.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/printer.h"
 #include "parquet/test-util.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -182,29 +182,6 @@ class TestLocalFile : public ::testing::Test {
   int fileno;
   std::shared_ptr<::arrow::io::ReadableFile> handle;
 };
-
-class HelperFileClosed : public ArrowInputFile {
- public:
-  explicit HelperFileClosed(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
-                            bool* close_called)
-      : ArrowInputFile(file), close_called_(close_called) {}
-
-  void Close() override { *close_called_ = true; }
-
- private:
-  bool* close_called_;
-};
-
-TEST_F(TestLocalFile, FileClosedOnDestruction) {
-  bool close_called = false;
-  {
-    auto contents = ParquetFileReader::Contents::Open(
-        std::make_shared<HelperFileClosed>(handle, &close_called));
-    std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
-    result->Open(std::move(contents));
-  }
-  ASSERT_TRUE(close_called);
-}
 
 TEST_F(TestLocalFile, OpenWithMetadata) {
   // PARQUET-808

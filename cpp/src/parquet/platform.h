@@ -17,11 +17,14 @@
 
 #pragma once
 
-#include "arrow/buffer.h"  // IWYU pragma: export
+#include <memory>
+
+#include "arrow/buffer.h"         // IWYU pragma: export
 #include "arrow/io/interfaces.h"  // IWYU pragma: export
-#include "arrow/memory_pool.h"  // IWYU pragma: export
-#include "arrow/status.h"  // IWYU pragma: export
-#include "arrow/util/macros.h"  // IWYU pragma: export
+#include "arrow/io/memory.h"      // IWYU pragma: export
+#include "arrow/memory_pool.h"    // IWYU pragma: export
+#include "arrow/status.h"         // IWYU pragma: export
+#include "arrow/util/macros.h"    // IWYU pragma: export
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 
@@ -83,6 +86,7 @@
 namespace parquet {
 
 using Buffer = ::arrow::Buffer;
+using MemoryPool = ::arrow::MemoryPool;
 using MutableBuffer = ::arrow::MutableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;
 using ResizableBuffer = ::arrow::ResizableBuffer;
@@ -90,7 +94,9 @@ using ArrowInputFile = ::arrow::io::RandomAccessFile;
 using ArrowInputStream = ::arrow::io::InputStream;
 using ArrowOutputStream = ::arrow::io::OutputStream;
 
-std::shared_ptr<ArrowOutputStream> CreateOutputStream(
+constexpr int64_t kDefaultOutputStreamSize = 1024;
+
+std::shared_ptr<::arrow::io::BufferOutputStream> CreateOutputStream(
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
 PARQUET_EXPORT

@@ -21,9 +21,9 @@
 #include <cstdint>
 #include <memory>
 
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
-#include "parquet/platform.h"
 
 #include "arrow/type.h"
 
@@ -142,18 +142,6 @@ class PARQUET_EXPORT FileWriter {
                  default_arrow_writer_properties());
 
   static ::arrow::Status Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-                              const std::shared_ptr<OutputStream>& sink,
-                              const std::shared_ptr<WriterProperties>& properties,
-                              std::unique_ptr<FileWriter>* writer);
-
-  static ::arrow::Status Open(
-      const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-      const std::shared_ptr<OutputStream>& sink,
-      const std::shared_ptr<WriterProperties>& properties,
-      const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-      std::unique_ptr<FileWriter>* writer);
-
-  static ::arrow::Status Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
                               const std::shared_ptr<::arrow::io::OutputStream>& sink,
                               const std::shared_ptr<WriterProperties>& properties,
                               std::unique_ptr<FileWriter>* writer);
@@ -189,27 +177,16 @@ class PARQUET_EXPORT FileWriter {
   std::shared_ptr<::arrow::Schema> schema_;
 };
 
-/// \brief Write Parquet file metadata only to indicated OutputStream
-PARQUET_EXPORT
-::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
-
 /// \brief Write Parquet file metadata only to indicated Arrow OutputStream
 PARQUET_EXPORT
 ::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata,
-                                  const std::shared_ptr<::arrow::io::OutputStream>& sink);
+                                  ::arrow::io::OutputStream* sink);
 
 /**
  * Write a Table to Parquet.
  *
  * The table shall only consist of columns of primitive type or of primitive lists.
  */
-::arrow::Status PARQUET_EXPORT WriteTable(
-    const ::arrow::Table& table, ::arrow::MemoryPool* pool,
-    const std::shared_ptr<OutputStream>& sink, int64_t chunk_size,
-    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-        default_arrow_writer_properties());
-
 ::arrow::Status PARQUET_EXPORT WriteTable(
     const ::arrow::Table& table, ::arrow::MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,

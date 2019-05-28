@@ -21,9 +21,9 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/platform.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -104,7 +104,9 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     }
     file_writer->Close();
 
-    auto buffer = sink->GetBuffer();
+    std::shared_ptr<Buffer> buffer;
+    PARQUET_THROW_NOT_OK(sink->Finish(&buffer));
+
     int num_rows_ = num_rowgroups_ * rows_per_rowgroup_;
 
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);

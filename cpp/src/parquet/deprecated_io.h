@@ -20,7 +20,7 @@
 // arrow/io/interfaces.h. These legacy interfaces are being preserved
 // through a wrapper layer for one to two releases
 
-#pragma
+#pragma once
 
 #include <cstdint>
 #include <cstdlib>
@@ -85,10 +85,8 @@ class PARQUET_EXPORT OutputStream : virtual public FileInterface {
 
 class ParquetInputWrapper : public ::arrow::io::RandomAccessFile {
  public:
-  ParquetInputWrapper(std::unique_ptr<RandomAccessSource> source,
-                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
-  ParquetInputWrapper(RandomAccessSource* source,
-                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+  explicit ParquetInputWrapper(std::unique_ptr<RandomAccessSource> source);
+  explicit ParquetInputWrapper(RandomAccessSource* source);
 
   ~ParquetInputWrapper() override;
 
@@ -100,23 +98,24 @@ class ParquetInputWrapper : public ::arrow::io::RandomAccessFile {
   // Seekable
   ::arrow::Status Seek(int64_t position) override;
 
-  // InputStream
+  // InputStream / RandomAccessFile
   ::arrow::Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
   ::arrow::Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
   ::arrow::Status ReadAt(int64_t position, int64_t nbytes,
                          std::shared_ptr<Buffer>* out) override;
+  ::arrow::Status GetSize(int64_t* size) override;
 
  private:
   std::unique_ptr<RandomAccessSource> owned_source_;
   RandomAccessSource* source_;
-  MemoryPool* pool_;
   bool closed_;
 };
 
 class ParquetOutputWrapper : public ::arrow::io::OutputStream {
  public:
-  ParquetOutputWrapper(std::unique_ptr<OutputStream> sink);
-  ParquetOutputWrapper(OutputStream* sink);
+  explicit ParquetOutputWrapper(const std::shared_ptr<::parquet::OutputStream>& sink);
+  explicit ParquetOutputWrapper(std::unique_ptr<::parquet::OutputStream> sink);
+  explicit ParquetOutputWrapper(::parquet::OutputStream* sink);
 
   ~ParquetOutputWrapper() override;
 
@@ -129,8 +128,9 @@ class ParquetOutputWrapper : public ::arrow::io::OutputStream {
   ::arrow::Status Write(const void* data, int64_t nbytes) override;
 
  private:
-  std::unique_ptr<OutputStream> owned_sink_;
-  OutputStream* sink_;
+  std::unique_ptr<::parquet::OutputStream> owned_sink_;
+  std::shared_ptr<::parquet::OutputStream> shared_sink_;
+  ::parquet::OutputStream* sink_;
   bool closed_;
 };
 

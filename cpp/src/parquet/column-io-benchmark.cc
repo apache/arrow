@@ -24,8 +24,8 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/thrift.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -144,13 +144,14 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
       properties, schema.get(), reinterpret_cast<uint8_t*>(&thrift_metadata));
 
   auto stream = CreateOutputStream();
-  std::shared_ptr<Int64Writer> writer = BuildWriter(
-      state.range(0), stream, metadata.get(), schema.get(), properties.get());
+  std::shared_ptr<Int64Writer> writer =
+      BuildWriter(state.range(0), stream, metadata.get(), schema.get(), properties.get());
   writer->WriteBatch(values.size(), definition_levels.data(), repetition_levels.data(),
                      values.data());
   writer->Close();
 
-  std::shared_ptr<Buffer> src = stream.GetBuffer();
+  std::shared_ptr<Buffer> src;
+  PARQUET_THROW_NOT_OK(stream->Finish(&src));
   std::vector<int64_t> values_out(state.range(1));
   std::vector<int16_t> definition_levels_out(state.range(1));
   std::vector<int16_t> repetition_levels_out(state.range(1));

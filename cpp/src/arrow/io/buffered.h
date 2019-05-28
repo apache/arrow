@@ -99,9 +99,13 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   /// \param[in] pool a MemoryPool to use for allocations
   /// \param[in] raw a raw InputStream
   /// \param[out] out the created BufferedInputStream
+  /// \param[in] raw_read_bound a bound on the maximum number of bytes
+  /// to read from the raw input stream. The default -1 indicates that
+  /// it is unbounded
   static Status Create(int64_t buffer_size, MemoryPool* pool,
                        std::shared_ptr<InputStream> raw,
-                       std::shared_ptr<BufferedInputStream>* out);
+                       std::shared_ptr<BufferedInputStream>* out,
+                       int64_t raw_read_bound = -1);
 
   /// \brief Resize internal read buffer; calls to Read(...) will read at least
   /// \param[in] new_buffer_size the new read buffer size
@@ -138,7 +142,8 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
  private:
-  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool);
+  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool,
+                               int64_t raw_total_bytes_bound);
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;

@@ -39,6 +39,8 @@ using arrow::MemoryPool;
 
 namespace parquet {
 
+namespace BitUtil = ::arrow::BitUtil;
+
 LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
 
 LevelDecoder::~LevelDecoder() {}
@@ -105,8 +107,8 @@ ReaderProperties default_reader_properties() {
 class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(const std::shared_ptr<ArrowInputStream>& stream,
-                       int64_t total_num_rows,
-                       Compression::type codec, ::arrow::MemoryPool* pool)
+                       int64_t total_num_rows, Compression::type codec,
+                       ::arrow::MemoryPool* pool)
       : stream_(stream),
         decompression_buffer_(AllocateBuffer(pool, 0)),
         seen_num_rows_(0),
@@ -145,7 +147,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // finding a page that we do know what to do with
   while (seen_num_rows_ < total_num_rows_) {
     int64_t bytes_read = 0;
-    int64_t bytes_available = 0;
     uint32_t header_size = 0;
     const uint8_t* buffer;
     uint32_t allowed_page_size = kDefaultPageHeaderSize;
@@ -162,7 +163,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       // This gets used, then set by DeserializeThriftMsg
       header_size = static_cast<uint32_t>(buffer.size());
       try {
-        DeserializeThriftMsg(buffer.data(), &header_size, &current_page_header_);
+        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
+                             &header_size, &current_page_header_);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -257,10 +259,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
-std::unique_ptr<PageReader> PageReader::Open(const std::shared_ptr<ArrowInputStream>& stream,
-                                             int64_t total_num_rows,
-                                             Compression::type codec,
-                                             ::arrow::MemoryPool* pool) {
+std::unique_ptr<PageReader> PageReader::Open(
+    const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
+    Compression::type codec, ::arrow::MemoryPool* pool) {
   return std::unique_ptr<PageReader>(
       new SerializedPageReader(stream, total_num_rows, codec, pool));
 }

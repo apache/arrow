@@ -24,9 +24,9 @@
 
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
-#include "parquet/platform.h"
 
 namespace arrow {
 
@@ -105,11 +105,13 @@ class PARQUET_EXPORT RowGroupWriter {
   std::unique_ptr<Contents> contents_;
 };
 
+ARROW_DEPRECATED("Use version with arrow::io::OutputStream*")
 PARQUET_EXPORT
 void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
 
 PARQUET_EXPORT
-void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink);
+void WriteFileMetaData(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:

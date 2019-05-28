@@ -30,10 +30,10 @@
 #include "arrow/util/bit-util.h"
 
 #include "parquet/encoding.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;

@@ -23,8 +23,8 @@
 #include <vector>
 
 #include "parquet/metadata.h"
-#include "parquet/schema.h"
 #include "parquet/platform.h"
+#include "parquet/schema.h"
 
 namespace arrow {
 

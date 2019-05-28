@@ -26,13 +26,10 @@
 
 namespace parquet {
 
-static constexpr int64_t kDefaultOutputStreamSize = 1024;
-
-std::shared_ptr<ArrowOutputStream> CreateOutputStream(
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+std::shared_ptr<::arrow::io::BufferOutputStream> CreateOutputStream(MemoryPool* pool) {
   std::shared_ptr<::arrow::io::BufferOutputStream> stream;
-  PARQUET_THROW_NOT_OK(::arrow::io::BufferOutputStream::Create(
-      kDefaultOutputStreamSize, pool, &stream));
+  PARQUET_THROW_NOT_OK(
+      ::arrow::io::BufferOutputStream::Create(kDefaultOutputStreamSize, pool, &stream));
   return stream;
 }
 

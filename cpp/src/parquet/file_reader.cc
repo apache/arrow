@@ -31,12 +31,13 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
+#include "parquet/deprecated_io.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -80,8 +81,8 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
   SerializedRowGroup(const std::shared_ptr<ArrowInputFile>& source,
-                     FileMetaData* file_metadata,
-                     int row_group_number, const ReaderProperties& props)
+                     FileMetaData* file_metadata, int row_group_number,
+                     const ReaderProperties& props)
       : source_(source), file_metadata_(file_metadata), properties_(props) {
     row_group_metadata_ = file_metadata->RowGroup(row_group_number);
   }
@@ -108,13 +109,15 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
       // dictionary page header size in total_compressed_size and total_uncompressed_size
       // (see IMPALA-694). We add padding to compensate.
-      int64_t bytes_remaining = source_->Size() - (col_start + col_length);
+      int64_t size = -1;
+      PARQUET_THROW_NOT_OK(source_->GetSize(&size));
+      int64_t bytes_remaining = size - (col_start + col_length);
       int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
       col_length += padding;
     }
 
-    std::shared_ptr<ArrowInputStream> stream = properties_.GetStream(
-        source_, col_start, col_length);
+    std::shared_ptr<ArrowInputStream> stream =
+        properties_.GetStream(source_, col_start, col_length);
     return PageReader::Open(stream, col->num_values(), col->compression(),
                             properties_.memory_pool());
   }
@@ -138,14 +141,6 @@ class SerializedFile : public ParquetFileReader::Contents {
                  const ReaderProperties& props = default_reader_properties())
       : source_(source), properties_(props) {}
 
-  ~SerializedFile() override {
-    try {
-      Close();
-    } catch (...) {
-    }
-  }
-
-  // TODO(wesm): Do files need to be closed here?
   void Close() override {}
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
@@ -175,8 +170,8 @@ class SerializedFile : public ParquetFileReader::Contents {
 
     std::shared_ptr<Buffer> footer_buffer;
     int64_t footer_read_size = std::min(file_size, kDefaultFooterReadSize);
-    PARQUET_THROW_NOT_OK(source_->ReadAt(file_size - footer_read_size, footer_read_size,
-                                         &footer_buffer));
+    PARQUET_THROW_NOT_OK(
+        source_->ReadAt(file_size - footer_read_size, footer_read_size, &footer_buffer));
 
     // Check if all bytes are read. Check if last 4 bytes read have the magic bits
     if (footer_buffer->size() != footer_read_size ||
@@ -184,8 +179,9 @@ class SerializedFile : public ParquetFileReader::Contents {
       throw ParquetException("Invalid parquet file. Corrupt footer.");
     }
 
-    uint32_t metadata_len =
-      *reinterpret_cast<uint32_t*>(footer_buffer->data() + footer_read_size - kFooterSize);
+    uint32_t metadata_len = *reinterpret_cast<const uint32_t*>(
+        reinterpret_cast<const uint8_t*>(footer_buffer->data()) + footer_read_size -
+        kFooterSize);
     int64_t metadata_start = file_size - kFooterSize - metadata_len;
     if (kFooterSize + metadata_len > file_size) {
       throw ParquetException(
@@ -196,12 +192,11 @@ class SerializedFile : public ParquetFileReader::Contents {
     std::shared_ptr<Buffer> metadata_buffer;
     // Check if the footer_buffer contains the entire metadata
     if (footer_read_size >= (metadata_len + kFooterSize)) {
-      metadata_buffer = SliceBuffer(footer_buffer,
-                                    footer_read_size - metadata_len - kFooterSize,
-                                    metadata_len);
+      metadata_buffer = SliceBuffer(
+          footer_buffer, footer_read_size - metadata_len - kFooterSize, metadata_len);
     } else {
-      PARQUET_THROW_NOT_OK(source_->ReadAt(metadata_start, metadata_len,
-                                           &metadata_buffer));
+      PARQUET_THROW_NOT_OK(
+          source_->ReadAt(metadata_start, metadata_len, &metadata_buffer));
       if (metadata_buffer->size() != metadata_len) {
         throw ParquetException("Invalid parquet file. Could not read metadata bytes.");
       }
@@ -210,7 +205,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
  private:
-  std::unique_ptr<ArrowInputFile> source_;
+  std::shared_ptr<ArrowInputFile> source_;
   std::shared_ptr<FileMetaData> file_metadata_;
   ReaderProperties properties_;
 };
@@ -230,10 +225,9 @@ ParquetFileReader::~ParquetFileReader() {
 // Open the file. If no metadata is passed, it is parsed from the footer of
 // the file
 std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
-    const std::shared_ptr<RandomAccessSource>& source, const ReaderProperties& props,
+    const std::shared_ptr<ArrowInputFile>& source, const ReaderProperties& props,
     const std::shared_ptr<FileMetaData>& metadata) {
-  std::unique_ptr<ParquetFileReader::Contents> result(
-      new SerializedFile(source, props));
+  std::unique_ptr<ParquetFileReader::Contents> result(new SerializedFile(source, props));
 
   // Access private methods here, but otherwise unavailable
   SerializedFile* file = static_cast<SerializedFile*>(result.get());
@@ -260,7 +254,7 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
     std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props,
     const std::shared_ptr<FileMetaData>& metadata) {
-  auto wrapper = std::shared_ptr<ParquetInputWrapper>(std::move(source));
+  auto wrapper = std::make_shared<ParquetInputWrapper>(std::move(source));
   return Open(wrapper, props, metadata);
 }
 

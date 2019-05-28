@@ -24,12 +24,12 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/test-util.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -281,7 +281,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
  private:
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
-  std::shared_ptr<ArrowOutputStream> sink_;
+  std::shared_ptr<::arrow::io::BufferedOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
   std::vector<std::vector<uint8_t>> data_buffer_;
 };

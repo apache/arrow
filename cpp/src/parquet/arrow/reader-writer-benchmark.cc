@@ -25,7 +25,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
-#include "parquet/util/memory.h"
+#include "parquet/platform.h"
 
 #include "arrow/api.h"
 
@@ -174,7 +174,9 @@ static void BM_ReadColumn(::benchmark::State& state) {
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
   auto output = CreateOutputStream();
   EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
-  std::shared_ptr<Buffer> buffer = output->GetBuffer();
+
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(output->Finish(&buffer));
 
   while (state.KeepRunning()) {
     auto reader =
@@ -205,7 +207,9 @@ static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   // This writes 10 RowGroups
   EXIT_NOT_OK(
       WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
-  std::shared_ptr<Buffer> buffer = output->GetBuffer();
+
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(output->Finish(&buffer));
 
   while (state.KeepRunning()) {
     auto reader =
@@ -237,7 +241,8 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
   // This writes 10 RowGroups
   EXIT_NOT_OK(
       WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
-  std::shared_ptr<Buffer> buffer = output->GetBuffer();
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(output->Finish(&buffer));
 
   while (state.KeepRunning()) {
     auto reader =

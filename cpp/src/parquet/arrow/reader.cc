@@ -747,9 +747,8 @@ Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                 ::arrow::MemoryPool* allocator, const ArrowReaderProperties& properties,
                 std::unique_ptr<FileReader>* reader) {
   std::unique_ptr<ParquetReader> pq_reader;
-  PARQUET_CATCH_NOT_OK(
-      pq_reader = ParquetReader::Open(file,
-                                      ::parquet::default_reader_properties(), nullptr));
+  PARQUET_CATCH_NOT_OK(pq_reader = ParquetReader::Open(
+                           file, ::parquet::default_reader_properties(), nullptr));
   reader->reset(new FileReader(allocator, std::move(pq_reader), properties));
   return Status::OK();
 }

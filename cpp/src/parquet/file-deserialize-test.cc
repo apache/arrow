@@ -25,10 +25,10 @@
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
+#include "parquet/platform.h"
 #include "parquet/test-util.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 #include "arrow/io/memory.h"
 #include "arrow/status.h"
@@ -105,11 +105,9 @@ class TestPageSerde : public ::testing::Test {
     ASSERT_NO_THROW(serializer.Serialize(&page_header_, out_stream_.get()));
   }
 
-  void ResetStream() {
-    out_stream_ = CreateOutputStream();
-  }
+  void ResetStream() { out_stream_ = CreateOutputStream(); }
 
-  void EndStream() { out_buffer_ = out_stream_->GetBuffer(); }
+  void EndStream() { PARQUET_THROW_NOT_OK(out_stream_->Finish(&out_buffer_)); }
 
  protected:
   std::shared_ptr<::arrow::io::BufferOutputStream> out_stream_;
@@ -192,11 +190,14 @@ TEST_F(TestPageSerde, TestLargePageHeaders) {
 
   int max_header_size = 512 * 1024;  // 512 KB
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(max_header_size));
-  ASSERT_GE(max_header_size, out_stream_->Tell());
+
+  int64_t position = -1;
+  ASSERT_OK(out_stream_->Tell(&position));
+  ASSERT_GE(max_header_size, position);
 
   // check header size is between 256 KB to 16 MB
-  ASSERT_LE(stats_size, out_stream_->Tell());
-  ASSERT_GE(kDefaultMaxPageHeaderSize, out_stream_->Tell());
+  ASSERT_LE(stats_size, position);
+  ASSERT_GE(kDefaultMaxPageHeaderSize, position);
 
   InitSerializedPageReader(num_rows);
   std::shared_ptr<Page> current_page = page_reader_->NextPage();
@@ -212,10 +213,12 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
   // Serialize the Page header
   int max_header_size = 512 * 1024;  // 512 KB
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(max_header_size));
-  ASSERT_GE(max_header_size, out_stream_->Tell());
+  int64_t position = -1;
+  ASSERT_OK(out_stream_->Tell(&position));
+  ASSERT_GE(max_header_size, position);
 
   int smaller_max_size = 128 * 1024;
-  ASSERT_LE(smaller_max_size, out_stream_->Tell());
+  ASSERT_LE(smaller_max_size, position);
   InitSerializedPageReader(num_rows);
 
   // Set the max page header size to 128 KB, which is less than the current
@@ -260,7 +263,7 @@ TEST_F(TestPageSerde, Compression) {
 
       ASSERT_NO_FATAL_FAILURE(
           WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size)));
-      out_stream_->Write(buffer.data(), actual_size);
+      ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
     }
 
     InitSerializedPageReader(num_rows * num_pages, codec_type);
@@ -284,7 +287,7 @@ TEST_F(TestPageSerde, LZONotSupported) {
   int data_size = 1024;
   std::vector<uint8_t> faux_data(data_size);
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(1024, data_size, data_size));
-  out_stream_->Write(faux_data.data(), data_size);
+  ASSERT_OK(out_stream_->Write(faux_data.data(), data_size));
   ASSERT_THROW(InitSerializedPageReader(data_size, Compression::LZO), ParquetException);
 }
 
@@ -297,9 +300,8 @@ class TestParquetFileReader : public ::testing::Test {
     reader_.reset(new ParquetFileReader());
 
     auto reader = std::make_shared<BufferReader>(buffer);
-    auto wrapper = std::unique_ptr<ArrowInputFile>(new ArrowInputFile(reader));
 
-    ASSERT_THROW(reader_->Open(ParquetFileReader::Contents::Open(std::move(wrapper))),
+    ASSERT_THROW(reader_->Open(ParquetFileReader::Contents::Open(reader)),
                  ParquetException);
   }
 
@@ -327,7 +329,7 @@ TEST_F(TestParquetFileReader, InvalidFooter) {
 }
 
 TEST_F(TestParquetFileReader, IncompleteMetadata) {
-  std::shared_ptr<ArrowOutputStream> stream = CreateOutputStream();
+  auto stream = CreateOutputStream();
 
   const char* magic = "PAR1";
 
@@ -335,12 +337,13 @@ TEST_F(TestParquetFileReader, IncompleteMetadata) {
   std::vector<uint8_t> bytes(10);
   ASSERT_OK(stream->Write(bytes.data(), bytes.size()));
   uint32_t metadata_len = 24;
-  ASSERT_OK(stream->Write(reinterpret_cast<const uint8_t*>(&metadata_len), sizeof(uint32_t)));
+  ASSERT_OK(
+      stream->Write(reinterpret_cast<const uint8_t*>(&metadata_len), sizeof(uint32_t)));
   ASSERT_OK(stream->Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic)));
 
   std::shared_ptr<Buffer> result;
   ASSERT_OK(stream->Finish(&result));
-  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
+  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(result));
 }
 
 }  // namespace parquet

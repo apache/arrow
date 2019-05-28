@@ -38,7 +38,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
-#include "parquet/util/memory.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 
@@ -361,8 +361,8 @@ class DataPageBuilder {
     encoder.Encode(static_cast<int>(levels.size()), levels.data());
 
     int32_t rle_bytes = encoder.len();
-    PARQUET_THROW_NOT_OK(sink_->Write(reinterpret_cast<const uint8_t*>(&rle_bytes),
-                                      sizeof(int32_t)));
+    PARQUET_THROW_NOT_OK(
+        sink_->Write(reinterpret_cast<const uint8_t*>(&rle_bytes), sizeof(int32_t)));
     PARQUET_THROW_NOT_OK(sink_->Write(encode_buffer.data(), rle_bytes));
   }
 };
@@ -408,11 +408,12 @@ static std::shared_ptr<DataPageV1> MakeDataPage(
     page_builder.AppendValues(d, values, encoding);
     num_values = page_builder.num_values();
   } else {  // DICTIONARY PAGES
-    page_stream.Write(indices, indices_size);
+    PARQUET_THROW_NOT_OK(page_stream->Write(indices, indices_size));
     num_values = std::max(page_builder.num_values(), num_vals);
   }
 
-  auto buffer = page_stream.GetBuffer();
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(page_stream->Finish(&buffer));
 
   return std::make_shared<DataPageV1>(buffer, num_values, encoding,
                                       page_builder.def_level_encoding(),

@@ -25,8 +25,8 @@
 #include "arrow/util/bit-util.h"
 
 #include "parquet/exception.h"
-#include "parquet/types.h"
 #include "parquet/platform.h"
+#include "parquet/types.h"
 
 namespace parquet {
 

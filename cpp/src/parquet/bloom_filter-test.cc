@@ -31,9 +31,9 @@
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/murmur3.h"
+#include "parquet/platform.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 namespace test {
@@ -197,7 +197,8 @@ TEST(CompatibilityTest, TestBloomFilter) {
   // Serialize Bloom filter to memory output stream
   auto sink = CreateOutputStream();
   bloom_filter2.WriteTo(&sink.get());
-  std::shared_ptr<Buffer> buffer1 = sink.GetBuffer();
+  std::shared_ptr<Buffer> buffer1;
+  PARQUET_THROW_NOT_OK(sink->Finish(&buffer1));
 
   PARQUET_THROW_NOT_OK(handle->Seek(0));
   PARQUET_THROW_NOT_OK(handle->GetSize(&size));

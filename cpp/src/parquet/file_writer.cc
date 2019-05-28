@@ -21,8 +21,9 @@
 #include <vector>
 
 #include "parquet/column_writer.h"
+#include "parquet/deprecated_io.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
-#include "parquet/util/memory.h"
 
 using arrow::MemoryPool;
 
@@ -361,11 +362,15 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
 }
 
 void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
+  int64_t position = -1;
+  PARQUET_THROW_NOT_OK(sink->Tell(&position));
+
   // Write MetaData
-  uint32_t metadata_len = static_cast<uint32_t>(sink->Tell());
+  uint32_t metadata_len = static_cast<uint32_t>(position);
 
   file_metadata.WriteTo(sink);
-  metadata_len = static_cast<uint32_t>(sink->Tell()) - metadata_len;
+  PARQUET_THROW_NOT_OK(sink->Tell(&position));
+  metadata_len = static_cast<uint32_t>(position) - metadata_len;
 
   // Write Footer
   PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));

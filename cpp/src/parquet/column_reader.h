@@ -25,9 +25,9 @@
 
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/platform.h"
 
 namespace arrow {
 

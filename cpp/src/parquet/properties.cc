@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <utility>
+
 #include "parquet/properties.h"
 
 #include "arrow/io/buffered.h"
@@ -22,19 +24,20 @@
 
 namespace parquet {
 
-std::unique_ptr<ArrowInputStream> ReaderProperties::GetStream(
-    std::shared_ptr<ArrowInputFile> source,
-    int64_t start, int64_t num_bytes) {
-if (buffered_stream_enabled_) {
-  std::shared_ptr<::arrow::io::BufferedInputStream> stream;
-  PARQUET_THROW_NOT_OK(source->Seek(start));
-  // TODO(wesm): ARROW-5428 set read extent
-  PARQUET_THROW_NOT_OK(::arrow::io::BufferedInputStream::Create(
-      buffer_size_, pool_, source, &stream));
-  return stream;
-} else {
-  std::shared_ptr<Buffer> data;
-  PARQUET_THROW_NOT_OK(source->ReadAt(start, num_bytes, &data));
-  return std::make_shared<::arrow::io::BufferReader>(data);
+std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
+    std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes) {
+  if (buffered_stream_enabled_) {
+    std::shared_ptr<::arrow::io::BufferedInputStream> stream;
+    PARQUET_THROW_NOT_OK(source->Seek(start));
+    // TODO(wesm): ARROW-5428 set read extent
+    PARQUET_THROW_NOT_OK(
+        ::arrow::io::BufferedInputStream::Create(buffer_size_, pool_, source, &stream));
+    return std::move(stream);
+  } else {
+    std::shared_ptr<Buffer> data;
+    PARQUET_THROW_NOT_OK(source->ReadAt(start, num_bytes, &data));
+    return std::make_shared<::arrow::io::BufferReader>(data);
+  }
 }
-}
+
+}  // namespace parquet

@@ -331,7 +331,7 @@ void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_s
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
                                 row_group_size, default_writer_properties(),
                                 arrow_properties));
-  *out = sink->GetBuffer();
+  ASSERT_OK_NO_THROW(sink->Finish(out));
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
@@ -443,7 +443,8 @@ class TestParquetIO : public ::testing::Test {
   }
 
   void ReaderFromSink(std::unique_ptr<FileReader>* out) {
-    std::shared_ptr<Buffer> buffer = sink_->GetBuffer();
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_OK_NO_THROW(sink_->Finish(&buffer));
     ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
                                 ::arrow::default_memory_pool(),
                                 ::parquet::default_reader_properties(), nullptr, out));
@@ -551,9 +552,7 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_OK_NO_THROW(writer.Close());
   }
 
-  void ResetStream() {
-    sink_ = CreateOutputStream();
-  }
+  void ResetStream() { sink_ = CreateOutputStream(); }
 
   std::shared_ptr<ArrowOutputStream> sink_;
 };
@@ -1961,7 +1960,8 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
   std::shared_ptr<::arrow::Int32Array> values_array_ = nullptr;
 
   void InitReader() {
-    std::shared_ptr<Buffer> buffer = nested_parquet_->GetBuffer();
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_OK_NO_THROW(nested_parquet_->Finish(&buffer));
     ASSERT_OK_NO_THROW(
         OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
                  ::parquet::default_reader_properties(), nullptr, &reader_));

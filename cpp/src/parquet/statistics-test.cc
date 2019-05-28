@@ -28,12 +28,12 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/test-util.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
@@ -841,7 +841,9 @@ TEST_F(TestStatisticsSortOrderFLBA, UnknownSortOrder) {
   this->SetUpSchema();
   this->WriteParquet();
 
-  auto pbuffer = parquet_sink_->GetBuffer();
+  std::shared_ptr<Buffer> pbuffer;
+  PARQUET_THROW_NOT_OK(parquet_sink_->Finish(&pbuffer));
+
   // Create a ParquetReader instance
   std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
       parquet::ParquetFileReader::Open(
