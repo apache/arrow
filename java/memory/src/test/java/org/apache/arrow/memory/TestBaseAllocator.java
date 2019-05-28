@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -221,6 +222,69 @@ public class TestBaseAllocator {
       assertEquals(1, bufferCount);
       // ------------------------------- DEBUG ---------------------------------
       */
+    }
+  }
+
+  @Test
+  public void testSegmentAllocator() {
+    SegmentAllocator allocator = new SegmentAllocator(1024 * 1024, 1024);
+
+    ArrowBuf buf = allocator.buffer(798);
+    assertEquals(1024, buf.capacity());
+    buf.setInt(333, 959);
+    assertEquals(959, buf.getInt(333));
+    buf.close();
+
+    buf = allocator.buffer(1025);
+    assertEquals(2048, buf.capacity());
+    buf.setInt(193, 939);
+    assertEquals(939, buf.getInt(193));
+    buf.close();
+
+    allocator.close();
+  }
+
+  @Test
+  public void testSegmentAllocator_childAllocator() {
+    SegmentAllocator allocator = new SegmentAllocator(1024 * 1024, 1024);
+
+    BufferAllocator childAllocator = allocator.newChildAllocator("child", 0, 512 * 1024);
+    assertTrue(childAllocator instanceof SegmentAllocator);
+    assertEquals("child", childAllocator.getName());
+
+    ArrowBuf buf = childAllocator.buffer(798);
+    assertEquals(1024, buf.capacity());
+    buf.setInt(333, 959);
+    assertEquals(959, buf.getInt(333));
+    buf.close();
+
+    buf = childAllocator.buffer(1025);
+    assertEquals(2048, buf.capacity());
+    buf.setInt(193, 939);
+    assertEquals(939, buf.getInt(193));
+    buf.close();
+
+    childAllocator.close();
+    allocator.close();
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testSegmentAllocator_smallSegment() {
+    try {
+      new SegmentAllocator(1024 * 1024, 128);
+    } catch (IllegalArgumentException e) {
+      assertEquals("The segment size cannot be smaller than 1024", e.getMessage());
+      throw e;
+    }
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testSegmentAllocator_segmentSizeNotPowerOf2() {
+    try {
+      new SegmentAllocator(1024 * 1024, 4097);
+    } catch (IllegalArgumentException e) {
+      assertEquals("The segment size must be a power of 2", e.getMessage());
+      throw e;
     }
   }
 

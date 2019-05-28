@@ -45,17 +45,17 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   final String name;
-  final RootAllocator root;
-  private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
+  final BufferAllocator root;
+  protected final Object DEBUG_LOCK = DEBUG ? new Object() : null;
   final AllocationListener listener;
   private final BaseAllocator parentAllocator;
   private final ArrowByteBufAllocator thisAsByteBufAllocator;
-  private final IdentityHashMap<BaseAllocator, Object> childAllocators;
-  private final ArrowBuf empty;
+  protected final IdentityHashMap<BaseAllocator, Object> childAllocators;
+  protected final ArrowBuf empty;
   // members used purely for debugging
   private final IdentityHashMap<BufferLedger, Object> childLedgers;
   private final IdentityHashMap<Reservation, Object> reservations;
-  private final HistoricalLog historicalLog;
+  protected final HistoricalLog historicalLog;
   private volatile boolean isClosed = false; // the allocator has been closed
 
   /**
@@ -81,8 +81,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     if (parentAllocator != null) {
       this.root = parentAllocator.root;
       empty = parentAllocator.empty;
-    } else if (this instanceof RootAllocator) {
-      this.root = (RootAllocator) this;
+    } else if (this instanceof RootAllocator || this instanceof SegmentAllocator) {
+      this.root = this;
       empty = createEmpty();
     } else {
       throw new IllegalStateException("An parent allocator must either carry a root or be the " +
@@ -113,7 +113,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     return listener;
   }
 
-  private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
+  protected static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
     if (rounded != requested) {
       return String.format(
         "Unable to allocate buffer of size %d (rounded from %d) due to memory limit. Current " +
@@ -322,7 +322,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * Used by usual allocation as well as for allocating a pre-reserved buffer.
    * Skips the typical accounting associated with creating a new buffer.
    */
-  private ArrowBuf bufferWithoutReservation(
+  protected ArrowBuf bufferWithoutReservation(
       final int size,
       BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();

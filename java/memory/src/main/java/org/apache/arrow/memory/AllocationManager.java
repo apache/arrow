@@ -55,7 +55,7 @@ public class AllocationManager {
   static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
   static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
 
-  private final RootAllocator root;
+  private final BufferAllocator root;
   private final long allocatorManagerId = MANAGER_ID_GENERATOR.incrementAndGet();
   private final int size;
   private final UnsafeDirectLittleEndian memoryChunk;
