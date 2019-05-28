@@ -17,6 +17,9 @@
 
 package org.apache.arrow.vector;
 
+/**
+ * Interface vectors that contain variable width members (e.g. Strings, Lists, etc).
+ */
 public interface VariableWidthVector extends ValueVector, DensityAwareVector {
 
   /**

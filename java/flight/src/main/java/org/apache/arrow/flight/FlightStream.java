@@ -222,13 +222,19 @@ public class FlightStream {
     return new Observer();
   }
 
+  /**
+   * Provides a callback to cancel a process that is in progress.
+   */
   public interface Cancellable {
     void cancel(String message, Throwable exception);
   }
 
+  /**
+   * Provides a interface to request more items from a stream producer.
+   */
   public interface Requestor {
     /**
-     * Requests <code>count</code> more messages from the reuqestor.
+     * Requests <code>count</code> more messages from the instance of this object.
      */
     void request(int count);
   }

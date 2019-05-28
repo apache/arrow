@@ -29,6 +29,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+/**
+ * Utility methods for manipulating {@link java.util.Collections} and their subclasses/implementations.
+ */
 public class Collections2 {
   private Collections2() {}
 

@@ -306,6 +306,9 @@ public class FlightClient implements AutoCloseable {
     }
   }
 
+  /**
+   * Interface for subscribers to a stream returned by the server.
+   */
   public interface ClientStreamListener {
 
     public void putNext();

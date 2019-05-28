@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+/**
+ * Unused?.
+ */
 class GenericOperation {
 
   private final String type;

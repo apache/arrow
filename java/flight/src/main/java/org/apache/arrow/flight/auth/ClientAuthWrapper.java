@@ -30,6 +30,9 @@ import com.google.protobuf.ByteString;
 
 import io.grpc.stub.StreamObserver;
 
+/**
+ * Utility class for performing authorization over using a GRPC stub.
+ */
 public class ClientAuthWrapper {
 
   /**

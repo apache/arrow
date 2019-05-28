@@ -27,6 +27,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 
+/**
+ * An identifier for a particular set of data.  This can either be an opaque command that generates
+ * the data or a static "path" to the data.  This is a POJO wrapper around the protobuf message with
+ * the same name.
+ */
 public class FlightDescriptor {
 
   private boolean isCmd;

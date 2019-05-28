@@ -19,7 +19,11 @@ package org.apache.arrow.vector;
 
 import org.apache.arrow.util.Preconditions;
 
-/** Tuple class containing a vector and whether is was created. */
+/**
+ * Tuple class containing a vector and whether is was created.
+ *
+ * @param <V> The type of vector the result is for.
+ */
 public class AddOrGetResult<V extends ValueVector> {
   private final V vector;
   private final boolean created;
