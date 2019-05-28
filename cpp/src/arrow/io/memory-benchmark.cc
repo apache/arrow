@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#if defined(__x86_64__)
 #ifdef _MSC_VER
 #include <intrin.h>
 #else
@@ -229,3 +230,4 @@ BENCHMARK(ParallelMemoryCopy)
     ->UseRealTime();
 
 }  // namespace arrow
+#endif  // __x86_64__
