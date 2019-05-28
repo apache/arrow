@@ -69,6 +69,15 @@ in `requirements.txt` to install the latest patch release.
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled
 with the wheel.
 
+### C++ Library on Homebrew (macOS)
+
+On macOS, you can install the C++ library using
+[Homebrew](https://brew.sh/):
+
+``` shell
+brew install apache-arrow
+```
+
 ### C++ and GLib (C) Packages for Debian GNU/Linux, Ubuntu and CentOS (Unofficial)
 
 We have provided APT and Yum repositories for Apache Arrow C++ and
