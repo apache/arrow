@@ -88,9 +88,9 @@ func TestFloat16Builder_Empty(t *testing.T) {
 	ab := array.NewFloat16Builder(mem)
 	defer ab.Release()
 
-	want := []float16.Float16{float16.NewFloat16(3), float16.NewFloat16(4)}
+	want := []float16.Num{float16.NewFloat16(3), float16.NewFloat16(4)}
 
-	ab.AppendValues([]float16.Float16{}, nil)
+	ab.AppendValues([]float16.Num{}, nil)
 	a := ab.NewFloat16Array()
 	assert.Zero(t, a.Len())
 	a.Release()
@@ -105,14 +105,14 @@ func TestFloat16Builder_Empty(t *testing.T) {
 	assert.Equal(t, want, a.Values())
 	a.Release()
 
-	ab.AppendValues([]float16.Float16{}, nil)
+	ab.AppendValues([]float16.Num{}, nil)
 	ab.AppendValues(want, nil)
 	a = ab.NewFloat16Array()
 	assert.Equal(t, want, a.Values())
 	a.Release()
 
 	ab.AppendValues(want, nil)
-	ab.AppendValues([]float16.Float16{}, nil)
+	ab.AppendValues([]float16.Num{}, nil)
 	a = ab.NewFloat16Array()
 	assert.Equal(t, want, a.Values())
 	a.Release()

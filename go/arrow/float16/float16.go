@@ -20,10 +20,10 @@ import (
 	"math"
 )
 
-type Float16 uint16
+type Num uint16
 
 // https://en.wikipedia.org/wiki/Half-precision_floating-point_format
-func NewFloat16(f float32) Float16 {
+func NewFloat16(f float32) Num {
 	b := math.Float32bits(f)
 	sn := uint16((b >> 31) & 0x1)
 	exp := (b >> 23) & 0xff
@@ -41,10 +41,10 @@ func NewFloat16(f float32) Float16 {
 		res = 0
 		fc = 0
 	}
-	return Float16((sn << 15) | uint16(res<<10) | fc)
+	return Num((sn << 15) | uint16(res<<10) | fc)
 }
 
-func (f Float16) Float32() float32 {
+func (f Num) Float32() float32 {
 	sn := uint32((f >> 15) & 0x1)
 	exp := (f >> 10) & 0x1f
 	res := uint32(exp) + 127 - 15

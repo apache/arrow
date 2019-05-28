@@ -38,17 +38,17 @@ type float16Traits struct{}
 func (float16Traits) BytesRequired(n int) int { return Float16SizeBytes * n }
 
 // PutValue
-func (float16Traits) PutValue(b []byte, v float16.Float16) {
+func (float16Traits) PutValue(b []byte, v float16.Num) {
 	binary.LittleEndian.PutUint16(b, uint16(v))
 }
 
 // CastFromBytes reinterprets the slice b to a slice of type uint16.
 //
 // NOTE: len(b) must be a multiple of Uint16SizeBytes.
-func (float16Traits) CastFromBytes(b []byte) []float16.Float16 {
+func (float16Traits) CastFromBytes(b []byte) []float16.Num {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	var res []float16.Float16
+	var res []float16.Num
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
 	s.Data = h.Data
 	s.Len = h.Len / Float16SizeBytes
@@ -58,7 +58,7 @@ func (float16Traits) CastFromBytes(b []byte) []float16.Float16 {
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
-func (float16Traits) CastToBytes(b []float16.Float16) []byte {
+func (float16Traits) CastToBytes(b []float16.Num) []byte {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
 	var res []byte
@@ -71,4 +71,4 @@ func (float16Traits) CastToBytes(b []float16.Float16) []byte {
 }
 
 // Copy copies src to dst.
-func (float16Traits) Copy(dst, src []float16.Float16) { copy(dst, src) }
+func (float16Traits) Copy(dst, src []float16.Num) { copy(dst, src) }

@@ -30,7 +30,7 @@ type Float16Builder struct {
 	builder
 
 	data    *memory.Buffer
-	rawData []float16.Float16
+	rawData []float16.Num
 }
 
 func NewFloat16Builder(mem memory.Allocator) *Float16Builder {
@@ -55,12 +55,12 @@ func (b *Float16Builder) Release() {
 	}
 }
 
-func (b *Float16Builder) Append(v float16.Float16) {
+func (b *Float16Builder) Append(v float16.Num) {
 	b.Reserve(1)
 	b.UnsafeAppend(v)
 }
 
-func (b *Float16Builder) UnsafeAppend(v float16.Float16) {
+func (b *Float16Builder) UnsafeAppend(v float16.Num) {
 	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	b.rawData[b.length] = v
 	b.length++
@@ -83,7 +83,7 @@ func (b *Float16Builder) UnsafeAppendBoolToBitmap(isValid bool) {
 // AppendValues will append the values in the v slice. The valid slice determines which values
 // in v are valid (not null). The valid slice must either be empty or be equal in length to v. If empty,
 // all values in v are appended and considered valid.
-func (b *Float16Builder) AppendValues(v []float16.Float16, valid []bool) {
+func (b *Float16Builder) AppendValues(v []float16.Num, valid []bool) {
 	if len(v) != len(valid) && len(valid) != 0 {
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}

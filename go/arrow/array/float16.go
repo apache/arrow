@@ -27,7 +27,7 @@ import (
 // A type which represents an immutable sequence of Float16 values.
 type Float16 struct {
 	array
-	values []float16.Float16
+	values []float16.Num
 }
 
 func NewFloat16Data(data *Data) *Float16 {
@@ -37,9 +37,9 @@ func NewFloat16Data(data *Data) *Float16 {
 	return a
 }
 
-func (a *Float16) Value(i int) float16.Float16 { return a.values[i] }
+func (a *Float16) Value(i int) float16.Num { return a.values[i] }
 
-func (a *Float16) Values() []float16.Float16 { return a.values }
+func (a *Float16) Values() []float16.Num { return a.values }
 
 func (a *Float16) String() string {
 	o := new(strings.Builder)
