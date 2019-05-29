@@ -144,7 +144,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // finding a page that we do know what to do with
   while (seen_num_rows_ < total_num_rows_) {
     uint32_t header_size = 0;
-    const uint8_t* buffer;
     uint32_t allowed_page_size = kDefaultPageHeaderSize;
 
     // Page headers can be very large because of page statistics
@@ -197,7 +196,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
       }
       PARQUET_THROW_NOT_OK(
-          decompressor_->Decompress(compressed_len, buffer, uncompressed_len,
+          decompressor_->Decompress(compressed_len, page_buffer->data(), uncompressed_len,
                                     decompression_buffer_->mutable_data()));
       page_buffer = decompression_buffer_;
     }

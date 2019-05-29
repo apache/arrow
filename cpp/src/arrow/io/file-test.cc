@@ -355,8 +355,9 @@ TEST_F(TestReadableFile, Peek) {
   OpenFile();
 
   // Cannot peek
-  auto view = file_->Peek(4);
-  ASSERT_EQ(0, view.size());
+  util::string_view peek;
+  ASSERT_OK(file_->Peek(4, &peek));
+  ASSERT_EQ(0, peek.size());
 }
 
 TEST_F(TestReadableFile, SeekTellSize) {
