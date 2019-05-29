@@ -198,6 +198,9 @@ class PARQUET_EXPORT FileMetaData {
   // Merge row-group metadata from "other" FileMetaData object
   void AppendRowGroups(const std::shared_ptr<FileMetaData>& other);
 
+  // Write metadata-only file
+  void WriteMetaDataFile(std::shared_ptr<::arrow::io::OutputStream>& sink);
+
  private:
   friend FileMetaDataBuilder;
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len);

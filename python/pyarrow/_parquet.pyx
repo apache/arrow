@@ -537,11 +537,29 @@ cdef class FileMetaData:
         """
         Append row groups of other FileMetaData object
         """
-        cdef:
-          shared_ptr[CFileMetaData] c_metadata
+        cdef shared_ptr[CFileMetaData] c_metadata
 
         c_metadata = other.sp_metadata
         self._metadata.AppendRowGroups(c_metadata)
+
+    def write_metadata_file(self, where):
+        """
+        Write the metadata object to a metdata-only file
+        """
+        cdef:
+            shared_ptr[OutputStream] sink
+            c_string c_where
+
+        try:
+            where = _stringify_path(where)
+        except TypeError:
+            get_writer(where, &sink)
+        else:
+            c_where = tobytes(where)
+            with nogil:
+                check_status(FileOutputStream.Open(c_where, &sink))
+
+        self._metadata.WriteMetaDataFile(sink)
 
 
 cdef class ParquetSchema:

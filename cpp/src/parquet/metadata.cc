@@ -415,6 +415,24 @@ class FileMetaData::FileMetaDataImpl {
     }
   }
 
+  void WriteMetaDataFile(OutputStream* sink) {
+
+    // FIXME: copied from reader-internal.cc
+    static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
+
+    sink->Write(PARQUET_MAGIC, 4);
+
+    // Write MetaData
+    uint32_t metadata_len = static_cast<uint32_t>(sink->Tell());
+
+    WriteTo(sink);
+    metadata_len = static_cast<uint32_t>(sink->Tell()) - metadata_len;
+
+    // Write Footer
+    sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4);
+    sink->Write(PARQUET_MAGIC, 4);
+  }
+
  private:
   friend FileMetaDataBuilder;
   uint32_t metadata_len_;
@@ -516,6 +534,11 @@ void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path
 
 void FileMetaData::AppendRowGroups(const std::shared_ptr<FileMetaData>& other) {
   impl_->AppendRowGroups(other->impl_);
+}
+
+void FileMetaData::WriteMetaDataFile(std::shared_ptr<::arrow::io::OutputStream>& sink) {
+  ArrowOutputStream wrapper(sink);
+  impl_->WriteMetaDataFile(&wrapper);
 }
 
 void FileMetaData::WriteTo(OutputStream* dst) const { return impl_->WriteTo(dst); }

@@ -226,6 +226,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
         void set_file_path(const c_string& path)
         void AppendRowGroups(const shared_ptr[CFileMetaData]& other)
+        void WriteMetaDataFile(shared_ptr[OutputStream] sink)
 
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
