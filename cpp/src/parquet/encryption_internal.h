@@ -59,7 +59,7 @@ class AesEncryptor {
   int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
               uint8_t* aad, int aad_len, uint8_t* ciphertext);
 
-  /// Encrypts plaintext footer, in order to compute the signature (tag).
+  /// Encrypts plaintext footer, in order to compute footer signature (tag).
   int SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key,
                           int key_len, uint8_t* aad, int aad_len, uint8_t* nonce,
                           uint8_t* encrypted_footer);
