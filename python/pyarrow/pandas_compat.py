@@ -482,10 +482,12 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         # add index columns
         index_types = types[len(column_names):]
         for name, type_ in zip(index_column_names, index_types):
+            name = name if name is not None else 'None'
             schema = schema.append(pa.field(name, type_))
     else:
         fields = []
         for name, type_ in zip(all_names, types):
+            name = name if name is not None else 'None'
             fields.append(pa.field(name, type_))
         schema = pa.schema(fields)
 
