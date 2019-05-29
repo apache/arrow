@@ -84,17 +84,24 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
   stream << "Number of Selected Columns: " << selected_columns.size() << "\n";
   for (auto i : selected_columns) {
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
-    stream << "Column " << i << ": " << descr->name() << " ("
-           << TypeToString(descr->physical_type()) << ")" << std::endl;
+    stream << "Column " << i << ": " << descr->path()->ToDotString() << " ("
+           << TypeToString(descr->physical_type());
+    if (descr->logical_type() != LogicalType::NONE) {
+      stream << "/" << LogicalTypeToString(descr->logical_type());
+    }
+    if (descr->logical_type() == LogicalType::DECIMAL) {
+      stream << "(" << descr->type_precision() << "," << descr->type_scale() << ")";
+    }
+    stream << ")" << std::endl;
   }
 
   for (int r = 0; r < file_metadata->num_row_groups(); ++r) {
-    stream << "--- Row Group " << r << " ---\n";
+    stream << "--- Row Group: " << r << " ---\n";
 
     auto group_reader = fileReader->RowGroup(r);
     std::unique_ptr<RowGroupMetaData> group_metadata = file_metadata->RowGroup(r);
 
-    stream << "--- Total Bytes " << group_metadata->total_byte_size() << " ---\n";
+    stream << "--- Total Bytes: " << group_metadata->total_byte_size() << " ---\n";
     stream << "--- Rows: " << group_metadata->num_rows() << " ---\n";
 
     // Print column metadata
@@ -153,7 +160,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
 
       snprintf(buffer, bufsize, "%-*s", COL_WIDTH,
                file_metadata->schema()->Column(i)->name().c_str());
-      stream << buffer;
+      stream << buffer << '|';
     }
     if (format_dump) {
       continue;
@@ -167,6 +174,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
         if (scanner->HasNext()) {
           hasRow = true;
           scanner->PrintNext(stream, COL_WIDTH);
+          stream << '|';
         }
       }
       stream << "\n";
