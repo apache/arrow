@@ -88,11 +88,7 @@ public class OrcStripeReader extends ArrowReader {
 
   @Override
   protected void closeReadSource() throws IOException {
-    try {
-      OrcStripeReaderJniWrapper.close(id);
-    } finally {
-      schemaReader.close();
-    }
+    OrcStripeReaderJniWrapper.close(id);
   }
 
   @Override
@@ -111,6 +107,8 @@ public class OrcStripeReader extends ArrowReader {
     if (result.getMessage().headerType() != MessageHeader.Schema) {
       throw new IOException("Expected schema but header was " + result.getMessage().headerType());
     }
+
+    schemaReader.close();
 
     return MessageSerializer.deserializeSchema(result.getMessage());
   }
