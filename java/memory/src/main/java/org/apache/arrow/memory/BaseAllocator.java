@@ -22,6 +22,7 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
@@ -45,18 +46,19 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   final String name;
-  final BufferAllocator root;
-  protected final Object DEBUG_LOCK = DEBUG ? new Object() : null;
+  final RootAllocator root;
+  private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
   final AllocationListener listener;
   private final BaseAllocator parentAllocator;
   private final ArrowByteBufAllocator thisAsByteBufAllocator;
-  protected final IdentityHashMap<BaseAllocator, Object> childAllocators;
-  protected final ArrowBuf empty;
+  private final IdentityHashMap<BaseAllocator, Object> childAllocators;
+  private final ArrowBuf empty;
   // members used purely for debugging
   private final IdentityHashMap<BufferLedger, Object> childLedgers;
   private final IdentityHashMap<Reservation, Object> reservations;
-  protected final HistoricalLog historicalLog;
+  private final HistoricalLog historicalLog;
   private volatile boolean isClosed = false; // the allocator has been closed
+  private RoundingPolicy roundingPolicy;
 
   /**
    * Initialize an allocator
@@ -73,7 +75,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       final AllocationListener listener,
       final String name,
       final long initReservation,
-      final long maxAllocation) throws OutOfMemoryException {
+      final long maxAllocation,
+      final RoundingPolicy roundingPolicy) throws OutOfMemoryException {
     super(parentAllocator, initReservation, maxAllocation);
 
     this.listener = listener;
@@ -81,8 +84,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     if (parentAllocator != null) {
       this.root = parentAllocator.root;
       empty = parentAllocator.empty;
-    } else if (this instanceof RootAllocator || this instanceof SegmentAllocator) {
-      this.root = this;
+    } else if (this instanceof RootAllocator) {
+      this.root = (RootAllocator) this;
       empty = createEmpty();
     } else {
       throw new IllegalStateException("An parent allocator must either carry a root or be the " +
@@ -106,14 +109,14 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       historicalLog = null;
       childLedgers = null;
     }
-
+    this.roundingPolicy = roundingPolicy;
   }
 
   AllocationListener getListener() {
     return listener;
   }
 
-  protected static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
+  private static String createErrorMsg(final BufferAllocator allocator, final int rounded, final int requested) {
     if (rounded != requested) {
       return String.format(
         "Unable to allocate buffer of size %d (rounded from %d) due to memory limit. Current " +
@@ -274,11 +277,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return empty;
     }
 
-    // round to next largest power of two if we're within a chunk since that is how our allocator
-    // operates
-    final int actualRequestSize =
-        initialRequestSize < AllocationManager.CHUNK_SIZE ?
-          nextPowerOfTwo(initialRequestSize) : initialRequestSize;
+    // round the request size according to the rounding policy
+    final int actualRequestSize = roundingPolicy.getRoundedSize(initialRequestSize);
 
     listener.onPreAllocation(actualRequestSize);
 
@@ -322,7 +322,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * Used by usual allocation as well as for allocating a pre-reserved buffer.
    * Skips the typical accounting associated with creating a new buffer.
    */
-  protected ArrowBuf bufferWithoutReservation(
+  private ArrowBuf bufferWithoutReservation(
       final int size,
       BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();
@@ -360,7 +360,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     assertOpen();
 
     final ChildAllocator childAllocator =
-        new ChildAllocator(listener, this, name, initReservation, maxAllocation);
+        new ChildAllocator(listener, this, name, initReservation, maxAllocation, roundingPolicy);
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
