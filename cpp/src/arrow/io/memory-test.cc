@@ -185,12 +185,14 @@ TEST(TestBufferReader, Peek) {
 
   BufferReader reader(std::make_shared<Buffer>(data));
 
-  auto view = reader.Peek(4);
+  util::string_view view;
+
+  ASSERT_OK(reader.Peek(4, &view));
 
   ASSERT_EQ(4, view.size());
   ASSERT_EQ(data.substr(0, 4), view.to_string());
 
-  view = reader.Peek(20);
+  ASSERT_OK(reader.Peek(20, &view));
   ASSERT_EQ(data.size(), view.size());
   ASSERT_EQ(data, view.to_string());
 }

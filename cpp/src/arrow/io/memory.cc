@@ -301,14 +301,16 @@ Status BufferReader::Tell(int64_t* position) const {
   return Status::OK();
 }
 
-util::string_view BufferReader::Peek(int64_t nbytes) const {
+Status BufferReader::Peek(int64_t nbytes, util::string_view* out) {
   if (!is_open_) {
-    return {};
+    *out = {};
+    return Status::OK();
   }
 
   const int64_t bytes_available = std::min(nbytes, size_ - position_);
-  return util::string_view(reinterpret_cast<const char*>(data_) + position_,
+  *out = util::string_view(reinterpret_cast<const char*>(data_) + position_,
                            static_cast<size_t>(bytes_available));
+  return Status::OK();
 }
 
 bool BufferReader::supports_zero_copy() const { return true; }

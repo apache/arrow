@@ -127,7 +127,12 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   std::shared_ptr<InputStream> raw() const;
 
   // InputStream APIs
-  util::string_view Peek(int64_t nbytes) const override;
+
+  /// \brief Return a zero-copy string view referencing buffered data,
+  /// but do not advance the position of the stream. Buffers data and
+  /// expands the buffer size if necessary
+  Status Peek(int64_t nbytes, util::string_view* out) override;
+
   Status Close() override;
   bool closed() const override;
 

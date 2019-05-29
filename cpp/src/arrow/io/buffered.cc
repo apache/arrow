@@ -259,10 +259,39 @@ class BufferedInputStream::Impl : public BufferedBase {
     return ResizeBuffer(new_buffer_size);
   }
 
-  util::string_view Peek(int64_t nbytes) const {
-    int64_t peek_size = std::min(nbytes, bytes_buffered_);
-    return util::string_view(reinterpret_cast<const char*>(buffer_data_ + buffer_pos_),
-                             static_cast<size_t>(peek_size));
+  Status Peek(int64_t nbytes, util::string_view* out) {
+    int64_t total_avail = bytes_buffered_;
+
+    if (raw_read_bound_ > 0) {
+      total_avail += raw_read_bound_ - raw_read_total_;
+    }
+    // Do not try to peek more than the total remaining number of bytes.
+    nbytes = std::min(nbytes, total_avail);
+
+    if (bytes_buffered_ == 0 && nbytes < buffer_size_) {
+      // Pre-buffer for small reads
+      RETURN_NOT_OK(BufferIfNeeded());
+    }
+
+    // Increase the buffer size if needed
+    if (nbytes > buffer_->size() - buffer_pos_) {
+      RETURN_NOT_OK(SetBufferSize(nbytes + buffer_pos_));
+      DCHECK(buffer_->size() - buffer_pos_ >= nbytes);
+    }
+    // Read more data when buffer has insufficient left
+    if (nbytes > bytes_buffered_) {
+      // Read as much as possible to fill the buffer, but not past stream end
+      int64_t read_size = std::min(nbytes - bytes_buffered_, total_avail);
+      int64_t bytes_read = -1;
+      RETURN_NOT_OK(raw_->Read(read_size, &bytes_read,
+                               buffer_->mutable_data() + buffer_pos_ + bytes_buffered_));
+      bytes_buffered_ += bytes_read;
+      raw_read_total_ += bytes_read;
+    }
+    DCHECK(nbytes <= bytes_buffered_);  // Enough bytes available
+    *out = util::string_view(reinterpret_cast<const char*>(buffer_data_ + buffer_pos_),
+                             static_cast<size_t>(nbytes));
+    return Status::OK();
   }
 
   int64_t bytes_buffered() const { return bytes_buffered_; }
@@ -402,8 +431,8 @@ Status BufferedInputStream::Tell(int64_t* position) const {
   return impl_->Tell(position);
 }
 
-util::string_view BufferedInputStream::Peek(int64_t nbytes) const {
-  return impl_->Peek(nbytes);
+Status BufferedInputStream::Peek(int64_t nbytes, util::string_view* out) {
+  return impl_->Peek(nbytes, out);
 }
 
 Status BufferedInputStream::SetBufferSize(int64_t new_buffer_size) {

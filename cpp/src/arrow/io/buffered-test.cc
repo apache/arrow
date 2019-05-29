@@ -343,8 +343,6 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
 
   // Nothing in the buffer
   ASSERT_EQ(0, buffered_->bytes_buffered());
-  util::string_view peek = buffered_->Peek(10);
-  ASSERT_EQ(0, peek.size());
 
   std::vector<char> buf(test_data_.size());
   int64_t bytes_read;
@@ -355,6 +353,10 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
   // 6 bytes remaining in buffer
   ASSERT_EQ(6, buffered_->bytes_buffered());
 
+  util::string_view peek;
+  ASSERT_OK(buffered_->Peek(6, &peek));
+  ASSERT_EQ(6, peek.size());
+
   // Buffered position is 4
   ASSERT_OK(buffered_->Tell(&stream_position));
   ASSERT_EQ(4, stream_position);
@@ -362,11 +364,6 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
   // Raw position actually 10
   ASSERT_OK(raw_->Tell(&stream_position));
   ASSERT_EQ(10, stream_position);
-
-  // Peek does not look beyond end of buffer
-  peek = buffered_->Peek(10);
-  ASSERT_EQ(6, peek.size());
-  ASSERT_EQ(0, memcmp(peek.data(), test_data_.data() + 4, 6));
 
   // Reading to end of buffered bytes does not cause any more data to be
   // buffered
@@ -389,7 +386,7 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
   ASSERT_EQ(test_data_.size(), stream_position);
 
   // Peek at EOF
-  peek = buffered_->Peek(10);
+  ASSERT_OK(buffered_->Peek(10, &peek));
   ASSERT_EQ(0, peek.size());
 
   // Calling Close closes raw_
@@ -484,20 +481,17 @@ TEST_F(TestBufferedInputStreamBound, Basics) {
   std::shared_ptr<Buffer> buffer;
   util::string_view view;
 
-  // Trigger buffering
-  ASSERT_OK(stream_->Read(1, &buffer));
-
   // source is at offset 10
-  view = stream_->Peek(9);
-  ASSERT_EQ(9, view.size());
-  for (int i = 0; i < 9; i++) {
-    ASSERT_EQ(11 + i, view[i]) << i;
+  ASSERT_OK(stream_->Peek(10, &view));
+  ASSERT_EQ(10, view.size());
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(10 + i, view[i]) << i;
   }
 
-  ASSERT_OK(stream_->Read(9, &buffer));
-  ASSERT_EQ(9, buffer->size());
-  for (int i = 0; i < 9; i++) {
-    ASSERT_EQ(11 + i, (*buffer)[i]) << i;
+  ASSERT_OK(stream_->Read(10, &buffer));
+  ASSERT_EQ(10, buffer->size());
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(10 + i, (*buffer)[i]) << i;
   }
 
   ASSERT_OK(stream_->Read(10, &buffer));
@@ -545,17 +539,14 @@ TEST_F(TestBufferedInputStreamBound, LargeFirstPeek) {
   int64_t n = 70;
   ASSERT_GT(n, chunk_size_);
 
-  // Trigger buffering
-  ASSERT_OK(stream_->Read(1, &buffer));
-
-  // source is at offset 11
-  view = stream_->Peek(n - 1);
+  // source is at offset 10
+  ASSERT_OK(stream_->Peek(n, &view));
   ASSERT_EQ(n, static_cast<int>(view.size()));
-  for (int i = 0; i < n - 1; i++) {
-    ASSERT_EQ(11 + i, view[i]) << i;
+  for (int i = 0; i < n; i++) {
+    ASSERT_EQ(10 + i, view[i]) << i;
   }
 
-  view = stream_->Peek(n);
+  ASSERT_OK(stream_->Peek(n, &view));
   ASSERT_EQ(n, static_cast<int>(view.size()));
   for (int i = 0; i < n; i++) {
     ASSERT_EQ(10 + i, view[i]) << i;

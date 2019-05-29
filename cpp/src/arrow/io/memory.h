@@ -152,7 +152,7 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   // Zero copy read
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
-  util::string_view Peek(int64_t nbytes) const override;
+  Status Peek(int64_t nbytes, util::string_view* out) override;
 
   bool supports_zero_copy() const override;
 
