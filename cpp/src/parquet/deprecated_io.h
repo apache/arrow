@@ -40,8 +40,6 @@
 
 namespace parquet {
 
-// File input and output interfaces that translate arrow::Status to exceptions
-
 class PARQUET_EXPORT FileInterface {
  public:
   virtual ~FileInterface() = default;
