@@ -160,7 +160,6 @@ set(PARQUET_SRCS
     column_scanner.cc
     column_writer.cc
     encoding.cc
-    encryption_internal.cc
     file_reader.cc
     file_writer.cc
     metadata.cc
