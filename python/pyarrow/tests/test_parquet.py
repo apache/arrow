@@ -1542,9 +1542,8 @@ def test_filters_read_table(tempdir):
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
-    dataset = pq.read_table(
+    table = pq.read_table(
         base_path, filesystem=fs, filters=[('integers', '<', 3)])
-    table = dataset.read()
     assert table.num_rows == 3
 
 
