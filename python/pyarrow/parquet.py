@@ -1192,9 +1192,10 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=True,
                filesystem=None):
     if _is_path_like(source):
-        pf = ParquetDataset(source, metadata=metadata, filesystem=filesystem)
+        pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
+                            filesystem=filesystem)
     else:
-        pf = ParquetFile(source, metadata=metadata)
+        pf = ParquetFile(source, metadata=metadata, memory_map=memory_map)
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 
