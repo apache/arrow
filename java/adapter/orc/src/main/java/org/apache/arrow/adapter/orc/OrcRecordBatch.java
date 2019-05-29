@@ -20,6 +20,9 @@ package org.apache.arrow.adapter.orc;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Wrapper for record batch meta and native memory.
+ */
 class OrcRecordBatch {
   final int length;
 
