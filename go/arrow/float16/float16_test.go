@@ -38,7 +38,7 @@ func TestFloat16(t *testing.T) {
 	for k, v := range cases {
 		f := k.Float32()
 		assert.Equal(t, v, f, "float32 values should be the same")
-		i := NewFloat16(v)
+		i := New(v)
 		assert.Equal(t, k, i, "float16 values should be the same")
 	}
 }

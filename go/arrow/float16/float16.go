@@ -23,7 +23,7 @@ import (
 type Num uint16
 
 // https://en.wikipedia.org/wiki/Half-precision_floating-point_format
-func NewFloat16(f float32) Num {
+func New(f float32) Num {
 	b := math.Float32bits(f)
 	sn := uint16((b >> 31) & 0x1)
 	exp := (b >> 23) & 0xff

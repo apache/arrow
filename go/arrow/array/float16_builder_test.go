@@ -39,16 +39,16 @@ func TestNewFloat16Builder(t *testing.T) {
 
 	ab := array.NewFloat16Builder(mem)
 
-	ab.Append(float16.NewFloat16(1))
-	ab.Append(float16.NewFloat16(2))
-	ab.Append(float16.NewFloat16(3))
+	ab.Append(float16.New(1))
+	ab.Append(float16.New(2))
+	ab.Append(float16.New(3))
 	ab.AppendNull()
-	ab.Append(float16.NewFloat16(5))
-	ab.Append(float16.NewFloat16(6))
+	ab.Append(float16.New(5))
+	ab.Append(float16.New(6))
 	ab.AppendNull()
-	ab.Append(float16.NewFloat16(8))
-	ab.Append(float16.NewFloat16(9))
-	ab.Append(float16.NewFloat16(10))
+	ab.Append(float16.New(8))
+	ab.Append(float16.New(9))
+	ab.Append(float16.New(10))
 
 	// check state of builder before NewFloat16Array
 	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
@@ -69,8 +69,8 @@ func TestNewFloat16Builder(t *testing.T) {
 	assert.Len(t, a.Values(), 10, "unexpected length of Float16Values")
 
 	a.Release()
-	ab.Append(float16.NewFloat16(7))
-	ab.Append(float16.NewFloat16(8))
+	ab.Append(float16.New(7))
+	ab.Append(float16.New(8))
 
 	a = ab.NewFloat16Array()
 
@@ -88,7 +88,7 @@ func TestFloat16Builder_Empty(t *testing.T) {
 	ab := array.NewFloat16Builder(mem)
 	defer ab.Release()
 
-	want := []float16.Num{float16.NewFloat16(3), float16.NewFloat16(4)}
+	want := []float16.Num{float16.New(3), float16.New(4)}
 
 	ab.AppendValues([]float16.Num{}, nil)
 	a := ab.NewFloat16Array()
