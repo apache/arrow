@@ -811,6 +811,7 @@ def _pandas_type_to_numpy_type(pandas_type):
         return _pandas_logical_type_map[pandas_type]
     except KeyError:
         if 'mixed' in pandas_type:
+            # catching 'mixed', 'mixed-integer' and 'mixed-integer-float'
             return np.object_
         return np.dtype(pandas_type)
 
