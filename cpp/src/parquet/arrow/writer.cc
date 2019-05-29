@@ -1148,15 +1148,18 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
   return Open(schema, pool, wrapper, properties, arrow_properties, writer);
 }
 
-Status WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
-  PARQUET_CATCH_NOT_OK(::parquet::WriteFileMetaData(file_metadata, sink));
+Status WriteFileMetaData(const FileMetaData& file_metadata,
+                         OutputStream* sink,
+                         const bool metafile) {
+  PARQUET_CATCH_NOT_OK(::parquet::WriteFileMetaData(file_metadata, sink, metafile));
   return Status::OK();
 }
 
 Status WriteFileMetaData(const FileMetaData& file_metadata,
-                         const std::shared_ptr<::arrow::io::OutputStream>& sink) {
+                         const std::shared_ptr<::arrow::io::OutputStream>& sink,
+                         const bool metafile) {
   ArrowOutputStream wrapper(sink);
-  return ::parquet::arrow::WriteFileMetaData(file_metadata, &wrapper);
+  return ::parquet::arrow::WriteFileMetaData(file_metadata, &wrapper, metafile);
 }
 
 Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {

@@ -108,7 +108,8 @@ class PARQUET_EXPORT RowGroupWriter {
 };
 
 PARQUET_EXPORT
-void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
+void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink,
+                       const bool metafile=false);
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:

@@ -360,7 +360,12 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
   return result;
 }
 
-void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
+void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink,
+                       const bool metafile) {
+  // If standalone metadata file, write initial magic bytes
+  if (metafile)
+    sink->Write(PARQUET_MAGIC, 4);
+
   // Write MetaData
   uint32_t metadata_len = static_cast<uint32_t>(sink->Tell());
 

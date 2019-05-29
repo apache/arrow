@@ -549,6 +549,7 @@ cdef class FileMetaData:
         cdef:
             shared_ptr[OutputStream] sink
             c_string c_where
+            c_bool metafile=True
 
         try:
             where = _stringify_path(where)
@@ -559,7 +560,9 @@ cdef class FileMetaData:
             with nogil:
                 check_status(FileOutputStream.Open(c_where, &sink))
 
-        self._metadata.WriteMetaDataFile(sink)
+        with nogil:
+            check_status(
+                WriteFileMetaData(deref(self._metadata), sink, metafile))
 
 
 cdef class ParquetSchema:

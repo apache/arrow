@@ -226,7 +226,6 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
         void set_file_path(const c_string& path)
         void AppendRowGroups(const shared_ptr[CFileMetaData]& other)
-        void WriteMetaDataFile(shared_ptr[OutputStream] sink)
 
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
@@ -341,3 +340,8 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
             Builder* disallow_truncated_timestamps()
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
+
+    CStatus WriteFileMetaData(
+        const CFileMetaData& file_metadata,
+        const shared_ptr[OutputStream]& sink,
+        const c_bool metafile)

@@ -191,12 +191,15 @@ class PARQUET_EXPORT FileWriter {
 
 /// \brief Write Parquet file metadata only to indicated OutputStream
 PARQUET_EXPORT
-::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
+::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata,
+                                  OutputStream* sink,
+                                  const bool metafile=false);
 
 /// \brief Write Parquet file metadata only to indicated Arrow OutputStream
 PARQUET_EXPORT
 ::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata,
-                                  const std::shared_ptr<::arrow::io::OutputStream>& sink);
+                                  const std::shared_ptr<::arrow::io::OutputStream>& sink,
+                                  const bool metafile);
 
 /**
  * Write a Table to Parquet.
