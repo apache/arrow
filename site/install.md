@@ -69,6 +69,21 @@ in `requirements.txt` to install the latest patch release.
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled
 with the wheel.
 
+### C++ and GLib (C) Packages on Homebrew (Unofficial)
+
+On macOS, you can install the C++ library using
+[Homebrew][17]:
+
+```shell
+brew install apache-arrow
+```
+
+and GLib (C) package with:
+
+```shell
+brew install apache-arrow-glib
+```
+
 ### C++ and GLib (C) Packages for Debian GNU/Linux, Ubuntu and CentOS (Unofficial)
 
 We have provided APT and Yum repositories for Apache Arrow C++ and
@@ -224,3 +239,4 @@ pacman -S --noconfirm mingw-w64-i686-arrow
 [14]: {{site.data.versions['current'].sha256}}
 [15]: {{site.data.versions['current'].sha512}}
 [16]: https://github.com/msys2/MINGW-packages/tree/master/mingw-w64-arrow
+[17]: https://brew.sh/
