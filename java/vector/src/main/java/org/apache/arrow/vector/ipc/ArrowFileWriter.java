@@ -32,6 +32,9 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * {@link ArrowWriter} that writes out a Arrow files (https://arrow.apache.org/docs/format/IPC.html#file-format).
+ */
 public class ArrowFileWriter extends ArrowWriter {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFileWriter.class);

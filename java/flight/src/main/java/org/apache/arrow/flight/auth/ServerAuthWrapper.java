@@ -31,6 +31,9 @@ import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 
+/**
+ * Contains utility methods for integrating authorization into a GRPC stream.
+ */
 public class ServerAuthWrapper {
 
   /**

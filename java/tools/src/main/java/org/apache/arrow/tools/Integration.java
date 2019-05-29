@@ -127,6 +127,9 @@ public class Integration {
     }
   }
 
+  /**
+   * Commands (actions) the application can perform.
+   */
   enum Command {
     ARROW_TO_JSON(true, false) {
       @Override

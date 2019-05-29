@@ -206,7 +206,9 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     stream << "     { \"Id\": \"" << i << "\", \"Name\": \"" << descr->name() << "\","
            << " \"PhysicalType\": \"" << TypeToString(descr->physical_type()) << "\","
            << " \"LogicalType\": \"" << LogicalTypeToString(descr->logical_type())
-           << "\" }";
+           << "\","
+           << " \"LogicalAnnotation\": " << (descr->logical_annotation())->ToJSON()
+           << " }";
     c++;
     if (c != static_cast<int>(selected_columns.size())) {
       stream << ",\n";

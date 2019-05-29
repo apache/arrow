@@ -27,7 +27,12 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
+/**
+ * Utility methods to convert between Arrow and Gandiva types.
+ */
 public class ArrowTypeHelper {
+  private ArrowTypeHelper() {}
+
   static final int WIDTH_8 = 8;
   static final int WIDTH_16 = 16;
   static final int WIDTH_32 = 32;

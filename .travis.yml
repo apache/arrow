@@ -22,14 +22,17 @@ services:
   - docker
 
 cache:
-  ccache: true
   directories:
+    - $HOME/.ccache
     - $HOME/.m2  # Maven
+
+env:
+  - CCACHE_COMPRESS: 1
+  - CCACHE_COMPRESSLEVEL: 5
 
 git:
   # ARROW-3083: We use a higher clone depth to also have the latest tag in the cloned history.
   depth: 250
-
 
 before_install:
   # Common pre-install steps for all builds
@@ -41,7 +44,7 @@ before_install:
         sudo apt-get update -qq
       fi
   - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
-
+  - if [ $TRAVIS_OS_NAME == "linux" ]; then ccache -s; fi
 
 matrix:
   allow_failures:
@@ -373,6 +376,9 @@ after_failure:
         gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch
       fi
     fi
+
+after_script:
+  - if [ $TRAVIS_OS_NAME == "linux" ]; then ccache -s; fi
 
 env:
   global:

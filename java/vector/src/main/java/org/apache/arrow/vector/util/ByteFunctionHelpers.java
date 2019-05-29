@@ -22,8 +22,13 @@ import org.apache.arrow.memory.BoundsChecking;
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
+/**
+ * Utility methods for memory comparison at a byte level.
+ */
 public class ByteFunctionHelpers {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
+
+  private ByteFunctionHelpers() {}
 
   /**
    * Helper function to check for equality of bytes in two ArrowBufs.

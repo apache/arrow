@@ -26,6 +26,9 @@ import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * Adapter around {@link ReadableByteChannel} that reads into {@linkplain ArrowBuf}s.
+ */
 public class ReadChannel implements AutoCloseable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ReadChannel.class);

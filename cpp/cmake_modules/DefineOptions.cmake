@@ -266,6 +266,8 @@ Note that this requires linking Boost statically" OFF)
   #----------------------------------------------------------------------
   set_option_category("Parquet")
 
+  define_option(PARQUET_BUILD_ENCRYPTION "Build Parquet with encryption support" ON)
+
   define_option(PARQUET_MINIMAL_DEPENDENCY
                 "Depend only on Thirdparty headers to build libparquet. \
 Always OFF if building binaries" OFF)

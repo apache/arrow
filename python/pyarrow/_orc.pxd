@@ -18,6 +18,8 @@
 # distutils: language = c++
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from libc.string cimport const_char
 from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *

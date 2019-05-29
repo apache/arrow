@@ -37,6 +37,7 @@ TEST(TestTypeToString, PhysicalTypes) {
 TEST(TestLogicalTypeToString, LogicalTypes) {
   ASSERT_STREQ("NONE", LogicalTypeToString(LogicalType::NONE).c_str());
   ASSERT_STREQ("UTF8", LogicalTypeToString(LogicalType::UTF8).c_str());
+  ASSERT_STREQ("MAP", LogicalTypeToString(LogicalType::MAP).c_str());
   ASSERT_STREQ("MAP_KEY_VALUE", LogicalTypeToString(LogicalType::MAP_KEY_VALUE).c_str());
   ASSERT_STREQ("LIST", LogicalTypeToString(LogicalType::LIST).c_str());
   ASSERT_STREQ("ENUM", LogicalTypeToString(LogicalType::ENUM).c_str());

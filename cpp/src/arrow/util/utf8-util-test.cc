@@ -21,6 +21,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 
@@ -247,6 +248,37 @@ TEST_F(UTF8ValidationTest, RandomTruncated) {
     }
     AssertInvalidUTF8(s);
   }
+}
+
+TEST(SkipUTF8BOM, Basics) {
+  auto CheckOk = [](const std::string& s, size_t expected_offset) -> void {
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
+    const uint8_t* res = nullptr;
+    ASSERT_OK(SkipUTF8BOM(data, static_cast<int64_t>(s.size()), &res));
+    ASSERT_NE(res, nullptr);
+    ASSERT_EQ(res - data, expected_offset);
+  };
+
+  auto CheckTruncated = [](const std::string& s) -> void {
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
+    const uint8_t* res = nullptr;
+    ASSERT_RAISES(Invalid, SkipUTF8BOM(data, static_cast<int64_t>(s.size()), &res));
+  };
+
+  CheckOk("", 0);
+  CheckOk("a", 0);
+  CheckOk("ab", 0);
+  CheckOk("abc", 0);
+  CheckOk("abcd", 0);
+  CheckOk("\xc3\xa9", 0);
+  CheckOk("\xee", 0);
+  CheckOk("\xef\xbc", 0);
+  CheckOk("\xef\xbb\xbe", 0);
+  CheckOk("\xef\xbb\xbf", 3);
+  CheckOk("\xef\xbb\xbfx", 3);
+
+  CheckTruncated("\xef");
+  CheckTruncated("\xef\xbb");
 }
 
 }  // namespace util

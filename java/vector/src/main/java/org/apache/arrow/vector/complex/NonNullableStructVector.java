@@ -186,6 +186,9 @@ public class NonNullableStructVector extends AbstractStructVector {
     return new StructTransferPair(this, new NonNullableStructVector(ref, allocator, fieldType, callBack), false);
   }
 
+  /**
+   * {@link TransferPair} for this this class.
+   */
   protected static class StructTransferPair implements TransferPair {
     private final TransferPair[] pairs;
     private final NonNullableStructVector from;

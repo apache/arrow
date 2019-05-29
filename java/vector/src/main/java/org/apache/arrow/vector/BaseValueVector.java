@@ -139,6 +139,9 @@ public abstract class BaseValueVector implements ValueVector {
     return BaseAllocator.nextPowerOfTwo(bufferSize);
   }
 
+  /**
+   * Container for primitive vectors (1 for the validity bit-mask and one to hold the values).
+   */
   class DataAndValidityBuffers {
     private ArrowBuf dataBuf;
     private ArrowBuf validityBuf;

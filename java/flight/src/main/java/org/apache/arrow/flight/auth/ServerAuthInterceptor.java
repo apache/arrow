@@ -28,6 +28,9 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 
+/**
+ * GRPC Interceptor for performing authentication.
+ */
 public class ServerAuthInterceptor implements ServerInterceptor {
 
   private final ServerAuthHandler authHandler;

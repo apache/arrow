@@ -20,6 +20,9 @@ package org.apache.arrow.flight.auth;
 import java.util.Iterator;
 import java.util.Optional;
 
+/**
+ * Interface for Server side authentication handlers.
+ */
 public interface ServerAuthHandler {
 
   /**
@@ -37,11 +40,15 @@ public interface ServerAuthHandler {
    */
   boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming);
 
-  public interface ServerAuthSender {
+  /**
+   * Interface for an server implementations to send back authentication messages
+   * back to the client.
+   */
+  interface ServerAuthSender {
 
-    public void send(byte[] payload);
+    void send(byte[] payload);
 
-    public void onError(String message, Throwable cause);
+    void onError(String message, Throwable cause);
 
   }
 
