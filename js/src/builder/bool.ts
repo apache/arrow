@@ -16,19 +16,15 @@
 // under the License.
 
 import { Bool } from '../type';
+import { BitmaskBuilder } from './buffer';
 import { Builder, BuilderOptions } from './base';
 
 export class BoolBuilder<TNull = any> extends Builder<Bool, TNull> {
     constructor(options: BuilderOptions<Bool, TNull>) {
         super(options);
-        this.values = new Uint8Array(0);
+        this._values = new BitmaskBuilder();
     }
-    public writeValue(value: boolean, offset: number) {
-        this._getValuesBitmap(offset);
-        return super.writeValue(value, offset);
-    }
-    protected _updateBytesUsed(offset: number, length: number) {
-        offset % 512 || (this._bytesUsed += 64);
-        return super._updateBytesUsed(offset, length);
+    public setValue(index: number, value: boolean) {
+        this._values.set(index, value);
     }
 }

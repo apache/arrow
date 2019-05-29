@@ -37,7 +37,7 @@
                 // "TEST_MODULE": "umd"
             },
             "args": [
-                // "-i",
+                "-i",
                 "test/unit/",
                 // "test/unit/builders/",
 

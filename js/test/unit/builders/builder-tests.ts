@@ -229,14 +229,14 @@ type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('..
 
 async function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
     const builder = Builder.new(options);
-    values.forEach((x) => builder.write(x));
+    values.forEach((x) => builder.append(x));
     return Vector.new(builder.finish().flush());
 }
 
 async function encodeChunks<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
-    const builder = Builder.new(options);
-    const chunkLength = Math.max(5, (Math.random() * values.length - 1) | 0);
-    const chunks = [...builder.writeAll(values, chunkLength)];
+    const chunkLength = Math.max(5, (Math.random() * values.length - 5) | 0);
+    const opts = { ...options, highWaterMark: chunkLength };
+    const chunks = [...Builder.throughIterable(opts)(values)];
     return Chunked.concat(...chunks.map((x) => Vector.new(x)));
 }
 

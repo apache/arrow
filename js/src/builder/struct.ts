@@ -15,7 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Field } from '../schema';
 import { DataType, Struct } from '../type';
-import { NestedBuilder } from './base';
+import { Builder, NestedBuilder } from './base';
 
-export class StructBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends NestedBuilder<Struct<T>, TNull> {}
+export class StructBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends NestedBuilder<Struct<T>, TNull> {
+    public addChild(child: Builder<T[keyof T]>, name = `${this.numChildren}`) {
+        const type = this._type;
+        const childIndex = this.children.push(child);
+        this._type = new Struct([...type.children, new Field(name, child.type)]);
+        return childIndex;
+    }
+}

@@ -188,7 +188,7 @@ export class Chunked<T extends DataType = any>
     public toArray(): T['TArray'] {
         const { chunks } = this;
         const n = chunks.length;
-        let { ArrayType } = this._type;
+        let ArrayType: any = this._type.ArrayType;
         if (n <= 0) { return new ArrayType(0); }
         if (n <= 1) { return chunks[0].toArray(); }
         let len = 0, src = new Array(n);
@@ -198,7 +198,7 @@ export class Chunked<T extends DataType = any>
         if (ArrayType !== src[0].constructor) {
             ArrayType = src[0].constructor;
         }
-        let dst = new (ArrayType as any)(len);
+        let dst = new ArrayType(len);
         let set: any = ArrayType === Array ? arraySet : typedSet;
         for (let i = -1, idx = 0; ++i < n;) {
             idx = set(src[i], dst, idx);

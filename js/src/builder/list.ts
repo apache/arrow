@@ -15,45 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Row } from './row';
+import { Field } from '../schema';
 import { DataType, List } from '../type';
-import { BuilderOptions, NestedBuilder } from './base';
+import { OffsetsBufferBuilder } from './buffer';
+import { Builder, BuilderOptions, VariableWidthBuilder } from './base';
 
-export class ListBuilder<T extends DataType = any, TNull = any> extends NestedBuilder<List<T>, TNull> {
-    private row = new RowLike<T, TNull>();
-    constructor(options: BuilderOptions<List<T>, TNull>) {
-        super(options);
-        this.valueOffsets = new Int32Array(0);
+export class ListBuilder<T extends DataType = any, TNull = any> extends Builder<List<T>, TNull> {
+    protected _row = new Row<T, TNull>();
+    protected _offsets: OffsetsBufferBuilder;
+    constructor(opts: BuilderOptions<List<T>, TNull>) {
+        super(opts);
+        this._offsets = new OffsetsBufferBuilder();
     }
-    public reset() {
-        (this.row as any).values = null;
-        return super.reset();
+    public setValue(index: number, value: T['TValue']) {
+        this._offsets.set(index, value.length);
+        super.setValue(index, this._row.bind(value));
     }
-    public writeValid(isValid: boolean, offset: number) {
-        if (!super.writeValid(isValid, offset)) {
-            const length = this.length;
-            const valueOffsets = this._getValueOffsets(offset);
-            (offset - length === 0)
-                ? (valueOffsets[offset + 1] = valueOffsets[offset])
-                : (valueOffsets.fill(valueOffsets[length], length, offset + 2));
+    public addChild(child: Builder<T>, name = '0') {
+        if (this.numChildren > 0) {
+            throw new Error('ListBuilder can only have one child.');
         }
-        return isValid;
+        this.children[this.numChildren] = child;
+        this._type = new List(new Field(name, child.type));
+        return this.numChildren - 1;
     }
-    public writeValue(value: any, offset: number) {
-        const length = this.length;
-        const valueOffsets = this._getValueOffsets(offset);
-        if (length < offset) {
-            valueOffsets.fill(valueOffsets[length], length, offset + 1);
-        }
-        valueOffsets[offset + 1] = valueOffsets[offset] + value.length;
-        const row = this.row;
-        row.values = value;
-        super.writeValue(row as any, offset);
+    public clear() {
+        this._row.clear();
+        return super.clear();
     }
 }
 
-class RowLike<T extends DataType = any, TNull = any> {
-    // @ts-ignore
-    public values: ArrayLike<T['TValue'] | TNull>;
-    public get length() { return this.values.length; }
-    public get(index: number) { return this.values[index]; }
-}
+ListBuilder.prototype.setValid = VariableWidthBuilder.prototype.setValid;

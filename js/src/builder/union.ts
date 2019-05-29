@@ -16,94 +16,80 @@
 // under the License.
 
 import { Field } from '../schema';
+import { DataBufferBuilder } from './buffer';
 import { Union, SparseUnion, DenseUnion } from '../type';
 import { Builder, NestedBuilder, BuilderOptions } from './base';
 
 export interface UnionBuilderOptions<T extends Union = any, TNull = any> extends BuilderOptions<T, TNull> {
-    valueToChildTypeId?: (builder: Builder<T, TNull>, value: any, offset: number) => number;
+    valueToChildTypeId?: (builder: UnionBuilder<T, TNull>, value: any, offset: number) => number;
 }
 
-export class UnionBuilder<T extends Union, TNull = any> extends NestedBuilder<T, TNull> {
+export abstract class UnionBuilder<T extends Union, TNull = any> extends NestedBuilder<T, TNull> {
+
+    protected _typeIds: DataBufferBuilder<Int8Array>;
+
     constructor(options: UnionBuilderOptions<T, TNull>) {
         super(options);
-        this.typeIds = new Int8Array(0);
+        this._typeIds = new DataBufferBuilder(new Int8Array(0), 1);
         if (typeof options['valueToChildTypeId'] === 'function') {
             this._valueToChildTypeId = options['valueToChildTypeId'];
         }
     }
+
     public get typeIdToChildIndex() { return this._type.typeIdToChildIndex; }
-    public get bytesReserved() {
-        return this.children.reduce(
-            (acc, { bytesReserved }) => acc + bytesReserved,
-            this.typeIds.byteLength + this.nullBitmap.byteLength
-        );
+
+    public append(value: T['TValue'] | TNull, childTypeId?: number) {
+        return this.set(this.length, value, childTypeId);
     }
-    /** @ignore */
-    public set(offset: number, value: T['TValue'] | TNull, childTypeId?: number): void {
+
+    public set(index: number, value: T['TValue'] | TNull, childTypeId?: number) {
         if (childTypeId === undefined) {
-            childTypeId = this._valueToChildTypeId(this, value, offset);
+            childTypeId = this._valueToChildTypeId(this, value, index);
         }
-        if (this.writeValid(this.isValid(value), offset)) {
-            this.writeValue(value, offset, childTypeId);
+        if (this.setValid(index, this.isValid(value))) {
+            this.setValue(index, value, childTypeId);
         }
-        const length = offset + 1;
-        this.length = length;
-        this._updateBytesUsed(offset, length);
+        return this;
     }
-    public write(value: any | TNull, childTypeId?: number) {
-        const offset = this.length;
-        if (childTypeId === undefined) {
-            childTypeId = this._valueToChildTypeId(this, value, offset);
-        }
-        if (this.writeValid(this.isValid(value), offset)) {
-            this.writeValue(value, offset, childTypeId);
-        }
-        const length = offset + 1;
-        this.length = length;
-        return this._updateBytesUsed(offset, length);
+
+    // @ts-ignore
+    public setValue(index: number, value: T['TValue'], childTypeId?: number) {
+        this._typeIds.set(index, childTypeId!);
+        super.setValue(index, value);
     }
-    public addChild(child: Builder, name = `${this.children.length}`): number {
+
+    // @ts-ignore
+    public addChild(child: Builder, name = `${this.children.length}`) {
         const childTypeId = this.children.push(child);
         const { type: { children, mode, typeIds } } = this;
         const fields = [...children, new Field(name, child.type)];
-        this._type = new Union(mode, [...typeIds, childTypeId], fields) as T;
+        this._type = <T> new Union(mode, [...typeIds, childTypeId], fields);
         return childTypeId;
     }
-    /** @ignore */
-    public writeValue(value: any, offset: number, childTypeId?: number) {
-        this._getTypeIds(offset)[offset] = childTypeId!;
-        return super.writeValue(value, offset);
-    }
-    /** @ignore */
-    protected _updateBytesUsed(offset: number, length: number) {
-        this._bytesUsed += 1;
-        return super._updateBytesUsed(offset, length);
-    }
+
     /** @ignore */
     // @ts-ignore
-    protected _valueToChildTypeId(builder: Builder<T, TNull>, value: any, offset: number): number {
-        throw new Error(`Cannot map UnionVector value to child typeId. \
-Pass the \`childTypeId\` as the second argument to unionBuilder.write(), \
+    protected _valueToChildTypeId(builder: UnionBuilder<T, TNull>, value: any, offset: number): number {
+        throw new Error(`Cannot map UnionBuilder value to child typeId. \
+Pass the \`childTypeId\` as the second argument to unionBuilder.append(), \
 or supply a \`valueToChildTypeId\` function as part of the UnionBuilder constructor options.`);
     }
 }
 
 export class SparseUnionBuilder<T extends SparseUnion, TNull = any> extends UnionBuilder<T, TNull> {}
-
 export class DenseUnionBuilder<T extends DenseUnion, TNull = any> extends UnionBuilder<T, TNull> {
-    constructor(options: BuilderOptions<T, TNull>) {
+
+    protected _offsets: DataBufferBuilder<Int32Array>;
+
+    constructor(options: UnionBuilderOptions<T, TNull>) {
         super(options);
-        this.valueOffsets = new Int32Array(0);
+        this._offsets = new DataBufferBuilder(new Int32Array(0));
     }
+
     /** @ignore */
-    public writeValue(value: any, offset: number, childTypeId?: number) {
+    public setValue(index: number, value: T['TValue'], childTypeId?: number) {
         const childIndex = this._type.typeIdToChildIndex[childTypeId!];
-        this._getValueOffsets(offset)[offset] = this.getChildAt(childIndex)!.length;
-        return super.writeValue(value, offset, childTypeId);
-    }
-    /** @ignore */
-    protected _updateBytesUsed(offset: number, length: number) {
-        this._bytesUsed += 4;
-        return super._updateBytesUsed(offset, length);
+        this._offsets.set(index, this.getChildAt(childIndex)!.length);
+        return super.setValue(index, value, childTypeId);
     }
 }

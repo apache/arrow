@@ -101,15 +101,15 @@ export class Null extends DataType<Type.Null> {
 type Ints = Type.Int | Type.Int8 | Type.Int16 | Type.Int32 | Type.Int64 | Type.Uint8 | Type.Uint16 | Type.Uint32 | Type.Uint64;
 /** @ignore */
 type IType = {
-    [Type.Int   ]: { bitWidth: IntBitWidth; isSigned: true | false; TArray: IntArray;    TValue: number | Int32Array | Uint32Array; };
+    [Type.Int   ]: { bitWidth: IntBitWidth; isSigned: true | false; TArray: IntArray;    TValue: number | bigint | Int32Array | Uint32Array; };
     [Type.Int8  ]: { bitWidth:           8; isSigned: true;         TArray: Int8Array;   TValue: number; };
     [Type.Int16 ]: { bitWidth:          16; isSigned: true;         TArray: Int16Array;  TValue: number; };
     [Type.Int32 ]: { bitWidth:          32; isSigned: true;         TArray: Int32Array;  TValue: number; };
-    [Type.Int64 ]: { bitWidth:          64; isSigned: true;         TArray: Int32Array;  TValue: bigint; };
+    [Type.Int64 ]: { bitWidth:          64; isSigned: true;         TArray: Int32Array;  TValue: bigint | Int32Array | Uint32Array; };
     [Type.Uint8 ]: { bitWidth:           8; isSigned: false;        TArray: Uint8Array;  TValue: number; };
     [Type.Uint16]: { bitWidth:          16; isSigned: false;        TArray: Uint16Array; TValue: number; };
     [Type.Uint32]: { bitWidth:          32; isSigned: false;        TArray: Uint32Array; TValue: number; };
-    [Type.Uint64]: { bitWidth:          64; isSigned: false;        TArray: Uint32Array; TValue: bigint; };
+    [Type.Uint64]: { bitWidth:          64; isSigned: false;        TArray: Uint32Array; TValue: bigint | Int32Array | Uint32Array; };
 };
 
 interface Int_<T extends Ints = Ints> extends DataType<T> { TArray: IType[T]['TArray']; TValue: IType[T]['TValue']; }
@@ -195,7 +195,7 @@ Object.defineProperty(Float16.prototype, 'ArrayType', { value: Uint16Array });
 Object.defineProperty(Float32.prototype, 'ArrayType', { value: Float32Array });
 Object.defineProperty(Float64.prototype, 'ArrayType', { value: Float64Array });
 
-export interface Binary extends DataType<Type.Binary> { TArray: Uint8Array; TValue: Uint8Array; }
+export interface Binary extends DataType<Type.Binary> { TArray: Uint8Array; TValue: Uint8Array; ArrayType: TypedArrayConstructor<Uint8Array>; }
 export class Binary extends DataType<Type.Binary> {
     constructor() {
         super();
@@ -208,7 +208,7 @@ export class Binary extends DataType<Type.Binary> {
     })(Binary.prototype);
 }
 
-export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TValue: string; ArrayType: typeof Uint8Array; }
+export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; }
 export class Utf8 extends DataType<Type.Utf8> {
     constructor() {
         super();
@@ -221,7 +221,7 @@ export class Utf8 extends DataType<Type.Utf8> {
     })(Utf8.prototype);
 }
 
-export interface Bool extends DataType<Type.Bool> { TArray: Uint8Array; TValue: boolean; ArrayType: typeof Uint8Array; }
+export interface Bool extends DataType<Type.Bool> { TArray: Uint8Array; TValue: boolean; ArrayType: TypedArrayConstructor<Uint8Array>; }
 export class Bool extends DataType<Type.Bool> {
     constructor() {
         super();
@@ -234,7 +234,7 @@ export class Bool extends DataType<Type.Bool> {
     })(Bool.prototype);
 }
 
-export interface Decimal extends DataType<Type.Decimal> { TArray: Uint32Array; TValue: Uint32Array; ArrayType: typeof Uint32Array; }
+export interface Decimal extends DataType<Type.Decimal> { TArray: Uint32Array; TValue: Uint32Array; ArrayType: TypedArrayConstructor<Uint32Array>; }
 export class Decimal extends DataType<Type.Decimal> {
     constructor(public readonly scale: number,
                 public readonly precision: number) {
@@ -252,7 +252,7 @@ export class Decimal extends DataType<Type.Decimal> {
 
 /** @ignore */
 export type Dates = Type.Date | Type.DateDay | Type.DateMillisecond;
-export interface Date_<T extends Dates = Dates> extends DataType<T> { TArray: Int32Array; TValue: Date; ArrayType: typeof Int32Array; }
+export interface Date_<T extends Dates = Dates> extends DataType<T> { TArray: Int32Array; TValue: Date; ArrayType: TypedArrayConstructor<Int32Array>; }
 export class Date_<T extends Dates = Dates> extends DataType<T> {
     constructor(public readonly unit: DateUnit) {
         super();
@@ -280,7 +280,7 @@ type TimesType = {
     [Type.TimeNanosecond ]: { unit: TimeUnit.NANOSECOND;  TValue: Int32Array;         };
 };
 
-interface Time_<T extends Times = Times> extends DataType<T> { TArray: Int32Array; TValue: TimesType[T]['TValue']; ArrayType: typeof Int32Array; }
+interface Time_<T extends Times = Times> extends DataType<T> { TArray: Int32Array; TValue: TimesType[T]['TValue']; ArrayType: TypedArrayConstructor<Int32Array>; }
 class Time_<T extends Times = Times> extends DataType<T> {
     constructor(public readonly unit: TimesType[T]['unit'],
                 public readonly bitWidth: TimeBitWidth) {
@@ -305,7 +305,7 @@ export class TimeNanosecond extends Time_<Type.TimeNanosecond> { constructor() {
 
 /** @ignore */
 type Timestamps = Type.Timestamp | Type.TimestampSecond | Type.TimestampMillisecond | Type.TimestampMicrosecond | Type.TimestampNanosecond;
-interface Timestamp_<T extends Timestamps = Timestamps> extends DataType<T> { TArray: Int32Array; TValue: number; ArrayType: typeof Int32Array; }
+interface Timestamp_<T extends Timestamps = Timestamps> extends DataType<T> { TArray: Int32Array; TValue: number; ArrayType: TypedArrayConstructor<Int32Array>; }
 class Timestamp_<T extends Timestamps = Timestamps> extends DataType<T> {
     constructor(public readonly unit: TimeUnit,
                 public readonly timezone?: string | null) {
@@ -330,7 +330,7 @@ export class TimestampNanosecond extends Timestamp_<Type.TimestampNanosecond> { 
 
 /** @ignore */
 type Intervals = Type.Interval | Type.IntervalDayTime | Type.IntervalYearMonth;
-interface Interval_<T extends Intervals = Intervals> extends DataType<T> { TArray: Int32Array; TValue: Int32Array; ArrayType: typeof Int32Array; }
+interface Interval_<T extends Intervals = Intervals> extends DataType<T> { TArray: Int32Array; TValue: Int32Array; ArrayType: TypedArrayConstructor<Int32Array>; }
 class Interval_<T extends Intervals = Intervals> extends DataType<T> {
     constructor(public readonly unit: IntervalUnit) {
         super();
@@ -383,7 +383,7 @@ export class Struct<T extends { [key: string]: DataType } = any> extends DataTyp
 
 /** @ignore */
 type Unions = Type.Union | Type.DenseUnion | Type.SparseUnion;
-interface Union_<T extends Unions = Unions> extends DataType<T> { TArray: Int8Array; TValue: any; }
+interface Union_<T extends Unions = Unions> extends DataType<T> { TArray: Int8Array; TValue: any; ArrayType: TypedArrayConstructor<Int8Array>; }
 class Union_<T extends Unions = Unions> extends DataType<T> {
     public readonly mode: UnionMode;
     public readonly typeIds: Int32Array;
@@ -428,7 +428,7 @@ export class SparseUnion extends Union_<Type.SparseUnion> {
     }
 }
 
-export interface FixedSizeBinary extends DataType<Type.FixedSizeBinary> { TArray: Uint8Array; TValue: Uint8Array; ArrayType: typeof Uint8Array; }
+export interface FixedSizeBinary extends DataType<Type.FixedSizeBinary> { TArray: Uint8Array; TValue: Uint8Array; ArrayType: TypedArrayConstructor<Uint8Array>; }
 export class FixedSizeBinary extends DataType<Type.FixedSizeBinary> {
     constructor(public readonly byteWidth: number) {
         super();

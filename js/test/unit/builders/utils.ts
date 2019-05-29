@@ -103,7 +103,7 @@ export function encodeAll<T extends DataType>(typeFactory: () => T) {
     return async function encodeAll<TNull = any>(values: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
         const builder = Builder.new({ type, nullValues });
-        values.forEach(builder.write.bind(builder));
+        values.forEach(builder.append.bind(builder));
         return Vector.new(builder.finish().flush()) as Vector<T>;
     }
 }
@@ -111,8 +111,8 @@ export function encodeAll<T extends DataType>(typeFactory: () => T) {
 export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
     return async function encodeEach<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
-        const builder = Builder.new({ type, nullValues });
-        const chunks = [...builder.writeAll(vals, chunkLen)];
+        const opts = { type, nullValues, highWaterMark: chunkLen };
+        const chunks = [...Builder.throughIterable(opts)(vals)];
         return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
     }
 }
@@ -122,8 +122,8 @@ export function encodeEachDOM<T extends DataType>(typeFactory: () => T, chunkLen
         const type = typeFactory();
         const strategy = { highWaterMark: chunkLen };
         const source = AsyncIterable.from(vals).toDOMStream();
-        const transform = Builder.throughDOM({ type, nullValues, readableStrategy: strategy, writableStrategy: strategy });
-        const chunks = await AsyncIterable.fromDOMStream(source.pipeThrough(transform)).toArray();
+        const builder = Builder.throughDOM({ type, nullValues, readableStrategy: strategy, writableStrategy: strategy });
+        const chunks = await AsyncIterable.fromDOMStream(source.pipeThrough(builder)).toArray();
         return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
     }
 }
@@ -134,8 +134,8 @@ export function encodeEachNode<T extends DataType>(typeFactory: () => T, chunkLe
         const vals_ = vals.map((x) => x === null ? undefined : x);
         const source = AsyncIterable.from(vals_).toNodeStream({ objectMode: true });
         const nulls_ = nullValues ? nullValues.map((x) => x === null ? undefined : x) : nullValues;
-        const transform = Builder.throughNode({ type, nullValues: nulls_, highWaterMark: chunkLen });
-        const chunks: any[] = await AsyncIterable.fromNodeStream(source.pipe(transform), chunkLen).toArray();
+        const builder = Builder.throughNode({ type, nullValues: nulls_, highWaterMark: chunkLen });
+        const chunks: any[] = await AsyncIterable.fromNodeStream(source.pipe(builder), chunkLen).toArray();
         return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
     }
 }
@@ -164,8 +164,8 @@ export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[],
         }
     } catch (e) {
         // Uncomment these two lines to catch and debug the value retrieval that failed
-        // debugger;
-        // vec.get(i);
+        debugger;
+        vec.get(i);
         throw new Error([
             `${(vec as any).VectorName}[${i}]: ${e && e.stack || e}`,
             `nulls: [${nullVals.join(', ')}]`,

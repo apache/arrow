@@ -15,12 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Utf8 } from '../type';
-import { encodeUtf8 } from '../util/utf8';
-import { VariableWidthBuilder } from './base';
+import { Vector } from '../vector';
+import { DataType } from '../type';
 
-export class Utf8Builder<TNull = any> extends VariableWidthBuilder<Utf8, TNull> {
-    public setValue(index: number, value: string) {
-        return super.setValue(index, encodeUtf8(value));
+/** @ignore */
+export class Row<T extends DataType = any, TNull = any> {
+    // @ts-ignore
+    protected _values: ArrayLike<T['TValue'] | TNull>;
+    public get length() { return this._values.length; }
+    public get(index: number) { return this._values[index]; }
+    public clear() { this._values = <any> null; return this; }
+    public bind(values: Vector<T> | ArrayLike<T['TValue'] | TNull>) {
+        if (values instanceof Vector) {
+            return values;
+        }
+        this._values = values;
+        return this as any;
     }
 }

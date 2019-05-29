@@ -15,7 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Field } from '../schema';
 import { DataType, Map_ } from '../type';
-import { NestedBuilder } from './base';
+import { Builder, NestedBuilder } from './base';
 
-export class MapBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends NestedBuilder<Map_<T>, TNull> {}
+export class MapBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends NestedBuilder<Map_<T>, TNull> {
+    public addChild(child: Builder<T[keyof T]>, name = `${this.numChildren}`) {
+        const type = this._type;
+        const childIndex = this.children.push(child);
+        this._type = new Map_([...type.children, new Field(name, child.type)], type.keysSorted);
+        return childIndex;
+    }
+}

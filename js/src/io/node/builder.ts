@@ -47,9 +47,10 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
     constructor(builder: Builder<T, TNull>, options: BuilderDuplexOptions<T, TNull>) {
 
         const isDictionary = DataType.isDictionary(builder.type);
-        const { queueingStrategy = 'length', autoDestroy = true, highWaterMark = 100 } = options;
+        const { queueingStrategy = 'count', autoDestroy = true } = options;
+        const { highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
 
-        super({ autoDestroy, highWaterMark, allowHalfOpen: true, writableObjectMode: true, readableObjectMode: true });
+        super({ autoDestroy, highWaterMark: 1, allowHalfOpen: true, writableObjectMode: true, readableObjectMode: true });
 
         this._finished = false;
         this._builder = builder;
@@ -79,13 +80,13 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
     }
     _write(value: any, _: string, cb?: CB) {
         const builder = this._builder;
-        builder.write(value);
+        builder.append(value);
         const res = this._maybeFlush(builder, this._desiredSize);
         cb && cb();
         return res;
     }
     _destroy(err: Error | null, cb?: (error: Error | null) => void) {
-        this._builder.reset();
+        this._builder.clear();
         cb && cb(err);
     }
     private _maybeFlush(builder: Builder<T, TNull>, size: number) {
@@ -106,4 +107,4 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
 }
 
 /** @ignore */ const builderLength = <T extends DataType = any>(builder: Builder<T>) => builder.length;
-/** @ignore */ const builderByteLength = <T extends DataType = any>(builder: Builder<T>) => builder.bytesUsed;
+/** @ignore */ const builderByteLength = <T extends DataType = any>(builder: Builder<T>) => builder.byteLength;

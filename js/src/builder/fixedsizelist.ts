@@ -15,22 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Row } from './row';
+import { Field } from '../schema';
+import { Builder } from './base';
 import { DataType, FixedSizeList } from '../type';
-import { NestedBuilder } from './base';
 
-export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends NestedBuilder<FixedSizeList<T>, TNull> {
-    private row = new RowLike<T, TNull>();
-    public writeValue(value: any, offset: number) {
-        const row = this.row;
-        row.values = value;
-        super.writeValue(row as any, offset);
-        row.values = null;
+export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends Builder<FixedSizeList<T>, TNull> {
+    protected _row = new Row<T, TNull>();
+    public setValue(index: number, value: T['TValue']) {
+        super.setValue(index, this._row.bind(value));
     }
-}
-
-class RowLike<T extends DataType = any, TNull = any> {
-    public values: null | ArrayLike<T['TValue'] | TNull> = null;
-    get(index: number) {
-        return this.values ? this.values[index] : null;
+    public addChild(child: Builder<T>, name = '0') {
+        if (this.numChildren > 0) {
+            throw new Error('FixedSizeListBuilder can only have one child.');
+        }
+        const childIndex = this.children.push(child);
+        this._type = new FixedSizeList(this._type.listSize, new Field(name, child.type));
+        return childIndex;
+    }
+    public clear() {
+        this._row.clear();
+        return super.clear();
     }
 }

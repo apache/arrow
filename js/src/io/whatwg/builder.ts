@@ -34,7 +34,7 @@ export function builderThroughDOMStream<T extends DataType = any, TNull = any>(o
 }
 
 /** @ignore */
-class BuilderTransform<T extends DataType = any, TNull = any> {
+export class BuilderTransform<T extends DataType = any, TNull = any> {
 
     public readable: ReadableStream<Data<T>>;
     public writable: WritableStream<T['TValue'] | TNull>;
@@ -64,7 +64,7 @@ class BuilderTransform<T extends DataType = any, TNull = any> {
         const { ['highWaterMark']: writableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...writableStrategy };
 
         this['readable'] = new ReadableStream<Data<T>>({
-            ['cancel']: ()  => { this._builder.reset(); },
+            ['cancel']: ()  => { this._builder.clear(); },
             ['pull']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
             ['start']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
         }, {
@@ -73,7 +73,7 @@ class BuilderTransform<T extends DataType = any, TNull = any> {
         });
 
         this['writable'] = new WritableStream({
-            ['abort']: () => { this._builder.reset(); },
+            ['abort']: () => { this._builder.clear(); },
             ['write']: () => { this._maybeFlush(this._builder, this._controller); },
             ['close']: () => { this._maybeFlush(this._builder.finish(), this._controller); },
         }, {
@@ -99,7 +99,7 @@ class BuilderTransform<T extends DataType = any, TNull = any> {
     }
 
     private _writeValueAndReturnChunkSize(x: T['TValue'] | TNull) {
-        const builder = this._builder.write(x);
+        const builder = this._builder.append(x);
         const bufferedSize = this._bufferedSize;
         this._bufferedSize = this._getSize(builder);
         return this._bufferedSize - bufferedSize;
@@ -130,4 +130,4 @@ class BuilderTransform<T extends DataType = any, TNull = any> {
 /** @ignore */ const dataLength = <T extends DataType = any>(data: Data<T>) => data.length;
 /** @ignore */ const dataByteLength = <T extends DataType = any>(data: Data<T>) => data.byteLength;
 /** @ignore */ const builderLength = <T extends DataType = any>(builder: Builder<T>) => builder.length;
-/** @ignore */ const builderByteLength = <T extends DataType = any>(builder: Builder<T>) => builder.bytesUsed;
+/** @ignore */ const builderByteLength = <T extends DataType = any>(builder: Builder<T>) => builder.byteLength;

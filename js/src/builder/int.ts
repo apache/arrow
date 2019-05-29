@@ -16,24 +16,17 @@
 // under the License.
 
 import { bignumToBigInt } from '../util/bn';
-import { BigInt64Array } from '../util/compat';
-import { FlatBuilder, BuilderOptions } from './base';
-import { Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64 } from '../type';
+import { WideBufferBuilder } from './buffer';
+import { FixedWidthBuilder, BuilderOptions } from './base';
+import { BigInt64ArrayAvailable, BigInt64Array } from '../util/compat';
+import { BigUint64ArrayAvailable, BigUint64Array } from '../util/compat';
+import { Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64 } from '../type';
 
-export interface IntBuilder<T extends Int = Int, TNull = any> extends FlatBuilder<T, TNull> {
-    nullBitmap: Uint8Array; values: T['TArray'];
+export class IntBuilder<T extends Int = Int, TNull = any> extends FixedWidthBuilder<T, TNull> {
+    public setValue(index: number, value: T['TValue']) {
+        this._values.set(index, value);
+    }
 }
-
-export interface Int8Builder<TNull = any> extends IntBuilder<Int8, TNull> {}
-export interface Int16Builder<TNull = any> extends IntBuilder<Int16, TNull> {}
-export interface Int32Builder<TNull = any> extends IntBuilder<Int32, TNull> {}
-export interface Int64Builder<TNull = any> extends IntBuilder<Int64, TNull> {}
-export interface Uint8Builder<TNull = any> extends IntBuilder<Uint8, TNull> {}
-export interface Uint16Builder<TNull = any> extends IntBuilder<Uint16, TNull> {}
-export interface Uint32Builder<TNull = any> extends IntBuilder<Uint32, TNull> {}
-export interface Uint64Builder<TNull = any> extends IntBuilder<Uint64, TNull> {}
-
-export class IntBuilder<T extends Int = Int, TNull = any> extends FlatBuilder<T, TNull> {}
 
 export class Int8Builder<TNull = any> extends IntBuilder<Int8, TNull> {}
 export class Int16Builder<TNull = any> extends IntBuilder<Int16, TNull> {}
@@ -41,13 +34,15 @@ export class Int32Builder<TNull = any> extends IntBuilder<Int32, TNull> {}
 export class Int64Builder<TNull = any> extends IntBuilder<Int64, TNull> {
     constructor(options: BuilderOptions<Int64, TNull>) {
         if (options['nullValues']) {
-            options['nullValues'] = (options['nullValues'] as TNull[]).map(toMaybeBigInt);
+            options['nullValues'] = (options['nullValues'] as TNull[]).map(toBigInt);
         }
         super(options);
+        if (BigInt64ArrayAvailable) {
+            this._values = <any> new WideBufferBuilder(new BigInt64Array(0), 2);
+        }
     }
-    isValid(value: Int32Array | bigint | TNull) {
-        return this._isValid(toMaybeBigInt(value));
-    }
+    public get values64() { return (this._values as any).buffer64 as BigInt64Array; }
+    public isValid(value: Int32Array | bigint | TNull) { return super.isValid(toBigInt(value)); }
 }
 
 export class Uint8Builder<TNull = any> extends IntBuilder<Uint8, TNull> {}
@@ -56,16 +51,18 @@ export class Uint32Builder<TNull = any> extends IntBuilder<Uint32, TNull> {}
 export class Uint64Builder<TNull = any> extends IntBuilder<Uint64, TNull> {
     constructor(options: BuilderOptions<Uint64, TNull>) {
         if (options['nullValues']) {
-            options['nullValues'] = (options['nullValues'] as TNull[]).map(toMaybeBigInt);
+            options['nullValues'] = (options['nullValues'] as TNull[]).map(toBigInt);
         }
         super(options);
+        if (BigUint64ArrayAvailable) {
+            this._values = <any> new WideBufferBuilder(new BigUint64Array(0), 2);
+        }
     }
-    isValid(value: Uint32Array | bigint | TNull) {
-        return this._isValid(toMaybeBigInt(value));
-    }
+    public get values64() { return (this._values as any).buffer64 as BigUint64Array; }
+    public isValid(value: Uint32Array | bigint | TNull) { return super.isValid(toBigInt(value)); }
 }
 
-const toMaybeBigInt = ((memo: any) => (value: any) => {
+const toBigInt = ((memo: any) => (value: any) => {
     if (ArrayBuffer.isView(value)) {
         memo.buffer = value.buffer;
         memo.byteOffset = value.byteOffset;

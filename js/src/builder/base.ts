@@ -15,188 +15,174 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { setBool } from '../util/bit';
-import { memcpy } from '../util/buffer';
 import { Data, Buffers } from '../data';
-import { valueToString } from '../util/pretty';
-import { BigIntAvailable } from '../util/compat';
-import { TypedArray, TypedArrayConstructor } from '../interfaces';
-import {
-    DataType, strideForType,
-    Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
-    Float, Int, Date_, Interval, Time, Timestamp, Union, DenseUnion, SparseUnion,
-} from '../type';
+import { createIsValidFunction } from './valid';
+import { VectorType as BufferType } from '../enum';
+import { BufferBuilder, BitmaskBuilder, DataBufferBuilder, BinaryBufferBuilder, OffsetsBufferBuilder } from './buffer';
+import { DataType, strideForType, Float, Int, Decimal, Date_, Time, Timestamp, Interval, FixedSizeBinary, Struct, Map_, Union, Utf8, Binary } from '../type';
 
 export interface BuilderOptions<T extends DataType = any, TNull = any> {
     type: T;
-    nullValues?: TNull[] | ReadonlyArray<TNull>;
+    nullValues?: TNull[] | ReadonlyArray<TNull> | null;
+    children?: { [key: string]: BuilderOptions; } | BuilderOptions[];
 }
 
-export class Builder<T extends DataType = any, TNull = any> {
+/** @ignore */
+export interface IterableBuilderOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {
+    highWaterMark?: number;
+    queueingStrategy?: 'bytes' | 'count';
+    dictionaryHashFunction?: (value: any) => string | number;
+    valueToChildTypeId?: (builder: Builder<T, TNull>, value: any, offset: number) => number;
+}
+
+export abstract class Builder<T extends DataType = any, TNull = any> {
 
     /** @nocollapse */
-    public static throughNode<T extends DataType = any, TNull = any>(
-        // @ts-ignore
-        options: import('../io/node/builder').BuilderDuplexOptions<T, TNull>
-    ): import('stream').Duplex {
+    // @ts-ignore
+    public static throughNode<T extends DataType = any, TNull = any>(options: import('../io/node/builder').BuilderDuplexOptions<T, TNull>): import('stream').Duplex {
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */
-    public static throughDOM<T extends DataType = any, TNull = any>(
-        // @ts-ignore
-        options: import('../io/whatwg/builder').BuilderTransformOptions<T, TNull>
-    ): { writable: WritableStream<T['TValue'] | TNull>, readable: ReadableStream<Data<T>> } {
+    // @ts-ignore
+    public static throughDOM<T extends DataType = any, TNull = any>(options: import('../io/whatwg/builder').BuilderTransformOptions<T, TNull>): import('../io/whatwg/builder').BuilderTransform<T, TNull> {
         throw new Error(`"throughDOM" not available in this environment`);
     }
 
-    public length = 0;
-    public nullCount = 0;
-    public numChildren = 0;
+    /** @nocollapse */
+    public static throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) { return throughIterable(options); }
+    /** @nocollapse */
+    public static throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) { return throughAsyncIterable(options); }
 
-    public readonly offset = 0;
+    constructor({ 'type': type, 'nullValues': nulls }: BuilderOptions<T, TNull>) {
+        this._type = type;
+        this.children = [];
+        this.stride = strideForType(type);
+        this._nulls = new BitmaskBuilder();
+        if (nulls && nulls.length > 0) {
+            this._isValid = createIsValidFunction(nulls);
+        }
+    }
+
     public readonly stride: number;
     public readonly children: Builder[];
-    public readonly nullValues: ReadonlyArray<TNull>;
 
-    // @ts-ignore
-    public valueOffsets: Int32Array;
-    // @ts-ignore
-    public values: T['TArray'];
-    // @ts-ignore
-    public nullBitmap: Uint8Array;
-    // @ts-ignore
-    public typeIds: Int8Array;
+    public get length() { return this._nulls.length; }
+    public get ArrayType() { return this._type.ArrayType; }
+    public get nullCount() { return this._nulls.numInvalid; }
+    public get numChildren() { return this.children.length; }
 
-    constructor(options: BuilderOptions<T, TNull>) {
-        const type = options['type'];
-        const nullValues = options['nullValues'];
-        this.stride = strideForType(this._type = type);
-        this.children = (type.children || []).map((f) => Builder.new({ type: f.type }));
-        this.numChildren = this.children.length;
-        this.nullValues = Object.freeze(nullValues || []) as ReadonlyArray<TNull>;
-        this.nullBitmap = new Uint8Array(0);
-        if (options['nullValues'] !== undefined) {
-            this._isValid = compileIsValid<T, TNull>(this.nullValues);
-            this.children.forEach((child: any /* <-- any so we can assign to `nullValues` */) => {
-                child._isValid = this._isValid;
-                child.nullValues = this.nullValues;
-            });
-        }
+    public get byteLength(): number {
+        let size = 0;
+        this._nulls && (size += this._nulls.byteLength);
+        this._offsets && (size += this._offsets.byteLength);
+        this._values && (size += this._values.byteLength);
+        this._typeIds && (size += this._typeIds.byteLength);
+        return this.children.reduce((size, child) => size + child.byteLength, size);
+    }
+
+    public get reservedLength(): number {
+        let size = 0;
+        this._nulls && (size += this._nulls.reservedLength);
+        this._offsets && (size += this._offsets.reservedLength);
+        this._values && (size += this._values.reservedLength);
+        this._typeIds && (size += this._typeIds.reservedLength);
+        return this.children.reduce((size, child) => size + child.reservedLength, size);
+    }
+
+    public get reservedByteLength(): number {
+        let size = 0;
+        this._nulls && (size += this._nulls.reservedByteLength);
+        this._offsets && (size += this._offsets.reservedByteLength);
+        this._values && (size += this._values.reservedByteLength);
+        this._typeIds && (size += this._typeIds.reservedByteLength);
+        return this.children.reduce((size, child) => size + child.reservedByteLength, size);
     }
 
     protected _type: T;
     public get type() { return this._type; }
 
-    protected _finished: boolean = false;
+    protected _finished = false;
     public get finished() { return this._finished; }
 
-    protected _bytesUsed = 0;
-    public get bytesUsed() { return this._bytesUsed; }
+    // @ts-ignore
+    protected _offsets: DataBufferBuilder<Int32Array>;
+    public get valueOffsets() { return this._offsets.buffer; }
 
-    protected _bytesReserved = 0;
-    public get bytesReserved() { return this._bytesReserved; }
+    // @ts-ignore
+    protected _values: BufferBuilder<T['TArray'], any>;
+    public get values() { return this._values.buffer; }
+
+    protected _nulls: BitmaskBuilder;
+    public get nullBitmap() { return this._nulls.buffer; }
+
+    // @ts-ignore
+    protected _typeIds: DataBufferBuilder<Int8Array>;
+    public get typeIds() { return this._typeIds.buffer; }
 
     // @ts-ignore
     protected _isValid: (value: T['TValue'] | TNull) => boolean;
     // @ts-ignore
     protected _setValue: (inst: Builder<T>, index: number, value: T['TValue']) => void;
 
-    public get ArrayType() { return this._type.ArrayType; }
-
-    public *writeAll(source: Iterable<any>, chunkLength = Infinity) {
-        for (const value of source) {
-            if (this.write(value).length >= chunkLength) {
-                yield this.flush();
-            }
-        }
-        if (this.finish().length > 0) yield this.flush();
-    }
-
-    public async *writeAllAsync(source: Iterable<any> | AsyncIterable<any>, chunkLength = Infinity) {
-        for await (const value of source) {
-            if (this.write(value).length >= chunkLength) {
-                yield this.flush();
-            }
-        }
-        if (this.finish().length > 0) yield this.flush();
-    }
+    public append(value: T['TValue'] | TNull) { return this.set(this.length, value); }
 
     /**
      * Validates whether a value is valid (true), or null (false)
      * @param value The value to compare against null the value representations
      */
-    public isValid(value: T['TValue'] | TNull): boolean {
-        return this._isValid(value);
-    }
+    // @ts-ignore
+    public isValid(value: T['TValue'] | TNull): boolean { return this._isValid(value); }
 
-    /** @ignore */
-    public set(offset: number, value: T['TValue'] | TNull): void {
-        if (this.writeValid(this.isValid(value), offset)) {
-            this.writeValue(value, offset);
+    public set(index: number, value: T['TValue'] | TNull) {
+        if (this.setValid(index, this.isValid(value))) {
+            this.setValue(index, value);
         }
-        const length = offset + 1;
-        this.length = length;
-        this._updateBytesUsed(offset, length);
+        return this;
     }
-
-    public write(value: T['TValue'] | TNull) {
-        const offset = this.length;
-        if (this.writeValid(this.isValid(value), offset)) {
-            this.writeValue(value, offset);
-        }
-        const length = offset + 1;
-        this.length = length;
-        return this._updateBytesUsed(offset, length);
-    }
-
-    /** @ignore */
-    public writeValue(value: T['TValue'], offset: number): void {
-        this._setValue(this, offset, value);
-    }
-
-    /** @ignore */
-    public writeValid(isValid: boolean, offset: number): boolean {
-        isValid || ++this.nullCount;
-        setBool(this._getNullBitmap(offset), offset, isValid);
-        return isValid;
+    // @ts-ignore
+    public setValue(index: number, value: T['TValue']) { this._setValue(this, index, value); }
+    public setValid(index: number, valid: boolean) {
+        const bit = +valid as 0 | 1;
+        this._nulls.set(index, bit);
+        return valid;
     }
 
     // @ts-ignore
-    protected _updateBytesUsed(offset: number, length: number) {
-        offset % 8 || ++this._bytesUsed;
-        return this;
+    public addChild(child: Builder, name = `${this.numChildren}`) {
+        throw new Error(`Cannot append children to non-nested type "${this._type}"`);
+    }
+
+    public getChildAt<R extends DataType = any>(index: number): Builder<R> | null {
+        return this.children[index];
     }
 
     public flush() {
 
+        const buffers: any = [];
+        const values =  this._values;
+        const offsets =  this._offsets;
+        const typeIds =  this._typeIds;
         const { length, nullCount } = this;
-        let { valueOffsets, values, nullBitmap, typeIds } = this;
 
-        // Unions
-        if (typeIds) {
-            typeIds = sliceOrExtendArray(typeIds, roundLengthToMultipleOf64Bytes(length, 1));
-            valueOffsets && (valueOffsets = sliceOrExtendArray(valueOffsets, roundLengthToMultipleOf64Bytes(length, 4)));
-        }
-        // Variable-width primitives (Binary, Utf8) and Lists
-        else if (valueOffsets) {
-            valueOffsets = sliceOrExtendArray(valueOffsets, roundLengthToMultipleOf64Bytes(length + 1, 4));
+        if (typeIds) { /* Unions */
+            buffers[BufferType.TYPE] = typeIds.flush(length);
+            // DenseUnions
+            offsets && (buffers[BufferType.OFFSET] = offsets.flush(length));
+        } else if (offsets) { /* Variable-width primitives (Binary, Utf8) and Lists */
             // Binary, Utf8
-            values && (values = sliceOrExtendArray(values, roundLengthToMultipleOf64Bytes(valueOffsets[length], values.BYTES_PER_ELEMENT)));
-        }
-        // Fixed-width primitives (Int, Float, Decimal, Time, etc.)
-        else if (values) {
-            values = sliceOrExtendArray(values, roundLengthToMultipleOf64Bytes(length * this.stride, values.BYTES_PER_ELEMENT));
+            values && (buffers[BufferType.DATA] = values.flush(offsets.last()));
+            buffers[BufferType.OFFSET] = offsets.flush(length);
+        } else if (values) { /* Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval) */
+            buffers[BufferType.DATA] = values.flush(length);
         }
 
-        nullBitmap && (nullBitmap = nullCount === 0 ? new Uint8Array(0)
-            : sliceOrExtendArray(nullBitmap, roundLengthToMultipleOf64Bytes(length >> 3, 1) || 64));
+        nullCount > 0 && (buffers[BufferType.VALIDITY] = this._nulls.flush(length));
 
         const data = Data.new<T>(
-            this._type, 0, length, nullCount, [
-            valueOffsets, values, nullBitmap, typeIds] as Buffers<T>,
+            this._type, 0, length, nullCount, buffers as Buffers<T>,
             this.children.map((child) => child.flush())) as Data<T>;
 
-        this.reset();
+        this.clear();
 
         return data;
     }
@@ -207,193 +193,100 @@ export class Builder<T extends DataType = any, TNull = any> {
         return this;
     }
 
-    public reset() {
-        this.length = 0;
-        this.nullCount = 0;
-        this._bytesUsed = 0;
-        this._bytesReserved = 0;
-        this.children.forEach((child) => child.reset());
-        this.values && (this.values = this.values.slice(0, 0));
-        this.typeIds && (this.typeIds = this.typeIds.slice(0, 0));
-        this.nullBitmap && (this.nullBitmap = this.nullBitmap.slice(0, 0));
-        this.valueOffsets && (this.valueOffsets = this.valueOffsets.slice(0, 0));
+    public clear() {
+        this._nulls && (this._nulls.clear());
+        this._values && (this._values.clear());
+        this._offsets && (this._offsets.clear());
+        this._typeIds && (this._typeIds.clear());
+        this.children.forEach((child) => child.clear());
         return this;
     }
+}
 
-    protected _getNullBitmap(length: number) {
-        let buf = this.nullBitmap;
-        if ((length >> 3) >= buf.length) {
-            length = roundLengthToMultipleOf64Bytes(length, 1) || 32;
-            this.nullBitmap = buf = memcpy(new Uint8Array(length * 2), buf);
-        }
-        return buf;
+(Builder.prototype as any)._isValid = () => true;
+
+export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
+    constructor(opts: BuilderOptions<T, TNull>) {
+        super(opts);
+        const stride = strideForType(this._type);
+        this._values = new DataBufferBuilder(new this.ArrayType(0), stride);
     }
-    protected _getValueOffsets(length: number) {
-        let buf = this.valueOffsets;
-        if (length >= buf.length - 1) {
-            length = roundLengthToMultipleOf64Bytes(length, 4) || 8;
-            this.valueOffsets = buf = memcpy(new Int32Array(length * 2), buf);
-        }
-        return buf;
-    }
-    protected _getValues(length: number) {
-        let { stride, values: buf } = this;
-        if ((length * stride) >= buf.length) {
-            let { ArrayType } = this, BPE = ArrayType.BYTES_PER_ELEMENT;
-            length = roundLengthToMultipleOf64Bytes(length, BPE) || (32 / BPE);
-            this.values = buf = memcpy(new ArrayType(length * stride * 2), buf);
-        }
-        return buf;
-    }
-    protected _getValuesBitmap(length: number) {
-        let buf = this.values;
-        if ((length >> 3) >= buf.length) {
-            length = roundLengthToMultipleOf64Bytes(length, 1) || 32;
-            this.values = buf = memcpy(new Uint8Array(length * 2), buf);
-        }
-        return buf;
-    }
-    protected _getTypeIds(length: number) {
-        let buf = this.typeIds;
-        if (length >= buf.length) {
-            length = roundLengthToMultipleOf64Bytes(length, 1) || 32;
-            this.typeIds = buf = memcpy(new Int8Array(length * 2), buf);
-        }
-        return buf;
+    public setValue(index: number, value: T['TValue']) {
+        const values = this._values;
+        values.reserve(index - values.length + 1);
+        return super.setValue(index, value);
     }
 }
 
-(Builder.prototype as any)._isValid = compileIsValid<any, any>([null, undefined]);
-
-export abstract class FlatBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
-    public readonly BYTES_PER_ELEMENT: number;
-    constructor(options: BuilderOptions<T, TNull>) {
-        super(options);
-        this.values = new this.ArrayType(0);
-        this.BYTES_PER_ELEMENT = this.stride * this.ArrayType.BYTES_PER_ELEMENT;
+export abstract class VariableWidthBuilder<T extends Binary | Utf8, TNull = any> extends Builder<T, TNull> {
+    protected _offsets: OffsetsBufferBuilder;
+    protected _buffers: Map<number, Uint8Array> | undefined;
+    constructor(opts: BuilderOptions<T, TNull>) {
+        super(opts);
+        this._offsets = new OffsetsBufferBuilder();
+        this._values = new BinaryBufferBuilder() as BufferBuilder<T['TArray']>;
     }
-    public get bytesReserved() {
-        return this.values.byteLength + this.nullBitmap.byteLength;
+    public setValue(index: number, value: Uint8Array | string) {
+        (this._offsets.set(index, value.length));
+        (this._buffers || (this._buffers = new Map())).set(index, value);
     }
-    public writeValue(value: T['TValue'], offset: number) {
-        this._getValues(offset);
-        return super.writeValue(value, offset);
-    }
-    public _updateBytesUsed(offset: number, length: number) {
-        this._bytesUsed += this.BYTES_PER_ELEMENT;
-        return super._updateBytesUsed(offset, length);
-    }
-}
-
-export abstract class FlatListBuilder<T extends Utf8 | Binary = any, TNull = any> extends Builder<T, TNull> {
-    protected _values?: Map<number, Uint8Array>;
-    constructor(options: BuilderOptions<T, TNull>) {
-        super(options);
-        this.valueOffsets = new Int32Array(0);
-    }
-    public get bytesReserved() {
-        return this.valueOffsets.byteLength + this.nullBitmap.byteLength +
-            roundLengthToMultipleOf64Bytes(this.valueOffsets[this.length], 1);
-    }
-    public writeValid(isValid: boolean, offset: number) {
-        if (!super.writeValid(isValid, offset)) {
-            const length = this.length;
-            const valueOffsets = this._getValueOffsets(offset);
-            (offset - length === 0)
-                ? (valueOffsets[offset + 1] = valueOffsets[offset])
-                : (valueOffsets.fill(valueOffsets[length], length, offset + 2));
+    public setValid(index: number, isValid: boolean) {
+        if (!super.setValid(index, isValid)) {
+            this._offsets.append(0);
+            return false;
         }
-        return isValid;
+        return true;
     }
-    public writeValue(value: Uint8Array | string, offset: number) {
-        const length = this.length;
-        const valueOffsets = this._getValueOffsets(offset);
-        if (length < offset) {
-            valueOffsets.fill(valueOffsets[length], length, offset + 1);
-        }
-        valueOffsets[offset + 1] = valueOffsets[offset] + value.length;
-        (this._values || (this._values = new Map())).set(offset, value);
-        this._bytesUsed += value.length;
-        this._bytesReserved += value.length;
-    }
-    protected _updateBytesUsed(offset: number, length: number) {
-        this._bytesUsed += 4;
-        return super._updateBytesUsed(offset, length);
+    public clear() {
+        this._buffers = undefined;
+        return super.clear();
     }
     public flush() {
-        this.values = new Uint8Array(roundLengthToMultipleOf64Bytes(this.valueOffsets[this.length], 1));
-        this._values && ((xs) => {
-            for (let [i, x] of xs) {
-                super.writeValue(x, i);
-            }
-        })(this._values);
-        this._values = undefined;
+        const buffers = this._buffers;
+        if (buffers && buffers.size > 0) {
+            this._values.reserve(this._offsets.last());
+            for (let [i, x] of buffers) { super.setValue(i, x); }
+        }
         return super.flush();
     }
 }
 
-export abstract class NestedBuilder<T extends List | FixedSizeList | Map_ | Struct | Union | DenseUnion | SparseUnion, TNull = any> extends Builder<T, TNull> {
-    public get bytesUsed() {
-        return this.children.reduce((acc, { bytesUsed }) => acc + bytesUsed, this._bytesUsed);
-    }
-    public get bytesReserved() {
-        return this.children.reduce((acc, { bytesReserved }) => acc + bytesReserved, this.nullBitmap.byteLength);
-    }
-    public getChildAt<R extends DataType = any>(index: number): Builder<R> | null {
-        return this.children[index];
+export abstract class NestedBuilder<T extends Struct | Map_ | Union = any, TNull = any> extends Builder<T, TNull> {
+    constructor(options: BuilderOptions<T, TNull>) {
+        super(options);
     }
 }
 
-/** @ignore */
-function roundLengthToMultipleOf64Bytes(len: number, BYTES_PER_ELEMENT: number) {
-    return ((((len * BYTES_PER_ELEMENT) + 63) & ~63)) / BYTES_PER_ELEMENT;
+type ThroughIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull>) => IterableIterator<Data<T>>;
+
+function throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>): ThroughIterable<T, TNull> {
+    const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
+    const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
+    const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
+    return function*(source: Iterable<T['TValue'] | TNull>) {
+        const builder = Builder.new(options);
+        for (const value of source) {
+            if (builder.append(value)[sizeProperty] >= highWaterMark) {
+                yield builder.flush();
+            }
+        }
+        if (builder.finish().length > 0) yield builder.flush();
+    }
 }
 
-/** @ignore */
-function sliceOrExtendArray<T extends TypedArray>(array: T, alignedLength = 0) {
-    return array.length >= alignedLength ? array.subarray(0, alignedLength) as T
-        : memcpy(new (array.constructor as TypedArrayConstructor<T>)(alignedLength), array, 0) as T;
-}
+type ThroughAsyncIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) => AsyncIterableIterator<Data<T>>;
 
-/** @ignore */
-function valueToCase(x: any) {
-    if (typeof x !== 'bigint') {
-        return valueToString(x);
-    } else if (BigIntAvailable) {
-        return `${valueToString(x)}n`;
+function throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>): ThroughAsyncIterable<T, TNull> {
+    const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
+    const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
+    const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
+    return async function* (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) {
+        const builder = Builder.new(options);
+        for await (const value of source) {
+            if (builder.append(value)[sizeProperty] >= highWaterMark) {
+                yield builder.flush();
+            }
+        }
+        if (builder.finish().length > 0) yield builder.flush();
     }
-    return `"${valueToString(x)}"`;
-}
-
-/**
- * Dynamically compile the null values into an `isValid()` function whose
- * implementation is a switch statement. Microbenchmarks in v8 indicate
- * this approach is 25% faster than using an ES6 Map.
- * @ignore
- * @param nullValues 
- */
-function compileIsValid<T extends DataType = any, TNull = any>(nullValues?: ReadonlyArray<TNull>) {
-
-    if (!nullValues || nullValues.length <= 0) {
-        return function isValid(_value: any) { return true; };
-    }
-
-    let fnBody = '';
-    let noNaNs = nullValues.filter((x) => x === x);
-
-    if (noNaNs.length > 0) {
-        fnBody = `
-    switch (x) {${noNaNs.map((x) => `
-        case ${valueToCase(x)}:`).join('')}
-            return false;
-    }`;
-    }
-
-    // NaN doesn't equal anything including itself, so it doesn't work as a
-    // switch case. Instead we must explicitly check for NaN before the switch.
-    if (nullValues.length !== noNaNs.length) {
-        fnBody = `if (x !== x) return false;\n${fnBody}`;
-    }
-
-    return new Function(`x`, `${fnBody}\nreturn true;`) as (value: T['TValue'] | TNull) => boolean;
 }

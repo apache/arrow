@@ -15,12 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FlatBuilder } from './base';
 import { FixedSizeBinary } from '../type';
+import { FixedWidthBuilder } from './base';
 
-export interface FixedSizeBinaryBuilder<TNull = any> extends FlatBuilder<FixedSizeBinary, TNull> {
-    values: Uint8Array;
-    nullBitmap: Uint8Array;
-}
-
-export class FixedSizeBinaryBuilder<TNull = any> extends FlatBuilder<FixedSizeBinary, TNull> {}
+export class FixedSizeBinaryBuilder<TNull = any> extends FixedWidthBuilder<FixedSizeBinary, TNull> {}

@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
 import { Vector } from '../vector';
 import { IntBuilder } from './int';
 import { Dictionary, DataType } from '../type';
@@ -29,96 +28,55 @@ export interface DictionaryBuilderOptions<T extends DataType = any, TNull = any>
 
 export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builder<T, TNull> {
 
-    protected _hash: DictionaryHashFunction;
     protected _codes = Object.create(null);
     public readonly indices: IntBuilder<T['indices']>;
     public readonly dictionary: Builder<T['dictionary']>;
 
-    constructor(options: DictionaryBuilderOptions<T, TNull>) {
-        super(options);
-        const { type, nullValues } = options;
-        this._hash = options.dictionaryHashFunction || defaultHashFunction;
-        this.indices = Builder.new({ type: type.indices, nullValues }) as IntBuilder<T['indices']>;
-        this.dictionary = Builder.new({ type: type.dictionary, nullValues: [] }) as Builder<T['dictionary']>;
+    constructor({ 'type': type, 'nullValues': nulls, 'dictionaryHashFunction': hashFn }: DictionaryBuilderOptions<T, TNull>) {
+        super({ type });
+        this._nulls = <any> null;
+        this.indices = Builder.new({ 'type': this._type.indices, 'nullValues': nulls }) as IntBuilder<T['indices']>;
+        this.dictionary = Builder.new({ 'type': this._type.dictionary, 'nullValues': null }) as Builder<T['dictionary']>;
+        if (typeof hashFn === 'function') {
+            this.valueToKey = hashFn;
+        }
     }
-    public get values() { return this.indices && this.indices.values; }
-    public get nullBitmap() { return this.indices && this.indices.nullBitmap; }
-    public set values(values: T['TArray']) { this.indices && (this.indices.values = values); }
-    public set nullBitmap(nullBitmap: Uint8Array) { this.indices && (this.indices.nullBitmap = nullBitmap); }
-    public get bytesUsed() {
-        return this.indices.bytesUsed;
-    }
-    public get bytesReserved() {
-        return this.indices.bytesReserved;
-    }
-    public setHashFunction(hash: DictionaryHashFunction) {
-        this._hash = hash;
-        return this;
-    }
-    public reset() {
-        this.length = 0;
-        this.indices.reset();
-        return this;
+
+    public get length() { return this.indices.length; }
+    public get values() { return this.indices.values; }
+    public get nullCount() { return this.indices.nullCount; }
+    public get nullBitmap() { return this.indices.nullBitmap; }
+    public get byteLength() { return this.indices.byteLength; }
+    public get reservedLength() { return this.indices.reservedLength; }
+    public get reservedByteLength() { return this.indices.reservedByteLength; }
+    public isValid(value: T['TValue'] | TNull) { return this.indices.isValid(value); }
+    public setValid(index: number, valid: boolean) { return this.indices.setValid(index, valid); }
+    public setValue(index: number, value: T['TValue']) {
+        let keysToCodesMap = this._codes;
+        let key = this.valueToKey(value);
+        let idx = keysToCodesMap[key];
+        if (idx === undefined) {
+            keysToCodesMap[key] = idx = this.dictionary.append(value).length - 1;
+        }
+        return this.indices.setValue(index, idx);
     }
     public flush() {
-        const indices = this.indices;
-        const data = indices.flush().clone(this.type);
-        this.length = indices.length;
-        return data;
+        return this.indices.flush().clone(this._type);
     }
     public finish() {
-        this.type.dictionaryVector = Vector.new(this.dictionary.finish().flush());
+        this._type.dictionaryVector = Vector.new(this.dictionary.finish().flush());
         return super.finish();
     }
-    /** @ignore */
-    public set(offset: number, value: T['TValue'] | TNull): void {
-        super.set(offset, value);
-        this.indices.length = this.length;
+    public clear() {
+        this.indices.clear();
+        return super.clear();
     }
-    public write(value: any) {
-        this.indices.length = super.write(value).length;
-        return this;
-    }
-    public writeValid(isValid: boolean, index: number) {
-        return this.indices.writeValid(isValid, index);
-    }
-    // @ts-ignore
-    protected _updateBytesUsed(offset: number, length: number) {
-        const indices = this.indices;
-        indices.length = length;
-        indices._updateBytesUsed(offset, length);
-        return this;
-    }
-    public writeValue(value: T['TValue'], index: number) {
-        let code: number | void;
-        let codes = this._codes;
-        let key = this._hash(value);
-        if ((code = codes[key]) === undefined) {
-            codes[key] = code = this.dictionary.write(value).length - 1;
+    public valueToKey(val: any) {
+        typeof val === 'string' || (val = `${val}`);
+        let h = 6, y = 9 * 9, i = val.length;
+        while (i > 0) {
+            h = Math.imul(h ^ val.charCodeAt(--i), y);
         }
-        return this.indices.writeValue(code, index);
+        return (h ^ h >>> 9) as any;
     }
-    public *writeAll(source: Iterable<any>, chunkLength = Infinity) {
-        const chunks = [] as Data<T>[];
-        for (const chunk of super.writeAll(source, chunkLength)) {
-            chunks.push(chunk);
-        }
-        yield* chunks;
-    }
-    public async *writeAllAsync(source: Iterable<any> | AsyncIterable<any>, chunkLength = Infinity) {
-        const chunks = [] as Data<T>[];
-        for await (const chunk of super.writeAllAsync(source, chunkLength)) {
-            chunks.push(chunk);
-        }
-        yield* chunks;
-    }
-}
-
-function defaultHashFunction(val: any) {
-    typeof val === 'string' || (val = `${val}`);
-    let h = 6, y = 9 * 9, i = val.length;
-    while (i > 0) {
-        h = Math.imul(h ^ val.charCodeAt(--i), y);
-    }
-    return (h ^ h >>> 9) as any;
 }

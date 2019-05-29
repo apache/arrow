@@ -20,7 +20,6 @@ import { Visitor } from '../visitor';
 import { Vector } from '../interfaces';
 import { encodeUtf8 } from '../util/utf8';
 import { toArrayBufferView } from '../util/buffer';
-import { isArrowBigNumSymbol } from '../util/bn';
 import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum';
 import {
     DataType, Dictionary,
@@ -133,20 +132,14 @@ const setNumeric         = <T extends Numeric1X>      ({ stride, values }: Vecto
 const setFloat16         = <T extends Float16>        ({ stride, values }: Vector<T>, index: number, value: T['TValue']): void => { values[stride * index] = (value * 32767) + 32767; };
 /** @ignore */
 const setNumericX2       = <T extends Numeric2X>      (vector: Vector<T>, index: number, value: T['TValue']): void => {
-    if (typeof value === 'bigint') {
-        vector.values64[index] = value;
-    } else if ((value as any)[isArrowBigNumSymbol]) {
-        vector.values.set((value as any), vector.stride * index);
-    } else {
-        let loHiPair: T['TArray'];
-        const stride = vector.stride;
-        const ArrayType = vector.ArrayType;
-        if (<any> value instanceof ArrayType) {
-            loHiPair = <any> value;
-        } else {
-            loHiPair = toArrayBufferView<T['TArray']>(ArrayType, value);
-        }
-        vector.values.set(loHiPair.subarray(0, stride), stride * index);
+    switch (typeof value) {
+        case 'bigint': vector.values64[index] = value; break;
+        case 'number': vector.values[index * vector.stride] = value; break;
+        default:
+            const val = value as T['TArray'];
+            const { stride, ArrayType } = vector;
+            const long = toArrayBufferView<T['TArray']>(ArrayType, val);
+            vector.values.set(long.subarray(0, stride), stride * index);
     }
 };
 /** @ignore */
@@ -226,9 +219,9 @@ const setDecimal = <T extends Decimal>({ values }: Vector<T>, index: number, val
 /** @ignore */
 const setList = <T extends List>(vector: Vector<T>, index: number, value: T['TValue']): void => {
     const values = vector.getChildAt(0)!;
-    const { valueOffsets, stride } = vector;
-    let idx = -1, offset = valueOffsets[index * stride];
-    let end = Math.min(offset + value.length, valueOffsets[(index * stride) + 1]);
+    const { valueOffsets } = vector;
+    let idx = -1, offset = valueOffsets[index];
+    let end = Math.min(offset + value.length, valueOffsets[index + 1]);
     while (offset < end) {
         values.set(offset++, value.get(++idx));
     }

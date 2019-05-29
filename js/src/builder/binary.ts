@@ -16,16 +16,11 @@
 // under the License.
 
 import { Binary } from '../type';
-import { FlatListBuilder } from './base';
+import { toUint8Array } from '../util/buffer';
+import { VariableWidthBuilder } from './base';
 
-export interface BinaryBuilder<TNull = any> extends FlatListBuilder<Binary, TNull> {
-    nullBitmap: Uint8Array;
-    valueOffsets: Int32Array;
-    values: Uint8Array;
-}
-
-export class BinaryBuilder<TNull = any> extends FlatListBuilder<Binary, TNull> {
-    public writeValue(value: Uint8Array, index = this.length) {
-        return super.writeValue(value, index);
+export class BinaryBuilder<TNull = any> extends VariableWidthBuilder<Binary, TNull> {
+    public setValue(index: number, value: Uint8Array) {
+        return super.setValue(index, toUint8Array(value));
     }
 }
