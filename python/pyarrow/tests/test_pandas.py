@@ -32,7 +32,6 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 import pytz
-import six
 
 from pyarrow.pandas_compat import get_logical_type
 import pyarrow as pa
