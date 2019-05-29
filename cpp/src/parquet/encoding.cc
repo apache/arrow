@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "arrow/util/bit-stream-utils.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
@@ -39,8 +38,6 @@
 namespace parquet {
 
 constexpr int64_t kInMemoryDefaultCapacity = 1024;
-
-namespace BitUtil = ::arrow::BitUtil;
 
 class EncoderImpl : virtual public Encoder {
  public:

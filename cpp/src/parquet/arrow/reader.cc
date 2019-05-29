@@ -33,7 +33,6 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread-pool.h"
@@ -80,7 +79,6 @@ using parquet::internal::RecordReader;
 namespace parquet {
 namespace arrow {
 
-using ::arrow::BitUtil::BytesForBits;
 using ::arrow::BitUtil::FromBigEndian;
 using ::arrow::internal::SafeLeftShift;
 
@@ -1118,7 +1116,7 @@ struct TransferFunctor<::arrow::BooleanType, BooleanType> {
     int64_t length = reader->values_written();
     std::shared_ptr<Buffer> data;
 
-    const int64_t buffer_size = BytesForBits(length);
+    const int64_t buffer_size = BitUtil::BytesForBits(length);
     RETURN_NOT_OK(::arrow::AllocateBuffer(pool, buffer_size, &data));
 
     // Transfer boolean values to packed bitmap
@@ -1134,7 +1132,7 @@ struct TransferFunctor<::arrow::BooleanType, BooleanType> {
 
     if (reader->nullable_values()) {
       std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
-      RETURN_NOT_OK(is_valid->Resize(BytesForBits(length), false));
+      RETURN_NOT_OK(is_valid->Resize(BitUtil::BytesForBits(length), false));
       *out = std::make_shared<BooleanArray>(type, length, data, is_valid,
                                             reader->null_count());
     } else {

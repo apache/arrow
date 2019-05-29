@@ -29,7 +29,6 @@
 #include "arrow/compute/api.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/visitor_inline.h"
 
@@ -71,8 +70,6 @@ using parquet::schema::GroupNode;
 
 namespace parquet {
 namespace arrow {
-
-namespace BitUtil = ::arrow::BitUtil;
 
 std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
   static std::shared_ptr<ArrowWriterProperties> default_writer_properties =
@@ -1133,8 +1130,8 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
 }
 
 Status WriteFileMetaData(const FileMetaData& file_metadata,
-                         const std::shared_ptr<::arrow::io::OutputStream>& sink) {
-  PARQUET_CATCH_NOT_OK(::parquet::WriteFileMetaData(file_metadata, sink.get()));
+                         ::arrow::io::OutputStream* sink) {
+  PARQUET_CATCH_NOT_OK(::parquet::WriteFileMetaData(file_metadata, sink));
   return Status::OK();
 }
 

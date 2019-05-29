@@ -24,7 +24,6 @@
 
 #include "arrow/buffer.h"
 #include "arrow/util/bit-stream-utils.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
@@ -38,8 +37,6 @@
 using arrow::MemoryPool;
 
 namespace parquet {
-
-namespace BitUtil = ::arrow::BitUtil;
 
 LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
 
@@ -155,7 +152,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // We try to deserialize a larger buffer progressively
     // until a maximum allowed header limit
     while (true) {
-      auto buffer = stream_->Peek(allowed_page_size);
+      string_view buffer;
+      PARQUET_THROW_NOT_OK(stream_->Peek(allowed_page_size, &buffer));
       if (buffer.size() == 0) {
         return std::shared_ptr<Page>(nullptr);
       }

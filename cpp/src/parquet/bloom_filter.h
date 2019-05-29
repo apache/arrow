@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "parquet/hasher.h"
 #include "parquet/platform.h"

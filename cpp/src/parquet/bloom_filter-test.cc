@@ -27,6 +27,7 @@
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
 
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
@@ -196,7 +197,7 @@ TEST(CompatibilityTest, TestBloomFilter) {
 
   // Serialize Bloom filter to memory output stream
   auto sink = CreateOutputStream();
-  bloom_filter2.WriteTo(&sink.get());
+  bloom_filter2.WriteTo(sink.get());
   std::shared_ptr<Buffer> buffer1;
   PARQUET_THROW_NOT_OK(sink->Finish(&buffer1));
 

@@ -22,8 +22,6 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/util/bit-util.h"
-
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -146,7 +144,7 @@ class TypedDecoder : virtual public Decoder {
     // we need to add the spacing from the back.
     int values_to_move = values_read;
     for (int i = num_values - 1; i >= 0; i--) {
-      if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
+      if (BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
         buffer[i] = buffer[--values_to_move];
       }
     }

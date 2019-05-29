@@ -24,7 +24,6 @@
 
 #include "arrow/status.h"
 #include "arrow/util/bit-stream-utils.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
@@ -38,8 +37,6 @@
 #include "parquet/types.h"
 
 namespace parquet {
-
-namespace BitUtil = ::arrow::BitUtil;
 
 using ::arrow::internal::checked_cast;
 

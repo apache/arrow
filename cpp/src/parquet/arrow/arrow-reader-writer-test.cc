@@ -552,9 +552,9 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_OK_NO_THROW(writer.Close());
   }
 
-  void ResetStream() { sink_ = CreateOutputStream(); }
+  void ResetSink() { sink_ = CreateOutputStream(); }
 
-  std::shared_ptr<ArrowOutputStream> sink_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
 };
 
 // We have separate tests for UInt32Type as this is currently the only type
@@ -595,7 +595,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
   ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
 
-  ResetSink();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
                                 values->length(), default_writer_properties()));
 
@@ -751,7 +751,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWrite) {
   ASSERT_OK(NonNullArray<TypeParam>(LARGE_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
 
-  ResetSink();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, default_memory_pool(), this->sink_, 512,
                                 default_writer_properties()));
 
@@ -763,7 +763,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
   ASSERT_OK(NonNullArray<TypeParam>(LARGE_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
 
-  ResetSink();
+  this->ResetSink();
   auto buffer = AllocateBuffer();
 
   {
@@ -822,7 +822,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableOptionalChunkedWrite) {
 
   ASSERT_OK(NullableArray<TypeParam>(LARGE_SIZE, 100, kDefaultSeed, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
-  ResetSink();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_, 512,
                                 default_writer_properties()));
 
@@ -833,7 +833,7 @@ TYPED_TEST(TestParquetIO, FileMetaDataWrite) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
-  ResetSink();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
                                 values->length(), default_writer_properties()));
 
@@ -843,7 +843,7 @@ TYPED_TEST(TestParquetIO, FileMetaDataWrite) {
   ASSERT_EQ(1, metadata->num_columns());
   ASSERT_EQ(100, metadata->num_rows());
 
-  ResetSink();
+  this->ResetSink();
 
   ASSERT_OK_NO_THROW(::parquet::arrow::WriteFileMetaData(*metadata, this->sink_.get()));
 
@@ -892,7 +892,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
 
   // We cannot write this column with Arrow, so we have to use the plain parquet-cpp API
   // to write an Int96 file.
-  ResetSink();
+  this->ResetSink();
   auto writer = ParquetFileWriter::Open(this->sink_, schema);
   RowGroupWriter* rg_writer = writer->AppendRowGroup();
   ColumnWriter* c_writer = rg_writer->NextColumn();
@@ -921,7 +921,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compability) {
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
 
   // Parquet 2.0 roundtrip should yield an uint32_t column again
-  ResetSink();
+  this->ResetSink();
   std::shared_ptr<::parquet::WriterProperties> properties =
       ::parquet::WriterProperties::Builder()
           .version(ParquetVersion::PARQUET_2_0)
@@ -943,7 +943,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
 
   // Parquet 1.0 returns an int64_t column as there is no way to tell a Parquet 1.0
   // reader that a column is unsigned.
-  ResetSink();
+  this->ResetSink();
   std::shared_ptr<::parquet::WriterProperties> properties =
       ::parquet::WriterProperties::Builder()
           .version(ParquetVersion::PARQUET_1_0)
@@ -999,7 +999,7 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   }
   ASSERT_OK(builder.Finish(&values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
-  ResetSink();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
                                 values->length(), default_writer_properties()));
 
@@ -1022,7 +1022,7 @@ TEST_F(TestNullParquetIO, NullColumn) {
   for (int32_t num_rows : {0, SMALL_SIZE}) {
     std::shared_ptr<Array> values = std::make_shared<::arrow::NullArray>(num_rows);
     std::shared_ptr<Table> table = MakeSimpleTable(values, true /* nullable */);
-    ResetSink();
+    this->ResetSink();
 
     const int64_t chunk_size = std::max(static_cast<int64_t>(1), table->num_rows());
     ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
@@ -1052,7 +1052,7 @@ TEST_F(TestNullParquetIO, NullListColumn) {
                                              default_memory_pool(), &list_array));
 
     std::shared_ptr<Table> table = MakeSimpleTable(list_array, false /* nullable */);
-    ResetSink();
+    this->ResetSink();
 
     const int64_t chunk_size = std::max(static_cast<int64_t>(1), table->num_rows());
     ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
@@ -1081,7 +1081,7 @@ TEST_F(TestNullParquetIO, NullDictionaryColumn) {
   std::shared_ptr<Array> dict_values =
       std::make_shared<::arrow::DictionaryArray>(dict_type, indices, dict);
   std::shared_ptr<Table> table = MakeSimpleTable(dict_values, true);
-  ResetSink();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
                                 dict_values->length(), default_writer_properties()));
 
@@ -2203,7 +2203,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
     std::shared_ptr<::arrow::Int32Array> expected_;
   };
 
-  std::shared_ptr<ArrowOutputStream> nested_parquet_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> nested_parquet_;
   std::unique_ptr<FileReader> reader_;
   std::unique_ptr<ParquetFileWriter> writer_;
   RowGroupWriter* row_group_writer_;

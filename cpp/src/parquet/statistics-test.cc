@@ -24,6 +24,8 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/testing/gtest_util.h"
+
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -670,7 +672,7 @@ class TestStatisticsSortOrder : public ::testing::Test {
   std::vector<uint8_t> values_buf_;
   std::vector<schema::NodePtr> fields_;
   std::shared_ptr<schema::GroupNode> schema_;
-  std::shared_ptr<ArrowOutputStream> parquet_sink_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> parquet_sink_;
   std::vector<EncodedStatistics> stats_;
 };
 
