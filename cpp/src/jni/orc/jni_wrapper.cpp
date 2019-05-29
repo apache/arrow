@@ -22,14 +22,14 @@
 #include <arrow/ipc/api.h>
 #include <arrow/util/logging.h>
 #include <cassert>
-#include <string>
 #include <iostream>
+#include <string>
 
 #include "org_apache_arrow_adapter_orc_OrcMemoryJniWrapper.h"
 #include "org_apache_arrow_adapter_orc_OrcReaderJniWrapper.h"
 #include "org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper.h"
 
-#include "concurrent_map.h"
+#include "./concurrent_map.h"
 
 using ORCFileReader = arrow::adapters::orc::ORCFileReader;
 using RecordBatchReader = arrow::RecordBatchReader;
@@ -89,9 +89,10 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 
   record_batch_class =
       CreateGlobalClassReference(env, "Lorg/apache/arrow/adapter/orc/OrcRecordBatch;");
-  record_batch_constructor = GetMethodID(env, record_batch_class, "<init>",
-                                "(I[Lorg/apache/arrow/adapter/orc/OrcFieldNode;"
-                                "[Lorg/apache/arrow/adapter/orc/OrcMemoryJniWrapper;)V");
+  record_batch_constructor =
+      GetMethodID(env, record_batch_class, "<init>",
+                  "(I[Lorg/apache/arrow/adapter/orc/OrcFieldNode;"
+                  "[Lorg/apache/arrow/adapter/orc/OrcMemoryJniWrapper;)V");
 
   env->ExceptionDescribe();
 
@@ -157,8 +158,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_op
       env->ThrowNew(io_exception_class, std::string("Failed open file" + path).c_str());
     }
 
-    return orc_reader_holder_.Insert(
-        std::shared_ptr<ORCFileReader>(reader.release()));
+    return orc_reader_holder_.Insert(std::shared_ptr<ORCFileReader>(reader.release()));
   }
 
   return static_cast<jlong>(ret.code()) * -1;

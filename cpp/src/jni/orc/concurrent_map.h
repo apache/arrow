@@ -19,62 +19,63 @@
 #define JNI_ID_TO_MODULE_MAP_H
 
 #include <memory>
+#include <unordered_map>
 #include <utility>
 
 namespace arrow {
 
 template <typename HOLDER>
 class concurrentMap {
-public:
-    concurrentMap() : module_id_(kInitModuleId) {}
+ public:
+  concurrentMap() : module_id_(kInitModuleId) {}
 
-    jlong Insert(HOLDER holder) {
-        mtx_.lock();
-        jlong result = module_id_++;
-        map_.insert(std::pair<jlong, HOLDER>(result, holder));
-        mtx_.unlock();
-        return result;
+  jlong Insert(HOLDER holder) {
+    mtx_.lock();
+    jlong result = module_id_++;
+    map_.insert(std::pair<jlong, HOLDER>(result, holder));
+    mtx_.unlock();
+    return result;
+  }
+
+  void Erase(jlong module_id) {
+    mtx_.lock();
+    map_.erase(module_id);
+    mtx_.unlock();
+  }
+
+  HOLDER Lookup(jlong module_id) {
+    HOLDER result = nullptr;
+    try {
+      result = map_.at(module_id);
+    } catch (const std::out_of_range& e) {
     }
-
-    void Erase(jlong module_id) {
-        mtx_.lock();
-        map_.erase(module_id);
-        mtx_.unlock();
+    if (result != nullptr) {
+      return result;
     }
-
-    HOLDER Lookup(jlong module_id) {
-        HOLDER result = nullptr;
-        try {
-            result = map_.at(module_id);
-        } catch (const std::out_of_range &e) {
-        }
-        if (result != nullptr) {
-            return result;
-        }
-        mtx_.lock();
-        try {
-            result = map_.at(module_id);
-        } catch (const std::out_of_range &e) {
-        }
-        mtx_.unlock();
-        return result;
+    mtx_.lock();
+    try {
+      result = map_.at(module_id);
+    } catch (const std::out_of_range& e) {
     }
+    mtx_.unlock();
+    return result;
+  }
 
-    void Clear() {
-      mtx_.lock();
-      map_.clear();
-      mtx_.unlock();
-    }
+  void Clear() {
+    mtx_.lock();
+    map_.clear();
+    mtx_.unlock();
+  }
 
-private:
-    static const int kInitModuleId = 4;
+ private:
+  static const int kInitModuleId = 4;
 
-    long module_id_;
-    std::mutex mtx_;
-    // map from module ids returned to Java and module pointers
-    std::unordered_map<jlong, HOLDER> map_;
+  int64_t module_id_;
+  std::mutex mtx_;
+  // map from module ids returned to Java and module pointers
+  std::unordered_map<jlong, HOLDER> map_;
 };
 
-}  // namespace gandiva
+}  // namespace arrow
 
 #endif  // JNI_ID_TO_MODULE_MAP_H
