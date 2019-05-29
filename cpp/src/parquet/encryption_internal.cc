@@ -239,8 +239,7 @@ int AesEncryptor::AesEncryptorImpl::CtrEncrypt(const uint8_t* plaintext,
   // Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial
   // counter field.
   // The first 31 bits of the initial counter field are set to 0, the last bit
-  // is set
-  // to 1.
+  // is set to 1.
   uint8_t iv[kCtrIvLength];
   memset(iv, 0, kCtrIvLength);
   std::copy(nonce, nonce + kNonceLength, iv);
@@ -600,8 +599,7 @@ std::string CreateFooterAad(const std::string& aad_prefix_bytes) {
 }
 
 // Update last two bytes with new page ordinal (instead of creating new page AAD
-// from
-// scratch)
+// from scratch)
 void QuickUpdatePageAad(const std::string& AAD, int16_t new_page_ordinal) {
   std::string page_ordinal_bytes = ShortToBytesLe(new_page_ordinal);
   int length = static_cast<int>(AAD.size());

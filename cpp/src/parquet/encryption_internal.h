@@ -43,7 +43,7 @@ constexpr int8_t kDictionaryPageHeader = 5;
 constexpr int8_t kColumnIndex = 6;
 constexpr int8_t kOffsetIndex = 7;
 
-/// Do AES_GCM_CTR_V1 or AES_GCM_V1 encryption
+/// Performs AES encryption operations with GCM or CTR ciphers.
 class AesEncryptor {
  public:
   static AesEncryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
@@ -51,14 +51,15 @@ class AesEncryptor {
 
   ~AesEncryptor();
 
-  /// Size different between plaintext and ciphertext, for this cipher.
+  /// Size difference between plaintext and ciphertext, for this cipher.
   int CiphertextSizeDelta();
 
-  /// Key length is passed only for validation. If different from value in
-  /// constructor, exception will be thrown.
+  /// Encrypts plaintext with the key and aad. Key length is passed only for validation.
+  /// If different from value in constructor, exception will be thrown.
   int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
               uint8_t* aad, int aad_len, uint8_t* ciphertext);
 
+  /// Encrypts plaintext footer, in order to compute the signature (tag).
   int SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key,
                           int key_len, uint8_t* aad, int aad_len, uint8_t* nonce,
                           uint8_t* encrypted_footer);
@@ -73,7 +74,7 @@ class AesEncryptor {
   std::unique_ptr<AesEncryptorImpl> impl_;
 };
 
-/// Do AES_GCM_CTR_V1 or AES_GCM_V1 decryption
+/// Performs AES decryption operations with GCM or CTR ciphers.
 class AesDecryptor {
  public:
   static AesDecryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
@@ -82,11 +83,11 @@ class AesDecryptor {
   ~AesDecryptor();
   void WipeOut();
 
-  /// Size different between plaintext and ciphertext, for this cipher.
+  /// Size difference between plaintext and ciphertext, for this cipher.
   int CiphertextSizeDelta();
 
-  /// Key length is passed only for validation. If different from value in
-  /// constructor, exception will be thrown.
+  /// Decrypts ciphertext with the key and aad. Key length is passed only for
+  /// validation. If different from value in constructor, exception will be thrown.
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
               uint8_t* aad, int aad_len, uint8_t* plaintext);
 
