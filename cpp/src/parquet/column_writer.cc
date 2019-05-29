@@ -139,19 +139,6 @@ class SerializedPageWriter : public PageWriter {
     thrift_serializer_.reset(new ThriftSerializer);
   }
 
-  int64_t WritePageGeneric(const format::PageHeader& header, int64_t uncompressed_size,
-                           const Buffer& body) {
-    int64_t start_pos = -1;
-    PARQUET_THROW_NOT_OK(sink_->Tell(&start_pos));
-    int64_t header_size = thrift_serializer_->Serialize(&header, sink_.get());
-    PARQUET_THROW_NOT_OK(sink_->Write(body.data(), body.size()));
-
-    total_uncompressed_size_ += uncompressed_size + header_size;
-    total_compressed_size_ += body.size() + header_size;
-
-    return start_pos;
-  }
-
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
     int64_t uncompressed_size = page.size();
     std::shared_ptr<Buffer> compressed_data = nullptr;
@@ -174,15 +161,22 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
     page_header.__set_dictionary_page_header(dict_page_header);
+    // TODO(PARQUET-594) crc checksum
 
-    int64_t start_pos =
-        WritePageGeneric(page_header, uncompressed_size, *compressed_data);
+    int64_t start_pos = -1;
+    PARQUET_THROW_NOT_OK(sink_->Tell(&start_pos));
     if (dictionary_page_offset_ == 0) {
       dictionary_page_offset_ = start_pos;
     }
-    int64_t current_pos = -1;
-    PARQUET_THROW_NOT_OK(sink_->Tell(&current_pos));
-    return current_pos - start_pos;
+    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get());
+    PARQUET_THROW_NOT_OK(sink_->Write(compressed_data->data(), compressed_data->size()));
+
+    total_uncompressed_size_ += uncompressed_size + header_size;
+    total_compressed_size_ += compressed_data->size() + header_size;
+
+    int64_t final_pos = -1;
+    PARQUET_THROW_NOT_OK(sink_->Tell(&final_pos));
+    return final_pos - start_pos;
   }
 
   void Close(bool has_dictionary, bool fallback) override {
@@ -234,12 +228,21 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
     page_header.__set_data_page_header(data_page_header);
+    // TODO(PARQUET-594) crc checksum
 
-    int64_t start_pos =
-        WritePageGeneric(page_header, uncompressed_size, *compressed_data);
+    int64_t start_pos = -1;
+    PARQUET_THROW_NOT_OK(sink_->Tell(&start_pos));
     if (data_page_offset_ == 0) {
       data_page_offset_ = start_pos;
     }
+
+    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get());
+    PARQUET_THROW_NOT_OK(sink_->Write(compressed_data->data(), compressed_data->size()));
+
+    total_uncompressed_size_ += uncompressed_size + header_size;
+    total_compressed_size_ += compressed_data->size() + header_size;
+    num_values_ += page.num_values();
+
     int64_t current_pos = -1;
     PARQUET_THROW_NOT_OK(sink_->Tell(&current_pos));
     return current_pos - start_pos;
