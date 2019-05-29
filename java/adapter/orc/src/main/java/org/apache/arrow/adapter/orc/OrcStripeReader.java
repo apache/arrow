@@ -88,8 +88,11 @@ public class OrcStripeReader extends ArrowReader {
 
   @Override
   protected void closeReadSource() throws IOException {
-    OrcStripeReaderJniWrapper.close(id);
-    schemaReader.close();
+    try {
+      OrcStripeReaderJniWrapper.close(id);
+    } finally {
+      schemaReader.close();
+    }
   }
 
   @Override
