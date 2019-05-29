@@ -76,6 +76,10 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
     return this;
   }
 
+  public ArrowBuf arrowBuf() {
+    return arrowBuf;
+  }
+
   @Override
   public ByteBuf retain(final int increment) {
     arrowBuf.getReferenceManager().retain(increment);

@@ -1204,4 +1204,45 @@ public final class ArrowBuf implements AutoCloseable {
               "Realloc is only available in the context of operator's UDFs");
     }
   }
+
+  /**
+   * Following are wrapper methods to keep this backward compatible.
+   */
+  public void release() {
+    referenceManager.release();
+  }
+
+  public void release(int decrement) {
+    referenceManager.release(decrement);
+  }
+
+  public void retain() {
+    referenceManager.retain();
+  }
+
+  public void retain(int increment) {
+    referenceManager.retain(increment);
+  }
+
+  public ArrowBuf clear() {
+    this.readerIndex = this.writerIndex = 0;
+    return this;
+  }
+
+  /**
+   * Initialize the reader and writer index.
+   * @param readerIndex index to read from
+   * @param writerIndex index to write to
+   * @return this
+   */
+  public ArrowBuf setIndex(int readerIndex, int writerIndex) {
+    if (readerIndex >= 0 && readerIndex <= writerIndex && writerIndex <= this.capacity()) {
+      this.readerIndex = readerIndex;
+      this.writerIndex = writerIndex;
+      return this;
+    } else {
+      throw new IndexOutOfBoundsException(String.format("readerIndex: %d, writerIndex: %d " +
+              "(expected: 0 <= readerIndex <= writerIndex <= capacity(%d))", readerIndex, writerIndex, this.capacity()));
+    }
+  }
 }
