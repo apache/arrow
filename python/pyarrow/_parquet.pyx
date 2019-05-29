@@ -1003,8 +1003,8 @@ cdef class ParquetWriter:
         object version
         int row_group_size
 
-    def __cinit__(self, where, Schema schema,
-                  use_dictionary=None, compression=None, version=None,
+    def __cinit__(self, where, Schema schema, use_dictionary=None,
+                  compression=None, version=None,
                   MemoryPool memory_pool=None,
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
@@ -1013,7 +1013,6 @@ cdef class ParquetWriter:
             shared_ptr[WriterProperties] properties
             c_string c_where
             CMemoryPool* pool
-            shared_ptr[CFileMetaData] c_metadata
 
         try:
             where = _stringify_path(where)

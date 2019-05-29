@@ -20,8 +20,6 @@
 #include <string>
 #include <utility>
 
-#include <iostream>
-
 #include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
@@ -417,7 +415,7 @@ class FileMetaData::FileMetaDataImpl {
 
   void WriteMetaDataFile(OutputStream* sink) {
 
-    // FIXME: copied from reader-internal.cc
+    // FIXME: Should be in single header
     static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
 
     sink->Write(PARQUET_MAGIC, 4);
