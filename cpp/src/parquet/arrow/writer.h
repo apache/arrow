@@ -46,7 +46,6 @@ class OutputStream;
 namespace parquet {
 
 class FileMetaData;
-class OutputStream;
 class ParquetFileWriter;
 
 namespace arrow {

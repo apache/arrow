@@ -47,9 +47,9 @@
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
+#include "parquet/schema-internal.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/schema-util.h"
 
 using arrow::Array;
 using arrow::BooleanArray;
@@ -399,7 +399,7 @@ Status FileReader::Impl::GetReaderForNode(
     std::unique_ptr<ColumnReader::ColumnReaderImpl>* out) {
   *out = nullptr;
 
-  if (IsSimpleStruct(node)) {
+  if (schema::IsSimpleStruct(node)) {
     const schema::GroupNode* group = static_cast<const schema::GroupNode*>(node);
     std::vector<std::shared_ptr<ColumnReader::ColumnReaderImpl>> children;
     for (int i = 0; i < group->field_count(); i++) {
@@ -425,7 +425,7 @@ Status FileReader::Impl::GetReaderForNode(
     const Node* walker = node;
     while (!walker->is_primitive()) {
       DCHECK(walker->is_group());
-      auto group = static_cast<const GroupNode*>(walker);
+      auto group = static_cast<const schema::GroupNode*>(walker);
       if (group->field_count() != 1) {
         return Status::NotImplemented("lists with structs are not supported.");
       }
@@ -433,7 +433,7 @@ Status FileReader::Impl::GetReaderForNode(
     }
     auto column_index = reader_->metadata()->schema()->ColumnIndex(*walker);
 
-    // If the index of the column is found then a reader for the coliumn is needed.
+    // If the index of the column is found then a reader for the column is needed.
     // Otherwise *out keeps the nullptr value.
     if (std::find(indices.begin(), indices.end(), column_index) != indices.end()) {
       std::unique_ptr<ColumnReader> reader;
@@ -555,8 +555,8 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
   // We only need to read schema fields which have columns indicated
   // in the indices vector
   std::vector<int> field_indices;
-  if (!ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
-                                   &field_indices)) {
+  if (!schema::ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
+                                           &field_indices)) {
     return Status::Invalid("Invalid column index");
   }
   int num_fields = static_cast<int>(field_indices.size());
@@ -612,8 +612,8 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
   // We only need to read schema fields which have columns indicated
   // in the indices vector
   std::vector<int> field_indices;
-  if (!ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
-                                   &field_indices)) {
+  if (!schema::ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
+                                           &field_indices)) {
     return Status::Invalid("Invalid column index");
   }
 

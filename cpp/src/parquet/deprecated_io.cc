@@ -40,7 +40,10 @@ ParquetInputWrapper::ParquetInputWrapper(RandomAccessSource* source)
 
 ParquetInputWrapper::~ParquetInputWrapper() {
   if (!closed_) {
-    source_->Close();
+    try {
+      source_->Close();
+    } catch (...) {
+    }
     closed_ = true;
   }
 }
@@ -101,7 +104,10 @@ ParquetOutputWrapper::ParquetOutputWrapper(::parquet::OutputStream* sink)
 
 ParquetOutputWrapper::~ParquetOutputWrapper() {
   if (!closed_) {
-    sink_->Close();
+    try {
+      sink_->Close();
+    } catch (...) {
+    }
     closed_ = true;
   }
 }
