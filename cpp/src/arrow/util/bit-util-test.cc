@@ -414,7 +414,7 @@ class TestVisitBits : public ::testing::Test {
     // Assign random values into the source array.
     random_bytes(kBitmapSizeInBytes, 0, bitmap.begin());
     return bitmap;
-  };
+  }
 
   static UnpackedBitmapType generate_unpacked_bitmap(PackedBitmapType bitmap) {
     // Use a BitmapReader (tested earlier) to populate the expected
@@ -426,7 +426,7 @@ class TestVisitBits : public ::testing::Test {
       reader.Next();
     }
     return result;
-  };
+  }
 
   // A pre-defined packed bitmap for use in test cases.
   const PackedBitmapType packed_bitmap_;
@@ -439,7 +439,7 @@ class TestVisitBits : public ::testing::Test {
   // unpacked bitmap.
   TestVisitBits()
       : packed_bitmap_(generate_packed_bitmap()),
-        expected_unpacked_bitmap_(generate_unpacked_bitmap(packed_bitmap_)){};
+        expected_unpacked_bitmap_(generate_unpacked_bitmap(packed_bitmap_)) {}
 };
 
 using VisitBitsTestTypes = ::testing::Types<VisitBitsFunctor, VisitBitsUnrolledFunctor>;
