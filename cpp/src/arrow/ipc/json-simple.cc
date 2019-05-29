@@ -478,7 +478,7 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
       if (json_pair.IsNull()) {
         return Status::Invalid("key value pairs may not be null");
       }
-      if (json_pair.IsNull() || json_pair.Size() != 2) {
+      if (json_pair.Size() != 2) {
         return Status::Invalid("key value pair must have exactly two elements, had ",
                                json_pair.Size());
       }

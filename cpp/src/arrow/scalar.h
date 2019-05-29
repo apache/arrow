@@ -181,7 +181,7 @@ struct ARROW_EXPORT ListScalar : public Scalar {
 
 struct ARROW_EXPORT MapScalar : public Scalar {
   std::shared_ptr<Array> keys;
-  std::shared_ptr<Array> values;
+  std::shared_ptr<Array> items;
 
   MapScalar(const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& values,
             const std::shared_ptr<DataType>& type, bool is_valid = true);
