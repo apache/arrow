@@ -23,7 +23,6 @@
 #include <iostream>   // IWYU pragma: keep
 #include <limits>
 #include <memory>
-#include <sstream>  // IWYU pragma: keep
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep

@@ -21,6 +21,11 @@ import org.apache.arrow.flight.impl.Flight;
 
 import com.google.protobuf.ByteString;
 
+/**
+ * An opaque object that can be used to filter a list of streams available from a server.
+ *
+ * <p>This is a POJO wrapper around the protobuf Criteria message.
+ */
 public class Criteria {
 
   public static Criteria ALL = new Criteria((byte[]) null);

@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Memory;
 using System;
+using System.Buffers;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -38,7 +40,8 @@ namespace Apache.Arrow.Ipc
 
         private ArrowFooter _footer;
 
-        public ArrowFileReaderImplementation(Stream stream, bool leaveOpen) : base(stream, leaveOpen)
+        public ArrowFileReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen)
+            : base(stream, allocator, leaveOpen)
         {
         }
 
@@ -62,7 +65,7 @@ namespace Apache.Arrow.Ipc
             await ValidateFileAsync().ConfigureAwait(false);
 
             int footerLength = 0;
-            await Buffers.RentReturnAsync(4, async (buffer) =>
+            await ArrayPool<byte>.Shared.RentReturnAsync(4, async (buffer) =>
             {
                 BaseStream.Position = GetFooterLengthPosition();
 
@@ -72,7 +75,7 @@ namespace Apache.Arrow.Ipc
                 footerLength = ReadFooterLength(buffer);
             }).ConfigureAwait(false);
 
-            await Buffers.RentReturnAsync(footerLength, async (buffer) =>
+            await ArrayPool<byte>.Shared.RentReturnAsync(footerLength, async (buffer) =>
             {
                 _footerStartPostion = (int)GetFooterLengthPosition() - footerLength;
 
@@ -95,7 +98,7 @@ namespace Apache.Arrow.Ipc
             ValidateFile();
 
             int footerLength = 0;
-            Buffers.RentReturn(4, (buffer) =>
+            ArrayPool<byte>.Shared.RentReturn(4, (buffer) =>
             {
                 BaseStream.Position = GetFooterLengthPosition();
 
@@ -105,7 +108,7 @@ namespace Apache.Arrow.Ipc
                 footerLength = ReadFooterLength(buffer);
             });
 
-            Buffers.RentReturn(footerLength, (buffer) =>
+            ArrayPool<byte>.Shared.RentReturn(footerLength, (buffer) =>
             {
                 _footerStartPostion = (int)GetFooterLengthPosition() - footerLength;
 
@@ -241,7 +244,7 @@ namespace Apache.Arrow.Ipc
 
             try
             {
-                await Buffers.RentReturnAsync(magicLength, async (buffer) =>
+                await ArrayPool<byte>.Shared.RentReturnAsync(magicLength, async (buffer) =>
                 {
                     // Seek to the beginning of the stream
                     BaseStream.Position = 0;
@@ -273,7 +276,7 @@ namespace Apache.Arrow.Ipc
 
             try
             {
-                Buffers.RentReturn(magicLength, buffer =>
+                ArrayPool<byte>.Shared.RentReturn(magicLength, buffer =>
                 {
                     // Seek to the beginning of the stream
                     BaseStream.Position = 0;

@@ -345,6 +345,14 @@ class RangeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const FixedSizeListArray& left) {
+    const auto& right = checked_cast<const FixedSizeListArray&>(right_);
+    result_ = left.values()->RangeEquals(
+        left.value_offset(left_start_idx_), left.value_offset(left_end_idx_),
+        right.value_offset(right_start_idx_), right.values());
+    return Status::OK();
+  }
+
   Status Visit(const StructArray& left) {
     result_ = CompareStructs(left);
     return Status::OK();
@@ -527,7 +535,7 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
     if (!left.value_data() && !(right.value_data())) {
       return true;
     }
-    if (left.value_offset(left.length()) == 0) {
+    if (left.value_offset(left.length()) == left.value_offset(0)) {
       return true;
     }
 
@@ -576,9 +584,17 @@ class ArrayEqualsVisitor : public RangeEqualsVisitor {
       return Status::OK();
     }
 
-    result_ = left.values()->RangeEquals(
-        left.value_offset(0), left.value_offset(left.length()) - left.value_offset(0),
-        right.value_offset(0), right.values());
+    result_ =
+        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
+                                   right.value_offset(0), right.values());
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListArray& left) {
+    const auto& right = checked_cast<const FixedSizeListArray&>(right_);
+    result_ =
+        left.values()->RangeEquals(left.value_offset(0), left.value_offset(left.length()),
+                                   right.value_offset(0), right.values());
     return Status::OK();
   }
 
@@ -706,8 +722,17 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
+  typename std::enable_if<std::is_base_of<IntervalType, T>::value, Status>::type Visit(
+      const T& left) {
+    const auto& right = checked_cast<const IntervalType&>(right_);
+    result_ = right.interval_type() == left.interval_type();
+    return Status::OK();
+  }
+
+  template <typename T>
   typename std::enable_if<std::is_base_of<TimeType, T>::value ||
-                              std::is_base_of<DateType, T>::value,
+                              std::is_base_of<DateType, T>::value ||
+                              std::is_base_of<DurationType, T>::value,
                           Status>::type
   Visit(const T& left) {
     const auto& right = checked_cast<const T&>(right_);
@@ -734,6 +759,8 @@ class TypeEqualsVisitor {
   }
 
   Status Visit(const ListType& left) { return VisitChildren(left); }
+
+  Status Visit(const FixedSizeListType& left) { return VisitChildren(left); }
 
   Status Visit(const StructType& left) { return VisitChildren(left); }
 
@@ -770,7 +797,7 @@ class TypeEqualsVisitor {
   Status Visit(const DictionaryType& left) {
     const auto& right = checked_cast<const DictionaryType&>(right_);
     result_ = left.index_type()->Equals(right.index_type()) &&
-              left.dictionary()->Equals(right.dictionary()) &&
+              left.value_type()->Equals(right.value_type()) &&
               (left.ordered() == right.ordered());
     return Status::OK();
   }
@@ -823,6 +850,12 @@ class ScalarEqualsVisitor {
 
   Status Visit(const ListScalar& left) {
     const auto& right = checked_cast<const ListScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListScalar& left) {
+    const auto& right = checked_cast<const FixedSizeListScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
   }

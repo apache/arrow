@@ -155,9 +155,7 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
 #  endif
 #endif
 
-namespace arrow
-{
-namespace util
+namespace arrow_vendored
 {
 namespace date
 {
@@ -2587,7 +2585,6 @@ to_gps_time(const tai_time<Duration>& t)
 #endif  // !MISSING_LEAP_SECONDS
 
 }  // namespace date
-}  // namespace util
 }  // namespace arrow
 
 #endif  // TZ_H

@@ -36,8 +36,8 @@
 
 #else  // !GANDIVA_IR
 
-#include <iostream>
 #include <memory>
+#include <ostream>
 #include <string>
 
 #include "arrow/util/macros.h"
@@ -153,19 +153,18 @@ class ARROW_EXPORT ArrowLogBase {
   }
 
  protected:
-  virtual std::ostream& Stream() { return std::cerr; }
+  virtual std::ostream& Stream() = 0;
 };
 
 class ARROW_EXPORT ArrowLog : public ArrowLogBase {
  public:
   ArrowLog(const char* file_name, int line_number, ArrowLogLevel severity);
-
-  virtual ~ArrowLog();
+  ~ArrowLog() override;
 
   /// Return whether or not current logging instance is enabled.
   ///
   /// \return True if logging is enabled and false otherwise.
-  virtual bool IsEnabled() const;
+  bool IsEnabled() const override;
 
   /// The init function of arrow log for a program which should be called only once.
   ///
@@ -204,7 +203,7 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   static ArrowLogLevel severity_threshold_;
 
  protected:
-  virtual std::ostream& Stream();
+  std::ostream& Stream() override;
 };
 
 // This class make ARROW_CHECK compilation pass to change the << operator to void.

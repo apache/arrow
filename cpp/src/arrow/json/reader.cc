@@ -17,233 +17,147 @@
 
 #include "arrow/json/reader.h"
 
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/buffer.h"
+#include "arrow/io/readahead.h"
+#include "arrow/json/chunked-builder.h"
+#include "arrow/json/chunker.h"
+#include "arrow/json/converter.h"
 #include "arrow/json/parser.h"
+#include "arrow/record_batch.h"
 #include "arrow/table.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/parsing.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/util/string_view.h"
+#include "arrow/util/task-group.h"
+#include "arrow/util/thread-pool.h"
 
 namespace arrow {
+
+using util::string_view;
+
+using internal::GetCpuThreadPool;
+using internal::TaskGroup;
+using internal::ThreadPool;
+
+using io::internal::ReadaheadBuffer;
+using io::internal::ReadaheadSpooler;
+
 namespace json {
 
-using internal::StringConverter;
+class TableReaderImpl : public TableReader {
+ public:
+  TableReaderImpl(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+                  const ReadOptions& read_options, const ParseOptions& parse_options,
+                  std::shared_ptr<TaskGroup> task_group)
+      : pool_(pool),
+        read_options_(read_options),
+        parse_options_(parse_options),
+        chunker_(Chunker::Make(parse_options_)),
+        task_group_(std::move(task_group)),
+        readahead_(pool_, std::move(input), read_options_.block_size,
+                   task_group_->parallelism()) {}
 
-struct ConvertImpl {
-  Status Visit(const NullType&) {
-    *out = in;
-    return Status::OK();
-  }
-  Status Visit(const BooleanType&) {
-    *out = in;
-    return Status::OK();
-  }
-  // handle conversion to types with StringConverter
-  template <typename T>
-  Status ConvertEachWith(const T& t, StringConverter<T>& convert_one) {
-    auto dict_array = static_cast<const DictionaryArray*>(in.get());
-    const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
-    const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
-    using Builder = typename TypeTraits<T>::BuilderType;
-    Builder builder(out_type, default_memory_pool());
-    RETURN_NOT_OK(builder.Resize(indices.length()));
-    for (int64_t i = 0; i != indices.length(); ++i) {
-      if (indices.IsNull(i)) {
-        builder.UnsafeAppendNull();
-        continue;
-      }
-      auto repr = dict.GetView(indices.GetView(i));
-      typename StringConverter<T>::value_type value;
-      if (!convert_one(repr.data(), repr.size(), &value)) {
-        return Status::Invalid("Failed of conversion of JSON to ", t, ":", repr);
-      }
-      builder.UnsafeAppend(value);
+  Status Read(std::shared_ptr<Table>* out) override {
+    RETURN_NOT_OK(MakeBuilder());
+
+    ReadaheadBuffer rh;
+    RETURN_NOT_OK(readahead_.Read(&rh));
+    if (rh.buffer == nullptr) {
+      return Status::Invalid("Empty JSON file");
     }
-    return builder.Finish(out);
-  }
-  template <typename T>
-  Status Visit(const T& t, decltype(StringConverter<T>())* = nullptr) {
-    StringConverter<T> convert_one;
-    return ConvertEachWith(t, convert_one);
-  }
-  // handle conversion to Timestamp
-  Status Visit(const TimestampType& t) {
-    StringConverter<TimestampType> convert_one(out_type);
-    return ConvertEachWith(t, convert_one);
-  }
-  Status VisitAs(const std::shared_ptr<DataType>& repr_type) {
-    std::shared_ptr<Array> repr_array;
-    RETURN_NOT_OK(Convert(repr_type, in, &repr_array));
-    auto data = repr_array->data();
-    data->type = out_type;
-    *out = MakeArray(data);
-    return Status::OK();
-  }
-  // handle half explicitly
-  Status Visit(const HalfFloatType&) { return VisitAs(float32()); }
-  // handle types represented as integers
-  template <typename T>
-  Status Visit(
-      const T& t,
-      typename std::enable_if<std::is_base_of<TimeType, T>::value ||
-                              std::is_base_of<DateType, T>::value>::type* = nullptr) {
-    return VisitAs(std::is_same<typename T::c_type, int64_t>::value ? int64() : int32());
-  }
-  // handle binary and string
-  template <typename T>
-  Status Visit(
-      const T& t,
-      typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type* = nullptr) {
-    auto dict_array = static_cast<const DictionaryArray*>(in.get());
-    const StringArray& dict = static_cast<const StringArray&>(*dict_array->dictionary());
-    const Int32Array& indices = static_cast<const Int32Array&>(*dict_array->indices());
-    using Builder = typename TypeTraits<T>::BuilderType;
-    Builder builder(out_type, default_memory_pool());
-    RETURN_NOT_OK(builder.Resize(indices.length()));
-    int64_t values_length = 0;
-    for (int64_t i = 0; i != indices.length(); ++i) {
-      if (indices.IsNull(i)) {
-        continue;
+
+    auto empty = std::make_shared<Buffer>("");
+
+    int64_t block_index = 0;
+    for (std::shared_ptr<Buffer> partial = empty, completion = empty,
+                                 starts_with_whole = rh.buffer;
+         rh.buffer; ++block_index) {
+      // get completion of partial from previous block
+      RETURN_NOT_OK(chunker_->ProcessWithPartial(partial, rh.buffer, &completion,
+                                                 &starts_with_whole));
+
+      // get all whole objects entirely inside the current buffer
+      std::shared_ptr<Buffer> whole, next_partial;
+      RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &next_partial));
+
+      // launch parse task
+      task_group_->Append([this, partial, completion, whole, block_index] {
+        return ParseAndInsert(partial, completion, whole, block_index);
+      });
+
+      RETURN_NOT_OK(readahead_.Read(&rh));
+      if (rh.buffer == nullptr) {
+        DCHECK_EQ(string_view(*next_partial).find_first_not_of(" \t\n\r"),
+                  string_view::npos);
       }
-      values_length += dict.GetView(indices.GetView(i)).size();
+      partial = next_partial;
     }
-    RETURN_NOT_OK(builder.ReserveData(values_length));
-    for (int64_t i = 0; i != indices.length(); ++i) {
-      if (indices.IsNull(i)) {
-        builder.UnsafeAppendNull();
-        continue;
-      }
-      auto value = dict.GetView(indices.GetView(i));
-      builder.UnsafeAppend(value);
-    }
-    return builder.Finish(out);
+
+    std::shared_ptr<ChunkedArray> array;
+    RETURN_NOT_OK(builder_->Finish(&array));
+    return Table::FromChunkedStructArray(array, out);
   }
-  Status Visit(const ListType& t) {
-    auto list_array = static_cast<const ListArray*>(in.get());
-    std::shared_ptr<Array> values;
-    auto value_type = t.value_type();
-    RETURN_NOT_OK(Convert(value_type, list_array->values(), &values));
-    auto data = ArrayData::Make(out_type, in->length(),
-                                {in->null_bitmap(), list_array->value_offsets()},
-                                {values->data()}, in->null_count());
-    *out = MakeArray(data);
+
+ private:
+  Status MakeBuilder() {
+    auto type = parse_options_.explicit_schema
+                    ? struct_(parse_options_.explicit_schema->fields())
+                    : struct_({});
+
+    auto promotion_graph =
+        parse_options_.unexpected_field_behavior == UnexpectedFieldBehavior::InferType
+            ? GetPromotionGraph()
+            : nullptr;
+
+    return MakeChunkedArrayBuilder(task_group_, pool_, promotion_graph, type, &builder_);
+  }
+
+  Status ParseAndInsert(const std::shared_ptr<Buffer>& partial,
+                        const std::shared_ptr<Buffer>& completion,
+                        const std::shared_ptr<Buffer>& whole, int64_t block_index) {
+    std::unique_ptr<BlockParser> parser;
+    RETURN_NOT_OK(BlockParser::Make(pool_, parse_options_, &parser));
+    RETURN_NOT_OK(parser->ReserveScalarStorage(partial->size() + completion->size() +
+                                               whole->size()));
+
+    if (completion->size() != 0) {
+      std::shared_ptr<Buffer> straddling;
+      RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
+      RETURN_NOT_OK(parser->Parse(straddling));
+    }
+
+    RETURN_NOT_OK(parser->Parse(whole));
+
+    std::shared_ptr<Array> parsed;
+    RETURN_NOT_OK(parser->Finish(&parsed));
+    builder_->Insert(block_index, field("", parsed->type()), parsed);
     return Status::OK();
   }
-  Status Visit(const StructType& t) {
-    auto struct_array = static_cast<const StructArray*>(in.get());
-    std::vector<std::shared_ptr<ArrayData>> child_data(t.num_children());
-    for (int i = 0; i != t.num_children(); ++i) {
-      std::shared_ptr<Array> child;
-      RETURN_NOT_OK(Convert(t.child(i)->type(), struct_array->field(i), &child));
-      child_data[i] = child->data();
-    }
-    auto data = ArrayData::Make(out_type, in->length(), {in->null_bitmap()},
-                                std::move(child_data), in->null_count());
-    *out = MakeArray(data);
-    return Status::OK();
-  }
-  Status Visit(const DataType& not_impl) {
-    return Status::NotImplemented("JSON parsing of ", not_impl);
-  }
-  std::shared_ptr<DataType> out_type;
-  std::shared_ptr<Array> in;
-  std::shared_ptr<Array>* out;
+
+  MemoryPool* pool_;
+  ReadOptions read_options_;
+  ParseOptions parse_options_;
+  std::unique_ptr<Chunker> chunker_;
+  std::shared_ptr<TaskGroup> task_group_;
+  ReadaheadSpooler readahead_;
+  std::unique_ptr<ChunkedArrayBuilder> builder_;
 };
 
-Status Convert(const std::shared_ptr<DataType>& out_type,
-               const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) {
-  ConvertImpl visitor = {out_type, in, out};
-  return VisitTypeInline(*out_type, &visitor);
-}
-
-static Status InferAndConvert(std::shared_ptr<DataType> expected,
-                              const std::shared_ptr<const KeyValueMetadata>& tag,
-                              const std::shared_ptr<Array>& in,
-                              std::shared_ptr<Array>* out) {
-  Kind::type kind = Kind::FromTag(tag);
-  switch (kind) {
-    case Kind::kObject: {
-      // FIXME(bkietz) in general expected fields may not be an exact prefix of parsed's
-      auto in_type = static_cast<StructType*>(in->type().get());
-      if (expected == nullptr) {
-        expected = struct_({});
-      }
-      auto expected_type = static_cast<StructType*>(expected.get());
-      if (in_type->num_children() == expected_type->num_children()) {
-        return Convert(expected, in, out);
-      }
-
-      auto fields = expected_type->children();
-      fields.resize(in_type->num_children());
-      std::vector<std::shared_ptr<ArrayData>> child_data(in_type->num_children());
-
-      for (int i = 0; i != in_type->num_children(); ++i) {
-        std::shared_ptr<DataType> expected_field_type;
-        if (i < expected_type->num_children()) {
-          expected_field_type = expected_type->child(i)->type();
-        }
-        auto in_field = in_type->child(i);
-        auto in_column = static_cast<StructArray*>(in.get())->field(i);
-        std::shared_ptr<Array> column;
-        RETURN_NOT_OK(InferAndConvert(expected_field_type, in_field->metadata(),
-                                      in_column, &column));
-        fields[i] = field(in_field->name(), column->type());
-        child_data[i] = column->data();
-      }
-      auto data =
-          ArrayData::Make(struct_(std::move(fields)), in->length(), {in->null_bitmap()},
-                          std::move(child_data), in->null_count());
-      *out = MakeArray(data);
-      return Status::OK();
-    }
-    case Kind::kArray: {
-      auto list_array = static_cast<const ListArray*>(in.get());
-      auto value_tag = list_array->list_type()->value_field()->metadata();
-      std::shared_ptr<Array> values;
-      if (expected != nullptr) {
-        RETURN_NOT_OK(InferAndConvert(expected->child(0)->type(), value_tag,
-                                      list_array->values(), &values));
-      } else {
-        RETURN_NOT_OK(InferAndConvert(nullptr, value_tag, list_array->values(), &values));
-      }
-      auto data = ArrayData::Make(list(values->type()), in->length(),
-                                  {in->null_bitmap(), list_array->value_offsets()},
-                                  {values->data()}, in->null_count());
-      *out = MakeArray(data);
-      return Status::OK();
-    }
-    default:
-      // an expected type overrides inferrence for scalars
-      // (but not nested types, which may have unexpected fields)
-      if (expected != nullptr) {
-        return Convert(expected, in, out);
-      }
+Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+                         const ReadOptions& read_options,
+                         const ParseOptions& parse_options,
+                         std::shared_ptr<TableReader>* out) {
+  if (read_options.use_threads) {
+    *out = std::make_shared<TableReaderImpl>(pool, input, read_options, parse_options,
+                                             TaskGroup::MakeThreaded(GetCpuThreadPool()));
+  } else {
+    *out = std::make_shared<TableReaderImpl>(pool, input, read_options, parse_options,
+                                             TaskGroup::MakeSerial());
   }
-  switch (kind) {
-    case Kind::kNull:
-      return Convert(null(), in, out);
-    case Kind::kBoolean:
-      return Convert(boolean(), in, out);
-    case Kind::kNumber:
-      // attempt conversion to Int64 first
-      if (Convert(int64(), in, out).ok()) {
-        return Status::OK();
-      }
-      return Convert(float64(), in, out);
-    case Kind::kString:  // attempt conversion to Timestamp first
-      if (Convert(timestamp(TimeUnit::SECOND), in, out).ok()) {
-        return Status::OK();
-      }
-      return Convert(utf8(), in, out);
-    default:
-      return Status::Invalid("invalid JSON kind");
-  }
+  return Status::OK();
 }
 
 Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
@@ -253,25 +167,29 @@ Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
   RETURN_NOT_OK(parser->Parse(json));
   std::shared_ptr<Array> parsed;
   RETURN_NOT_OK(parser->Finish(&parsed));
-  std::shared_ptr<Array> converted;
-  auto schm = options.explicit_schema;
-  if (options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType) {
-    if (schm) {
-      RETURN_NOT_OK(InferAndConvert(struct_(schm->fields()), Kind::Tag(Kind::kObject),
-                                    parsed, &converted));
-    } else {
-      RETURN_NOT_OK(
-          InferAndConvert(nullptr, Kind::Tag(Kind::kObject), parsed, &converted));
-    }
-    schm = schema(converted->type()->children());
-  } else {
-    RETURN_NOT_OK(Convert(struct_(schm->fields()), parsed, &converted));
+
+  auto type =
+      options.explicit_schema ? struct_(options.explicit_schema->fields()) : struct_({});
+  auto promotion_graph =
+      options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType
+          ? GetPromotionGraph()
+          : nullptr;
+  std::unique_ptr<ChunkedArrayBuilder> builder;
+  RETURN_NOT_OK(MakeChunkedArrayBuilder(internal::TaskGroup::MakeSerial(),
+                                        default_memory_pool(), promotion_graph, type,
+                                        &builder));
+
+  builder->Insert(0, field("", type), parsed);
+  std::shared_ptr<ChunkedArray> converted_chunked;
+  RETURN_NOT_OK(builder->Finish(&converted_chunked));
+  auto converted = static_cast<const StructArray*>(converted_chunked->chunk(0).get());
+
+  std::vector<std::shared_ptr<Array>> columns(converted->num_fields());
+  for (int i = 0; i < converted->num_fields(); ++i) {
+    columns[i] = converted->field(i);
   }
-  std::vector<std::shared_ptr<Array>> columns(parsed->num_fields());
-  for (int i = 0; i != parsed->num_fields(); ++i) {
-    columns[i] = static_cast<StructArray*>(converted.get())->field(i);
-  }
-  *out = RecordBatch::Make(schm, parsed->length(), std::move(columns));
+  *out = RecordBatch::Make(schema(converted->type()->children()), converted->length(),
+                           std::move(columns));
   return Status::OK();
 }
 

@@ -41,6 +41,8 @@ import io.netty.buffer.ArrowBuf;
  * can start as a specific type, and this class will promote the writer to a UnionWriter if a call is made that the
  * specifically typed writer cannot handle. A new UnionVector is created, wrapping the original vector, and replaces the
  * original vector in the parent vector, which can be either an AbstractStructVector or a ListVector.
+ *
+ * <p>The writer used can either be for single elements (struct) or  lists.</p>
  */
 public class PromotableWriter extends AbstractPromotableFieldWriter {
 
@@ -61,10 +63,23 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private State state;
   private FieldWriter writer;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to write.
+   * @param parentContainer The parent container for the vector.
+   */
   public PromotableWriter(ValueVector v, AbstractStructVector parentContainer) {
     this(v, parentContainer, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
+  /**
+   * Construcs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param parentContainer The parent container for the vector.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
   public PromotableWriter(
       ValueVector v,
       AbstractStructVector parentContainer,
@@ -75,10 +90,23 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     init(v);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param listVector The vector that serves as a parent of v.
+   */
   public PromotableWriter(ValueVector v, ListVector listVector) {
     this(v, listVector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param listVector The vector that serves as a parent of v.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
   public PromotableWriter(
       ValueVector v,
       ListVector listVector,

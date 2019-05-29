@@ -72,9 +72,9 @@ VAR_LEN_OP_TYPES(BINARY_RELATIONAL, greater_than, >)
 VAR_LEN_OP_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 
 // Expand inner macro for all varlen types.
-#define VAR_LEN_TYPES(INNER) \
-  INNER(utf8)                \
-  INNER(binary)
+#define VAR_LEN_TYPES(INNER, NAME) \
+  INNER(NAME, utf8)                \
+  INNER(NAME, binary)
 
 FORCE_INLINE
 bool starts_with_utf8_utf8(const char* data, int32 data_len, const char* prefix,
@@ -159,5 +159,21 @@ char* upper_utf8(int64 context, const char* data, int32 data_len, int32_t* out_l
   *out_len = data_len;
   return ret;
 }
+
+#define IS_NULL(NAME, TYPE) \
+  FORCE_INLINE              \
+  bool NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) { return !is_valid; }
+
+VAR_LEN_TYPES(IS_NULL, isnull)
+
+#undef IS_NULL
+
+#define IS_NOT_NULL(NAME, TYPE) \
+  FORCE_INLINE                  \
+  bool NAME##_##TYPE(TYPE in, int32 len, boolean is_valid) { return is_valid; }
+
+VAR_LEN_TYPES(IS_NOT_NULL, isnotnull)
+
+#undef IS_NOT_NULL
 
 }  // extern "C"

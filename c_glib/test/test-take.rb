@@ -36,7 +36,7 @@ class TestTake < Test::Unit::TestCase
   def test_out_of_index
     require_gi(1, 42, 0)
     indices = build_int16_array([1, 2, 3])
-    assert_raise(Arrow::Error::Invalid) do
+    assert_raise(Arrow::Error::Index) do
       build_int16_array([0, 1, 2]).take(indices)
     end
   end

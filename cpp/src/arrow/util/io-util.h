@@ -18,40 +18,37 @@
 #ifndef ARROW_UTIL_IO_UTIL_H
 #define ARROW_UTIL_IO_UTIL_H
 
-#include <iostream>
 #include <memory>
 #include <string>
 
-#include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 
-#if defined(_MSC_VER)
-#include <boost/filesystem.hpp>  // NOLINT
+// The Windows API defines DeleteFile as a macro resolving to either
+// DeleteFileA or DeleteFileW.  Need to undo it.
+#if defined(_WIN32) && defined(DeleteFile)
+#undef DeleteFile
 #endif
 
 namespace arrow {
+
+class Buffer;
+
 namespace io {
 
 // Output stream that just writes to stdout.
 class ARROW_EXPORT StdoutStream : public OutputStream {
  public:
-  StdoutStream() : pos_(0) { set_mode(FileMode::WRITE); }
+  StdoutStream();
   ~StdoutStream() override {}
 
-  Status Close() override { return Status::OK(); }
-  bool closed() const override { return false; }
+  Status Close() override;
+  bool closed() const override;
 
-  Status Tell(int64_t* position) const override {
-    *position = pos_;
-    return Status::OK();
-  }
+  Status Tell(int64_t* position) const override;
 
-  Status Write(const void* data, int64_t nbytes) override {
-    pos_ += nbytes;
-    std::cout.write(reinterpret_cast<const char*>(data), nbytes);
-    return Status::OK();
-  }
+  Status Write(const void* data, int64_t nbytes) override;
 
  private:
   int64_t pos_;
@@ -60,22 +57,15 @@ class ARROW_EXPORT StdoutStream : public OutputStream {
 // Output stream that just writes to stderr.
 class ARROW_EXPORT StderrStream : public OutputStream {
  public:
-  StderrStream() : pos_(0) { set_mode(FileMode::WRITE); }
+  StderrStream();
   ~StderrStream() override {}
 
-  Status Close() override { return Status::OK(); }
-  bool closed() const override { return false; }
+  Status Close() override;
+  bool closed() const override;
 
-  Status Tell(int64_t* position) const override {
-    *position = pos_;
-    return Status::OK();
-  }
+  Status Tell(int64_t* position) const override;
 
-  Status Write(const void* data, int64_t nbytes) override {
-    pos_ += nbytes;
-    std::cerr.write(reinterpret_cast<const char*>(data), nbytes);
-    return Status::OK();
-  }
+  Status Write(const void* data, int64_t nbytes) override;
 
  private:
   int64_t pos_;
@@ -84,38 +74,17 @@ class ARROW_EXPORT StderrStream : public OutputStream {
 // Input stream that just reads from stdin.
 class ARROW_EXPORT StdinStream : public InputStream {
  public:
-  StdinStream() : pos_(0) { set_mode(FileMode::READ); }
+  StdinStream();
   ~StdinStream() override {}
 
-  Status Close() override { return Status::OK(); }
-  bool closed() const override { return false; }
+  Status Close() override;
+  bool closed() const override;
 
-  Status Tell(int64_t* position) const override {
-    *position = pos_;
-    return Status::OK();
-  }
+  Status Tell(int64_t* position) const override;
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override {
-    std::cin.read(reinterpret_cast<char*>(out), nbytes);
-    if (std::cin) {
-      *bytes_read = nbytes;
-      pos_ += nbytes;
-    } else {
-      *bytes_read = 0;
-    }
-    return Status::OK();
-  }
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
 
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override {
-    std::shared_ptr<ResizableBuffer> buffer;
-    ARROW_RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buffer));
-    int64_t bytes_read;
-    ARROW_RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
-    ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
-    buffer->ZeroPadding();
-    *out = buffer;
-    return Status::OK();
-  }
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
  private:
   int64_t pos_;
@@ -125,26 +94,51 @@ class ARROW_EXPORT StdinStream : public InputStream {
 
 namespace internal {
 
-#if defined(_MSC_VER)
-// namespace fs = boost::filesystem;
-// #define PlatformFilename fs::path
-typedef ::boost::filesystem::path PlatformFilename;
-
+class ARROW_EXPORT PlatformFilename {
+ public:
+#if defined(_WIN32)
+  using NativePathString = std::wstring;
 #else
-
-struct PlatformFilename {
-  PlatformFilename() {}
-  explicit PlatformFilename(const std::string& path) { utf8_path = path; }
-
-  const char* c_str() const { return utf8_path.c_str(); }
-
-  const std::string& string() const { return utf8_path; }
-
-  size_t length() const { return utf8_path.size(); }
-
-  std::string utf8_path;
-};
+  using NativePathString = std::string;
 #endif
+
+  ~PlatformFilename();
+  PlatformFilename();
+  PlatformFilename(const PlatformFilename&);
+  PlatformFilename(PlatformFilename&&);
+  PlatformFilename& operator=(const PlatformFilename&);
+  PlatformFilename& operator=(PlatformFilename&&);
+  explicit PlatformFilename(const NativePathString& path);
+
+  const NativePathString& ToNative() const;
+  std::string ToString() const;
+
+  // These functions can fail for character encoding reasons.
+  static Status FromString(const std::string& file_name, PlatformFilename* out);
+  Status Join(const std::string& child_name, PlatformFilename* out) const;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+
+  explicit PlatformFilename(const Impl& impl);
+  explicit PlatformFilename(Impl&& impl);
+
+  // Those functions need access to the embedded path object
+  friend ARROW_EXPORT Status CreateDir(const PlatformFilename&, bool*);
+  friend ARROW_EXPORT Status DeleteDirTree(const PlatformFilename&, bool*);
+  friend ARROW_EXPORT Status DeleteFile(const PlatformFilename&, bool*);
+  friend ARROW_EXPORT Status FileExists(const PlatformFilename&, bool*);
+};
+
+ARROW_EXPORT
+Status CreateDir(const PlatformFilename& dir_path, bool* created = NULLPTR);
+ARROW_EXPORT
+Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
+ARROW_EXPORT
+Status DeleteFile(const PlatformFilename& file_path, bool* deleted = NULLPTR);
+ARROW_EXPORT
+Status FileExists(const PlatformFilename& path, bool* out);
 
 ARROW_EXPORT
 Status FileNameFromString(const std::string& file_name, PlatformFilename* out);
@@ -196,6 +190,20 @@ ARROW_EXPORT
 Status DelEnvVar(const char* name);
 ARROW_EXPORT
 Status DelEnvVar(const std::string& name);
+
+class ARROW_EXPORT TemporaryDir {
+ public:
+  ~TemporaryDir();
+
+  const PlatformFilename& path() { return path_; }
+
+  static Status Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out);
+
+ private:
+  PlatformFilename path_;
+
+  explicit TemporaryDir(PlatformFilename&&);
+};
 
 }  // namespace internal
 }  // namespace arrow

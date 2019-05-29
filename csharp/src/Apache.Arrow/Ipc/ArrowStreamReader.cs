@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Memory;
 using System;
 using System.IO;
 using System.Threading;
@@ -30,16 +31,26 @@ namespace Apache.Arrow.Ipc
         public Schema Schema => _implementation.Schema;
 
         public ArrowStreamReader(Stream stream)
-            : this(stream, leaveOpen: false)
+            : this(stream, allocator: null, leaveOpen: false)
+        {
+        }
+
+        public ArrowStreamReader(Stream stream, MemoryAllocator allocator)
+            : this(stream, allocator, leaveOpen: false)
         {
         }
 
         public ArrowStreamReader(Stream stream, bool leaveOpen)
+            : this(stream, allocator: null, leaveOpen)
+        {
+        }
+
+        public ArrowStreamReader(Stream stream, MemoryAllocator allocator, bool leaveOpen)
         {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
 
-            _implementation = new ArrowStreamReaderImplementation(stream, leaveOpen);
+            _implementation = new ArrowStreamReaderImplementation(stream, allocator, leaveOpen);
         }
 
         public ArrowStreamReader(ReadOnlyMemory<byte> buffer)

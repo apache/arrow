@@ -31,7 +31,7 @@ The current code only supports reading numeric types from Feather files.
 
 See: [Arrow CPP README](../cpp/README.md)
 
-### Build MATLAB interface to Apache Arrow using MATLAB R2018a or later:
+### Build MATLAB interface to Apache Arrow using MATLAB R2018a:
 
     cd arrow/matlab
     mkdir build
@@ -39,7 +39,7 @@ See: [Arrow CPP README](../cpp/README.md)
     cmake ..
     make
 
-### Non-standard MATLAB and Arrow installations
+#### Non-standard MATLAB and Arrow installations
 
 To specify a non-standard MATLAB install location, use the Matlab_ROOT_DIR CMake flag:
 
@@ -48,6 +48,33 @@ To specify a non-standard MATLAB install location, use the Matlab_ROOT_DIR CMake
 To specify a non-standard Arrow install location, use the ARROW_HOME CMake flag:
 
     cmake .. -DARROW_HOME=/<PATH_TO_ARROW_INSTALL>
+
+### Build MATLAB interface to Arrow using MATLAB R2018b or later:
+
+This may be preferred if you are using MATLAB R2018b or later and have encountered [linker errors](https://gitlab.kitware.com/cmake/cmake/issues/18391) when using CMake.
+
+Prerequisite: Ensure that the Arrow C++ library is already installed and the `ARROW_HOME` environment variable is set to the installation root.
+
+To verify this, you can run:
+
+``` matlab
+>> getenv ARROW_HOME
+```
+
+This should print a path that contains `include` and `lib` directories with Arrow C++ headers and libraries.
+
+Navigate to the `build_support` subfolder and run the `compile` function to build the necessary MEX files:
+
+``` matlab
+>> cd build_support
+>> compile
+```
+
+Run the `test` function to execute the unit tests:
+
+``` matlab
+>> test
+```
 
 ## Try it out
 

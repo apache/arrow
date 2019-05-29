@@ -23,6 +23,7 @@
 #include <cstring>
 #include <iomanip>
 #include <limits>
+#include <ostream>
 #include <sstream>
 #include <string>
 
@@ -432,6 +433,11 @@ Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
       break;
   }
   return status;
+}
+
+std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
+  os << decimal.ToIntegerString();
+  return os;
 }
 
 }  // namespace arrow

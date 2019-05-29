@@ -23,7 +23,12 @@ import java.util.List;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 
+/**
+ * Contains helper functions for constructing expression trees.
+ */
 public class TreeBuilder {
+  private TreeBuilder() {}
+
   /**
    * Helper functions to create literal constants.
    */

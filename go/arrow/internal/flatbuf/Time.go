@@ -45,7 +45,7 @@ func (rcv *Time) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *Time) Unit() int16 {
+func (rcv *Time) Unit() TimeUnit {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		return rcv._tab.GetInt16(o + rcv._tab.Pos)
@@ -53,7 +53,7 @@ func (rcv *Time) Unit() int16 {
 	return 1
 }
 
-func (rcv *Time) MutateUnit(n int16) bool {
+func (rcv *Time) MutateUnit(n TimeUnit) bool {
 	return rcv._tab.MutateInt16Slot(4, n)
 }
 

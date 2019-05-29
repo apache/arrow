@@ -18,10 +18,10 @@
 //! The main type in the module is `Buffer`, a contiguous immutable memory region of
 //! fixed size aligned at a 64-byte boundary. `MutableBuffer` is like `Buffer`, but it can
 //! be mutated and grown.
-//!
 use packed_simd::u8x64;
 
 use std::cmp;
+use std::fmt::{Debug, Formatter};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
 use std::ops::{BitAnd, BitOr, Not};
@@ -44,7 +44,6 @@ pub struct Buffer {
     offset: usize,
 }
 
-#[derive(Debug)]
 struct BufferData {
     /// The raw pointer into the buffer bytes
     ptr: *const u8,
@@ -65,14 +64,37 @@ impl PartialEq for BufferData {
 /// Release the underlying memory when the current buffer goes out of scope
 impl Drop for BufferData {
     fn drop(&mut self) {
-        memory::free_aligned(self.ptr);
+        if !self.ptr.is_null() {
+            memory::free_aligned(self.ptr as *mut u8, self.len);
+        }
+    }
+}
+
+impl Debug for BufferData {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "BufferData {{ ptr: {:?}, len: {}, data: ",
+            self.ptr, self.len
+        )?;
+
+        unsafe {
+            f.debug_list()
+                .entries(std::slice::from_raw_parts(self.ptr, self.len).iter())
+                .finish()?;
+        }
+
+        write!(f, " }}")
     }
 }
 
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
-        assert!(memory::is_aligned(ptr, 64), "memory not aligned");
+        assert!(
+            memory::is_aligned(ptr, memory::ALIGNMENT),
+            "memory not aligned"
+        );
         let buf_data = BufferData { ptr, len };
         Buffer {
             data: Arc::new(buf_data),
@@ -138,7 +160,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let slice = p.as_ref();
         let len = slice.len() * mem::size_of::<u8>();
         let capacity = bit_util::round_upto_multiple_of_64(len);
-        let buffer = memory::allocate_aligned(capacity).unwrap();
+        let buffer = memory::allocate_aligned(capacity);
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
         }
@@ -295,7 +317,7 @@ impl MutableBuffer {
     /// Allocate a new mutable buffer with initial capacity to be `capacity`.
     pub fn new(capacity: usize) -> Self {
         let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
-        let ptr = memory::allocate_aligned(new_capacity).unwrap();
+        let ptr = memory::allocate_aligned(new_capacity);
         Self {
             data: ptr,
             len: 0,
@@ -339,7 +361,7 @@ impl MutableBuffer {
         if capacity > self.capacity {
             let new_capacity = bit_util::round_upto_multiple_of_64(capacity);
             let new_capacity = cmp::max(new_capacity, self.capacity * 2);
-            let new_data = memory::reallocate(self.capacity, new_capacity, self.data)?;
+            let new_data = memory::reallocate(self.data, self.capacity, new_capacity);
             self.data = new_data as *mut u8;
             self.capacity = new_capacity;
         }
@@ -359,8 +381,7 @@ impl MutableBuffer {
         } else {
             let new_capacity = bit_util::round_upto_multiple_of_64(new_len);
             if new_capacity < self.capacity {
-                let new_data =
-                    memory::reallocate(self.capacity, new_capacity, self.data)?;
+                let new_data = memory::reallocate(self.data, self.capacity, new_capacity);
                 self.data = new_data as *mut u8;
                 self.capacity = new_capacity;
             }
@@ -425,7 +446,9 @@ impl MutableBuffer {
 
 impl Drop for MutableBuffer {
     fn drop(&mut self) {
-        memory::free_aligned(self.data);
+        if !self.data.is_null() {
+            memory::free_aligned(self.data, self.capacity);
+        }
     }
 }
 

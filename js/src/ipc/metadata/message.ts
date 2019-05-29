@@ -351,7 +351,7 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>, dictionary
     let dictMeta: _DictionaryEncoding | null;
     let dictField: Field<Dictionary>;
 
-    // If no dictionary encoding, or in the process of decoding the children of a dictionary-encoded field
+    // If no dictionary encoding
     if (!dictionaries || !dictionaryFields || !(dictMeta = f.dictionary())) {
         type = decodeFieldType(f, decodeFieldChildren(f, dictionaries, dictionaryFields));
         field = new Field(f.name()!, type, f.nullable(), decodeCustomMetadata(f));
@@ -363,7 +363,7 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>, dictionary
     else if (!dictionaries.has(id = dictMeta.id().low)) {
         // a dictionary index defaults to signed 32 bit int if unspecified
         keys = (keys = dictMeta.indexType()) ? decodeIndexType(keys) as TKeys : new Int32();
-        dictionaries.set(id, type = decodeFieldType(f, decodeFieldChildren(f)));
+        dictionaries.set(id, type = decodeFieldType(f, decodeFieldChildren(f, dictionaries, dictionaryFields)));
         dictType = new Dictionary(type, keys, id, dictMeta.isOrdered());
         dictField = new Field(f.name()!, dictType, f.nullable(), decodeCustomMetadata(f));
         dictionaryFields.set(id, [field = dictField]);

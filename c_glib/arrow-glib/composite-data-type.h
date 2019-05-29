@@ -145,12 +145,13 @@ struct _GArrowDictionaryDataTypeClass
 
 GArrowDictionaryDataType *
 garrow_dictionary_data_type_new(GArrowDataType *index_data_type,
-                                GArrowArray *dictionary,
+                                GArrowDataType *value_data_type,
                                 gboolean ordered);
 GArrowDataType *
 garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *dictionary_data_type);
-GArrowArray *
-garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *dictionary_data_type);
+GARROW_AVAILABLE_IN_0_14
+GArrowDataType *
+garrow_dictionary_data_type_get_value_data_type(GArrowDictionaryDataType *dictionary_data_type);
 gboolean
 garrow_dictionary_data_type_is_ordered(GArrowDictionaryDataType *dictionary_data_type);
 

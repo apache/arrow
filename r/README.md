@@ -1,48 +1,90 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-arrow
-=====
+
+# arrow
 
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
 
-R integration with Apache Arrow.
+[Apache Arrow](https://arrow.apache.org/) is a cross-language
+development platform for in-memory data. It specifies a standardized
+language-independent columnar memory format for flat and hierarchical
+data, organized for efficient analytic operations on modern hardware. It
+also provides computational libraries and zero-copy streaming messaging
+and interprocess communication.
 
-Installation
-------------
+The `arrow` package exposes an interface to the Arrow C++ library.
 
-You first need to install the C++ library:
+## Installation
 
-### macOS
+Installing `arrow` is a two-step process: first install the Arrow C++
+library, then the R package.
 
-On macOS, you may install using homebrew:
+### Release version
 
-    brew install apache-arrow
+The current release of Apache Arrow is 0.13.
 
-### From source
+On macOS, you may install the C++ library using
+[Homebrew](https://brew.sh/):
 
-First install a release build of the C++ bindings to arrow.
+``` shell
+brew install apache-arrow
+```
+
+On Linux, see the [Arrow project installation
+page](https://arrow.apache.org/install/).
+
+Then, you can install the release version of the package from GitHub
+using the [`remotes`](https://remotes.r-lib.org/) package. From within
+an R session,
+
+``` r
+# install.packages("remotes") # Or install "devtools", which includes remotes
+remotes::install_github("apache/arrow/r", ref="76e1bc5dfb9d08e31eddd5cbcc0b1bab934da2c7")
+```
+
+or if you prefer to stay at the command line,
+
+``` shell
+R -e 'remotes::install_github("apache/arrow/r", ref="76e1bc5dfb9d08e31eddd5cbcc0b1bab934da2c7")'
+```
+
+### Development version
+
+First, clone the repository and install a release build of the C++
+library.
 
 ``` shell
 git clone https://github.com/apache/arrow.git
-cd arrow/cpp && mkdir release && cd release
-
-# It is important to statically link to boost libraries
-cmake .. -DARROW_PARQUET=ON -DCMAKE_BUILD_TYPE=Release -DARROW_BOOST_USE_SHARED:BOOL=Off
+mkdir arrow/cpp/build && cd arrow/cpp/build
+cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off -DARROW_INSTALL_NAME_RPATH=OFF
 make install
 ```
 
-Then the R package
-------------------
+Then, you can install the R package and its dependencies from the git
+checkout:
 
-### From github (defaults to master branch)
-
-``` r
-library("devtools")
-devtools::install_github("apache/arrow/r")
+``` shell
+cd ../../r
+R -e 'install.packages("remotes"); remotes::install_deps()'
+R CMD INSTALL .
 ```
 
-Example
--------
+If the package fails to install/load with an error like this:
+
+    ** testing if installed package can be loaded from temporary location
+    Error: package or namespace load failed for 'arrow' in dyn.load(file, DLLpath = DLLpath, ...):
+    unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
+    dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
+
+try setting the environment variable `LD_LIBRARY_PATH` (or
+`DYLD_LIBRARY_PATH` on macOS) to wherever Arrow C++ was put in `make
+install`, e.g. `export LD_LIBRARY_PATH=/usr/local/lib`, and retry
+installing the R package.
+
+For any other build/configuration challenges, see the [C++ developer
+guide](https://arrow.apache.org/docs/developers/cpp.html#building).
+
+## Example
 
 ``` r
 library(arrow)
@@ -55,20 +97,7 @@ library(arrow)
 #> 
 #>     array, table
 
-(tib <- tibble::tibble(x = 1:10, y = rnorm(10)))
-#> # A tibble: 10 x 2
-#>        x      y
-#>    <int>  <dbl>
-#>  1     1 -1.59 
-#>  2     2  1.31 
-#>  3     3 -0.513
-#>  4     4  2.64 
-#>  5     5  0.389
-#>  6     6  0.660
-#>  7     7  1.66 
-#>  8     8 -0.120
-#>  9     9  2.43 
-#> 10    10  1.53
+tib <- tibble::tibble(x = 1:10, y = rnorm(10))
 tab <- table(tib)
 tab$schema
 #> arrow::Schema 
@@ -78,37 +107,39 @@ tab
 #> arrow::Table
 as_tibble(tab)
 #> # A tibble: 10 x 2
-#>        x      y
-#>    <int>  <dbl>
-#>  1     1 -1.59 
-#>  2     2  1.31 
-#>  3     3 -0.513
-#>  4     4  2.64 
-#>  5     5  0.389
-#>  6     6  0.660
-#>  7     7  1.66 
-#>  8     8 -0.120
-#>  9     9  2.43 
-#> 10    10  1.53
+#>        x        y
+#>    <int>    <dbl>
+#>  1     1 -1.70   
+#>  2     2  0.764  
+#>  3     3 -0.00735
+#>  4     4 -0.192  
+#>  5     5  0.513  
+#>  6     6 -1.81   
+#>  7     7 -0.371  
+#>  8     8 -1.40   
+#>  9     9 -0.0599 
+#> 10    10 -0.359
 ```
 
-Developing
-----------
+## Developing
 
-The arrow package is using devtools for package related manipulations. To install:
-
-``` r
-library.packages("devtools")
-```
-
-Within a local clone, one can test changes by running the test suite.
-
-### Running the test suite
+It is recommended to use the `devtools` package to help with some
+package-related manipulations. You’ll need a few more R packages, which
+you can install using
 
 ``` r
-library("devtools")
+install.packages("devtools")
 devtools::install_dev_deps()
-devtools::test()
+```
+
+### Useful functions
+
+``` r
+devtools::load_all() # Load the dev package
+devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
+devtools::document() # Update roxygen documentation
+rmarkdown::render("README.Rmd") # To rebuild README.md
+devtools::check() # All package checks; see also below
 ```
 
 ### Full package validation

@@ -77,6 +77,7 @@ class ArrowMessage implements AutoCloseable {
 
   private static Marshaller<FlightData> NO_BODY_MARSHALLER = ProtoUtils.marshaller(FlightData.getDefaultInstance());
 
+  /** Types of messages that can be sent. */
   public static enum HeaderType {
     NONE,
     SCHEMA,
@@ -203,7 +204,7 @@ class ArrowMessage implements AutoCloseable {
           case BODY_TAG:
             if (body != null) {
               // only read last body.
-              body.release();
+              body.getReferenceManager().release();
               body = null;
             }
             int size = readRawVarint32(stream);
@@ -271,7 +272,7 @@ class ArrowMessage implements AutoCloseable {
       int size = 0;
       List<ByteBuf> allBufs = new ArrayList<>();
       for (ArrowBuf b : bufs) {
-        allBufs.add(b);
+        allBufs.add(b.asNettyBuffer());
         size += b.readableBytes();
         // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
         if (b.readableBytes() % 8 != 0) {
@@ -288,7 +289,7 @@ class ArrowMessage implements AutoCloseable {
       ArrowBuf initialBuf = allocator.buffer(baos.size());
       initialBuf.writeBytes(baos.toByteArray());
       final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true, bufs.size() + 1,
-          ImmutableList.<ByteBuf>builder().add(initialBuf).addAll(allBufs).build());
+          ImmutableList.<ByteBuf>builder().add(initialBuf.asNettyBuffer()).addAll(allBufs).build());
       final ByteBufInputStream is = new DrainableByteBufInputStream(bb);
       return is;
     } catch (Exception ex) {

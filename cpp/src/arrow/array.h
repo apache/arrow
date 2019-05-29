@@ -143,7 +143,8 @@ struct ARROW_EXPORT ArrayData {
         null_count(other.null_count),
         offset(other.offset),
         buffers(std::move(other.buffers)),
-        child_data(std::move(other.child_data)) {}
+        child_data(std::move(other.child_data)),
+        dictionary(std::move(other.dictionary)) {}
 
   // Copy constructor
   ArrayData(const ArrayData& other) noexcept
@@ -152,7 +153,8 @@ struct ARROW_EXPORT ArrayData {
         null_count(other.null_count),
         offset(other.offset),
         buffers(other.buffers),
-        child_data(other.child_data) {}
+        child_data(other.child_data),
+        dictionary(other.dictionary) {}
 
   // Move assignment
   ArrayData& operator=(ArrayData&& other) = default;
@@ -206,6 +208,10 @@ struct ARROW_EXPORT ArrayData {
   int64_t offset;
   std::vector<std::shared_ptr<Buffer>> buffers;
   std::vector<std::shared_ptr<ArrayData>> child_data;
+
+  // The dictionary for this Array, if any. Only used for dictionary
+  // type
+  std::shared_ptr<Array> dictionary;
 };
 
 /// \brief Create a strongly-typed Array instance from generic ArrayData
@@ -523,6 +529,43 @@ class ARROW_EXPORT ListArray : public Array {
 };
 
 // ----------------------------------------------------------------------
+// FixedSizeListArray
+
+/// Concrete Array class for fixed size list data
+class ARROW_EXPORT FixedSizeListArray : public Array {
+ public:
+  using TypeClass = FixedSizeListType;
+
+  explicit FixedSizeListArray(const std::shared_ptr<ArrayData>& data);
+
+  FixedSizeListArray(const std::shared_ptr<DataType>& type, int64_t length,
+                     const std::shared_ptr<Array>& values,
+                     const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                     int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  const FixedSizeListType* list_type() const;
+
+  /// \brief Return array object containing the list's values
+  std::shared_ptr<Array> values() const;
+
+  std::shared_ptr<DataType> value_type() const;
+
+  // Neither of these functions will perform boundschecking
+  int32_t value_offset(int64_t i) const {
+    i += data_->offset;
+    return static_cast<int32_t>(list_size_ * i);
+  }
+  int32_t value_length(int64_t i = 0) const { return list_size_; }
+
+ protected:
+  void SetData(const std::shared_ptr<ArrayData>& data);
+  int32_t list_size_;
+
+ private:
+  std::shared_ptr<Array> values_;
+};
+
+// ----------------------------------------------------------------------
 // Binary and String
 
 /// Concrete Array class for variable-size binary data
@@ -648,6 +691,36 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   }
 
   int32_t byte_width_;
+};
+
+/// DayTimeArray
+/// ---------------------
+/// \brief Array of Day and Millisecond values.
+class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
+ public:
+  using TypeClass = DayTimeIntervalType;
+
+  explicit DayTimeIntervalArray(const std::shared_ptr<ArrayData>& data);
+
+  DayTimeIntervalArray(const std::shared_ptr<DataType>& type, int64_t length,
+                       const std::shared_ptr<Buffer>& data,
+                       const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+                       int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  TypeClass::DayMilliseconds GetValue(int64_t i) const;
+  TypeClass::DayMilliseconds Value(int64_t i) const { return GetValue(i); }
+
+  // For compability with Take kernel.
+  TypeClass::DayMilliseconds GetView(int64_t i) const { return GetValue(i); }
+
+  int32_t byte_width() const { return sizeof(TypeClass::DayMilliseconds); }
+
+  const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width(); }
+
+ protected:
+  inline void SetData(const std::shared_ptr<ArrayData>& data) {
+    this->PrimitiveArray::SetData(data);
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -906,9 +979,10 @@ class ARROW_EXPORT UnionArray : public Array {
 };
 
 // ----------------------------------------------------------------------
-// DictionaryArray (categorical and dictionary-encoded in memory)
+// DictionaryArray
 
-/// \brief Concrete Array class for dictionary data
+/// \brief Array type for dictionary-encoded data with a
+/// data-dependent dictionary
 ///
 /// A dictionary array contains an array of non-negative integers (the
 /// "dictionary indices") along with a data type containing a "dictionary"
@@ -932,19 +1006,24 @@ class ARROW_EXPORT DictionaryArray : public Array {
   explicit DictionaryArray(const std::shared_ptr<ArrayData>& data);
 
   DictionaryArray(const std::shared_ptr<DataType>& type,
-                  const std::shared_ptr<Array>& indices);
+                  const std::shared_ptr<Array>& indices,
+                  const std::shared_ptr<Array>& dictionary);
 
-  /// \brief Construct DictionaryArray from dictionary data type and indices array
+  /// \brief Construct DictionaryArray from dictionary and indices
+  /// array and validate
   ///
   /// This function does the validation of the indices and input type. It checks if
   /// all indices are non-negative and smaller than the size of the dictionary
   ///
   /// \param[in] type a dictionary type
+  /// \param[in] dictionary the dictionary with same value type as the
+  /// type object
   /// \param[in] indices an array of non-negative signed
   /// integers smaller than the size of the dictionary
   /// \param[out] out the resulting DictionaryArray instance
   static Status FromArrays(const std::shared_ptr<DataType>& type,
                            const std::shared_ptr<Array>& indices,
+                           const std::shared_ptr<Array>& dictionary,
                            std::shared_ptr<Array>* out);
 
   /// \brief Transpose this DictionaryArray
@@ -955,23 +1034,25 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// DictionaryType::Unify.
   ///
   /// \param[in] pool a pool to allocate the array data from
-  /// \param[in] type a dictionary type
+  /// \param[in] type the new type object
+  /// \param[in] dictionary the new dictionary
   /// \param[in] transpose_map a vector transposing this array's indices
   /// into the target array's indices
   /// \param[out] out the resulting DictionaryArray instance
   Status Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   const std::shared_ptr<Array>& dictionary,
                    const std::vector<int32_t>& transpose_map,
                    std::shared_ptr<Array>* out) const;
-  // XXX Do we also want an unsafe in-place Transpose?
 
-  std::shared_ptr<Array> indices() const;
+  /// \brief Return the dictionary for this array, which is stored as
+  /// a member of the ArrayData internal structure
   std::shared_ptr<Array> dictionary() const;
+  std::shared_ptr<Array> indices() const;
 
   const DictionaryType* dict_type() const { return dict_type_; }
 
  private:
   void SetData(const std::shared_ptr<ArrayData>& data);
-
   const DictionaryType* dict_type_;
   std::shared_ptr<Array> indices_;
 };

@@ -76,9 +76,7 @@
 # endif
 #endif
 
-namespace arrow
-{
-namespace util
+namespace arrow_vendored
 {
 namespace date
 {
@@ -8016,8 +8014,7 @@ operator<<(std::basic_ostream<CharT, Traits>& os,
 }
 
 }  // namespace date
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow_vendored
 
 
 #ifdef __GNUC__

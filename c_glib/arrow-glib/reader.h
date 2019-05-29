@@ -264,6 +264,42 @@ garrow_csv_read_options_add_schema(GArrowCSVReadOptions *options,
                                    GArrowSchema *schema);
 GHashTable *
 garrow_csv_read_options_get_column_types(GArrowCSVReadOptions *options);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_set_null_values(GArrowCSVReadOptions *options,
+                                        const gchar **null_values,
+                                        gsize n_null_values);
+GARROW_AVAILABLE_IN_0_14
+gchar **
+garrow_csv_read_options_get_null_values(GArrowCSVReadOptions *options);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_add_null_value(GArrowCSVReadOptions *options,
+                                       const gchar *null_value);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_set_true_values(GArrowCSVReadOptions *options,
+                                        const gchar **true_values,
+                                        gsize n_true_values);
+GARROW_AVAILABLE_IN_0_14
+gchar **
+garrow_csv_read_options_get_true_values(GArrowCSVReadOptions *options);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_add_true_value(GArrowCSVReadOptions *options,
+                                       const gchar *true_value);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_set_false_values(GArrowCSVReadOptions *options,
+                                         const gchar **false_values,
+                                         gsize n_false_values);
+GARROW_AVAILABLE_IN_0_14
+gchar **
+garrow_csv_read_options_get_false_values(GArrowCSVReadOptions *options);
+GARROW_AVAILABLE_IN_0_14
+void
+garrow_csv_read_options_add_false_value(GArrowCSVReadOptions *options,
+                                        const gchar *false_value);
 
 #define GARROW_TYPE_CSV_READER (garrow_csv_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCSVReader,
@@ -282,5 +318,52 @@ GArrowCSVReader *garrow_csv_reader_new(GArrowInputStream *input,
 GArrowTable *garrow_csv_reader_read(GArrowCSVReader *reader,
                                     GError **error);
 
+
+/**
+ * GArrowJSONReadUnexpectedFieldBehavior:
+ * @GARROW_JSON_READ_IGNORE: Ignore other fields.
+ * @GARROW_JSON_READ_ERROR: Return error.
+ * @GARROW_JSON_READ_INFER_TYPE: Infer a type.
+ *
+ * They are corresponding to `arrow::json::UnexpectedFieldBehavior` values.
+ */
+typedef enum {
+  GARROW_JSON_READ_IGNORE,
+  GARROW_JSON_READ_ERROR,
+  GARROW_JSON_READ_INFER_TYPE,
+} GArrowJSONReadUnexpectedFieldBehavior;
+
+#define GARROW_TYPE_JSON_READ_OPTIONS (garrow_json_read_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowJSONReadOptions,
+                         garrow_json_read_options,
+                         GARROW,
+                         JSON_READ_OPTIONS,
+                         GObject)
+struct _GArrowJSONReadOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_14
+GArrowJSONReadOptions *garrow_json_read_options_new(void);
+
+#define GARROW_TYPE_JSON_READER (garrow_json_reader_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowJSONReader,
+                         garrow_json_reader,
+                         GARROW,
+                         JSON_READER,
+                         GObject)
+struct _GArrowJSONReaderClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_14
+GArrowJSONReader *garrow_json_reader_new(GArrowInputStream *input,
+                                         GArrowJSONReadOptions *options,
+                                         GError **error);
+GARROW_AVAILABLE_IN_0_14
+GArrowTable *garrow_json_reader_read(GArrowJSONReader *reader,
+                                     GError **error);
 
 G_END_DECLS

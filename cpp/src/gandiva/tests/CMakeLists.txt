@@ -24,6 +24,7 @@ add_gandiva_test(boolean_expr_test)
 add_gandiva_test(binary_test)
 add_gandiva_test(date_time_test)
 add_gandiva_test(to_string_test)
+add_gandiva_test(utf8_test)
 add_gandiva_test(hash_test)
 add_gandiva_test(in_expr_test)
 add_gandiva_test(null_validity_test)
@@ -32,4 +33,8 @@ add_gandiva_test(decimal_single_test)
 
 add_gandiva_test(projector_test_static SOURCES projector_test.cc USE_STATIC_LINKING)
 
-add_arrow_benchmark(micro_benchmarks PREFIX "gandiva" EXTRA_LINK_LIBS gandiva_static)
+add_arrow_benchmark(micro_benchmarks
+                    PREFIX
+                    "gandiva"
+                    EXTRA_LINK_LIBS
+                    gandiva_static)

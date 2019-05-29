@@ -27,13 +27,19 @@ import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
+import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -58,6 +64,18 @@ public class TestAuth {
   public void validAuth() {
     client.authenticateBasic(USERNAME, PASSWORD);
     Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() >= 0);
+  }
+
+  @Test
+  public void asyncCall() {
+    client.authenticateBasic(USERNAME, PASSWORD);
+    client.listFlights(Criteria.ALL);
+    FlightStream s = client.getStream(new Ticket(new byte[1]));
+
+    while (s.next()) {
+      Assert.assertEquals(4095, s.getRoot().getRowCount());
+      s.getRoot().clear();
+    }
   }
 
   @Test
@@ -101,9 +119,9 @@ public class TestAuth {
       }
     };
 
-    server = FlightTestUtil.getStartedServer((port) -> new FlightServer(
+    server = FlightTestUtil.getStartedServer((port) -> FlightServer.builder(
         allocator,
-        port,
+        Location.forGrpcInsecure("localhost", port),
         new NoOpFlightProducer() {
           @Override
           public void listFlights(CallContext context, Criteria criteria,
@@ -114,9 +132,26 @@ public class TestAuth {
             }
             listener.onCompleted();
           }
-        },
-        new BasicServerAuthHandler(validator)));
-    client = new FlightClient(allocator, new Location(FlightTestUtil.LOCALHOST, server.getPort()));
+
+          @Override
+          public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+            if (!context.peerIdentity().equals(USERNAME)) {
+              listener.error(new IllegalArgumentException("Invalid username"));
+              return;
+            }
+            final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a",
+                    Types.MinorType.BIGINT.getType())));
+            VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator);
+            listener.start(root);
+            root.allocateNew();
+            root.setRowCount(4095);
+            listener.putNext();
+            root.clear();
+            listener.completed();
+          }
+        }).authHandler(new BasicServerAuthHandler(validator)).build());
+    client = FlightClient.builder(allocator, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort()))
+        .build();
   }
 
   @After

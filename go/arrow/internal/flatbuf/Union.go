@@ -46,7 +46,7 @@ func (rcv *Union) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *Union) Mode() int16 {
+func (rcv *Union) Mode() UnionMode {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		return rcv._tab.GetInt16(o + rcv._tab.Pos)
@@ -54,7 +54,7 @@ func (rcv *Union) Mode() int16 {
 	return 0
 }
 
-func (rcv *Union) MutateMode(n int16) bool {
+func (rcv *Union) MutateMode(n UnionMode) bool {
 	return rcv._tab.MutateInt16Slot(4, n)
 }
 
@@ -73,6 +73,15 @@ func (rcv *Union) TypeIdsLength() int {
 		return rcv._tab.VectorLen(o)
 	}
 	return 0
+}
+
+func (rcv *Union) MutateTypeIds(j int, n int32) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.MutateInt32(a+flatbuffers.UOffsetT(j*4), n)
+	}
+	return false
 }
 
 func UnionStart(builder *flatbuffers.Builder) {

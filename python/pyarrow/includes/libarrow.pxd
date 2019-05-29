@@ -149,11 +149,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDictionaryArray" arrow::DictionaryArray"(CArray):
         CDictionaryArray(const shared_ptr[CDataType]& type,
-                         const shared_ptr[CArray]& indices)
+                         const shared_ptr[CArray]& indices,
+                         const shared_ptr[CArray]& dictionary)
 
         @staticmethod
         CStatus FromArrays(const shared_ptr[CDataType]& type,
                            const shared_ptr[CArray]& indices,
+                           const shared_ptr[CArray]& dictionary,
                            shared_ptr[CArray]* out)
 
         shared_ptr[CArray] indices()
@@ -180,11 +182,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
         CDictionaryType(const shared_ptr[CDataType]& index_type,
-                        const shared_ptr[CArray]& dictionary,
+                        const shared_ptr[CDataType]& value_type,
                         c_bool ordered)
 
         shared_ptr[CDataType] index_type()
-        shared_ptr[CArray] dictionary()
+        shared_ptr[CDataType] value_type()
         c_bool ordered()
 
     shared_ptr[CDataType] ctimestamp" arrow::timestamp"(TimeUnit unit)
@@ -208,6 +210,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t size()
         shared_ptr[CBuffer] parent()
         c_bool is_mutable() const
+        c_string ToHexString()
         c_bool Equals(const CBuffer& other)
 
     shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
@@ -860,6 +863,9 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_V3" arrow::ipc::MetadataVersion::V3"
         MessageType_V4" arrow::ipc::MetadataVersion::V4"
 
+    cdef cppclass CDictionaryMemo" arrow::ipc::DictionaryMemo":
+        pass
+
     cdef cppclass CMessage" arrow::ipc::Message":
         CStatus Open(const shared_ptr[CBuffer]& metadata,
                      const shared_ptr[CBuffer]& body,
@@ -942,18 +948,22 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     CStatus ReadRecordBatch(const CMessage& message,
                             const shared_ptr[CSchema]& schema,
+                            CDictionaryMemo* dictionary_memo,
                             shared_ptr[CRecordBatch]* out)
 
-    CStatus SerializeSchema(const CSchema& schema, CMemoryPool* pool,
-                            shared_ptr[CBuffer]* out)
+    CStatus SerializeSchema(const CSchema& schema,
+                            CDictionaryMemo* dictionary_memo,
+                            CMemoryPool* pool, shared_ptr[CBuffer]* out)
 
     CStatus SerializeRecordBatch(const CRecordBatch& schema,
                                  CMemoryPool* pool,
                                  shared_ptr[CBuffer]* out)
 
-    CStatus ReadSchema(InputStream* stream, shared_ptr[CSchema]* out)
+    CStatus ReadSchema(InputStream* stream, CDictionaryMemo* dictionary_memo,
+                       shared_ptr[CSchema]* out)
 
     CStatus ReadRecordBatch(const shared_ptr[CSchema]& schema,
+                            CDictionaryMemo* dictionary_memo,
                             InputStream* stream,
                             shared_ptr[CRecordBatch]* out)
 
@@ -1035,6 +1045,37 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         CStatus Read(shared_ptr[CTable]* out)
 
 
+cdef extern from "arrow/json/options.h" nogil:
+
+    cdef cppclass CJSONReadOptions" arrow::json::ReadOptions":
+        c_bool use_threads
+        int32_t block_size
+
+        @staticmethod
+        CJSONReadOptions Defaults()
+
+    cdef cppclass CJSONParseOptions" arrow::json::ParseOptions":
+        shared_ptr[CSchema] explicit_schema
+        c_bool newlines_in_values
+
+        @staticmethod
+        CJSONParseOptions Defaults()
+
+
+cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
+
+    cdef cppclass CJSONReader" arrow::json::TableReader":
+        @staticmethod
+        CStatus Make(CMemoryPool*, shared_ptr[InputStream],
+                     CJSONReadOptions, CJSONParseOptions,
+                     shared_ptr[CJSONReader]* out)
+
+        CStatus Read(shared_ptr[CTable]* out)
+
+    cdef CStatus ParseOne(CJSONParseOptions options, shared_ptr[CBuffer] json,
+                          shared_ptr[CRecordBatch]* out)
+
+
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CFunctionContext" arrow::compute::FunctionContext":
@@ -1049,6 +1090,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool allow_int_overflow
         c_bool allow_time_truncate
         c_bool allow_float_truncate
+
+    cdef cppclass CTakeOptions" arrow::compute::TakeOptions":
+        pass
 
     enum DatumType" arrow::compute::Datum::type":
         DatumType_NONE" arrow::compute::Datum::NONE"
@@ -1088,6 +1132,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                              CDatum* out)
 
     CStatus Sum(CFunctionContext* context, const CDatum& value, CDatum* out)
+
+    CStatus Take(CFunctionContext* context, const CDatum& values,
+                 const CDatum& indices, const CTakeOptions& options,
+                 CDatum* out)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
@@ -1202,6 +1250,10 @@ cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 
 cdef extern from 'arrow/python/init.h':
     int arrow_init_numpy() except -1
+
+
+cdef extern from 'arrow/python/pyarrow.h' namespace 'arrow::py':
+    int import_pyarrow() except -1
 
 
 cdef extern from 'arrow/python/config.h' namespace 'arrow::py':

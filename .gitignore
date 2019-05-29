@@ -60,3 +60,6 @@ pkgs
 .Rproj.user
 arrow.Rcheck/
 docker_cache
+.gdb_history
+.DS_Store
+*.orig

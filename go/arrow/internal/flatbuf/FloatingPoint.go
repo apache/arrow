@@ -42,7 +42,7 @@ func (rcv *FloatingPoint) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *FloatingPoint) Precision() int16 {
+func (rcv *FloatingPoint) Precision() Precision {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
 		return rcv._tab.GetInt16(o + rcv._tab.Pos)
@@ -50,7 +50,7 @@ func (rcv *FloatingPoint) Precision() int16 {
 	return 0
 }
 
-func (rcv *FloatingPoint) MutatePrecision(n int16) bool {
+func (rcv *FloatingPoint) MutatePrecision(n Precision) bool {
 	return rcv._tab.MutateInt16Slot(4, n)
 }
 

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_NEON_UTIL_H
-#define ARROW_UTIL_NEON_UTIL_H
+#pragma once
 
 namespace arrow {
 
@@ -55,35 +54,6 @@ static inline uint32_t ARMCE_crc32_u64(uint32_t crc, uint64_t v) {
   return __crc32cd(crc, v);
 }
 
-#else
-
-static inline uint32_t crc32c_runtime_check(void) {
-  DCHECK(false) << "Arm crc32 support is not enabled";
-  return 0;
-}
-
-static inline uint32_t ARMCE_crc32_u8(uint32_t, uint8_t) {
-  DCHECK(false) << "Arm crc32 support is not enabled";
-  return 0;
-}
-
-static inline uint32_t ARMCE_crc32_u16(uint32_t, uint16_t) {
-  DCHECK(false) << "Arm crc32 is not enabled";
-  return 0;
-}
-
-static inline uint32_t ARMCE_crc32_u32(uint32_t, uint32_t) {
-  DCHECK(false) << "Arm crc32 support is not enabled";
-  return 0;
-}
-
-static inline uint32_t ARMCE_crc32_u64(uint32_t, uint64_t) {
-  DCHECK(false) << "Arm crc32 support is not enabled";
-  return 0;
-}
-
 #endif  // defined(__GNUC__) && defined(__linux__) && defined(ARROW_HAVE_ARM_CRC)
 
 }  // namespace arrow
-
-#endif  //  ARROW_UTIL_NEON_UTIL_H

@@ -104,19 +104,16 @@ elseif(NOT MSVC)
   set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} pthread ${CMAKE_DL_LIBS})
 endif()
 
-set(PARQUET_SHARED_TEST_LINK_LIBS
-    arrow_testing_shared
-    ${PARQUET_MIN_TEST_LIBS}
-    parquet_shared
-    Thrift::thrift)
+set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
+                                  parquet_shared Thrift::thrift)
 
 set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static
-    ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
+                                  ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
 
 if(WIN32 OR NOT ARROW_BUILD_SHARED)
   # The benchmarks depend on some static Thrift symbols
   set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
-      ${PARQUET_STATIC_TEST_LINK_LIBS})
+                                    ${PARQUET_STATIC_TEST_LINK_LIBS})
 else()
   set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS parquet_shared)
 endif()
@@ -134,7 +131,7 @@ set(THRIFT_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(THRIFT_OUTPUT_FILES "${THRIFT_OUTPUT_DIR}/parquet_types.cpp")
 set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${THRIFT_OUTPUT_DIR}/parquet_types.h")
 set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES}
-    "${THRIFT_OUTPUT_DIR}/parquet_constants.cpp")
+                        "${THRIFT_OUTPUT_DIR}/parquet_constants.cpp")
 set(THRIFT_OUTPUT_FILES ${THRIFT_OUTPUT_FILES} "${THRIFT_OUTPUT_DIR}/parquet_constants.h")
 
 set_source_files_properties(${THRIFT_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
@@ -143,8 +140,9 @@ get_filename_component(ABS_PARQUET_THRIFT parquet.thrift ABSOLUTE)
 
 add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
                    COMMAND ${THRIFT_COMPILER}
-                           --gen cpp -out ${THRIFT_OUTPUT_DIR}
-                                 ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
+                           --gen cpp
+                           -out
+                           ${THRIFT_OUTPUT_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
                    DEPENDS ${ABS_PARQUET_THRIFT} Thrift::thrift
                    COMMENT "Running thrift compiler on parquet.thrift"
                    VERBATIM)
@@ -189,13 +187,13 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
   # Link publicly with # parquet_static (because internal users need to
   # transitively link all dependencies)
   set(PARQUET_STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS} ${PARQUET_BOOST_LINK_LIBS}
-      Thrift::thrift)
+                               Thrift::thrift)
 
   # Although we don't link parquet_objlib against anything, we need it to depend
   # on these libs as we may generate their headers via ExternalProject_Add
   if(ARROW_BUILD_SHARED)
     set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} ${PARQUET_SHARED_LINK_LIBS}
-        ${PARQUET_SHARED_PRIVATE_LINK_LIBS})
+                             ${PARQUET_SHARED_PRIVATE_LINK_LIBS})
   endif()
 
   if(ARROW_BUILD_STATIC)

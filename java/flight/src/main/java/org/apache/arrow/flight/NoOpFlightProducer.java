@@ -21,6 +21,9 @@ import java.util.concurrent.Callable;
 
 import org.apache.arrow.flight.impl.Flight.PutResult;
 
+/**
+ * A {@link FlightProducer} that throws on all operations.
+ */
 public class NoOpFlightProducer implements FlightProducer {
 
   @Override
@@ -48,7 +51,8 @@ public class NoOpFlightProducer implements FlightProducer {
   }
 
   @Override
-  public Result doAction(CallContext context, Action action) {
+  public void doAction(CallContext context, Action action,
+      StreamListener<Result> listener) {
     throw new UnsupportedOperationException("NYI");
   }
 

@@ -27,6 +27,7 @@ namespace arrow {
 class Status;
 
 class DataType;
+class KeyValueMetadata;
 class Array;
 struct ArrayData;
 class ArrayBuilder;
@@ -76,6 +77,11 @@ class ListType;
 class ListArray;
 class ListBuilder;
 struct ListScalar;
+
+class FixedSizeListType;
+class FixedSizeListArray;
+class FixedSizeListBuilder;
+struct FixedSizeListScalar;
 
 class StructType;
 class StructArray;
@@ -149,9 +155,20 @@ using TimestampArray = NumericArray<TimestampType>;
 using TimestampBuilder = NumericBuilder<TimestampType>;
 class TimestampScalar;
 
-class IntervalType;
-using IntervalArray = NumericArray<IntervalType>;
-class IntervalScalar;
+class MonthIntervalType;
+using MonthIntervalArray = NumericArray<MonthIntervalType>;
+using MonthIntervalBuilder = NumericBuilder<MonthIntervalType>;
+class MonthIntervalScalar;
+
+class DayTimeIntervalType;
+class DayTimeIntervalArray;
+class DayTimeIntervalBuilder;
+class DayTimeIntervalScalar;
+
+class DurationType;
+using DurationArray = NumericArray<DurationType>;
+using DurationBuilder = NumericBuilder<DurationType>;
+class DurationScalar;
 
 class ExtensionType;
 class ExtensionArray;

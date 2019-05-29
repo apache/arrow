@@ -19,8 +19,10 @@ package org.apache.arrow.flight;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -35,6 +37,9 @@ import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 
+/**
+ * A POJO representation of a FlightInfo, metadata associated with a set of data records.
+ */
 public class FlightInfo {
   private Schema schema;
   private FlightDescriptor descriptor;
@@ -42,6 +47,15 @@ public class FlightInfo {
   private final long bytes;
   private final long records;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema of the Flight
+   * @param descriptor An identifier for the Flight.
+   * @param endpoints A list of endpoints that have the flight available.
+   * @param bytes The number of bytes in the flight
+   * @param records The number of records in the flight.
+   */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
       long records) {
     super();
@@ -52,7 +66,10 @@ public class FlightInfo {
     this.records = records;
   }
 
-  FlightInfo(Flight.FlightInfo pbFlightInfo) {
+  /**
+   * Constructs from the protocol buffer representation.
+   */
+  FlightInfo(Flight.FlightInfo pbFlightInfo) throws URISyntaxException {
     try {
       final ByteBuffer schemaBuf = pbFlightInfo.getSchema().asReadOnlyByteBuffer();
       schema = pbFlightInfo.getSchema().size() > 0 ?
@@ -63,7 +80,10 @@ public class FlightInfo {
       throw new RuntimeException(e);
     }
     descriptor = new FlightDescriptor(pbFlightInfo.getFlightDescriptor());
-    endpoints = pbFlightInfo.getEndpointList().stream().map(t -> new FlightEndpoint(t)).collect(Collectors.toList());
+    endpoints = new ArrayList<>();
+    for (final Flight.FlightEndpoint endpoint : pbFlightInfo.getEndpointList()) {
+      endpoints.add(new FlightEndpoint(endpoint));
+    }
     bytes = pbFlightInfo.getTotalBytes();
     records = pbFlightInfo.getTotalRecords();
   }
@@ -88,6 +108,9 @@ public class FlightInfo {
     return endpoints;
   }
 
+  /**
+   * Converts to the protocol buffer representation.
+   */
   Flight.FlightInfo toProtocol() {
     // Encode schema in a Message payload
     ByteArrayOutputStream baos = new ByteArrayOutputStream();

@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/flight/api.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
 
@@ -158,7 +159,9 @@ class ARROW_PYTHON_EXPORT PyFlightDataStream : public arrow::flight::FlightDataS
   /// Must only be called while holding the GIL.
   explicit PyFlightDataStream(PyObject* data_source,
                               std::unique_ptr<arrow::flight::FlightDataStream> stream);
-  std::shared_ptr<arrow::Schema> schema() override;
+
+  std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
   Status Next(arrow::flight::FlightPayload* payload) override;
 
  private:
@@ -179,12 +182,14 @@ class ARROW_PYTHON_EXPORT PyGeneratorFlightDataStream
   explicit PyGeneratorFlightDataStream(PyObject* generator,
                                        std::shared_ptr<arrow::Schema> schema,
                                        PyGeneratorFlightDataStreamCallback callback);
-  std::shared_ptr<arrow::Schema> schema() override;
+  std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(arrow::flight::FlightPayload* payload) override;
   Status Next(arrow::flight::FlightPayload* payload) override;
 
  private:
   OwnedRefNoGIL generator_;
   std::shared_ptr<arrow::Schema> schema_;
+  ipc::DictionaryMemo dictionary_memo_;
   PyGeneratorFlightDataStreamCallback callback_;
 };
 
@@ -192,7 +197,7 @@ ARROW_PYTHON_EXPORT
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
-                        uint64_t total_records, uint64_t total_bytes,
+                        int64_t total_records, int64_t total_bytes,
                         std::unique_ptr<arrow::flight::FlightInfo>* out);
 
 }  // namespace flight

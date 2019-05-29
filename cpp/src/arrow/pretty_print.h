@@ -18,7 +18,7 @@
 #ifndef ARROW_PRETTY_PRINT_H
 #define ARROW_PRETTY_PRINT_H
 
-#include <ostream>
+#include <iosfwd>
 #include <string>
 
 #include "arrow/util/visibility.h"

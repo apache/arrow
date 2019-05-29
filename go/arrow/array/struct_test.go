@@ -79,6 +79,9 @@ func TestStructArray(t *testing.T) {
 		arr := sb.NewArray().(*array.Struct)
 		defer arr.Release()
 
+		arr.Retain()
+		arr.Release()
+
 		if got, want := arr.DataType().ID(), arrow.STRUCT; got != want {
 			t.Fatalf("got=%v, want=%v", got, want)
 		}

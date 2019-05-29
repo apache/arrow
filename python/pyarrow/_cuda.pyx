@@ -16,6 +16,8 @@
 # under the License.
 
 
+from __future__ import absolute_import
+
 from pyarrow.compat import tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_cuda cimport *

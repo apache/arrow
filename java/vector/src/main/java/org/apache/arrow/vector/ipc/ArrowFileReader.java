@@ -34,6 +34,10 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * An implementation of {@link ArrowReader} that reads the standard arrow binary
+ * file format.
+ */
 public class ArrowFileReader extends ArrowReader {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFileReader.class);
@@ -102,7 +106,7 @@ public class ArrowFileReader extends ArrowReader {
     return readDictionaryBatch(in, block, allocator);
   }
 
-  // Returns true if a batch was read, false if no more batches
+  /** Returns true if a batch was read, false if no more batches. */
   @Override
   public boolean loadNextBatch() throws IOException {
     prepareLoadNextBatch();
@@ -123,11 +127,17 @@ public class ArrowFileReader extends ArrowReader {
     return footer.getDictionaries();
   }
 
+  /**
+   * Returns the {@link ArrowBlock} metadata from the file.
+   */
   public List<ArrowBlock> getRecordBlocks() throws IOException {
     ensureInitialized();
     return footer.getRecordBatches();
   }
 
+  /**
+   * Loads record batch for the given block.
+   */
   public boolean loadRecordBatch(ArrowBlock block) throws IOException {
     ensureInitialized();
     int blockIndex = footer.getRecordBatches().indexOf(block);

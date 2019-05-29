@@ -17,15 +17,9 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
+import static com.fasterxml.jackson.core.JsonToken.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.arrow.vector.BufferLayout.BufferType.DATA;
-import static org.apache.arrow.vector.BufferLayout.BufferType.OFFSET;
-import static org.apache.arrow.vector.BufferLayout.BufferType.TYPE;
-import static org.apache.arrow.vector.BufferLayout.BufferType.VALIDITY;
+import static org.apache.arrow.vector.BufferLayout.BufferType.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,6 +41,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TypeLayout;
@@ -69,6 +64,12 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * A reader for JSON files that translates them into vectors. This reader is used for integration tests.
+ *
+ * <p>This class uses a streaming parser API, method naming tends to reflect this implementation
+ * detail.
+ */
 public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   private final JsonParser parser;
   private final BufferAllocator allocator;
@@ -76,6 +77,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   private Map<Long, Dictionary> dictionaries;
   private Boolean started = false;
 
+  /**
+   * Constructs a new instance.
+   * @param inputFile The file to read.
+   * @param allocator The allocator to use for allocating buffers.
+   */
   public JsonFileReader(File inputFile, BufferAllocator allocator) throws JsonParseException, IOException {
     super();
     this.allocator = allocator;
@@ -94,6 +100,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     return dictionaries.get(id);
   }
 
+  /** Reads the beginning (schema section) of the json file and returns it. */
   public Schema start() throws JsonParseException, IOException {
     readToken(START_OBJECT);
     {
@@ -151,6 +158,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
+  /**
+   * Reads the next record batch from the file into <code>root</code>.
+   */
   public boolean read(VectorSchemaRoot root) throws IOException {
     JsonToken t = parser.nextToken();
     if (t == START_OBJECT) {
@@ -177,6 +187,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
+  /**
+   * Returns the next record batch from the file.
+   */
   public VectorSchemaRoot read() throws IOException {
     JsonToken t = parser.nextToken();
     if (t == START_OBJECT) {
@@ -230,6 +243,23 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         }
 
         buf.writerIndex(bufferSize);
+        return buf;
+      }
+    };
+
+    BufferReader DAY_MILLIS = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        final int size = count * IntervalDayVector.TYPE_WIDTH;
+        ArrowBuf buf = allocator.buffer(size);
+
+        for (int i = 0; i < count; i++) {
+          readToken(START_OBJECT);
+          buf.writeInt(readNextField("days", Integer.class));
+          buf.writeInt(readNextField("milliseconds", Integer.class));
+          readToken(END_OBJECT);
+        }
+
         return buf;
       }
     };
@@ -493,6 +523,15 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         case TIMESTAMPSECTZ:
           reader = helper.INT8;
           break;
+        case INTERVALYEAR:
+          reader = helper.INT4;
+          break;
+        case INTERVALDAY:
+          reader = helper.DAY_MILLIS;
+          break;
+        case DURATION:
+          reader = helper.INT8;
+          break;
         default:
           throw new UnsupportedOperationException("Cannot read array of type " + type);
       }
@@ -576,7 +615,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     readToken(END_OBJECT);
 
     for (ArrowBuf buffer: vectorBuffers) {
-      buffer.release();
+      buffer.getReferenceManager().release();
     }
   }
 

@@ -22,14 +22,17 @@ services:
   - docker
 
 cache:
-  ccache: true
   directories:
+    - $HOME/.ccache
     - $HOME/.m2  # Maven
+
+env:
+  - CCACHE_COMPRESS: 1
+  - CCACHE_COMPRESSLEVEL: 5
 
 git:
   # ARROW-3083: We use a higher clone depth to also have the latest tag in the cloned history.
   depth: 250
-
 
 before_install:
   # Common pre-install steps for all builds
@@ -41,12 +44,14 @@ before_install:
         sudo apt-get update -qq
       fi
   - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
-
+  - if [ $TRAVIS_OS_NAME == "linux" ]; then ccache -s; fi
 
 matrix:
+  allow_failures:
+  - language: r
   fast_finish: true
   include:
-  - name: "Lint C++, Python, R, Docker"
+  - name: "Lint, Release tests"
     os: linux
     language: python
     python: "3.6"
@@ -56,6 +61,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_release_test.sh
   - name: "C++ unit tests w/ clang 7.0, system packages"
     os: linux
     env:
@@ -321,7 +327,7 @@ matrix:
     go_import_path: github.com/apache/arrow
     os: linux
     go:
-    - 1.11.x
+    - 1.12.x
     before_script:
     - if [ $ARROW_CI_GO_AFFECTED != "1" ]; then exit; fi
     script:
@@ -370,6 +376,9 @@ after_failure:
         gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch
       fi
     fi
+
+after_script:
+  - if [ $TRAVIS_OS_NAME == "linux" ]; then ccache -s; fi
 
 env:
   global:

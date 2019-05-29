@@ -59,6 +59,11 @@ void HandleStatus(const arrow::Status& status) {
                         status.ToString().c_str());
       break;
     }
+    case arrow::StatusCode::IndexError: {
+      mexErrMsgIdAndTxt("MATLAB:arrow:status:IndexError", arrow_error_message,
+                        status.ToString().c_str());
+      break;
+    }
     case arrow::StatusCode::UnknownError: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:UnknownError", arrow_error_message,
                         status.ToString().c_str());

@@ -19,8 +19,6 @@
 #define ARROW_PYTHON_COMMON_H
 
 #include <memory>
-#include <sstream>
-#include <string>
 #include <utility>
 
 #include "arrow/python/config.h"

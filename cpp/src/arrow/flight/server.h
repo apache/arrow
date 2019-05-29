@@ -24,10 +24,12 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/visibility.h"
-
+#include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"  // IWYU pragma: keep
+#include "arrow/ipc/dictionary.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -37,16 +39,16 @@ class Status;
 
 namespace flight {
 
-class ServerAuthHandler;
-
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
 class ARROW_EXPORT FlightDataStream {
  public:
   virtual ~FlightDataStream() = default;
 
-  // When the stream starts, send the schema.
   virtual std::shared_ptr<Schema> schema() = 0;
+
+  /// \brief Compute FlightPayload containing serialized RecordBatch schema
+  virtual Status GetSchemaPayload(FlightPayload* payload) = 0;
 
   // When the stream is completed, the last payload written will have null
   // metadata
@@ -58,14 +60,17 @@ class ARROW_EXPORT FlightDataStream {
 class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches
-  explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader);
+  /// \param[in,out] pool a MemoryPool to use for allocations
+  explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
+                             MemoryPool* pool = default_memory_pool());
 
   std::shared_ptr<Schema> schema() override;
+  Status GetSchemaPayload(FlightPayload* payload) override;
   Status Next(FlightPayload* payload) override;
 
  private:
-  MemoryPool* pool_;
-  std::shared_ptr<RecordBatchReader> reader_;
+  class RecordBatchStreamImpl;
+  std::unique_ptr<RecordBatchStreamImpl> impl_;
 };
 
 /// \brief A reader for IPC payloads uploaded by a client
@@ -83,6 +88,16 @@ class ARROW_EXPORT ServerCallContext {
   virtual const std::string& peer_identity() const = 0;
 };
 
+class ARROW_EXPORT FlightServerOptions {
+ public:
+  explicit FlightServerOptions(const Location& location_);
+
+  Location location;
+  std::unique_ptr<ServerAuthHandler> auth_handler;
+  std::string tls_cert_chain;
+  std::string tls_private_key;
+};
+
 /// \brief Skeleton RPC server implementation which can be used to create
 /// custom servers by implementing its abstract methods
 class ARROW_EXPORT FlightServerBase {
@@ -92,13 +107,10 @@ class ARROW_EXPORT FlightServerBase {
 
   // Lifecycle methods.
 
-  /// \brief Initialize an insecure TCP server listening on localhost
-  /// at the given port.
+  /// \brief Initialize a Flight server listening at the given location.
   /// This method must be called before any other method.
-  /// \param[in] port The port to serve on.
-  /// \param[in] auth_handler The authentication handler. May be
-  /// nullptr if no authentication is desired.
-  Status Init(std::unique_ptr<ServerAuthHandler> auth_handler, int port);
+  /// \param[in] options The configuration for this server.
+  Status Init(FlightServerOptions& options);
 
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.

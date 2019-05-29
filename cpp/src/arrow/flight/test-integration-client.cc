@@ -27,11 +27,14 @@
 
 #include <gflags/gflags.h>
 
+#include "arrow/io/file.h"
 #include "arrow/io/test-common.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/json-integration.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
@@ -86,8 +89,7 @@ arrow::Status ConsumeFlightLocation(const arrow::flight::Location& location,
                                     const std::shared_ptr<arrow::Schema>& schema,
                                     std::shared_ptr<arrow::Table>* retrieved_data) {
   std::unique_ptr<arrow::flight::FlightClient> read_client;
-  RETURN_NOT_OK(
-      arrow::flight::FlightClient::Connect(location.host, location.port, &read_client));
+  RETURN_NOT_OK(arrow::flight::FlightClient::Connect(location, &read_client));
 
   std::unique_ptr<arrow::RecordBatchReader> stream;
   RETURN_NOT_OK(read_client->DoGet(ticket, &stream));
@@ -100,7 +102,9 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   std::unique_ptr<arrow::flight::FlightClient> client;
-  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(FLAGS_host, FLAGS_port, &client));
+  arrow::flight::Location location;
+  ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
+  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, &client));
 
   arrow::flight::FlightDescriptor descr{
       arrow::flight::FlightDescriptor::PATH, "", {FLAGS_path}};
@@ -127,7 +131,8 @@ int main(int argc, char** argv) {
   ABORT_NOT_OK(client->GetFlightInfo(descr, &info));
 
   std::shared_ptr<arrow::Schema> schema;
-  ABORT_NOT_OK(info->GetSchema(&schema));
+  arrow::ipc::DictionaryMemo dict_memo;
+  ABORT_NOT_OK(info->GetSchema(&dict_memo, &schema));
 
   if (info->endpoints().size() == 0) {
     std::cerr << "No endpoints returned from Flight server." << std::endl;
@@ -139,12 +144,11 @@ int main(int argc, char** argv) {
 
     auto locations = endpoint.locations;
     if (locations.size() == 0) {
-      locations = {arrow::flight::Location{FLAGS_host, FLAGS_port}};
+      locations = {location};
     }
 
     for (const auto location : locations) {
-      std::cout << "Verifying location " << location.host << ':' << location.port
-                << std::endl;
+      std::cout << "Verifying location " << location.ToString() << std::endl;
       // 3. Download the data from the server.
       std::shared_ptr<arrow::Table> retrieved_data;
       ABORT_NOT_OK(ConsumeFlightLocation(location, ticket, schema, &retrieved_data));

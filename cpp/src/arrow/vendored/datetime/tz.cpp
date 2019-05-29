@@ -249,9 +249,7 @@ get_download_folder()
 
 #endif  // !USE_OS_TZDB
 
-namespace arrow
-{
-namespace util
+namespace arrow_vendored
 {
 namespace date
 {
@@ -3789,8 +3787,7 @@ current_zone()
 }
 
 }  // namespace date
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow_vendored
 
 #if defined(__GNUC__) && __GNUC__ < 5
 # pragma GCC diagnostic pop

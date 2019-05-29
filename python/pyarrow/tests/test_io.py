@@ -324,6 +324,15 @@ def test_buffer_invalid():
         pa.py_buffer(None)
 
 
+@pytest.mark.parametrize('val, expected_hex_buffer',
+                         [(b'check', b'636865636B'),
+                          (b'\a0', b'0730'),
+                          (b'', b'')])
+def test_buffer_hex(val, expected_hex_buffer):
+    buf = pa.py_buffer(val)
+    assert buf.hex() == expected_hex_buffer
+
+
 def test_buffer_to_numpy():
     # Make sure creating a numpy array from an arrow buffer works
     byte_array = bytearray(20)

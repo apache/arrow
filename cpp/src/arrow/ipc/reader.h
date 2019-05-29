@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/record_batch.h"
 #include "arrow/util/visibility.h"
@@ -166,70 +167,91 @@ class ARROW_EXPORT RecordBatchFileReader {
 
 // Generic read functions; does not copy data if the input supports zero copy reads
 
-/// \brief Read Schema from stream serialized as a sequence of one or more IPC
-/// messages
+/// \brief Read Schema from stream serialized as a single IPC message
+/// and populate any dictionary-encoded fields into a DictionaryMemo
 ///
 /// \param[in] stream an InputStream
+/// \param[in] dictionary_memo for recording dictionary-encoded fields
 /// \param[out] out the output Schema
 /// \return Status
 ///
 /// If record batches follow the schema, it is better to use
 /// RecordBatchStreamReader
 ARROW_EXPORT
-Status ReadSchema(io::InputStream* stream, std::shared_ptr<Schema>* out);
+Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
+                  std::shared_ptr<Schema>* out);
 
 /// \brief Read Schema from encapsulated Message
 ///
 /// \param[in] message a message instance containing metadata
+/// \param[in] dictionary_memo DictionaryMemo for recording dictionary-encoded
+/// fields. Can be nullptr if you are sure there are no
+/// dictionary-encoded fields
 /// \param[out] out the resulting Schema
 /// \return Status
 ARROW_EXPORT
-Status ReadSchema(const Message& message, std::shared_ptr<Schema>* out);
+Status ReadSchema(const Message& message, DictionaryMemo* dictionary_memo,
+                  std::shared_ptr<Schema>* out);
 
 /// Read record batch as encapsulated IPC message with metadata size prefix and
 /// header
 ///
 /// \param[in] schema the record batch schema
+/// \param[in] dictionary_memo DictionaryMemo which has any
+/// dictionaries. Can be nullptr if you are sure there are no
+/// dictionary-encoded fields
 /// \param[in] stream the file where the batch is located
 /// \param[out] out the read record batch
 /// \return Status
 ARROW_EXPORT
-Status ReadRecordBatch(const std::shared_ptr<Schema>& schema, io::InputStream* stream,
+Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
+                       const DictionaryMemo* dictionary_memo, io::InputStream* stream,
                        std::shared_ptr<RecordBatch>* out);
 
 /// \brief Read record batch from file given metadata and schema
 ///
 /// \param[in] metadata a Message containing the record batch metadata
 /// \param[in] schema the record batch schema
+/// \param[in] dictionary_memo DictionaryMemo which has any
+/// dictionaries. Can be nullptr if you are sure there are no
+/// dictionary-encoded fields
 /// \param[in] file a random access file
 /// \param[out] out the read record batch
 /// \return Status
 ARROW_EXPORT
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
+                       const DictionaryMemo* dictionary_memo, io::RandomAccessFile* file,
+                       std::shared_ptr<RecordBatch>* out);
 
 /// \brief Read record batch from encapsulated Message
 ///
 /// \param[in] message a message instance containing metadata and body
 /// \param[in] schema the record batch schema
+/// \param[in] dictionary_memo DictionaryMemo which has any
+/// dictionaries. Can be nullptr if you are sure there are no
+/// dictionary-encoded fields
 /// \param[out] out the resulting RecordBatch
 /// \return Status
 ARROW_EXPORT
 Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& schema,
+                       const DictionaryMemo* dictionary_memo,
                        std::shared_ptr<RecordBatch>* out);
 
 /// Read record batch from file given metadata and schema
 ///
 /// \param[in] metadata a Message containing the record batch metadata
 /// \param[in] schema the record batch schema
+/// \param[in] dictionary_memo DictionaryMemo which has any
+/// dictionaries. Can be nullptr if you are sure there are no
+/// dictionary-encoded fields
 /// \param[in] file a random access file
 /// \param[in] max_recursion_depth the maximum permitted nesting depth
 /// \param[out] out the read record batch
 /// \return Status
 ARROW_EXPORT
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       int max_recursion_depth, io::RandomAccessFile* file,
-                       std::shared_ptr<RecordBatch>* out);
+                       const DictionaryMemo* dictionary_memo, int max_recursion_depth,
+                       io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out);
 
 /// \brief Read arrow::Tensor as encapsulated IPC message in file
 ///

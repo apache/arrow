@@ -47,10 +47,21 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
   explicit DenseUnionBuilder(MemoryPool* pool,
                              const std::shared_ptr<DataType>& type = NULLPTR);
 
-  Status AppendNull() {
+  Status AppendNull() final {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));
     ARROW_RETURN_NOT_OK(offsets_builder_.Append(0));
     return AppendToBitmap(false);
+  }
+
+  Status AppendNulls(int64_t length) final {
+    ARROW_RETURN_NOT_OK(types_builder_.Reserve(length));
+    ARROW_RETURN_NOT_OK(offsets_builder_.Reserve(length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    for (int64_t i = 0; i < length; ++i) {
+      types_builder_.UnsafeAppend(0);
+      offsets_builder_.UnsafeAppend(0);
+    }
+    return AppendToBitmap(length, false);
   }
 
   /// \brief Append an element to the UnionArray. This must be followed
@@ -64,6 +75,12 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
   }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<UnionArray>* out) { return FinishTyped(out); }
 
   /// \brief Make a new child builder available to the UnionArray
   ///

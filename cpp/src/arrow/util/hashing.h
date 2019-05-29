@@ -333,13 +333,23 @@ class HashTable {
 // XXX typedef memo_index_t int32_t ?
 
 // ----------------------------------------------------------------------
+// A base class for memoization table.
+
+class MemoTable {
+ public:
+  virtual ~MemoTable() = default;
+
+  virtual int32_t size() const = 0;
+};
+
+// ----------------------------------------------------------------------
 // A memoization table for memory-cheap scalar values.
 
 // The memoization table remembers and allows to look up the insertion
 // index for each key.
 
 template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
-class ScalarMemoTable {
+class ScalarMemoTable : public MemoTable {
  public:
   explicit ScalarMemoTable(int64_t entries = 0)
       : hash_table_(static_cast<uint64_t>(entries)) {}
@@ -382,7 +392,7 @@ class ScalarMemoTable {
 
   // The number of entries in the memo table
   // (which is also 1 + the largest memo index)
-  int32_t size() const { return static_cast<int32_t>(hash_table_.size()); }
+  int32_t size() const override { return static_cast<int32_t>(hash_table_.size()); }
 
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
@@ -435,7 +445,7 @@ struct SmallScalarTraits<Scalar,
 };
 
 template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
-class SmallScalarMemoTable {
+class SmallScalarMemoTable : public MemoTable {
  public:
   explicit SmallScalarMemoTable(int64_t entries = 0) {
     std::fill(value_to_index_, value_to_index_ + cardinality, -1);
@@ -469,7 +479,7 @@ class SmallScalarMemoTable {
 
   // The number of entries in the memo table
   // (which is also 1 + the largest memo index)
-  int32_t size() const { return static_cast<int32_t>(index_to_value_.size()); }
+  int32_t size() const override { return static_cast<int32_t>(index_to_value_.size()); }
 
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
@@ -498,7 +508,7 @@ class SmallScalarMemoTable {
 // ----------------------------------------------------------------------
 // A memoization table for variable-sized binary data.
 
-class BinaryMemoTable {
+class BinaryMemoTable : public MemoTable {
  public:
   explicit BinaryMemoTable(int64_t entries = 0, int64_t values_size = -1)
       : hash_table_(static_cast<uint64_t>(entries)) {
@@ -576,7 +586,7 @@ class BinaryMemoTable {
 
   // The number of entries in the memo table
   // (which is also 1 + the largest memo index)
-  int32_t size() const { return static_cast<int32_t>(hash_table_.size()); }
+  int32_t size() const override { return static_cast<int32_t>(hash_table_.size()); }
 
   int32_t values_size() const { return static_cast<int32_t>(values_.size()); }
 

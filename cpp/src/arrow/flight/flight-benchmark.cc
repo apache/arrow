@@ -79,7 +79,9 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
 
   // Construct client and plan the query
   std::unique_ptr<FlightClient> client;
-  RETURN_NOT_OK(FlightClient::Connect(hostname, port, &client));
+  Location location;
+  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port, &location));
+  RETURN_NOT_OK(FlightClient::Connect(location, &client));
 
   FlightDescriptor descriptor;
   descriptor.type = FlightDescriptor::CMD;
@@ -90,13 +92,16 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
 
   // Read the streams in parallel
   std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(plan->GetSchema(&schema));
+  ipc::DictionaryMemo dict_memo;
+  RETURN_NOT_OK(plan->GetSchema(&dict_memo, &schema));
 
   PerformanceStats stats;
-  auto ConsumeStream = [&stats, &hostname, &port](const FlightEndpoint& endpoint) {
+  auto ConsumeStream = [&stats, &port](const FlightEndpoint& endpoint) {
     // TODO(wesm): Use location from endpoint, same host/port for now
     std::unique_ptr<FlightClient> client;
-    RETURN_NOT_OK(FlightClient::Connect(hostname, port, &client));
+    Location location;
+    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port, &location));
+    RETURN_NOT_OK(FlightClient::Connect(location, &client));
 
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);

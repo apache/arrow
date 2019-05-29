@@ -19,7 +19,7 @@
 
 #include <cstdlib>
 #include <mutex>
-#include <sstream>
+#include <string>
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -107,6 +107,8 @@ Status ConvertPyError(StatusCode code) {
     // Try to match the Python exception type with an appropriate Status code
     if (PyErr_GivenExceptionMatches(exc_type, PyExc_MemoryError)) {
       code = StatusCode::OutOfMemory;
+    } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_IndexError)) {
+      code = StatusCode::IndexError;
     } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_KeyError)) {
       code = StatusCode::KeyError;
     } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_TypeError)) {

@@ -668,6 +668,9 @@ public class Text {
     return size;
   }
 
+  /**
+   * JSON serializer for {@link Text}.
+   */
   public static class TextSerializer extends StdSerializer<Text> {
 
     public TextSerializer() {

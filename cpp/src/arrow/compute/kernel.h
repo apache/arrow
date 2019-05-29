@@ -117,6 +117,11 @@ struct ARROW_EXPORT Datum {
 
   Datum(const Datum& other) noexcept { this->value = other.value; }
 
+  Datum& operator=(const Datum& other) noexcept {
+    value = other.value;
+    return *this;
+  }
+
   // Define move constructor and move assignment, for better performance
   Datum(Datum&& other) noexcept : value(std::move(other.value)) {}
 
@@ -126,7 +131,7 @@ struct ARROW_EXPORT Datum {
   }
 
   Datum::type kind() const {
-    switch (this->value.which()) {
+    switch (this->value.index()) {
       case 0:
         return Datum::NONE;
       case 1:

@@ -48,7 +48,5 @@ if "%USE_CLCACHE%" == "true" (
     clcache -M 500000000
     clcache -c
     clcache -s
-    set CLCACHE_SERVER=1
-    set CLCACHE_HARDLINK=1
     powershell.exe -Command "Start-Process clcache-server"
 )

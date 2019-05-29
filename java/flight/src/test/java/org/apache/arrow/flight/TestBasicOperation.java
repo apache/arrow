@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import java.net.URISyntaxException;
+import java.util.Iterator;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -69,8 +71,23 @@ public class TestBasicOperation {
   @Test
   public void doAction() throws Exception {
     test(c -> {
-      Result r = c.doAction(new Action("hello")).next();
-      System.out.println(new String(r.getBody(), Charsets.UTF_8));
+      Iterator<Result> stream = c.doAction(new Action("hello"));
+
+      Assert.assertTrue(stream.hasNext());
+      Result r = stream.next();
+      Assert.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+    });
+    test(c -> {
+      Iterator<Result> stream = c.doAction(new Action("hellooo"));
+
+      Assert.assertTrue(stream.hasNext());
+      Result r = stream.next();
+      Assert.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+
+      Assert.assertTrue(stream.hasNext());
+      r = stream.next();
+      Assert.assertArrayEquals("!".getBytes(Charsets.UTF_8), r.getBody());
+      Assert.assertFalse(stream.hasNext());
     });
   }
 
@@ -138,10 +155,13 @@ public class TestBasicOperation {
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
         FlightServer s =
-            FlightTestUtil.getStartedServer((port) -> new FlightServer(a, port, producer, ServerAuthHandler.NO_OP))) {
+            FlightTestUtil.getStartedServer(
+                (port) -> FlightServer.builder(a, Location.forGrpcInsecure("localhost", port), producer).build()
+            )) {
 
       try (
-          FlightClient c = new FlightClient(a, new Location(FlightTestUtil.LOCALHOST, s.getPort()));
+          FlightClient c = FlightClient.builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort()))
+              .build()
       ) {
         try (BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE)) {
           consumer.accept(c, testAllocator);
@@ -153,7 +173,7 @@ public class TestBasicOperation {
   /**
    * An example FlightProducer for test purposes.
    */
-  public class Producer implements FlightProducer, AutoCloseable {
+  public static class Producer implements FlightProducer, AutoCloseable {
 
     private final BufferAllocator allocator;
 
@@ -170,7 +190,12 @@ public class TestBasicOperation {
               .setType(DescriptorType.CMD)
               .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
           .build();
-      listener.onNext(new FlightInfo(getInfo));
+      try {
+        listener.onNext(new FlightInfo(getInfo));
+      } catch (URISyntaxException e) {
+        listener.onError(e);
+        return;
+      }
       listener.onCompleted();
     }
 
@@ -231,16 +256,30 @@ public class TestBasicOperation {
               .setType(DescriptorType.CMD)
               .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
           .build();
-      return new FlightInfo(getInfo);
+      try {
+        return new FlightInfo(getInfo);
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     @Override
-    public Result doAction(CallContext context, Action action) {
+    public void doAction(CallContext context, Action action,
+        StreamListener<Result> listener) {
       switch (action.getType()) {
-        case "hello":
-          return new Result("world".getBytes(Charsets.UTF_8));
+        case "hello": {
+          listener.onNext(new Result("world".getBytes(Charsets.UTF_8)));
+          listener.onCompleted();
+          break;
+        }
+        case "hellooo": {
+          listener.onNext(new Result("world".getBytes(Charsets.UTF_8)));
+          listener.onNext(new Result("!".getBytes(Charsets.UTF_8)));
+          listener.onCompleted();
+          break;
+        }
         default:
-          throw new UnsupportedOperationException();
+          listener.onError(new UnsupportedOperationException());
       }
     }
 

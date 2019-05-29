@@ -21,7 +21,6 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
-#include "parquet/test-specialization.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
 #include "parquet/util/memory.h"

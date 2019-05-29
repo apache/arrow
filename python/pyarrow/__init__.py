@@ -17,6 +17,8 @@
 
 # flake8: noqa
 
+from __future__ import absolute_import
+
 import os as _os
 import sys as _sys
 
@@ -56,6 +58,7 @@ from pyarrow.lib import (null, bool_,
                          DataType, DictionaryType, ListType, StructType,
                          UnionType, TimestampType, Time32Type, Time64Type,
                          FixedSizeBinaryType, Decimal128Type,
+                         DictionaryMemo,
                          Field,
                          Schema,
                          schema,

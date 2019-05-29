@@ -17,6 +17,8 @@
 
 package org.apache.arrow.memory;
 
+import java.util.Collection;
+
 import io.netty.buffer.ArrowBuf;
 import io.netty.buffer.ByteBufAllocator;
 
@@ -133,6 +135,20 @@ public interface BufferAllocator extends AutoCloseable {
    * @return Headroom in bytes
    */
   public long getHeadroom();
+
+  /**
+   * Returns the parent allocator.
+   *
+   * @return parent allocator
+   */
+  public BufferAllocator getParentAllocator();
+
+  /**
+   * Returns the set of child allocators.
+   *
+   * @return set of child allocators
+   */
+  public Collection<BufferAllocator> getChildAllocators();
 
   /**
    * Create an allocation reservation. A reservation is a way of building up

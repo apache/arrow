@@ -21,25 +21,17 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
-#include <limits>
 #include <memory>
-#include <random>
-#include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/memory_pool.h"
-#include "arrow/pretty_print.h"
-#include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
@@ -48,47 +40,46 @@
 
 #define ASSERT_RAISES(ENUM, expr)                                                     \
   do {                                                                                \
-    ::arrow::Status s = (expr);                                                       \
-    if (!s.Is##ENUM()) {                                                              \
+    ::arrow::Status _st = (expr);                                                     \
+    if (!_st.Is##ENUM()) {                                                            \
       FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                                \
-             << s.ToString();                                                         \
+             << _st.ToString();                                                       \
     }                                                                                 \
   } while (false)
 
 #define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
   do {                                                                                \
-    ::arrow::Status s = (expr);                                                       \
-    if (!s.Is##ENUM()) {                                                              \
+    ::arrow::Status _st = (expr);                                                     \
+    if (!_st.Is##ENUM()) {                                                            \
       FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                                \
-             << s.ToString();                                                         \
+             << _st.ToString();                                                       \
     }                                                                                 \
-    ASSERT_EQ((message), s.ToString());                                               \
+    ASSERT_EQ((message), _st.ToString());                                             \
   } while (false)
 
-#define ASSERT_OK(expr)                                                      \
-  do {                                                                       \
-    ::arrow::Status _s = (expr);                                             \
-    if (!_s.ok()) {                                                          \
-      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _s.ToString(); \
-    }                                                                        \
+#define ASSERT_OK(expr)                                                       \
+  do {                                                                        \
+    ::arrow::Status _st = (expr);                                             \
+    if (!_st.ok()) {                                                          \
+      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
+    }                                                                         \
   } while (false)
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
-#define ARROW_EXPECT_OK(expr)   \
-  do {                          \
-    ::arrow::Status s = (expr); \
-    EXPECT_TRUE(s.ok());        \
+#define ARROW_EXPECT_OK(expr)     \
+  do {                            \
+    ::arrow::Status _st = (expr); \
+    EXPECT_TRUE(_st.ok());        \
   } while (false)
 
-#define ABORT_NOT_OK(expr)                \
+#define ABORT_NOT_OK(s)                   \
   do {                                    \
-    ::arrow::Status _s = (expr);          \
-    if (ARROW_PREDICT_FALSE(!_s.ok())) {  \
-      std::cerr << _s.ToString() << "\n"; \
-      std::abort();                       \
+    ::arrow::Status _st = (s);            \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) { \
+      _st.Abort();                        \
     }                                     \
   } while (false);
 
@@ -101,8 +92,10 @@ typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type
                          Int16Type, Int32Type, Int64Type, FloatType, DoubleType>
     NumericArrowTypes;
 
+class Array;
 class ChunkedArray;
 class Column;
+class RecordBatch;
 class Table;
 
 namespace compute {
@@ -113,22 +106,12 @@ using Datum = compute::Datum;
 
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
-#define ASSERT_PP_EQUAL(LEFT, RIGHT)                                                   \
-  do {                                                                                 \
-    if (!(LEFT).Equals((RIGHT))) {                                                     \
-      std::stringstream pp_result;                                                     \
-      std::stringstream pp_expected;                                                   \
-                                                                                       \
-      ARROW_EXPECT_OK(PrettyPrint(RIGHT, 0, &pp_result));                              \
-      ARROW_EXPECT_OK(PrettyPrint(LEFT, 0, &pp_expected));                             \
-      FAIL() << "Got: \n" << pp_result.str() << "\nExpected: \n" << pp_expected.str(); \
-    }                                                                                  \
-  } while (false)
-
-#define ASSERT_ARRAYS_EQUAL(lhs, rhs) ASSERT_PP_EQUAL(lhs, rhs)
-#define ASSERT_RECORD_BATCHES_EQUAL(lhs, rhs) ASSERT_PP_EQUAL(lhs, rhs)
+#define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
+#define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
 
 ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual);
+ARROW_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
+                                     const RecordBatch& actual);
 ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
                                      const ChunkedArray& actual);
 ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
@@ -139,7 +122,6 @@ ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::string& exp
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
 ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
 
-ARROW_EXPORT void PrintColumn(const Column& col, std::stringstream* ss);
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true);
 
@@ -175,19 +157,6 @@ void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
 #define DECL_T() typedef typename TestFixture::T T;
 
 #define DECL_TYPE() typedef typename TestFixture::Type Type;
-
-#define ASSERT_BATCHES_EQUAL(LEFT, RIGHT)    \
-  do {                                       \
-    if (!(LEFT).ApproxEquals(RIGHT)) {       \
-      std::stringstream ss;                  \
-      ss << "Left:\n";                       \
-      ASSERT_OK(PrettyPrint(LEFT, 0, &ss));  \
-                                             \
-      ss << "\nRight:\n";                    \
-      ASSERT_OK(PrettyPrint(RIGHT, 0, &ss)); \
-      FAIL() << ss.str();                    \
-    }                                        \
-  } while (false)
 
 // ArrayFromJSON: construct an Array from a simple JSON representation
 

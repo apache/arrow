@@ -110,8 +110,10 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
   // column chunk
   int64_t file_offset() const;
+
   // parameter is only used when a dataset is spread across multiple files
   const std::string& file_path() const;
+
   // column metadata
   Type::type type() const;
   int64_t num_values() const;
@@ -189,6 +191,9 @@ class PARQUET_EXPORT FileMetaData {
   const SchemaDescriptor* schema() const;
 
   std::shared_ptr<const KeyValueMetadata> key_value_metadata() const;
+
+  // Set file_path ColumnChunk fields to a particular value
+  void set_file_path(const std::string& path);
 
  private:
   friend FileMetaDataBuilder;

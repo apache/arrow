@@ -30,8 +30,9 @@ func TestStringArray(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	var (
-		want   = []string{"hello", "世界", "", "bye"}
-		valids = []bool{true, true, false, true}
+		want    = []string{"hello", "世界", "", "bye"}
+		valids  = []bool{true, true, false, true}
+		offsets = []int{0, 5, 11, 11, 14}
 	)
 
 	sb := array.NewStringBuilder(mem)
@@ -79,6 +80,13 @@ func TestStringArray(t *testing.T) {
 				t.Fatalf("arr[%d]: got=%q, want=%q", i, got, want[i])
 			}
 		}
+
+		if got, want := arr.ValueOffset(i), offsets[i]; got != want {
+			t.Fatalf("arr-offset-beg[%d]: got=%d, want=%d", i, got, want)
+		}
+		if got, want := arr.ValueOffset(i+1), offsets[i+1]; got != want {
+			t.Fatalf("arr-offset-end[%d]: got=%d, want=%d", i+1, got, want)
+		}
 	}
 
 	sub := array.MakeFromData(arr.Data())
@@ -93,6 +101,20 @@ func TestStringArray(t *testing.T) {
 	}
 
 	if got, want := arr.String(), `["hello" "世界" (null) "bye"]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+	slice := array.NewSliceData(arr.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.String)
+	if !ok {
+		t.Fatalf("could not type-assert to array.String")
+	}
+
+	if got, want := v.String(), `[(null) "bye"]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
 }

@@ -18,6 +18,9 @@
 package org.apache.arrow.vector;
 
 
+/**
+ * Interface for all fixed width {@link ValueVector} (e.g. integer, fixed size binary, etc).
+ */
 public interface FixedWidthVector extends ValueVector {
 
   /**

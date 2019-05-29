@@ -30,7 +30,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -144,6 +143,27 @@ class ARROW_EXPORT TimestampScalar : public internal::PrimitiveScalar {
                   bool is_valid = true);
 };
 
+class ARROW_EXPORT DurationScalar : public internal::PrimitiveScalar {
+ public:
+  int64_t value;
+  DurationScalar(int64_t value, const std::shared_ptr<DataType>& type,
+                 bool is_valid = true);
+};
+
+class ARROW_EXPORT MonthIntervalScalar : public internal::PrimitiveScalar {
+ public:
+  int32_t value;
+  MonthIntervalScalar(int32_t value, const std::shared_ptr<DataType>& type,
+                      bool is_valid = true);
+};
+
+class ARROW_EXPORT DayTimeIntervalScalar : public Scalar {
+ public:
+  DayTimeIntervalType::DayMilliseconds value;
+  DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
+                        const std::shared_ptr<DataType>& type, bool is_valid = true);
+};
+
 struct ARROW_EXPORT Decimal128Scalar : public Scalar {
   Decimal128 value;
   Decimal128Scalar(const Decimal128& value, const std::shared_ptr<DataType>& type,
@@ -157,6 +177,15 @@ struct ARROW_EXPORT ListScalar : public Scalar {
              bool is_valid = true);
 
   explicit ListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
+};
+
+struct ARROW_EXPORT FixedSizeListScalar : public Scalar {
+  std::shared_ptr<Array> value;
+
+  FixedSizeListScalar(const std::shared_ptr<Array>& value,
+                      const std::shared_ptr<DataType>& type, bool is_valid = true);
+
+  explicit FixedSizeListScalar(const std::shared_ptr<Array>& value, bool is_valid = true);
 };
 
 struct ARROW_EXPORT StructScalar : public Scalar {

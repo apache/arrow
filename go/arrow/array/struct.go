@@ -65,6 +65,13 @@ func (a *Struct) setData(data *Data) {
 	}
 }
 
+func (a *Struct) Retain() {
+	a.array.Retain()
+	for _, f := range a.fields {
+		f.Retain()
+	}
+}
+
 func (a *Struct) Release() {
 	a.array.Release()
 	for _, f := range a.fields {

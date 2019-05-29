@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -50,6 +49,14 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   protected ArrowBuf valueBuffer;
   protected int valueCount;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param name The name of the vector.
+   * @param allocator The allocator to use for allocating memory for the vector.
+   * @param fieldType The type of the buffer.
+   * @param typeWidth The width in bytes of the type.
+   */
   public BaseFixedWidthVector(final String name, final BufferAllocator allocator,
                                       FieldType fieldType, final int typeWidth) {
     super(name, allocator);
@@ -239,9 +246,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public void allocateNew() {
-    if (!allocateNewSafe()) {
-      throw new OutOfMemoryException("Failure while allocating memory.");
-    }
+    allocateNew(lastValueCapacity);
   }
 
   /**
@@ -254,19 +259,12 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public boolean allocateNewSafe() {
-    computeAndCheckBufferSize(lastValueCapacity);
-
-    /* we are doing a new allocation -- release the current buffers */
-    clear();
-
     try {
-      allocateBytes(lastValueCapacity);
+      allocateNew(lastValueCapacity);
+      return true;
     } catch (Exception e) {
-      clear();
       return false;
     }
-
-    return true;
   }
 
   /**
@@ -392,7 +390,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     }
     if (clear) {
       for (final ArrowBuf buffer : buffers) {
-        buffer.retain(1);
+        buffer.getReferenceManager().retain(1);
       }
       clear();
     }
@@ -419,13 +417,13 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     final ArrowBuf newValueBuffer = buffers.getDataBuf();
     newValueBuffer.setBytes(0, valueBuffer, 0, valueBuffer.capacity());
     newValueBuffer.setZero(valueBuffer.capacity(), newValueBuffer.capacity() - valueBuffer.capacity());
-    valueBuffer.release();
+    valueBuffer.getReferenceManager().release();
     valueBuffer = newValueBuffer;
 
     final ArrowBuf newValidityBuffer = buffers.getValidityBuf();
     newValidityBuffer.setBytes(0, validityBuffer, 0, validityBuffer.capacity());
     newValidityBuffer.setZero(validityBuffer.capacity(), newValidityBuffer.capacity() - validityBuffer.capacity());
-    validityBuffer.release();
+    validityBuffer.getReferenceManager().release();
     validityBuffer = newValidityBuffer;
 
     lastValueCapacity = getValueCapacity();
@@ -475,10 +473,10 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     ArrowBuf bitBuffer = ownBuffers.get(0);
     ArrowBuf dataBuffer = ownBuffers.get(1);
 
-    validityBuffer.release();
+    validityBuffer.getReferenceManager().release();
     validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
-    valueBuffer.release();
-    valueBuffer = dataBuffer.retain(allocator);
+    valueBuffer.getReferenceManager().release();
+    valueBuffer = dataBuffer.getReferenceManager().retain(dataBuffer, allocator);
 
     valueCount = fieldNode.getLength();
   }
@@ -555,8 +553,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   public void transferTo(BaseFixedWidthVector target) {
     compareTypes(target, "transferTo");
     target.clear();
-    target.validityBuffer = validityBuffer.transferOwnership(target.allocator).buffer;
-    target.valueBuffer = valueBuffer.transferOwnership(target.allocator).buffer;
+    target.validityBuffer = transferBuffer(validityBuffer, target.allocator);
+    target.valueBuffer = transferBuffer(valueBuffer, target.allocator);
     target.valueCount = valueCount;
     clear();
   }
@@ -584,7 +582,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
                                            BaseFixedWidthVector target) {
     final int startPoint = startIndex * typeWidth;
     final int sliceLength = length * typeWidth;
-    target.valueBuffer = valueBuffer.slice(startPoint, sliceLength).transferOwnership(target.allocator).buffer;
+    final ArrowBuf slicedBuffer = valueBuffer.slice(startPoint, sliceLength);
+    target.valueBuffer = transferBuffer(slicedBuffer, target.allocator);
   }
 
   /**
@@ -603,10 +602,10 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       if (offset == 0) {
         /* slice */
         if (target.validityBuffer != null) {
-          target.validityBuffer.release();
+          target.validityBuffer.getReferenceManager().release();
         }
         target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
-        target.validityBuffer.retain(1);
+        target.validityBuffer.getReferenceManager().retain(1);
       } else {
         /* Copy data
          * When the first bit starts from the middle of a byte (offset != 0),

@@ -105,8 +105,13 @@ set(ARROW_SRCS
     csv/options.cc
     csv/parser.cc
     csv/reader.cc
+    filesystem/filesystem.cc
+    filesystem/mockfs.cc
+    filesystem/path-util.cc
     json/options.cc
+    json/chunked-builder.cc
     json/chunker.cc
+    json/converter.cc
     json/parser.cc
     json/reader.cc
     io/buffered.cc
@@ -127,12 +132,16 @@ set(ARROW_SRCS
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
+    util/string_builder.cc
     util/task-group.cc
     util/thread-pool.cc
     util/trie.cc
-    util/uri.cc
     util/utf8.cc
     vendored/datetime/tz.cpp)
+
+if(ARROW_WITH_URIPARSER)
+  set(ARROW_SRCS ${ARROW_SRCS} util/uri.cc)
+endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
   set_property(SOURCE util/io-util.cc
@@ -278,7 +287,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 SOURCES
+                io/test-common.cc
                 ipc/test-common.cc
+                filesystem/test-util.cc
                 testing/gtest_util.cc
                 testing/random.cc
                 OUTPUTS
@@ -298,14 +309,16 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_LIBRARIES ${ARROW_LIBRARIES} ${ARROW_TESTING_LIBRARIES})
 endif()
 
-find_package(Backtrace)
+if(ARROW_WITH_BACKTRACE)
+  find_package(Backtrace)
 
-foreach(LIB_TARGET ${ARROW_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-  if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
-  endif()
-endforeach()
+  foreach(LIB_TARGET ${ARROW_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+    if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
+    endif()
+  endforeach()
+endif()
 
 # Headers: top level
 arrow_install_all_headers("arrow")
@@ -318,26 +331,14 @@ arrow_add_pkg_config("arrow")
 #
 
 add_arrow_test(allocator-test)
-
-if(WIN32)
-  add_arrow_test(array-test
-                 SOURCES
-                 array-test.cc
-                 array-binary-test.cc
-                 array-list-test.cc
-                 array-struct-test.cc
-                 array-union-test.cc)
-else()
-  add_arrow_test(array-test
-                 SOURCES
-                 array-test.cc
-                 array-binary-test.cc
-                 array-dict-test.cc
-                 array-list-test.cc
-                 array-struct-test.cc
-                 array-union-test.cc)
-endif()
-
+add_arrow_test(array-test
+               SOURCES
+               array-test.cc
+               array-binary-test.cc
+               array-dict-test.cc
+               array-list-test.cc
+               array-struct-test.cc
+               array-union-test.cc)
 add_arrow_test(buffer-test)
 
 if(ARROW_IPC)
@@ -362,6 +363,7 @@ add_arrow_benchmark(column-benchmark)
 
 add_subdirectory(array)
 add_subdirectory(csv)
+add_subdirectory(filesystem)
 add_subdirectory(json)
 add_subdirectory(io)
 add_subdirectory(util)

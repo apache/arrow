@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt4ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -69,7 +71,7 @@ public class UInt4Vector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public int get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
     return valueBuffer.getInt(index * TYPE_WIDTH);
@@ -105,12 +107,20 @@ public class UInt4Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Copies a value and validity setting to the thisIndex position from the given vector
+   * at fromIndex.
+   */
   public void copyFrom(int fromIndex, int thisIndex, UInt4Vector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final int value = from.valueBuffer.getInt(fromIndex * TYPE_WIDTH);
     valueBuffer.setInt(thisIndex * TYPE_WIDTH, value);
   }
 
+  /**
+   * Same as {@link #copyFrom(int, int, UInt4Vector)} but will allocate additional space
+   * if fromIndex is larger than current capacity.
+   */
   public void copyFromSafe(int fromIndex, int thisIndex, UInt4Vector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
@@ -220,6 +230,10 @@ public class UInt4Vector extends BaseFixedWidthVector {
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
+  /**
+   * Sets the value at index to value isSet > 0, otherwise sets the index position
+   * to invalid/null.
+   */
   public void set(int index, int isSet, int value) {
     if (isSet > 0) {
       set(index, value);
@@ -228,6 +242,10 @@ public class UInt4Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Same as {@link #set(int, int, int)} but will reallocate if the buffer if index
+   * is larger than the current capacity.
+   */
   public void setSafe(int index, int isSet, int value) {
     handleSafe(index);
     set(index, isSet, value);

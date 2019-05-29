@@ -66,12 +66,7 @@ namespace Apache.Arrow.Ipc
             ByteBuffer bodybb = CreateByteBuffer(_buffer.Slice(_bufferPosition, bodyLength));
             _bufferPosition += bodyLength;
 
-            return CreateArrowObjectFromMessage(message, bodybb);
-        }
-
-        protected override ArrowBuffer CreateArrowBuffer(ReadOnlyMemory<byte> data)
-        {
-            return new ArrowBuffer(data);
+            return CreateArrowObjectFromMessage(message, bodybb, memoryOwner: null);
         }
 
         private void ReadSchema()

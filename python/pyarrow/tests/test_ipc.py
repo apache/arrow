@@ -219,7 +219,7 @@ def test_stream_categorical_roundtrip(stream_fixture):
     })
     batch = pa.RecordBatch.from_pandas(df)
     writer = stream_fixture._get_writer(stream_fixture.sink, batch.schema)
-    writer.write_batch(pa.RecordBatch.from_pandas(df))
+    writer.write_batch(batch)
     writer.close()
 
     table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))

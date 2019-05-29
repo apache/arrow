@@ -80,9 +80,15 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CLocation" arrow::flight::Location":
         CLocation()
+        c_string ToString()
+        c_bool Equals(const CLocation& other)
 
-        c_string host
-        int32_t port
+        @staticmethod
+        CStatus Parse(c_string& uri_string, CLocation* location)
+        @staticmethod
+        CStatus ForGrpcTcp(c_string& host, int port, CLocation* location)
+        @staticmethod
+        CStatus ForGrpcUnix(c_string& path, CLocation* location)
 
     cdef cppclass CFlightEndpoint" arrow::flight::FlightEndpoint":
         CFlightEndpoint()
@@ -92,9 +98,9 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFlightInfo" arrow::flight::FlightInfo":
         CFlightInfo(CFlightInfo info)
-        uint64_t total_records()
-        uint64_t total_bytes()
-        CStatus GetSchema(shared_ptr[CSchema]* out)
+        int64_t total_records()
+        int64_t total_bytes()
+        CStatus GetSchema(CDictionaryMemo* memo, shared_ptr[CSchema]* out)
         CFlightDescriptor& descriptor()
         const vector[CFlightEndpoint]& endpoints()
 
@@ -141,23 +147,48 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CServerCallContext" arrow::flight::ServerCallContext":
         c_string& peer_identity()
 
+    cdef cppclass CTimeoutDuration" arrow::flight::TimeoutDuration":
+        CTimeoutDuration(double)
+
+    cdef cppclass CFlightCallOptions" arrow::flight::FlightCallOptions":
+        CFlightCallOptions()
+        CTimeoutDuration timeout
+
+    cdef cppclass CFlightServerOptions" arrow::flight::FlightServerOptions":
+        CFlightServerOptions(const CLocation& location)
+        CLocation location
+        unique_ptr[CServerAuthHandler] auth_handler
+        c_string tls_cert_chain
+        c_string tls_private_key
+
+    cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
+        CFlightClientOptions()
+        c_string tls_root_certs
+
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
-        CStatus Connect(const c_string& host, int port,
+        CStatus Connect(const CLocation& location,
+                        const CFlightClientOptions& options,
                         unique_ptr[CFlightClient]* client)
 
-        CStatus Authenticate(unique_ptr[CClientAuthHandler] auth_handler)
+        CStatus Authenticate(CFlightCallOptions& options,
+                             unique_ptr[CClientAuthHandler] auth_handler)
 
-        CStatus DoAction(CAction& action, unique_ptr[CResultStream]* results)
-        CStatus ListActions(vector[CActionType]* actions)
+        CStatus DoAction(CFlightCallOptions& options, CAction& action,
+                         unique_ptr[CResultStream]* results)
+        CStatus ListActions(CFlightCallOptions& options,
+                            vector[CActionType]* actions)
 
-        CStatus ListFlights(unique_ptr[CFlightListing]* listing)
-        CStatus GetFlightInfo(CFlightDescriptor& descriptor,
+        CStatus ListFlights(CFlightCallOptions& options, CCriteria criteria,
+                            unique_ptr[CFlightListing]* listing)
+        CStatus GetFlightInfo(CFlightCallOptions& options,
+                              CFlightDescriptor& descriptor,
                               unique_ptr[CFlightInfo]* info)
 
-        CStatus DoGet(CTicket& ticket,
+        CStatus DoGet(CFlightCallOptions& options, CTicket& ticket,
                       unique_ptr[CRecordBatchReader]* stream)
-        CStatus DoPut(CFlightDescriptor& descriptor,
+        CStatus DoPut(CFlightCallOptions& options,
+                      CFlightDescriptor& descriptor,
                       shared_ptr[CSchema]& schema,
                       unique_ptr[CRecordBatchWriter]* stream)
 
@@ -211,7 +242,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServer:
         PyFlightServer(object server, PyFlightServerVtable vtable)
 
-        CStatus Init(unique_ptr[CServerAuthHandler] auth_handler, int port)
+        CStatus Init(CFlightServerOptions& options)
         CStatus ServeWithSignals() except *
         void Shutdown()
 
@@ -244,8 +275,8 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         shared_ptr[CSchema] schema,
         CFlightDescriptor& descriptor,
         vector[CFlightEndpoint] endpoints,
-        uint64_t total_records,
-        uint64_t total_bytes,
+        int64_t total_records,
+        int64_t total_bytes,
         unique_ptr[CFlightInfo]* out)
 
 cdef extern from "<utility>" namespace "std":

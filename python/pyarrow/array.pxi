@@ -675,6 +675,49 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(result)
 
+    def take(self, Array indices):
+        """
+        Take elements from an array.
+
+        The resulting array will be of the same type as the input array, with
+        elements taken from the input array at the given indices. If an index
+        is null then the taken element will be null.
+
+        Parameters
+        ----------
+        indices : Array
+            The indices of the values to extract. Array needs to be of
+            integer type.
+
+        Returns
+        -------
+        Array
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
+        >>> indices = pa.array([0, None, 4, 3])
+        >>> arr.take(indices)
+        <pyarrow.lib.StringArray object at 0x7ffa4fc7d368>
+        [
+          "a",
+          null,
+          "e",
+          null
+        ]
+        """
+        cdef:
+            cdef CTakeOptions options
+            cdef CDatum out
+
+        with nogil:
+            check_status(Take(_context(), CDatum(self.sp_array),
+                              CDatum(indices.sp_array), options, &out))
+
+        return wrap_datum(out)
+
     def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out
@@ -1260,15 +1303,18 @@ cdef class DictionaryArray(Array):
         cdef c_bool c_ordered = ordered
 
         c_type.reset(new CDictionaryType(_indices.type.sp_type,
-                                         _dictionary.sp_array, c_ordered))
+                                         _dictionary.sp_array.get().type(),
+                                         c_ordered))
 
         if safe:
             with nogil:
                 check_status(
                     CDictionaryArray.FromArrays(c_type, _indices.sp_array,
+                                                _dictionary.sp_array,
                                                 &c_result))
         else:
-            c_result.reset(new CDictionaryArray(c_type, _indices.sp_array))
+            c_result.reset(new CDictionaryArray(c_type, _indices.sp_array,
+                                                _dictionary.sp_array))
 
         return pyarrow_wrap_array(c_result)
 

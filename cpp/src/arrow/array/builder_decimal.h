@@ -38,6 +38,12 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
   Status Append(const Decimal128& val);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<Decimal128Array>* out) { return FinishTyped(out); }
 };
 
 using DecimalBuilder = Decimal128Builder;

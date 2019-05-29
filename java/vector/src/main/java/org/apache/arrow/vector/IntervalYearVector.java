@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import java.time.Period;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -27,6 +29,8 @@ import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * IntervalYearVector implements a fixed width (4 bytes) vector of
@@ -91,13 +95,27 @@ public class IntervalYearVector extends BaseFixedWidthVector {
 
 
   /**
+   * Given a data buffer, get the value stored at a particular position
+   * in the vector.
+   *
+   * <p>This method should not be used externally.
+   *
+   * @param buffer data buffer
+   * @param index  position of the element.
+   * @return value stored at the index.
+   */
+  public static int getTotalMonths(final ArrowBuf buffer, final int index) {
+    return buffer.getInt(index * TYPE_WIDTH);
+  }
+
+  /**
    * Get the element at the given index from the vector.
    *
    * @param index   position of element
    * @return element at given index
    */
   public int get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
     return valueBuffer.getInt(index * TYPE_WIDTH);

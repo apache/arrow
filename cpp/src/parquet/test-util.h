@@ -22,20 +22,23 @@
 #pragma once
 
 #include <algorithm>
+#include <chrono>
 #include <limits>
 #include <memory>
+#include <random>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/util.h"
+
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
 #include "parquet/util/memory.h"
-#include "parquet/util/test-common.h"
 
 namespace parquet {
 
@@ -46,6 +49,175 @@ bool operator==(const FixedLenByteArray& a, const FixedLenByteArray& b) {
 }
 
 namespace test {
+
+typedef ::testing::Types<BooleanType, Int32Type, Int64Type, Int96Type, FloatType,
+                         DoubleType, ByteArrayType, FLBAType>
+    ParquetTypes;
+
+class ParquetTestException : public parquet::ParquetException {
+  using ParquetException::ParquetException;
+};
+
+const char* get_data_dir() {
+  const auto result = std::getenv("PARQUET_TEST_DATA");
+  if (!result || !result[0]) {
+    throw ParquetTestException(
+        "Please point the PARQUET_TEST_DATA environment "
+        "variable to the test data directory");
+  }
+  return result;
+}
+
+std::string get_bad_data_dir() {
+  // PARQUET_TEST_DATA should point to ARROW_HOME/cpp/submodules/parquet-testing/data
+  // so need to reach one folder up to access the "bad_data" folder.
+  std::string data_dir(get_data_dir());
+  std::stringstream ss;
+  ss << data_dir << "/../bad_data";
+  return ss.str();
+}
+
+std::string get_data_file(const std::string& filename, bool is_good = true) {
+  std::stringstream ss;
+
+  if (is_good) {
+    ss << get_data_dir();
+  } else {
+    ss << get_bad_data_dir();
+  }
+
+  ss << "/" << filename;
+  return ss.str();
+}
+
+template <typename T>
+static inline void assert_vector_equal(const std::vector<T>& left,
+                                       const std::vector<T>& right) {
+  ASSERT_EQ(left.size(), right.size());
+
+  for (size_t i = 0; i < left.size(); ++i) {
+    ASSERT_EQ(left[i], right[i]) << i;
+  }
+}
+
+template <typename T>
+static inline bool vector_equal(const std::vector<T>& left, const std::vector<T>& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+
+  for (size_t i = 0; i < left.size(); ++i) {
+    if (left[i] != right[i]) {
+      std::cerr << "index " << i << " left was " << left[i] << " right was " << right[i]
+                << std::endl;
+      return false;
+    }
+  }
+
+  return true;
+}
+
+template <typename T>
+static std::vector<T> slice(const std::vector<T>& values, int start, int end) {
+  if (end < start) {
+    return std::vector<T>(0);
+  }
+
+  std::vector<T> out(end - start);
+  for (int i = start; i < end; ++i) {
+    out[i - start] = values[i];
+  }
+  return out;
+}
+
+void random_bytes(int n, uint32_t seed, std::vector<uint8_t>* out) {
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int> d(0, 255);
+
+  out->resize(n);
+  for (int i = 0; i < n; ++i) {
+    (*out)[i] = static_cast<uint8_t>(d(gen));
+  }
+}
+
+void random_bools(int n, double p, uint32_t seed, bool* out) {
+  std::default_random_engine gen(seed);
+  std::bernoulli_distribution d(p);
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
+
+template <typename T>
+void random_numbers(int n, uint32_t seed, T min_value, T max_value, T* out) {
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<T> d(min_value, max_value);
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
+
+template <>
+void random_numbers(int n, uint32_t seed, float min_value, float max_value, float* out) {
+  std::default_random_engine gen(seed);
+  std::uniform_real_distribution<float> d(min_value, max_value);
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
+
+template <>
+void random_numbers(int n, uint32_t seed, double min_value, double max_value,
+                    double* out) {
+  std::default_random_engine gen(seed);
+  std::uniform_real_distribution<double> d(min_value, max_value);
+  for (int i = 0; i < n; ++i) {
+    out[i] = d(gen);
+  }
+}
+
+void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_value,
+                          Int96* out) {
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int32_t> d(min_value, max_value);
+  for (int i = 0; i < n; ++i) {
+    out[i].value[0] = d(gen);
+    out[i].value[1] = d(gen);
+    out[i].value[2] = d(gen);
+  }
+}
+
+void random_fixed_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out) {
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int> d(0, 255);
+  for (int i = 0; i < n; ++i) {
+    out[i].ptr = buf;
+    for (int j = 0; j < len; ++j) {
+      buf[j] = static_cast<uint8_t>(d(gen));
+    }
+    buf += len;
+  }
+}
+
+void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int min_size,
+                       int max_size) {
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int> d1(min_size, max_size);
+  std::uniform_int_distribution<int> d2(0, 255);
+  for (int i = 0; i < n; ++i) {
+    int len = d1(gen);
+    out[i].len = len;
+    out[i].ptr = buf;
+    for (int j = 0; j < len; ++j) {
+      buf[j] = static_cast<uint8_t>(d2(gen));
+    }
+    buf += len;
+  }
+}
+
+void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int max_size) {
+  random_byte_array(n, seed, buf, out, 0, max_size);
+}
 
 template <typename Type, typename Sequence>
 std::shared_ptr<Buffer> EncodeValues(Encoding::type encoding, bool use_dictionary,
@@ -453,6 +625,154 @@ static int MakePages(const ColumnDescriptor* d, int num_pages, int levels_per_pa
   return num_values;
 }
 
-}  // namespace test
+// ----------------------------------------------------------------------
+// Test data generation
 
+template <>
+void inline InitValues<bool>(int num_values, std::vector<bool>& values,
+                             std::vector<uint8_t>& buffer) {
+  values = {};
+  ::arrow::random_is_valid(num_values, 1., &values,
+                           static_cast<int>(::arrow::random_seed()));
+}
+
+template <>
+void inline InitValues<ByteArray>(int num_values, std::vector<ByteArray>& values,
+                                  std::vector<uint8_t>& buffer) {
+  int max_byte_array_len = 12;
+  int num_bytes = static_cast<int>(max_byte_array_len + sizeof(uint32_t));
+  size_t nbytes = num_values * num_bytes;
+  buffer.resize(nbytes);
+  random_byte_array(num_values, 0, buffer.data(), values.data(), max_byte_array_len);
+}
+
+void inline InitWideByteArrayValues(int num_values, std::vector<ByteArray>& values,
+                                    std::vector<uint8_t>& buffer, int min_len,
+                                    int max_len) {
+  int num_bytes = static_cast<int>(max_len + sizeof(uint32_t));
+  size_t nbytes = num_values * num_bytes;
+  buffer.resize(nbytes);
+  random_byte_array(num_values, 0, buffer.data(), values.data(), min_len, max_len);
+}
+
+template <>
+void inline InitValues<FLBA>(int num_values, std::vector<FLBA>& values,
+                             std::vector<uint8_t>& buffer) {
+  size_t nbytes = num_values * FLBA_LENGTH;
+  buffer.resize(nbytes);
+  random_fixed_byte_array(num_values, 0, buffer.data(), FLBA_LENGTH, values.data());
+}
+
+template <>
+void inline InitValues<Int96>(int num_values, std::vector<Int96>& values,
+                              std::vector<uint8_t>& buffer) {
+  random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
+                       std::numeric_limits<int32_t>::max(), values.data());
+}
+
+inline std::string TestColumnName(int i) {
+  std::stringstream col_name;
+  col_name << "column_" << i;
+  return col_name.str();
+}
+
+// This class lives here because of its dependency on the InitValues specializations.
+template <typename TestType>
+class PrimitiveTypedTest : public ::testing::Test {
+ public:
+  typedef typename TestType::c_type T;
+
+  void SetUpSchema(Repetition::type repetition, int num_columns = 1) {
+    std::vector<schema::NodePtr> fields;
+
+    for (int i = 0; i < num_columns; ++i) {
+      std::string name = TestColumnName(i);
+      fields.push_back(schema::PrimitiveNode::Make(name, repetition, TestType::type_num,
+                                                   LogicalType::NONE, FLBA_LENGTH));
+    }
+    node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
+    schema_.Init(node_);
+  }
+
+  void GenerateData(int64_t num_values);
+  void SetupValuesOut(int64_t num_values);
+  void SyncValuesOut();
+
+ protected:
+  schema::NodePtr node_;
+  SchemaDescriptor schema_;
+
+  // Input buffers
+  std::vector<T> values_;
+
+  std::vector<int16_t> def_levels_;
+
+  std::vector<uint8_t> buffer_;
+  // Pointer to the values, needed as we cannot use std::vector<bool>::data()
+  T* values_ptr_;
+  std::vector<uint8_t> bool_buffer_;
+
+  // Output buffers
+  std::vector<T> values_out_;
+  std::vector<uint8_t> bool_buffer_out_;
+  T* values_out_ptr_;
+};
+
+template <typename TestType>
+void PrimitiveTypedTest<TestType>::SyncValuesOut() {}
+
+template <>
+void PrimitiveTypedTest<BooleanType>::SyncValuesOut() {
+  std::vector<uint8_t>::const_iterator source_iterator = bool_buffer_out_.begin();
+  std::vector<T>::iterator destination_iterator = values_out_.begin();
+  while (source_iterator != bool_buffer_out_.end()) {
+    *destination_iterator++ = *source_iterator++ != 0;
+  }
+}
+
+template <typename TestType>
+void PrimitiveTypedTest<TestType>::SetupValuesOut(int64_t num_values) {
+  values_out_.clear();
+  values_out_.resize(num_values);
+  values_out_ptr_ = values_out_.data();
+}
+
+template <>
+void PrimitiveTypedTest<BooleanType>::SetupValuesOut(int64_t num_values) {
+  values_out_.clear();
+  values_out_.resize(num_values);
+
+  bool_buffer_out_.clear();
+  bool_buffer_out_.resize(num_values);
+  // Write once to all values so we can copy it without getting Valgrind errors
+  // about uninitialised values.
+  std::fill(bool_buffer_out_.begin(), bool_buffer_out_.end(), true);
+  values_out_ptr_ = reinterpret_cast<bool*>(bool_buffer_out_.data());
+}
+
+template <typename TestType>
+void PrimitiveTypedTest<TestType>::GenerateData(int64_t num_values) {
+  def_levels_.resize(num_values);
+  values_.resize(num_values);
+
+  InitValues<T>(static_cast<int>(num_values), values_, buffer_);
+  values_ptr_ = values_.data();
+
+  std::fill(def_levels_.begin(), def_levels_.end(), 1);
+}
+
+template <>
+void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values) {
+  def_levels_.resize(num_values);
+  values_.resize(num_values);
+
+  InitValues<T>(static_cast<int>(num_values), values_, buffer_);
+  bool_buffer_.resize(num_values);
+  std::copy(values_.begin(), values_.end(), bool_buffer_.begin());
+  values_ptr_ = reinterpret_cast<bool*>(bool_buffer_.data());
+
+  std::fill(def_levels_.begin(), def_levels_.end(), 1);
+}
+
+}  // namespace test
 }  // namespace parquet

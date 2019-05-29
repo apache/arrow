@@ -52,6 +52,12 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   void Reset() override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<ListArray>* out) { return FinishTyped(out); }
+
   /// \brief Vector append
   ///
   /// If passed, valid_bytes is of equal length to values, and any zero byte
@@ -65,7 +71,9 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   /// value builder
   Status Append(bool is_valid = true);
 
-  Status AppendNull() { return Append(false); }
+  Status AppendNull() final { return Append(false); }
+
+  Status AppendNulls(int64_t length) final;
 
   ArrayBuilder* value_builder() const;
 
@@ -74,7 +82,69 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   std::shared_ptr<ArrayBuilder> value_builder_;
   std::shared_ptr<Array> values_;
 
+  Status CheckNextOffset() const;
   Status AppendNextOffset();
+  Status AppendNextOffset(int64_t num_repeats);
+};
+
+// ----------------------------------------------------------------------
+// FixedSizeList builder
+
+/// \class FixedSizeListBuilder
+/// \brief Builder class for fixed-length list array value types
+class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
+ public:
+  FixedSizeListBuilder(MemoryPool* pool,
+                       std::shared_ptr<ArrayBuilder> const& value_builder,
+                       int32_t list_size);
+
+  FixedSizeListBuilder(MemoryPool* pool,
+                       std::shared_ptr<ArrayBuilder> const& value_builder,
+                       const std::shared_ptr<DataType>& type);
+
+  Status Resize(int64_t capacity) override;
+  void Reset() override;
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<FixedSizeListArray>* out) { return FinishTyped(out); }
+
+  /// \brief Append a valid fixed length list.
+  ///
+  /// This function affects only the validity bitmap; the child values must be appended
+  /// using the child array builder.
+  Status Append();
+
+  /// \brief Vector append
+  ///
+  /// If passed, valid_bytes wil be read and any zero byte
+  /// will cause the corresponding slot to be null
+  ///
+  /// This function affects only the validity bitmap; the child values must be appended
+  /// using the child array builder. This includes appending nulls for null lists.
+  /// XXX this restriction is confusing, should this method be omitted?
+  Status AppendValues(int64_t length, const uint8_t* valid_bytes = NULLPTR);
+
+  /// \brief Append a null fixed length list.
+  ///
+  /// The child array builder will have the approriate number of nulls appended
+  /// automatically.
+  Status AppendNull() final;
+
+  /// \brief Append length null fixed length lists.
+  ///
+  /// The child array builder will have the approriate number of nulls appended
+  /// automatically.
+  Status AppendNulls(int64_t length) final;
+
+  ArrayBuilder* value_builder() const { return value_builder_.get(); }
+
+ protected:
+  const int32_t list_size_;
+  std::shared_ptr<ArrayBuilder> value_builder_;
 };
 
 // ----------------------------------------------------------------------
@@ -91,6 +161,12 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
                 std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<StructArray>* out) { return FinishTyped(out); }
 
   /// Null bitmap is of equal length to every child field, and any zero byte
   /// will be considered as a null for that field, but users must using app-
@@ -110,7 +186,9 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendNull() { return Append(false); }
+  Status AppendNull() final { return Append(false); }
+
+  Status AppendNulls(int64_t length) final;
 
   void Reset() override;
 

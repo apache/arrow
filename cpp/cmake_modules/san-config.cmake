@@ -20,7 +20,9 @@ endif()
 if(${ARROW_USE_ASAN})
   if(NOT
      (("${COMPILER_FAMILY}" STREQUAL "clang")
-      OR ("${COMPILER_FAMILY}" STREQUAL "gcc"
+      OR ("${COMPILER_FAMILY}"
+          STREQUAL
+          "gcc"
           AND "${COMPILER_VERSION}" VERSION_GREATER "4.8")))
     message(SEND_ERROR "Cannot use ASAN without clang or gcc >= 4.8")
   endif()
@@ -35,7 +37,9 @@ endif()
 if(${ARROW_USE_UBSAN})
   if(NOT
      (("${COMPILER_FAMILY}" STREQUAL "clang")
-      OR ("${COMPILER_FAMILY}" STREQUAL "gcc"
+      OR ("${COMPILER_FAMILY}"
+          STREQUAL
+          "gcc"
           AND "${COMPILER_VERSION}" VERSION_GREATER "4.9")))
     message(SEND_ERROR "Cannot use UBSAN without clang or gcc >= 4.9")
   endif()
@@ -49,7 +53,9 @@ endif()
 if(${ARROW_USE_TSAN})
   if(NOT
      (("${COMPILER_FAMILY}" STREQUAL "clang")
-      OR ("${COMPILER_FAMILY}" STREQUAL "gcc"
+      OR ("${COMPILER_FAMILY}"
+          STREQUAL
+          "gcc"
           AND "${COMPILER_VERSION}" VERSION_GREATER "4.8")))
     message(SEND_ERROR "Cannot use TSAN without clang or gcc >= 4.8")
   endif()
