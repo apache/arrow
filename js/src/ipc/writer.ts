@@ -314,7 +314,6 @@ export class RecordBatchFileWriter<T extends { [key: string]: DataType } = any> 
             this._recordBatchBlocks, this._dictionaryBlocks
         ));
         return this
-            ._writePadding(4) // eos bytes for sequential readers
             ._write(buffer) // Write the flatbuffer
             ._write(Int32Array.of(buffer.byteLength)) // then the footer size suffix
             ._writeMagic(); // then the magic suffix
