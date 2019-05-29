@@ -319,8 +319,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     set_target_properties(${LIB_NAME}_static
-                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                     "${OUTPUT_PATH}" OUTPUT_NAME
+                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}" OUTPUT_NAME
                                      ${LIB_NAME_STATIC})
 
     if(ARG_STATIC_INSTALL_INTERFACE_LIBS)

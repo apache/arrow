@@ -33,23 +33,23 @@ add_subdirectory(../../../../java/adapter/orc ./java)
 
 set(ARROW_BUILD_STATIC OFF)
 
-ADD_ARROW_LIB(arrow_orc_jni
-        BUILD_SHARED
-        SOURCES
-        jni_wrapper.cpp
-        OUTPUTS
-        ARROW_ORC_JNI_LIBRARIES
-        SHARED_PRIVATE_LINK_LIBS
-        arrow_static
-        EXTRA_INCLUDES
-        ${JNI_HEADERS_DIR}
-        PRIVATE_INCLUDES
-        ${JNI_INCLUDE_DIRS}
-        ${CMAKE_CURRENT_BINARY_DIR}
-        DEPENDENCIES
-        arrow_static
-        arrow_orc_java
-        OUTPUT_PATH
-        ${CMAKE_CURRENT_BINARY_DIR})
+add_arrow_lib(arrow_orc_jni
+              BUILD_SHARED
+              SOURCES
+              jni_wrapper.cpp
+              OUTPUTS
+              ARROW_ORC_JNI_LIBRARIES
+              SHARED_PRIVATE_LINK_LIBS
+              arrow_static
+              EXTRA_INCLUDES
+              ${JNI_HEADERS_DIR}
+              PRIVATE_INCLUDES
+              ${JNI_INCLUDE_DIRS}
+              ${CMAKE_CURRENT_BINARY_DIR}
+              DEPENDENCIES
+              arrow_static
+              arrow_orc_java
+              OUTPUT_PATH
+              ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(arrow_orc_jni ${ARROW_ORC_JNI_LIBRARIES})

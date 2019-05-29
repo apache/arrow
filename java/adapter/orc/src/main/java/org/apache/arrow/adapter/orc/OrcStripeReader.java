@@ -99,6 +99,7 @@ public class OrcStripeReader extends ArrowReader {
                         new ByteArrayReadableSeekableByteChannel(schemaBytes)), allocator);
 
     MessageResult result = schemaReader.readNext();
+    schemaReader.close();
 
     if (result == null) {
       throw new IOException("Unexpected end of input. Missing schema.");
@@ -107,8 +108,6 @@ public class OrcStripeReader extends ArrowReader {
     if (result.getMessage().headerType() != MessageHeader.Schema) {
       throw new IOException("Expected schema but header was " + result.getMessage().headerType());
     }
-
-    schemaReader.close();
 
     return MessageSerializer.deserializeSchema(result.getMessage());
   }

@@ -20,5 +20,5 @@
 #
 
 if(ARROW_ORC)
-    add_subdirectory(orc)
+  add_subdirectory(orc)
 endif()
