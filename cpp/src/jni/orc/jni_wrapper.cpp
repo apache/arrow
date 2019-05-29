@@ -23,6 +23,7 @@
 #include <arrow/util/logging.h>
 #include <cassert>
 #include <string>
+#include <iostream>
 
 #include "org_apache_arrow_adapter_orc_OrcMemoryJniWrapper.h"
 #include "org_apache_arrow_adapter_orc_OrcReaderJniWrapper.h"
@@ -75,22 +76,22 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     return JNI_ERR;
   }
 
-  io_exception_class = CreateGlobalClassReference(env, "java/io/IOException");
-  exception_class = CreateGlobalClassReference(env, "java/lang/Exception");
+  io_exception_class = CreateGlobalClassReference(env, "Ljava/io/IOException;");
+  exception_class = CreateGlobalClassReference(env, "Ljava/lang/Exception;");
 
   orc_field_node_class =
-      CreateGlobalClassReference(env, "/org/apache/arrow/adapter/orc/OrcFieldNode");
+      CreateGlobalClassReference(env, "Lorg/apache/arrow/adapter/orc/OrcFieldNode;");
   orc_field_node_constructor = GetMethodID(env, orc_field_node_class, "<init>", "(II)V");
 
   orc_memory_class = CreateGlobalClassReference(
-      env, "/org/apache/arrow/adapter/orc/OrcMemoryJniWrapper");
+      env, "Lorg/apache/arrow/adapter/orc/OrcMemoryJniWrapper;");
   orc_memory_constructor = GetMethodID(env, orc_memory_class, "<init>", "(JJJJ)V");
 
   record_batch_class =
-      CreateGlobalClassReference(env, "/org/apache/arrow/adapter/orc/OrcRecordBatch");
+      CreateGlobalClassReference(env, "Lorg/apache/arrow/adapter/orc/OrcRecordBatch;");
   record_batch_constructor = GetMethodID(env, record_batch_class, "<init>",
-                                "(I[L/org/apache/arrow/adapter/orc/OrcFieldNode;"
-                                "[L/org/apache/arrow/adapter/orc/OrcMemoryJniWrapper;)V");
+                                "(I[Lorg/apache/arrow/adapter/orc/OrcFieldNode;"
+                                "[Lorg/apache/arrow/adapter/orc/OrcMemoryJniWrapper;)V");
 
   env->ExceptionDescribe();
 
@@ -193,7 +194,10 @@ Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_nextStripeReader(JNIEnv* e
 
   if (!status.ok()) {
     return static_cast<jlong>(status.code()) * -1;
-    ;
+  }
+
+  if (!stripe_reader) {
+    return static_cast<jlong>(arrow::StatusCode::Invalid) * -1;
   }
 
   return orc_stripe_reader_holder_.Insert(stripe_reader);
@@ -214,7 +218,8 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_getSchema(JNIEnv* en
   }
 
   jbyteArray ret = env->NewByteArray(out->size());
-  memcpy(env->GetByteArrayElements(ret, nullptr), out->data(), out->size());
+  auto src = reinterpret_cast<const jbyte*>(out->data());
+  env->SetByteArrayRegion(ret, 0, out->size(), src);
   return ret;
 }
 
@@ -223,10 +228,9 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
                                                                  jclass this_cls,
                                                                  jlong id) {
   auto stripe_reader = GetStripeReader(id);
-  auto record_batch = new std::shared_ptr<arrow::RecordBatch>();
-  auto status = stripe_reader->ReadNext(record_batch);
-  if (!status.ok()) {
-    delete record_batch;
+  std::shared_ptr<arrow::RecordBatch> record_batch;
+  auto status = stripe_reader->ReadNext(&record_batch);
+  if (!status.ok() || !record_batch) {
     return nullptr;
   }
 
@@ -238,7 +242,7 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
 
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
   for (int i = 0; i < schema->num_fields(); ++i) {
-    auto column = (*record_batch)->column(i);
+    auto column = record_batch->column(i);
     auto dataArray = column->data();
     jobject field = env->NewObject(orc_field_node_class, orc_field_node_constructor,
                                    column->length(), column->null_count());
@@ -263,7 +267,7 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
 
   // create OrcRecordBatch
   jobject ret = env->NewObject(record_batch_class, record_batch_constructor,
-                               (*record_batch)->num_rows(), field_array, memory_array);
+                               record_batch->num_rows(), field_array, memory_array);
 
   return ret;
 }

@@ -685,7 +685,7 @@
 
     <profile>
       <!-- orc java depends on arrow cpp, and arrow cpp isn't enabled by default yet -->
-      <id>native-orc</id>
+      <id>arrow-jni</id>
       <modules>
         <module>format</module>
         <module>memory</module>
