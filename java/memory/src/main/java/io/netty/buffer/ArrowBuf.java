@@ -77,7 +77,7 @@ public final class ArrowBuf implements AutoCloseable {
   private int readerIndex;
   private int writerIndex;
   private final HistoricalLog historicalLog = BaseAllocator.DEBUG ?
-      new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
+          new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
   private volatile int length;
 
   /**
@@ -1208,22 +1208,27 @@ public final class ArrowBuf implements AutoCloseable {
   /**
    * Following are wrapper methods to keep this backward compatible.
    */
+  @Deprecated
   public void release() {
     referenceManager.release();
   }
 
+  @Deprecated
   public void release(int decrement) {
     referenceManager.release(decrement);
   }
 
+  @Deprecated
   public void retain() {
     referenceManager.retain();
   }
 
+  @Deprecated
   public void retain(int increment) {
     referenceManager.retain(increment);
   }
 
+  @Deprecated
   public ArrowBuf clear() {
     this.readerIndex = this.writerIndex = 0;
     return this;
@@ -1235,6 +1240,7 @@ public final class ArrowBuf implements AutoCloseable {
    * @param writerIndex index to write to
    * @return this
    */
+  @Deprecated
   public ArrowBuf setIndex(int readerIndex, int writerIndex) {
     if (readerIndex >= 0 && readerIndex <= writerIndex && writerIndex <= this.capacity()) {
       this.readerIndex = readerIndex;
@@ -1242,7 +1248,7 @@ public final class ArrowBuf implements AutoCloseable {
       return this;
     } else {
       throw new IndexOutOfBoundsException(String.format("readerIndex: %d, writerIndex: %d " +
-              "(expected: 0 <= readerIndex <= writerIndex <= capacity(%d))", readerIndex, writerIndex, this.capacity()));
+       "(expected:0 <= readerIndex <= writerIndex <= capacity(%d))", readerIndex, writerIndex, this.capacity()));
     }
   }
 }

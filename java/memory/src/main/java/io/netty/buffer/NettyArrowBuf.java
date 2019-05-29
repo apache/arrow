@@ -355,12 +355,12 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public int setBytes(int index, ScatteringByteChannel in, int length) throws IOException {
-    throw new UnsupportedOperationException("Operation not supported");
+    return (int) in.read(nioBuffers(index, length));
   }
 
   @Override
   public int setBytes(int index, FileChannel in, long position, int length) throws IOException {
-    throw new UnsupportedOperationException("Operation not supported");
+    return (int) in.read(nioBuffers(index, length));
   }
 
   @Override
