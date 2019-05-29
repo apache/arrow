@@ -145,8 +145,10 @@ int main(int argc, char** argv) {
   arrow::flight::FlightServerOptions options(location);
 
   ARROW_CHECK_OK(g_server->Init(options));
+#ifndef _WIN32
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
+#endif
 
   std::cout << "Server listening on localhost:" << FLAGS_port << std::endl;
   ARROW_CHECK_OK(g_server->Serve());

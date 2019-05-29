@@ -21,8 +21,8 @@
 
 #include <string>
 
+#include "arrow/flight/visibility.h"
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -30,7 +30,7 @@ namespace flight {
 
 /// \brief A reader for messages from the client during an
 /// authentication handshake.
-class ARROW_EXPORT ServerAuthReader {
+class ARROW_FLIGHT_EXPORT ServerAuthReader {
  public:
   virtual ~ServerAuthReader() = default;
   virtual Status Read(std::string* token) = 0;
@@ -38,7 +38,7 @@ class ARROW_EXPORT ServerAuthReader {
 
 /// \brief A writer for messages to the client during an
 /// authentication handshake.
-class ARROW_EXPORT ServerAuthSender {
+class ARROW_FLIGHT_EXPORT ServerAuthSender {
  public:
   virtual ~ServerAuthSender() = default;
   virtual Status Write(const std::string& message) = 0;
@@ -50,7 +50,7 @@ class ARROW_EXPORT ServerAuthSender {
 /// mechanisms.
 /// An implementation may need to track some state, e.g. a mapping of
 /// client tokens to authenticated identities.
-class ARROW_EXPORT ServerAuthHandler {
+class ARROW_FLIGHT_EXPORT ServerAuthHandler {
  public:
   virtual ~ServerAuthHandler();
   /// \brief Authenticate the client on initial connection. The server
@@ -67,7 +67,7 @@ class ARROW_EXPORT ServerAuthHandler {
 };
 
 /// \brief An authentication mechanism that does nothing.
-class ARROW_EXPORT NoOpAuthHandler : public ServerAuthHandler {
+class ARROW_FLIGHT_EXPORT NoOpAuthHandler : public ServerAuthHandler {
  public:
   ~NoOpAuthHandler() override;
   Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;

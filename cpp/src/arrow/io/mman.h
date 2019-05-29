@@ -8,13 +8,6 @@
 #ifndef _MMAN_WIN32_H
 #define _MMAN_WIN32_H
 
-// Allow use of features specific to Windows XP or later.
-#ifndef _WIN32_WINNT
-// Change this to the appropriate value to target other versions of Windows.
-#define _WIN32_WINNT 0x0501
-
-#endif
-
 #include "arrow/util/windows_compatibility.h"
 
 #include <errno.h>

@@ -1067,6 +1067,10 @@ endmacro()
 if(ARROW_WITH_PROTOBUF)
   resolve_dependency(Protobuf)
 
+  if(ARROW_PROTOBUF_USE_SHARED AND MSVC)
+    add_definitions(-DPROTOBUF_USE_DLLS)
+  endif()
+
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
 
@@ -1750,6 +1754,8 @@ macro(build_cares)
                       CMAKE_ARGS ${CARES_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
 
+  file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
+
   add_dependencies(toolchain cares_ep)
   add_library(c-ares::cares STATIC IMPORTED)
   set_target_properties(c-ares::cares
@@ -1876,6 +1882,9 @@ macro(build_grpc)
                                        ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
                       DEPENDS ${grpc_dependencies})
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr

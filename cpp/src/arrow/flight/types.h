@@ -26,8 +26,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/flight/visibility.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -50,7 +50,7 @@ class Uri;
 namespace flight {
 
 /// \brief A type of action that can be performed with the DoAction RPC
-struct ActionType {
+struct ARROW_FLIGHT_EXPORT ActionType {
   /// Name of action
   std::string type;
 
@@ -59,13 +59,13 @@ struct ActionType {
 };
 
 /// \brief Opaque selection critera for ListFlights RPC
-struct Criteria {
+struct ARROW_FLIGHT_EXPORT Criteria {
   /// Opaque criteria expression, dependent on server implementation
   std::string expression;
 };
 
 /// \brief An action to perform with the DoAction RPC
-struct Action {
+struct ARROW_FLIGHT_EXPORT Action {
   /// The action type
   std::string type;
 
@@ -74,15 +74,15 @@ struct Action {
 };
 
 /// \brief Opaque result returned after executing an action
-struct Result {
+struct ARROW_FLIGHT_EXPORT Result {
   std::shared_ptr<Buffer> body;
 };
 
 /// \brief A message received after completing a DoPut stream
-struct PutResult {};
+struct ARROW_FLIGHT_EXPORT PutResult {};
 
 /// \brief A request to retrieve or generate a dataset
-struct FlightDescriptor {
+struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   enum DescriptorType {
     UNKNOWN = 0,  /// Unused
     PATH = 1,     /// Named path identifying a dataset
@@ -117,7 +117,7 @@ struct FlightDescriptor {
 
 /// \brief Data structure providing an opaque identifier or credential to use
 /// when requesting a data stream with the DoGet RPC
-struct Ticket {
+struct ARROW_FLIGHT_EXPORT Ticket {
   std::string ticket;
 };
 
@@ -130,7 +130,7 @@ static const char* kSchemeGrpcUnix = "grpc+unix";
 static const char* kSchemeGrpcTls = "grpc+tls";
 
 /// \brief A host location (a URI)
-struct Location {
+struct ARROW_FLIGHT_EXPORT Location {
  public:
   /// \brief Initialize a blank location.
   Location();
@@ -174,7 +174,7 @@ struct Location {
 
 /// \brief A flight ticket and list of locations where the ticket can be
 /// redeemed
-struct FlightEndpoint {
+struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   /// Opaque ticket identify; use with DoGet RPC
   Ticket ticket;
 
@@ -187,14 +187,14 @@ struct FlightEndpoint {
 /// \brief Staging data structure for messages about to be put on the wire
 ///
 /// This structure corresponds to FlightData in the protocol.
-struct FlightPayload {
+struct ARROW_FLIGHT_EXPORT FlightPayload {
   std::shared_ptr<Buffer> descriptor;
   ipc::internal::IpcPayload ipc_message;
 };
 
 /// \brief The access coordinates for retireval of a dataset, returned by
 /// GetFlightInfo
-class FlightInfo {
+class ARROW_FLIGHT_EXPORT FlightInfo {
  public:
   struct Data {
     std::string schema;
@@ -239,7 +239,7 @@ class FlightInfo {
 };
 
 /// \brief An iterator to FlightInfo instances returned by ListFlights
-class ARROW_EXPORT FlightListing {
+class ARROW_FLIGHT_EXPORT FlightListing {
  public:
   virtual ~FlightListing() = default;
 
@@ -251,7 +251,7 @@ class ARROW_EXPORT FlightListing {
 };
 
 /// \brief An iterator to Result instances returned by DoAction
-class ARROW_EXPORT ResultStream {
+class ARROW_FLIGHT_EXPORT ResultStream {
  public:
   virtual ~ResultStream() = default;
 
@@ -264,7 +264,7 @@ class ARROW_EXPORT ResultStream {
 
 // \brief Create a FlightListing from a vector of FlightInfo objects. This can
 // be iterated once, then it is consumed
-class ARROW_EXPORT SimpleFlightListing : public FlightListing {
+class ARROW_FLIGHT_EXPORT SimpleFlightListing : public FlightListing {
  public:
   explicit SimpleFlightListing(const std::vector<FlightInfo>& flights);
   explicit SimpleFlightListing(std::vector<FlightInfo>&& flights);
@@ -276,7 +276,7 @@ class ARROW_EXPORT SimpleFlightListing : public FlightListing {
   std::vector<FlightInfo> flights_;
 };
 
-class ARROW_EXPORT SimpleResultStream : public ResultStream {
+class ARROW_FLIGHT_EXPORT SimpleResultStream : public ResultStream {
  public:
   explicit SimpleResultStream(std::vector<Result>&& results);
   Status Next(std::unique_ptr<Result>* result) override;

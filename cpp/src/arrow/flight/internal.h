@@ -65,7 +65,16 @@ namespace internal {
 
 static const char* AUTH_HEADER = "auth-token-bin";
 
+ARROW_FLIGHT_EXPORT
 Status SchemaToString(const Schema& schema, std::string* out);
+
+ARROW_FLIGHT_EXPORT
+Status FromGrpcStatus(const grpc::Status& grpc_status);
+
+ARROW_FLIGHT_EXPORT
+grpc::Status ToGrpcStatus(const Status& arrow_status);
+
+// These functions depend on protobuf types which are not exported in the Flight DLL.
 
 Status FromProto(const pb::ActionType& pb_type, ActionType* type);
 Status FromProto(const pb::Action& pb_action, Action* action);
@@ -85,10 +94,6 @@ Status ToProto(const ActionType& type, pb::ActionType* pb_type);
 Status ToProto(const Action& action, pb::Action* pb_action);
 Status ToProto(const Result& result, pb::Result* pb_result);
 void ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);
-
-Status FromGrpcStatus(const grpc::Status& grpc_status);
-
-grpc::Status ToGrpcStatus(const Status& arrow_status);
 
 }  // namespace internal
 }  // namespace flight

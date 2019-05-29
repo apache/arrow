@@ -15,26 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Internal header.  Platform-specific definitions for gRPC.
+
 #pragma once
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 
-// Windows defines min and max macros that mess up std::min/max
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
+// The protobuf documentation says that C4251 warnings when using the
+// library are spurious and suppressed when the build the library and
+// compiler, but must be also suppressed in downstream projects
+#pragma warning(disable : 4251)
 
-#define WIN32_LEAN_AND_MEAN
+#endif  // _MSC_VER
 
-// Set Windows 7 as a conservative minimum for Apache Arrow
-#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x601
-#undef _WIN32_WINNT
-#endif
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x601
-#endif
-
-#include <winsock2.h>
-#include <windows.h>
-
-#endif  // _WIN32
+#include "arrow/util/config.h"                 // IWYU pragma: keep
+#include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep

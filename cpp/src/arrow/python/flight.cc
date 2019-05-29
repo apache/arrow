@@ -132,17 +132,31 @@ Status PyFlightServer::ListActions(const arrow::flight::ServerCallContext& conte
   });
 }
 
+#ifdef _WIN32
+static void DummySignalHandler(int signum) {}
+#endif
+
 Status PyFlightServer::ServeWithSignals() {
   // Respect the current Python settings, i.e. only interrupt the server if there is
   // an active signal handler for SIGINT and SIGTERM.
   std::vector<int> signals;
   for (const int signum : {SIGINT, SIGTERM}) {
-    struct sigaction handler;
-    int ret = sigaction(signum, nullptr, &handler);
+    // TODO move signal-handling funcs into io-util.h?
+#ifdef _WIN32
+    // To read the old handler, set the signal handler to something else temporarily
+    auto handler = signal(signum, DummySignalHandler);
+    if (handler == SIG_ERR || signal(signum, handler) == SIG_ERR) {
+      return Status::IOError("signal call failed");
+    }
+#else
+    struct sigaction sa;
+    int ret = sigaction(signum, nullptr, &sa);
     if (ret != 0) {
       return Status::IOError("sigaction call failed");
     }
-    if (handler.sa_handler != SIG_DFL && handler.sa_handler != SIG_IGN) {
+    auto handler = sa.sa_handler;
+#endif
+    if (handler != SIG_DFL && handler != SIG_IGN) {
       signals.push_back(signum);
     }
   }
@@ -150,6 +164,7 @@ Status PyFlightServer::ServeWithSignals() {
 
   // Serve until we got told to shutdown or a signal interrupted us
   RETURN_NOT_OK(Serve());
+// #ifndef _WIN32
   int signum = GotSignal();
   if (signum != 0) {
     // Issue the signal again with Python's signal handlers restored
@@ -159,6 +174,7 @@ Status PyFlightServer::ServeWithSignals() {
     // Unfortunately, gRPC will return immediately if Serve() is called again.
     ARROW_UNUSED(PyErr_CheckSignals());
   }
+// #endif
 
   return Status::OK();
 }
