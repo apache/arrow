@@ -29,9 +29,8 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
   if (buffered_stream_enabled_) {
     std::shared_ptr<::arrow::io::BufferedInputStream> stream;
     PARQUET_THROW_NOT_OK(source->Seek(start));
-    // TODO(wesm): ARROW-5428 set read extent
-    PARQUET_THROW_NOT_OK(
-        ::arrow::io::BufferedInputStream::Create(buffer_size_, pool_, source, &stream));
+    PARQUET_THROW_NOT_OK(::arrow::io::BufferedInputStream::Create(
+        buffer_size_, pool_, source, &stream, num_bytes));
     return std::move(stream);
   } else {
     std::shared_ptr<Buffer> data;

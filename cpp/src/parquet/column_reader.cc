@@ -143,7 +143,6 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
   while (seen_num_rows_ < total_num_rows_) {
-    int64_t bytes_read = 0;
     uint32_t header_size = 0;
     const uint8_t* buffer;
     uint32_t allowed_page_size = kDefaultPageHeaderSize;
@@ -184,10 +183,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Read the compressed data page.
     std::shared_ptr<Buffer> page_buffer;
     PARQUET_THROW_NOT_OK(stream_->Read(compressed_len, &page_buffer));
-    if (bytes_read != compressed_len) {
+    if (page_buffer->size() != compressed_len) {
       std::stringstream ss;
-      ss << "Page was smaller (" << bytes_read << ") than expected (" << compressed_len
-         << ")";
+      ss << "Page was smaller (" << page_buffer->size() << ") than expected ("
+         << compressed_len << ")";
       ParquetException::EofException(ss.str());
     }
 
