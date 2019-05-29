@@ -1172,15 +1172,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // DictionaryType__initialize
-std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& type, const std::shared_ptr<arrow::Array>& array, bool ordered);
-RcppExport SEXP _arrow_DictionaryType__initialize(SEXP typeSEXP, SEXP arraySEXP, SEXP orderedSEXP) {
+std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& index_type, const std::shared_ptr<arrow::DataType>& value_type, bool ordered);
+RcppExport SEXP _arrow_DictionaryType__initialize(SEXP index_typeSEXP, SEXP value_typeSEXP, SEXP orderedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type index_type(index_typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type value_type(value_typeSEXP);
     Rcpp::traits::input_parameter< bool >::type ordered(orderedSEXP);
-    rcpp_result_gen = Rcpp::wrap(DictionaryType__initialize(type, array, ordered));
+    rcpp_result_gen = Rcpp::wrap(DictionaryType__initialize(index_type, value_type, ordered));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1195,6 +1195,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// DictionaryType__value_type
+std::shared_ptr<arrow::DataType> DictionaryType__value_type(const std::shared_ptr<arrow::DictionaryType>& type);
+RcppExport SEXP _arrow_DictionaryType__value_type(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DictionaryType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DictionaryType__value_type(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 // DictionaryType__name
 std::string DictionaryType__name(const std::shared_ptr<arrow::DictionaryType>& type);
 RcppExport SEXP _arrow_DictionaryType__name(SEXP typeSEXP) {
@@ -1203,17 +1214,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DictionaryType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DictionaryType__name(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DictionaryType__dictionary
-std::shared_ptr<arrow::Array> DictionaryType__dictionary(const std::shared_ptr<arrow::DictionaryType>& type);
-RcppExport SEXP _arrow_DictionaryType__dictionary(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DictionaryType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DictionaryType__dictionary(type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2419,8 +2419,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1},
     {"_arrow_DictionaryType__initialize", (DL_FUNC) &_arrow_DictionaryType__initialize, 3},
     {"_arrow_DictionaryType__index_type", (DL_FUNC) &_arrow_DictionaryType__index_type, 1},
+    {"_arrow_DictionaryType__value_type", (DL_FUNC) &_arrow_DictionaryType__value_type, 1},
     {"_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1},
-    {"_arrow_DictionaryType__dictionary", (DL_FUNC) &_arrow_DictionaryType__dictionary, 1},
     {"_arrow_DictionaryType__ordered", (DL_FUNC) &_arrow_DictionaryType__ordered, 1},
     {"_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2},
     {"_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetNumRows, 2},
