@@ -515,8 +515,7 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(const uint8_t* ciphertext,
   // Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial
   // counter field.
   // The first 31 bits of the initial counter field are set to 0, the last bit
-  // is set
-  // to 1.
+  // is set to 1.
   iv[kCtrIvLength - 1] = 1;
 
   // Setting key and IV
