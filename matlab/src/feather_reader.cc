@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <cmath>
 
 #include <arrow/io/file.h>
 #include <arrow/ipc/feather.h>
@@ -112,26 +113,42 @@ mxArray* ReadVariableData(const std::shared_ptr<arrow::Column>& column) {
 }
 
 // arrow::Buffers are bit-packed, while mxLogical arrays aren't. This utility
-// uses arrow::BitUtil::GetBit to copy each bit of an arrow::Buffer into
-// each byte of an mxLogical array.
+// uses an Arrow utility to copy each bit of an arrow::Buffer into each byte
+// of an mxLogical array.
 void BitUnpackBuffer(const std::shared_ptr<arrow::Buffer>& source, const int64_t length,
                      bool* destination) {
-
-  // If the arrow::Buffer's null_bitmap pointer is nullptr, then fill
-  // the destination with values to signify valid elements.
-  if (!source) {
-    std::fill(destination, destination + length, true);
-    return;
-  }
-
   const uint8_t* source_data = source->data();
 
-  // Unpack the bit-packed validity (null) bitmap.
-  for (int64_t i = 0; i < length; ++i) {
-    // Here arrow::BitUtil::GetBit will return an expanded 8-bit bool representation 
-    // of a single bit in the validity bitmap.
-    destination[i] = arrow::BitUtil::GetBit(source_data, i);
+  // Call into an Arrow utility to visit each bit in the bitmap.
+  auto visitFcn = [&](const bool& is_valid) { *destination++ = is_valid; };
+
+  const int64_t start_offset = 0;
+  arrow::internal::VisitBitsUnrolled(source_data, start_offset, length, visitFcn);
+}
+
+// Populates the validity bitmap from an arrow::Array or an arrow::Column,
+// writes to a zero-initialized destination buffer.
+// Implements a fast path for the fully-valid and fully-invalid cases.
+// Returns true if the destination buffer was successfully populated.
+template <typename ArrowType>
+bool TryBitUnpackFastPath(const std::shared_ptr<ArrowType>& array, bool* destination) {
+  const int64_t null_count = array->null_count();
+  const int64_t length = array->length();
+
+  if (null_count == length) {
+    // The source array/column is filled with invalid values. Since mxCreateLogicalMatrix
+    // zero-initializes the destination buffer, we can return without changing anything
+    // in the destination buffer.
+    return true;
+  } else if (null_count == 0) {
+    // The source array/column contains only valid values. Fill the destination buffer
+    // with 'true'.
+    std::fill(destination, destination + length, true);
+    return true;
   }
+
+  // Return false to indicate that we couldn't fill the entire validity bitmap.
+  return false;
 }
 
 // Read the validity (null) bitmap of variable i from the Feather
@@ -148,9 +165,8 @@ mxArray* ReadVariableValidityBitmap(const std::shared_ptr<arrow::Column>& column
   // The Apache Arrow specification allows validity (null) bitmaps
   // to be unallocated if there are no null values. In this case,
   // we simply return a logical array filled with the value true.
-  if (column->null_count() == 0) {
-    std::fill(validity_bitmap_unpacked, validity_bitmap_unpacked + column->length(),
-              true);
+  if (TryBitUnpackFastPath(column, validity_bitmap_unpacked)) {
+    // Return early since the validity bitmap was already filled.
     return validity_bitmap;
   }
 
@@ -160,12 +176,15 @@ mxArray* ReadVariableValidityBitmap(const std::shared_ptr<arrow::Column>& column
   int64_t mx_array_offset = 0;
   // Iterate over each arrow::Array in the arrow::ChunkedArray.
   for (int32_t chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
-
     std::shared_ptr<arrow::Array> array = chunked_array->chunk(chunk_index);
     const int64_t array_length = array->length();
 
-    internal::BitUnpackBuffer(array->null_bitmap(), array_length,
-                              validity_bitmap_unpacked + mx_array_offset);
+    if (!TryBitUnpackFastPath(array, validity_bitmap_unpacked + mx_array_offset)) {
+      // Couldn't fill the full validity bitmap at once. Call an optimized loop-unrolled
+      // implementation instead that goes byte-by-byte and populates the validity bitmap.
+      BitUnpackBuffer(array->null_bitmap(), array_length,
+                      validity_bitmap_unpacked + mx_array_offset);
+    }
 
     mx_array_offset += array_length;
   }

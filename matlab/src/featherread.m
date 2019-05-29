@@ -75,12 +75,12 @@ for ii = 1:length(variables)
 end
 
 % Construct a MATLAB table from the Feather file data.
-t = table(variables.Data, 'VariableNames', variableNames);
+t = table(variables.Data, 'VariableNames', cellstr(variableNames));
 
 % Store original Feather table column names in the table.Properties.VariableDescriptions
 % property if they were modified to be valid MATLAB table variable names.
 if ~isempty(variableDescriptions)
-    t.Properties.VariableDescriptions = variableDescriptions;
+    t.Properties.VariableDescriptions = cellstr(variableDescriptions);
 end
 
 % Set the Description property of the table based on the Feather file
