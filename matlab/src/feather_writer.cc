@@ -165,19 +165,14 @@ void BitPackBuffer(const mxArray* logical_array,
 
   // Get pointers to the internal uint8_t arrays behind arrow::Buffer and mxArray
   uint8_t* packed_buffer_ptr = packed_buffer->mutable_data();
-  const uint8_t* unpacked_buffer_ptr =
-      reinterpret_cast<const uint8_t*>(mxGetLogicals(logical_array));
+  uint8_t* unpacked_buffer_ptr = reinterpret_cast<uint8_t*>(mxGetLogicals(logical_array));
 
   // Iterate over the mxLogical array and write bit-packed bools to the arrow::Buffer.
-  for (int64_t i = 0; i < unpacked_buffer_length; ++i) {
-    // If the mxLogical value is true, set the corresponding bit in the bit-packed
-    // buffer. Otherwise, clear that bit.
-    if (unpacked_buffer_ptr[i]) {
-      arrow::BitUtil::SetBit(packed_buffer_ptr, i);
-    } else {
-      arrow::BitUtil::ClearBit(packed_buffer_ptr, i);
-    }
-  }
+  // Call into a loop-unrolled Arrow utility for better performance when bit-packing.
+  auto generator = [&]() -> bool { return *unpacked_buffer_ptr++; };
+  const int64_t start_offset = 0;
+  arrow::internal::GenerateBitsUnrolled(packed_buffer_ptr, start_offset,
+                                        unpacked_buffer_length, generator);
 }
 
 // Write numeric datatypes to the Feather file.
