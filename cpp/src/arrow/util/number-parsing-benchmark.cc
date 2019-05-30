@@ -69,7 +69,7 @@ static std::vector<std::string> MakeTimestampStrings(int32_t num_items) {
 }
 
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
-static void BM_IntegerParsing(benchmark::State& state) {  // NOLINT non-const reference
+static void IntegerParsing(benchmark::State& state) {  // NOLINT non-const reference
   auto strings = MakeIntStrings<C_TYPE>(1000);
   StringConverter<ARROW_TYPE> converter;
 
@@ -89,7 +89,7 @@ static void BM_IntegerParsing(benchmark::State& state) {  // NOLINT non-const re
 }
 
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
-static void BM_FloatParsing(benchmark::State& state) {  // NOLINT non-const reference
+static void FloatParsing(benchmark::State& state) {  // NOLINT non-const reference
   auto strings = MakeFloatStrings(1000);
   StringConverter<ARROW_TYPE> converter;
 
@@ -109,7 +109,7 @@ static void BM_FloatParsing(benchmark::State& state) {  // NOLINT non-const refe
 }
 
 template <TimeUnit::type UNIT>
-static void BM_TimestampParsing(benchmark::State& state) {  // NOLINT non-const reference
+static void TimestampParsing(benchmark::State& state) {  // NOLINT non-const reference
   using c_type = TimestampType::c_type;
 
   auto strings = MakeTimestampStrings(1000);
@@ -131,22 +131,22 @@ static void BM_TimestampParsing(benchmark::State& state) {  // NOLINT non-const 
   state.SetItemsProcessed(state.iterations() * strings.size());
 }
 
-BENCHMARK_TEMPLATE(BM_IntegerParsing, Int8Type);
-BENCHMARK_TEMPLATE(BM_IntegerParsing, Int16Type);
-BENCHMARK_TEMPLATE(BM_IntegerParsing, Int32Type);
-BENCHMARK_TEMPLATE(BM_IntegerParsing, Int64Type);
-BENCHMARK_TEMPLATE(BM_IntegerParsing, UInt8Type);
-BENCHMARK_TEMPLATE(BM_IntegerParsing, UInt16Type);
-BENCHMARK_TEMPLATE(BM_IntegerParsing, UInt32Type);
-BENCHMARK_TEMPLATE(BM_IntegerParsing, UInt64Type);
+BENCHMARK_TEMPLATE(IntegerParsing, Int8Type);
+BENCHMARK_TEMPLATE(IntegerParsing, Int16Type);
+BENCHMARK_TEMPLATE(IntegerParsing, Int32Type);
+BENCHMARK_TEMPLATE(IntegerParsing, Int64Type);
+BENCHMARK_TEMPLATE(IntegerParsing, UInt8Type);
+BENCHMARK_TEMPLATE(IntegerParsing, UInt16Type);
+BENCHMARK_TEMPLATE(IntegerParsing, UInt32Type);
+BENCHMARK_TEMPLATE(IntegerParsing, UInt64Type);
 
-BENCHMARK_TEMPLATE(BM_FloatParsing, FloatType);
-BENCHMARK_TEMPLATE(BM_FloatParsing, DoubleType);
+BENCHMARK_TEMPLATE(FloatParsing, FloatType);
+BENCHMARK_TEMPLATE(FloatParsing, DoubleType);
 
-BENCHMARK_TEMPLATE(BM_TimestampParsing, TimeUnit::SECOND);
-BENCHMARK_TEMPLATE(BM_TimestampParsing, TimeUnit::MILLI);
-BENCHMARK_TEMPLATE(BM_TimestampParsing, TimeUnit::MICRO);
-BENCHMARK_TEMPLATE(BM_TimestampParsing, TimeUnit::NANO);
+BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::SECOND);
+BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::MILLI);
+BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::MICRO);
+BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::NANO);
 
 }  // namespace internal
 }  // namespace arrow

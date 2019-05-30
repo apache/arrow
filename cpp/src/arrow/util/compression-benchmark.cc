@@ -29,6 +29,8 @@
 namespace arrow {
 namespace util {
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
 std::vector<uint8_t> MakeCompressibleData(int data_size) {
   // XXX This isn't a real-world corpus so doesn't really represent the
   // comparative qualities of the algorithms
@@ -111,9 +113,9 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
   return compressed_size;
 }
 
-static void BM_StreamingCompression(
-    Compression::type compression, const std::vector<uint8_t>& data,
-    benchmark::State& state) {  // NOLINT non-const reference
+static void StreamingCompression(Compression::type compression,
+                                 const std::vector<uint8_t>& data,
+                                 benchmark::State& state) {  // NOLINT non-const reference
   std::unique_ptr<Codec> codec;
   ABORT_NOT_OK(Codec::Create(compression, &codec));
 
@@ -126,14 +128,14 @@ static void BM_StreamingCompression(
 }
 
 template <Compression::type COMPRESSION>
-static void BM_StreamingCompression(
+static void ReferenceStreamingCompression(
     benchmark::State& state) {                        // NOLINT non-const reference
   auto data = MakeCompressibleData(8 * 1024 * 1024);  // 8 MB
 
-  BM_StreamingCompression(COMPRESSION, data, state);
+  StreamingCompression(COMPRESSION, data, state);
 }
 
-static void BM_StreamingDecompression(
+static void StreamingDecompression(
     Compression::type compression, const std::vector<uint8_t>& data,
     benchmark::State& state) {  // NOLINT non-const reference
   std::unique_ptr<Codec> codec;
@@ -173,38 +175,24 @@ static void BM_StreamingDecompression(
 }
 
 template <Compression::type COMPRESSION>
-static void BM_StreamingDecompression(
+static void ReferenceStreamingDecompression(
     benchmark::State& state) {                        // NOLINT non-const reference
   auto data = MakeCompressibleData(8 * 1024 * 1024);  // 8 MB
 
-  BM_StreamingDecompression(COMPRESSION, data, state);
+  StreamingDecompression(COMPRESSION, data, state);
 }
 
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::GZIP)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::BROTLI)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::ZSTD)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingCompression, Compression::LZ4)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::GZIP);
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::BROTLI);
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4);
 
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::GZIP)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::BROTLI)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::ZSTD)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
-BENCHMARK_TEMPLATE(BM_StreamingDecompression, Compression::LZ4)
-    ->Unit(benchmark::kMillisecond)
-    ->Repetitions(1);
+BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::GZIP);
+BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::BROTLI);
+BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4);
+
+#endif
 
 }  // namespace util
 }  // namespace arrow

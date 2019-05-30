@@ -30,6 +30,9 @@ def partition(pred, iterable):
     return list(filter(pred, t1)), list(filterfalse(pred, t2))
 
 
+DEFAULT_REPETITIONS = 10
+
+
 class GoogleBenchmarkCommand(Command):
     """ Run a google benchmark binary.
 
@@ -49,9 +52,9 @@ class GoogleBenchmarkCommand(Command):
                           stderr=subprocess.PIPE)
         return str.splitlines(result.stdout.decode("utf-8"))
 
-    def results(self):
+    def results(self, repetitions=DEFAULT_REPETITIONS):
         with NamedTemporaryFile() as out:
-            argv = ["--benchmark_repetitions=20",
+            argv = [f"--benchmark_repetitions={repetitions}",
                     f"--benchmark_out={out.name}",
                     "--benchmark_out_format=json"]
 
@@ -87,13 +90,14 @@ class GoogleBenchmarkObservation:
     """
 
     def __init__(self, name, real_time, cpu_time, time_unit, size=None,
-                 bytes_per_second=None, **kwargs):
+                 bytes_per_second=None, items_per_second=None, **kwargs):
         self._name = name
         self.real_time = real_time
         self.cpu_time = cpu_time
         self.time_unit = time_unit
         self.size = size
         self.bytes_per_second = bytes_per_second
+        self.items_per_second = items_per_second
 
     @property
     def is_agg(self):
@@ -118,11 +122,16 @@ class GoogleBenchmarkObservation:
     @property
     def value(self):
         """ Return the benchmark value."""
-        return self.bytes_per_second if self.size else self.time
+        return self.bytes_per_second or self.items_per_second or self.time
 
     @property
     def unit(self):
-        return "bytes_per_second" if self.size else self.time_unit
+        if self.bytes_per_second:
+            return "bytes_per_second"
+        elif self.items_per_second:
+            return "items_per_second"
+        else:
+            return self.time_unit
 
     def __repr__(self):
         return f"{self.value}"
@@ -147,9 +156,7 @@ class GoogleBenchmark(Benchmark):
         _, runs = partition(lambda b: b.is_agg, runs)
         self.runs = sorted(runs, key=lambda b: b.value)
         unit = self.runs[0].unit
-        # If `size` is found in the json dict, then the benchmark is reported
-        # in bytes per second
-        less_is_better = self.runs[0].size is None
+        less_is_better = not unit.endswith("per_second")
         values = [b.value for b in self.runs]
         super().__init__(name, unit, less_is_better, values)
 

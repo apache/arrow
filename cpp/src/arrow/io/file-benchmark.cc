@@ -155,7 +155,7 @@ static void BenchmarkStreamingWrites(benchmark::State& state,
 // This situation is irrealistic as the kernel likely doesn't
 // copy the data at all, so we only measure small writes.
 
-static void BM_FileOutputStreamSmallWritesToNull(
+static void FileOutputStreamSmallWritesToNull(
     benchmark::State& state) {  // NOLINT non-const reference
   std::shared_ptr<io::OutputStream> stream;
   ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &stream));
@@ -163,7 +163,7 @@ static void BM_FileOutputStreamSmallWritesToNull(
   BenchmarkStreamingWrites(state, small_sizes, stream.get());
 }
 
-static void BM_BufferedOutputStreamSmallWritesToNull(
+static void BufferedOutputStreamSmallWritesToNull(
     benchmark::State& state) {  // NOLINT non-const reference
   std::shared_ptr<io::OutputStream> file;
   ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &file));
@@ -178,7 +178,7 @@ static void BM_BufferedOutputStreamSmallWritesToNull(
 //
 // This is slightly more realistic than the above
 
-static void BM_FileOutputStreamSmallWritesToPipe(
+static void FileOutputStreamSmallWritesToPipe(
     benchmark::State& state) {  // NOLINT non-const reference
   std::shared_ptr<io::OutputStream> stream;
   std::shared_ptr<BackgroundReader> reader;
@@ -187,7 +187,7 @@ static void BM_FileOutputStreamSmallWritesToPipe(
   BenchmarkStreamingWrites(state, small_sizes, stream.get(), reader.get());
 }
 
-static void BM_FileOutputStreamLargeWritesToPipe(
+static void FileOutputStreamLargeWritesToPipe(
     benchmark::State& state) {  // NOLINT non-const reference
   std::shared_ptr<io::OutputStream> stream;
   std::shared_ptr<BackgroundReader> reader;
@@ -196,7 +196,7 @@ static void BM_FileOutputStreamLargeWritesToPipe(
   BenchmarkStreamingWrites(state, large_sizes, stream.get(), reader.get());
 }
 
-static void BM_BufferedOutputStreamSmallWritesToPipe(
+static void BufferedOutputStreamSmallWritesToPipe(
     benchmark::State& state) {  // NOLINT non-const reference
   std::shared_ptr<io::OutputStream> stream;
   std::shared_ptr<BackgroundReader> reader;
@@ -208,7 +208,7 @@ static void BM_BufferedOutputStreamSmallWritesToPipe(
   BenchmarkStreamingWrites(state, small_sizes, buffered_stream.get(), reader.get());
 }
 
-static void BM_BufferedOutputStreamLargeWritesToPipe(
+static void BufferedOutputStreamLargeWritesToPipe(
     benchmark::State& state) {  // NOLINT non-const reference
   std::shared_ptr<io::OutputStream> stream;
   std::shared_ptr<BackgroundReader> reader;
@@ -224,31 +224,13 @@ static void BM_BufferedOutputStreamLargeWritesToPipe(
 // We use real time as we don't want to count CPU time spent in the
 // BackgroundReader thread
 
-BENCHMARK(BM_FileOutputStreamSmallWritesToNull)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
-BENCHMARK(BM_FileOutputStreamSmallWritesToPipe)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
-BENCHMARK(BM_FileOutputStreamLargeWritesToPipe)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
+BENCHMARK(FileOutputStreamSmallWritesToNull)->UseRealTime();
+BENCHMARK(FileOutputStreamSmallWritesToPipe)->UseRealTime();
+BENCHMARK(FileOutputStreamLargeWritesToPipe)->UseRealTime();
 
-BENCHMARK(BM_BufferedOutputStreamSmallWritesToNull)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
-BENCHMARK(BM_BufferedOutputStreamSmallWritesToPipe)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
-BENCHMARK(BM_BufferedOutputStreamLargeWritesToPipe)
-    ->Repetitions(2)
-    ->MinTime(1.0)
-    ->UseRealTime();
+BENCHMARK(BufferedOutputStreamSmallWritesToNull)->UseRealTime();
+BENCHMARK(BufferedOutputStreamSmallWritesToPipe)->UseRealTime();
+BENCHMARK(BufferedOutputStreamLargeWritesToPipe)->UseRealTime();
 
 #endif  // ifndef _WIN32
 
