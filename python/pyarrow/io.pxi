@@ -323,6 +323,44 @@ cdef class NativeFile:
 
         return PyObject_to_object(obj)
 
+    def read_at(self, nbytes, offset):
+        """
+        Read indicated number of bytes at offset from the file
+
+        Parameters
+        ----------
+        nbytes : int
+        offset : int
+
+        Returns
+        -------
+        data : bytes
+        """
+        cdef:
+            int64_t c_nbytes
+            int64_t c_offset
+            int64_t bytes_read = 0
+            PyObject* obj
+
+        c_nbytes = nbytes
+
+        c_offset = offset
+
+        handle = self.get_random_access_file()
+
+        # Allocate empty write space
+        obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
+
+        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
+        with nogil:
+            check_status(handle.get().
+                         ReadAt(c_offset, c_nbytes, &bytes_read, buf))
+
+        if bytes_read < c_nbytes:
+            cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
+
+        return PyObject_to_object(obj)
+
     def read1(self, nbytes=None):
         """Read and return up to n bytes.
 
