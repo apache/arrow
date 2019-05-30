@@ -17,24 +17,32 @@
 
 #pragma once
 
-#ifdef _WIN32
-
-// Windows defines min and max macros that mess up std::min/max
-#ifndef NOMINMAX
-#define NOMINMAX
+#if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#else
+#pragma GCC diagnostic ignored "-Wattributes"
 #endif
 
-#define WIN32_LEAN_AND_MEAN
-
-// Set Windows 7 as a conservative minimum for Apache Arrow
-#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x601
-#undef _WIN32_WINNT
-#endif
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x601
+#ifdef ARROW_FLIGHT_STATIC
+#define ARROW_FLIGHT_EXPORT
+#elif defined(ARROW_FLIGHT_EXPORTING)
+#define ARROW_FLIGHT_EXPORT __declspec(dllexport)
+#else
+#define ARROW_FLIGHT_EXPORT __declspec(dllimport)
 #endif
 
-#include <winsock2.h>
-#include <windows.h>
+#define ARROW_FLIGHT_NO_EXPORT
+#else  // Not Windows
+#ifndef ARROW_FLIGHT_EXPORT
+#define ARROW_FLIGHT_EXPORT __attribute__((visibility("default")))
+#endif
+#ifndef ARROW_FLIGHT_NO_EXPORT
+#define ARROW_FLIGHT_NO_EXPORT __attribute__((visibility("hidden")))
+#endif
+#endif  // Non-Windows
 
-#endif  // _WIN32
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

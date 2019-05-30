@@ -18,8 +18,16 @@
 #ifndef ARROW_UTIL_IO_UTIL_H
 #define ARROW_UTIL_IO_UTIL_H
 
+#ifndef _WIN32
+#define ARROW_HAVE_SIGACTION 1
+#endif
+
 #include <memory>
 #include <string>
+
+#if ARROW_HAVE_SIGACTION
+#include <signal.h>  // Needed for struct sigaction
+#endif
 
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
@@ -217,6 +225,37 @@ class ARROW_EXPORT TemporaryDir {
 
   explicit TemporaryDir(PlatformFilename&&);
 };
+
+class ARROW_EXPORT SignalHandler {
+ public:
+  typedef void (*Callback)(int);
+
+  SignalHandler();
+  explicit SignalHandler(Callback cb);
+#if ARROW_HAVE_SIGACTION
+  explicit SignalHandler(const struct sigaction& sa);
+#endif
+
+  Callback callback() const;
+#if ARROW_HAVE_SIGACTION
+  const struct sigaction& action() const;
+#endif
+
+ protected:
+#if ARROW_HAVE_SIGACTION
+  // Storing the full sigaction allows to restore the entire signal handling
+  // configuration.
+  struct sigaction sa_;
+#else
+  Callback cb_;
+#endif
+};
+
+ARROW_EXPORT
+Status GetSignalHandler(int signum, SignalHandler* out);
+ARROW_EXPORT
+Status SetSignalHandler(int signum, SignalHandler handler,
+                        SignalHandler* old_handler = NULLPTR);
 
 }  // namespace internal
 }  // namespace arrow

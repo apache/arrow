@@ -493,7 +493,7 @@ endif()
 # Flight
 if(PYARROW_BUILD_FLIGHT)
   if(PYARROW_BUNDLE_ARROW_CPP)
-    # TODO:
+    # TODO: need to implement FindArrowFlight.cmake first
     message(FATAL_ERROR "Not yet implemented: bundling arrow-flight in pyarrow")
   endif()
   # We do NOT want to link gRPC or any other Flight dependency

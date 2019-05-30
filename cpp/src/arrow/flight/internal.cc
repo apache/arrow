@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/flight/internal.h"
+#include "arrow/flight/platform.h"
 #include "arrow/flight/protocol-internal.h"
 
 #include <cstddef>
@@ -23,7 +24,6 @@
 #include <string>
 #include <utility>
 
-#include "arrow/util/config.h"
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
 #else

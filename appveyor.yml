@@ -65,6 +65,7 @@ environment:
     - JOB: "Toolchain"
       GENERATOR: Visual Studio 14 2015 Win64
       CONFIGURATION: "Release"
+      ARROW_BUILD_FLIGHT: "ON"
       ARROW_BUILD_GANDIVA: "ON"
     # NOTE: Since ARROW-5403 we have disabled the static CRT build
     # - JOB: "Static_Crt_Build"

@@ -35,6 +35,7 @@
 #include <utility>
 
 #include <fcntl.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>  // IWYU pragma: keep
@@ -884,6 +885,81 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
     return Status::IOError("Path already exists: '", fn.ToString(), "'");
   }
   out->reset(new TemporaryDir(std::move(fn)));
+  return Status::OK();
+}
+
+SignalHandler::SignalHandler() {}
+
+SignalHandler::SignalHandler(Callback cb) {
+#if ARROW_HAVE_SIGACTION
+  sa_.sa_handler = cb;
+  sa_.sa_flags = 0;
+  sigemptyset(&sa_.sa_mask);
+#else
+  cb_ = cb;
+#endif
+}
+
+#if ARROW_HAVE_SIGACTION
+SignalHandler::SignalHandler(const struct sigaction& sa) {
+  memcpy(&sa_, &sa, sizeof(sa));
+}
+#endif
+
+SignalHandler::Callback SignalHandler::callback() const {
+#if ARROW_HAVE_SIGACTION
+  return sa_.sa_handler;
+#else
+  return cb_;
+#endif
+}
+
+#if ARROW_HAVE_SIGACTION
+const struct sigaction& SignalHandler::action() const { return sa_; }
+#endif
+
+Status GetSignalHandler(int signum, SignalHandler* out) {
+#if ARROW_HAVE_SIGACTION
+  struct sigaction sa;
+  int ret = sigaction(signum, nullptr, &sa);
+  if (ret != 0) {
+    // TODO more detailed message using errno
+    return Status::IOError("sigaction call failed");
+  }
+  *out = SignalHandler(sa);
+#else
+  // To read the old handler, set the signal handler to something else temporarily
+  SignalHandler::Callback cb = signal(signum, SIG_IGN);
+  if (cb == SIG_ERR || signal(signum, cb) == SIG_ERR) {
+    // TODO more detailed message using errno
+    return Status::IOError("signal call failed");
+  }
+  *out = SignalHandler(cb);
+#endif
+  return Status::OK();
+}
+
+Status SetSignalHandler(int signum, SignalHandler handler, SignalHandler* old_handler) {
+#if ARROW_HAVE_SIGACTION
+  struct sigaction old_sa;
+  int ret = sigaction(signum, &handler.action(), &old_sa);
+  if (ret != 0) {
+    // TODO more detailed message using errno
+    return Status::IOError("sigaction call failed");
+  }
+  if (old_handler != nullptr) {
+    *old_handler = SignalHandler(old_sa);
+  }
+#else
+  SignalHandler::Callback cb = signal(signum, handler.callback());
+  if (cb == SIG_ERR) {
+    // TODO more detailed message using errno
+    return Status::IOError("signal call failed");
+  }
+  if (old_handler != nullptr) {
+    *old_handler = SignalHandler(cb);
+  }
+#endif
   return Status::OK();
 }
 

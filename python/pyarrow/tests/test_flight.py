@@ -18,6 +18,7 @@
 
 import base64
 import contextlib
+import os
 import socket
 import tempfile
 import threading
@@ -319,8 +320,10 @@ def test_flight_get_info():
             flight.Location.for_grpc_tcp('localhost', 5005)
 
 
+@pytest.mark.skipif(os.name == 'nt',
+                    reason="Unix sockets can't be tested on Windows")
 def test_flight_domain_socket():
-    """Try a simple do_get call over a domain socket."""
+    """Try a simple do_get call over a Unix domain socket."""
     table = simple_ints_table()
 
     with tempfile.NamedTemporaryFile() as sock:
@@ -395,7 +398,7 @@ def test_timeout_passes():
     """Make sure timeouts do not fire on fast requests."""
     with flight_server(ConstantFlightServer) as server_location:
         client = flight.FlightClient.connect(server_location)
-        options = flight.FlightCallOptions(timeout=0.2)
+        options = flight.FlightCallOptions(timeout=5.0)
         client.do_get(flight.Ticket(b'ints'), options=options).read_all()
 
 
