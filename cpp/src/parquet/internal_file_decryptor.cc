@@ -51,9 +51,8 @@ int FooterSigningEncryptor::SignedFooterEncrypt(const uint8_t* footer, int foote
 }
 
 // Decryptor
-Decryptor::Decryptor(encryption::AesDecryptor* aes_decryptor,
-                     const std::string& key, const std::string& file_aad,
-                     const std::string& aad)
+Decryptor::Decryptor(encryption::AesDecryptor* aes_decryptor, const std::string& key,
+                     const std::string& file_aad, const std::string& aad)
     : aes_decryptor_(aes_decryptor), key_(key), file_aad_(file_aad), aad_(aad) {}
 
 int Decryptor::CiphertextSizeDelta() { return aes_decryptor_->CiphertextSizeDelta(); }
@@ -255,50 +254,48 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   return data_decryptor;
 }
 
-encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
-    size_t key_size) {
+encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(size_t key_size) {
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (meta_decryptor_128_ == NULLPTR) {
-      meta_decryptor_128_.reset(encryption::AesDecryptor::Make(
-          algorithm_, key_len, true, all_decryptors_));
+      meta_decryptor_128_.reset(
+          encryption::AesDecryptor::Make(algorithm_, key_len, true, all_decryptors_));
     }
     return meta_decryptor_128_.get();
   } else if (key_len == 24) {
     if (meta_decryptor_196_ == NULLPTR) {
-      meta_decryptor_196_.reset(encryption::AesDecryptor::Make(
-          algorithm_, key_len, true, all_decryptors_));
+      meta_decryptor_196_.reset(
+          encryption::AesDecryptor::Make(algorithm_, key_len, true, all_decryptors_));
     }
     return meta_decryptor_196_.get();
   } else if (key_len == 32) {
     if (meta_decryptor_256_ == NULLPTR) {
-      meta_decryptor_256_.reset(encryption::AesDecryptor::Make(
-          algorithm_, key_len, true, all_decryptors_));
+      meta_decryptor_256_.reset(
+          encryption::AesDecryptor::Make(algorithm_, key_len, true, all_decryptors_));
     }
     return meta_decryptor_256_.get();
   }
   throw ParquetException("encryption key must be 16, 24 or 32 bytes in length");
 }
 
-encryption::AesDecryptor* InternalFileDecryptor::GetDataAesDecryptor(
-    size_t key_size) {
+encryption::AesDecryptor* InternalFileDecryptor::GetDataAesDecryptor(size_t key_size) {
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (data_decryptor_128_ == NULLPTR) {
-      data_decryptor_128_.reset(encryption::AesDecryptor::Make(
-          algorithm_, key_len, false, all_decryptors_));
+      data_decryptor_128_.reset(
+          encryption::AesDecryptor::Make(algorithm_, key_len, false, all_decryptors_));
     }
     return data_decryptor_128_.get();
   } else if (key_len == 24) {
     if (data_decryptor_196_ == NULLPTR) {
-      data_decryptor_196_.reset(encryption::AesDecryptor::Make(
-          algorithm_, key_len, false, all_decryptors_));
+      data_decryptor_196_.reset(
+          encryption::AesDecryptor::Make(algorithm_, key_len, false, all_decryptors_));
     }
     return data_decryptor_196_.get();
   } else if (key_len == 32) {
     if (data_decryptor_256_ == NULLPTR) {
-      data_decryptor_256_.reset(encryption::AesDecryptor::Make(
-          algorithm_, key_len, false, all_decryptors_));
+      data_decryptor_256_.reset(
+          encryption::AesDecryptor::Make(algorithm_, key_len, false, all_decryptors_));
     }
     return data_decryptor_256_.get();
   }

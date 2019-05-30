@@ -26,7 +26,6 @@
 #include "parquet/encryption.h"
 #include "parquet/schema.h"
 
-
 namespace parquet {
 
 namespace encryption {
@@ -105,9 +104,9 @@ class InternalFileEncryptor {
       const std::shared_ptr<schema::ColumnPath>& column_path, bool metadata);
 
   encryption::AesEncryptor* GetMetaAesEncryptor(ParquetCipher::type algorithm,
-                                                        size_t key_len);
+                                                size_t key_len);
   encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
-                                                        size_t key_len);
+                                                size_t key_len);
 };
 
 }  // namespace parquet

@@ -29,9 +29,8 @@ static inline uint8_t* str2bytes(const std::string& str) {
 }
 
 // Encryptor
-Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor,
-                     const std::string& key, const std::string& file_aad,
-                     const std::string& aad)
+Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
+                     const std::string& file_aad, const std::string& aad)
     : aes_encryptor_(aes_encryptor), key_(key), file_aad_(file_aad), aad_(aad) {}
 
 int Encryptor::CiphertextSizeDelta() { return aes_encryptor_->CiphertextSizeDelta(); }
@@ -154,20 +153,20 @@ encryption::AesEncryptor* InternalFileEncryptor::GetMetaAesEncryptor(
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (meta_encryptor_128_ == NULLPTR) {
-      meta_encryptor_128_.reset(encryption::AesEncryptor::Make(
-          algorithm, key_len, true, all_encryptors_));
+      meta_encryptor_128_.reset(
+          encryption::AesEncryptor::Make(algorithm, key_len, true, all_encryptors_));
     }
     return meta_encryptor_128_.get();
   } else if (key_len == 24) {
     if (meta_encryptor_196_ == NULLPTR) {
-      meta_encryptor_196_.reset(encryption::AesEncryptor::Make(
-          algorithm, key_len, true, all_encryptors_));
+      meta_encryptor_196_.reset(
+          encryption::AesEncryptor::Make(algorithm, key_len, true, all_encryptors_));
     }
     return meta_encryptor_196_.get();
   } else if (key_len == 32) {
     if (meta_encryptor_256_ == NULLPTR) {
-      meta_encryptor_256_.reset(encryption::AesEncryptor::Make(
-          algorithm, key_len, true, all_encryptors_));
+      meta_encryptor_256_.reset(
+          encryption::AesEncryptor::Make(algorithm, key_len, true, all_encryptors_));
     }
     return meta_encryptor_256_.get();
   }
@@ -179,20 +178,20 @@ encryption::AesEncryptor* InternalFileEncryptor::GetDataAesEncryptor(
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (data_encryptor_128_ == NULLPTR) {
-      data_encryptor_128_.reset(encryption::AesEncryptor::Make(
-          algorithm, key_len, false, all_encryptors_));
+      data_encryptor_128_.reset(
+          encryption::AesEncryptor::Make(algorithm, key_len, false, all_encryptors_));
     }
     return data_encryptor_128_.get();
   } else if (key_len == 24) {
     if (data_encryptor_196_ == NULLPTR) {
-      data_encryptor_196_.reset(encryption::AesEncryptor::Make(
-          algorithm, key_len, false, all_encryptors_));
+      data_encryptor_196_.reset(
+          encryption::AesEncryptor::Make(algorithm, key_len, false, all_encryptors_));
     }
     return data_encryptor_196_.get();
   } else if (key_len == 32) {
     if (data_encryptor_256_ == NULLPTR) {
-      data_encryptor_256_.reset(encryption::AesEncryptor::Make(
-          algorithm, key_len, false, all_encryptors_));
+      data_encryptor_256_.reset(
+          encryption::AesEncryptor::Make(algorithm, key_len, false, all_encryptors_));
     }
     return data_encryptor_256_.get();
   }
