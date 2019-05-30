@@ -32,12 +32,11 @@
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
+#include "parquet/encryption_internal.h"
 #include "parquet/internal_file_decryptor.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
-
-#include "parquet/util/crypto.h"
 
 using arrow::MemoryPool;
 
@@ -133,14 +132,14 @@ class SerializedPageReader : public PageReader {
     if (data_decryptor_ != NULLPTR) {
       DCHECK(!data_decryptor_->file_aad().empty());
       // prepare the AAD for quick update later
-      data_pageAAD_ = parquet_encryption::createModuleAAD(
-          data_decryptor_->file_aad(), parquet_encryption::DataPage, row_group_ordinal_,
+      data_pageAAD_ = encryption::CreateModuleAad(
+          data_decryptor_->file_aad(), encryption::kDataPage, row_group_ordinal_,
           column_ordinal_, (int16_t)-1);
     }
     if (meta_decryptor_ != NULLPTR) {
       DCHECK(!meta_decryptor_->file_aad().empty());
-      data_page_headerAAD_ = parquet_encryption::createModuleAAD(
-          meta_decryptor_->file_aad(), parquet_encryption::DataPageHeader,
+      data_page_headerAAD_ = encryption::CreateModuleAad(
+          meta_decryptor_->file_aad(), encryption::kDataPageHeader,
           row_group_ordinal_, column_ordinal_, (int16_t)-1);
     }
   }
@@ -218,12 +217,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         if (meta_decryptor_ != NULLPTR) {
           if (current_page_is_dictionary) {
             std::string dictionary_page_header_aad;
-            dictionary_page_header_aad = parquet_encryption::createModuleAAD(
-                meta_decryptor_->file_aad(), parquet_encryption::DictionaryPageHeader,
+            dictionary_page_header_aad = encryption::CreateModuleAad(
+                meta_decryptor_->file_aad(), encryption::kDictionaryPageHeader,
                 row_group_ordinal_, column_ordinal_, (int16_t)-1);
             meta_decryptor_->update_aad(dictionary_page_header_aad);
           } else {
-            parquet_encryption::quickUpdatePageAAD(data_page_headerAAD_, page_ordinal_);
+            encryption::QuickUpdatePageAad(data_page_headerAAD_, page_ordinal_);
             meta_decryptor_->update_aad(data_page_headerAAD_);
           }
         }
@@ -251,12 +250,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       DCHECK(!data_decryptor_->file_aad().empty());
       if (current_page_is_dictionary) {
         std::string dictionary_page_aad;
-        dictionary_page_aad = parquet_encryption::createModuleAAD(
-            data_decryptor_->file_aad(), parquet_encryption::DictionaryPage,
+        dictionary_page_aad = encryption::CreateModuleAad(
+            data_decryptor_->file_aad(), encryption::kDictionaryPage,
             row_group_ordinal_, column_ordinal_, (int16_t)-1);
         data_decryptor_->update_aad(dictionary_page_aad);
       } else {
-        parquet_encryption::quickUpdatePageAAD(data_pageAAD_, page_ordinal_);
+        encryption::QuickUpdatePageAad(data_pageAAD_, page_ordinal_);
         data_decryptor_->update_aad(data_pageAAD_);
       }
     }

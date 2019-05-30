@@ -17,7 +17,7 @@
 
 #include "parquet/internal_file_decryptor.h"
 #include "parquet/encryption.h"
-#include "parquet/util/crypto.h"
+#include "parquet/encryption_internal.h"
 
 namespace parquet {
 
@@ -34,7 +34,7 @@ FooterSigningEncryptor::FooterSigningEncryptor(ParquetCipher::type algorithm,
                                                const std::string& file_aad,
                                                const std::string& aad)
     : key_(key), file_aad_(file_aad), aad_(aad) {
-  aes_encryptor_.reset(new parquet_encryption::AesEncryptor(
+  aes_encryptor_.reset(encryption::AesEncryptor::Make(
       algorithm, static_cast<int>(key_.size()), true, NULLPTR));
 }
 
@@ -51,7 +51,7 @@ int FooterSigningEncryptor::SignedFooterEncrypt(const uint8_t* footer, int foote
 }
 
 // Decryptor
-Decryptor::Decryptor(parquet_encryption::AesDecryptor* aes_decryptor,
+Decryptor::Decryptor(encryption::AesDecryptor* aes_decryptor,
                      const std::string& key, const std::string& file_aad,
                      const std::string& aad)
     : aes_decryptor_(aes_decryptor), key_(key), file_aad_(file_aad), aad_(aad) {}
@@ -80,8 +80,8 @@ InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* propertie
   }
   properties_->set_utilized();
 
-  all_decryptors_ = std::shared_ptr<std::list<parquet_encryption::AesDecryptor*>>(
-      new std::list<parquet_encryption::AesDecryptor*>);
+  all_decryptors_ = std::shared_ptr<std::vector<encryption::AesDecryptor*>>(
+      new std::vector<encryption::AesDecryptor*>);
   column_data_map_ = std::shared_ptr<
       std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
                parquet::schema::ColumnPath::CmpColumnPath>>(
@@ -126,7 +126,7 @@ InternalFileDecryptor::GetFooterSigningEncryptor() {
         "plaintext footer metadata");
   }
 
-  std::string aad = parquet_encryption::createFooterAAD(file_aad_);
+  std::string aad = encryption::CreateFooterAad(file_aad_);
 
   footer_signing_encryptor_ =
       std::make_shared<FooterSigningEncryptor>(algorithm_, footer_key, file_aad_, aad);
@@ -134,7 +134,7 @@ InternalFileDecryptor::GetFooterSigningEncryptor() {
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor() {
-  std::string aad = parquet_encryption::createFooterAAD(file_aad_);
+  std::string aad = encryption::CreateFooterAad(file_aad_);
   return GetFooterDecryptor(aad, true);
 }
 
@@ -255,24 +255,24 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   return data_decryptor;
 }
 
-parquet_encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
+encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
     size_t key_size) {
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (meta_decryptor_128_ == NULLPTR) {
-      meta_decryptor_128_.reset(new parquet_encryption::AesDecryptor(
+      meta_decryptor_128_.reset(encryption::AesDecryptor::Make(
           algorithm_, key_len, true, all_decryptors_));
     }
     return meta_decryptor_128_.get();
   } else if (key_len == 24) {
     if (meta_decryptor_196_ == NULLPTR) {
-      meta_decryptor_196_.reset(new parquet_encryption::AesDecryptor(
+      meta_decryptor_196_.reset(encryption::AesDecryptor::Make(
           algorithm_, key_len, true, all_decryptors_));
     }
     return meta_decryptor_196_.get();
   } else if (key_len == 32) {
     if (meta_decryptor_256_ == NULLPTR) {
-      meta_decryptor_256_.reset(new parquet_encryption::AesDecryptor(
+      meta_decryptor_256_.reset(encryption::AesDecryptor::Make(
           algorithm_, key_len, true, all_decryptors_));
     }
     return meta_decryptor_256_.get();
@@ -280,24 +280,24 @@ parquet_encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(
   throw ParquetException("encryption key must be 16, 24 or 32 bytes in length");
 }
 
-parquet_encryption::AesDecryptor* InternalFileDecryptor::GetDataAesDecryptor(
+encryption::AesDecryptor* InternalFileDecryptor::GetDataAesDecryptor(
     size_t key_size) {
   int key_len = static_cast<int>(key_size);
   if (key_len == 16) {
     if (data_decryptor_128_ == NULLPTR) {
-      data_decryptor_128_.reset(new parquet_encryption::AesDecryptor(
+      data_decryptor_128_.reset(encryption::AesDecryptor::Make(
           algorithm_, key_len, false, all_decryptors_));
     }
     return data_decryptor_128_.get();
   } else if (key_len == 24) {
     if (data_decryptor_196_ == NULLPTR) {
-      data_decryptor_196_.reset(new parquet_encryption::AesDecryptor(
+      data_decryptor_196_.reset(encryption::AesDecryptor::Make(
           algorithm_, key_len, false, all_decryptors_));
     }
     return data_decryptor_196_.get();
   } else if (key_len == 32) {
     if (data_decryptor_256_ == NULLPTR) {
-      data_decryptor_256_.reset(new parquet_encryption::AesDecryptor(
+      data_decryptor_256_.reset(encryption::AesDecryptor::Make(
           algorithm_, key_len, false, all_decryptors_));
     }
     return data_decryptor_256_.get();

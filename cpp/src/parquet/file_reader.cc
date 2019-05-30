@@ -33,6 +33,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
 #include "parquet/deprecated_io.h"
+#include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
 #include "parquet/internal_file_decryptor.h"
@@ -41,7 +42,6 @@
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/crypto.h"
 #include "parquet/util/memory.h"
 
 namespace parquet {
