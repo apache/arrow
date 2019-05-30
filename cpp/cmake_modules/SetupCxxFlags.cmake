@@ -38,10 +38,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # shared libraries
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# if no build build type is specified, default to debug builds
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif(NOT CMAKE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 
 # compiler flags that are common across debug/release builds

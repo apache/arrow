@@ -24,6 +24,11 @@ string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSI
 
 project(arrow VERSION "${ARROW_BASE_VERSION}")
 
+# if no build build type is specified, default to release builds
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif(NOT CMAKE_BUILD_TYPE)
+
 set(ARROW_VERSION_MAJOR "${arrow_VERSION_MAJOR}")
 set(ARROW_VERSION_MINOR "${arrow_VERSION_MINOR}")
 set(ARROW_VERSION_PATCH "${arrow_VERSION_PATCH}")
@@ -310,6 +315,42 @@ endif()
 include(SetupCxxFlags)
 
 #
+# Build output directory
+#
+
+# set compile output directory
+string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
+
+# If build in-source, create the latest symlink. If build out-of-source, which is
+# preferred, simply output the binaries in the build folder
+if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
+  set(BUILD_OUTPUT_ROOT_DIRECTORY
+      "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}/")
+  # Link build/latest to the current build directory, to avoid developers
+  # accidentally running the latest debug build when in fact they're building
+  # release builds.
+  file(MAKE_DIRECTORY ${BUILD_OUTPUT_ROOT_DIRECTORY})
+  if(NOT APPLE)
+    set(MORE_ARGS "-T")
+  endif()
+  execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                                              ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+else()
+  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
+endif()
+
+# where to put generated archives (.a files)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set(ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+
+# where to put generated libraries (.so files)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+
+# where to put generated binaries
+set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+
+#
 # Dependencies
 #
 
@@ -347,38 +388,6 @@ endif()
 # CMAKE_CXX_FLAGS now fully assembled
 message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-
-# set compile output directory
-string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_SUBDIR_NAME)
-
-# If build in-source, create the latest symlink. If build out-of-source, which is
-# preferred, simply output the binaries in the build folder
-if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
-  set(BUILD_OUTPUT_ROOT_DIRECTORY
-      "${CMAKE_CURRENT_BINARY_DIR}/build/${BUILD_SUBDIR_NAME}/")
-  # Link build/latest to the current build directory, to avoid developers
-  # accidentally running the latest debug build when in fact they're building
-  # release builds.
-  file(MAKE_DIRECTORY ${BUILD_OUTPUT_ROOT_DIRECTORY})
-  if(NOT APPLE)
-    set(MORE_ARGS "-T")
-  endif()
-  execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-                                              ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
-else()
-  set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
-endif()
-
-# where to put generated archives (.a files)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(ARCHIVE_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
-# where to put generated libraries (.so files)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
-
-# where to put generated binaries
-set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
