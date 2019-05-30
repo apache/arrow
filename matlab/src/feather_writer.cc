@@ -126,11 +126,6 @@ constexpr int64_t BitPackedLength(int64_t num_elements) {
   return static_cast<int64_t>(std::ceil(num_elements / 8.0));
 }
 
-// Construct a bit-packed buffer on the heap for validity information.
-std::shared_ptr<uint8_t> MakePackedValidityBuffer(int64_t num_elements) {
-  return std::shared_ptr<uint8_t>(new uint8_t[BitPackedLength(num_elements)]);
-}
-
 // Calculate the total number of elements in an mxArray
 // We have to do this separately since mxGetNumberOfElements only works in numeric arrays
 size_t GetNumberOfElements(const mxArray* array) {
@@ -301,12 +296,13 @@ arrow::Status FeatherWriter::WriteVariables(const mxArray* variables) {
   // Currently we need all columns to be passed in together in the WriteVariables method.
   internal::ValidateNumColumns(static_cast<int64_t>(num_columns), this->num_variables_);
 
-  // Set up packed validity buffer for later arrow::Buffers to reference and populate.
+  // Allocate a packed validity bitmap for later arrow::Buffers to reference and populate.
   // Since this is defined in the enclosing scope around any arrow::Buffer usage, this
   // should outlive any arrow::Buffers created on this range, thus avoiding dangling
   // references.
-  std::shared_ptr<uint8_t> packed_validity_buffer =
-      internal::MakePackedValidityBuffer(this->num_rows_);
+  std::shared_ptr<arrow::ResizableBuffer> validity_bitmap;
+  ARROW_RETURN_NOT_OK(arrow::AllocateResizableBuffer(
+      internal::BitPackedLength(this->num_rows_), &validity_bitmap));
 
   // Iterate over the input columns and generate arrow arrays.
   for (int idx = 0; idx < num_columns; ++idx) {
@@ -320,12 +316,6 @@ arrow::Status FeatherWriter::WriteVariables(const mxArray* variables) {
     // Convert column and type name to a std::string from mxArray*.
     std::string name_str = internal::MxArrayToString(name);
     std::string type_str = internal::MxArrayToString(type);
-
-    // Set up an arrow::Buffer which can be populated by the validity bitmap information
-    // for the current column.
-    int64_t packed_validity_buffer_len = internal::BitPackedLength(this->num_rows_);
-    std::shared_ptr<arrow::MutableBuffer> validity_bitmap(new arrow::MutableBuffer(
-        packed_validity_buffer.get(), packed_validity_buffer_len));
 
     // Populate bit-packed arrow::Buffer using validity data in the mxArray*.
     internal::BitPackBuffer(valid, validity_bitmap);
