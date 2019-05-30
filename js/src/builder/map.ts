@@ -20,10 +20,10 @@ import { DataType, Map_ } from '../type';
 import { Builder, NestedBuilder } from './base';
 
 export class MapBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends NestedBuilder<Map_<T>, TNull> {
-    public addChild(child: Builder<T[keyof T]>, name = `${this.numChildren}`) {
-        const type = this._type;
+    public addChild(child: Builder, name = `${this.numChildren}`) {
+        const { children, keysSorted } = this.type;
         const childIndex = this.children.push(child);
-        this._type = new Map_([...type.children, new Field(name, child.type)], type.keysSorted);
+        this.type = new Map_([...children, new Field(name, child.type, true)], keysSorted);
         return childIndex;
     }
 }

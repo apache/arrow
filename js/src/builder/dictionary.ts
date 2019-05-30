@@ -35,14 +35,13 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
     constructor({ 'type': type, 'nullValues': nulls, 'dictionaryHashFunction': hashFn }: DictionaryBuilderOptions<T, TNull>) {
         super({ type });
         this._nulls = <any> null;
-        this.indices = Builder.new({ 'type': this._type.indices, 'nullValues': nulls }) as IntBuilder<T['indices']>;
-        this.dictionary = Builder.new({ 'type': this._type.dictionary, 'nullValues': null }) as Builder<T['dictionary']>;
+        this.indices = Builder.new({ 'type': this.type.indices, 'nullValues': nulls }) as IntBuilder<T['indices']>;
+        this.dictionary = Builder.new({ 'type': this.type.dictionary, 'nullValues': null }) as Builder<T['dictionary']>;
         if (typeof hashFn === 'function') {
             this.valueToKey = hashFn;
         }
     }
 
-    public get length() { return this.indices.length; }
     public get values() { return this.indices.values; }
     public get nullCount() { return this.indices.nullCount; }
     public get nullBitmap() { return this.indices.nullBitmap; }
@@ -50,7 +49,12 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
     public get reservedLength() { return this.indices.reservedLength; }
     public get reservedByteLength() { return this.indices.reservedByteLength; }
     public isValid(value: T['TValue'] | TNull) { return this.indices.isValid(value); }
-    public setValid(index: number, valid: boolean) { return this.indices.setValid(index, valid); }
+    public setValid(index: number, valid: boolean) {
+        const indices = this.indices;
+        valid = indices.setValid(index, valid);
+        this.length = indices.length;
+        return valid;
+    }
     public setValue(index: number, value: T['TValue']) {
         let keysToCodesMap = this._codes;
         let key = this.valueToKey(value);
@@ -61,10 +65,12 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
         return this.indices.setValue(index, idx);
     }
     public flush() {
-        return this.indices.flush().clone(this._type);
+        const chunk = this.indices.flush().clone(this.type);
+        this.clear();
+        return chunk;
     }
     public finish() {
-        this._type.dictionaryVector = Vector.new(this.dictionary.finish().flush());
+        this.type.dictionaryVector = Vector.new(this.dictionary.finish().flush());
         return super.finish();
     }
     public clear() {

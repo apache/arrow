@@ -79,11 +79,11 @@ export class Data<T extends DataType = DataType> {
     }
     public get byteLength(): number {
         let byteLength = 0;
-        const { valueOffsets, values, nullBitmap, typeIds } = this;
-        byteLength += (valueOffsets && valueOffsets.byteLength) || 0;
-        byteLength += (values && values.byteLength) || 0;
-        byteLength += (nullBitmap && nullBitmap.byteLength) || 0;
-        byteLength += (typeIds && typeIds.byteLength) || 0;
+        let { valueOffsets, values, nullBitmap, typeIds } = this;
+        valueOffsets && (byteLength += valueOffsets.byteLength);
+        values       && (byteLength += values.byteLength);
+        nullBitmap   && (byteLength += nullBitmap.byteLength);
+        typeIds      && (byteLength += typeIds.byteLength);
         return this.childData.reduce((byteLength, child) => byteLength + child.byteLength, byteLength);
     }
 

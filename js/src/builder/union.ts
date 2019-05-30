@@ -36,7 +36,7 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends NestedB
         }
     }
 
-    public get typeIdToChildIndex() { return this._type.typeIdToChildIndex; }
+    public get typeIdToChildIndex() { return this.type.typeIdToChildIndex; }
 
     public append(value: T['TValue'] | TNull, childTypeId?: number) {
         return this.set(this.length, value, childTypeId);
@@ -63,7 +63,7 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends NestedB
         const childTypeId = this.children.push(child);
         const { type: { children, mode, typeIds } } = this;
         const fields = [...children, new Field(name, child.type)];
-        this._type = <T> new Union(mode, [...typeIds, childTypeId], fields);
+        this.type = <T> new Union(mode, [...typeIds, childTypeId], fields);
         return childTypeId;
     }
 
@@ -88,7 +88,7 @@ export class DenseUnionBuilder<T extends DenseUnion, TNull = any> extends UnionB
 
     /** @ignore */
     public setValue(index: number, value: T['TValue'], childTypeId?: number) {
-        const childIndex = this._type.typeIdToChildIndex[childTypeId!];
+        const childIndex = this.type.typeIdToChildIndex[childTypeId!];
         this._offsets.set(index, this.getChildAt(childIndex)!.length);
         return super.setValue(index, value, childTypeId);
     }

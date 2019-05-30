@@ -79,11 +79,12 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
         cb && cb();
     }
     _write(value: any, _: string, cb?: CB) {
-        const builder = this._builder;
-        builder.append(value);
-        const res = this._maybeFlush(builder, this._desiredSize);
+        const result = this._maybeFlush(
+            this._builder.append(value),
+            this._desiredSize
+        );
         cb && cb();
-        return res;
+        return result;
     }
     _destroy(err: Error | null, cb?: (error: Error | null) => void) {
         this._builder.clear();
@@ -91,11 +92,11 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
     }
     private _maybeFlush(builder: Builder<T, TNull>, size: number) {
         if (this._getSize(builder) >= size) {
-            this.push(builder.flush());
+            this.push(builder.toVector());
         }
         if (builder.finished) {
             if (builder.length > 0) {
-                this.push(builder.flush());
+                this.push(builder.toVector());
             }
             if (!this._finished && (this._finished = true)) {
                 this.push(null);

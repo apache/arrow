@@ -20,10 +20,9 @@ import { DataType, Struct } from '../type';
 import { Builder, NestedBuilder } from './base';
 
 export class StructBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends NestedBuilder<Struct<T>, TNull> {
-    public addChild(child: Builder<T[keyof T]>, name = `${this.numChildren}`) {
-        const type = this._type;
+    public addChild(child: Builder, name = `${this.numChildren}`) {
         const childIndex = this.children.push(child);
-        this._type = new Struct([...type.children, new Field(name, child.type)]);
+        this.type = new Struct([...this.type.children, new Field(name, child.type, true)]);
         return childIndex;
     }
 }

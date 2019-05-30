@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Vector } from '../vector';
 import { Data, Buffers } from '../data';
+import { Vector as V } from '../interfaces';
 import { createIsValidFunction } from './valid';
 import { VectorType as BufferType } from '../enum';
-import { BufferBuilder, BitmaskBuilder, DataBufferBuilder, BinaryBufferBuilder, OffsetsBufferBuilder } from './buffer';
+import { BufferBuilder, BitmapBuilder, DataBufferBuilder, BinaryBufferBuilder, OffsetsBufferBuilder } from './buffer';
 import { DataType, strideForType, Float, Int, Decimal, Date_, Time, Timestamp, Interval, FixedSizeBinary, Struct, Map_, Union, Utf8, Binary } from '../type';
 
 export interface BuilderOptions<T extends DataType = any, TNull = any> {
@@ -54,55 +56,53 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     public static throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) { return throughAsyncIterable(options); }
 
     constructor({ 'type': type, 'nullValues': nulls }: BuilderOptions<T, TNull>) {
-        this._type = type;
+        this.type = type;
         this.children = [];
         this.stride = strideForType(type);
-        this._nulls = new BitmaskBuilder();
+        this._nulls = new BitmapBuilder();
         if (nulls && nulls.length > 0) {
             this._isValid = createIsValidFunction(nulls);
         }
     }
 
+    public type: T;
+    public length = 0;
+    public finished = false;
     public readonly stride: number;
     public readonly children: Builder[];
 
-    public get length() { return this._nulls.length; }
-    public get ArrayType() { return this._type.ArrayType; }
+    public toVector() { return Vector.new(this.flush()); }
+
+    public get ArrayType() { return this.type.ArrayType; }
     public get nullCount() { return this._nulls.numInvalid; }
     public get numChildren() { return this.children.length; }
 
     public get byteLength(): number {
         let size = 0;
-        this._nulls && (size += this._nulls.byteLength);
         this._offsets && (size += this._offsets.byteLength);
         this._values && (size += this._values.byteLength);
+        this._nulls && (size += this._nulls.byteLength);
         this._typeIds && (size += this._typeIds.byteLength);
         return this.children.reduce((size, child) => size + child.byteLength, size);
     }
 
     public get reservedLength(): number {
         let size = 0;
-        this._nulls && (size += this._nulls.reservedLength);
         this._offsets && (size += this._offsets.reservedLength);
         this._values && (size += this._values.reservedLength);
+        this._nulls && (size += this._nulls.reservedLength);
         this._typeIds && (size += this._typeIds.reservedLength);
         return this.children.reduce((size, child) => size + child.reservedLength, size);
     }
 
     public get reservedByteLength(): number {
         let size = 0;
-        this._nulls && (size += this._nulls.reservedByteLength);
         this._offsets && (size += this._offsets.reservedByteLength);
         this._values && (size += this._values.reservedByteLength);
+        this._nulls && (size += this._nulls.reservedByteLength);
         this._typeIds && (size += this._typeIds.reservedByteLength);
         return this.children.reduce((size, child) => size + child.reservedByteLength, size);
     }
-
-    protected _type: T;
-    public get type() { return this._type; }
-
-    protected _finished = false;
-    public get finished() { return this._finished; }
 
     // @ts-ignore
     protected _offsets: DataBufferBuilder<Int32Array>;
@@ -112,7 +112,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     protected _values: BufferBuilder<T['TArray'], any>;
     public get values() { return this._values.buffer; }
 
-    protected _nulls: BitmaskBuilder;
+    protected _nulls: BitmapBuilder;
     public get nullBitmap() { return this._nulls.buffer; }
 
     // @ts-ignore
@@ -142,14 +142,13 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     // @ts-ignore
     public setValue(index: number, value: T['TValue']) { this._setValue(this, index, value); }
     public setValid(index: number, valid: boolean) {
-        const bit = +valid as 0 | 1;
-        this._nulls.set(index, bit);
+        this.length = this._nulls.set(index, +valid).length;
         return valid;
     }
 
     // @ts-ignore
     public addChild(child: Builder, name = `${this.numChildren}`) {
-        throw new Error(`Cannot append children to non-nested type "${this._type}"`);
+        throw new Error(`Cannot append children to non-nested type "${this.type}"`);
     }
 
     public getChildAt<R extends DataType = any>(index: number): Builder<R> | null {
@@ -179,7 +178,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         nullCount > 0 && (buffers[BufferType.VALIDITY] = this._nulls.flush(length));
 
         const data = Data.new<T>(
-            this._type, 0, length, nullCount, buffers as Buffers<T>,
+            this.type, 0, length, nullCount, buffers as Buffers<T>,
             this.children.map((child) => child.flush())) as Data<T>;
 
         this.clear();
@@ -188,15 +187,16 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     }
 
     public finish() {
-        this._finished = true;
+        this.finished = true;
         this.children.forEach((child) => child.finish());
         return this;
     }
 
     public clear() {
-        this._nulls && (this._nulls.clear());
-        this._values && (this._values.clear());
+        this.length = 0;
         this._offsets && (this._offsets.clear());
+        this._values && (this._values.clear());
+        this._nulls && (this._nulls.clear());
         this._typeIds && (this._typeIds.clear());
         this.children.forEach((child) => child.clear());
         return this;
@@ -208,8 +208,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
-        const stride = strideForType(this._type);
-        this._values = new DataBufferBuilder(new this.ArrayType(0), stride);
+        this._values = new DataBufferBuilder(new this.ArrayType(0), this.stride);
     }
     public setValue(index: number, value: T['TValue']) {
         const values = this._values;
@@ -257,7 +256,7 @@ export abstract class NestedBuilder<T extends Struct | Map_ | Union = any, TNull
     }
 }
 
-type ThroughIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull>) => IterableIterator<Data<T>>;
+type ThroughIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull>) => IterableIterator<V<T>>;
 
 function throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>): ThroughIterable<T, TNull> {
     const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
@@ -267,14 +266,14 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
         const builder = Builder.new(options);
         for (const value of source) {
             if (builder.append(value)[sizeProperty] >= highWaterMark) {
-                yield builder.flush();
+                yield builder.toVector();
             }
         }
-        if (builder.finish().length > 0) yield builder.flush();
+        if (builder.finish().length > 0) yield builder.toVector();
     }
 }
 
-type ThroughAsyncIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) => AsyncIterableIterator<Data<T>>;
+type ThroughAsyncIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) => AsyncIterableIterator<V<T>>;
 
 function throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>): ThroughAsyncIterable<T, TNull> {
     const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
@@ -284,9 +283,9 @@ function throughAsyncIterable<T extends DataType = any, TNull = any>(options: It
         const builder = Builder.new(options);
         for await (const value of source) {
             if (builder.append(value)[sizeProperty] >= highWaterMark) {
-                yield builder.flush();
+                yield builder.toVector();
             }
         }
-        if (builder.finish().length > 0) yield builder.flush();
+        if (builder.finish().length > 0) yield builder.toVector();
     }
 }

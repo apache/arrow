@@ -79,6 +79,9 @@ export class Chunked<T extends DataType = any>
     public get ArrayType() { return this._type.ArrayType; }
     public get numChildren() { return this._numChildren; }
     public get stride() { return this._chunks[0] ? this._chunks[0].stride : 1; }
+    public get byteLength(): number {
+        return this._chunks.reduce((byteLength, chunk) => byteLength + chunk.byteLength, 0);
+    }
     public get nullCount() {
         let nullCount = this._nullCount;
         if (nullCount < 0) {

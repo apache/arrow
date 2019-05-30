@@ -15,32 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Builder, BuilderOptions } from './base';
-import { BoolBuilder } from './bool';
-import { NullBuilder } from './null';
-import { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from './date';
-import { DecimalBuilder } from './decimal';
-import { DictionaryBuilder } from './dictionary';
-import { FixedSizeBinaryBuilder } from './fixedsizebinary';
-import { FloatBuilder, Float16Builder, Float32Builder, Float64Builder } from './float';
-import { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder } from './int';
-import { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from './time';
-import { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './timestamp';
-import { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './interval';
-import { Utf8Builder } from './utf8';
-import { BinaryBuilder } from './binary';
-import { ListBuilder } from './list';
-import { FixedSizeListBuilder } from './fixedsizelist';
-import { MapBuilder } from './map';
-import { StructBuilder } from './struct';
-import { UnionBuilder, SparseUnionBuilder, DenseUnionBuilder } from './union';
+export { Builder, BuilderOptions } from './base';
+export { BoolBuilder } from './bool';
+export { NullBuilder } from './null';
+export { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from './date';
+export { DecimalBuilder } from './decimal';
+export { DictionaryBuilder } from './dictionary';
+export { FixedSizeBinaryBuilder } from './fixedsizebinary';
+export { FloatBuilder, Float16Builder, Float32Builder, Float64Builder } from './float';
+export { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder } from './int';
+export { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from './time';
+export { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './timestamp';
+export { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './interval';
+export { Utf8Builder } from './utf8';
+export { BinaryBuilder } from './binary';
+export { ListBuilder } from './list';
+export { FixedSizeListBuilder } from './fixedsizelist';
+export { MapBuilder } from './map';
+export { StructBuilder } from './struct';
+export { UnionBuilder, SparseUnionBuilder, DenseUnionBuilder } from './union';
 
 import { Type } from '../enum';
+import { Field } from '../schema';
 import { DataType } from '../type';
+import { Utf8Builder } from './utf8';
 import { Builder as B } from '../interfaces';
+import { Builder, BuilderOptions } from './base';
 import { instance as setVisitor } from '../visitor/set';
 import { instance as getBuilderConstructor } from '../visitor/builderctor';
-import { Field } from '../schema';
 
 declare module './base' {
     namespace Builder {
@@ -74,26 +76,6 @@ function newBuilder<T extends DataType = any, TNull = any>(options: BuilderOptio
 
     return builder as B<T, TNull>;
 }
-
-export { Builder, BuilderOptions };
-export { BoolBuilder };
-export { NullBuilder };
-export { DateBuilder, DateDayBuilder, DateMillisecondBuilder };
-export { DecimalBuilder };
-export { DictionaryBuilder };
-export { FixedSizeBinaryBuilder };
-export { FloatBuilder, Float16Builder, Float32Builder, Float64Builder };
-export { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder };
-export { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder };
-export { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder };
-export { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder };
-export { Utf8Builder };
-export { BinaryBuilder };
-export { ListBuilder };
-export { FixedSizeListBuilder };
-export { MapBuilder };
-export { StructBuilder };
-export { UnionBuilder, SparseUnionBuilder, DenseUnionBuilder };
 
 (Object.keys(Type) as any[])
     .map((T: any) => Type[T] as any)

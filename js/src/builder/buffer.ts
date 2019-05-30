@@ -111,7 +111,7 @@ export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, nu
 }
 
 /** @ignore */
-export class BitmaskBuilder extends DataBufferBuilder<Uint8Array> {
+export class BitmapBuilder extends DataBufferBuilder<Uint8Array> {
 
     constructor(data = new Uint8Array(0)) { super(data, 1/8) };
 
@@ -138,7 +138,7 @@ export class BitmaskBuilder extends DataBufferBuilder<Uint8Array> {
 
 /** @ignore */
 export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
-    constructor(data = new Int32Array(0)) { super(data, 1); }
+    constructor(data = new Int32Array(1)) { super(data, 1); }
     public append(value: number) {
         return this.set(this.length - 1, value);
     }

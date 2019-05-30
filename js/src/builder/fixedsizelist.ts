@@ -30,7 +30,7 @@ export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends
             throw new Error('FixedSizeListBuilder can only have one child.');
         }
         const childIndex = this.children.push(child);
-        this._type = new FixedSizeList(this._type.listSize, new Field(name, child.type));
+        this.type = new FixedSizeList(this.type.listSize, new Field(name, child.type, true));
         return childIndex;
     }
     public clear() {

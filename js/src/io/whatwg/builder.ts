@@ -15,8 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../../data';
 import { DataType } from '../../type';
+import { Vector } from '../../vector';
+import { Vector as V } from '../../interfaces';
 import { Builder, BuilderOptions } from '../../builder/index';
 
 /** @ignore */
@@ -36,9 +37,9 @@ export function builderThroughDOMStream<T extends DataType = any, TNull = any>(o
 /** @ignore */
 export class BuilderTransform<T extends DataType = any, TNull = any> {
 
-    public readable: ReadableStream<Data<T>>;
+    public readable: ReadableStream<V<T>>;
     public writable: WritableStream<T['TValue'] | TNull>;
-    public _controller: ReadableStreamDefaultController<Data<T>> | null;
+    public _controller: ReadableStreamDefaultController<V<T>> | null;
 
     private _finished = false;
     private _bufferedSize = 0;
@@ -58,18 +59,18 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
 
         this._controller = null;
         this._builder = Builder.new<T, TNull>(builderOptions);
-        this._getSize = queueingStrategy !== 'bytes' ? builderLength : builderByteLength;
+        this._getSize = queueingStrategy !== 'bytes' ? chunkLength : chunkByteLength;
 
         const { ['highWaterMark']: readableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...readableStrategy };
         const { ['highWaterMark']: writableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...writableStrategy };
 
-        this['readable'] = new ReadableStream<Data<T>>({
+        this['readable'] = new ReadableStream<V<T>>({
             ['cancel']: ()  => { this._builder.clear(); },
             ['pull']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
             ['start']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
         }, {
             'highWaterMark': readableHighWaterMark,
-            'size': queueingStrategy === 'bytes' ? dataByteLength : dataLength,
+            'size': queueingStrategy !== 'bytes' ? chunkLength : chunkByteLength,
         });
 
         this['writable'] = new WritableStream({
@@ -83,7 +84,7 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
 
         if (DataType.isDictionary(builderOptions.type)) {
             let chunks: any[] = [];
-            this._enqueue = (controller: ReadableStreamDefaultController<Data<T>>, chunk: Data<T> | null) => {
+            this._enqueue = (controller: ReadableStreamDefaultController<V<T>>, chunk: V<T> | null) => {
                 this._bufferedSize = 0;
                 if (chunk !== null) {
                     chunks.push(chunk);
@@ -98,21 +99,20 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
         }
     }
 
-    private _writeValueAndReturnChunkSize(x: T['TValue'] | TNull) {
-        const builder = this._builder.append(x);
+    private _writeValueAndReturnChunkSize(value: T['TValue'] | TNull) {
         const bufferedSize = this._bufferedSize;
-        this._bufferedSize = this._getSize(builder);
+        this._bufferedSize = this._getSize(this._builder.append(value));
         return this._bufferedSize - bufferedSize;
     }
 
-    private _maybeFlush(builder: Builder<T, TNull>, controller: ReadableStreamDefaultController<Data<T>> | null) {
+    private _maybeFlush(builder: Builder<T, TNull>, controller: ReadableStreamDefaultController<V<T>> | null) {
         if (controller === null) { return; }
         if (this._bufferedSize >= controller.desiredSize!) {
-            this._enqueue(controller, builder.flush());
+            this._enqueue(controller, builder.toVector());
         }
         if (builder.finished) {
             if (builder.length > 0) {
-                this._enqueue(controller, builder.flush());
+                this._enqueue(controller, builder.toVector());
             }
             if (!this._finished && (this._finished = true)) {
                 this._enqueue(controller, null);
@@ -120,14 +120,12 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
         }
     }
 
-    private _enqueue(controller: ReadableStreamDefaultController<Data<T>>, chunk: Data<T> | null) {
+    private _enqueue(controller: ReadableStreamDefaultController<V<T>>, chunk: V<T> | null) {
         this._bufferedSize = 0;
         this._controller = null;
         chunk === null ? controller.close() : controller.enqueue(chunk);
     }
 }
 
-/** @ignore */ const dataLength = <T extends DataType = any>(data: Data<T>) => data.length;
-/** @ignore */ const dataByteLength = <T extends DataType = any>(data: Data<T>) => data.byteLength;
-/** @ignore */ const builderLength = <T extends DataType = any>(builder: Builder<T>) => builder.length;
-/** @ignore */ const builderByteLength = <T extends DataType = any>(builder: Builder<T>) => builder.byteLength;
+/** @ignore */ const chunkLength = <T extends DataType = any>(chunk: Vector<T> | Builder<T>) => chunk.length;
+/** @ignore */ const chunkByteLength = <T extends DataType = any>(chunk: Vector<T> | Builder<T>) => chunk.byteLength;

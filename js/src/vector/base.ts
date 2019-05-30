@@ -50,6 +50,7 @@ export abstract class BaseVector<T extends DataType = any> extends AbstractVecto
     public get offset() { return this.data.offset; }
     public get stride() { return this.data.stride; }
     public get nullCount() { return this.data.nullCount; }
+    public get byteLength() { return this.data.byteLength; }
     public get VectorName() { return `${Type[this.typeId]}Vector`; }
 
     public get ArrayType(): T['ArrayType'] { return this.data.ArrayType; }

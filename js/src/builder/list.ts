@@ -37,7 +37,7 @@ export class ListBuilder<T extends DataType = any, TNull = any> extends Builder<
             throw new Error('ListBuilder can only have one child.');
         }
         this.children[this.numChildren] = child;
-        this._type = new List(new Field(name, child.type));
+        this.type = new List(new Field(name, child.type, true));
         return this.numChildren - 1;
     }
     public clear() {

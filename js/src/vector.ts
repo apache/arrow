@@ -53,6 +53,7 @@ export abstract class AbstractVector<T extends DataType = any> implements Iterab
     public abstract readonly length: number;
     public abstract readonly stride: number;
     public abstract readonly nullCount: number;
+    public abstract readonly byteLength: number;
     public abstract readonly numChildren: number;
 
     public abstract readonly ArrayType: T['ArrayType'];

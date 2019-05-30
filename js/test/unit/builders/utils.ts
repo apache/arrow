@@ -104,7 +104,7 @@ export function encodeAll<T extends DataType>(typeFactory: () => T) {
         const type = typeFactory();
         const builder = Builder.new({ type, nullValues });
         values.forEach(builder.append.bind(builder));
-        return Vector.new(builder.finish().flush()) as Vector<T>;
+        return builder.finish().toVector();
     }
 }
 
@@ -113,7 +113,7 @@ export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: 
         const type = typeFactory();
         const opts = { type, nullValues, highWaterMark: chunkLen };
         const chunks = [...Builder.throughIterable(opts)(vals)];
-        return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
+        return Chunked.concat(...chunks) as Chunked<T>;
     }
 }
 
@@ -124,7 +124,7 @@ export function encodeEachDOM<T extends DataType>(typeFactory: () => T, chunkLen
         const source = AsyncIterable.from(vals).toDOMStream();
         const builder = Builder.throughDOM({ type, nullValues, readableStrategy: strategy, writableStrategy: strategy });
         const chunks = await AsyncIterable.fromDOMStream(source.pipeThrough(builder)).toArray();
-        return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
+        return Chunked.concat(...chunks) as Chunked<T>;
     }
 }
 
@@ -136,7 +136,7 @@ export function encodeEachNode<T extends DataType>(typeFactory: () => T, chunkLe
         const nulls_ = nullValues ? nullValues.map((x) => x === null ? undefined : x) : nullValues;
         const builder = Builder.throughNode({ type, nullValues: nulls_, highWaterMark: chunkLen });
         const chunks: any[] = await AsyncIterable.fromNodeStream(source.pipe(builder), chunkLen).toArray();
-        return Chunked.concat(...chunks.map(Vector.new)) as Chunked<T>;
+        return Chunked.concat(...chunks) as Chunked<T>;
     }
 }
 
@@ -164,8 +164,8 @@ export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[],
         }
     } catch (e) {
         // Uncomment these two lines to catch and debug the value retrieval that failed
-        debugger;
-        vec.get(i);
+        // debugger;
+        // vec.get(i);
         throw new Error([
             `${(vec as any).VectorName}[${i}]: ${e && e.stack || e}`,
             `nulls: [${nullVals.join(', ')}]`,

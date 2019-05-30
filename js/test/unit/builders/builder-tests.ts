@@ -19,7 +19,7 @@ import '../../jest-extensions';
 import { AsyncIterable } from 'ix';
 import { validateVector } from './utils';
 import * as generate from '../../generate-test-data';
-import { Type, DataType, Vector, Chunked, util, Builder, UnionVector } from '../../Arrow';
+import { Type, DataType, Chunked, util, Builder, UnionVector } from '../../Arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
@@ -230,14 +230,13 @@ type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('..
 async function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
     const builder = Builder.new(options);
     values.forEach((x) => builder.append(x));
-    return Vector.new(builder.finish().flush());
+    return builder.finish().toVector();
 }
 
 async function encodeChunks<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
-    const chunkLength = Math.max(5, (Math.random() * values.length - 5) | 0);
-    const opts = { ...options, highWaterMark: chunkLength };
-    const chunks = [...Builder.throughIterable(opts)(values)];
-    return Chunked.concat(...chunks.map((x) => Vector.new(x)));
+    const highWaterMark = Math.max(5, (Math.random() * values.length - 5) | 0);
+    const build = Builder.throughIterable({ ...options, highWaterMark });
+    return Chunked.concat(...build(values));
 }
 
 async function encodeChunksDOM<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderTransformOptions<T, TNull>) {
@@ -248,7 +247,7 @@ async function encodeChunksDOM<T extends DataType, TNull = any>(values: (T['TVal
 
     const chunks = await AsyncIterable.fromDOMStream(stream).toArray();
 
-    return Chunked.concat(...chunks.map((x) => Vector.new(x)));
+    return Chunked.concat(...chunks);
 }
 
 async function encodeChunksNode<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderDuplexOptions<T, TNull>) {
@@ -264,5 +263,5 @@ async function encodeChunksNode<T extends DataType, TNull = any>(values: (T['TVa
 
     const chunks: any[] = await AsyncIterable.fromNodeStream(stream, options.highWaterMark).toArray();
 
-    return Chunked.concat(...chunks.map((x) => Vector.new(x)));
+    return Chunked.concat(...chunks);
 }
