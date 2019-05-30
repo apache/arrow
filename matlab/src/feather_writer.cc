@@ -267,7 +267,6 @@ arrow::Status FeatherWriter::Open(const std::string& filename,
 void FeatherWriter::WriteMetadata(const mxArray* metadata) {
   // Verify that all required fieldnames are provided.
   internal::ValidateMxStructField(metadata, "Description", mxCHAR_CLASS, true);
-  internal::ValidateMxStructField(metadata, "Version", mxDOUBLE_CLASS, false);
   internal::ValidateMxStructField(metadata, "NumRows", mxDOUBLE_CLASS, false);
   internal::ValidateMxStructField(metadata, "NumVariables", mxDOUBLE_CLASS, false);
 
@@ -285,9 +284,6 @@ void FeatherWriter::WriteMetadata(const mxArray* metadata) {
   // the provided number of columns before finishing the file write.
   this->num_variables_ =
       static_cast<int64_t>(mxGetScalar(mxGetField(metadata, 0, "NumVariables")));
-
-  // Store the version information so we could handle possible future API changes.
-  this->version_ = static_cast<int32_t>(mxGetScalar(mxGetField(metadata, 0, "Version")));
 }
 
 // Write mxArrays from MATLAB into a Feather file.

@@ -90,10 +90,9 @@ variables = [uint8Variable, ...
              singleVariable, ...
              doubleVariable];
 
-version = 2;
 description = 'test';
 numRows = 3;
 numVariables = length(variables);
 
-metadata = createMetadataStruct(version, description, numRows, numVariables);
+metadata = createMetadataStruct(description, numRows, numVariables);
 end

@@ -225,7 +225,6 @@ arrow::Status FeatherReader::Open(const std::string& filename,
       (*feather_reader)->table_reader_->HasDescription()
           ? (*feather_reader)->table_reader_->GetDescription()
           : "";
-  (*feather_reader)->version_ = (*feather_reader)->table_reader_->version();
 
   if ((*feather_reader)->num_rows_ > internal::MAX_MATLAB_SIZE ||
       (*feather_reader)->num_variables_ > internal::MAX_MATLAB_SIZE) {
@@ -239,8 +238,8 @@ arrow::Status FeatherReader::Open(const std::string& filename,
 
 // Read the table metadata from the Feather file as a mxArray*.
 mxArray* FeatherReader::ReadMetadata() const {
-  const int32_t num_metadata_fields = 4;
-  const char* fieldnames[] = {"NumRows", "NumVariables", "Description", "Version"};
+  const int32_t num_metadata_fields = 3;
+  const char* fieldnames[] = {"NumRows", "NumVariables", "Description"};
 
   // Create a mxArray struct array containing the table metadata to be passed back to
   // MATLAB.
@@ -258,9 +257,6 @@ mxArray* FeatherReader::ReadMetadata() const {
 
   // Set the description.
   mxSetField(metadata, 0, "Description", mlarrow::util::ConvertUTF8StringToUTF16CharMatrix(description_));
-
-  // Set the version.
-  mxSetField(metadata, 0, "Version", mxCreateDoubleScalar(static_cast<double>(version_)));
 
   return metadata;
 }

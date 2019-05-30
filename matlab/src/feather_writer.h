@@ -38,7 +38,6 @@ class FeatherWriter {
   ///         - "Description" :: Nx1 mxChar array, table-level description
   ///         - "NumRows" :: scalar mxDouble array, number of rows in table
   ///         - "NumVariables" :: scalar mxDouble array, total number of variables
-  ///         - "Version" :: scalar mxDouble array, Feather file version
   /// \param[in] metadata mxArray* scalar struct containing table-level metadata
   void WriteMetadata(const mxArray* metadata);
 
@@ -67,7 +66,6 @@ class FeatherWriter {
   int64_t num_rows_;
   int64_t num_variables_;
   std::string description_;
-  int32_t version_;
 };
 
 }  // namespace mlarrow

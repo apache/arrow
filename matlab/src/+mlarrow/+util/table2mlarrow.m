@@ -26,7 +26,6 @@ function [variables, metadata] = table2mlarrow(t)
 %   Description   char          Table description (T.Properties.Description)
 %   NumRows       double        Number of table rows (height(T))
 %   NumVariables  double        Number of table variables (width(T))
-%   Version       double        Feather file version to write
 %
 %   See also FEATHERREAD, FEATHERWRITE.
 
@@ -47,15 +46,12 @@ function [variables, metadata] = table2mlarrow(t)
 
 import mlarrow.util.*;
 
-% Currently, featherwrite only supports Version 2 Feather files.
-featherVersion = 2;
-
 % Struct array representing the underlying data of each variable
 % in the given table.
 variables = repmat(createVariableStruct('', [], [], ''), 1, width(t));
 
 % Struct representing table-level metadata.
-metadata = createMetadataStruct(featherVersion, t.Properties.Description, height(t), width(t));
+metadata = createMetadataStruct(t.Properties.Description, height(t), width(t));
 
 % Iterate over each variable in the given table,
 % extracting the underlying array data.

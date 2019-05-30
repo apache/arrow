@@ -41,7 +41,6 @@ class FeatherReader {
   ///                             table
   ///         - "NumVariables" :: scalar mxDouble array, number of variables in
   ///                             the table
-  ///         - "Version"      :: scalar mxDouble array, Feather file version
   ///        Clients are responsible for freeing the returned mxArray memory
   ///        when it is no longer needed, or passing it to MATLAB to be managed.
   /// \return metadata mxArray* scalar struct containing table level metadata
@@ -71,7 +70,6 @@ class FeatherReader {
   int64_t num_rows_;
   int64_t num_variables_;
   std::string description_;
-  int32_t version_;
 };
 
 }  // namespace mlarrow
