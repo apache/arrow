@@ -22,6 +22,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "arrow/util/macros.h"
+
 namespace arrow {
 
 template <typename HOLDER>
@@ -44,12 +46,12 @@ class concurrentMap {
   }
 
   HOLDER Lookup(jlong module_id) {
-    HOLDER result = nullptr;
+    HOLDER result = NULLPTR;
     try {
       result = map_.at(module_id);
     } catch (const std::out_of_range& e) {
     }
-    if (result != nullptr) {
+    if (result != NULLPTR) {
       return result;
     }
     mtx_.lock();
