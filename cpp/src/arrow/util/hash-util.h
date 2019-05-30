@@ -71,6 +71,83 @@ class HashUtil {
   static constexpr bool have_hardware_crc32 = false;
 #endif
 
+#ifdef ARROW_HAVE_ARMV8_CRYPTO
+  //Arm64 Parallel crc32 computation
+  static uint32_t Armv8CrcHashParallel(const void* data, int32_t nbytes, uint32_t crc) {
+    uint32_t crc0, crc1, crc2;
+    const poly64_t k1 = 0xe417f38a, k2 = 0x8f158014;
+    uint64_t t0, t1;
+    const uint8_t* buffer = reinterpret_cast<const uint8_t*>(data);
+
+    /* Process per block size of 1024 Bytes
+     * A block size = 8 + 42*3*sizeof(uint64_t) + 8 = 1024
+    */
+    while ((nbytes -= 1024) >= 0) {
+      /* Prefetch 3*1024 data for avoiding L2 cache miss */
+      PREF1KL2(buffer, 1024*3);
+
+      /* Do first 8 bytes here for better pipelining */
+      crc0 = __crc32cd(crc, *(const uint64_t *)buffer);
+      crc1 = 0;
+      crc2 = 0;
+      buffer += sizeof(uint64_t);
+
+      /* Process block inline
+       * Process crc0 last to avoid dependency with above
+      */
+      CRC32C7X3X8(buffer, 0);
+      CRC32C7X3X8(buffer, 1);
+      CRC32C7X3X8(buffer, 2);
+      CRC32C7X3X8(buffer, 3);
+      CRC32C7X3X8(buffer, 4);
+      CRC32C7X3X8(buffer, 5);
+
+      buffer += 42*3*sizeof(uint64_t);
+
+      /* Prefetch data for following block to avoid L1 cache miss */
+      PREF1KL1(buffer, 1024);
+
+      /* Last 8 bytes
+       * Merge crc0 and crc1 into crc2
+       * crc1 multiply by K2
+       * crc0 multiply by K1
+      */
+      t1 = (uint64_t)vmull_p64(crc1, k2);
+      t0 = (uint64_t)vmull_p64(crc0, k1);
+      crc = __crc32cd(crc2, *(const uint64_t *)buffer);
+      crc1 = __crc32cd(0, t1);
+      crc ^= crc1;
+      crc0 = __crc32cd(0, t0);
+      crc ^= crc0;
+
+      buffer += sizeof(uint64_t);
+    }
+
+    /* Done if Input data size is aligned with 1024  */
+    if(!(nbytes += 1024))
+      return crc;
+
+    while ((nbytes -= sizeof(uint64_t)) >= 0) {
+      CRC32CX(crc, *(uint64_t *)buffer);
+      buffer += sizeof(uint64_t);
+    }
+
+    /* The following is more efficient than the straight loop */
+    if (nbytes & sizeof(uint32_t)) {
+      CRC32CW(crc, *(uint32_t *)buffer);
+      buffer += sizeof(uint32_t);
+    }
+    if (nbytes & sizeof(uint16_t)) {
+      CRC32CH(crc, *(uint16_t *)buffer);
+      buffer += sizeof(uint16_t);
+    }
+    if (nbytes & sizeof(uint8_t))
+      CRC32CB(crc, *buffer);
+
+    return crc;
+  }
+#endif
+
   /// Compute the Crc32 hash for data using SSE4/ArmCRC instructions.  The input hash
   /// parameter is the current hash/seed value.
   /// This should only be called if SSE/ArmCRC is supported.
@@ -295,8 +372,14 @@ inline int HashUtil::Hash<true>(const void* data, int32_t bytes, uint32_t seed) 
     return static_cast<int>(HashUtil::MurmurHash2_64(data, bytes, seed));
   else
 #endif
+
+#ifdef ARROW_HAVE_ARMV8_CRYPTO
+    // Arm64 parallel crc32
+    return static_cast<int>(HashUtil::Armv8CrcHashParallel(data, bytes, seed));
+#else
     // Double CRC
     return static_cast<int>(HashUtil::DoubleCrcHash(data, bytes, seed));
+#endif
 }
 
 // Murmur Hash
