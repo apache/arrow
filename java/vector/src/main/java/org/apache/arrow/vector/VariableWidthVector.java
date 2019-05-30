@@ -38,8 +38,8 @@ public interface VariableWidthVector extends ValueVector, DensityAwareVector {
   int getByteCapacity();
 
   /**
-   * Provide the number of bytes contained in the current valueBuffer.
+   * Provide the number of bytes contained in the valueBuffer.
    * @return the number of bytes in valueBuffer.
    */
-  int getCurrentSizeInBytes();
+  int sizeOfValueBuffer();
 }

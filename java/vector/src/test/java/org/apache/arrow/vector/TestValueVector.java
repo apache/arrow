@@ -260,7 +260,7 @@ public class TestValueVector {
   }
 
   @Test /* VarCharVector */
-  public void testGetCurrentSizeInBytes() {
+  public void testSizeOfValueBuffer() {
     try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
       int valueCount = 100;
       int currentSize = 0;
@@ -272,7 +272,7 @@ public class TestValueVector {
         vector.setSafe(i, new byte[i]);
       }
 
-      assertEquals(currentSize, vector.getCurrentSizeInBytes());
+      assertEquals(currentSize, vector.sizeOfValueBuffer());
     }
   }
 

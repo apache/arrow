@@ -570,7 +570,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   @Override
-  public int getCurrentSizeInBytes() {
+  public int sizeOfValueBuffer() {
     if (valueCount == 0) {
       return 0;
     }
