@@ -575,6 +575,22 @@ TEST_F(TestBufferedInputStreamBound, UnboundedPeek) {
   ASSERT_EQ(10, view.size());
   ASSERT_EQ(50, stream_->bytes_buffered());
 
+  std::shared_ptr<Buffer> buf;
+  ASSERT_OK(stream_->Read(10, &buf));
+
+  // Peek into buffered bytes
+  ASSERT_OK(stream_->Peek(40, &view));
+  ASSERT_EQ(40, view.size());
+  ASSERT_EQ(40, stream_->bytes_buffered());
+  ASSERT_EQ(50, stream_->buffer_size());
+
+  // Peek past buffered bytes
+  ASSERT_OK(stream_->Peek(41, &view));
+  ASSERT_EQ(41, view.size());
+  ASSERT_EQ(41, stream_->bytes_buffered());
+  ASSERT_EQ(51, stream_->buffer_size());
+
+  // Peek to the end of the buffer
   ASSERT_OK(stream_->Peek(246, &view));
   ASSERT_EQ(246, view.size());
   ASSERT_EQ(246, stream_->bytes_buffered());
