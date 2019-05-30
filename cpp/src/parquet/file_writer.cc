@@ -26,10 +26,9 @@
 #include "parquet/deprecated_io.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
+#include "parquet/encryption_internal.h"
 #include "parquet/internal_file_encryptor.h"
 #include "parquet/schema.h"
-#include "parquet/util/crypto.h"
-#include "parquet/util/memory.h"
 
 using arrow::MemoryPool;
 

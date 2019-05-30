@@ -42,12 +42,14 @@
 #include <sstream>
 
 #include "arrow/util/logging.h"
+#include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/internal_file_decryptor.h"
 #include "parquet/internal_file_encryptor.h"
 #include "parquet/statistics.h"
-#include "parquet/util/crypto.h"
+#include "parquet/types.h"
+#include "parquet/util/memory.h"
 
 #include "parquet/parquet_types.h"  // IYWU pragma: export
 

@@ -38,6 +38,7 @@
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
+#include "parquet/encryption_internal.h"
 #include "parquet/internal_file_encryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
@@ -46,7 +47,6 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
-#include "parquet/util/crypto.h"
 
 namespace parquet {
 
@@ -159,13 +159,13 @@ class SerializedPageWriter : public PageWriter {
         data_encryptor_(data_encryptor) {
     if (data_encryptor_ != NULLPTR) {
       // prepare the add for quick update later
-      data_pageAAD_ = parquet_encryption::createModuleAAD(
-          data_encryptor_->file_aad(), parquet_encryption::DataPage, row_group_ordinal_,
+      data_pageAAD_ = encryption::CreateModuleAad(
+          data_encryptor_->file_aad(), encryption::kDataPage, row_group_ordinal_,
           column_ordinal_, (int16_t)-1);
     }
     if (meta_encryptor_ != NULLPTR) {
-      data_page_headerAAD_ = parquet_encryption::createModuleAAD(
-          meta_encryptor_->file_aad(), parquet_encryption::DataPageHeader,
+      data_page_headerAAD_ = encryption::CreateModuleAad(
+          meta_encryptor_->file_aad(), encryption::kDataPageHeader,
           row_group_ordinal_, column_ordinal_, (int16_t)-1);
     }
     compressor_ = GetCodecFromArrow(codec);
@@ -220,8 +220,8 @@ class SerializedPageWriter : public PageWriter {
     }
 
     if (meta_encryptor_) {
-      meta_encryptor_->update_aad(parquet_encryption::createModuleAAD(
-          meta_encryptor_->file_aad(), parquet_encryption::DictionaryPageHeader,
+      meta_encryptor_->update_aad(encryption::CreateModuleAad(
+          meta_encryptor_->file_aad(), encryption::kDictionaryPageHeader,
           row_group_ordinal_, column_ordinal_, (int16_t)-1));
     }
     int64_t header_size =
@@ -242,8 +242,8 @@ class SerializedPageWriter : public PageWriter {
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
                       fallback);
     if (meta_encryptor_ != nullptr) {
-      meta_encryptor_->update_aad(parquet_encryption::createModuleAAD(
-          meta_encryptor_->file_aad(), parquet_encryption::ColumnMetaData,
+      meta_encryptor_->update_aad(encryption::CreateModuleAad(
+          meta_encryptor_->file_aad(), encryption::kColumnMetaData,
           row_group_ordinal_, column_ordinal_, (int16_t)-1));
     }
     // Write metadata at end of column chunk
@@ -288,7 +288,7 @@ class SerializedPageWriter : public PageWriter {
 
     std::shared_ptr<ResizableBuffer> encrypted_data_buffer = AllocateBuffer(pool_, 0);
     if (data_encryptor_.get()) {
-      parquet_encryption::quickUpdatePageAAD(data_pageAAD_, page_ordinal_);
+      encryption::QuickUpdatePageAad(data_pageAAD_, page_ordinal_);
       data_encryptor_->update_aad(data_pageAAD_);
       PARQUET_THROW_NOT_OK(encrypted_data_buffer->Resize(
           data_encryptor_->CiphertextSizeDelta() + output_data_len));
@@ -311,7 +311,7 @@ class SerializedPageWriter : public PageWriter {
     }
 
     if (meta_encryptor_) {
-      parquet_encryption::quickUpdatePageAAD(data_page_headerAAD_, page_ordinal_);
+      encryption::QuickUpdatePageAad(data_page_headerAAD_, page_ordinal_);
       meta_encryptor_->update_aad(data_page_headerAAD_);
     }
     int64_t header_size =

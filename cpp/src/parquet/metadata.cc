@@ -198,8 +198,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
         DCHECK(file_decryptor != NULLPTR);
 
-        std::string aad_column_metadata = parquet_encryption::createModuleAAD(
-            file_decryptor->file_aad(), parquet_encryption::ColumnMetaData,
+        std::string aad_column_metadata = encryption::CreateModuleAad(
+            file_decryptor->file_aad(), encryption::kColumnMetaData,
             row_group_ordinal, column_ordinal, (int16_t)-1);
         auto decryptor = file_decryptor->GetColumnMetaDecryptor(path, key_metadata,
                                                                 aad_column_metadata);
@@ -471,15 +471,15 @@ class FileMetaData::FileMetaDataImpl {
     // encrypt with nonce
     uint8_t* nonce = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(tail));
     uint8_t* tag = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(tail)) +
-                   parquet_encryption::NonceLength;
+                   encryption::kNonceLength;
 
     std::vector<uint8_t> encrypted_buffer(encryptor->CiphertextSizeDelta() +
                                           serialized_len);
     uint32_t encrypted_len = encryptor->SignedFooterEncrypt(
         serialized_data, serialized_len, nonce, encrypted_buffer.data());
     return 0 == memcmp(encrypted_buffer.data() + encrypted_len -
-                           parquet_encryption::GCMTagLength,
-                       tag, parquet_encryption::GCMTagLength);
+                           encryption::kGcmTagLength,
+                       tag, encryption::kGcmTagLength);
   }
 
   inline uint32_t size() const { return metadata_len_; }
@@ -524,9 +524,9 @@ class FileMetaData::FileMetaDataImpl {
       // write unencrypted footer
       dst->Write(serialized_data, serialized_len);
       // Write signature (nonce and tag)
-      dst->Write(encrypted_data.data() + 4, parquet_encryption::NonceLength);
-      dst->Write(encrypted_data.data() + encrypted_len - parquet_encryption::GCMTagLength,
-                 parquet_encryption::GCMTagLength);
+      dst->Write(encrypted_data.data() + 4, encryption::kNonceLength);
+      dst->Write(encrypted_data.data() + encrypted_len - encryption::kGcmTagLength,
+                 encryption::kGcmTagLength);
     } else {  // either plaintext file (when encryptor is null)
       // or encrypted file with encrypted footer
       serializer.Serialize(metadata_.get(), dst, encryptor, false);

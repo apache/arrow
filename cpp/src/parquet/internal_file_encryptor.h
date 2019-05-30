@@ -18,26 +18,27 @@
 #ifndef INTERNAL_FILE_ENCRYPTOR_H
 #define INTERNAL_FILE_ENCRYPTOR_H
 
-#include <list>
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "parquet/encryption.h"
 #include "parquet/schema.h"
 
-namespace parquet_encryption {
-class AesEncryptor;
-}
 
 namespace parquet {
+
+namespace encryption {
+class AesEncryptor;
+}  // namespace encryption
 
 class FileEncryptionProperties;
 class ColumnEncryptionProperties;
 
 class Encryptor {
  public:
-  Encryptor(parquet_encryption::AesEncryptor* aes_encryptor, const std::string& key,
+  Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
             const std::string& file_aad, const std::string& aad);
   const std::string& file_aad() { return file_aad_; }
   void update_aad(const std::string& aad) { aad_ = aad; }
@@ -58,7 +59,7 @@ class Encryptor {
   }
 
  private:
-  parquet_encryption::AesEncryptor* aes_encryptor_;
+  encryption::AesEncryptor* aes_encryptor_;
   std::string key_;
   std::string file_aad_;
   std::string aad_;
@@ -91,21 +92,21 @@ class InternalFileEncryptor {
   std::shared_ptr<Encryptor> footer_signing_encryptor_;
   std::shared_ptr<Encryptor> footer_encryptor_;
 
-  std::shared_ptr<std::list<parquet_encryption::AesEncryptor*>> all_encryptors_;
+  std::shared_ptr<std::vector<encryption::AesEncryptor*>> all_encryptors_;
 
-  std::unique_ptr<parquet_encryption::AesEncryptor> meta_encryptor_128_;
-  std::unique_ptr<parquet_encryption::AesEncryptor> meta_encryptor_196_;
-  std::unique_ptr<parquet_encryption::AesEncryptor> meta_encryptor_256_;
-  std::unique_ptr<parquet_encryption::AesEncryptor> data_encryptor_128_;
-  std::unique_ptr<parquet_encryption::AesEncryptor> data_encryptor_196_;
-  std::unique_ptr<parquet_encryption::AesEncryptor> data_encryptor_256_;
+  std::unique_ptr<encryption::AesEncryptor> meta_encryptor_128_;
+  std::unique_ptr<encryption::AesEncryptor> meta_encryptor_196_;
+  std::unique_ptr<encryption::AesEncryptor> meta_encryptor_256_;
+  std::unique_ptr<encryption::AesEncryptor> data_encryptor_128_;
+  std::unique_ptr<encryption::AesEncryptor> data_encryptor_196_;
+  std::unique_ptr<encryption::AesEncryptor> data_encryptor_256_;
 
   std::shared_ptr<Encryptor> GetColumnEncryptor(
       const std::shared_ptr<schema::ColumnPath>& column_path, bool metadata);
 
-  parquet_encryption::AesEncryptor* GetMetaAesEncryptor(ParquetCipher::type algorithm,
+  encryption::AesEncryptor* GetMetaAesEncryptor(ParquetCipher::type algorithm,
                                                         size_t key_len);
-  parquet_encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
+  encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
                                                         size_t key_len);
 };
 
