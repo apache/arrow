@@ -2,22 +2,29 @@
 % Please edit documentation in R/parquet.R
 \name{read_parquet}
 \alias{read_parquet}
-\title{Read parquet file from disk}
+\title{Read Parquet file from disk}
 \usage{
 read_parquet(file, as_tibble = TRUE, use_threads = TRUE, ...)
 }
 \arguments{
 \item{file}{a file path}
 
-\item{as_tibble}{should the \link[=arrow__Table]{arrow::Table} be converted to a tibble.}
+\item{as_tibble}{Should the \link[=arrow__Table]{arrow::Table} be converted to a
+tibble? Default is \code{TRUE}.}
 
-\item{use_threads}{Use threads when converting to a tibble, only relevant if \code{as_tibble} is \code{TRUE}}
+\item{use_threads}{Use threads when converting to a tibble? Default is
+'\code{TRUE}. Only relevant if \code{as_tibble} is \code{TRUE}.}
 
-\item{...}{currently ignored}
+\item{...}{Additional arguments, currently ignored}
 }
 \value{
-a \link[=arrow__Table]{arrow::Table}, or a data frame if \code{as_tibble} is \code{TRUE}.
+A \link[=arrow__Table]{arrow::Table}, or a \code{tbl_df} if \code{as_tibble} is
+\code{TRUE}.
 }
 \description{
-Read parquet file from disk
+'\href{https://parquet.apache.org/}{Parquet}' is a columnar storage file format.
+This function enables you to read Parquet files into R.
+}
+\examples{
+df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
 }
