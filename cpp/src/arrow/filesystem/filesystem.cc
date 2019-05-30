@@ -24,6 +24,11 @@
 namespace arrow {
 namespace fs {
 
+using internal::ConcatAbstractPath;
+using internal::EnsureTrailingSlash;
+using internal::GetAbstractPathParent;
+using internal::kSep;
+
 std::string ToString(FileType ftype) {
   switch (ftype) {
     case FileType::NonExistent:
@@ -68,6 +73,132 @@ Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
     st &= DeleteFile(path);
   }
   return st;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// SubTreeFileSystem implementation
+
+// FIXME EnsureTrailingSlash works on abstract paths... but we will be
+// passing a concrete path, e.g. "C:" on Windows.
+
+SubTreeFileSystem::SubTreeFileSystem(const std::string& base_path,
+                                     std::shared_ptr<FileSystem> base_fs)
+    : base_path_(EnsureTrailingSlash(base_path)), base_fs_(base_fs) {}
+
+SubTreeFileSystem::~SubTreeFileSystem() {}
+
+std::string SubTreeFileSystem::PrependBase(const std::string& s) const {
+  if (s.empty()) {
+    return base_path_;
+  } else {
+    return ConcatAbstractPath(base_path_, s);
+  }
+}
+
+Status SubTreeFileSystem::PrependBaseNonEmpty(std::string* s) const {
+  if (s->empty()) {
+    return Status::IOError("Empty path");
+  } else {
+    *s = ConcatAbstractPath(base_path_, *s);
+    return Status::OK();
+  }
+}
+
+Status SubTreeFileSystem::StripBase(const std::string& s, std::string* out) const {
+  auto len = base_path_.length();
+  // Note base_path_ ends with a slash (if not empty)
+  if (s.length() >= len && s.substr(0, len) == base_path_) {
+    *out = s.substr(len);
+    return Status::OK();
+  } else {
+    return Status::UnknownError("Underlying filesystem returned path '", s,
+                                "', which is not a subpath of '", base_path_, "'");
+  }
+}
+
+Status SubTreeFileSystem::FixStats(FileStats* st) const {
+  std::string fixed_path;
+  RETURN_NOT_OK(StripBase(st->path(), &fixed_path));
+  st->set_path(fixed_path);
+  return Status::OK();
+}
+
+Status SubTreeFileSystem::GetTargetStats(const std::string& path, FileStats* out) {
+  RETURN_NOT_OK(base_fs_->GetTargetStats(PrependBase(path), out));
+  return FixStats(out);
+}
+
+Status SubTreeFileSystem::GetTargetStats(const Selector& select,
+                                         std::vector<FileStats>* out) {
+  auto selector = select;
+  selector.base_dir = PrependBase(selector.base_dir);
+  RETURN_NOT_OK(base_fs_->GetTargetStats(selector, out));
+  for (auto& st : *out) {
+    RETURN_NOT_OK(FixStats(&st));
+  }
+  return Status::OK();
+}
+
+Status SubTreeFileSystem::CreateDir(const std::string& path, bool recursive) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->CreateDir(s, recursive);
+}
+
+Status SubTreeFileSystem::DeleteDir(const std::string& path) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->DeleteDir(s);
+}
+
+Status SubTreeFileSystem::DeleteFile(const std::string& path) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->DeleteFile(s);
+}
+
+Status SubTreeFileSystem::Move(const std::string& src, const std::string& dest) {
+  auto s = src;
+  auto d = dest;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  RETURN_NOT_OK(PrependBaseNonEmpty(&d));
+  return base_fs_->Move(s, d);
+}
+
+Status SubTreeFileSystem::CopyFile(const std::string& src, const std::string& dest) {
+  auto s = src;
+  auto d = dest;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  RETURN_NOT_OK(PrependBaseNonEmpty(&d));
+  return base_fs_->CopyFile(s, d);
+}
+
+Status SubTreeFileSystem::OpenInputStream(const std::string& path,
+                                          std::shared_ptr<io::InputStream>* out) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->OpenInputStream(s, out);
+}
+
+Status SubTreeFileSystem::OpenInputFile(const std::string& path,
+                                        std::shared_ptr<io::RandomAccessFile>* out) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->OpenInputFile(s, out);
+}
+
+Status SubTreeFileSystem::OpenOutputStream(const std::string& path,
+                                           std::shared_ptr<io::OutputStream>* out) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->OpenOutputStream(s, out);
+}
+
+Status SubTreeFileSystem::OpenAppendStream(const std::string& path,
+                                           std::shared_ptr<io::OutputStream>* out) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->OpenAppendStream(s, out);
 }
 
 }  // namespace fs

@@ -32,8 +32,6 @@ namespace fs {
 
 namespace {
 
-static constexpr double kTimeSlack = 2.0;  // In seconds
-
 std::vector<FileStats> GetAllWithType(FileSystem* fs, FileType type) {
   Selector selector;
   selector.base_dir = "";
@@ -57,20 +55,12 @@ std::vector<FileStats> GetAllFiles(FileSystem* fs) {
   return GetAllWithType(fs, FileType::File);
 }
 
-// Sort of vector of FileStats by lexicographic path order
-void SortStats(std::vector<FileStats>* stats) {
-  std::sort(stats->begin(), stats->end(),
-            [](const FileStats& left, const FileStats& right) -> bool {
-              return left.path() < right.path();
-            });
-}
-
 void AssertPaths(const std::vector<FileStats>& stats,
                  const std::vector<std::string>& expected_paths) {
   auto sorted_stats = stats;
   SortStats(&sorted_stats);
-  std::vector<std::string> paths(stats.size());
-  std::transform(stats.begin(), stats.end(), paths.begin(),
+  std::vector<std::string> paths(sorted_stats.size());
+  std::transform(sorted_stats.begin(), sorted_stats.end(), paths.begin(),
                  [&](const FileStats& st) { return st.path(); });
 
   ASSERT_EQ(paths, expected_paths);
@@ -88,37 +78,13 @@ Status WriteString(io::OutputStream* stream, const std::string& s) {
   return stream->Write(s.data(), static_cast<int64_t>(s.length()));
 }
 
-void CreateFile(FileSystem* fs, const std::string& path, const std::string& data) {
-  std::shared_ptr<io::OutputStream> stream;
-  ASSERT_OK(fs->OpenOutputStream(path, &stream));
-  ASSERT_OK(WriteString(stream.get(), data));
-  ASSERT_OK(stream->Close());
-}
-
-void AssertFileStats(const FileStats& st, const std::string& path, FileType type) {
-  ASSERT_EQ(st.path(), path);
-  ASSERT_EQ(st.type(), type);
-}
-
-void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
-                     int64_t size) {
-  AssertFileStats(st, path, type);
-  ASSERT_EQ(st.size(), size);
-}
-
-template <typename... Args>
-void AssertFileStats(FileSystem* fs, const std::string& path, Args&&... args) {
-  FileStats st;
-  ASSERT_OK(fs->GetTargetStats(path, &st));
-  AssertFileStats(st, path, std::forward<Args>(args)...);
-}
-
 void AssertFileContents(FileSystem* fs, const std::string& path,
                         const std::string& expected_data) {
   FileStats st;
   ASSERT_OK(fs->GetTargetStats(path, &st));
-  ASSERT_EQ(st.type(), FileType::File);
-  ASSERT_EQ(st.size(), static_cast<int64_t>(expected_data.length()));
+  ASSERT_EQ(st.type(), FileType::File) << "For path '" << path << "'";
+  ASSERT_EQ(st.size(), static_cast<int64_t>(expected_data.length()))
+      << "For path '" << path << "'";
 
   std::shared_ptr<io::InputStream> stream;
   std::shared_ptr<Buffer> buffer, leftover;
@@ -134,14 +100,51 @@ void AssertFileContents(FileSystem* fs, const std::string& path,
 
 void ValidateTimePoint(TimePoint tp) { ASSERT_GE(tp.time_since_epoch().count(), 0); }
 
-template <typename Duration>
-void AssertDurationBetween(Duration d, double min_secs, double max_secs) {
-  auto seconds = std::chrono::duration_cast<std::chrono::duration<double>>(d);
-  ASSERT_GE(seconds.count(), min_secs);
-  ASSERT_LE(seconds.count(), max_secs);
+};  // namespace
+
+void CreateFile(FileSystem* fs, const std::string& path, const std::string& data) {
+  std::shared_ptr<io::OutputStream> stream;
+  ASSERT_OK(fs->OpenOutputStream(path, &stream));
+  ASSERT_OK(WriteString(stream.get(), data));
+  ASSERT_OK(stream->Close());
 }
 
-};  // namespace
+void SortStats(std::vector<FileStats>* stats) {
+  std::sort(stats->begin(), stats->end(),
+            [](const FileStats& left, const FileStats& right) -> bool {
+              return left.path() < right.path();
+            });
+}
+
+void AssertFileStats(const FileStats& st, const std::string& path, FileType type) {
+  ASSERT_EQ(st.path(), path);
+  ASSERT_EQ(st.type(), type);
+}
+
+void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
+                     TimePoint mtime) {
+  AssertFileStats(st, path, type);
+  ASSERT_EQ(st.mtime(), mtime);
+}
+
+void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
+                     TimePoint mtime, int64_t size) {
+  AssertFileStats(st, path, type, mtime);
+  ASSERT_EQ(st.size(), size);
+}
+
+void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
+                     int64_t size) {
+  AssertFileStats(st, path, type);
+  ASSERT_EQ(st.size(), size);
+}
+
+template <typename... Args>
+void AssertFileStats(FileSystem* fs, const std::string& path, Args&&... args) {
+  FileStats st;
+  ASSERT_OK(fs->GetTargetStats(path, &st));
+  AssertFileStats(st, path, std::forward<Args>(args)...);
+}
 
 ////////////////////////////////////////////////////////////////////////////
 // GenericFileSystemTest implementation
@@ -351,31 +354,31 @@ void GenericFileSystemTest::TestMoveDir(FileSystem* fs) {
   AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
   AssertAllFiles(fs, {"EF/ghi", "KL/CD/def", "KL/abc"});
 
-  // Destination is a file => clobber
-  CreateFile(fs, "MN", "");
-  ASSERT_OK(fs->Move("KL", "MN"));
-  AssertAllDirs(fs, {"EF", "MN", "MN/CD"});
-  AssertAllFiles(fs, {"EF/ghi", "MN/CD/def", "MN/abc"});
+  // Overwrite file with directory => untested (implementation-dependent)
 
   // Identical source and destination: allowed to succeed or raise IOError,
   // but should not lose data.
-  Status st = fs->Move("MN", "MN");
+  Status st = fs->Move("KL", "KL");
   if (!st.ok()) {
     ASSERT_RAISES(IOError, st);
   }
-  AssertAllDirs(fs, {"EF", "MN", "MN/CD"});
-  AssertAllFiles(fs, {"EF/ghi", "MN/CD/def", "MN/abc"});
+  AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
+  AssertAllFiles(fs, {"EF/ghi", "KL/CD/def", "KL/abc"});
 
-  // Destination is a directory
-  ASSERT_RAISES(IOError, fs->Move("MN", "EF"));
-  AssertAllDirs(fs, {"EF", "MN", "MN/CD"});
-  AssertAllFiles(fs, {"EF/ghi", "MN/CD/def", "MN/abc"});
+  // Destination is a non-empty directory
+  ASSERT_RAISES(IOError, fs->Move("KL", "EF"));
+  AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
+  AssertAllFiles(fs, {"EF/ghi", "KL/CD/def", "KL/abc"});
+
+  // Cannot move directory inside itself
+  ASSERT_RAISES(IOError, fs->Move("KL", "KL/ZZ"));
 
   // (other errors tested in TestMoveFile)
 
-  // File contents didn't change
-  AssertFileContents(fs, "MN/abc", "abc data");
-  AssertFileContents(fs, "MN/CD/def", "def data");
+  // Contents didn't change
+  AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
+  AssertFileContents(fs, "KL/abc", "abc data");
+  AssertFileContents(fs, "KL/CD/def", "def data");
 }
 
 void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {
@@ -417,7 +420,7 @@ void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {
   AssertAllFiles(fs, {"AB/abc", "EF/ghi", "def"});
   AssertFileContents(fs, "def", "other data");
 
-  // Destination is a directory
+  // Destination is a non-empty directory
   ASSERT_RAISES(IOError, fs->CopyFile("def", "AB"));
   // Source doesn't exist
   ASSERT_RAISES(IOError, fs->CopyFile("abc", "xxx"));
@@ -430,7 +433,7 @@ void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestGetTargetStatsSingle(FileSystem* fs) {
-  ASSERT_OK(fs->CreateDir("AB/CD"));
+  ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   CreateFile(fs, "AB/CD/ghi", "some data");
 
   FileStats st;
@@ -442,11 +445,12 @@ void GenericFileSystemTest::TestGetTargetStatsSingle(FileSystem* fs) {
   first_time = st.mtime();
   ValidateTimePoint(first_time);
 
-  ASSERT_OK(fs->GetTargetStats("AB/CD", &st));
-  AssertFileStats(st, "AB/CD", FileType::Directory);
-  ASSERT_EQ(st.base_name(), "CD");
+  ASSERT_OK(fs->GetTargetStats("AB/CD/EF", &st));
+  AssertFileStats(st, "AB/CD/EF", FileType::Directory);
+  ASSERT_EQ(st.base_name(), "EF");
   ASSERT_EQ(st.size(), kNoSize);
-  // AB/CD was created a little after AB
+  // AB/CD's creation can impact AB's modification time, however, AB/CD/EF's
+  // creation doesn't, so AB/CD/EF's mtime should be after AB's.
   AssertDurationBetween(st.mtime() - first_time, 0.0, kTimeSlack);
 
   ASSERT_OK(fs->GetTargetStats("AB/CD/ghi", &st));
@@ -459,10 +463,6 @@ void GenericFileSystemTest::TestGetTargetStatsSingle(FileSystem* fs) {
   ASSERT_EQ(st.base_name(), "zz");
   ASSERT_EQ(st.size(), kNoSize);
   ASSERT_EQ(st.mtime(), kNoTime);
-
-  // Invalid path
-  // XXX will this really be rejected by all filesystems?
-  ASSERT_RAISES(Invalid, fs->GetTargetStats("//foo//bar//baz//", &st));
 }
 
 void GenericFileSystemTest::TestGetTargetStatsVector(FileSystem* fs) {
@@ -491,11 +491,6 @@ void GenericFileSystemTest::TestGetTargetStatsVector(FileSystem* fs) {
   ASSERT_OK(fs->GetTargetStats("AB", &st));
   AssertFileStats(st, "AB", FileType::Directory);
   ASSERT_EQ(st.mtime(), first_time);
-
-  // Invalid path
-  // XXX will this really be rejected by all filesystems?
-  ASSERT_RAISES(Invalid,
-                fs->GetTargetStats({"AB", "AB/CD", "//foo//bar//baz//"}, &stats));
 }
 
 void GenericFileSystemTest::TestGetTargetStatsSelector(FileSystem* fs) {
@@ -603,6 +598,8 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
   AssertAllFiles(fs, {"CD/ghi", "abc"});
   AssertFileContents(fs, "CD/ghi", "overwritten");
 
+  ASSERT_RAISES(Invalid, WriteString(stream.get(), "x"));  // Stream is closed
+
   // Cannot turn dir into file
   ASSERT_RAISES(IOError, fs->OpenOutputStream("CD", &stream));
   AssertAllDirs(fs, {"CD"});
@@ -632,6 +629,8 @@ void GenericFileSystemTest::TestOpenAppendStream(FileSystem* fs) {
   AssertAllDirs(fs, {});
   AssertAllFiles(fs, {"abc"});
   AssertFileContents(fs, "abc", "some data appended");
+
+  ASSERT_RAISES(Invalid, WriteString(stream.get(), "x"));  // Stream is closed
 }
 
 void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
