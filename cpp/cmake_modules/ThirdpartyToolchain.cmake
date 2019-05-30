@@ -2220,4 +2220,4 @@ endif()
 
 configure_file("src/arrow/util/config.h.cmake" "src/arrow/util/config.h")
 install(FILES "${ARROW_BINARY_DIR}/src/arrow/util/config.h"
-        DESTINATION "include/arrow/util")
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
