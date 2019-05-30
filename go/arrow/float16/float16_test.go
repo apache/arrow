@@ -26,19 +26,19 @@ import (
 
 func TestFloat16(t *testing.T) {
 	cases := map[Num]float32{
-		0x3c00: 1,
-		0x4000: 2,
-		0xc000: -2,
-		0x0000: 0,
-		0x5b8f: 241.875,
-		0xdb8f: -241.875,
-		0x48c8: 9.5625,
-		0xc8c8: -9.5625,
+		{Val: 0x3c00}: 1,
+		{Val: 0x4000}: 2,
+		{Val: 0xc000}: -2,
+		{Val: 0x0000}: 0,
+		{Val: 0x5b8f}: 241.875,
+		{Val: 0xdb8f}: -241.875,
+		{Val: 0x48c8}: 9.5625,
+		{Val: 0xc8c8}: -9.5625,
 	}
 	for k, v := range cases {
 		f := k.Float32()
 		assert.Equal(t, v, f, "float32 values should be the same")
 		i := New(v)
-		assert.Equal(t, k, i, "float16 values should be the same")
+		assert.Equal(t, k.Val, i.Val, "float16 values should be the same")
 	}
 }

@@ -20,7 +20,7 @@ import (
 	"math"
 )
 
-type Num uint16
+type Num struct{ Val uint16 }
 
 // https://en.wikipedia.org/wiki/Half-precision_floating-point_format
 func New(f float32) Num {
@@ -41,14 +41,14 @@ func New(f float32) Num {
 		res = 0
 		fc = 0
 	}
-	return Num((sn << 15) | uint16(res<<10) | fc)
+	return Num{Val: (sn << 15) | uint16(res<<10) | fc}
 }
 
 func (f Num) Float32() float32 {
-	sn := uint32((f >> 15) & 0x1)
-	exp := (f >> 10) & 0x1f
+	sn := uint32((f.Val >> 15) & 0x1)
+	exp := (f.Val >> 10) & 0x1f
 	res := uint32(exp) + 127 - 15
-	fc := uint32(f & 0x3ff)
+	fc := uint32(f.Val & 0x3ff)
 	switch {
 	case exp == 0:
 		res = 0
