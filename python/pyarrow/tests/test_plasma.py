@@ -19,7 +19,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import math
 import multiprocessing
 import os
 import pytest
@@ -1047,9 +1046,10 @@ def test_plasma_list():
 
         # Test ref_count
         v = plasma_client.put(np.zeros(3))
-        l2 = plasma_client.list()
         # Ref count has already been released
-        assert l2[v]["ref_count"] == 0
+        # XXX flaky test, disabled (ARROW-3344)
+        # l2 = plasma_client.list()
+        # assert l2[v]["ref_count"] == 0
         a = plasma_client.get(v)
         l3 = plasma_client.list()
         assert l3[v]["ref_count"] == 1
@@ -1064,18 +1064,19 @@ def test_plasma_list():
         assert l5[w]["state"] == "sealed"
 
         # Test timestamps
+        slack = 1.5  # seconds
         t1 = time.time()
         x, _, _ = create_object(plasma_client, 3, metadata_size=0, seal=False)
         t2 = time.time()
         l6 = plasma_client.list()
-        assert math.floor(t1) <= l6[x]["create_time"] <= math.ceil(t2)
+        assert t1 - slack <= l6[x]["create_time"] <= t2 + slack
         time.sleep(2.0)
         t3 = time.time()
         plasma_client.seal(x)
         t4 = time.time()
         l7 = plasma_client.list()
-        assert math.floor(t3 - t2) <= l7[x]["construct_duration"]
-        assert l7[x]["construct_duration"] <= math.ceil(t4 - t1)
+        assert t3 - t2 - slack <= l7[x]["construct_duration"]
+        assert l7[x]["construct_duration"] <= t4 - t1 + slack
 
 
 @pytest.mark.plasma
