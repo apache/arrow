@@ -26,7 +26,7 @@ limitations under the License.
 
 See the [release notes][10] for more about what's new.
 
-### Source release
+### Source Release
 
 * **Source Release**: [{{site.data.versions['current'].tarball_name}}][6]
 * **Verification**: [asc signature][13], [sha256 checksum][14], [sha512 checksum][15], ([verification instructions][12])
@@ -37,25 +37,7 @@ See the [release notes][10] for more about what's new.
 
 [Java Artifacts on Maven Central][4]
 
-## Binary Installers for C, C++, Python
-
-### C++ and Python Conda Packages (Unofficial)
-
-We have provided binary conda packages on [conda-forge][5] for the following
-platforms:
-
-* Linux and macOS (Python 2.7, 3.6 and 3.7)
-* Windows (Python 3.6 and 3.7)
-
-Install them with:
-
-
-```shell
-conda install arrow-cpp={{site.data.versions['current'].pinned_number}} -c conda-forge
-conda install pyarrow={{site.data.versions['current'].pinned_number}} -c conda-forge
-```
-
-### Python Wheels on PyPI
+### Python Wheels
 
 We have provided official binary wheels on PyPI for Linux, macOS, and Windows:
 
@@ -69,7 +51,26 @@ in `requirements.txt` to install the latest patch release.
 These include the Apache Arrow and Apache Parquet C++ binary libraries bundled
 with the wheel.
 
-### C++ and GLib (C) Packages on Homebrew (Unofficial)
+## Other Binary Installers
+
+For convenience, we also provide binaries through several package managers, built from the source release. As the Apache Arrow PMC has not explicitly voted on these packages, they are technically considered unofficial releases.
+
+### C++ and Python Conda Packages
+
+Binary conda packages are on [conda-forge][5] for the following
+platforms:
+
+* Linux and macOS (Python 2.7, 3.6 and 3.7)
+* Windows (Python 3.6 and 3.7)
+
+Install them with:
+
+```shell
+conda install arrow-cpp={{site.data.versions['current'].pinned_number}} -c conda-forge
+conda install pyarrow={{site.data.versions['current'].pinned_number}} -c conda-forge
+```
+
+### C++ and GLib (C) Packages on Homebrew
 
 On macOS, you can install the C++ library using
 [Homebrew][17]:
@@ -84,7 +85,7 @@ and GLib (C) package with:
 brew install apache-arrow-glib
 ```
 
-### C++ and GLib (C) Packages for Debian GNU/Linux, Ubuntu and CentOS (Unofficial)
+### C++ and GLib (C) Packages for Debian GNU/Linux, Ubuntu and CentOS
 
 We have provided APT and Yum repositories for Apache Arrow C++ and
 Apache Arrow GLib (C). Here are supported platforms:
@@ -210,9 +211,9 @@ sudo yum install -y --enablerepo=epel parquet-devel # For Apache Parquet C++
 sudo yum install -y --enablerepo=epel parquet-glib-devel # For Parquet GLib (C)
 ```
 
-### C++ and GLib (C) Packages for MSYS2 (Unofficial)
+### C++ and GLib (C) Packages for MSYS2
 
-The official MSYS2 packages include [Apache Arrow C++ and GLib (C)
+The MSYS2 packages include [Apache Arrow C++ and GLib (C)
 package][16]. You can install the package by `pacman`.
 
 64bit version:
