@@ -18,7 +18,7 @@
 package org.apache.arrow.memory.rounding;
 
 /**
- * The policy for rounding the buffer size.
+ * The policy for rounding the buffer size, to improve performance and avoid memory fragmentation.
  * In particular, given a requested buffer size, the policy will determine the rounded buffer size.
  */
 public interface RoundingPolicy {

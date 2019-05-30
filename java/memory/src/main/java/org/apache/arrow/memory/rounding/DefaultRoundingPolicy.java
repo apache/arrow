@@ -17,6 +17,8 @@
 
 package org.apache.arrow.memory.rounding;
 
+import java.lang.reflect.Field;
+
 import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.BaseAllocator;
 
@@ -27,17 +29,26 @@ import org.apache.arrow.memory.BaseAllocator;
  */
 public class DefaultRoundingPolicy implements RoundingPolicy {
 
+  public final long chunkSize;
+
   /**
    * The singleton instance.
    */
   public static final DefaultRoundingPolicy INSTANCE = new DefaultRoundingPolicy();
 
   private DefaultRoundingPolicy() {
+    try {
+      Field field = AllocationManager.class.getDeclaredField("CHUNK_SIZE");
+      field.setAccessible(true);
+      chunkSize = (Long) field.get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to get chunk size from allocation manager");
+    }
   }
 
   @Override
   public int getRoundedSize(int requestSize) {
-    return requestSize < AllocationManager.CHUNK_SIZE ?
+    return requestSize < chunkSize ?
             BaseAllocator.nextPowerOfTwo(requestSize) : requestSize;
   }
 }

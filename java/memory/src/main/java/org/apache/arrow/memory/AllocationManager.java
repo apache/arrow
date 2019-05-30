@@ -53,7 +53,7 @@ public class AllocationManager {
   private static final PooledByteBufAllocatorL INNER_ALLOCATOR = new PooledByteBufAllocatorL();
 
   static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
-  public static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
+  static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
 
   private final RootAllocator root;
   private final long allocatorManagerId = MANAGER_ID_GENERATOR.incrementAndGet();

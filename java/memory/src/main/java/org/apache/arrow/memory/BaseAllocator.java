@@ -58,7 +58,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private final IdentityHashMap<Reservation, Object> reservations;
   private final HistoricalLog historicalLog;
   private volatile boolean isClosed = false; // the allocator has been closed
-  private RoundingPolicy roundingPolicy;
+  private final RoundingPolicy roundingPolicy;
 
   /**
    * Initialize an allocator
