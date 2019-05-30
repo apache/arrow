@@ -104,7 +104,7 @@
     "ts-node": "8.2.0",
     "tslint": "5.12.1",
     "typedoc": "0.14.2",
-    "typescript": "3.5.0-dev.20190525",
+    "typescript": "3.5.1",
     "web-stream-tools": "0.0.1",
     "web-streams-polyfill": "2.0.3",
     "webpack": "4.29.0",
