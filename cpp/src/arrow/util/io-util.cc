@@ -30,6 +30,7 @@
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -71,11 +72,6 @@
 #else  // POSIX-like platforms
 #include <sys/mman.h>
 #include <unistd.h>
-#endif
-
-// POSIX systems do not have this
-#ifndef O_BINARY
-#define O_BINARY 0
 #endif
 
 // define max read/write count
@@ -185,6 +181,27 @@ namespace internal {
 
 namespace bfs = ::boost::filesystem;
 
+namespace {
+
+#if _WIN32
+using NativePathCodeCvt = std::codecvt_utf8_utf16<wchar_t>;
+#endif
+
+Status StringToNative(const std::string& s, NativePathString* out) {
+#if _WIN32
+  try {
+    *out = std::wstring_convert<NativePathCodeCvt>{}.from_bytes(s);
+  } catch (std::range_error& e) {
+    return Status::Invalid(e.what());
+  }
+#else
+  *out = s;
+#endif
+  return Status::OK();
+}
+
+}  // namespace
+
 #define BOOST_FILESYSTEM_TRY try {
 #define BOOST_FILESYSTEM_CATCH           \
   }                                      \
@@ -212,11 +229,31 @@ static std::string MakeRandomName(int num_chars) {
   return s;
 }
 
+std::string ErrnoMessage(int errnum) { return std::strerror(errnum); }
+
+#if _WIN32
+std::string WinErrorMessage(int errnum) {
+  char buf[1024];
+  auto nchars = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                               NULL, errnum, 0, buf, sizeof(buf), NULL);
+  if (nchars == 0) {
+    // Fallback
+    std::stringstream ss;
+    ss << "Windows error #" << errnum;
+    return ss.str();
+  }
+  return std::string(buf, nchars);
+}
+#endif
+
 //
 // PlatformFilename implementation
 //
 
 struct PlatformFilename::Impl {
+  Impl() = default;
+  explicit Impl(bfs::path p) : path(p.make_preferred()) {}
+
   bfs::path path;
 };
 
@@ -244,33 +281,25 @@ PlatformFilename& PlatformFilename::operator=(PlatformFilename&& other) {
   return *this;
 }
 
-PlatformFilename::PlatformFilename(const PlatformFilename::NativePathString& path)
+PlatformFilename::PlatformFilename(const NativePathString& path)
     : PlatformFilename(Impl{path}) {}
 
-const PlatformFilename::NativePathString& PlatformFilename::ToNative() const {
+const NativePathString& PlatformFilename::ToNative() const {
   return impl_->path.native();
 }
 
-std::string PlatformFilename::ToString() const { return impl_->path.string(); }
-
-namespace {
-
-Status StringToNative(const std::string& s, PlatformFilename::NativePathString* out) {
-#if defined(_WIN32)
-  try {
-    *out = std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>>{}.from_bytes(s);
-  } catch (std::range_error& e) {
-    return Status::Invalid(e.what());
-  }
+std::string PlatformFilename::ToString() const {
+#if _WIN32
+  return impl_->path.generic_string(NativePathCodeCvt());
 #else
-  *out = s;
+  return impl_->path.generic_string();
 #endif
-  return Status::OK();
 }
 
-}  // namespace
-
 Status PlatformFilename::FromString(const std::string& file_name, PlatformFilename* out) {
+  if (file_name.find_first_of('\0') != std::string::npos) {
+    return Status::Invalid("Embedded NUL char in file name: '", file_name, "'");
+  }
   NativePathString ns;
   RETURN_NOT_OK(StringToNative(file_name, &ns));
   *out = PlatformFilename(std::move(ns));
@@ -297,9 +326,26 @@ Status CreateDir(const PlatformFilename& dir_path, bool* created) {
   return Status::OK();
 }
 
+Status CreateDirTree(const PlatformFilename& dir_path, bool* created) {
+  bool res;
+  BOOST_FILESYSTEM_TRY
+  res = bfs::create_directories(dir_path.impl_->path);
+  BOOST_FILESYSTEM_CATCH
+  if (created) {
+    *created = res;
+  }
+  return Status::OK();
+}
+
 Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
   BOOST_FILESYSTEM_TRY
-  auto n_removed = bfs::remove_all(dir_path.impl_->path);
+  const auto& path = dir_path.impl_->path;
+  // XXX There is a race here.
+  auto st = bfs::symlink_status(path);
+  if (st.type() != bfs::file_not_found && st.type() != bfs::directory_file) {
+    return Status::IOError("Cannot delete non -directory '", path.string(), "'");
+  }
+  auto n_removed = bfs::remove_all(path);
   if (deleted) {
     *deleted = n_removed != 0;
   }
@@ -317,7 +363,7 @@ Status DeleteFile(const PlatformFilename& file_path, bool* deleted) {
   if (!bfs::is_directory(st)) {
     res = bfs::remove(path);
   } else {
-    return Status::IOError("Cannot delete directory '", path.string());
+    return Status::IOError("Cannot delete directory '", path.string(), "'");
   }
   if (deleted) {
     *deleted = res;
@@ -360,8 +406,8 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
                                        const PlatformFilename& file_name,
                                        const char* opname) {
   if (ret == -1) {
-    return Status::IOError("Failed to ", opname, " file: ", file_name.ToString(),
-                           " , error: ", std::strerror(errno_actual));
+    return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
+                           "', error: ", ErrnoMessage(errno_actual));
   }
   return Status::OK();
 }
@@ -373,8 +419,22 @@ Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
                            _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
   ret = *fd;
 #else
-  ret = *fd = open(file_name.ToNative().c_str(), O_RDONLY | O_BINARY);
+  ret = *fd = open(file_name.ToNative().c_str(), O_RDONLY);
   errno_actual = errno;
+
+  if (ret >= 0) {
+    // open(O_RDONLY) succeeds on directories, check for it
+    struct stat st;
+    ret = fstat(*fd, &st);
+    if (ret == -1) {
+      ARROW_UNUSED(FileClose(*fd));
+      // Will propagate error below
+    } else if (S_ISDIR(st.st_mode)) {
+      ARROW_UNUSED(FileClose(*fd));
+      return Status::IOError("Cannot open for reading: path '", file_name.ToString(),
+                             "' is a directory");
+    }
+  }
 #endif
 
   return CheckFileOpResult(ret, errno_actual, file_name, "open local");
@@ -405,7 +465,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
   ret = *fd;
 
 #else
-  int oflag = O_CREAT | O_BINARY;
+  int oflag = O_CREAT;
 
   if (truncate) {
     oflag |= O_TRUNC;
@@ -423,7 +483,16 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
   ret = *fd = open(file_name.ToNative().c_str(), oflag, ARROW_WRITE_SHMODE);
   errno_actual = errno;
 #endif
-  return CheckFileOpResult(ret, errno_actual, file_name, "open local");
+  RETURN_NOT_OK(CheckFileOpResult(ret, errno_actual, file_name, "open local"));
+  if (append) {
+    // Seek to end, as O_APPEND does not necessarily do it
+    auto ret = lseek64_compat(*fd, 0, SEEK_END);
+    if (ret == -1) {
+      ARROW_UNUSED(FileClose(*fd));
+      return Status::IOError("lseek failed");
+    }
+  }
+  return Status::OK();
 }
 
 Status FileTell(int fd, int64_t* pos) {
@@ -452,7 +521,7 @@ Status CreatePipe(int fd[2]) {
 #endif
 
   if (ret == -1) {
-    return Status::IOError("Error creating pipe: ", std::strerror(errno));
+    return Status::IOError("Error creating pipe: ", ErrnoMessage(errno));
   }
   return Status::OK();
 }
@@ -461,7 +530,7 @@ static Status StatusFromErrno(const char* prefix) {
 #ifdef _WIN32
   errno = __map_mman_error(GetLastError(), EPERM);
 #endif
-  return Status::IOError(prefix, std::strerror(errno));
+  return Status::IOError(prefix, ErrnoMessage(errno));
 }
 
 //
@@ -643,8 +712,7 @@ Status FileRead(int fd, uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
   }
 
   if (*bytes_read == -1) {
-    return Status::IOError(std::string("Error reading bytes from file: ") +
-                           std::string(strerror(errno)));
+    return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
   }
 
   return Status::OK();
@@ -673,8 +741,7 @@ Status FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes,
   }
 
   if (*bytes_read == -1) {
-    return Status::IOError(std::string("Error reading bytes from file: ") +
-                           std::string(strerror(errno)));
+    return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
   }
   return Status::OK();
 }
@@ -704,8 +771,7 @@ Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
   }
 
   if (ret == -1) {
-    return Status::IOError(std::string("Error writing bytes from file: ") +
-                           std::string(strerror(errno)));
+    return Status::IOError("Error writing bytes to file: ", ErrnoMessage(errno));
   }
   return Status::OK();
 }
@@ -722,8 +788,7 @@ Status FileTruncate(int fd, const int64_t size) {
 #endif
 
   if (ret == -1) {
-    return Status::IOError(std::string("Error truncating file: ") +
-                           std::string(strerror(errno_actual)));
+    return Status::IOError("Error writing bytes to file: ", ErrnoMessage(errno_actual));
   }
   return Status::OK();
 }

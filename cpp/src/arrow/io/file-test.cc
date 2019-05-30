@@ -145,6 +145,7 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(file_->Close());
   ASSERT_TRUE(file_->closed());
   ASSERT_TRUE(FileIsClosed(fd));
+  ASSERT_RAISES(Invalid, file_->Write(data, strlen(data)));
 
   // Idempotent
   ASSERT_OK(file_->Close());
@@ -158,6 +159,7 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(stream_->Close());
   ASSERT_TRUE(stream_->closed());
   ASSERT_TRUE(FileIsClosed(fd));
+  ASSERT_RAISES(Invalid, stream_->Write(data, strlen(data)));
 
   // Idempotent
   ASSERT_OK(stream_->Close());
@@ -409,6 +411,9 @@ TEST_F(TestReadableFile, Read) {
   ASSERT_OK(file_->Seek(1));
   ASSERT_OK(file_->Read(size, &buf));
   ASSERT_EQ(size - 1, buf->size());
+
+  ASSERT_OK(file_->Close());
+  ASSERT_RAISES(Invalid, file_->Read(1, &buf));
 }
 
 TEST_F(TestReadableFile, ReadAt) {
@@ -436,6 +441,9 @@ TEST_F(TestReadableFile, ReadAt) {
 
   Buffer expected(reinterpret_cast<const uint8_t*>(test_data + 2), 5);
   ASSERT_TRUE(buffer2->Equals(expected));
+
+  ASSERT_OK(file_->Close());
+  ASSERT_RAISES(Invalid, file_->ReadAt(0, 1, &buffer2));
 }
 
 TEST_F(TestReadableFile, NonExistentFile) {

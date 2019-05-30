@@ -17,12 +17,46 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "arrow/filesystem/filesystem.h"
 
 namespace arrow {
 namespace fs {
+
+static constexpr double kTimeSlack = 2.0;  // In seconds
+
+ARROW_EXPORT
+void AssertFileStats(const FileStats& st, const std::string& path, FileType type);
+
+ARROW_EXPORT
+void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
+                     TimePoint mtime);
+
+ARROW_EXPORT
+void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
+                     TimePoint mtime, int64_t size);
+
+ARROW_EXPORT
+void AssertFileStats(const FileStats& st, const std::string& path, FileType type,
+                     int64_t size);
+
+ARROW_EXPORT
+void CreateFile(FileSystem* fs, const std::string& path, const std::string& data);
+
+// Sort of vector of FileStats by lexicographic path order
+ARROW_EXPORT
+void SortStats(std::vector<FileStats>* stats);
+
+template <typename Duration>
+void AssertDurationBetween(Duration d, double min_secs, double max_secs) {
+  auto seconds = std::chrono::duration_cast<std::chrono::duration<double>>(d);
+  ASSERT_GE(seconds.count(), min_secs);
+  ASSERT_LE(seconds.count(), max_secs);
+}
 
 // Generic tests for FileSystem implementations.
 // To use this class, subclass both from it and ::testing::Test,

@@ -19,3 +19,4 @@
 arrow_install_all_headers("arrow/filesystem")
 
 add_arrow_test(filesystem-test)
+add_arrow_test(localfs-test)

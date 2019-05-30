@@ -94,14 +94,17 @@ class ARROW_EXPORT StdinStream : public InputStream {
 
 namespace internal {
 
-class ARROW_EXPORT PlatformFilename {
- public:
+// NOTE: 8-bit path strings on Windows are encoded using UTF-8.
+// Using MBCS would fail encoding some paths.
+
 #if defined(_WIN32)
-  using NativePathString = std::wstring;
+using NativePathString = std::wstring;
 #else
-  using NativePathString = std::string;
+using NativePathString = std::string;
 #endif
 
+class ARROW_EXPORT PlatformFilename {
+ public:
   ~PlatformFilename();
   PlatformFilename();
   PlatformFilename(const PlatformFilename&);
@@ -126,6 +129,7 @@ class ARROW_EXPORT PlatformFilename {
 
   // Those functions need access to the embedded path object
   friend ARROW_EXPORT Status CreateDir(const PlatformFilename&, bool*);
+  friend ARROW_EXPORT Status CreateDirTree(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status DeleteDirTree(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status DeleteFile(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status FileExists(const PlatformFilename&, bool*);
@@ -133,6 +137,8 @@ class ARROW_EXPORT PlatformFilename {
 
 ARROW_EXPORT
 Status CreateDir(const PlatformFilename& dir_path, bool* created = NULLPTR);
+ARROW_EXPORT
+Status CreateDirTree(const PlatformFilename& dir_path, bool* created = NULLPTR);
 ARROW_EXPORT
 Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
 ARROW_EXPORT
@@ -190,6 +196,13 @@ ARROW_EXPORT
 Status DelEnvVar(const char* name);
 ARROW_EXPORT
 Status DelEnvVar(const std::string& name);
+
+ARROW_EXPORT
+std::string ErrnoMessage(int errnum);
+#if _WIN32
+ARROW_EXPORT
+std::string WinErrorMessage(int errnum);
+#endif
 
 class ARROW_EXPORT TemporaryDir {
  public:
