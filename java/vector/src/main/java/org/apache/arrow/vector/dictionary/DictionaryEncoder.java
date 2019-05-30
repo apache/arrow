@@ -30,6 +30,11 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
+/**
+ * Encoder/decoder for Dictionary encoded {@link ValueVector}. Dictionary encoding produces an
+ * integer {@link ValueVector}. Each entry in the Vector is index into the dictionary which can hold
+ * values of any type.
+ */
 public class DictionaryEncoder {
 
   // TODO recursively examine fields?

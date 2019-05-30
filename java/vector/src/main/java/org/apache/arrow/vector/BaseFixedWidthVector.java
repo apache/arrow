@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -247,9 +246,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public void allocateNew() {
-    if (!allocateNewSafe()) {
-      throw new OutOfMemoryException("Failure while allocating memory.");
-    }
+    allocateNew(lastValueCapacity);
   }
 
   /**
@@ -262,19 +259,12 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public boolean allocateNewSafe() {
-    computeAndCheckBufferSize(lastValueCapacity);
-
-    /* we are doing a new allocation -- release the current buffers */
-    clear();
-
     try {
-      allocateBytes(lastValueCapacity);
+      allocateNew(lastValueCapacity);
+      return true;
     } catch (Exception e) {
-      clear();
       return false;
     }
-
-    return true;
   }
 
   /**

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.gandiva.exceptions;
 
+/** Indicates an attempted call to methods on a closed evaluator. */
 public class EvaluatorClosedException extends GandivaException {
   public EvaluatorClosedException() {
     super("Cannot invoke methods on evaluator after closing it");

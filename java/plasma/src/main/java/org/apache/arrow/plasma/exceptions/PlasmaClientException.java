@@ -17,6 +17,9 @@
 
 package org.apache.arrow.plasma.exceptions;
 
+/**
+ * Generic exception thrown by the plasma client (for example on failure to connect).
+ */
 public class PlasmaClientException extends RuntimeException {
 
   public PlasmaClientException(String message) {

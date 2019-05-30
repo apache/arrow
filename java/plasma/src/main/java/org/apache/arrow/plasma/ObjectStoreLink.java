@@ -27,6 +27,9 @@ import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
  */
 public interface ObjectStoreLink {
 
+  /**
+   * Tuple for data and metadata stored in Plasma.
+   */
   class ObjectStoreData {
 
     public ObjectStoreData(byte[] metadata, byte[] data) {

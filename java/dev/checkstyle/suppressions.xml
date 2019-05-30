@@ -25,6 +25,8 @@
   <suppress checks="JavadocPackage" files=".*[\\/]examples[\\/].*"/>
   <!-- Method javadoc not required in testing directories -->
   <suppress checks="JavadocMethod" files=".*[\\/]src[\\/]test[\\/].*"/>
+  <!-- Class javadoc not required in testing directories -->
+  <suppress checks="JavadocType" files=".*[\\/]src[\\/]test[\\/].*"/>
 
   <!-- suppress all checks in the generated directories -->
   <suppress checks=".*" files=".+[\\/]generated[\\/].+\.java" />

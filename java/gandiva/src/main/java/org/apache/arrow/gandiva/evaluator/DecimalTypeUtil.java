@@ -19,8 +19,15 @@ package org.apache.arrow.gandiva.evaluator;
 
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
 
+/**
+ * Utility methods for working with {@link Decimal} values.
+ */
 public class DecimalTypeUtil {
+  private DecimalTypeUtil() {}
 
+  /**
+   * Enum for supported mathematical operations.
+   */
   public enum OperationType {
     ADD,
     SUBTRACT,

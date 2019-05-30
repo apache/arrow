@@ -25,6 +25,9 @@ import io.grpc.ForwardingClientCall.SimpleForwardingClientCall;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 
+/**
+ * GRPC client intercepter that handles authentication with the server.
+ */
 public class ClientAuthInterceptor implements ClientInterceptor {
   private volatile ClientAuthHandler authHandler = null;
 

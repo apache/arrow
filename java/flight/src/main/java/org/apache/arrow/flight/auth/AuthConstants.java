@@ -24,6 +24,9 @@ import io.grpc.Metadata.BinaryMarshaller;
 import io.grpc.Metadata.Key;
 import io.grpc.MethodDescriptor;
 
+/**
+ * Constants used in authorization of flight connections.
+ */
 public final class AuthConstants {
 
   public static final String HANDSHAKE_DESCRIPTOR_NAME = MethodDescriptor

@@ -164,6 +164,9 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     return new NullableStructTransferPair(this, new StructVector(ref, allocator, fieldType, callBack), false);
   }
 
+  /**
+   * {@link TransferPair} for this (nullable) {@link StructVector}.
+   */
   protected class NullableStructTransferPair extends StructTransferPair {
 
     private StructVector target;

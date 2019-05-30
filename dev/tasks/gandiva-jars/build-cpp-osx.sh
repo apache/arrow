@@ -31,6 +31,8 @@ pushd cpp
           -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
           -DARROW_BUILD_TESTS=ON \
           -DARROW_BUILD_UTILITIES=OFF \
+          -DPARQUET_BUILD_ENCRYPTION=OFF \
+          -DARROW_PARQUET=OFF \
           -DARROW_BOOST_USE_SHARED=OFF"
 
     if [ $TRAVIS_OS_NAME == "osx" ]; then

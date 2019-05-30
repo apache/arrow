@@ -19,6 +19,9 @@ package org.apache.arrow.memory;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * The result of transferring an {@link ArrowBuf} between {@linkplain BufferAllocator}s.
+ */
 public interface OwnershipTransferResult {
 
   boolean getAllocationFit();

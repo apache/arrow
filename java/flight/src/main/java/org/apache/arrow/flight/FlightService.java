@@ -43,6 +43,9 @@ import com.google.common.base.Preconditions;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 
+/**
+ * GRPC service implementation for a flight server.
+ */
 class FlightService extends FlightServiceImplBase {
 
   private static final Logger logger = LoggerFactory.getLogger(FlightService.class);
@@ -188,6 +191,9 @@ class FlightService extends FlightServiceImplBase {
     }
   }
 
+  /**
+   * Call context for the service.
+   */
   static class CallContext implements FlightProducer.CallContext {
 
     private final String peerIdentity;

@@ -193,6 +193,9 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
    *----------------------------------------------------------------*/
 
 
+  /**
+   * {@link TransferPair} for {@link TimeStampVector}.
+   */
   public class TransferImpl implements TransferPair {
     TimeStampVector to;
 

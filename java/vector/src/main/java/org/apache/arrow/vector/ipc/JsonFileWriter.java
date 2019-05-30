@@ -82,6 +82,9 @@ import io.netty.buffer.ArrowBuf;
  */
 public class JsonFileWriter implements AutoCloseable {
 
+  /**
+   * Configuration POJO for writing JSON files.
+   */
   public static final class JSONWriteConfig {
     private final boolean pretty;
 

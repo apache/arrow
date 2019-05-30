@@ -21,6 +21,11 @@ import org.apache.arrow.flight.impl.Flight;
 
 import com.google.protobuf.ByteString;
 
+/**
+ * An opaque action for the service to perform.
+ *
+ * <p>This is a POJO wrapper around the message of the same name in Flight.proto.
+ */
 public class Action {
 
   private final String type;

@@ -27,25 +27,28 @@ import org.apache.arrow.vector.VectorSchemaRoot;
  */
 public interface FlightProducer {
 
-  public void getStream(CallContext context, Ticket ticket,
+  void getStream(CallContext context, Ticket ticket,
       ServerStreamListener listener);
 
-  public void listFlights(CallContext context, Criteria criteria,
+  void listFlights(CallContext context, Criteria criteria,
       StreamListener<FlightInfo> listener);
 
-  public FlightInfo getFlightInfo(CallContext context,
+  FlightInfo getFlightInfo(CallContext context,
       FlightDescriptor descriptor);
 
-  public Callable<PutResult> acceptPut(CallContext context,
+  Callable<PutResult> acceptPut(CallContext context,
       FlightStream flightStream);
 
-  public void doAction(CallContext context, Action action,
+  void doAction(CallContext context, Action action,
       StreamListener<Result> listener);
 
-  public void listActions(CallContext context,
+  void listActions(CallContext context,
       StreamListener<ActionType> listener);
 
-  public interface ServerStreamListener {
+  /**
+   * Listener for creating a stream on the server side.
+   */
+  interface ServerStreamListener {
 
     boolean isCancelled();
 
@@ -61,7 +64,12 @@ public interface FlightProducer {
 
   }
 
-  public interface StreamListener<T> {
+  /**
+   * Callbacks for pushing objects to a receiver.
+   *
+   * @param <T> Type of the values in the stream.
+   */
+  interface StreamListener<T> {
 
     void onNext(T val);
 

@@ -27,6 +27,10 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.CallBack;
 
+/**
+ * POJO representation of an Arrow field type.  It consists of a logical type, nullability and whether the field
+ * (column) is dictionary encoded.
+ */
 public class FieldType {
 
   public static FieldType nullable(ArrowType type) {
