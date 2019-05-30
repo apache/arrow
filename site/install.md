@@ -213,7 +213,7 @@ sudo yum install -y --enablerepo=epel parquet-glib-devel # For Parquet GLib (C)
 
 ### C++ and GLib (C) Packages for MSYS2
 
-The official MSYS2 packages include [Apache Arrow C++ and GLib (C)
+The MSYS2 packages include [Apache Arrow C++ and GLib (C)
 package][16]. You can install the package by `pacman`.
 
 64bit version:
