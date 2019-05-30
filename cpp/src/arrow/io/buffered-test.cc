@@ -453,7 +453,9 @@ TEST_F(TestBufferedInputStream, SetBufferSize) {
 
 class TestBufferedInputStreamBound : public ::testing::Test {
  public:
-  void SetUp() {
+  void SetUp() { CreateExample(/*bounded=*/true); }
+
+  void CreateExample(bool bounded = true) {
     // Create a buffer larger than source size, to check that the
     // stream end is respected
     std::shared_ptr<ResizableBuffer> buf;
@@ -465,7 +467,7 @@ class TestBufferedInputStreamBound : public ::testing::Test {
     source_ = std::make_shared<BufferReader>(buf);
     ASSERT_OK(source_->Advance(stream_offset_));
     ASSERT_OK(BufferedInputStream::Create(chunk_size_, default_memory_pool(), source_,
-                                          &stream_, stream_size_));
+                                          &stream_, bounded ? stream_size_ : -1));
   }
 
  protected:
@@ -563,6 +565,27 @@ TEST_F(TestBufferedInputStreamBound, LargeFirstPeek) {
   for (int i = 0; i < 20; i++) {
     ASSERT_EQ(10 + n + i, (*buffer)[i]) << i;
   }
+}
+
+TEST_F(TestBufferedInputStreamBound, UnboundedPeek) {
+  CreateExample(/*bounded=*/false);
+
+  util::string_view view;
+  ASSERT_OK(stream_->Peek(10, &view));
+  ASSERT_EQ(10, view.size());
+  ASSERT_EQ(50, stream_->bytes_buffered());
+
+  ASSERT_OK(stream_->Peek(246, &view));
+  ASSERT_EQ(246, view.size());
+  ASSERT_EQ(246, stream_->bytes_buffered());
+  ASSERT_EQ(246, stream_->buffer_size());
+
+  // Larger peek returns the same, expands the buffer, but there is no
+  // more data to buffer
+  ASSERT_OK(stream_->Peek(300, &view));
+  ASSERT_EQ(246, view.size());
+  ASSERT_EQ(246, stream_->bytes_buffered());
+  ASSERT_EQ(300, stream_->buffer_size());
 }
 
 TEST_F(TestBufferedInputStreamBound, OneByteReads) {

@@ -22,6 +22,7 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/buffer-builder.h"
 #include "arrow/status.h"
 #include "arrow/util/bit-stream-utils.h"
 #include "arrow/util/checked_cast.h"
@@ -367,9 +368,9 @@ class ColumnWriterImpl {
         total_bytes_written_(0),
         total_compressed_bytes_(0),
         closed_(false),
-        fallback_(false) {
-    definition_levels_sink_ = CreateOutputStream(allocator_);
-    repetition_levels_sink_ = CreateOutputStream(allocator_);
+        fallback_(false),
+        definition_levels_sink_(allocator_),
+        repetition_levels_sink_(allocator_) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =
@@ -411,19 +412,19 @@ class ColumnWriterImpl {
   // Write multiple definition levels
   void WriteDefinitionLevels(int64_t num_levels, const int16_t* levels) {
     DCHECK(!closed_);
-    PARQUET_THROW_NOT_OK(definition_levels_sink_->Write(
-        reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels));
+    PARQUET_THROW_NOT_OK(
+        definition_levels_sink_.Append(levels, sizeof(int16_t) * num_levels));
   }
 
   // Write multiple repetition levels
   void WriteRepetitionLevels(int64_t num_levels, const int16_t* levels) {
     DCHECK(!closed_);
-    PARQUET_THROW_NOT_OK(repetition_levels_sink_->Write(
-        reinterpret_cast<const uint8_t*>(levels), sizeof(int16_t) * num_levels));
+    PARQUET_THROW_NOT_OK(
+        repetition_levels_sink_.Append(levels, sizeof(int16_t) * num_levels));
   }
 
   // RLE encode the src_buffer into dest_buffer and return the encoded size
-  int64_t RleEncodeLevels(const Buffer& src_buffer, ResizableBuffer* dest_buffer,
+  int64_t RleEncodeLevels(const void* src_buffer, ResizableBuffer* dest_buffer,
                           int16_t max_level);
 
   // Serialize the buffered Data Pages
@@ -469,8 +470,8 @@ class ColumnWriterImpl {
   // Flag to infer if dictionary encoding has fallen back to PLAIN
   bool fallback_;
 
-  std::shared_ptr<::arrow::io::BufferOutputStream> definition_levels_sink_;
-  std::shared_ptr<::arrow::io::BufferOutputStream> repetition_levels_sink_;
+  ::arrow::BufferBuilder definition_levels_sink_;
+  ::arrow::BufferBuilder repetition_levels_sink_;
 
   std::shared_ptr<ResizableBuffer> definition_levels_rle_;
   std::shared_ptr<ResizableBuffer> repetition_levels_rle_;
@@ -482,13 +483,13 @@ class ColumnWriterImpl {
 
  private:
   void InitSinks() {
-    definition_levels_sink_->Clear();
-    repetition_levels_sink_->Clear();
+    definition_levels_sink_.Rewind(0);
+    repetition_levels_sink_.Rewind(0);
   }
 };
 
 // return the size of the encoded buffer
-int64_t ColumnWriterImpl::RleEncodeLevels(const Buffer& src_buffer,
+int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
                                           ResizableBuffer* dest_buffer,
                                           int16_t max_level) {
   // TODO: This only works with due to some RLE specifics
@@ -503,9 +504,8 @@ int64_t ColumnWriterImpl::RleEncodeLevels(const Buffer& src_buffer,
   level_encoder_.Init(Encoding::RLE, max_level, static_cast<int>(num_buffered_values_),
                       dest_buffer->mutable_data() + sizeof(int32_t),
                       static_cast<int>(dest_buffer->size() - sizeof(int32_t)));
-  int encoded =
-      level_encoder_.Encode(static_cast<int>(num_buffered_values_),
-                            reinterpret_cast<const int16_t*>(src_buffer.data()));
+  int encoded = level_encoder_.Encode(static_cast<int>(num_buffered_values_),
+                                      reinterpret_cast<const int16_t*>(src_buffer));
   DCHECK_EQ(encoded, num_buffered_values_);
   reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] = level_encoder_.len();
   int64_t encoded_size = level_encoder_.len() + sizeof(int32_t);
@@ -520,13 +520,13 @@ void ColumnWriterImpl::AddDataPage() {
 
   if (descr_->max_definition_level() > 0) {
     definition_levels_rle_size =
-        RleEncodeLevels(definition_levels_sink_->buffer(), definition_levels_rle_.get(),
+        RleEncodeLevels(definition_levels_sink_.data(), definition_levels_rle_.get(),
                         descr_->max_definition_level());
   }
 
   if (descr_->max_repetition_level() > 0) {
     repetition_levels_rle_size =
-        RleEncodeLevels(repetition_levels_sink_->buffer(), repetition_levels_rle_.get(),
+        RleEncodeLevels(repetition_levels_sink_.data(), repetition_levels_rle_.get(),
                         descr_->max_repetition_level());
   }
 

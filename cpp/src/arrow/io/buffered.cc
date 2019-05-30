@@ -260,13 +260,10 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   Status Peek(int64_t nbytes, util::string_view* out) {
-    int64_t total_avail = bytes_buffered_;
-
-    if (raw_read_bound_ > 0) {
-      total_avail += raw_read_bound_ - raw_read_total_;
+    if (raw_read_bound_ >= 0) {
+      // Do not try to peek more than the total remaining number of bytes.
+      nbytes = std::min(nbytes, bytes_buffered_ + (raw_read_bound_ - raw_read_total_));
     }
-    // Do not try to peek more than the total remaining number of bytes.
-    nbytes = std::min(nbytes, total_avail);
 
     if (bytes_buffered_ == 0 && nbytes < buffer_size_) {
       // Pre-buffer for small reads
@@ -280,13 +277,17 @@ class BufferedInputStream::Impl : public BufferedBase {
     }
     // Read more data when buffer has insufficient left
     if (nbytes > bytes_buffered_) {
-      // Read as much as possible to fill the buffer, but not past stream end
-      int64_t read_size = std::min(nbytes - bytes_buffered_, total_avail);
+      int64_t additional_bytes_to_read = nbytes - bytes_buffered_;
+      if (raw_read_bound_ >= 0) {
+        additional_bytes_to_read =
+            std::min(additional_bytes_to_read, raw_read_bound_ - raw_read_total_);
+      }
       int64_t bytes_read = -1;
-      RETURN_NOT_OK(raw_->Read(read_size, &bytes_read,
+      RETURN_NOT_OK(raw_->Read(additional_bytes_to_read, &bytes_read,
                                buffer_->mutable_data() + buffer_pos_ + bytes_buffered_));
       bytes_buffered_ += bytes_read;
       raw_read_total_ += bytes_read;
+      nbytes = bytes_buffered_;
     }
     DCHECK(nbytes <= bytes_buffered_);  // Enough bytes available
     *out = util::string_view(reinterpret_cast<const char*>(buffer_data_ + buffer_pos_),

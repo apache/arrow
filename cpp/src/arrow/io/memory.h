@@ -72,13 +72,6 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
 
   int64_t capacity() const { return capacity_; }
 
-  /// \brief Return reference to current in-progress buffer. May
-  /// become invalid after any Write calls
-  const Buffer& buffer() const { return *buffer_; }
-
-  /// \brief Reset position to 0 without modifying capacity or zeroing data
-  void Clear();
-
  private:
   BufferOutputStream();
 

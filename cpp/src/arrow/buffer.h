@@ -86,7 +86,7 @@ class ARROW_EXPORT Buffer {
     parent_ = parent;
   }
 
-  constexpr uint8_t operator[](std::size_t i) const { return data_[i]; }
+  uint8_t operator[](std::size_t i) const { return data_[i]; }
 
   bool is_mutable() const { return is_mutable_; }
 

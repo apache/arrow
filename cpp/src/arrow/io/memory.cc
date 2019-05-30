@@ -62,8 +62,6 @@ Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
   return Status::OK();
 }
 
-void BufferOutputStream::Clear() { position_ = 0; }
-
 BufferOutputStream::~BufferOutputStream() {
   // This can fail, better to explicitly call close
   if (buffer_) {
@@ -302,10 +300,7 @@ Status BufferReader::Tell(int64_t* position) const {
 }
 
 Status BufferReader::Peek(int64_t nbytes, util::string_view* out) {
-  if (!is_open_) {
-    *out = {};
-    return Status::OK();
-  }
+  RETURN_NOT_OK(CheckClosed());
 
   const int64_t bytes_available = std::min(nbytes, size_ - position_);
   *out = util::string_view(reinterpret_cast<const char*>(data_) + position_,
