@@ -27,6 +27,8 @@
 
 namespace arrow {
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
 static constexpr int64_t kSize = 100000000;
 
 template <typename T = int32_t>
@@ -37,7 +39,7 @@ std::vector<T> generate_junk(int64_t size) {
 }
 
 // Baseline
-void BM_for_loop(benchmark::State& state) {
+void for_loop(benchmark::State& state) {
   auto source = generate_junk(kSize);
   std::vector<int> target(kSize);
 
@@ -46,10 +48,10 @@ void BM_for_loop(benchmark::State& state) {
   }
 }
 
-BENCHMARK(BM_for_loop)->Repetitions(3)->Unit(benchmark::kMillisecond);
+BENCHMARK(for_loop);
 
 // For comparison: pure copy without any changes
-void BM_std_copy(benchmark::State& state) {
+void std_copy(benchmark::State& state) {
   auto source = generate_junk(kSize);
   std::vector<int> target(kSize);
 
@@ -58,10 +60,10 @@ void BM_std_copy(benchmark::State& state) {
   }
 }
 
-BENCHMARK(BM_std_copy)->Repetitions(3)->Unit(benchmark::kMillisecond);
+BENCHMARK(std_copy);
 
 // For comparison: pure copy with type convesion.
-void BM_std_copy_converting(benchmark::State& state) {
+void std_copy_converting(benchmark::State& state) {
   auto source = generate_junk<int32_t>(kSize);
   // bigger type to avoid warnings
   std::vector<int64_t> target(kSize);
@@ -71,10 +73,10 @@ void BM_std_copy_converting(benchmark::State& state) {
   }
 }
 
-BENCHMARK(BM_std_copy_converting)->Repetitions(3)->Unit(benchmark::kMillisecond);
+BENCHMARK(std_copy_converting);
 
 // std::copy with a lazy range as a source
-void BM_lazy_copy(benchmark::State& state) {
+void lazy_copy(benchmark::State& state) {
   auto source = generate_junk(kSize);
   std::vector<int> target(kSize);
   auto lazy_range = internal::MakeLazyRange(
@@ -85,11 +87,11 @@ void BM_lazy_copy(benchmark::State& state) {
   }
 }
 
-BENCHMARK(BM_lazy_copy)->Repetitions(3)->Unit(benchmark::kMillisecond);
+BENCHMARK(lazy_copy);
 
 // std::copy with a lazy range which does static cast.
 // Should be the same performance as std::copy with differtly typed iterators
-void BM_lazy_copy_converting(benchmark::State& state) {
+void lazy_copy_converting(benchmark::State& state) {
   auto source = generate_junk<int64_t>(kSize);
   std::vector<int32_t> target(kSize);
   auto lazy_range = internal::MakeLazyRange(
@@ -101,10 +103,10 @@ void BM_lazy_copy_converting(benchmark::State& state) {
   }
 }
 
-BENCHMARK(BM_lazy_copy_converting)->Repetitions(3)->Unit(benchmark::kMillisecond);
+BENCHMARK(lazy_copy_converting);
 
 // For loop with a post-increment of a lazy operator
-void BM_lazy_postinc(benchmark::State& state) {
+void lazy_postinc(benchmark::State& state) {
   auto source = generate_junk(kSize);
   std::vector<int> target(kSize);
   auto lazy_range = internal::MakeLazyRange(
@@ -119,6 +121,8 @@ void BM_lazy_postinc(benchmark::State& state) {
   }
 }
 
-BENCHMARK(BM_lazy_postinc)->Repetitions(3)->Unit(benchmark::kMillisecond);
+BENCHMARK(lazy_postinc);
+
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 }  // namespace arrow

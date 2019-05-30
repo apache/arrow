@@ -84,7 +84,7 @@ set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE RE2::re2)
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP
    AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX))
   set(GANDIVA_STATIC_LINK_LIBS ${GANDIVA_STATIC_LINK_LIBS} -static-libstdc++
-      -static-libgcc)
+                               -static-libgcc)
 endif()
 
 # if (MSVC)
@@ -173,7 +173,9 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(TARGET_NAME gandiva-${REL_TEST_NAME})
 
   if((TARGET ${TARGET_NAME})
-     AND (${REL_TEST_NAME} MATCHES "llvm"
+     AND (${REL_TEST_NAME}
+          MATCHES
+          "llvm"
           OR ${REL_TEST_NAME} MATCHES "expression_registry"))
     # If the unit test has llvm in its name, include llvm.
     add_dependencies(${TARGET_NAME} LLVM::LLVM_INTERFACE)

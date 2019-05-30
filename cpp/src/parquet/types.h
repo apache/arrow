@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iterator>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -89,9 +90,326 @@ struct LogicalType {
   };
 };
 
+namespace format {
+
+class LogicalType;
+
+}
+
 // Mirrors parquet::FieldRepetitionType
 struct Repetition {
   enum type { REQUIRED = 0, OPTIONAL = 1, REPEATED = 2 };
+};
+
+// Reference:
+// parquet-mr/parquet-hadoop/src/main/java/org/apache/parquet/
+//                            format/converter/ParquetMetadataConverter.java
+// Sort order for page and column statistics. Types are associated with sort
+// orders (e.g., UTF8 columns should use UNSIGNED) and column stats are
+// aggregated using a sort order. As of parquet-format version 2.3.1, the
+// order used to aggregate stats is always SIGNED and is not stored in the
+// Parquet file. These stats are discarded for types that need unsigned.
+// See PARQUET-686.
+struct SortOrder {
+  enum type { SIGNED, UNSIGNED, UNKNOWN };
+};
+
+namespace schema {
+
+struct DecimalMetadata {
+  bool isset;
+  int32_t scale;
+  int32_t precision;
+};
+
+}  // namespace schema
+
+/// \brief Implementation of parquet.thrift LogicalType annotations.
+class PARQUET_EXPORT LogicalAnnotation {
+ public:
+  struct Type {
+    enum type {
+      UNKNOWN = 0,
+      STRING = 1,
+      MAP,
+      LIST,
+      ENUM,
+      DECIMAL,
+      DATE,
+      TIME,
+      TIMESTAMP,
+      INTERVAL,
+      INT,
+      NIL,  // Thrift NullType
+      JSON,
+      BSON,
+      UUID,
+      NONE
+    };
+  };
+
+  struct TimeUnit {
+    enum unit { UNKNOWN = 0, MILLIS = 1, MICROS, NANOS };
+  };
+
+  /// \brief If possible, return an annotation equivalent to the given legacy converted
+  /// type (and decimal metadata if applicable).
+  static std::shared_ptr<const LogicalAnnotation> FromConvertedType(
+      const parquet::LogicalType::type converted_type,
+      const parquet::schema::DecimalMetadata converted_decimal_metadata = {false, -1,
+                                                                           -1});
+
+  /// \brief Return the annotation represented by the Thrift intermediary object.
+  static std::shared_ptr<const LogicalAnnotation> FromThrift(
+      const parquet::format::LogicalType& thrift_logical_type);
+
+  /// \brief Return the explicitly requested annotation type.
+  static std::shared_ptr<const LogicalAnnotation> String();
+  static std::shared_ptr<const LogicalAnnotation> Map();
+  static std::shared_ptr<const LogicalAnnotation> List();
+  static std::shared_ptr<const LogicalAnnotation> Enum();
+  static std::shared_ptr<const LogicalAnnotation> Decimal(int32_t precision,
+                                                          int32_t scale = 0);
+  static std::shared_ptr<const LogicalAnnotation> Date();
+  static std::shared_ptr<const LogicalAnnotation> Time(
+      bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit);
+  static std::shared_ptr<const LogicalAnnotation> Timestamp(
+      bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit);
+  static std::shared_ptr<const LogicalAnnotation> Interval();
+  static std::shared_ptr<const LogicalAnnotation> Int(int bit_width, bool is_signed);
+  static std::shared_ptr<const LogicalAnnotation> Null();
+  static std::shared_ptr<const LogicalAnnotation> JSON();
+  static std::shared_ptr<const LogicalAnnotation> BSON();
+  static std::shared_ptr<const LogicalAnnotation> UUID();
+  static std::shared_ptr<const LogicalAnnotation> None();
+  static std::shared_ptr<const LogicalAnnotation> Unknown();
+
+  /// \brief Return true if this annotation is consistent with the given underlying
+  /// physical type.
+  bool is_applicable(parquet::Type::type primitive_type,
+                     int32_t primitive_length = -1) const;
+
+  /// \brief Return true if this annotation is equivalent to the given legacy converted
+  /// type (and decimal metadata if applicable).
+  bool is_compatible(parquet::LogicalType::type converted_type,
+                     parquet::schema::DecimalMetadata converted_decimal_metadata = {
+                         false, -1, -1}) const;
+
+  /// \brief If possible, return the legacy converted type (and decimal metadata if
+  /// applicable) equivalent to this annotation.
+  parquet::LogicalType::type ToConvertedType(
+      parquet::schema::DecimalMetadata* out_decimal_metadata) const;
+
+  /// \brief Return a printable representation of this annotation.
+  std::string ToString() const;
+
+  /// \brief Return a JSON representation of this annotation.
+  std::string ToJSON() const;
+
+  /// \brief Return a serializable Thrift object for this annotation.
+  parquet::format::LogicalType ToThrift() const;
+
+  /// \brief Return true if the given annotation is equivalent to this annotation.
+  bool Equals(const LogicalAnnotation& other) const;
+
+  /// \brief Return the enumerated type of this annotation.
+  LogicalAnnotation::Type::type type() const;
+
+  /// \brief Return the appropriate sort order for this annotation.
+  SortOrder::type sort_order() const;
+
+  // Type checks ...
+  bool is_string() const;
+  bool is_map() const;
+  bool is_list() const;
+  bool is_enum() const;
+  bool is_decimal() const;
+  bool is_date() const;
+  bool is_time() const;
+  bool is_timestamp() const;
+  bool is_interval() const;
+  bool is_int() const;
+  bool is_null() const;
+  bool is_JSON() const;
+  bool is_BSON() const;
+  bool is_UUID() const;
+  bool is_none() const;
+  /// \brief Return true if this annotation is of a known type.
+  bool is_valid() const;
+  bool is_invalid() const;
+  /// \brief Return true if this annotation is suitable for a schema GroupNode.
+  bool is_nested() const;
+  bool is_nonnested() const;
+  /// \brief Return true if this annotation is included in the Thrift output for its node.
+  bool is_serialized() const;
+
+  LogicalAnnotation(const LogicalAnnotation&) = delete;
+  LogicalAnnotation& operator=(const LogicalAnnotation&) = delete;
+  virtual ~LogicalAnnotation() noexcept;
+
+ protected:
+  LogicalAnnotation();
+
+  class Impl;
+  std::unique_ptr<const Impl> impl_;
+};
+
+/// \brief Allowed for physical type BYTE_ARRAY, must be encoded as UTF-8.
+class PARQUET_EXPORT StringAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  StringAnnotation() = default;
+};
+
+/// \brief Allowed for group nodes only.
+class PARQUET_EXPORT MapAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  MapAnnotation() = default;
+};
+
+/// \brief Allowed for group nodes only.
+class PARQUET_EXPORT ListAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  ListAnnotation() = default;
+};
+
+/// \brief Allowed for physical type BYTE_ARRAY, must be encoded as UTF-8.
+class PARQUET_EXPORT EnumAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  EnumAnnotation() = default;
+};
+
+/// \brief Allowed for physical type INT32, INT64, FIXED_LEN_BYTE_ARRAY, or BYTE_ARRAY,
+/// depending on the precision.
+class PARQUET_EXPORT DecimalAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make(int32_t precision,
+                                                       int32_t scale = 0);
+  int32_t precision() const;
+  int32_t scale() const;
+
+ private:
+  DecimalAnnotation() = default;
+};
+
+/// \brief Allowed for physical type INT32.
+class PARQUET_EXPORT DateAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  DateAnnotation() = default;
+};
+
+/// \brief Allowed for physical type INT32 (for MILLIS) or INT64 (for MICROS and NANOS).
+class PARQUET_EXPORT TimeAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make(
+      bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit);
+  bool is_adjusted_to_utc() const;
+  LogicalAnnotation::TimeUnit::unit time_unit() const;
+
+ private:
+  TimeAnnotation() = default;
+};
+
+/// \brief Allowed for physical type INT64.
+class PARQUET_EXPORT TimestampAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make(
+      bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit);
+  bool is_adjusted_to_utc() const;
+  LogicalAnnotation::TimeUnit::unit time_unit() const;
+
+ private:
+  TimestampAnnotation() = default;
+};
+
+/// \brief Allowed for physical type FIXED_LEN_BYTE_ARRAY with length 12
+class PARQUET_EXPORT IntervalAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  IntervalAnnotation() = default;
+};
+
+/// \brief Allowed for physical type INT32 (for bit widths 8, 16, and 32) and INT64
+/// (for bit width 64).
+class PARQUET_EXPORT IntAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make(int bit_width, bool is_signed);
+  int bit_width() const;
+  bool is_signed() const;
+
+ private:
+  IntAnnotation() = default;
+};
+
+/// \brief Allowed for any physical type.
+class PARQUET_EXPORT NullAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  NullAnnotation() = default;
+};
+
+/// \brief Allowed for physical type BYTE_ARRAY.
+class PARQUET_EXPORT JSONAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  JSONAnnotation() = default;
+};
+
+/// \brief Allowed for physical type BYTE_ARRAY.
+class PARQUET_EXPORT BSONAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  BSONAnnotation() = default;
+};
+
+/// \brief Allowed for physical type FIXED_LEN_BYTE_ARRAY with length 16,
+/// must encode raw UUID bytes.
+class PARQUET_EXPORT UUIDAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  UUIDAnnotation() = default;
+};
+
+/// \brief Allowed for any physical type.
+class PARQUET_EXPORT NoAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  NoAnnotation() = default;
+};
+
+/// \brief Allowed for any type.
+class PARQUET_EXPORT UnknownAnnotation : public LogicalAnnotation {
+ public:
+  static std::shared_ptr<const LogicalAnnotation> Make();
+
+ private:
+  UnknownAnnotation() = default;
 };
 
 // Data encodings. Mirrors parquet::Encoding
@@ -120,19 +438,6 @@ struct Encryption {
 // parquet::PageType
 struct PageType {
   enum type { DATA_PAGE, INDEX_PAGE, DICTIONARY_PAGE, DATA_PAGE_V2 };
-};
-
-// Reference:
-// parquet-mr/parquet-hadoop/src/main/java/org/apache/parquet/
-//                            format/converter/ParquetMetadataConverter.java
-// Sort order for page and column statistics. Types are associated with sort
-// orders (e.g., UTF8 columns should use UNSIGNED) and column stats are
-// aggregated using a sort order. As of parquet-format version 2.3.1, the
-// order used to aggregate stats is always SIGNED and is not stored in the
-// Parquet file. These stats are discarded for types that need unsigned.
-// See PARQUET-686.
-struct SortOrder {
-  enum type { SIGNED, UNSIGNED, UNKNOWN };
 };
 
 class ColumnOrder {
@@ -336,6 +641,9 @@ PARQUET_EXPORT SortOrder::type DefaultSortOrder(Type::type primitive);
 
 PARQUET_EXPORT SortOrder::type GetSortOrder(LogicalType::type converted,
                                             Type::type primitive);
+
+PARQUET_EXPORT SortOrder::type GetSortOrder(
+    const std::shared_ptr<const LogicalAnnotation>& annotation, Type::type primitive);
 
 }  // namespace parquet
 

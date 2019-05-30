@@ -36,7 +36,7 @@ Status MakePrimitive(int64_t length, int64_t null_count, std::shared_ptr<Array>*
 }
 }  // anonymous namespace
 
-static void BM_BuildInt32ColumnByChunk(
+static void BuildInt32ColumnByChunk(
     benchmark::State& state) {  // NOLINT non-const reference
   ArrayVector arrays;
   for (int chunk_n = 0; chunk_n < state.range(0); ++chunk_n) {
@@ -52,6 +52,6 @@ static void BM_BuildInt32ColumnByChunk(
   }
 }
 
-BENCHMARK(BM_BuildInt32ColumnByChunk)->Range(5, 50000);
+BENCHMARK(BuildInt32ColumnByChunk)->Range(5, 50000);
 
 }  // namespace arrow

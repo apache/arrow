@@ -29,7 +29,7 @@
 namespace arrow {
 namespace compute {
 
-static void BenchCompareKernel(benchmark::State& state) {
+static void CompareArrayScalarKernel(benchmark::State& state) {
   const int64_t memory_size = state.range(0) / 4;
   const int64_t array_size = memory_size / sizeof(int64_t);
   const double null_percent = static_cast<double>(state.range(1)) / 100.0;
@@ -37,7 +37,7 @@ static void BenchCompareKernel(benchmark::State& state) {
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
       rand.Int64(array_size, -100, 100, null_percent));
 
-  CompareOptions ge(GREATER_EQUAL);
+  CompareOptions ge{GREATER_EQUAL};
 
   FunctionContext ctx;
   for (auto _ : state) {
@@ -51,7 +51,7 @@ static void BenchCompareKernel(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
-BENCHMARK(BenchCompareKernel)->Apply(BenchmarkSetArgs);
+BENCHMARK(CompareArrayScalarKernel)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

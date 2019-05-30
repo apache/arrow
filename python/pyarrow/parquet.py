@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 from collections import defaultdict
 from concurrent import futures
 from functools import partial

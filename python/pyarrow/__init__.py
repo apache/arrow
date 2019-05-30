@@ -17,6 +17,8 @@
 
 # flake8: noqa
 
+from __future__ import absolute_import
+
 import os as _os
 import sys as _sys
 

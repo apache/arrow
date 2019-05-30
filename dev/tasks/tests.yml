@@ -217,7 +217,7 @@ tasks:
         - docker-compose build python-nopandas
         - docker-compose run python-nopandas
 
-  docker-python-3.6-alpine:
+  docker-python-3.6-nopandas:
     platform: linux
     template: docker-tests/travis.linux.yml
     params:

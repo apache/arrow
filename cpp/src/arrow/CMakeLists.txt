@@ -106,8 +106,10 @@ set(ARROW_SRCS
     csv/parser.cc
     csv/reader.cc
     filesystem/filesystem.cc
+    filesystem/localfs.cc
     filesystem/mockfs.cc
     filesystem/path-util.cc
+    filesystem/util-internal.cc
     json/options.cc
     json/chunked-builder.cc
     json/chunker.cc

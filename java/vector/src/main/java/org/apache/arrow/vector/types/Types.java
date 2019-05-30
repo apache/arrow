@@ -122,6 +122,9 @@ import org.apache.arrow.vector.util.CallBack;
 /** An enumeration of all logical types supported by this library. */
 public class Types {
 
+  /**
+   * The actual enumeration of types.
+   */
   public enum MinorType {
     NULL(Null.INSTANCE) {
       @Override

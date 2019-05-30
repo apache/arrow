@@ -24,5 +24,9 @@ import org.apache.arrow.vector.complex.reader.BaseReader.ScalarReader;
 import org.apache.arrow.vector.complex.reader.BaseReader.StructReader;
 
 
+/**
+ * Composite of all Reader types (e.g. {@link StructReader}, {@link ScalarReader}, etc).  Each reader type
+ * is in essence a way of iterating over a {@link ValueVector}.
+ */
 public interface FieldReader extends StructReader, ListReader, ScalarReader, RepeatedStructReader, RepeatedListReader {
 }

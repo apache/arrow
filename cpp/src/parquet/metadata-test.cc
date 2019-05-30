@@ -163,6 +163,11 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ(16, rg2_column2->dictionary_page_offset());
   ASSERT_EQ(10, rg2_column1->data_page_offset());
   ASSERT_EQ(26, rg2_column2->data_page_offset());
+
+  // Test FileMetaData::set_file_path
+  ASSERT_TRUE(rg2_column1->file_path().empty());
+  f_accessor->set_file_path("/foo/bar/bar.parquet");
+  ASSERT_EQ("/foo/bar/bar.parquet", rg2_column1->file_path());
 }
 
 TEST(Metadata, TestV1Version) {

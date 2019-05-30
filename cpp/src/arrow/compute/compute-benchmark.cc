@@ -31,7 +31,7 @@
 namespace arrow {
 namespace compute {
 
-static void BM_BuildDictionary(benchmark::State& state) {  // NOLINT non-const reference
+static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t iterations = 1024;
 
   std::vector<int64_t> values;
@@ -55,7 +55,7 @@ static void BM_BuildDictionary(benchmark::State& state) {  // NOLINT non-const r
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(int64_t));
 }
 
-static void BM_BuildStringDictionary(
+static void BuildStringDictionary(
     benchmark::State& state) {  // NOLINT non-const reference
   const int64_t iterations = 1024 * 64;
   // Pre-render strings
@@ -172,62 +172,52 @@ void BenchDictionaryEncode(benchmark::State& state, const ParamType& params,
   state.SetBytesProcessed(state.iterations() * params.GetBytesProcessed(length));
 }
 
-static void BM_UniqueUInt8NoNulls(benchmark::State& state) {
+static void UniqueUInt8NoNulls(benchmark::State& state) {
   BenchUnique(state, HashParams<UInt8Type>{0}, state.range(0), state.range(1));
 }
 
-static void BM_UniqueUInt8WithNulls(benchmark::State& state) {
+static void UniqueUInt8WithNulls(benchmark::State& state) {
   BenchUnique(state, HashParams<UInt8Type>{0.05}, state.range(0), state.range(1));
 }
 
-static void BM_UniqueInt64NoNulls(benchmark::State& state) {
+static void UniqueInt64NoNulls(benchmark::State& state) {
   BenchUnique(state, HashParams<Int64Type>{0}, state.range(0), state.range(1));
 }
 
-static void BM_UniqueInt64WithNulls(benchmark::State& state) {
+static void UniqueInt64WithNulls(benchmark::State& state) {
   BenchUnique(state, HashParams<Int64Type>{0.05}, state.range(0), state.range(1));
 }
 
-static void BM_UniqueString10bytes(benchmark::State& state) {
+static void UniqueString10bytes(benchmark::State& state) {
   // Byte strings with 10 bytes each
   BenchUnique(state, HashParams<StringType>{0.05, 10}, state.range(0), state.range(1));
 }
 
-static void BM_UniqueString100bytes(benchmark::State& state) {
+static void UniqueString100bytes(benchmark::State& state) {
   // Byte strings with 100 bytes each
   BenchUnique(state, HashParams<StringType>{0.05, 100}, state.range(0), state.range(1));
 }
 
-BENCHMARK(BM_BuildDictionary)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildStringDictionary)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BuildDictionary);
+BENCHMARK(BuildStringDictionary);
 
-constexpr int kHashBenchmarkLength = 1 << 24;
+constexpr int kHashBenchmarkLength = 1 << 22;
 
-#define ADD_HASH_ARGS(WHAT)                        \
-  WHAT->Args({kHashBenchmarkLength, 50})           \
-      ->Args({kHashBenchmarkLength, 1 << 10})      \
-      ->Args({kHashBenchmarkLength, 10 * 1 << 10}) \
-      ->Args({kHashBenchmarkLength, 1 << 20})      \
-      ->MinTime(1.0)                               \
-      ->Unit(benchmark::kMicrosecond)              \
-      ->UseRealTime()
+#define ADD_HASH_ARGS(WHAT) \
+  WHAT->Args({kHashBenchmarkLength, 1 << 10})->Args({kHashBenchmarkLength, 10 * 1 << 10})
 
-ADD_HASH_ARGS(BENCHMARK(BM_UniqueInt64NoNulls));
-ADD_HASH_ARGS(BENCHMARK(BM_UniqueInt64WithNulls));
-ADD_HASH_ARGS(BENCHMARK(BM_UniqueString10bytes));
-ADD_HASH_ARGS(BENCHMARK(BM_UniqueString100bytes));
+ADD_HASH_ARGS(BENCHMARK(UniqueInt64NoNulls));
+ADD_HASH_ARGS(BENCHMARK(UniqueInt64WithNulls));
+ADD_HASH_ARGS(BENCHMARK(UniqueString10bytes));
+ADD_HASH_ARGS(BENCHMARK(UniqueString100bytes));
 
-BENCHMARK(BM_UniqueUInt8NoNulls)
+BENCHMARK(UniqueUInt8NoNulls)
     ->Args({kHashBenchmarkLength, 200})
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond)
-    ->UseRealTime();
+    ->Unit(benchmark::kMicrosecond);
 
-BENCHMARK(BM_UniqueUInt8WithNulls)
+BENCHMARK(UniqueUInt8WithNulls)
     ->Args({kHashBenchmarkLength, 200})
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond)
-    ->UseRealTime();
+    ->Unit(benchmark::kMicrosecond);
 
 }  // namespace compute
 }  // namespace arrow

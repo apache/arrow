@@ -17,8 +17,20 @@
 
 package org.apache.arrow.vector.types;
 
+/**
+ * Different memory layouts for Union Vectors.
+ */
 public enum UnionMode {
+  /**
+   * Each child vector is the same length as the overall vector, and there is one 8-bit integer buffer to indicate
+   * the index of a child vector to use at any given position.
+   */
   Sparse(org.apache.arrow.flatbuf.UnionMode.Sparse),
+  /**
+   * Each child vector is of variable width.  The parent vector contains both an child index vector (like in
+   * {@link #Sparse}) and in addition a slot index buffer to determine the offset into the child vector indicated
+   * by the index vector.
+   */
   Dense(org.apache.arrow.flatbuf.UnionMode.Dense);
 
   private static final UnionMode[] valuesByFlatbufId = new UnionMode[UnionMode.values().length];

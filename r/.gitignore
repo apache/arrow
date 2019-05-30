@@ -11,3 +11,4 @@ inst/doc
 .Rhistory
 src/Makevars
 windows/
+arrow_*.tar.gz

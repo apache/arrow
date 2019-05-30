@@ -144,7 +144,7 @@ class VarSizeBinaryConverter : public ConcreteConverter {
 
     if (options_.strings_can_be_null) {
       auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        if (size > 0 && IsNull(data, size, false /* quoted */)) {
+        if (IsNull(data, size, false /* quoted */)) {
           builder.UnsafeAppendNull();
           return Status::OK();
         } else {

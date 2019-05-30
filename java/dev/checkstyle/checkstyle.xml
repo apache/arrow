@@ -241,6 +241,15 @@
             <property name="suppressLoadErrors" value="true"/>
             <property name="ignoreMethodNamesRegex" value="main"/>
         </module>
+        <module name="JavadocType">
+            <property name="scope" value="public"/>
+        </module>
+        <module name="JavadocType">
+            <property name="scope" value="protected"/>
+        </module>
+        <module name="JavadocType">
+            <property name="scope" value="package"/>
+        </module>
         <module name="MethodName">
             <property name="format" value="^[a-z][a-z0-9][a-zA-Z0-9_]*$"/>
             <message key="name.invalidPattern"

@@ -18,6 +18,8 @@
 # distutils: language = c++
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
@@ -221,6 +223,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         ParquetVersion version()
         const c_string created_by()
         int num_schema_elements()
+
+        void set_file_path(const c_string& path)
 
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()

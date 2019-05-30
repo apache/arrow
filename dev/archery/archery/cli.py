@@ -37,10 +37,12 @@ logging.basicConfig(level=logging.INFO)
 @click.group()
 @click.option("--debug", type=bool, is_flag=True, default=False,
               help="Increase logging with debugging output.")
+@click.option("--pdb", type=bool, is_flag=True, default=False,
+              help="Invoke pdb on uncaught exception.")
 @click.option("-q", "--quiet", type=bool, is_flag=True, default=False,
               help="Silence executed commands.")
 @click.pass_context
-def archery(ctx, debug, quiet):
+def archery(ctx, debug, pdb, quiet):
     """ Apache Arrow developer utilities.
 
     See sub-commands help with `archery <cmd> --help`.
@@ -52,6 +54,10 @@ def archery(ctx, debug, quiet):
     log_ctx.quiet = quiet
     if debug:
         logger.setLevel(logging.DEBUG)
+
+    if pdb:
+        import pdb
+        sys.excepthook = lambda t, v, e: pdb.pm()
 
 
 def validate_arrow_sources(ctx, param, src):
@@ -167,6 +173,39 @@ def benchmark(ctx):
     pass
 
 
+@benchmark.command(name="list", short_help="List benchmark suite")
+@click.option("--src", metavar="<arrow_src>", show_default=True,
+              default=ArrowSources.find(),
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory")
+@click.option("--preserve", type=bool, default=False, show_default=True,
+              is_flag=True, help="Preserve workspace for investigation.")
+@click.option("--output", metavar="<output>",
+              type=click.File("w", encoding="utf8"), default="-",
+              help="Capture output result into file.")
+@click.option("--cmake-extras", type=str, multiple=True,
+              help="Extra flags/options to pass to cmake invocation. "
+              "Can be stacked")
+@click.argument("rev_or_path", metavar="[<rev_or_path>]", default="WORKSPACE",
+                required=False)
+@click.pass_context
+def benchmark_list(ctx, src, preserve, output, cmake_extras, rev_or_path):
+    """ List benchmark suite.
+    """
+    with tmpdir(preserve) as root:
+        logger.debug(f"Running benchmark {rev_or_path}")
+
+        conf = CppConfiguration(
+            build_type="release", with_tests=True, with_benchmarks=True,
+            with_python=False, cmake_extras=cmake_extras)
+
+        runner_base = BenchmarkRunner.from_rev_or_path(
+            src, root, rev_or_path, conf)
+
+        for b in runner_base.list_benchmarks:
+            click.echo(b, file=output)
+
+
 @benchmark.command(name="run", short_help="Run benchmark suite")
 @click.option("--src", metavar="<arrow_src>", show_default=True,
               default=ArrowSources.find(),
@@ -175,7 +214,7 @@ def benchmark(ctx):
 @click.option("--suite-filter", metavar="<regex>", show_default=True,
               type=str, default=None, help="Regex filtering benchmark suites.")
 @click.option("--benchmark-filter", metavar="<regex>", show_default=True,
-              type=str, default=DEFAULT_BENCHMARK_FILTER,
+              type=str, default=None,
               help="Regex filtering benchmark suites.")
 @click.option("--preserve", type=bool, default=False, show_default=True,
               is_flag=True, help="Preserve workspace for investigation.")
@@ -185,11 +224,11 @@ def benchmark(ctx):
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
-@click.argument("baseline", metavar="[<baseline>]]", default="master",
+@click.argument("rev_or_path", metavar="[<rev_or_path>]", default="WORKSPACE",
                 required=False)
 @click.pass_context
 def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
-                  output, cmake_extras, baseline):
+                  output, cmake_extras, rev_or_path):
     """ Run benchmark suite.
 
     This command will run the benchmark suite for a single build. This is
@@ -197,7 +236,6 @@ def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
 
     The caller can optionally specify a target which is either a git revision
     (commit, tag, special values like HEAD) or a cmake build directory.
-
 
     When a commit is referenced, a local clone of the arrow sources (specified
     via --src) is performed and the proper branch is created. This is done in
@@ -224,14 +262,14 @@ def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
     archery benchmark run --output=run.json
     """
     with tmpdir(preserve) as root:
-        logger.debug(f"Running benchmark {baseline}")
+        logger.debug(f"Running benchmark {rev_or_path}")
 
         conf = CppConfiguration(
             build_type="release", with_tests=True, with_benchmarks=True,
             with_python=False, cmake_extras=cmake_extras)
 
         runner_base = BenchmarkRunner.from_rev_or_path(
-            src, root, baseline, conf,
+            src, root, rev_or_path, conf,
             suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
         json.dump(runner_base, output, cls=JsonEncoder)
@@ -357,7 +395,7 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
         for comparator in runner_comp.comparisons:
             regressions += comparator.regression
             json.dump(comparator, output, cls=JsonEncoder)
-            output.write('\n')
+            output.write("\n")
 
         sys.exit(regressions)
 

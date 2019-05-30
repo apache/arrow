@@ -207,6 +207,12 @@ class BaseTestCSVRead:
         self.check_names(table, ["abc", "def", "gh"])
         assert table.num_rows == 0
 
+    def test_bom(self):
+        rows = b"\xef\xbb\xbfa,b\n1,2\n"
+        expected_data = {'a': [1], 'b': [2]}
+        table = self.read_bytes(rows)
+        assert table.to_pydict() == expected_data
+
     def test_simple_ints(self):
         # Infer integer columns
         rows = b"a,b,c\n1,2,3\n4,5,6\n"

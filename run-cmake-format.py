@@ -70,7 +70,9 @@ def find_cmake_files():
 def run_cmake_format(paths):
     # cmake-format is fast enough that running in parallel doesn't seem
     # necessary
-    cmd = ['cmake-format', '--in-place'] + paths
+    # autosort is off because it breaks in cmake_format 5.1
+    #   See: https://github.com/cheshirekow/cmake_format/issues/111
+    cmd = ['cmake-format', '--in-place', '--autosort=false'] + paths
     try:
         subprocess.run(cmd, check=True)
     except FileNotFoundError:
