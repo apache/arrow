@@ -416,6 +416,76 @@ TEST_F(TestMapArray, Equality) {
   EXPECT_TRUE(array->RangeEquals(2, 3, 2, unequal_array));
 }
 
+TEST_F(TestMapArray, BuildingIntToInt) {
+  auto type = map(int16(), int16());
+
+  auto expected_keys = ArrayFromJSON(int16(), R"([
+    0, 1, 2, 3, 4, 5,
+    0, 1, 2, 3, 4, 5
+  ])");
+  auto expected_items = ArrayFromJSON(int16(), R"([
+    1,    1,    2,  3,  5,    8,
+    null, null, 0,  1,  null, 2
+  ])");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 6, 6, 12, 12]")->data()->buffers[1];
+  auto expected_null_bitmap =
+      ArrayFromJSON(boolean(), "[1, 0, 1, 1]")->data()->buffers[1];
+
+  MapArray expected(type, 4, expected_offsets, expected_keys, expected_items,
+                    expected_null_bitmap, 1, 0);
+
+  auto key_builder = std::make_shared<Int16Builder>();
+  auto item_builder = std::make_shared<Int16Builder>();
+  MapBuilder map_builder(default_memory_pool(), key_builder, item_builder);
+
+  std::shared_ptr<Array> actual;
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder->AppendValues({1, 1, 2, 3, 5, 8}));
+  ASSERT_OK(map_builder.AppendNull());
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder->AppendValues({-1, -1, 0, 1, -1, 2}, {0, 0, 1, 1, 0, 1}));
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(map_builder.Finish(&actual));
+  ASSERT_OK(ValidateArray(*actual));
+
+  ASSERT_ARRAYS_EQUAL(*actual, expected);
+}
+
+TEST_F(TestMapArray, BuildingStringToInt) {
+  auto type = map(utf8(), int32());
+
+  std::vector<int32_t> offsets = {0, 2, 2, 3, 3};
+  auto expected_keys = ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])");
+  auto expected_values = ArrayFromJSON(int32(), "[0, null, 8]");
+  std::shared_ptr<Buffer> expected_null_bitmap;
+  ASSERT_OK(
+      BitUtil::BytesToBits({1, 0, 1, 1}, default_memory_pool(), &expected_null_bitmap));
+  MapArray expected(type, 4, Buffer::Wrap(offsets), expected_keys, expected_values,
+                    expected_null_bitmap, 1);
+
+  auto key_builder = std::make_shared<StringBuilder>();
+  auto item_builder = std::make_shared<Int32Builder>();
+  MapBuilder map_builder(default_memory_pool(), key_builder, item_builder);
+
+  std::shared_ptr<Array> actual;
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->Append("joe"));
+  ASSERT_OK(item_builder->Append(0));
+  ASSERT_OK(key_builder->Append("mark"));
+  ASSERT_OK(item_builder->AppendNull());
+  ASSERT_OK(map_builder.AppendNull());
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->Append("cap"));
+  ASSERT_OK(item_builder->Append(8));
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(map_builder.Finish(&actual));
+  ASSERT_OK(ValidateArray(*actual));
+
+  ASSERT_ARRAYS_EQUAL(*actual, expected);
+}
+
 // ----------------------------------------------------------------------
 // FixedSizeList tests
 

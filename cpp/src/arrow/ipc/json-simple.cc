@@ -476,10 +476,10 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
         return JSONTypeError("array", json_pair.GetType());
       }
       if (json_pair.IsNull()) {
-        return Status::Invalid("key value pairs may not be null");
+        return Status::Invalid("key item pairs may not be null");
       }
       if (json_pair.Size() != 2) {
-        return Status::Invalid("key value pair must have exactly two elements, had ",
+        return Status::Invalid("key item pair must have exactly two elements, had ",
                                json_pair.Size());
       }
       if (json_pair[0].IsNull()) {

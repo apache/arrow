@@ -496,18 +496,18 @@ Map type
 --------
 
 Map is a nested type in which each array slot contains a variable size sequence
-of key value pairs.
+of key-item pairs.
 
-A map type is specified like ``Map<K, V>``, where ``K`` and ``V`` are
-any relative type (primitive or nested) and represent the key and value types
+A map type is specified like ``Map<K, I>``, where ``K`` and ``I`` are
+any relative type (primitive or nested) and represent the key and item types
 respectively.
 
 A map array is represented by the combination of the following:
 
-* A child array (of type ``Struct<K, V>``) containing key value pairs. This has
+* A child array (of type ``Struct<K, I>``) containing key item pairs. This has
   child arrays:
   * A keys array of type ``K``. This array may not contain nulls.
-  * A values array of type ``V``.
+  * An items array of type ``I``.
 * An offsets buffer containing 32-bit signed integers with length equal to the
   length of the top-level array plus one. Note that this limits the size of the
   child arrays to 2 :sup:`31` -1.
@@ -516,9 +516,9 @@ The offsets array encodes a start position in the child arrays, and the length
 of the map in each slot is computed using the first difference with the next
 element in the offsets array. (Equivalent offsets layout to ``List<T>``).
 Each slice of the child arrays delimited by the offsets array represent a set
-of key value pairs in the corresponding slot of the parent map array.
+of key item pairs in the corresponding slot of the parent map array.
 
-Example Layout: ``Map<K, V>`` Array
+Example Layout: ``Map<K, I>`` Array
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Let's consider an example, the type ``Map<String, Int32>``.
@@ -546,7 +546,7 @@ will have the following representation: ::
       * Length: 3, Null count: 0
       * Null bitmap buffer: Not required
 
-      * 'key' array (`String`):
+      * 'keys' array (`String`):
         * Length: 3, Null count: 0
         * Null bitmap buffer: Not required
         * Offsets buffer (int32):
@@ -561,7 +561,7 @@ will have the following representation: ::
           |----------------|
           | joemarkcap     |
 
-      * 'values' array (`Int32`):
+      * 'items' array (`Int32`):
         * Length: 3, Null count: 1
         * Null bitmap buffer:
 
