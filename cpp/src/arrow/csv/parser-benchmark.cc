@@ -28,13 +28,14 @@
 namespace arrow {
 namespace csv {
 
-// Can't have static str.
+// Linter stipulates:
+// >> For a static/global string constant, use a C style string instead
 const char* one_row = "abc,\"d,f\",12.34,\n";
 const char* one_row_escaped = "abc,d\\,f,12.34,\n";
 
-size_t num_rows = (1024 * 8) / strlen(one_row);
+size_t num_rows = (1024 * 64) / strlen(one_row);
 
-static std::string BuildCsvData(const std::string& row, size_t repeat) {
+static std::string BuildCSVData(const std::string& row, size_t repeat) {
   std::stringstream ss;
   for (size_t i = 0; i < repeat; ++i) {
     ss << row;
@@ -57,7 +58,7 @@ static void BenchmarkCSVChunking(benchmark::State& state,  // NOLINT non-const r
 }
 
 static void ChunkCSVQuotedBlock(benchmark::State& state) {  // NOLINT non-const reference
-  auto csv = BuildCsvData(one_row, num_rows);
+  auto csv = BuildCSVData(one_row, num_rows);
   auto options = ParseOptions::Defaults();
   options.quoting = true;
   options.escaping = false;
@@ -67,7 +68,7 @@ static void ChunkCSVQuotedBlock(benchmark::State& state) {  // NOLINT non-const 
 }
 
 static void ChunkCSVEscapedBlock(benchmark::State& state) {  // NOLINT non-const reference
-  auto csv = BuildCsvData(one_row_escaped, num_rows);
+  auto csv = BuildCSVData(one_row_escaped, num_rows);
   auto options = ParseOptions::Defaults();
   options.quoting = false;
   options.escaping = true;
@@ -78,7 +79,7 @@ static void ChunkCSVEscapedBlock(benchmark::State& state) {  // NOLINT non-const
 
 static void ChunkCSVNoNewlinesBlock(
     benchmark::State& state) {  // NOLINT non-const reference
-  auto csv = BuildCsvData(one_row_escaped, num_rows);
+  auto csv = BuildCSVData(one_row_escaped, num_rows);
   auto options = ParseOptions::Defaults();
   options.quoting = true;
   options.escaping = false;
@@ -120,7 +121,7 @@ static void BenchmarkCSVParsing(benchmark::State& state,  // NOLINT non-const re
 }
 
 static void ParseCSVQuotedBlock(benchmark::State& state) {  // NOLINT non-const reference
-  auto csv = BuildCsvData(one_row, num_rows);
+  auto csv = BuildCSVData(one_row, num_rows);
   auto options = ParseOptions::Defaults();
   options.quoting = true;
   options.escaping = false;
@@ -129,7 +130,7 @@ static void ParseCSVQuotedBlock(benchmark::State& state) {  // NOLINT non-const 
 }
 
 static void ParseCSVEscapedBlock(benchmark::State& state) {  // NOLINT non-const reference
-  auto csv = BuildCsvData(one_row_escaped, num_rows);
+  auto csv = BuildCSVData(one_row_escaped, num_rows);
   auto options = ParseOptions::Defaults();
   options.quoting = false;
   options.escaping = true;

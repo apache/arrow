@@ -55,21 +55,6 @@ constexpr int64_t kBytesProcessed = kRounds * kBytesProcessPerRound;
 static const char* kBinaryString = "12345678";
 static arrow::util::string_view kBinaryView(kBinaryString);
 
-// This benchmarks acts as a reference to the native std::vector
-// implementation. It appends kRounds chunks into a vector.
-static void ReferenceBuildVectorNoNulls(
-    benchmark::State& state) {  // NOLINT non-const reference
-  for (auto _ : state) {
-    std::vector<int64_t> builder;
-
-    for (int i = 0; i < kRounds; i++) {
-      builder.insert(builder.end(), kData.cbegin(), kData.cend());
-    }
-  }
-
-  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
-}
-
 static void BuildIntArrayNoNulls(benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
     Int64Builder builder;
@@ -366,7 +351,26 @@ static void ArrayDataConstructDestruct(
 // Benchmark declarations
 //
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
+// This benchmarks acts as a reference to the native std::vector
+// implementation. It appends kRounds chunks into a vector.
+static void ReferenceBuildVectorNoNulls(
+    benchmark::State& state) {  // NOLINT non-const reference
+  for (auto _ : state) {
+    std::vector<int64_t> builder;
+
+    for (int i = 0; i < kRounds; i++) {
+      builder.insert(builder.end(), kData.cbegin(), kData.cend());
+    }
+  }
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+}
+
 BENCHMARK(ReferenceBuildVectorNoNulls);
+
+#endif
 
 BENCHMARK(BuildBooleanArrayNoNulls);
 
