@@ -159,14 +159,14 @@ class SerializedPageWriter : public PageWriter {
         data_encryptor_(data_encryptor) {
     if (data_encryptor_ != NULLPTR) {
       // prepare the add for quick update later
-      data_pageAAD_ = encryption::CreateModuleAad(
-          data_encryptor_->file_aad(), encryption::kDataPage, row_group_ordinal_,
-          column_ordinal_, (int16_t)-1);
+      data_pageAAD_ =
+          encryption::CreateModuleAad(data_encryptor_->file_aad(), encryption::kDataPage,
+                                      row_group_ordinal_, column_ordinal_, (int16_t)-1);
     }
     if (meta_encryptor_ != NULLPTR) {
       data_page_headerAAD_ = encryption::CreateModuleAad(
-          meta_encryptor_->file_aad(), encryption::kDataPageHeader,
-          row_group_ordinal_, column_ordinal_, (int16_t)-1);
+          meta_encryptor_->file_aad(), encryption::kDataPageHeader, row_group_ordinal_,
+          column_ordinal_, (int16_t)-1);
     }
     compressor_ = GetCodecFromArrow(codec);
     thrift_serializer_.reset(new ThriftSerializer);
@@ -195,10 +195,9 @@ class SerializedPageWriter : public PageWriter {
     std::shared_ptr<Buffer> encrypted_data_buffer = nullptr;
     if (data_encryptor_.get()) {
       data_encryptor_->update_aad(
-          parquet_encryption::createModuleAAD(data_encryptor_->file_aad(),
-                                              parquet_encryption::DictionaryPage,
-                                              row_group_ordinal_,
-                                              column_ordinal_, (int16_t)-1));
+          encryption::CreateModuleAad(
+              data_encryptor_->file_aad(), encryption::kDictionaryPage, row_group_ordinal_,
+              column_ordinal_, (int16_t)-1));
       encrypted_data_buffer = std::static_pointer_cast<ResizableBuffer>(
           AllocateBuffer(pool_, data_encryptor_->CiphertextSizeDelta() + output_data_len));
       output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
@@ -243,8 +242,8 @@ class SerializedPageWriter : public PageWriter {
                       fallback);
     if (meta_encryptor_ != nullptr) {
       meta_encryptor_->update_aad(encryption::CreateModuleAad(
-          meta_encryptor_->file_aad(), encryption::kColumnMetaData,
-          row_group_ordinal_, column_ordinal_, (int16_t)-1));
+          meta_encryptor_->file_aad(), encryption::kColumnMetaData, row_group_ordinal_,
+          column_ordinal_, (int16_t)-1));
     }
     // Write metadata at end of column chunk
     metadata_->WriteTo(sink_.get(), meta_encryptor_);

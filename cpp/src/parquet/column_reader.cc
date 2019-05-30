@@ -141,15 +141,15 @@ class SerializedPageReader : public PageReader {
     if (data_decryptor_ != NULLPTR) {
       DCHECK(!data_decryptor_->file_aad().empty());
       // prepare the AAD for quick update later
-      data_pageAAD_ = encryption::CreateModuleAad(
-          data_decryptor_->file_aad(), encryption::kDataPage, row_group_ordinal_,
-          column_ordinal_, (int16_t)-1);
+      data_pageAAD_ =
+          encryption::CreateModuleAad(data_decryptor_->file_aad(), encryption::kDataPage,
+                                      row_group_ordinal_, column_ordinal_, (int16_t)-1);
     }
     if (meta_decryptor_ != NULLPTR) {
       DCHECK(!meta_decryptor_->file_aad().empty());
       data_page_headerAAD_ = encryption::CreateModuleAad(
-          meta_decryptor_->file_aad(), encryption::kDataPageHeader,
-          row_group_ordinal_, column_ordinal_, (int16_t)-1);
+          meta_decryptor_->file_aad(), encryption::kDataPageHeader, row_group_ordinal_,
+          column_ordinal_, (int16_t)-1);
     }
   }
 
@@ -260,8 +260,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       if (current_page_is_dictionary) {
         std::string dictionary_page_aad;
         dictionary_page_aad = encryption::CreateModuleAad(
-            data_decryptor_->file_aad(), encryption::kDictionaryPage,
-            row_group_ordinal_, column_ordinal_, (int16_t)-1);
+            data_decryptor_->file_aad(), encryption::kDictionaryPage, row_group_ordinal_,
+            column_ordinal_, (int16_t)-1);
         data_decryptor_->update_aad(dictionary_page_aad);
       } else {
         encryption::QuickUpdatePageAad(data_pageAAD_, page_ordinal_);

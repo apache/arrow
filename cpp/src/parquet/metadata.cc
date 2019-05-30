@@ -199,8 +199,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
         DCHECK(file_decryptor != NULLPTR);
 
         std::string aad_column_metadata = encryption::CreateModuleAad(
-            file_decryptor->file_aad(), encryption::kColumnMetaData,
-            row_group_ordinal, column_ordinal, (int16_t)-1);
+            file_decryptor->file_aad(), encryption::kColumnMetaData, row_group_ordinal,
+            column_ordinal, (int16_t)-1);
         auto decryptor = file_decryptor->GetColumnMetaDecryptor(path, key_metadata,
                                                                 aad_column_metadata);
         uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
@@ -477,9 +477,9 @@ class FileMetaData::FileMetaDataImpl {
                                           serialized_len);
     uint32_t encrypted_len = encryptor->SignedFooterEncrypt(
         serialized_data, serialized_len, nonce, encrypted_buffer.data());
-    return 0 == memcmp(encrypted_buffer.data() + encrypted_len -
-                           encryption::kGcmTagLength,
-                       tag, encryption::kGcmTagLength);
+    return 0 ==
+           memcmp(encrypted_buffer.data() + encrypted_len - encryption::kGcmTagLength,
+                  tag, encryption::kGcmTagLength);
   }
 
   inline uint32_t size() const { return metadata_len_; }
