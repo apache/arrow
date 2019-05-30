@@ -705,6 +705,66 @@ class ListColumn(Column):
         return [self.values.get_json()]
 
 
+class MapType(DataType):
+
+    def __init__(self, name, key_type, item_type, nullable=True, keysSorted=False):
+        super(MapType, self).__init__(name, nullable=nullable)
+
+        print('halp', key_type.nullable)
+        assert not key_type.nullable
+        self.key_type = key_type
+        self.item_type = item_type
+        self.pair_type = StructType('item', [key_type, item_type], False)
+        self.keysSorted = keysSorted
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'map'),
+            ('keysSorted', self.keysSorted)
+        ])
+
+    def _get_children(self):
+        return [self.key_type.get_json(), self.item_type.get_json()]
+
+    def generate_column(self, size, name=None):
+        MAX_MAP_SIZE = 4
+
+        is_valid = self._make_is_valid(size)
+        map_sizes = np.random.randint(0, MAX_MAP_SIZE + 1, size=size)
+        offsets = [0]
+
+        offset = 0
+        for i in range(size):
+            if is_valid[i]:
+                offset += int(map_sizes[i])
+            offsets.append(offset)
+
+        # The offset now is the total number of elements in the child array
+        pairs = self.pair_type.generate_column(offset)
+        if name is None:
+            name = self.name
+
+        return MapColumn(name, size, is_valid, offsets, pairs)
+
+
+class MapColumn(Column):
+
+    def __init__(self, name, count, is_valid, offsets, pairs):
+        super(MapColumn, self).__init__(name, count)
+        self.is_valid = is_valid
+        self.offsets = offsets
+        self.pairs = pairs
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('OFFSET', list(self.offsets))
+        ]
+
+    def _get_children(self):
+        return [self.pairs.get_json()]
+
+
 class StructType(DataType):
 
     def __init__(self, name, field_types, nullable=True):
@@ -960,6 +1020,8 @@ def generate_interval_case():
 def generate_nested_case():
     fields = [
         ListType('list_nullable', get_field('item', 'int32')),
+        MapType('map_nullable', get_field('key', 'utf8', False),
+                get_field('item', 'int32')),
         StructType('struct_nullable', [get_field('f1', 'int32'),
                                        get_field('f2', 'utf8')]),
 
