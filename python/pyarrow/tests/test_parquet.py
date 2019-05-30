@@ -2666,3 +2666,43 @@ def test_parquet_file_too_small(tempdir):
         with open(path, 'wb') as f:
             f.write(b'ffff')
         pq.read_table(path)
+
+def test_multi_dataset_metadata(tempdir):
+    filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
+    metapath = tempdir / "_metadata"
+
+    # create a test dataset
+    df = pd.DataFrame({
+        'one': [1, 2, 3],
+        'two': [-1, -2, -3],
+        'three': [[1, 2], [2, 3], [3, 4]],
+        })
+    table = pa.Table.from_pandas(df)
+
+    # write dataset twice and collect/merge metadata
+    _meta = None
+    for filename in filenames:
+        meta = []
+        pq.write_to_dataset(table, 
+                            root_path=str(tempdir / filename),
+                            partition_cols=['one', 'two'],
+                            metadata_collector=meta)
+        meta[0].set_file_path(filename)
+        if _meta is None:
+            _meta = meta[0]
+        else:
+            _meta.append_row_groups(meta[0])
+
+    # Write merged metadata-only file
+    with open(metapath, "wb") as fil: 
+        _meta.write_metadata_file(fil)
+
+    # Read back the dataset
+    dataset = pq.ParquetDataset(metapath)
+    metadata_list = [p.get_metadata() for p in dataset.pieces]
+    md = metadata_list[0].to_dict()
+    _md = _meta.to_dict()
+    for key in _md:
+        if key is not 'serialized_size':
+            assert _md[key] == md[key]
+    assert len(metadata_list) == 1
