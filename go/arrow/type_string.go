@@ -4,9 +4,46 @@ package arrow
 
 import "strconv"
 
-const _Type_name = "NULLBOOLUINT8INT8UINT16INT16UINT32INT32UINT64INT64HALF_FLOATFLOAT32FLOAT64STRINGBINARYFIXED_SIZE_BINARYDATE32DATE64TIMESTAMPTIME32TIME64INTERVALDECIMALLISTSTRUCTUNIONDICTIONARYMAP"
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[NULL-0]
+	_ = x[BOOL-1]
+	_ = x[UINT8-2]
+	_ = x[INT8-3]
+	_ = x[UINT16-4]
+	_ = x[INT16-5]
+	_ = x[UINT32-6]
+	_ = x[INT32-7]
+	_ = x[UINT64-8]
+	_ = x[INT64-9]
+	_ = x[HALF_FLOAT-10]
+	_ = x[FLOAT32-11]
+	_ = x[FLOAT64-12]
+	_ = x[STRING-13]
+	_ = x[BINARY-14]
+	_ = x[FIXED_SIZE_BINARY-15]
+	_ = x[DATE32-16]
+	_ = x[DATE64-17]
+	_ = x[TIMESTAMP-18]
+	_ = x[TIME32-19]
+	_ = x[TIME64-20]
+	_ = x[INTERVAL-21]
+	_ = x[DECIMAL-22]
+	_ = x[LIST-23]
+	_ = x[STRUCT-24]
+	_ = x[UNION-25]
+	_ = x[DICTIONARY-26]
+	_ = x[MAP-27]
+	_ = x[EXTENSION-28]
+	_ = x[FIXED_SIZE_LIST-29]
+	_ = x[DURATION-30]
+}
 
-var _Type_index = [...]uint8{0, 4, 8, 13, 17, 23, 28, 34, 39, 45, 50, 60, 67, 74, 80, 86, 103, 109, 115, 124, 130, 136, 144, 151, 155, 161, 166, 176, 179}
+const _Type_name = "NULLBOOLUINT8INT8UINT16INT16UINT32INT32UINT64INT64HALF_FLOATFLOAT32FLOAT64STRINGBINARYFIXED_SIZE_BINARYDATE32DATE64TIMESTAMPTIME32TIME64INTERVALDECIMALLISTSTRUCTUNIONDICTIONARYMAPEXTENSIONFIXED_SIZE_LISTDURATION"
+
+var _Type_index = [...]uint8{0, 4, 8, 13, 17, 23, 28, 34, 39, 45, 50, 60, 67, 74, 80, 86, 103, 109, 115, 124, 130, 136, 144, 151, 155, 161, 166, 176, 179, 188, 203, 211}
 
 func (i Type) String() string {
 	if i < 0 || i >= Type(len(_Type_index)-1) {

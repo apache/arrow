@@ -371,6 +371,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 	case *arrow.ListType:
 		return ctx.loadList(dt)
 
+	case *arrow.FixedSizeListType:
+		return ctx.loadFixedSizeList(dt)
+
 	case *arrow.StructType:
 		return ctx.loadStruct(dt)
 
@@ -463,6 +466,19 @@ func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) array.Interface {
 	defer data.Release()
 
 	return array.NewListData(data)
+}
+
+func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) array.Interface {
+	field, buffers := ctx.loadCommon(2)
+	buffers = append(buffers, ctx.buffer())
+
+	sub := ctx.loadChild(dt.Elem())
+	defer sub.Release()
+
+	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	defer data.Release()
+
+	return array.NewFixedSizeListData(data)
 }
 
 func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) array.Interface {

@@ -192,11 +192,11 @@ func init() {
 		arrow.UNION:             unsupportedArrayType,
 		arrow.DICTIONARY:        unsupportedArrayType,
 		arrow.MAP:               unsupportedArrayType,
+		arrow.EXTENSION:         unsupportedArrayType,
+		arrow.FIXED_SIZE_LIST:   func(data *Data) Interface { return NewFixedSizeListData(data) },
+		arrow.DURATION:          unsupportedArrayType,
 
 		// invalid data types to fill out array size 2⁵-1
-		28: invalidDataType,
-		29: invalidDataType,
-		30: invalidDataType,
 		31: invalidDataType,
 	}
 }

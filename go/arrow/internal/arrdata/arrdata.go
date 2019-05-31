@@ -36,6 +36,7 @@ func init() {
 	Records["structs"] = makeStructsRecords()
 	Records["lists"] = makeListsRecords()
 	Records["strings"] = makeStringsRecords()
+	Records["fixed_size_lists"] = makeFixedSizeListsRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -220,6 +221,56 @@ func makeListsRecords() []array.Record {
 	return recs
 }
 
+func makeFixedSizeListsRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+	const N = 3
+	dtype := arrow.FixedSizeListOf(N, arrow.PrimitiveTypes.Int32)
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "fixed_size_list_nullable", Type: dtype, Nullable: true},
+	}, nil)
+
+	mask := []bool{true, false, true}
+
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			fixedSizeListOf(mem, N, []array.Interface{
+				arrayOf(mem, []int32{1, 2, 3}, mask),
+				arrayOf(mem, []int32{11, 12, 13}, mask),
+				arrayOf(mem, []int32{21, 22, 23}, mask),
+			}, nil),
+		},
+		[]array.Interface{
+			fixedSizeListOf(mem, N, []array.Interface{
+				arrayOf(mem, []int32{-1, -2, -3}, mask),
+				arrayOf(mem, []int32{-11, -12, -13}, mask),
+				arrayOf(mem, []int32{-21, -22, -23}, mask),
+			}, nil),
+		},
+		[]array.Interface{
+			fixedSizeListOf(mem, N, []array.Interface{
+				arrayOf(mem, []int32{-1, -2, -3}, mask),
+				arrayOf(mem, []int32{-11, -12, -13}, mask),
+				arrayOf(mem, []int32{-21, -22, -23}, mask),
+			}, []bool{true, false, true}),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func makeStringsRecords() []array.Record {
 	mem := memory.NewGoAllocator()
 	schema := arrow.NewSchema([]arrow.Field{
@@ -367,6 +418,30 @@ func listOf(mem memory.Allocator, values []array.Interface, valids []bool) *arra
 	}
 
 	bldr := array.NewListBuilder(mem, values[0].DataType())
+	defer bldr.Release()
+
+	valid := func(i int) bool {
+		return valids[i]
+	}
+
+	if valids == nil {
+		valid = func(i int) bool { return true }
+	}
+
+	for i, value := range values {
+		bldr.Append(valid(i))
+		buildArray(bldr.ValueBuilder(), value)
+	}
+
+	return bldr.NewListArray()
+}
+
+func fixedSizeListOf(mem memory.Allocator, n int32, values []array.Interface, valids []bool) *array.FixedSizeList {
+	if mem == nil {
+		mem = memory.NewGoAllocator()
+	}
+
+	bldr := array.NewFixedSizeListBuilder(mem, n, values[0].DataType())
 	defer bldr.Release()
 
 	valid := func(i int) bool {
