@@ -128,7 +128,8 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   /// returns 0-length string_view. May trigger buffering if the
   /// requested size is larger than the number of buffered bytes
   /// \param[in] nbytes the maximum number of bytes to see
-  /// \return arrow::util::string_view
+  /// \param[out] out the returned arrow::util::string_view
+  /// \return Status
   virtual Status Peek(int64_t nbytes, util::string_view* out);
 
   /// \brief Return true if InputStream is capable of zero copy Buffer reads
