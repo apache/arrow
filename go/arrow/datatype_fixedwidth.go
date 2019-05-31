@@ -95,12 +95,14 @@ func (t *Time64Type) String() string { return "time64[" + t.Unit.String() + "]" 
 var (
 	FixedWidthTypes = struct {
 		Boolean  FixedWidthDataType
+		Float16  FixedWidthDataType
 		Time32s  FixedWidthDataType
 		Time32ms FixedWidthDataType
 		Time64us FixedWidthDataType
 		Time64ns FixedWidthDataType
 	}{
 		Boolean:  &BooleanType{},
+		Float16:  &Float16Type{},
 		Time32s:  &Time32Type{Unit: Second},
 		Time32ms: &Time32Type{Unit: Millisecond},
 		Time64us: &Time64Type{Unit: Microsecond},
@@ -109,3 +111,11 @@ var (
 
 	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)
 )
+
+type Float16Type struct{}
+
+func (t *Float16Type) ID() Type     { return FLOAT16 }
+func (t *Float16Type) Name() string { return "float16" }
+
+// BitWidth returns the number of bits required to store a single element of this data type in memory.
+func (t *Float16Type) BitWidth() int { return 16 }

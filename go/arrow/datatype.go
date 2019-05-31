@@ -53,8 +53,8 @@ const (
 	// INT64 is a Signed 64-bit little-endian integer
 	INT64
 
-	// HALF_FLOAT is a 2-byte floating point value
-	HALF_FLOAT
+	// FLOAT16 is a 2-byte floating point value
+	FLOAT16
 
 	// FLOAT32 is a 4-byte floating point value
 	FLOAT32

@@ -174,7 +174,7 @@ func init() {
 		arrow.INT32:             func(data *Data) Interface { return NewInt32Data(data) },
 		arrow.UINT64:            func(data *Data) Interface { return NewUint64Data(data) },
 		arrow.INT64:             func(data *Data) Interface { return NewInt64Data(data) },
-		arrow.HALF_FLOAT:        unsupportedArrayType,
+		arrow.FLOAT16:           func(data *Data) Interface { return NewFloat16Data(data) },
 		arrow.FLOAT32:           func(data *Data) Interface { return NewFloat32Data(data) },
 		arrow.FLOAT64:           func(data *Data) Interface { return NewFloat64Data(data) },
 		arrow.STRING:            func(data *Data) Interface { return NewStringData(data) },
