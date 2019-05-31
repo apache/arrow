@@ -224,8 +224,15 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		p.body = append(p.body, nil)
 
 	case *arrow.BooleanType:
-		data := arr.Data()
-		p.body = append(p.body, newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[1]))
+		var (
+			data = arr.Data()
+			bitm *memory.Buffer
+		)
+
+		if data.Len() != 0 {
+			bitm = newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[1])
+		}
+		p.body = append(p.body, bitm)
 
 	case arrow.FixedWidthDataType:
 		data := arr.Data()
@@ -237,7 +244,9 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		case needTruncate(int64(data.Offset()), values, minLength):
 			panic("not implemented") // FIXME(sbinet) writer.cc:212
 		default:
-			values.Retain()
+			if values != nil {
+				values.Retain()
+			}
 		}
 		p.body = append(p.body, values)
 

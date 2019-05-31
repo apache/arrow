@@ -18,7 +18,6 @@ package array
 
 import (
 	"fmt"
-	"reflect"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
@@ -187,10 +186,10 @@ func (rec *simpleRecord) validate() error {
 				arr.Len(), rec.rows,
 			)
 		}
-		if !reflect.DeepEqual(f.Type, arr.DataType()) {
+		if !arrow.TypeEquals(f.Type, arr.DataType()) {
 			return fmt.Errorf("arrow/array: column %q type mismatch: got=%v, want=%v",
 				f.Name,
-				arr.DataType().Name(), f.Type.Name(),
+				arr.DataType(), f.Type,
 			)
 		}
 	}

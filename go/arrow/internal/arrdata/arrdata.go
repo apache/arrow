@@ -203,6 +203,14 @@ func makeListsRecords() []array.Record {
 				arrayOf(mem, []int32{-21, -22, -23, -24, -25}, mask),
 			}, []bool{true, false, true}),
 		},
+		[]array.Interface{
+			func() array.Interface {
+				bldr := array.NewListBuilder(mem, arrow.PrimitiveTypes.Int32)
+				defer bldr.Release()
+
+				return bldr.NewListArray()
+			}(),
+		},
 	}
 
 	defer func() {
