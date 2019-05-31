@@ -343,6 +343,7 @@ matrix:
     env:
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_USE_SYSTEM=1
+    - ARROW_TRAVIS_USE_VENDORED_BOOST=1
     before_install:
     # Have to copy-paste this here because of how R's build steps work
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
