@@ -114,8 +114,9 @@ var (
 
 type Float16Type struct{}
 
-func (t *Float16Type) ID() Type     { return FLOAT16 }
-func (t *Float16Type) Name() string { return "float16" }
+func (t *Float16Type) ID() Type       { return FLOAT16 }
+func (t *Float16Type) Name() string   { return "float16" }
+func (t *Float16Type) String() string { return "float16" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *Float16Type) BitWidth() int { return 16 }
