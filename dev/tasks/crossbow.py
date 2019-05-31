@@ -19,7 +19,6 @@
 
 import os
 import re
-import sys
 import time
 import click
 import hashlib
@@ -618,9 +617,12 @@ def load_tasks_from_config(config_path, task_names, group_names):
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
+@click.option('--output', metavar='<output>',
+              type=click.File('w', encoding='utf8'), default='-',
+              help='Capture output result into file.')
 @click.pass_context
 def submit(ctx, task, group, job_prefix, config_path, arrow_version,
-           arrow_repo, arrow_branch, arrow_sha, dry_run):
+           arrow_repo, arrow_branch, arrow_sha, dry_run, output):
     queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
 
     if arrow_repo is not None:
@@ -663,35 +665,29 @@ def submit(ctx, task, group, job_prefix, config_path, arrow_version,
     job = Job(target=target, tasks=tasks)
 
     if dry_run:
-        yaml.dump(job, sys.stdout)
-        delimiter = '-' * 79
-        for task_name, task in job.tasks.items():
-            files = task.render_files(job=job, arrow=job.target)
-            for filename, content in files.items():
-                click.echo('\n\n')
-                click.echo(delimiter)
-                click.echo('{:<29}{:>50}'.format(task_name, filename))
-                click.echo(delimiter)
-                click.echo(content)
+        yaml.dump(job, output)
     else:
         queue.fetch()
         queue.put(job, prefix=job_prefix)
         queue.push()
-        yaml.dump(job, sys.stdout)
+        yaml.dump(job, output)
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
 
 @crossbow.command()
 @click.argument('job-name', required=True)
+@click.option('--output', metavar='<output>',
+              type=click.File('w', encoding='utf8'), default='-',
+              help='Capture output result into file.')
 @click.pass_context
-def status(ctx, job_name):
+def status(ctx, job_name, output):
     queue = ctx.obj['queue']
     queue.fetch()
 
     tpl = '[{:>7}] {:<49} {:>20}'
     header = tpl.format('status', 'branch', 'artifacts')
-    click.echo(header)
-    click.echo('-' * len(header))
+    click.echo(header, file=output)
+    click.echo('-' * len(header), file=output)
 
     job = queue.get(job_name)
     statuses = queue.github_statuses(job)
@@ -705,7 +701,7 @@ def status(ctx, job_name):
             len(task.artifacts)
         )
         leadline = tpl.format(status.state.upper(), task.branch, uploaded)
-        click.echo(click.style(leadline, fg=COLORS[status.state]))
+        click.echo(click.style(leadline, fg=COLORS[status.state]), file=output)
 
         for artifact in task.artifacts:
             try:
@@ -718,7 +714,8 @@ def status(ctx, job_name):
                 filename = '{:>70} '.format(asset.name)
 
             statemsg = '[{:>7}]'.format(state.upper())
-            click.echo(filename + click.style(statemsg, fg=COLORS[state]))
+            click.echo(filename + click.style(statemsg, fg=COLORS[state]),
+                       file=output)
 
 
 def hashbytes(bytes, algoname):
