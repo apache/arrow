@@ -2669,7 +2669,7 @@ def test_parquet_file_too_small(tempdir):
 
 def test_multi_dataset_metadata(tempdir):
     filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
-    metapath = tempdir / "_metadata"
+    metapath = str(tempdir / "_metadata")
 
     # create a test dataset
     df = pd.DataFrame({
@@ -2694,8 +2694,8 @@ def test_multi_dataset_metadata(tempdir):
             _meta.append_row_groups(meta[0])
 
     # Write merged metadata-only file
-    with open(metapath, "wb") as fil: 
-        _meta.write_metadata_file(fil)
+    with open(metapath, "wb") as f: 
+        _meta.write_metadata_file(f)
 
     # Read back the dataset
     dataset = pq.ParquetDataset(metapath)

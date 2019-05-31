@@ -193,7 +193,7 @@ class PARQUET_EXPORT FileWriter {
 PARQUET_EXPORT
 ::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata,
                                   OutputStream* sink,
-                                  const bool metafile=false);
+                                  const bool metafile = false);
 
 /// \brief Write Parquet file metadata only to indicated Arrow OutputStream
 PARQUET_EXPORT

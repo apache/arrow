@@ -29,13 +29,12 @@ namespace parquet {
 namespace metadata {
 
 // Helper function for generating table metadata
-std::unique_ptr<parquet::FileMetaData> 
+std::unique_ptr<parquet::FileMetaData>
     generate_table_metadata(const parquet::SchemaDescriptor& schema,
                             const std::shared_ptr<WriterProperties>& props,
-                            const int& nrows,
-                            EncodedStatistics stats_int, 
+                            const int64_t& nrows,
+                            EncodedStatistics stats_int,
                             EncodedStatistics stats_float) {
-
   auto f_builder = FileMetaDataBuilder::Make(&schema, props);
   auto rg1_builder = f_builder->AppendRowGroup();
 
