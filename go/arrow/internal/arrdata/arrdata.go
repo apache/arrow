@@ -335,6 +335,8 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrow.Field{Name: "time64ns", Type: arrow.FixedWidthTypes.Time64ns, Nullable: true},
 			arrow.Field{Name: "time64us", Type: arrow.FixedWidthTypes.Time64us, Nullable: true},
 			arrow.Field{Name: "timestamp", Type: arrow.FixedWidthTypes.Timestamp, Nullable: true},
+			arrow.Field{Name: "date32s", Type: arrow.FixedWidthTypes.Date32, Nullable: true},
+			arrow.Field{Name: "date64s", Type: arrow.FixedWidthTypes.Date64, Nullable: true},
 		}, nil,
 	)
 
@@ -355,6 +357,8 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrayOf(mem, []time64ns{-2, -1, 0, +1, +2}, mask),
 			arrayOf(mem, []time64us{-2, -1, 0, +1, +2}, mask),
 			arrayOf(mem, []arrow.Timestamp{0, +1, +2, +3, +4}, mask),
+			arrayOf(mem, []arrow.Date32{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []arrow.Date64{-2, -1, 0, +1, +2}, mask),
 		},
 		[]array.Interface{
 			arrayOf(mem, float16s([]float32{+11, +12, +13, +14, +15}), mask),
@@ -363,6 +367,8 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrayOf(mem, []time64ns{-12, -11, 10, +11, +12}, mask),
 			arrayOf(mem, []time64us{-12, -11, 10, +11, +12}, mask),
 			arrayOf(mem, []arrow.Timestamp{10, +11, +12, +13, +14}, mask),
+			arrayOf(mem, []arrow.Date32{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []arrow.Date64{-12, -11, 10, +11, +12}, mask),
 		},
 		[]array.Interface{
 			arrayOf(mem, float16s([]float32{+21, +22, +23, +24, +25}), mask),
@@ -371,6 +377,8 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrayOf(mem, []time64ns{-22, -21, 20, +21, +22}, mask),
 			arrayOf(mem, []time64us{-22, -21, 20, +21, +22}, mask),
 			arrayOf(mem, []arrow.Timestamp{20, +21, +22, +23, +24}, mask),
+			arrayOf(mem, []arrow.Date32{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []arrow.Date64{-22, -21, 20, +21, +22}, mask),
 		},
 	}
 
@@ -540,6 +548,20 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 
 	case []arrow.Timestamp:
 		bldr := array.NewTimestampBuilder(mem, arrow.FixedWidthTypes.Timestamp.(*arrow.TimestampType))
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+
+	case []arrow.Date32:
+		bldr := array.NewDate32Builder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+
+	case []arrow.Date64:
+		bldr := array.NewDate64Builder(mem)
 		defer bldr.Release()
 
 		bldr.AppendValues(a, valids)
