@@ -157,8 +157,11 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
   if(NOT APPLE)
     set(MORE_ARGS "-T")
   endif()
-  execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-                                              ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+  execute_process(COMMAND ln
+                          ${MORE_ARGS}
+                          -sf
+                          ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                          ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
   set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}")
 endif()

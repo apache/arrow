@@ -140,9 +140,11 @@ get_filename_component(ABS_PARQUET_THRIFT parquet.thrift ABSOLUTE)
 
 add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
                    COMMAND ${THRIFT_COMPILER}
-                           --gen cpp
+                           --gen
+                           cpp
                            -out
-                           ${THRIFT_OUTPUT_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
+                           ${THRIFT_OUTPUT_DIR}
+                           ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
                    DEPENDS ${ABS_PARQUET_THRIFT} Thrift::thrift
                    COMMENT "Running thrift compiler on parquet.thrift"
                    VERBATIM)
