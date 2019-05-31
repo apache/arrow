@@ -53,7 +53,7 @@ export abstract class BaseVector<T extends DataType = any> extends AbstractVecto
     public get byteLength() { return this.data.byteLength; }
     public get VectorName() { return `${Type[this.typeId]}Vector`; }
 
-    public get ArrayType(): T['ArrayType'] { return this.data.ArrayType; }
+    public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }
 
     public get values() { return this.data.values; }
     public get typeIds() { return this.data.typeIds; }

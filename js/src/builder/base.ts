@@ -58,6 +58,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     constructor({ 'type': type, 'nullValues': nulls }: BuilderOptions<T, TNull>) {
         this.type = type;
         this.children = [];
+        this.nullValues = nulls;
         this.stride = strideForType(type);
         this._nulls = new BitmapBuilder();
         if (nulls && nulls.length > 0) {
@@ -70,6 +71,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     public finished = false;
     public readonly stride: number;
     public readonly children: Builder[];
+    public readonly nullValues?: TNull[] | ReadonlyArray<TNull> | null;
 
     public toVector() { return Vector.new(this.flush()); }
 
@@ -203,6 +205,11 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     }
 }
 
+(Builder.prototype as any).length = 1;
+(Builder.prototype as any).stride = 1;
+(Builder.prototype as any).children = null;
+(Builder.prototype as any).finished = false;
+(Builder.prototype as any).nullValues = null;
 (Builder.prototype as any)._isValid = () => true;
 
 export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
@@ -218,33 +225,49 @@ export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary 
 }
 
 export abstract class VariableWidthBuilder<T extends Binary | Utf8, TNull = any> extends Builder<T, TNull> {
+    protected _pending: number = 0;
     protected _offsets: OffsetsBufferBuilder;
-    protected _buffers: Map<number, Uint8Array> | undefined;
+    protected _buffers: Map<number, Uint8Array | undefined> | undefined;
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
         this._offsets = new OffsetsBufferBuilder();
         this._values = new BinaryBufferBuilder() as BufferBuilder<T['TArray']>;
     }
     public setValue(index: number, value: Uint8Array | string) {
-        (this._offsets.set(index, value.length));
-        (this._buffers || (this._buffers = new Map())).set(index, value);
+        const buffers = this._buffers || (this._buffers = new Map());
+        const current = buffers.get(index);
+        current && (this._pending -= current.length);
+        this._pending += value.length;
+        buffers.set(index, value);
     }
     public setValid(index: number, isValid: boolean) {
         if (!super.setValid(index, isValid)) {
-            this._offsets.append(0);
+            (this._buffers || (this._buffers = new Map())).set(index, undefined);
             return false;
         }
         return true;
     }
     public clear() {
+        this._pending = 0;
         this._buffers = undefined;
         return super.clear();
     }
     public flush() {
         const buffers = this._buffers;
         if (buffers && buffers.size > 0) {
-            this._values.reserve(this._offsets.last());
-            for (let [i, x] of buffers) { super.setValue(i, x); }
+            const offsets = this._offsets;
+            const { buffer } = this._values.reserve(this._pending);
+            let index = 0, length = 0, offset = 0, value: Uint8Array | undefined;
+            for ([index, value] of buffers) {
+                if (value === undefined) {
+                    offsets.set(index, 0);
+                } else {
+                    length = value.length;
+                    offsets.set(index, length);
+                    buffer.set(value, offset);
+                    offset += length;
+                }
+            }
         }
         return super.flush();
     }

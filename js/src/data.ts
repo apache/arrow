@@ -72,8 +72,8 @@ export class Data<T extends DataType = DataType> {
     // @ts-ignore
     public readonly valueOffsets: Buffers<T>[BufferType.OFFSET];
 
-    public get ArrayType() { return this.type.ArrayType; }
     public get typeId(): T['TType'] { return this.type.typeId; }
+    public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }
     public get buffers() {
         return [this.valueOffsets, this.values, this.nullBitmap, this.typeIds] as Buffers<T>;
     }
@@ -127,10 +127,10 @@ export class Data<T extends DataType = DataType> {
     }
 
     public slice(offset: number, length: number): Data<T> {
+        const { stride, typeId, childData } = this;
         // +true === 1, +false === 0, so this means
         // we keep nullCount at 0 if it's already 0,
         // otherwise set to the invalidated flag -1
-        const { stride, typeId, childData } = this;
         const nullCount = +(this._nullCount === 0) - 1;
         const childStride = typeId === 16 /* FixedSizeList */ ? stride : 1;
         const buffers = this._sliceBuffers(offset, length, stride, typeId);
