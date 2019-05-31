@@ -47,8 +47,6 @@ before_install:
   - if [ $TRAVIS_OS_NAME == "linux" ]; then ccache -s; fi
 
 matrix:
-  allow_failures:
-  - language: r
   fast_finish: true
   include:
   - name: "Lint, Release tests"
