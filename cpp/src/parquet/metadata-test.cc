@@ -181,7 +181,8 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ("/foo/bar/bar.parquet", rg2_column1->file_path());
 
   // Test AppendRowGroups
-  auto f_accessor_2 = generate_table_metadata(schema, props, nrows, stats_int, stats_float);
+  auto f_accessor_2 =
+        generate_table_metadata(schema, props, nrows, stats_int, stats_float);
   std::shared_ptr<parquet::FileMetaData> f_accessor_2_sp{std::move(f_accessor_2)};
   f_accessor->AppendRowGroups(f_accessor_2_sp);
   ASSERT_EQ(4, f_accessor->num_row_groups());

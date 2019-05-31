@@ -406,7 +406,7 @@ class FileMetaData::FileMetaDataImpl {
 
   void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
     format::RowGroup other_rg;
-    for (int i=0; i<other->num_row_groups(); i++) {
+    for (int i = 0; i < other->num_row_groups(); i++) {
       other_rg = other->get_row_group(i);
       metadata_->row_groups.push_back(other_rg);
       metadata_->num_rows += other_rg.num_rows;
