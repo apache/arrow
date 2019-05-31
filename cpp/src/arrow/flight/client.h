@@ -68,24 +68,35 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
 
 /// \brief A RecordBatchReader exposing Flight metadata and cancel
 /// operations.
-class ARROW_EXPORT FlightStreamReader : public MetadataRecordBatchReader {
+class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader {
  public:
   /// \brief Try to cancel the call.
   virtual void Cancel() = 0;
 };
 
+// Silence warning
+// "non dll-interface class RecordBatchReader used as base for dll-interface class"
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4275)
+#endif
+
 /// \brief A RecordBatchWriter that also allows sending
 /// application-defined metadata via the Flight protocol.
-class ARROW_EXPORT FlightStreamWriter : public ipc::RecordBatchWriter {
+class ARROW_FLIGHT_EXPORT FlightStreamWriter : public ipc::RecordBatchWriter {
  public:
   virtual Status WriteWithMetadata(const RecordBatch& batch,
                                    std::shared_ptr<Buffer> app_metadata,
                                    bool allow_64bit = false) = 0;
 };
 
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 /// \brief A reader for application-specific metadata sent back to the
 /// client during an upload.
-class ARROW_EXPORT FlightMetadataReader {
+class ARROW_FLIGHT_EXPORT FlightMetadataReader {
  public:
   virtual ~FlightMetadataReader();
   /// \brief Read a message from the server.

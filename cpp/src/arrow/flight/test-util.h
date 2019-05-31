@@ -132,7 +132,7 @@ class ARROW_FLIGHT_EXPORT BatchIterator : public RecordBatchReader {
 // A FlightDataStream that numbers the record batches
 /// \brief A basic implementation of FlightDataStream that will provide
 /// a sequence of FlightData messages to be written to a gRPC stream
-class ARROW_EXPORT NumberingStream : public FlightDataStream {
+class ARROW_FLIGHT_EXPORT NumberingStream : public FlightDataStream {
  public:
   explicit NumberingStream(std::unique_ptr<FlightDataStream> stream);
 

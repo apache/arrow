@@ -74,13 +74,6 @@ class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
   std::unique_ptr<RecordBatchStreamImpl> impl_;
 };
 
-// Silence warning
-// "non dll-interface class RecordBatchReader used as base for dll-interface class"
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4275)
-#endif
-
 /// \brief A reader for IPC payloads uploaded by a client. Also allows
 /// reading application-defined metadata via the Flight protocol.
 class ARROW_FLIGHT_EXPORT FlightMessageReader : public MetadataRecordBatchReader {
@@ -88,10 +81,6 @@ class ARROW_FLIGHT_EXPORT FlightMessageReader : public MetadataRecordBatchReader
   /// \brief Get the descriptor for this upload.
   virtual const FlightDescriptor& descriptor() const = 0;
 };
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 /// \brief A writer for application-specific metadata sent back to the
 /// client during an upload.
