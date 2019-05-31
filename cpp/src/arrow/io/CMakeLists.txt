@@ -18,19 +18,16 @@
 # ----------------------------------------------------------------------
 # arrow_io : Arrow IO interfaces
 
-add_arrow_test(test
-               SOURCES
-               buffered-test.cc
-               compressed-test.cc
-               file-test.cc
-               memory-test.cc
-               readahead-test.cc
-               PREFIX
-               "arrow-io")
+add_arrow_test(buffered-test PREFIX "arrow-io")
+add_arrow_test(compressed-test PREFIX "arrow-io")
+add_arrow_test(file-test PREFIX "arrow-io")
 
 if(ARROW_HDFS AND NOT ARROW_BOOST_HEADER_ONLY)
   add_arrow_test(hdfs-test NO_VALGRIND PREFIX "arrow-io")
 endif()
+
+add_arrow_test(memory-test PREFIX "arrow-io")
+add_arrow_test(readahead-test PREFIX "arrow-io")
 
 add_arrow_benchmark(file-benchmark PREFIX "arrow-io")
 add_arrow_benchmark(memory-benchmark PREFIX "arrow-io")
