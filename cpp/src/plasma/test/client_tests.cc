@@ -387,6 +387,38 @@ TEST_F(TestPlasmaStore, AbortTest) {
   AssertObjectBufferEqual(object_buffers[0], {42, 43}, {1, 2, 3, 4, 5});
 }
 
+TEST_F(TestPlasmaStore, OneIdCreateRepeatedlyTest) {
+  const int64_t loop_times = 5;
+
+  ObjectID object_id = random_object_id();
+  std::vector<ObjectBuffer> object_buffers;
+
+  // Test for object non-existence.
+  ARROW_CHECK_OK(client_.Get({object_id}, 0, &object_buffers));
+  ASSERT_FALSE(object_buffers[0].data);
+
+  int64_t data_size = 20;
+  uint8_t metadata[] = {5};
+  int64_t metadata_size = sizeof(metadata);
+
+  // Test the sequence: create -> release -> abort -> ...
+  for (int64_t i = 0; i < loop_times; i++) {
+    std::shared_ptr<Buffer> data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+    ARROW_CHECK_OK(client_.Release(object_id));
+    ARROW_CHECK_OK(client_.Abort(object_id));
+  }
+
+  // Test the sequence: create -> seal -> release -> delete -> ...
+  for (int64_t i = 0; i < loop_times; i++) {
+    std::shared_ptr<Buffer> data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, metadata, metadata_size, &data));
+    ARROW_CHECK_OK(client_.Seal(object_id));
+    ARROW_CHECK_OK(client_.Release(object_id));
+    ARROW_CHECK_OK(client_.Delete(object_id));
+  }
+}
+
 TEST_F(TestPlasmaStore, MultipleClientTest) {
   ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;

@@ -696,15 +696,8 @@ an out of source build by generating a MSVC solution:
    mkdir build
    cd build
    cmake .. -G "Visual Studio 14 2015 Win64" ^
-         -DARROW_BUILD_TESTS=ON ^
-         -DGTest_SOURCE=BUNDLED
+         -DARROW_BUILD_TESTS=ON
    cmake --build . --config Release
-
-.. note::
-
-   Currently building the unit tests does not work properly with googletest
-   from conda-forge, so we must use the ``BUNDLED`` source for building that
-   dependency
 
 Building with Ninja and clcache
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

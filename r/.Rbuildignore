@@ -10,3 +10,4 @@ Dockerfile
 ^windows
 clang_format.sh
 ^cran-comments\.md$
+^arrow_.*.tar.gz$

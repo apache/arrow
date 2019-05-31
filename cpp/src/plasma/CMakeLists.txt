@@ -53,8 +53,10 @@ add_custom_command(
          # messages in data structures. This is currently used for ObjectInfo for
          # example.
   COMMAND flatbuffers::flatc
-          -c -o
-          ${OUTPUT_DIR} ${PLASMA_FBS_SRC}
+          -c
+          -o
+          ${OUTPUT_DIR}
+          ${PLASMA_FBS_SRC}
           --gen-object-api
           --scoped-enums
   DEPENDS ${PLASMA_FBS_SRC}

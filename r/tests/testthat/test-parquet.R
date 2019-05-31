@@ -15,7 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Headers: util
-arrow_install_all_headers("parquet/util")
+context("Parquet file reading/writing")
 
-add_parquet_test(memory-test)
+pq_file <- system.file("v0.7.1.parquet", package="arrow")
+
+test_that("reading a known Parquet file to tibble", {
+  df <- read_parquet(pq_file)
+  expect_true(tibble::is_tibble(df))
+  expect_identical(dim(df), c(10L, 11L))
+  # TODO: assert more about the contents
+})
+
+test_that("as_tibble with and without threads", {
+  expect_identical(
+    read_parquet(pq_file),
+    read_parquet(pq_file, use_threads = FALSE)
+  )
+})

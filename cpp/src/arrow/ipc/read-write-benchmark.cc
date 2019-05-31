@@ -47,7 +47,7 @@ std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fie
   return RecordBatch::Make(schema, length, arrays);
 }
 
-static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
+static void WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
 
@@ -68,7 +68,7 @@ static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const 
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
-static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
+static void ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
 
@@ -99,16 +99,7 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
-BENCHMARK(BM_WriteRecordBatch)
-    ->RangeMultiplier(4)
-    ->Range(1, 1 << 13)
-    ->MinTime(1.0)
-    ->UseRealTime();
-
-BENCHMARK(BM_ReadRecordBatch)
-    ->RangeMultiplier(4)
-    ->Range(1, 1 << 13)
-    ->MinTime(1.0)
-    ->UseRealTime();
+BENCHMARK(WriteRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
+BENCHMARK(ReadRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 
 }  // namespace arrow

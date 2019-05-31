@@ -27,6 +27,8 @@ namespace arrow {
 namespace fs {
 namespace internal {
 
+constexpr char kSep = '/';
+
 // Computations on abstract paths (not local paths with system-dependent behaviour).
 // Abstract paths are typically used in URIs.
 
@@ -47,13 +49,16 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts);
 ARROW_EXPORT
 std::string ConcatAbstractPath(const std::string& base, const std::string& stem);
 
+ARROW_EXPORT
+std::string EnsureTrailingSlash(const std::string& s);
+
 // Join the components of an abstract path.
 template <class StringIt>
 std::string JoinAbstractPath(StringIt it, StringIt end) {
   std::string path;
   for (; it != end; ++it) {
     if (!path.empty()) {
-      path += '/';
+      path += kSep;
     }
     path += *it;
   }

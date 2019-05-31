@@ -22,9 +22,20 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+
+import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
+import org.apache.arrow.memory.rounding.RoundingPolicy;
+import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -144,6 +155,71 @@ public class TestBaseAllocator {
     }
   }
 
+  static <T> boolean equalsIgnoreOrder(Collection<T> c1, Collection<T> c2) {
+    return (c1.size() == c2.size() && c1.containsAll(c2));
+  }
+
+  @Test
+  public void testAllocator_getParentAndChild() throws Exception {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+      assertEquals(rootAllocator.getParentAllocator(), null);
+
+      try (final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("child1", 0, MAX_ALLOCATION)) {
+        assertEquals(childAllocator1.getParentAllocator(), rootAllocator);
+        assertTrue(
+            equalsIgnoreOrder(Arrays.asList(childAllocator1), rootAllocator.getChildAllocators()));
+
+        try (final BufferAllocator childAllocator2 =
+            rootAllocator.newChildAllocator("child2", 0, MAX_ALLOCATION)) {
+          assertEquals(childAllocator2.getParentAllocator(), rootAllocator);
+          assertTrue(equalsIgnoreOrder(Arrays.asList(childAllocator1, childAllocator2),
+              rootAllocator.getChildAllocators()));
+
+          try (final BufferAllocator grandChildAllocator =
+              childAllocator1.newChildAllocator("grand-child", 0, MAX_ALLOCATION)) {
+            assertEquals(grandChildAllocator.getParentAllocator(), childAllocator1);
+            assertTrue(equalsIgnoreOrder(Arrays.asList(grandChildAllocator),
+                childAllocator1.getChildAllocators()));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testAllocator_childRemovedOnClose() throws Exception {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("child1", 0, MAX_ALLOCATION)) {
+        try (final BufferAllocator childAllocator2 =
+            rootAllocator.newChildAllocator("child2", 0, MAX_ALLOCATION)) {
+
+          // root has two child allocators
+          assertTrue(equalsIgnoreOrder(Arrays.asList(childAllocator1, childAllocator2),
+              rootAllocator.getChildAllocators()));
+
+          try (final BufferAllocator grandChildAllocator =
+              childAllocator1.newChildAllocator("grand-child", 0, MAX_ALLOCATION)) {
+
+            // child1 has one allocator i.e grand-child
+            assertTrue(equalsIgnoreOrder(Arrays.asList(grandChildAllocator),
+                childAllocator1.getChildAllocators()));
+          }
+
+          // grand-child closed
+          assertTrue(
+              equalsIgnoreOrder(Collections.EMPTY_SET, childAllocator1.getChildAllocators()));
+        }
+        // root has only one child left
+        assertTrue(
+            equalsIgnoreOrder(Arrays.asList(childAllocator1), rootAllocator.getChildAllocators()));
+      }
+      // all child allocators closed.
+      assertTrue(equalsIgnoreOrder(Collections.EMPTY_SET, rootAllocator.getChildAllocators()));
+    }
+  }
+
   @Test
   public void testAllocator_shareOwnership() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
@@ -222,6 +298,64 @@ public class TestBaseAllocator {
       // ------------------------------- DEBUG ---------------------------------
       */
     }
+  }
+
+  @Test
+  public void testSegmentAllocator() {
+    RoundingPolicy policy = new SegmentRoundingPolicy(1024);
+    try (RootAllocator allocator = new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy)) {
+      ArrowBuf buf = allocator.buffer(798);
+      assertEquals(1024, buf.capacity());
+      buf.setInt(333, 959);
+      assertEquals(959, buf.getInt(333));
+      buf.close();
+
+      buf = allocator.buffer(1025);
+      assertEquals(2048, buf.capacity());
+      buf.setInt(193, 939);
+      assertEquals(939, buf.getInt(193));
+      buf.close();
+    }
+  }
+
+  @Test
+  public void testSegmentAllocator_childAllocator() {
+    RoundingPolicy policy = new SegmentRoundingPolicy(1024);
+    try (RootAllocator allocator = new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy);
+      BufferAllocator childAllocator = allocator.newChildAllocator("child", 0, 512 * 1024)) {
+
+      assertEquals("child", childAllocator.getName());
+
+      ArrowBuf buf = childAllocator.buffer(798);
+      assertEquals(1024, buf.capacity());
+      buf.setInt(333, 959);
+      assertEquals(959, buf.getInt(333));
+      buf.close();
+
+      buf = childAllocator.buffer(1025);
+      assertEquals(2048, buf.capacity());
+      buf.setInt(193, 939);
+      assertEquals(939, buf.getInt(193));
+      buf.close();
+    }
+  }
+
+  @Test
+  public void testSegmentAllocator_smallSegment() {
+    IllegalArgumentException e = Assertions.assertThrows(
+            IllegalArgumentException.class,
+        () -> new SegmentRoundingPolicy(128)
+    );
+    assertEquals("The segment size cannot be smaller than 1024", e.getMessage());
+  }
+
+  @Test
+  public void testSegmentAllocator_segmentSizeNotPowerOf2() {
+    IllegalArgumentException e = Assertions.assertThrows(
+            IllegalArgumentException.class,
+        () -> new SegmentRoundingPolicy(4097)
+    );
+    assertEquals("The segment size must be a power of 2", e.getMessage());
   }
 
   // Allocation listener
@@ -474,6 +608,83 @@ public class TestBaseAllocator {
 
         arrowBuf1.getReferenceManager().release();
         arrowBuf2.getReferenceManager().release();
+      }
+    }
+  }
+
+  @Test
+  public void testAllocator_failureAtParentLimitOutcomeDetails() throws Exception {
+    try (final RootAllocator rootAllocator =
+        new RootAllocator(MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator =
+          rootAllocator.newChildAllocator("child", 0, MAX_ALLOCATION / 2)) {
+        try (final BufferAllocator grandChildAllocator =
+            childAllocator.newChildAllocator("grandchild", MAX_ALLOCATION / 4, MAX_ALLOCATION)) {
+          OutOfMemoryException e = assertThrows(OutOfMemoryException.class,
+              () -> grandChildAllocator.buffer(MAX_ALLOCATION));
+          // expected
+          assertTrue(e.getMessage().contains("Unable to allocate buffer"));
+
+          assertTrue("missing outcome details", e.getOutcomeDetails().isPresent());
+          AllocationOutcomeDetails outcomeDetails = e.getOutcomeDetails().get();
+
+          assertEquals(outcomeDetails.getFailedAllocator(), childAllocator);
+
+          // The order of allocators should be child to root (request propagates to parent if
+          // child cannot satisfy the request).
+          Iterator<Entry> iterator = outcomeDetails.allocEntries.iterator();
+          AllocationOutcomeDetails.Entry first = iterator.next();
+          assertEquals(MAX_ALLOCATION / 4, first.getAllocatedSize());
+          assertEquals(MAX_ALLOCATION, first.getRequestedSize());
+          assertEquals(false, first.isAllocationFailed());
+
+          AllocationOutcomeDetails.Entry second = iterator.next();
+          assertEquals(MAX_ALLOCATION - MAX_ALLOCATION / 4, second.getRequestedSize());
+          assertEquals(0, second.getAllocatedSize());
+          assertEquals(true, second.isAllocationFailed());
+
+          assertFalse(iterator.hasNext());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testAllocator_failureAtRootLimitOutcomeDetails() throws Exception {
+    try (final RootAllocator rootAllocator =
+        new RootAllocator(MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator =
+          rootAllocator.newChildAllocator("child", MAX_ALLOCATION / 2, Long.MAX_VALUE)) {
+        try (final BufferAllocator grandChildAllocator =
+            childAllocator.newChildAllocator("grandchild", MAX_ALLOCATION / 4, Long.MAX_VALUE)) {
+          OutOfMemoryException e = assertThrows(OutOfMemoryException.class,
+              () -> grandChildAllocator.buffer(MAX_ALLOCATION * 2));
+
+          assertTrue(e.getMessage().contains("Unable to allocate buffer"));
+          assertTrue("missing outcome details", e.getOutcomeDetails().isPresent());
+          AllocationOutcomeDetails outcomeDetails = e.getOutcomeDetails().get();
+
+          assertEquals(outcomeDetails.getFailedAllocator(), rootAllocator);
+
+          // The order of allocators should be child to root (request propagates to parent if
+          // child cannot satisfy the request).
+          Iterator<Entry> iterator = outcomeDetails.allocEntries.iterator();
+          AllocationOutcomeDetails.Entry first = iterator.next();
+          assertEquals(MAX_ALLOCATION / 4, first.getAllocatedSize());
+          assertEquals(2 * MAX_ALLOCATION, first.getRequestedSize());
+          assertEquals(false, first.isAllocationFailed());
+
+          AllocationOutcomeDetails.Entry second = iterator.next();
+          assertEquals(MAX_ALLOCATION / 4, second.getAllocatedSize());
+          assertEquals(2 * MAX_ALLOCATION - MAX_ALLOCATION / 4, second.getRequestedSize());
+          assertEquals(false, second.isAllocationFailed());
+
+          AllocationOutcomeDetails.Entry third = iterator.next();
+          assertEquals(0, third.getAllocatedSize());
+          assertEquals(true, third.isAllocationFailed());
+
+          assertFalse(iterator.hasNext());
+        }
       }
     }
   }

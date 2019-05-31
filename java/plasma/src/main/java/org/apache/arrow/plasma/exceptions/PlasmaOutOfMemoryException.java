@@ -17,6 +17,9 @@
 
 package org.apache.arrow.plasma.exceptions;
 
+/**
+ * Indicates no more memory is available in Plasma.
+ */
 public class PlasmaOutOfMemoryException extends RuntimeException {
 
   public PlasmaOutOfMemoryException() {

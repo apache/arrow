@@ -157,8 +157,11 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
   if(NOT APPLE)
     set(MORE_ARGS "-T")
   endif()
-  execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-                                              ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+  execute_process(COMMAND ln
+                          ${MORE_ARGS}
+                          -sf
+                          ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                          ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
   set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}")
 endif()
@@ -490,7 +493,7 @@ endif()
 # Flight
 if(PYARROW_BUILD_FLIGHT)
   if(PYARROW_BUNDLE_ARROW_CPP)
-    # TODO:
+    # TODO: need to implement FindArrowFlight.cmake first
     message(FATAL_ERROR "Not yet implemented: bundling arrow-flight in pyarrow")
   endif()
   # We do NOT want to link gRPC or any other Flight dependency

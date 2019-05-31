@@ -27,6 +27,10 @@ set(ARROW_FLIGHT_STATIC_LINK_LIBS
     gRPC::gpr
     c-ares::cares)
 
+if(WIN32)
+  list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS Ws2_32.lib)
+endif()
+
 if(GRPC_HAS_ADDRESS_SORTING)
   list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS gRPC::address_sorting)
 endif()
@@ -81,6 +85,8 @@ set(ARROW_FLIGHT_SRCS
     types.cc)
 
 add_arrow_lib(arrow_flight
+              OUTPUTS
+              ARROW_FLIGHT_LIBRARIES
               SOURCES
               ${ARROW_FLIGHT_SRCS}
               DEPENDENCIES
@@ -95,9 +101,15 @@ add_arrow_lib(arrow_flight
               arrow_static
               ${ARROW_FLIGHT_STATIC_LINK_LIBS})
 
+foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
+endforeach()
+
 # Define arrow_flight_testing library
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_arrow_lib(arrow_flight_testing
+                OUTPUTS
+                ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
                 test-util.cc
                 DEPENDENCIES
@@ -108,13 +120,19 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                 SHARED_LINK_LIBS
                 arrow_shared
                 arrow_flight_shared
+                arrow_testing_shared
                 ${BOOST_FILESYSTEM_LIBRARY}
                 ${BOOST_SYSTEM_LIBRARY}
                 GTest::GTest
                 STATIC_LINK_LIBS
                 arrow_static
-                arrow_flight_static)
+                arrow_flight_static
+                arrow_testing_static)
 endif()
+
+foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
+endforeach()
 
 add_arrow_test(flight-test
                EXTRA_LINK_LIBS

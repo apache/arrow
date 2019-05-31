@@ -25,8 +25,8 @@
 #include <cstdint>
 
 #include "parquet/hasher.h"
+#include "parquet/platform.h"
 #include "parquet/types.h"
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 

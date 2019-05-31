@@ -15,20 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_UTIL_MACROS_H
-#define PARQUET_UTIL_MACROS_H
+#include "parquet/platform.h"
 
-#include "arrow/util/macros.h"
+#include <cstdint>
+#include <memory>
 
-#define PARQUET_DISALLOW_COPY_AND_ASSIGN ARROW_DISALLOW_COPY_AND_ASSIGN
+#include "arrow/io/memory.h"
 
-#define PARQUET_NORETURN ARROW_NORETURN
-#define PARQUET_DEPRECATED ARROW_DEPRECATED
+#include "parquet/exception.h"
 
-// If ARROW_VALGRIND set when compiling unit tests, also define
-// PARQUET_VALGRIND
-#ifdef ARROW_VALGRIND
-#define PARQUET_VALGRIND
-#endif
+namespace parquet {
 
-#endif  // PARQUET_UTIL_MACROS_H
+std::shared_ptr<::arrow::io::BufferOutputStream> CreateOutputStream(MemoryPool* pool) {
+  std::shared_ptr<::arrow::io::BufferOutputStream> stream;
+  PARQUET_THROW_NOT_OK(
+      ::arrow::io::BufferOutputStream::Create(kDefaultOutputStreamSize, pool, &stream));
+  return stream;
+}
+
+std::shared_ptr<ResizableBuffer> AllocateBuffer(MemoryPool* pool, int64_t size) {
+  std::shared_ptr<ResizableBuffer> result;
+  PARQUET_THROW_NOT_OK(arrow::AllocateResizableBuffer(pool, size, &result));
+  return result;
+}
+
+}  // namespace parquet

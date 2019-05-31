@@ -230,7 +230,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
-        void WriteTo(ParquetOutputStream* dst) const
+        void WriteTo(OutputStream* dst) const
 
     cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
@@ -254,13 +254,6 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
 
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
-    cdef cppclass ParquetOutputStream" parquet::OutputStream":
-        pass
-
-    cdef cppclass ParquetInMemoryOutputStream \
-            " parquet::InMemoryOutputStream"(ParquetOutputStream):
-        shared_ptr[CBuffer] GetBuffer()
-
     cdef cppclass WriterProperties:
         cppclass Builder:
             Builder* version(ParquetVersion version)
@@ -343,5 +336,5 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
 
     CStatus WriteFileMetaData(
         const CFileMetaData& file_metadata,
-        const shared_ptr[OutputStream]& sink,
+        const OutputStream* sink,
         const c_bool metafile)

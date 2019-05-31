@@ -16,6 +16,9 @@
 
 #pragma once
 
+// This addresses platform-specific defines, e.g. on Windows
+#include "arrow/flight/platform.h"  // IWYU pragma: keep
+
 // This header holds the Flight protobuf definitions.
 
 // Need to include this first to get our gRPC customizations

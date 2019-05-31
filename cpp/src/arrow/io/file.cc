@@ -113,35 +113,52 @@ class OSFile {
     return Status::OK();
   }
 
+  Status CheckClosed() const {
+    if (!is_open_) {
+      return Status::Invalid("Invalid operation on closed file");
+    }
+    return Status::OK();
+  }
+
   Status Close() {
     if (is_open_) {
       // Even if closing fails, the fd will likely be closed (perhaps it's
       // already closed).
       is_open_ = false;
-      RETURN_NOT_OK(internal::FileClose(fd_));
+      int fd = fd_;
+      fd_ = -1;
+      RETURN_NOT_OK(internal::FileClose(fd));
     }
     return Status::OK();
   }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+    RETURN_NOT_OK(CheckClosed());
     return internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes, bytes_read);
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
+    RETURN_NOT_OK(CheckClosed());
     return internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position, nbytes,
                                 bytes_read);
   }
 
   Status Seek(int64_t pos) {
+    RETURN_NOT_OK(CheckClosed());
     if (pos < 0) {
       return Status::Invalid("Invalid position");
     }
     return internal::FileSeek(fd_, pos);
   }
 
-  Status Tell(int64_t* pos) const { return internal::FileTell(fd_, pos); }
+  Status Tell(int64_t* pos) const {
+    RETURN_NOT_OK(CheckClosed());
+    return internal::FileTell(fd_, pos);
+  }
 
   Status Write(const void* data, int64_t length) {
+    RETURN_NOT_OK(CheckClosed());
+
     std::lock_guard<std::mutex> guard(lock_);
     if (length < 0) {
       return Status::IOError("Length must be non-negative");

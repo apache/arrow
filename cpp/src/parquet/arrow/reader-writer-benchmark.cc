@@ -25,7 +25,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
-#include "parquet/util/memory.h"
+#include "parquet/platform.h"
 
 #include "arrow/api.h"
 
@@ -147,7 +147,7 @@ static void BM_WriteColumn(::benchmark::State& state) {
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
 
   while (state.KeepRunning()) {
-    auto output = std::make_shared<InMemoryOutputStream>();
+    auto output = CreateOutputStream();
     EXIT_NOT_OK(
         WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
   }
@@ -172,9 +172,11 @@ static void BM_ReadColumn(::benchmark::State& state) {
 
   std::vector<T> values(BENCHMARK_SIZE, static_cast<T>(128));
   std::shared_ptr<::arrow::Table> table = TableFromVector<ParquetType>(values, nullable);
-  auto output = std::make_shared<InMemoryOutputStream>();
+  auto output = CreateOutputStream();
   EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE));
-  std::shared_ptr<Buffer> buffer = output->GetBuffer();
+
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(output->Finish(&buffer));
 
   while (state.KeepRunning()) {
     auto reader =
@@ -201,11 +203,13 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType);
 static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   std::vector<int64_t> values(BENCHMARK_SIZE, 128);
   std::shared_ptr<::arrow::Table> table = TableFromVector<Int64Type>(values, true);
-  auto output = std::make_shared<InMemoryOutputStream>();
+  auto output = CreateOutputStream();
   // This writes 10 RowGroups
   EXIT_NOT_OK(
       WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
-  std::shared_ptr<Buffer> buffer = output->GetBuffer();
+
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(output->Finish(&buffer));
 
   while (state.KeepRunning()) {
     auto reader =
@@ -233,11 +237,12 @@ BENCHMARK(BM_ReadIndividualRowGroups);
 static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
   std::vector<int64_t> values(BENCHMARK_SIZE, 128);
   std::shared_ptr<::arrow::Table> table = TableFromVector<Int64Type>(values, true);
-  auto output = std::make_shared<InMemoryOutputStream>();
+  auto output = CreateOutputStream();
   // This writes 10 RowGroups
   EXIT_NOT_OK(
       WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
-  std::shared_ptr<Buffer> buffer = output->GetBuffer();
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(output->Finish(&buffer));
 
   while (state.KeepRunning()) {
     auto reader =

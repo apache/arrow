@@ -82,9 +82,9 @@ class LockedInputStream : public InputStream {
     return stream_->supports_zero_copy();
   }
 
-  util::string_view Peek(int64_t nbytes) const override {
+  Status Peek(int64_t nbytes, util::string_view* out) override {
     std::lock_guard<std::mutex> lock(mutex_);
-    return stream_->Peek(nbytes);
+    return stream_->Peek(nbytes, out);
   }
 
  protected:

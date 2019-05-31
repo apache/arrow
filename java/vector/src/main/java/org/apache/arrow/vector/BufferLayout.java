@@ -26,6 +26,9 @@ import org.apache.arrow.util.Preconditions;
  */
 public class BufferLayout {
 
+  /**
+   * Enumeration of the different logical types a buffer can have.
+   */
   public enum BufferType {
     DATA("DATA"),
     OFFSET("OFFSET"),

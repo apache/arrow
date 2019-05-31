@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/flight/platform.h"
+
 #ifdef __APPLE__
 #include <limits.h>
 #include <mach-o/dyld.h>
@@ -58,6 +60,12 @@ Status ResolveCurrentExecutable(fs::path* out) {
     return Status::Invalid("Can't resolve current exe: path too large");
   }
   *out = fs::canonical(buf, ec);
+#elif defined(_WIN32)
+  char buf[MAX_PATH + 1];
+  if (!GetModuleFileNameA(NULL, buf, sizeof(buf))) {
+    return Status::Invalid("Can't get executable file path");
+  }
+  *out = fs::canonical(buf, ec);
 #else
   ARROW_UNUSED(ec);
   return Status::NotImplemented("Not available on this system");
@@ -71,6 +79,10 @@ Status ResolveCurrentExecutable(fs::path* out) {
 }
 
 }  // namespace
+
+static int next_listen_port_ = 30001;
+
+int GetListenPort() { return next_listen_port_++; }
 
 void TestServer::Start() {
   namespace fs = boost::filesystem;
@@ -105,7 +117,12 @@ void TestServer::Start() {
 
 int TestServer::Stop() {
   if (server_process_ && server_process_->valid()) {
+#ifndef _WIN32
     kill(server_process_->id(), SIGTERM);
+#else
+    // This would use SIGKILL on POSIX, which is more brutal than SIGTERM
+    server_process_->terminate();
+#endif
     server_process_->wait();
     return server_process_->exit_code();
   } else {

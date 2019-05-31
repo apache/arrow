@@ -23,7 +23,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "parquet/util/visibility.h"
+#include "parquet/platform.h"
 
 #include "arrow/io/interfaces.h"
 #include "arrow/util/macros.h"

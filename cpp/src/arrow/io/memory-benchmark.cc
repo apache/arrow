@@ -44,6 +44,7 @@ static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
 constexpr size_t kMemoryPerCore = 32 * 1024 * 1024;
 using BufferPtr = std::shared_ptr<Buffer>;
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 #ifndef _MSC_VER
 
 #ifdef ARROW_AVX512
@@ -200,6 +201,7 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, StreamReadWrite)->Apply(SetMemoryBandwidthAr
 BENCHMARK_TEMPLATE(MemoryBandwidth, PlatformMemcpy)->Apply(SetMemoryBandwidthArgs);
 
 #endif  // _MSC_VER
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t n_threads = state.range(0);

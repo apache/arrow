@@ -17,8 +17,13 @@
 
 package org.apache.arrow.vector.types;
 
+/**
+ * Resolutions for Interval Vectors.
+ */
 public enum IntervalUnit {
+  /** Values are stored as number of months (which can be converted into years and months via division). */
   YEAR_MONTH(org.apache.arrow.flatbuf.IntervalUnit.YEAR_MONTH),
+  /** Values are stored as some number of days and some number of milliseconds within that day. */
   DAY_TIME(org.apache.arrow.flatbuf.IntervalUnit.DAY_TIME);
 
   private static final IntervalUnit[] valuesByFlatbufId = new IntervalUnit[IntervalUnit.values().length];

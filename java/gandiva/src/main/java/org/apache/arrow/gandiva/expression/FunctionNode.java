@@ -23,6 +23,9 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
+/**
+ * Node representing an arbitrary function in an expression.
+ */
 class FunctionNode implements TreeNode {
   private final String function;
   private final List<TreeNode> children;

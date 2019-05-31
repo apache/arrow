@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <iterator>
 #include <map>
 #include <string>
@@ -529,9 +530,23 @@ Status MockFileSystem::Move(const std::string& src, const std::string& dest) {
     if (op.src_entry == nullptr) {
       return PathNotFound(src);
     }
-    if (op.dest_entry != nullptr && op.dest_entry->is_dir()) {
-      return Status::IOError("Cannot replace destination '", dest,
-                             "', which is a directory");
+    if (op.dest_entry != nullptr) {
+      if (op.dest_entry->is_dir()) {
+        return Status::IOError("Cannot replace destination '", dest,
+                               "', which is a directory");
+      }
+      if (op.dest_entry->is_file() && op.src_entry->is_dir()) {
+        return Status::IOError("Cannot replace destination '", dest,
+                               "', which is a file, with directory '", src, "'");
+      }
+    }
+    if (op.src_parts.size() < op.dest_parts.size()) {
+      // Check if dest is a child of src
+      auto p =
+          std::mismatch(op.src_parts.begin(), op.src_parts.end(), op.dest_parts.begin());
+      if (p.first == op.src_parts.end()) {
+        return Status::IOError("Cannot move '", src, "' into child path '", dest, "'");
+      }
     }
 
     // Move original entry, fix its name

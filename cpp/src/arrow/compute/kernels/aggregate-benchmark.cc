@@ -37,6 +37,8 @@ namespace compute {
 #include <iostream>
 #include <random>
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
 namespace BitUtil = arrow::BitUtil;
 using arrow::internal::BitmapReader;
 
@@ -273,7 +275,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
 };
 
 template <typename Functor>
-void BenchSum(benchmark::State& state) {
+void ReferenceSum(benchmark::State& state) {
   using T = typename Functor::ValueType;
 
   const int64_t array_size = state.range(0) / sizeof(int64_t);
@@ -295,15 +297,17 @@ void BenchSum(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(T));
 }
 
-BENCHMARK_TEMPLATE(BenchSum, SumNoNulls<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumNoNullsUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumSentinel<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumSentinelUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapNaive<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapReader<int64_t>)->Apply(BenchmarkSetArgs);
-BENCHMARK_TEMPLATE(BenchSum, SumBitmapVectorizeUnroll<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumNoNulls<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumNoNullsUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumSentinel<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumSentinelUnrolled<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapNaive<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapReader<int64_t>)->Apply(BenchmarkSetArgs);
+BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
+    ->Apply(BenchmarkSetArgs);
+#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
-static void RegressionSumKernel(benchmark::State& state) {
+static void SumKernel(benchmark::State& state) {
   const int64_t array_size = state.range(0) / sizeof(int64_t);
   const double null_percent = static_cast<double>(state.range(1)) / 100.0;
   auto rand = random::RandomArrayGenerator(1923);
@@ -322,7 +326,7 @@ static void RegressionSumKernel(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
 }
 
-BENCHMARK(RegressionSumKernel)->Apply(RegressionSetArgs);
+BENCHMARK(SumKernel)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

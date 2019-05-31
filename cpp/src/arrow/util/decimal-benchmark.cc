@@ -26,7 +26,7 @@
 namespace arrow {
 namespace Decimal {
 
-static void BM_FromString(benchmark::State& state) {  // NOLINT non-const reference
+static void FromString(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<std::string> values = {"0", "1.23", "12.345e6", "-12.345e-6"};
 
   while (state.KeepRunning()) {
@@ -39,7 +39,7 @@ static void BM_FromString(benchmark::State& state) {  // NOLINT non-const refere
   state.SetItemsProcessed(state.iterations() * values.size());
 }
 
-BENCHMARK(BM_FromString)->Repetitions(3)->Unit(benchmark::kMicrosecond);
+BENCHMARK(FromString);
 
 }  // namespace Decimal
 }  // namespace arrow

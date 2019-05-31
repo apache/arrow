@@ -67,7 +67,7 @@ records: 2
 			want: `schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
-records: 3
+records: 4
 `,
 		},
 	} {
@@ -195,7 +195,7 @@ records: 2
 			want: `schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
-records: 3
+records: 4
 `,
 		},
 		{
@@ -204,7 +204,7 @@ records: 3
 schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
-records: 3
+records: 4
 `,
 		},
 	} {

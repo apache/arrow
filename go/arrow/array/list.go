@@ -55,8 +55,9 @@ func (a *List) String() string {
 			o.WriteString("(null)")
 			continue
 		}
-		beg := int64(a.offsets[i])
-		end := int64(a.offsets[i+1])
+		j := i + a.array.data.offset
+		beg := int64(a.offsets[j])
+		end := int64(a.offsets[j+1])
 		sub := NewSlice(a.values, beg, end)
 		fmt.Fprintf(o, "%v", sub)
 		sub.Release()

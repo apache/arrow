@@ -130,7 +130,7 @@ TEST(BinaryConversion, Nulls) {
   options.strings_can_be_null = true;
   AssertConversion<BinaryType, std::string>(binary(), {"ab,N/A\n", "NULL,\n"},
                                             {{"ab", ""}, {"", ""}},
-                                            {{true, false}, {false, true}}, options);
+                                            {{true, false}, {false, false}}, options);
 }
 
 TEST(StringConversion, Basics) {
@@ -152,7 +152,7 @@ TEST(StringConversion, Nulls) {
   options.strings_can_be_null = true;
   AssertConversion<StringType, std::string>(utf8(), {"ab,N/A\n", "NULL,\n"},
                                             {{"ab", ""}, {"", ""}},
-                                            {{true, false}, {false, true}}, options);
+                                            {{true, false}, {false, false}}, options);
 }
 
 TEST(StringConversion, Errors) {

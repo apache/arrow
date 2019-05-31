@@ -23,17 +23,11 @@
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/macros.h"
-
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/visibility.h"
 
 namespace arrow {
 
@@ -57,8 +51,6 @@ static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
 
 // 16 KB is the default expected page header size
 static constexpr uint32_t kDefaultPageHeaderSize = 16 * 1024;
-
-namespace BitUtil = ::arrow::BitUtil;
 
 class PARQUET_EXPORT LevelDecoder {
  public:
@@ -88,7 +80,7 @@ class PARQUET_EXPORT PageReader {
   virtual ~PageReader() = default;
 
   static std::unique_ptr<PageReader> Open(
-      std::unique_ptr<InputStream> stream, int64_t total_num_rows,
+      const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
       Compression::type codec,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 

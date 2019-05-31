@@ -140,9 +140,11 @@ get_filename_component(ABS_PARQUET_THRIFT parquet.thrift ABSOLUTE)
 
 add_custom_command(OUTPUT ${THRIFT_OUTPUT_FILES}
                    COMMAND ${THRIFT_COMPILER}
-                           --gen cpp
+                           --gen
+                           cpp
                            -out
-                           ${THRIFT_OUTPUT_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
+                           ${THRIFT_OUTPUT_DIR}
+                           ${CMAKE_CURRENT_SOURCE_DIR}/parquet.thrift
                    DEPENDS ${ABS_PARQUET_THRIFT} Thrift::thrift
                    COMMENT "Running thrift compiler on parquet.thrift"
                    VERBATIM)
@@ -159,6 +161,7 @@ set(PARQUET_SRCS
     column_reader.cc
     column_scanner.cc
     column_writer.cc
+    deprecated_io.cc
     encoding.cc
     file_reader.cc
     file_writer.cc
@@ -166,11 +169,12 @@ set(PARQUET_SRCS
     murmur3.cc
     parquet_constants.cpp
     parquet_types.cpp
+    platform.cc
     printer.cc
+    properties.cc
     schema.cc
     statistics.cc
-    types.cc
-    util/memory.cc)
+    types.cc)
 
 # Ensure that thrift compilation is done before using its generated headers
 # in parquet code.
@@ -267,7 +271,6 @@ endif()
 
 add_subdirectory(api)
 add_subdirectory(arrow)
-add_subdirectory(util)
 
 arrow_install_all_headers("parquet")
 
@@ -283,6 +286,7 @@ add_parquet_test(bloom_filter-test)
 add_parquet_test(column_reader-test)
 add_parquet_test(column_scanner-test)
 add_parquet_test(column_writer-test)
+add_parquet_test(deprecated_io-test)
 add_parquet_test(file-serialize-test)
 add_parquet_test(properties-test)
 add_parquet_test(statistics-test)

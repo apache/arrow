@@ -26,10 +26,9 @@
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/visibility.h"
 
 namespace arrow {
 
@@ -83,7 +82,8 @@ class PARQUET_EXPORT PageWriter {
   virtual ~PageWriter() {}
 
   static std::unique_ptr<PageWriter> Open(
-      OutputStream* sink, Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
+      const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
+      ColumnChunkMetaDataBuilder* metadata,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       bool buffered_row_group = false);
 
