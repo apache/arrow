@@ -47,31 +47,39 @@ namespace arrow {
         CRC32C3X8(buffer, ((ITR) * 7 + 4)) \
         CRC32C3X8(buffer, ((ITR) * 7 + 5)) \
         CRC32C3X8(buffer, ((ITR) * 7 + 6)) \
-      } while(0)
+      } while (0)
 
       #define PREF4X64L1(buffer, PREF_OFFSET, ITR) \
-        __asm__("PRFM PLDL1KEEP, [%x[v],%[c]]"::[v]"r"(buffer), [c]"I"((PREF_OFFSET) + ((ITR) + 0)*64));\
-        __asm__("PRFM PLDL1KEEP, [%x[v],%[c]]"::[v]"r"(buffer), [c]"I"((PREF_OFFSET) + ((ITR) + 1)*64));\
-        __asm__("PRFM PLDL1KEEP, [%x[v],%[c]]"::[v]"r"(buffer), [c]"I"((PREF_OFFSET) + ((ITR) + 2)*64));\
-        __asm__("PRFM PLDL1KEEP, [%x[v],%[c]]"::[v]"r"(buffer), [c]"I"((PREF_OFFSET) + ((ITR) + 3)*64));
+        __asm__("PRFM PLDL1KEEP, [%x[v],%[c]]"::[v]"r"(buffer), \
+          [c]"I"((PREF_OFFSET) + ((ITR) + 0)*64));\
+        __asm__("PRFM PLDL1KEEP, [%x[v],%[c]]"::[v]"r"(buffer), \
+          [c]"I"((PREF_OFFSET) + ((ITR) + 1)*64));\
+        __asm__("PRFM PLDL1KEEP, [%x[v],%[c]]"::[v]"r"(buffer), \
+          [c]"I"((PREF_OFFSET) + ((ITR) + 2)*64));\
+        __asm__("PRFM PLDL1KEEP, [%x[v],%[c]]"::[v]"r"(buffer), \
+          [c]"I"((PREF_OFFSET) + ((ITR) + 3)*64));
 
       #define PREF1KL1(buffer, PREF_OFFSET) \
-        PREF4X64L1(buffer,(PREF_OFFSET), 0) \
-        PREF4X64L1(buffer,(PREF_OFFSET), 4) \
-        PREF4X64L1(buffer,(PREF_OFFSET), 8) \
-        PREF4X64L1(buffer,(PREF_OFFSET), 12)
+        PREF4X64L1(buffer, (PREF_OFFSET), 0) \
+        PREF4X64L1(buffer, (PREF_OFFSET), 4) \
+        PREF4X64L1(buffer, (PREF_OFFSET), 8) \
+        PREF4X64L1(buffer, (PREF_OFFSET), 12)
 
       #define PREF4X64L2(buffer, PREF_OFFSET, ITR) \
-        __asm__("PRFM PLDL2KEEP, [%x[v],%[c]]"::[v]"r"(buffer), [c]"I"((PREF_OFFSET) + ((ITR) + 0)*64));\
-        __asm__("PRFM PLDL2KEEP, [%x[v],%[c]]"::[v]"r"(buffer), [c]"I"((PREF_OFFSET) + ((ITR) + 1)*64));\
-        __asm__("PRFM PLDL2KEEP, [%x[v],%[c]]"::[v]"r"(buffer), [c]"I"((PREF_OFFSET) + ((ITR) + 2)*64));\
-        __asm__("PRFM PLDL2KEEP, [%x[v],%[c]]"::[v]"r"(buffer), [c]"I"((PREF_OFFSET) + ((ITR) + 3)*64));
+        __asm__("PRFM PLDL2KEEP, [%x[v],%[c]]"::[v]"r"(buffer), \
+          [c]"I"((PREF_OFFSET) + ((ITR) + 0)*64));\
+        __asm__("PRFM PLDL2KEEP, [%x[v],%[c]]"::[v]"r"(buffer), \
+          [c]"I"((PREF_OFFSET) + ((ITR) + 1)*64));\
+        __asm__("PRFM PLDL2KEEP, [%x[v],%[c]]"::[v]"r"(buffer), \
+         [c]"I"((PREF_OFFSET) + ((ITR) + 2)*64));\
+        __asm__("PRFM PLDL2KEEP, [%x[v],%[c]]"::[v]"r"(buffer), \
+         [c]"I"((PREF_OFFSET) + ((ITR) + 3)*64));
 
       #define PREF1KL2(buffer, PREF_OFFSET) \
-        PREF4X64L2(buffer,(PREF_OFFSET), 0) \
-        PREF4X64L2(buffer,(PREF_OFFSET), 4) \
-        PREF4X64L2(buffer,(PREF_OFFSET), 8) \
-        PREF4X64L2(buffer,(PREF_OFFSET), 12)
+        PREF4X64L2(buffer, (PREF_OFFSET), 0) \
+        PREF4X64L2(buffer, (PREF_OFFSET), 4) \
+        PREF4X64L2(buffer, (PREF_OFFSET), 8) \
+        PREF4X64L2(buffer, (PREF_OFFSET), 12)
     #endif //__ARM_FEATURE_CRYPTO
 
   #endif // __ARM_FEATURE_CRC32

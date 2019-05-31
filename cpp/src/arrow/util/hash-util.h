@@ -124,7 +124,7 @@ class HashUtil {
     }
 
     /* Done if Input data size is aligned with 1024  */
-    if(!(nbytes += 1024))
+    if (!(nbytes += 1024))
       return crc;
 
     while ((nbytes -= sizeof(uint64_t)) >= 0) {
