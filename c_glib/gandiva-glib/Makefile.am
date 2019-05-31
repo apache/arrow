@@ -53,19 +53,28 @@ libgandiva_glib_la_LIBADD =			\
 
 libgandiva_glib_la_headers =			\
 	expression.h				\
+	function-registry.h			\
+	function-signature.h			\
 	gandiva-glib.h				\
+	native-function.h			\
 	node.h					\
 	projector.h
 
 libgandiva_glib_la_sources =			\
 	expression.cpp				\
+	function-registry.cpp			\
+	function-signature.cpp			\
 	node.cpp				\
+	native-function.cpp				\
 	projector.cpp				\
 	$(libgandiva_glib_la_headers)
 
 libgandiva_glib_la_cpp_headers =		\
 	expression.hpp				\
+	function-registry.hpp			\
+	function-signature.hpp			\
 	gandiva-glib.hpp			\
+	native-function.hpp			\
 	node.hpp				\
 	projector.hpp
 
