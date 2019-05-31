@@ -24,6 +24,7 @@ import static org.apache.arrow.vector.BufferLayout.BufferType.*;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -324,6 +325,67 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       }
     };
 
+    BufferReader UINT1 = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        final int size = count * TinyIntVector.TYPE_WIDTH;
+        ArrowBuf buf = allocator.buffer(size);
+
+        for (int i = 0; i < count; i++) {
+          parser.nextToken();
+          buf.writeByte(parser.getShortValue() & 0xFF);
+        }
+
+        return buf;
+      }
+    };
+
+    BufferReader UINT2 = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        final int size = count * SmallIntVector.TYPE_WIDTH;
+        ArrowBuf buf = allocator.buffer(size);
+
+        for (int i = 0; i < count; i++) {
+          parser.nextToken();
+          buf.writeShort(parser.getIntValue() & 0xFFFF);
+        }
+
+        return buf;
+      }
+    };
+
+    BufferReader UINT4 = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        final int size = count * IntVector.TYPE_WIDTH;
+        ArrowBuf buf = allocator.buffer(size);
+
+        for (int i = 0; i < count; i++) {
+          parser.nextToken();
+          buf.writeInt((int)parser.getLongValue());
+        }
+
+        return buf;
+      }
+    };
+
+    BufferReader UINT8 = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        final int size = count * BigIntVector.TYPE_WIDTH;
+        ArrowBuf buf = allocator.buffer(size);
+
+        for (int i = 0; i < count; i++) {
+          parser.nextToken();
+          BigInteger value = parser.getBigIntegerValue();
+          buf.writeLong(value.longValue());
+        }
+
+        return buf;
+      }
+    };
+
     BufferReader FLOAT4 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
@@ -470,16 +532,16 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           reader = helper.INT8;
           break;
         case UINT1:
-          reader = helper.INT1;
+          reader = helper.UINT1;
           break;
         case UINT2:
-          reader = helper.INT2;
+          reader = helper.UINT2;
           break;
         case UINT4:
-          reader = helper.INT4;
+          reader = helper.UINT4;
           break;
         case UINT8:
-          reader = helper.INT8;
+          reader = helper.UINT8;
           break;
         case FLOAT4:
           reader = helper.FLOAT4;
