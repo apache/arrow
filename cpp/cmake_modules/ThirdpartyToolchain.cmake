@@ -1598,10 +1598,12 @@ macro(build_lz4)
   # We need to copy the header in lib to directory outside of the build
   externalproject_add(lz4_ep
                       URL ${LZ4_SOURCE_URL} ${EP_LOG_OPTIONS}
-                      UPDATE_COMMAND ${CMAKE_COMMAND} -E copy_directory
-                                                         "${LZ4_BUILD_DIR}/lib"
-                                                         "${LZ4_PREFIX}/include"
-                                                         ${LZ4_PATCH_COMMAND}
+                      UPDATE_COMMAND ${CMAKE_COMMAND}
+                                     -E
+                                     copy_directory
+                                     "${LZ4_BUILD_DIR}/lib"
+                                     "${LZ4_PREFIX}/include"
+                                     ${LZ4_PATCH_COMMAND}
                       CONFIGURE_COMMAND ""
                       INSTALL_COMMAND ""
                       BINARY_DIR ${LZ4_BUILD_DIR}
