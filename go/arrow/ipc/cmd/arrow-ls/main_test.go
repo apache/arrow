@@ -90,8 +90,10 @@ records: 3
 		{
 			name: "fixed_width_types",
 			want: `schema:
-  fields: 1
+  fields: 3
     - float16s: type=float16, nullable
+    - time32ms: type=time32[ms], nullable
+    - time64ns: type=time64[ns], nullable
 records: 3
 `,
 		},

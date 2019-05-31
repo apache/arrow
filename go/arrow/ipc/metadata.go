@@ -522,6 +522,11 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 	case flatbuf.TypeStruct_:
 		return arrow.StructOf(children...), nil
 
+	case flatbuf.TypeTime:
+		var dt flatbuf.Time
+		dt.Init(data.Bytes, data.Pos)
+		return timeFromFB(dt)
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
@@ -605,6 +610,47 @@ func floatToFB(b *flatbuffers.Builder, bw int32) flatbuffers.UOffsetT {
 	default:
 		panic(errors.Errorf("arrow/ipc: invalid floating point precision %d-bits", bw))
 	}
+}
+
+func timeFromFB(data flatbuf.Time) (arrow.DataType, error) {
+	bw := data.BitWidth()
+	unit := unitFromFB(data.Unit())
+
+	switch bw {
+	case 32:
+		switch unit {
+		case arrow.Millisecond:
+			return arrow.FixedWidthTypes.Time32ms, nil
+		case arrow.Second:
+			return arrow.FixedWidthTypes.Time32s, nil
+		default:
+			return nil, errors.Errorf("arrow/ipc: Time32 type with %v unit not implemented", unit)
+		}
+	case 64:
+		switch unit {
+		case arrow.Nanosecond:
+			return arrow.FixedWidthTypes.Time64ns, nil
+		case arrow.Microsecond:
+			return arrow.FixedWidthTypes.Time64us, nil
+		default:
+			return nil, errors.Errorf("arrow/ipc: Time64 type with %v unit not implemented", unit)
+		}
+	default:
+		return nil, errors.Errorf("arrow/ipc: Time type with %d bitwidth not implemented", bw)
+	}
+}
+
+func timeToFB(b *flatbuffers.Builder, bw int32, unit arrow.TimeUnit) flatbuffers.UOffsetT {
+	switch bw {
+	case 32, 64:
+		// ok.
+		panic(errors.Errorf("arrow/ipc: invalid Time type bit-wdith %d", bw))
+	}
+
+	flatbuf.TimeStart(b)
+	flatbuf.TimeAddBitWidth(b, bw)
+	flatbuf.TimeAddUnit(b, unitToFB(unit))
+	return flatbuf.TimeEnd(b)
 }
 
 type customMetadataer interface {
