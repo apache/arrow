@@ -18,10 +18,10 @@
 package org.apache.arrow.adapter.orc;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
@@ -31,6 +31,8 @@ import java.util.UUID;
 class OrcJniUtils {
   private static final String LIBRARY_NAME = "arrow_orc_jni";
   private static boolean isLoaded = false;
+
+  private OrcJniUtils() {}
 
   /**
    * Load arrow orc jni library from jar.
@@ -55,7 +57,7 @@ class OrcJniUtils {
     try (final InputStream is = OrcReaderJniWrapper.class.getClassLoader()
             .getResourceAsStream(libraryToLoad)) {
       if (is == null) {
-        throw new InvalidPathException(libraryToLoad,  "file was not found inside JAR.");
+        throw new FileNotFoundException(libraryToLoad);
       } else {
         Files.copy(is, temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
       }
@@ -66,15 +68,6 @@ class OrcJniUtils {
   private static File setupFile(String tmpDir, String libraryToLoad)
           throws IOException {
     final String randomizeFileName = libraryToLoad + UUID.randomUUID();
-    final File temp = new File(tmpDir, randomizeFileName);
-    if (temp.exists() && !temp.delete()) {
-      throw new InvalidPathException(
-              temp.getAbsolutePath(), "File already exists and cannot be removed.");
-    }
-    if (!temp.createNewFile()) {
-      throw new InvalidPathException(temp.getAbsolutePath(), "File could not be created.");
-    }
-    temp.deleteOnExit();
-    return temp;
+    return File.createTempFile(tmpDir, randomizeFileName);
   }
 }

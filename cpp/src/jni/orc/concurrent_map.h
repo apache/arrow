@@ -19,34 +19,38 @@
 #define JNI_ID_TO_MODULE_MAP_H
 
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 #include <utility>
 
 #include "arrow/util/macros.h"
 
 namespace arrow {
+namespace jni {
 
-template <typename HOLDER>
+/**
+ * An utility class that map module id to module pointers.
+ * @tparam Holder class of the object to hold.
+ */
+template <typename Holder>
 class concurrentMap {
  public:
   concurrentMap() : module_id_(kInitModuleId) {}
 
-  jlong Insert(HOLDER holder) {
-    mtx_.lock();
+  jlong Insert(Holder holder) {
+    std::lock_guard<std::mutex> lock(mtx_);
     jlong result = module_id_++;
-    map_.insert(std::pair<jlong, HOLDER>(result, holder));
-    mtx_.unlock();
+    map_.insert(std::pair<jlong, Holder>(result, holder));
     return result;
   }
 
   void Erase(jlong module_id) {
-    mtx_.lock();
+    std::lock_guard<std::mutex> lock(mtx_);
     map_.erase(module_id);
-    mtx_.unlock();
   }
 
-  HOLDER Lookup(jlong module_id) {
-    HOLDER result = NULLPTR;
+  Holder Lookup(jlong module_id) {
+    Holder result = NULLPTR;
     try {
       result = map_.at(module_id);
     } catch (const std::out_of_range& e) {
@@ -54,30 +58,30 @@ class concurrentMap {
     if (result != NULLPTR) {
       return result;
     }
-    mtx_.lock();
+    std::lock_guard<std::mutex> lock(mtx_);
     try {
       result = map_.at(module_id);
     } catch (const std::out_of_range& e) {
     }
-    mtx_.unlock();
     return result;
   }
 
   void Clear() {
-    mtx_.lock();
+    std::lock_guard<std::mutex> lock(mtx_);
     map_.clear();
-    mtx_.unlock();
   }
 
  private:
-  static const int kInitModuleId = 4;
+  // starting value of the module_id.
+  static constexpr int kInitModuleId = 4;
 
   int64_t module_id_;
   std::mutex mtx_;
   // map from module ids returned to Java and module pointers
-  std::unordered_map<jlong, HOLDER> map_;
+  std::unordered_map<jlong, Holder> map_;
 };
 
+}  // namespace jni
 }  // namespace arrow
 
 #endif  // JNI_ID_TO_MODULE_MAP_H

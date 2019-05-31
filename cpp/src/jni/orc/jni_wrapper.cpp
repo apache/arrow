@@ -48,9 +48,11 @@ static jmethodID record_batch_constructor;
 
 static jint JNI_VERSION = JNI_VERSION_1_6;
 
-static arrow::concurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
-static arrow::concurrentMap<std::shared_ptr<RecordBatchReader>> orc_stripe_reader_holder_;
-static arrow::concurrentMap<std::shared_ptr<ORCFileReader>> orc_reader_holder_;
+using arrow::jni::concurrentMap;
+
+static concurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
+static concurrentMap<std::shared_ptr<RecordBatchReader>> orc_stripe_reader_holder_;
+static concurrentMap<std::shared_ptr<ORCFileReader>> orc_reader_holder_;
 
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   jclass local_class = env->FindClass(class_name);
@@ -69,6 +71,19 @@ jmethodID GetMethodID(JNIEnv* env, jclass this_class, const char* name, const ch
 
   return ret;
 }
+
+std::string JStringToCString(JNIEnv* env, jstring string) {
+  int32_t jlen, clen;
+  clen = env->GetStringUTFLength(string);
+  jlen = env->GetStringLength(string);
+  std::vector<char> buffer(clen);
+  env->GetStringUTFRegion(string, 0, jlen, buffer.data());
+  return std::string(buffer.data(), clen);
+}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
@@ -112,27 +127,6 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   orc_stripe_reader_holder_.Clear();
   orc_reader_holder_.Clear();
 }
-
-std::shared_ptr<ORCFileReader> GetNativeReader(jlong id) {
-  return orc_reader_holder_.Lookup(id);
-}
-
-std::shared_ptr<RecordBatchReader> GetStripeReader(jlong id) {
-  return orc_stripe_reader_holder_.Lookup(id);
-}
-
-std::string JStringToCString(JNIEnv* env, jstring string) {
-  int32_t jlen, clen;
-  clen = env->GetStringUTFLength(string);
-  jlen = env->GetStringLength(string);
-  std::vector<char> buffer(clen);
-  env->GetStringUTFRegion(string, 0, jlen, buffer.data());
-  return std::string(buffer.data(), clen);
-}
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_open(
     JNIEnv* env, jobject this_obj, jstring file_path) {
@@ -188,7 +182,7 @@ Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_nextStripeReader(JNIEnv* e
                                                                        jobject this_obj,
                                                                        jlong id,
                                                                        jlong batch_size) {
-  auto reader = GetNativeReader(id);
+  auto reader = orc_reader_holder_.Lookup(id);
   std::shared_ptr<RecordBatchReader> stripe_reader;
   auto status = reader->NextStripeReader(batch_size, &stripe_reader);
 
@@ -207,7 +201,7 @@ JNIEXPORT jbyteArray JNICALL
 Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_getSchema(JNIEnv* env,
                                                                       jclass this_cls,
                                                                       jlong id) {
-  auto stripe_reader = GetStripeReader(id);
+  auto stripe_reader = orc_stripe_reader_holder_.Lookup(id);
   auto schema = stripe_reader->schema();
 
   std::shared_ptr<arrow::Buffer> out;
@@ -227,7 +221,7 @@ JNIEXPORT jobject JNICALL
 Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
                                                                  jclass this_cls,
                                                                  jlong id) {
-  auto stripe_reader = GetStripeReader(id);
+  auto stripe_reader = orc_stripe_reader_holder_.Lookup(id);
   std::shared_ptr<arrow::RecordBatch> record_batch;
   auto status = stripe_reader->ReadNext(&record_batch);
   if (!status.ok() || !record_batch) {
