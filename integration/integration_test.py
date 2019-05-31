@@ -1031,7 +1031,6 @@ def get_generated_json_files(tempdir=None, flight=False):
 
     file_objs = [
         (generate_primitive_case([], name='primitive_no_batches')
-         .skip_category('JS')
          .skip_category('Java')),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),

@@ -22,7 +22,6 @@ import { Column } from '../column';
 import { Schema, Field } from '../schema';
 import { Chunked } from '../vector/chunked';
 import { Message } from './metadata/message';
-import { RecordBatch } from '../recordbatch';
 import * as metadata from './metadata/message';
 import { DataType, Dictionary } from '../type';
 import { FileBlock, Footer } from './metadata/file';
@@ -32,6 +31,7 @@ import { VectorAssembler } from '../visitor/vectorassembler';
 import { JSONTypeAssembler } from '../visitor/jsontypeassembler';
 import { JSONVectorAssembler } from '../visitor/jsonvectorassembler';
 import { ArrayBufferViewInput, toUint8Array } from '../util/buffer';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch';
 import { Writable, ReadableInterop, ReadableDOMStreamOptions } from '../io/interfaces';
 import { isPromise, isAsyncIterable, isWritableDOMStream, isWritableNodeStream, isIterable } from '../util/compat';
 
@@ -162,7 +162,9 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         }
 
         if (payload instanceof RecordBatch) {
-            this._writeRecordBatch(payload);
+            if (!(payload instanceof _InternalEmptyPlaceholderRecordBatch)) {
+                this._writeRecordBatch(payload);
+            }
         } else if (payload instanceof Table) {
             this.writeAll(payload.chunks);
         } else if (isIterable(payload)) {
