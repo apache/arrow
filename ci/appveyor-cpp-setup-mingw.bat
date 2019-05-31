@@ -24,26 +24,36 @@ if "%MSYSTEM%" == "MINGW32" (
 )
 set PATH=%MINGW_PREFIX%\bin;C:\msys64\usr\bin;%PATH%
 
-pacman --sync --refresh --noconfirm ^
-    "ccache" ^
-    "%MINGW_PACKAGE_PREFIX%-boost" ^
-    "%MINGW_PACKAGE_PREFIX%-brotli" ^
-    "%MINGW_PACKAGE_PREFIX%-cmake" ^
-    "%MINGW_PACKAGE_PREFIX%-double-conversion" ^
-    "%MINGW_PACKAGE_PREFIX%-flatbuffers" ^
-    "%MINGW_PACKAGE_PREFIX%-gflags" ^
-    "%MINGW_PACKAGE_PREFIX%-gobject-introspection" ^
-    "%MINGW_PACKAGE_PREFIX%-gtest" ^
-    "%MINGW_PACKAGE_PREFIX%-gtk-doc" ^
-    "%MINGW_PACKAGE_PREFIX%-lz4" ^
-    "%MINGW_PACKAGE_PREFIX%-meson" ^
-    "%MINGW_PACKAGE_PREFIX%-protobuf" ^
-    "%MINGW_PACKAGE_PREFIX%-python3-numpy" ^
-    "%MINGW_PACKAGE_PREFIX%-rapidjson" ^
-    "%MINGW_PACKAGE_PREFIX%-snappy" ^
-    "%MINGW_PACKAGE_PREFIX%-thrift" ^
-    "%MINGW_PACKAGE_PREFIX%-zlib" ^
-    "%MINGW_PACKAGE_PREFIX%-zstd" || exit /B
+pacman --remove --noconfirm ^
+  %MINGW_PACKAGE_PREFIX%-gcc-ada ^
+  %MINGW_PACKAGE_PREFIX%-gcc-objc || exit /B
+pacman --sync --refresh --sysupgrade --noconfirm || exit /B
+pacman --sync --noconfirm ^
+  %MINGW_PACKAGE_PREFIX%-gcc ^
+  %MINGW_PACKAGE_PREFIX%-gcc-fortran ^
+  %MINGW_PACKAGE_PREFIX%-python3 ^
+  %MINGW_PACKAGE_PREFIX%-readline ^
+  %MINGW_PACKAGE_PREFIX%-sqlite3 || exit /B
+pacman --sync --noconfirm ^
+  ccache ^
+  %MINGW_PACKAGE_PREFIX%-boost ^
+  %MINGW_PACKAGE_PREFIX%-brotli ^
+  %MINGW_PACKAGE_PREFIX%-cmake ^
+  %MINGW_PACKAGE_PREFIX%-double-conversion ^
+  %MINGW_PACKAGE_PREFIX%-flatbuffers ^
+  %MINGW_PACKAGE_PREFIX%-gflags ^
+  %MINGW_PACKAGE_PREFIX%-gobject-introspection ^
+  %MINGW_PACKAGE_PREFIX%-gtest ^
+  %MINGW_PACKAGE_PREFIX%-gtk-doc ^
+  %MINGW_PACKAGE_PREFIX%-lz4 ^
+  %MINGW_PACKAGE_PREFIX%-meson ^
+  %MINGW_PACKAGE_PREFIX%-protobuf ^
+  %MINGW_PACKAGE_PREFIX%-python3-numpy ^
+  %MINGW_PACKAGE_PREFIX%-rapidjson ^
+  %MINGW_PACKAGE_PREFIX%-snappy ^
+  %MINGW_PACKAGE_PREFIX%-thrift ^
+  %MINGW_PACKAGE_PREFIX%-zlib ^
+  %MINGW_PACKAGE_PREFIX%-zstd || exit /B
 
 pushd c_glib
 ruby -S bundle install || exit /B
