@@ -81,7 +81,7 @@ class PARQUET_EXPORT OutputStream : virtual public FileInterface {
 // ----------------------------------------------------------------------
 // Wrapper classes
 
-class ParquetInputWrapper : public ::arrow::io::RandomAccessFile {
+class PARQUET_EXPORT ParquetInputWrapper : public ::arrow::io::RandomAccessFile {
  public:
   explicit ParquetInputWrapper(std::unique_ptr<RandomAccessSource> source);
   explicit ParquetInputWrapper(RandomAccessSource* source);
@@ -109,7 +109,7 @@ class ParquetInputWrapper : public ::arrow::io::RandomAccessFile {
   bool closed_;
 };
 
-class ParquetOutputWrapper : public ::arrow::io::OutputStream {
+class PARQUET_EXPORT ParquetOutputWrapper : public ::arrow::io::OutputStream {
  public:
   explicit ParquetOutputWrapper(const std::shared_ptr<::parquet::OutputStream>& sink);
   explicit ParquetOutputWrapper(std::unique_ptr<::parquet::OutputStream> sink);
