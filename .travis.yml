@@ -354,6 +354,8 @@ matrix:
           sudo apt-get update -qq
         fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
+    # On Xenial, installing clang-7 leads these to get removed,
+    # but that breaks R, so let's reinstall them.
     - sudo apt-get install gfortran gfortran-5 libblas-dev libgfortran-5-dev libgfortran3 liblapack-dev liblapack3
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
