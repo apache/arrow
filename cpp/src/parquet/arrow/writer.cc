@@ -1130,8 +1130,7 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
 }
 
 Status WriteFileMetaData(const FileMetaData& file_metadata,
-                         ::arrow::io::OutputStream* sink,
-                         const bool metafile) {
+                         ::arrow::io::OutputStream* sink, const bool metafile) {
   PARQUET_CATCH_NOT_OK(::parquet::WriteFileMetaData(file_metadata, sink, metafile));
   return Status::OK();
 }

@@ -29,12 +29,10 @@ namespace parquet {
 namespace metadata {
 
 // Helper function for generating table metadata
-std::unique_ptr<parquet::FileMetaData>
-    generate_table_metadata(const parquet::SchemaDescriptor& schema,
-                            const std::shared_ptr<WriterProperties>& props,
-                            const int64_t& nrows,
-                            EncodedStatistics stats_int,
-                            EncodedStatistics stats_float) {
+std::unique_ptr<parquet::FileMetaData> generate_table_metadata(
+    const parquet::SchemaDescriptor& schema,
+    const std::shared_ptr<WriterProperties>& props, const int64_t& nrows,
+    EncodedStatistics stats_int, EncodedStatistics stats_float) {
   auto f_builder = FileMetaDataBuilder::Make(&schema, props);
   auto rg1_builder = f_builder->AppendRowGroup();
 
@@ -182,11 +180,11 @@ TEST(Metadata, TestBuildAccess) {
 
   // Test AppendRowGroups
   auto f_accessor_2 =
-        generate_table_metadata(schema, props, nrows, stats_int, stats_float);
+      generate_table_metadata(schema, props, nrows, stats_int, stats_float);
   std::shared_ptr<parquet::FileMetaData> f_accessor_2_sp{std::move(f_accessor_2)};
   f_accessor->AppendRowGroups(f_accessor_2_sp);
   ASSERT_EQ(4, f_accessor->num_row_groups());
-  ASSERT_EQ(nrows*2, f_accessor->num_rows());
+  ASSERT_EQ(nrows * 2, f_accessor->num_rows());
   ASSERT_LE(0, static_cast<int>(f_accessor->size()));
   ASSERT_EQ(ParquetVersion::PARQUET_2_0, f_accessor->version());
   ASSERT_EQ(DEFAULT_CREATED_BY, f_accessor->created_by());

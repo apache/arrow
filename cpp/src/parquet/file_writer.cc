@@ -363,8 +363,7 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
 
 void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink,
                        const bool metafile) {
-  if (metafile)
-    sink->Write(PARQUET_MAGIC, 4);
+  if (metafile) PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
 
   int64_t position = -1;
   PARQUET_THROW_NOT_OK(sink->Tell(&position));
