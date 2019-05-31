@@ -14,15 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package float16
+package float16 // import "github.com/apache/arrow/go/arrow/float16"
 
 import (
 	"math"
+	"strconv"
 )
 
-type Num struct{ Val uint16 }
+// Num represents a half-precision floating point value (float16)
+// stored on 16 bits.
+//
+// See https://en.wikipedia.org/wiki/Half-precision_floating-point_format for more informations.
+type Num struct {
+	bits uint16
+}
 
-// https://en.wikipedia.org/wiki/Half-precision_floating-point_format
+// New creates a new half-precision floating point value from the provided
+// float32 value.
 func New(f float32) Num {
 	b := math.Float32bits(f)
 	sn := uint16((b >> 31) & 0x1)
@@ -41,14 +49,14 @@ func New(f float32) Num {
 		res = 0
 		fc = 0
 	}
-	return Num{Val: (sn << 15) | uint16(res<<10) | fc}
+	return Num{bits: (sn << 15) | uint16(res<<10) | fc}
 }
 
 func (f Num) Float32() float32 {
-	sn := uint32((f.Val >> 15) & 0x1)
-	exp := (f.Val >> 10) & 0x1f
+	sn := uint32((f.bits >> 15) & 0x1)
+	exp := (f.bits >> 10) & 0x1f
 	res := uint32(exp) + 127 - 15
-	fc := uint32(f.Val & 0x3ff)
+	fc := uint32(f.bits & 0x3ff)
 	switch {
 	case exp == 0:
 		res = 0
@@ -57,3 +65,6 @@ func (f Num) Float32() float32 {
 	}
 	return math.Float32frombits((sn << 31) | (res << 23) | (fc << 13))
 }
+
+func (f Num) Uint16() uint16 { return f.bits }
+func (f Num) String() string { return strconv.FormatFloat(float64(f.Float32()), 'g', -1, 32) }
