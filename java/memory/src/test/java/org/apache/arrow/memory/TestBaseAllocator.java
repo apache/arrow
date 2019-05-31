@@ -31,8 +31,11 @@ import java.util.Collections;
 import java.util.Iterator;
 
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
+import org.apache.arrow.memory.rounding.RoundingPolicy;
+import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -295,6 +298,64 @@ public class TestBaseAllocator {
       // ------------------------------- DEBUG ---------------------------------
       */
     }
+  }
+
+  @Test
+  public void testSegmentAllocator() {
+    RoundingPolicy policy = new SegmentRoundingPolicy(1024);
+    try (RootAllocator allocator = new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy)) {
+      ArrowBuf buf = allocator.buffer(798);
+      assertEquals(1024, buf.capacity());
+      buf.setInt(333, 959);
+      assertEquals(959, buf.getInt(333));
+      buf.close();
+
+      buf = allocator.buffer(1025);
+      assertEquals(2048, buf.capacity());
+      buf.setInt(193, 939);
+      assertEquals(939, buf.getInt(193));
+      buf.close();
+    }
+  }
+
+  @Test
+  public void testSegmentAllocator_childAllocator() {
+    RoundingPolicy policy = new SegmentRoundingPolicy(1024);
+    try (RootAllocator allocator = new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy);
+      BufferAllocator childAllocator = allocator.newChildAllocator("child", 0, 512 * 1024)) {
+
+      assertEquals("child", childAllocator.getName());
+
+      ArrowBuf buf = childAllocator.buffer(798);
+      assertEquals(1024, buf.capacity());
+      buf.setInt(333, 959);
+      assertEquals(959, buf.getInt(333));
+      buf.close();
+
+      buf = childAllocator.buffer(1025);
+      assertEquals(2048, buf.capacity());
+      buf.setInt(193, 939);
+      assertEquals(939, buf.getInt(193));
+      buf.close();
+    }
+  }
+
+  @Test
+  public void testSegmentAllocator_smallSegment() {
+    IllegalArgumentException e = Assertions.assertThrows(
+            IllegalArgumentException.class,
+        () -> new SegmentRoundingPolicy(128)
+    );
+    assertEquals("The segment size cannot be smaller than 1024", e.getMessage());
+  }
+
+  @Test
+  public void testSegmentAllocator_segmentSizeNotPowerOf2() {
+    IllegalArgumentException e = Assertions.assertThrows(
+            IllegalArgumentException.class,
+        () -> new SegmentRoundingPolicy(4097)
+    );
+    assertEquals("The segment size must be a power of 2", e.getMessage());
   }
 
   // Allocation listener

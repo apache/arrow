@@ -25,6 +25,7 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
@@ -60,6 +61,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private final IdentityHashMap<Reservation, Object> reservations;
   private final HistoricalLog historicalLog;
   private volatile boolean isClosed = false; // the allocator has been closed
+  private final RoundingPolicy roundingPolicy;
 
   /**
    * Initialize an allocator
@@ -76,7 +78,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       final AllocationListener listener,
       final String name,
       final long initReservation,
-      final long maxAllocation) throws OutOfMemoryException {
+      final long maxAllocation,
+      final RoundingPolicy roundingPolicy) throws OutOfMemoryException {
     super(parentAllocator, name, initReservation, maxAllocation);
 
     this.listener = listener;
@@ -108,7 +111,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       historicalLog = null;
       childLedgers = null;
     }
-
+    this.roundingPolicy = roundingPolicy;
   }
 
   AllocationListener getListener() {
@@ -288,11 +291,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return empty;
     }
 
-    // round to next largest power of two if we're within a chunk since that is how our allocator
-    // operates
-    final int actualRequestSize =
-        initialRequestSize < AllocationManager.CHUNK_SIZE ?
-          nextPowerOfTwo(initialRequestSize) : initialRequestSize;
+    // round the request size according to the rounding policy
+    final int actualRequestSize = roundingPolicy.getRoundedSize(initialRequestSize);
 
     listener.onPreAllocation(actualRequestSize);
 
@@ -375,7 +375,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     assertOpen();
 
     final ChildAllocator childAllocator =
-        new ChildAllocator(listener, this, name, initReservation, maxAllocation);
+        new ChildAllocator(listener, this, name, initReservation, maxAllocation, roundingPolicy);
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
