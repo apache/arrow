@@ -28,7 +28,7 @@
 
 namespace gandiva {
 
-timestamp StringToTimestamp(const char* buf) {
+static inline timestamp StringToTimestamp(const char* buf) {
   int64_t out = 0;
   bool success = internal::ParseTimestamp(buf, "%Y-%m-%d %H:%M:%S", false, &out);
   DCHECK(success);

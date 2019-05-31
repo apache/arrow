@@ -156,9 +156,4 @@ TEST_F(TestExprTree, TestExpression) {
   EXPECT_EQ(null_if_null->native_function(), fn);
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 }  // namespace gandiva
