@@ -2683,9 +2683,7 @@ def test_multi_dataset_metadata(tempdir):
     _meta = None
     for filename in filenames:
         meta = []
-        pq.write_to_dataset(table, 
-                            root_path=str(tempdir / filename),
-                            partition_cols=['one', 'two'],
+        pq.write_table(table, str(tempdir / filename),
                             metadata_collector=meta)
         meta[0].set_file_path(filename)
         if _meta is None:
@@ -2698,7 +2696,7 @@ def test_multi_dataset_metadata(tempdir):
         _meta.write_metadata_file(f)
 
     # Read back the dataset
-    dataset = pq.ParquetDataset(metapath)
+    dataset = pq.ParquetDataset(metapath, metadata=_meta)
     metadata_list = [p.get_metadata() for p in dataset.pieces]
     md = metadata_list[0].to_dict()
     _md = _meta.to_dict()
