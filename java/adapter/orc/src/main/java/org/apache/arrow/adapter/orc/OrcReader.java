@@ -32,6 +32,9 @@ public class OrcReader implements AutoCloseable {
   private final OrcReaderJniWrapper jniWrapper;
   private BufferAllocator allocator;
 
+  /**
+   * reference to native reader instance.
+   */
   private final long id;
 
   /**

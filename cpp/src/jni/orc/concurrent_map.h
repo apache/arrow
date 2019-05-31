@@ -33,9 +33,9 @@ namespace jni {
  * @tparam Holder class of the object to hold.
  */
 template <typename Holder>
-class concurrentMap {
+class ConcurrentMap {
  public:
-  concurrentMap() : module_id_(kInitModuleId) {}
+  ConcurrentMap() : module_id_(init_module_id_) {}
 
   jlong Insert(Holder holder) {
     std::lock_guard<std::mutex> lock(mtx_);
@@ -50,20 +50,16 @@ class concurrentMap {
   }
 
   Holder Lookup(jlong module_id) {
-    Holder result = NULLPTR;
-    try {
-      result = map_.at(module_id);
-    } catch (const std::out_of_range& e) {
-    }
-    if (result != NULLPTR) {
-      return result;
+    auto it = map_.find(module_id);
+    if (it != map_.end()) {
+      return it->second;
     }
     std::lock_guard<std::mutex> lock(mtx_);
-    try {
-      result = map_.at(module_id);
-    } catch (const std::out_of_range& e) {
+    it = map_.find(module_id);
+    if (it != map_.end()) {
+      return it->second;
     }
-    return result;
+    return NULLPTR;
   }
 
   void Clear() {
@@ -73,7 +69,7 @@ class concurrentMap {
 
  private:
   // starting value of the module_id.
-  static constexpr int kInitModuleId = 4;
+  static constexpr int init_module_id_ = 4;
 
   int64_t module_id_;
   std::mutex mtx_;

@@ -48,11 +48,11 @@ static jmethodID record_batch_constructor;
 
 static jint JNI_VERSION = JNI_VERSION_1_6;
 
-using arrow::jni::concurrentMap;
+using arrow::jni::ConcurrentMap;
 
-static concurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
-static concurrentMap<std::shared_ptr<RecordBatchReader>> orc_stripe_reader_holder_;
-static concurrentMap<std::shared_ptr<ORCFileReader>> orc_reader_holder_;
+static ConcurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
+static ConcurrentMap<std::shared_ptr<RecordBatchReader>> orc_stripe_reader_holder_;
+static ConcurrentMap<std::shared_ptr<ORCFileReader>> orc_reader_holder_;
 
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   jclass local_class = env->FindClass(class_name);

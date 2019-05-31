@@ -40,6 +40,9 @@ import io.netty.buffer.ArrowBuf;
  * Orc stripe that load data into ArrowRecordBatch.
  */
 public class OrcStripeReader extends ArrowReader {
+  /**
+   * reference to native stripe reader instance.
+   */
   private final long id;
   private MessageChannelReader schemaReader;
 

@@ -46,7 +46,7 @@ class OrcMemoryJniWrapper implements AutoCloseable {
 
   /**
    * Return the size of underlying chunk of memory that has valid data.
-   * @return
+   * @return valid data size
    */
   long getSize() {
     return size;
@@ -54,7 +54,7 @@ class OrcMemoryJniWrapper implements AutoCloseable {
 
   /**
    * Return the size of underlying chunk of memory managed by this OrcMemoryJniWrapper.
-   * @return
+   * @return underlying memory size
    */
   long getCapacity() {
     return capacity;
@@ -62,7 +62,7 @@ class OrcMemoryJniWrapper implements AutoCloseable {
 
   /**
    * Return the memory address of underlying chunk of memory.
-   * @return
+   * @return memory address
    */
   long getMemoryAddress() {
     return memoryAddress;

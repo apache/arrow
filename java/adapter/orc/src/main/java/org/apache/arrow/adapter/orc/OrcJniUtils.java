@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.UUID;
 
 /**
  * Helper class for JNI related operations.
@@ -34,10 +33,6 @@ class OrcJniUtils {
 
   private OrcJniUtils() {}
 
-  /**
-   * Load arrow orc jni library from jar.
-   * @throws IOException throws IOException in case target library can not be found.
-   */
   static void loadOrcAdapterLibraryFromJar()
           throws IOException {
     synchronized (OrcJniUtils.class) {
@@ -53,7 +48,7 @@ class OrcJniUtils {
 
   private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad)
           throws IOException {
-    final File temp = setupFile(tmpDir, libraryToLoad);
+    final File temp = File.createTempFile(tmpDir, libraryToLoad);
     try (final InputStream is = OrcReaderJniWrapper.class.getClassLoader()
             .getResourceAsStream(libraryToLoad)) {
       if (is == null) {
@@ -63,11 +58,5 @@ class OrcJniUtils {
       }
     }
     return temp;
-  }
-
-  private static File setupFile(String tmpDir, String libraryToLoad)
-          throws IOException {
-    final String randomizeFileName = libraryToLoad + UUID.randomUUID();
-    return File.createTempFile(tmpDir, randomizeFileName);
   }
 }
