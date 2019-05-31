@@ -15,35 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_FILE_PRINTER_H
-#define PARQUET_FILE_PRINTER_H
+#include <utility>
 
-#include <iosfwd>
-#include <list>
+#include "parquet/properties.h"
 
-#include "parquet/platform.h"
+#include "arrow/io/buffered.h"
+#include "arrow/io/memory.h"
 
 namespace parquet {
 
-class ParquetFileReader;
-
-class PARQUET_EXPORT ParquetFilePrinter {
- private:
-  ParquetFileReader* fileReader;
-
- public:
-  explicit ParquetFilePrinter(ParquetFileReader* reader) : fileReader(reader) {}
-  ~ParquetFilePrinter() {}
-
-  void DebugPrint(std::ostream& stream, std::list<int> selected_columns,
-                  bool print_values = false, bool format_dump = false,
-                  bool print_key_value_metadata = false,
-                  const char* filename = "No Name");
-
-  void JSONPrint(std::ostream& stream, std::list<int> selected_columns,
-                 const char* filename = "No Name");
-};
+std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
+    std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes) {
+  if (buffered_stream_enabled_) {
+    std::shared_ptr<::arrow::io::BufferedInputStream> stream;
+    PARQUET_THROW_NOT_OK(source->Seek(start));
+    PARQUET_THROW_NOT_OK(::arrow::io::BufferedInputStream::Create(
+        buffer_size_, pool_, source, &stream, num_bytes));
+    return std::move(stream);
+  } else {
+    std::shared_ptr<Buffer> data;
+    PARQUET_THROW_NOT_OK(source->ReadAt(start, num_bytes, &data));
+    return std::make_shared<::arrow::io::BufferReader>(data);
+  }
+}
 
 }  // namespace parquet
-
-#endif  // PARQUET_FILE_PRINTER_H

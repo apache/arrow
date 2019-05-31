@@ -27,13 +27,14 @@
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
 
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/murmur3.h"
+#include "parquet/platform.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 namespace test {
@@ -75,11 +76,13 @@ TEST(BasicTest, TestBloomFilter) {
   }
 
   // Serialize Bloom filter to memory output stream
-  InMemoryOutputStream sink;
-  bloom_filter.WriteTo(&sink);
+  auto sink = CreateOutputStream();
+  bloom_filter.WriteTo(sink.get());
 
   // Deserialize Bloom filter from memory
-  InMemoryInputStream source(sink.GetBuffer());
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_OK(sink->Finish(&buffer));
+  ::arrow::io::BufferReader source(buffer);
 
   BlockSplitBloomFilter de_bloom = BlockSplitBloomFilter::Deserialize(&source);
 
@@ -172,7 +175,7 @@ TEST(CompatibilityTest, TestBloomFilter) {
   std::shared_ptr<Buffer> buffer(new Buffer(bitset.get(), size));
   PARQUET_THROW_NOT_OK(handle->Read(size, &buffer));
 
-  InMemoryInputStream source(buffer);
+  ::arrow::io::BufferReader source(buffer);
   BlockSplitBloomFilter bloom_filter1 = BlockSplitBloomFilter::Deserialize(&source);
 
   for (int i = 0; i < 4; i++) {
@@ -193,9 +196,10 @@ TEST(CompatibilityTest, TestBloomFilter) {
   }
 
   // Serialize Bloom filter to memory output stream
-  InMemoryOutputStream sink;
-  bloom_filter2.WriteTo(&sink);
-  std::shared_ptr<Buffer> buffer1 = sink.GetBuffer();
+  auto sink = CreateOutputStream();
+  bloom_filter2.WriteTo(sink.get());
+  std::shared_ptr<Buffer> buffer1;
+  PARQUET_THROW_NOT_OK(sink->Finish(&buffer1));
 
   PARQUET_THROW_NOT_OK(handle->Seek(0));
   PARQUET_THROW_NOT_OK(handle->GetSize(&size));

@@ -25,15 +25,11 @@
 #include <string>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/memory_pool.h"
-
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 

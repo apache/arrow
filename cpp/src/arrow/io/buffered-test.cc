@@ -37,6 +37,7 @@
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/io/memory.h"
 #include "arrow/io/test-common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -342,8 +343,6 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
 
   // Nothing in the buffer
   ASSERT_EQ(0, buffered_->bytes_buffered());
-  util::string_view peek = buffered_->Peek(10);
-  ASSERT_EQ(0, peek.size());
 
   std::vector<char> buf(test_data_.size());
   int64_t bytes_read;
@@ -354,6 +353,10 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
   // 6 bytes remaining in buffer
   ASSERT_EQ(6, buffered_->bytes_buffered());
 
+  util::string_view peek;
+  ASSERT_OK(buffered_->Peek(6, &peek));
+  ASSERT_EQ(6, peek.size());
+
   // Buffered position is 4
   ASSERT_OK(buffered_->Tell(&stream_position));
   ASSERT_EQ(4, stream_position);
@@ -361,11 +364,6 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
   // Raw position actually 10
   ASSERT_OK(raw_->Tell(&stream_position));
   ASSERT_EQ(10, stream_position);
-
-  // Peek does not look beyond end of buffer
-  peek = buffered_->Peek(10);
-  ASSERT_EQ(6, peek.size());
-  ASSERT_EQ(0, memcmp(peek.data(), test_data_.data() + 4, 6));
 
   // Reading to end of buffered bytes does not cause any more data to be
   // buffered
@@ -388,7 +386,7 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
   ASSERT_EQ(test_data_.size(), stream_position);
 
   // Peek at EOF
-  peek = buffered_->Peek(10);
+  ASSERT_OK(buffered_->Peek(10, &peek));
   ASSERT_EQ(0, peek.size());
 
   // Calling Close closes raw_
@@ -451,6 +449,207 @@ TEST_F(TestBufferedInputStream, SetBufferSize) {
 
   // Shrinking to exactly number of buffered bytes is ok
   ASSERT_OK(buffered_->SetBufferSize(5));
+}
+
+class TestBufferedInputStreamBound : public ::testing::Test {
+ public:
+  void SetUp() { CreateExample(/*bounded=*/true); }
+
+  void CreateExample(bool bounded = true) {
+    // Create a buffer larger than source size, to check that the
+    // stream end is respected
+    std::shared_ptr<ResizableBuffer> buf;
+    ASSERT_OK(AllocateResizableBuffer(default_memory_pool(), source_size_ + 10, &buf));
+    ASSERT_LT(source_size_, buf->size());
+    for (int i = 0; i < source_size_; i++) {
+      buf->mutable_data()[i] = static_cast<uint8_t>(i);
+    }
+    source_ = std::make_shared<BufferReader>(buf);
+    ASSERT_OK(source_->Advance(stream_offset_));
+    ASSERT_OK(BufferedInputStream::Create(chunk_size_, default_memory_pool(), source_,
+                                          &stream_, bounded ? stream_size_ : -1));
+  }
+
+ protected:
+  int64_t source_size_ = 256;
+  int64_t stream_offset_ = 10;
+  int64_t stream_size_ = source_size_ - stream_offset_;
+  int64_t chunk_size_ = 50;
+  std::shared_ptr<InputStream> source_;
+  std::shared_ptr<BufferedInputStream> stream_;
+};
+
+TEST_F(TestBufferedInputStreamBound, Basics) {
+  std::shared_ptr<Buffer> buffer;
+  util::string_view view;
+
+  // source is at offset 10
+  ASSERT_OK(stream_->Peek(10, &view));
+  ASSERT_EQ(10, view.size());
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(10 + i, view[i]) << i;
+  }
+
+  ASSERT_OK(stream_->Read(10, &buffer));
+  ASSERT_EQ(10, buffer->size());
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(10 + i, (*buffer)[i]) << i;
+  }
+
+  ASSERT_OK(stream_->Read(10, &buffer));
+  ASSERT_EQ(10, buffer->size());
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(20 + i, (*buffer)[i]) << i;
+  }
+  ASSERT_OK(stream_->Advance(5));
+  ASSERT_OK(stream_->Advance(5));
+
+  // source is at offset 40
+  // read across buffer boundary. buffer size is 50
+  ASSERT_OK(stream_->Read(20, &buffer));
+  ASSERT_EQ(20, buffer->size());
+  for (int i = 0; i < 20; i++) {
+    ASSERT_EQ(40 + i, (*buffer)[i]) << i;
+  }
+
+  // read more than original chunk size
+  ASSERT_OK(stream_->Read(60, &buffer));
+  ASSERT_EQ(60, buffer->size());
+  for (int i = 0; i < 60; i++) {
+    ASSERT_EQ(60 + i, (*buffer)[i]) << i;
+  }
+
+  ASSERT_OK(stream_->Advance(120));
+
+  // source is at offset 240
+  // read outside of source boundary. source size is 256
+  ASSERT_OK(stream_->Read(30, &buffer));
+
+  ASSERT_EQ(16, buffer->size());
+  for (int i = 0; i < 16; i++) {
+    ASSERT_EQ(240 + i, (*buffer)[i]) << i;
+  }
+  // Stream exhausted
+  ASSERT_OK(stream_->Read(1, &buffer));
+  ASSERT_EQ(0, buffer->size());
+}
+
+TEST_F(TestBufferedInputStreamBound, LargeFirstPeek) {
+  // Test a first peek larger than chunk size
+  std::shared_ptr<Buffer> buffer;
+  util::string_view view;
+  int64_t n = 70;
+  ASSERT_GT(n, chunk_size_);
+
+  // source is at offset 10
+  ASSERT_OK(stream_->Peek(n, &view));
+  ASSERT_EQ(n, static_cast<int>(view.size()));
+  for (int i = 0; i < n; i++) {
+    ASSERT_EQ(10 + i, view[i]) << i;
+  }
+
+  ASSERT_OK(stream_->Peek(n, &view));
+  ASSERT_EQ(n, static_cast<int>(view.size()));
+  for (int i = 0; i < n; i++) {
+    ASSERT_EQ(10 + i, view[i]) << i;
+  }
+
+  ASSERT_OK(stream_->Read(n, &buffer));
+  ASSERT_EQ(n, buffer->size());
+  for (int i = 0; i < n; i++) {
+    ASSERT_EQ(10 + i, (*buffer)[i]) << i;
+  }
+  // source is at offset 10 + n
+  ASSERT_OK(stream_->Read(20, &buffer));
+  ASSERT_EQ(20, buffer->size());
+  for (int i = 0; i < 20; i++) {
+    ASSERT_EQ(10 + n + i, (*buffer)[i]) << i;
+  }
+}
+
+TEST_F(TestBufferedInputStreamBound, UnboundedPeek) {
+  CreateExample(/*bounded=*/false);
+
+  util::string_view view;
+  ASSERT_OK(stream_->Peek(10, &view));
+  ASSERT_EQ(10, view.size());
+  ASSERT_EQ(50, stream_->bytes_buffered());
+
+  std::shared_ptr<Buffer> buf;
+  ASSERT_OK(stream_->Read(10, &buf));
+
+  // Peek into buffered bytes
+  ASSERT_OK(stream_->Peek(40, &view));
+  ASSERT_EQ(40, view.size());
+  ASSERT_EQ(40, stream_->bytes_buffered());
+  ASSERT_EQ(50, stream_->buffer_size());
+
+  // Peek past buffered bytes
+  ASSERT_OK(stream_->Peek(41, &view));
+  ASSERT_EQ(41, view.size());
+  ASSERT_EQ(41, stream_->bytes_buffered());
+  ASSERT_EQ(51, stream_->buffer_size());
+
+  // Peek to the end of the buffer
+  ASSERT_OK(stream_->Peek(246, &view));
+  ASSERT_EQ(246, view.size());
+  ASSERT_EQ(246, stream_->bytes_buffered());
+  ASSERT_EQ(246, stream_->buffer_size());
+
+  // Larger peek returns the same, expands the buffer, but there is no
+  // more data to buffer
+  ASSERT_OK(stream_->Peek(300, &view));
+  ASSERT_EQ(246, view.size());
+  ASSERT_EQ(246, stream_->bytes_buffered());
+  ASSERT_EQ(300, stream_->buffer_size());
+}
+
+TEST_F(TestBufferedInputStreamBound, OneByteReads) {
+  std::shared_ptr<Buffer> buffer;
+  for (int i = 0; i < stream_size_; ++i) {
+    ASSERT_OK(stream_->Read(1, &buffer));
+    ASSERT_EQ(1, buffer->size());
+    ASSERT_EQ(10 + i, (*buffer)[0]) << i;
+  }
+  // Stream exhausted
+  ASSERT_OK(stream_->Read(1, &buffer));
+  ASSERT_EQ(0, buffer->size());
+}
+
+TEST_F(TestBufferedInputStreamBound, BufferExactlyExhausted) {
+  // Test exhausting the buffer exactly then issuing further reads (PARQUET-1571).
+  std::shared_ptr<Buffer> buffer;
+
+  // source is at offset 10
+  int64_t n = 10;
+  ASSERT_OK(stream_->Read(n, &buffer));
+  ASSERT_EQ(n, buffer->size());
+  for (int i = 0; i < n; i++) {
+    ASSERT_EQ(10 + i, (*buffer)[i]) << i;
+  }
+  // source is at offset 20
+  // Exhaust buffer exactly
+  n = stream_->bytes_buffered();
+  ASSERT_OK(stream_->Read(n, &buffer));
+  ASSERT_EQ(n, buffer->size());
+  for (int i = 0; i < n; i++) {
+    ASSERT_EQ(20 + i, (*buffer)[i]) << i;
+  }
+
+  // source is at offset 20 + n
+  // Read new buffer
+  ASSERT_OK(stream_->Read(10, &buffer));
+  ASSERT_EQ(10, buffer->size());
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(20 + n + i, (*buffer)[i]) << i;
+  }
+
+  // source is at offset 30 + n
+  ASSERT_OK(stream_->Read(10, &buffer));
+  ASSERT_EQ(10, buffer->size());
+  for (int i = 0; i < 10; i++) {
+    ASSERT_EQ(30 + n + i, (*buffer)[i]) << i;
+  }
 }
 
 }  // namespace io

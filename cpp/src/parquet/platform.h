@@ -15,8 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_UTIL_VISIBILITY_H
-#define PARQUET_UTIL_VISIBILITY_H
+#pragma once
+
+#include <memory>
+
+#include "arrow/buffer.h"            // IWYU pragma: export
+#include "arrow/io/interfaces.h"     // IWYU pragma: export
+#include "arrow/io/memory.h"         // IWYU pragma: export
+#include "arrow/memory_pool.h"       // IWYU pragma: export
+#include "arrow/status.h"            // IWYU pragma: export
+#include "arrow/util/bit-util.h"     // IWYU pragma: export
+#include "arrow/util/macros.h"       // IWYU pragma: export
+#include "arrow/util/string_view.h"  // IWYU pragma: export
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 
@@ -64,4 +74,39 @@
 #define PARQUET_TEMPLATE_EXPORT
 #endif
 
-#endif  // PARQUET_UTIL_VISIBILITY_H
+#define PARQUET_DISALLOW_COPY_AND_ASSIGN ARROW_DISALLOW_COPY_AND_ASSIGN
+
+#define PARQUET_NORETURN ARROW_NORETURN
+#define PARQUET_DEPRECATED ARROW_DEPRECATED
+
+// If ARROW_VALGRIND set when compiling unit tests, also define
+// PARQUET_VALGRIND
+#ifdef ARROW_VALGRIND
+#define PARQUET_VALGRIND
+#endif
+
+namespace parquet {
+
+namespace BitUtil = ::arrow::BitUtil;
+
+using Buffer = ::arrow::Buffer;
+using MemoryPool = ::arrow::MemoryPool;
+using MutableBuffer = ::arrow::MutableBuffer;
+using ResizableBuffer = ::arrow::ResizableBuffer;
+using ResizableBuffer = ::arrow::ResizableBuffer;
+using ArrowInputFile = ::arrow::io::RandomAccessFile;
+using ArrowInputStream = ::arrow::io::InputStream;
+using ArrowOutputStream = ::arrow::io::OutputStream;
+using string_view = ::arrow::util::string_view;
+
+constexpr int64_t kDefaultOutputStreamSize = 1024;
+
+PARQUET_EXPORT
+std::shared_ptr<::arrow::io::BufferOutputStream> CreateOutputStream(
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+PARQUET_EXPORT
+std::shared_ptr<ResizableBuffer> AllocateBuffer(
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), int64_t size = 0);
+
+}  // namespace parquet

@@ -24,6 +24,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
@@ -32,8 +33,6 @@
 #include <boost/regex.hpp>  // IWYU pragma: keep
 
 namespace parquet {
-
-class OutputStream;
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
   static ApplicationVersion version("parquet-mr", 1, 8, 0);
@@ -365,7 +364,7 @@ class FileMetaData::FileMetaDataImpl {
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
-  void WriteTo(OutputStream* dst) const {
+  void WriteTo(::arrow::io::OutputStream* dst) const {
     ThriftSerializer serializer;
     serializer.Serialize(metadata_.get(), dst);
   }
@@ -493,7 +492,9 @@ std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const
 
 void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
 
-void FileMetaData::WriteTo(OutputStream* dst) const { return impl_->WriteTo(dst); }
+void FileMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
+  return impl_->WriteTo(dst);
+}
 
 ApplicationVersion::ApplicationVersion(const std::string& application, int major,
                                        int minor, int patch)
@@ -666,7 +667,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
   }
 
-  void WriteTo(OutputStream* sink) {
+  void WriteTo(::arrow::io::OutputStream* sink) {
     ThriftSerializer serializer;
     serializer.Serialize(column_chunk_, sink);
   }
@@ -731,7 +732,9 @@ void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
                 compressed_size, uncompressed_size, has_dictionary, dictionary_fallback);
 }
 
-void ColumnChunkMetaDataBuilder::WriteTo(OutputStream* sink) { impl_->WriteTo(sink); }
+void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink) {
+  impl_->WriteTo(sink);
+}
 
 const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
   return impl_->descr();

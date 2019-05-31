@@ -148,6 +148,12 @@ class ARROW_EXPORT BufferBuilder {
     capacity_ = size_ = 0;
   }
 
+  /// \brief Set size to a smaller value without modifying builder
+  /// contents. For reusable BufferBuilder classes
+  /// \param[in] position must be non-negative and less than or equal
+  /// to the current length()
+  void Rewind(int64_t position) { size_ = position; }
+
   int64_t capacity() const { return capacity_; }
   int64_t length() const { return size_; }
   const uint8_t* data() const { return data_; }

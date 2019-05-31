@@ -38,7 +38,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
-#include "parquet/util/memory.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 
@@ -282,7 +282,7 @@ class DataPageBuilder {
   typedef typename Type::c_type T;
 
   // This class writes data and metadata to the passed inputs
-  explicit DataPageBuilder(InMemoryOutputStream* sink)
+  explicit DataPageBuilder(ArrowOutputStream* sink)
       : sink_(sink),
         num_values_(0),
         encoding_(Encoding::PLAIN),
@@ -314,7 +314,7 @@ class DataPageBuilder {
                     Encoding::type encoding = Encoding::PLAIN) {
     std::shared_ptr<Buffer> values_sink = EncodeValues<Type>(
         encoding, false, values.data(), static_cast<int>(values.size()), d);
-    sink_->Write(values_sink->data(), values_sink->size());
+    PARQUET_THROW_NOT_OK(sink_->Write(values_sink->data(), values_sink->size()));
 
     num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
     encoding_ = encoding;
@@ -330,7 +330,7 @@ class DataPageBuilder {
   Encoding::type def_level_encoding() const { return definition_level_encoding_; }
 
  private:
-  InMemoryOutputStream* sink_;
+  ArrowOutputStream* sink_;
 
   int32_t num_values_;
   Encoding::type encoding_;
@@ -361,8 +361,9 @@ class DataPageBuilder {
     encoder.Encode(static_cast<int>(levels.size()), levels.data());
 
     int32_t rle_bytes = encoder.len();
-    sink_->Write(reinterpret_cast<const uint8_t*>(&rle_bytes), sizeof(int32_t));
-    sink_->Write(encode_buffer.data(), rle_bytes);
+    PARQUET_THROW_NOT_OK(
+        sink_->Write(reinterpret_cast<const uint8_t*>(&rle_bytes), sizeof(int32_t)));
+    PARQUET_THROW_NOT_OK(sink_->Write(encode_buffer.data(), rle_bytes));
   }
 };
 
@@ -378,7 +379,7 @@ void DataPageBuilder<BooleanType>::AppendValues(const ColumnDescriptor* d,
   dynamic_cast<BooleanEncoder*>(encoder.get())
       ->Put(values, static_cast<int>(values.size()));
   std::shared_ptr<Buffer> buffer = encoder->FlushValues();
-  sink_->Write(buffer->data(), buffer->size());
+  PARQUET_THROW_NOT_OK(sink_->Write(buffer->data(), buffer->size()));
 
   num_values_ = std::max(static_cast<int32_t>(values.size()), num_values_);
   encoding_ = encoding;
@@ -393,8 +394,8 @@ static std::shared_ptr<DataPageV1> MakeDataPage(
     const std::vector<int16_t>& rep_levels, int16_t max_rep_level) {
   int num_values = 0;
 
-  InMemoryOutputStream page_stream;
-  test::DataPageBuilder<Type> page_builder(&page_stream);
+  auto page_stream = CreateOutputStream();
+  test::DataPageBuilder<Type> page_builder(page_stream.get());
 
   if (!rep_levels.empty()) {
     page_builder.AppendRepLevels(rep_levels, max_rep_level);
@@ -407,11 +408,12 @@ static std::shared_ptr<DataPageV1> MakeDataPage(
     page_builder.AppendValues(d, values, encoding);
     num_values = page_builder.num_values();
   } else {  // DICTIONARY PAGES
-    page_stream.Write(indices, indices_size);
+    PARQUET_THROW_NOT_OK(page_stream->Write(indices, indices_size));
     num_values = std::max(page_builder.num_values(), num_vals);
   }
 
-  auto buffer = page_stream.GetBuffer();
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(page_stream->Finish(&buffer));
 
   return std::make_shared<DataPageV1>(buffer, num_values, encoding,
                                       page_builder.def_level_encoding(),
@@ -483,7 +485,6 @@ static std::shared_ptr<DictionaryPage> MakeDictPage(
     const ColumnDescriptor* d, const std::vector<typename Type::c_type>& values,
     const std::vector<int>& values_per_page, Encoding::type encoding,
     std::vector<std::shared_ptr<Buffer>>& rle_indices) {
-  InMemoryOutputStream page_stream;
   test::DictionaryPageBuilder<Type> page_builder(d);
   int num_pages = static_cast<int>(values_per_page.size());
   int value_start = 0;
