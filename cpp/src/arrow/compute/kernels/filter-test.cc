@@ -346,7 +346,7 @@ TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayScalar) {
   for (size_t i = 3; i < 13; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        const int64_t length = static_cast<int64_t>(1UL << i);
+        const int64_t length = static_cast<int64_t>(1ULL << i);
         auto array = Datum(rand.Numeric<TypeParam>(length, 0, 100, null_probability));
         auto fifty = Datum(std::make_shared<ScalarType>(CType(50)));
         auto options = CompareOptions(op);
@@ -377,7 +377,7 @@ TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayArray) {
   for (size_t i = 3; i < 5; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        const int64_t length = static_cast<int64_t>(1UL << i);
+        const int64_t length = static_cast<int64_t>(1ULL << i);
         auto lhs = Datum(rand.Numeric<TypeParam>(length << i, 0, 100, null_probability));
         auto rhs = Datum(rand.Numeric<TypeParam>(length << i, 0, 100, null_probability));
         auto options = CompareOptions(op);
