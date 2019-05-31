@@ -25,11 +25,11 @@
 #include <vector>
 
 #include "arrow/flight/server_auth.h"
-#include "arrow/flight/types.h"  // IWYU pragma: keep
+#include "arrow/flight/types.h"       // IWYU pragma: keep
+#include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -41,9 +41,9 @@ namespace flight {
 
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
-class ARROW_EXPORT FlightDataStream {
+class ARROW_FLIGHT_EXPORT FlightDataStream {
  public:
-  virtual ~FlightDataStream() = default;
+  virtual ~FlightDataStream();
 
   virtual std::shared_ptr<Schema> schema() = 0;
 
@@ -57,12 +57,13 @@ class ARROW_EXPORT FlightDataStream {
 
 /// \brief A basic implementation of FlightDataStream that will provide
 /// a sequence of FlightData messages to be written to a gRPC stream
-class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
+class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches
   /// \param[in,out] pool a MemoryPool to use for allocations
   explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
                              MemoryPool* pool = default_memory_pool());
+  ~RecordBatchStream() override;
 
   std::shared_ptr<Schema> schema() override;
   Status GetSchemaPayload(FlightPayload* payload) override;
@@ -73,22 +74,33 @@ class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
   std::unique_ptr<RecordBatchStreamImpl> impl_;
 };
 
+// Silence warning
+// "non dll-interface class RecordBatchReader used as base for dll-interface class"
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4275)
+#endif
+
 /// \brief A reader for IPC payloads uploaded by a client
-class ARROW_EXPORT FlightMessageReader : public RecordBatchReader {
+class ARROW_FLIGHT_EXPORT FlightMessageReader : public RecordBatchReader {
  public:
   /// \brief Get the descriptor for this upload.
   virtual const FlightDescriptor& descriptor() const = 0;
 };
 
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 /// \brief Call state/contextual data.
-class ARROW_EXPORT ServerCallContext {
+class ARROW_FLIGHT_EXPORT ServerCallContext {
  public:
   virtual ~ServerCallContext() = default;
   /// \brief The name of the authenticated peer (may be the empty string)
   virtual const std::string& peer_identity() const = 0;
 };
 
-class ARROW_EXPORT FlightServerOptions {
+class ARROW_FLIGHT_EXPORT FlightServerOptions {
  public:
   explicit FlightServerOptions(const Location& location_);
 
@@ -100,7 +112,7 @@ class ARROW_EXPORT FlightServerOptions {
 
 /// \brief Skeleton RPC server implementation which can be used to create
 /// custom servers by implementing its abstract methods
-class ARROW_EXPORT FlightServerBase {
+class ARROW_FLIGHT_EXPORT FlightServerBase {
  public:
   FlightServerBase();
   virtual ~FlightServerBase();
