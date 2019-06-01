@@ -11,46 +11,45 @@ export DEB_BUILD_MAINT_OPTIONS=reproducible=-timeless
 BUILD_TYPE=release
 
 %:
-	dh $@ --with gir,autoreconf
-
-override_dh_autoreconf:
-	dh_autoreconf \
-	  --sourcedirectory=c_glib \
-	  ./autogen.sh
+	dh $@ --with gir
 
 override_dh_auto_configure:
 	dh_auto_configure \
 	  --sourcedirectory=cpp \
 	  --builddirectory=cpp_build \
+	  --buildsystem=cmake+ninja \
 	  -- \
-	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-	  -DARROW_PYTHON=ON \
+	  -DARROW_BUILD_TESTS=ON \
+	  -DARROW_CUDA=ON \
+	  -DARROW_GANDIVA=ON \
+	  -DARROW_GANDIVA_JAVA=OFF \
 	  -DARROW_ORC=ON \
 	  -DARROW_PARQUET=ON \
 	  -DARROW_PLASMA=ON \
-	  -DARROW_GANDIVA=ON \
-	  -DARROW_GANDIVA_JAVA=OFF \
+	  -DARROW_PYTHON=ON \
+	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
 	  -DPythonInterp_FIND_VERSION=ON \
-	  -DPythonInterp_FIND_VERSION_MAJOR=3 \
-	  -DARROW_CUDA=ON
-	dh_auto_configure \
-	  --sourcedirectory=c_glib \
-	  --builddirectory=c_glib_build \
-	  -- \
-	  --with-arrow-cpp-build-dir=$(CURDIR)/cpp_build \
-	  --with-arrow-cpp-build-type=$(BUILD_TYPE) \
-	  --enable-gtk-doc \
-	  --with-html-dir=\$${prefix}/share/doc/libarrow-glib-doc
+	  -DPythonInterp_FIND_VERSION_MAJOR=3
 
 override_dh_auto_build:
 	dh_auto_build				\
 	  --sourcedirectory=cpp			\
-	  --builddirectory=cpp_build
+	  --builddirectory=cpp_build		\
+	  --buildsystem=cmake+ninja
+	dh_auto_configure \
+	  --sourcedirectory=c_glib \
+	  --builddirectory=c_glib_build \
+	  --buildsystem=meson+ninja \
+	  -- \
+	  -Darrow_cpp_build_type=$(BUILD_TYPE) \
+	  -Darrow_cpp_build_dir=$(CURDIR)/cpp_build \
+	  -Dgtk_doc=true
 	env							\
 	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE)	\
 	    dh_auto_build					\
 	      --sourcedirectory=c_glib				\
-	      --builddirectory=c_glib_build
+	      --builddirectory=c_glib_build			\
+	      --buildsystem=meson+ninja
 
 override_dh_auto_install:
 	dh_auto_install				\
@@ -58,7 +57,14 @@ override_dh_auto_install:
 	  --builddirectory=cpp_build
 	dh_auto_install				\
 	  --sourcedirectory=c_glib		\
-	  --builddirectory=c_glib_build
+	  --builddirectory=c_glib_build		\
+	  --buildsystem=meson+ninja
 
-# disable 'make check'.
 override_dh_auto_test:
+	git clone --depth 1 https://github.com/apache/arrow-testing.git
+	git clone --depth 1 https://github.com/apache/parquet-testing.git
+	cd cpp_build &&								\
+	  env									\
+	    ARROW_TEST_DATA=$(CURDIR)/arrow-testing/data			\
+	    PARQUET_TEST_DATA=$(CURDIR)/parquet-testing/data			\
+	      ctest --exclude-regex 'arrow-cuda-test|plasma-client_tests'

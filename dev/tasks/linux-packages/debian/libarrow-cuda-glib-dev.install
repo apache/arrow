@@ -1,5 +1,4 @@
 usr/include/arrow-cuda-glib/
-usr/lib/*/libarrow-cuda-glib.a
 usr/lib/*/libarrow-cuda-glib.so
 usr/lib/*/pkgconfig/arrow-cuda-glib.pc
 usr/share/gir-1.0/ArrowCUDA-1.0.gir

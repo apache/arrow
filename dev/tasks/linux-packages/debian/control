@@ -1,14 +1,12 @@
 Source: apache-arrow
 Section: devel
 Priority: optional
-Maintainer: Kouhei Sutou <kou@clear-code.com>
+Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
 Build-Depends:
-  autoconf-archive,
   bison,
   clang-7,
   cmake,
-  debhelper (>= 9.20160115),
-  dh-autoreconf,
+  debhelper (>= 12),
   flex,
   git,
   gobject-introspection,
@@ -20,17 +18,21 @@ Build-Depends:
   libdouble-conversion-dev,
   libgirepository1.0-dev,
   libgoogle-glog-dev,
+  libgtest-dev,
   liblz4-dev,
   libprotobuf-dev,
   libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
+  libssl-dev,
   libzstd-dev,
+  ninja-build,
   nvidia-cuda-toolkit,
   pkg-config,
   protobuf-compiler,
   python3-dev,
-  python3-numpy
+  python3-numpy,
+  tzdata
 Build-Depends-Indep: libglib2.0-doc
 Standards-Version: 3.9.6
 Homepage: https://arrow.apache.org/
