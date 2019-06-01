@@ -104,6 +104,8 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
       return MakeTypedColumnStats<ByteArrayType>(meta_data, descr);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return MakeTypedColumnStats<FLBAType>(meta_data, descr);
+    case Type::UNDEFINED:
+      break;
   }
   throw ParquetException("Can't decode page statistics for selected column type");
 }

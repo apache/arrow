@@ -61,7 +61,9 @@ struct Type {
     FLOAT = 4,
     DOUBLE = 5,
     BYTE_ARRAY = 6,
-    FIXED_LEN_BYTE_ARRAY = 7
+    FIXED_LEN_BYTE_ARRAY = 7,
+    // Should always be last element.
+    UNDEFINED = 8
   };
 };
 
@@ -91,7 +93,9 @@ struct LogicalType {
     JSON,
     BSON,
     INTERVAL,
-    NA = 25
+    NA = 25,
+    // Should always be last element.
+    UNDEFINED = 26
   };
 };
 
@@ -103,7 +107,7 @@ class LogicalType;
 
 // Mirrors parquet::FieldRepetitionType
 struct Repetition {
-  enum type { REQUIRED = 0, OPTIONAL = 1, REPEATED = 2 };
+  enum type { REQUIRED = 0, OPTIONAL = 1, REPEATED = 2, /*Always last*/ UNDEFINED = 3 };
 };
 
 // Reference:
