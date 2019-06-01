@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/concatenate.h"
+#include "arrow/array/concatenate.h"
 
 #include <algorithm>
 #include <limits>
