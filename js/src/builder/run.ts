@@ -19,7 +19,7 @@ import { Vector } from '../vector';
 import { DataType } from '../type';
 
 /** @ignore */
-export class Row<T extends DataType = any, TNull = any> {
+export class Run<T extends DataType = any, TNull = any> {
     // @ts-ignore
     protected _values: ArrayLike<T['TValue'] | TNull>;
     public get length() { return this._values.length; }

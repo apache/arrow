@@ -20,8 +20,14 @@ import { Data, Buffers } from '../data';
 import { Vector as V } from '../interfaces';
 import { createIsValidFunction } from './valid';
 import { VectorType as BufferType } from '../enum';
-import { BufferBuilder, BitmapBuilder, DataBufferBuilder, BinaryBufferBuilder, OffsetsBufferBuilder } from './buffer';
-import { DataType, strideForType, Float, Int, Decimal, Date_, Time, Timestamp, Interval, FixedSizeBinary, Struct, Map_, Union, Utf8, Binary } from '../type';
+import { BufferBuilder, BitmapBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './buffer';
+import {
+    DataType, strideForType,
+    Float, Int, Decimal, FixedSizeBinary,
+    Date_, Time, Timestamp, Interval,
+    Utf8, Binary, List,
+    Struct, Map_, Union,
+} from '../type';
 
 export interface BuilderOptions<T extends DataType = any, TNull = any> {
     type: T;
@@ -51,9 +57,25 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     }
 
     /** @nocollapse */
-    public static throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) { return throughIterable(options); }
+    public static throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
+        const build = throughIterable(options);
+        if (!DataType.isDictionary(options.type)) {
+            return build;
+        }
+        return function*(source: Iterable<T['TValue'] | TNull>) {
+            const chunks = []; for (const chunk of build(source)) { chunks.push(chunk); } yield* chunks;
+        }
+    }
     /** @nocollapse */
-    public static throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) { return throughAsyncIterable(options); }
+    public static throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
+        const build = throughAsyncIterable(options);
+        if (!DataType.isDictionary(options.type)) {
+            return build;
+        }
+        return async function* (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) {
+            const chunks = []; for await (const chunk of build(source)) { chunks.push(chunk); } yield* chunks;
+        }
+    }
 
     constructor({ 'type': type, 'nullValues': nulls }: BuilderOptions<T, TNull>) {
         this.type = type;
@@ -224,53 +246,52 @@ export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary 
     }
 }
 
-export abstract class VariableWidthBuilder<T extends Binary | Utf8, TNull = any> extends Builder<T, TNull> {
-    protected _pending: number = 0;
+export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List, TNull = any> extends Builder<T, TNull> {
+    protected _pendingLength: number = 0;
     protected _offsets: OffsetsBufferBuilder;
-    protected _buffers: Map<number, Uint8Array | undefined> | undefined;
+    protected _pending: Map<number, any> | undefined;
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
         this._offsets = new OffsetsBufferBuilder();
-        this._values = new BinaryBufferBuilder() as BufferBuilder<T['TArray']>;
     }
-    public setValue(index: number, value: Uint8Array | string) {
-        const buffers = this._buffers || (this._buffers = new Map());
-        const current = buffers.get(index);
-        current && (this._pending -= current.length);
-        this._pending += value.length;
-        buffers.set(index, value);
+    public setValue(index: number, value: T['TValue']) {
+        const pending = this._pending || (this._pending = new Map());
+        const current = pending.get(index);
+        current && (this._pendingLength -= current.length);
+        this._pendingLength += value.length;
+        pending.set(index, value);
     }
     public setValid(index: number, isValid: boolean) {
         if (!super.setValid(index, isValid)) {
-            (this._buffers || (this._buffers = new Map())).set(index, undefined);
+            (this._pending || (this._pending = new Map())).set(index, undefined);
             return false;
         }
         return true;
     }
     public clear() {
-        this._pending = 0;
-        this._buffers = undefined;
+        this._pendingLength = 0;
+        this._pending = undefined;
         return super.clear();
     }
     public flush() {
-        const buffers = this._buffers;
-        if (buffers && buffers.size > 0) {
-            const offsets = this._offsets;
-            const { buffer } = this._values.reserve(this._pending);
-            let index = 0, length = 0, offset = 0, value: Uint8Array | undefined;
-            for ([index, value] of buffers) {
-                if (value === undefined) {
-                    offsets.set(index, 0);
-                } else {
-                    length = value.length;
-                    offsets.set(index, length);
-                    buffer.set(value, offset);
-                    offset += length;
-                }
-            }
-        }
+        this._flush();
         return super.flush();
     }
+    public finish() {
+        this._flush();
+        return super.finish();
+    }
+    protected _flush() {
+        const pending = this._pending;
+        const pendingLength = this._pendingLength;
+        this._pendingLength = 0;
+        this._pending = undefined;
+        if (pending && pending.size > 0) {
+            this._flushPending(pending, pendingLength);
+        }
+        return this;
+    }
+    protected abstract _flushPending(pending: Map<number, any>, pendingLength: number): void;
 }
 
 export abstract class NestedBuilder<T extends Struct | Map_ | Union = any, TNull = any> extends Builder<T, TNull> {

@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Row } from './row';
+import { Run } from './run';
 import { Field } from '../schema';
 import { Builder } from './base';
 import { DataType, FixedSizeList } from '../type';
 
 export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends Builder<FixedSizeList<T>, TNull> {
-    protected _row = new Row<T, TNull>();
+    protected _run = new Run<T, TNull>();
     public setValue(index: number, value: T['TValue']) {
-        super.setValue(index, this._row.bind(value));
+        super.setValue(index, this._run.bind(value));
     }
     public addChild(child: Builder<T>, name = '0') {
         if (this.numChildren > 0) {
@@ -34,7 +34,7 @@ export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends
         return childIndex;
     }
     public clear() {
-        this._row.clear();
+        this._run.clear();
         return super.clear();
     }
 }

@@ -17,10 +17,30 @@
 
 import { Binary } from '../type';
 import { toUint8Array } from '../util/buffer';
-import { VariableWidthBuilder } from './base';
+import { BinaryBufferBuilder } from './buffer';
+import { VariableWidthBuilder, BuilderOptions } from './base';
 
 export class BinaryBuilder<TNull = any> extends VariableWidthBuilder<Binary, TNull> {
+    constructor(opts: BuilderOptions<Binary, TNull>) {
+        super(opts);
+        this._values = new BinaryBufferBuilder();
+    }
     public setValue(index: number, value: Uint8Array) {
         return super.setValue(index, toUint8Array(value));
+    }
+    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number) {
+        const offsets = this._offsets;
+        const data = this._values.reserve(pendingLength).buffer;
+        let index = 0, length = 0, offset = 0, value: Uint8Array | undefined;
+        for ([index, value] of pending) {
+            if (value === undefined) {
+                offsets.set(index, 0);
+            } else {
+                length = value.length;
+                data.set(value, offset);
+                offsets.set(index, length);
+                offset += length;
+            }
+        }
     }
 }

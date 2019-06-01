@@ -17,10 +17,20 @@
 
 import { Utf8 } from '../type';
 import { encodeUtf8 } from '../util/utf8';
-import { VariableWidthBuilder } from './base';
+import { BinaryBufferBuilder } from './buffer';
+import { VariableWidthBuilder, BuilderOptions } from './base';
+import { BinaryBuilder } from './binary';
 
 export class Utf8Builder<TNull = any> extends VariableWidthBuilder<Utf8, TNull> {
-    public setValue(index: number, value: string) {
-        return super.setValue(index, encodeUtf8(value));
+    constructor(opts: BuilderOptions<Utf8, TNull>) {
+        super(opts);
+        this._values = new BinaryBufferBuilder();
     }
+    public setValue(index: number, value: string) {
+        return super.setValue(index, encodeUtf8(value) as any);
+    }
+    // @ts-ignore
+    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number): void {}
 }
+
+(Utf8Builder.prototype as any)._flushPending = (BinaryBuilder.prototype as any)._flushPending;
