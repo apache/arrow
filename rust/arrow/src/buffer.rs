@@ -21,6 +21,7 @@
 use packed_simd::u8x64;
 
 use std::cmp;
+use std::convert::AsRef;
 use std::fmt::{Debug, Formatter};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult, Write};
 use std::mem;
@@ -167,6 +168,36 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         Buffer::from_raw_parts(buffer, len)
     }
 }
+
+/// Allow a `Buffer` to be viewed as slice of arrow native types.
+macro_rules! make_as_ref {
+    ($native_ty: ty) => {
+        impl AsRef<[$native_ty]> for Buffer {
+            fn as_ref(&self) -> &[$native_ty] {
+                assert_eq!(self.len() % mem::size_of::<$native_ty>(), 0);
+                assert!(memory::is_ptr_aligned::<$native_ty>(
+                    self.raw_data() as *const $native_ty
+                ));
+                unsafe {
+                    from_raw_parts(
+                        mem::transmute::<*const u8, *const $native_ty>(self.raw_data()),
+                        self.len() / mem::size_of::<$native_ty>(),
+                    )
+                }
+            }
+        }
+    };
+}
+
+make_as_ref!(i8);
+make_as_ref!(i16);
+make_as_ref!(u16);
+make_as_ref!(i32);
+make_as_ref!(u32);
+make_as_ref!(i64);
+make_as_ref!(u64);
+make_as_ref!(f32);
+make_as_ref!(f64);
 
 ///  Helper function for SIMD `BitAnd` and `BitOr` implementations
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -489,6 +520,7 @@ mod tests {
     use std::thread;
 
     use super::*;
+    use crate::datatypes::{ArrowNativeType, ToByteSlice};
 
     #[test]
     fn test_buffer_data_equality() {
@@ -728,5 +760,26 @@ mod tests {
 
         assert!(buffer_copy.is_ok());
         assert_eq!(buffer2, buffer_copy.ok().unwrap());
+    }
+
+    macro_rules! typed_test_as_ref {
+        ($input: expr, $native_t: ty) => {{
+            let buffer = Buffer::from($input.to_byte_slice());
+            let slice: &[$native_t] = buffer.as_ref();
+            assert_eq!($input, slice);
+        }};
+    }
+
+    #[test]
+    fn test_as_ref() {
+        typed_test_as_ref!(&[1i8, 3i8, 6i8], i8);
+        typed_test_as_ref!(&[1i16, 3i16, 6i16], i16);
+        typed_test_as_ref!(&[1i32, 3i32, 6i32], i32);
+        typed_test_as_ref!(&[1i64, 3i64, 6i64], i64);
+        typed_test_as_ref!(&[1u16, 3u16, 6u16], u16);
+        typed_test_as_ref!(&[1u32, 3u32, 6u32], u32);
+        typed_test_as_ref!(&[1u64, 3u64, 6u64], u64);
+        typed_test_as_ref!(&[1f32, 3f32, 6f32], f32);
+        typed_test_as_ref!(&[1f64, 3f64, 6f64], f64);
     }
 }
