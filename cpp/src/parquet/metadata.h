@@ -354,9 +354,7 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   RowGroupMetaDataBuilder* AppendRowGroup();
 
   // Complete the Thrift structure
-  std::unique_ptr<FileMetaData> Finish(
-      const EncryptionAlgorithm* signing_algorithm = NULLPTR,
-      const std::string& footer_signing_key_metadata = "");
+  std::unique_ptr<FileMetaData> Finish();
 
   // crypto metadata
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();
