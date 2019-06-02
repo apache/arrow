@@ -1402,15 +1402,19 @@ macro(build_rapidjson)
   add_dependencies(rapidjson rapidjson_ep)
 endmacro()
 
-# TODO: Check for 1.1.0+
 if(ARROW_WITH_RAPIDJSON)
+  set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
   if(RapidJSON_SOURCE STREQUAL "AUTO")
     # Fedora packages place the package information at the wrong location.
     # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
-    find_package(RapidJSON QUIET HINTS "${CMAKE_ROOT}")
+    find_package(RapidJSON
+                 ${ARROW_RAPIDJSON_REQUIRED_VERSION}
+                 QUIET
+                 HINTS
+                 "${CMAKE_ROOT}")
     if(NOT RapidJSON_FOUND)
       # Ubuntu / Debian don't package the CMake config
-      find_package(RapidJSONAlt)
+      find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION})
     endif()
     if(NOT RapidJSON_FOUND AND NOT RapidJSONAlt_FOUND)
       build_rapidjson()
@@ -1420,10 +1424,10 @@ if(ARROW_WITH_RAPIDJSON)
   elseif(RapidJSON_SOURCE STREQUAL "SYSTEM")
     # Fedora packages place the package information at the wrong location.
     # https://bugzilla.redhat.com/show_bug.cgi?id=1680400
-    find_package(RapidJSON HINTS "${CMAKE_ROOT}")
+    find_package(RapidJSON ${ARROW_RAPIDJSON_REQUIRED_VERSION} HINTS "${CMAKE_ROOT}")
     if(NOT RapidJSON_FOUND)
       # Ubuntu / Debian don't package the CMake config
-      find_package(RapidJSONAlt REQUIRED)
+      find_package(RapidJSONAlt ${ARROW_RAPIDJSON_REQUIRED_VERSION} REQUIRED)
     endif()
   endif()
 
