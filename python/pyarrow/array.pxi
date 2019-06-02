@@ -870,6 +870,199 @@ cdef class Array(_PandasConvertible):
         return res
 
 
+cdef class SparseTensorCOO:
+    """
+    A sparse COO tensor.
+    """
+
+    def __init__(self):
+        raise TypeError("Do not call SparseTensorCOO's constructor directly, "
+                        "use one of the `pyarrow.SparseTensorCOO.from_*` "
+                        "functions instead.")
+
+    cdef void init(self, const shared_ptr[CSparseTensorCOO]& sp_sparse_tensor):
+        self.sp_sparse_tensor = sp_sparse_tensor
+        self.stp = sp_sparse_tensor.get()
+        self.type = pyarrow_wrap_data_type(self.stp.type())
+
+    def __repr__(self):
+        return """<pyarrow.SparseTensorCOO>
+type: {0.type}
+shape: {0.shape}""".format(self)
+
+    @staticmethod
+    def from_dense_numpy(obj):
+        cdef shared_ptr[CSparseTensorCOO] csparse_tensor
+        with nogil:
+            check_status(NdarrayToSparseTensorCOO(c_default_memory_pool(), obj,
+                                                  &csparse_tensor))
+        return pyarrow_wrap_sparse_tensor_coo(csparse_tensor)
+
+    @staticmethod
+    def from_numpy(data, coords, shape, dim_names=None):
+        cdef shared_ptr[CSparseTensorCOO] csparse_tensor
+        cdef vector[int64_t] c_shape
+        cdef vector[c_string] c_dim_names
+
+        for x in shape:
+            c_shape.push_back(x)
+        if dim_names is not None:
+            for x in dim_names:
+                c_dim_names.push_back(tobytes(x))
+        with nogil:
+            check_status(NdarraysToSparseTensorCOO(c_default_memory_pool(),
+                         data, coords, c_shape, c_dim_names, &csparse_tensor))
+        return pyarrow_wrap_sparse_tensor_coo(csparse_tensor)
+
+    @staticmethod
+    def from_tensor(obj):
+        cdef shared_ptr[CSparseTensorCOO] csparse_tensor
+        cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
+
+        with nogil:
+            check_status(TensorToSparseTensorCOO(ctensor, &csparse_tensor))
+
+        return pyarrow_wrap_sparse_tensor_coo(csparse_tensor)
+
+    def to_numpy(self):
+        """
+        Convert arrow::SparseTensorCOO to numpy.ndarrays with zero copy
+        """
+        cdef PyObject* out_data
+        cdef PyObject* out_coords
+
+        with nogil:
+            check_status(SparseTensorCOOToNdarray(self.sp_sparse_tensor, self,
+                                                  &out_data, &out_coords))
+        return PyObject_to_object(out_data), PyObject_to_object(out_coords)
+
+    @property
+    def is_mutable(self):
+        return self.stp.is_mutable()
+
+    @property
+    def ndim(self):
+        return self.stp.ndim()
+
+    @property
+    def shape(self):
+        # Cython knows how to convert a vector[T] to a Python list
+        return tuple(self.stp.shape())
+
+    @property
+    def size(self):
+        return self.stp.size()
+
+    def dim_name(self, i):
+        return self.stp.dim_name(i)
+
+    @property
+    def dim_names(self):
+        return self.stp.dim_names()
+
+    @property
+    def non_zero_length(self):
+        return self.stp.non_zero_length()
+
+
+cdef class SparseTensorCSR:
+    """
+    A sparse CSR tensor.
+    """
+
+    def __init__(self):
+        raise TypeError("Do not call SparseTensorCSR's constructor directly, "
+                        "use one of the `pyarrow.SparseTensorCSR.from_*` "
+                        "functions instead.")
+
+    cdef void init(self, const shared_ptr[CSparseTensorCSR]& sp_sparse_tensor):
+        self.sp_sparse_tensor = sp_sparse_tensor
+        self.stp = sp_sparse_tensor.get()
+        self.type = pyarrow_wrap_data_type(self.stp.type())
+
+    def __repr__(self):
+        return """<pyarrow.SparseTensorCSR>
+type: {0.type}
+shape: {0.shape}""".format(self)
+
+    @staticmethod
+    def from_dense_numpy(obj):
+        cdef shared_ptr[CSparseTensorCSR] csparse_tensor
+        with nogil:
+            check_status(NdarrayToSparseTensorCSR(c_default_memory_pool(), obj,
+                                                  &csparse_tensor))
+        return pyarrow_wrap_sparse_tensor_csr(csparse_tensor)
+
+    @staticmethod
+    def from_numpy(data, indptr, indices, shape, dim_names=None):
+        cdef shared_ptr[CSparseTensorCSR] csparse_tensor
+        cdef vector[int64_t] c_shape
+        cdef vector[c_string] c_dim_names
+
+        for x in shape:
+            c_shape.push_back(x)
+        if dim_names is not None:
+            for x in dim_names:
+                c_dim_names.push_back(tobytes(x))
+        with nogil:
+            check_status(NdarraysToSparseTensorCSR(c_default_memory_pool(),
+                         data, indptr, indices, c_shape, c_dim_names,
+                         &csparse_tensor))
+        return pyarrow_wrap_sparse_tensor_csr(csparse_tensor)
+
+    @staticmethod
+    def from_tensor(obj):
+        cdef shared_ptr[CSparseTensorCSR] csparse_tensor
+        cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
+
+        with nogil:
+            check_status(TensorToSparseTensorCSR(ctensor, &csparse_tensor))
+
+        return pyarrow_wrap_sparse_tensor_csr(csparse_tensor)
+
+    def to_numpy(self):
+        """
+        Convert arrow::SparseTensorCSR to numpy.ndarrays with zero copy
+        """
+        cdef PyObject* out_data
+        cdef PyObject* out_indptr
+        cdef PyObject* out_indices
+
+        with nogil:
+            check_status(SparseTensorCSRToNdarray(self.sp_sparse_tensor, self,
+                         &out_data, &out_indptr, &out_indices))
+        return (PyObject_to_object(out_data), PyObject_to_object(out_indptr),
+                PyObject_to_object(out_indices))
+
+    @property
+    def is_mutable(self):
+        return self.stp.is_mutable()
+
+    @property
+    def ndim(self):
+        return self.stp.ndim()
+
+    @property
+    def shape(self):
+        # Cython knows how to convert a vector[T] to a Python list
+        return tuple(self.stp.shape())
+
+    @property
+    def size(self):
+        return self.stp.size()
+
+    def dim_name(self, i):
+        return self.stp.dim_name(i)
+
+    @property
+    def dim_names(self):
+        return self.stp.dim_names()
+
+    @property
+    def non_zero_length(self):
+        return self.stp.non_zero_length()
+
+
 cdef class Tensor:
     """
     A n-dimensional array a.k.a Tensor.
