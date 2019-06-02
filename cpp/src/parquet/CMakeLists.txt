@@ -320,6 +320,10 @@ add_parquet_test(arrow-test
                  arrow/arrow-schema-test.cc
                  test-util.cc)
 
+if(PARQUET_BUILD_ENCRYPTION)
+  add_parquet_test(encryption-test)
+endif()
+
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
 add_parquet_test(file-deserialize-test
