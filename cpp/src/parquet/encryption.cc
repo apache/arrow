@@ -183,6 +183,8 @@ FileEncryptionProperties::FileEncryptionProperties(
     : footer_key_(footer_key),
       footer_key_metadata_(footer_key_metadata),
       encrypted_footer_(encrypted_footer),
+      aad_prefix_(aad_prefix),
+      store_aad_prefix_in_file_(store_aad_prefix_in_file),
       column_properties_(column_properties) {
   // file encryption properties object can be used for writing only one file.
   // Upon completion of file writing, the encryption keys in the properties will be wiped
@@ -194,11 +196,11 @@ FileEncryptionProperties::FileEncryptionProperties(
   DCHECK(footer_key.length() == 16 || footer_key.length() == 24 ||
          footer_key.length() == 32);
 
-  uint8_t aad_file_unique[AAD_FILE_UNIQUE_LENGTH];
-  memset(aad_file_unique, 0, AAD_FILE_UNIQUE_LENGTH);
-  RAND_bytes(aad_file_unique, sizeof(AAD_FILE_UNIQUE_LENGTH));
+  uint8_t aad_file_unique[kAadFileUniqueLength];
+  memset(aad_file_unique, 0, kAadFileUniqueLength);
+  RAND_bytes(aad_file_unique, sizeof(kAadFileUniqueLength));
   std::string aad_file_unique_str(reinterpret_cast<char const*>(aad_file_unique),
-                                  AAD_FILE_UNIQUE_LENGTH);
+                                  kAadFileUniqueLength);
 
   bool supply_aad_prefix = false;
   if (aad_prefix.empty()) {
