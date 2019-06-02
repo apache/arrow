@@ -194,12 +194,11 @@ class SerializedPageWriter : public PageWriter {
 
     std::shared_ptr<Buffer> encrypted_data_buffer = nullptr;
     if (data_encryptor_.get()) {
-      data_encryptor_->update_aad(
-          encryption::CreateModuleAad(
-              data_encryptor_->file_aad(), encryption::kDictionaryPage, row_group_ordinal_,
-              column_ordinal_, (int16_t)-1));
-      encrypted_data_buffer = std::static_pointer_cast<ResizableBuffer>(
-          AllocateBuffer(pool_, data_encryptor_->CiphertextSizeDelta() + output_data_len));
+      data_encryptor_->update_aad(encryption::CreateModuleAad(
+          data_encryptor_->file_aad(), encryption::kDictionaryPage, row_group_ordinal_,
+          column_ordinal_, (int16_t)-1));
+      encrypted_data_buffer = std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
+          pool_, data_encryptor_->CiphertextSizeDelta() + output_data_len));
       output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
                                                  encrypted_data_buffer->mutable_data());
       output_data_buffer = encrypted_data_buffer->data();
@@ -373,13 +372,11 @@ class BufferedPageWriter : public PageWriter {
                      MemoryPool* pool = arrow::default_memory_pool(),
                      std::shared_ptr<Encryptor> meta_encryptor = NULLPTR,
                      std::shared_ptr<Encryptor> data_encryptor = NULLPTR)
-      : final_sink_(sink),
-        metadata_(metadata) {
+      : final_sink_(sink), metadata_(metadata) {
     in_memory_sink_ = CreateOutputStream(pool);
-    pager_ = std::unique_ptr<SerializedPageWriter>(
-        new SerializedPageWriter(in_memory_sink_, codec, metadata,
-                                 row_group_ordinal, current_column_ordinal, pool,
-                                 meta_encryptor, data_encryptor));
+    pager_ = std::unique_ptr<SerializedPageWriter>(new SerializedPageWriter(
+        in_memory_sink_, codec, metadata, row_group_ordinal, current_column_ordinal, pool,
+        meta_encryptor, data_encryptor));
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {

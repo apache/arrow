@@ -695,7 +695,7 @@ void FileMetaData::AppendRowGroups(const FileMetaData& other) {
 }
 
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
-			                     const std::shared_ptr<Encryptor>& encryptor) const {
+                           const std::shared_ptr<Encryptor>& encryptor) const {
   return impl_->WriteTo(dst, encryptor);
 }
 
@@ -748,7 +748,9 @@ FileCryptoMetaData::FileCryptoMetaData() : impl_(new FileCryptoMetaDataImpl()) {
 
 FileCryptoMetaData::~FileCryptoMetaData() {}
 
-void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const { impl_->WriteTo(dst); }
+void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
+  impl_->WriteTo(dst);
+}
 
 ApplicationVersion::ApplicationVersion(const std::string& application, int major,
                                        int minor, int patch)
@@ -923,7 +925,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   }
 
   void WriteTo(::arrow::io::OutputStream* sink,
-	             const std::shared_ptr<Encryptor>& encryptor) {
+               const std::shared_ptr<Encryptor>& encryptor) {
     ThriftSerializer serializer;
 
     // column is unencrypted
@@ -1075,7 +1077,7 @@ void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
 }
 
 void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink,
-					                               const std::shared_ptr<Encryptor>& encryptor) {
+                                         const std::shared_ptr<Encryptor>& encryptor) {
   impl_->WriteTo(sink, encryptor);
 }
 

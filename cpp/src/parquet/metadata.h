@@ -302,7 +302,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
 
   // For writing metadata at end of column chunk
   void WriteTo(::arrow::io::OutputStream* sink,
-	             const std::shared_ptr<parquet::Encryptor>& encryptor = NULLPTR);
+               const std::shared_ptr<parquet::Encryptor>& encryptor = NULLPTR);
 
  private:
   explicit ColumnChunkMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,

@@ -120,8 +120,7 @@ class SerializedPageReader : public PageReader {
   SerializedPageReader(const std::shared_ptr<ArrowInputStream>& stream,
                        int64_t total_num_rows, Compression::type codec,
                        bool column_has_dictionary, int16_t row_group_ordinal,
-                       int16_t column_ordinal,
-                       ::arrow::MemoryPool* pool,
+                       int16_t column_ordinal, ::arrow::MemoryPool* pool,
                        std::shared_ptr<Decryptor> meta_decryptor,
                        std::shared_ptr<Decryptor> data_decryptor)
       : stream_(stream),
@@ -236,8 +235,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           }
         }
         DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
-                             &header_size, &current_page_header_,
-                             meta_decryptor_);
+                             &header_size, &current_page_header_, meta_decryptor_);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -283,10 +281,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     if (data_decryptor_ != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
           compressed_len - data_decryptor_->CiphertextSizeDelta()));
-      compressed_len = data_decryptor_->Decrypt(buffer, compressed_len,
+      compressed_len = data_decryptor_->Decrypt(page_buffer->data(), compressed_len,
                                                 decryption_buffer_->mutable_data());
 
-      buffer = decryption_buffer_->data();
+      page_buffer = decryption_buffer_;
     }
 
     // Uncompress it if we need to
@@ -357,12 +355,13 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
 std::unique_ptr<PageReader> PageReader::Open(
     const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
-    Compression::type codec, ::arrow::MemoryPool* pool,
-    bool column_has_dictionary, int16_t row_group_ordinal, int16_t column_ordinal, 
-    std::shared_ptr<Decryptor> meta_decryptor, std::shared_ptr<Decryptor> data_decryptor) {
-  return std::unique_ptr<PageReader>(
-      new SerializedPageReader(stream, total_num_rows, codec, pool, column_has_dictionary,
-      row_group_ordinal, column_ordinal, meta_decryptor, data_decryptor));
+    Compression::type codec, ::arrow::MemoryPool* pool, bool column_has_dictionary,
+    int16_t row_group_ordinal, int16_t column_ordinal,
+    std::shared_ptr<Decryptor> meta_decryptor,
+    std::shared_ptr<Decryptor> data_decryptor) {
+  return std::unique_ptr<PageReader>(new SerializedPageReader(
+      stream, total_num_rows, codec, column_has_dictionary, row_group_ordinal,
+      column_ordinal, pool, meta_decryptor, data_decryptor));
 }
 
 // ----------------------------------------------------------------------

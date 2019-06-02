@@ -44,12 +44,11 @@
 #include "arrow/util/logging.h"
 #include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
-#include "parquet/platform.h"
 #include "parquet/internal_file_decryptor.h"
 #include "parquet/internal_file_encryptor.h"
+#include "parquet/platform.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 #include "parquet/parquet_types.h"  // IYWU pragma: export
 
@@ -307,11 +306,11 @@ class ThriftSerializer {
       }
 
       if (shouldWriteLength) {
-        PARQUET_THROW_NOT_OK(out->Write(reinterpret_cast<uint8_t*>(&cipher_buffer_len), 4));
+        PARQUET_THROW_NOT_OK(
+            out->Write(reinterpret_cast<uint8_t*>(&cipher_buffer_len), 4));
         PARQUET_THROW_NOT_OK(out->Write(cipher_buffer.data(), cipher_buffer_len));
         return static_cast<int64_t>(cipher_buffer_len + 4);
-      }
-      else {
+      } else {
         PARQUET_THROW_NOT_OK(out->Write(cipher_buffer.data(), cipher_buffer_len));
         return static_cast<int64_t>(cipher_buffer_len);
       }

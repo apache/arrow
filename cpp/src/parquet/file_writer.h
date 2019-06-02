@@ -105,8 +105,12 @@ void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
                              OutputStream* sink);
 
 PARQUET_EXPORT
-void WriteFileMetaData(const FileMetaData& file_metadata,
-                       ::arrow::io::OutputStream* sink);
+void WriteFileMetaData(const FileMetaData& file_metadata, ::arrow::io::OutputStream* sink,
+                       const std::shared_ptr<Encryptor>& encryptor = NULLPTR,
+                       bool encrypt_footer = false);
+PARQUET_EXPORT
+void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
+                             ::arrow::io::OutputStream* sink);
 
 PARQUET_EXPORT
 void WriteMetaDataFile(const FileMetaData& file_metadata,
