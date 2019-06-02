@@ -1241,7 +1241,9 @@ mod tests {
     #[test]
     fn count() {
         let schema = aggr_test_schema();
-        let relation = load_csv("../../testing/data/csv/aggregate_test_100.csv", &schema);
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+        let relation =
+            load_csv(&format!("{}/csv/aggregate_test_100.csv", testdata), &schema);
         let context = ExecutionContext::new();
 
         let aggr_expr = vec![expression::compile_aggregate_expr(
