@@ -306,15 +306,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
           sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4);
           sink_->Write(kParquetEMagic, 4);
         } else {  // Encrypted file with plaintext footer
-          EncryptionAlgorithm signing_encryption;
-          EncryptionAlgorithm algo = file_encryption_properties->algorithm();
-          signing_encryption.aad.aad_file_unique = algo.aad.aad_file_unique;
-          signing_encryption.aad.supply_aad_prefix = algo.aad.supply_aad_prefix;
-          if (!algo.aad.supply_aad_prefix)
-            signing_encryption.aad.aad_prefix = algo.aad.aad_prefix;
-          signing_encryption.algorithm = ParquetCipher::AES_GCM_V1;
-          file_metadata_ = metadata_->Finish(
-              &signing_encryption, file_encryption_properties->footer_key_metadata());
+          file_metadata_ = metadata_->Finish();
           auto footer_signing_encryptor = file_encryptor_->GetFooterSigningEncryptor();
           WriteFileMetaData(*file_metadata_, sink_.get(), footer_signing_encryptor,
                             false);

@@ -909,6 +909,12 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
     }
     column_metadata_.__set_encodings(thrift_encodings);
+
+    // temporary fix: setting for columnchunk meta_data in case file is not encrypted
+    if (properties_->file_encryption_properties() == NULLPTR) {
+      column_chunk_->__isset.meta_data = true;
+      column_chunk_->__set_meta_data(column_metadata_);
+    }
   }
 
   void WriteTo(::arrow::io::OutputStream* sink,
@@ -1222,8 +1228,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     return current_row_group_builder_.get();
   }
 
-  std::unique_ptr<FileMetaData> Finish(const EncryptionAlgorithm* signing_algorithm,
-                                       const std::string& footer_signing_key_metadata) {
+  std::unique_ptr<FileMetaData> Finish() {
     int64_t total_rows = 0;
     for (auto row_group : row_groups_) {
       total_rows += row_group.num_rows;
@@ -1269,8 +1274,20 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->column_orders.resize(schema_->num_columns(), column_order);
     metadata_->__isset.column_orders = true;
 
-    if (signing_algorithm != NULLPTR) {
-      metadata_->__set_encryption_algorithm(ToThrift(*signing_algorithm));
+    // if plaintext footer, set footer signing algorithm
+    auto file_encryption_properties = properties_->file_encryption_properties();
+    if (file_encryption_properties && !file_encryption_properties->encrypted_footer()) {
+      EncryptionAlgorithm signing_algorithm;
+      EncryptionAlgorithm algo = file_encryption_properties->algorithm();
+      signing_algorithm.aad.aad_file_unique = algo.aad.aad_file_unique;
+      signing_algorithm.aad.supply_aad_prefix = algo.aad.supply_aad_prefix;
+      if (!algo.aad.supply_aad_prefix)
+        signing_algorithm.aad.aad_prefix = algo.aad.aad_prefix;
+      signing_algorithm.algorithm = ParquetCipher::AES_GCM_V1;
+
+      metadata_->__set_encryption_algorithm(ToThrift(signing_algorithm));
+      const std::string& footer_signing_key_metadata =
+          file_encryption_properties->footer_key_metadata();
       if (footer_signing_key_metadata.size() > 0) {
         metadata_->__set_footer_signing_key_metadata(footer_signing_key_metadata);
       }
@@ -1340,11 +1357,7 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
   return impl_->AppendRowGroup();
 }
 
-std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish(
-    const EncryptionAlgorithm* signing_algorithm,
-    const std::string& footer_signing_key_metadata) {
-  return impl_->Finish(signing_algorithm, footer_signing_key_metadata);
-}
+std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() { return impl_->Finish(); }
 
 std::unique_ptr<FileCryptoMetaData> FileMetaDataBuilder::GetCryptoMetaData() {
   return impl_->BuildFileCryptoMetaData();
