@@ -128,9 +128,9 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
 // and the page metadata.
 class SerializedPageWriter : public PageWriter {
  public:
-  SerializedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
-                       ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
-                       int16_t column_chunk_ordinal,
+  SerializedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
+                       Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
+                       int16_t row_group_ordinal, int16_t column_chunk_ordinal,
                        ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
                        std::shared_ptr<Encryptor> meta_encryptor = NULLPTR,
                        std::shared_ptr<Encryptor> data_encryptor = NULLPTR)
@@ -184,12 +184,11 @@ class SerializedPageWriter : public PageWriter {
 
     std::shared_ptr<Buffer> encrypted_data_buffer = nullptr;
     if (data_encryptor_.get()) {
-      data_encryptor_->update_aad(
-          encryption::CreateModuleAad(
-              data_encryptor_->file_aad(), encryption::kDictionaryPage, row_group_ordinal_,
-              column_ordinal_, (int16_t)-1));
-      encrypted_data_buffer = std::static_pointer_cast<ResizableBuffer>(
-          AllocateBuffer(pool_, data_encryptor_->CiphertextSizeDelta() + output_data_len));
+      data_encryptor_->update_aad(encryption::CreateModuleAad(
+          data_encryptor_->file_aad(), encryption::kDictionaryPage, row_group_ordinal_,
+          column_ordinal_, (int16_t)-1));
+      encrypted_data_buffer = std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
+          pool_, data_encryptor_->CiphertextSizeDelta() + output_data_len));
       output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
                                                  encrypted_data_buffer->mutable_data());
       output_data_buffer = encrypted_data_buffer->data();
@@ -356,19 +355,17 @@ class SerializedPageWriter : public PageWriter {
 // This implementation of the PageWriter writes to the final sink on Close .
 class BufferedPageWriter : public PageWriter {
  public:
-  BufferedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
-                     ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
-		                 int16_t current_column_ordinal,
+  BufferedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
+                     Compression::type codec, ColumnChunkMetaDataBuilder* metadata,
+                     int16_t row_group_ordinal, int16_t current_column_ordinal,
                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
                      std::shared_ptr<Encryptor> meta_encryptor = NULLPTR,
                      std::shared_ptr<Encryptor> data_encryptor = NULLPTR)
-      : final_sink_(sink),
-        metadata_(metadata) {
+      : final_sink_(sink), metadata_(metadata) {
     in_memory_sink_ = CreateOutputStream(pool);
-    pager_ = std::unique_ptr<SerializedPageWriter>(
-        new SerializedPageWriter(in_memory_sink_, codec, metadata,
-                                 row_group_ordinal, current_column_ordinal, pool,
-                                 meta_encryptor, data_encryptor));
+    pager_ = std::unique_ptr<SerializedPageWriter>(new SerializedPageWriter(
+        in_memory_sink_, codec, metadata, row_group_ordinal, current_column_ordinal, pool,
+        meta_encryptor, data_encryptor));
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -413,8 +410,7 @@ class BufferedPageWriter : public PageWriter {
 std::unique_ptr<PageWriter> PageWriter::Open(
     const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
     ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
-    int16_t column_chunk_ordinal, ::arrow::MemoryPool* pool,
-    bool buffered_row_group,
+    int16_t column_chunk_ordinal, ::arrow::MemoryPool* pool, bool buffered_row_group,
     std::shared_ptr<Encryptor> meta_encryptor,
     std::shared_ptr<Encryptor> data_encryptor) {
   if (buffered_row_group) {
