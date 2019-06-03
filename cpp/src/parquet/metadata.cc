@@ -522,11 +522,13 @@ class FileMetaData::FileMetaDataImpl {
           encryptor->Encrypt(serialized_data, serialized_len, encrypted_data.data());
 
       // write unencrypted footer
-      dst->Write(serialized_data, serialized_len);
+      PARQUET_THROW_NOT_OK(dst->Write(serialized_data, serialized_len));
       // Write signature (nonce and tag)
-      dst->Write(encrypted_data.data() + 4, encryption::kNonceLength);
-      dst->Write(encrypted_data.data() + encrypted_len - encryption::kGcmTagLength,
-                 encryption::kGcmTagLength);
+      PARQUET_THROW_NOT_OK(
+          dst->Write(encrypted_data.data() + 4, encryption::kNonceLength));
+      PARQUET_THROW_NOT_OK(
+          dst->Write(encrypted_data.data() + encrypted_len - encryption::kGcmTagLength,
+                     encryption::kGcmTagLength));
     } else {  // either plaintext file (when encryptor is null)
       // or encrypted file with encrypted footer
       serializer.Serialize(metadata_.get(), dst, encryptor, false);

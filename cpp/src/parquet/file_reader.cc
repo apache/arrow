@@ -279,7 +279,7 @@ class SerializedFile : public ParquetFileReader::Contents {
         std::string aad_prefix = file_decryption_properties->aad_prefix();
 
         EncryptionAlgorithm algo = file_metadata_->encryption_algorithm();
-       if (algo.aad.supply_aad_prefix && aad_prefix.empty()) {
+        if (algo.aad.supply_aad_prefix && aad_prefix.empty()) {
           throw ParquetException(
               "AAD prefix used for file encryption, but not stored in file"
               "and not supplied in decryption properties");
