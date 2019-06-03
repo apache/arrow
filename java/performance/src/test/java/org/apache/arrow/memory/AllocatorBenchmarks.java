@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.performance.benchmark.micro;
+package org.apache.arrow.memory;
 
 import java.util.concurrent.TimeUnit;
 
-import org.apache.arrow.memory.AllocationListener;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
+import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -87,7 +86,8 @@ public class AllocatorBenchmarks {
     }
   }
 
-  public static void main(String[] args) throws RunnerException {
+  @Test
+  public void evaluate() throws RunnerException {
     Options opt = new OptionsBuilder()
             .include(AllocatorBenchmarks.class.getSimpleName())
             .forks(1)

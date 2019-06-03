@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.performance.benchmark.micro;
+package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.Float8Vector;
+import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -70,6 +71,9 @@ public class Float8Benchmarks {
 
   /**
    * Test reading/writing on {@link Float8Vector}.
+   * The performance of this benchmark is influenced by the states of two flags:
+   * 1. The flag for boundary checking. For details, please see {@link BoundsChecking}.
+   * 2. The flag for null checking in get methods. For details, please see {@link NullCheckingForGet}.
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark
@@ -84,7 +88,8 @@ public class Float8Benchmarks {
     return sum;
   }
 
-  public static void main(String[] args) throws RunnerException {
+  @Test
+  public void evaluate() throws RunnerException {
     Options opt = new OptionsBuilder()
             .include(Float8Benchmarks.class.getSimpleName())
             .forks(1)
