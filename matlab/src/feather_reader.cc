@@ -32,13 +32,13 @@
 #include "util/handle_status.h"
 #include "util/unicode_conversion.h"
 
-namespace mlarrow {
-
+namespace arrow {
+namespace matlab {
 namespace internal {
 
 // Read the name of variable i from the Feather file as a mxArray*.
 mxArray* ReadVariableName(const std::shared_ptr<arrow::Column>& column) {
-  return mlarrow::util::ConvertUTF8StringToUTF16CharMatrix(column->name());
+  return arrow::matlab::util::ConvertUTF8StringToUTF16CharMatrix(column->name());
 }
 
 template <typename ArrowDataType>
@@ -194,7 +194,7 @@ mxArray* ReadVariableValidityBitmap(const std::shared_ptr<arrow::Column>& column
 
 // Read the type name of an Arrow column as an mxChar array.
 mxArray* ReadVariableType(const std::shared_ptr<arrow::Column>& column) {
-  return mlarrow::util::ConvertUTF8StringToUTF16CharMatrix(column->type()->name());
+  return arrow::matlab::util::ConvertUTF8StringToUTF16CharMatrix(column->type()->name());
 }
 
 // MATLAB arrays cannot be larger than 2^48 elements.
@@ -256,7 +256,8 @@ mxArray* FeatherReader::ReadMetadata() const {
              mxCreateDoubleScalar(static_cast<double>(num_variables_)));
 
   // Set the description.
-  mxSetField(metadata, 0, "Description", mlarrow::util::ConvertUTF8StringToUTF16CharMatrix(description_));
+  mxSetField(metadata, 0, "Description",
+             arrow::matlab::util::ConvertUTF8StringToUTF16CharMatrix(description_));
 
   return metadata;
 }
@@ -286,4 +287,5 @@ mxArray* FeatherReader::ReadVariables() const {
   return variables;
 }
 
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow

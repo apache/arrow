@@ -15,14 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef MLARROW_MATLAB_TRAITS_H
-#define MLARROW_MATLAB_TRAITS_H
+#ifndef ARROW_MATLAB_MATLAB_TRAITS_H
+#define ARROW_MATLAB_MATLAB_TRAITS_H
 
 #include <arrow/type.h>
 
 #include <matrix.h>
 
-namespace mlarrow {
+namespace arrow {
+namespace matlab {
 
 /// \brief A type traits class mapping Arrow types to MATLAB types.
 template <typename ArrowDataType>
@@ -98,6 +99,7 @@ struct MatlabTraits<arrow::Int64Type> {
   static MatlabType* GetData(mxArray* pa) { return mxGetInt64s(pa); }
 };
 
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow
 
-#endif  // MLARROW_MATLAB_TRAITS_H
+#endif  // ARROW_MATLAB_MATLAB_TRAITS_H

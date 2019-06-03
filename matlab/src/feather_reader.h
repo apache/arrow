@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef MLARROW_FEATHER_READER_H
-#define MLARROW_FEATHER_READER_H
+#ifndef ARROW_MATLAB_FEATHER_READER_H
+#define ARROW_MATLAB_FEATHER_READER_H
 
 #include <memory>
 #include <string>
@@ -27,7 +27,8 @@
 
 #include <matrix.h>
 
-namespace mlarrow {
+namespace arrow {
+namespace matlab {
 
 class FeatherReader {
  public:
@@ -72,6 +73,7 @@ class FeatherReader {
   std::string description_;
 };
 
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow
 
-#endif  // MLARROW_FEATHER_READER_H
+#endif  // ARROW_MATLAB_FEATHER_READER_H

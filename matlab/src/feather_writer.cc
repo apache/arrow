@@ -34,8 +34,8 @@
 #include "matlab_traits.h"
 #include "util/handle_status.h"
 
-namespace mlarrow {
-
+namespace arrow {
+namespace matlab {
 namespace internal {
 
 // Utility that helps verify the input mxArray struct field name and type.
@@ -335,4 +335,5 @@ arrow::Status FeatherWriter::WriteVariables(const mxArray* variables) {
   return this->table_writer_->Finalize();
 }
 
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow

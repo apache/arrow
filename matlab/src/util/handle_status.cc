@@ -19,8 +19,8 @@
 
 #include <mex.h>
 
-namespace mlarrow {
-
+namespace arrow {
+namespace matlab {
 namespace util {
 
 void HandleStatus(const arrow::Status& status) {
@@ -112,4 +112,5 @@ void HandleStatus(const arrow::Status& status) {
   }
 }
 }  // namespace util
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow

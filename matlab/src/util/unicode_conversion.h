@@ -15,18 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef MLARROW_UTIL_UNICODE_CONVERSION_H
-#define MLARROW_UTIL_UNICODE_CONVERSION_H
+#ifndef ARROW_MATLAB_UTIL_UNICODE_CONVERSION_H
+#define ARROW_MATLAB_UTIL_UNICODE_CONVERSION_H
 
 #include <string>
 #include <mex.h>
 
-namespace mlarrow {
+namespace arrow {
+namespace matlab {
 namespace util {
 // Converts a UTF-8 encoded std::string to a heap-allocated UTF-16 encoded
 // mxCharArray.
 mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string);
 }  // namespace util
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow
 
-#endif /* MLARROW_UTIL_UNICODE_CONVERSION_H */
+#endif /* ARROW_MATLAB_UTIL_UNICODE_CONVERSION_H */

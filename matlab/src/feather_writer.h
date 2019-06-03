@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef MLARROW_FEATHER_WRITER_H
-#define MLARROW_FEATHER_WRITER_H
+#ifndef ARROW_MATLAB_FEATHER_WRITER_H
+#define ARROW_MATLAB_FEATHER_WRITER_H
 
 #include <memory>
 #include <string>
@@ -27,7 +27,8 @@
 
 #include <matrix.h>
 
-namespace mlarrow {
+namespace arrow {
+namespace matlab {
 
 class FeatherWriter {
  public:
@@ -68,6 +69,7 @@ class FeatherWriter {
   std::string description_;
 };
 
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow
 
-#endif  // MLARROW_FEATHER_WRITER_H
+#endif  // ARROW_MATLAB_FEATHER_WRITER_H

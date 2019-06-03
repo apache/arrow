@@ -15,18 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef MLARROW_UTIL_HANDLE_STATUS_H
-#define MLARROW_UTIL_HANDLE_STATUS_H
+#ifndef ARROW_MATLAB_UTIL_HANDLE_STATUS_H
+#define ARROW_MATLAB_UTIL_HANDLE_STATUS_H
 
 #include <arrow/status.h>
 
-namespace mlarrow {
+namespace arrow {
+namespace matlab {
 namespace util {
 // Terminates execution and returns to the MATLAB prompt,
 // displaying an error message if the given status
 // indicates that an error has occurred.
 void HandleStatus(const arrow::Status& status);
 }  // namespace util
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow
 
-#endif  // MLARROW_UTIL_HANDLE_STATUS_H
+#endif  // ARROW_MATLAB_UTIL_HANDLE_STATUS_H

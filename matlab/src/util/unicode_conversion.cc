@@ -20,7 +20,8 @@
 
 #include "unicode_conversion.h"
 
-namespace mlarrow {
+namespace arrow {
+namespace matlab {
 namespace util {
 
 mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string) {
@@ -58,4 +59,5 @@ mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string) {
 }
 
 }  // namespace util
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow
