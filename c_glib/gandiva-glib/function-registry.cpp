@@ -23,8 +23,11 @@
 G_BEGIN_DECLS
 
 /**
- * SECTION: function_registry
+ * SECTION: function-registry
  * @short_description: FunctionRegistry class
+ * @title: FunctionRegistry class
+ *
+ * Since: 0.14.0
  */
 
 typedef struct GGandivaFunctionSignaturePrivate_ {
@@ -120,6 +123,8 @@ ggandiva_function_registry_class_init(GGandivaFunctionRegistryClass *klass)
  * ggandiva_function_registry_new:
  *
  * Returns: A newly created #GGandivaFunctionRegistry.
+ *
+ * Since: 0.14.0
  */
 GGandivaFunctionRegistry *
 ggandiva_function_registry_new(void)
@@ -135,6 +140,8 @@ ggandiva_function_registry_new(void)
  *
  * Returns: (transfer none) (element-type GGandivaNativeFunction):
  *   The native functions in the function registry.
+ *
+ * Since: 0.14.0
  */
 GList *
 ggandiva_function_registry_get_native_functions(GGandivaFunctionRegistry *function_registry)

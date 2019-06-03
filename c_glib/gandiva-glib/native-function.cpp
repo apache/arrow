@@ -24,8 +24,11 @@
 G_BEGIN_DECLS
 
 /**
- * SECTION: native_function
+ * SECTION: native-function
  * @short_description: NativeFunction class
+ * @title: NativeFunction class
+ *
+ * Since: 0.14.0
  */
 
 typedef struct GGandivaNativeFunctionPrivate_ {
@@ -104,6 +107,8 @@ ggandiva_native_function_class_init(GGandivaNativeFunctionClass *klass)
  *
  * Returns: (transfer full): A #GGandivaFunctionSignature that represents
  *   the signature of the native function.
+ *
+ * Since: 0.14.0
  */
 GGandivaFunctionSignature *
 ggandiva_native_function_get_function_signature(GGandivaNativeFunction *native_function)
@@ -119,6 +124,8 @@ ggandiva_native_function_get_function_signature(GGandivaNativeFunction *native_f
  *
  * Returns: (transfer full):
  *   The string representation of the signature of the native function.
+ *
+ * Since: 0.14.0
  */
 gchar *
 ggandiva_native_function_get_string_function_signature(GGandivaNativeFunction *native_function)
@@ -134,6 +141,8 @@ ggandiva_native_function_get_string_function_signature(GGandivaNativeFunction *n
  *
  * Returns:
  *   A value of #GGandivaResultNullableType.
+ *
+ * Since: 0.14.0
  */
 GGandivaResultNullableType
 ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native_function)
@@ -150,6 +159,8 @@ ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native
  * Returns:
  *   %TRUE if the native function needs a context for evaluation,
  *   %FALSE otherwise.
+ *
+ * Since: 0.14.0
  */
 gboolean
 ggandiva_native_function_needs_context(GGandivaNativeFunction *native_function)
@@ -165,6 +176,8 @@ ggandiva_native_function_needs_context(GGandivaNativeFunction *native_function)
  * Returns:
  *   %TRUE if the native function needs a function holder for evaluation,
  *   %FALSE otherwise.
+ *
+ * Since: 0.14.0
  */
 gboolean
 ggandiva_native_function_needs_function_holder(GGandivaNativeFunction *native_function)
@@ -180,6 +193,8 @@ ggandiva_native_function_needs_function_holder(GGandivaNativeFunction *native_fu
  * Returns:
  *   %TRUE if the native function has the possibility of returning errors,
  *   %FALSE otherwise.
+ *
+ * Since: 0.14.0
  */
 gboolean
 ggandiva_native_function_can_return_errors(GGandivaNativeFunction *native_function)

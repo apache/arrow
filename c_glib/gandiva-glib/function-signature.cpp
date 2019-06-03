@@ -22,8 +22,11 @@
 G_BEGIN_DECLS
 
 /**
- * SECTION: function_signature
+ * SECTION: function-signature
  * @short_description: FunctionSignature class
+ * @title: FunctionSignature class
+ *
+ * Since: 0.14.0
  */
 
 typedef struct GGandivaFunctionSignaturePrivate_ {
@@ -102,6 +105,8 @@ ggandiva_function_signature_class_init(GGandivaFunctionSignatureClass *klass)
  * @other_function_signature: A #GGandivaFunctionSignature to be compared.
  *
  * Returns: %TRUE if both of them have the same data, %FALSE otherwise.
+ *
+ * Since: 0.14.0
  */
 gboolean
 ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
@@ -120,6 +125,8 @@ ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
  * @function_signature: A #GGandivaFunctionSignature
  *
  * Returns: The string representation of the function signature.
+ *
+ * Since: 0.14.0
  */
 gchar *
 ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signature)
