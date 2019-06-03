@@ -446,6 +446,21 @@ TEST_F(TestReadableFile, ReadAt) {
   ASSERT_RAISES(Invalid, file_->ReadAt(0, 1, &buffer2));
 }
 
+TEST_F(TestReadableFile, SeekingRequired) {
+  std::shared_ptr<Buffer> buffer;
+
+  MakeTestFile();
+  OpenFile();
+
+  ASSERT_OK(file_->ReadAt(0, 4, &buffer));
+  AssertBufferEqual(*buffer, "test");
+
+  ASSERT_RAISES(Invalid, file_->Read(4, &buffer));
+  ASSERT_OK(file_->Seek(0));
+  ASSERT_OK(file_->Read(4, &buffer));
+  AssertBufferEqual(*buffer, "test");
+}
+
 TEST_F(TestReadableFile, NonExistentFile) {
   std::string path = "0xDEADBEEF.txt";
   Status s = ReadableFile::Open(path, &file_);

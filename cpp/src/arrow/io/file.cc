@@ -31,6 +31,7 @@
 #endif
 
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
@@ -56,7 +57,7 @@ namespace io {
 
 class OSFile {
  public:
-  OSFile() : fd_(-1), is_open_(false), size_(-1) {}
+  OSFile() : fd_(-1), is_open_(false), size_(-1), need_seeking_(false) {}
 
   ~OSFile() {}
 
@@ -134,11 +135,15 @@ class OSFile {
 
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
     RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckPositioned());
     return internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes, bytes_read);
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
     RETURN_NOT_OK(CheckClosed());
+    // ReadAt() leaves the file position undefined, so require that we seek
+    // before calling Read() or Write().
+    need_seeking_.store(true);
     return internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position, nbytes,
                                 bytes_read);
   }
@@ -148,7 +153,11 @@ class OSFile {
     if (pos < 0) {
       return Status::Invalid("Invalid position");
     }
-    return internal::FileSeek(fd_, pos);
+    Status st = internal::FileSeek(fd_, pos);
+    if (st.ok()) {
+      need_seeking_.store(false);
+    }
+    return st;
   }
 
   Status Tell(int64_t* pos) const {
@@ -160,6 +169,7 @@ class OSFile {
     RETURN_NOT_OK(CheckClosed());
 
     std::lock_guard<std::mutex> guard(lock_);
+    RETURN_NOT_OK(CheckPositioned());
     if (length < 0) {
       return Status::IOError("Length must be non-negative");
     }
@@ -186,6 +196,15 @@ class OSFile {
     return SetFileName(ss.str());
   }
 
+  Status CheckPositioned() {
+    if (need_seeking_.load()) {
+      return Status::Invalid(
+          "Need seeking after ReadAt() before "
+          "calling implicitly-positioned operation");
+    }
+    return Status::OK();
+  }
+
   internal::PlatformFilename file_name_;
 
   std::mutex lock_;
@@ -197,6 +216,8 @@ class OSFile {
 
   bool is_open_;
   int64_t size_;
+  // Whether ReadAt made the file position non-deterministic.
+  std::atomic<bool> need_seeking_;
 };
 
 // ----------------------------------------------------------------------
