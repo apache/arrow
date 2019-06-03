@@ -235,15 +235,22 @@ class Repo:
             'git@github.com:', 'https://github.com/')
 
     @property
-    def email(self):
-        return next(self.repo.config.get_multivar('user.email'))
+    def user_name(self):
+        name = os.environ.get('GIT_COMMITTER_NAME', 'unkown')
+        return next(self.repo.config.get_multivar('user.name') or [name])
+
+    @property
+    def user_email(self):
+        email = os.environ.get('GIT_COMMITTER_EMAIL', 'unkown')
+        return next(self.repo.config.get_multivar('user.email') or [email])
 
     @property
     def signature(self):
-        name = next(self.repo.config.get_multivar('user.name'))
-        return pygit2.Signature(name, self.email, int(time.time()))
+        return pygit2.Signature(self.user_name, self.user_email,
+                                int(time.time()))
 
-    def create_branch(self, branch_name, files, parents=[], message=''):
+    def create_branch(self, branch_name, files, parents=[], message='',
+                      signature=None):
         # 1. create tree
         builder = self.repo.TreeBuilder()
 
@@ -255,6 +262,7 @@ class Repo:
         tree_id = builder.write()
 
         # 2. create commit with the tree created above
+        # TODO(kszucs): pass signature explicitly
         author = committer = self.signature
         commit_id = self.repo.create_commit(None, author, committer, message,
                                             tree_id, parents)
@@ -416,7 +424,7 @@ class Target:
         else:
             formatted_version = version
         return cls(head=str(repo.head.target),
-                   email=repo.email,
+                   email=repo.user_email,
                    branch=repo.branch.branch_name,
                    remote=repo.remote_url,
                    version=formatted_version)
