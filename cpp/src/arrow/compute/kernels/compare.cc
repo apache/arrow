@@ -35,13 +35,13 @@ template <typename ArrowType, CompareOperator Op,
           typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
           typename T = typename TypeTraits<ArrowType>::CType>
 static Status CompareArrayScalar(const ArrayData& array, const ScalarType& scalar,
-                                 uint8_t* bitmap) {
+                                 uint8_t* output_bitmap) {
   const T* left = array.GetValues<T>(1);
   const T right = scalar.value;
 
-  internal::GenerateBitsUnrolled(bitmap, 0, array.length, [&left, right]() -> bool {
-    return Comparator<T, Op>::Compare(*left++, right);
-  });
+  internal::GenerateBitsUnrolled(
+      output_bitmap, 0, array.length,
+      [&left, right]() -> bool { return Comparator<T, Op>::Compare(*left++, right); });
 
   return Status::OK();
 }
@@ -50,13 +50,13 @@ template <typename ArrowType, CompareOperator Op,
           typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
           typename T = typename TypeTraits<ArrowType>::CType>
 static Status CompareScalarArray(const ScalarType& scalar, const ArrayData& array,
-                                 uint8_t* bitmap) {
+                                 uint8_t* output_bitmap) {
   const T left = scalar.value;
   const T* right = array.GetValues<T>(1);
 
-  internal::GenerateBitsUnrolled(bitmap, 0, array.length, [left, &right]() -> bool {
-    return Comparator<T, Op>::Compare(left, *right++);
-  });
+  internal::GenerateBitsUnrolled(
+      output_bitmap, 0, array.length,
+      [left, &right]() -> bool { return Comparator<T, Op>::Compare(left, *right++); });
 
   return Status::OK();
 }
@@ -64,11 +64,11 @@ static Status CompareScalarArray(const ScalarType& scalar, const ArrayData& arra
 template <typename ArrowType, CompareOperator Op,
           typename T = typename TypeTraits<ArrowType>::CType>
 static Status CompareArrayArray(const ArrayData& lhs, const ArrayData& rhs,
-                                uint8_t* bitmap) {
+                                uint8_t* output_bitmap) {
   const T* left = lhs.GetValues<T>(1);
   const T* right = rhs.GetValues<T>(1);
 
-  internal::GenerateBitsUnrolled(bitmap, 0, lhs.length, [&left, &right]() -> bool {
+  internal::GenerateBitsUnrolled(output_bitmap, 0, lhs.length, [&left, &right]() -> bool {
     return Comparator<T, Op>::Compare(*left++, *right++);
   });
 
@@ -135,7 +135,7 @@ class CompareFunction final : public FilterFunction {
     DCHECK_EQ(output->length, lhs.length);
 
     // Copy null_bitmap
-    RETURN_NOT_OK(detail::PropagateNulls(ctx_, lhs, rhs, output));
+    RETURN_NOT_OK(detail::AssignNullIntersection(ctx_, lhs, rhs, output));
 
     uint8_t* bitmap_result = output->buffers[1]->mutable_data();
     return CompareArrayArray<ArrowType, Op>(lhs, rhs, bitmap_result);

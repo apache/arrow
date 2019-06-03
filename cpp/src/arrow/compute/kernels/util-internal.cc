@@ -238,39 +238,7 @@ Status PropagateNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* o
 
 Status PropagateNulls(FunctionContext* ctx, const ArrayData& lhs, const ArrayData& rhs,
                       ArrayData* output) {
-  const int64_t length = lhs.length;
-
-  int64_t lhs_null_count = lhs.GetNullCount();
-  int64_t rhs_null_count = rhs.GetNullCount();
-
-  if (lhs_null_count == 0 && rhs_null_count == 0) {
-    // Both null, nothing to do.
-    output->null_count = 0;
-    return Status::OK();
-  } else if (lhs_null_count != 0 && rhs_null_count == 0) {
-    // Propagate lhs nulls
-    return PropagateNulls(ctx, lhs, output);
-  } else if (lhs_null_count == 0 && rhs_null_count != 0) {
-    // Propagate rhs nulls
-    return PropagateNulls(ctx, rhs, output);
-  }
-
-  if (output->buffers.size() == 0) {
-    // Ensure we can assign a buffer
-    output->buffers.resize(1);
-  }
-
-  std::shared_ptr<Buffer> buffer;
-
-  auto lhs_validity_data = lhs.buffers[0]->data();
-  auto rhs_validity_data = rhs.buffers[0]->data();
-  RETURN_NOT_OK(internal::BitmapAnd(ctx->memory_pool(), lhs_validity_data, lhs.offset,
-                                    rhs_validity_data, rhs.offset, length,
-                                    0 /* out_offset */, &buffer));
-
-  output->null_count = length - internal::CountSetBits(buffer->data(), 0, length);
-  output->buffers[0] = std::move(buffer);
-  return Status::OK();
+  return AssignNullIntersection(ctx, lhs, rhs, output);
 }
 
 Status SetAllNulls(FunctionContext* ctx, const ArrayData& input, ArrayData* output) {
