@@ -416,7 +416,7 @@ tasks:
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-bionic
+      build_command: rake apt:build APT_TARGETS=ubuntu-cosmic
       upload_extensions:
         - .deb
         - .dsc

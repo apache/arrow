@@ -79,6 +79,8 @@ endif()
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSION "7.0")
+# TODO: Remove this when we drop LLVM 7 support.
+set(ARROW_LLVM_VERSION_FALLBACK "7.1")
 string(
   REGEX
   REPLACE "^([0-9]+)\\.[0-9]+" "\\1" ARROW_LLVM_MAJOR_VERSION "${ARROW_LLVM_VERSION}")

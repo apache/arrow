@@ -1,5 +1,4 @@
 usr/include/parquet-glib/
-usr/lib/*/libparquet-glib.a
 usr/lib/*/libparquet-glib.so
 usr/lib/*/pkgconfig/parquet-glib.pc
 usr/share/gir-1.0/Parquet-1.0.gir
