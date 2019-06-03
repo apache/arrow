@@ -23,6 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -37,6 +38,7 @@ func init() {
 	Records["lists"] = makeListsRecords()
 	Records["strings"] = makeStringsRecords()
 	Records["fixed_size_lists"] = makeFixedSizeListsRecords()
+	Records["fixed_width_types"] = makeFixedWidthTypesRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -318,6 +320,51 @@ func makeStringsRecords() []array.Record {
 	return recs
 }
 
+func makeFixedWidthTypesRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "float16s", Type: arrow.FixedWidthTypes.Float16, Nullable: true},
+		}, nil,
+	)
+
+	float16s := func(vs []float32) []float16.Num {
+		o := make([]float16.Num, len(vs))
+		for i, v := range vs {
+			o[i] = float16.New(v)
+		}
+		return o
+	}
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			arrayOf(mem, float16s([]float32{+1, +2, +3, +4, +5}), mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, float16s([]float32{+11, +12, +13, +14, +15}), mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, float16s([]float32{+21, +22, +23, +24, +25}), mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
@@ -386,6 +433,13 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 
 		bldr.AppendValues(a, valids)
 		return bldr.NewUint64Array()
+
+	case []float16.Num:
+		bldr := array.NewFloat16Builder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewFloat16Array()
 
 	case []float32:
 		bldr := array.NewFloat32Builder(mem)

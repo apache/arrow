@@ -70,6 +70,31 @@ records: 2
 records: 4
 `,
 		},
+		{
+			name: "strings",
+			want: `schema:
+  fields: 2
+    - strings: type=utf8
+    - bytes: type=binary
+records: 3
+`,
+		},
+		{
+			name: "fixed_size_lists",
+			want: `schema:
+  fields: 1
+    - fixed_size_list_nullable: type=fixed_size_list<item: int32>[3], nullable
+records: 3
+`,
+		},
+		{
+			name: "fixed_width_types",
+			want: `schema:
+  fields: 1
+    - float16s: type=float16, nullable
+records: 3
+`,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())

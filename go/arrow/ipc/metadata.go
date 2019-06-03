@@ -245,6 +245,10 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 		fv.dtype = flatbuf.TypeInt
 		fv.offset = intToFB(fv.b, int32(dt.BitWidth()), true)
 
+	case *arrow.Float16Type:
+		fv.dtype = flatbuf.TypeFloatingPoint
+		fv.offset = floatToFB(fv.b, int32(dt.BitWidth()))
+
 	case *arrow.Float32Type:
 		fv.dtype = flatbuf.TypeFloatingPoint
 		fv.offset = floatToFB(fv.b, int32(dt.BitWidth()))
@@ -574,7 +578,7 @@ func intToFB(b *flatbuffers.Builder, bw int32, isSigned bool) flatbuffers.UOffse
 func floatFromFB(data flatbuf.FloatingPoint) (arrow.DataType, error) {
 	switch p := data.Precision(); p {
 	case flatbuf.PrecisionHALF:
-		return nil, errors.Errorf("arrow/ipc: float16 not implemented")
+		return arrow.FixedWidthTypes.Float16, nil
 	case flatbuf.PrecisionSINGLE:
 		return arrow.PrimitiveTypes.Float32, nil
 	case flatbuf.PrecisionDOUBLE:

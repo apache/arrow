@@ -108,6 +108,26 @@ record 3...
   col[1] "bytes": ["111" (null) (null) "444" "555"]
 `,
 		},
+		{
+			name: "fixed_size_lists",
+			want: `record 1...
+  col[0] "fixed_size_list_nullable": [[1 (null) 3] [11 (null) 13] [21 (null) 23]]
+record 2...
+  col[0] "fixed_size_list_nullable": [[-1 (null) -3] [-11 (null) -13] [-21 (null) -23]]
+record 3...
+  col[0] "fixed_size_list_nullable": [[-1 (null) -3] (null) [-21 (null) -23]]
+`,
+		},
+		{
+			name: "fixed_width_types",
+			want: `record 1...
+  col[0] "float16s": [1 (null) (null) 4 5]
+record 2...
+  col[0] "float16s": [11 (null) (null) 14 15]
+record 3...
+  col[0] "float16s": [21 (null) (null) 24 25]
+`,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -321,6 +341,50 @@ record 2/3...
 record 3/3...
   col[0] "strings": ["111" (null) (null) "444" "555"]
   col[1] "bytes": ["111" (null) (null) "444" "555"]
+`,
+		},
+		{
+			stream: true,
+			name:   "fixed_size_lists",
+			want: `record 1...
+  col[0] "fixed_size_list_nullable": [[1 (null) 3] [11 (null) 13] [21 (null) 23]]
+record 2...
+  col[0] "fixed_size_list_nullable": [[-1 (null) -3] [-11 (null) -13] [-21 (null) -23]]
+record 3...
+  col[0] "fixed_size_list_nullable": [[-1 (null) -3] (null) [-21 (null) -23]]
+`,
+		},
+		{
+			name: "fixed_size_lists",
+			want: `version: V4
+record 1/3...
+  col[0] "fixed_size_list_nullable": [[1 (null) 3] [11 (null) 13] [21 (null) 23]]
+record 2/3...
+  col[0] "fixed_size_list_nullable": [[-1 (null) -3] [-11 (null) -13] [-21 (null) -23]]
+record 3/3...
+  col[0] "fixed_size_list_nullable": [[-1 (null) -3] (null) [-21 (null) -23]]
+`,
+		},
+		{
+			stream: true,
+			name:   "fixed_width_types",
+			want: `record 1...
+  col[0] "float16s": [1 (null) (null) 4 5]
+record 2...
+  col[0] "float16s": [11 (null) (null) 14 15]
+record 3...
+  col[0] "float16s": [21 (null) (null) 24 25]
+`,
+		},
+		{
+			name: "fixed_width_types",
+			want: `version: V4
+record 1/3...
+  col[0] "float16s": [1 (null) (null) 4 5]
+record 2/3...
+  col[0] "float16s": [11 (null) (null) 14 15]
+record 3/3...
+  col[0] "float16s": [21 (null) (null) 24 25]
 `,
 		},
 	} {
