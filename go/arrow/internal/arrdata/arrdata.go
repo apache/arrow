@@ -320,13 +320,20 @@ func makeStringsRecords() []array.Record {
 	return recs
 }
 
+type time32s arrow.Time32
+type time32ms arrow.Time32
+type time64ns arrow.Time64
+type time64us arrow.Time64
+
 func makeFixedWidthTypesRecords() []array.Record {
 	mem := memory.NewGoAllocator()
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			arrow.Field{Name: "float16s", Type: arrow.FixedWidthTypes.Float16, Nullable: true},
 			arrow.Field{Name: "time32ms", Type: arrow.FixedWidthTypes.Time32ms, Nullable: true},
+			arrow.Field{Name: "time32s", Type: arrow.FixedWidthTypes.Time32s, Nullable: true},
 			arrow.Field{Name: "time64ns", Type: arrow.FixedWidthTypes.Time64ns, Nullable: true},
+			arrow.Field{Name: "time64us", Type: arrow.FixedWidthTypes.Time64us, Nullable: true},
 		}, nil,
 	)
 
@@ -342,18 +349,24 @@ func makeFixedWidthTypesRecords() []array.Record {
 	chunks := [][]array.Interface{
 		[]array.Interface{
 			arrayOf(mem, float16s([]float32{+1, +2, +3, +4, +5}), mask),
-			arrayOf(mem, []arrow.Time32{-2, -1, 0, +1, +2}, mask),
-			arrayOf(mem, []arrow.Time64{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []time32ms{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []time32s{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []time64ns{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []time64us{-2, -1, 0, +1, +2}, mask),
 		},
 		[]array.Interface{
 			arrayOf(mem, float16s([]float32{+11, +12, +13, +14, +15}), mask),
-			arrayOf(mem, []arrow.Time32{-12, -11, 10, +11, +12}, mask),
-			arrayOf(mem, []arrow.Time64{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []time32ms{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []time32s{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []time64ns{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []time64us{-12, -11, 10, +11, +12}, mask),
 		},
 		[]array.Interface{
 			arrayOf(mem, float16s([]float32{+21, +22, +23, +24, +25}), mask),
-			arrayOf(mem, []arrow.Time32{-22, -21, 20, +21, +22}, mask),
-			arrayOf(mem, []arrow.Time64{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []time32ms{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []time32s{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []time64ns{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []time64us{-22, -21, 20, +21, +22}, mask),
 		},
 	}
 
@@ -477,18 +490,48 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 		bldr.AppendValues(a, valids)
 		return bldr.NewBinaryArray()
 
-	case []arrow.Time32:
+	case []time32s:
+		bldr := array.NewTime32Builder(mem, arrow.FixedWidthTypes.Time32s.(*arrow.Time32Type))
+		defer bldr.Release()
+
+		vs := make([]arrow.Time32, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Time32(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []time32ms:
 		bldr := array.NewTime32Builder(mem, arrow.FixedWidthTypes.Time32ms.(*arrow.Time32Type))
 		defer bldr.Release()
 
-		bldr.AppendValues(a, valids)
+		vs := make([]arrow.Time32, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Time32(v)
+		}
+		bldr.AppendValues(vs, valids)
 		return bldr.NewArray()
 
-	case []arrow.Time64:
+	case []time64ns:
 		bldr := array.NewTime64Builder(mem, arrow.FixedWidthTypes.Time64ns.(*arrow.Time64Type))
 		defer bldr.Release()
 
-		bldr.AppendValues(a, valids)
+		vs := make([]arrow.Time64, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Time64(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []time64us:
+		bldr := array.NewTime64Builder(mem, arrow.FixedWidthTypes.Time64us.(*arrow.Time64Type))
+		defer bldr.Release()
+
+		vs := make([]arrow.Time64, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Time64(v)
+		}
+		bldr.AppendValues(vs, valids)
 		return bldr.NewArray()
 
 	default:
