@@ -100,9 +100,11 @@ Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
     return Status::IOError("OutputStream is closed");
   }
   DCHECK(buffer_);
-  RETURN_NOT_OK(Reserve(nbytes));
-  memcpy(mutable_data_ + position_, data, nbytes);
-  position_ += nbytes;
+  if (ARROW_PREDICT_TRUE(nbytes > 0)) {
+    RETURN_NOT_OK(Reserve(nbytes));
+    memcpy(mutable_data_ + position_, data, nbytes);
+    position_ += nbytes;
+  }
   return Status::OK();
 }
 

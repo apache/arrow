@@ -71,6 +71,8 @@ matrix:
     - ARROW_TRAVIS_VERBOSE=1
     - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
+    - ARROW_USE_ASAN=1
+    - ARROW_USE_UBSAN=1
     - CC="clang-7"
     - CXX="clang++-7"
     before_script:

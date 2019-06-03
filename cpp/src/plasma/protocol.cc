@@ -28,6 +28,7 @@
 #ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"
 #endif
+#include "arrow/util/ubsan.h"
 
 namespace fb = plasma::flatbuf;
 
@@ -49,7 +50,7 @@ ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb, const ObjectID* object_ids,
   for (int64_t i = 0; i < num_objects; i++) {
     results.push_back(fbb->CreateString(object_ids[i].binary()));
   }
-  return fbb->CreateVector(results);
+  return fbb->CreateVector(arrow::util::MakeNonNull(results.data()), results.size());
 }
 
 Status PlasmaReceive(int sock, MessageType message_type, std::vector<uint8_t>* buffer) {
@@ -341,7 +342,9 @@ Status SendDeleteReply(int sock, const std::vector<ObjectID>& object_ids,
   auto message = fb::CreatePlasmaDeleteReply(
       fbb, static_cast<int32_t>(object_ids.size()),
       ToFlatbuffer(&fbb, &object_ids[0], object_ids.size()),
-      fbb.CreateVector(reinterpret_cast<const int32_t*>(&errors[0]), object_ids.size()));
+      fbb.CreateVector(
+          arrow::util::MakeNonNull(reinterpret_cast<const int32_t*>(errors.data())),
+          object_ids.size()));
   return PlasmaSend(sock, MessageType::PlasmaDeleteReply, &fbb, message);
 }
 
@@ -421,7 +424,9 @@ Status SendListReply(int sock, const ObjectTable& objects) {
                                      entry.second->construct_duration, digest);
     object_infos.push_back(info);
   }
-  auto message = fb::CreatePlasmaListReply(fbb, fbb.CreateVector(object_infos));
+  auto message = fb::CreatePlasmaListReply(
+      fbb, fbb.CreateVector(arrow::util::MakeNonNull(object_infos.data()),
+                            object_infos.size()));
   return PlasmaSend(sock, MessageType::PlasmaListReply, &fbb, message);
 }
 
@@ -538,6 +543,7 @@ Status SendGetReply(int sock, ObjectID object_ids[],
     if (object.device_num != 0) {
       std::shared_ptr<arrow::Buffer> handle;
       RETURN_NOT_OK(object.ipc_handle->Serialize(arrow::default_memory_pool(), &handle));
+      handles.push_back(fb::CreateCudaHandle(fbb, fbb.CreateVector(handle)));
       handles.push_back(
           fb::CreateCudaHandle(fbb, fbb.CreateVector(handle->data(), handle->size())));
     }
@@ -545,8 +551,10 @@ Status SendGetReply(int sock, ObjectID object_ids[],
   }
   auto message = fb::CreatePlasmaGetReply(
       fbb, ToFlatbuffer(&fbb, object_ids, num_objects),
-      fbb.CreateVectorOfStructs(objects.data(), num_objects), fbb.CreateVector(store_fds),
-      fbb.CreateVector(mmap_sizes), fbb.CreateVector(handles));
+      fbb.CreateVectorOfStructs(arrow::util::MakeNonNull(objects.data()), num_objects),
+      fbb.CreateVector(arrow::util::MakeNonNull(store_fds.data()), store_fds.size()),
+      fbb.CreateVector(arrow::util::MakeNonNull(mmap_sizes.data()), mmap_sizes.size()),
+      fbb.CreateVector(arrow::util::MakeNonNull(handles.data()), handles.size()));
   return PlasmaSend(sock, MessageType::PlasmaGetReply, &fbb, message);
 }
 

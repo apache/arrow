@@ -129,6 +129,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_USE_TSAN "Enable Thread Sanitizer checks" OFF)
 
+  define_option(ARROW_USE_UBSAN "Enable Undefined Behavior sanitizer checks" OFF)
+
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
