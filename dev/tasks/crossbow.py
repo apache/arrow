@@ -236,13 +236,17 @@ class Repo:
 
     @property
     def user_name(self):
-        name = os.environ.get('GIT_COMMITTER_NAME', 'unkown')
-        return next(self.repo.config.get_multivar('user.name') or [name])
+        try:
+            return next(self.repo.config.get_multivar('user.name'))
+        except StopIteration:
+            return os.environ.get('GIT_COMMITTER_NAME', 'unkown')
 
     @property
     def user_email(self):
-        email = os.environ.get('GIT_COMMITTER_EMAIL', 'unkown')
-        return next(self.repo.config.get_multivar('user.email') or [email])
+        try:
+            return next(self.repo.config.get_multivar('user.email'))
+        except StopIteration:
+            return os.environ.get('GIT_COMMITTER_EMAIL', 'unkown')
 
     @property
     def signature(self):
