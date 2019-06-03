@@ -27,7 +27,7 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal("bool not(bool)",
+    assert_equal(@registry.native_functions[0].signature.to_s,
                  @registry.native_functions[0].to_s)
   end
 
