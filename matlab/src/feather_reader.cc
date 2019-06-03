@@ -37,16 +37,16 @@ namespace matlab {
 namespace internal {
 
 // Read the name of variable i from the Feather file as a mxArray*.
-mxArray* ReadVariableName(const std::shared_ptr<arrow::Column>& column) {
-  return arrow::matlab::util::ConvertUTF8StringToUTF16CharMatrix(column->name());
+mxArray* ReadVariableName(const std::shared_ptr<Column>& column) {
+  return matlab::util::ConvertUTF8StringToUTF16CharMatrix(column->name());
 }
 
 template <typename ArrowDataType>
-mxArray* ReadNumericVariableData(const std::shared_ptr<arrow::Column>& column) {
+mxArray* ReadNumericVariableData(const std::shared_ptr<Column>& column) {
   using MatlabType = typename MatlabTraits<ArrowDataType>::MatlabType;
-  using ArrowArrayType = typename arrow::TypeTraits<ArrowDataType>::ArrayType;
+  using ArrowArrayType = typename TypeTraits<ArrowDataType>::ArrayType;
 
-  std::shared_ptr<arrow::ChunkedArray> chunked_array = column->data();
+  std::shared_ptr<ChunkedArray> chunked_array = column->data();
   const int32_t num_chunks = chunked_array->num_chunks();
 
   const mxClassID matlab_class_id = MatlabTraits<ArrowDataType>::matlab_class_id;
@@ -58,7 +58,7 @@ mxArray* ReadNumericVariableData(const std::shared_ptr<arrow::Column>& column) {
   int64_t mx_array_offset = 0;
   // Iterate over each arrow::Array in the arrow::ChunkedArray.
   for (int32_t i = 0; i < num_chunks; ++i) {
-    std::shared_ptr<arrow::Array> array = chunked_array->chunk(i);
+    std::shared_ptr<Array> array = chunked_array->chunk(i);
     const int64_t chunk_length = array->length();
     std::shared_ptr<ArrowArrayType> integer_array = std::static_pointer_cast<ArrowArrayType>(array);
 
@@ -76,31 +76,30 @@ mxArray* ReadNumericVariableData(const std::shared_ptr<arrow::Column>& column) {
 }
 
 // Read the data of variable i from the Feather file as a mxArray*.
-mxArray* ReadVariableData(const std::shared_ptr<arrow::Column>& column) {
-  std::shared_ptr<arrow::DataType> type = column->type();
+mxArray* ReadVariableData(const std::shared_ptr<Column>& column) {
+  std::shared_ptr<DataType> type = column->type();
 
   switch (type->id()) {
-    case arrow::Type::FLOAT:
-      return ReadNumericVariableData<arrow::FloatType>(column);
-    case arrow::Type::DOUBLE:
-      return ReadNumericVariableData<arrow::DoubleType>(column);
-    case arrow::Type::UINT8:
-      return ReadNumericVariableData<arrow::UInt8Type>(column);
-    case arrow::Type::UINT16:
-      return ReadNumericVariableData<arrow::UInt16Type>(column);
-    case arrow::Type::UINT32:
-      return ReadNumericVariableData<arrow::UInt32Type>(column);
-    case arrow::Type::UINT64:
-      return ReadNumericVariableData<arrow::UInt64Type>(column);
-    case arrow::Type::INT8:
-      return ReadNumericVariableData<arrow::Int8Type>(column);
-    case arrow::Type::INT16:
-      return ReadNumericVariableData<arrow::Int16Type>(column);
-    case arrow::Type::INT32:
-      return ReadNumericVariableData<arrow::Int32Type>(column);
-    case arrow::Type::INT64:
-      return ReadNumericVariableData<arrow::Int64Type>(column);
-
+    case Type::FLOAT:
+      return ReadNumericVariableData<FloatType>(column);
+    case Type::DOUBLE:
+      return ReadNumericVariableData<DoubleType>(column);
+    case Type::UINT8:
+      return ReadNumericVariableData<UInt8Type>(column);
+    case Type::UINT16:
+      return ReadNumericVariableData<UInt16Type>(column);
+    case Type::UINT32:
+      return ReadNumericVariableData<UInt32Type>(column);
+    case Type::UINT64:
+      return ReadNumericVariableData<UInt64Type>(column);
+    case Type::INT8:
+      return ReadNumericVariableData<Int8Type>(column);
+    case Type::INT16:
+      return ReadNumericVariableData<Int16Type>(column);
+    case Type::INT32:
+      return ReadNumericVariableData<Int32Type>(column);
+    case Type::INT64:
+      return ReadNumericVariableData<Int64Type>(column);
     default: {
       mexErrMsgIdAndTxt("MATLAB:arrow:UnsupportedArrowType",
                         "Unsupported arrow::Type '%s' for variable '%s'",
@@ -115,7 +114,7 @@ mxArray* ReadVariableData(const std::shared_ptr<arrow::Column>& column) {
 // arrow::Buffers are bit-packed, while mxLogical arrays aren't. This utility
 // uses an Arrow utility to copy each bit of an arrow::Buffer into each byte
 // of an mxLogical array.
-void BitUnpackBuffer(const std::shared_ptr<arrow::Buffer>& source, const int64_t length,
+void BitUnpackBuffer(const std::shared_ptr<Buffer>& source, const int64_t length,
                      bool* destination) {
   const uint8_t* source_data = source->data();
 
@@ -153,7 +152,7 @@ bool TryBitUnpackFastPath(const std::shared_ptr<ArrowType>& array, bool* destina
 
 // Read the validity (null) bitmap of variable i from the Feather
 // file as an mxArray*.
-mxArray* ReadVariableValidityBitmap(const std::shared_ptr<arrow::Column>& column) {
+mxArray* ReadVariableValidityBitmap(const std::shared_ptr<Column>& column) {
   // Allocate an mxLogical array to store the validity (null) bitmap values.
   // Note: All Arrow arrays can have an associated validity (null) bitmap.
   // The Apache Arrow specification defines 0 (false) to represent an
@@ -170,13 +169,13 @@ mxArray* ReadVariableValidityBitmap(const std::shared_ptr<arrow::Column>& column
     return validity_bitmap;
   }
 
-  std::shared_ptr<arrow::ChunkedArray> chunked_array = column->data();
+  std::shared_ptr<ChunkedArray> chunked_array = column->data();
   const int32_t num_chunks = chunked_array->num_chunks();
 
   int64_t mx_array_offset = 0;
   // Iterate over each arrow::Array in the arrow::ChunkedArray.
   for (int32_t chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
-    std::shared_ptr<arrow::Array> array = chunked_array->chunk(chunk_index);
+    std::shared_ptr<Array> array = chunked_array->chunk(chunk_index);
     const int64_t array_length = array->length();
 
     if (!TryBitUnpackFastPath(array, validity_bitmap_unpacked + mx_array_offset)) {
@@ -193,8 +192,8 @@ mxArray* ReadVariableValidityBitmap(const std::shared_ptr<arrow::Column>& column
 }
 
 // Read the type name of an Arrow column as an mxChar array.
-mxArray* ReadVariableType(const std::shared_ptr<arrow::Column>& column) {
-  return arrow::matlab::util::ConvertUTF8StringToUTF16CharMatrix(column->type()->name());
+mxArray* ReadVariableType(const std::shared_ptr<Column>& column) {
+  return util::ConvertUTF8StringToUTF16CharMatrix(column->type()->name());
 }
 
 // MATLAB arrays cannot be larger than 2^48 elements.
@@ -202,20 +201,20 @@ static constexpr uint64_t MAX_MATLAB_SIZE = static_cast<uint64_t>(0x01) << 48;
 
 }  // namespace internal
 
-arrow::Status FeatherReader::Open(const std::string& filename,
-                                  std::shared_ptr<FeatherReader>* feather_reader) {
+Status FeatherReader::Open(const std::string& filename,
+                           std::shared_ptr<FeatherReader>* feather_reader) {
   *feather_reader = std::shared_ptr<FeatherReader>(new FeatherReader());
  
   // Open file with given filename as a ReadableFile.
-  std::shared_ptr<arrow::io::ReadableFile> readable_file(nullptr);
+  std::shared_ptr<io::ReadableFile> readable_file(nullptr);
   
-  RETURN_NOT_OK(arrow::io::ReadableFile::Open(filename, &readable_file));
+  RETURN_NOT_OK(io::ReadableFile::Open(filename, &readable_file));
   
   // TableReader expects a RandomAccessFile.
-  std::shared_ptr<arrow::io::RandomAccessFile> random_access_file(readable_file);
+  std::shared_ptr<io::RandomAccessFile> random_access_file(readable_file);
 
   // Open the Feather file for reading with a TableReader.
-  RETURN_NOT_OK(arrow::ipc::feather::TableReader::Open(
+  RETURN_NOT_OK(ipc::feather::TableReader::Open(
       random_access_file, &(*feather_reader)->table_reader_));
 
   // Read the table metadata from the Feather file.
@@ -233,7 +232,7 @@ arrow::Status FeatherReader::Open(const std::string& filename,
                       (*feather_reader)->num_rows_, (*feather_reader)->num_variables_);
   }
 
-  return arrow::Status::OK();
+  return Status::OK();
 }
 
 // Read the table metadata from the Feather file as a mxArray*.
@@ -257,7 +256,7 @@ mxArray* FeatherReader::ReadMetadata() const {
 
   // Set the description.
   mxSetField(metadata, 0, "Description",
-             arrow::matlab::util::ConvertUTF8StringToUTF16CharMatrix(description_));
+             util::ConvertUTF8StringToUTF16CharMatrix(description_));
 
   return metadata;
 }
@@ -274,7 +273,7 @@ mxArray* FeatherReader::ReadVariables() const {
 
   // Read all the table variables in the Feather file into memory.
   for (int64_t i = 0; i < num_variables_; ++i) {
-    std::shared_ptr<arrow::Column> column(nullptr);
+    std::shared_ptr<Column> column(nullptr);
     util::HandleStatus(table_reader_->GetColumn(i, &column));
 
     // set the struct fields data

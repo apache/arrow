@@ -51,19 +51,19 @@ class FeatherWriter {
   ///                                           1 represents valid (non-null) values
   /// \param[in] variables mxArray* struct array containing table variable data
   /// \return status
-  arrow::Status WriteVariables(const mxArray* variables);
+  Status WriteVariables(const mxArray* variables);
 
   /// \brief Initialize a FeatherWriter object that writes to a Feather file
   /// \param[in] filename path to the new Feather file
   /// \param[out] feather_writer uninitialized FeatherWriter object
   /// \return status
-  static arrow::Status Open(const std::string& filename,
-                            std::shared_ptr<FeatherWriter>* feather_writer);
+  static Status Open(const std::string& filename,
+                     std::shared_ptr<FeatherWriter>* feather_writer);
 
  private:
   FeatherWriter() = default;
 
-  std::unique_ptr<arrow::ipc::feather::TableWriter> table_writer_;
+  std::unique_ptr<ipc::feather::TableWriter> table_writer_;
   int64_t num_rows_;
   int64_t num_variables_;
   std::string description_;

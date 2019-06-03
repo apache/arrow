@@ -62,12 +62,12 @@ class FeatherReader {
   /// \brief Initialize a FeatherReader object from a given Feather file.
   /// \param[in] filename path to a Feather file
   /// \param[out] feather_reader uninitialized FeatherReader object
-  static arrow::Status Open(const std::string& filename,
-                            std::shared_ptr<FeatherReader>* feather_reader);
+  static Status Open(const std::string& filename,
+                     std::shared_ptr<FeatherReader>* feather_reader);
 
  private:
   FeatherReader() = default;
-  std::unique_ptr<arrow::ipc::feather::TableReader> table_reader_;
+  std::unique_ptr<ipc::feather::TableReader> table_reader_;
   int64_t num_rows_;
   int64_t num_variables_;
   std::string description_;
