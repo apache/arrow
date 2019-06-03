@@ -71,7 +71,6 @@ libgandiva_glib_la_sources =			\
 
 libgandiva_glib_la_cpp_headers =		\
 	expression.hpp				\
-	function-registry.hpp			\
 	function-signature.hpp			\
 	gandiva-glib.hpp			\
 	native-function.hpp			\

@@ -40,7 +40,6 @@ c_headers = files(
 
 cpp_headers = files(
   'expression.hpp',
-  'function-registry.hpp',
   'function-signature.hpp',
   'gandiva-glib.hpp',
   'node.hpp',
