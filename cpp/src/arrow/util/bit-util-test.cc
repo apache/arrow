@@ -412,7 +412,7 @@ class TestVisitBits : public ::testing::Test {
   static PackedBitmapType generate_packed_bitmap() {
     PackedBitmapType bitmap;
     // Assign random values into the source array.
-    random_bytes(kBitmapSizeInBytes, 0, bitmap.begin());
+    random_bytes(kBitmapSizeInBytes, 0, bitmap.data());
     return bitmap;
   }
 
@@ -420,7 +420,7 @@ class TestVisitBits : public ::testing::Test {
     // Use a BitmapReader (tested earlier) to populate the expected
     // unpacked bitmap.
     UnpackedBitmapType result;
-    internal::BitmapReader reader(bitmap.begin(), 0, 8 * kBitmapSizeInBytes);
+    internal::BitmapReader reader(bitmap.data(), 0, 8 * kBitmapSizeInBytes);
     for (int64_t index = 0; index < 8 * kBitmapSizeInBytes; ++index) {
       result[index] = reader.IsSet();
       reader.Next();
@@ -467,8 +467,8 @@ TYPED_TEST(TestVisitBits, NormalOperation) {
 
         // Attempt to read bits from the input bitmap into the unpacked_bitmap bitmap.
         using VisitBitsFunctor = TypeParam;
-        VisitBitsFunctor()(this->packed_bitmap_.begin(), start_offset, length,
-                           unpacked_bitmap.begin() + start_offset);
+        VisitBitsFunctor()(this->packed_bitmap_.data(), start_offset, length,
+                           unpacked_bitmap.data() + start_offset);
 
         // Verify that the correct values have been written in the [start_offset,
         // start_offset+length) range.
