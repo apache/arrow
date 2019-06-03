@@ -67,8 +67,8 @@ ggandiva_function_signature_set_property(GObject *object,
   auto priv = GGANDIVA_FUNCTION_SIGNATURE_GET_PRIVATE(object);
   switch (prop_id) {
   case PROP_FUNCTION_SIGNATURE:
-    priv->function_signature
-      = static_cast<const gandiva::FunctionSignature *>(g_value_get_pointer(value));
+    priv->function_signature =
+      static_cast<const gandiva::FunctionSignature *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
