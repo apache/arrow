@@ -32,7 +32,6 @@ G_BEGIN_DECLS
 
 typedef struct GGandivaFunctionSignaturePrivate_ {
   std::shared_ptr<gandiva::FunctionRegistry> *function_registry;
-  GList *native_function_list;
 } GGandivaFunctionRegistryPrivate;
 
 enum {
@@ -58,15 +57,6 @@ static void
 ggandiva_function_registry_finalize(GObject *object)
 {
   auto priv = GGANDIVA_FUNCTION_REGISTRY_GET_PRIVATE(object);
-
-  if (priv->native_function_list) {
-    GList *p = priv->native_function_list;
-    while (p) {
-      g_object_unref(G_OBJECT(p->data));
-      p = g_list_next(p);
-    }
-    g_list_free(priv->native_function_list);
-  }
 
   delete priv->function_registry;
 
@@ -138,7 +128,7 @@ ggandiva_function_registry_new(void)
  * ggandiva_function_registry_get_native_functions:
  * @function_registry: A #GGandivaFunctionRegistry.
  *
- * Returns: (transfer none) (element-type GGandivaNativeFunction):
+ * Returns: (transfer full) (element-type GGandivaNativeFunction):
  *   The native functions in the function registry.
  *
  * Since: 0.14.0
@@ -147,21 +137,19 @@ GList *
 ggandiva_function_registry_get_native_functions(GGandivaFunctionRegistry *function_registry)
 {
   auto priv = GGANDIVA_FUNCTION_REGISTRY_GET_PRIVATE(function_registry);
+  GList *native_function_list = nullptr;
 
-  if (!priv->native_function_list) {
-    using iterator = gandiva::FunctionRegistry::iterator;
+  using iterator = gandiva::FunctionRegistry::iterator;
+  const auto& gandiva_function_registry = *priv->function_registry;
 
-    const auto& gandiva_function_registry = *priv->function_registry;
-    for (iterator gandiva_native_function = gandiva_function_registry->begin();
-         gandiva_native_function != gandiva_function_registry->end();
-         ++gandiva_native_function) {
-      auto native_function = ggandiva_native_function_new_raw(gandiva_native_function);
-      priv->native_function_list = g_list_append(priv->native_function_list,
-                                                 native_function);
-    }
+  for (iterator gandiva_native_function = gandiva_function_registry->begin();
+      gandiva_native_function != gandiva_function_registry->end();
+      ++gandiva_native_function) {
+    auto native_function = ggandiva_native_function_new_raw(gandiva_native_function);
+    native_function_list = g_list_append(native_function_list, native_function);
   }
 
-  return priv->native_function_list;
+  return native_function_list;
 }
 
 G_END_DECLS
