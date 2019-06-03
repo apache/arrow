@@ -146,8 +146,9 @@ ggandiva_function_registry_get_native_functions(GGandivaFunctionRegistry *functi
       gandiva_native_function != gandiva_function_registry->end();
       ++gandiva_native_function) {
     auto native_function = ggandiva_native_function_new_raw(gandiva_native_function);
-    native_function_list = g_list_append(native_function_list, native_function);
+    native_function_list = g_list_prepend(native_function_list, native_function);
   }
+  native_function_list = g_list_reverse(native_function_list);
 
   return native_function_list;
 }
