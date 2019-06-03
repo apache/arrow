@@ -135,7 +135,7 @@ ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native
 {
   auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
   auto gandiva_result_nullable_type = priv->native_function->result_nullable_type();
-  return static_cast<GGandivaResultNullableType>(gandiva_result_nullable_type);
+  return ggandiva_result_nullable_type_from_raw(gandiva_result_nullable_type);
 }
 
 /**
@@ -190,6 +190,36 @@ ggandiva_native_function_can_return_errors(GGandivaNativeFunction *native_functi
 }
 
 G_END_DECLS
+
+GGandivaResultNullableType
+ggandiva_result_nullable_type_from_raw(gandiva::ResultNullableType gandiva_type)
+{
+  switch (gandiva_type) {
+  case gandiva::kResultNullIfNull:
+    return GGANDIVA_RESULT_NULL_IF_NULL;
+  case gandiva::kResultNullNever:
+    return GGANDIVA_RESULT_NULL_NEVER;
+  case gandiva::kResultNullInternal:
+    return GGANDIVA_RESULT_NULL_INTERNAL;
+  default:
+    return GGANDIVA_RESULT_NULL_IF_NULL;
+  }
+}
+
+gandiva::ResultNullableType
+ggandiva_result_nullable_type_to_raw(GGandivaResultNullableType type)
+{
+  switch (type) {
+  case GGANDIVA_RESULT_NULL_IF_NULL:
+    return gandiva::kResultNullIfNull;
+  case GGANDIVA_RESULT_NULL_NEVER:
+    return gandiva::kResultNullNever;
+  case GGANDIVA_RESULT_NULL_INTERNAL:
+    return gandiva::kResultNullInternal;
+  default:
+    return gandiva::kResultNullIfNull;
+  }
+}
 
 GGandivaNativeFunction *
 ggandiva_native_function_new_raw(const gandiva::NativeFunction *gandiva_native_function)
