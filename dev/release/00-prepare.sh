@@ -121,6 +121,27 @@ update_versions() {
   sed -i.bak -E -e \
     "s/^version = \".+\"/version = \"${version}\"/g" \
     */Cargo.toml
+  if [ `echo ${version} | grep "SNAPSHOT"` ]; then
+    sed -i.bak -E -e \
+      "s/^arrow = { version = \".+\" }/arrow = { path = \"..\/arrow\"\ }/g" \
+      datafusion/Cargo.toml
+    sed -i.bak -E -e \
+      "s/^parquet = { version = \".+\" }/parquet = { path = \"..\/parquet\"\ }/g" \
+      datafusion/Cargo.toml
+    sed -i.bak -E -e \
+      "s/^arrow = { version = \".+\" }/arrow = { path = \"..\/arrow\"\ }/g" \
+      parquet/Cargo.toml
+  else
+    sed -i.bak -E -e \
+      "s/^arrow = { path = \"..\/arrow\"\ }/arrow = { version = \"${version}\" }/g" \
+      datafusion/Cargo.toml
+    sed -i.bak -E -e \
+      "s/^parquet = { path = \"..\/parquet\"\ }/parquet = { version = \"${version}\" }/g" \
+      datafusion/Cargo.toml
+    sed -i.bak -E -e \
+      "s/^arrow = { path = \"..\/arrow\"\ }/arrow = { version = \"${version}\" }/g" \
+      parquet/Cargo.toml
+  fi
   rm -f */Cargo.toml.bak
   git add */Cargo.toml
 

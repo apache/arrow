@@ -184,6 +184,10 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
+                       ["-arrow = { path = \"../arrow\" }",
+                        "-parquet = { path = \"../parquet\" }",
+                        "+arrow = { version = \"#{@release_version}\" }",
+                        "+parquet = { version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
@@ -198,6 +202,8 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
+                       ["-arrow = { path = \"../arrow\" }",
+                        "+arrow = { version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
@@ -327,6 +333,10 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@release_version}\"",
                         "+version = \"#{@next_version}-SNAPSHOT\""],
+                       ["-arrow = { version = \"#{@release_version}\" }",
+                        "-parquet = { version = \"#{@release_version}\" }",
+                        "+arrow = { path = \"../arrow\" }",
+                        "+parquet = { path = \"../parquet\" }"]
                      ],
                    },
                    {
@@ -341,6 +351,8 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-version = \"#{@release_version}\"",
                         "+version = \"#{@next_version}-SNAPSHOT\""],
+                       ["-arrow = { version = \"#{@release_version}\" }",
+                        "+arrow = { path = \"../arrow\" }"]
                      ],
                    },
                    {
