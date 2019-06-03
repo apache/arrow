@@ -270,8 +270,7 @@ class VectorConverter {
   virtual Status Ingest(SEXP obj) = 0;
 
   virtual Status GetResult(std::shared_ptr<arrow::Array>* result) {
-    RETURN_NOT_OK(builder_->Finish(result));
-    return Status::OK();
+    return builder_->Finish(result);
   }
 
   ArrayBuilder* builder() const { return builder_; }
@@ -299,7 +298,7 @@ struct Unbox<Type, enable_if_integer<Type>> {
           return IngestRange<int64_t>(builder, reinterpret_cast<int64_t*>(REAL(obj)),
                                       XLENGTH(obj), NA_INT64);
         }
-      // TODO: handle aw and logical
+      // TODO: handle raw and logical
       default:
         break;
     }
@@ -881,7 +880,7 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   }
 
   auto data = ArrayData::Make(std::make_shared<Type>(), LENGTH(x), std::move(buffers),
-                              null_count, 0);
+                              null_count, 0 /*offset*/);
 
   // return the right Array class
   return std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
