@@ -27,6 +27,7 @@ G_BEGIN_DECLS
  * SECTION: native-function
  * @short_description: NativeFunction class
  * @title: NativeFunction class
+ * @include: gandiva-glib/gandiva-glib.h
  *
  * Since: 0.14.0
  */

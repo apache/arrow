@@ -25,6 +25,7 @@ G_BEGIN_DECLS
  * SECTION: function-signature
  * @short_description: FunctionSignature class
  * @title: FunctionSignature class
+ * @include: gandiva-glib/gandiva-glib.h
  *
  * Since: 0.14.0
  */

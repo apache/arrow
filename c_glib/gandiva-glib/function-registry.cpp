@@ -28,6 +28,7 @@ G_BEGIN_DECLS
  * SECTION: function-registry
  * @short_description: FunctionRegistry class
  * @title: FunctionRegistry class
+ * @include: gandiva-glib/gandiva-glib.h
  *
  * Since: 0.14.0
  */
