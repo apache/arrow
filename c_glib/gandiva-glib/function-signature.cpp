@@ -17,6 +17,8 @@
  * under the License.
  */
 
+#include <arrow-glib/basic-data-type.hpp>
+
 #include <gandiva-glib/function-signature.hpp>
 
 G_BEGIN_DECLS
@@ -121,6 +123,25 @@ ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signat
   const auto gandiva_function_signature =
     ggandiva_function_signature_get_raw(function_signature);
   return g_strdup(gandiva_function_signature->ToString().c_str());
+}
+
+/**
+ * ggandiva_function_signature_get_ret_type:
+ * @function_signature: A #GGandivaFunctionSignature
+ *
+ * Returns: (transfer full):
+ *   A #GArrowDataType of the return value of the function signature.
+ *
+ * Since: 0.14.0
+ */
+GArrowDataType *
+ggandiva_function_signature_get_ret_type(GGandivaFunctionSignature *function_signature)
+{
+  const auto gandiva_function_signature =
+    ggandiva_function_signature_get_raw(function_signature);
+  auto arrow_data_type = gandiva_function_signature->ret_type();
+  auto data_type = garrow_data_type_new_raw(&arrow_data_type);
+  return data_type;
 }
 
 G_END_DECLS

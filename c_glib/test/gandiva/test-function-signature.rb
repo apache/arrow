@@ -19,11 +19,18 @@ class TestGandivaFunctionSignature < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
     @registry = Gandiva::FunctionRegistry.new
+    @to_date = @registry.native_functions.find {|nf|
+      nf.to_s == "date64[ms] to_date(string, string, int32)"
+    }.signature
   end
 
   def test_to_string
-    signature = @registry.native_functions[0].signature
-    assert_equal("bool not(bool)",
-                 signature.to_s)
+    assert_equal("date64[ms] to_date(string, string, int32)",
+                 @to_date.to_s)
+  end
+
+  def test_get_ret_type
+    assert_equal(Arrow::Date64DataType.new,
+                 @to_date.ret_type)
   end
 end
