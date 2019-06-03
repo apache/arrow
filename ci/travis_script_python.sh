@@ -58,7 +58,7 @@ conda activate $CONDA_ENV_DIR
 python --version
 which python
 
-if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ]; then
   # Install documentation dependencies
   conda install -y --file ci/conda_env_sphinx.yml
 fi
@@ -139,9 +139,7 @@ $ARROW_CPP_BUILD_DIR/$ARROW_BUILD_TYPE/arrow-python-test
 
 pushd $ARROW_PYTHON_DIR
 
-if [ "$PYTHON_VERSION" == "3.6" ]; then
-    pip install -q pickle5
-fi
+pip install -q pickle5
 if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     export PYARROW_GENERATE_COVERAGE=1
     pip install -q coverage
@@ -156,7 +154,7 @@ export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_ORC=1
-if [ "$ARROW_TRAVIS_FLIGHT" == "1" ] && [ "$PYTHON_VERSION" != "2.7" ]; then
+if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
   export PYARROW_WITH_FLIGHT=1
 fi
 if [ "$ARROW_TRAVIS_PYTHON_GANDIVA" == "1" ]; then
@@ -210,7 +208,7 @@ if [ "$ARROW_TRAVIS_COVERAGE" == "1" ]; then
     popd   # $TRAVIS_BUILD_DIR
 fi
 
-if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ]; then
   pushd ../cpp/apidoc
   doxygen
   popd
@@ -220,7 +218,7 @@ fi
 
 popd  # $ARROW_PYTHON_DIR
 
-if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ] && [ "$PYTHON_VERSION" == "3.6" ]; then
+if [ "$ARROW_TRAVIS_PYTHON_BENCHMARKS" == "1" ]; then
   # Check the ASV benchmarking setup.
   # Unfortunately this won't ensure that all benchmarks succeed
   # (see https://github.com/airspeed-velocity/asv/issues/449)

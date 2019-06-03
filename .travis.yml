@@ -113,7 +113,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
-  - name: "Python 2.7 and 3.6 unit tests w/ Valgrind, conda-forge toolchain, coverage"
+  - name: "Python 3.6 unit tests w/ Valgrind, conda-forge toolchain, coverage"
     compiler: gcc
     language: cpp
     os: linux
@@ -138,11 +138,9 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh || travis_terminate 1
-    - ARROW_TRAVIS_PYTHON_GANDIVA=1
+    - export ARROW_TRAVIS_PYTHON_GANDIVA=1
     # Only run Plasma tests with valgrind in one of the Python builds because
     # they are slow
-    - export PLASMA_VALGRIND=0
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7 || travis_terminate 1
     - export PLASMA_VALGRIND=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6 || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
@@ -190,12 +188,11 @@ matrix:
     before_script:
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7 || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   - name: "[manylinux1] Python"
     language: cpp
     env:
-    - PYTHON_VERSIONS="2.7,32 3.6,16"
+    - PYTHON_VERSIONS="3.6,16 3.7,16"
     before_script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker-compose pull python-manylinux1; fi
     script:
