@@ -121,7 +121,7 @@ update_versions() {
   sed -i.bak -E -e \
     "s/^version = \".+\"/version = \"${version}\"/g" \
     */Cargo.toml
-  if [ `echo ${version} | grep "SNAPSHOT"` ]; then
+  if [ ${type} = "snapshot" ]; then
     sed -i.bak -E -e \
       "s/^arrow = { version = \".+\" }/arrow = { path = \"..\/arrow\"\ }/g" \
       datafusion/Cargo.toml
