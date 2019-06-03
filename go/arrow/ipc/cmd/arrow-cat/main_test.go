@@ -126,18 +126,21 @@ record 3...
   col[2] "time32s": [-2 (null) (null) 1 2]
   col[3] "time64ns": [-2 (null) (null) 1 2]
   col[4] "time64us": [-2 (null) (null) 1 2]
+  col[5] "timestamp": [0 (null) (null) 3 4]
 record 2...
   col[0] "float16s": [11 (null) (null) 14 15]
   col[1] "time32ms": [-12 (null) (null) 11 12]
   col[2] "time32s": [-12 (null) (null) 11 12]
   col[3] "time64ns": [-12 (null) (null) 11 12]
   col[4] "time64us": [-12 (null) (null) 11 12]
+  col[5] "timestamp": [10 (null) (null) 13 14]
 record 3...
   col[0] "float16s": [21 (null) (null) 24 25]
   col[1] "time32ms": [-22 (null) (null) 21 22]
   col[2] "time32s": [-22 (null) (null) 21 22]
   col[3] "time64ns": [-22 (null) (null) 21 22]
   col[4] "time64us": [-22 (null) (null) 21 22]
+  col[5] "timestamp": [20 (null) (null) 23 24]
 `,
 		},
 	} {
@@ -386,18 +389,21 @@ record 3/3...
   col[2] "time32s": [-2 (null) (null) 1 2]
   col[3] "time64ns": [-2 (null) (null) 1 2]
   col[4] "time64us": [-2 (null) (null) 1 2]
+  col[5] "timestamp": [0 (null) (null) 3 4]
 record 2...
   col[0] "float16s": [11 (null) (null) 14 15]
   col[1] "time32ms": [-12 (null) (null) 11 12]
   col[2] "time32s": [-12 (null) (null) 11 12]
   col[3] "time64ns": [-12 (null) (null) 11 12]
   col[4] "time64us": [-12 (null) (null) 11 12]
+  col[5] "timestamp": [10 (null) (null) 13 14]
 record 3...
   col[0] "float16s": [21 (null) (null) 24 25]
   col[1] "time32ms": [-22 (null) (null) 21 22]
   col[2] "time32s": [-22 (null) (null) 21 22]
   col[3] "time64ns": [-22 (null) (null) 21 22]
   col[4] "time64us": [-22 (null) (null) 21 22]
+  col[5] "timestamp": [20 (null) (null) 23 24]
 `,
 		},
 		{
@@ -409,18 +415,21 @@ record 1/3...
   col[2] "time32s": [-2 (null) (null) 1 2]
   col[3] "time64ns": [-2 (null) (null) 1 2]
   col[4] "time64us": [-2 (null) (null) 1 2]
+  col[5] "timestamp": [0 (null) (null) 3 4]
 record 2/3...
   col[0] "float16s": [11 (null) (null) 14 15]
   col[1] "time32ms": [-12 (null) (null) 11 12]
   col[2] "time32s": [-12 (null) (null) 11 12]
   col[3] "time64ns": [-12 (null) (null) 11 12]
   col[4] "time64us": [-12 (null) (null) 11 12]
+  col[5] "timestamp": [10 (null) (null) 13 14]
 record 3/3...
   col[0] "float16s": [21 (null) (null) 24 25]
   col[1] "time32ms": [-22 (null) (null) 21 22]
   col[2] "time32s": [-22 (null) (null) 21 22]
   col[3] "time64ns": [-22 (null) (null) 21 22]
   col[4] "time64us": [-22 (null) (null) 21 22]
+  col[5] "timestamp": [20 (null) (null) 23 24]
 `,
 		},
 	} {

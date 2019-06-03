@@ -334,6 +334,7 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrow.Field{Name: "time32s", Type: arrow.FixedWidthTypes.Time32s, Nullable: true},
 			arrow.Field{Name: "time64ns", Type: arrow.FixedWidthTypes.Time64ns, Nullable: true},
 			arrow.Field{Name: "time64us", Type: arrow.FixedWidthTypes.Time64us, Nullable: true},
+			arrow.Field{Name: "timestamp", Type: arrow.FixedWidthTypes.Timestamp, Nullable: true},
 		}, nil,
 	)
 
@@ -353,6 +354,7 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrayOf(mem, []time32s{-2, -1, 0, +1, +2}, mask),
 			arrayOf(mem, []time64ns{-2, -1, 0, +1, +2}, mask),
 			arrayOf(mem, []time64us{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []arrow.Timestamp{0, +1, +2, +3, +4}, mask),
 		},
 		[]array.Interface{
 			arrayOf(mem, float16s([]float32{+11, +12, +13, +14, +15}), mask),
@@ -360,6 +362,7 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrayOf(mem, []time32s{-12, -11, 10, +11, +12}, mask),
 			arrayOf(mem, []time64ns{-12, -11, 10, +11, +12}, mask),
 			arrayOf(mem, []time64us{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []arrow.Timestamp{10, +11, +12, +13, +14}, mask),
 		},
 		[]array.Interface{
 			arrayOf(mem, float16s([]float32{+21, +22, +23, +24, +25}), mask),
@@ -367,6 +370,7 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrayOf(mem, []time32s{-22, -21, 20, +21, +22}, mask),
 			arrayOf(mem, []time64ns{-22, -21, 20, +21, +22}, mask),
 			arrayOf(mem, []time64us{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []arrow.Timestamp{20, +21, +22, +23, +24}, mask),
 		},
 	}
 
@@ -532,6 +536,13 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 			vs[i] = arrow.Time64(v)
 		}
 		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []arrow.Timestamp:
+		bldr := array.NewTimestampBuilder(mem, arrow.FixedWidthTypes.Timestamp.(*arrow.TimestampType))
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
 		return bldr.NewArray()
 
 	default:

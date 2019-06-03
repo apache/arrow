@@ -94,19 +94,21 @@ func (t *Time64Type) String() string { return "time64[" + t.Unit.String() + "]" 
 
 var (
 	FixedWidthTypes = struct {
-		Boolean  FixedWidthDataType
-		Float16  FixedWidthDataType
-		Time32s  FixedWidthDataType
-		Time32ms FixedWidthDataType
-		Time64us FixedWidthDataType
-		Time64ns FixedWidthDataType
+		Boolean   FixedWidthDataType
+		Float16   FixedWidthDataType
+		Time32s   FixedWidthDataType
+		Time32ms  FixedWidthDataType
+		Time64us  FixedWidthDataType
+		Time64ns  FixedWidthDataType
+		Timestamp FixedWidthDataType
 	}{
-		Boolean:  &BooleanType{},
-		Float16:  &Float16Type{},
-		Time32s:  &Time32Type{Unit: Second},
-		Time32ms: &Time32Type{Unit: Millisecond},
-		Time64us: &Time64Type{Unit: Microsecond},
-		Time64ns: &Time64Type{Unit: Nanosecond},
+		Boolean:   &BooleanType{},
+		Float16:   &Float16Type{},
+		Time32s:   &Time32Type{Unit: Second},
+		Time32ms:  &Time32Type{Unit: Millisecond},
+		Time64us:  &Time64Type{Unit: Microsecond},
+		Time64ns:  &Time64Type{Unit: Nanosecond},
+		Timestamp: &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
 	}
 
 	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)

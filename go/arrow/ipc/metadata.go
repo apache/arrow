@@ -527,6 +527,11 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		dt.Init(data.Bytes, data.Pos)
 		return timeFromFB(dt)
 
+	case flatbuf.TypeTimestamp:
+		var dt flatbuf.Timestamp
+		dt.Init(data.Bytes, data.Pos)
+		return timestampFromFB(dt)
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
@@ -640,17 +645,10 @@ func timeFromFB(data flatbuf.Time) (arrow.DataType, error) {
 	}
 }
 
-func timeToFB(b *flatbuffers.Builder, bw int32, unit arrow.TimeUnit) flatbuffers.UOffsetT {
-	switch bw {
-	case 32, 64:
-		// ok.
-		panic(errors.Errorf("arrow/ipc: invalid Time type bit-wdith %d", bw))
-	}
-
-	flatbuf.TimeStart(b)
-	flatbuf.TimeAddBitWidth(b, bw)
-	flatbuf.TimeAddUnit(b, unitToFB(unit))
-	return flatbuf.TimeEnd(b)
+func timestampFromFB(data flatbuf.Timestamp) (arrow.DataType, error) {
+	unit := unitFromFB(data.Unit())
+	tz := string(data.Timezone())
+	return &arrow.TimestampType{Unit: unit, TimeZone: tz}, nil
 }
 
 type customMetadataer interface {
