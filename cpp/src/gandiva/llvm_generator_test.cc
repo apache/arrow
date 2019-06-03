@@ -116,9 +116,4 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   }
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 }  // namespace gandiva

@@ -37,9 +37,6 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
                         "${one_value_args}"
                         "${multi_value_args}"
                         ${ARGN})
-  if(ARG_UNPARSED_ARGUMENTS)
-    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
-  endif()
 
   set(TEST_ARGUMENTS PREFIX "parquet" LABELS "parquet-tests")
 
@@ -47,11 +44,17 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
-    add_test_case(${REL_TEST_NAME} STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS}
-                  ${TEST_ARGUMENTS})
+    add_test_case(${REL_TEST_NAME}
+                  STATIC_LINK_LIBS
+                  ${PARQUET_STATIC_TEST_LINK_LIBS}
+                  ${TEST_ARGUMENTS}
+                  ${ARG_UNPARSED_ARGUMENTS})
   else()
-    add_test_case(${REL_TEST_NAME} STATIC_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS}
-                  ${TEST_ARGUMENTS})
+    add_test_case(${REL_TEST_NAME}
+                  STATIC_LINK_LIBS
+                  ${PARQUET_SHARED_TEST_LINK_LIBS}
+                  ${TEST_ARGUMENTS}
+                  ${ARG_UNPARSED_ARGUMENTS})
   endif()
 endfunction()
 
@@ -282,27 +285,49 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 # pkg-config support
 arrow_add_pkg_config("parquet")
 
-add_parquet_test(bloom_filter-test)
-add_parquet_test(column_reader-test)
-add_parquet_test(column_scanner-test)
-add_parquet_test(column_writer-test)
-add_parquet_test(deprecated_io-test)
-add_parquet_test(file-serialize-test)
-add_parquet_test(properties-test)
-add_parquet_test(statistics-test)
-add_parquet_test(encoding-test)
-add_parquet_test(metadata-test)
-add_parquet_test(public-api-test)
-add_parquet_test(types-test)
-add_parquet_test(reader-test)
+add_parquet_test(internals-test
+                 SOURCES
+                 bloom_filter-test.cc
+                 deprecated_io-test.cc
+                 properties-test.cc
+                 statistics-test.cc
+                 encoding-test.cc
+                 metadata-test.cc
+                 public-api-test.cc
+                 types-test.cc
+                 test-util.cc)
+
+add_parquet_test(reader-test
+                 SOURCES
+                 column_reader-test.cc
+                 column_scanner-test.cc
+                 reader-test.cc
+                 test-util.cc)
+
+add_parquet_test(writer-test
+                 SOURCES
+                 column_writer-test.cc
+                 file-serialize-test.cc
+                 test-util.cc)
+
+add_parquet_test(arrow-test
+                 SOURCES
+                 arrow/arrow-reader-writer-test.cc
+                 arrow/arrow-schema-test.cc
+                 test-util.cc)
 
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
-add_parquet_test(file-deserialize-test USE_STATIC_LINKING)
+add_parquet_test(file-deserialize-test
+                 USE_STATIC_LINKING
+                 SOURCES
+                 file-deserialize-test.cc
+                 test-util.cc)
 add_parquet_test(schema-test USE_STATIC_LINKING)
 
 add_parquet_benchmark(column-io-benchmark)
 add_parquet_benchmark(encoding-benchmark)
+add_parquet_benchmark(arrow/reader-writer-benchmark PREFIX "parquet-arrow")
 
 # Required for tests, the ExternalProject for zstd does not build on CMake < 3.7
 if(ARROW_WITH_ZSTD)

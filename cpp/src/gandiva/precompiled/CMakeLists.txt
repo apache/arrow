@@ -100,43 +100,41 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
 add_custom_target(precompiled ALL
                   DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH} ${GANDIVA_PRECOMPILED_CC_PATH})
 
-function(add_precompiled_unit_test REL_TEST_NAME)
-  get_filename_component(TEST_NAME ${REL_TEST_NAME} NAME_WE)
-
-  set(TEST_NAME "gandiva-precompiled-${TEST_NAME}")
-
-  add_executable(${TEST_NAME} ${REL_TEST_NAME} ${ARGN})
-  target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
-  target_compile_definitions(${TEST_NAME}
+# testing
+if(ARROW_BUILD_TESTS)
+  add_executable(gandiva-precompiled-test
+                 ../context_helper.cc
+                 bitmap_test.cc
+                 bitmap.cc
+                 epoch_time_point_test.cc
+                 time_test.cc
+                 time.cc
+                 timestamp_arithmetic.cc
+                 ../cast_time.cc
+                 ../../arrow/vendored/datetime/tz.cpp
+                 hash_test.cc
+                 hash.cc
+                 string_ops_test.cc
+                 string_ops.cc
+                 arithmetic_ops_test.cc
+                 arithmetic_ops.cc
+                 extended_math_ops_test.cc
+                 extended_math_ops.cc
+                 decimal_ops_test.cc
+                 decimal_ops.cc
+                 ../decimal_type_util.cc
+                 ../decimal_xlarge.cc)
+  target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+  target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS} RE2::re2)
+  target_compile_definitions(gandiva-precompiled-test
                              PRIVATE
                              GANDIVA_UNIT_TEST=1
                              ARROW_STATIC
                              GANDIVA_STATIC)
-  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/${TEST_NAME}")
-  add_test(${TEST_NAME} ${TEST_PATH})
-  set_property(TEST ${TEST_NAME} APPEND PROPERTY LABELS "unittest;gandiva-tests")
-  add_dependencies(gandiva-tests ${TEST_NAME})
-endfunction(add_precompiled_unit_test REL_TEST_NAME)
-
-# testing
-if(ARROW_BUILD_TESTS)
-  add_precompiled_unit_test(bitmap_test.cc bitmap.cc)
-  add_precompiled_unit_test(epoch_time_point_test.cc)
-  add_precompiled_unit_test(time_test.cc
-                            time.cc
-                            timestamp_arithmetic.cc
-                            ../context_helper.cc
-                            ../cast_time.cc
-                            ../../arrow/vendored/datetime/tz.cpp)
-  add_precompiled_unit_test(hash_test.cc hash.cc)
-  add_precompiled_unit_test(string_ops_test.cc string_ops.cc ../context_helper.cc)
-  add_precompiled_unit_test(arithmetic_ops_test.cc arithmetic_ops.cc ../context_helper.cc)
-  add_precompiled_unit_test(extended_math_ops_test.cc extended_math_ops.cc
-                            ../context_helper.cc)
-  add_precompiled_unit_test(decimal_ops_test.cc
-                            decimal_ops.cc
-                            ../decimal_type_util.cc
-                            ../decimal_xlarge.cc
-                            ../context_helper.cc)
+  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/gandiva-precompiled-test")
+  add_test(gandiva-precompiled-test ${TEST_PATH})
+  set_property(TEST gandiva-precompiled-test
+               APPEND
+               PROPERTY LABELS "unittest;gandiva-tests")
+  add_dependencies(gandiva-tests gandiva-precompiled-test)
 endif()
