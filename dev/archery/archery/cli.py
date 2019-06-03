@@ -158,11 +158,6 @@ def tmpdir(preserve, prefix="arrow-bench-"):
             yield tmp
 
 
-# Running all benchmarks would be prohibitive. Benchmark who needs to be
-# monitored for regression should be named with this prefix.
-DEFAULT_BENCHMARK_FILTER = "^Regression"
-
-
 @archery.group()
 @click.pass_context
 def benchmark(ctx):
@@ -283,7 +278,7 @@ def benchmark_run(ctx, src, preserve, suite_filter, benchmark_filter,
 @click.option("--suite-filter", metavar="<regex>", show_default=True,
               type=str, default=None, help="Regex filtering benchmark suites.")
 @click.option("--benchmark-filter", metavar="<regex>", show_default=True,
-              type=str, default=DEFAULT_BENCHMARK_FILTER,
+              type=str, default=None,
               help="Regex filtering benchmark suites.")
 @click.option("--preserve", type=bool, default=False, show_default=True,
               is_flag=True, help="Preserve workspace for investigation.")

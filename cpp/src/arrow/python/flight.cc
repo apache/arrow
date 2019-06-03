@@ -20,6 +20,7 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/python/flight.h"
+#include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"
 
 using arrow::flight::FlightPayload;
@@ -137,12 +138,10 @@ Status PyFlightServer::ServeWithSignals() {
   // an active signal handler for SIGINT and SIGTERM.
   std::vector<int> signals;
   for (const int signum : {SIGINT, SIGTERM}) {
-    struct sigaction handler;
-    int ret = sigaction(signum, nullptr, &handler);
-    if (ret != 0) {
-      return Status::IOError("sigaction call failed");
-    }
-    if (handler.sa_handler != SIG_DFL && handler.sa_handler != SIG_IGN) {
+    ::arrow::internal::SignalHandler handler;
+    RETURN_NOT_OK(::arrow::internal::GetSignalHandler(signum, &handler));
+    auto cb = handler.callback();
+    if (cb != SIG_DFL && cb != SIG_IGN) {
       signals.push_back(signum);
     }
   }

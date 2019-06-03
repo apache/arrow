@@ -56,7 +56,10 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
     const std::unique_ptr<arrow::ipc::Message>& message,
     const std::shared_ptr<arrow::Schema>& schema) {
   std::shared_ptr<arrow::RecordBatch> batch;
-  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(*message, schema, &batch));
+
+  // TODO: perhaps this should come from the R side
+  arrow::ipc::DictionaryMemo memo;
+  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(*message, schema, &memo, &batch));
   return batch;
 }
 
@@ -64,7 +67,9 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
 std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   std::shared_ptr<arrow::Schema> schema;
-  STOP_IF_NOT_OK(arrow::ipc::ReadSchema(stream.get(), &schema));
+  // TODO: promote to function argument
+  arrow::ipc::DictionaryMemo memo;
+  STOP_IF_NOT_OK(arrow::ipc::ReadSchema(stream.get(), &memo, &schema));
   return schema;
 }
 

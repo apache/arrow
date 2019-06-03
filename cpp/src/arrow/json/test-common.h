@@ -168,9 +168,11 @@ inline static Status ParseFromString(ParseOptions options, string_view src_str,
   return parser->Finish(parsed);
 }
 
-std::string PrettyPrint(string_view one_line) {
+static inline std::string PrettyPrint(string_view one_line) {
   rj::Document document;
-  document.Parse(one_line.data());
+
+  // Must pass size to avoid ASAN issues.
+  document.Parse(one_line.data(), one_line.size());
   rj::StringBuffer sb;
   rj::PrettyWriter<rj::StringBuffer> writer(sb);
   document.Accept(writer);

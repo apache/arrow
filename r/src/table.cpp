@@ -23,15 +23,6 @@
 using Rcpp::DataFrame;
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
-  auto rb = RecordBatch__from_dataframe(tbl);
-
-  std::shared_ptr<arrow::Table> out;
-  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
-  return out;
-}
-
-// [[Rcpp::export]]
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
   return x->num_columns();
 }
@@ -59,4 +50,85 @@ std::vector<std::shared_ptr<arrow::Column>> Table__columns(
     res[i] = table->column(i);
   }
   return res;
+}
+
+bool all_record_batches(SEXP lst) {
+  R_xlen_t n = XLENGTH(lst);
+  for (R_xlen_t i = 0; i < n; i++) {
+    if (!Rf_inherits(VECTOR_ELT(lst, i), "arrow::RecordBatch")) return false;
+  }
+  return true;
+}
+
+// [[Rcpp::export]]
+std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
+  // lst can be either:
+  // - a list of record batches, in which case we call Table::FromRecordBatches
+
+  if (all_record_batches(lst)) {
+    auto batches = arrow::r::list_to_shared_ptr_vector<arrow::RecordBatch>(lst);
+    std::shared_ptr<arrow::Table> tab;
+
+    if (Rf_inherits(schema_sxp, "arrow::Schema")) {
+      auto schema = arrow::r::extract<arrow::Schema>(schema_sxp);
+      STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(schema, batches, &tab));
+    } else {
+      STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(batches, &tab));
+    }
+    return tab;
+  }
+
+  R_xlen_t n = XLENGTH(lst);
+  std::vector<std::shared_ptr<arrow::Column>> columns(n);
+  std::shared_ptr<arrow::Schema> schema;
+
+  if (Rf_isNull(schema_sxp)) {
+    // infer the schema from the ...
+    std::vector<std::shared_ptr<arrow::Field>> fields(n);
+    Rcpp::CharacterVector names(Rf_getAttrib(lst, R_NamesSymbol));
+
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP x = VECTOR_ELT(lst, i);
+      if (Rf_inherits(x, "arrow::Column")) {
+        columns[i] = arrow::r::extract<arrow::Column>(x);
+        fields[i] = columns[i]->field();
+      } else if (Rf_inherits(x, "arrow::ChunkedArray")) {
+        auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
+        fields[i] =
+            std::make_shared<arrow::Field>(std::string(names[i]), chunked_array->type());
+        columns[i] = std::make_shared<arrow::Column>(fields[i], chunked_array);
+      } else if (Rf_inherits(x, "arrow::Array")) {
+        auto array = arrow::r::extract<arrow::Array>(x);
+        fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), array->type());
+        columns[i] = std::make_shared<arrow::Column>(fields[i], array);
+      } else {
+        auto array = Array__from_vector(x, R_NilValue);
+        fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), array->type());
+        columns[i] = std::make_shared<arrow::Column>(fields[i], array);
+      }
+    }
+    schema = std::make_shared<arrow::Schema>(std::move(fields));
+  } else {
+    // use the schema that is given
+    schema = arrow::r::extract<arrow::Schema>(schema_sxp);
+
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP x = VECTOR_ELT(lst, i);
+      if (Rf_inherits(x, "arrow::Column")) {
+        columns[i] = arrow::r::extract<arrow::Column>(x);
+      } else if (Rf_inherits(x, "arrow::ChunkedArray")) {
+        auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
+        columns[i] = std::make_shared<arrow::Column>(schema->field(i), chunked_array);
+      } else if (Rf_inherits(x, "arrow::Array")) {
+        auto array = arrow::r::extract<arrow::Array>(x);
+        columns[i] = std::make_shared<arrow::Column>(schema->field(i), array);
+      } else {
+        auto type = schema->field(i)->type();
+        auto array = arrow::r::Array__from_vector(x, type, false);
+        columns[i] = std::make_shared<arrow::Column>(schema->field(i), array);
+      }
+    }
+  }
+
+  return arrow::Table::Make(schema, columns);
 }

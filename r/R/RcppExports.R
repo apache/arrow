@@ -417,20 +417,20 @@ TimestampType__unit <- function(type) {
     .Call(`_arrow_TimestampType__unit`, type)
 }
 
-DictionaryType__initialize <- function(type, array, ordered) {
-    .Call(`_arrow_DictionaryType__initialize`, type, array, ordered)
+DictionaryType__initialize <- function(index_type, value_type, ordered) {
+    .Call(`_arrow_DictionaryType__initialize`, index_type, value_type, ordered)
 }
 
 DictionaryType__index_type <- function(type) {
     .Call(`_arrow_DictionaryType__index_type`, type)
 }
 
-DictionaryType__name <- function(type) {
-    .Call(`_arrow_DictionaryType__name`, type)
+DictionaryType__value_type <- function(type) {
+    .Call(`_arrow_DictionaryType__value_type`, type)
 }
 
-DictionaryType__dictionary <- function(type) {
-    .Call(`_arrow_DictionaryType__dictionary`, type)
+DictionaryType__name <- function(type) {
+    .Call(`_arrow_DictionaryType__name`, type)
 }
 
 DictionaryType__ordered <- function(type) {
@@ -693,10 +693,6 @@ RecordBatch__column <- function(batch, i) {
     .Call(`_arrow_RecordBatch__column`, batch, i)
 }
 
-RecordBatch__from_dataframe <- function(tbl) {
-    .Call(`_arrow_RecordBatch__from_dataframe`, tbl)
-}
-
 RecordBatch__Equals <- function(self, other) {
     .Call(`_arrow_RecordBatch__Equals`, self, other)
 }
@@ -727,6 +723,10 @@ ipc___SerializeRecordBatch__Raw <- function(batch) {
 
 ipc___ReadRecordBatch__InputStream__Schema <- function(stream, schema) {
     .Call(`_arrow_ipc___ReadRecordBatch__InputStream__Schema`, stream, schema)
+}
+
+RecordBatch__from_arrays <- function(schema_sxp, lst) {
+    .Call(`_arrow_RecordBatch__from_arrays`, schema_sxp, lst)
 }
 
 RecordBatchReader__schema <- function(reader) {
@@ -793,10 +793,6 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema) {
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema)
 }
 
-Table__from_dataframe <- function(tbl) {
-    .Call(`_arrow_Table__from_dataframe`, tbl)
-}
-
 Table__num_columns <- function(x) {
     .Call(`_arrow_Table__num_columns`, x)
 }
@@ -815,6 +811,10 @@ Table__column <- function(table, i) {
 
 Table__columns <- function(table) {
     .Call(`_arrow_Table__columns`, table)
+}
+
+Table__from_dots <- function(lst, schema_sxp) {
+    .Call(`_arrow_Table__from_dots`, lst, schema_sxp)
 }
 
 #' View and manage the capacity of the global thread pool

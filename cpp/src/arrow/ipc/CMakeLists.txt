@@ -72,7 +72,11 @@ if(NOT FLATC_EXECUTABLE)
 endif()
 message(STATUS "flatc: ${FLATC_EXECUTABLE}")
 add_custom_command(OUTPUT ${FBS_OUTPUT_FILES}
-                   COMMAND ${FLATC_EXECUTABLE} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
+                   COMMAND ${FLATC_EXECUTABLE}
+                           -c
+                           -o
+                           ${OUTPUT_DIR}
+                           ${ABS_FBS_SRC}
                    DEPENDS flatbuffers::flatc
                    COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
                    VERBATIM)

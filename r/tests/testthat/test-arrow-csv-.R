@@ -27,7 +27,7 @@ test_that("Can read csv file", {
   tab3 <- read_csv_arrow(ReadableFile(tf))
 
   iris$Species <- as.character(iris$Species)
-  tab0 <- table(iris)
+  tab0 <- table(!!!iris)
   expect_equal(tab0, tab1)
   expect_equal(tab0, tab2)
   expect_equal(tab0, tab3)

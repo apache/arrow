@@ -59,6 +59,14 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     ZLIB
     ZSTD)
 
+# TODO(wesm): External GTest shared libraries are not currently
+# supported when building with MSVC because of the way that
+# conda-forge packages have 4 variants of the libraries packaged
+# together
+if(MSVC AND "${GTest_SOURCE}" STREQUAL "")
+  set(GTest_SOURCE "BUNDLED")
+endif()
+
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
 # TODO: double-conversion check fails for conda, it should not
@@ -1067,6 +1075,10 @@ endmacro()
 if(ARROW_WITH_PROTOBUF)
   resolve_dependency(Protobuf)
 
+  if(ARROW_PROTOBUF_USE_SHARED AND MSVC)
+    add_definitions(-DPROTOBUF_USE_DLLS)
+  endif()
+
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
 
@@ -1183,24 +1195,55 @@ macro(build_gtest)
                               -Wno-unused-value -Wno-ignored-attributes)
   endif()
 
+  if(MSVC)
+    set(GTEST_CMAKE_CXX_FLAGS "${GTEST_CMAKE_CXX_FLAGS} -DGTEST_CREATE_SHARED_LIBRARY=1")
+  endif()
+
   set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
   set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
+
+  if(MSVC)
+    set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
+    set(_GTEST_LIBRARY_SUFFIX
+        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+  else()
+    set(_GTEST_IMPORTED_TYPE IMPORTED_LOCATION)
+    set(_GTEST_LIBRARY_SUFFIX
+        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  endif()
+
+  set(GTEST_SHARED_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_LIBRARY_SUFFIX}")
+  set(GMOCK_SHARED_LIB
+      "${GTEST_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_LIBRARY_SUFFIX}")
   set(
-    GTEST_STATIC_LIB
-    "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    GTEST_MAIN_SHARED_LIB
+
+    "${GTEST_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_LIBRARY_SUFFIX}"
     )
-  set(
-    GTEST_MAIN_STATIC_LIB
-    "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(GTEST_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}"
-                       "-DCMAKE_INSTALL_LIBDIR=lib"
-                       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS})
+  set(GTEST_CMAKE_ARGS
+      ${EP_COMMON_TOOLCHAIN}
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      "-DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}"
+      "-DCMAKE_INSTALL_LIBDIR=lib"
+      -DBUILD_SHARED_LIBS=ON
+      -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
+      -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS})
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
-  set(
-    GMOCK_STATIC_LIB
-    "${GTEST_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gmock${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+
+  if(MSVC)
+    if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
+      set(_GTEST_LIBRARY_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
+    else()
+      set(_GTEST_LIBRARY_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_BUILD_TYPE})
+    endif()
+
+    set(GTEST_CMAKE_ARGS
+        ${GTEST_CMAKE_ARGS} "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${_GTEST_LIBRARY_DIR}"
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_LIBRARY_DIR}")
+  endif()
+
+  add_definitions(-DGTEST_LINKED_AS_SHARED_LIBRARY=1)
 
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
     set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
@@ -1208,26 +1251,26 @@ macro(build_gtest)
 
   externalproject_add(googletest_ep
                       URL ${GTEST_SOURCE_URL}
-                      BUILD_BYPRODUCTS ${GTEST_STATIC_LIB} ${GTEST_MAIN_STATIC_LIB}
-                                       ${GMOCK_STATIC_LIB}
+                      BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB}
+                                       ${GMOCK_SHARED_LIB}
                       CMAKE_ARGS ${GTEST_CMAKE_ARGS} ${EP_LOG_OPTIONS})
 
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::GTest STATIC IMPORTED)
+  add_library(GTest::GTest SHARED IMPORTED)
   set_target_properties(GTest::GTest
-                        PROPERTIES IMPORTED_LOCATION "${GTEST_STATIC_LIB}"
+                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::Main STATIC IMPORTED)
+  add_library(GTest::Main SHARED IMPORTED)
   set_target_properties(GTest::Main
-                        PROPERTIES IMPORTED_LOCATION "${GTEST_MAIN_STATIC_LIB}"
+                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::GMock STATIC IMPORTED)
+  add_library(GTest::GMock SHARED IMPORTED)
   set_target_properties(GTest::GMock
-                        PROPERTIES IMPORTED_LOCATION "${GMOCK_STATIC_LIB}"
+                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
   add_dependencies(toolchain-tests googletest_ep)
   add_dependencies(GTest::GTest googletest_ep)
@@ -1559,10 +1602,12 @@ macro(build_lz4)
   # We need to copy the header in lib to directory outside of the build
   externalproject_add(lz4_ep
                       URL ${LZ4_SOURCE_URL} ${EP_LOG_OPTIONS}
-                      UPDATE_COMMAND ${CMAKE_COMMAND} -E copy_directory
-                                                         "${LZ4_BUILD_DIR}/lib"
-                                                         "${LZ4_PREFIX}/include"
-                                                         ${LZ4_PATCH_COMMAND}
+                      UPDATE_COMMAND ${CMAKE_COMMAND}
+                                     -E
+                                     copy_directory
+                                     "${LZ4_BUILD_DIR}/lib"
+                                     "${LZ4_PREFIX}/include"
+                                     ${LZ4_PATCH_COMMAND}
                       CONFIGURE_COMMAND ""
                       INSTALL_COMMAND ""
                       BINARY_DIR ${LZ4_BUILD_DIR}
@@ -1750,6 +1795,8 @@ macro(build_cares)
                       CMAKE_ARGS ${CARES_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
 
+  file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
+
   add_dependencies(toolchain cares_ep)
   add_library(c-ares::cares STATIC IMPORTED)
   set_target_properties(c-ares::cares
@@ -1876,6 +1923,9 @@ macro(build_grpc)
                                        ${GRPC_CPP_PLUGIN}
                       CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
                       DEPENDS ${grpc_dependencies})
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
 
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr

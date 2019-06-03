@@ -18,11 +18,12 @@
 context("read_record_batch()")
 
 test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
-  tab <- table(tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
+  tab <- table(
+    int = 1:10,
+    dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
-  ))
+  )
   tf <- tempfile()
 
   writer <- RecordBatchFileWriter(tf, tab$schema)
@@ -48,7 +49,7 @@ test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
-  batch <- record_batch(tbl)
+  batch <- record_batch(!!!tbl)
   schema <- batch$schema
 
   raw <- batch$serialize()
@@ -64,7 +65,7 @@ test_that("read_record_batch() handles (raw|Buffer|InputStream, Schema) (ARROW-3
 })
 
 test_that("read_record_batch() can handle (Message, Schema) parameters (ARROW-3499)", {
-  batch <- record_batch(tibble::tibble(x = 1:10))
+  batch <- record_batch(x = 1:10)
   schema <- batch$schema
 
   raw <- batch$serialize()

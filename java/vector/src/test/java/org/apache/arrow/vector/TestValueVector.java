@@ -259,6 +259,23 @@ public class TestValueVector {
     }
   }
 
+  @Test /* VarCharVector */
+  public void testSizeOfValueBuffer() {
+    try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      int valueCount = 100;
+      int currentSize = 0;
+      vector.setInitialCapacity(valueCount);
+      vector.allocateNew();
+      vector.setValueCount(valueCount);
+      for (int i = 0; i < valueCount; i++) {
+        currentSize += i;
+        vector.setSafe(i, new byte[i]);
+      }
+
+      assertEquals(currentSize, vector.sizeOfValueBuffer());
+    }
+  }
+
   @Test /* Float4Vector */
   public void testFixedType3() {
     try (final Float4Vector floatVector = new Float4Vector(EMPTY_SCHEMA_PATH, allocator)) {

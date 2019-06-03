@@ -5,5 +5,5 @@ Abstract: Apache Parquet GLib is a columnar storage format processing library th
 Section: Programming
 
 Format: HTML
-Index: /usr/share/doc/libarrow-glib-doc/parquet-glib/index.html
-Files: /usr/share/doc/libarrow-glib-doc/parquet-glib/*.html
+Index: /usr/share/gtk-doc/html/parquet-glib/index.html
+Files: /usr/share/gtk-doc/html/parquet-glib/*.html

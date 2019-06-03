@@ -26,10 +26,15 @@
 #include <sstream>
 #include <string>
 
-#include "arrow/util/macros.h"
+#include "parquet/platform.h"
 
-#include "parquet/util/macros.h"
-#include "parquet/util/visibility.h"
+namespace arrow {
+namespace util {
+
+class Codec;
+
+}  // namespace util
+}  // namespace arrow
 
 namespace parquet {
 
@@ -56,7 +61,9 @@ struct Type {
     FLOAT = 4,
     DOUBLE = 5,
     BYTE_ARRAY = 6,
-    FIXED_LEN_BYTE_ARRAY = 7
+    FIXED_LEN_BYTE_ARRAY = 7,
+    // Should always be last element.
+    UNDEFINED = 8
   };
 };
 
@@ -86,7 +93,9 @@ struct LogicalType {
     JSON,
     BSON,
     INTERVAL,
-    NA = 25
+    NA = 25,
+    // Should always be last element.
+    UNDEFINED = 26
   };
 };
 
@@ -98,7 +107,7 @@ class LogicalType;
 
 // Mirrors parquet::FieldRepetitionType
 struct Repetition {
-  enum type { REQUIRED = 0, OPTIONAL = 1, REPEATED = 2 };
+  enum type { REQUIRED = 0, OPTIONAL = 1, REPEATED = 2, /*Always last*/ UNDEFINED = 3 };
 };
 
 // Reference:
@@ -430,6 +439,9 @@ struct Encoding {
 struct Compression {
   enum type { UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, LZ4, ZSTD };
 };
+
+PARQUET_EXPORT
+std::unique_ptr<::arrow::util::Codec> GetCodecFromArrow(Compression::type codec);
 
 struct Encryption {
   enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1 };

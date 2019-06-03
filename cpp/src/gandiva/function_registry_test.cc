@@ -45,9 +45,4 @@ TEST_F(TestFunctionRegistry, TestNotFound) {
   EXPECT_EQ(registry_.LookupSignature(add_i32_i32_ret64), nullptr);
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 }  // namespace gandiva

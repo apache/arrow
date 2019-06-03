@@ -27,13 +27,12 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/util/bit-util.h"
 
 #include "parquet/encoding.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
@@ -52,7 +51,7 @@ namespace test {
 TEST(VectorBooleanTest, TestEncodeDecode) {
   // PARQUET-454
   int nvalues = 10000;
-  int nbytes = static_cast<int>(::arrow::BitUtil::BytesForBits(nvalues));
+  int nbytes = static_cast<int>(BitUtil::BytesForBits(nvalues));
 
   std::vector<bool> draws;
   ::arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);

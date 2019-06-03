@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 
 #include "parquet/exception.h"
@@ -32,8 +33,38 @@
 #include "parquet/types.h"
 
 using ::arrow::internal::checked_cast;
+using arrow::util::Codec;
 
 namespace parquet {
+
+std::unique_ptr<Codec> GetCodecFromArrow(Compression::type codec) {
+  std::unique_ptr<Codec> result;
+  switch (codec) {
+    case Compression::UNCOMPRESSED:
+      break;
+    case Compression::SNAPPY:
+      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::SNAPPY, &result));
+      break;
+    case Compression::GZIP:
+      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::GZIP, &result));
+      break;
+    case Compression::LZO:
+      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZO, &result));
+      break;
+    case Compression::BROTLI:
+      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::BROTLI, &result));
+      break;
+    case Compression::LZ4:
+      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZ4, &result));
+      break;
+    case Compression::ZSTD:
+      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::ZSTD, &result));
+      break;
+    default:
+      break;
+  }
+  return result;
+}
 
 std::string FormatStatValue(Type::type parquet_type, const std::string& val) {
   std::stringstream result;
@@ -64,6 +95,7 @@ std::string FormatStatValue(Type::type parquet_type, const std::string& val) {
     case Type::FIXED_LEN_BYTE_ARRAY: {
       return val;
     }
+    case Type::UNDEFINED:
     default:
       break;
   }
@@ -101,6 +133,7 @@ std::string FormatStatValue(Type::type parquet_type, const char* val) {
       result << val;
       break;
     }
+    case Type::UNDEFINED:
     default:
       break;
   }
@@ -169,6 +202,7 @@ std::string TypeToString(Type::type t) {
       return "BYTE_ARRAY";
     case Type::FIXED_LEN_BYTE_ARRAY:
       return "FIXED_LEN_BYTE_ARRAY";
+    case Type::UNDEFINED:
     default:
       return "UNKNOWN";
   }
@@ -222,6 +256,7 @@ std::string LogicalTypeToString(LogicalType::type t) {
       return "BSON";
     case LogicalType::INTERVAL:
       return "INTERVAL";
+    case LogicalType::UNDEFINED:
     default:
       return "UNKNOWN";
   }
@@ -245,6 +280,7 @@ int GetTypeByteSize(Type::type parquet_type) {
       return type_traits<ByteArrayType::type_num>::value_byte_size;
     case Type::FIXED_LEN_BYTE_ARRAY:
       return type_traits<FLBAType::type_num>::value_byte_size;
+    case Type::UNDEFINED:
     default:
       return 0;
   }
@@ -264,6 +300,7 @@ SortOrder::type DefaultSortOrder(Type::type primitive) {
     case Type::FIXED_LEN_BYTE_ARRAY:
       return SortOrder::UNSIGNED;
     case Type::INT96:
+    case Type::UNDEFINED:
       return SortOrder::UNKNOWN;
   }
   return SortOrder::UNKNOWN;
@@ -299,6 +336,7 @@ SortOrder::type GetSortOrder(LogicalType::type converted, Type::type primitive) 
     case LogicalType::INTERVAL:
     case LogicalType::NONE:  // required instead of default
     case LogicalType::NA:    // required instead of default
+    case LogicalType::UNDEFINED:
       return SortOrder::UNKNOWN;
   }
   return SortOrder::UNKNOWN;
@@ -369,6 +407,7 @@ std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::FromConvertedType(
     case LogicalType::NONE:
       return NoAnnotation::Make();
     case LogicalType::NA:
+    case LogicalType::UNDEFINED:
       return UnknownAnnotation::Make();
   }
   return UnknownAnnotation::Make();

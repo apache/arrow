@@ -97,9 +97,4 @@ TEST_F(TestFunctionSignature, TestHash) {
   EXPECT_EQ(f1.Hash(), f2.Hash());
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 }  // namespace gandiva

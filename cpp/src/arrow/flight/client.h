@@ -27,9 +27,9 @@
 
 #include "arrow/ipc/writer.h"
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
 
 #include "arrow/flight/types.h"  // IWYU pragma: keep
+#include "arrow/flight/visibility.h"
 
 namespace arrow {
 
@@ -46,7 +46,7 @@ class ClientAuthHandler;
 typedef std::chrono::duration<double, std::chrono::seconds::period> TimeoutDuration;
 
 /// \brief Hints to the underlying RPC layer for Arrow Flight calls.
-class ARROW_EXPORT FlightCallOptions {
+class ARROW_FLIGHT_EXPORT FlightCallOptions {
  public:
   /// Create a default set of call options.
   FlightCallOptions();
@@ -57,14 +57,14 @@ class ARROW_EXPORT FlightCallOptions {
   TimeoutDuration timeout;
 };
 
-class ARROW_EXPORT FlightClientOptions {
+class ARROW_FLIGHT_EXPORT FlightClientOptions {
  public:
   std::string tls_root_certs;
 };
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
 /// API experimental for now
-class ARROW_EXPORT FlightClient {
+class ARROW_FLIGHT_EXPORT FlightClient {
  public:
   ~FlightClient();
 

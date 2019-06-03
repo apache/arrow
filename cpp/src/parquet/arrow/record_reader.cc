@@ -29,7 +29,6 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/type.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 
 #include "parquet/column_page.h"
@@ -43,8 +42,6 @@ using arrow::MemoryPool;
 
 namespace parquet {
 namespace internal {
-
-namespace BitUtil = ::arrow::BitUtil;
 
 // PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
 // encoding.

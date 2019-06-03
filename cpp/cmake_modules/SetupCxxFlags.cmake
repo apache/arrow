@@ -38,10 +38,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # shared libraries
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# if no build build type is specified, default to debug builds
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif(NOT CMAKE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 
 # compiler flags that are common across debug/release builds
@@ -141,14 +137,14 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     # https://docs.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warnings-by-compiler-version
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3 /wd4365 /wd4267 /wd4838")
   elseif("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat \
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wdocumentation \
+-Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
 -Wno-comma -Wno-unused-macros -Wno-unused-parameter -Wno-unused-template -Wno-undef \
 -Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
 -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
 -Wno-implicit-fallthrough -Wno-unreachable-code-return \
 -Wno-float-equal -Wno-missing-prototypes -Wno-documentation-unknown-command \
--Wno-documentation \
 -Wno-old-style-cast -Wno-covered-switch-default \
 -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
 -Wno-used-but-marked-unused -Wno-missing-variable-declarations \

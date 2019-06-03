@@ -17,6 +17,15 @@
 
 @echo on
 
+@rem Avoid picking up AppVeyor-installed OpenSSL (linker errors with gRPC)
+@rem XXX Perhaps there is a smarter way of solving this issue?
+rd /s /q C:\OpenSSL-Win32
+rd /s /q C:\OpenSSL-Win64
+rd /s /q C:\OpenSSL-v11-Win32
+rd /s /q C:\OpenSSL-v11-Win64
+rd /s /q C:\OpenSSL-v111-Win32
+rd /s /q C:\OpenSSL-v111-Win64
+
 conda update -y -q conda
 conda config --set auto_update_conda false
 conda info -a

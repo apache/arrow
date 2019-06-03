@@ -20,7 +20,7 @@ context("arrow::Schema")
 test_that("reading schema from Buffer", {
   # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
   #       maybe there is an easier way to serialize a schema
-  batch <- record_batch(tibble::tibble(x = 1:10))
+  batch <- record_batch(x = 1:10)
   expect_is(batch, "arrow::RecordBatch")
 
   stream <- BufferOutputStream()

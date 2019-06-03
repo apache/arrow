@@ -24,7 +24,7 @@ test_that("RecordBatch", {
     chr = letters[1:10],
     fct = factor(letters[1:10])
   )
-  batch <- record_batch(tbl)
+  batch <- record_batch(!!!tbl)
 
   expect_true(batch == batch)
   expect_equal(
@@ -93,7 +93,7 @@ test_that("RecordBatch with 0 rows are supported", {
     fct = factor(character(), levels = c("a", "b"))
   )
 
-  batch <- record_batch(tbl)
+  batch <- record_batch(!!!tbl)
   expect_equal(batch$num_columns, 5L)
   expect_equal(batch$num_rows, 0L)
   expect_equal(
@@ -109,7 +109,7 @@ test_that("RecordBatch with 0 rows are supported", {
 })
 
 test_that("RecordBatch cast (ARROW-3741)", {
-  batch <- record_batch(tibble::tibble(x = 1:10, y  = 1:10))
+  batch <- record_batch(x = 1:10, y = 1:10)
 
   expect_error(batch$cast(schema(x = int32())))
   expect_error(batch$cast(schema(x = int32(), z = int32())))
@@ -121,8 +121,27 @@ test_that("RecordBatch cast (ARROW-3741)", {
   expect_equal(batch2$column(1L)$type, int64())
 })
 
+test_that("record_batch() handles schema= argument", {
+  s <- schema(x = int32(), y = int32())
+  batch <- record_batch(x = 1:10, y = 1:10, schema = s)
+  expect_equal(s, batch$schema)
+
+  s <- schema(x = int32(), y = float64())
+  batch <- record_batch(x = 1:10, y = 1:10, schema = s)
+  expect_equal(s, batch$schema)
+
+  s <- schema(x = int32(), y = utf8())
+  expect_error(record_batch(x = 1:10, y = 1:10, schema = s))
+})
+
+test_that("record_batch(schema=) does some basic consistency checking of the schema", {
+  s <- schema(x = int32())
+  expect_error(record_batch(x = 1:10, y = 1:10, schema = s))
+  expect_error(record_batch(z = 1:10, schema = s))
+})
+
 test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
-  batch <- record_batch(tibble::tibble(x = 1:10, y  = 1:10))
+  batch <- record_batch(x = 1:10, y  = 1:10)
   expect_equal(dim(batch), c(10L, 2L))
   expect_equal(nrow(batch), 10L)
 })

@@ -24,11 +24,9 @@
 
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -49,17 +47,8 @@ class PARQUET_EXPORT ReaderProperties {
 
   ::arrow::MemoryPool* memory_pool() const { return pool_; }
 
-  std::unique_ptr<InputStream> GetStream(RandomAccessSource* source, int64_t start,
-                                         int64_t num_bytes) {
-    std::unique_ptr<InputStream> stream;
-    if (buffered_stream_enabled_) {
-      stream.reset(
-          new BufferedInputStream(pool_, buffer_size_, source, start, num_bytes));
-    } else {
-      stream.reset(new InMemoryInputStream(source, start, num_bytes));
-    }
-    return stream;
-  }
+  std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
+                                              int64_t start, int64_t num_bytes);
 
   bool is_buffered_stream_enabled() const { return buffered_stream_enabled_; }
 

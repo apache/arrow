@@ -157,8 +157,11 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
   if(NOT APPLE)
     set(MORE_ARGS "-T")
   endif()
-  execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
-                                              ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
+  execute_process(COMMAND ln
+                          ${MORE_ARGS}
+                          -sf
+                          ${BUILD_OUTPUT_ROOT_DIRECTORY}
+                          ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
   set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}")
 endif()
@@ -359,15 +362,9 @@ endif()
 if(MSVC)
   add_thirdparty_lib(arrow SHARED_LIB ${ARROW_SHARED_IMP_LIB})
   add_thirdparty_lib(arrow_python SHARED_LIB ${ARROW_PYTHON_SHARED_IMP_LIB})
-  if(PYARROW_BUILD_FLIGHT)
-    add_thirdparty_lib(arrow_flight SHARED_LIB ${ARROW_FLIGHT_SHARED_IMP_LIB})
-  endif()
 else()
   add_thirdparty_lib(arrow SHARED_LIB ${ARROW_SHARED_LIB})
   add_thirdparty_lib(arrow_python SHARED_LIB ${ARROW_PYTHON_SHARED_LIB})
-  if(PYARROW_BUILD_FLIGHT)
-    add_thirdparty_lib(arrow_flight SHARED_LIB ${ARROW_FLIGHT_SHARED_LIB})
-  endif()
 endif()
 
 #
@@ -489,16 +486,29 @@ endif()
 
 # Flight
 if(PYARROW_BUILD_FLIGHT)
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    # TODO:
-    message(FATAL_ERROR "Not yet implemented: bundling arrow-flight in pyarrow")
+  # Arrow CUDA
+  find_package(ArrowFlight)
+  if(NOT ARROW_FLIGHT_FOUND)
+    message(FATAL_ERROR "Unable to locate Arrow Flight libraries")
+  else()
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(ARROW_FLIGHT_SHARED_LIB
+                       ABI_VERSION
+                       ${ARROW_ABI_VERSION}
+                       SO_VERSION
+                       ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_implib(ARROW_FLIGHT_SHARED_IMP_LIB)
+      endif()
+    endif()
+    if(MSVC)
+      add_thirdparty_lib(arrow_flight SHARED_LIB ${ARROW_FLIGHT_SHARED_IMP_LIB})
+    else()
+      add_thirdparty_lib(arrow_flight SHARED_LIB ${ARROW_FLIGHT_SHARED_LIB})
+    endif()
+    set(LINK_LIBS ${LINK_LIBS} arrow_flight_shared)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
   endif()
-  # We do NOT want to link gRPC or any other Flight dependency
-  # here. Linking more than one copy leads to odd runtime errors due
-  # to multiple copies of static global state. Thus we also need to
-  # link Flight as a shared object.
-  set(LINK_LIBS ${LINK_LIBS} arrow_flight_shared)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
 endif()
 
 # Gandiva

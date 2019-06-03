@@ -26,15 +26,14 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 
 class ColumnDescriptor;
 class EncodedStatistics;
-class OutputStream;
 class Statistics;
 class SchemaDescriptor;
 
@@ -185,7 +184,7 @@ class PARQUET_EXPORT FileMetaData {
 
   const ApplicationVersion& writer_version() const;
 
-  void WriteTo(OutputStream* dst) const;
+  void WriteTo(::arrow::io::OutputStream* dst) const;
 
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
@@ -235,7 +234,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   const void* contents() const;
 
   // For writing metadata at end of column chunk
-  void WriteTo(OutputStream* sink);
+  void WriteTo(::arrow::io::OutputStream* sink);
 
  private:
   explicit ColumnChunkMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,

@@ -355,8 +355,8 @@ TEST_F(TestReadableFile, Peek) {
   OpenFile();
 
   // Cannot peek
-  auto view = file_->Peek(4);
-  ASSERT_EQ(0, view.size());
+  util::string_view peek;
+  ASSERT_RAISES(NotImplemented, file_->Peek(4, &peek));
 }
 
 TEST_F(TestReadableFile, SeekTellSize) {
@@ -444,6 +444,21 @@ TEST_F(TestReadableFile, ReadAt) {
 
   ASSERT_OK(file_->Close());
   ASSERT_RAISES(Invalid, file_->ReadAt(0, 1, &buffer2));
+}
+
+TEST_F(TestReadableFile, SeekingRequired) {
+  std::shared_ptr<Buffer> buffer;
+
+  MakeTestFile();
+  OpenFile();
+
+  ASSERT_OK(file_->ReadAt(0, 4, &buffer));
+  AssertBufferEqual(*buffer, "test");
+
+  ASSERT_RAISES(Invalid, file_->Read(4, &buffer));
+  ASSERT_OK(file_->Seek(0));
+  ASSERT_OK(file_->Read(4, &buffer));
+  AssertBufferEqual(*buffer, "test");
 }
 
 TEST_F(TestReadableFile, NonExistentFile) {

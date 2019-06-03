@@ -245,6 +245,10 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 		fv.dtype = flatbuf.TypeInt
 		fv.offset = intToFB(fv.b, int32(dt.BitWidth()), true)
 
+	case *arrow.Float16Type:
+		fv.dtype = flatbuf.TypeFloatingPoint
+		fv.offset = floatToFB(fv.b, int32(dt.BitWidth()))
+
 	case *arrow.Float32Type:
 		fv.dtype = flatbuf.TypeFloatingPoint
 		fv.offset = floatToFB(fv.b, int32(dt.BitWidth()))
@@ -322,6 +326,13 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem()}, fv.memo))
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
+
+	case *arrow.FixedSizeListType:
+		fv.dtype = flatbuf.TypeFixedSizeList
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem()}, fv.memo))
+		flatbuf.FixedSizeListStart(fv.b)
+		flatbuf.FixedSizeListAddListSize(fv.b, dt.Len())
+		fv.offset = flatbuf.FixedSizeListEnd(fv.b)
 
 	default:
 		err := errors.Errorf("arrow/ipc: invalid data type %v", dt)
@@ -500,8 +511,31 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		}
 		return arrow.ListOf(children[0].Type), nil
 
+	case flatbuf.TypeFixedSizeList:
+		var dt flatbuf.FixedSizeList
+		dt.Init(data.Bytes, data.Pos)
+		if len(children) != 1 {
+			return nil, errors.Errorf("arrow/ipc: FixedSizeList must have exactly 1 child field (got=%d)", len(children))
+		}
+		return arrow.FixedSizeListOf(dt.ListSize(), children[0].Type), nil
+
 	case flatbuf.TypeStruct_:
 		return arrow.StructOf(children...), nil
+
+	case flatbuf.TypeTime:
+		var dt flatbuf.Time
+		dt.Init(data.Bytes, data.Pos)
+		return timeFromFB(dt)
+
+	case flatbuf.TypeTimestamp:
+		var dt flatbuf.Timestamp
+		dt.Init(data.Bytes, data.Pos)
+		return timestampFromFB(dt)
+
+	case flatbuf.TypeDate:
+		var dt flatbuf.Date
+		dt.Init(data.Bytes, data.Pos)
+		return dateFromFB(dt)
 
 	default:
 		// FIXME(sbinet): implement all the other types.
@@ -559,7 +593,7 @@ func intToFB(b *flatbuffers.Builder, bw int32, isSigned bool) flatbuffers.UOffse
 func floatFromFB(data flatbuf.FloatingPoint) (arrow.DataType, error) {
 	switch p := data.Precision(); p {
 	case flatbuf.PrecisionHALF:
-		return nil, errors.Errorf("arrow/ipc: float16 not implemented")
+		return arrow.FixedWidthTypes.Float16, nil
 	case flatbuf.PrecisionSINGLE:
 		return arrow.PrimitiveTypes.Float32, nil
 	case flatbuf.PrecisionDOUBLE:
@@ -586,6 +620,50 @@ func floatToFB(b *flatbuffers.Builder, bw int32) flatbuffers.UOffsetT {
 	default:
 		panic(errors.Errorf("arrow/ipc: invalid floating point precision %d-bits", bw))
 	}
+}
+
+func timeFromFB(data flatbuf.Time) (arrow.DataType, error) {
+	bw := data.BitWidth()
+	unit := unitFromFB(data.Unit())
+
+	switch bw {
+	case 32:
+		switch unit {
+		case arrow.Millisecond:
+			return arrow.FixedWidthTypes.Time32ms, nil
+		case arrow.Second:
+			return arrow.FixedWidthTypes.Time32s, nil
+		default:
+			return nil, errors.Errorf("arrow/ipc: Time32 type with %v unit not implemented", unit)
+		}
+	case 64:
+		switch unit {
+		case arrow.Nanosecond:
+			return arrow.FixedWidthTypes.Time64ns, nil
+		case arrow.Microsecond:
+			return arrow.FixedWidthTypes.Time64us, nil
+		default:
+			return nil, errors.Errorf("arrow/ipc: Time64 type with %v unit not implemented", unit)
+		}
+	default:
+		return nil, errors.Errorf("arrow/ipc: Time type with %d bitwidth not implemented", bw)
+	}
+}
+
+func timestampFromFB(data flatbuf.Timestamp) (arrow.DataType, error) {
+	unit := unitFromFB(data.Unit())
+	tz := string(data.Timezone())
+	return &arrow.TimestampType{Unit: unit, TimeZone: tz}, nil
+}
+
+func dateFromFB(data flatbuf.Date) (arrow.DataType, error) {
+	switch data.Unit() {
+	case flatbuf.DateUnitDAY:
+		return arrow.FixedWidthTypes.Date32, nil
+	case flatbuf.DateUnitMILLISECOND:
+		return arrow.FixedWidthTypes.Date64, nil
+	}
+	return nil, errors.Errorf("arrow/ipc: Date type with %d unit not implemented", data.Unit())
 }
 
 type customMetadataer interface {

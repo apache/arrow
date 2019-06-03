@@ -101,11 +101,11 @@ cdef class SerializationContext:
 
     def register_type(self, type_, type_id, pickle=False,
                       custom_serializer=None, custom_deserializer=None):
-        """EXPERIMENTAL: Add type to the list of types we can serialize.
+        r"""EXPERIMENTAL: Add type to the list of types we can serialize.
 
         Parameters
         ----------
-        type_ : TypeType
+        type\_ : type
             The type that we can serialize.
         type_id : string
             A string used to identify the type.

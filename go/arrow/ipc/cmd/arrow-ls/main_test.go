@@ -67,6 +67,38 @@ records: 2
 			want: `schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
+records: 4
+`,
+		},
+		{
+			name: "strings",
+			want: `schema:
+  fields: 2
+    - strings: type=utf8
+    - bytes: type=binary
+records: 3
+`,
+		},
+		{
+			name: "fixed_size_lists",
+			want: `schema:
+  fields: 1
+    - fixed_size_list_nullable: type=fixed_size_list<item: int32>[3], nullable
+records: 3
+`,
+		},
+		{
+			name: "fixed_width_types",
+			want: `schema:
+  fields: 8
+    - float16s: type=float16, nullable
+    - time32ms: type=time32[ms], nullable
+    - time32s: type=time32[s], nullable
+    - time64ns: type=time64[ns], nullable
+    - time64us: type=time64[us], nullable
+    - timestamp: type=timestamp[ns], nullable
+    - date32s: type=date32, nullable
+    - date64s: type=date64, nullable
 records: 3
 `,
 		},
@@ -195,7 +227,7 @@ records: 2
 			want: `schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
-records: 3
+records: 4
 `,
 		},
 		{
@@ -204,7 +236,7 @@ records: 3
 schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
-records: 3
+records: 4
 `,
 		},
 	} {

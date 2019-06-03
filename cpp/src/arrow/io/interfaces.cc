@@ -34,8 +34,9 @@ Status InputStream::Advance(int64_t nbytes) {
   return Read(nbytes, &temp);
 }
 
-util::string_view InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) const {
-  return util::string_view(nullptr, 0);
+Status InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes),
+                         util::string_view* ARROW_ARG_UNUSED(out)) {
+  return Status::NotImplemented("Peek not implemented");
 }
 
 bool InputStream::supports_zero_copy() const { return false; }

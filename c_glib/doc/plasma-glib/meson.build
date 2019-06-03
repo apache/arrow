@@ -53,8 +53,8 @@ source_directories = [
   join_paths(meson.build_root(), 'plasma-glib'),
 ]
 dependencies = [
-  arrow_glib,
   plasma_glib,
+  arrow_glib,
 ]
 if arrow_cuda.found()
   dependencies += [arrow_cuda_glib]

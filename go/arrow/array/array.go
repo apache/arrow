@@ -174,7 +174,7 @@ func init() {
 		arrow.INT32:             func(data *Data) Interface { return NewInt32Data(data) },
 		arrow.UINT64:            func(data *Data) Interface { return NewUint64Data(data) },
 		arrow.INT64:             func(data *Data) Interface { return NewInt64Data(data) },
-		arrow.HALF_FLOAT:        unsupportedArrayType,
+		arrow.FLOAT16:           func(data *Data) Interface { return NewFloat16Data(data) },
 		arrow.FLOAT32:           func(data *Data) Interface { return NewFloat32Data(data) },
 		arrow.FLOAT64:           func(data *Data) Interface { return NewFloat64Data(data) },
 		arrow.STRING:            func(data *Data) Interface { return NewStringData(data) },
@@ -192,11 +192,11 @@ func init() {
 		arrow.UNION:             unsupportedArrayType,
 		arrow.DICTIONARY:        unsupportedArrayType,
 		arrow.MAP:               unsupportedArrayType,
+		arrow.EXTENSION:         unsupportedArrayType,
+		arrow.FIXED_SIZE_LIST:   func(data *Data) Interface { return NewFixedSizeListData(data) },
+		arrow.DURATION:          unsupportedArrayType,
 
 		// invalid data types to fill out array size 2⁵-1
-		28: invalidDataType,
-		29: invalidDataType,
-		30: invalidDataType,
 		31: invalidDataType,
 	}
 }

@@ -61,7 +61,7 @@
 #'
 #' @export
 schema <- function(...){
-  shared_ptr(`arrow::Schema`, schema_(.fields(list(...))))
+  shared_ptr(`arrow::Schema`, schema_(.fields(list2(...))))
 }
 
 #' read a Schema from a stream

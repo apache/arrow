@@ -17,12 +17,12 @@
 
 // Public API for different memory sharing / IO mechanisms
 
-#ifndef ARROW_IO_MEMORY_H
-#define ARROW_IO_MEMORY_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 
+#include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/util/string_view.h"
@@ -145,7 +145,7 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
   // Zero copy read
   Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
-  util::string_view Peek(int64_t nbytes) const override;
+  Status Peek(int64_t nbytes, util::string_view* out) override;
 
   bool supports_zero_copy() const override;
 
@@ -170,5 +170,3 @@ class ARROW_EXPORT BufferReader : public RandomAccessFile {
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_MEMORY_H

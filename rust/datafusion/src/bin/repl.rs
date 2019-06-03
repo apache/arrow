@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#![allow(bare_trait_objects)]
+
 #[macro_use]
 extern crate clap;
 

@@ -72,7 +72,12 @@ write_feather.default <- function(data, stream) {
 
 #' @export
 write_feather.data.frame <- function(data, stream) {
-  write_feather(record_batch(data), stream)
+  # splice the columns in the record_batch() call
+  # e.g. if we had data <- data.frame(x = <...>, y = <...>)
+  # then record_batch(!!!data) is the same as
+  # record_batch(x = data$x, y = data$y)
+  # see ?rlang::list2()
+  write_feather(record_batch(!!!data), stream)
 }
 
 #' @method write_feather arrow::RecordBatch

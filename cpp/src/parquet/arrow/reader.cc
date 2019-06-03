@@ -33,7 +33,6 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread-pool.h"
@@ -48,10 +47,9 @@
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
+#include "parquet/schema-internal.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/schema-util.h"
 
 using arrow::Array;
 using arrow::BooleanArray;
@@ -81,7 +79,6 @@ using parquet::internal::RecordReader;
 namespace parquet {
 namespace arrow {
 
-using ::arrow::BitUtil::BytesForBits;
 using ::arrow::BitUtil::FromBigEndian;
 using ::arrow::internal::SafeLeftShift;
 
@@ -402,7 +399,7 @@ Status FileReader::Impl::GetReaderForNode(
     std::unique_ptr<ColumnReader::ColumnReaderImpl>* out) {
   *out = nullptr;
 
-  if (IsSimpleStruct(node)) {
+  if (schema::IsSimpleStruct(node)) {
     const schema::GroupNode* group = static_cast<const schema::GroupNode*>(node);
     std::vector<std::shared_ptr<ColumnReader::ColumnReaderImpl>> children;
     for (int i = 0; i < group->field_count(); i++) {
@@ -428,7 +425,7 @@ Status FileReader::Impl::GetReaderForNode(
     const Node* walker = node;
     while (!walker->is_primitive()) {
       DCHECK(walker->is_group());
-      auto group = static_cast<const GroupNode*>(walker);
+      auto group = static_cast<const schema::GroupNode*>(walker);
       if (group->field_count() != 1) {
         return Status::NotImplemented("lists with structs are not supported.");
       }
@@ -436,7 +433,7 @@ Status FileReader::Impl::GetReaderForNode(
     }
     auto column_index = reader_->metadata()->schema()->ColumnIndex(*walker);
 
-    // If the index of the column is found then a reader for the coliumn is needed.
+    // If the index of the column is found then a reader for the column is needed.
     // Otherwise *out keeps the nullptr value.
     if (std::find(indices.begin(), indices.end(), column_index) != indices.end()) {
       std::unique_ptr<ColumnReader> reader;
@@ -558,8 +555,8 @@ Status FileReader::Impl::ReadRowGroup(int row_group_index,
   // We only need to read schema fields which have columns indicated
   // in the indices vector
   std::vector<int> field_indices;
-  if (!ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
-                                   &field_indices)) {
+  if (!schema::ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
+                                           &field_indices)) {
     return Status::Invalid("Invalid column index");
   }
   int num_fields = static_cast<int>(field_indices.size());
@@ -615,8 +612,8 @@ Status FileReader::Impl::ReadTable(const std::vector<int>& indices,
   // We only need to read schema fields which have columns indicated
   // in the indices vector
   std::vector<int> field_indices;
-  if (!ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
-                                   &field_indices)) {
+  if (!schema::ColumnIndicesToFieldIndices(*reader_->metadata()->schema(), indices,
+                                           &field_indices)) {
     return Status::Invalid("Invalid column index");
   }
 
@@ -732,10 +729,8 @@ Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                 MemoryPool* allocator, const ReaderProperties& props,
                 const std::shared_ptr<FileMetaData>& metadata,
                 std::unique_ptr<FileReader>* reader) {
-  std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(file));
   std::unique_ptr<ParquetReader> pq_reader;
-  PARQUET_CATCH_NOT_OK(pq_reader =
-                           ParquetReader::Open(std::move(io_wrapper), props, metadata));
+  PARQUET_CATCH_NOT_OK(pq_reader = ParquetReader::Open(file, props, metadata));
   reader->reset(new FileReader(allocator, std::move(pq_reader)));
   return Status::OK();
 }
@@ -749,11 +744,9 @@ Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
 Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                 ::arrow::MemoryPool* allocator, const ArrowReaderProperties& properties,
                 std::unique_ptr<FileReader>* reader) {
-  std::unique_ptr<RandomAccessSource> io_wrapper(new ArrowInputFile(file));
   std::unique_ptr<ParquetReader> pq_reader;
-  PARQUET_CATCH_NOT_OK(
-      pq_reader = ParquetReader::Open(std::move(io_wrapper),
-                                      ::parquet::default_reader_properties(), nullptr));
+  PARQUET_CATCH_NOT_OK(pq_reader = ParquetReader::Open(
+                           file, ::parquet::default_reader_properties(), nullptr));
   reader->reset(new FileReader(allocator, std::move(pq_reader), properties));
   return Status::OK();
 }
@@ -1123,7 +1116,7 @@ struct TransferFunctor<::arrow::BooleanType, BooleanType> {
     int64_t length = reader->values_written();
     std::shared_ptr<Buffer> data;
 
-    const int64_t buffer_size = BytesForBits(length);
+    const int64_t buffer_size = BitUtil::BytesForBits(length);
     RETURN_NOT_OK(::arrow::AllocateBuffer(pool, buffer_size, &data));
 
     // Transfer boolean values to packed bitmap
@@ -1139,7 +1132,7 @@ struct TransferFunctor<::arrow::BooleanType, BooleanType> {
 
     if (reader->nullable_values()) {
       std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
-      RETURN_NOT_OK(is_valid->Resize(BytesForBits(length), false));
+      RETURN_NOT_OK(is_valid->Resize(BitUtil::BytesForBits(length), false));
       *out = std::make_shared<BooleanArray>(type, length, data, is_valid,
                                             reader->null_count());
     } else {

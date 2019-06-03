@@ -24,6 +24,7 @@
 #![feature(specialization)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
+#![allow(bare_trait_objects)]
 
 pub mod array;
 pub mod array_data;

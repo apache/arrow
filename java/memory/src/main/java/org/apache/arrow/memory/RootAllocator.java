@@ -17,6 +17,8 @@
 
 package org.apache.arrow.memory;
 
+import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
+import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.util.VisibleForTesting;
 
 /**
@@ -35,7 +37,11 @@ public class RootAllocator extends BaseAllocator {
   }
 
   public RootAllocator(final AllocationListener listener, final long limit) {
-    super(null, listener, "ROOT", 0, limit);
+    this(listener, limit, DefaultRoundingPolicy.INSTANCE);
+  }
+
+  public RootAllocator(final AllocationListener listener, final long limit, RoundingPolicy roundingPolicy) {
+    super(null, listener, "ROOT", 0, limit, roundingPolicy);
   }
 
   /**

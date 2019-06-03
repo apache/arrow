@@ -4,10 +4,12 @@
 \alias{record_batch}
 \title{Create an \link[=arrow__RecordBatch]{arrow::RecordBatch} from a data frame}
 \usage{
-record_batch(.data)
+record_batch(..., schema = NULL)
 }
 \arguments{
-\item{.data}{a data frame}
+\item{...}{A variable number of arrow::Array}
+
+\item{schema}{a arrow::Schema}
 }
 \value{
 a \link[=arrow__RecordBatch]{arrow::RecordBatch}

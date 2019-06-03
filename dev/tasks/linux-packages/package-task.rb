@@ -247,7 +247,6 @@ VERSION=#{@deb_upstream_version}
           if targets.empty?
             targets = [
               "debian-stretch",
-              "ubuntu-trusty",
               "ubuntu-xenial",
               "ubuntu-bionic",
               "ubuntu-cosmic",

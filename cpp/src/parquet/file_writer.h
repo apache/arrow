@@ -22,13 +22,11 @@
 #include <memory>
 #include <ostream>
 
-#include "arrow/util/macros.h"
-
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
-#include "parquet/util/visibility.h"
 
 namespace arrow {
 
@@ -107,8 +105,13 @@ class PARQUET_EXPORT RowGroupWriter {
   std::unique_ptr<Contents> contents_;
 };
 
+ARROW_DEPRECATED("Use version with arrow::io::OutputStream*")
 PARQUET_EXPORT
 void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
+
+PARQUET_EXPORT
+void WriteFileMetaData(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:
@@ -162,6 +165,7 @@ class PARQUET_EXPORT ParquetFileWriter {
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
 
+  ARROW_DEPRECATED("Use version with arrow::io::OutputStream")
   static std::unique_ptr<ParquetFileWriter> Open(
       const std::shared_ptr<OutputStream>& sink,
       const std::shared_ptr<schema::GroupNode>& schema,

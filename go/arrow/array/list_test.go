@@ -149,3 +149,65 @@ func TestListArrayBulkAppend(t *testing.T) {
 		t.Fatalf("got=%v, want=%v", got, want)
 	}
 }
+
+func TestListArraySlice(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		vs      = []int32{0, 1, 2, 3, 4, 5, 6}
+		lengths = []int{3, 0, 4}
+		isValid = []bool{true, false, true}
+		offsets = []int32{0, 3, 3, 7}
+	)
+
+	lb := array.NewListBuilder(pool, arrow.PrimitiveTypes.Int32)
+	defer lb.Release()
+	vb := lb.ValueBuilder().(*array.Int32Builder)
+	vb.Reserve(len(vs))
+
+	lb.AppendValues(offsets, isValid)
+	for _, v := range vs {
+		vb.Append(v)
+	}
+
+	arr := lb.NewArray().(*array.List)
+	defer arr.Release()
+
+	if got, want := arr.DataType().ID(), arrow.LIST; got != want {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	if got, want := arr.Len(), len(isValid); got != want {
+		t.Fatalf("got=%d, want=%d", got, want)
+	}
+
+	for i := range lengths {
+		if got, want := arr.IsValid(i), isValid[i]; got != want {
+			t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+		}
+		if got, want := arr.IsNull(i), lengths[i] == 0; got != want {
+			t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+		}
+	}
+
+	if got, want := arr.Offsets(), offsets; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	varr := arr.ListValues().(*array.Int32)
+	if got, want := varr.Int32Values(), vs; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%v, want=%v", got, want)
+	}
+
+	if got, want := arr.String(), `[[0 1 2] (null) [3 4 5 6]]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	sub := array.NewSlice(arr, 1, 3).(*array.List)
+	defer sub.Release()
+
+	if got, want := sub.String(), `[(null) [3 4 5 6]]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+}
