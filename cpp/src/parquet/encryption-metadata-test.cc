@@ -26,9 +26,9 @@ namespace parquet {
 
 namespace metadata {
 
-const std::string kFooterEncryptionKey = "0123456789012345";  // 128bit/16
-const std::string kColumnEncryptionKey1 = "1234567890123450";
-const std::string kColumnEncryptionKey2 = "1234567890123451";
+const char kFooterEncryptionKey[] = "0123456789012345";  // 128bit/16
+const char kColumnEncryptionKey1[] = "1234567890123450";
+const char kColumnEncryptionKey2[] = "1234567890123451";
 
 TEST(Metadata, EncryptFooter) {
   parquet::schema::NodeVector fields;

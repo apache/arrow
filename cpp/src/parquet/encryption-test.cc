@@ -27,10 +27,10 @@ using schema::ColumnPath;
 
 namespace test {
 
-const std::string kFooterEncryptionKey = "0123456789012345";  // 128bit/16
-const std::string kColumnEncryptionKey1 = "1234567890123450";
-const std::string kColumnEncryptionKey2 = "1234567890123451";
-const std::string kFileName = "tester";
+const char kFooterEncryptionKey[] = "0123456789012345";  // 128bit/16
+const char kColumnEncryptionKey1[] = "1234567890123450";
+const char kColumnEncryptionKey2[] = "1234567890123451";
+const char kFileName[] = "tester";
 
 TEST(TestColumnEncryptionProperties, ColumnEncryptedWithOwnKey) {
   std::shared_ptr<parquet::schema::ColumnPath> column_path_1 =
@@ -66,7 +66,7 @@ TEST(TestEncryptionProperties, UniformEncryption) {
   std::shared_ptr<FileEncryptionProperties> props = builder.build();
 
   ASSERT_EQ(true, props->encrypted_footer());
-  ASSERT_EQ(DEFAULT_ENCRYPTION_ALGORITHM, props->algorithm().algorithm);
+  ASSERT_EQ(kDefaultEncryptionAlgorithm, props->algorithm().algorithm);
   ASSERT_EQ(kFooterEncryptionKey, props->footer_key());
   ASSERT_EQ("kf", props->footer_key_metadata());
 
@@ -106,7 +106,7 @@ TEST(TestEncryptionProperties, EncryptFooterAndTwoColumns) {
   std::shared_ptr<FileEncryptionProperties> props = builder.build();
 
   ASSERT_EQ(true, props->encrypted_footer());
-  ASSERT_EQ(DEFAULT_ENCRYPTION_ALGORITHM, props->algorithm().algorithm);
+  ASSERT_EQ(kDefaultEncryptionAlgorithm, props->algorithm().algorithm);
   ASSERT_EQ(kFooterEncryptionKey, props->footer_key());
 
   std::shared_ptr<ColumnEncryptionProperties> out_col_props_1 =
@@ -163,7 +163,7 @@ TEST(TestEncryptionProperties, EncryptTwoColumnsNotFooter) {
   std::shared_ptr<FileEncryptionProperties> props = builder.build();
 
   ASSERT_EQ(false, props->encrypted_footer());
-  ASSERT_EQ(DEFAULT_ENCRYPTION_ALGORITHM, props->algorithm().algorithm);
+  ASSERT_EQ(kDefaultEncryptionAlgorithm, props->algorithm().algorithm);
   ASSERT_EQ(kFooterEncryptionKey, props->footer_key());
 
   std::shared_ptr<ColumnEncryptionProperties> out_col_props_1 =
