@@ -360,7 +360,7 @@ matrix:
     - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
     - pushd ${TRAVIS_BUILD_DIR}/r
     after_success:
-    - Rscript -e 'covr::codecov()'
+    - Rscript ../ci/travis_upload_r_coverage.R
 
 
 after_failure:
