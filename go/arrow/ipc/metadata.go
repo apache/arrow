@@ -532,6 +532,11 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		dt.Init(data.Bytes, data.Pos)
 		return timestampFromFB(dt)
 
+	case flatbuf.TypeDate:
+		var dt flatbuf.Date
+		dt.Init(data.Bytes, data.Pos)
+		return dateFromFB(dt)
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
@@ -649,6 +654,16 @@ func timestampFromFB(data flatbuf.Timestamp) (arrow.DataType, error) {
 	unit := unitFromFB(data.Unit())
 	tz := string(data.Timezone())
 	return &arrow.TimestampType{Unit: unit, TimeZone: tz}, nil
+}
+
+func dateFromFB(data flatbuf.Date) (arrow.DataType, error) {
+	switch data.Unit() {
+	case flatbuf.DateUnitDAY:
+		return arrow.FixedWidthTypes.Date32, nil
+	case flatbuf.DateUnitMILLISECOND:
+		return arrow.FixedWidthTypes.Date64, nil
+	}
+	return nil, errors.Errorf("arrow/ipc: Date type with %d unit not implemented", data.Unit())
 }
 
 type customMetadataer interface {
