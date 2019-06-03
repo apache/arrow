@@ -25,4 +25,36 @@ else()
   find_path(RAPIDJSON_INCLUDE_DIR NAMES rapidjson/rapidjson.h PATH_SUFFIXES "include")
 endif()
 
-find_package_handle_standard_args(RapidJSONAlt REQUIRED_VARS RAPIDJSON_INCLUDE_DIR)
+if(RAPIDJSON_INCLUDE_DIR)
+  file(READ "${RAPIDJSON_INCLUDE_DIR}/rapidjson/rapidjson.h" RAPIDJSON_H_CONTENT)
+  string(REGEX MATCH "#define RAPIDJSON_MAJOR_VERSION ([0-9]+)"
+               RAPIDJSON_MAJOR_VERSION_DEFINITION "${RAPIDJSON_H_CONTENT}")
+  string(REGEX
+         REPLACE "^.+ ([0-9]+)$" "\\1" RAPIDJSON_MAJOR_VERSION
+                 "${RAPIDJSON_MAJOR_VERSION_DEFINITION}")
+  string(REGEX MATCH "#define RAPIDJSON_MINOR_VERSION ([0-9]+)"
+               RAPIDJSON_MINOR_VERSION_DEFINITION "${RAPIDJSON_H_CONTENT}")
+  string(REGEX
+         REPLACE "^.+ ([0-9]+)$" "\\1" RAPIDJSON_MINOR_VERSION
+                 "${RAPIDJSON_MINOR_VERSION_DEFINITION}")
+  string(REGEX MATCH "#define RAPIDJSON_PATCH_VERSION ([0-9]+)"
+               RAPIDJSON_PATCH_VERSION_DEFINITION "${RAPIDJSON_H_CONTENT}")
+  string(REGEX
+         REPLACE "^.+ ([0-9]+)$" "\\1" RAPIDJSON_PATCH_VERSION
+                 "${RAPIDJSON_PATCH_VERSION_DEFINITION}")
+  if("${RAPIDJSON_MAJOR_VERSION}" STREQUAL ""
+     OR "${RAPIDJSON_MINOR_VERSION}" STREQUAL ""
+     OR "${RAPIDJSON_PATCH_VERSION}" STREQUAL "")
+    set(RAPIDJSON_VERSION "0.0.0")
+  else()
+    set(
+      RAPIDJSON_VERSION
+      "${RAPIDJSON_MAJOR_VERSION}.${RAPIDJSON_MINOR_VERSION}.${RAPIDJSON_PATCH_VERSION}")
+  endif()
+endif()
+
+find_package_handle_standard_args(RapidJSONAlt
+                                  REQUIRED_VARS
+                                  RAPIDJSON_INCLUDE_DIR
+                                  VERSION_VAR
+                                  RAPIDJSON_VERSION)
