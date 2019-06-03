@@ -38,4 +38,13 @@ class TestGandivaFunctionSignature < Test::Unit::TestCase
     assert_equal("to_date",
                  @to_date.base_name)
   end
+
+  def test_get_param_types
+    assert_equal([
+                   Arrow::StringDataType.new,
+                   Arrow::StringDataType.new,
+                   Arrow::Int32DataType.new
+                 ],
+                 @to_date.param_types)
+  end
 end

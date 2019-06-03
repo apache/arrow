@@ -160,6 +160,33 @@ ggandiva_function_signature_get_base_name(GGandivaFunctionSignature *function_si
   return g_strdup(gandiva_function_signature->base_name().c_str());
 }
 
+/**
+ * ggandiva_function_signature_get_param_types:
+ * @function_signature: A #GGandivaFunctionSignature
+ *
+ * Returns: (transfer full) (element-type GArrowDataType):
+ *   A list of parameter data types of the function signature.
+ *
+ * Since: 0.14.0
+ */
+GList *
+ggandiva_function_signature_get_param_types(GGandivaFunctionSignature *function_signature)
+{
+  const auto gandiva_function_signature =
+    ggandiva_function_signature_get_raw(function_signature);
+
+  GList *param_type_list = nullptr;
+  auto param_types = gandiva_function_signature->param_types();
+  for (auto i = param_types.begin(); i != param_types.end(); ++i) {
+    auto arrow_data_type = *i;
+    auto data_type = garrow_data_type_new_raw(&arrow_data_type);
+    param_type_list = g_list_prepend(param_type_list, data_type);
+  }
+  param_type_list = g_list_reverse(param_type_list);
+
+  return param_type_list;
+}
+
 G_END_DECLS
 
 GGandivaFunctionSignature *
