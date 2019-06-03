@@ -141,8 +141,11 @@ std::shared_ptr<Array> MakeFactorArrayImpl(Rcpp::IntegerVector_ factor,
       ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers), null_count, 0);
   auto array_indices = MakeArray(array_indices_data);
 
+  SEXP levels = Rf_getAttrib(factor, R_LevelsSymbol);
+  auto dict = MakeStringArray(levels);
+
   std::shared_ptr<Array> out;
-  STOP_IF_NOT_OK(DictionaryArray::FromArrays(type, array_indices, &out));
+  STOP_IF_NOT_OK(DictionaryArray::FromArrays(type, array_indices, dict, &out));
   return out;
 }
 
@@ -741,22 +744,20 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
 }
 
 template <typename Type>
-std::shared_ptr<arrow::DataType> GetFactorTypeImpl(Rcpp::IntegerVector_ factor) {
-  auto dict_values = MakeStringArray(Rf_getAttrib(factor, R_LevelsSymbol));
-  auto dict_type =
-      dictionary(std::make_shared<Type>(), dict_values, Rf_inherits(factor, "ordered"));
-  return dict_type;
+std::shared_ptr<arrow::DataType> GetFactorTypeImpl(bool ordered) {
+  return dictionary(std::make_shared<Type>(), arrow::utf8(), ordered);
 }
 
 std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
   SEXP levels = Rf_getAttrib(factor, R_LevelsSymbol);
+  bool is_ordered = Rf_inherits(factor, "ordered");
   int n = Rf_length(levels);
   if (n < 128) {
-    return GetFactorTypeImpl<arrow::Int8Type>(factor);
+    return GetFactorTypeImpl<arrow::Int8Type>(is_ordered);
   } else if (n < 32768) {
-    return GetFactorTypeImpl<arrow::Int16Type>(factor);
+    return GetFactorTypeImpl<arrow::Int16Type>(is_ordered);
   } else {
-    return GetFactorTypeImpl<arrow::Int32Type>(factor);
+    return GetFactorTypeImpl<arrow::Int32Type>(is_ordered);
   }
 }
 
@@ -909,21 +910,7 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
 
   arrow::DictionaryType* dict_type =
       arrow::checked_cast<arrow::DictionaryType*>(type.get());
-  auto dictionary = dict_type->dictionary();
-  if (dictionary->type() != utf8()) return false;
-
-  // then compare levels
-  auto typed_dict = checked_cast<arrow::StringArray*>(dictionary.get());
-  SEXP levels = Rf_getAttrib(obj, R_LevelsSymbol);
-
-  R_xlen_t n = XLENGTH(levels);
-  if (n != typed_dict->length()) return false;
-
-  for (R_xlen_t i = 0; i < n; i++) {
-    if (typed_dict->GetString(i) != CHAR(STRING_ELT(levels, i))) return false;
-  }
-
-  return true;
+  return dict_type->value_type() == utf8();
 }
 
 std::shared_ptr<arrow::Array> Array__from_vector(

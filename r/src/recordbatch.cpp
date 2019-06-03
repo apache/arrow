@@ -140,6 +140,8 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
     const std::shared_ptr<arrow::io::InputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema) {
   std::shared_ptr<arrow::RecordBatch> batch;
-  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(schema, stream.get(), &batch));
+  // TODO: promote to function arg
+  arrow::ipc::DictionaryMemo memo;
+  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(schema, &memo, stream.get(), &batch));
   return batch;
 }

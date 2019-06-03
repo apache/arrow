@@ -417,20 +417,20 @@ TimestampType__unit <- function(type) {
     .Call(`_arrow_TimestampType__unit`, type)
 }
 
-DictionaryType__initialize <- function(type, array, ordered) {
-    .Call(`_arrow_DictionaryType__initialize`, type, array, ordered)
+DictionaryType__initialize <- function(index_type, value_type, ordered) {
+    .Call(`_arrow_DictionaryType__initialize`, index_type, value_type, ordered)
 }
 
 DictionaryType__index_type <- function(type) {
     .Call(`_arrow_DictionaryType__index_type`, type)
 }
 
-DictionaryType__name <- function(type) {
-    .Call(`_arrow_DictionaryType__name`, type)
+DictionaryType__value_type <- function(type) {
+    .Call(`_arrow_DictionaryType__value_type`, type)
 }
 
-DictionaryType__dictionary <- function(type) {
-    .Call(`_arrow_DictionaryType__dictionary`, type)
+DictionaryType__name <- function(type) {
+    .Call(`_arrow_DictionaryType__name`, type)
 }
 
 DictionaryType__ordered <- function(type) {

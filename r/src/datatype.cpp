@@ -250,9 +250,9 @@ arrow::TimeUnit::type TimestampType__unit(
 
 // [[Rcpp::export]]
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(
-    const std::shared_ptr<arrow::DataType>& type,
-    const std::shared_ptr<arrow::Array>& array, bool ordered) {
-  return arrow::dictionary(type, array, ordered);
+    const std::shared_ptr<arrow::DataType>& index_type,
+    const std::shared_ptr<arrow::DataType>& value_type, bool ordered) {
+  return arrow::dictionary(index_type, value_type, ordered);
 }
 
 // [[Rcpp::export]]
@@ -262,14 +262,14 @@ std::shared_ptr<arrow::DataType> DictionaryType__index_type(
 }
 
 // [[Rcpp::export]]
-std::string DictionaryType__name(const std::shared_ptr<arrow::DictionaryType>& type) {
-  return type->name();
+std::shared_ptr<arrow::DataType> DictionaryType__value_type(
+    const std::shared_ptr<arrow::DictionaryType>& type) {
+  return type->value_type();
 }
 
 // [[Rcpp::export]]
-std::shared_ptr<arrow::Array> DictionaryType__dictionary(
-    const std::shared_ptr<arrow::DictionaryType>& type) {
-  return type->dictionary();
+std::string DictionaryType__name(const std::shared_ptr<arrow::DictionaryType>& type) {
+  return type->name();
 }
 
 // [[Rcpp::export]]
