@@ -22,8 +22,10 @@
 #include <vector>
 
 #include <RcppCommon.h>
+#include "./symbols.h"
 
 #undef Free
+
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/csv/reader.h>
@@ -53,17 +55,6 @@ template <typename T>
 struct NoDelete {
   inline void operator()(T* ptr) {}
 };
-
-namespace arrow {
-namespace r {
-struct symbols {
-  static SEXP units;
-  static SEXP xp;
-  static SEXP dot_Internal;
-  static SEXP inspect;
-};
-}  // namespace r
-}  // namespace arrow
 
 namespace Rcpp {
 namespace internal {
