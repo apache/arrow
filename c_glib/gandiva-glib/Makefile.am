@@ -65,7 +65,7 @@ libgandiva_glib_la_sources =			\
 	function-registry.cpp			\
 	function-signature.cpp			\
 	node.cpp				\
-	native-function.cpp				\
+	native-function.cpp			\
 	projector.cpp				\
 	$(libgandiva_glib_la_headers)
 
