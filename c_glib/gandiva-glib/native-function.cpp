@@ -101,7 +101,7 @@ GGandivaFunctionSignature *
 ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function)
 {
   auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
-  auto gandiva_function_signature = priv->native_function->signature();
+  const auto& gandiva_function_signature = priv->native_function->signature();
   return ggandiva_function_signature_new_raw(&gandiva_function_signature);
 }
 
