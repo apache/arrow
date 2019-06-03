@@ -1145,7 +1145,7 @@ cdef void _list_actions(void* self, const CServerCallContext& context,
     cdef:
         CActionType action_type
     # Method should return a list of ActionTypes or similar tuple
-    result = (<object> self).list_actions()
+    result = (<object> self).list_actions(ServerCallContext.wrap(context))
     for action in result:
         action_type.type = tobytes(action[0])
         action_type.description = tobytes(action[1])
