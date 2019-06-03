@@ -459,9 +459,9 @@ TYPED_TEST(TestVisitBits, NormalOperation) {
     for (const int64_t start_offset : start_offsets) {
       for (const int64_t length : lengths) {
         std::string failure_info = std::string("fill value: ") +
-                                   std::to_string(fill_value) + ", start offset: " +
-                                   std::to_string(start_offset) + ", length: " +
-                                   std::to_string(length);
+                                   std::to_string(fill_value) +
+                                   ", start offset: " + std::to_string(start_offset) +
+                                   ", length: " + std::to_string(length);
         // Pre-fill the unpacked_bitmap array.
         unpacked_bitmap.fill(fill_value);
 
