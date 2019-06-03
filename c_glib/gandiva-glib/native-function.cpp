@@ -57,8 +57,8 @@ ggandiva_native_function_set_property(GObject *object,
   auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(object);
   switch (prop_id) {
   case PROP_NATIVE_FUNCTION:
-    priv->native_function
-      = static_cast<const gandiva::NativeFunction *>(g_value_get_pointer(value));
+    priv->native_function =
+      static_cast<const gandiva::NativeFunction *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -224,11 +224,11 @@ ggandiva_result_nullable_type_to_raw(GGandivaResultNullableType type)
 GGandivaNativeFunction *
 ggandiva_native_function_new_raw(const gandiva::NativeFunction *gandiva_native_function)
 {
-  auto native_function
-    = GGANDIVA_NATIVE_FUNCTION(g_object_new(GGANDIVA_TYPE_NATIVE_FUNCTION,
-                                            "native_function",
-                                            gandiva_native_function,
-                                            NULL));
+  auto native_function =
+    GGANDIVA_NATIVE_FUNCTION(g_object_new(GGANDIVA_TYPE_NATIVE_FUNCTION,
+                                          "native_function",
+                                          gandiva_native_function,
+                                          NULL));
   return native_function;
 }
 

@@ -98,10 +98,10 @@ gboolean
 ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
                                   GGandivaFunctionSignature *other_function_signature)
 {
-  auto gandiva_function_signature
-    = ggandiva_function_signature_get_raw(function_signature);
-  auto other_gandiva_function_signature
-    = ggandiva_function_signature_get_raw(other_function_signature);
+  auto gandiva_function_signature =
+    ggandiva_function_signature_get_raw(function_signature);
+  auto other_gandiva_function_signature =
+    ggandiva_function_signature_get_raw(other_function_signature);
 
   return (*gandiva_function_signature) == (*other_gandiva_function_signature);
 }
@@ -117,8 +117,8 @@ ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
 gchar *
 ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signature)
 {
-  const auto gandiva_function_signature
-    = ggandiva_function_signature_get_raw(function_signature);
+  const auto gandiva_function_signature =
+    ggandiva_function_signature_get_raw(function_signature);
   return g_strdup(gandiva_function_signature->ToString().c_str());
 }
 
@@ -127,11 +127,11 @@ G_END_DECLS
 GGandivaFunctionSignature *
 ggandiva_function_signature_new_raw(const gandiva::FunctionSignature *gandiva_function_signature)
 {
-  auto function_signature
-    = GGANDIVA_FUNCTION_SIGNATURE(g_object_new(GGANDIVA_TYPE_FUNCTION_SIGNATURE,
-                                               "function_signature",
-                                               gandiva_function_signature,
-                                               NULL));
+  auto function_signature =
+    GGANDIVA_FUNCTION_SIGNATURE(g_object_new(GGANDIVA_TYPE_FUNCTION_SIGNATURE,
+                                             "function_signature",
+                                             gandiva_function_signature,
+                                             NULL));
   return function_signature;
 }
 
