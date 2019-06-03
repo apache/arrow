@@ -49,18 +49,6 @@ G_DEFINE_TYPE_WITH_PRIVATE(GGandivaNativeFunction,
           GGANDIVA_NATIVE_FUNCTION(obj)))
 
 static void
-ggandiva_native_function_dispose(GObject *object)
-{
-  G_OBJECT_CLASS(ggandiva_native_function_parent_class)->dispose(object);
-}
-
-static void
-ggandiva_native_function_finalize(GObject *object)
-{
-  G_OBJECT_CLASS(ggandiva_native_function_parent_class)->finalize(object);
-}
-
-static void
 ggandiva_native_function_set_property(GObject *object,
                                       guint prop_id,
                                       const GValue *value,
@@ -88,8 +76,6 @@ ggandiva_native_function_class_init(GGandivaNativeFunctionClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = ggandiva_native_function_dispose;
-  gobject_class->finalize = ggandiva_native_function_finalize;
   gobject_class->set_property = ggandiva_native_function_set_property;
 
   GParamSpec *spec;

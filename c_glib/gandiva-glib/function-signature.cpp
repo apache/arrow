@@ -47,18 +47,6 @@ G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFunctionSignature,
           GGANDIVA_FUNCTION_SIGNATURE(obj)))
 
 static void
-ggandiva_function_signature_dispose(GObject *object)
-{
-  G_OBJECT_CLASS(ggandiva_function_signature_parent_class)->dispose(object);
-}
-
-static void
-ggandiva_function_signature_finalize(GObject *object)
-{
-  G_OBJECT_CLASS(ggandiva_function_signature_parent_class)->finalize(object);
-}
-
-static void
 ggandiva_function_signature_set_property(GObject *object,
                                          guint prop_id,
                                          const GValue *value,
@@ -86,8 +74,6 @@ ggandiva_function_signature_class_init(GGandivaFunctionSignatureClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = ggandiva_function_signature_dispose;
-  gobject_class->finalize = ggandiva_function_signature_finalize;
   gobject_class->set_property = ggandiva_function_signature_set_property;
 
   GParamSpec *spec;
