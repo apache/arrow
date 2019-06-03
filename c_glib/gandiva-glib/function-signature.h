@@ -39,5 +39,6 @@ gboolean ggandiva_function_signature_equal(GGandivaFunctionSignature *function_s
                                            GGandivaFunctionSignature *other_function_signature);
 gchar *ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signature);
 GArrowDataType *ggandiva_function_signature_get_ret_type(GGandivaFunctionSignature *function_signature);
+gchar *ggandiva_function_signature_get_base_name(GGandivaFunctionSignature *function_signature);
 
 G_END_DECLS

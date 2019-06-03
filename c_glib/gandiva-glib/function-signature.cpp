@@ -144,6 +144,22 @@ ggandiva_function_signature_get_ret_type(GGandivaFunctionSignature *function_sig
   return data_type;
 }
 
+/**
+ * ggandiva_function_signature_get_base_name:
+ * @function_signature: A #GGandivaFunctionSignature
+ *
+ * Returns: (transfer full): A base name of the function signature.
+ *
+ * Since: 0.14.0
+ */
+gchar *
+ggandiva_function_signature_get_base_name(GGandivaFunctionSignature *function_signature)
+{
+  const auto gandiva_function_signature =
+    ggandiva_function_signature_get_raw(function_signature);
+  return g_strdup(gandiva_function_signature->base_name().c_str());
+}
+
 G_END_DECLS
 
 GGandivaFunctionSignature *

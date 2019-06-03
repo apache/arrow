@@ -33,4 +33,9 @@ class TestGandivaFunctionSignature < Test::Unit::TestCase
     assert_equal(Arrow::Date64DataType.new,
                  @to_date.ret_type)
   end
+
+  def test_get_base_name
+    assert_equal("to_date",
+                 @to_date.base_name)
+  end
 end
