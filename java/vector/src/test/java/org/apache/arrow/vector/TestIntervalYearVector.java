@@ -39,7 +39,7 @@ public class TestIntervalYearVector {
   }
 
   @Test
-  public void testGetObject(){
+  public void testGetObject() {
     try (final IntervalYearVector vector = new IntervalYearVector("", allocator)) {
       int valueCount = 100;
       vector.setInitialCapacity(valueCount);
