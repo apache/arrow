@@ -53,8 +53,8 @@ struct _GGandivaNativeFunctionClass
   GObjectClass parent_class;
 };
 
-GGandivaFunctionSignature *ggandiva_native_function_get_function_signature(GGandivaNativeFunction *native_function);
-gchar *ggandiva_native_function_get_string_function_signature(GGandivaNativeFunction *native_function);
+GGandivaFunctionSignature *ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function);
+gchar *ggandiva_native_function_to_string(GGandivaNativeFunction *native_function);
 GGandivaResultNullableType ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native_function);
 gboolean ggandiva_native_function_needs_context(GGandivaNativeFunction *native_function);
 gboolean ggandiva_native_function_needs_function_holder(GGandivaNativeFunction *native_function);

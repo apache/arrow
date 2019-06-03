@@ -88,7 +88,7 @@ ggandiva_native_function_class_init(GGandivaNativeFunctionClass *klass)
 }
 
 /**
- * ggandiva_native_function_get_function_signature:
+ * ggandiva_native_function_get_signature:
  * @native_function: A #GGandivaNativeFunction.
  *
  * Returns: (transfer full): A #GGandivaFunctionSignature that represents
@@ -97,7 +97,7 @@ ggandiva_native_function_class_init(GGandivaNativeFunctionClass *klass)
  * Since: 0.14.0
  */
 GGandivaFunctionSignature *
-ggandiva_native_function_get_function_signature(GGandivaNativeFunction *native_function)
+ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function)
 {
   auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
   auto gandiva_function_signature = priv->native_function->signature();
@@ -105,7 +105,7 @@ ggandiva_native_function_get_function_signature(GGandivaNativeFunction *native_f
 }
 
 /**
- * ggandiva_native_function_get_string_function_signature:
+ * ggandiva_native_function_to_string:
  * @native_function: A #GGandivaNativeFunction.
  *
  * Returns: (transfer full):
@@ -114,7 +114,7 @@ ggandiva_native_function_get_function_signature(GGandivaNativeFunction *native_f
  * Since: 0.14.0
  */
 gchar *
-ggandiva_native_function_get_string_function_signature(GGandivaNativeFunction *native_function)
+ggandiva_native_function_to_string(GGandivaNativeFunction *native_function)
 {
   auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
   auto gandiva_function_signature = priv->native_function->signature();
