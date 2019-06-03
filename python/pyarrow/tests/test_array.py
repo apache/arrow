@@ -1374,3 +1374,10 @@ def test_numpy_string_overflow_to_chunked():
         for val in chunk:
             assert val.as_py() == values[value_index]
             value_index += 1
+
+
+def test_array_from_large_pyints():
+    # ARROW-5430
+    with pytest.raises(pa.ArrowInvalid):
+        # too large for int64 so dtype must be explicitly provided
+        pa.array([int(2 ** 63)])
