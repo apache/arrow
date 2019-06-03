@@ -139,7 +139,7 @@ ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native
 }
 
 /**
- * ggandiva_native_function_needs_context:
+ * ggandiva_native_function_need_context:
  * @native_function: A #GGandivaNativeFunction.
  *
  * Returns:
@@ -149,14 +149,14 @@ ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native
  * Since: 0.14.0
  */
 gboolean
-ggandiva_native_function_needs_context(GGandivaNativeFunction *native_function)
+ggandiva_native_function_need_context(GGandivaNativeFunction *native_function)
 {
   auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
   return priv->native_function->NeedsContext();
 }
 
 /**
- * ggandiva_native_function_needs_function_holder:
+ * ggandiva_native_function_need_function_holder:
  * @native_function: A #GGandivaNativeFunction.
  *
  * Returns:
@@ -166,7 +166,7 @@ ggandiva_native_function_needs_context(GGandivaNativeFunction *native_function)
  * Since: 0.14.0
  */
 gboolean
-ggandiva_native_function_needs_function_holder(GGandivaNativeFunction *native_function)
+ggandiva_native_function_need_function_holder(GGandivaNativeFunction *native_function)
 {
   auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
   return priv->native_function->NeedsFunctionHolder();
