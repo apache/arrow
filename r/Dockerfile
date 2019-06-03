@@ -49,7 +49,7 @@ RUN apt update && \
     apt install -y \
         texlive-latex-base && \
     # Install vctrs from Github
-    Rscript -e "install.packages('devtools', repos = 'http://cran.rstudio.com')" && \
+    Rscript -e "install.packages('devtools', repos = 'https://cran.rstudio.com')" && \
     Rscript -e "devtools::install_github('romainfrancois/vctrs@bit64')" && \
     Rscript -e "devtools::install_github('r-lib/withr')" && \
     Rscript -e "devtools::install_github('RcppCore/Rcpp')" && \
@@ -65,7 +65,7 @@ RUN apt update && \
         'bit64', \
         'hms', \
         'lubridate'), \
-        repos = 'http://cran.rstudio.com')"
+        repos = 'https://cran.rstudio.com')"
 
 # Tell R where it can find the source code for arrow
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow:/opt/conda/lib/pkgconfig

@@ -25,7 +25,7 @@
 
   <name>Apache Arrow Java Root POM</name>
   <description>Apache Arrow is open source, in-memory columnar data structures and low-overhead messaging</description>
-  <url>http://arrow.apache.org/</url>
+  <url>https://arrow.apache.org/</url>
 
   <properties>
     <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
@@ -55,20 +55,20 @@
       <subscribe>dev-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>dev-unsubscribe@arrow.apache.org</unsubscribe>
       <post>dev@arrow.apache.org</post>
-      <archive>http://mail-archives.apache.org/mod_mbox/arrow-dev/</archive>
+      <archive>https://mail-archives.apache.org/mod_mbox/arrow-dev/</archive>
     </mailingList>
     <mailingList>
       <name>Commits List</name>
       <subscribe>commits-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>commits-unsubscribe@arrow.apache.org</unsubscribe>
       <post>commits@arrow.apache.org</post>
-      <archive>http://mail-archives.apache.org/mod_mbox/arrow-commits/</archive>
+      <archive>https://mail-archives.apache.org/mod_mbox/arrow-commits/</archive>
     </mailingList>
     <mailingList>
       <name>Issues List</name>
       <subscribe>issues-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>issues-unsubscribe@arrow.apache.org</unsubscribe>
-      <archive>http://mail-archives.apache.org/mod_mbox/arrow-issues/</archive>
+      <archive>https://mail-archives.apache.org/mod_mbox/arrow-issues/</archive>
     </mailingList>
   </mailingLists>
 
@@ -158,7 +158,7 @@
             <manifestEntries>
               <Extension-Name>org.apache.arrow</Extension-Name>
               <Built-By>${username}</Built-By>
-              <url>http://arrow.apache.org/</url>
+              <url>https://arrow.apache.org/</url>
             </manifestEntries>
           </archive>
         </configuration>

@@ -346,7 +346,7 @@ if(DEFINED ENV{ARROW_THRIFT_URL})
 else()
   set(
     THRIFT_SOURCE_URL
-    "http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
+    "https://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
     )
 endif()
 
@@ -363,7 +363,7 @@ endif()
 if(DEFINED ENV{ARROW_ZLIB_URL})
   set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
 else()
-  set(ZLIB_SOURCE_URL "http://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
+  set(ZLIB_SOURCE_URL "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ZSTD_URL})
