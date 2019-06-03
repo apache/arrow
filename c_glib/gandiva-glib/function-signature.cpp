@@ -111,7 +111,7 @@ ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
  * ggandiva_function_signature_to_string:
  * @function_signature: A #GGandivaFunctionSignature
  *
- * Returns: The string representation of the function signature.
+ * Returns: (transfer full): The string representation of the function signature.
  *
  * Since: 0.14.0
  */
