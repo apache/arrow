@@ -114,12 +114,12 @@ mxArray* ReadVariableData(const std::shared_ptr<Column>& column) {
 // arrow::Buffers are bit-packed, while mxLogical arrays aren't. This utility
 // uses an Arrow utility to copy each bit of an arrow::Buffer into each byte
 // of an mxLogical array.
-void BitUnpackBuffer(const std::shared_ptr<Buffer>& source, const int64_t length,
+void BitUnpackBuffer(const std::shared_ptr<Buffer>& source, int64_t length,
                      bool* destination) {
   const uint8_t* source_data = source->data();
 
   // Call into an Arrow utility to visit each bit in the bitmap.
-  auto visitFcn = [&](const bool& is_valid) { *destination++ = is_valid; };
+  auto visitFcn = [&](bool is_valid) { *destination++ = is_valid; };
 
   const int64_t start_offset = 0;
   arrow::internal::VisitBitsUnrolled(source_data, start_offset, length, visitFcn);

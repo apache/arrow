@@ -41,7 +41,7 @@ namespace internal {
 // Utility that helps verify the input mxArray struct field name and type.
 // Returns void since any errors will throw and terminate MEX execution.
 void ValidateMxStructField(const mxArray* struct_array, const char* fieldname,
-                           const mxClassID expected_class_id, const bool can_be_empty) {
+                           mxClassID expected_class_id, bool can_be_empty) {
   // Check that the input mxArray is a struct array.
   if (!mxIsStruct(struct_array)) {
     mexErrMsgIdAndTxt("MATLAB:arrow:IncorrectDimensionsOrType",
