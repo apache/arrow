@@ -127,11 +127,17 @@ std::ostream& operator<<(std::ostream& os, const DataType& type) {
 
 std::string BooleanType::ToString() const { return name(); }
 
-FloatingPoint::Precision HalfFloatType::precision() const { return FloatingPoint::HALF; }
+FloatingPointType::Precision HalfFloatType::precision() const {
+  return FloatingPointType::HALF;
+}
 
-FloatingPoint::Precision FloatType::precision() const { return FloatingPoint::SINGLE; }
+FloatingPointType::Precision FloatType::precision() const {
+  return FloatingPointType::SINGLE;
+}
 
-FloatingPoint::Precision DoubleType::precision() const { return FloatingPoint::DOUBLE; }
+FloatingPointType::Precision DoubleType::precision() const {
+  return FloatingPointType::DOUBLE;
+}
 
 std::string StringType::ToString() const { return std::string("string"); }
 
@@ -386,7 +392,7 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
       value_type_(value_type),
       ordered_(ordered) {
 #ifndef NDEBUG
-  const auto& int_type = checked_cast<const Integer&>(*index_type);
+  const auto& int_type = checked_cast<const IntegerType&>(*index_type);
   DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
 #endif
 }
