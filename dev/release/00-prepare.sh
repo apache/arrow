@@ -122,25 +122,15 @@ update_versions() {
     "s/^version = \".+\"/version = \"${version}\"/g" \
     */Cargo.toml
   if [ ${type} = "snapshot" ]; then
-    sed -i.bak -E -e \
-      "s/^arrow = { version = \".+\" }/arrow = { path = \"..\/arrow\"\ }/g" \
-      datafusion/Cargo.toml
-    sed -i.bak -E -e \
-      "s/^parquet = { version = \".+\" }/parquet = { path = \"..\/parquet\"\ }/g" \
-      datafusion/Cargo.toml
-    sed -i.bak -E -e \
-      "s/^arrow = { version = \".+\" }/arrow = { path = \"..\/arrow\"\ }/g" \
-      parquet/Cargo.toml
+    sed -i.bak -E \
+      -e "s/^arrow = \".+\"/arrow = { path = \"..\/arrow\" }/g" \
+      -e "s/^parquet = \".+\"/parquet = { path = \"..\/parquet\" }/g" \
+      */Cargo.toml
   else
-    sed -i.bak -E -e \
-      "s/^arrow = { path = \"..\/arrow\"\ }/arrow = { version = \"${version}\" }/g" \
-      datafusion/Cargo.toml
-    sed -i.bak -E -e \
-      "s/^parquet = { path = \"..\/parquet\"\ }/parquet = { version = \"${version}\" }/g" \
-      datafusion/Cargo.toml
-    sed -i.bak -E -e \
-      "s/^arrow = { path = \"..\/arrow\"\ }/arrow = { version = \"${version}\" }/g" \
-      parquet/Cargo.toml
+    sed -i.bak -E \
+      -e "s/^arrow = \{ path = \".+\" \}/arrow = \"${version}\"/g" \
+      -e "s/^parquet = \{ path = \".+\" \}/parquet = \"${version}\"/g" \
+      */Cargo.toml
   fi
   rm -f */Cargo.toml.bak
   git add */Cargo.toml
