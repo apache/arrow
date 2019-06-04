@@ -151,9 +151,9 @@ TEST(ScalarMemoTable, Int64) {
 
   ScalarMemoTable<int64_t> table(0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), -1);
+  ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), -1);
+  ASSERT_EQ(table.Get(B), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(B), 1);
   ASSERT_EQ(table.GetOrInsert(C), 2);
   ASSERT_EQ(table.GetOrInsert(D), 3);
@@ -196,9 +196,9 @@ TEST(ScalarMemoTable, UInt16) {
 
   ScalarMemoTable<uint16_t> table(0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), -1);
+  ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), -1);
+  ASSERT_EQ(table.Get(B), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(B), 1);
   ASSERT_EQ(table.GetOrInsert(C), 2);
   ASSERT_EQ(table.GetOrInsert(D), 3);
@@ -224,9 +224,9 @@ TEST(SmallScalarMemoTable, Int8) {
 
   SmallScalarMemoTable<int8_t> table(0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), -1);
+  ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), -1);
+  ASSERT_EQ(table.Get(B), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(B), 1);
   ASSERT_EQ(table.GetOrInsert(C), 2);
   ASSERT_EQ(table.GetOrInsert(D), 3);
@@ -250,9 +250,9 @@ TEST(SmallScalarMemoTable, Int8) {
 TEST(SmallScalarMemoTable, Bool) {
   SmallScalarMemoTable<bool> table(0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(true), -1);
+  ASSERT_EQ(table.Get(true), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(true), 0);
-  ASSERT_EQ(table.Get(false), -1);
+  ASSERT_EQ(table.Get(false), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(false), 1);
 
   ASSERT_EQ(table.Get(true), 0);
@@ -272,9 +272,9 @@ TEST(ScalarMemoTable, Float64) {
 
   ScalarMemoTable<double> table(0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), -1);
+  ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), -1);
+  ASSERT_EQ(table.Get(B), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(B), 1);
   ASSERT_EQ(table.GetOrInsert(C), 2);
   ASSERT_EQ(table.GetOrInsert(D), 3);
@@ -341,9 +341,9 @@ TEST(BinaryMemoTable, Basics) {
 
   BinaryMemoTable table(0);
   ASSERT_EQ(table.size(), 0);
-  ASSERT_EQ(table.Get(A), -1);
+  ASSERT_EQ(table.Get(A), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(A), 0);
-  ASSERT_EQ(table.Get(B), -1);
+  ASSERT_EQ(table.Get(B), kKeyNotFound);
   ASSERT_EQ(table.GetOrInsert(B), 1);
   ASSERT_EQ(table.GetOrInsert(C), 2);
   ASSERT_EQ(table.GetOrInsert(D), 3);

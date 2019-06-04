@@ -332,6 +332,8 @@ class HashTable {
 
 // XXX typedef memo_index_t int32_t ?
 
+constexpr int32_t kKeyNotFound = -1;
+
 // ----------------------------------------------------------------------
 // A base class for memoization table.
 
@@ -363,7 +365,7 @@ class ScalarMemoTable : public MemoTable {
     if (p.second) {
       return p.first->payload.memo_index;
     } else {
-      return -1;
+      return kKeyNotFound;
     }
   }
 
@@ -448,7 +450,7 @@ template <typename Scalar, template <class> class HashTableTemplateType = HashTa
 class SmallScalarMemoTable : public MemoTable {
  public:
   explicit SmallScalarMemoTable(int64_t entries = 0) {
-    std::fill(value_to_index_, value_to_index_ + cardinality, -1);
+    std::fill(value_to_index_, value_to_index_ + cardinality, kKeyNotFound);
     index_to_value_.reserve(cardinality);
   }
 
@@ -461,7 +463,7 @@ class SmallScalarMemoTable : public MemoTable {
   int32_t GetOrInsert(const Scalar value, Func1&& on_found, Func2&& on_not_found) {
     auto value_index = AsIndex(value);
     auto memo_index = value_to_index_[value_index];
-    if (memo_index < 0) {
+    if (memo_index == kKeyNotFound) {
       memo_index = static_cast<int32_t>(index_to_value_.size());
       index_to_value_.push_back(value);
       value_to_index_[value_index] = memo_index;
@@ -527,7 +529,7 @@ class BinaryMemoTable : public MemoTable {
     if (p.second) {
       return p.first->payload.memo_index;
     } else {
-      return -1;
+      return kKeyNotFound;
     }
   }
 
