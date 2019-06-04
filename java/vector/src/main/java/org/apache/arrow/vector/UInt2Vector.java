@@ -74,7 +74,7 @@ public class UInt2Vector extends BaseFixedWidthVector {
    * @param index position of the element.
    * @return value stored at the index.
    */
-  public static long get(final ArrowBuf buffer, final int index) {
+  public static char get(final ArrowBuf buffer, final int index) {
     return buffer.getChar(index * TYPE_WIDTH);
   }
 
