@@ -102,18 +102,7 @@ public class OrcReferenceManager implements ReferenceManager {
 
   @Override
   public OwnershipTransferResult transferOwnership(ArrowBuf sourceBuffer, BufferAllocator targetAllocator) {
-    retain();
-    return new OwnershipTransferResult() {
-      @Override
-      public boolean getAllocationFit() {
-        return false;
-      }
-
-      @Override
-      public ArrowBuf getTransferredBuffer() {
-        return sourceBuffer;
-      }
-    };
+    throw new UnsupportedOperationException();
   }
 
   @Override

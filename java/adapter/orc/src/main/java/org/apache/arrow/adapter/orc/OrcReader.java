@@ -35,7 +35,7 @@ public class OrcReader implements AutoCloseable {
   /**
    * reference to native reader instance.
    */
-  private final long id;
+  private final long nativeInstanceId;
 
   /**
    * Create an OrcReader that iterate over orc stripes.
@@ -46,7 +46,7 @@ public class OrcReader implements AutoCloseable {
   public OrcReader(String filePath, BufferAllocator allocator) throws IOException {
     this.allocator = allocator;
     this.jniWrapper = OrcReaderJniWrapper.getInstance();
-    this.id = jniWrapper.open(filePath);
+    this.nativeInstanceId = jniWrapper.open(filePath);
   }
 
   /**
@@ -56,7 +56,7 @@ public class OrcReader implements AutoCloseable {
    * @return true if seek operation is succeeded
    */
   public boolean seek(int rowNumber) {
-    return jniWrapper.seek(id, rowNumber);
+    return jniWrapper.seek(nativeInstanceId, rowNumber);
   }
 
   /**
@@ -66,7 +66,7 @@ public class OrcReader implements AutoCloseable {
    * @return ArrowReader that iterate over current stripes
    */
   public ArrowReader nextStripeReader(long batchSize) {
-    long stripeReaderId = jniWrapper.nextStripeReader(id, batchSize);
+    long stripeReaderId = jniWrapper.nextStripeReader(nativeInstanceId, batchSize);
     if (stripeReaderId < 0) {
       return null;
     }
@@ -80,11 +80,11 @@ public class OrcReader implements AutoCloseable {
    * @return number of stripes
    */
   public int getNumberOfStripes() {
-    return jniWrapper.getNumberOfStripes(id);
+    return jniWrapper.getNumberOfStripes(nativeInstanceId);
   }
 
   @Override
   public void close() throws Exception {
-    jniWrapper.close(id);
+    jniWrapper.close(nativeInstanceId);
   }
 }

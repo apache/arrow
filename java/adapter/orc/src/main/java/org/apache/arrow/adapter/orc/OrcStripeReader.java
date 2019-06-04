@@ -43,23 +43,22 @@ public class OrcStripeReader extends ArrowReader {
   /**
    * reference to native stripe reader instance.
    */
-  private final long id;
-  private MessageChannelReader schemaReader;
+  private final long nativeInstanceId;
 
   /**
    * Construct a new instance.
-   * @param id id of the stripe reader instance, obtained by
+   * @param nativeInstanceId nativeInstanceId of the stripe reader instance, obtained by
    *           calling nextStripeReader from OrcReaderJniWrapper
    * @param allocator memory allocator for accounting.
    */
-  OrcStripeReader(long id, BufferAllocator allocator) {
+  OrcStripeReader(long nativeInstanceId, BufferAllocator allocator) {
     super(allocator);
-    this.id = id;
+    this.nativeInstanceId = nativeInstanceId;
   }
 
   @Override
   public boolean loadNextBatch() throws IOException {
-    OrcRecordBatch recordBatch = OrcStripeReaderJniWrapper.next(id);
+    OrcRecordBatch recordBatch = OrcStripeReaderJniWrapper.next(nativeInstanceId);
     if (recordBatch == null) {
       return false;
     }
@@ -91,28 +90,29 @@ public class OrcStripeReader extends ArrowReader {
 
   @Override
   protected void closeReadSource() throws IOException {
-    OrcStripeReaderJniWrapper.close(id);
+    OrcStripeReaderJniWrapper.close(nativeInstanceId);
   }
 
   @Override
   protected Schema readSchema() throws IOException {
-    byte[] schemaBytes = OrcStripeReaderJniWrapper.getSchema(id);
-    schemaReader = new MessageChannelReader(
-                      new ReadChannel(
-                        new ByteArrayReadableSeekableByteChannel(schemaBytes)), allocator);
+    byte[] schemaBytes = OrcStripeReaderJniWrapper.getSchema(nativeInstanceId);
 
-    MessageResult result = schemaReader.readNext();
-    schemaReader.close();
+    try (MessageChannelReader schemaReader =
+           new MessageChannelReader(
+                new ReadChannel(
+                new ByteArrayReadableSeekableByteChannel(schemaBytes)), allocator)) {
 
-    if (result == null) {
-      throw new IOException("Unexpected end of input. Missing schema.");
+      MessageResult result = schemaReader.readNext();
+      if (result == null) {
+        throw new IOException("Unexpected end of input. Missing schema.");
+      }
+
+      if (result.getMessage().headerType() != MessageHeader.Schema) {
+        throw new IOException("Expected schema but header was " + result.getMessage().headerType());
+      }
+
+      return MessageSerializer.deserializeSchema(result.getMessage());
     }
-
-    if (result.getMessage().headerType() != MessageHeader.Schema) {
-      throw new IOException("Expected schema but header was " + result.getMessage().headerType());
-    }
-
-    return MessageSerializer.deserializeSchema(result.getMessage());
   }
 
   @Override

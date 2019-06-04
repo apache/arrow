@@ -22,7 +22,7 @@ package org.apache.arrow.adapter.orc;
  */
 class OrcMemoryJniWrapper implements AutoCloseable {
 
-  private final long id;
+  private final long nativeInstanceId;
 
   private final long memoryAddress;
 
@@ -32,13 +32,13 @@ class OrcMemoryJniWrapper implements AutoCloseable {
 
   /**
    * Construct a new instance.
-   * @param id unique id of the underlying memory.
+   * @param nativeInstanceId unique id of the underlying memory.
    * @param memoryAddress starting memory address of the the underlying memory.
    * @param size size of the valid data.
    * @param capacity allocated memory size.
    */
-  OrcMemoryJniWrapper(long id, long memoryAddress, long size, long capacity) {
-    this.id = id;
+  OrcMemoryJniWrapper(long nativeInstanceId, long memoryAddress, long size, long capacity) {
+    this.nativeInstanceId = nativeInstanceId;
     this.memoryAddress = memoryAddress;
     this.size = size;
     this.capacity = capacity;
@@ -70,7 +70,7 @@ class OrcMemoryJniWrapper implements AutoCloseable {
 
   @Override
   public void close() {
-    release(id);
+    release(nativeInstanceId);
   }
 
   private native void release(long id);

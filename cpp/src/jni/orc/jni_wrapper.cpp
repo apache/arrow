@@ -136,7 +136,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_op
 
   arrow::Status ret;
   if (path.find("hdfs://") == 0) {
-    env->ThrowNew(io_exception_class, "hdfs path not support yet.");
+    env->ThrowNew(io_exception_class, "hdfs path not supported yet.");
   } else {
     ret = arrow::io::ReadableFile::Open(path, &in_file);
   }
@@ -183,6 +183,11 @@ Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_nextStripeReader(JNIEnv* e
                                                                        jlong id,
                                                                        jlong batch_size) {
   auto reader = orc_reader_holder_.Lookup(id);
+  if (!reader) {
+    std::string error_message = "invalid reader id " + std::to_string(id);
+    env->ThrowNew(exception_class, error_message.c_str());
+  }
+
   std::shared_ptr<RecordBatchReader> stripe_reader;
   auto status = reader->NextStripeReader(batch_size, &stripe_reader);
 
@@ -202,6 +207,11 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_getSchema(JNIEnv* en
                                                                       jclass this_cls,
                                                                       jlong id) {
   auto stripe_reader = orc_stripe_reader_holder_.Lookup(id);
+  if (!stripe_reader) {
+    std::string error_message = "invalid stripe reader id " + std::to_string(id);
+    env->ThrowNew(exception_class, error_message.c_str());
+  }
+
   auto schema = stripe_reader->schema();
 
   std::shared_ptr<arrow::Buffer> out;
@@ -222,6 +232,11 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
                                                                  jclass this_cls,
                                                                  jlong id) {
   auto stripe_reader = orc_stripe_reader_holder_.Lookup(id);
+  if (!stripe_reader) {
+    std::string error_message = "invalid stripe reader id " + std::to_string(id);
+    env->ThrowNew(exception_class, error_message.c_str());
+  }
+
   std::shared_ptr<arrow::RecordBatch> record_batch;
   auto status = stripe_reader->ReadNext(&record_batch);
   if (!status.ok() || !record_batch) {
