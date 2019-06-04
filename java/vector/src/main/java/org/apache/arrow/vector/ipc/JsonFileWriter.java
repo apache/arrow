@@ -279,7 +279,7 @@ public class JsonFileWriter implements AutoCloseable {
           generator.writeNumber(UInt1Vector.getNoOverflow(buffer, index));
           break;
         case UINT2:
-          generator.writeNumber(UInt2Vector.getNoOverflow(buffer, index));
+          generator.writeNumber(UInt2Vector.get(buffer, index));
           break;
         case UINT4:
           generator.writeNumber(UInt4Vector.getNoOverflow(buffer, index));

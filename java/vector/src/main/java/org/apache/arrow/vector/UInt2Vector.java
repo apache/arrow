@@ -64,23 +64,18 @@ public class UInt2Vector extends BaseFixedWidthVector {
    |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
-
   /**
    * Given a data buffer, get the value stored at a particular position
    * in the vector.
    *
-   * <p>To avoid overflow, the returned type is one step up from the signed
-   * type.
-   *
-   * <p>This method should not be used externally.
+   * <p>This method is mainly meant for integration tests.
    *
    * @param buffer data buffer
    * @param index position of the element.
    * @return value stored at the index.
    */
-  public static int getNoOverflow(final ArrowBuf buffer, final int index) {
-    int s =  buffer.getShort(index * TYPE_WIDTH);
-    return 0xFFFF & s;
+  public static long get(final ArrowBuf buffer, final int index) {
+    return buffer.getChar(index * TYPE_WIDTH);
   }
 
   /**
@@ -123,20 +118,6 @@ public class UInt2Vector extends BaseFixedWidthVector {
       return null;
     } else {
       return valueBuffer.getChar(index * TYPE_WIDTH);
-    }
-  }
-
-  /**
-   * Same as {@link #get(int)}.
-   *
-   * @param index   position of element
-   * @return element at given index
-   */
-  public Integer getObjectNoOverflow(int index) {
-    if (isSet(index) == 0) {
-      return null;
-    } else {
-      return getNoOverflow(valueBuffer,index);
     }
   }
 

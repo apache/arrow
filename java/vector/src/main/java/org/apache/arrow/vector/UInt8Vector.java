@@ -75,7 +75,7 @@ public class UInt8Vector extends BaseFixedWidthVector {
    * <p>To avoid overflow, the returned type is one step up from the signed
    * type.
    *
-   * <p>This method should not be used externally.
+   * <p>This method is mainly meant for integration tests.
    *
    * @param buffer data buffer
    * @param index position of the element.

@@ -104,7 +104,7 @@ public class BaseFileTest {
 
 
   private static short [] uint1Values = new short[]{0, 255, 1, 128, 2};
-  private static int [] uint2Values = new int[]{0, Short.MAX_VALUE + 1, 1, Short.MAX_VALUE * 2, 2};
+  private static char [] uint2Values = new char[]{0, Character.MAX_VALUE, 1, Short.MAX_VALUE * 2, 2};
   private static long [] uint4Values = new long[]{0, Integer.MAX_VALUE + 1, 1, Integer.MAX_VALUE * 2, 2};
   private static BigInteger[] uint8Values = new BigInteger[]{BigInteger.valueOf(0),
       BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(2)), BigInteger.valueOf(2),
@@ -147,9 +147,9 @@ public class BaseFileTest {
       Assert.assertEquals(i, root.getVector("int").getObject(i));
       Assert.assertEquals((Short)uint1Values[i % uint1Values.length],
           ((UInt1Vector)root.getVector("uint1")).getObjectNoOverflow(i));
-      Assert.assertEquals("Failed for index: " + i, (Integer)uint2Values[i % uint8Values.length],
-          ((UInt2Vector)root.getVector("uint2")).getObjectNoOverflow(i));
-      Assert.assertEquals("Failed for index: " + i, (Long)uint4Values[i % uint8Values.length],
+      Assert.assertEquals("Failed for index: " + i, (Character)uint2Values[i % uint2Values.length],
+          (Character)((UInt2Vector)root.getVector("uint2")).get(i));
+      Assert.assertEquals("Failed for index: " + i, (Long)uint4Values[i % uint4Values.length],
           ((UInt4Vector)root.getVector("uint4")).getObjectNoOverflow(i));
       Assert.assertEquals("Failed for index: " + i, uint8Values[i % uint8Values.length],
           ((UInt8Vector)root.getVector("uint8")).getObjectNoOverflow(i));
