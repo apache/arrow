@@ -17,13 +17,13 @@
 
 import { Binary } from '../type';
 import { toUint8Array } from '../util/buffer';
-import { BinaryBufferBuilder } from './buffer';
+import { BufferBuilder } from './buffer';
 import { VariableWidthBuilder, BuilderOptions } from './base';
 
 export class BinaryBuilder<TNull = any> extends VariableWidthBuilder<Binary, TNull> {
     constructor(opts: BuilderOptions<Binary, TNull>) {
         super(opts);
-        this._values = new BinaryBufferBuilder();
+        this._values = new BufferBuilder(new Uint8Array(0));
     }
     public setValue(index: number, value: Uint8Array) {
         return super.setValue(index, toUint8Array(value));

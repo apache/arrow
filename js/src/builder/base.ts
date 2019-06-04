@@ -20,7 +20,7 @@ import { Data, Buffers } from '../data';
 import { Vector as V } from '../interfaces';
 import { createIsValidFunction } from './valid';
 import { VectorType as BufferType } from '../enum';
-import { BufferBuilder, BitmapBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './buffer';
+import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './buffer';
 import {
     DataType, strideForType,
     Float, Int, Decimal, FixedSizeBinary,
@@ -43,6 +43,60 @@ export interface IterableBuilderOptions<T extends DataType = any, TNull = any> e
     valueToChildTypeId?: (builder: Builder<T, TNull>, value: any, offset: number) => number;
 }
 
+/**
+ * Construct a builder with the given Arrow DataType with optional null values,
+ * which will be interpreted as "null" values when set or appended to the `Builder`.
+ * @param { type: DataType, nullValues?: any[] } options A `BuilderOptions` object used to create this `Builder`
+ * 
+ * @class
+ * @classdesc
+ * The abstract base class for types that construct Arrow Vectors from
+ * arbitrary JavaScript values. Values can be appended to a Builder, and
+ * the Builder is responsible for creating, resizing, and writing to the
+ * underlying buffers (or child Builders) as necessary.
+ * 
+ * The `Builder` for each Arrow `DataType` handles converting and appending
+ * values in specific ways for that `DataType`. Use the high-level `Builder.new()`
+ * convenience method to create a `Builder` for the specific `DataType` for
+ * the Vector you are creating.
+ * 
+ * Once created, `Builder` instances support both random-access writes, and
+ * appending values to the end of the `Builder` (`Builder.prototype.append(value)`
+ * is a convenience method for ``builder.set(builder.length, value)`). Writing
+ * or appending values beyond the Builder's current length may cause the builder
+ * to grow its underlying buffers (if applicable) to accommodate the new values.
+ * 
+ * After enough values have been written to a `Builder`, `Builder.prototype.flush()`
+ * will commit the values to the underlying ArrayBuffers (or child Builders). The
+ * internal Builder state will be reset, and an instance of `Data<T>` is returned.
+ * Alternatively, `Builder.prototype.toVector()` will flush the `Builder` and return
+ * an instance of `Vector<T>` instead.
+ * 
+ * When there are no more values to write, `Builder.prototype.finish()` will
+ * finalize the `Builder`. This operation does not reset the internal state,
+ * so it is necessary to call `Builder.prototype.flush()` or `toVector()` one
+ * last time if there are still values queued to be flushed. Note: calling `finish()`
+ * is required when using a `DictionaryBuilder`, which flushes its internal
+ * dictionary's `Builder`.
+ * 
+ * @example
+ * import { Builder, Utf8 } from 'apache-arrow';
+ * 
+ * const utf8Builder = Builder.new({
+ *     type: new Utf8(),
+ *     nullValues: [null, 'n/a']
+ * });
+ * 
+ * utf8Builder
+ *  .append('hello')
+ *  .append('n/a')
+ *  .append('world')
+ *  .append(null);
+ * 
+ * const utf8Vector = utf8Builder.finish().toVector();
+ * console.log(utf8Vector.toJSON());
+ * //> ["hello", null, "world", null]
+ */
 export abstract class Builder<T extends DataType = any, TNull = any> {
 
     /** @nocollapse */
@@ -82,7 +136,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         this.children = [];
         this.nullValues = nulls;
         this.stride = strideForType(type);
-        this._nulls = new BitmapBuilder();
+        this._nulls = new BitmapBufferBuilder();
         if (nulls && nulls.length > 0) {
             this._isValid = createIsValidFunction(nulls);
         }
@@ -136,7 +190,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     protected _values: BufferBuilder<T['TArray'], any>;
     public get values() { return this._values.buffer; }
 
-    protected _nulls: BitmapBuilder;
+    protected _nulls: BitmapBufferBuilder;
     public get nullBitmap() { return this._nulls.buffer; }
 
     // @ts-ignore

@@ -17,14 +17,14 @@
 
 import { Utf8 } from '../type';
 import { encodeUtf8 } from '../util/utf8';
-import { BinaryBufferBuilder } from './buffer';
-import { VariableWidthBuilder, BuilderOptions } from './base';
 import { BinaryBuilder } from './binary';
+import { BufferBuilder } from './buffer';
+import { VariableWidthBuilder, BuilderOptions } from './base';
 
 export class Utf8Builder<TNull = any> extends VariableWidthBuilder<Utf8, TNull> {
     constructor(opts: BuilderOptions<Utf8, TNull>) {
         super(opts);
-        this._values = new BinaryBufferBuilder();
+        this._values = new BufferBuilder(new Uint8Array(0));
     }
     public setValue(index: number, value: string) {
         return super.setValue(index, encodeUtf8(value) as any);

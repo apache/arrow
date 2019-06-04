@@ -43,7 +43,7 @@ export interface BufferBuilder<T extends TypedArray | BigIntArray = any, TValue 
 }
 
 /** @ignore */
-export abstract class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = DataValue<T>> {
+export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = DataValue<T>> {
 
     constructor(buffer: T, stride = 1) {
         this.buffer = buffer;
@@ -111,7 +111,7 @@ export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, nu
 }
 
 /** @ignore */
-export class BitmapBuilder extends DataBufferBuilder<Uint8Array> {
+export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 
     constructor(data = new Uint8Array(0)) { super(data, 1/8) };
 
@@ -156,16 +156,6 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
             this.set(length - 1, 0);
         }
         return super.flush(length + 1);
-    }
-}
-
-/** @ignore */
-export class BinaryBufferBuilder<T extends Uint8Array = Uint8Array> extends BufferBuilder<T, T> {
-    constructor(data = new Uint8Array(0)) { super(data as T) };
-    public set(index: number, value: Uint8Array) {
-        this.reserve(index - this.length + value.length);
-        this.buffer.set(value, index);
-        return this;
     }
 }
 

@@ -16,13 +16,13 @@
 // under the License.
 
 import { Bool } from '../type';
-import { BitmapBuilder } from './buffer';
+import { BitmapBufferBuilder } from './buffer';
 import { Builder, BuilderOptions } from './base';
 
 export class BoolBuilder<TNull = any> extends Builder<Bool, TNull> {
     constructor(options: BuilderOptions<Bool, TNull>) {
         super(options);
-        this._values = new BitmapBuilder();
+        this._values = new BitmapBufferBuilder();
     }
     public setValue(index: number, value: boolean) {
         this._values.set(index, value);
