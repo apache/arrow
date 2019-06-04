@@ -30,6 +30,7 @@ use std::slice::{from_raw_parts, from_raw_parts_mut};
 use std::sync::Arc;
 
 use crate::builder::{BufferBuilderTrait, UInt8BufferBuilder};
+use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_util;
@@ -138,6 +139,18 @@ impl Buffer {
         unsafe { self.data.ptr.offset(self.offset as isize) }
     }
 
+    /// View buffer as typed slice.
+    pub fn typed_data<T: ArrowNativeType + num::Num>(&self) -> &[T] {
+        assert_eq!(self.len() % mem::size_of::<T>(), 0);
+        assert!(memory::is_ptr_aligned::<T>(self.raw_data() as *const T));
+        unsafe {
+            from_raw_parts(
+                mem::transmute::<*const u8, *const T>(self.raw_data()),
+                self.len() / mem::size_of::<T>(),
+            )
+        }
+    }
+
     /// Returns an empty buffer.
     pub fn empty() -> Self {
         Self::from_raw_parts(::std::ptr::null(), 0)
@@ -168,36 +181,6 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         Buffer::from_raw_parts(buffer, len)
     }
 }
-
-/// Allow a `Buffer` to be viewed as slice of arrow native types.
-macro_rules! make_as_ref {
-    ($native_ty: ty) => {
-        impl AsRef<[$native_ty]> for Buffer {
-            fn as_ref(&self) -> &[$native_ty] {
-                assert_eq!(self.len() % mem::size_of::<$native_ty>(), 0);
-                assert!(memory::is_ptr_aligned::<$native_ty>(
-                    self.raw_data() as *const $native_ty
-                ));
-                unsafe {
-                    from_raw_parts(
-                        mem::transmute::<*const u8, *const $native_ty>(self.raw_data()),
-                        self.len() / mem::size_of::<$native_ty>(),
-                    )
-                }
-            }
-        }
-    };
-}
-
-make_as_ref!(i8);
-make_as_ref!(i16);
-make_as_ref!(u16);
-make_as_ref!(i32);
-make_as_ref!(u32);
-make_as_ref!(i64);
-make_as_ref!(u64);
-make_as_ref!(f32);
-make_as_ref!(f64);
 
 ///  Helper function for SIMD `BitAnd` and `BitOr` implementations
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -520,7 +503,7 @@ mod tests {
     use std::thread;
 
     use super::*;
-    use crate::datatypes::{ArrowNativeType, ToByteSlice};
+    use crate::datatypes::ToByteSlice;
 
     #[test]
     fn test_buffer_data_equality() {
@@ -762,24 +745,25 @@ mod tests {
         assert_eq!(buffer2, buffer_copy.ok().unwrap());
     }
 
-    macro_rules! typed_test_as_ref {
+    macro_rules! check_as_typed_data {
         ($input: expr, $native_t: ty) => {{
             let buffer = Buffer::from($input.to_byte_slice());
-            let slice: &[$native_t] = buffer.as_ref();
+            let slice: &[$native_t] = buffer.typed_data::<$native_t>();
             assert_eq!($input, slice);
         }};
     }
 
     #[test]
-    fn test_as_ref() {
-        typed_test_as_ref!(&[1i8, 3i8, 6i8], i8);
-        typed_test_as_ref!(&[1i16, 3i16, 6i16], i16);
-        typed_test_as_ref!(&[1i32, 3i32, 6i32], i32);
-        typed_test_as_ref!(&[1i64, 3i64, 6i64], i64);
-        typed_test_as_ref!(&[1u16, 3u16, 6u16], u16);
-        typed_test_as_ref!(&[1u32, 3u32, 6u32], u32);
-        typed_test_as_ref!(&[1u64, 3u64, 6u64], u64);
-        typed_test_as_ref!(&[1f32, 3f32, 6f32], f32);
-        typed_test_as_ref!(&[1f64, 3f64, 6f64], f64);
+    fn test_as_typed_data() {
+        check_as_typed_data!(&[1i8, 3i8, 6i8], i8);
+        check_as_typed_data!(&[1u8, 3u8, 6u8], u8);
+        check_as_typed_data!(&[1i16, 3i16, 6i16], i16);
+        check_as_typed_data!(&[1i32, 3i32, 6i32], i32);
+        check_as_typed_data!(&[1i64, 3i64, 6i64], i64);
+        check_as_typed_data!(&[1u16, 3u16, 6u16], u16);
+        check_as_typed_data!(&[1u32, 3u32, 6u32], u32);
+        check_as_typed_data!(&[1u64, 3u64, 6u64], u64);
+        check_as_typed_data!(&[1f32, 3f32, 6f32], f32);
+        check_as_typed_data!(&[1f64, 3f64, 6f64], f64);
     }
 }
