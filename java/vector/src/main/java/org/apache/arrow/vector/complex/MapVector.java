@@ -18,11 +18,14 @@
 package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.AddOrGetResult;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
-import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
@@ -48,11 +51,22 @@ public class MapVector extends ListVector {
     if (children.size() != 1) {
       throw new IllegalArgumentException("Maps have one List child. Found: " + children);
     }
+
     Field structField = children.get(0);
-    // TODO: check for STRUCT if (structField.getType())
+    MinorType minorType = Types.getMinorTypeForArrowType(structField.getType());
+    if (minorType != MinorType.STRUCT || structField.isNullable()) {
+      throw new IllegalArgumentException("Map data should be a non-nullable struct type");
+    }
+
     if (structField.getChildren().size() != 2) {
       throw new IllegalArgumentException("Map data should be a struct with 2 children. Found: " + children);
     }
+
+    Field keyField = structField.getChildren().get(0);
+    if (keyField.isNullable()) {
+      throw new IllegalArgumentException("Map data key type should be a non-nullable");
+    }
+
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(structField.getFieldType());
     if (!addOrGetVector.isCreated()) {
       throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
