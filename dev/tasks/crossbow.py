@@ -205,8 +205,13 @@ class Repo:
 
     def push(self):
         callbacks = GitRemoteCallbacks(self.github_token)
-        self.origin.push(self._updated_refs, callbacks=callbacks)
-        self.updated_refs = []
+        try:
+            self.origin.push(self._updated_refs, callbacks=callbacks)
+        except pygit2.GitError:
+            raise RuntimeError('Failed to push updated references: {}'
+                               .format(self._updated_refs))
+        else:
+            self.updated_refs = []
 
     @property
     def head(self):
