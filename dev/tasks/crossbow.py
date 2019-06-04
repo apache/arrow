@@ -424,18 +424,27 @@ class Target:
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
 
     @classmethod
-    def from_repo(cls, repo, version=None):
+    def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
+                  email=None):
+        """Initialize from a repository
+
+        Optionally override detected remote, branch, head, and/or version.
+        """
         assert isinstance(repo, Repo)
+
+        if head is None:
+            head = str(repo.head.target)
+        if branch is None:
+            branch = repo.branch.branch_name
+        if remote is None:
+            remote = repo.remote_url
         if version is None:
-            version = get_version(repo.path)
-            formatted_version = version.format_with('{tag}.dev{distance}')
-        else:
-            formatted_version = version
-        return cls(head=str(repo.head.target),
-                   email=repo.user_email,
-                   branch=repo.branch.branch_name,
-                   remote=repo.remote_url,
-                   version=formatted_version)
+            version = get_version(repo.path).format_with('{tag}.dev{distance}')
+        if email is None:
+            email = repo.user_email
+
+        return cls(head=head, email=email, branch=branch, remote=remote,
+                   version=version)
 
 
 class Task:
@@ -616,20 +625,17 @@ def load_tasks_from_config(config_path, task_names, group_names):
               type=click.Path(exists=True), default=DEFAULT_CONFIG_PATH,
               help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--arrow-version', '-v', default=None,
-              help='Set target version explicitly')
-@click.option('--arrow-repo', '-r', default=None,
-              help='Set Github repo name explicitly, e.g. apache/arrow, '
-                   'kszucs/arrow, this repository is going to be cloned on '
-                   'the CI services. Note, that no validation happens locally '
-                   'and potentially --arrow-branch and --arrow-sha must be '
-                   'defined as well')
-@click.option('--arrow-branch', '-b', default='master',
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.'
-                   'Only available if --arrow-repo is set.')
-@click.option('--arrow-sha', '-t', default='HEAD',
+              help='Set target version explicitly.')
+@click.option('--arrow-remote', '-r', default=None,
+              help='Set Github remote explicitly, which is going to be cloned '
+                   'on the CI services. Note, that no validation happens '
+                   'locally. Examples: https://github.com/apache/arrow or '
+                   'https://github.com/kszucs/arrow.')
+@click.option('--arrow-branch', '-b', default=None,
+              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+@click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
-                   'apache-arrow-0.11.1. Only available if both --arrow-repo '
-                   '--arrow-branch are set.')
+                   'apache-arrow-0.11.1.')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
@@ -638,31 +644,18 @@ def load_tasks_from_config(config_path, task_names, group_names):
               help='Capture output result into file.')
 @click.pass_context
 def submit(ctx, task, group, job_prefix, config_path, arrow_version,
-           arrow_repo, arrow_branch, arrow_sha, dry_run, output):
+           arrow_remote, arrow_branch, arrow_sha, dry_run, output):
     queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
 
-    if arrow_repo is not None:
-        values = {'version': arrow_version,
-                  'branch': arrow_branch,
-                  'sha': arrow_sha}
-        for k, v in values.items():
-            if not v:
-                raise ValueError('Must pass --arrow-{} argument'.format(k))
-
-        # Set repo url, branch and sha explicitly - this aims to make release
-        # procedure a bit simpler.
-        # Note, that the target resivion's crossbow templates must be
-        # compatible with the locally checked out version of crossbow (which is
-        # in case of the release procedure), because the templates still
-        # contain some business logic (dependency installation, deployments)
-        # which will be reduced to a single command in the future.
-        remote = 'https://github.com/{}'.format(arrow_repo)
-        target = Target(head=arrow_sha, branch=arrow_branch, remote=remote,
-                        version=arrow_version)
-    else:
-        # instantiate target from the locally checked out repository and branch
-        target = Target.from_repo(arrow, version=arrow_version)
-
+    # Override the detected repo url / remote, branch and sha - this aims to
+    # make release procedure a bit simpler.
+    # Note, that the target resivion's crossbow templates must be
+    # compatible with the locally checked out version of crossbow (which is
+    # in case of the release procedure), because the templates still
+    # contain some business logic (dependency installation, deployments)
+    # which will be reduced to a single command in the future.
+    target = Target.from_repo(arrow, remote=arrow_remote, branch=arrow_branch,
+                              head=arrow_sha, version=arrow_version)
     params = {
         'version': target.version,
         'no_rc_version': target.no_rc_version,
