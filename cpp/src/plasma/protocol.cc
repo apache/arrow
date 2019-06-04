@@ -543,7 +543,6 @@ Status SendGetReply(int sock, ObjectID object_ids[],
     if (object.device_num != 0) {
       std::shared_ptr<arrow::Buffer> handle;
       RETURN_NOT_OK(object.ipc_handle->Serialize(arrow::default_memory_pool(), &handle));
-      handles.push_back(fb::CreateCudaHandle(fbb, fbb.CreateVector(handle)));
       handles.push_back(
           fb::CreateCudaHandle(fbb, fbb.CreateVector(handle->data(), handle->size())));
     }
