@@ -1029,7 +1029,7 @@ def get_generated_json_files(tempdir=None, flight=False):
         return
 
     file_objs = [
-        (generate_primitive_case([], name='primitive_no_batches')
+        (generate_primitive_case([], name='primitive_no_batches'),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
