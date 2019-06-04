@@ -19,6 +19,7 @@ package org.apache.arrow.memory;
 
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.buffer.UnsafeDirectLittleEndian;
 
 /**
  * Reference Manager manages one or more ArrowBufs that share the
@@ -121,6 +122,8 @@ public interface ReferenceManager {
 
   public static String NO_OP_ERROR_MESSAGE = "Operation not supported on NO_OP Reference Manager";
 
+  UnsafeDirectLittleEndian getUnderlying();
+
   // currently used for empty ArrowBufs
   ReferenceManager NO_OP = new ReferenceManager() {
     @Override
@@ -172,6 +175,11 @@ public interface ReferenceManager {
     @Override
     public int getAccountedSize() {
       return 0;
+    }
+
+    @Override
+    public UnsafeDirectLittleEndian getUnderlying() {
+      return null;
     }
   };
 }

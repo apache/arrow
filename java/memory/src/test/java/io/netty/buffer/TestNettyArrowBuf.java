@@ -37,4 +37,24 @@ public class TestNettyArrowBuf {
       Assert.assertEquals(10, readableBytes);
     }
   }
+
+  @Test
+  public void testUnWrap() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(20);
+    ) {
+      NettyArrowBuf nettyBuf = buf.asNettyBuffer();
+      Assert.assertNotNull(nettyBuf.unwrap());
+    }
+  }
+
+  @Test
+  public void testNioBuffer() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(20);
+    ) {
+      NettyArrowBuf nettyBuf = buf.asNettyBuffer();
+      Assert.assertNotNull(nettyBuf.nioBuffer(4 ,6));
+    }
+  }
 }

@@ -106,7 +106,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
 
   @Override
   public ByteBuf unwrap() {
-    throw new UnsupportedOperationException("Operation not supported");
+    return arrowBuf.getReferenceManager().getUnderlying();
   }
 
   @Override
@@ -224,17 +224,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
   @Override
   public ByteBuffer nioBuffer(int index, int length) {
     chk(index, length);
-    final ByteBuffer buffer = getDirectBuffer();
-    buffer.position(index).limit(index + length);
-    return buffer;
-  }
-
-  /**
-   * Get this ArrowBuf as a direct {@link ByteBuffer}.
-   * @return ByteBuffer
-   */
-  private ByteBuffer getDirectBuffer() {
-    return PlatformDependent.directBuffer(address, length);
+    UnsafeDirectLittleEndian underlying = arrowBuf.getReferenceManager().getUnderlying();
+    return underlying.nioBuffer((int)(address - underlying.memoryAddress()) + index, length);
   }
 
   @Override
@@ -335,8 +326,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
     if (length == 0) {
       return 0;
     } else {
-      final ByteBuffer tmpBuf = getDirectBuffer();
-      tmpBuf.clear().position(index).limit(index + length);
+      final ByteBuffer tmpBuf = nioBuffer(index, length);
+      tmpBuf.clear();
       return out.write(tmpBuf);
     }
   }
@@ -347,8 +338,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
     if (length == 0) {
       return 0;
     } else {
-      final ByteBuffer tmpBuf = getDirectBuffer();
-      tmpBuf.clear().position(index).limit(index + length);
+      final ByteBuffer tmpBuf = nioBuffer(index, length);
+      tmpBuf.clear();
       return out.write(tmpBuf, position);
     }
   }
