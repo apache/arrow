@@ -175,7 +175,7 @@ class SchemaWriter {
     writer_->Int(type.keys_sorted());
   }
 
-  void WriteTypeMetadata(const Integer& type) {
+  void WriteTypeMetadata(const IntegerType& type) {
     writer_->Key("bitWidth");
     writer_->Int(type.bit_width());
     writer_->Key("isSigned");
@@ -695,15 +695,22 @@ static Status GetFloatingPoint(const RjObject& json_type,
 static Status GetMap(const RjObject& json_type,
                      const std::vector<std::shared_ptr<Field>>& children,
                      std::shared_ptr<DataType>* type) {
-  if (children.size() != 2) {
-    return Status::Invalid("Map must have exactly two children");
+  if (children.size() != 1) {
+    return Status::Invalid("Map must have exactly one child");
+  }
+
+  if (children[0]->type()->id() != Type::STRUCT ||
+      children[0]->type()->num_children() != 2) {
+    return Status::Invalid("Map's key-item pairs must be structs");
   }
 
   const auto& it_keys_sorted = json_type.FindMember("keysSorted");
   RETURN_NOT_BOOL("keysSorted", it_keys_sorted, json_type);
 
+  auto pair_children = children[0]->type()->children();
+
   bool keys_sorted = it_keys_sorted->value.GetBool();
-  *type = map(children[0]->type(), children[1]->type(), keys_sorted);
+  *type = map(pair_children[0]->type(), pair_children[1]->type(), keys_sorted);
   return Status::OK();
 }
 

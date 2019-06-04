@@ -274,6 +274,30 @@ class RecordBatchSerializer : public ArrayVisitor {
     return Status::OK();
   }
 
+  Status VisitList(const ListArray& array) {
+    std::shared_ptr<Buffer> value_offsets;
+    RETURN_NOT_OK(GetZeroBasedValueOffsets<ListArray>(array, &value_offsets));
+    out_->body_buffers.emplace_back(value_offsets);
+
+    --max_recursion_depth_;
+    std::shared_ptr<Array> values = array.values();
+
+    int32_t values_offset = 0;
+    int32_t values_length = 0;
+    if (value_offsets) {
+      values_offset = array.value_offset(0);
+      values_length = array.value_offset(array.length()) - values_offset;
+    }
+
+    if (array.offset() != 0 || values_length < values->length()) {
+      // Must also slice the values
+      values = values->Slice(values_offset, values_length);
+    }
+    RETURN_NOT_OK(VisitArray(*values));
+    ++max_recursion_depth_;
+    return Status::OK();
+  }
+
   Status Visit(const BooleanArray& array) override {
     std::shared_ptr<Buffer> data;
     RETURN_NOT_OK(
@@ -318,29 +342,9 @@ class RecordBatchSerializer : public ArrayVisitor {
 
   Status Visit(const BinaryArray& array) override { return VisitBinary(array); }
 
-  Status Visit(const ListArray& array) override {
-    std::shared_ptr<Buffer> value_offsets;
-    RETURN_NOT_OK(GetZeroBasedValueOffsets<ListArray>(array, &value_offsets));
-    out_->body_buffers.emplace_back(value_offsets);
+  Status Visit(const ListArray& array) override { return VisitList(array); }
 
-    --max_recursion_depth_;
-    std::shared_ptr<Array> values = array.values();
-
-    int32_t values_offset = 0;
-    int32_t values_length = 0;
-    if (value_offsets) {
-      values_offset = array.value_offset(0);
-      values_length = array.value_offset(array.length()) - values_offset;
-    }
-
-    if (array.offset() != 0 || values_length < values->length()) {
-      // Must also slice the values
-      values = values->Slice(values_offset, values_length);
-    }
-    RETURN_NOT_OK(VisitArray(*values));
-    ++max_recursion_depth_;
-    return Status::OK();
-  }
+  Status Visit(const MapArray& array) override { return VisitList(array); }
 
   Status Visit(const StructArray& array) override {
     --max_recursion_depth_;

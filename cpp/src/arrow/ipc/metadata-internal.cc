@@ -317,11 +317,15 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
     case flatbuf::Type_Map:
-      if (children.size() != 2) {
-        return Status::Invalid("Map must have exactly 2 child fields");
+      if (children.size() != 1) {
+        return Status::Invalid("Map must have exactly 1 child field");
       }
-      if (children[0]->nullable()) {
-        return Status::Invalid("Map's key field must not be nullable");
+      if (children[0]->nullable() || children[0]->type()->id() != Type::STRUCT ||
+          children[0]->type()->num_children() != 2) {
+        return Status::Invalid("Map's key-item pairs must be non-nullable structs");
+      }
+      if (children[0]->type()->child(0)->nullable()) {
+        return Status::Invalid("Map's keys must be non-nullable");
       } else {
         auto map = static_cast<const flatbuf::Map*>(type_data);
         *out = std::make_shared<MapType>(children[0]->type(), children[1]->type(),

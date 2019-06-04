@@ -710,7 +710,6 @@ class MapType(DataType):
     def __init__(self, name, key_type, item_type, nullable=True, keysSorted=False):
         super(MapType, self).__init__(name, nullable=nullable)
 
-        print('halp', key_type.nullable)
         assert not key_type.nullable
         self.key_type = key_type
         self.item_type = item_type
@@ -724,7 +723,7 @@ class MapType(DataType):
         ])
 
     def _get_children(self):
-        return [self.key_type.get_json(), self.item_type.get_json()]
+        return [self.pair_type.get_json()]
 
     def generate_column(self, size, name=None):
         MAX_MAP_SIZE = 4
