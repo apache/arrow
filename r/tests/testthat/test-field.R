@@ -18,6 +18,8 @@
 context("arrow::Field")
 
 test_that("field() factory", {
+  skip_if(!arrow_available(), "arrow C++ library not available")
+
   x <- field("x", int32())
   expect_equal(x$type, int32())
   expect_equal(x$name, "x")

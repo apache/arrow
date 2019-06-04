@@ -20,76 +20,78 @@
 using Rcpp::LogicalVector;
 using Rcpp::no_init;
 
-// [[Rcpp::export]]
+#if defined(ARROW_R_WITH_ARROW)
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
                                             int offset) {
   return array->Slice(offset);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
                                             int offset, int length) {
   return array->Slice(offset, length);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i) { return x->IsNull(i); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i) {
   return x->IsValid(i);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int Array__length(const std::shared_ptr<arrow::Array>& x) { return x->length(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int Array__offset(const std::shared_ptr<arrow::Array>& x) { return x->offset(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int Array__null_count(const std::shared_ptr<arrow::Array>& x) { return x->null_count(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x) {
   return x->type();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string Array__ToString(const std::shared_ptr<arrow::Array>& x) {
   return x->ToString();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 arrow::Type::type Array__type_id(const std::shared_ptr<arrow::Array>& x) {
   return x->type_id();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool Array__Equals(const std::shared_ptr<arrow::Array>& lhs,
                    const std::shared_ptr<arrow::Array>& rhs) {
   return lhs->Equals(rhs);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs,
                          const std::shared_ptr<arrow::Array>& rhs) {
   return lhs->ApproxEquals(rhs);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::ArrayData> Array__data(
     const std::shared_ptr<arrow::Array>& array) {
   return array->data();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
                         const std::shared_ptr<arrow::Array>& other, int start_idx,
                         int end_idx, int other_start_idx) {
   return self->RangeEquals(*other, start_idx, end_idx, other_start_idx);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
   if (array->null_count() == 0) {
     return LogicalVector(array->length(), true);
@@ -105,14 +107,16 @@ LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array) {
   return res;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> DictionaryArray__indices(
     const std::shared_ptr<arrow::DictionaryArray>& array) {
   return array->indices();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> DictionaryArray__dictionary(
     const std::shared_ptr<arrow::DictionaryArray>& array) {
   return array->dictionary();
 }
+
+#endif

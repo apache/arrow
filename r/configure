@@ -47,7 +47,7 @@ if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
   PKG_LIBS="-L$LIB_DIR $PKG_LIBS"
 elif [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
   echo "Found pkg-config cflags and libs!"
-  PKG_CFLAGS=${PKGCONFIG_CFLAGS}
+  PKG_CFLAGS="$PKGCONFIG_CFLAGS"
   PKG_LIBS=${PKGCONFIG_LIBS}
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   if [ "$(command -v brew)" ]; then
@@ -59,12 +59,6 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
   PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
   PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
 fi
-
-PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
-
-# For debugging
-echo "PKG_CFLAGS=$PKG_CFLAGS"
-echo "PKG_LIBS=$PKG_LIBS"
 
 # Find compiler
 CXXCPP=$("${R_HOME}"/bin/R CMD config CXXCPP)
@@ -90,8 +84,16 @@ if [ $? -ne 0 ]; then
   echo "is unavailable you can set INCLUDE_DIR and LIB_DIR manually via:"
   echo "R CMD INSTALL --configure-vars='INCLUDE_DIR=... LIB_DIR=...'"
   echo "--------------------------------------------------------------------"
-  exit 1;
+
+  PKG_LIBS=""
+  PKG_CFLAGS=""
+else
+  PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET"
 fi
+
+# For debugging
+echo "PKG_CFLAGS=$PKG_CFLAGS"
+echo "PKG_LIBS=$PKG_LIBS"
 
 # Write to Makevars
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars

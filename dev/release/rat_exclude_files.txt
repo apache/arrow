@@ -192,8 +192,8 @@ csharp/test/Directory.Build.props
 *.svg
 *.devhelp2
 *.scss
-r/R/RcppExports.R
-r/src/RcppExports.cpp
+r/R/generated.R
+r/src/generated.*
 r/DESCRIPTION
 r/LICENSE.md
 r/NAMESPACE
