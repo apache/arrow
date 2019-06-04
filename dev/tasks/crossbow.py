@@ -332,10 +332,11 @@ class Queue(Repo):
         return yaml.load(buffer)
 
     def put(self, job, prefix='build'):
-        # TODO(kszucs): more verbose error handling
-        assert isinstance(job, Job)
-        assert job.branch is None
-        assert len(job.tasks) > 0
+        if not isinstance(job, Job):
+            raise ValueError('`job` must be an instance of Job')
+        if job.branch is not None:
+            raise ValueError('`job.branch` is automatically generated, thus '
+                             'it must be blank')
 
         # auto increment and set next job id, e.g. build-85
         job.branch = self._next_job_id(prefix)
@@ -497,8 +498,12 @@ class Job:
     """Describes multiple tasks against a single target repository"""
 
     def __init__(self, target, tasks):
-        assert isinstance(target, Target)
-        assert all(isinstance(task, Task) for task in tasks.values())
+        if not tasks:
+            raise ValueError('no tasks were provided for the job')
+        if not all(isinstance(task, Task) for task in tasks.values()):
+            raise ValueError('each `tasks` mus be an instance of Task')
+        if not isinstance(target, Target):
+            raise ValueError('`target` must be an instance of Target')
         self.target = target
         self.tasks = tasks
         self.branch = None  # filled after adding to a queue
