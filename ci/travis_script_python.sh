@@ -38,20 +38,28 @@ CONDA_ENV_DIR=$TRAVIS_BUILD_DIR/pyarrow-test-$PYTHON_VERSION
 # may not have NumPy (which is required for python-test)
 export ZLIB_HOME=$CONDA_ENV_DIR
 
+CONDA_FILES=""
+CONDA_PACKAGES=""
+
+if [ "$ARROW_TRAVIS_PYTHON_GANDIVA" == "1" ]; then
+    CONDA_FILES="$CONDA_FILES --file=$TRAVIS_BUILD_DIR/ci/conda_env_gandiva.yml"
+fi
+
 if [ "$ARROW_TRAVIS_PYTHON_JVM" == "1" ]; then
-  CONDA_JVM_DEPS="jpype1"
+    CONDA_PACKAGES="$CONDA_PACKAGES jpype1"
 fi
 
 conda create -y -q -p $CONDA_ENV_DIR \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
+      ${CONDA_FILES} \
       nomkl \
       pip \
       numpy=1.14 \
       'libgfortran<4' \
       python=${PYTHON_VERSION} \
       compilers \
-      ${CONDA_JVM_DEPS}
+      ${CONDA_PACKAGES}
 
 conda activate $CONDA_ENV_DIR
 
