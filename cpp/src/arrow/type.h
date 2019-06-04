@@ -466,23 +466,16 @@ class ARROW_EXPORT ListType : public NestedType {
 /// Map data is nested data where each value is a variable number of
 /// key-item pairs.  Maps can be recursively nested, for example
 /// map(utf8, map(utf8, int32)).
-class ARROW_EXPORT MapType : public NestedType {
+class ARROW_EXPORT MapType : public ListType {
  public:
   static constexpr Type::type type_id = Type::MAP;
 
   MapType(const std::shared_ptr<DataType>& key_type,
-          const std::shared_ptr<DataType>& item_type, bool keys_sorted = false)
-      : NestedType(type_id), keys_sorted_(keys_sorted) {
-    children_ = {std::make_shared<Field>("key", key_type, false),
-                 std::make_shared<Field>("item", item_type)};
-  }
+          const std::shared_ptr<DataType>& item_type, bool keys_sorted = false);
 
-  std::shared_ptr<DataType> key_type() const { return children_[0]->type(); }
+  std::shared_ptr<DataType> key_type() const { return value_type()->child(0)->type(); }
 
-  std::shared_ptr<DataType> item_type() const { return children_[1]->type(); }
-
-  /// a struct type wrapping key item pairs
-  std::shared_ptr<DataType> value_type() const;
+  std::shared_ptr<DataType> item_type() const { return value_type()->child(1)->type(); }
 
   std::string ToString() const override;
 

@@ -301,7 +301,7 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
                    const std::shared_ptr<Array>& values,
                    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                    int64_t offset) {
-  auto pair_data = ArrayData::Make(struct_(type->children()), keys->data()->length,
+  auto pair_data = ArrayData::Make(type->children()[0]->type(), keys->data()->length,
                                    {nullptr}, {keys->data(), values->data()}, 0, offset);
   auto map_data = ArrayData::Make(type, length, {null_bitmap, offsets}, {pair_data},
                                   null_count, offset);
