@@ -148,12 +148,6 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   /**
-   * Returns true if this vector is nullable or can not have NULL values,
-   * e.g. StructVector or NonNullableStructVector.
-   */
-  public abstract boolean nullable();
-
-  /**
    * Returns a {@link org.apache.arrow.vector.ValueVector} corresponding to the given ordinal identifier.
    *
    * @param id the ordinal of the child to return

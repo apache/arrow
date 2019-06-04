@@ -21,7 +21,8 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
-import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Map;
+import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
@@ -34,12 +35,11 @@ public class MapVector extends ListVector {
   public static final String VALUE_NAME = "value";
 
   public static MapVector empty(String name, BufferAllocator allocator, boolean keysSorted) {
-    return new MapVector(name, allocator, FieldType.nullable(new ArrowType.Map(keysSorted)), null);
+    return new MapVector(name, allocator, FieldType.nullable(new Map(keysSorted)), null);
   }
 
   public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, fieldType, callBack);
-    vector = NonNullableStructVector.empty("entry", allocator);
     reader = new UnionMapReader(this);
   }
 

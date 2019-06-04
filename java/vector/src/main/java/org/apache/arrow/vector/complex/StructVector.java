@@ -93,13 +93,6 @@ public class StructVector extends NonNullableStructVector {
   }
 
   @Override
-  public Field getField() {
-    Field f = super.getField();
-    FieldType type = new FieldType(true, f.getType(), f.getFieldType().getDictionary(), f.getFieldType().getMetadata());
-    return new Field(f.getName(), type, f.getChildren());
-  }
-
-  @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     if (ownBuffers.size() != 1) {
       throw new IllegalArgumentException("Illegal buffer count, expected " + 1 + ", got: " + ownBuffers.size());
@@ -483,11 +476,6 @@ public class StructVector extends NonNullableStructVector {
   public void get(int index, ComplexHolder holder) {
     holder.isSet = isSet(index);
     super.get(index, holder);
-  }
-
-  @Override
-  public boolean nullable() {
-    return true;
   }
 
   /**

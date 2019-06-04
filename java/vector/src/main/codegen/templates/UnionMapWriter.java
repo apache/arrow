@@ -62,20 +62,24 @@ public class UnionMapWriter extends UnionListWriter {
   }
 
   public void startEntry() {
+    writer.setAddVectorAsNullable(false);
     entryWriter.start();
   }
 
   public void endEntry() {
     entryWriter.end();
     mode = MapWriteMode.OFF;
+    writer.setAddVectorAsNullable(true);
   }
 
   public UnionMapWriter key() {
+    writer.setAddVectorAsNullable(false);
     mode = MapWriteMode.KEY;
     return this;
   }
 
   public UnionMapWriter value() {
+    writer.setAddVectorAsNullable(true);
     mode = MapWriteMode.VALUE;
     return this;
   }

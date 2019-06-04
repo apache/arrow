@@ -126,6 +126,14 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     }
   }
 
+  @Override
+  public void setAddVectorAsNullable(boolean nullable) {
+    super.setAddVectorAsNullable(nullable);
+    if (writer instanceof AbstractFieldWriter) {
+      ((AbstractFieldWriter) writer).setAddVectorAsNullable(nullable);
+    }
+  }
+
   private void setWriter(ValueVector v) {
     setWriter(v, null);
   }
@@ -137,11 +145,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.arrowType = arrowType;
     switch (type) {
       case STRUCT:
-        if (((AbstractStructVector) vector).nullable()){
-          writer = nullableStructWriterFactory.build((StructVector) vector);
-        } else {
-          writer = new SingleStructWriter((NonNullableStructVector) vector);
-        }
+        writer = nullableStructWriterFactory.build((StructVector) vector);
         break;
       case LIST:
         writer = new UnionListWriter((ListVector) vector, nullableStructWriterFactory);
@@ -181,7 +185,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       if (arrowType == null) {
         arrowType = type.getType();
       }
-      ValueVector v = listVector.addOrGetVector(FieldType.nullable(arrowType)).getVector();
+      FieldType fieldType = new FieldType(addVectorAsNullable, arrowType, null, null);
+      ValueVector v = listVector.addOrGetVector(fieldType).getVector();
       v.allocateNew();
       setWriter(v, arrowType);
       writer.setPosition(position);

@@ -320,11 +320,6 @@ public class NonNullableStructVector extends AbstractStructVector implements Fie
   }
 
   @Override
-  public boolean nullable() {
-    return false;
-  }
-
-  @Override
   public boolean isNull(int index) {
     return false;
   }
