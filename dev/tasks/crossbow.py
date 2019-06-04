@@ -221,18 +221,22 @@ class Repo:
     @property
     def remote(self):
         """Currently checked out branch's remote counterpart"""
-        return self.repo.remotes[self.branch.upstream.remote_name]
+        if self.branch.upstream is None:
+            raise RuntimeError('Cannot determine git remote to push to, try '
+                               'to push the branch first to have a remote '
+                               'tracking counterpart.')
+        else:
+            return self.repo.remotes[self.branch.upstream.remote_name]
 
     @property
     def remote_url(self):
-        """
-        Currently checked out branch's remote counterpart URL
+        """Currently checked out branch's remote counterpart URL
 
         If an SSH github url is set, it will be replaced by the https
-        equivalent.
+        equivalent usable with Github OAuth token.
         """
-        return self.remote.url.replace(
-            'git@github.com:', 'https://github.com/')
+        return self.remote.url.replace('git@github.com:',
+                                       'https://github.com/')
 
     @property
     def user_name(self):
