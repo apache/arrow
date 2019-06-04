@@ -1513,17 +1513,21 @@ if(ARROW_WITH_FLATBUFFERS)
                                      "${FLATBUFFERS_INCLUDE_DIR}")
   endif()
 
-  # mingw-w64-flatbuffers doesn't set the flatc target
-  if(NOT TARGET flatbuffers::flatc)
-    get_target_property(FLATBUFFERS_INCLUDE_DIR flatbuffers::flatbuffers
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(FB_ROOT "${FLATBUFFERS_INCLUDE_DIR}" DIRECTORY)
-    find_program(FLATBUFFERS_COMPILER
-                 NAMES flatc flatc.exe PATH ${FB_ROOT}
-                 PATH_SUFFIXES "bin")
-    add_executable(flatbuffers::flatc IMPORTED)
-    set_target_properties(flatbuffers::flatc
-                          PROPERTIES IMPORTED_LOCATION "${FLATBUFFERS_COMPILER}")
+  if(TARGET flatbuffers::flatc)
+    get_target_property(FLATBUFFERS_COMPILER_LOCATION_CONFIG flatbuffers::flatc
+                        IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
+    get_target_property(FLATBUFFERS_COMPILER_LOCATION flatbuffers::flatc
+                        IMPORTED_LOCATION)
+    get_target_property(FLATBUFFERS_COMPILER_LOCATION_NOCONFIG flatbuffers::flatc
+                        IMPORTED_LOCATION_NOCONFIG)
+    # mingw-w64-flatbuffers provides location only for "noconfig"
+    if(NOT FLATBUFFERS_COMPILER_LOCATION_CONFIG
+       AND NOT FLATBUFFERS_COMPILER_LOCATION
+       AND FLATBUFFERS_COMPILER_LOCATION_NOCONFIG)
+      set_target_properties(flatbuffers::flatc
+                            PROPERTIES IMPORTED_LOCATION
+                                       "${FLATBUFFERS_COMPILER_LOCATION_NOCONFIG}")
+    endif()
   endif()
 
   # TODO: Don't use global includes but rather target_include_directories
