@@ -387,6 +387,7 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
  * garrow_seekable_input_stream_peek:
  * @input_stream: A #GArrowSeekableInputStream.
  * @n_bytes: The number of bytes to be peeked.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full): The data of the buffer, up to the
  *   indicated number. The data becomes invalid after any operation on
