@@ -111,7 +111,7 @@ stamp-enums.h: $(libgandiva_glib_la_headers) enums.h.template
 	     --identifier-prefix GGandiva		\
 	     --symbol-prefix ggandiva			\
 	     --template enums.h.template		\
-	     $(libarrow_glib_la_headers)) > enums.h
+	     $(libgandiva_glib_la_headers)) > enums.h
 	touch $@
 
 enums.c: stamp-enums.c
@@ -123,7 +123,7 @@ stamp-enums.c: $(libarrow_glib_la_headers) enums.c.template
 	     --identifier-prefix GGandiva		\
 	     --symbol-prefix ggandiva			\
 	     --template enums.c.template		\
-	     $(libarrow_glib_la_headers)) > enums.c
+	     $(libgandiva_glib_la_headers)) > enums.c
 	touch $@
 
 gandiva_glib_includedir = $(includedir)/gandiva-glib
