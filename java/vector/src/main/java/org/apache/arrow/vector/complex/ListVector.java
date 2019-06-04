@@ -68,7 +68,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   protected ArrowBuf validityBuffer;
-  private UnionListReader reader;
+  protected UnionListReader reader;
   private CallBack callBack;
   private final FieldType fieldType;
   private int validityAllocationSizeInBytes;

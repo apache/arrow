@@ -22,10 +22,7 @@ import java.math.BigDecimal;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
-import org.apache.arrow.vector.complex.AbstractStructVector;
-import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.StructVector;
-import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.*;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -140,7 +137,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.arrowType = arrowType;
     switch (type) {
       case STRUCT:
-        writer = nullableStructWriterFactory.build((StructVector) vector);
+        if (((AbstractStructVector) vector).nullable()){
+          writer = nullableStructWriterFactory.build((StructVector) vector);
+        } else {
+          writer = new SingleStructWriter((NonNullableStructVector) vector);
+        }
         break;
       case LIST:
         writer = new UnionListWriter((ListVector) vector, nullableStructWriterFactory);

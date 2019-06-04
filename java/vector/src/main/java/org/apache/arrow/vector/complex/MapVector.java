@@ -19,6 +19,7 @@ package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -38,6 +39,8 @@ public class MapVector extends ListVector {
 
   public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, fieldType, callBack);
+    vector = NonNullableStructVector.empty("entry", allocator);
+    reader = new UnionMapReader(this);
   }
 
   @Override
@@ -63,4 +66,10 @@ public class MapVector extends ListVector {
     return new UnionMapWriter(this);
   }
 
+  @Override
+  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
+    AddOrGetResult<T> result = super.addOrGetVector(fieldType);
+    reader = new UnionMapReader(this);
+    return result;
+  }
 }

@@ -27,8 +27,6 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BitVectorHelper;
-import org.apache.arrow.vector.BufferBacked;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.NullableStructReaderImpl;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
@@ -50,7 +48,7 @@ import io.netty.buffer.ArrowBuf;
  * that make up the struct's fields.  The children vectors are handled by the
  * parent class.
  */
-public class StructVector extends NonNullableStructVector implements FieldVector {
+public class StructVector extends NonNullableStructVector {
 
   public static StructVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(Struct.INSTANCE);
@@ -127,12 +125,6 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   private void setReaderAndWriterIndex() {
     validityBuffer.readerIndex(0);
     validityBuffer.writerIndex(BitVectorHelper.getValidityBufferSize(valueCount));
-  }
-
-  @Override
-  @Deprecated
-  public List<BufferBacked> getFieldInnerVectors() {
-    throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
   }
 
   @Override
@@ -491,6 +483,11 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   public void get(int index, ComplexHolder holder) {
     holder.isSet = isSet(index);
     super.get(index, holder);
+  }
+
+  @Override
+  public boolean nullable() {
+    return true;
   }
 
   /**
