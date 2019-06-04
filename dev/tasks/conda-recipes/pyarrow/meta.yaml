@@ -45,6 +45,7 @@ requirements:
 test:
   imports:
     - pyarrow
+    - pyarrow.flight  # [py>=35]
     - pyarrow.plasma  # [unix]
     - pyarrow.parquet
     - pyarrow.gandiva  # [py>=35]
