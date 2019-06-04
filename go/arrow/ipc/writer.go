@@ -76,6 +76,13 @@ func NewWriter(w io.Writer, opts ...Option) *Writer {
 }
 
 func (w *Writer) Close() error {
+	if !w.started {
+		err := w.start()
+		if err != nil {
+			return err
+		}
+	}
+
 	if w.pw == nil {
 		return nil
 	}
@@ -273,7 +280,14 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 
 		switch {
 		case needTruncate(int64(data.Offset()), values, totalDataBytes):
-			panic("not implemented") // FIXME(sbinet) writer.cc:264
+			// slice data buffer to include the range we need now.
+			var (
+				beg = int64(arr.ValueOffset(0))
+				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(data.Len())-beg)
+			)
+			data = array.NewSliceData(data, beg, beg+len)
+			defer data.Release()
+			values = data.Buffers()[2]
 		default:
 			if values != nil {
 				values.Retain()
@@ -298,7 +312,14 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 
 		switch {
 		case needTruncate(int64(data.Offset()), values, totalDataBytes):
-			panic("not implemented") // FIXME(sbinet) writer.cc:264
+			// slice data buffer to include the range we need now.
+			var (
+				beg = int64(arr.ValueOffset(0))
+				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(data.Len())-beg)
+			)
+			data = array.NewSliceData(data, beg, beg+len)
+			defer data.Release()
+			values = data.Buffers()[2]
 		default:
 			if values != nil {
 				values.Retain()

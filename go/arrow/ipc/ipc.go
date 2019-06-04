@@ -20,6 +20,7 @@ import (
 	"io"
 
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -101,3 +102,78 @@ func WithSchema(schema *arrow.Schema) Option {
 		cfg.schema = schema
 	}
 }
+
+// RecordReader is the interface that iterates over a stream of records
+type RecordReader interface {
+	// Read reads the current record from the underlying stream and an error, if any.
+	// When the Reader reaches the end of the underlying stream, it returns (nil, io.EOF).
+	Read() (array.Record, error)
+}
+
+// RecordReaderAt is the interface that wraps the ReadAt method.
+type RecordReaderAt interface {
+	// ReadAt reads the i-th record from the underlying stream and an error, if any.
+	ReadAt(i int64) (array.Record, error)
+}
+
+// RecordWriter is the interface that wraps the Write method.
+type RecordWriter interface {
+	Write(rec array.Record) error
+}
+
+// Copy copies all the records available from src to dst.
+// Copy returns the number of records copied and the first error
+// encountered while copying, if any.
+//
+// A successful Copy returns err == nil, not err == EOF. Because Copy is
+// defined to read from src until EOF, it does not treat an EOF from Read as an
+// error to be reported.
+func Copy(dst RecordWriter, src RecordReader) (n int64, err error) {
+	for {
+		rec, err := src.Read()
+		if err != nil {
+			if err == io.EOF {
+				return n, nil
+			}
+			return n, err
+		}
+		err = dst.Write(rec)
+		if err != nil {
+			return n, err
+		}
+		n++
+	}
+}
+
+// CopyN copies n records (or until an error) from src to dst. It returns the
+// number of records copied and the earliest error encountered while copying. On
+// return, written == n if and only if err == nil.
+func CopyN(dst RecordWriter, src RecordReader, n int64) (written int64, err error) {
+	for ; written < n; written++ {
+		rec, err := src.Read()
+		if err != nil {
+			if err == io.EOF && written == n {
+				return written, nil
+			}
+			return written, err
+		}
+		err = dst.Write(rec)
+		if err != nil {
+			return written, err
+		}
+	}
+
+	if written != n && err == nil {
+		err = io.EOF
+	}
+	return written, err
+}
+
+var (
+	_ RecordReader = (*Reader)(nil)
+	_ RecordWriter = (*Writer)(nil)
+	_ RecordReader = (*FileReader)(nil)
+	_ RecordWriter = (*FileWriter)(nil)
+
+	_ RecordReaderAt = (*FileReader)(nil)
+)
