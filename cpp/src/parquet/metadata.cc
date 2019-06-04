@@ -180,37 +180,36 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                    const ApplicationVersion* writer_version,
                                    InternalFileDecryptor* file_decryptor = NULLPTR)
       : column_(column), descr_(descr), writer_version_(writer_version) {
+    is_metadata_set_ = column->__isset.meta_data;
     metadata_ = column->meta_data;
 
-    if (column->__isset.crypto_metadata) {
+    if (column->__isset.crypto_metadata && !is_metadata_set_) {
       format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
-        if (file_decryptor->properties() == NULLPTR) {
-          throw ParquetException(
-              "Cannot decrypt ColumnMetadata. "
-              "FileDecryptionProperties must be provided.");
+        if (file_decryptor != NULLPTR && file_decryptor->properties() != NULLPTR) {
+          // should decrypt metadata
+          std::shared_ptr<schema::ColumnPath> path = std::make_shared<schema::ColumnPath>(
+              ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
+          std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
+
+          std::string aad_column_metadata = encryption::CreateModuleAad(
+              file_decryptor->file_aad(), encryption::kColumnMetaData, row_group_ordinal,
+              column_ordinal, (int16_t)-1);
+          auto decryptor = file_decryptor->GetColumnMetaDecryptor(path, key_metadata,
+                                                                  aad_column_metadata);
+          uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
+          DeserializeThriftMsg(
+              reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
+              &len, &metadata_, decryptor, false);
+          is_metadata_set_ = true;
         }
-        // should decrypt metadata
-        std::shared_ptr<schema::ColumnPath> path = std::make_shared<schema::ColumnPath>(
-            ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
-        std::string key_metadata = ccmd.ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
-
-        DCHECK(file_decryptor != NULLPTR);
-
-        std::string aad_column_metadata = encryption::CreateModuleAad(
-            file_decryptor->file_aad(), encryption::kColumnMetaData, row_group_ordinal,
-            column_ordinal, (int16_t)-1);
-        auto decryptor = file_decryptor->GetColumnMetaDecryptor(path, key_metadata,
-                                                                aad_column_metadata);
-        uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
-        DeserializeThriftMsg(
-            reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
-            &len, &metadata_, decryptor, false);
       }
     }
-    for (auto encoding : metadata_.encodings) {
-      encodings_.push_back(FromThrift(encoding));
+    if (is_metadata_set_) {
+      for (auto encoding : metadata_.encodings) {
+        encodings_.push_back(FromThrift(encoding));
+      }
     }
     possible_stats_ = nullptr;
   }
@@ -219,12 +218,13 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   inline const std::string& file_path() const { return column_->file_path; }
 
   // column metadata
-  inline Type::type type() const { return FromThrift(metadata_.type); }
+  inline bool is_metadata_set() const { return is_metadata_set_; }
+  inline Type::type type() const { return FromThrift(GetMetadataIfSet().type); }
 
-  inline int64_t num_values() const { return metadata_.num_values; }
+  inline int64_t num_values() const { return GetMetadataIfSet().num_values; }
 
   std::shared_ptr<schema::ColumnPath> path_in_schema() {
-    return std::make_shared<schema::ColumnPath>(metadata_.path_in_schema);
+    return std::make_shared<schema::ColumnPath>(GetMetadataIfSet().path_in_schema);
   }
 
   // Check if statistics are set and are valid
@@ -234,11 +234,12 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     DCHECK(writer_version_ != nullptr);
     // If the column statistics don't exist or column sort order is unknown
     // we cannot use the column stats
-    if (!metadata_.__isset.statistics || descr_->sort_order() == SortOrder::UNKNOWN) {
+    auto metadata = GetMetadataIfSet();
+    if (!metadata.__isset.statistics || descr_->sort_order() == SortOrder::UNKNOWN) {
       return false;
     }
     if (possible_stats_ == nullptr) {
-      possible_stats_ = MakeColumnStats(metadata_, descr_);
+      possible_stats_ = MakeColumnStats(metadata, descr_);
     }
     EncodedStatistics encodedStatistics = possible_stats_->Encode();
     return writer_version_->HasCorrectStatistics(type(), encodedStatistics,
@@ -249,28 +250,39 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return is_stats_set() ? possible_stats_ : nullptr;
   }
 
-  inline Compression::type compression() const { return FromThrift(metadata_.codec); }
+  inline Compression::type compression() const {
+    return FromThrift(GetMetadataIfSet().codec);
+  }
 
-  const std::vector<Encoding::type>& encodings() const { return encodings_; }
+  const std::vector<Encoding::type>& encodings() const {
+    GetMetadataIfSet();
+    return encodings_;
+  }
 
   inline bool has_dictionary_page() const {
-    return metadata_.__isset.dictionary_page_offset;
+    return GetMetadataIfSet().__isset.dictionary_page_offset;
   }
 
   inline int64_t dictionary_page_offset() const {
-    return metadata_.dictionary_page_offset;
+    return GetMetadataIfSet().dictionary_page_offset;
   }
 
-  inline int64_t data_page_offset() const { return metadata_.data_page_offset; }
+  inline int64_t data_page_offset() const { return GetMetadataIfSet().data_page_offset; }
 
-  inline bool has_index_page() const { return metadata_.__isset.index_page_offset; }
+  inline bool has_index_page() const {
+    return GetMetadataIfSet().__isset.index_page_offset;
+  }
 
-  inline int64_t index_page_offset() const { return metadata_.index_page_offset; }
+  inline int64_t index_page_offset() const {
+    return GetMetadataIfSet().index_page_offset;
+  }
 
-  inline int64_t total_compressed_size() const { return metadata_.total_compressed_size; }
+  inline int64_t total_compressed_size() const {
+    return GetMetadataIfSet().total_compressed_size;
+  }
 
   inline int64_t total_uncompressed_size() const {
-    return metadata_.total_uncompressed_size;
+    return GetMetadataIfSet().total_uncompressed_size;
   }
 
   inline std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const {
@@ -289,6 +301,16 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   format::ColumnMetaData metadata_;
   const ColumnDescriptor* descr_;
   const ApplicationVersion* writer_version_;
+  bool is_metadata_set_;
+
+  inline const format::ColumnMetaData& GetMetadataIfSet() const {
+    if (!is_metadata_set_) {
+      throw ParquetException(
+          "Cannot decrypt ColumnMetadata. "
+          "FileDecryptionProperties must be provided.");
+    }
+    return metadata_;
+  }
 };
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
@@ -316,6 +338,8 @@ int64_t ColumnChunkMetaData::file_offset() const { return impl_->file_offset(); 
 const std::string& ColumnChunkMetaData::file_path() const { return impl_->file_path(); }
 
 // column metadata
+bool ColumnChunkMetaData::is_metadata_set() const { return impl_->is_metadata_set(); }
+
 Type::type ColumnChunkMetaData::type() const { return impl_->type(); }
 
 int64_t ColumnChunkMetaData::num_values() const { return impl_->num_values(); }
@@ -925,27 +949,11 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     }
     column_metadata_.__set_encodings(thrift_encodings);
 
-    // temporary fix: setting for columnchunk meta_data in case file is not encrypted
-    if (properties_->file_encryption_properties() == NULLPTR) {
+    const auto& encrypt_md = properties_->column_encryption_properties(column_->path());
+    if (encrypt_md == NULLPTR || !encrypt_md->is_encrypted()) {
       column_chunk_->__isset.meta_data = true;
       column_chunk_->__set_meta_data(column_metadata_);
-    }
-  }
-
-  void WriteTo(::arrow::io::OutputStream* sink,
-               const std::shared_ptr<Encryptor>& encryptor) {
-    ThriftSerializer serializer;
-
-    // column is unencrypted
-    if (encryptor == NULLPTR) {
-      column_chunk_->__isset.meta_data = true;
-      column_chunk_->__set_meta_data(column_metadata_);
-
-      serializer.Serialize(column_chunk_, sink);
-    } else {  // column is encrypted
-      const auto& encrypt_md = properties_->column_encryption_properties(column_->path());
-      bool encrypt_metadata = encryptor->encryptColumnMetaData(
-          properties_->file_encryption_properties()->encrypted_footer(), encrypt_md);
+    } else {
       column_chunk_->__isset.crypto_metadata = true;
       format::ColumnCryptoMetaData ccmd;
       if (encrypt_md->is_encrypted_with_footer_key()) {
@@ -961,10 +969,62 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       }
       column_chunk_->__set_crypto_metadata(ccmd);
 
+      bool encrypted_footer =
+          properties_->file_encryption_properties()->encrypted_footer();
+      bool encrypt_metadata =
+          !encrypted_footer || !encrypt_md->is_encrypted_with_footer_key();
       if (!encrypt_metadata) {
         column_chunk_->__isset.meta_data = true;
         column_chunk_->__set_meta_data(column_metadata_);
-      } else {  // Serialize and encrypt ColumnMetadata separately
+      } else if (!encrypted_footer) {
+        // Keep redacted metadata version for old readers
+        format::ColumnMetaData metadata_redacted;
+        metadata_redacted.__set_type(column_metadata_.type);
+        metadata_redacted.__set_encodings(column_metadata_.encodings);
+        metadata_redacted.__set_path_in_schema(column_metadata_.path_in_schema);
+        metadata_redacted.__set_codec(column_metadata_.codec);
+        metadata_redacted.__set_num_values(column_metadata_.num_values);
+        metadata_redacted.__set_total_uncompressed_size(
+            column_metadata_.total_uncompressed_size);
+        metadata_redacted.__set_total_compressed_size(
+            column_metadata_.total_compressed_size);
+        if (column_metadata_.__isset.key_value_metadata) {
+          metadata_redacted.__isset.key_value_metadata = true;
+          metadata_redacted.__set_key_value_metadata(column_metadata_.key_value_metadata);
+        }
+        metadata_redacted.__set_data_page_offset(column_metadata_.data_page_offset);
+        if (column_metadata_.__isset.index_page_offset) {
+          metadata_redacted.__isset.index_page_offset = true;
+          metadata_redacted.__set_index_page_offset(column_metadata_.index_page_offset);
+        }
+        if (column_metadata_.__isset.dictionary_page_offset) {
+          metadata_redacted.__isset.dictionary_page_offset = true;
+          metadata_redacted.__set_dictionary_page_offset(
+              column_metadata_.dictionary_page_offset);
+        }
+        metadata_redacted.__isset.statistics = false;
+        metadata_redacted.__isset.encoding_stats = false;
+
+        column_chunk_->__isset.meta_data = true;
+        column_chunk_->__set_meta_data(metadata_redacted);
+      }
+    }
+  }
+
+  void WriteTo(::arrow::io::OutputStream* sink,
+               const std::shared_ptr<Encryptor>& encryptor) {
+    ThriftSerializer serializer;
+
+    const auto& encrypt_md = properties_->column_encryption_properties(column_->path());
+    // column is unencrypted
+    if (encrypt_md == NULLPTR || !encrypt_md->is_encrypted()) {
+      serializer.Serialize(column_chunk_, sink);
+    } else {  // column is encrypted
+      bool encrypt_metadata = encryptor->encryptColumnMetaData(
+          properties_->file_encryption_properties()->encrypted_footer(), encrypt_md);
+
+      if (encrypt_metadata) {
+        // Serialize and encrypt ColumnMetadata separately
         // Thrift-serialize the ColumnMetaData structure,
         // encrypt it with the column key, and write to encrypted_column_metadata
         uint8_t* serialized_data;
@@ -982,40 +1042,6 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
             const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));
         std::string encrypted_column_metadata(temp, encrypted_len);
         column_chunk_->__set_encrypted_column_metadata(encrypted_column_metadata);
-        // Keep redacted metadata version for old readers
-        if (!properties_->file_encryption_properties()->encrypted_footer()) {
-          // metadata_redacted should be stripped of the column_metadata_ statistics.
-          format::ColumnMetaData metadata_redacted;
-          metadata_redacted.__set_type(column_metadata_.type);
-          metadata_redacted.__set_encodings(column_metadata_.encodings);
-          metadata_redacted.__set_path_in_schema(column_metadata_.path_in_schema);
-          metadata_redacted.__set_codec(column_metadata_.codec);
-          metadata_redacted.__set_num_values(column_metadata_.num_values);
-          metadata_redacted.__set_total_uncompressed_size(
-              column_metadata_.total_uncompressed_size);
-          metadata_redacted.__set_total_compressed_size(
-              column_metadata_.total_compressed_size);
-          if (column_metadata_.__isset.key_value_metadata) {
-            metadata_redacted.__isset.key_value_metadata = true;
-            metadata_redacted.__set_key_value_metadata(
-                column_metadata_.key_value_metadata);
-          }
-          metadata_redacted.__set_data_page_offset(column_metadata_.data_page_offset);
-          if (column_metadata_.__isset.index_page_offset) {
-            metadata_redacted.__isset.index_page_offset = true;
-            metadata_redacted.__set_index_page_offset(column_metadata_.index_page_offset);
-          }
-          if (column_metadata_.__isset.dictionary_page_offset) {
-            metadata_redacted.__isset.dictionary_page_offset = true;
-            metadata_redacted.__set_dictionary_page_offset(
-                column_metadata_.dictionary_page_offset);
-          }
-          metadata_redacted.__isset.statistics = false;
-          metadata_redacted.__isset.encoding_stats = false;
-
-          column_chunk_->__isset.meta_data = true;
-          column_chunk_->__set_meta_data(metadata_redacted);
-        }
       }
       serializer.Serialize(column_chunk_, sink);
     }
