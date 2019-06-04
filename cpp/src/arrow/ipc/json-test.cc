@@ -204,6 +204,15 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   TestArrayRoundTrip(list_array);
 
+  // List
+  auto map_type = map(utf8(), int32());
+  auto keys_array = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d", "a", "b", "c"])");
+
+  MapArray map_array(map_type, 5, offsets_buffer, keys_array, values_array, list_bitmap,
+                     1);
+
+  TestArrayRoundTrip(map_array);
+
   // FixedSizeList
   FixedSizeListArray fixed_size_list_array(fixed_size_list(value_type, 2), 3,
                                            values_array->Slice(1), list_bitmap, 1);
