@@ -22,6 +22,7 @@
 #include <map>
 #include <utility>
 
+#include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
 
 namespace parquet {
@@ -47,6 +48,23 @@ const std::string& StringKeyIdRetriever::GetKey(const std::string& key_id) {
   return key_map_[key_id];
 }
 
+ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
+    std::string column_key) {
+  if (column_key.empty()) return this;
+
+  DCHECK(key_.empty());
+  key_ = column_key;
+  return this;
+}
+
+ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_metadata(
+    const std::string& key_metadata) {
+  DCHECK(!key_metadata.empty());
+  DCHECK(key_metadata_.empty());
+  key_metadata_ = key_metadata;
+  return this;
+}
+
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id(
     const std::string& key_id) {
   // key_id is expected to be in UTF8 encoding
@@ -58,6 +76,211 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id
 
   DCHECK(!key_id.empty());
   this->key_metadata(key_id);
+  return this;
+}
+
+FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_properties(
+    const std::map<std::shared_ptr<schema::ColumnPath>,
+                   std::shared_ptr<ColumnDecryptionProperties>,
+                   schema::ColumnPath::CmpColumnPath>& column_properties) {
+  if (column_properties.size() == 0) return this;
+
+  if (column_properties_.size() != 0)
+    throw ParquetException("Column properties already set");
+
+  for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                 std::shared_ptr<ColumnDecryptionProperties>>
+           element : column_properties) {
+    if (element.second->is_utilized()) {
+      throw ParquetException("Column properties utilized in another file");
+    }
+    element.second->set_utilized();
+  }
+
+  column_properties_ = column_properties;
+  return this;
+}
+
+void FileDecryptionProperties::wipeout_decryption_keys() {
+  if (!footer_key_.empty())
+    std::memset((char*)(const_cast<char*>(footer_key_.c_str())), 0, footer_key_.size());
+
+  for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                 std::shared_ptr<ColumnDecryptionProperties>>
+           element : column_properties_) {
+    element.second->wipeout_decryption_key();
+  }
+}
+
+bool FileDecryptionProperties::is_utilized() {
+  if (footer_key_.empty() && column_properties_.size() == 0 && aad_prefix_.empty())
+    return false;
+
+  return utilized_;
+}
+
+std::shared_ptr<FileDecryptionProperties> FileDecryptionProperties::DeepClone(
+    std::string new_aad_prefix) {
+  std::string footer_key_copy = footer_key_;
+  std::map<std::shared_ptr<schema::ColumnPath>,
+           std::shared_ptr<ColumnDecryptionProperties>, schema::ColumnPath::CmpColumnPath>
+      column_properties_map_copy;
+
+  for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                 std::shared_ptr<ColumnDecryptionProperties>>
+           element : column_properties_) {
+    column_properties_map_copy.insert(
+        std::pair<std::shared_ptr<schema::ColumnPath>,
+                  std::shared_ptr<ColumnDecryptionProperties>>(
+            element.second->column_path(), element.second->DeepClone()));
+  }
+
+  if (new_aad_prefix.empty()) new_aad_prefix = aad_prefix_;
+  return std::shared_ptr<FileDecryptionProperties>(new FileDecryptionProperties(
+      footer_key_copy, key_retriever_, check_plaintext_footer_integrity_, new_aad_prefix,
+      aad_prefix_verifier_, column_properties_map_copy, plaintext_files_allowed_));
+}
+
+FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key(
+    const std::string footer_key) {
+  if (footer_key.empty()) {
+    return this;
+  }
+  DCHECK(footer_key_.empty());
+  footer_key_ = footer_key;
+  return this;
+}
+
+FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::key_retriever(
+    const std::shared_ptr<DecryptionKeyRetriever>& key_retriever) {
+  if (key_retriever == NULLPTR) return this;
+
+  DCHECK(key_retriever_ == NULLPTR);
+  key_retriever_ = key_retriever;
+  return this;
+}
+
+FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix(
+    const std::string& aad_prefix) {
+  if (aad_prefix.empty()) {
+    return this;
+  }
+  DCHECK(aad_prefix_.empty());
+  aad_prefix_ = aad_prefix;
+  return this;
+}
+
+FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix_verifier(
+    std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier) {
+  if (aad_prefix_verifier == NULLPTR) return this;
+
+  DCHECK(aad_prefix_verifier_ == NULLPTR);
+  aad_prefix_verifier_ = aad_prefix_verifier;
+  return this;
+}
+
+ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
+    const std::string& key) {
+  if (key.empty()) return this;
+
+  DCHECK(!key.empty());
+  key_ = key;
+  return this;
+}
+
+std::shared_ptr<ColumnDecryptionProperties> ColumnDecryptionProperties::Builder::build() {
+  return std::shared_ptr<ColumnDecryptionProperties>(
+      new ColumnDecryptionProperties(column_path_, key_));
+}
+
+void ColumnDecryptionProperties::wipeout_decryption_key() {
+  if (!key_.empty()) {
+    std::memset((char*)(const_cast<char*>(key_.c_str())), 0, key_.size());
+  }
+}
+
+std::shared_ptr<ColumnDecryptionProperties> ColumnDecryptionProperties::DeepClone() {
+  std::string key_copy = key_;
+  return std::shared_ptr<ColumnDecryptionProperties>(
+      new ColumnDecryptionProperties(column_path_, key_copy));
+}
+
+FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key_metadata(
+    const std::string& footer_key_metadata) {
+  if (footer_key_metadata.empty()) return this;
+
+  DCHECK(footer_key_metadata_.empty());
+  footer_key_metadata_ = footer_key_metadata;
+  return this;
+}
+
+FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::column_properties(
+    const std::map<std::shared_ptr<schema::ColumnPath>,
+                   std::shared_ptr<ColumnEncryptionProperties>,
+                   schema::ColumnPath::CmpColumnPath>& column_properties) {
+  if (column_properties.size() == 0) return this;
+
+  if (column_properties_.size() != 0)
+    throw ParquetException("Column properties already set");
+
+  for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                 std::shared_ptr<ColumnEncryptionProperties>>
+           element : column_properties) {
+    if (element.second->is_utilized()) {
+      throw ParquetException("Column properties utilized in another file");
+    }
+    element.second->set_utilized();
+  }
+  column_properties_ = column_properties;
+  return this;
+}
+
+void FileEncryptionProperties::wipeout_encryption_keys() {
+  std::memset((char*)(const_cast<char*>(footer_key_.c_str())), 0, footer_key_.size());
+  for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                 std::shared_ptr<ColumnEncryptionProperties>>
+           element : column_properties_) {
+    element.second->wipeout_encryption_key();
+  }
+}
+
+std::shared_ptr<FileEncryptionProperties> FileEncryptionProperties::DeepClone(
+    std::string new_aad_prefix) {
+  std::string footer_key_copy = footer_key_;
+  std::map<std::shared_ptr<schema::ColumnPath>,
+           std::shared_ptr<ColumnEncryptionProperties>, schema::ColumnPath::CmpColumnPath>
+      column_properties_map_copy;
+
+  for (std::pair<std::shared_ptr<schema::ColumnPath>,
+                 std::shared_ptr<ColumnEncryptionProperties>>
+           element : column_properties_) {
+    column_properties_map_copy.insert(
+        std::pair<std::shared_ptr<schema::ColumnPath>,
+                  std::shared_ptr<ColumnEncryptionProperties>>(
+            element.second->column_path(), element.second->DeepClone()));
+  }
+
+  if (new_aad_prefix.empty()) new_aad_prefix = aad_prefix_;
+  return std::shared_ptr<FileEncryptionProperties>(new FileEncryptionProperties(
+      algorithm_.algorithm, footer_key_copy, footer_key_metadata_, encrypted_footer_,
+      new_aad_prefix, store_aad_prefix_in_file_, column_properties_map_copy));
+}
+
+FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::aad_prefix(
+    const std::string& aad_prefix) {
+  if (aad_prefix.empty()) return this;
+
+  DCHECK(aad_prefix_.empty());
+  aad_prefix_ = aad_prefix;
+  store_aad_prefix_in_file_ = true;
+  return this;
+}
+
+FileEncryptionProperties::Builder*
+FileEncryptionProperties::Builder::disable_store_aad_prefix_storage() {
+  DCHECK(!aad_prefix_.empty());
+
+  store_aad_prefix_in_file_ = false;
   return this;
 }
 
