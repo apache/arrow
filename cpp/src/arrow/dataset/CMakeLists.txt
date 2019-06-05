@@ -20,16 +20,32 @@ add_custom_target(arrow_dataset)
 # Headers: top level
 arrow_install_all_headers("arrow/dataset")
 
-set(ARROW_DATASET_SRCS
-
-  )
+set(ARROW_DATASET_SRCS scanner.cc)
 
 add_arrow_lib(arrow_dataset
-  OUTPUTS ARROW_DATASET_LIBRARIES
-  SOURCES ${ARROW_DATASET_SRCS}
-  SHARED_LINK_LIBS arrow_shared
-  STATIC_LINK_LIBS arrow_static)
+              OUTPUTS
+              ARROW_DATASET_LIBRARIES
+              SOURCES
+              ${ARROW_DATASET_SRCS}
+              SHARED_LINK_LIBS
+              arrow_shared
+              STATIC_LINK_LIBS
+              arrow_static)
+
+if(ARROW_DATASET_TEST_LINKAGE STREQUAL "static")
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
+else()
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+endif()
 
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
 endforeach()
+
+add_arrow_test(file_test
+               EXTRA_LINK_LIBS
+               ${ARROW_DATASET_TEST_LINK_LIBS}
+               PREFIX
+               "arrow-dataset"
+               LABELS
+               "arrow_dataset")

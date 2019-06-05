@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"

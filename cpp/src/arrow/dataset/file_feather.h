@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
@@ -46,8 +47,8 @@ class ARROW_DS_EXPORT FeatherFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const std::string& path, const FileScanOptions& options,
-                  fs::FileSystem* filesystem,
+  Status ScanFile(const FileSource& location, const FileScanOptions& options,
+                  std::shared_ptr<ScanContext> scan_context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 };
 

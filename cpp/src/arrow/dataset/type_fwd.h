@@ -18,10 +18,10 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
-#include "arrow/type_fwd.h"
-#include "arrow/util/iterator.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/type_fwd.h"  // IWYU pragma: export
 
 namespace arrow {
 

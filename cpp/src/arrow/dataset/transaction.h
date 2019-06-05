@@ -21,7 +21,5 @@
 #include "arrow/dataset/visibility.h"
 
 namespace arrow {
-namespace dataset {
-
-}  // namespace dataset
+namespace dataset {}  // namespace dataset
 }  // namespace arrow

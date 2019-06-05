@@ -18,11 +18,12 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
-#include "arrow/json/options.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/json/options.h"
 
 namespace arrow {
 namespace dataset {
@@ -30,7 +31,7 @@ namespace dataset {
 class ARROW_DS_EXPORT JsonScanOptions : public FileScanOptions {
  public:
   ///
-  std::string file_type() const override
+  std::string file_type() const override;
 
  private:
   json::ParseOptions parse_options_;
@@ -39,10 +40,7 @@ class ARROW_DS_EXPORT JsonScanOptions : public FileScanOptions {
 
 class ARROW_DS_EXPORT JsonWriteOptions : public FileWriteOptions {
  public:
-  virtual ~FileWriteOptions() = default;
-
-  ///
-  virtual file_type() const = 0;
+  std::string file_type() const override;
 };
 
 /// \brief A FileFormat implementation that reads from JSON files
@@ -54,8 +52,8 @@ class ARROW_DS_EXPORT JsonFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const std::string& path, const FileScanOptions& options,
-                  fs::FileSystem* filesystem,
+  Status ScanFile(const FileSource& location, const FileScanOptions& options,
+                  std::shared_ptr<ScanContext> scan_context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 };
 

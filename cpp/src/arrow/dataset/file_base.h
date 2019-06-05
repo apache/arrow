@@ -18,10 +18,12 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "arrow/dataset/type_fwd.h"
-#include "arrow/util/compression.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/util/compression.h"
 
 namespace arrow {
 namespace dataset {
@@ -33,24 +35,58 @@ class ARROW_DS_EXPORT FileSource {
 
   FileSource(std::string path, fs::FileSystem* filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)
-      : FileSource(FileSource::PATH),
-        path_(std::move(path)),
-        filesystem_(filesystem) {}
+      : FileSource(FileSource::PATH, compression) {
+    path_ = std::move(path);
+    filesystem_ = filesystem;
+  }
 
   FileSource(std::shared_ptr<Buffer> buffer,
              Compression::type compression = Compression::UNCOMPRESSED)
-      : FileSource(FileSource::BUFFER), buffer_(std::move(buffer)) {}
+      : FileSource(FileSource::BUFFER, compression) {
+    buffer_ = std::move(buffer);
+  }
 
+  bool operator==(const FileSource& other) const {
+    if (type_ != other.type_) {
+      return false;
+    } else if (type_ == FileSource::PATH) {
+      return path_ == other.path_ && filesystem_ == other.filesystem_;
+    } else {
+      return buffer_->Equals(*other.buffer_);
+    }
+  }
+
+  /// \brief The kind of file, whether stored in a filesystem, memory
+  /// resident, or other
   SourceType type() const { return type_; }
 
+  /// \brief Return the type of raw compression on the file, if any
+  Compression::type compression() const { return compression_; }
+
+  /// \brief Return the file path, if any. Only valid when file source
+  /// type is PATH
+  std::string path() const { return path_; }
+
+  /// \brief Return the filesystem, if any. Only valid when file
+  /// source type is PATH
+  fs::FileSystem* filesystem() const { return filesystem_; }
+
+  /// \brief Return the buffer containing the file, if any. Only value
+  /// when file source type is BUFFER
+  std::shared_ptr<Buffer> buffer() const { return buffer_; }
+
  private:
-  FileSource(SourceType type) : type_(type) {}
+  explicit FileSource(SourceType type,
+                      Compression::type compression = Compression::UNCOMPRESSED)
+      : type_(type), compression_(compression) {}
   SourceType type_;
+  Compression::type compression_;
 
   // PATH-based source
   std::string path_;
   fs::FileSystem* filesystem_;
 
+  // BUFFER-based source
   std::shared_ptr<Buffer> buffer_;
 };
 
@@ -80,7 +116,7 @@ class ARROW_DS_EXPORT FileFormat {
   virtual std::string name() const = 0;
 
   /// \brief Return true if the given file extension
-  virtual bool IsValidExtension(const std::string& ext) const = 0;
+  virtual bool IsKnownExtension(const std::string& ext) const = 0;
 
   /// \brief Open a file for scanning
   virtual Status ScanFile(const FileSource& location, const FileScanOptions& options,
@@ -91,8 +127,7 @@ class ARROW_DS_EXPORT FileFormat {
 /// \brief A DataFragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
-  FileBasedDataFragment(const FileSource& location,
-                        std::shared_ptr<FileFormat> format);
+  FileBasedDataFragment(const FileSource& location, std::shared_ptr<FileFormat> format);
 
   const FileSource& location() const { return location_; }
   std::shared_ptr<FileFormat> format() const { return format_; }

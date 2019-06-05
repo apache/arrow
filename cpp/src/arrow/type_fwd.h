@@ -20,6 +20,7 @@
 
 #include <memory>
 
+#include "arrow/util/iterator.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -38,6 +39,8 @@ class ChunkedArray;
 class Column;
 class RecordBatch;
 class Table;
+
+using RecordBatchIterator = Iterator<std::shared_ptr<RecordBatch>>;
 
 class Buffer;
 class MemoryPool;

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/util/visibility.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
 

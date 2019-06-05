@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 
@@ -46,17 +50,17 @@ class ARROW_DS_EXPORT ScanTask {
 /// \brief Main interface for
 class ARROW_DS_EXPORT Scanner {
  public:
- virtual ~Scanner() = 0;
+  virtual ~Scanner() = 0;
 
- /// \brief Return iterator yielding ScanTask instances to enable
- /// serial or parallel execution of units of scanning work
- virtual std::unique_ptr<ScanTaskIterator> GetTasks() = 0;
+  /// \brief Return iterator yielding ScanTask instances to enable
+  /// serial or parallel execution of units of scanning work
+  virtual std::unique_ptr<ScanTaskIterator> GetTasks() = 0;
 };
 
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
   ScannerBuilder(std::shared_ptr<Dataset> dataset,
-                 std::shared_ptr<ScanContext> scan_context)
+                 std::shared_ptr<ScanContext> scan_context);
 
   /// \brief Set
   ScannerBuilder* Project(const std::vector<std::string>& columns) const;

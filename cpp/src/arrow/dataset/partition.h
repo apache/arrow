@@ -14,7 +14,12 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #pragma once
+
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/type_fwd.h"
@@ -51,7 +56,6 @@ namespace dataset {
 /// \brief
 class PartitionKey {
  public:
-
 };
 
 /// \brief Intermediate data structure for data parsed from a string
@@ -70,7 +74,7 @@ struct PartitionKeyComponents {
 // Partition schemes
 
 /// \brief
-class PartitionScheme {
+class ARROW_DS_EXPORT PartitionScheme {
  public:
   virtual ~PartitionScheme() = default;
 
@@ -84,10 +88,8 @@ class PartitionScheme {
 };
 
 /// \brief
-class HivePartitionScheme : public PartitionScheme {
+class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
  public:
-
-
 };
 
 // ----------------------------------------------------------------------
@@ -95,7 +97,7 @@ class HivePartitionScheme : public PartitionScheme {
 
 /// \brief Container for a dataset partition, which consists of a
 /// partition identifier, subpartitions, and some data fragments
-class ARROW_DS_EXPORT SimplePartition : public Partition{
+class ARROW_DS_EXPORT SimplePartition : public Partition {
  public:
   const PartitionKey& key() const { return *key_; }
 

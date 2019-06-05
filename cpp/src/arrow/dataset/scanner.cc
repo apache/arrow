@@ -15,31 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// Logic for automatically determining the structure of multi-file
-/// dataset with possible partitioning according to available
-/// partition schemes
-
-#pragma once
-
-#include <memory>
-#include <string>
-
-#include "arrow/dataset/type_fwd.h"
-#include "arrow/dataset/visibility.h"
-#include "arrow/util/macros.h"
+#include "arrow/dataset/scanner.h"
 
 namespace arrow {
-namespace dataset {
-
-struct ARROW_DS_EXPORT DiscoveryOptions {
-  std::shared_ptr<FileFormat> format = NULLPTR;
-  std::shared_ptr<PartitionScheme> partition_scheme = NULLPTR;
-};
-
-/// \brief Using a root directory
-ARROW_DS_EXPORT
-Status DiscoverSource(const std::string& path, fs::FileSystem* filesystem,
-                      const DiscoveryOptions& options, std::shared_ptr<DataSource>* out);
-
-}  // namespace dataset
+namespace dataset {}  // namespace dataset
 }  // namespace arrow

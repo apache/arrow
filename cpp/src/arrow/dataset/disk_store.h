@@ -17,14 +17,13 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+
+#include "arrow/dataset/type_fwd.h"
+#include "arrow/type_fwd.h"
+
 namespace arrow {
-
-namespace fs {
-
-class FileSystem;
-
-}  // namespace fs
-
 namespace dataset {
 
 /// \brief Loads a previously-written collection of Arrow protocol

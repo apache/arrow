@@ -23,10 +23,13 @@ namespace arrow {
 
 class Status;
 
+/// \brief A generic Iterator that can return errors
 template <typename T>
 class Iterator {
  public:
+  /// \brief Return the next element of the sequence, nullptr when the
+  /// iteration is completed
   virtual Status Next(T* out) = 0;
-}
+};
 
 }  // namespace arrow
