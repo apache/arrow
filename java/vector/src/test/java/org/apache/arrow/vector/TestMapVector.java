@@ -26,14 +26,14 @@ import java.util.ArrayList;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
@@ -230,149 +230,208 @@ public class TestMapVector {
 
   @Test
   public void testSplitAndTransfer() throws Exception {
-    try (ListVector listVector = ListVector.empty("sourceVector", allocator)) {
+    try (MapVector mapVector = MapVector.empty("sourceVector", allocator, false)) {
 
-      /* Explicitly add the dataVector */
-      MinorType type = MinorType.BIGINT;
-      listVector.addOrGetVector(FieldType.nullable(type.getType()));
+      /* Explicitly add the map child vectors */
+      FieldType type = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
+      AddOrGetResult<StructVector> addResult = mapVector.addOrGetVector(type);
+      FieldType keyType = new FieldType(false, MinorType.BIGINT.getType(), null, null);
+      FieldType valueType = FieldType.nullable(MinorType.FLOAT8.getType());
+      addResult.getVector().addOrGet(MapVector.KEY_NAME, keyType, BigIntVector.class);
+      addResult.getVector().addOrGet(MapVector.VALUE_NAME, valueType, Float8Vector.class);
 
-      UnionListWriter listWriter = listVector.getWriter();
+      UnionMapWriter mapWriter = mapVector.getWriter();
 
       /* allocate memory */
-      listWriter.allocate();
+      mapWriter.allocate();
 
       /* populate data */
-      listWriter.setPosition(0);
-      listWriter.startList();
-      listWriter.bigInt().writeBigInt(10);
-      listWriter.bigInt().writeBigInt(11);
-      listWriter.bigInt().writeBigInt(12);
-      listWriter.endList();
+      mapWriter.setPosition(0);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(10);
+      mapWriter.value().float8().writeFloat8(1.0);
+      mapWriter.endEntry();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(11);
+      mapWriter.value().float8().writeFloat8(1.1);
+      mapWriter.endEntry();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(12);
+      mapWriter.value().float8().writeFloat8(1.2);
+      mapWriter.endEntry();
+      mapWriter.endMap();
 
-      listWriter.setPosition(1);
-      listWriter.startList();
-      listWriter.bigInt().writeBigInt(13);
-      listWriter.bigInt().writeBigInt(14);
-      listWriter.endList();
+      mapWriter.setPosition(1);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(13);
+      mapWriter.value().float8().writeFloat8(1.3);
+      mapWriter.endEntry();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(14);
+      mapWriter.value().float8().writeFloat8(1.4);
+      mapWriter.endEntry();
+      mapWriter.endMap();
 
-      listWriter.setPosition(2);
-      listWriter.startList();
-      listWriter.bigInt().writeBigInt(15);
-      listWriter.bigInt().writeBigInt(16);
-      listWriter.bigInt().writeBigInt(17);
-      listWriter.bigInt().writeBigInt(18);
-      listWriter.endList();
+      mapWriter.setPosition(2);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(15);
+      mapWriter.value().float8().writeFloat8(1.5);
+      mapWriter.endEntry();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(16);
+      mapWriter.value().float8().writeFloat8(1.6);
+      mapWriter.endEntry();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(17);
+      mapWriter.value().float8().writeFloat8(1.7);
+      mapWriter.endEntry();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(18);
+      mapWriter.value().float8().writeFloat8(1.8);
+      mapWriter.endEntry();
+      mapWriter.endMap();
 
-      listWriter.setPosition(3);
-      listWriter.startList();
-      listWriter.bigInt().writeBigInt(19);
-      listWriter.endList();
+      mapWriter.setPosition(3);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(19);
+      mapWriter.value().float8().writeFloat8(1.9);
+      mapWriter.endEntry();
+      mapWriter.endMap();
 
-      listWriter.setPosition(4);
-      listWriter.startList();
-      listWriter.bigInt().writeBigInt(20);
-      listWriter.bigInt().writeBigInt(21);
-      listWriter.bigInt().writeBigInt(22);
-      listWriter.bigInt().writeBigInt(23);
-      listWriter.endList();
+      mapWriter.setPosition(4);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(20);
+      mapWriter.value().float8().writeFloat8(2.0);
+      mapWriter.endEntry();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(21);
+      mapWriter.value().float8().writeFloat8(2.1);
+      mapWriter.endEntry();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(22);
+      mapWriter.value().float8().writeFloat8(2.2);
+      mapWriter.endEntry();
+      mapWriter.startEntry();
+      mapWriter.key().bigInt().writeBigInt(23);
+      mapWriter.value().float8().writeFloat8(2.3);
+      mapWriter.endEntry();
+      mapWriter.endMap();
 
-      listVector.setValueCount(5);
+      mapVector.setValueCount(5);
 
-      assertEquals(5, listVector.getLastSet());
+      assertEquals(5, mapVector.getLastSet());
 
       /* get offset buffer */
-      final ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
+      final ArrowBuf offsetBuffer = mapVector.getOffsetBuffer();
 
       /* get dataVector */
-      BigIntVector dataVector = (BigIntVector) listVector.getDataVector();
+      StructVector dataVector = (StructVector) mapVector.getDataVector();
 
       /* check the vector output */
-
       int index = 0;
       int offset = 0;
-      Object actual = null;
+      Map<?, ?> result = null;
 
       /* index 0 */
-      assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
+      assertFalse(mapVector.isNull(index));
+      offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(10), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(10L, getResultKey(result));
+      assertEquals(1.0, getResultValue(result));
       offset++;
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(11), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(11L, getResultKey(result));
+      assertEquals(1.1, getResultValue(result));
       offset++;
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(12), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(12L, getResultKey(result));
+      assertEquals(1.2, getResultValue(result));
 
       /* index 1 */
       index++;
-      assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
+      assertFalse(mapVector.isNull(index));
+      offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(13), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(13L, getResultKey(result));
+      assertEquals(1.3, getResultValue(result));
       offset++;
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(14), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(14L, getResultKey(result));
+      assertEquals(1.4, getResultValue(result));
 
       /* index 2 */
       index++;
-      assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
+      assertFalse(mapVector.isNull(index));
+      offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(15), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(15L, getResultKey(result));
+      assertEquals(1.5, getResultValue(result));
       offset++;
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(16), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(16L, getResultKey(result));
+      assertEquals(1.6, getResultValue(result));
       offset++;
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(17), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(17L, getResultKey(result));
+      assertEquals(1.7, getResultValue(result));
       offset++;
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(18), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(18L, getResultKey(result));
+      assertEquals(1.8, getResultValue(result));
 
       /* index 3 */
       index++;
-      assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
+      assertFalse(mapVector.isNull(index));
+      offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(9), Integer.toString(offset));
 
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(19), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(19L, getResultKey(result));
+      assertEquals(1.9, getResultValue(result));
 
       /* index 4 */
       index++;
-      assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
+      assertFalse(mapVector.isNull(index));
+      offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(10), Integer.toString(offset));
 
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(20), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(20L, getResultKey(result));
+      assertEquals(2.0, getResultValue(result));
       offset++;
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(21), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(21L, getResultKey(result));
+      assertEquals(2.1, getResultValue(result));
       offset++;
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(22), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(22L, getResultKey(result));
+      assertEquals(2.2, getResultValue(result));
       offset++;
-      actual = dataVector.getObject(offset);
-      assertEquals(new Long(23), (Long) actual);
+      result = (Map<?, ?>) dataVector.getObject(offset);
+      assertEquals(23L, getResultKey(result));
+      assertEquals(2.3, getResultValue(result));
 
       /* index 5 */
       index++;
-      assertTrue(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
+      assertTrue(mapVector.isNull(index));
+      offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(14), Integer.toString(offset));
 
       /* do split and transfer */
-      try (ListVector toVector = ListVector.empty("toVector", allocator)) {
+      try (MapVector toVector = MapVector.empty("toVector", allocator, false)) {
 
-        TransferPair transferPair = listVector.makeTransferPair(toVector);
+        TransferPair transferPair = mapVector.makeTransferPair(toVector);
 
         int[][] transferLengths = {{0, 2}, {3, 1}, {4, 1}};
 
@@ -392,19 +451,19 @@ public class TestMapVector {
           final ArrowBuf toOffsetBuffer = toVector.getOffsetBuffer();
 
           /* get dataVector of toVector */
-          BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
+          StructVector dataVector1 = (StructVector) toVector.getDataVector();
 
           for (int i = 0; i < splitLength; i++) {
-            dataLength1 = offsetBuffer.getInt((start + i + 1) * ListVector.OFFSET_WIDTH) -
-                    offsetBuffer.getInt((start + i) * ListVector.OFFSET_WIDTH);
-            dataLength2 = toOffsetBuffer.getInt((i + 1) * ListVector.OFFSET_WIDTH) -
-                    toOffsetBuffer.getInt(i * ListVector.OFFSET_WIDTH);
+            dataLength1 = offsetBuffer.getInt((start + i + 1) * MapVector.OFFSET_WIDTH) -
+                    offsetBuffer.getInt((start + i) * MapVector.OFFSET_WIDTH);
+            dataLength2 = toOffsetBuffer.getInt((i + 1) * MapVector.OFFSET_WIDTH) -
+                    toOffsetBuffer.getInt(i * MapVector.OFFSET_WIDTH);
 
             assertEquals("Different data lengths at index: " + i + " and start: " + start,
                     dataLength1, dataLength2);
 
-            offset1 = offsetBuffer.getInt((start + i) * ListVector.OFFSET_WIDTH);
-            offset2 = toOffsetBuffer.getInt(i * ListVector.OFFSET_WIDTH);
+            offset1 = offsetBuffer.getInt((start + i) * MapVector.OFFSET_WIDTH);
+            offset2 = toOffsetBuffer.getInt(i * MapVector.OFFSET_WIDTH);
 
             for (int j = 0; j < dataLength1; j++) {
               assertEquals("Different data at indexes: " + offset1 + " and " + offset2,
