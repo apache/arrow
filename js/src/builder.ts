@@ -432,12 +432,12 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     }
 }
 
-/** @ignore */ (Builder.prototype as any).length = 1;
-/** @ignore */ (Builder.prototype as any).stride = 1;
-/** @ignore */ (Builder.prototype as any).children = null;
-/** @ignore */ (Builder.prototype as any).finished = false;
-/** @ignore */ (Builder.prototype as any).nullValues = null;
-/** @ignore */ (Builder.prototype as any)._isValid = () => true;
+(Builder.prototype as any).length = 1;
+(Builder.prototype as any).stride = 1;
+(Builder.prototype as any).children = null;
+(Builder.prototype as any).finished = false;
+(Builder.prototype as any).nullValues = null;
+(Builder.prototype as any)._isValid = () => true;
 
 /** @ignore */
 export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
