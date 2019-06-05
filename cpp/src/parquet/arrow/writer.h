@@ -179,8 +179,12 @@ class PARQUET_EXPORT FileWriter {
 /// \brief Write Parquet file metadata only to indicated Arrow OutputStream
 PARQUET_EXPORT
 ::arrow::Status WriteFileMetaData(const FileMetaData& file_metadata,
-                                  ::arrow::io::OutputStream* sink,
-                                  const bool metafile = false);
+                                  ::arrow::io::OutputStream* sink);
+
+/// \brief Write metadata-only Parquet file to indicated Arrow OutputStream
+PARQUET_EXPORT
+::arrow::Status WriteMetaDataFile(const FileMetaData& file_metadata,
+                                  ::arrow::io::OutputStream* sink);
 
 /**
  * Write a Table to Parquet.

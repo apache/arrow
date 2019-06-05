@@ -361,10 +361,7 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
               key_value_metadata);
 }
 
-void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink,
-                       const bool metafile) {
-  if (metafile) PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
-
+void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
   int64_t position = -1;
   PARQUET_THROW_NOT_OK(sink->Tell(&position));
 
@@ -380,10 +377,14 @@ void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sin
   PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
 }
 
-void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink,
-                       const bool metafile) {
+void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
   ParquetOutputWrapper wrapper(sink);
-  return WriteFileMetaData(file_metadata, &wrapper, metafile);
+  return WriteFileMetaData(file_metadata, &wrapper);
+}
+
+void WriteMetaDataFile(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
+  PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
+  return WriteFileMetaData(file_metadata, sink);
 }
 
 const SchemaDescriptor* ParquetFileWriter::schema() const { return contents_->schema(); }

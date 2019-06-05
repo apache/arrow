@@ -334,7 +334,6 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 
-    CStatus WriteFileMetaData(
+    CStatus WriteMetaDataFile(
         const CFileMetaData& file_metadata,
-        const OutputStream* sink,
-        const c_bool metafile)
+        const OutputStream* sink)

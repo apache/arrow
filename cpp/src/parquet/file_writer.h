@@ -107,12 +107,15 @@ class PARQUET_EXPORT RowGroupWriter {
 
 ARROW_DEPRECATED("Use version with arrow::io::OutputStream*")
 PARQUET_EXPORT
-void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink,
-                       const bool metafile = false);
+void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
 
 PARQUET_EXPORT
-void WriteFileMetaData(const FileMetaData& file_metadata, ::arrow::io::OutputStream* sink,
-                       const bool metafile = false);
+void WriteFileMetaData(
+    const FileMetaData& file_metadata, ::arrow::io::OutputStream* sink);
+
+PARQUET_EXPORT
+void WriteMetaDataFile(
+    const FileMetaData& file_metadata, ::arrow::io::OutputStream* sink);
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:
