@@ -97,7 +97,7 @@ public class VarCharVector extends BaseVariableWidthVector {
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     final int dataLength =
             offsetBuffer.getInt((index + 1) * OFFSET_WIDTH) - startOffset;
     final byte[] result = new byte[dataLength];
@@ -137,7 +137,7 @@ public class VarCharVector extends BaseVariableWidthVector {
       return;
     }
     holder.isSet = 1;
-    holder.start = getstartOffset(index);
+    holder.start = getStartOffset(index);
     holder.end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
     holder.buffer = valueBuffer;
   }
@@ -204,7 +204,7 @@ public class VarCharVector extends BaseVariableWidthVector {
     fillHoles(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     final int dataLength = holder.end - holder.start;
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
     valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
     lastSet = index;
@@ -224,7 +224,7 @@ public class VarCharVector extends BaseVariableWidthVector {
     fillEmpties(index);
     handleSafe(index, dataLength);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
     valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
     lastSet = index;
@@ -242,7 +242,7 @@ public class VarCharVector extends BaseVariableWidthVector {
     fillHoles(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
     final int dataLength = holder.end - holder.start;
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
     valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
     lastSet = index;
@@ -262,7 +262,7 @@ public class VarCharVector extends BaseVariableWidthVector {
     fillEmpties(index);
     handleSafe(index, dataLength);
     BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
     valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
     lastSet = index;

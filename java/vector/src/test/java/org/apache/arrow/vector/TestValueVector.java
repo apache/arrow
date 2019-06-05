@@ -1442,8 +1442,8 @@ public class TestValueVector {
       toVector.setInitialCapacity(numValues);
       toVector.allocateNew();
       for (int i = 0; i < numValues; i++) {
-        int start = fromVector.getstartOffset(i);
-        int end = fromVector.getstartOffset(i + 1);
+        int start = fromVector.getStartOffset(i);
+        int end = fromVector.getStartOffset(i + 1);
         toVector.setSafe(i, isSet, start, end, fromDataBuffer);
       }
 
