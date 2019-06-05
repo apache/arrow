@@ -101,6 +101,10 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
 }
 
 /**
+ * An internal class used by the `RecordBatchReader` and `RecordBatchWriter`
+ * implementations to differentiate between a stream with valid zero-length
+ * RecordBatches, and a stream with a Schema message, but no RecordBatches.
+ * @see https://github.com/apache/arrow/pull/4373
  * @ignore
  * @private
  */
