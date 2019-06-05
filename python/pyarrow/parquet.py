@@ -832,7 +832,8 @@ class ParquetManifest(object):
     def _should_silently_exclude(self, file_name):
         return (file_name.endswith('.crc') or  # Checksums
                 file_name.endswith('_$folder$') or  # HDFS directories in S3
-                file_name.startswith('.') or  # Hidden files
+                file_name.startswith('.') or  # Hidden files starting with .
+                file_name.startswith('_') or  # Hidden files starting with _
                 file_name in EXCLUDED_PARQUET_PATHS)
 
     def _visit_directories(self, level, directories, part_keys):
