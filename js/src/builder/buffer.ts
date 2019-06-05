@@ -115,21 +115,20 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 
     constructor(data = new Uint8Array(0)) { super(data, 1 / 8); }
 
-    protected _popCount = 0;
-    public get numValid() { return this._popCount; }
-    public get numInvalid() { return this.length - this._popCount; }
+    public numValid = 0;
+    public get numInvalid() { return this.length - this.numValid; }
     public get(idx: number) { return this.buffer[idx >> 3] >> idx % 8 & 1; }
     public set(idx: number, val: number) {
         const { buffer } = this.reserve(idx - this.length + 1);
         const byte = idx >> 3, bit = idx % 8, cur = buffer[byte] >> bit & 1;
-        // If `val` is truthy and the current bit is 0, flip it to 1 and increment `_popCount`.
-        // If `val` is falsey and the current bit is 1, flip it to 0 and decrement `_popCount`.
-        val ? cur === 0 && ((buffer[byte] |=  (1 << bit)), ++this._popCount)
-            : cur === 1 && ((buffer[byte] &= ~(1 << bit)), --this._popCount);
+        // If `val` is truthy and the current bit is 0, flip it to 1 and increment `numValid`.
+        // If `val` is falsey and the current bit is 1, flip it to 0 and decrement `numValid`.
+        val ? cur === 0 && ((buffer[byte] |=  (1 << bit)), ++this.numValid)
+            : cur === 1 && ((buffer[byte] &= ~(1 << bit)), --this.numValid);
         return this;
     }
     public clear() {
-        this._popCount = 0;
+        this.numValid = 0;
         return super.clear();
     }
 }

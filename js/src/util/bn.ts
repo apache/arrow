@@ -39,7 +39,7 @@ BigNum.prototype[isArrowBigNumSymbol] = true;
 BigNum.prototype.toJSON = function<T extends BN<BigNumArray>>(this: T) { return `"${bignumToString(this)}"`; };
 BigNum.prototype.valueOf = function<T extends BN<BigNumArray>>(this: T) { return bignumToNumber(this); };
 BigNum.prototype.toString = function<T extends BN<BigNumArray>>(this: T) { return bignumToString(this); };
-BigNum.prototype[Symbol.toPrimitive] = function<T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default') {
+BigNum.prototype[Symbol.toPrimitive] = function<T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default' = 'default') {
     switch (hint) {
         case 'number': return bignumToNumber(this);
         case 'string': return bignumToString(this);
@@ -117,34 +117,34 @@ function decimalToString<T extends BN<BigNumArray>>(a: T) {
 /** @ignore */
 export class BN<T extends BigNumArray> {
     /** @nocollapse */
-    public static new<T extends BigNumArray>(num: T, isSigned?: boolean): T {
+    public static new<T extends BigNumArray>(num: T, isSigned?: boolean): (T & BN<T>) {
         switch (isSigned) {
-            case true: return new (<any> SignedBigNum)(num) as T;
-            case false: return new (<any> UnsignedBigNum)(num) as T;
+            case true: return new (<any> SignedBigNum)(num) as (T & BN<T>);
+            case false: return new (<any> UnsignedBigNum)(num) as (T & BN<T>);
         }
         switch (num.constructor) {
             case Int8Array:
             case Int16Array:
             case Int32Array:
             case BigInt64Array:
-                return new (<any> SignedBigNum)(num) as T;
+                return new (<any> SignedBigNum)(num) as (T & BN<T>);
         }
         if (num.byteLength === 16) {
-            return new (<any> DecimalBigNum)(num) as T;
+            return new (<any> DecimalBigNum)(num) as (T & BN<T>);
         }
-        return new (<any> UnsignedBigNum)(num) as T;
+        return new (<any> UnsignedBigNum)(num) as (T & BN<T>);
     }
     /** @nocollapse */
-    public static signed<T extends IntArray>(num: T): T {
-        return new (<any> SignedBigNum)(num) as T;
+    public static signed<T extends IntArray>(num: T): (T & BN<T>) {
+        return new (<any> SignedBigNum)(num) as (T & BN<T>);
     }
     /** @nocollapse */
-    public static unsigned<T extends UintArray>(num: T): T {
-        return new (<any> UnsignedBigNum)(num) as T;
+    public static unsigned<T extends UintArray>(num: T): (T & BN<T>) {
+        return new (<any> UnsignedBigNum)(num) as (T & BN<T>);
     }
     /** @nocollapse */
-    public static decimal<T extends UintArray>(num: T): T {
-        return new (<any> DecimalBigNum)(num) as T;
+    public static decimal<T extends UintArray>(num: T): (T & BN<T>) {
+        return new (<any> DecimalBigNum)(num) as (T & BN<T>);
     }
     constructor(num: T, isSigned?: boolean) {
         return BN.new(num, isSigned) as any;
@@ -184,7 +184,7 @@ export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
      * so it's compatible with JSON.stringify().
      */
     toJSON(): string;
-    [Symbol.toPrimitive](hint: any): number | string | bigint;
+    [Symbol.toPrimitive](hint?: any): number | string | bigint;
 }
 
 /** @ignore */

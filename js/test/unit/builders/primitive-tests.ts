@@ -17,9 +17,8 @@
 
 import {
     Vector, DataType,
-    Bool, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, Float16, Float32, Float64
+    Bool, Int8, Int16, Int32, Uint8, Uint16, Uint32, Float16, Float32, Float64
 } from '../../Arrow';
-import { util } from '../../Arrow';
 
 import {
     validateVector,
@@ -28,11 +27,9 @@ import {
     int8sNoNulls, int8sWithNulls, int8sWithMaxInts,
     int16sNoNulls, int16sWithNulls, int16sWithMaxInts,
     int32sNoNulls, int32sWithNulls, int32sWithMaxInts,
-    int64sNoNulls, int64sWithNulls, int64sWithMaxInts,
     uint8sNoNulls, uint8sWithNulls, uint8sWithMaxInts,
     uint16sNoNulls, uint16sWithNulls, uint16sWithMaxInts,
     uint32sNoNulls, uint32sWithNulls, uint32sWithMaxInts,
-    uint64sNoNulls, uint64sWithNulls, uint64sWithMaxInts,
     float16sNoNulls, float16sWithNulls, float16sWithNaNs,
     float32sNoNulls, float32sWithNulls, float64sWithNaNs,
     float64sNoNulls, float64sWithNulls, float32sWithNaNs,
@@ -75,11 +72,9 @@ type PrimitiveTypeOpts<T extends DataType> = [
     [Int8, int8sNoNulls, int8sWithNulls, int8sWithMaxInts] as PrimitiveTypeOpts<Int8>,
     [Int16, int16sNoNulls, int16sWithNulls, int16sWithMaxInts] as PrimitiveTypeOpts<Int16>,
     [Int32, int32sNoNulls, int32sWithNulls, int32sWithMaxInts] as PrimitiveTypeOpts<Int32>,
-    [Int64, int64sNoNulls, int64sWithNulls, int64sWithMaxInts] as PrimitiveTypeOpts<Int64>,
     [Uint8, uint8sNoNulls, uint8sWithNulls, uint8sWithMaxInts] as PrimitiveTypeOpts<Uint8>,
     [Uint16, uint16sNoNulls, uint16sWithNulls, uint16sWithMaxInts] as PrimitiveTypeOpts<Uint16>,
     [Uint32, uint32sNoNulls, uint32sWithNulls, uint32sWithMaxInts] as PrimitiveTypeOpts<Uint32>,
-    [Uint64, uint64sNoNulls, uint64sWithNulls, uint64sWithMaxInts] as PrimitiveTypeOpts<Uint64>,
 ].forEach(([TypeCtor, noNulls, withNulls, withNaNs]) => {
 
     describe(`${TypeCtor.name}Builder`, () => {
@@ -95,7 +90,7 @@ type PrimitiveTypeOpts<T extends DataType> = [
         testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(typeFactory, 25));
 
         function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Promise<Vector<T>>) {
-            describe(`${encode.name} ${name}`, () => {
+            describe(`${name}`, () => {
                 it(`encodes ${valueName} no nulls`, async () => {
                     const vals = noNulls(20);
                     validateVector(vals, await encode(vals, []), []);
@@ -106,15 +101,7 @@ type PrimitiveTypeOpts<T extends DataType> = [
                 });
                 it(`encodes ${valueName} with MAX_INT`, async () => {
                     const vals = withNaNs(20);
-                    const nullVals0: any[] = [0x7fffffff];
-                    const nullVals1: any[] = [0x7fffffff];
-                    switch (TypeCtor) {
-                        case Int64:
-                        case Uint64:
-                            nullVals0[0] = new Uint32Array([0x7fffffff, 0x7fffffff]);
-                            nullVals1[0] = (util.BN.new(nullVals0[0]) as any)[Symbol.toPrimitive]('default');
-                    }
-                    validateVector(vals, await encode(vals, nullVals0), nullVals1);
+                    validateVector(vals, await encode(vals, [0x7fffffff]), [0x7fffffff]);
                 });
             });
         }
@@ -140,7 +127,7 @@ type PrimitiveTypeOpts<T extends DataType> = [
         testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(typeFactory, 25));
 
         function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Promise<Vector<T>>) {
-            describe(`${encode.name} ${name}`, () => {
+            describe(`${name}`, () => {
                 it(`encodes ${valueName} no nulls`, async () => {
                     const vals = noNulls(20);
                     validateVector(vals, await encode(vals, []), []);

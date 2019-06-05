@@ -51,12 +51,18 @@ export const date64sNoNulls = (length = 20) => timestamp64sNoNulls(length).map((
 export const int8sNoNulls = (length = 20) => Array.from(new Int8Array(randomBytes(length * Int8Array.BYTES_PER_ELEMENT).buffer));
 export const int16sNoNulls = (length = 20) => Array.from(new Int16Array(randomBytes(length * Int16Array.BYTES_PER_ELEMENT).buffer));
 export const int32sNoNulls = (length = 20) => Array.from(new Int32Array(randomBytes(length * Int32Array.BYTES_PER_ELEMENT).buffer));
-export const int64sNoNulls = (length = 20) => Array.from({ length }, () => util.BN.new(new Int32Array(randomBytes(2 * Int32Array.BYTES_PER_ELEMENT).buffer)));
+export const int64sNoNulls = (length = 20) => Array.from({ length }, (_, i) => {
+    const bn = util.BN.new(new Int32Array(randomBytes(2 * 4).buffer));
+    return i % 3 === 0 ? bn : i % 2 === 0 ? bn[Symbol.toPrimitive]() : bn[0];
+});
 
 export const uint8sNoNulls = (length = 20) => Array.from(new Uint8Array(randomBytes(length * Uint8Array.BYTES_PER_ELEMENT).buffer));
 export const uint16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer));
 export const uint32sNoNulls = (length = 20) => Array.from(new Uint32Array(randomBytes(length * Uint32Array.BYTES_PER_ELEMENT).buffer));
-export const uint64sNoNulls = (length = 20) => Array.from({ length }, () => util.BN.new(new Uint32Array(randomBytes(2 * Uint32Array.BYTES_PER_ELEMENT).buffer)));
+export const uint64sNoNulls = (length = 20) => Array.from({ length }, (_, i) => {
+    const bn = util.BN.new(new Uint32Array(randomBytes(2 * 4).buffer));
+    return i % 3 === 0 ? bn : i % 2 === 0 ? bn[Symbol.toPrimitive]() : bn[0];
+});
 export const float16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer)).map((x) => (x - 32767) / 32767);
 export const float32sNoNulls = (length = 20) => Array.from(new Float32Array(randomBytes(length * Float32Array.BYTES_PER_ELEMENT).buffer));
 export const float64sNoNulls = (length = 20) => Array.from(new Float64Array(randomBytes(length * Float64Array.BYTES_PER_ELEMENT).buffer));

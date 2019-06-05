@@ -42,6 +42,8 @@
                 // "test/unit/builders/",
 
                 // "test/unit/builders/builder-tests.ts",
+                // "test/unit/builders/int64-tests.ts",
+                // "test/unit/builders/uint64-tests.ts",
                 // "test/unit/builders/date-tests.ts",
                 // "test/unit/builders/primitive-tests.ts",
                 // "test/unit/builders/dictionary-tests.ts",
