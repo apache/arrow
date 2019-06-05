@@ -394,12 +394,7 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   format::RowGroup& get_row_group(int i) {
-    if (!(i < num_row_groups())) {
-      std::stringstream ss;
-      ss << "The file only has " << num_row_groups()
-         << " row groups, requested metadata for row group: " << i;
-      throw ParquetException(ss.str());
-    }
+    DCHECK_LT(i, num_row_groups());
     return metadata_->row_groups[i];
   }
 
@@ -511,7 +506,7 @@ std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const
 
 void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
 
-void FileMetaData::AppendRowGroups(const std::shared_ptr<FileMetaData>& other) {
+void FileMetaData::AppendRowGroups(std::shared_ptr<FileMetaData>& other) {
   impl_->AppendRowGroups(other->impl_);
 }
 

@@ -29,7 +29,7 @@ namespace parquet {
 namespace metadata {
 
 // Helper function for generating table metadata
-std::unique_ptr<parquet::FileMetaData> generate_table_metadata(
+std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
     const parquet::SchemaDescriptor& schema,
     const std::shared_ptr<WriterProperties>& props, const int64_t& nrows,
     EncodedStatistics stats_int, EncodedStatistics stats_float) {
@@ -98,7 +98,7 @@ TEST(Metadata, TestBuildAccess) {
       .set_max(std::string(reinterpret_cast<const char*>(&float_max), 4));
 
   // Generate the metadata
-  auto f_accessor = generate_table_metadata(schema, props, nrows, stats_int, stats_float);
+  auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
 
   // file metadata
   ASSERT_EQ(nrows, f_accessor->num_rows());
@@ -180,7 +180,7 @@ TEST(Metadata, TestBuildAccess) {
 
   // Test AppendRowGroups
   auto f_accessor_2 =
-      generate_table_metadata(schema, props, nrows, stats_int, stats_float);
+      GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
   std::shared_ptr<parquet::FileMetaData> f_accessor_2_sp{std::move(f_accessor_2)};
   f_accessor->AppendRowGroups(f_accessor_2_sp);
   ASSERT_EQ(4, f_accessor->num_row_groups());

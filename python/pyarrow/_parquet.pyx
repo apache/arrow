@@ -547,12 +547,12 @@ cdef class FileMetaData:
 
     def write_metadata_file(self, where):
         """
-        Write the metadata object to a metdata-only file
+        Write the metadata object to a metadata-only file
         """
         cdef:
             shared_ptr[OutputStream] sink
             c_string c_where
-            c_bool metafile=True
+            c_bool metafile = True
 
         try:
             where = _stringify_path(where)
