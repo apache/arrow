@@ -43,11 +43,9 @@ fi
 # Note that cflags may be empty in case of success
 if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
   echo "Found INCLUDE_DIR and/or LIB_DIR!"
-  PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
   PKG_LIBS="-L$LIB_DIR $PKG_LIBS"
 elif [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
   echo "Found pkg-config cflags and libs!"
-  PKG_CFLAGS=${PKGCONFIG_CFLAGS}
   PKG_LIBS=${PKGCONFIG_LIBS}
 elif [[ "$OSTYPE" == "darwin"* ]]; then
   if [ "$(command -v brew)" ]; then
@@ -56,21 +54,20 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
     source autobrew
   fi
-  PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
   PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
 fi
-
-PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
-
-# For debugging
-echo "PKG_CFLAGS=$PKG_CFLAGS"
-echo "PKG_LIBS=$PKG_LIBS"
 
 # Find compiler
 CXXCPP=$("${R_HOME}"/bin/R CMD config CXXCPP)
 CXX11FLAGS=$("${R_HOME}"/bin/R CMD config CXX11FLAGS)
 CXX11STD=$("${R_HOME}"/bin/R CMD config CXX11STD)
 CPPFLAGS=$("${R_HOME}"/bin/R CMD config CPPFLAGS)
+
+PKG_CFLAGS="-I../inst/include -DARROW_R_WITH_PARQUET"
+
+# For debugging
+echo "PKG_CFLAGS=$PKG_CFLAGS"
+echo "PKG_LIBS=$PKG_LIBS"
 
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too
 if [ "$ARROW_USE_OLD_CXXABI" ]; then
