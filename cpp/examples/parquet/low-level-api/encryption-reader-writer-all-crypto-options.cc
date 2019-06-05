@@ -23,7 +23,7 @@
 #include <regex>
 #include <sstream>
 
-#include <reader_writer.h>
+#include <encryption-reader-writer-all-crypto-options.h>
 
 /*
  * This file contains samples for writing and reading encrypted Parquet files in different
@@ -52,21 +52,25 @@
  * here:
  * https://github.com/apache/parquet-format/blob/encryption/Encryption.md
  *
- * The write sample creates files with eight columns in the following
+ * The write sample creates files with four columns in the following
  * encryption configurations:
  *
  *  - Encryption configuration 1:   Encrypt all columns and the footer with the same key.
  *                                  (uniform encryption)
- *  - Encryption configuration 2:   Encrypt two columns and the footer.
- *  - Encryption configuration 3:   Encrypt two columns. Don’t encrypt footer (to enable
- *                                  legacy readers) - plaintext footer mode.
- *  - Encryption configuration 4:   Encrypt two columns and the footer. Supply aad_prefix
- *                                  for file identity verification.
- *  - Encryption configuration 5:   Encrypt two columns and the footer. Supply aad_prefix,
- *                                  and call disable_aad_prefix_storage to prevent file
+ *  - Encryption configuration 2:   Encrypt two columns and the footer, with different
+ *                                  keys.
+ *  - Encryption configuration 3:   Encrypt two columns, with different keys.
+ *                                  Don’t encrypt footer (to enable legacy readers)
+ *                                  - plaintext footer mode.
+ *  - Encryption configuration 4:   Encrypt two columns and the footer, with different
+ *                                  keys. Supply aad_prefix for file identity
+ *                                  verification.
+ *  - Encryption configuration 5:   Encrypt two columns and the footer, with different
+ *                                  keys. Supply aad_prefix, and call
+ *                                  disable_aad_prefix_storage to prevent file
  *                                  identity storage in file metadata.
- *  - Encryption configuration 6:   Encrypt two columns and the footer. Use the
- *                                  alternative (AES_GCM_CTR_V1) algorithm.
+ *  - Encryption configuration 6:   Encrypt two columns and the footer, with different
+ *                                  keys. Use the alternative (AES_GCM_CTR_V1) algorithm.
  *
  * The read sample uses each of the following decryption configurations to read every
  * encrypted files in the input directory:
@@ -88,8 +92,11 @@ const std::string kColumnEncryptionKey2 = "1234567890123451";
 const std::string fileName = "tester";
 
 void PrintDecryptionConfiguration(int configuration);
+// Check that the decryption result is as expected.
 void CheckResult(std::string file, int example_id, std::string exception_msg);
-int ExtractEncryptionConfigurationNumber(std::string file);
+// Returns true if FileName ends with suffix. Otherwise returns false.
+// Used to skip unencrypted parquet files.
+bool FileNameEndsWith(std::string file_name, std::string suffix);
 
 std::vector<std::string> GetDirectoryFiles(const std::string& path) {
   std::vector<std::string> files;
@@ -123,7 +130,7 @@ void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
   vector_of_encryption_configurations.push_back(
       file_encryption_builder_1.footer_key_metadata("kf")->build());
 
-  // Encryption configuration 2: Encrypt two columns and the footer.
+  // Encryption configuration 2: Encrypt two columns and the footer, with different keys.
   std::map<std::shared_ptr<parquet::schema::ColumnPath>,
            std::shared_ptr<parquet::ColumnEncryptionProperties>,
            parquet::schema::ColumnPath::CmpColumnPath>
@@ -148,7 +155,8 @@ void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
           ->column_properties(encryption_cols2)
           ->build());
 
-  // Encryption configuration 3: Encrypt two columns, don’t encrypt footer.
+  // Encryption configuration 3: Encrypt two columns, with different keys.
+  // Don’t encrypt footer.
   // (plaintext footer mode, readable by legacy readers)
   std::map<std::shared_ptr<parquet::schema::ColumnPath>,
            std::shared_ptr<parquet::ColumnEncryptionProperties>,
@@ -170,7 +178,8 @@ void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
           ->set_plaintext_footer()
           ->build());
 
-  // Encryption configuration 4: Encrypt two columns and the footer. Use aad_prefix.
+  // Encryption configuration 4: Encrypt two columns and the footer, with different keys.
+  // Use aad_prefix.
   std::map<std::shared_ptr<parquet::schema::ColumnPath>,
            std::shared_ptr<parquet::ColumnEncryptionProperties>,
            parquet::schema::ColumnPath::CmpColumnPath>
@@ -191,8 +200,8 @@ void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
           ->aad_prefix(fileName)
           ->build());
 
-  // Encryption configuration 5: Encrypt two columns and the footer. Use aad_prefix and
-  // disable_aad_prefix_storage.
+  // Encryption configuration 5: Encrypt two columns and the footer, with different keys.
+  // Use aad_prefix and disable_aad_prefix_storage.
   std::map<std::shared_ptr<parquet::schema::ColumnPath>,
            std::shared_ptr<parquet::ColumnEncryptionProperties>,
            parquet::schema::ColumnPath::CmpColumnPath>
@@ -214,8 +223,8 @@ void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
           ->disable_store_aad_prefix_storage()
           ->build());
 
-  // Encryption configuration 6: Encrypt two columns and the footer. Use AES_GCM_CTR_V1
-  // algorithm.
+  // Encryption configuration 6: Encrypt two columns and the footer, with different keys.
+  // Use AES_GCM_CTR_V1 algorithm.
   std::map<std::shared_ptr<parquet::schema::ColumnPath>,
            std::shared_ptr<parquet::ColumnEncryptionProperties>,
            parquet::schema::ColumnPath::CmpColumnPath>
@@ -290,31 +299,6 @@ void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
         int32_writer->WriteBatch(1, nullptr, nullptr, &value);
       }
 
-      // Write the Int64 column. Each row has repeats twice.
-      parquet::Int64Writer* int64_writer =
-          static_cast<parquet::Int64Writer*>(rg_writer->NextColumn());
-      for (int i = 0; i < 2 * NUM_ROWS_PER_ROW_GROUP; i++) {
-        int64_t value = i * 1000 * 1000;
-        value *= 1000 * 1000;
-        int16_t definition_level = 1;
-        int16_t repetition_level = 0;
-        if ((i % 2) == 0) {
-          repetition_level = 1;  // start of a new record
-        }
-        int64_writer->WriteBatch(1, &definition_level, &repetition_level, &value);
-      }
-
-      // Write the INT96 column.
-      parquet::Int96Writer* int96_writer =
-          static_cast<parquet::Int96Writer*>(rg_writer->NextColumn());
-      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-        parquet::Int96 value;
-        value.value[0] = i;
-        value.value[1] = i + 1;
-        value.value[2] = i + 2;
-        int96_writer->WriteBatch(1, nullptr, nullptr, &value);
-      }
-
       // Write the Float column
       parquet::FloatWriter* float_writer =
           static_cast<parquet::FloatWriter*>(rg_writer->NextColumn());
@@ -329,38 +313,6 @@ void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
       for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
         double value = i * 1.1111111;
         double_writer->WriteBatch(1, nullptr, nullptr, &value);
-      }
-
-      // Write the ByteArray column. Make every alternate values NULL
-      parquet::ByteArrayWriter* ba_writer =
-          static_cast<parquet::ByteArrayWriter*>(rg_writer->NextColumn());
-      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-        parquet::ByteArray value;
-        char hello[FIXED_LENGTH] = "parquet";
-        hello[7] = static_cast<char>(static_cast<int>('0') + i / 100);
-        hello[8] = static_cast<char>(static_cast<int>('0') + (i / 10) % 10);
-        hello[9] = static_cast<char>(static_cast<int>('0') + i % 10);
-        if (i % 2 == 0) {
-          int16_t definition_level = 1;
-          value.ptr = reinterpret_cast<const uint8_t*>(&hello[0]);
-          value.len = FIXED_LENGTH;
-          ba_writer->WriteBatch(1, &definition_level, nullptr, &value);
-        } else {
-          int16_t definition_level = 0;
-          ba_writer->WriteBatch(1, &definition_level, nullptr, nullptr);
-        }
-      }
-
-      // Write the FixedLengthByteArray column
-      parquet::FixedLenByteArrayWriter* flba_writer =
-          static_cast<parquet::FixedLenByteArrayWriter*>(rg_writer->NextColumn());
-      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-        parquet::FixedLenByteArray value;
-        char v = static_cast<char>(i);
-        char flba[FIXED_LENGTH] = {v, v, v, v, v, v, v, v, v, v};
-        value.ptr = reinterpret_cast<const uint8_t*>(&flba[0]);
-
-        flba_writer->WriteBatch(1, nullptr, nullptr, &value);
       }
       // Close the ParquetFileWriter
       file_writer->Close();
@@ -387,7 +339,6 @@ void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
 
   // Decryption configuration 1: Decrypt using key retriever callback that holds the keys
   // of two encrypted columns and the footer key.
-
   std::shared_ptr<parquet::StringKeyIdRetriever> string_kr1 =
       std::make_shared<parquet::StringKeyIdRetriever>();
   string_kr1->PutKey("kf", kFooterEncryptionKey);
@@ -449,8 +400,7 @@ void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
     PrintDecryptionConfiguration(example_id + 1);
     for (auto const& file : files_in_directory) {
       std::string exception_msg = "";
-      if (file.find("parquet.encrypted") ==
-          std::string::npos)  // Skip non encrypted files
+      if (!FileNameEndsWith(file, "parquet.encrypted"))  // Skip non encrypted files
         continue;
       try {
         std::cout << "--> Read file " << file << std::endl;
@@ -476,7 +426,7 @@ void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
 
         // Get the number of Columns
         int num_columns = file_metadata->num_columns();
-        assert(num_columns == 8);
+        assert(num_columns == 4);
 
         // Iterate over all the RowGroups in the file
         for (int r = 0; r < num_row_groups; ++r) {
@@ -486,8 +436,6 @@ void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
 
           int64_t values_read = 0;
           int64_t rows_read = 0;
-          int16_t definition_level;
-          int16_t repetition_level;
           int i;
           std::shared_ptr<parquet::ColumnReader> column_reader;
 
@@ -534,63 +482,8 @@ void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
             i++;
           }
 
-          // Get the Column Reader for the Int64 column
-          column_reader = row_group_reader->Column(2);
-          parquet::Int64Reader* int64_reader =
-              static_cast<parquet::Int64Reader*>(column_reader.get());
-          // Read all the rows in the column
-          i = 0;
-          while (int64_reader->HasNext()) {
-            int64_t value;
-            // Read one value at a time. The number of rows read is returned. values_read
-            // contains the number of non-null rows
-            rows_read = int64_reader->ReadBatch(1, &definition_level, &repetition_level,
-                                                &value, &values_read);
-            // Ensure only one value is read
-            assert(rows_read == 1);
-            // There are no NULL values in the rows written
-            assert(values_read == 1);
-            // Verify the value written
-            int64_t expected_value = i * 1000 * 1000;
-            expected_value *= 1000 * 1000;
-            assert(value == expected_value);
-            if ((i % 2) == 0) {
-              assert(repetition_level == 1);
-            } else {
-              assert(repetition_level == 0);
-            }
-            i++;
-          }
-
-          // Get the Column Reader for the Int96 column
-          column_reader = row_group_reader->Column(3);
-          parquet::Int96Reader* int96_reader =
-              static_cast<parquet::Int96Reader*>(column_reader.get());
-          // Read all the rows in the column
-          i = 0;
-          while (int96_reader->HasNext()) {
-            parquet::Int96 value;
-            // Read one value at a time. The number of rows read is returned. values_read
-            // contains the number of non-null rows
-            rows_read =
-                int96_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
-            // Ensure only one value is read
-            assert(rows_read == 1);
-            // There are no NULL values in the rows written
-            assert(values_read == 1);
-            // Verify the value written
-            parquet::Int96 expected_value;
-            expected_value.value[0] = i;
-            expected_value.value[1] = i + 1;
-            expected_value.value[2] = i + 2;
-            for (int j = 0; j < 3; j++) {
-              assert(value.value[j] == expected_value.value[j]);
-            }
-            i++;
-          }
-
           // Get the Column Reader for the Float column
-          column_reader = row_group_reader->Column(4);
+          column_reader = row_group_reader->Column(2);
           parquet::FloatReader* float_reader =
               static_cast<parquet::FloatReader*>(column_reader.get());
           // Read all the rows in the column
@@ -612,7 +505,7 @@ void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
           }
 
           // Get the Column Reader for the Double column
-          column_reader = row_group_reader->Column(5);
+          column_reader = row_group_reader->Column(3);
           parquet::DoubleReader* double_reader =
               static_cast<parquet::DoubleReader*>(column_reader.get());
           // Read all the rows in the column
@@ -630,61 +523,6 @@ void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
             // Verify the value written
             double expected_value = i * 1.1111111;
             assert(value == expected_value);
-            i++;
-          }
-
-          // Get the Column Reader for the ByteArray column
-          column_reader = row_group_reader->Column(6);
-          parquet::ByteArrayReader* ba_reader =
-              static_cast<parquet::ByteArrayReader*>(column_reader.get());
-          // Read all the rows in the column
-          i = 0;
-          while (ba_reader->HasNext()) {
-            parquet::ByteArray value;
-            // Read one value at a time. The number of rows read is returned. values_read
-            // contains the number of non-null rows
-            rows_read =
-                ba_reader->ReadBatch(1, &definition_level, nullptr, &value, &values_read);
-            // Ensure only one value is read
-            assert(rows_read == 1);
-            // Verify the value written
-            char expected_value[FIXED_LENGTH] = "parquet";
-            expected_value[7] = static_cast<char>('0' + i / 100);
-            expected_value[8] = static_cast<char>('0' + (i / 10) % 10);
-            expected_value[9] = static_cast<char>('0' + i % 10);
-            if (i % 2 == 0) {  // only alternate values exist
-              // There are no NULL values in the rows written
-              assert(values_read == 1);
-              assert(value.len == FIXED_LENGTH);
-              assert(memcmp(value.ptr, &expected_value[0], FIXED_LENGTH) == 0);
-              assert(definition_level == 1);
-            } else {
-              // There are NULL values in the rows written
-              assert(values_read == 0);
-              assert(definition_level == 0);
-            }
-            i++;
-          }
-
-          // Get the Column Reader for the FixedLengthByteArray column
-          column_reader = row_group_reader->Column(7);
-          parquet::FixedLenByteArrayReader* flba_reader =
-              static_cast<parquet::FixedLenByteArrayReader*>(column_reader.get());
-          // Read all the rows in the column
-          i = 0;
-          while (flba_reader->HasNext()) {
-            parquet::FixedLenByteArray value;
-            // Read one value at a time. The number of rows read is returned. values_read
-            // contains the number of non-null rows
-            rows_read = flba_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
-            // Ensure only one value is read
-            assert(rows_read == 1);
-            // There are no NULL values in the rows written
-            assert(values_read == 1);
-            // Verify the value written
-            char v = static_cast<char>(i);
-            char expected_value[FIXED_LENGTH] = {v, v, v, v, v, v, v, v, v, v};
-            assert(memcmp(value.ptr, &expected_value[0], FIXED_LENGTH) == 0);
             i++;
           }
         }
@@ -716,7 +554,8 @@ void PrintDecryptionConfiguration(int configuration) {
   std::cout << std::endl;
 }
 
-int ExtractEncryptionConfigurationNumber(std::string file) {
+// Check that the decryption result is as expected.
+void CheckResult(std::string file, int example_id, std::string exception_msg) {
   int encryption_configuration_number;
   std::regex r("tester([0-9]+)\\.parquet.encrypted");
   std::smatch m;
@@ -732,11 +571,6 @@ int ExtractEncryptionConfigurationNumber(std::string file) {
     std::cerr << "Error: Unknown encryption configuration number. " << std::endl;
   }
 
-  return encryption_configuration_number;
-}
-
-void CheckResult(std::string file, int example_id, std::string exception_msg) {
-  int encryption_configuration_number = ExtractEncryptionConfigurationNumber(file);
   int decryption_configuration_number = example_id + 1;
 
   // Encryption_configuration number five contains aad_prefix and
@@ -763,6 +597,16 @@ void CheckResult(std::string file, int example_id, std::string exception_msg) {
   }
   if (!exception_msg.empty())
     std::cout << "Error: Unexpected exception was thrown." << exception_msg;
+}
+
+bool FileNameEndsWith(std::string file_name, std::string suffix) {
+  std::string::size_type idx = file_name.find_first_of('.');
+
+  if (idx != std::string::npos) {
+    std::string extension = file_name.substr(idx + 1);
+    if (extension.compare(suffix) == 0) return true;
+  }
+  return false;
 }
 
 int main(int argc, char** argv) {
