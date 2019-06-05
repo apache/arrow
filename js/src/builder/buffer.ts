@@ -113,7 +113,7 @@ export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, nu
 /** @ignore */
 export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 
-    constructor(data = new Uint8Array(0)) { super(data, 1/8) };
+    constructor(data = new Uint8Array(0)) { super(data, 1 / 8); }
 
     protected _popCount = 0;
     public get numValid() { return this._popCount; }

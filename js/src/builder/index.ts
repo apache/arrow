@@ -60,7 +60,7 @@ function newBuilder<T extends DataType = any, TNull = any>(options: BuilderOptio
         const getChildOptions = Array.isArray(children)
             ? ((_: Field, i: number) => children[i] || defaultOptions)
             : (({ name }: Field) => children[name] || defaultOptions);
-    
+
         type.children.forEach((field, index) => {
             const { type } = field;
             const opts = getChildOptions(field, index);

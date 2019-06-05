@@ -53,57 +53,57 @@ export interface IterableBuilderOptions<T extends DataType = any, TNull = any> e
 
 /**
  * An abstract base class for types that construct Arrow Vectors from arbitrary JavaScript values.
- * 
+ *
  * A `Builder` is responsible for writing arbitrary JavaScript values
  * to ArrayBuffers and/or child Builders according to the Arrow specification
  * for each DataType, creating or resizing the underlying ArrayBuffers as necessary.
- * 
+ *
  * The `Builder` for each Arrow `DataType` handles converting and appending
  * values for a given `DataType`. The high-level {@link Builder.new `Builder.new()`} convenience
  * method creates the specific `Builder` subclass for the supplied `DataType`.
- * 
+ *
  * Once created, `Builder` instances support both appending values to the end
  * of the `Builder`, and random-access writes to specific indices
  * (`Builder.prototype.append(value)` is a convenience method for
  * `builder.set(builder.length, value)`). Appending or setting values beyond the
  * Builder's current length may cause the builder to grow its underlying buffers
  * or child Builders (if applicable) to accommodate the new values.
- * 
+ *
  * After enough values have been written to a `Builder`, `Builder.prototype.flush()`
  * will commit the values to the underlying ArrayBuffers (or child Builders). The
  * internal Builder state will be reset, and an instance of `Data<T>` is returned.
  * Alternatively, `Builder.prototype.toVector()` will flush the `Builder` and return
  * an instance of `Vector<T>` instead.
- * 
+ *
  * When there are no more values to write, use `Builder.prototype.finish()` to
  * finalize the `Builder`. This does not reset the internal state, so it is
  * necessary to call `Builder.prototype.flush()` or `toVector()` one last time
  * if there are still values queued to be flushed.
- * 
+ *
  * Note: calling `Builder.prototype.finish()` is required when using a `DictionaryBuilder`,
  * because this is when it flushes the values that have been enqueued in its internal
  * dictionary's `Builder`, and creates the `dictionaryVector` for the `Dictionary` `DataType`.
- * 
+ *
  * ```ts
  * import { Builder, Utf8 } from 'apache-arrow';
- * 
+ *
  * const utf8Builder = Builder.new({
  *     type: new Utf8(),
  *     nullValues: [null, 'n/a']
  * });
- * 
+ *
  * utf8Builder
  *     .append('hello')
  *     .append('n/a')
  *     .append('world')
  *     .append(null);
- * 
+ *
  * const utf8Vector = utf8Builder.finish().toVector();
- * 
+ *
  * console.log(utf8Vector.toJSON());
  * // > ["hello", null, "world", null]
  * ```
- * 
+ *
  * @typeparam T The `DataType` of this `Builder`.
  * @typeparam TNull The type(s) of values which will be considered null-value sentinels.
  */
@@ -113,7 +113,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * Create a `Builder` instance based on the `type` property of the supplied `options` object.
      * @param {BuilderOptions<T, TNull>} options An object with a required `DataType` instance
      * and other optional parameters to be passed to the `Builder` subclass for the given `type`.
-     * 
+     *
      * @typeparam T The `DataType` of the `Builder` to create.
      * @typeparam TNull The type(s) of values which will be considered null-value sentinels.
      * @nocollapse
@@ -123,12 +123,12 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 
     /** @nocollapse */
     // @ts-ignore
-    public static throughNode<T extends DataType = any, TNull = any>(options: import('../io/node/builder').BuilderDuplexOptions<T, TNull>): import('stream').Duplex {
+    public static throughNode<T extends DataType = any, TNull = any>(options: import('./io/node/builder').BuilderDuplexOptions<T, TNull>): import('stream').Duplex {
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */
     // @ts-ignore
-    public static throughDOM<T extends DataType = any, TNull = any>(options: import('../io/whatwg/builder').BuilderTransformOptions<T, TNull>): import('../io/whatwg/builder').BuilderTransform<T, TNull> {
+    public static throughDOM<T extends DataType = any, TNull = any>(options: import('./io/whatwg/builder').BuilderTransformOptions<T, TNull>): import('./io/whatwg/builder').BuilderTransform<T, TNull> {
         throw new Error(`"throughDOM" not available in this environment`);
     }
 
@@ -136,20 +136,20 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * Transform a synchronous `Iterable` of arbitrary JavaScript values into a
      * sequence of Arrow Vector<T> following the chunking semantics defined in
      * the supplied `options` argument.
-     * 
+     *
      * This function returns a function that accepts an `Iterable` of values to
      * transform. When called, this function returns an Iterator of `Vector<T>`.
-     * 
+     *
      * The resulting `Iterator<Vector<T>>` yields Vectors based on the
      * `queueingStrategy` and `highWaterMark` specified in the `options` argument.
-     * 
+     *
      * * If `queueingStrategy` is `"count"` (or omitted), The `Iterator<Vector<T>>`
      *   will flush the underlying `Builder` (and yield a new `Vector<T>`) once the
      *   Builder's `length` reaches or exceeds the supplied `highWaterMark`.
      * * If `queueingStrategy` is `"bytes"`, the `Iterator<Vector<T>>` will flush
      *   the underlying `Builder` (and yield a new `Vector<T>`) once its `byteLength`
      *   reaches or exceeds the supplied `highWaterMark`.
-     * 
+     *
      * @param {IterableBuilderOptions<T, TNull>} options An object of properties which determine the `Builder` to create and the chunking semantics to use.
      * @returns A function which accepts a JavaScript `Iterable` of values to
      *          write, and returns an `Iterator` that yields Vectors according
@@ -163,27 +163,27 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         }
         return function*(source: Iterable<T['TValue'] | TNull>) {
             const chunks = []; for (const chunk of build(source)) { chunks.push(chunk); } yield* chunks;
-        }
+        };
     }
 
     /**
      * Transform an `AsyncIterable` of arbitrary JavaScript values into a
      * sequence of Arrow Vector<T> following the chunking semantics defined in
      * the supplied `options` argument.
-     * 
+     *
      * This function returns a function that accepts an `AsyncIterable` of values to
      * transform. When called, this function returns an AsyncIterator of `Vector<T>`.
-     * 
+     *
      * The resulting `AsyncIterator<Vector<T>>` yields Vectors based on the
      * `queueingStrategy` and `highWaterMark` specified in the `options` argument.
-     * 
+     *
      * * If `queueingStrategy` is `"count"` (or omitted), The `AsyncIterator<Vector<T>>`
      *   will flush the underlying `Builder` (and yield a new `Vector<T>`) once the
      *   Builder's `length` reaches or exceeds the supplied `highWaterMark`.
      * * If `queueingStrategy` is `"bytes"`, the `AsyncIterator<Vector<T>>` will flush
      *   the underlying `Builder` (and yield a new `Vector<T>`) once its `byteLength`
      *   reaches or exceeds the supplied `highWaterMark`.
-     * 
+     *
      * @param {IterableBuilderOptions<T, TNull>} options An object of properties which determine the `Builder` to create and the chunking semantics to use.
      * @returns A function which accepts a JavaScript `AsyncIterable` of values
      *          to write, and returns an `AsyncIterator` that yields Vectors
@@ -198,7 +198,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         }
         return async function* (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) {
             const chunks = []; for await (const chunk of build(source)) { chunks.push(chunk); } yield* chunks;
-        }
+        };
     }
 
     /**
@@ -344,9 +344,9 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 
     /**
      * Write a value to the underlying buffers at the supplied index, bypassing
-     * the null-value check. This is a low-level method that 
-     * @param {number} index 
-     * @param {T['TValue'] | TNull } value 
+     * the null-value check. This is a low-level method that
+     * @param {number} index
+     * @param {T['TValue'] | TNull } value
      */
     // @ts-ignore
     public setValue(index: number, value: T['TValue']) { this._setValue(this, index, value); }
@@ -516,8 +516,8 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
                 yield builder.toVector();
             }
         }
-        if (builder.finish().length > 0) yield builder.toVector();
-    }
+        if (builder.finish().length > 0) { yield builder.toVector(); }
+    };
 }
 
 /** @ignore */
@@ -535,6 +535,6 @@ function throughAsyncIterable<T extends DataType = any, TNull = any>(options: It
                 yield builder.toVector();
             }
         }
-        if (builder.finish().length > 0) yield builder.toVector();
-    }
+        if (builder.finish().length > 0) { yield builder.toVector(); }
+    };
 }

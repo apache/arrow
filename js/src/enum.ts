@@ -30,25 +30,25 @@ export import MetadataVersion = Schema_.org.apache.arrow.flatbuf.MetadataVersion
 
 /**
  * Main data type enumeration.
- * 
+ *
  * Data types in this library are all *logical*. They can be expressed as
  * either a primitive physical type (bytes or bits of some fixed size), a
  * nested type consisting of other data types, or another data type (e.g. a
  * timestamp encoded as an int64).
- * 
+ *
  * **Note**: Only enum values 0-17 (NONE through Map) are written to an Arrow
  * IPC payload.
- * 
+ *
  * The rest of the values are specified here so TypeScript can narrow the type
  * signatures further beyond the base Arrow Types. The Arrow DataTypes include
  * metadata like `bitWidth` that impact the type signatures of the values we
  * accept and return.
- * 
+ *
  * For example, the `Int8Vector` reads 1-byte numbers from an `Int8Array`, an
  * `Int32Vector` reads a 4-byte number from an `Int32Array`, and an `Int64Vector`
  * reads a pair of 4-byte lo, hi 32-bit integers as a zero-copy slice from the
  * underlying `Int32Array`.
- * 
+ *
  * Library consumers benefit by knowing the narrowest type, since we can ensure
  * the types across all public methods are propagated, and never bail to `any`.
  * These values are _never_ used at runtime, and they will _never_ be written

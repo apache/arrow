@@ -25,7 +25,7 @@ import {
     Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
 } from '../../Arrow';
 
-import { Vector as V } from '../../../src/interfaces';
+import { VectorType as V } from '../../../src/interfaces';
 import { TypedArray, TypedArrayConstructor } from '../../../src/interfaces';
 import { BigIntArray, BigIntArrayConstructor } from '../../../src/interfaces';
 

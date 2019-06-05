@@ -46,10 +46,10 @@ BigNum.prototype[Symbol.toPrimitive] = function<T extends BN<BigNumArray>>(this:
         case 'default': return bignumToBigInt(this);
     }
     return bignumToString(this);
-}
+};
 
 /** @ignore */
-type TypedArrayConstructorArgs = 
+type TypedArrayConstructorArgs =
     [number | void] |
     [Iterable<number> | Iterable<bigint>] |
     [ArrayBufferLike, number | void, number | void] ;
@@ -67,7 +67,6 @@ Object.setPrototypeOf(DecimalBigNum.prototype,  Object.create(Uint32Array.protot
 Object.assign(SignedBigNum.prototype,   BigNum.prototype, { 'constructor': SignedBigNum,   'signed': true,  'TypedArray': Int32Array,  'BigIntArray': BigInt64Array  });
 Object.assign(UnsignedBigNum.prototype, BigNum.prototype, { 'constructor': UnsignedBigNum, 'signed': false, 'TypedArray': Uint32Array, 'BigIntArray': BigUint64Array });
 Object.assign(DecimalBigNum.prototype,  BigNum.prototype, { 'constructor': DecimalBigNum,  'signed': true,  'TypedArray': Uint32Array, 'BigIntArray': BigUint64Array });
-
 
 /** @ignore */
 function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {

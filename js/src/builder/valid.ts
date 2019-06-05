@@ -24,7 +24,7 @@ import { BigIntAvailable } from '../util/compat';
  * implementation is a switch statement. Microbenchmarks in v8 indicate
  * this approach is 25% faster than using an ES6 Map.
  * @ignore
- * @param nullValues 
+ * @param nullValues
  */
 export function createIsValidFunction<T extends DataType = any, TNull = any>(nullValues?: ReadonlyArray<TNull>) {
 

@@ -22,6 +22,7 @@ import { Builder } from '../../Arrow';
 import { DataType, Vector, Chunked } from '../../Arrow';
 
 const rand = Math.random.bind(Math);
+/* tslint:disable */
 const randstr = require('randomatic');
 const randnulls = <T, TNull = null>(values: T[], n: TNull = <any> null) => values.map((x) => Math.random() > 0.25 ? x : n) as (T | TNull)[];
 
@@ -105,7 +106,7 @@ export function encodeAll<T extends DataType>(typeFactory: () => T) {
         const builder = Builder.new({ type, nullValues });
         values.forEach(builder.append.bind(builder));
         return builder.finish().toVector();
-    }
+    };
 }
 
 export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
@@ -114,7 +115,7 @@ export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: 
         const opts = { type, nullValues, highWaterMark: chunkLen };
         const chunks = [...Builder.throughIterable(opts)(vals)];
         return Chunked.concat(...chunks) as Chunked<T>;
-    }
+    };
 }
 
 export function encodeEachDOM<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
@@ -125,7 +126,7 @@ export function encodeEachDOM<T extends DataType>(typeFactory: () => T, chunkLen
         const builder = Builder.throughDOM({ type, nullValues, readableStrategy: strategy, writableStrategy: strategy });
         const chunks = await AsyncIterable.fromDOMStream(source.pipeThrough(builder)).toArray();
         return Chunked.concat(...chunks) as Chunked<T>;
-    }
+    };
 }
 
 export function encodeEachNode<T extends DataType>(typeFactory: () => T, chunkLen?: number) {
@@ -137,7 +138,7 @@ export function encodeEachNode<T extends DataType>(typeFactory: () => T, chunkLe
         const builder = Builder.throughNode({ type, nullValues: nulls_, highWaterMark: chunkLen });
         const chunks: any[] = await AsyncIterable.fromNodeStream(source.pipe(builder), chunkLen).toArray();
         return Chunked.concat(...chunks) as Chunked<T>;
-    }
+    };
 }
 
 const isInt64Null = (nulls: Map<any, any>, x: any) => {
@@ -146,7 +147,7 @@ const isInt64Null = (nulls: Map<any, any>, x: any) => {
         return nulls.has((<any> bn)[Symbol.toPrimitive]('default'));
     }
     return false;
-}
+};
 
 export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[], vec: Vector, nullVals: any[]) {
     let i = 0, x: T['TValue'] | null, y: T['TValue'] | null;
@@ -178,7 +179,7 @@ function fillRandom<T extends TypedArrayConstructor>(ArrayType: T, length: numbe
     const BPE = ArrayType.BYTES_PER_ELEMENT;
     const array = new ArrayType(length);
     const max = (2 ** (8 * BPE)) - 1;
-    for (let i = -1; ++i < length; array[i] = rand() * max * (rand() > 0.5 ? -1 : 1));
+    for (let i = -1; ++i < length; array[i] = rand() * max * (rand() > 0.5 ? -1 : 1)) { }
     return array as InstanceType<T>;
 }
 
