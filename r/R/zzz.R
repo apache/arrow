@@ -15,6 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @useDynLib arrow, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
 NULL
+
+NAMESPACE <- environment()
+
+.onLoad <- function(libname, pkgname) {
+  dll <- library.dynam("arrow", pkgname, libname)
+
+  for(routine in getDLLRegisteredRoutines(dll)$.Call) {
+    assign(routine$name, routine, envir = NAMESPACE)
+  }
+}
+
+.onUnload <- function(libpath) {
+  library.dynam.unload("arrow", libpath)
+}
