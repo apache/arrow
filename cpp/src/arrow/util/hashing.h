@@ -17,8 +17,7 @@
 
 // Private header, not to be exported
 
-#ifndef ARROW_UTIL_HASHING_H
-#define ARROW_UTIL_HASHING_H
+#pragma once
 
 #include <algorithm>
 #include <cassert>
@@ -392,9 +391,29 @@ class ScalarMemoTable : public MemoTable {
     return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {});
   }
 
-  // The number of entries in the memo table
+  int32_t GetNull() const { return null_index_; }
+
+  template <typename Func1, typename Func2>
+  int32_t GetOrInsertNull(Func1&& on_found, Func2&& on_not_found) {
+    int32_t memo_index = GetNull();
+    if (memo_index != kKeyNotFound) {
+      on_found(memo_index);
+    } else {
+      null_index_ = memo_index = size();
+      on_not_found(memo_index);
+    }
+    return memo_index;
+  }
+
+  int32_t GetOrInsertNull() {
+    return GetOrInsertNull([](int32_t i) {}, [](int32_t i) {});
+  }
+
+  // The number of entries in the memo table + if null was added.
   // (which is also 1 + the largest memo index)
-  int32_t size() const override { return static_cast<int32_t>(hash_table_.size()); }
+  int32_t size() const override {
+    return static_cast<int32_t>(hash_table_.size()) + (GetNull() != kKeyNotFound);
+  }
 
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
@@ -417,6 +436,7 @@ class ScalarMemoTable : public MemoTable {
   using HashTableType = HashTableTemplateType<Payload>;
   using HashTableEntry = typename HashTableType::Entry;
   HashTableType hash_table_;
+  int32_t null_index_ = kKeyNotFound;
 
   hash_t ComputeHash(const Scalar& value) const {
     return ScalarHelper<Scalar, 0>::ComputeHash(value);
@@ -450,7 +470,7 @@ template <typename Scalar, template <class> class HashTableTemplateType = HashTa
 class SmallScalarMemoTable : public MemoTable {
  public:
   explicit SmallScalarMemoTable(int64_t entries = 0) {
-    std::fill(value_to_index_, value_to_index_ + cardinality, kKeyNotFound);
+    std::fill(value_to_index_, value_to_index_ + cardinality + 1, kKeyNotFound);
     index_to_value_.reserve(cardinality);
   }
 
@@ -467,7 +487,7 @@ class SmallScalarMemoTable : public MemoTable {
       memo_index = static_cast<int32_t>(index_to_value_.size());
       index_to_value_.push_back(value);
       value_to_index_[value_index] = memo_index;
-      assert(memo_index < cardinality);
+      assert(memo_index < cardinality + 1);
       on_not_found(memo_index);
     } else {
       on_found(memo_index);
@@ -477,6 +497,25 @@ class SmallScalarMemoTable : public MemoTable {
 
   int32_t GetOrInsert(const Scalar value) {
     return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {});
+  }
+
+  int32_t GetNull() const { return value_to_index_[cardinality]; }
+
+  template <typename Func1, typename Func2>
+  int32_t GetOrInsertNull(Func1&& on_found, Func2&& on_not_found) {
+    auto memo_index = GetNull();
+    if (memo_index == kKeyNotFound) {
+      memo_index = value_to_index_[cardinality] = size();
+      index_to_value_.push_back(0);
+      on_not_found(memo_index);
+    } else {
+      on_found(memo_index);
+    }
+    return memo_index;
+  }
+
+  int32_t GetOrInsertNull() {
+    return GetOrInsertNull([](int32_t i) {}, [](int32_t i) {});
   }
 
   // The number of entries in the memo table
@@ -503,7 +542,8 @@ class SmallScalarMemoTable : public MemoTable {
     return SmallScalarTraits<Scalar>::AsIndex(value);
   }
 
-  int32_t value_to_index_[cardinality];
+  // The last index is reserved for the null element.
+  int32_t value_to_index_[cardinality + 1];
   std::vector<Scalar> index_to_value_;
 };
 
@@ -586,9 +626,33 @@ class BinaryMemoTable : public MemoTable {
     return GetOrInsert(value.data(), static_cast<int32_t>(value.length()));
   }
 
+  int32_t GetNull() const { return null_index_; }
+
+  template <typename Func1, typename Func2>
+  int32_t GetOrInsertNull(Func1&& on_found, Func2&& on_not_found) {
+    auto memo_index = GetNull();
+    if (memo_index == kKeyNotFound) {
+      memo_index = null_index_ = size();
+      auto offset = static_cast<int32_t>(values_.size());
+      // Only the offset array needs to be updated.
+      offsets_.push_back(offset);
+
+      on_not_found(memo_index);
+    } else {
+      on_found(memo_index);
+    }
+    return memo_index;
+  }
+
+  int32_t GetOrInsertNull() {
+    return GetOrInsertNull([](int32_t i) {}, [](int32_t i) {});
+  }
+
   // The number of entries in the memo table
   // (which is also 1 + the largest memo index)
-  int32_t size() const override { return static_cast<int32_t>(hash_table_.size()); }
+  int32_t size() const override {
+    return static_cast<int32_t>(hash_table_.size() + (GetNull() != kKeyNotFound));
+  }
 
   int32_t values_size() const { return static_cast<int32_t>(values_.size()); }
 
@@ -656,6 +720,8 @@ class BinaryMemoTable : public MemoTable {
 
   std::vector<int32_t> offsets_;
   std::string values_;
+
+  int32_t null_index_ = kKeyNotFound;
 
   std::pair<const HashTableEntry*, bool> Lookup(hash_t h, const void* data,
                                                 int32_t length) const {
@@ -805,5 +871,3 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_HASHING_H
