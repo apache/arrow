@@ -16,10 +16,11 @@
 // under the License.
 
 import { Field } from '../schema';
+import { Builder } from '../builder';
 import { DataType, Map_ } from '../type';
-import { Builder, NestedBuilder } from './base';
 
-export class MapBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends NestedBuilder<Map_<T>, TNull> {
+/** @ignore */
+export class MapBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends Builder<Map_<T>, TNull> {
     public addChild(child: Builder, name = `${this.numChildren}`) {
         const { children, keysSorted } = this.type;
         const childIndex = this.children.push(child);

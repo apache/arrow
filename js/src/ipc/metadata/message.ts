@@ -419,7 +419,7 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
     const typeId = f.typeType();
 
     switch (typeId) {
-        case Type.NONE:    return new DataType();
+        case Type.NONE:    return new Null();
         case Type.Null:    return new Null();
         case Type.Binary:  return new Binary();
         case Type.Utf8:    return new Utf8();

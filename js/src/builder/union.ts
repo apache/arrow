@@ -17,14 +17,15 @@
 
 import { Field } from '../schema';
 import { DataBufferBuilder } from './buffer';
+import { Builder, BuilderOptions } from '../builder';
 import { Union, SparseUnion, DenseUnion } from '../type';
-import { Builder, NestedBuilder, BuilderOptions } from './base';
 
 export interface UnionBuilderOptions<T extends Union = any, TNull = any> extends BuilderOptions<T, TNull> {
     valueToChildTypeId?: (builder: UnionBuilder<T, TNull>, value: any, offset: number) => number;
 }
 
-export abstract class UnionBuilder<T extends Union, TNull = any> extends NestedBuilder<T, TNull> {
+/** @ignore */
+export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder<T, TNull> {
 
     protected _typeIds: DataBufferBuilder<Int8Array>;
 
@@ -76,7 +77,9 @@ or supply a \`valueToChildTypeId\` function as part of the UnionBuilder construc
     }
 }
 
+/** @ignore */
 export class SparseUnionBuilder<T extends SparseUnion, TNull = any> extends UnionBuilder<T, TNull> {}
+/** @ignore */
 export class DenseUnionBuilder<T extends DenseUnion, TNull = any> extends UnionBuilder<T, TNull> {
 
     protected _offsets: DataBufferBuilder<Int32Array>;

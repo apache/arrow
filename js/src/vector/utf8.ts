@@ -21,6 +21,7 @@ import { BaseVector } from './base';
 import { Binary, Utf8 } from '../type';
 import { encodeUtf8 } from '../util/utf8';
 
+/** @ignore */
 export class Utf8Vector extends BaseVector<Utf8> {
     /** @nocollapse */
     public static from(values: string[]) {

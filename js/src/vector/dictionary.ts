@@ -18,9 +18,10 @@
 import { Data } from '../data';
 import { Vector } from '../vector';
 import { BaseVector } from './base';
-import { Vector as V } from '../interfaces';
+import { VectorType as V } from '../interfaces';
 import { DataType, Dictionary, TKeys } from '../type';
 
+/** @ignore */
 export class DictionaryVector<T extends DataType = any, TKey extends TKeys = TKeys> extends BaseVector<Dictionary<T, TKey>> {
     /** @nocollapse */
     public static from<T extends DataType<any>, TKey extends TKeys = TKeys>(

@@ -20,6 +20,7 @@ import { TypedArray, TypedArrayConstructor } from '../interfaces';
 import { BigIntArray, BigIntArrayConstructor } from '../interfaces';
 import { BigIntAvailable, BigInt64Array, BigUint64Array } from './compat';
 
+/** @ignore */
 export const isArrowBigNumSymbol = Symbol.for('isArrowBigNum');
 
 /** @ignore */ type BigNumArray = IntArray | UintArray;

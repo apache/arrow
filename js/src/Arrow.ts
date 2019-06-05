@@ -41,8 +41,8 @@ export {
 
 export { Table } from './table';
 export { Column } from './column';
-export { Schema, Field } from './schema';
 export { Visitor } from './visitor';
+export { Schema, Field } from './schema';
 export {
     Row,
     Vector,

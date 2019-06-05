@@ -16,8 +16,9 @@
 // under the License.
 
 import { Null } from '../type';
-import { Builder } from './base';
+import { Builder } from '../builder';
 
+/** @ignore */
 export class NullBuilder<TNull = any> extends Builder<Null, TNull> {
     // @ts-ignore
     public setValue(index: number, value: null) {}

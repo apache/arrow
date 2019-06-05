@@ -16,6 +16,7 @@
 // under the License.
 
 import { FixedSizeBinary } from '../type';
-import { FixedWidthBuilder } from './base';
+import { FixedWidthBuilder } from '../builder';
 
+/** @ignore */
 export class FixedSizeBinaryBuilder<TNull = any> extends FixedWidthBuilder<FixedSizeBinary, TNull> {}

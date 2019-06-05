@@ -19,8 +19,9 @@ import { Run } from './run';
 import { Field } from '../schema';
 import { DataType, List } from '../type';
 import { OffsetsBufferBuilder } from './buffer';
-import { Builder, BuilderOptions, VariableWidthBuilder } from './base';
+import { Builder, BuilderOptions, VariableWidthBuilder } from '../builder';
 
+/** @ignore */
 export class ListBuilder<T extends DataType = any, TNull = any> extends VariableWidthBuilder<List<T>, TNull> {
     protected _run = new Run<T, TNull>();
     protected _offsets: OffsetsBufferBuilder;

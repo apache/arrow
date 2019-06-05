@@ -23,7 +23,7 @@ import { RecordBatch } from './recordbatch';
 import { DataFrame } from './compute/dataframe';
 import { RecordBatchReader } from './ipc/reader';
 import { Vector, Chunked } from './vector/index';
-import { DataType, RowLike, Struct } from './type';
+import { DataType, RowLike, Struct, Map_ } from './type';
 import { Clonable, Sliceable, Applicative } from './vector';
 import { selectColumnArgs, selectArgs } from './util/args';
 import { distributeColumnsIntoRecordBatches } from './util/recordbatch';
@@ -101,8 +101,13 @@ export class Table<T extends { [key: string]: DataType } = any>
     }
 
     /** @nocollapse */
-    public static fromStruct<T extends { [key: string]: DataType } = any>(struct: Vector<Struct<T>>) {
-        return Table.new<T>(struct.data.childData as Data<T[keyof T]>[], struct.type.children);
+    public static fromMap<T extends { [key: string]: DataType } = any>(vector: Vector<Map_<T>>) {
+        return Table.new<T>(vector.data.childData as Data<T[keyof T]>[], vector.type.children);
+    }
+
+    /** @nocollapse */
+    public static fromStruct<T extends { [key: string]: DataType } = any>(vector: Vector<Struct<T>>) {
+        return Table.new<T>(vector.data.childData as Data<T[keyof T]>[], vector.type.children);
     }
 
     /**

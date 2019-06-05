@@ -17,7 +17,7 @@
 
 import { DataType } from '../../type';
 import { Vector } from '../../vector';
-import { Vector as V } from '../../interfaces';
+import { VectorType as V } from '../../interfaces';
 import { Builder, BuilderOptions } from '../../builder/index';
 
 /** @ignore */

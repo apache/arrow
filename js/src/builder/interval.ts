@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from './base';
+import { FixedWidthBuilder } from '../builder';
 import { Interval, IntervalDayTime, IntervalYearMonth } from '../type';
 
+/** @ignore */
 export class IntervalBuilder<T extends Interval = Interval, TNull = any> extends FixedWidthBuilder<T, TNull> {}
+/** @ignore */
 export class IntervalDayTimeBuilder<TNull = any> extends IntervalBuilder<IntervalDayTime, TNull> {}
+/** @ignore */
 export class IntervalYearMonthBuilder<TNull = any> extends IntervalBuilder<IntervalYearMonth, TNull> {}

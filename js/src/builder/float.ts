@@ -15,19 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from './base';
+import { FixedWidthBuilder } from '../builder';
 import { Float, Float16, Float32, Float64 } from '../type';
 
+/** @ignore */
 export class FloatBuilder<T extends Float = Float, TNull = any> extends FixedWidthBuilder<T, TNull> {}
 
+/** @ignore */
 export class Float16Builder<TNull = any> extends FloatBuilder<Float16, TNull> {}
 
+/** @ignore */
 export class Float32Builder<TNull = any> extends FloatBuilder<Float32, TNull> {
     public setValue(index: number, value: number) {
         this._values.set(index, value);
     }
 }
 
+/** @ignore */
 export class Float64Builder<TNull = any> extends FloatBuilder<Float64, TNull> {
     public setValue(index: number, value: number) {
         this._values.set(index, value);

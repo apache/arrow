@@ -22,6 +22,7 @@ import { BaseVector } from './base';
 import * as IntUtil from '../util/int';
 import { Date_, DateDay, DateMillisecond  } from '../type';
 
+/** @ignore */
 export class DateVector<T extends Date_ = Date_> extends BaseVector<T> {
     /** @nocollapse */
     public static from<T extends Date_ = DateMillisecond>(data: Date[], unit: T['unit'] = DateUnit.MILLISECOND) {
@@ -39,5 +40,7 @@ export class DateVector<T extends Date_ = Date_> extends BaseVector<T> {
     }
 }
 
+/** @ignore */
 export class DateDayVector extends DateVector<DateDay> {}
+/** @ignore */
 export class DateMillisecondVector extends DateVector<DateMillisecond> {}

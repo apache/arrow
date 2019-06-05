@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from './base';
+import { FixedWidthBuilder } from '../builder';
 import { Date_, DateDay, DateMillisecond } from '../type';
 
+/** @ignore */
 export class DateBuilder<T extends Date_ = Date_, TNull = any> extends FixedWidthBuilder<T, TNull> {}
+/** @ignore */
 export class DateDayBuilder<TNull = any> extends DateBuilder<DateDay, TNull> {}
+/** @ignore */
 export class DateMillisecondBuilder<TNull = any> extends DateBuilder<DateMillisecond, TNull> {}

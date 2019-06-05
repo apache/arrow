@@ -19,12 +19,20 @@ import { Utf8 } from '../type';
 import { encodeUtf8 } from '../util/utf8';
 import { BinaryBuilder } from './binary';
 import { BufferBuilder } from './buffer';
-import { VariableWidthBuilder, BuilderOptions } from './base';
+import { VariableWidthBuilder, BuilderOptions } from '../builder';
 
+/** @ignore */
 export class Utf8Builder<TNull = any> extends VariableWidthBuilder<Utf8, TNull> {
     constructor(opts: BuilderOptions<Utf8, TNull>) {
         super(opts);
         this._values = new BufferBuilder(new Uint8Array(0));
+    }
+    public get byteLength(): number {
+        let size = this._pendingLength;
+        this._offsets && (size += this._offsets.byteLength);
+        this._values && (size += this._values.byteLength);
+        this._nulls && (size += this._nulls.byteLength);
+        return size;
     }
     public setValue(index: number, value: string) {
         return super.setValue(index, encodeUtf8(value) as any);

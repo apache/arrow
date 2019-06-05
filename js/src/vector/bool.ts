@@ -21,6 +21,7 @@ import { Vector } from '../vector';
 import { BaseVector } from './base';
 import { packBools } from '../util/bit';
 
+/** @ignore */
 export class BoolVector extends BaseVector<Bool> {
     /** @nocollapse */
     public static from(data: Iterable<boolean>) {

@@ -19,7 +19,7 @@ import { Data } from '../data';
 import { Type } from '../enum';
 import { DataType } from '../type';
 import { Visitor } from '../visitor';
-import { Vector, BuilderCtor } from '../interfaces';
+import { VectorType, BuilderCtor } from '../interfaces';
 import { BinaryBuilder } from '../builder/binary';
 import { BoolBuilder } from '../builder/bool';
 import { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from '../builder/date';
@@ -39,13 +39,15 @@ import { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecond
 import { UnionBuilder, DenseUnionBuilder, SparseUnionBuilder } from '../builder/union';
 import { Utf8Builder } from '../builder/utf8';
 
+/** @ignore */
 export interface GetBuilderCtor extends Visitor {
     visit<T extends Type>(type: T): BuilderCtor<T>;
     visitMany<T extends Type>(types: T[]): BuilderCtor<T>[];
     getVisitFn<T extends Type>(type: T): () => BuilderCtor<T>;
-    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): () => BuilderCtor<T>;
+    getVisitFn<T extends DataType>(node: VectorType<T> | Data<T> | T): () => BuilderCtor<T>;
 }
 
+/** @ignore */
 export class GetBuilderCtor extends Visitor {
     public visitNull                 () { return NullBuilder;                 }
     public visitBool                 () { return BoolBuilder;                 }

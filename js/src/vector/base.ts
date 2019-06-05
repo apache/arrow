@@ -20,17 +20,19 @@ import { Type } from '../enum';
 import { DataType } from '../type';
 import { Chunked } from './chunked';
 import { clampRange } from '../util/vector';
-import { Vector as VType } from '../interfaces';
+import { VectorType as V } from '../interfaces';
 import { AbstractVector, Vector, Clonable, Sliceable, Applicative } from '../vector';
 
-export interface BaseVector<T extends DataType = any> extends Clonable<VType<T>>, Sliceable<VType<T>>, Applicative<T, Chunked<T>> {
-    slice(begin?: number, end?: number): VType<T>;
+/** @ignore */
+export interface BaseVector<T extends DataType = any> extends Clonable<V<T>>, Sliceable<V<T>>, Applicative<T, Chunked<T>> {
+    slice(begin?: number, end?: number): V<T>;
     concat(...others: Vector<T>[]): Chunked<T>;
-    clone<R extends DataType = T>(data: Data<R>, children?: Vector<R>[]): VType<R>;
+    clone<R extends DataType = T>(data: Data<R>, children?: Vector<R>[]): V<R>;
 }
 
+/** @ignore */
 export abstract class BaseVector<T extends DataType = any> extends AbstractVector<T>
-    implements Clonable<VType<T>>, Sliceable<VType<T>>, Applicative<T, Chunked<T>> {
+    implements Clonable<V<T>>, Sliceable<V<T>>, Applicative<T, Chunked<T>> {
 
     protected _children?: Vector[];
 

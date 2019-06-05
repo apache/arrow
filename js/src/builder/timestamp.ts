@@ -15,11 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from './base';
+import { FixedWidthBuilder } from '../builder';
 import { Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond } from '../type';
 
+/** @ignore */
 export class TimestampBuilder<T extends Timestamp = Timestamp, TNull = any> extends FixedWidthBuilder<T, TNull> {}
+/** @ignore */
 export class TimestampSecondBuilder<TNull = any> extends TimestampBuilder<TimestampSecond, TNull> {}
+/** @ignore */
 export class TimestampMillisecondBuilder<TNull = any> extends TimestampBuilder<TimestampMillisecond, TNull> {}
+/** @ignore */
 export class TimestampMicrosecondBuilder<TNull = any> extends TimestampBuilder<TimestampMicrosecond, TNull> {}
+/** @ignore */
 export class TimestampNanosecondBuilder<TNull = any> extends TimestampBuilder<TimestampNanosecond, TNull> {}

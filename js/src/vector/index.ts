@@ -44,7 +44,7 @@ import { Vector } from '../vector';
 import { DataType } from '../type';
 import { BaseVector } from './base';
 import { setBool } from '../util/bit';
-import { Vector as V, VectorCtorArgs } from '../interfaces';
+import { VectorType as V, VectorCtorArgs } from '../interfaces';
 import { instance as getVisitor } from '../visitor/get';
 import { instance as setVisitor } from '../visitor/set';
 import { instance as indexOfVisitor } from '../visitor/indexof';

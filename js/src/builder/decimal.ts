@@ -16,6 +16,7 @@
 // under the License.
 
 import { Decimal } from '../type';
-import { FixedWidthBuilder } from './base';
+import { FixedWidthBuilder } from '../builder';
 
+/** @ignore */
 export class DecimalBuilder<TNull = any> extends FixedWidthBuilder<Decimal, TNull> {}

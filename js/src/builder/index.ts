@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export { Builder, BuilderOptions } from './base';
+/** @ignore */
+export { Builder, BuilderOptions } from '../builder';
 export { BoolBuilder } from './bool';
 export { NullBuilder } from './null';
 export { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from './date';
@@ -39,21 +40,14 @@ import { Type } from '../enum';
 import { Field } from '../schema';
 import { DataType } from '../type';
 import { Utf8Builder } from './utf8';
-import { Builder as B } from '../interfaces';
-import { Builder, BuilderOptions } from './base';
+import { BuilderType as B } from '../interfaces';
+import { Builder, BuilderOptions } from '../builder';
 import { instance as setVisitor } from '../visitor/set';
 import { instance as getBuilderConstructor } from '../visitor/builderctor';
-
-declare module './base' {
-    namespace Builder {
-        export { newBuilder as new };
-    }
-}
 
 /** @nocollapse */
 Builder.new = newBuilder;
 
-/** @ignore */
 function newBuilder<T extends DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): B<T, TNull> {
 
     const type = options.type;

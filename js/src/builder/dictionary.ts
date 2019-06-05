@@ -18,7 +18,7 @@
 import { Vector } from '../vector';
 import { IntBuilder } from './int';
 import { Dictionary, DataType } from '../type';
-import { Builder, BuilderOptions } from './base';
+import { Builder, BuilderOptions } from '../builder';
 
 type DictionaryHashFunction = (x: any) => string | number;
 
@@ -26,6 +26,7 @@ export interface DictionaryBuilderOptions<T extends DataType = any, TNull = any>
     dictionaryHashFunction?: DictionaryHashFunction;
 }
 
+/** @ignore */
 export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builder<T, TNull> {
 
     protected _codes = Object.create(null);

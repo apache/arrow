@@ -21,13 +21,14 @@ import * as type from './type';
 import { DataType } from './type';
 import * as vecs from './vector/index';
 import * as builders from './builder/index';
-import { BuilderOptions } from './builder/base';
+import { BuilderOptions } from './builder/index';
 
 /** @ignore */ type FloatArray = Float32Array | Float64Array;
 /** @ignore */ type IntArray = Int8Array | Int16Array | Int32Array;
 /** @ignore */ type UintArray = Uint8Array | Uint16Array | Uint32Array | Uint8ClampedArray;
 /** @ignore */
 export type TypedArray = FloatArray | IntArray | UintArray;
+/** @ignore */
 export type BigIntArray = BigInt64Array | BigUint64Array;
 
 /** @ignore */
@@ -82,7 +83,7 @@ export interface BigIntArrayConstructor<T extends BigIntArray> {
 
 /** @ignore */
 export type VectorCtorArgs<
-    T extends Vector<R>,
+    T extends VectorType<R>,
     R extends DataType = any,
     TArgs extends any[] = any[],
     TCtor extends new (data: Data<R>, ...args: TArgs) => T =
@@ -91,7 +92,7 @@ export type VectorCtorArgs<
 
 /** @ignore */
 export type BuilderCtorArgs<
-    T extends Builder<R, any>,
+    T extends BuilderType<R, any>,
     R extends DataType = any,
     TArgs extends any[] = any[],
     TCtor extends new (type: R, ...args: TArgs) => T =
@@ -110,7 +111,7 @@ export type ConstructorType<
 
 /** @ignore */
 export type VectorCtorType<
-    T extends Vector<R>,
+    T extends VectorType<R>,
     R extends DataType = any,
     TCtor extends new (data: Data<R>, ...args: VectorCtorArgs<T, R>) => T =
                   new (data: Data<R>, ...args: VectorCtorArgs<T, R>) => T
@@ -118,45 +119,45 @@ export type VectorCtorType<
 
 /** @ignore */
 export type BuilderCtorType<
-    T extends Builder<R, any>,
+    T extends BuilderType<R, any>,
     R extends DataType = any,
     TCtor extends new (options: BuilderOptions<R, any>) => T =
                   new (options: BuilderOptions<R, any>) => T
 > = TCtor extends new (options: BuilderOptions<R, any>) => T ? TCtor : never;
 
 /** @ignore */
-export type Vector<T extends Type | DataType = any> =
+export type VectorType<T extends Type | DataType = any> =
     T extends Type          ? TypeToVector<T>     :
     T extends DataType      ? DataTypeToVector<T> :
                               vecs.BaseVector<any>
     ;
 
 /** @ignore */
-export type Builder<T extends Type | DataType = any, TNull = any> =
+export type BuilderType<T extends Type | DataType = any, TNull = any> =
     T extends Type          ? TypeToBuilder<T, TNull>     :
     T extends DataType      ? DataTypeToBuilder<T, TNull> :
                               builders.Builder<any, TNull>
     ;
 
 /** @ignore */
-export type VectorCtor<T extends Type | DataType | Vector> =
-    T extends Vector        ? VectorCtorType<T>                  :
-    T extends Type          ? VectorCtorType<Vector<T>>          :
-    T extends DataType      ? VectorCtorType<Vector<T['TType']>> :
+export type VectorCtor<T extends Type | DataType | VectorType> =
+    T extends VectorType        ? VectorCtorType<T>                  :
+    T extends Type          ? VectorCtorType<VectorType<T>>          :
+    T extends DataType      ? VectorCtorType<VectorType<T['TType']>> :
                               VectorCtorType<vecs.BaseVector>
     ;
 
 /** @ignore */
 export type BuilderCtor<T extends Type | DataType = any> =
-    T extends Type          ? BuilderCtorType<Builder<T>> :
-    T extends DataType      ? BuilderCtorType<Builder<T>> :
+    T extends Type          ? BuilderCtorType<BuilderType<T>> :
+    T extends DataType      ? BuilderCtorType<BuilderType<T>> :
                               BuilderCtorType<builders.Builder>
     ;
 
 /** @ignore */
-export type DataTypeCtor<T extends Type | DataType | Vector = any> =
+export type DataTypeCtor<T extends Type | DataType | VectorType = any> =
     T extends DataType      ? ConstructorType<T>                 :
-    T extends Vector        ? ConstructorType<T['type']>         :
+    T extends VectorType        ? ConstructorType<T['type']>         :
     T extends Type          ? ConstructorType<TypeToDataType<T>> :
                               never
     ;
