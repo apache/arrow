@@ -36,6 +36,7 @@ namespace dataset {
 class Dataset;
 class DataFragment;
 class DataSource;
+struct DataSelector;
 using DataFragmentIterator = Iterator<std::shared_ptr<DataFragment>>;
 using DataFragmentVector = std::vector<std::shared_ptr<DataFragment>>;
 
@@ -52,12 +53,19 @@ using FilterVector = std::vector<std::shared_ptr<Filter>>;
 class Partition;
 class PartitionKey;
 class PartitionScheme;
+using PartitionVector = std::vector<std::shared_ptr<Partition>>;
+using PartitionIterator = Iterator<std::shared_ptr<Partition>>;
 
 struct ScanContext;
+class ScanOptions;
 class Scanner;
 class ScannerBuilder;
 class ScanTask;
 using ScanTaskIterator = Iterator<std::unique_ptr<ScanTask>>;
+
+class DatasetWriter;
+class WriteContext;
+class WriteOptions;
 
 }  // namespace dataset
 }  // namespace arrow

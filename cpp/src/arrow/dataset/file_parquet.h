@@ -51,7 +51,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& location, const FileScanOptions& options,
+  Status ScanFile(const FileSource& location, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
                   std::unique_ptr<ScanTaskIterator>* out) const override;
 };

@@ -33,21 +33,44 @@ class ARROW_DS_EXPORT DataFragment {
   /// \brief Return true if the fragment can benefit from parallel
   /// scanning
   virtual bool splittable() const = 0;
+
+  /// \brief Partition options to use when scanning this fragment. May be
+  /// nullptr
+  virtual std::shared_ptr<ScanOptions> scan_options() const = 0;
+};
+
+/// \brief Conditions to apply to a dataset when reading to include or
+/// exclude fragments, filter out rows, etc.
+struct DataSelector {
+  std::vector<std::shared_ptr<Filter>> filters;
+
+  // TODO(wesm): Select specific partition keys, file path globs, or
+  // other common desirable selections
 };
 
 /// \brief A basic component of a Dataset which yields zero or more
 /// DataFragments
 class ARROW_DS_EXPORT DataSource {
  public:
+  enum Type {
+    SIMPLE,       // Flat collection
+    PARTITIONED,  // Partitioned collection
+    GENERIC       // All others
+  };
+
   virtual ~DataSource() = default;
 
-  virtual std::unique_ptr<DataFragmentIterator> GetFragments() = 0;
+  virtual Type type() const = 0;
+
+  virtual std::unique_ptr<DataFragmentIterator> GetFragments(
+      const DataSelector& selector) = 0;
 };
 
 /// \brief A DataSource consisting of a flat sequence of DataFragments
 class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
  public:
-  std::unique_ptr<DataFragmentIterator> GetFragments() override;
+  std::unique_ptr<DataFragmentIterator> GetFragments(
+      const DataSelector& selector) override;
 
  private:
   DataFragmentVector fragments_;
@@ -57,8 +80,15 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
 /// from possibly multiple sources
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
-  explicit Dataset(const std::shared_ptr<DataSource>& source);
-  explicit Dataset(const std::vector<std::shared_ptr<DataSource>>& sources);
+  /// \param[in] source a single input data source
+  /// \param[in] schema a known schema to conform to, may be nullptr
+  explicit Dataset(std::shared_ptr<DataSource> source,
+                   std::shared_ptr<Schema> schema = NULLPTR);
+
+  /// \param[in] source one or more input data sources
+  /// \param[in] schema a known schema to conform to, may be nullptr
+  explicit Dataset(const std::vector<std::shared_ptr<DataSource>>& sources,
+                   std::shared_ptr<Schema> schema = NULLPTR);
 
   virtual ~Dataset() = default;
 
@@ -67,7 +97,19 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
 
   const std::vector<std::shared_ptr<DataSource>>& sources() const { return sources_; }
 
+  std::shared_ptr<Schema> schema() const { return schema_; }
+
+  /// \brief Compute consensus schema from input data sources
+  Status InferSchema(std::shared_ptr<Schema>* out);
+
+  /// \brief Return a copy of Dataset with a new target schema
+  Status ReplaceSchema(std::shared_ptr<Schema> schema, std::unique_ptr<Dataset>* out);
+
  protected:
+  // The data sources must conform their output to this schema (with
+  // projections and filters taken into account)
+  std::shared_ptr<Schema> schema_;
+
   std::vector<std::shared_ptr<DataSource>> sources_;
 };
 

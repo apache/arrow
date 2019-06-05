@@ -21,8 +21,10 @@
 #include <string>
 #include <utility>
 
+#include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/dataset/writer.h"
 #include "arrow/util/compression.h"
 
 namespace arrow {
@@ -91,16 +93,14 @@ class ARROW_DS_EXPORT FileSource {
 };
 
 /// \brief Base class for file scanning options
-class ARROW_DS_EXPORT FileScanOptions {
+class ARROW_DS_EXPORT FileScanOptions : public ScanOptions {
  public:
-  virtual ~FileScanOptions() = default;
-
   /// \brief The name of the file format this options corresponds to
   virtual std::string file_type() const = 0;
 };
 
 /// \brief Base class for file writing options
-class ARROW_DS_EXPORT FileWriteOptions {
+class ARROW_DS_EXPORT FileWriteOptions : public WriteOptions {
  public:
   virtual ~FileWriteOptions() = default;
 
@@ -119,7 +119,8 @@ class ARROW_DS_EXPORT FileFormat {
   virtual bool IsKnownExtension(const std::string& ext) const = 0;
 
   /// \brief Open a file for scanning
-  virtual Status ScanFile(const FileSource& location, const FileScanOptions& options,
+  virtual Status ScanFile(const FileSource& location,
+                          std::shared_ptr<ScanOptions> scan_options,
                           std::shared_ptr<ScanContext> scan_context,
                           std::unique_ptr<ScanTaskIterator>* out) const = 0;
 };
@@ -127,7 +128,8 @@ class ARROW_DS_EXPORT FileFormat {
 /// \brief A DataFragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
-  FileBasedDataFragment(const FileSource& location, std::shared_ptr<FileFormat> format);
+  FileBasedDataFragment(const FileSource& location, std::shared_ptr<FileFormat> format,
+                        std::shared_ptr<ScanOptions>);
 
   const FileSource& location() const { return location_; }
   std::shared_ptr<FileFormat> format() const { return format_; }
@@ -135,6 +137,7 @@ class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  protected:
   FileSource location_;
   std::shared_ptr<FileFormat> format_;
+  std::shared_ptr<ScanOptions> scan_options_;
 };
 
 }  // namespace dataset

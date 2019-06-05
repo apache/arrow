@@ -28,8 +28,8 @@ class ARROW_DS_EXPORT Filter {
  public:
   enum type {
     /// Simple boolean predicate consisting of comparisons and boolean
-    /// logic (AND, OR, NOT)
-    SIMPLE,
+    /// logic (AND, OR, NOT) involving Schema fields
+    EXPRESSION,
 
     ///
     GENERIC

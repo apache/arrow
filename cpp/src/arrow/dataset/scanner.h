@@ -36,6 +36,11 @@ struct ARROW_DS_EXPORT ScanContext {};
 // be evaluated in-memory against the RecordBatch objects resulting
 // from the Scan
 
+class ARROW_DS_EXPORT ScanOptions {
+ public:
+  virtual ~ScanOptions() = default;
+};
+
 /// \brief Read record batches from a range of a single data fragment
 class ARROW_DS_EXPORT ScanTask {
  public:
@@ -50,7 +55,7 @@ class ARROW_DS_EXPORT ScanTask {
 /// \brief Main interface for
 class ARROW_DS_EXPORT Scanner {
  public:
-  virtual ~Scanner() = 0;
+  virtual ~Scanner() = default;
 
   /// \brief Return iterator yielding ScanTask instances to enable
   /// serial or parallel execution of units of scanning work
@@ -63,14 +68,16 @@ class ARROW_DS_EXPORT ScannerBuilder {
                  std::shared_ptr<ScanContext> scan_context);
 
   /// \brief Set
-  ScannerBuilder* Project(const std::vector<std::string>& columns) const;
+  ScannerBuilder* Project(const std::vector<std::string>& columns);
 
-  ScannerBuilder* AddFilter(const std::shared_ptr<Filter>& filter) const;
+  ScannerBuilder* AddFilter(const std::shared_ptr<Filter>& filter);
+
+  ScannerBuilder* SetGlobalFileOptions(std::shared_ptr<FileScanOptions> options);
 
   /// \brief If true (default), add partition keys to the
   /// RecordBatches that the scan produces if they are not in the data
   /// otherwise
-  ScannerBuilder* IncludePartitionKeys(bool include = true) const;
+  ScannerBuilder* IncludePartitionKeys(bool include = true);
 
   /// \brief Return the constructed now-immutable Scanner object
   std::unique_ptr<Scanner> Finish() const;
