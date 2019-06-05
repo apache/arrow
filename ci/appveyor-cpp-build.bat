@@ -104,7 +104,7 @@ set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 boo
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
-  set CONDA_PACKAGES=%CONDA_PACKAGES% llvmdev=%ARROW_LLVM_VERSION% clangdev=%ARROW_LLVM_VERSION%
+  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva.yml
 )
 
 if "%JOB%" == "Toolchain" (
