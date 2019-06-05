@@ -696,8 +696,10 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
 template <class Visitor>
 void VisitBits(const uint8_t* bitmap, int64_t start_offset, int64_t length,
                Visitor&& visit) {
-  for (int64_t index = start_offset; index < start_offset + length; ++index) {
-    visit(arrow::BitUtil::GetBit(bitmap, index));
+  BitmapReader reader(bitmap, start_offset, length);
+  for (int64_t index = 0; index < length; ++index) {
+    visit(reader.IsSet());
+    reader.Next();
   }
 }
 
