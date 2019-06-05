@@ -181,8 +181,7 @@ TEST(Metadata, TestBuildAccess) {
   // Test AppendRowGroups
   auto f_accessor_2 =
       GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
-  std::shared_ptr<parquet::FileMetaData> f_accessor_2_sp{std::move(f_accessor_2)};
-  f_accessor->AppendRowGroups(f_accessor_2_sp);
+  f_accessor->AppendRowGroups(*f_accessor_2);
   ASSERT_EQ(4, f_accessor->num_row_groups());
   ASSERT_EQ(nrows * 2, f_accessor->num_rows());
   ASSERT_LE(0, static_cast<int>(f_accessor->size()));

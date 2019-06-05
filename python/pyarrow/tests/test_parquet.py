@@ -2705,3 +2705,8 @@ def test_multi_dataset_metadata(tempdir):
     for key in _md:
         if key != 'serialized_size':
             assert _md[key] == md[key]
+    assert _md['num_columns'] == 3
+    assert _md['num_rows'] == 6
+    assert _md['num_row_groups'] == 2
+    assert _md['serialized_size'] == 0
+    assert md['serialized_size'] > 0

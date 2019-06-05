@@ -543,7 +543,7 @@ cdef class FileMetaData:
         cdef shared_ptr[CFileMetaData] c_metadata
 
         c_metadata = other.sp_metadata
-        self._metadata.AppendRowGroups(c_metadata)
+        self._metadata.AppendRowGroups(deref(c_metadata))
 
     def write_metadata_file(self, where):
         """

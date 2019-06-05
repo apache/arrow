@@ -195,7 +195,7 @@ class PARQUET_EXPORT FileMetaData {
   void set_file_path(const std::string& path);
 
   // Merge row-group metadata from "other" FileMetaData object
-  void AppendRowGroups(const std::shared_ptr<FileMetaData>& other);
+  void AppendRowGroups(const FileMetaData& other);
 
  private:
   friend FileMetaDataBuilder;

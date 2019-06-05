@@ -506,8 +506,8 @@ std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const
 
 void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
 
-void FileMetaData::AppendRowGroups(const std::shared_ptr<FileMetaData>& other) {
-  impl_->AppendRowGroups(other->impl_);
+void FileMetaData::AppendRowGroups(const FileMetaData& other) {
+  impl_->AppendRowGroups(other.impl_);
 }
 
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
