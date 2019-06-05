@@ -276,41 +276,46 @@ class SerializedFile : public ParquetFileReader::Contents {
           throw ParquetException("No decryption properties are provided");
         }
 
-        std::string aad_prefix = file_decryption_properties->aad_prefix();
-
+        // Handle AAD prefix
         EncryptionAlgorithm algo = file_metadata_->encryption_algorithm();
-        if (algo.aad.supply_aad_prefix && aad_prefix.empty()) {
+        std::string aad_prefix_in_properites = file_decryption_properties->aad_prefix();
+        std::string aad_prefix = aad_prefix_in_properites;
+        bool file_has_aad_prefix = algo.aad.aad_prefix.empty() ? false : true;
+        std::string aad_prefix_in_file = algo.aad.aad_prefix;
+
+        if (algo.aad.supply_aad_prefix && aad_prefix_in_properites.empty()) {
           throw ParquetException(
-              "AAD prefix used for file encryption, but not stored in file"
-              "and not supplied in decryption properties");
+              "AAD prefix used for file encryption, "
+              "but not stored in file and not supplied "
+              "in decryption properties");
         }
 
-        if (!algo.aad.aad_prefix.empty()) {
-          if (!aad_prefix.empty()) {
-            if (aad_prefix.compare(algo.aad.aad_prefix) != 0) {
+        if (file_has_aad_prefix) {
+          if (!aad_prefix_in_properites.empty()) {
+            if (aad_prefix_in_properites.compare(aad_prefix_in_file) != 0) {
               throw ParquetException(
-                  "AAD Prefix in file and in properties is not the same");
+                  "AAD Prefix in file and in properties "
+                  "is not the same");
             }
           }
-          aad_prefix = algo.aad.aad_prefix;
+          aad_prefix = aad_prefix_in_file;
           std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
               file_decryption_properties->aad_prefix_verifier();
           if (aad_prefix_verifier != NULLPTR) aad_prefix_verifier->check(aad_prefix);
         } else {
-          if (!algo.aad.supply_aad_prefix && !aad_prefix.empty()) {
+          if (!algo.aad.supply_aad_prefix && !aad_prefix_in_properites.empty()) {
             throw ParquetException(
-                "AAD Prefix set in decryption properties, but not found in file");
+                "AAD Prefix set in decryption properties, but was not used "
+                "for file encryption");
           }
           std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
               file_decryption_properties->aad_prefix_verifier();
           if (aad_prefix_verifier != NULLPTR) {
             throw ParquetException(
-                "AAD prefix used for file encryption, but not stored in file and not "
-                "supplied in decryption properties");
+                "AAD Prefix Verifier is set, but AAD Prefix not found in file");
           }
         }
         std::string file_aad = aad_prefix + algo.aad.aad_file_unique;
-
         file_decryptor_.reset(new InternalFileDecryptor(
             file_decryption_properties, file_aad, algo.algorithm,
             file_metadata_->footer_signing_key_metadata()));
@@ -366,37 +371,42 @@ class SerializedFile : public ParquetFileReader::Contents {
           FileCryptoMetaData::Make(crypto_metadata_buffer->data(), &crypto_metadata_len);
       EncryptionAlgorithm algo = file_crypto_metadata->encryption_algorithm();
 
-      std::string aad_prefix = file_decryption_properties->aad_prefix();
-      if (algo.aad.supply_aad_prefix && aad_prefix.empty()) {
+      // Handle AAD prefix
+      std::string aad_prefix_in_properites = file_decryption_properties->aad_prefix();
+      std::string aad_prefix = aad_prefix_in_properites;
+      bool file_has_aad_prefix = algo.aad.aad_prefix.empty() ? false : true;
+      std::string aad_prefix_in_file = algo.aad.aad_prefix;
+
+      if (algo.aad.supply_aad_prefix && aad_prefix_in_properites.empty()) {
         throw ParquetException(
             "AAD prefix used for file encryption, "
             "but not stored in file and not supplied "
             "in decryption properties");
       }
 
-      if (!algo.aad.aad_prefix.empty()) {
-        if (!aad_prefix.empty()) {
-          if (aad_prefix.compare(algo.aad.aad_prefix) != 0) {
+      if (file_has_aad_prefix) {
+        if (!aad_prefix_in_properites.empty()) {
+          if (aad_prefix_in_properites.compare(aad_prefix_in_file) != 0) {
             throw ParquetException(
                 "AAD Prefix in file and in properties "
                 "is not the same");
           }
         }
-        aad_prefix = algo.aad.aad_prefix;
+        aad_prefix = aad_prefix_in_file;
         std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
             file_decryption_properties->aad_prefix_verifier();
         if (aad_prefix_verifier != NULLPTR) aad_prefix_verifier->check(aad_prefix);
       } else {
-        if (!algo.aad.supply_aad_prefix && !aad_prefix.empty()) {
+        if (!algo.aad.supply_aad_prefix && !aad_prefix_in_properites.empty()) {
           throw ParquetException(
-              "AAD Prefix set in decryption properties, but not found in file");
+              "AAD Prefix set in decryption properties, but was not used "
+              "for file encryption");
         }
         std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
             file_decryption_properties->aad_prefix_verifier();
         if (aad_prefix_verifier != NULLPTR) {
           throw ParquetException(
-              "AAD prefix used for file encryption, but not stored in file and not "
-              "supplied in decryption properties");
+              "AAD Prefix Verifier is set, but AAD Prefix not found in file");
         }
       }
       std::string file_aad = aad_prefix + algo.aad.aad_file_unique;
