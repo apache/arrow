@@ -15,10 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef WRAPPED_KEY_STORE_H_
-#define WRAPPED_KEY_STORE_H_
-
-#include "parquet/crypto_keytools/kms_client.h"
+#ifndef PARQUET_KEY_WITH_METADATA_H
+#define PARQUET_KEY_WITH_METADATA_H
 
 #include <string>
 
@@ -26,13 +24,22 @@
 
 namespace parquet {
 
-class PARQUET_EXPORT WrappedKeyStore {
+class PARQUET_EXPORT KeyWithMetadata {
  public:
-  virtual void storeWrappedKey(std::string wrapped_key, std::string file_id, std::string key_id_in_file) = 0;
-  virtual std::string getWrappedKey(std::string file_id, std::string key_id_in_file) = 0;
+  KeyWithMetadata(const std::string& key_bytes, const std::string& key_metadata) {
+    this.key_bytes_ = key_bytes;
+    this.key_metadata_ = key_metadata;
+  }
+
+  const std::string& key_bytes() { return key_bytes_; }
+
+  const std::string& key_metadata() { return key_metadata_; }
+
+ private:
+  std::string key_bytes_;
+  std::string key_metadata_;
 };
 
-} // namespace parquet
+}  // namespace parquet
 
-
-#endif /* WRAPPED_KEY_STORE_H_ */
+#endif  // PARQUET_KEY_WITH_METADATA_H
