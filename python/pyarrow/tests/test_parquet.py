@@ -1546,6 +1546,9 @@ def test_filters_read_table(tempdir):
         base_path, filesystem=fs, filters=[('integers', '<', 3)])
     assert table.num_rows == 3
 
+    table = pq.read_pandas(
+        base_path, filters=[('integers', '<', 3)])
+    assert table.num_rows == 3
 
 @pytest.yield_fixture
 def s3_example():

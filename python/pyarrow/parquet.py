@@ -1215,10 +1215,11 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=True,
-                metadata=None):
+                metadata=None, filters=None):
     return read_table(source, columns=columns,
                       use_threads=use_threads,
                       metadata=metadata, memory_map=True,
+                      filters=filters,
                       use_pandas_metadata=True)
 
 
