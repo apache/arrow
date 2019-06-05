@@ -24,6 +24,8 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
+import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -35,6 +37,34 @@ import org.slf4j.LoggerFactory;
 
 public class TestJSONFile extends BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestJSONFile.class);
+
+  @Test
+  public void testNoBatches() throws IOException {
+    File file = new File("target/no_batches.json");
+
+    try (BufferAllocator originalVectorAllocator =
+             allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+         StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
+      BaseWriter.ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      BaseWriter.StructWriter rootWriter = writer.rootAsStruct();
+      rootWriter.integer("int");
+      rootWriter.uInt1("uint1");
+      rootWriter.bigInt("bigInt");
+      rootWriter.float4("float");
+      JsonFileWriter jsonWriter = new JsonFileWriter(file, JsonFileWriter.config().pretty(true));
+      jsonWriter.start(new VectorSchemaRoot(parent.getChild("root")).getSchema(), null);
+      jsonWriter.close();
+    }
+
+    // read
+    try (
+        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
+    ) {
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+    }
+  }
 
   @Test
   public void testWriteRead() throws IOException {

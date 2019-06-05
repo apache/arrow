@@ -28,6 +28,8 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
+import io.netty.buffer.ArrowBuf;
+
 /**
  * UInt1Vector implements a fixed width (1 bytes) vector of
  * integer values which could be null. A validity buffer (bit vector) is
@@ -62,6 +64,23 @@ public class UInt1Vector extends BaseFixedWidthVector {
    |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
+  /**
+   * Given a data buffer, get the value stored at a particular position
+   * in the vector.
+   *
+   * <p>To avoid overflow, the returned type is one step up from the signed
+   * type.
+   *
+   * <p>This method is mainly meant for integration tests.
+   *
+   * @param buffer data buffer
+   * @param index position of the element.
+   * @return value stored at the index.
+   */
+  public static short getNoOverflow(final ArrowBuf buffer, final int index) {
+    byte b =  buffer.getByte(index * TYPE_WIDTH);
+    return (short)(0xFF & b);
+  }
 
 
   /**
@@ -104,6 +123,20 @@ public class UInt1Vector extends BaseFixedWidthVector {
       return null;
     } else {
       return valueBuffer.getByte(index * TYPE_WIDTH);
+    }
+  }
+
+  /**
+   * Returns the value stored at index without the potential for overflow.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public Short getObjectNoOverflow(int index) {
+    if (isSet(index) == 0) {
+      return null;
+    } else {
+      return getNoOverflow(valueBuffer, index);
     }
   }
 

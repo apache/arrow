@@ -194,13 +194,12 @@ class IntegerType(PrimitiveType):
         self.max_value = max_value
 
     def _get_generated_data_bounds(self):
-        signed_iinfo = np.iinfo('int' + str(self.bit_width))
         if self.is_signed:
+            signed_iinfo = np.iinfo('int' + str(self.bit_width))
             min_value, max_value = signed_iinfo.min, signed_iinfo.max
         else:
-            # ARROW-1837 Remove this hack and restore full unsigned integer
-            # range
-            min_value, max_value = 0, signed_iinfo.max
+            unsigned_iinfo = np.iinfo('uint' + str(self.bit_width))
+            min_value, max_value = 0, unsigned_iinfo.max
 
         lower_bound = max(min_value, self.min_value)
         upper_bound = min(max_value, self.max_value)
@@ -1030,8 +1029,7 @@ def get_generated_json_files(tempdir=None, flight=False):
         return
 
     file_objs = [
-        (generate_primitive_case([], name='primitive_no_batches')
-         .skip_category('Java')),
+        generate_primitive_case([], name='primitive_no_batches'),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
