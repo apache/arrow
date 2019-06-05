@@ -19,8 +19,8 @@
 
 #include <string>
 
+#include "arrow/flight/visibility.h"
 #include "arrow/status.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 
@@ -28,7 +28,7 @@ namespace flight {
 
 /// \brief A reader for messages from the server during an
 /// authentication handshake.
-class ARROW_EXPORT ClientAuthReader {
+class ARROW_FLIGHT_EXPORT ClientAuthReader {
  public:
   virtual ~ClientAuthReader() = default;
   virtual Status Read(std::string* response) = 0;
@@ -36,7 +36,7 @@ class ARROW_EXPORT ClientAuthReader {
 
 /// \brief A writer for messages to the server during an
 /// authentication handshake.
-class ARROW_EXPORT ClientAuthSender {
+class ARROW_FLIGHT_EXPORT ClientAuthSender {
  public:
   virtual ~ClientAuthSender() = default;
   virtual Status Write(const std::string& token) = 0;
@@ -46,7 +46,7 @@ class ARROW_EXPORT ClientAuthSender {
 /// Authentication includes both an initial negotiation and a per-call
 /// token validation. Implementations may choose to use either or both
 /// mechanisms.
-class ARROW_EXPORT ClientAuthHandler {
+class ARROW_FLIGHT_EXPORT ClientAuthHandler {
  public:
   virtual ~ClientAuthHandler() = default;
   /// \brief Authenticate the client on initial connection. The client

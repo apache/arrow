@@ -999,6 +999,9 @@ class StreamBookKeeper {
   int64_t position_;
 };
 
+// End of stream marker
+constexpr int32_t kEos = 0;
+
 /// A IpcPayloadWriter implementation that writes to a IPC stream
 /// (with an end-of-stream marker)
 class PayloadStreamWriter : public internal::IpcPayloadWriter,
@@ -1022,7 +1025,6 @@ class PayloadStreamWriter : public internal::IpcPayloadWriter,
 
   Status Close() override {
     // Write 0 EOS message
-    const int32_t kEos = 0;
     return Write(&kEos, sizeof(int32_t));
   }
 };
@@ -1076,6 +1078,9 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
   }
 
   Status Close() override {
+    // Write 0 EOS message for compatibility with sequential readers
+    RETURN_NOT_OK(Write(&kEos, sizeof(int32_t)));
+
     // Write file footer
     RETURN_NOT_OK(UpdatePosition());
     int64_t initial_position = position_;

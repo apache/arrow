@@ -1662,8 +1662,8 @@ class ArrowDeserializer {
   // types
 
   template <typename Type>
-  typename std::enable_if<std::is_base_of<FloatingPoint, Type>::value, Status>::type
-  Visit(const Type& type) {
+  typename std::enable_if<is_floating_type<Type>::value, Status>::type Visit(
+      const Type& type) {
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;
 
@@ -1755,7 +1755,7 @@ class ArrowDeserializer {
 
   // Integer specialization
   template <typename Type>
-  typename std::enable_if<std::is_base_of<Integer, Type>::value, Status>::type Visit(
+  typename std::enable_if<is_integer_type<Type>::value, Status>::type Visit(
       const Type& type) {
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;

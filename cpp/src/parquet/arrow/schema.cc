@@ -30,8 +30,8 @@
 #include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"
+#include "parquet/schema-internal.h"
 #include "parquet/types.h"
-#include "parquet/util/schema-util.h"
 
 using arrow::Field;
 using arrow::Status;
@@ -255,7 +255,7 @@ Status NodeToList(const GroupNode& group,
       // Special case mentioned in the format spec:
       //   If the name is array or ends in _tuple, this should be a list of struct
       //   even for single child elements.
-      if (list_group.field_count() == 1 && !HasStructListName(list_group)) {
+      if (list_group.field_count() == 1 && !schema::HasStructListName(list_group)) {
         // List of primitive type
         std::shared_ptr<Field> item_field;
         RETURN_NOT_OK(

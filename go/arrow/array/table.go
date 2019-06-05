@@ -55,7 +55,7 @@ func NewColumn(field arrow.Field, chunks *Chunked) *Column {
 	}
 	col.data.Retain()
 
-	if col.data.DataType() != col.field.Type {
+	if !arrow.TypeEquals(col.data.DataType(), col.field.Type) {
 		col.data.Release()
 		panic("arrow/array: inconsistent data type")
 	}

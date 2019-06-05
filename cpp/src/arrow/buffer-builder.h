@@ -29,6 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -42,7 +43,12 @@ namespace arrow {
 class ARROW_EXPORT BufferBuilder {
  public:
   explicit BufferBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : pool_(pool), data_(NULLPTR), capacity_(0), size_(0) {}
+      : pool_(pool),
+        data_(/*ensure never null to make ubsan happy and avoid check penalties below*/
+              &util::internal::non_null_filler),
+
+        capacity_(0),
+        size_(0) {}
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
@@ -147,6 +153,12 @@ class ARROW_EXPORT BufferBuilder {
     buffer_ = NULLPTR;
     capacity_ = size_ = 0;
   }
+
+  /// \brief Set size to a smaller value without modifying builder
+  /// contents. For reusable BufferBuilder classes
+  /// \param[in] position must be non-negative and less than or equal
+  /// to the current length()
+  void Rewind(int64_t position) { size_ = position; }
 
   int64_t capacity() const { return capacity_; }
   int64_t length() const { return size_; }

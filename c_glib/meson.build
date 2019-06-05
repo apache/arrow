@@ -138,5 +138,5 @@ test('unit test',
        'ARROW_CUDA_GLIB_TYPELIB_DIR=@0@/arrow-cuda-glib'.format(meson.build_root()),
        'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(meson.build_root()),
        'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(meson.build_root()),
-       'PARQUET_GLIB_TYPELIB_DIR=@0@/plasma-glib'.format(meson.build_root()),
+       'PLASMA_GLIB_TYPELIB_DIR=@0@/plasma-glib'.format(meson.build_root()),
      ])

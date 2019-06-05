@@ -29,209 +29,168 @@
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 
-constexpr int64_t kFinalSize = 256;
+using ValueType = int64_t;
+using VectorType = std::vector<ValueType>;
+constexpr int64_t kNumberOfElements = 256 * 512;
 
-static void BM_BuildPrimitiveArrayNoNulls(
-    benchmark::State& state) {  // NOLINT non-const reference
-  // 2 MiB block
-  std::vector<int64_t> data(256 * 1024, 100);
-  while (state.KeepRunning()) {
+static VectorType AlmostU8CompressibleVector() {
+  VectorType data(kNumberOfElements, 64);
+
+  // Insert an element late in the game that does not fit in the 8bit
+  // representation. This forces AdaptiveIntBuilder's to resize.
+  data[kNumberOfElements - 2] = 1L << 13;
+
+  return data;
+}
+
+constexpr int64_t kRounds = 256;
+static VectorType kData = AlmostU8CompressibleVector();
+constexpr int64_t kBytesProcessPerRound = kNumberOfElements * sizeof(ValueType);
+constexpr int64_t kBytesProcessed = kRounds * kBytesProcessPerRound;
+
+static const char* kBinaryString = "12345678";
+static arrow::util::string_view kBinaryView(kBinaryString);
+
+static void BuildIntArrayNoNulls(benchmark::State& state) {  // NOLINT non-const reference
+  for (auto _ : state) {
     Int64Builder builder;
-    for (int i = 0; i < kFinalSize; i++) {
-      // Build up an array of 512 MiB in size
-      ABORT_NOT_OK(builder.AppendValues(data.data(), data.size(), nullptr));
+
+    for (int i = 0; i < kRounds; i++) {
+      ABORT_NOT_OK(builder.AppendValues(kData.data(), kData.size(), nullptr));
     }
+
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t) *
-                          kFinalSize);
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void BM_BuildVectorNoNulls(
+static void BuildAdaptiveIntNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
-  // 2 MiB block
-  std::vector<int64_t> data(256 * 1024, 100);
-  while (state.KeepRunning()) {
-    std::vector<int64_t> builder;
-    for (int i = 0; i < kFinalSize; i++) {
-      // Build up an array of 512 MiB in size
-      builder.insert(builder.end(), data.cbegin(), data.cend());
-    }
-  }
-  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t) *
-                          kFinalSize);
-}
-
-static void BM_BuildAdaptiveIntNoNulls(
-    benchmark::State& state) {  // NOLINT non-const reference
-  int64_t size = static_cast<int64_t>(std::numeric_limits<int16_t>::max()) * 256;
-  int64_t chunk_size = size / 8;
-  std::vector<int64_t> data(size);
-  for (int64_t i = 0; i < size; i++) {
-    data[i] = i;
-  }
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     AdaptiveIntBuilder builder;
-    for (int64_t i = 0; i < size; i += chunk_size) {
-      // Build up an array of 128 MiB in size
-      ABORT_NOT_OK(builder.AppendValues(data.data() + i, chunk_size, nullptr));
+
+    for (int i = 0; i < kRounds; i++) {
+      ABORT_NOT_OK(builder.AppendValues(kData.data(), kData.size(), nullptr));
     }
+
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t));
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void BM_BuildAdaptiveIntNoNullsScalarAppend(
+static void BuildAdaptiveIntNoNullsScalarAppend(
     benchmark::State& state) {  // NOLINT non-const reference
-  int64_t size = static_cast<int64_t>(std::numeric_limits<int16_t>::max()) * 256;
-  std::vector<int64_t> data(size);
-  for (int64_t i = 0; i < size; i++) {
-    data[i] = i;
-  }
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     AdaptiveIntBuilder builder;
-    for (int64_t i = 0; i < size; i++) {
-      ABORT_NOT_OK(builder.Append(data[i]));
+
+    for (int i = 0; i < kRounds; i++) {
+      for (size_t j = 0; j < kData.size(); j++) {
+        ABORT_NOT_OK(builder.Append(kData[i]))
+      }
     }
+
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t));
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void BM_BuildAdaptiveUIntNoNulls(
+static void BuildBooleanArrayNoNulls(
     benchmark::State& state) {  // NOLINT non-const reference
-  int64_t size = static_cast<int64_t>(std::numeric_limits<uint16_t>::max()) * 256;
-  int64_t chunk_size = size / 8;
-  std::vector<uint64_t> data(size);
-  for (uint64_t i = 0; i < static_cast<uint64_t>(size); i++) {
-    data[i] = i;
-  }
-  while (state.KeepRunning()) {
-    AdaptiveUIntBuilder builder;
-    for (int64_t i = 0; i < size; i += chunk_size) {
-      // Build up an array of 128 MiB in size
-      ABORT_NOT_OK(builder.AppendValues(data.data() + i, chunk_size, nullptr));
-    }
-    std::shared_ptr<Array> out;
-    ABORT_NOT_OK(builder.Finish(&out));
-  }
-  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t));
-}
 
-static void BM_BuildAdaptiveUIntNoNullsScalarAppend(
-    benchmark::State& state) {  // NOLINT non-const reference
-  int64_t size = static_cast<int64_t>(std::numeric_limits<int16_t>::max()) * 256;
-  std::vector<uint64_t> data(size);
-  for (uint64_t i = 0; i < static_cast<uint64_t>(size); i++) {
-    data[i] = i;
-  }
-  while (state.KeepRunning()) {
-    AdaptiveUIntBuilder builder;
-    for (int64_t i = 0; i < size; i++) {
-      ABORT_NOT_OK(builder.Append(data[i]));
-    }
-    std::shared_ptr<Array> out;
-    ABORT_NOT_OK(builder.Finish(&out));
-  }
-  state.SetBytesProcessed(state.iterations() * data.size() * sizeof(int64_t));
-}
+  size_t n_bytes = kBytesProcessPerRound;
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(kData.data());
 
-static void BM_BuildBooleanArrayNoNulls(
-    benchmark::State& state) {  // NOLINT non-const reference
-  // 2 MiB block
-  std::vector<uint8_t> data(2 * 1024 * 1024);
-  constexpr uint8_t bit_pattern = 0xcc;  // 0b11001100
-  uint64_t index = 0;
-  std::generate(data.begin(), data.end(),
-                [&]() -> uint8_t { return (bit_pattern >> ((index++) % 8)) & 1; });
-
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     BooleanBuilder builder;
-    for (int i = 0; i < kFinalSize; i++) {
-      // Build up an array of 512 MiB in size
-      ABORT_NOT_OK(builder.AppendValues(data.data(), data.size()));
+
+    for (int i = 0; i < kRounds; i++) {
+      ABORT_NOT_OK(builder.AppendValues(data, n_bytes));
     }
+
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(state.iterations() * data.size() * kFinalSize);
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void BM_BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const reference
-  // About 160MB
-  const int64_t iterations = 1 << 24;
-  std::string value = "1234567890";
-
+static void BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const reference
   for (auto _ : state) {
     BinaryBuilder builder;
-    for (int64_t i = 0; i < iterations; i++) {
-      ABORT_NOT_OK(builder.Append(value));
+
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
+      ABORT_NOT_OK(builder.Append(kBinaryView));
     }
+
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(state.iterations() * iterations * value.size());
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void BM_BuildChunkedBinaryArray(
+static void BuildChunkedBinaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
-  // About 160MB
-  const int64_t iterations = 1 << 24;
-  std::string value = "1234567890";
+  // 1MB chunks
+  const int32_t kChunkSize = 1 << 20;
 
   for (auto _ : state) {
-    // 1MB chunks
-    const int32_t chunksize = 1 << 20;
-    internal::ChunkedBinaryBuilder builder(chunksize);
-    for (int64_t i = 0; i < iterations; i++) {
-      ABORT_NOT_OK(builder.Append(reinterpret_cast<const uint8_t*>(value.data()),
-                                  static_cast<int32_t>(value.size())));
+    internal::ChunkedBinaryBuilder builder(kChunkSize);
+
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
+      ABORT_NOT_OK(builder.Append(kBinaryView));
     }
+
     ArrayVector out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(state.iterations() * iterations * value.size());
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void BM_BuildFixedSizeBinaryArray(
+static void BuildFixedSizeBinaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
-  const int64_t iterations = 1 << 20;
-  const int width = 10;
+  auto type = fixed_size_binary(kBinaryView.size());
 
-  auto type = fixed_size_binary(width);
-  const char value[width + 1] = "1234567890";
-
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     FixedSizeBinaryBuilder builder(type);
-    for (int64_t i = 0; i < iterations; i++) {
-      ABORT_NOT_OK(builder.Append(value));
+
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
+      ABORT_NOT_OK(builder.Append(kBinaryView));
     }
+
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(state.iterations() * iterations * width);
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
 // ----------------------------------------------------------------------
 // DictionaryBuilder benchmarks
 
+size_t kDistinctElements = kNumberOfElements / 100;
+
 // Testing with different distributions of integer values helps stress
 // the hash table's robustness.
 
 // Make a vector out of `n_distinct` sequential int values
-template <class Integer>
-static std::vector<Integer> MakeSequentialIntDictFodder(int32_t n_values,
-                                                        int32_t n_distinct) {
+template <class Integer = ValueType>
+static std::vector<Integer> MakeSequentialIntDictFodder() {
   std::default_random_engine gen(42);
-  std::vector<Integer> values(n_values);
+  std::vector<Integer> values(kNumberOfElements);
   {
-    std::uniform_int_distribution<Integer> values_dist(0, n_distinct - 1);
+    std::uniform_int_distribution<Integer> values_dist(0, kDistinctElements - 1);
     std::generate(values.begin(), values.end(), [&]() { return values_dist(gen); });
   }
   return values;
@@ -239,15 +198,15 @@ static std::vector<Integer> MakeSequentialIntDictFodder(int32_t n_values,
 
 // Make a vector out of `n_distinct` int values with potentially colliding hash
 // entries as only their highest bits differ.
-template <class Integer>
-static std::vector<Integer> MakeSimilarIntDictFodder(int32_t n_values,
-                                                     int32_t n_distinct) {
+template <class Integer = ValueType>
+static std::vector<Integer> MakeSimilarIntDictFodder() {
   std::default_random_engine gen(42);
-  std::vector<Integer> values(n_values);
+  std::vector<Integer> values(kNumberOfElements);
   {
-    std::uniform_int_distribution<Integer> values_dist(0, n_distinct - 1);
+    std::uniform_int_distribution<Integer> values_dist(0, kDistinctElements - 1);
     auto max_int = std::numeric_limits<Integer>::max();
-    auto multiplier = static_cast<Integer>(BitUtil::NextPower2(max_int / n_distinct / 2));
+    auto multiplier =
+        static_cast<Integer>(BitUtil::NextPower2(max_int / kDistinctElements / 2));
     std::generate(values.begin(), values.end(),
                   [&]() { return multiplier * values_dist(gen); });
   }
@@ -255,12 +214,11 @@ static std::vector<Integer> MakeSimilarIntDictFodder(int32_t n_values,
 }
 
 // Make a vector out of `n_distinct` random int values
-template <class Integer>
-static std::vector<Integer> MakeRandomIntDictFodder(int32_t n_values,
-                                                    int32_t n_distinct) {
+template <class Integer = ValueType>
+static std::vector<Integer> MakeRandomIntDictFodder() {
   std::default_random_engine gen(42);
-  std::vector<Integer> values_dict(n_distinct);
-  std::vector<Integer> values(n_values);
+  std::vector<Integer> values_dict(kDistinctElements);
+  std::vector<Integer> values(kNumberOfElements);
 
   {
     std::uniform_int_distribution<Integer> values_dist(
@@ -269,19 +227,18 @@ static std::vector<Integer> MakeRandomIntDictFodder(int32_t n_values,
                   [&]() { return static_cast<Integer>(values_dist(gen)); });
   }
   {
-    std::uniform_int_distribution<int32_t> indices_dist(0, n_distinct - 1);
+    std::uniform_int_distribution<int32_t> indices_dist(0, kDistinctElements - 1);
     std::generate(values.begin(), values.end(),
                   [&]() { return values_dict[indices_dist(gen)]; });
   }
   return values;
 }
 
-// Make a vector out of `n_distinct` string values
-static std::vector<std::string> MakeStringDictFodder(int32_t n_values,
-                                                     int32_t n_distinct) {
+// Make a vector out of `kDistinctElements` string values
+static std::vector<std::string> MakeStringDictFodder() {
   std::default_random_engine gen(42);
-  std::vector<std::string> values_dict(n_distinct);
-  std::vector<std::string> values(n_values);
+  std::vector<std::string> values_dict(kDistinctElements);
+  std::vector<std::string> values(kNumberOfElements);
 
   {
     auto it = values_dict.begin();
@@ -305,7 +262,7 @@ static std::vector<std::string> MakeStringDictFodder(int32_t n_values,
     });
   }
   {
-    std::uniform_int_distribution<int32_t> indices_dist(0, n_distinct - 1);
+    std::uniform_int_distribution<int32_t> indices_dist(0, kDistinctElements - 1);
     std::generate(values.begin(), values.end(),
                   [&] { return values_dict[indices_dist(gen)]; });
   }
@@ -316,55 +273,64 @@ template <class DictionaryBuilderType, class Scalar>
 static void BenchmarkScalarDictionaryArray(
     benchmark::State& state,  // NOLINT non-const reference
     const std::vector<Scalar>& fodder) {
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     DictionaryBuilder<Int64Type> builder(default_memory_pool());
-    for (const auto value : fodder) {
-      ABORT_NOT_OK(builder.Append(value));
+
+    for (int64_t i = 0; i < kRounds; i++) {
+      for (const auto value : fodder) {
+        ABORT_NOT_OK(builder.Append(value));
+      }
     }
+
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(state.iterations() * fodder.size() * sizeof(Scalar));
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
 }
 
-static void BM_BuildInt64DictionaryArrayRandom(
+static void BuildInt64DictionaryArrayRandom(
     benchmark::State& state) {  // NOLINT non-const reference
-  const auto fodder = MakeRandomIntDictFodder<int64_t>(10000, 100);
+  const auto fodder = MakeRandomIntDictFodder();
   BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
 }
 
-static void BM_BuildInt64DictionaryArraySequential(
+static void BuildInt64DictionaryArraySequential(
     benchmark::State& state) {  // NOLINT non-const reference
-  const auto fodder = MakeSequentialIntDictFodder<int64_t>(10000, 100);
+  const auto fodder = MakeSequentialIntDictFodder();
   BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
 }
 
-static void BM_BuildInt64DictionaryArraySimilar(
+static void BuildInt64DictionaryArraySimilar(
     benchmark::State& state) {  // NOLINT non-const reference
-  const auto fodder = MakeSimilarIntDictFodder<int64_t>(10000, 100);
+  const auto fodder = MakeSimilarIntDictFodder();
   BenchmarkScalarDictionaryArray<DictionaryBuilder<Int64Type>>(state, fodder);
 }
 
-static void BM_BuildStringDictionaryArray(
+static void BuildStringDictionaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
-  const auto fodder = MakeStringDictFodder(10000, 100);
-  auto type = binary();
+  const auto fodder = MakeStringDictFodder();
   auto fodder_size =
-      std::accumulate(fodder.begin(), fodder.end(), static_cast<size_t>(0),
+      std::accumulate(fodder.begin(), fodder.end(), 0UL,
                       [&](size_t acc, const std::string& s) { return acc + s.size(); });
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     BinaryDictionaryBuilder builder(default_memory_pool());
-    for (const auto& value : fodder) {
-      ABORT_NOT_OK(builder.Append(value));
+
+    for (int64_t i = 0; i < kRounds; i++) {
+      for (const auto& value : fodder) {
+        ABORT_NOT_OK(builder.Append(value));
+      }
     }
+
     std::shared_ptr<Array> out;
     ABORT_NOT_OK(builder.Finish(&out));
   }
-  state.SetBytesProcessed(state.iterations() * fodder_size);
+
+  state.SetBytesProcessed(state.iterations() * fodder_size * kRounds);
 }
 
-static void BM_ArrayDataConstructDestruct(
+static void ArrayDataConstructDestruct(
     benchmark::State& state) {  // NOLINT non-const reference
   std::vector<std::shared_ptr<ArrayData>> arrays;
 
@@ -383,51 +349,44 @@ static void BM_ArrayDataConstructDestruct(
 
 // ----------------------------------------------------------------------
 // Benchmark declarations
+//
 
-static constexpr int32_t kRepetitions = 2;
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
-BENCHMARK(BM_ArrayDataConstructDestruct);
+// This benchmarks acts as a reference to the native std::vector
+// implementation. It appends kRounds chunks into a vector.
+static void ReferenceBuildVectorNoNulls(
+    benchmark::State& state) {  // NOLINT non-const reference
+  for (auto _ : state) {
+    std::vector<int64_t> builder;
 
-BENCHMARK(BM_BuildPrimitiveArrayNoNulls)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildVectorNoNulls)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
+    for (int i = 0; i < kRounds; i++) {
+      builder.insert(builder.end(), kData.cbegin(), kData.cend());
+    }
+  }
 
-BENCHMARK(BM_BuildBooleanArrayNoNulls)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+}
 
-BENCHMARK(BM_BuildAdaptiveIntNoNulls)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildAdaptiveIntNoNullsScalarAppend)
-    ->Repetitions(3)
-    ->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildAdaptiveUIntNoNulls)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildAdaptiveUIntNoNullsScalarAppend)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(ReferenceBuildVectorNoNulls);
 
-BENCHMARK(BM_BuildBinaryArray)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildChunkedBinaryArray)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildFixedSizeBinaryArray)->MinTime(3.0)->Unit(benchmark::kMicrosecond);
+#endif
 
-BENCHMARK(BM_BuildInt64DictionaryArrayRandom)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildInt64DictionaryArraySequential)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
-BENCHMARK(BM_BuildInt64DictionaryArraySimilar)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BuildBooleanArrayNoNulls);
 
-BENCHMARK(BM_BuildStringDictionaryArray)
-    ->Repetitions(kRepetitions)
-    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(BuildIntArrayNoNulls);
+BENCHMARK(BuildAdaptiveIntNoNulls);
+BENCHMARK(BuildAdaptiveIntNoNullsScalarAppend);
+
+BENCHMARK(BuildBinaryArray);
+BENCHMARK(BuildChunkedBinaryArray);
+BENCHMARK(BuildFixedSizeBinaryArray);
+
+BENCHMARK(BuildInt64DictionaryArrayRandom);
+BENCHMARK(BuildInt64DictionaryArraySequential);
+BENCHMARK(BuildInt64DictionaryArraySimilar);
+BENCHMARK(BuildStringDictionaryArray);
+
+BENCHMARK(ArrayDataConstructDestruct);
 
 }  // namespace arrow

@@ -35,6 +35,48 @@ void AssertNotExists(const PlatformFilename& path) {
   ASSERT_FALSE(exists) << "Path '" << path.ToString() << "' exists";
 }
 
+TEST(PlatformFilename, RoundtripAscii) {
+  PlatformFilename fn;
+  ASSERT_OK(PlatformFilename::FromString("a/b", &fn));
+  ASSERT_EQ(fn.ToString(), "a/b");
+#if _WIN32
+  ASSERT_EQ(fn.ToNative(), L"a\\b");
+#else
+  ASSERT_EQ(fn.ToNative(), "a/b");
+#endif
+}
+
+TEST(PlatformFilename, RoundtripUtf8) {
+  PlatformFilename fn;
+  ASSERT_OK(PlatformFilename::FromString("h\xc3\xa9h\xc3\xa9", &fn));
+  ASSERT_EQ(fn.ToString(), "h\xc3\xa9h\xc3\xa9");
+#if _WIN32
+  ASSERT_EQ(fn.ToNative(), L"h\u00e9h\u00e9");
+#else
+  ASSERT_EQ(fn.ToNative(), "h\xc3\xa9h\xc3\xa9");
+#endif
+}
+
+#if _WIN32
+TEST(PlatformFilename, Separators) {
+  PlatformFilename fn;
+  ASSERT_OK(PlatformFilename::FromString("C:/foo/bar", &fn));
+  ASSERT_EQ(fn.ToString(), "C:/foo/bar");
+  ASSERT_EQ(fn.ToNative(), L"C:\\foo\\bar");
+
+  ASSERT_OK(PlatformFilename::FromString("C:\\foo\\bar", &fn));
+  ASSERT_EQ(fn.ToString(), "C:/foo/bar");
+  ASSERT_EQ(fn.ToNative(), L"C:\\foo\\bar");
+}
+#endif
+
+TEST(PlatformFilename, Invalid) {
+  PlatformFilename fn;
+  std::string s = "foo";
+  s += '\x00';
+  ASSERT_RAISES(Invalid, PlatformFilename::FromString(s, &fn));
+}
+
 TEST(CreateDirDeleteDir, Basics) {
   const std::string BASE = "xxx-io-util-test-dir";
   bool created, deleted;
@@ -74,15 +116,15 @@ TEST(CreateDirDeleteDir, Basics) {
 }
 
 TEST(TemporaryDir, Basics) {
-  std::unique_ptr<TemporaryDir> dir;
+  std::unique_ptr<TemporaryDir> temp_dir;
   PlatformFilename fn;
 
-  ASSERT_OK(TemporaryDir::Make("some-prefix-", &dir));
-  fn = dir->path();
+  ASSERT_OK(TemporaryDir::Make("some-prefix-", &temp_dir));
+  fn = temp_dir->path();
   // Path has a trailing separator, for convenience
   ASSERT_EQ(fn.ToString().back(), '/');
 #if defined(_WIN32)
-  ASSERT_EQ(fn.ToNative().back(), L'/');
+  ASSERT_EQ(fn.ToNative().back(), L'\\');
 #else
   ASSERT_EQ(fn.ToNative().back(), '/');
 #endif
@@ -98,19 +140,41 @@ TEST(TemporaryDir, Basics) {
   ASSERT_OK(CreateDir(child));
   AssertExists(child);
 
-  dir.reset();
+  temp_dir.reset();
   AssertNotExists(fn);
   AssertNotExists(child);
 }
 
+TEST(CreateDirTree, Basics) {
+  std::unique_ptr<TemporaryDir> temp_dir;
+  PlatformFilename fn;
+  bool created;
+
+  ASSERT_OK(TemporaryDir::Make("io-util-test-", &temp_dir));
+
+  ASSERT_OK(temp_dir->path().Join("AB/CD", &fn));
+  ASSERT_OK(CreateDirTree(fn, &created));
+  ASSERT_TRUE(created);
+  ASSERT_OK(CreateDirTree(fn, &created));
+  ASSERT_FALSE(created);
+
+  ASSERT_OK(temp_dir->path().Join("AB", &fn));
+  ASSERT_OK(CreateDirTree(fn, &created));
+  ASSERT_FALSE(created);
+
+  ASSERT_OK(temp_dir->path().Join("EF", &fn));
+  ASSERT_OK(CreateDirTree(fn, &created));
+  ASSERT_TRUE(created);
+}
+
 TEST(DeleteFile, Basics) {
-  std::unique_ptr<TemporaryDir> dir;
+  std::unique_ptr<TemporaryDir> temp_dir;
   PlatformFilename fn;
   int fd;
   bool deleted;
 
-  ASSERT_OK(TemporaryDir::Make("io-util-test-", &dir));
-  ASSERT_OK(dir->path().Join("test-file", &fn));
+  ASSERT_OK(TemporaryDir::Make("io-util-test-", &temp_dir));
+  ASSERT_OK(temp_dir->path().Join("test-file", &fn));
 
   AssertNotExists(fn);
   ASSERT_OK(FileOpenWritable(fn, true /* write_only */, true /* truncate */,
@@ -125,7 +189,7 @@ TEST(DeleteFile, Basics) {
   AssertNotExists(fn);
 
   // Cannot call DeleteFile on directory
-  ASSERT_OK(dir->path().Join("test-dir", &fn));
+  ASSERT_OK(temp_dir->path().Join("test-temp_dir", &fn));
   ASSERT_OK(CreateDir(fn));
   AssertExists(fn);
   ASSERT_RAISES(IOError, DeleteFile(fn));

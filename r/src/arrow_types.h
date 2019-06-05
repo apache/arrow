@@ -19,6 +19,7 @@
 
 #include <limits>
 #include <memory>
+#include <vector>
 
 #include <RcppCommon.h>
 
@@ -35,11 +36,12 @@
 #include <arrow/type.h>
 #include <arrow/util/compression.h>
 
-#define STOP_IF_NOT(TEST, MSG)    \
-  do {                            \
-    if (!(TEST)) Rcpp::stop(MSG); \
+#define STOP_IF(TEST, MSG)     \
+  do {                         \
+    if (TEST) Rcpp::stop(MSG); \
   } while (0)
 
+#define STOP_IF_NOT(TEST, MSG) STOP_IF(!(TEST), MSG)
 #define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
 
 template <typename T>
@@ -178,8 +180,7 @@ inline constexpr Rbyte default_value<RAWSXP>() {
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
-std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
 
 namespace arrow {
 namespace r {
@@ -206,6 +207,19 @@ template <typename T>
 inline std::shared_ptr<T> extract(SEXP x) {
   return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(x);
 }
+
+template <typename T>
+std::vector<std::shared_ptr<T>> list_to_shared_ptr_vector(SEXP lst) {
+  R_xlen_t n = XLENGTH(lst);
+  std::vector<std::shared_ptr<T>> res(n);
+  for (R_xlen_t i = 0; i < n; i++) {
+    res[i] = extract<T>(VECTOR_ELT(lst, i));
+  }
+  return res;
+}
+
+std::shared_ptr<arrow::Array> Array__from_vector(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered);
 
 }  // namespace r
 }  // namespace arrow

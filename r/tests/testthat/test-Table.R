@@ -23,7 +23,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
-  tab <- arrow::table(tbl)
+  tab <- arrow::table(!!!tbl)
 
   tf <- tempfile()
   write_arrow(tab, tf)
@@ -64,7 +64,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
 })
 
 test_that("Table cast (ARROW-3741)", {
-  tab <- table(tibble::tibble(x = 1:10, y  = 1:10))
+  tab <- table(x = 1:10, y = 1:10)
 
   expect_error(tab$cast(schema(x = int32())))
   expect_error(tab$cast(schema(x = int32(), z = int32())))
@@ -77,7 +77,45 @@ test_that("Table cast (ARROW-3741)", {
 })
 
 test_that("Table dim() and nrow() (ARROW-3816)", {
-  tab <- table(tibble::tibble(x = 1:10, y  = 1:10))
+  tab <- table(x = 1:10, y  = 1:10)
   expect_equal(dim(tab), c(10L, 2L))
   expect_equal(nrow(tab), 10L)
+})
+
+test_that("table() handles record batches with splicing", {
+  batch <- record_batch(x = 1:2, y = letters[1:2])
+  tab <- table(batch, batch, batch)
+  expect_equal(tab$schema, batch$schema)
+  expect_equal(tab$num_rows, 6L)
+  expect_equal(
+    as_tibble(tab),
+    vctrs::vec_rbind(as_tibble(batch), as_tibble(batch), as_tibble(batch))
+  )
+
+  batches <- list(batch, batch, batch)
+  tab <- table(!!!batches)
+  expect_equal(tab$schema, batch$schema)
+  expect_equal(tab$num_rows, 6L)
+  expect_equal(
+    as_tibble(tab),
+    vctrs::vec_rbind(!!!purrr::map(batches, as_tibble))
+  )
+})
+
+test_that("table() handles ... of arrays, chunked arrays, vectors", {
+  a <- array(1:10)
+  ca <- chunked_array(1:5, 6:10)
+  v <- rnorm(10)
+  tbl <- tibble::tibble(x = 1:10, y = letters[1:10])
+
+  tab <- table(a = a, b = ca, c = v, !!!tbl)
+  expect_equal(
+    tab$schema,
+    schema(a = int32(), b = int32(), c = float64(), x = int32(), y = utf8())
+  )
+  res <- as_tibble(tab)
+  expect_equal(names(res), c("a", "b", "c", "x", "y"))
+  expect_equal(res,
+    tibble::tibble(a = 1:10, b = 1:10, c = v, x = 1:10, y = letters[1:10])
+  )
 })

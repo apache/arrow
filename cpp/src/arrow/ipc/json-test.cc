@@ -59,7 +59,9 @@ void TestSchemaRoundTrip(const Schema& schema) {
   std::string json_schema = sb.GetString();
 
   rj::Document d;
-  d.Parse(json_schema);
+  // Pass explicit size to avoid ASAN issues with
+  // SIMD loads in RapidJson.
+  d.Parse(json_schema.data(), json_schema.size());
 
   DictionaryMemo in_memo;
   std::shared_ptr<Schema> out;
@@ -83,7 +85,9 @@ void TestArrayRoundTrip(const Array& array) {
   std::string array_as_json = sb.GetString();
 
   rj::Document d;
-  d.Parse(array_as_json);
+  // Pass explicit size to avoid ASAN issues with
+  // SIMD loads in RapidJson.
+  d.Parse(array_as_json.data(), array_as_json.size());
 
   if (d.HasParseError()) {
     FAIL() << "JSON parsing failed";
@@ -383,7 +387,7 @@ TEST(TestJsonFileReadWrite, MinimalFormatExample) {
                     &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,             \
                     &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, \
                     &MakeDates, &MakeTimestamps, &MakeTimes, &MakeFWBinary,        \
-                    &MakeDecimal, &MakeDictionary, &MakeIntervals);
+                    &MakeDecimal, &MakeDictionary, &MakeIntervals)
 
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:

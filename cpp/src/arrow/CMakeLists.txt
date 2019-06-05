@@ -85,6 +85,7 @@ set(ARROW_SRCS
     array/builder_nested.cc
     array/builder_primitive.cc
     array/builder_union.cc
+    array/concatenate.cc
     buffer.cc
     compare.cc
     extension_type.cc
@@ -106,8 +107,10 @@ set(ARROW_SRCS
     csv/parser.cc
     csv/reader.cc
     filesystem/filesystem.cc
+    filesystem/localfs.cc
     filesystem/mockfs.cc
     filesystem/path-util.cc
+    filesystem/util-internal.cc
     json/options.cc
     json/chunked-builder.cc
     json/chunker.cc
@@ -123,7 +126,6 @@ set(ARROW_SRCS
     testing/util.cc
     util/basic_decimal.cc
     util/bit-util.cc
-    util/concatenate.cc
     util/compression.cc
     util/cpu-info.cc
     util/decimal.cc

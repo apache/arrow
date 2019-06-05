@@ -48,7 +48,10 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   Status Append(const uint8_t* value, int32_t length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     ARROW_RETURN_NOT_OK(AppendNextOffset());
-    ARROW_RETURN_NOT_OK(value_data_builder_.Append(value, length));
+    // Safety check for UBSAN.
+    if (ARROW_PREDICT_TRUE(length > 0)) {
+      ARROW_RETURN_NOT_OK(value_data_builder_.Append(value, length));
+    }
 
     UnsafeAppendToBitmap(true);
     return Status::OK();
@@ -246,7 +249,9 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   void UnsafeAppend(const uint8_t* value) {
     UnsafeAppendToBitmap(true);
-    byte_builder_.UnsafeAppend(value, byte_width_);
+    if (ARROW_PREDICT_TRUE(byte_width_ > 0)) {
+      byte_builder_.UnsafeAppend(value, byte_width_);
+    }
   }
 
   void UnsafeAppend(util::string_view value) {

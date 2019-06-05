@@ -42,8 +42,8 @@
 
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/statistics.h"
-#include "parquet/util/memory.h"
 
 #include "parquet/parquet_types.h"  // IYWU pragma: export
 
@@ -186,11 +186,11 @@ class ThriftSerializer {
   }
 
   template <class T>
-  int64_t Serialize(const T* obj, OutputStream* out) {
+  int64_t Serialize(const T* obj, ArrowOutputStream* out) {
     uint8_t* out_buffer;
     uint32_t out_length;
     SerializeToBuffer(obj, &out_length, &out_buffer);
-    out->Write(out_buffer, out_length);
+    PARQUET_THROW_NOT_OK(out->Write(out_buffer, out_length));
     return static_cast<int64_t>(out_length);
   }
 

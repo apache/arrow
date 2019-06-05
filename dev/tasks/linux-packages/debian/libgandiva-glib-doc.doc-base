@@ -5,5 +5,5 @@ Abstract: Gandiva GLib is a toolset for compiling and evaluating expressions on 
 Section: Programming
 
 Format: HTML
-Index: /usr/share/doc/libarrow-glib-doc/gandiva-glib/index.html
-Files: /usr/share/doc/libarrow-glib-doc/gandiva-glib/*.html
+Index: /usr/share/gtk-doc/html/gandiva-glib/index.html
+Files: /usr/share/gtk-doc/html/gandiva-glib/*.html

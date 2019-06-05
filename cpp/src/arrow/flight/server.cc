@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Platform-specific defines
+#include "arrow/flight/platform.h"
+
 #include "arrow/flight/server.h"
 
 #include <signal.h>
@@ -25,7 +28,6 @@
 #include <string>
 #include <utility>
 
-#include "arrow/util/config.h"
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
 #else
@@ -39,6 +41,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
+#include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 #include "arrow/util/uri.h"
@@ -407,21 +410,41 @@ class FlightServiceImpl : public FlightService::Service {
 
 }  // namespace
 
+//
+// gRPC server lifecycle
+//
+
 #if (ATOMIC_INT_LOCK_FREE != 2 || ATOMIC_POINTER_LOCK_FREE != 2)
 #error "atomic ints and atomic pointers not always lock-free!"
 #endif
 
+using ::arrow::internal::GetSignalHandler;
+using ::arrow::internal::SetSignalHandler;
+using ::arrow::internal::SignalHandler;
+
 struct FlightServerBase::Impl {
   std::unique_ptr<FlightServiceImpl> service_;
   std::unique_ptr<grpc::Server> server_;
+#ifdef _WIN32
+  // Signal handlers are executed in a separate thread on Windows, so getting
+  // the current thread instance wouldn't make sense.  This means only a single
+  // instance can receive signals on Windows.
+  static std::atomic<Impl*> running_instance_;
+#else
+  static thread_local std::atomic<Impl*> running_instance_;
+#endif
 
   // Signal handling
   std::vector<int> signals_;
-  std::vector<struct sigaction> old_signal_handlers_;
+  std::vector<SignalHandler> old_signal_handlers_;
   std::atomic<int> got_signal_;
-  static thread_local std::atomic<Impl*> running_instance_;
 
-  static void HandleSignal(int signum);
+  static void HandleSignal(int signum) {
+    auto instance = running_instance_.load();
+    if (instance != nullptr) {
+      instance->DoHandleSignal(signum);
+    }
+  }
 
   void DoHandleSignal(int signum) {
     got_signal_ = signum;
@@ -429,15 +452,12 @@ struct FlightServerBase::Impl {
   }
 };
 
+#ifdef _WIN32
+std::atomic<FlightServerBase::Impl*> FlightServerBase::Impl::running_instance_;
+#else
 thread_local std::atomic<FlightServerBase::Impl*>
     FlightServerBase::Impl::running_instance_;
-
-void FlightServerBase::Impl::HandleSignal(int signum) {
-  auto instance = running_instance_.load();
-  if (instance != nullptr) {
-    instance->DoHandleSignal(signum);
-  }
-}
+#endif
 
 FlightServerOptions::FlightServerOptions(const Location& location_)
     : location(location_), auth_handler(nullptr) {}
@@ -502,23 +522,15 @@ Status FlightServerBase::Serve() {
   if (!impl_->server_) {
     return Status::UnknownError("Server did not start properly");
   }
-
   impl_->got_signal_ = 0;
+  impl_->old_signal_handlers_.clear();
   impl_->running_instance_ = impl_.get();
 
-  // Setup signal handlers
-  impl_->old_signal_handlers_.clear();
+  // Override existing signal handlers with our own handler so as to stop the server.
   for (size_t i = 0; i < impl_->signals_.size(); ++i) {
     int signum = impl_->signals_[i];
-    // Override with our own handler so as to stop the server.
-    struct sigaction sa, old_handler;
-    sa.sa_handler = &Impl::HandleSignal;
-    sa.sa_flags = 0;
-    sigemptyset(&sa.sa_mask);
-    int ret = sigaction(signum, &sa, &old_handler);
-    if (ret != 0) {
-      return Status::IOError("sigaction call failed");
-    }
+    SignalHandler new_handler(&Impl::HandleSignal), old_handler;
+    RETURN_NOT_OK(SetSignalHandler(signum, new_handler, &old_handler));
     impl_->old_signal_handlers_.push_back(old_handler);
   }
 
@@ -527,10 +539,8 @@ Status FlightServerBase::Serve() {
 
   // Restore signal handlers
   for (size_t i = 0; i < impl_->signals_.size(); ++i) {
-    int ret = sigaction(impl_->signals_[i], &impl_->old_signal_handlers_[i], nullptr);
-    if (ret != 0) {
-      return Status::IOError("sigaction call failed");
-    }
+    RETURN_NOT_OK(
+        SetSignalHandler(impl_->signals_[i], impl_->old_signal_handlers_[i], nullptr));
   }
 
   return Status::OK();
@@ -659,10 +669,14 @@ class RecordBatchStream::RecordBatchStreamImpl {
   int dictionary_index_ = 0;
 };
 
+FlightDataStream::~FlightDataStream() {}
+
 RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
                                      MemoryPool* pool) {
   impl_.reset(new RecordBatchStreamImpl(reader, pool));
 }
+
+RecordBatchStream::~RecordBatchStream() {}
 
 std::shared_ptr<Schema> RecordBatchStream::schema() { return impl_->schema(); }
 

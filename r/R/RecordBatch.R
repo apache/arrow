@@ -91,10 +91,13 @@
 
 #' Create an [arrow::RecordBatch][arrow__RecordBatch] from a data frame
 #'
-#' @param .data a data frame
+#' @param ... A variable number of arrow::Array
+#' @param schema a arrow::Schema
 #'
 #' @return a [arrow::RecordBatch][arrow__RecordBatch]
 #' @export
-record_batch <- function(.data){
-  shared_ptr(`arrow::RecordBatch`, RecordBatch__from_dataframe(.data))
+record_batch <- function(..., schema = NULL){
+  arrays <- tibble::lst(...)
+  stopifnot(length(arrays) > 0)
+  shared_ptr(`arrow::RecordBatch`, RecordBatch__from_arrays(schema, arrays))
 }

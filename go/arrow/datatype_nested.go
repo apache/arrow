@@ -46,6 +46,40 @@ func (t *ListType) String() string { return fmt.Sprintf("list<item: %v>", t.elem
 // Elem returns the ListType's element type.
 func (t *ListType) Elem() DataType { return t.elem }
 
+// FixedSizeListType describes a nested type in which each array slot contains
+// a fixed-size sequence of values, all having the same relative type.
+type FixedSizeListType struct {
+	n    int32    // number of elements in the list
+	elem DataType // DataType of the list's elements
+}
+
+// FixedSizeListOf returns the list type with element type t.
+// For example, if t represents int32, FixedSizeListOf(10, t) represents [10]int32.
+//
+// FixedSizeListOf panics if t is nil or invalid.
+// FixedSizeListOf panics if n is <= 0.
+func FixedSizeListOf(n int32, t DataType) *FixedSizeListType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	if n <= 0 {
+		panic("arrow: invalid size")
+	}
+	return &FixedSizeListType{elem: t, n: n}
+}
+
+func (*FixedSizeListType) ID() Type     { return FIXED_SIZE_LIST }
+func (*FixedSizeListType) Name() string { return "fixed_size_list" }
+func (t *FixedSizeListType) String() string {
+	return fmt.Sprintf("fixed_size_list<item: %v>[%d]", t.elem, t.n)
+}
+
+// Elem returns the FixedSizeListType's element type.
+func (t *FixedSizeListType) Elem() DataType { return t.elem }
+
+// Len returns the FixedSizeListType's size.
+func (t *FixedSizeListType) Len() int32 { return t.n }
+
 // StructType describes a nested type parameterized by an ordered sequence
 // of relative types, called its fields.
 type StructType struct {

@@ -24,8 +24,8 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/thrift.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -33,7 +33,8 @@ using schema::PrimitiveNode;
 
 namespace benchmark {
 
-std::shared_ptr<Int64Writer> BuildWriter(int64_t output_size, OutputStream* dst,
+std::shared_ptr<Int64Writer> BuildWriter(int64_t output_size,
+                                         const std::shared_ptr<ArrowOutputStream>& dst,
                                          ColumnChunkMetaDataBuilder* metadata,
                                          ColumnDescriptor* schema,
                                          const WriterProperties* properties) {
@@ -82,9 +83,9 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
       properties, schema.get(), reinterpret_cast<uint8_t*>(&thrift_metadata));
 
   while (state.KeepRunning()) {
-    InMemoryOutputStream stream;
+    auto stream = CreateOutputStream();
     std::shared_ptr<Int64Writer> writer = BuildWriter(
-        state.range(0), &stream, metadata.get(), schema.get(), properties.get());
+        state.range(0), stream, metadata.get(), schema.get(), properties.get());
     writer->WriteBatch(i8_values.length(), definition_levels.data(),
                        repetition_levels.data(), i8_values.raw_values());
     writer->Close();
@@ -118,9 +119,9 @@ BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED, Compression::ZSTD)
 
 std::shared_ptr<Int64Reader> BuildReader(std::shared_ptr<Buffer>& buffer,
                                          int64_t num_values, ColumnDescriptor* schema) {
-  std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
   std::unique_ptr<PageReader> page_reader =
-      PageReader::Open(std::move(source), num_values, Compression::UNCOMPRESSED);
+      PageReader::Open(source, num_values, Compression::UNCOMPRESSED);
   return std::static_pointer_cast<Int64Reader>(
       ColumnReader::Make(schema, std::move(page_reader)));
 }
@@ -142,14 +143,15 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   auto metadata = ColumnChunkMetaDataBuilder::Make(
       properties, schema.get(), reinterpret_cast<uint8_t*>(&thrift_metadata));
 
-  InMemoryOutputStream stream;
-  std::shared_ptr<Int64Writer> writer = BuildWriter(
-      state.range(0), &stream, metadata.get(), schema.get(), properties.get());
+  auto stream = CreateOutputStream();
+  std::shared_ptr<Int64Writer> writer =
+      BuildWriter(state.range(0), stream, metadata.get(), schema.get(), properties.get());
   writer->WriteBatch(values.size(), definition_levels.data(), repetition_levels.data(),
                      values.data());
   writer->Close();
 
-  std::shared_ptr<Buffer> src = stream.GetBuffer();
+  std::shared_ptr<Buffer> src;
+  PARQUET_THROW_NOT_OK(stream->Finish(&src));
   std::vector<int64_t> values_out(state.range(1));
   std::vector<int16_t> definition_levels_out(state.range(1));
   std::vector<int16_t> repetition_levels_out(state.range(1));

@@ -113,7 +113,8 @@ Status ConvertPyError(StatusCode code) {
       code = StatusCode::KeyError;
     } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_TypeError)) {
       code = StatusCode::TypeError;
-    } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_ValueError)) {
+    } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_ValueError) ||
+               PyErr_GivenExceptionMatches(exc_type, PyExc_OverflowError)) {
       code = StatusCode::Invalid;
     } else if (PyErr_GivenExceptionMatches(exc_type, PyExc_EnvironmentError)) {
       code = StatusCode::IOError;

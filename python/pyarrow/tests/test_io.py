@@ -120,6 +120,23 @@ def test_python_file_read():
         pa.PythonFile(StringIO(), mode='r')
 
 
+def test_python_file_read_at():
+    data = b'some sample data'
+
+    buf = BytesIO(data)
+    f = pa.PythonFile(buf, mode='r')
+
+    # test simple read at
+    v = f.read_at(nbytes=5, offset=3)
+    assert v == b'e sam'
+    assert len(v) == 5
+
+    # test reading entire file when nbytes > len(file)
+    w = f.read_at(nbytes=50, offset=0)
+    assert w == data
+    assert len(w) == 16
+
+
 def test_python_file_readall():
     data = b'some sample data'
 

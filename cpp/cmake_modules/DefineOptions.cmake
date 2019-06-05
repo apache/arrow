@@ -96,6 +96,11 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_BUILD_BENCHMARKS "Build the Arrow micro benchmarks, default OFF"
                 OFF)
 
+  # Reference benchmarks are used to compare to naive implementation, or
+  # discover various hardware limits.
+  define_option(ARROW_BUILD_BENCHMARKS_REFERENCE
+                "Build the Arrow micro reference benchmarks, default OFF." OFF)
+
   define_option_string(ARROW_TEST_LINKAGE
                        "Linkage of Arrow libraries with unit tests executables."
                        "shared"
@@ -123,6 +128,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_USE_ASAN "Enable Address Sanitizer checks" OFF)
 
   define_option(ARROW_USE_TSAN "Enable Thread Sanitizer checks" OFF)
+
+  define_option(ARROW_USE_UBSAN "Enable Undefined Behavior sanitizer checks" OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Project component")

@@ -130,9 +130,4 @@ TEST_F(TestEngine, TestAddOptimised) {
   EXPECT_EQ(add_func(my_array, 5), 17);
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 }  // namespace gandiva

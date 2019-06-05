@@ -18,10 +18,10 @@
 context("arrow::RecordBatch.*(Reader|Writer)")
 
 test_that("RecordBatchStreamReader / Writer", {
-  batch <- record_batch(tibble::tibble(
+  batch <- record_batch(
     x = 1:10,
     y = letters[1:10]
-  ))
+  )
 
   sink <- BufferOutputStream()
   writer <- RecordBatchStreamWriter(sink, batch$schema)
@@ -43,10 +43,10 @@ test_that("RecordBatchStreamReader / Writer", {
 })
 
 test_that("RecordBatchFileReader / Writer", {
-  batch <- record_batch(tibble::tibble(
+  batch <- record_batch(
     x = 1:10,
     y = letters[1:10]
-  ))
+  )
 
   sink <- BufferOutputStream()
   writer <- RecordBatchFileWriter(sink, batch$schema)

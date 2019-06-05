@@ -53,8 +53,8 @@ const (
 	// INT64 is a Signed 64-bit little-endian integer
 	INT64
 
-	// HALF_FLOAT is a 2-byte floating point value
-	HALF_FLOAT
+	// FLOAT16 is a 2-byte floating point value
+	FLOAT16
 
 	// FLOAT32 is a 4-byte floating point value
 	FLOAT32
@@ -110,6 +110,16 @@ const (
 
 	// MAP is a repeated struct logical type
 	MAP
+
+	// Custom data type, implemented by user
+	EXTENSION
+
+	// Fixed size list of some logical type
+	FIXED_SIZE_LIST
+
+	// Measure of elapsed time in either seconds, milliseconds, microseconds
+	// or nanoseconds.
+	DURATION
 )
 
 // DataType is the representation of an Arrow type.

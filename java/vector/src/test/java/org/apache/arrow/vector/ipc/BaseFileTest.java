@@ -40,6 +40,10 @@ import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt2Vector;
+import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -59,6 +63,10 @@ import org.apache.arrow.vector.complex.writer.TimeMilliWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliTZWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampMilliWriter;
 import org.apache.arrow.vector.complex.writer.TimeStampNanoWriter;
+import org.apache.arrow.vector.complex.writer.UInt1Writer;
+import org.apache.arrow.vector.complex.writer.UInt2Writer;
+import org.apache.arrow.vector.complex.writer.UInt4Writer;
+import org.apache.arrow.vector.complex.writer.UInt8Writer;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -94,15 +102,37 @@ public class BaseFileTest {
     allocator.close();
   }
 
+
+  private static short [] uint1Values = new short[]{0, 255, 1, 128, 2};
+  private static char [] uint2Values = new char[]{0, Character.MAX_VALUE, 1, Short.MAX_VALUE * 2, 2};
+  private static long [] uint4Values = new long[]{0, Integer.MAX_VALUE + 1, 1, Integer.MAX_VALUE * 2, 2};
+  private static BigInteger[] uint8Values = new BigInteger[]{BigInteger.valueOf(0),
+      BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(2)), BigInteger.valueOf(2),
+      BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(1)), BigInteger.valueOf(2)};
+
   protected void writeData(int count, StructVector parent) {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
+    UInt1Writer uint1Writer = rootWriter.uInt1("uint1");
+    UInt2Writer uint2Writer = rootWriter.uInt2("uint2");
+    UInt4Writer uint4Writer = rootWriter.uInt4("uint4");
+    UInt8Writer uint8Writer = rootWriter.uInt8("uint8");
     BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     Float4Writer float4Writer = rootWriter.float4("float");
     for (int i = 0; i < count; i++) {
       intWriter.setPosition(i);
       intWriter.writeInt(i);
+      uint1Writer.setPosition(i);
+      // TODO: Fix add safe write methods on uint methods.
+      uint1Writer.setPosition(i);
+      uint1Writer.writeUInt1((byte)uint1Values[i % uint1Values.length] );
+      uint2Writer.setPosition(i);
+      uint2Writer.writeUInt2((char)uint2Values[i % uint2Values.length] );
+      uint4Writer.setPosition(i);
+      uint4Writer.writeUInt4((int)uint4Values[i % uint4Values.length] );
+      uint8Writer.setPosition(i);
+      uint8Writer.writeUInt8(uint8Values[i % uint8Values.length].longValue());
       bigIntWriter.setPosition(i);
       bigIntWriter.writeBigInt(i);
       float4Writer.setPosition(i);
@@ -111,9 +141,18 @@ public class BaseFileTest {
     writer.setValueCount(count);
   }
 
+
   protected void validateContent(int count, VectorSchemaRoot root) {
     for (int i = 0; i < count; i++) {
       Assert.assertEquals(i, root.getVector("int").getObject(i));
+      Assert.assertEquals((Short)uint1Values[i % uint1Values.length],
+          ((UInt1Vector)root.getVector("uint1")).getObjectNoOverflow(i));
+      Assert.assertEquals("Failed for index: " + i, (Character)uint2Values[i % uint2Values.length],
+          (Character)((UInt2Vector)root.getVector("uint2")).get(i));
+      Assert.assertEquals("Failed for index: " + i, (Long)uint4Values[i % uint4Values.length],
+          ((UInt4Vector)root.getVector("uint4")).getObjectNoOverflow(i));
+      Assert.assertEquals("Failed for index: " + i, uint8Values[i % uint8Values.length],
+          ((UInt8Vector)root.getVector("uint8")).getObjectNoOverflow(i));
       Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
       Assert.assertEquals(i == 0 ? Float.NaN : i, root.getVector("float").getObject(i));
     }

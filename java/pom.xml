@@ -653,6 +653,7 @@
     <module>adapter/jdbc</module>
     <module>plasma</module>
     <module>flight</module>
+    <module>performance</module>
   </modules>
 
   <profiles>

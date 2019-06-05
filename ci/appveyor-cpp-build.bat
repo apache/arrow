@@ -26,6 +26,10 @@ if "%JOB%" == "Static_Crt_Build" (
   @rem the Arrow DLL and the tests end up using a different instance of
   @rem the CRT, which wreaks havoc.
 
+  @rem ARROW-5403(wesm): Since changing to using gtest DLLs we can no
+  @rem longer run the unit tests because gtest.dll and the unit test
+  @rem executables have different static copies of the CRT
+
   mkdir cpp\build-debug
   pushd cpp\build-debug
 
@@ -100,7 +104,7 @@ set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 boo
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
-  set CONDA_PACKAGES=%CONDA_PACKAGES% llvmdev=%ARROW_LLVM_VERSION% clangdev=%ARROW_LLVM_VERSION%
+  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva.yml
 )
 
 if "%JOB%" == "Toolchain" (

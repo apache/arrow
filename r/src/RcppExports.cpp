@@ -1172,15 +1172,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // DictionaryType__initialize
-std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& type, const std::shared_ptr<arrow::Array>& array, bool ordered);
-RcppExport SEXP _arrow_DictionaryType__initialize(SEXP typeSEXP, SEXP arraySEXP, SEXP orderedSEXP) {
+std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& index_type, const std::shared_ptr<arrow::DataType>& value_type, bool ordered);
+RcppExport SEXP _arrow_DictionaryType__initialize(SEXP index_typeSEXP, SEXP value_typeSEXP, SEXP orderedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type type(typeSEXP);
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Array>& >::type array(arraySEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type index_type(index_typeSEXP);
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DataType>& >::type value_type(value_typeSEXP);
     Rcpp::traits::input_parameter< bool >::type ordered(orderedSEXP);
-    rcpp_result_gen = Rcpp::wrap(DictionaryType__initialize(type, array, ordered));
+    rcpp_result_gen = Rcpp::wrap(DictionaryType__initialize(index_type, value_type, ordered));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1195,6 +1195,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// DictionaryType__value_type
+std::shared_ptr<arrow::DataType> DictionaryType__value_type(const std::shared_ptr<arrow::DictionaryType>& type);
+RcppExport SEXP _arrow_DictionaryType__value_type(SEXP typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DictionaryType>& >::type type(typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(DictionaryType__value_type(type));
+    return rcpp_result_gen;
+END_RCPP
+}
 // DictionaryType__name
 std::string DictionaryType__name(const std::shared_ptr<arrow::DictionaryType>& type);
 RcppExport SEXP _arrow_DictionaryType__name(SEXP typeSEXP) {
@@ -1203,17 +1214,6 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DictionaryType>& >::type type(typeSEXP);
     rcpp_result_gen = Rcpp::wrap(DictionaryType__name(type));
-    return rcpp_result_gen;
-END_RCPP
-}
-// DictionaryType__dictionary
-std::shared_ptr<arrow::Array> DictionaryType__dictionary(const std::shared_ptr<arrow::DictionaryType>& type);
-RcppExport SEXP _arrow_DictionaryType__dictionary(SEXP typeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::shared_ptr<arrow::DictionaryType>& >::type type(typeSEXP);
-    rcpp_result_gen = Rcpp::wrap(DictionaryType__dictionary(type));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1940,17 +1940,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// RecordBatch__from_dataframe
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
-RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tblSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::DataFrame >::type tbl(tblSEXP);
-    rcpp_result_gen = Rcpp::wrap(RecordBatch__from_dataframe(tbl));
-    return rcpp_result_gen;
-END_RCPP
-}
 // RecordBatch__Equals
 bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self, const std::shared_ptr<arrow::RecordBatch>& other);
 RcppExport SEXP _arrow_RecordBatch__Equals(SEXP selfSEXP, SEXP otherSEXP) {
@@ -2043,6 +2032,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::io::InputStream>& >::type stream(streamSEXP);
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Schema>& >::type schema(schemaSEXP);
     rcpp_result_gen = Rcpp::wrap(ipc___ReadRecordBatch__InputStream__Schema(stream, schema));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RecordBatch__from_arrays
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst);
+RcppExport SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxpSEXP, SEXP lstSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type schema_sxp(schema_sxpSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type lst(lstSEXP);
+    rcpp_result_gen = Rcpp::wrap(RecordBatch__from_arrays(schema_sxp, lst));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2224,17 +2225,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// Table__from_dataframe
-std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl);
-RcppExport SEXP _arrow_Table__from_dataframe(SEXP tblSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type tbl(tblSEXP);
-    rcpp_result_gen = Rcpp::wrap(Table__from_dataframe(tbl));
-    return rcpp_result_gen;
-END_RCPP
-}
 // Table__num_columns
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x);
 RcppExport SEXP _arrow_Table__num_columns(SEXP xSEXP) {
@@ -2288,6 +2278,18 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::shared_ptr<arrow::Table>& >::type table(tableSEXP);
     rcpp_result_gen = Rcpp::wrap(Table__columns(table));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Table__from_dots
+std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp);
+RcppExport SEXP _arrow_Table__from_dots(SEXP lstSEXP, SEXP schema_sxpSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type lst(lstSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type schema_sxp(schema_sxpSEXP);
+    rcpp_result_gen = Rcpp::wrap(Table__from_dots(lst, schema_sxp));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -2419,8 +2421,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_TimestampType__unit", (DL_FUNC) &_arrow_TimestampType__unit, 1},
     {"_arrow_DictionaryType__initialize", (DL_FUNC) &_arrow_DictionaryType__initialize, 3},
     {"_arrow_DictionaryType__index_type", (DL_FUNC) &_arrow_DictionaryType__index_type, 1},
+    {"_arrow_DictionaryType__value_type", (DL_FUNC) &_arrow_DictionaryType__value_type, 1},
     {"_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1},
-    {"_arrow_DictionaryType__dictionary", (DL_FUNC) &_arrow_DictionaryType__dictionary, 1},
     {"_arrow_DictionaryType__ordered", (DL_FUNC) &_arrow_DictionaryType__ordered, 1},
     {"_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2},
     {"_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetNumRows, 2},
@@ -2486,7 +2488,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1},
     {"_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1},
     {"_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2},
-    {"_arrow_RecordBatch__from_dataframe", (DL_FUNC) &_arrow_RecordBatch__from_dataframe, 1},
     {"_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 2},
     {"_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2},
     {"_arrow_RecordBatch__column_name", (DL_FUNC) &_arrow_RecordBatch__column_name, 2},
@@ -2495,6 +2496,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_RecordBatch__Slice2", (DL_FUNC) &_arrow_RecordBatch__Slice2, 3},
     {"_arrow_ipc___SerializeRecordBatch__Raw", (DL_FUNC) &_arrow_ipc___SerializeRecordBatch__Raw, 1},
     {"_arrow_ipc___ReadRecordBatch__InputStream__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__InputStream__Schema, 2},
+    {"_arrow_RecordBatch__from_arrays", (DL_FUNC) &_arrow_RecordBatch__from_arrays, 2},
     {"_arrow_RecordBatchReader__schema", (DL_FUNC) &_arrow_RecordBatchReader__schema, 1},
     {"_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1},
     {"_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1},
@@ -2511,12 +2513,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1},
     {"_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 2},
     {"_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 2},
-    {"_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1},
     {"_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1},
     {"_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1},
     {"_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1},
     {"_arrow_Table__column", (DL_FUNC) &_arrow_Table__column, 2},
     {"_arrow_Table__columns", (DL_FUNC) &_arrow_Table__columns, 1},
+    {"_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2},
     {"_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0},
     {"_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1},
     {NULL, NULL, 0}

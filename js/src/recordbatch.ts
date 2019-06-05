@@ -99,3 +99,14 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
         return new RecordBatch<{ [key: string]: K }>(schema, this.length, childData);
     }
 }
+
+/**
+ * @ignore
+ * @private
+ */
+/* tslint:disable:class-name */
+export class _InternalEmptyPlaceholderRecordBatch<T extends { [key: string]: DataType } = any> extends RecordBatch<T> {
+    constructor(schema: Schema<T>) {
+        super(schema, 0, schema.fields.map((f) => Data.new(f.type, 0, 0, 0)));
+    }
+}

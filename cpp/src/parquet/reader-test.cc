@@ -29,9 +29,9 @@
 #include "parquet/column_scanner.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/printer.h"
 #include "parquet/test-util.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -183,29 +183,6 @@ class TestLocalFile : public ::testing::Test {
   std::shared_ptr<::arrow::io::ReadableFile> handle;
 };
 
-class HelperFileClosed : public ArrowInputFile {
- public:
-  explicit HelperFileClosed(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
-                            bool* close_called)
-      : ArrowInputFile(file), close_called_(close_called) {}
-
-  void Close() override { *close_called_ = true; }
-
- private:
-  bool* close_called_;
-};
-
-TEST_F(TestLocalFile, FileClosedOnDestruction) {
-  bool close_called = false;
-  {
-    auto contents = ParquetFileReader::Contents::Open(
-        std::unique_ptr<RandomAccessSource>(new HelperFileClosed(handle, &close_called)));
-    std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
-    result->Open(std::move(contents));
-  }
-  ASSERT_TRUE(close_called);
-}
-
 TEST_F(TestLocalFile, OpenWithMetadata) {
   // PARQUET-808
   std::stringstream ss;
@@ -253,7 +230,7 @@ TEST(TestFileReaderAdHoc, NationDictTruncatedDataPage) {
 }
 
 TEST(TestDumpWithLocalFile, DumpOutput) {
-  std::string headerOutput = R"###(File Name: nested_lists.snappy.parquet
+  std::string header_output = R"###(File Name: nested_lists.snappy.parquet
 Version: 1.0
 Created By: parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)
 Total rows: 3
@@ -261,10 +238,10 @@ Number of RowGroups: 1
 Number of Real Columns: 2
 Number of Columns: 2
 Number of Selected Columns: 2
-Column 0: element (BYTE_ARRAY)
+Column 0: a.list.element.list.element.list.element (BYTE_ARRAY/UTF8)
 Column 1: b (INT32)
---- Row Group 0 ---
---- Total Bytes 155 ---
+--- Row Group: 0 ---
+--- Total Bytes: 155 ---
 --- Rows: 3 ---
 Column 0
   Values: 18  Statistics Not Set
@@ -276,29 +253,29 @@ Column 1
   Compression: SNAPPY, Encodings: BIT_PACKED PLAIN_DICTIONARY
   Uncompressed Size: 52, Compressed Size: 56
 )###";
-  std::string valuesOutput = R"###(--- Values ---
-element                       b                             
-a                             1                             
-b                             1                             
-c                             1                             
-NULL                          
-d                             
-a                             
-b                             
-c                             
-d                             
-NULL                          
-e                             
-a                             
-b                             
-c                             
-d                             
-e                             
-NULL                          
-f                             
+  std::string values_output = R"###(--- Values ---
+element                       |b                             |
+a                             |1                             |
+b                             |1                             |
+c                             |1                             |
+NULL                          |
+d                             |
+a                             |
+b                             |
+c                             |
+d                             |
+NULL                          |
+e                             |
+a                             |
+b                             |
+c                             |
+d                             |
+e                             |
+NULL                          |
+f                             |
 
 )###";
-  std::string dumpOutput = R"###(--- Values ---
+  std::string dump_output = R"###(--- Values ---
 Column 0
   D:7 R:0 V:a
   D:7 R:3 V:b
@@ -324,24 +301,24 @@ Column 1
   D:0 R:0 V:1
 )###";
 
-  std::stringstream ssValues, ssDump;
   // empty list means print all
   std::list<int> columns;
 
+  std::stringstream ss_values, ss_dump;
   const char* file = "nested_lists.snappy.parquet";
   auto reader_props = default_reader_properties();
   auto reader = ParquetFileReader::OpenFile(data_file(file), false, reader_props);
   ParquetFilePrinter printer(reader.get());
 
-  printer.DebugPrint(ssValues, columns, true, false, false, file);
-  ASSERT_EQ(headerOutput + valuesOutput, ssValues.str());
+  printer.DebugPrint(ss_values, columns, true, false, false, file);
+  printer.DebugPrint(ss_dump, columns, true, true, false, file);
 
-  printer.DebugPrint(ssDump, columns, true, true, false, file);
-  ASSERT_EQ(headerOutput + dumpOutput, ssDump.str());
+  ASSERT_EQ(header_output + values_output, ss_values.str());
+  ASSERT_EQ(header_output + dump_output, ss_dump.str());
 }
 
 TEST(TestJSONWithLocalFile, JSONOutput) {
-  std::string jsonOutput = R"###({
+  std::string json_output = R"###({
   "FileName": "alltypes_plain.parquet",
   "Version": "0",
   "CreatedBy": "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)",
@@ -403,7 +380,7 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
   ParquetFilePrinter printer(reader.get());
   printer.JSONPrint(ss, columns, "alltypes_plain.parquet");
 
-  ASSERT_EQ(jsonOutput, ss.str());
+  ASSERT_EQ(json_output, ss.str());
 }
 
 }  // namespace parquet

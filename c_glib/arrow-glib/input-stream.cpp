@@ -24,6 +24,7 @@
 #include <arrow/io/interfaces.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
+#include <arrow/util/string_view.h>
 
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/codec.hpp>
@@ -386,6 +387,7 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
  * garrow_seekable_input_stream_peek:
  * @input_stream: A #GArrowSeekableInputStream.
  * @n_bytes: The number of bytes to be peeked.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full): The data of the buffer, up to the
  *   indicated number. The data becomes invalid after any operation on
@@ -397,12 +399,20 @@ garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
  */
 GBytes *
 garrow_seekable_input_stream_peek(GArrowSeekableInputStream *input_stream,
-                                  gint64 n_bytes)
+                                  gint64 n_bytes,
+                                  GError **error)
 {
   auto arrow_random_access_file =
     garrow_seekable_input_stream_get_raw(input_stream);
-  auto string_view = arrow_random_access_file->Peek(n_bytes);
-  return g_bytes_new_static(string_view.data(), string_view.size());
+
+  arrow::util::string_view view;
+  auto status = arrow_random_access_file->Peek(n_bytes, &view);
+
+  if (garrow_error_check(error, status, "[seekable-input-stream][peek]")) {
+    return g_bytes_new_static(view.data(), view.size());
+  } else {
+    return NULL;
+  }
 }
 
 

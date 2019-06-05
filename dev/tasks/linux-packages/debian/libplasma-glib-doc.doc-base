@@ -5,5 +5,5 @@ Abstract: Plasma GLib is an in-memory object store and cache for big data that u
 Section: Programming
 
 Format: HTML
-Index: /usr/share/doc/libarrow-glib-doc/plasma-glib/index.html
-Files: /usr/share/doc/libarrow-glib-doc/plasma-glib/*.html
+Index: /usr/share/gtk-doc/html/plasma-glib/index.html
+Files: /usr/share/gtk-doc/html/plasma-glib/*.html

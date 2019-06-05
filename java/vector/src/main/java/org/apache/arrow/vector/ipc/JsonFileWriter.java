@@ -58,6 +58,10 @@ import org.apache.arrow.vector.TimeStampSecTZVector;
 import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TypeLayout;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt2Vector;
+import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -270,6 +274,18 @@ public class JsonFileWriter implements AutoCloseable {
           break;
         case BIGINT:
           generator.writeNumber(BigIntVector.get(buffer, index));
+          break;
+        case UINT1:
+          generator.writeNumber(UInt1Vector.getNoOverflow(buffer, index));
+          break;
+        case UINT2:
+          generator.writeNumber(UInt2Vector.get(buffer, index));
+          break;
+        case UINT4:
+          generator.writeNumber(UInt4Vector.getNoOverflow(buffer, index));
+          break;
+        case UINT8:
+          generator.writeNumber(UInt8Vector.getNoOverflow(buffer, index));
           break;
         case FLOAT4:
           generator.writeNumber(Float4Vector.get(buffer, index));

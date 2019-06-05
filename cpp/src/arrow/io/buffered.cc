@@ -221,8 +221,12 @@ std::shared_ptr<OutputStream> BufferedOutputStream::raw() const { return impl_->
 
 class BufferedInputStream::Impl : public BufferedBase {
  public:
-  Impl(std::shared_ptr<InputStream> raw, MemoryPool* pool)
-      : BufferedBase(pool), raw_(std::move(raw)), bytes_buffered_(0) {}
+  Impl(std::shared_ptr<InputStream> raw, MemoryPool* pool, int64_t raw_total_bytes_bound)
+      : BufferedBase(pool),
+        raw_(std::move(raw)),
+        raw_read_total_(0),
+        raw_read_bound_(raw_total_bytes_bound),
+        bytes_buffered_(0) {}
 
   ~Impl() { DCHECK_OK(Close()); }
 
@@ -255,10 +259,40 @@ class BufferedInputStream::Impl : public BufferedBase {
     return ResizeBuffer(new_buffer_size);
   }
 
-  util::string_view Peek(int64_t nbytes) const {
-    int64_t peek_size = std::min(nbytes, bytes_buffered_);
-    return util::string_view(reinterpret_cast<const char*>(buffer_data_ + buffer_pos_),
-                             static_cast<size_t>(peek_size));
+  Status Peek(int64_t nbytes, util::string_view* out) {
+    if (raw_read_bound_ >= 0) {
+      // Do not try to peek more than the total remaining number of bytes.
+      nbytes = std::min(nbytes, bytes_buffered_ + (raw_read_bound_ - raw_read_total_));
+    }
+
+    if (bytes_buffered_ == 0 && nbytes < buffer_size_) {
+      // Pre-buffer for small reads
+      RETURN_NOT_OK(BufferIfNeeded());
+    }
+
+    // Increase the buffer size if needed
+    if (nbytes > buffer_->size() - buffer_pos_) {
+      RETURN_NOT_OK(SetBufferSize(nbytes + buffer_pos_));
+      DCHECK(buffer_->size() - buffer_pos_ >= nbytes);
+    }
+    // Read more data when buffer has insufficient left
+    if (nbytes > bytes_buffered_) {
+      int64_t additional_bytes_to_read = nbytes - bytes_buffered_;
+      if (raw_read_bound_ >= 0) {
+        additional_bytes_to_read =
+            std::min(additional_bytes_to_read, raw_read_bound_ - raw_read_total_);
+      }
+      int64_t bytes_read = -1;
+      RETURN_NOT_OK(raw_->Read(additional_bytes_to_read, &bytes_read,
+                               buffer_->mutable_data() + buffer_pos_ + bytes_buffered_));
+      bytes_buffered_ += bytes_read;
+      raw_read_total_ += bytes_read;
+      nbytes = bytes_buffered_;
+    }
+    DCHECK(nbytes <= bytes_buffered_);  // Enough bytes available
+    *out = util::string_view(reinterpret_cast<const char*>(buffer_data_ + buffer_pos_),
+                             static_cast<size_t>(nbytes));
+    return Status::OK();
   }
 
   int64_t bytes_buffered() const { return bytes_buffered_; }
@@ -282,8 +316,14 @@ class BufferedInputStream::Impl : public BufferedBase {
       if (!buffer_) {
         RETURN_NOT_OK(ResetBuffer());
       }
-      RETURN_NOT_OK(raw_->Read(buffer_size_, &bytes_buffered_, buffer_data_));
+
+      int64_t bytes_to_buffer = buffer_size_;
+      if (raw_read_bound_ >= 0) {
+        bytes_to_buffer = std::min(buffer_size_, raw_read_bound_ - raw_read_total_);
+      }
+      RETURN_NOT_OK(raw_->Read(bytes_to_buffer, &bytes_buffered_, buffer_data_));
       buffer_pos_ = 0;
+      raw_read_total_ += bytes_buffered_;
 
       // Do not make assumptions about the raw stream position
       raw_pos_ = -1;
@@ -305,11 +345,20 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(BufferIfNeeded());
     }
 
+    *bytes_read = 0;
+
     if (nbytes > bytes_buffered_) {
       // Copy buffered bytes into out, then read rest
       memcpy(out, buffer_data_ + buffer_pos_, bytes_buffered_);
-      RETURN_NOT_OK(raw_->Read(nbytes - bytes_buffered_, bytes_read,
+
+      int64_t bytes_to_read = nbytes - bytes_buffered_;
+      if (raw_read_bound_ >= 0) {
+        bytes_to_read = std::min(bytes_to_read, raw_read_bound_ - raw_read_total_);
+      }
+      RETURN_NOT_OK(raw_->Read(bytes_to_read, bytes_read,
                                reinterpret_cast<uint8_t*>(out) + bytes_buffered_));
+      raw_read_total_ += *bytes_read;
+
       // Do not make assumptions about the raw stream position
       raw_pos_ = -1;
       *bytes_read += bytes_buffered_;
@@ -344,6 +393,8 @@ class BufferedInputStream::Impl : public BufferedBase {
 
  private:
   std::shared_ptr<InputStream> raw_;
+  int64_t raw_read_total_;
+  int64_t raw_read_bound_;
 
   // Number of remaining bytes in the buffer, to be reduced on each read from
   // the buffer
@@ -351,17 +402,19 @@ class BufferedInputStream::Impl : public BufferedBase {
 };
 
 BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
-                                         MemoryPool* pool) {
-  impl_.reset(new Impl(std::move(raw), pool));
+                                         MemoryPool* pool,
+                                         int64_t raw_total_bytes_bound) {
+  impl_.reset(new Impl(std::move(raw), pool, raw_total_bytes_bound));
 }
 
 BufferedInputStream::~BufferedInputStream() { DCHECK_OK(impl_->Close()); }
 
 Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
                                    std::shared_ptr<InputStream> raw,
-                                   std::shared_ptr<BufferedInputStream>* out) {
-  auto result =
-      std::shared_ptr<BufferedInputStream>(new BufferedInputStream(std::move(raw), pool));
+                                   std::shared_ptr<BufferedInputStream>* out,
+                                   int64_t raw_total_bytes_bound) {
+  auto result = std::shared_ptr<BufferedInputStream>(
+      new BufferedInputStream(std::move(raw), pool, raw_total_bytes_bound));
   RETURN_NOT_OK(result->SetBufferSize(buffer_size));
   *out = std::move(result);
   return Status::OK();
@@ -379,8 +432,8 @@ Status BufferedInputStream::Tell(int64_t* position) const {
   return impl_->Tell(position);
 }
 
-util::string_view BufferedInputStream::Peek(int64_t nbytes) const {
-  return impl_->Peek(nbytes);
+Status BufferedInputStream::Peek(int64_t nbytes, util::string_view* out) {
+  return impl_->Peek(nbytes, out);
 }
 
 Status BufferedInputStream::SetBufferSize(int64_t new_buffer_size) {

@@ -17,7 +17,9 @@
 
 FROM ubuntu:16.04
 
-ENV DEBIAN_FRONTEND noninteractive
+RUN \
+  echo "debconf debconf/frontend select Noninteractive" | \
+    debconf-set-selections
 
 ARG DEBUG
 
@@ -56,6 +58,7 @@ RUN \
     libprotoc-dev \
     libre2-dev \
     libsnappy-dev \
+    libssl-dev \
     libzstd-dev \
     lsb-release \
     nvidia-cuda-toolkit \

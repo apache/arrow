@@ -17,7 +17,9 @@
 
 FROM ubuntu:18.10
 
-ENV DEBIAN_FRONTEND noninteractive
+RUN \
+  echo "debconf debconf/frontend select Noninteractive" | \
+    debconf-set-selections
 
 ARG DEBUG
 
@@ -25,12 +27,10 @@ RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    autoconf-archive \
     bison \
     build-essential \
     clang-7 \
     cmake \
-    debhelper\
     devscripts \
     flex \
     git \
@@ -43,18 +43,25 @@ RUN \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgoogle-glog-dev \
+    libgtest-dev \
     liblz4-dev \
     libprotobuf-dev \
     libprotoc-dev \
     libre2-dev \
     libsnappy-dev \
+    libssl-dev \
     libzstd-dev \
     lsb-release \
+    meson \
+    ninja-build \
     nvidia-cuda-toolkit \
     pkg-config \
     protobuf-compiler \
     python3-dev \
     python3-numpy \
-    rapidjson-dev && \
+    rapidjson-dev \
+    tzdata && \
+  apt install -y -V -t cosmic-backports ${quiet} \
+    debhelper && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

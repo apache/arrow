@@ -21,6 +21,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -38,7 +39,6 @@
 #error "gRPC headers should not be in public API"
 #endif
 
-#include "arrow/flight/Flight.pb.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/test-util.h"
 
@@ -117,6 +117,8 @@ TEST(TestFlightDescriptor, Basics) {
   ASSERT_TRUE(e.Equals(f));
 }
 
+// This tests the internal protobuf types which don't get exported in the Flight DLL.
+#ifndef _WIN32
 TEST(TestFlightDescriptor, ToFromProto) {
   FlightDescriptor descr_test;
   pb::FlightDescriptor pb_descr;
@@ -131,9 +133,10 @@ TEST(TestFlightDescriptor, ToFromProto) {
   ASSERT_OK(internal::FromProto(pb_descr, &descr_test));
   AssertEqual(descr2, descr_test);
 }
+#endif
 
 TEST(TestFlight, StartStopTestServer) {
-  TestServer server("flight-test-server", 30000);
+  TestServer server("flight-test-server");
   server.Start();
   ASSERT_TRUE(server.IsRunning());
 
@@ -141,20 +144,29 @@ TEST(TestFlight, StartStopTestServer) {
 
   ASSERT_TRUE(server.IsRunning());
   int exit_code = server.Stop();
+#ifdef _WIN32
+  // We do a hard kill on Windows
+  ASSERT_EQ(259, exit_code);
+#else
   ASSERT_EQ(0, exit_code);
+#endif
   ASSERT_FALSE(server.IsRunning());
 }
 
 TEST(TestFlight, ConnectUri) {
-  TestServer server("flight-test-server", 30000);
+  TestServer server("flight-test-server");
   server.Start();
   ASSERT_TRUE(server.IsRunning());
+
+  std::stringstream ss;
+  ss << "grpc://localhost:" << server.port();
+  std::string uri = ss.str();
 
   std::unique_ptr<FlightClient> client;
   Location location1;
   Location location2;
-  ASSERT_OK(Location::Parse("grpc://localhost:30000", &location1));
-  ASSERT_OK(Location::Parse("grpc://localhost:30000", &location2));
+  ASSERT_OK(Location::Parse(uri, &location1));
+  ASSERT_OK(Location::Parse(uri, &location2));
   ASSERT_OK(FlightClient::Connect(location1, &client));
   ASSERT_OK(FlightClient::Connect(location2, &client));
 }
@@ -174,9 +186,9 @@ class TestFlightClient : public ::testing::Test {
   // void TearDown() {}
 
   void SetUp() {
-    port_ = 30000;
-    server_.reset(new TestServer("flight-test-server", port_));
+    server_.reset(new TestServer("flight-test-server"));
     server_->Start();
+    port_ = server_->port();
     ASSERT_OK(ConnectClient());
   }
 
@@ -258,7 +270,7 @@ class TestAuthHandler : public ::testing::Test {
     Location location;
     std::unique_ptr<FlightServerBase> server(new AuthTestServer);
 
-    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
+    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
     FlightServerOptions options(location);
     options.auth_handler =
         std::unique_ptr<ServerAuthHandler>(new TestServerAuthHandler("user", "p4ssw0rd"));
@@ -282,7 +294,7 @@ class TestDoPut : public ::testing::Test {
  public:
   void SetUp() {
     Location location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
+    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
 
     do_put_server_ = new DoPutTestServer();
     server_.reset(new InProcessTestServer(
@@ -464,7 +476,7 @@ TEST_F(TestFlightClient, TimeoutFires) {
 TEST_F(TestFlightClient, NoTimeout) {
   // Call should complete quickly, so timeout should not fire
   FlightCallOptions options;
-  options.timeout = TimeoutDuration{0.5};
+  options.timeout = TimeoutDuration{5.0};  // account for slow server process startup
   std::unique_ptr<FlightInfo> info;
   auto start = std::chrono::system_clock::now();
   auto descriptor = FlightDescriptor::Path({"examples", "ints"});

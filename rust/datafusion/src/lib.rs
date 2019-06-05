@@ -19,6 +19,7 @@
 //! Apache Arrow as the memory model
 
 #![warn(missing_docs)]
+#![allow(bare_trait_objects)]
 
 extern crate arrow;
 #[macro_use]
