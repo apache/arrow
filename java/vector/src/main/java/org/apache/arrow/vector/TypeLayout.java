@@ -119,8 +119,8 @@ public class TypeLayout {
       @Override
       public TypeLayout visit(Map type) {
         List<BufferLayout> vectors = asList(
-          BufferLayout.validityVector(),
-          BufferLayout.offsetBuffer()
+            BufferLayout.validityVector(),
+            BufferLayout.offsetBuffer()
         );
         return new TypeLayout(vectors);
       }

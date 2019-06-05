@@ -21,20 +21,41 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 
+/**
+ * Reader for a MapVector.
+ */
 public class UnionMapReader extends UnionListReader {
 
+  /**
+   * Construct a new reader for the given vector.
+   *
+   * @param vector Vector to read from.
+   */
   public UnionMapReader(MapVector vector) {
     super(vector);
   }
 
+  /**
+   * Start reading a key from the map entry.
+   *
+   * @return reader that can be used to read the key.
+   */
   public FieldReader key() {
     return reader().reader(MapVector.KEY_NAME);
   }
 
+  /**
+   * Start reading a value element from the map entry.
+   *
+   * @return reader that can be used to read the value.
+   */
   public FieldReader value() {
     return reader().reader(MapVector.VALUE_NAME);
   }
 
+  /**
+   * Return the MinorType of the reader as MAP.
+   */
   @Override
   public MinorType getMinorType() {
     return MinorType.MAP;

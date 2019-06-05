@@ -17,7 +17,14 @@
 
 package org.apache.arrow.vector;
 
-import io.netty.buffer.ArrowBuf;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import java.util.ArrayList;
+import java.util.Map;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
@@ -34,10 +41,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.Map;
-
-import static org.junit.Assert.*;
+import io.netty.buffer.ArrowBuf;
 
 public class TestMapVector {
 
@@ -65,11 +69,11 @@ public class TestMapVector {
 
   @Test
   public void testBasicOperation() {
-    int COUNT = 5;
+    int count = 5;
     try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
       mapVector.allocateNew();
       UnionMapWriter mapWriter = mapVector.getWriter();
-      for (int i = 0; i < COUNT; i++) {
+      for (int i = 0; i < count; i++) {
         mapWriter.startMap();
         for (int j = 0; j < i + 1; j++) {
           mapWriter.startEntry();
@@ -79,9 +83,9 @@ public class TestMapVector {
         }
         mapWriter.endMap();
       }
-      mapWriter.setValueCount(COUNT);
-      UnionMapReader mapReader = new UnionMapReader(mapVector);
-      for (int i = 0; i < COUNT; i++) {
+      mapWriter.setValueCount(count);
+      UnionMapReader mapReader = mapVector.getReader();
+      for (int i = 0; i < count; i++) {
         mapReader.setPosition(i);
         for (int j = 0; j < i + 1; j++) {
           mapReader.next();
@@ -94,11 +98,11 @@ public class TestMapVector {
 
   @Test
   public void testBasicOperationNulls() {
-    int COUNT = 6;
+    int count = 6;
     try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
       mapVector.allocateNew();
       UnionMapWriter mapWriter = mapVector.getWriter();
-      for (int i = 0; i < COUNT; i++) {
+      for (int i = 0; i < count; i++) {
         // i == 1 is a NULL
         if (i != 1) {
           mapWriter.setPosition(i);
@@ -118,9 +122,9 @@ public class TestMapVector {
           mapWriter.endMap();
         }
       }
-      mapWriter.setValueCount(COUNT);
-      UnionMapReader mapReader = new UnionMapReader(mapVector);
-      for (int i = 0; i < COUNT; i++) {
+      mapWriter.setValueCount(count);
+      UnionMapReader mapReader = mapVector.getReader();
+      for (int i = 0; i < count; i++) {
         mapReader.setPosition(i);
         if (i == 1) {
           assertFalse(mapReader.isSet());

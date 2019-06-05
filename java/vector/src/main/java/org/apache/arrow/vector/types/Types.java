@@ -639,10 +639,10 @@ public class Types {
     MAP(null) {
       @Override
       public FieldVector getNewVector(
-        String name,
-        FieldType fieldType,
-        BufferAllocator allocator,
-        CallBack schemaChangeCallback) {
+          String name,
+          FieldType fieldType,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
         return new MapVector(name, allocator, fieldType, schemaChangeCallback);
       }
 
