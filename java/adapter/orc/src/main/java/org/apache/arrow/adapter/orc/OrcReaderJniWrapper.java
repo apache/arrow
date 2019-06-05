@@ -26,7 +26,7 @@ class OrcReaderJniWrapper {
 
   private static volatile OrcReaderJniWrapper INSTANCE;
 
-  static OrcReaderJniWrapper getInstance() throws IOException {
+  static OrcReaderJniWrapper getInstance() throws IOException, IllegalAccessException {
     if (INSTANCE == null) {
       synchronized (OrcReaderJniWrapper.class) {
         if (INSTANCE == null) {

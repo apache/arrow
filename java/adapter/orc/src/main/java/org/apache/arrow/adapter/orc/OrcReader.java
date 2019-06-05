@@ -43,7 +43,7 @@ public class OrcReader implements AutoCloseable {
    * @param allocator allocator provided to ArrowReader.
    * @throws IOException throws exception in case of file not found
    */
-  public OrcReader(String filePath, BufferAllocator allocator) throws IOException {
+  public OrcReader(String filePath, BufferAllocator allocator) throws IOException, IllegalAccessException {
     this.allocator = allocator;
     this.jniWrapper = OrcReaderJniWrapper.getInstance();
     this.nativeInstanceId = jniWrapper.open(filePath);
@@ -55,7 +55,7 @@ public class OrcReader implements AutoCloseable {
    * @param rowNumber the rows number to seek
    * @return true if seek operation is succeeded
    */
-  public boolean seek(int rowNumber) {
+  public boolean seek(int rowNumber) throws IllegalArgumentException  {
     return jniWrapper.seek(nativeInstanceId, rowNumber);
   }
 
@@ -65,7 +65,7 @@ public class OrcReader implements AutoCloseable {
    * @param batchSize the number of rows loaded on each iteration
    * @return ArrowReader that iterate over current stripes
    */
-  public ArrowReader nextStripeReader(long batchSize) {
+  public ArrowReader nextStripeReader(long batchSize) throws IllegalArgumentException {
     long stripeReaderId = jniWrapper.nextStripeReader(nativeInstanceId, batchSize);
     if (stripeReaderId < 0) {
       return null;
@@ -79,7 +79,7 @@ public class OrcReader implements AutoCloseable {
    *
    * @return number of stripes
    */
-  public int getNumberOfStripes() {
+  public int getNumberOfStripes() throws IllegalArgumentException  {
     return jniWrapper.getNumberOfStripes(nativeInstanceId);
   }
 

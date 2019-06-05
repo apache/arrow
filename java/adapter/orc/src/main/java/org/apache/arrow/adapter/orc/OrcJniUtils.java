@@ -34,7 +34,7 @@ class OrcJniUtils {
   private OrcJniUtils() {}
 
   static void loadOrcAdapterLibraryFromJar()
-          throws IOException {
+          throws IOException, IllegalAccessException {
     synchronized (OrcJniUtils.class) {
       if (!isLoaded) {
         final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);

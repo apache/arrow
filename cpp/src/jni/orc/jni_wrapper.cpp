@@ -35,7 +35,8 @@ using ORCFileReader = arrow::adapters::orc::ORCFileReader;
 using RecordBatchReader = arrow::RecordBatchReader;
 
 static jclass io_exception_class;
-static jclass exception_class;
+static jclass illegal_access_exception_class;
+static jclass illegal_argument_exception_class;
 
 static jclass orc_field_node_class;
 static jmethodID orc_field_node_constructor;
@@ -66,7 +67,7 @@ jmethodID GetMethodID(JNIEnv* env, jclass this_class, const char* name, const ch
   if (ret == nullptr) {
     std::string error_message = "Unable to find method " + std::string(name) +
                                 " within signature" + std::string(sig);
-    env->ThrowNew(exception_class, error_message.c_str());
+    env->ThrowNew(illegal_access_exception_class, error_message.c_str());
   }
 
   return ret;
@@ -81,6 +82,26 @@ std::string JStringToCString(JNIEnv* env, jstring string) {
   return std::string(buffer.data(), clen);
 }
 
+std::shared_ptr<ORCFileReader> GetFileReader(JNIEnv* env, jlong id) {
+  auto reader = orc_reader_holder_.Lookup(id);
+  if (!reader) {
+    std::string error_message = "invalid reader id " + std::to_string(id);
+    env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
+  }
+
+  return reader;
+}
+
+std::shared_ptr<RecordBatchReader> GetStripeReader(JNIEnv* env, jlong id) {
+  auto reader = orc_stripe_reader_holder_.Lookup(id);
+  if (!reader) {
+    std::string error_message = "invalid stripe reader id " + std::to_string(id);
+    env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
+  }
+
+  return reader;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -92,7 +113,10 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   }
 
   io_exception_class = CreateGlobalClassReference(env, "Ljava/io/IOException;");
-  exception_class = CreateGlobalClassReference(env, "Ljava/lang/Exception;");
+  illegal_access_exception_class =
+      CreateGlobalClassReference(env, "Ljava/lang/IllegalAccessException;");
+  illegal_argument_exception_class =
+      CreateGlobalClassReference(env, "Ljava/lang/IllegalArgumentException;");
 
   orc_field_node_class =
       CreateGlobalClassReference(env, "Lorg/apache/arrow/adapter/orc/OrcFieldNode;");
@@ -118,7 +142,8 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
   env->DeleteGlobalRef(io_exception_class);
-  env->DeleteGlobalRef(exception_class);
+  env->DeleteGlobalRef(illegal_access_exception_class);
+  env->DeleteGlobalRef(illegal_argument_exception_class);
   env->DeleteGlobalRef(orc_field_node_class);
   env->DeleteGlobalRef(orc_memory_class);
   env->DeleteGlobalRef(record_batch_class);
@@ -165,7 +190,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_clo
 
 JNIEXPORT jboolean JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_seek(
     JNIEnv* env, jobject this_obj, jlong id, jint row_number) {
-  auto reader = orc_reader_holder_.Lookup(id);
+  auto reader = GetFileReader(env, id);
   return reader->Seek(row_number).ok();
 }
 
@@ -173,7 +198,7 @@ JNIEXPORT jint JNICALL
 Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_getNumberOfStripes(JNIEnv* env,
                                                                          jobject this_obj,
                                                                          jlong id) {
-  auto reader = orc_reader_holder_.Lookup(id);
+  auto reader = GetFileReader(env, id);
   return reader->NumberOfStripes();
 }
 
@@ -182,11 +207,7 @@ Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_nextStripeReader(JNIEnv* e
                                                                        jobject this_obj,
                                                                        jlong id,
                                                                        jlong batch_size) {
-  auto reader = orc_reader_holder_.Lookup(id);
-  if (!reader) {
-    std::string error_message = "invalid reader id " + std::to_string(id);
-    env->ThrowNew(exception_class, error_message.c_str());
-  }
+  auto reader = GetFileReader(env, id);
 
   std::shared_ptr<RecordBatchReader> stripe_reader;
   auto status = reader->NextStripeReader(batch_size, &stripe_reader);
@@ -206,11 +227,7 @@ JNIEXPORT jbyteArray JNICALL
 Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_getSchema(JNIEnv* env,
                                                                       jclass this_cls,
                                                                       jlong id) {
-  auto stripe_reader = orc_stripe_reader_holder_.Lookup(id);
-  if (!stripe_reader) {
-    std::string error_message = "invalid stripe reader id " + std::to_string(id);
-    env->ThrowNew(exception_class, error_message.c_str());
-  }
+  auto stripe_reader = GetStripeReader(env, id);
 
   auto schema = stripe_reader->schema();
 
@@ -231,11 +248,7 @@ JNIEXPORT jobject JNICALL
 Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
                                                                  jclass this_cls,
                                                                  jlong id) {
-  auto stripe_reader = orc_stripe_reader_holder_.Lookup(id);
-  if (!stripe_reader) {
-    std::string error_message = "invalid stripe reader id " + std::to_string(id);
-    env->ThrowNew(exception_class, error_message.c_str());
-  }
+  auto stripe_reader = GetStripeReader(env, id);
 
   std::shared_ptr<arrow::RecordBatch> record_batch;
   auto status = stripe_reader->ReadNext(&record_batch);
@@ -245,6 +258,7 @@ Java_org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper_next(JNIEnv* env,
 
   auto schema = stripe_reader->schema();
 
+  // TODO: ARROW-4714 Ensure JVM has sufficient capacity to create local references
   // create OrcFieldNode[]
   jobjectArray field_array =
       env->NewObjectArray(schema->num_fields(), orc_field_node_class, nullptr);
