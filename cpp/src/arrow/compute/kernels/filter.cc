@@ -35,19 +35,21 @@ Status FilterBinaryKernel::Call(FunctionContext* ctx, const Datum& left,
 
   auto lk = left.kind();
   auto rk = right.kind();
+  auto out_array = out->array();
 
   if (lk == Datum::ARRAY && rk == Datum::SCALAR) {
     auto array = left.array();
     auto scalar = right.scalar();
-    return filter_function_->Filter(*array, *scalar, out->array());
+    return filter_function_->Filter(*array, *scalar, &out_array);
   } else if (lk == Datum::SCALAR && rk == Datum::ARRAY) {
     auto scalar = left.scalar();
     auto array = right.array();
-    return filter_function_->Filter(*scalar, *array, out->array());
+    auto out_array = out->array();
+    return filter_function_->Filter(*scalar, *array, &out_array);
   } else if (lk == Datum::ARRAY && rk == Datum::ARRAY) {
     auto lhs = left.array();
     auto rhs = right.array();
-    return filter_function_->Filter(*lhs, *rhs, out->array());
+    return filter_function_->Filter(*lhs, *rhs, &out_array);
   }
 
   return Status::Invalid("Invalid datum signature for FilterBinaryKernel");
