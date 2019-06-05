@@ -817,26 +817,26 @@ Table__from_dots <- function(lst, schema_sxp) {
     .Call(`_arrow_Table__from_dots`, lst, schema_sxp)
 }
 
-#' Get the capacity of the global thread pool
+#' View and manage the capacity of the global thread pool
 #'
-#' @return the number of worker threads in the thread pool to which
+#' `GetCpuThreadPoolCapacity()` returns the number of worker threads in the
+#' thread pool to which
 #' Arrow dispatches various CPU-bound tasks. This is an ideal number,
 #' not necessarily the exact number of threads at a given point in time.
+#' You can change this number using `SetCpuThreadPoolCapacity()`.
 #'
-#' You can change this number using [SetCpuThreadPoolCapacity()].
+#' @param threads the number of worker threads in the thread pool to which
+#' Arrow dispatches various CPU-bound tasks.
 #'
+#' @return `GetCpuThreadPoolCapacity()` returns the number of worker threads.
+#' `SetCpuThreadPoolCapacity()` returns nothing.
 #' @export
+#' @name threadpool
 GetCpuThreadPoolCapacity <- function() {
     .Call(`_arrow_GetCpuThreadPoolCapacity`)
 }
 
-#' Set the capacity of the global thread pool
-#'
-#' @param threads the number of worker threads int the thread pool to which
-#' Arrow dispatches various CPU-bound tasks.
-#'
-#' The current number is returned by [GetCpuThreadPoolCapacity()]
-#'
+#' @rdname threadpool
 #' @export
 SetCpuThreadPoolCapacity <- function(threads) {
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))

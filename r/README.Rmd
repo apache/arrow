@@ -111,6 +111,7 @@ devtools::load_all() # Load the dev package
 devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
 devtools::document() # Update roxygen documentation
 rmarkdown::render("README.Rmd") # To rebuild README.md
+pkgdown::build_site() # To preview the documentation website
 devtools::check() # All package checks; see also below
 ```
 

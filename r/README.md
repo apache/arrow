@@ -107,18 +107,18 @@ tab
 #> arrow::Table
 as_tibble(tab)
 #> # A tibble: 10 x 2
-#>        x        y
-#>    <int>    <dbl>
-#>  1     1 -1.70   
-#>  2     2  0.764  
-#>  3     3 -0.00735
-#>  4     4 -0.192  
-#>  5     5  0.513  
-#>  6     6 -1.81   
-#>  7     7 -0.371  
-#>  8     8 -1.40   
-#>  9     9 -0.0599 
-#> 10    10 -0.359
+#>        x       y
+#>    <int>   <dbl>
+#>  1     1  0.912 
+#>  2     2  1.31  
+#>  3     3 -1.47  
+#>  4     4 -0.332 
+#>  5     5 -1.60  
+#>  6     6 -2.51  
+#>  7     7  0.903 
+#>  8     8 -2.44  
+#>  9     9  0.990 
+#> 10    10 -0.0164
 ```
 
 ## Developing
@@ -139,6 +139,7 @@ devtools::load_all() # Load the dev package
 devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
 devtools::document() # Update roxygen documentation
 rmarkdown::render("README.Rmd") # To rebuild README.md
+pkgdown::build_site() # To preview the documentation website
 devtools::check() # All package checks; see also below
 ```
 

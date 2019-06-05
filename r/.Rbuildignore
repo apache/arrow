@@ -11,3 +11,6 @@ Dockerfile
 clang_format.sh
 ^cran-comments\.md$
 ^arrow_.*.tar.gz$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

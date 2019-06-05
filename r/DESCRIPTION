@@ -15,6 +15,8 @@ Description: 'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
     package provides an interface to the Arrow C++ library.
 Depends: R (>= 3.1)
 License: Apache License (>= 2.0)
+URL: https://arrow.apache.org/docs/r/, https://github.com/apache/arrow/
+BugReports: https://issues.apache.org/jira/projects/ARROW/issues
 Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
@@ -36,6 +38,7 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
     covr,
+    pkgdown,
     rmarkdown,
     roxygen2,
     testthat,
