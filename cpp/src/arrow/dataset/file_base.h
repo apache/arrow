@@ -20,30 +20,34 @@
 #include <memory>
 
 #include "arrow/dataset/type_fwd.h"
-#include "arrow/util/interfaces.h"
-#include "arrow/util/visibility.h"
+#include "arrow/util/compression.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
 namespace dataset {
 
-class ARROW_EXPORT FileLocation {
+/// \brief
+class ARROW_DS_EXPORT FileSource {
  public:
-  enum LocationType { REMOTE, IN_MEMORY };
+  enum SourceType { PATH, BUFFER };
 
-  FileLocation(std::string path, fs::FileSystem* filesystem)
-      : FileLocation(FileLocation::REMOTE),
+  FileSource(std::string path, fs::FileSystem* filesystem,
+             Compression::type compression = Compression::UNCOMPRESSED)
+      : FileSource(FileSource::PATH),
         path_(std::move(path)),
         filesystem_(filesystem) {}
 
-  FileLocation(std::shared_ptr<Buffer> buffer)
-      : FileLocation(FileLocation::IN_MEMORY), buffer_(std::move(buffer)) {}
+  FileSource(std::shared_ptr<Buffer> buffer,
+             Compression::type compression = Compression::UNCOMPRESSED)
+      : FileSource(FileSource::BUFFER), buffer_(std::move(buffer)) {}
+
+  SourceType type() const { return type_; }
 
  private:
-  FileLocation(LocationType type) : type_(type) {}
+  FileSource(SourceType type) : type_(type) {}
+  SourceType type_;
 
-  FileLocation::type type_;
-
-  //
+  // PATH-based source
   std::string path_;
   fs::FileSystem* filesystem_;
 
@@ -51,7 +55,7 @@ class ARROW_EXPORT FileLocation {
 };
 
 /// \brief Base class for file scanning options
-class ARROW_EXPORT FileScanOptions {
+class ARROW_DS_EXPORT FileScanOptions {
  public:
   virtual ~FileScanOptions() = default;
 
@@ -60,7 +64,7 @@ class ARROW_EXPORT FileScanOptions {
 };
 
 /// \brief Base class for file writing options
-class ARROW_EXPORT FileWriteOptions {
+class ARROW_DS_EXPORT FileWriteOptions {
  public:
   virtual ~FileWriteOptions() = default;
 
@@ -68,8 +72,8 @@ class ARROW_EXPORT FileWriteOptions {
   virtual std::string file_type() const = 0;
 };
 
-/// \brief Base class for file writing options
-class ARROW_EXPORT FileFormat {
+/// \brief Base class for file format implementation
+class ARROW_DS_EXPORT FileFormat {
  public:
   virtual ~FileFormat() = default;
 
@@ -79,9 +83,23 @@ class ARROW_EXPORT FileFormat {
   virtual bool IsValidExtension(const std::string& ext) const = 0;
 
   /// \brief Open a file for scanning
-  virtual Status ScanFile(const std::string& path, const FileScanOptions& options,
-                          fs::FileSystem* filesystem,
+  virtual Status ScanFile(const FileSource& location, const FileScanOptions& options,
+                          std::shared_ptr<ScanContext> scan_context,
                           std::unique_ptr<ScanTaskIterator>* out) const = 0;
+};
+
+/// \brief A DataFragment that is stored in a file with a known format
+class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
+ public:
+  FileBasedDataFragment(const FileSource& location,
+                        std::shared_ptr<FileFormat> format);
+
+  const FileSource& location() const { return location_; }
+  std::shared_ptr<FileFormat> format() const { return format_; }
+
+ protected:
+  FileSource location_;
+  std::shared_ptr<FileFormat> format_;
 };
 
 }  // namespace dataset

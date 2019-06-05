@@ -15,5 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+add_custom_target(arrow_dataset)
+
 # Headers: top level
 arrow_install_all_headers("arrow/dataset")
+
+set(ARROW_DATASET_SRCS
+
+  )
+
+add_arrow_lib(arrow_dataset
+  OUTPUTS ARROW_DATASET_LIBRARIES
+  SOURCES ${ARROW_DATASET_SRCS}
+  SHARED_LINK_LIBS arrow_shared
+  STATIC_LINK_LIBS arrow_static)
+
+foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
+endforeach()

@@ -25,3 +25,7 @@ facilitates parallel processing of datasets spread across different
 physical files and serialization formats. Other concerns such as
 partitioning, filtering (partition- and column-level), and schema
 normalization are also addressed.
+
+## Development Status
+
+Pre-alpha as of June 2019. API subject to change without notice.

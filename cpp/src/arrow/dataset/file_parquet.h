@@ -21,34 +21,28 @@
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
-#include "arrow/util/interfaces.h"
-#include "arrow/util/visibility.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
 namespace dataset {
 
-class ARROW_EXPORT ParquetScanOptions : public FileScanOptions {
+class ARROW_DS_EXPORT ParquetScanOptions : public FileScanOptions {
  public:
   std::string file_type() const override;
 };
 
-class ARROW_EXPORT ParquetWriteOptions : public FileWriteOptions {
+class ARROW_DS_EXPORT ParquetWriteOptions : public FileWriteOptions {
  public:
   std::string file_type() const override;
 };
 
-class ARROW_EXPORT ParquetFragment : public DataFragment {
+class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
  public:
-  bool splittable() const override;
-
-  const FileLocation& location() const { return *location_; }
-
- private:
-  std::shared_ptr<FileLocation> location_;
+  bool splittable() const override { return true; }
 };
 
 /// \brief A FileFormat implementation that reads from Parquet files
-class ARROW_EXPORT ParquetFileFormat : public FileFormat {
+class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
   std::string name() const override;
 

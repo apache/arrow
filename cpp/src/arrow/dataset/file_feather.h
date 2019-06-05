@@ -21,25 +21,24 @@
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
-#include "arrow/util/interfaces.h"
-#include "arrow/util/visibility.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
 namespace dataset {
 
-class ARROW_EXPORT FeatherScanOptions : public FileScanOptions {
+class ARROW_DS_EXPORT FeatherScanOptions : public FileScanOptions {
  public:
   std::string file_type() const override;
 };
 
-class ARROW_EXPORT FeatherWriterOptions : public FileWriteOptions {
+class ARROW_DS_EXPORT FeatherWriterOptions : public FileWriteOptions {
  public:
   std::string file_type() const override;
 };
 
 /// \brief A FileFormat implementation that reads from Feather (Arrow
 /// IPC protocol) files
-class ARROW_EXPORT FeatherFileFormat : public FileFormat {
+class ARROW_DS_EXPORT FeatherFileFormat : public FileFormat {
  public:
   std::string name() const override;
 

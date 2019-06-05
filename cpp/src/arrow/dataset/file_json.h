@@ -22,13 +22,12 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/json/options.h"
-#include "arrow/util/interfaces.h"
-#include "arrow/util/visibility.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
 namespace dataset {
 
-class ARROW_EXPORT JsonScanOptions : public FileScanOptions {
+class ARROW_DS_EXPORT JsonScanOptions : public FileScanOptions {
  public:
   ///
   std::string file_type() const override
@@ -38,7 +37,7 @@ class ARROW_EXPORT JsonScanOptions : public FileScanOptions {
   json::ReadOptions read_options_;
 };
 
-class ARROW_EXPORT JsonWriteOptions : public FileWriteOptions {
+class ARROW_DS_EXPORT JsonWriteOptions : public FileWriteOptions {
  public:
   virtual ~FileWriteOptions() = default;
 
@@ -47,7 +46,7 @@ class ARROW_EXPORT JsonWriteOptions : public FileWriteOptions {
 };
 
 /// \brief A FileFormat implementation that reads from JSON files
-class ARROW_EXPORT JsonFileFormat : public FileFormat {
+class ARROW_DS_EXPORT JsonFileFormat : public FileFormat {
  public:
   std::string name() const override;
 

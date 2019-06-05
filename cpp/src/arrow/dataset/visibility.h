@@ -17,41 +17,32 @@
 
 #pragma once
 
-namespace arrow {
+#if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#else
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
 
-namespace fs {
+#ifdef ARROW_DS_STATIC
+#define ARROW_DS_EXPORT
+#elif defined(ARROW_DS_EXPORTING)
+#define ARROW_DS_EXPORT __declspec(dllexport)
+#else
+#define ARROW_DS_EXPORT __declspec(dllimport)
+#endif
 
-class FileSystem;
+#define ARROW_DS_NO_EXPORT
+#else  // Not Windows
+#ifndef ARROW_DS_EXPORT
+#define ARROW_DS_EXPORT __attribute__((visibility("default")))
+#endif
+#ifndef ARROW_DS_NO_EXPORT
+#define ARROW_DS_NO_EXPORT __attribute__((visibility("hidden")))
+#endif
+#endif  // Non-Windows
 
-}  // namespace fs
-
-namespace dataset {
-
-/// \brief Loads a previously-written collection of Arrow protocol
-/// files and exposes them in a way that can be consumed as a Dataset
-/// source
-class ARROW_DS_EXPORT DiskStoreReader : public DatasetSource {
- public:
-  DiskStoreReader(const std::string& path, fs::FileSystem* filesystem);
-
- private:
-  class DiskStoreReaderImpl;
-  std::unique_ptr<DiskStoreReaderImpl> impl_;
-
-  std::string path_;
-  fs::FileSystem* filesystem_;
-
-  DiskStoreReader() {}
-};
-
-/// \brief
-class ARROW_DS_EXPORT DiskStoreWriter {
- public:
-  Status Write(const RecordBatch& batch);
-
- private:
-  DiskStoreWriter() {}
-};
-
-}  // namespace dataset
-}  // namespace arrow
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

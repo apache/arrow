@@ -19,8 +19,9 @@
 
 #include <memory>
 
-#include "arrow/util/interfaces.h"
-#include "arrow/util/visibility.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/iterator.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
 
@@ -33,19 +34,30 @@ class FileSystem;
 namespace dataset {
 
 class Dataset;
-class DatasetFragment;
-class DatasetSource;
+class DataFragment;
+class DataSource;
+using DataFragmentIterator = Iterator<std::shared_ptr<DataFragment>>;
+using DataFragmentVector = std::vector<std::shared_ptr<DataFragment>>;
+
+struct DiscoveryOptions;
+
+class FileBasedDataFragment;
 class FileFormat;
 class FileScanOptions;
 class FileWriteOptions;
+
 class Filter;
+using FilterVector = std::vector<std::shared_ptr<Filter>>;
+
 class Partition;
 class PartitionKey;
+class PartitionScheme;
+
+struct ScanContext;
 class Scanner;
 class ScannerBuilder;
 class ScanTask;
 using ScanTaskIterator = Iterator<std::unique_ptr<ScanTask>>;
-using RecordBatchIterator = Iterator<std::shared_ptr<RecordBatch>>;
 
 }  // namespace dataset
 }  // namespace arrow

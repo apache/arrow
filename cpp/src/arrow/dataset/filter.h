@@ -19,12 +19,12 @@
 
 #include <memory>
 
-#include "arrow/util/visibility.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
 namespace dataset {
 
-class ARROW_EXPORT Filter {
+class ARROW_DS_EXPORT Filter {
  public:
   enum type {
     /// Simple boolean predicate consisting of comparisons and boolean

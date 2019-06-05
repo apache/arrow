@@ -19,29 +19,15 @@
 
 #include <memory>
 
-#include "arrow/dataset/file_base.h"
-#include "arrow/util/interfaces.h"
-#include "arrow/util/visibility.h"
+#include "arrow/dataset/type_fwd.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
-
-namespace fs {
-
-class FileSystem;
-
-}  // namespace fs
-
 namespace dataset {
 
-class DataSource;
-class Filter;
-class ScanBuilder;
-class ScanTask;
-using ScanTaskIterator = Iterator<std::unique_ptr<ScanTask>>;
-
 /// \brief A granular piece of a Dataset, such as an individual file,
-/// which can be scanned separately from other fragments
-class ARROW_EXPORT DataFragment {
+/// which can be read/scanned separately from other fragments
+class ARROW_DS_EXPORT DataFragment {
  public:
   /// \brief Return true if the fragment can benefit from parallel
   /// scanning
@@ -50,13 +36,25 @@ class ARROW_EXPORT DataFragment {
 
 /// \brief A basic component of a Dataset which yields zero or more
 /// DataFragments
-class ARROW_EXPORT DataSource {
+class ARROW_DS_EXPORT DataSource {
  public:
   virtual ~DataSource() = default;
+
+  virtual std::unique_ptr<DataFragmentIterator> GetFragments() = 0;
 };
 
-/// \brief Top-level interface for a muti-source
-class ARROW_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
+/// \brief A DataSource consisting of a flat sequence of DataFragments
+class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
+ public:
+  std::unique_ptr<DataFragmentIterator> GetFragments() override;
+
+ private:
+  DataFragmentVector fragments_;
+};
+
+/// \brief Top-level interface for a Dataset with fragments coming
+/// from possibly multiple sources
+class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   explicit Dataset(const std::shared_ptr<DataSource>& source);
   explicit Dataset(const std::vector<std::shared_ptr<DataSource>>& sources);

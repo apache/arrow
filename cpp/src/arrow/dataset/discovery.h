@@ -15,46 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/// Logic for automatically determining the structure of multi-file
+/// dataset with possible partitioning according to available
+/// partition schemes
+
 #pragma once
 
-#include "arrow/util/interfaces.h"
-#include "arrow/util/visibility.h"
+#include <memory>
+
+#include "arrow/dataset/type_fwd.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
 namespace dataset {
 
-class Dataset;
-
-class ARROW_EXPORT ScanTask {
- public:
-  RecordBatchIterator
+struct ARROW_DS_EXPORT DiscoveryOptions {
+  std::shared_ptr<FileFormat> format = nullptr;
+  std::shared_ptr<PartitionScheme> partition_scheme = nullptr;
 };
 
-class ARROW_EXPORT Scanner {
- public:
- protected:
-  friend class ScannerBuilder;
-};
-
-class ARROW_EXPORT ScannerBuilder {
- public:
-  /// \brief Set
-  ScannerBuilder* Project(const std::vector<std::string>& columns) const;
-
-  ScannerBuilder* AddFilter(const std::shared_ptr<Filter>& filter) const;
-
-  /// \brief If true (default), add
-  ScannerBuilder* IncludePartitionKeys(bool include = true) const;
-
-  /// \brief Return the constructed now-immutable Scanner object
-  std::unique_ptr<Scanner> Finish() const;
-
- private:
-  std::shared_ptr<Dataset> dataset_;
-  std::vector<std::string> project_columns_;
-  std::vector<std::shared_ptr<Filter>> filters_;
-  bool include_partition_keys_;
-};
+/// \brief Using a root directory
+ARROW_DS_EXPORT
+Status DiscoverSource(const std::string& path, fs::FileSystem* filesystem,
+                      const DiscoveryOptions& options,
+                      std::shared_ptr<DataSource>* out);
 
 }  // namespace dataset
 }  // namespace arrow

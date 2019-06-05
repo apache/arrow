@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/format_base.h"
 #include "arrow/dataset/format_csv.h"
 #include "arrow/dataset/format_parquet.h"
 #include "arrow/dataset/reader.h"
+#include "arrow/dataset/scanner.h"

@@ -16,3 +16,12 @@
 // under the License.
 
 #pragma once
+
+#include "arrow/dataset/type_fwd.h"
+#include "arrow/dataset/visibility.h"
+
+namespace arrow {
+namespace dataset {
+
+}  // namespace dataset
+}  // namespace arrow
