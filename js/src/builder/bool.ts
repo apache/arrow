@@ -26,6 +26,6 @@ export class BoolBuilder<TNull = any> extends Builder<Bool, TNull> {
         this._values = new BitmapBufferBuilder();
     }
     public setValue(index: number, value: boolean) {
-        this._values.set(index, value);
+        this._values.set(index, +value);
     }
 }
