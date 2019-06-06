@@ -30,6 +30,8 @@ namespace dataset {
 /// which can be read/scanned separately from other fragments
 class ARROW_DS_EXPORT DataFragment {
  public:
+  virtual ~DataFragment() = default;
+
   /// \brief Return true if the fragment can benefit from parallel
   /// scanning
   virtual bool splittable() const = 0;
@@ -85,7 +87,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   explicit Dataset(std::shared_ptr<DataSource> source,
                    std::shared_ptr<Schema> schema = NULLPTR);
 
-  /// \param[in] source one or more input data sources
+  /// \param[in] sources one or more input data sources
   /// \param[in] schema a known schema to conform to, may be nullptr
   explicit Dataset(const std::vector<std::shared_ptr<DataSource>>& sources,
                    std::shared_ptr<Schema> schema = NULLPTR);

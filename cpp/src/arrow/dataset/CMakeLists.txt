@@ -42,10 +42,12 @@ foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
 endforeach()
 
-add_arrow_test(file_test
-               EXTRA_LINK_LIBS
-               ${ARROW_DATASET_TEST_LINK_LIBS}
-               PREFIX
-               "arrow-dataset"
-               LABELS
-               "arrow_dataset")
+if(NOT WIN32)
+  add_arrow_test(file_test
+                 EXTRA_LINK_LIBS
+                 ${ARROW_DATASET_TEST_LINK_LIBS}
+                 PREFIX
+                 "arrow-dataset"
+                 LABELS
+                 "arrow_dataset")
+endif()

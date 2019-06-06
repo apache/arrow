@@ -30,7 +30,7 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief
+/// \brief Contains the location of a file to be read
 class ARROW_DS_EXPORT FileSource {
  public:
   enum SourceType { PATH, BUFFER };
