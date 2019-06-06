@@ -26,7 +26,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestVectorSchemaRoot {
-  private static final String EMPTY_SCHEMA_PATH = "";
   private BufferAllocator allocator;
 
   @Before
@@ -35,7 +34,7 @@ public class TestVectorSchemaRoot {
   }
 
   @After
-  public void terminate() throws Exception {
+  public void terminate() {
     allocator.close();
   }
 
