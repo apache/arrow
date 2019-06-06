@@ -31,7 +31,7 @@ import {
     any;
 
 /** @ignore */
-const roundLengthUpTo64Bytes = (len: number, BPE: number) => ((((len * BPE) + 63) & ~63) || 64) / BPE;
+const roundLengthUpToNearest64Bytes = (len: number, BPE: number) => ((((len * BPE) + 63) & ~63) || 64) / BPE;
 /** @ignore */
 const sliceOrExtendArray = <T extends TypedArray | BigIntArray>(arr: T, len = 0) => (
     arr.length >= len ? arr.subarray(0, len) : memcpy(new (arr.constructor as any)(len), arr, 0)
@@ -74,15 +74,15 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
             const reserved = this.buffer.length;
             if (length >= reserved) {
                 this._resize(reserved === 0
-                    ? roundLengthUpTo64Bytes(length * 1, this.BYTES_PER_ELEMENT)
-                    : roundLengthUpTo64Bytes(length * 2, this.BYTES_PER_ELEMENT)
+                    ? roundLengthUpToNearest64Bytes(length * 1, this.BYTES_PER_ELEMENT)
+                    : roundLengthUpToNearest64Bytes(length * 2, this.BYTES_PER_ELEMENT)
                 );
             }
         }
         return this;
     }
     public flush(length = this.length) {
-        length = roundLengthUpTo64Bytes(length * this.stride, this.BYTES_PER_ELEMENT);
+        length = roundLengthUpToNearest64Bytes(length * this.stride, this.BYTES_PER_ELEMENT);
         const array = sliceOrExtendArray<T>(this.buffer, length);
         this.clear();
         return array;
