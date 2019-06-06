@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+include(CMakeDependentOption)
+
 add_custom_target(rapidjson)
 add_custom_target(toolchain)
 add_custom_target(toolchain-benchmarks)
@@ -729,6 +731,12 @@ if(ARROW_WITH_BROTLI)
   get_target_property(BROTLI_INCLUDE_DIR Brotli::brotlicommon
                       INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
+endif()
+
+if(PARQUET_BUILD_ENCRYPTION)
+  find_package(OpenSSL QUIET)
+  CMAKE_DEPENDENT_OPTION(PARQUET_BUILD_ENCRYPTION "Build with OpenSSL support" ON
+                         "OPENSSL_FOUND" OFF)
 endif()
 
 if(PARQUET_BUILD_ENCRYPTION OR ARROW_WITH_GRPC)
