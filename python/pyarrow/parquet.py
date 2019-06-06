@@ -1181,6 +1181,11 @@ memory_map : boolean, default True
     If the source is a file path, use a memory map to read file, which can
     improve performance in some environments
 {1}
+filters : List[Tuple] or List[List[Tuple]] or None (default)
+    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
+    implements partition-level (hive) filtering only, i.e., to prevent the
+    loading of some files of the dataset if `source` is a directory.
+    See the docstring of ParquetDataset for more details.
 
 Returns
 -------
@@ -1190,14 +1195,12 @@ Returns
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=True,
-               filesystem=None):
+               filesystem=None, filters=None):
     if _is_path_like(source):
-        fs, path = _get_filesystem_and_path(filesystem, source)
-        return fs.read_parquet(path, columns=columns,
-                               use_threads=use_threads, metadata=metadata,
-                               use_pandas_metadata=use_pandas_metadata)
-
-    pf = ParquetFile(source, metadata=metadata)
+        pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
+                            filesystem=filesystem, filters=filters)
+    else:
+        pf = ParquetFile(source, metadata=metadata, memory_map=memory_map)
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 
@@ -1212,10 +1215,11 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=True,
-                metadata=None):
+                metadata=None, filters=None):
     return read_table(source, columns=columns,
                       use_threads=use_threads,
                       metadata=metadata, memory_map=True,
+                      filters=filters,
                       use_pandas_metadata=True)
 
 

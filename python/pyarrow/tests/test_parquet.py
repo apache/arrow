@@ -1523,6 +1523,38 @@ def test_invalid_pred_op(tempdir):
                           ])
 
 
+@pytest.mark.pandas
+def test_filters_read_table(tempdir):
+    # test that filters keyword is passed through in read_table
+    fs = LocalFileSystem.get_instance()
+    base_path = tempdir
+
+    integer_keys = [0, 1, 2, 3, 4]
+    partition_spec = [
+        ['integers', integer_keys],
+    ]
+    N = 5
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'integers': np.array(integer_keys, dtype='i4'),
+    }, columns=['index', 'integers'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    table = pq.read_table(
+        base_path, filesystem=fs, filters=[('integers', '<', 3)])
+    assert table.num_rows == 3
+
+    table = pq.read_table(
+        base_path, filesystem=fs, filters=[[('integers', '<', 3)]])
+    assert table.num_rows == 3
+
+    table = pq.read_pandas(
+        base_path, filters=[('integers', '<', 3)])
+    assert table.num_rows == 3
+
+
 @pytest.yield_fixture
 def s3_example():
     access_key = os.environ['PYARROW_TEST_S3_ACCESS_KEY']
