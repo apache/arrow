@@ -86,9 +86,8 @@ function validateBuilder(generate: (length?: number, nullCount?: number, ...args
 const countQueueingStrategy = { highWaterMark: 10 };
 const byteLengthQueueingStrategy = { highWaterMark: 64 };
 
-const iterableBuilderOptions = <T extends DataType = any>({ vector }: generate.GeneratedVector, { type, nullValues }: BuilderOptions<T>) => ({
-    type,
-    nullValues,
+const iterableBuilderOptions = <T extends DataType = any>({ vector }: generate.GeneratedVector, { type, ...opts }: BuilderOptions<T>) => ({
+    ...opts, type,
     valueToChildTypeId: !DataType.isUnion(type) ? undefined : (() => {
         let { typeIds } = vector as UnionVector;
         let lastChunkLength = 0, chunksLength = 0;
@@ -102,9 +101,8 @@ const iterableBuilderOptions = <T extends DataType = any>({ vector }: generate.G
     })()
 });
 
-const domStreamBuilderOptions = <T extends DataType = any>({ vector }: generate.GeneratedVector, { type, nullValues, queueingStrategy }: Partial<BuilderTransformOptions<T>>) => ({
-    type,
-    nullValues,
+const domStreamBuilderOptions = <T extends DataType = any>({ vector }: generate.GeneratedVector, { type, queueingStrategy, ...opts }: Partial<BuilderTransformOptions<T>>) => ({
+    ...opts, type,
     valueToChildTypeId: !DataType.isUnion(type) ? undefined : (() => {
         let { typeIds } = vector as UnionVector;
         let lastChunkLength = 0, chunksLength = 0;
@@ -121,9 +119,8 @@ const domStreamBuilderOptions = <T extends DataType = any>({ vector }: generate.
     writableStrategy: queueingStrategy === 'bytes' ? byteLengthQueueingStrategy : countQueueingStrategy,
 });
 
-const nodeStreamBuilderOptions = <T extends DataType = any>({ vector }: generate.GeneratedVector, { type, nullValues, queueingStrategy }: Partial<BuilderDuplexOptions<T>>) => ({
-    type,
-    nullValues,
+const nodeStreamBuilderOptions = <T extends DataType = any>({ vector }: generate.GeneratedVector, { type, queueingStrategy, ...opts }: Partial<BuilderDuplexOptions<T>>) => ({
+    ...opts, type,
     valueToChildTypeId: !DataType.isUnion(type) ? undefined : (() => {
         let { typeIds } = vector as UnionVector;
         let lastChunkLength = 0, chunksLength = 0;
@@ -167,8 +164,15 @@ function validateBuilderWithNullValues(suiteName: string, nullValues: any[], gen
             const vector = await encodeSingle(values.slice(), opts_);
             validateVector(values, vector, referenceNullValues);
         });
-        it(`encodes ${typeName} chunks`, async () => {
-            const opts_ = iterableBuilderOptions(generated, { ...opts });
+        it(`encodes ${typeName} chunks by count`, async () => {
+            const highWaterMark = Math.max(5, (Math.random() * values.length - 5) | 0);
+            const opts_ = iterableBuilderOptions(generated, { ...opts, highWaterMark, queueingStrategy: 'count' });
+            const vector = await encodeChunks(values.slice(), opts_);
+            validateVector(values, vector, referenceNullValues);
+        });
+        it(`encodes ${typeName} chunks by bytes`, async () => {
+            const highWaterMark = 64;
+            const opts_ = iterableBuilderOptions(generated, { ...opts, highWaterMark, queueingStrategy: 'bytes' });
             const vector = await encodeChunks(values.slice(), opts_);
             validateVector(values, vector, referenceNullValues);
         });
@@ -234,9 +238,7 @@ async function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'
 }
 
 async function encodeChunks<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
-    const highWaterMark = Math.max(5, (Math.random() * values.length - 5) | 0);
-    const build = Builder.throughIterable({ ...options, highWaterMark });
-    return Chunked.concat(...build(values));
+    return Chunked.concat(...Builder.throughIterable(options)(values));
 }
 
 async function encodeChunksDOM<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderTransformOptions<T, TNull>) {
