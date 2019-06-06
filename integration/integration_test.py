@@ -707,7 +707,8 @@ class ListColumn(Column):
 
 class MapType(DataType):
 
-    def __init__(self, name, key_type, item_type, nullable=True, keysSorted=False):
+    def __init__(self, name, key_type, item_type, nullable=True,
+                 keysSorted=False):
         super(MapType, self).__init__(name, nullable=nullable)
 
         assert not key_type.nullable
@@ -1016,11 +1017,21 @@ def generate_interval_case():
     return _generate_file("interval", fields, batch_sizes)
 
 
+def generate_map_case():
+    # TODO(bkietz): separated from nested_case so it can be
+    # independently skipped, consolidate after Java supports map
+    fields = [
+        MapType('map_nullable', get_field('key', 'utf8', False),
+                get_field('item', 'int32')),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("map", fields, batch_sizes)
+
+
 def generate_nested_case():
     fields = [
         ListType('list_nullable', get_field('item', 'int32')),
-        MapType('map_nullable', get_field('key', 'utf8', False),
-                get_field('item', 'int32')),
         StructType('struct_nullable', [get_field('f1', 'int32'),
                                        get_field('f2', 'utf8')]),
 
@@ -1096,6 +1107,7 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_decimal_case(),
         generate_datetime_case(),
         generate_interval_case(),
+        generate_map_case(),
         generate_nested_case(),
         generate_dictionary_case().skip_category(SKIP_FLIGHT),
         generate_nested_dictionary_case().skip_category(SKIP_ARROW)
@@ -1165,10 +1177,16 @@ class IntegrationRunner(object):
 
             file_id = guid()[:8]
 
+            if ('Java' in (producer.name, consumer.name) and
+                    "map" in test_case.name):
+                print('TODO(ARROW-1279): Enable map tests ' +
+                      ' for Java once Java supports them')
+                continue
+
             if ('JS' in (producer.name, consumer.name) and
                     "interval" in test_case.name):
                 print('TODO(ARROW-5239): Enable interval tests ' +
-                      ' for JS once, JS supports them')
+                      ' for JS once JS supports them')
                 continue
 
             # Make the random access file
@@ -1564,6 +1582,7 @@ def run_all_tests(args):
 
 
 def write_js_test_json(directory):
+    generate_map_case().write(os.path.join(directory, 'map.json'))
     generate_nested_case().write(os.path.join(directory, 'nested.json'))
     generate_decimal_case().write(os.path.join(directory, 'decimal.json'))
     generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
