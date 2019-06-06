@@ -110,12 +110,12 @@ PARQUET_EXPORT
 void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
 
 PARQUET_EXPORT
-void WriteFileMetaData(
-    const FileMetaData& file_metadata, ::arrow::io::OutputStream* sink);
+void WriteFileMetaData(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
 
 PARQUET_EXPORT
-void WriteMetaDataFile(
-    const FileMetaData& file_metadata, ::arrow::io::OutputStream* sink);
+void WriteMetaDataFile(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:

@@ -179,8 +179,7 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_EQ("/foo/bar/bar.parquet", rg2_column1->file_path());
 
   // Test AppendRowGroups
-  auto f_accessor_2 =
-      GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
+  auto f_accessor_2 = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
   f_accessor->AppendRowGroups(*f_accessor_2);
   ASSERT_EQ(4, f_accessor->num_row_groups());
   ASSERT_EQ(nrows * 2, f_accessor->num_rows());
