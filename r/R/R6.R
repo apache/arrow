@@ -32,7 +32,12 @@
       self$`.:xp:.` <- xp
     },
     print = function(...){
-      cat(crayon::silver(glue::glue("{cl}", cl = class(self)[[1]])), "\n")
+      msg <- glue("{cl}", cl = class(self)[[1]])
+      if ("crayon" %in% rownames(installed.packages())) {
+        # Colorize it
+        msg <- crayon::silver(msg)
+      }
+      cat(msg, "\n")
       if(!is.null(self$ToString)){
         cat(self$ToString(), "\n")
       }

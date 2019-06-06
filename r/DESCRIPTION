@@ -29,20 +29,20 @@ Imports:
     assertthat,
     glue,
     R6,
-    vctrs (>= 0.1.0),
     fs,
     tibble,
-    crayon,
     bit64
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
     covr,
+    crayon,
     pkgdown,
     rmarkdown,
     roxygen2,
     testthat,
     lubridate,
+    vctrs (>= 0.1.0),
     hms
 Collate:
     'enums.R'
