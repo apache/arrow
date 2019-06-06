@@ -23,7 +23,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10]
   )
-  tab <- arrow::table(!!!tbl)
+  tab <- arrow::arrow_table(!!!tbl)
 
   tf <- tempfile()
   write_arrow(tab, tf)
@@ -64,7 +64,7 @@ test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
 })
 
 test_that("Table cast (ARROW-3741)", {
-  tab <- table(x = 1:10, y = 1:10)
+  tab <- arrow_table(x = 1:10, y = 1:10)
 
   expect_error(tab$cast(schema(x = int32())))
   expect_error(tab$cast(schema(x = int32(), z = int32())))
@@ -77,14 +77,14 @@ test_that("Table cast (ARROW-3741)", {
 })
 
 test_that("Table dim() and nrow() (ARROW-3816)", {
-  tab <- table(x = 1:10, y  = 1:10)
+  tab <- arrow_table(x = 1:10, y  = 1:10)
   expect_equal(dim(tab), c(10L, 2L))
   expect_equal(nrow(tab), 10L)
 })
 
-test_that("table() handles record batches with splicing", {
+test_that("arrow_table() handles record batches with splicing", {
   batch <- record_batch(x = 1:2, y = letters[1:2])
-  tab <- table(batch, batch, batch)
+  tab <- arrow_table(batch, batch, batch)
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
   expect_equal(
@@ -93,7 +93,7 @@ test_that("table() handles record batches with splicing", {
   )
 
   batches <- list(batch, batch, batch)
-  tab <- table(!!!batches)
+  tab <- arrow_table(!!!batches)
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
   expect_equal(
@@ -102,13 +102,13 @@ test_that("table() handles record batches with splicing", {
   )
 })
 
-test_that("table() handles ... of arrays, chunked arrays, vectors", {
-  a <- array(1:10)
+test_that("arrow_table() handles ... of arrays, chunked arrays, vectors", {
+  a <- arrow_array(1:10)
   ca <- chunked_array(1:5, 6:10)
   v <- rnorm(10)
   tbl <- tibble::tibble(x = 1:10, y = letters[1:10])
 
-  tab <- table(a = a, b = ca, c = v, !!!tbl)
+  tab <- arrow_table(a = a, b = ca, c = v, !!!tbl)
   expect_equal(
     tab$schema,
     schema(a = int32(), b = int32(), c = float64(), x = int32(), y = utf8())

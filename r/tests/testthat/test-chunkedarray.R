@@ -207,7 +207,7 @@ test_that("chunked_array() supports the type= argument. conversion from INTSXP a
   }
 })
 
-test_that("array() aborts on overflow", {
+test_that("arrow_array() aborts on overflow", {
   expect_error(chunked_array(128L, type = int8())$type, "Invalid.*downsize")
   expect_error(chunked_array(-129L, type = int8())$type, "Invalid.*downsize")
 

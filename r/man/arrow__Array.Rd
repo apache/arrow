@@ -13,7 +13,7 @@ class arrow::Array
 Array base type. Immutable data array with some logical type and some length.
 }
 \section{Usage}{
-\preformatted{a <- array(x)
+\preformatted{a <- arrow_array(x)
 
 a$IsNull(i)
 a$IsValid(i)

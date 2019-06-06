@@ -24,7 +24,7 @@ to_arrow <- function(x) {
 
 # splice the data frame as arguments of table()
 # see ?rlang::list2()
-`to_arrow.data.frame` <- function(x) table(!!!x)
+`to_arrow.data.frame` <- function(x) arrow_table(!!!x)
 
 #' serialize an [arrow::Table][arrow__Table], an [arrow::RecordBatch][arrow__RecordBatch], or a
 #'   data frame to either the streaming format or the binary file format

@@ -28,7 +28,7 @@
 #' @section Usage:
 #'
 #' ```
-#' a <- array(x)
+#' a <- arrow_array(x)
 #'
 #' a$IsNull(i)
 #' a$IsValid(i)
@@ -120,11 +120,12 @@
 #' create an [arrow::Array][arrow__Array] from an R vector
 #'
 #' @param x R object
-#' @param type Explicit [type][arrow__DataType], or NULL (the default) to infer from the data
+#' @param type Explicit [type][arrow__DataType], or NULL (the default) to infer
+#' from the data
+#' @return An Arrow array R6 object
 #'
-#' @importFrom rlang warn
 #' @export
-array <- function(x, type = NULL){
+arrow_array <- function(x, type = NULL){
   `arrow::Array`$dispatch(Array__from_vector(x, type))
 }
 
@@ -134,4 +135,3 @@ array <- function(x, type = NULL){
     dictionary = function() `arrow::Array`$dispatch(DictionaryArray__dictionary(self))
   )
 )
-

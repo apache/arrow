@@ -9,7 +9,7 @@
 class arrow::ArrayData
 }
 \section{Usage}{
-\preformatted{data <- array(x)$data()
+\preformatted{data <- arrow_array(x)$data()
 
 data$type()
 data$length()

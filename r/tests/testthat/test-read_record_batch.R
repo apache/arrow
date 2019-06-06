@@ -18,7 +18,7 @@
 context("read_record_batch()")
 
 test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
-  tab <- table(
+  tab <- arrow_table(
     int = 1:10,
     dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),

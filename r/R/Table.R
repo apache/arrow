@@ -51,16 +51,17 @@
   )
 )
 
-#' Create an arrow::Table from a data frame
+#' Create an `arrow::Table` from a data frame
 #'
 #' @param ... arrays, chunked arrays, or R vectors
 #' @param schema a schema. The default (`NULL`) infers the schema from the `...`
 #'
-#' @return an arrow::Table
+#' @return an `arrow::Table`
 #'
 #' @export
-table <- function(..., schema = NULL){
-  dots <- tibble::lst(...)
+#' @importFrom tibble lst
+arrow_table <- function(..., schema = NULL){
+  dots <- lst(...)
   stopifnot(length(dots) > 0)
   shared_ptr(`arrow::Table`, Table__from_dots(dots, schema))
 }
