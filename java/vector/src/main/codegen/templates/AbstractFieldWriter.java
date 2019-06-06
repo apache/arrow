@@ -33,6 +33,13 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
 
   protected boolean addVectorAsNullable = true;
 
+  /**
+   * Set flag to control the FieldType.nullable property when a writer creates a new vector.
+   * If true then vectors created will be nullable, this is the default behavior. If false then
+   * vectors created will be non-nullable.
+   *
+   * @param nullable Whether or not to create nullable vectors (default behavior is true)
+   */
   public void setAddVectorAsNullable(boolean nullable) {
     addVectorAsNullable = nullable;
   }
