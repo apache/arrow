@@ -29,3 +29,7 @@ pushd /arrow/python
   flake8 --count pyarrow
   flake8 --count --config=.flake8.cython pyarrow
 popd
+
+pushd /arrow/r
+  ./lint.sh
+popd
