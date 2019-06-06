@@ -1185,7 +1185,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /**
    * Gets the starting offset of a record, given its index.
-   * This method is deprecated. Please use {@link BaseVariableWidthVector#getStartEnd(int)} instead.
+   * This method is deprecated. Please use {@link BaseVariableWidthVector#getStartOffset(int)} instead.
    * @param index index of the record.
    * @return the starting offset of the record.
    */
