@@ -178,7 +178,7 @@ Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   auto keys_data = (*out)->child_data[0];
   (*out)->type = type_;
-  (*out)->child_data[0] = ArrayData::Make(struct_(type_->children()), keys_data->length,
+  (*out)->child_data[0] = ArrayData::Make(type_->child(0)->type(), keys_data->length,
                                           {nullptr}, {keys_data, items_data}, 0, 0);
   ArrayBuilder::Reset();
   return Status::OK();
