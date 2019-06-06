@@ -33,6 +33,7 @@ namespace arrow {
 namespace fs {
 namespace internal {
 
+using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::TemporaryDir;
 
 TimePoint CurrentTimePoint() {
@@ -41,51 +42,101 @@ TimePoint CurrentTimePoint() {
       std::chrono::duration_cast<TimePoint::duration>(now.time_since_epoch()));
 }
 
+class LocalFSTestMixin : public ::testing::Test {
+ public:
+  void SetUp() override { ASSERT_OK(TemporaryDir::Make("test-localfs-", &temp_dir_)); }
+
+ protected:
+  std::unique_ptr<TemporaryDir> temp_dir_;
+};
+
+struct CommonPathFormatter {
+  std::string operator()(const PlatformFilename& fn) { return fn.ToString(); }
+};
+
+#ifdef _WIN32
+struct ExtendedLengthPathFormatter {
+  std::string operator()(const PlatformFilename& fn) { return "//?/" + fn.ToString(); }
+};
+
+using PathFormatters = ::testing::Types<CommonPathFormatter, ExtendedLengthPathFormatter>;
+#else
+using PathFormatters = ::testing::Types<CommonPathFormatter>;
+#endif
+
 ////////////////////////////////////////////////////////////////////////////
 // Generic LocalFileSystem tests
 
-class TestLocalFSGeneric : public ::testing::Test, public GenericFileSystemTest {
+template <typename PathFormatter>
+class TestLocalFSGeneric : public LocalFSTestMixin, public GenericFileSystemTest {
  public:
   void SetUp() override {
-    ASSERT_OK(TemporaryDir::Make("test-localfs-", &temp_dir_));
+    LocalFSTestMixin::SetUp();
     local_fs_ = std::make_shared<LocalFileSystem>();
-    fs_ = std::make_shared<SubTreeFileSystem>(temp_dir_->path().ToString(), local_fs_);
+    auto path = PathFormatter()(temp_dir_->path());
+    fs_ = std::make_shared<SubTreeFileSystem>(path, local_fs_);
   }
 
  protected:
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
 
-  std::unique_ptr<TemporaryDir> temp_dir_;
   std::shared_ptr<LocalFileSystem> local_fs_;
   std::shared_ptr<FileSystem> fs_;
 };
 
-GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGeneric);
+TYPED_TEST_CASE(TestLocalFSGeneric, PathFormatters);
+
+GENERIC_FS_TYPED_TEST_FUNCTIONS(TestLocalFSGeneric);
 
 ////////////////////////////////////////////////////////////////////////////
 // Concrete LocalFileSystem tests
 
-class TestLocalFS : public ::testing::Test {
+template <typename PathFormatter>
+class TestLocalFS : public LocalFSTestMixin {
  public:
   void SetUp() {
-    ASSERT_OK(TemporaryDir::Make("test-localfs-", &temp_dir_));
+    LocalFSTestMixin::SetUp();
     local_fs_ = std::make_shared<LocalFileSystem>();
-    fs_ = std::make_shared<SubTreeFileSystem>(temp_dir_->path().ToString(), local_fs_);
+    auto path = PathFormatter()(temp_dir_->path());
+    fs_ = std::make_shared<SubTreeFileSystem>(path, local_fs_);
   }
 
  protected:
-  std::unique_ptr<TemporaryDir> temp_dir_;
   std::shared_ptr<LocalFileSystem> local_fs_;
   std::shared_ptr<FileSystem> fs_;
 };
 
-TEST_F(TestLocalFS, DirectoryMTime) {
+TYPED_TEST_CASE(TestLocalFS, PathFormatters);
+
+TYPED_TEST(TestLocalFS, CorrectPathExists) {
+  // Test that the right location on disk is accessed
+  std::shared_ptr<io::OutputStream> stream;
+  ASSERT_OK(this->fs_->OpenOutputStream("abc", &stream));
+  std::string data = "some data";
+  auto data_size = static_cast<int64_t>(data.size());
+  ASSERT_OK(stream->Write(data.data(), data_size));
+  ASSERT_OK(stream->Close());
+
+  // Now check the file's existence directly, bypassing the FileSystem abstraction
+  auto path = this->temp_dir_->path().ToString() + "/abc";
+  PlatformFilename fn;
+  int fd;
+  int64_t size = -1;
+  ASSERT_OK(PlatformFilename::FromString(path, &fn));
+  ASSERT_OK(::arrow::internal::FileOpenReadable(fn, &fd));
+  Status st = ::arrow::internal::FileGetSize(fd, &size);
+  ASSERT_OK(::arrow::internal::FileClose(fd));
+  ASSERT_OK(st);
+  ASSERT_EQ(size, data_size);
+}
+
+TYPED_TEST(TestLocalFS, DirectoryMTime) {
   TimePoint t1 = CurrentTimePoint();
-  ASSERT_OK(fs_->CreateDir("AB/CD/EF"));
+  ASSERT_OK(this->fs_->CreateDir("AB/CD/EF"));
   TimePoint t2 = CurrentTimePoint();
 
   std::vector<FileStats> stats;
-  ASSERT_OK(fs_->GetTargetStats({"AB", "AB/CD/EF"}, &stats));
+  ASSERT_OK(this->fs_->GetTargetStats({"AB", "AB/CD/EF"}, &stats));
   ASSERT_EQ(stats.size(), 2);
   AssertFileStats(stats[0], "AB", FileType::Directory);
   AssertFileStats(stats[1], "AB/CD/EF", FileType::Directory);
@@ -100,14 +151,14 @@ TEST_F(TestLocalFS, DirectoryMTime) {
   AssertDurationBetween(t2 - stats[1].mtime(), -kTimeSlack, kTimeSlack);
 }
 
-TEST_F(TestLocalFS, FileMTime) {
+TYPED_TEST(TestLocalFS, FileMTime) {
   TimePoint t1 = CurrentTimePoint();
-  ASSERT_OK(fs_->CreateDir("AB/CD"));
-  CreateFile(fs_.get(), "AB/CD/ab", "data");
+  ASSERT_OK(this->fs_->CreateDir("AB/CD"));
+  CreateFile(this->fs_.get(), "AB/CD/ab", "data");
   TimePoint t2 = CurrentTimePoint();
 
   std::vector<FileStats> stats;
-  ASSERT_OK(fs_->GetTargetStats({"AB", "AB/CD/ab"}, &stats));
+  ASSERT_OK(this->fs_->GetTargetStats({"AB", "AB/CD/ab"}, &stats));
   ASSERT_EQ(stats.size(), 2);
   AssertFileStats(stats[0], "AB", FileType::Directory);
   AssertFileStats(stats[1], "AB/CD/ab", FileType::File, 4);
@@ -117,8 +168,8 @@ TEST_F(TestLocalFS, FileMTime) {
   AssertDurationBetween(t2 - stats[1].mtime(), -kTimeSlack, kTimeSlack);
 }
 
-// TODO check UNC paths on Windows, e.g. "\\server\share\path\file" (networked)
-// or "\\?\C:\path\file" (extended-length paths)
+// TODO Should we test backslash paths on Windows?
+// SubTreeFileSystem isn't compatible with them.
 
 }  // namespace internal
 }  // namespace fs
