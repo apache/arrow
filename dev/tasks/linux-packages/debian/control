@@ -27,7 +27,7 @@ Build-Depends:
   libssl-dev,
   libzstd-dev,
   ninja-build,
-  nvidia-cuda-toolkit,
+  nvidia-cuda-toolkit [!arm64],
   pkg-config,
   protobuf-compiler,
   python3-dev,
