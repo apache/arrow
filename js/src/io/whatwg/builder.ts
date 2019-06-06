@@ -41,6 +41,7 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
     public writable: WritableStream<T['TValue'] | TNull>;
     public _controller: ReadableStreamDefaultController<V<T>> | null;
 
+    private _numChunks = 0;
     private _finished = false;
     private _bufferedSize = 0;
     private _builder: Builder<T, TNull>;
@@ -108,11 +109,11 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
     private _maybeFlush(builder: Builder<T, TNull>, controller: ReadableStreamDefaultController<V<T>> | null) {
         if (controller === null) { return; }
         if (this._bufferedSize >= controller.desiredSize!) {
-            this._enqueue(controller, builder.toVector());
+            ++this._numChunks && this._enqueue(controller, builder.toVector());
         }
         if (builder.finished) {
-            if (builder.length > 0) {
-                this._enqueue(controller, builder.toVector());
+            if (builder.length > 0 || this._numChunks === 0) {
+                ++this._numChunks && this._enqueue(controller, builder.toVector());
             }
             if (!this._finished && (this._finished = true)) {
                 this._enqueue(controller, null);

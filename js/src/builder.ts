@@ -510,13 +510,16 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
     const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
     const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
     return function*(source: Iterable<T['TValue'] | TNull>) {
-        const builder = Builder.new(options);
+        let numChunks = 0;
+        let builder = Builder.new(options);
         for (const value of source) {
             if (builder.append(value)[sizeProperty] >= highWaterMark) {
-                yield builder.toVector();
+                ++numChunks && (yield builder.toVector());
             }
         }
-        if (builder.finish().length > 0) { yield builder.toVector(); }
+        if (builder.finish().length > 0 || numChunks === 0) {
+            yield builder.toVector();
+        }
     };
 }
 
@@ -529,12 +532,15 @@ function throughAsyncIterable<T extends DataType = any, TNull = any>(options: It
     const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
     const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
     return async function* (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) {
-        const builder = Builder.new(options);
+        let numChunks = 0;
+        let builder = Builder.new(options);
         for await (const value of source) {
             if (builder.append(value)[sizeProperty] >= highWaterMark) {
-                yield builder.toVector();
+                ++numChunks && (yield builder.toVector());
             }
         }
-        if (builder.finish().length > 0) { yield builder.toVector(); }
+        if (builder.finish().length > 0 || numChunks === 0) {
+            yield builder.toVector();
+        }
     };
 }

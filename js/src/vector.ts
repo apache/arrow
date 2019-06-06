@@ -20,12 +20,12 @@ import { DataType } from './type';
 import { Chunked } from './vector/chunked';
 
 /** @ignore */
-export interface Clonable<R extends Vector> {
+export interface Clonable<R extends AbstractVector> {
     clone(...args: any[]): R;
 }
 
 /** @ignore */
-export interface Sliceable<R extends Vector> {
+export interface Sliceable<R extends AbstractVector> {
     slice(begin?: number, end?: number): R;
 }
 

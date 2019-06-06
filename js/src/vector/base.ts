@@ -96,7 +96,6 @@ export abstract class BaseVector<T extends DataType = any> extends AbstractVecto
         ) as Vector<R>;
     }
 
-    // @ts-ignore
     public toJSON(): any { return [...this]; }
 
     protected _sliceInternal(self: this, begin: number, end: number) {

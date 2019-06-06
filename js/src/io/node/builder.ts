@@ -40,6 +40,7 @@ type CB = (error?: Error | null | undefined) => void;
 class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
 
     private _finished: boolean;
+    private _numChunks: number;
     private _desiredSize: number;
     private _builder: Builder<T, TNull>;
     private _getSize: (builder: Builder<T, TNull>) => number;
@@ -52,6 +53,7 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
 
         super({ autoDestroy, highWaterMark: 1, allowHalfOpen: true, writableObjectMode: true, readableObjectMode: true });
 
+        this._numChunks = 0;
         this._finished = false;
         this._builder = builder;
         this._desiredSize = highWaterMark;
@@ -92,11 +94,11 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
     }
     private _maybeFlush(builder: Builder<T, TNull>, size: number) {
         if (this._getSize(builder) >= size) {
-            this.push(builder.toVector());
+            ++this._numChunks && this.push(builder.toVector());
         }
         if (builder.finished) {
-            if (builder.length > 0) {
-                this.push(builder.toVector());
+            if (builder.length > 0 || this._numChunks === 0) {
+                ++this._numChunks && this.push(builder.toVector());
             }
             if (!this._finished && (this._finished = true)) {
                 this.push(null);

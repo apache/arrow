@@ -19,12 +19,14 @@ import { Data } from './data';
 import { Table } from './table';
 import { Vector } from './vector';
 import { Schema, Field } from './schema';
-import { DataType, Struct } from './type';
+import { isIterable } from './util/compat';
 import { Chunked } from './vector/chunked';
-import { StructVector } from './vector/struct';
 import { selectFieldArgs } from './util/args';
+import { StructVector } from './vector/struct';
+import { DataType, Struct, Map_ } from './type';
 import { ensureSameLengthData } from './util/recordbatch';
 import { Clonable, Sliceable, Applicative } from './vector';
+import { VectorBuilderOptions, VectorBuilderOptionsAsync } from './vector/index';
 
 type VectorMap = { [key: string]: Vector };
 type Fields<T extends { [key: string]: DataType }> = (keyof T)[] | Field<T[keyof T]>[];
@@ -42,11 +44,14 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
                Sliceable<RecordBatch<T>>,
                Applicative<Struct<T>, Table<T>> {
 
-    public static from<T extends VectorMap = any>(children: T): RecordBatch<{ [P in keyof T]: T[P]['type'] }>;
-    public static from<T extends { [key: string]: DataType } = any>(children: ChildData<T>, fields?: Fields<T>): RecordBatch<T>;
+    public static from<T extends { [key: string]: DataType } = any, TNull = any>(options: VectorBuilderOptions<Struct<T> | Map_<T>, TNull>): Table<T>;
+    public static from<T extends { [key: string]: DataType } = any, TNull = any>(options: VectorBuilderOptionsAsync<Struct<T> | Map_<T>, TNull>): Promise<Table<T>>;
     /** @nocollapse */
-    public static from(...args: any[]) {
-        return RecordBatch.new(args[0], args[1]);
+    public static from<T extends { [key: string]: DataType } = any, TNull = any>(options: VectorBuilderOptions<Struct<T> | Map_<T>, TNull> | VectorBuilderOptionsAsync<Struct<T> | Map_<T>, TNull>) {
+        if (isIterable<Struct<T>['TValue'] | TNull>(options['values'])) {
+            return Table.fromStruct(StructVector.from(options as VectorBuilderOptions<Struct<T>, TNull>));
+        }
+        return StructVector.from(options as VectorBuilderOptionsAsync<Struct<T>, TNull>).then((struct) => Table.fromStruct(struct));
     }
 
     public static new<T extends VectorMap = any>(children: T): RecordBatch<{ [P in keyof T]: T[P]['type'] }>;
