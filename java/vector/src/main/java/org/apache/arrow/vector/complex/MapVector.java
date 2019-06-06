@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.complex;
 
+import static org.apache.arrow.util.Preconditions.checkArgument;
+
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -35,8 +37,8 @@ import org.apache.arrow.vector.util.CallBack;
 /**
  * A MapVector is used to store entries of key/value pairs. It is a container vector that is
  * composed of a list of struct values with "key" and "value" fields. The MapVector is nullable,
- * but if a map is set at a given index, there be an entry. In other words, the StructVector data
- * is non-nullable. Also for a given entry, the "key" is non-nullable, however the "value" can
+ * but if a map is set at a given index, there must be an entry. In other words, the StructVector
+ * data is non-nullable. Also for a given entry, the "key" is non-nullable, however the "value" can
  * be null.
  */
 public class MapVector extends ListVector {
@@ -76,29 +78,20 @@ public class MapVector extends ListVector {
    */
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    if (children.size() != 1) {
-      throw new IllegalArgumentException("Maps have one List child. Found: " + children);
-    }
+    checkArgument(children.size() == 1, "Maps have one List child. Found: " + children);
 
     Field structField = children.get(0);
     MinorType minorType = Types.getMinorTypeForArrowType(structField.getType());
-    if (minorType != MinorType.STRUCT || structField.isNullable()) {
-      throw new IllegalArgumentException("Map data should be a non-nullable struct type");
-    }
-
-    if (structField.getChildren().size() != 2) {
-      throw new IllegalArgumentException("Map data should be a struct with 2 children. Found: " + children);
-    }
+    checkArgument(minorType == MinorType.STRUCT && !structField.isNullable(),
+        "Map data should be a non-nullable struct type");
+    checkArgument(structField.getChildren().size() == 2,
+        "Map data should be a struct with 2 children. Found: " + children);
 
     Field keyField = structField.getChildren().get(0);
-    if (keyField.isNullable()) {
-      throw new IllegalArgumentException("Map data key type should be a non-nullable");
-    }
+    checkArgument(!keyField.isNullable(), "Map data key type should be a non-nullable");
 
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(structField.getFieldType());
-    if (!addOrGetVector.isCreated()) {
-      throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
-    }
+    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: " + addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(structField.getChildren());
   }
