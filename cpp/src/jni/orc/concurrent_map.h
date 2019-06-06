@@ -50,12 +50,8 @@ class ConcurrentMap {
   }
 
   Holder Lookup(jlong module_id) {
-    auto it = map_.find(module_id);
-    if (it != map_.end()) {
-      return it->second;
-    }
     std::lock_guard<std::mutex> lock(mtx_);
-    it = map_.find(module_id);
+    auto it = map_.find(module_id);
     if (it != map_.end()) {
       return it->second;
     }
@@ -68,7 +64,7 @@ class ConcurrentMap {
   }
 
  private:
-  // starting value of the module_id.
+  // initialize the module id starting value to a number greater than zero.
   static constexpr int init_module_id_ = 4;
 
   int64_t module_id_;
