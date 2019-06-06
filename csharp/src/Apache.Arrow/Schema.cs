@@ -21,7 +21,13 @@ namespace Apache.Arrow
 {
     public partial class Schema
     {
-        public IReadOnlyDictionary<string, Field> Fields { get; }
+        public IReadOnlyDictionary<string, Field> Fields
+        {
+            get => _fieldsDictionary;
+        }
+
+        private readonly Dictionary<string, Field> _fieldsDictionary;
+
         public IReadOnlyDictionary<string, string> Metadata { get; }
 
         public bool HasMetadata =>
@@ -40,7 +46,7 @@ namespace Apache.Arrow
 
             _fields = fields.ToList();
 
-            Fields = fields.ToDictionary(
+            _fieldsDictionary = fields.ToDictionary(
                 field => field.Name, field => field,
                 StringComparer.OrdinalIgnoreCase);
 
@@ -62,6 +68,39 @@ namespace Apache.Arrow
 
             return _fields.IndexOf(
                 _fields.Single(x => comparer.Compare(x.Name, name) == 0));
+        }
+
+        public void RemoveField(int fieldIndex)
+        {
+            if (fieldIndex < 0 || fieldIndex > _fields.Count)
+            {
+                throw new ArgumentException("Invalid fieldIndex", nameof(fieldIndex));
+            }
+            _fieldsDictionary.Remove(_fields[fieldIndex].Name);
+            _fields.RemoveAt(fieldIndex);
+        }
+
+        public void InsertField(int fieldIndex, Field newField)
+        {
+            newField = newField ?? throw new ArgumentNullException(nameof(newField));
+            if (fieldIndex < 0 || fieldIndex > _fields.Count)
+            {
+                throw new ArgumentException(nameof(fieldIndex), $"Invalid fieldIndex {fieldIndex} passed in to Schema.AddField");
+            }
+            _fields.Insert(fieldIndex, newField);
+            _fieldsDictionary.Add(newField.Name, newField);
+        }
+
+        public void SetField(int fieldIndex, Field newField)
+        {
+            if (fieldIndex <0 || fieldIndex >= Fields.Count)
+            {
+                throw new ArgumentException($"Invalid fieldIndex {fieldIndex} passed in to Schema.SetColumn");
+            }
+            Field oldField = GetFieldByIndex(fieldIndex);
+            _fields[fieldIndex] = newField ?? throw new ArgumentNullException(nameof(newField));
+            _fieldsDictionary.Remove(oldField.Name);
+            _fieldsDictionary.Add(newField.Name, newField);
         }
     }
 }
