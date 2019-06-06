@@ -86,11 +86,14 @@ Status PlasmaErrorStatus(fb::PlasmaError plasma_error) {
     case fb::PlasmaError::OK:
       return Status::OK();
     case fb::PlasmaError::ObjectExists:
-      return Status::PlasmaObjectExists("object already exists in the plasma store");
+      return MakePlasmaError("object already exists in the plasma store",
+                             PlasmaErrorCode::PlasmaObjectExists);
     case fb::PlasmaError::ObjectNonexistent:
-      return Status::PlasmaObjectNonexistent("object does not exist in the plasma store");
+      return MakePlasmaError("object does not exist in the plasma store",
+                             PlasmaErrorCode::PlasmaObjectNonexistent);
     case fb::PlasmaError::OutOfMemory:
-      return Status::PlasmaStoreFull("object does not fit in the plasma store");
+      return MakePlasmaError("object does not fit in the plasma store",
+                             PlasmaErrorCode::PlasmaStoreFull);
     default:
       ARROW_LOG(FATAL) << "unknown plasma error code " << static_cast<int>(plasma_error);
   }

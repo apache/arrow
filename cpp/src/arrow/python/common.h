@@ -49,6 +49,7 @@ inline Status CheckPyError(StatusCode code = StatusCode::UnknownError) {
 }
 
 ARROW_PYTHON_EXPORT Status PassPyError();
+ARROW_PYTHON_EXPORT bool IsPythonError(const Status& status);
 
 // TODO(wesm): We can just let errors pass through. To be explored later
 #define RETURN_IF_PYERROR() ARROW_RETURN_NOT_OK(CheckPyError());
@@ -109,7 +110,7 @@ Status SafeCallIntoPython(Function&& func) {
   Status st = std::forward<Function>(func)();
   // If the return Status is a "Python error", the current Python error status
   // describes the error and shouldn't be clobbered.
-  if (!st.IsPythonError() && exc_type != NULLPTR) {
+  if (!IsPythonError(st) && exc_type != NULLPTR) {
     PyErr_Restore(exc_type, exc_value, exc_traceback);
   }
   return st;

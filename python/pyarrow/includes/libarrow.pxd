@@ -1207,6 +1207,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
 
+    cdef c_bool IsPythonError(const CStatus& status)
     object PyHalf_FromHalf(npy_half value)
 
     cdef cppclass PyConversionOptions:

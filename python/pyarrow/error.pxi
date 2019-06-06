@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.libarrow cimport CStatus
+from pyarrow.includes.libarrow cimport CStatus, IsPythonError
 from pyarrow.includes.common cimport c_string
 from pyarrow.compat import frombytes
 
@@ -56,18 +56,6 @@ class ArrowIndexError(IndexError, ArrowException):
     pass
 
 
-class PlasmaObjectExists(ArrowException):
-    pass
-
-
-class PlasmaObjectNonexistent(ArrowException):
-    pass
-
-
-class PlasmaStoreFull(ArrowException):
-    pass
-
-
 class ArrowSerializationError(ArrowException):
     pass
 
@@ -76,7 +64,10 @@ cdef int check_status(const CStatus& status) nogil except -1:
     if status.ok():
         return 0
 
-    if status.IsPythonError():
+    # PythonError indicates there is already an exception raised
+    # so even though the cython documentation says not to ever return
+    # -1 here, we do so anyways.
+    if IsPythonError(status):
         return -1
 
     with gil:
@@ -97,12 +88,6 @@ cdef int check_status(const CStatus& status) nogil except -1:
             raise ArrowCapacityError(message)
         elif status.IsIndexError():
             raise ArrowIndexError(message)
-        elif status.IsPlasmaObjectExists():
-            raise PlasmaObjectExists(message)
-        elif status.IsPlasmaObjectNonexistent():
-            raise PlasmaObjectNonexistent(message)
-        elif status.IsPlasmaStoreFull():
-            raise PlasmaStoreFull(message)
         elif status.IsSerializationError():
             raise ArrowSerializationError(message)
         else:

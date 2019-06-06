@@ -37,8 +37,10 @@ import warnings
 
 import pyarrow
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
+from pyarrow.lib import ArrowException
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
+from pyarrow.includes.libplasma cimport *
 
 from pyarrow import compat
 
@@ -255,6 +257,39 @@ cdef class PlasmaBuffer(Buffer):
         self.client._release(self.object_id)
 
 
+class PlasmaObjectNonexistent(ArrowException):
+    pass
+
+
+class PlasmaStoreFull(ArrowException):
+    pass
+
+
+class PlasmaObjectExists(ArrowException):
+    pass
+
+
+
+
+
+cdef int plasma_check_status(const CStatus& status) nogil except -1:
+    if status.ok():
+        return 0
+
+    with gil:
+        message = compat.frombytes(status.message())
+        if IsPlasmaObjectExists(status):
+            raise PlasmaObjectExists(message)
+        elif IsPlasmaObjectNonexistent(status):
+            raise PlasmaObjectNonexistent(message)
+        elif IsPlasmaStoreFull(status):
+            raise PlasmaStoreFull(message)
+
+    return check_status(status)
+
+
+
+
 cdef class PlasmaClient:
     """
     The PlasmaClient is used to interface with a plasma store and manager.
@@ -283,7 +318,7 @@ cdef class PlasmaClient:
         for object_id in object_ids:
             ids.push_back(object_id.data)
         with nogil:
-            check_status(self.client.get().Get(ids, timeout_ms, result))
+            plasma_check_status(self.client.get().Get(ids, timeout_ms, result))
 
     # XXX C++ API should instead expose some kind of CreateAuto()
     cdef _make_mutable_plasma_buffer(self, ObjectID object_id, uint8_t* data,
@@ -325,7 +360,7 @@ cdef class PlasmaClient:
         """
         cdef shared_ptr[CBuffer] data
         with nogil:
-            check_status(self.client.get().Create(object_id.data, data_size,
+            plasma_check_status(self.client.get().Create(object_id.data, data_size,
                                                   <uint8_t*>(metadata.data()),
                                                   metadata.size(), &data))
         return self._make_mutable_plasma_buffer(object_id,
@@ -358,7 +393,7 @@ cdef class PlasmaClient:
                 enough objects to create room for it.
         """
         with nogil:
-            check_status(self.client.get().CreateAndSeal(object_id.data, data,
+            plasma_check_status(self.client.get().CreateAndSeal(object_id.data, data,
                                                          metadata))
 
     def get_buffers(self, object_ids, timeout_ms=-1, with_meta=False):
@@ -554,7 +589,7 @@ cdef class PlasmaClient:
             A string used to identify an object.
         """
         with nogil:
-            check_status(self.client.get().Seal(object_id.data))
+            plasma_check_status(self.client.get().Seal(object_id.data))
 
     def _release(self, ObjectID object_id):
         """
@@ -566,7 +601,7 @@ cdef class PlasmaClient:
             A string used to identify an object.
         """
         with nogil:
-            check_status(self.client.get().Release(object_id.data))
+            plasma_check_status(self.client.get().Release(object_id.data))
 
     def contains(self, ObjectID object_id):
         """
@@ -579,7 +614,7 @@ cdef class PlasmaClient:
         """
         cdef c_bool is_contained
         with nogil:
-            check_status(self.client.get().Contains(object_id.data,
+            plasma_check_status(self.client.get().Contains(object_id.data,
                                                     &is_contained))
         return is_contained
 
@@ -600,7 +635,7 @@ cdef class PlasmaClient:
         """
         cdef c_vector[uint8_t] digest = c_vector[uint8_t](kDigestSize)
         with nogil:
-            check_status(self.client.get().Hash(object_id.data,
+            plasma_check_status(self.client.get().Hash(object_id.data,
                                                 digest.data()))
         return bytes(digest[:])
 
@@ -617,13 +652,13 @@ cdef class PlasmaClient:
         """
         cdef int64_t num_bytes_evicted = -1
         with nogil:
-            check_status(self.client.get().Evict(num_bytes, num_bytes_evicted))
+            plasma_check_status(self.client.get().Evict(num_bytes, num_bytes_evicted))
         return num_bytes_evicted
 
     def subscribe(self):
         """Subscribe to notifications about sealed objects."""
         with nogil:
-            check_status(self.client.get().Subscribe(&self.notification_fd))
+            plasma_check_status(self.client.get().Subscribe(&self.notification_fd))
 
     def get_notification_socket(self):
         """
@@ -650,7 +685,7 @@ cdef class PlasmaClient:
         cdef int64_t data_size
         cdef int64_t metadata_size
         with nogil:
-            check_status(self.client.get()
+            plasma_check_status(self.client.get()
                          .DecodeNotification(buf,
                                              &object_id,
                                              &data_size,
@@ -674,7 +709,7 @@ cdef class PlasmaClient:
         cdef int64_t data_size
         cdef int64_t metadata_size
         with nogil:
-            check_status(self.client.get()
+            plasma_check_status(self.client.get()
                          .GetNotification(self.notification_fd,
                                           &object_id.data,
                                           &data_size,
@@ -689,7 +724,7 @@ cdef class PlasmaClient:
         Disconnect this client from the Plasma store.
         """
         with nogil:
-            check_status(self.client.get().Disconnect())
+            plasma_check_status(self.client.get().Disconnect())
 
     def delete(self, object_ids):
         """
@@ -705,7 +740,7 @@ cdef class PlasmaClient:
         for object_id in object_ids:
             ids.push_back(object_id.data)
         with nogil:
-            check_status(self.client.get().Delete(ids))
+            plasma_check_status(self.client.get().Delete(ids))
 
     def list(self):
         """
@@ -738,7 +773,7 @@ cdef class PlasmaClient:
         """
         cdef CObjectTable objects
         with nogil:
-            check_status(self.client.get().List(&objects))
+            plasma_check_status(self.client.get().List(&objects))
         result = dict()
         cdef ObjectID object_id
         cdef CObjectTableEntry entry
@@ -802,7 +837,7 @@ def connect(store_socket_name, manager_socket_name=None, int release_delay=0,
         warnings.warn("release_delay in PlasmaClient.connect is deprecated",
                       FutureWarning)
     with nogil:
-        check_status(result.client.get()
+        plasma_check_status(result.client.get()
                      .Connect(result.store_socket_name, b"",
                               release_delay, num_retries))
     return result

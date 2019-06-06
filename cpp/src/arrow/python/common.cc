@@ -48,6 +48,21 @@ MemoryPool* get_memory_pool() {
 }
 
 // ----------------------------------------------------------------------
+// PythonErroDetail
+namespace {
+
+// PythonErrorDetail indicates a python exception was raised and not
+// reset in C++ code (i.e. it should be propagated up through the python
+// stack).
+class PythonErrorDetail : public StatusDetail {
+ public:
+  PythonErrorDetail() = default;
+  std::string ToString() const override { return "Python Error."; }
+};
+
+}  // namespace
+
+// ----------------------------------------------------------------------
 // PyBuffer
 
 PyBuffer::PyBuffer() : Buffer(nullptr, 0) {}
@@ -64,7 +79,8 @@ Status PyBuffer::Init(PyObject* obj) {
     }
     return Status::OK();
   } else {
-    return Status(StatusCode::PythonError, "");
+    return Status(StatusCode::Invalid, "Couldn't convert to buffer.",
+                  std::make_shared<PythonErrorDetail>());
   }
 }
 
@@ -85,6 +101,7 @@ PyBuffer::~PyBuffer() {
 
 // ----------------------------------------------------------------------
 // Python exception -> Status
+
 
 Status ConvertPyError(StatusCode code) {
   PyObject* exc_type = nullptr;
@@ -122,6 +139,8 @@ Status ConvertPyError(StatusCode code) {
       code = StatusCode::NotImplemented;
     }
   }
+
+  // We consume the python error here so don't construct with a detail.
   return Status(code, message);
 }
 
@@ -129,9 +148,17 @@ Status PassPyError() {
   if (PyErr_Occurred()) {
     // Do not call PyErr_Clear, the assumption is that someone further
     // up the call stack will want to deal with the Python error.
-    return Status(StatusCode::PythonError, "");
+    return Status(StatusCode::UnknownError, "Python Error", std::make_shared<PythonErrorDetail>());
   }
   return Status::OK();
+}
+
+bool IsPythonError(const Status& status) {
+  if (status.ok()) {
+    return false;
+  }
+  auto detail = dynamic_cast<PythonErrorDetail*>(status.detail().get());
+  return detail != nullptr;
 }
 
 }  // namespace py

@@ -18,6 +18,7 @@
 #include "plasma/common.h"
 
 #include <limits>
+#include <utility>
 
 #include "arrow/util/ubsan.h"
 
@@ -27,7 +28,81 @@ namespace fb = plasma::flatbuf;
 
 namespace plasma {
 
+namespace {
+
+class PlasmaStatusDetail : public arrow::StatusDetail {
+ public:
+  explicit PlasmaStatusDetail(PlasmaErrorCode code) : code_(code) {}
+
+  std::string ToString() const override {
+    const char* type;
+    switch (code()) {
+      case PlasmaErrorCode::PlasmaObjectExists:
+        type = "Plasma object exists";
+        break;
+      case PlasmaErrorCode::PlasmaObjectNonexistent:
+        type = "Plasma object is nonexistent";
+        break;
+      case PlasmaErrorCode::PlasmaStoreFull:
+        type = "Plasma store is full";
+        break;
+      case PlasmaErrorCode::PlasmaObjectAlreadySealed:
+        type = "Plasma object is already sealed";
+        break;
+    }
+    return std::string(type);
+  }
+  PlasmaErrorCode code() const { return code_; }
+
+ private:
+  PlasmaErrorCode code_;
+};
+
+bool IsPlasmaStatus(const arrow::Status& status, PlasmaErrorCode code) {
+  if (status.ok()) {
+    return false;
+  }
+  auto* detail = dynamic_cast<PlasmaStatusDetail*>(status.detail().get());
+  return detail != nullptr && detail->code() == code;
+}
+
+}  // namespace
+
 using arrow::Status;
+
+arrow::Status MakePlasmaError(std::string message, PlasmaErrorCode code) {
+  arrow::StatusCode arrow_code = arrow::StatusCode::UnknownError;
+  switch (code) {
+    case PlasmaErrorCode::PlasmaObjectExists:
+      arrow_code = arrow::StatusCode::AlreadyExists;
+      break;
+    case PlasmaErrorCode::PlasmaObjectNonexistent:
+      arrow_code = arrow::StatusCode::KeyError;
+      break;
+    case PlasmaErrorCode::PlasmaStoreFull:
+      arrow_code = arrow::StatusCode::CapacityError;
+      break;
+    case PlasmaErrorCode::PlasmaObjectAlreadySealed:
+      // Maybe a stretch?
+      arrow_code = arrow::StatusCode::TypeError;
+      break;
+  }
+  return arrow::Status(arrow_code, std::move(message),
+                       std::make_shared<PlasmaStatusDetail>(code));
+}
+
+bool IsPlasmaObjectExists(const arrow::Status& status) {
+  return IsPlasmaStatus(status, PlasmaErrorCode::PlasmaObjectExists);
+}
+bool IsPlasmaObjectNonexistent(const arrow::Status& status) {
+  return IsPlasmaStatus(status, PlasmaErrorCode::PlasmaObjectNonexistent);
+}
+bool IsPlasmaObjectAlreadySealed(const arrow::Status& status) {
+  return IsPlasmaStatus(status, PlasmaErrorCode::PlasmaObjectAlreadySealed);
+}
+bool IsPlasmaStoreFull(const arrow::Status& status) {
+  return IsPlasmaStatus(status, PlasmaErrorCode::PlasmaStoreFull);
+}
 
 UniqueID UniqueID::from_binary(const std::string& binary) {
   UniqueID id;

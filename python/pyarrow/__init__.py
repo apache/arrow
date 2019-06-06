@@ -122,8 +122,7 @@ from pyarrow.lib import (ArrowException,
                          ArrowMemoryError,
                          ArrowNotImplementedError,
                          ArrowTypeError,
-                         ArrowSerializationError,
-                         PlasmaObjectExists)
+                         ArrowSerializationError)
 
 # Serialization
 from pyarrow.lib import (deserialize_from, deserialize,
@@ -148,6 +147,11 @@ from pyarrow.ipc import (Message, MessageReader,
                          open_file,
                          serialize_pandas, deserialize_pandas)
 import pyarrow.ipc as ipc
+
+try:
+    from pyarrow.plasma import PlasmaObjectExists, PlasmaStoreFull
+except:
+    pass
 
 
 def open_stream(source):

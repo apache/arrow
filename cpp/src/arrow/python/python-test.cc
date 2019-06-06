@@ -44,7 +44,8 @@ TEST(PyBuffer, InvalidInputObject) {
   std::shared_ptr<Buffer> res;
   PyObject* input = Py_None;
   auto old_refcnt = Py_REFCNT(input);
-  ASSERT_RAISES(PythonError, PyBuffer::FromPyObject(input, &res));
+  Status s = PyBuffer::FromPyObject(input, &res);
+  ASSERT_TRUE(IsPythonError(s)) << s.ToString();
   PyErr_Clear();
   ASSERT_EQ(old_refcnt, Py_REFCNT(input));
 }

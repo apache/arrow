@@ -852,7 +852,7 @@ class TestPlasmaClient(object):
         for _ in range(2):
             create_object(self.plasma_client2, DEFAULT_PLASMA_STORE_MEMORY, 0)
         # Verify that an object that is too large does not fit.
-        with pytest.raises(pa.lib.PlasmaStoreFull):
+        with pytest.raises(pa.PlasmaStoreFull):
             create_object(self.plasma_client2,
                           DEFAULT_PLASMA_STORE_MEMORY + SMALL_OBJECT_SIZE, 0)
 

@@ -42,6 +42,7 @@ cdef extern from "numpy/halffloat.h":
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
     # We can later add more of the common status factory methods as needed
     cdef CStatus CStatus_OK "arrow::Status::OK"()
+
     cdef CStatus CStatus_Invalid "arrow::Status::Invalid"()
     cdef CStatus CStatus_NotImplemented \
         "arrow::Status::NotImplemented"(const c_string& msg)
@@ -64,10 +65,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsCapacityError()
         c_bool IsIndexError()
         c_bool IsSerializationError()
-        c_bool IsPythonError()
-        c_bool IsPlasmaObjectExists()
-        c_bool IsPlasmaObjectNonexistent()
-        c_bool IsPlasmaStoreFull()
 
 cdef extern from "arrow/result.h" namespace "arrow::internal" nogil:
     cdef cppclass CResult[T]:
