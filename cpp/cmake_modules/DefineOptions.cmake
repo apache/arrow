@@ -151,6 +151,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_ORC "Build the Arrow ORC adapter" OFF)
 
+  define_option(ARROW_JNI "Build the Arrow JNI lib" OFF)
+
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
   define_option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" ON)

@@ -682,6 +682,21 @@
         <module>gandiva</module>
       </modules>
     </profile>
+
+    <profile>
+      <!-- orc java depends on arrow cpp, and arrow cpp isn't enabled by default yet -->
+      <id>arrow-jni</id>
+      <modules>
+        <module>format</module>
+        <module>memory</module>
+        <module>vector</module>
+        <module>tools</module>
+        <module>adapter/jdbc</module>
+        <module>adapter/orc</module>
+        <module>plasma</module>
+        <module>flight</module>
+      </modules>
+    </profile>
   </profiles>
 
 </project>

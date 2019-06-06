@@ -139,7 +139,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       PRIVATE_INCLUDES
       DEPENDENCIES
       SHARED_INSTALL_INTERFACE_LIBS
-      STATIC_INSTALL_INTERFACE_LIBS)
+      STATIC_INSTALL_INTERFACE_LIBS
+      OUTPUT_PATH)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -163,6 +164,11 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(BUILD_STATIC ${ARG_BUILD_STATIC})
   else()
     set(BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
+  if(ARG_OUTPUT_PATH)
+    set(OUTPUT_PATH ${ARG_OUTPUT_PATH})
+  else()
+    set(OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY})
   endif()
 
   if(WIN32 OR (CMAKE_GENERATOR STREQUAL Xcode))
@@ -234,11 +240,11 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     set_target_properties(${LIB_NAME}_shared
                           PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     "${OUTPUT_PATH}"
                                      RUNTIME_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     "${OUTPUT_PATH}"
                                      PDB_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     "${OUTPUT_PATH}"
                                      LINK_FLAGS
                                      "${ARG_SHARED_LINK_FLAGS}"
                                      OUTPUT_NAME
@@ -313,8 +319,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     set_target_properties(${LIB_NAME}_static
-                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}" OUTPUT_NAME
+                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}" OUTPUT_NAME
                                      ${LIB_NAME_STATIC})
 
     if(ARG_STATIC_INSTALL_INTERFACE_LIBS)
