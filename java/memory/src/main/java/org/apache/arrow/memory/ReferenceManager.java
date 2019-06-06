@@ -19,7 +19,6 @@ package org.apache.arrow.memory;
 
 
 import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.UnsafeDirectLittleEndian;
 
 /**
  * Reference Manager manages one or more ArrowBufs that share the
