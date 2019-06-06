@@ -26,14 +26,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.ComplexHolder;
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -48,7 +46,7 @@ import io.netty.buffer.ArrowBuf;
  * A struct vector that has no null values (and no validity buffer).
  * Child Vectors are handled in {@link AbstractStructVector}.
  */
-public class NonNullableStructVector extends AbstractStructVector implements FieldVector {
+public class NonNullableStructVector extends AbstractStructVector {
 
   public static NonNullableStructVector empty(String name, BufferAllocator allocator) {
     FieldType fieldType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
@@ -79,40 +77,6 @@ public class NonNullableStructVector extends AbstractStructVector implements Fie
     super(name, allocator, callBack);
     this.fieldType = checkNotNull(fieldType);
     this.valueCount = 0;
-  }
-
-  @Override
-  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    if (ownBuffers.size() != 0) {
-      throw new IllegalArgumentException("Illegal buffer count, expected " + 0 + ", got: " + ownBuffers.size());
-    }
-    valueCount = fieldNode.getLength();
-  }
-
-  @Override
-  public List<ArrowBuf> getFieldBuffers() {
-    return new ArrayList<>();
-  }
-
-  @Override
-  @Deprecated
-  public List<BufferBacked> getFieldInnerVectors() {
-    throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
-  }
-
-  @Override
-  public long getValidityBufferAddress() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public long getDataBufferAddress() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public long getOffsetBufferAddress() {
-    throw new UnsupportedOperationException();
   }
 
   @Override
