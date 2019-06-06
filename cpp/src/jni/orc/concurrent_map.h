@@ -64,7 +64,8 @@ class ConcurrentMap {
   }
 
  private:
-  // initialize the module id starting value to a number greater than zero.
+  // Initialize the module id starting value to a number greater than zero
+  // to allow for easier debugging of uninitialized java variables.
   static constexpr int init_module_id_ = 4;
 
   int64_t module_id_;
