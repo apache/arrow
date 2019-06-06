@@ -1273,8 +1273,10 @@ class ArrayReader {
   Status Visit(const ListType& type) { return CreateList(type_, &result_); }
 
   Status Visit(const MapType& type) {
-    auto list_type = std::make_shared<ListType>(
-        struct_({field("key", type.key_type()), field("item", type.item_type())}));
+    auto list_type = std::make_shared<ListType>(field(
+        "item",
+        struct_({field("key", type.key_type(), false), field("item", type.item_type())}),
+        false));
     std::shared_ptr<Array> list_array;
     RETURN_NOT_OK(CreateList(list_type, &list_array));
     auto map_data = list_array->data();

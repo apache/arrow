@@ -1177,10 +1177,12 @@ class IntegrationRunner(object):
 
             file_id = guid()[:8]
 
-            if ('Java' in (producer.name, consumer.name) and
+            if (('JS' in (producer.name, consumer.name) or
+                    'Java' in (producer.name, consumer.name)) and
                     "map" in test_case.name):
                 print('TODO(ARROW-1279): Enable map tests ' +
-                      ' for Java once Java supports them')
+                      ' for Java and JS once Java supports them and JS\'' +
+                      ' are unbroken')
                 continue
 
             if ('JS' in (producer.name, consumer.name) and
