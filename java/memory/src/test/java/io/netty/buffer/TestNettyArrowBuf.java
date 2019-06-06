@@ -50,6 +50,8 @@ public class TestNettyArrowBuf {
       // Nio Buffers should always be 0 indexed
       Assert.assertEquals(0, byteBuffer.position());
       Assert.assertEquals(6, byteBuffer.limit());
+      // Underlying buffer has size 32 excluding 4 should have capacity of 28.
+      Assert.assertEquals(28, byteBuffer.capacity());
 
     }
   }

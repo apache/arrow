@@ -234,7 +234,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
    * @return ByteBuffer
    */
   private ByteBuffer getDirectBuffer(int index) {
-    return PlatformDependent.directBuffer(addr(index), length);
+    return PlatformDependent.directBuffer(addr(index), length - index);
   }
 
   @Override
