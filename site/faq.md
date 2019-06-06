@@ -22,6 +22,12 @@ limitations under the License.
 
 # Frequently Asked Questions
 
+### How stable is the Arrow format? Is it safe to use in my application?
+
+The Arrow in-memory format is considered stable, and we intend to make only backwards-compatible changes, such as additional data types. We do not yet recommend the Arrow file format for long-term disk persistence of data; that said, it is perfectly acceptable to write Arrow memory to disk for purposes of memory mapping and caching.
+
+We encourage people to start building Arrow-based in-memory computing applications now, and choose a suitable file format for disk storage if necessary. The Arrow libraries include adapters for several file formats, including Parquet, ORC, CSV, and JSON.
+
 ### What is the difference between Apache Arrow and Apache Parquet?
 
 In short, Parquet files are designed for disk storage, while Arrow is designed for in-memory use, but you can put it on disk and then memory-map later. Arrow and Parquet are intended to be compatible with each other and used together in applications.
@@ -36,8 +42,12 @@ This Arrow protocol is designed so that you can "map" a blob of Arrow data witho
 
 In some applications, Parquet and Arrow can be used interchangeably for on-disk data serialization. Some things to keep in mind:
 
-* Parquet is intended for "archival" purposes, meaning if you write a file today, we expect that any system that says they can "read Parquet" will be able to read the file in 5 years or 7 years. We are not yet making this assertion about long-term stability of the Arrow format (though we might in the future)
+* Parquet is intended for "archival" purposes, meaning if you write a file today, we expect that any system that says they can "read Parquet" will be able to read the file in 5 years or 7 years. We are not yet making this assertion about long-term stability of the Arrow format.
 * Parquet is generally a lot more expensive to read because it must be decoded into some other data structure. Arrow protocol data can simply be memory-mapped.
-* Parquet files are often much smaller than Arrow-protocol-on-disk because of the data encoding schemes that Parquet uses. If your disk storage or network is slow, Parquet is going to be a better choice
+* Parquet files are often much smaller than Arrow-protocol-on-disk because of the data encoding schemes that Parquet uses. If your disk storage or network is slow, Parquet may be a better choice.
 
 ### How does Arrow relate to Flatbuffers?
+
+Flatbuffers is a domain-agnostic low-level building block for binary data formats. It cannot be used directly for data analysis tasks without a lot of manual scaffolding. Arrow is a data layer aimed directly at the needs of data analysis, providing elaborate data types (including extensible logical types), built-in support for "null" values (a.k.a "N/A"), and an expanding toolbox of I/O and computing facilities.
+
+The Arrow file format does use Flatbuffers under the hood to facilitate low-level metadata serialization. However, Arrow data has much richer semantics than Flatbuffers data.
