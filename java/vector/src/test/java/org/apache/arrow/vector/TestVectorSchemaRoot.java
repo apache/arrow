@@ -42,8 +42,8 @@ public class TestVectorSchemaRoot {
   @Test
   public void testResetRowCount() {
     final int size = 20;
-    try (final BitVector vec1 = new BitVector(EMPTY_SCHEMA_PATH, allocator);
-         final IntVector vec2 = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final BitVector vec1 = new BitVector("bit", allocator);
+         final IntVector vec2 = new IntVector("int", allocator)) {
       VectorSchemaRoot vsr = VectorSchemaRoot.of(vec1, vec2);
 
       vsr.allocateNew();
@@ -66,7 +66,7 @@ public class TestVectorSchemaRoot {
       vsr.setRowCount(size);
       checkCount(vec1, vec2, vsr, size);
 
-      vsr.allocateNew();
+      vsr.clear();
       checkCount(vec1, vec2, vsr, 0);
     }
   }
