@@ -194,6 +194,9 @@ class PARQUET_EXPORT FileMetaData {
   // Set file_path ColumnChunk fields to a particular value
   void set_file_path(const std::string& path);
 
+  // Merge row-group metadata from "other" FileMetaData object
+  void AppendRowGroups(const FileMetaData& other);
+
  private:
   friend FileMetaDataBuilder;
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len);
