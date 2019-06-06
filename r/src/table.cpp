@@ -34,7 +34,6 @@ std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
 }
 
 // [[arrow::export]]
->>>>>>> Workaround so that the R package still checks without the C++ library.
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
   return x->num_columns();
 }
@@ -72,13 +71,13 @@ bool all_record_batches(SEXP lst) {
   return true;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   // lst can be either:
   // - a list of record batches, in which case we call Table::FromRecordBatches
 
   if (all_record_batches(lst)) {
-    auto batches = arrow::r::list_to_shared_ptr_vector<arrow::RecordBatch>(lst);
+    auto batches = arrow::r::List_to_shared_ptr_vector<arrow::RecordBatch>(lst);
     std::shared_ptr<arrow::Table> tab;
 
     if (Rf_inherits(schema_sxp, "arrow::Schema")) {

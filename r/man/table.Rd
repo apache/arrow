@@ -9,7 +9,10 @@ table(..., schema = NULL)
 \arguments{
 \item{...}{arrays, chunked arrays, or R vectors}
 
-\item{schema}{NULL or a schema}
+\item{schema}{a schema. The default (\code{NULL}) infers the schema from the \code{...}}
+}
+\value{
+an arrow::Table
 }
 \description{
 Create an arrow::Table from a data frame

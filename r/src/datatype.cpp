@@ -130,19 +130,9 @@ SEXP list__(SEXP x) {
   return R_NilValue;
 }
 
-template <typename T>
-std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(List x) {
-  std::vector<std::shared_ptr<T>> vec;
-  for (SEXP element : x) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> ptr(element);
-    vec.push_back(ptr);
-  }
-  return vec;
-}
-
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> struct_(List fields) {
-  return arrow::struct_(List_to_shared_ptr_vector<arrow::Field>(fields));
+  return arrow::struct_(arrow::r::List_to_shared_ptr_vector<arrow::Field>(fields));
 }
 
 // [[arrow::export]]
@@ -178,7 +168,7 @@ arrow::Type::type DataType__id(const std::shared_ptr<arrow::DataType>& type) {
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> schema_(List fields) {
-  return arrow::schema(List_to_shared_ptr_vector<arrow::Field>(fields));
+  return arrow::schema(arrow::r::List_to_shared_ptr_vector<arrow::Field>(fields));
 }
 
 // [[arrow::export]]

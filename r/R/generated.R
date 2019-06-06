@@ -728,6 +728,10 @@ ipc___ReadRecordBatch__InputStream__Schema <- function(stream, schema) {
     .Call(`_arrow_ipc___ReadRecordBatch__InputStream__Schema` , stream, schema )
 }
 
+RecordBatch__from_arrays <- function(schema_sxp, lst) {
+    .Call(`_arrow_RecordBatch__from_arrays` , schema_sxp, lst )
+}
+
 RecordBatchReader__schema <- function(reader) {
     .Call(`_arrow_RecordBatchReader__schema` , reader )
 }
@@ -816,6 +820,10 @@ Table__columns <- function(table) {
     .Call(`_arrow_Table__columns` , table )
 }
 
+Table__from_dots <- function(lst, schema_sxp) {
+    .Call(`_arrow_Table__from_dots` , lst, schema_sxp )
+}
+
 GetCpuThreadPoolCapacity <- function() {
     .Call(`_arrow_GetCpuThreadPoolCapacity`  )
 }
@@ -824,8 +832,4 @@ SetCpuThreadPoolCapacity <- function(threads) {
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity` , threads ))
 }
 
-
-arrow_available <- function() {
-  .Call(`_arrow_available`)
-}
 

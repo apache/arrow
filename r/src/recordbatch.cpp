@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
+
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
@@ -55,9 +56,6 @@ std::shared_ptr<arrow::Array> RecordBatch__column(
   return batch->column(i);
 }
 
-<<<<<<< HEAD
-// [[Rcpp::export]]
-=======
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl) {
   Rcpp::CharacterVector names = tbl.names();
@@ -77,7 +75,6 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame 
 }
 
 // [[arrow::export]]
->>>>>>> Workaround so that the R package still checks without the C++ library.
 bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
                          const std::shared_ptr<arrow::RecordBatch>& other) {
   return self->Equals(*other);
@@ -189,7 +186,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst) {
   if (Rf_inherits(schema_sxp, "arrow::Schema")) {
     return RecordBatch__from_arrays__known_schema(

@@ -2985,6 +2985,23 @@ SEXP _arrow_ipc___ReadRecordBatch__InputStream__Schema(SEXP stream_sexp, SEXP sc
 #endif
 
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst);
+SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_sexp){
+  BEGIN_RCPP
+  Rcpp::traits::input_parameter<SEXP>::type schema_sxp(schema_sxp_sexp);
+Rcpp::traits::input_parameter<SEXP>::type lst(lst_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__from_arrays( schema_sxp, lst)));
+return rcpp_result_gen;
+  END_RCPP
+}
+#else
+SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_sexp){
+  BEGIN_RCPP
+  Rcpp::stop("arrow C++ library not available");
+  END_RCPP
+}
+#endif
+
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 SEXP _arrow_RecordBatchReader__schema(SEXP reader_sexp){
   BEGIN_RCPP
@@ -3343,6 +3360,23 @@ SEXP _arrow_Table__columns(SEXP table_sexp){
 #endif
 
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp);
+SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
+  BEGIN_RCPP
+  Rcpp::traits::input_parameter<SEXP>::type lst(lst_sexp);
+Rcpp::traits::input_parameter<SEXP>::type schema_sxp(schema_sxp_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__from_dots( lst, schema_sxp)));
+return rcpp_result_gen;
+  END_RCPP
+}
+#else
+SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
+  BEGIN_RCPP
+  Rcpp::stop("arrow C++ library not available");
+  END_RCPP
+}
+#endif
+
+#if defined(ARROW_R_WITH_ARROW)
 int GetCpuThreadPoolCapacity();
 SEXP _arrow_GetCpuThreadPoolCapacity(){
   BEGIN_RCPP
@@ -3569,6 +3603,7 @@ static const R_CallMethodDef arrow_CallEntries[] = {
 		{ "_arrow_RecordBatch__Slice2", (DL_FUNC)& _arrow_RecordBatch__Slice2, 3 }, 
 		{ "_arrow_ipc___SerializeRecordBatch__Raw", (DL_FUNC)& _arrow_ipc___SerializeRecordBatch__Raw, 1 }, 
 		{ "_arrow_ipc___ReadRecordBatch__InputStream__Schema", (DL_FUNC)& _arrow_ipc___ReadRecordBatch__InputStream__Schema, 2 }, 
+		{ "_arrow_RecordBatch__from_arrays", (DL_FUNC)& _arrow_RecordBatch__from_arrays, 2 }, 
 		{ "_arrow_RecordBatchReader__schema", (DL_FUNC)& _arrow_RecordBatchReader__schema, 1 }, 
 		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC)& _arrow_RecordBatchReader__ReadNext, 1 }, 
 		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC)& _arrow_ipc___RecordBatchStreamReader__Open, 1 }, 
@@ -3591,6 +3626,7 @@ static const R_CallMethodDef arrow_CallEntries[] = {
 		{ "_arrow_Table__schema", (DL_FUNC)& _arrow_Table__schema, 1 }, 
 		{ "_arrow_Table__column", (DL_FUNC)& _arrow_Table__column, 2 }, 
 		{ "_arrow_Table__columns", (DL_FUNC)& _arrow_Table__columns, 1 }, 
+		{ "_arrow_Table__from_dots", (DL_FUNC)& _arrow_Table__from_dots, 2 }, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC)& _arrow_GetCpuThreadPoolCapacity, 0 }, 
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC)& _arrow_SetCpuThreadPoolCapacity, 1 }, 
 		{NULL, NULL, 0}
