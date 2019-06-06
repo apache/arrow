@@ -17,6 +17,8 @@
 
 package io.netty.buffer;
 
+import java.nio.ByteBuffer;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Assert;
@@ -44,7 +46,11 @@ public class TestNettyArrowBuf {
          ArrowBuf buf = allocator.buffer(20);
     ) {
       NettyArrowBuf nettyBuf = buf.asNettyBuffer();
-      Assert.assertNotNull(nettyBuf.nioBuffer(4 ,6));
+      ByteBuffer byteBuffer = nettyBuf.nioBuffer(4 ,6);
+      // Nio Buffers should always be 0 indexed
+      Assert.assertEquals(0, byteBuffer.position());
+      Assert.assertEquals(6, byteBuffer.limit());
+
     }
   }
 }
