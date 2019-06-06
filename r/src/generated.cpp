@@ -4,3407 +4,3196 @@
 
 using namespace Rcpp;
 
+// array.cpp:25
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset);
 SEXP _arrow_Array__Slice1(SEXP array_sexp, SEXP offset_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-Rcpp::traits::input_parameter<int>::type offset(offset_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__Slice1( array, offset)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
+	return Rcpp::wrap(Array__Slice1(array, offset));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__Slice1(SEXP array_sexp, SEXP offset_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__Slice1(). ");
 }
 #endif
 
+// array.cpp:31
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array, int offset, int length);
 SEXP _arrow_Array__Slice2(SEXP array_sexp, SEXP offset_sexp, SEXP length_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
-Rcpp::traits::input_parameter<int>::type length(length_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__Slice2( array, offset, length)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
+	Rcpp::traits::input_parameter<int>::type length(length_sexp);
+	return Rcpp::wrap(Array__Slice2(array, offset, length));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__Slice2(SEXP array_sexp, SEXP offset_sexp, SEXP length_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__Slice2(). ");
 }
 #endif
 
+// array.cpp:37
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i);
 SEXP _arrow_Array__IsNull(SEXP x_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__IsNull( x, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(Array__IsNull(x, i));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__IsNull(SEXP x_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__IsNull(). ");
 }
 #endif
 
+// array.cpp:40
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i);
 SEXP _arrow_Array__IsValid(SEXP x_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__IsValid( x, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(Array__IsValid(x, i));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__IsValid(SEXP x_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__IsValid(). ");
 }
 #endif
 
+// array.cpp:45
 #if defined(ARROW_R_WITH_ARROW)
 int Array__length(const std::shared_ptr<arrow::Array>& x);
 SEXP _arrow_Array__length(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__length( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	return Rcpp::wrap(Array__length(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__length(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__length(). ");
 }
 #endif
 
+// array.cpp:48
 #if defined(ARROW_R_WITH_ARROW)
 int Array__offset(const std::shared_ptr<arrow::Array>& x);
 SEXP _arrow_Array__offset(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__offset( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	return Rcpp::wrap(Array__offset(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__offset(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__offset(). ");
 }
 #endif
 
+// array.cpp:51
 #if defined(ARROW_R_WITH_ARROW)
 int Array__null_count(const std::shared_ptr<arrow::Array>& x);
 SEXP _arrow_Array__null_count(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__null_count( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	return Rcpp::wrap(Array__null_count(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__null_count(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__null_count(). ");
 }
 #endif
 
+// array.cpp:54
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x);
 SEXP _arrow_Array__type(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__type( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	return Rcpp::wrap(Array__type(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__type(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__type(). ");
 }
 #endif
 
+// array.cpp:59
 #if defined(ARROW_R_WITH_ARROW)
 std::string Array__ToString(const std::shared_ptr<arrow::Array>& x);
 SEXP _arrow_Array__ToString(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__ToString( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	return Rcpp::wrap(Array__ToString(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__ToString(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__ToString(). ");
 }
 #endif
 
+// array.cpp:64
 #if defined(ARROW_R_WITH_ARROW)
 arrow::Type::type Array__type_id(const std::shared_ptr<arrow::Array>& x);
 SEXP _arrow_Array__type_id(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__type_id( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	return Rcpp::wrap(Array__type_id(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__type_id(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__type_id(). ");
 }
 #endif
 
+// array.cpp:69
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 SEXP _arrow_Array__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__Equals( lhs, rhs)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(Array__Equals(lhs, rhs));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__Equals(). ");
 }
 #endif
 
+// array.cpp:75
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 SEXP _arrow_Array__ApproxEquals(SEXP lhs_sexp, SEXP rhs_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__ApproxEquals( lhs, rhs)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(Array__ApproxEquals(lhs, rhs));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__ApproxEquals(SEXP lhs_sexp, SEXP rhs_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__ApproxEquals(). ");
 }
 #endif
 
+// array.cpp:81
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array>& array);
 SEXP _arrow_Array__data(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__data( array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	return Rcpp::wrap(Array__data(array));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__data(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__data(). ");
 }
 #endif
 
+// array.cpp:87
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self, const std::shared_ptr<arrow::Array>& other, int start_idx, int end_idx, int other_start_idx);
 SEXP _arrow_Array__RangeEquals(SEXP self_sexp, SEXP other_sexp, SEXP start_idx_sexp, SEXP end_idx_sexp, SEXP other_start_idx_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type self(self_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type other(other_sexp);
-Rcpp::traits::input_parameter<int>::type start_idx(start_idx_sexp);
-Rcpp::traits::input_parameter<int>::type end_idx(end_idx_sexp);
-Rcpp::traits::input_parameter<int>::type other_start_idx(other_start_idx_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__RangeEquals( self, other, start_idx, end_idx, other_start_idx)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type self(self_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type other(other_sexp);
+	Rcpp::traits::input_parameter<int>::type start_idx(start_idx_sexp);
+	Rcpp::traits::input_parameter<int>::type end_idx(end_idx_sexp);
+	Rcpp::traits::input_parameter<int>::type other_start_idx(other_start_idx_sexp);
+	return Rcpp::wrap(Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__RangeEquals(SEXP self_sexp, SEXP other_sexp, SEXP start_idx_sexp, SEXP end_idx_sexp, SEXP other_start_idx_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__RangeEquals(). ");
 }
 #endif
 
+// array.cpp:94
 #if defined(ARROW_R_WITH_ARROW)
 LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array);
 SEXP _arrow_Array__Mask(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__Mask( array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	return Rcpp::wrap(Array__Mask(array));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__Mask(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__Mask(). ");
 }
 #endif
 
+// array.cpp:110
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> DictionaryArray__indices(const std::shared_ptr<arrow::DictionaryArray>& array);
 SEXP _arrow_DictionaryArray__indices(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryArray>&>::type array(array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DictionaryArray__indices( array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryArray>&>::type array(array_sexp);
+	return Rcpp::wrap(DictionaryArray__indices(array));
+END_RCPP
 }
 #else
 SEXP _arrow_DictionaryArray__indices(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DictionaryArray__indices(). ");
 }
 #endif
 
+// array.cpp:116
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> DictionaryArray__dictionary(const std::shared_ptr<arrow::DictionaryArray>& array);
 SEXP _arrow_DictionaryArray__dictionary(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryArray>&>::type array(array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DictionaryArray__dictionary( array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryArray>&>::type array(array_sexp);
+	return Rcpp::wrap(DictionaryArray__dictionary(array));
+END_RCPP
 }
 #else
 SEXP _arrow_DictionaryArray__dictionary(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DictionaryArray__dictionary(). ");
 }
 #endif
 
+// array__to_vector.cpp:669
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 SEXP _arrow_Array__as_vector(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__as_vector( array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	return Rcpp::wrap(Array__as_vector(array));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__as_vector(SEXP array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__as_vector(). ");
 }
 #endif
 
+// array__to_vector.cpp:674
 #if defined(ARROW_R_WITH_ARROW)
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkedArray__as_vector( chunked_array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return Rcpp::wrap(ChunkedArray__as_vector(chunked_array));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__as_vector(). ");
 }
 #endif
 
+// array__to_vector.cpp:680
 #if defined(ARROW_R_WITH_ARROW)
 Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
 SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-Rcpp::traits::input_parameter<bool>::type use_threads(use_threads_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__to_dataframe( batch, use_threads)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<bool>::type use_threads(use_threads_sexp);
+	return Rcpp::wrap(RecordBatch__to_dataframe(batch, use_threads));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__to_dataframe(). ");
 }
 #endif
 
+// array__to_vector.cpp:702
 #if defined(ARROW_R_WITH_ARROW)
 Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
 SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-Rcpp::traits::input_parameter<bool>::type use_threads(use_threads_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__to_dataframe( table, use_threads)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<bool>::type use_threads(use_threads_sexp);
+	return Rcpp::wrap(Table__to_dataframe(table, use_threads));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__to_dataframe(). ");
 }
 #endif
 
+// array_from_vector.cpp:959
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
 SEXP _arrow_Array__infer_type(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__infer_type( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
+	return Rcpp::wrap(Array__infer_type(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__infer_type(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__infer_type(). ");
 }
 #endif
 
+// array_from_vector.cpp:964
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type);
 SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
-Rcpp::traits::input_parameter<SEXP>::type s_type(s_type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__from_vector( x, s_type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
+	Rcpp::traits::input_parameter<SEXP>::type s_type(s_type_sexp);
+	return Rcpp::wrap(Array__from_vector(x, s_type));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__from_vector(). ");
 }
 #endif
 
+// array_from_vector.cpp:979
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks, SEXP s_type);
 SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<Rcpp::List>::type chunks(chunks_sexp);
-Rcpp::traits::input_parameter<SEXP>::type s_type(s_type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkedArray__from_list( chunks, s_type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<Rcpp::List>::type chunks(chunks_sexp);
+	Rcpp::traits::input_parameter<SEXP>::type s_type(s_type_sexp);
+	return Rcpp::wrap(ChunkedArray__from_list(chunks, s_type));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__from_list(). ");
 }
 #endif
 
+// arraydata.cpp:25
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
 SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ArrayData__get_type( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__get_type(x));
+END_RCPP
 }
 #else
 SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ArrayData__get_type(). ");
 }
 #endif
 
+// arraydata.cpp:31
 #if defined(ARROW_R_WITH_ARROW)
 int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x);
 SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ArrayData__get_length( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__get_length(x));
+END_RCPP
 }
 #else
 SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ArrayData__get_length(). ");
 }
 #endif
 
+// arraydata.cpp:36
 #if defined(ARROW_R_WITH_ARROW)
 int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
 SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ArrayData__get_null_count( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__get_null_count(x));
+END_RCPP
 }
 #else
 SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ArrayData__get_null_count(). ");
 }
 #endif
 
+// arraydata.cpp:41
 #if defined(ARROW_R_WITH_ARROW)
 int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x);
 SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ArrayData__get_offset( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__get_offset(x));
+END_RCPP
 }
 #else
 SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ArrayData__get_offset(). ");
 }
 #endif
 
+// arraydata.cpp:46
 #if defined(ARROW_R_WITH_ARROW)
 List ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x);
 SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ArrayData__buffers( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	return Rcpp::wrap(ArrayData__buffers(x));
+END_RCPP
 }
 #else
 SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ArrayData__buffers(). ");
 }
 #endif
 
+// buffer.cpp:22
 #if defined(ARROW_R_WITH_ARROW)
 bool Buffer__is_mutable(const std::shared_ptr<arrow::Buffer>& buffer);
 SEXP _arrow_Buffer__is_mutable(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Buffer__is_mutable( buffer)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	return Rcpp::wrap(Buffer__is_mutable(buffer));
+END_RCPP
 }
 #else
 SEXP _arrow_Buffer__is_mutable(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Buffer__is_mutable(). ");
 }
 #endif
 
+// buffer.cpp:27
 #if defined(ARROW_R_WITH_ARROW)
 void Buffer__ZeroPadding(const std::shared_ptr<arrow::Buffer>& buffer);
 SEXP _arrow_Buffer__ZeroPadding(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);Buffer__ZeroPadding( buffer);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	Buffer__ZeroPadding(buffer);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_Buffer__ZeroPadding(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Buffer__ZeroPadding(). ");
 }
 #endif
 
+// buffer.cpp:32
 #if defined(ARROW_R_WITH_ARROW)
 int64_t Buffer__capacity(const std::shared_ptr<arrow::Buffer>& buffer);
 SEXP _arrow_Buffer__capacity(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Buffer__capacity( buffer)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	return Rcpp::wrap(Buffer__capacity(buffer));
+END_RCPP
 }
 #else
 SEXP _arrow_Buffer__capacity(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Buffer__capacity(). ");
 }
 #endif
 
+// buffer.cpp:37
 #if defined(ARROW_R_WITH_ARROW)
 int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer);
 SEXP _arrow_Buffer__size(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Buffer__size( buffer)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	return Rcpp::wrap(Buffer__size(buffer));
+END_RCPP
 }
 #else
 SEXP _arrow_Buffer__size(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Buffer__size(). ");
 }
 #endif
 
+// buffer.cpp:42
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x);
 SEXP _arrow_r___RBuffer__initialize(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(r___RBuffer__initialize( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
+	return Rcpp::wrap(r___RBuffer__initialize(x));
+END_RCPP
 }
 #else
 SEXP _arrow_r___RBuffer__initialize(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call r___RBuffer__initialize(). ");
 }
 #endif
 
+// chunkedarray.cpp:25
 #if defined(ARROW_R_WITH_ARROW)
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkedArray__length( chunked_array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return Rcpp::wrap(ChunkedArray__length(chunked_array));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__length(). ");
 }
 #endif
 
+// chunkedarray.cpp:30
 #if defined(ARROW_R_WITH_ARROW)
 int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP _arrow_ChunkedArray__null_count(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkedArray__null_count( chunked_array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return Rcpp::wrap(ChunkedArray__null_count(chunked_array));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkedArray__null_count(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__null_count(). ");
 }
 #endif
 
+// chunkedarray.cpp:35
 #if defined(ARROW_R_WITH_ARROW)
 int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkedArray__num_chunks( chunked_array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return Rcpp::wrap(ChunkedArray__num_chunks(chunked_array));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__num_chunks(). ");
 }
 #endif
 
+// chunkedarray.cpp:40
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> ChunkedArray__chunk(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i);
 SEXP _arrow_ChunkedArray__chunk(SEXP chunked_array_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkedArray__chunk( chunked_array, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(ChunkedArray__chunk(chunked_array, i));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkedArray__chunk(SEXP chunked_array_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__chunk(). ");
 }
 #endif
 
+// chunkedarray.cpp:46
 #if defined(ARROW_R_WITH_ARROW)
 List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP _arrow_ChunkedArray__chunks(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkedArray__chunks( chunked_array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return Rcpp::wrap(ChunkedArray__chunks(chunked_array));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkedArray__chunks(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__chunks(). ");
 }
 #endif
 
+// chunkedarray.cpp:51
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> ChunkedArray__type(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP _arrow_ChunkedArray__type(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkedArray__type( chunked_array)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return Rcpp::wrap(ChunkedArray__type(chunked_array));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkedArray__type(SEXP chunked_array_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__type(). ");
 }
 #endif
 
+// chunkedarray.cpp:57
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice1(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset);
 SEXP _arrow_ChunkArray__Slice1(SEXP chunked_array_sexp, SEXP offset_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-Rcpp::traits::input_parameter<int>::type offset(offset_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkArray__Slice1( chunked_array, offset)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
+	return Rcpp::wrap(ChunkArray__Slice1(chunked_array, offset));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkArray__Slice1(SEXP chunked_array_sexp, SEXP offset_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkArray__Slice1(). ");
 }
 #endif
 
+// chunkedarray.cpp:63
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length);
 SEXP _arrow_ChunkArray__Slice2(SEXP chunked_array_sexp, SEXP offset_sexp, SEXP length_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
-Rcpp::traits::input_parameter<int>::type length(length_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkArray__Slice2( chunked_array, offset, length)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
+	Rcpp::traits::input_parameter<int>::type length(length_sexp);
+	return Rcpp::wrap(ChunkArray__Slice2(chunked_array, offset, length));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkArray__Slice2(SEXP chunked_array_sexp, SEXP offset_sexp, SEXP length_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkArray__Slice2(). ");
 }
 #endif
 
+// column.cpp:22
 #if defined(ARROW_R_WITH_ARROW)
 int Column__length(const std::shared_ptr<arrow::Column>& column);
 SEXP _arrow_Column__length(SEXP column_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Column__length( column)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);
+	return Rcpp::wrap(Column__length(column));
+END_RCPP
 }
 #else
 SEXP _arrow_Column__length(SEXP column_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Column__length(). ");
 }
 #endif
 
+// column.cpp:27
 #if defined(ARROW_R_WITH_ARROW)
 int Column__null_count(const std::shared_ptr<arrow::Column>& column);
 SEXP _arrow_Column__null_count(SEXP column_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Column__null_count( column)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);
+	return Rcpp::wrap(Column__null_count(column));
+END_RCPP
 }
 #else
 SEXP _arrow_Column__null_count(SEXP column_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Column__null_count(). ");
 }
 #endif
 
+// column.cpp:32
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Column__type(const std::shared_ptr<arrow::Column>& column);
 SEXP _arrow_Column__type(SEXP column_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Column__type( column)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);
+	return Rcpp::wrap(Column__type(column));
+END_RCPP
 }
 #else
 SEXP _arrow_Column__type(SEXP column_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Column__type(). ");
 }
 #endif
 
+// column.cpp:38
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> Column__data(const std::shared_ptr<arrow::Column>& column);
 SEXP _arrow_Column__data(SEXP column_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Column__data( column)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Column>&>::type column(column_sexp);
+	return Rcpp::wrap(Column__data(column));
+END_RCPP
 }
 #else
 SEXP _arrow_Column__data(SEXP column_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Column__data(). ");
 }
 #endif
 
+// compression.cpp:22
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec);
 SEXP _arrow_util___Codec__Create(SEXP codec_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<arrow::Compression::type>::type codec(codec_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(util___Codec__Create( codec)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<arrow::Compression::type>::type codec(codec_sexp);
+	return Rcpp::wrap(util___Codec__Create(codec));
+END_RCPP
 }
 #else
 SEXP _arrow_util___Codec__Create(SEXP codec_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call util___Codec__Create(). ");
 }
 #endif
 
+// compression.cpp:29
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::OutputStream>& raw);
 SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type raw(raw_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___CompressedOutputStream__Make( codec, raw)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type raw(raw_sexp);
+	return Rcpp::wrap(io___CompressedOutputStream__Make(codec, raw));
+END_RCPP
 }
 #else
 SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___CompressedOutputStream__Make(). ");
 }
 #endif
 
+// compression.cpp:38
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::InputStream>& raw);
 SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type raw(raw_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___CompressedInputStream__Make( codec, raw)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type raw(raw_sexp);
+	return Rcpp::wrap(io___CompressedInputStream__Make(codec, raw));
+END_RCPP
 }
 #else
 SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___CompressedInputStream__Make(). ");
 }
 #endif
 
+// compute.cpp:22
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate);
 SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflow_sexp, SEXP allow_time_truncate_sexp, SEXP allow_float_truncate_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<bool>::type allow_int_overflow(allow_int_overflow_sexp);
-Rcpp::traits::input_parameter<bool>::type allow_time_truncate(allow_time_truncate_sexp);
-Rcpp::traits::input_parameter<bool>::type allow_float_truncate(allow_float_truncate_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(compute___CastOptions__initialize( allow_int_overflow, allow_time_truncate, allow_float_truncate)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<bool>::type allow_int_overflow(allow_int_overflow_sexp);
+	Rcpp::traits::input_parameter<bool>::type allow_time_truncate(allow_time_truncate_sexp);
+	Rcpp::traits::input_parameter<bool>::type allow_float_truncate(allow_float_truncate_sexp);
+	return Rcpp::wrap(compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate));
+END_RCPP
 }
 #else
 SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflow_sexp, SEXP allow_time_truncate_sexp, SEXP allow_float_truncate_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call compute___CastOptions__initialize(). ");
 }
 #endif
 
+// compute.cpp:32
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__cast(const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
 SEXP _arrow_Array__cast(SEXP array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Array__cast( array, target_type, options)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	return Rcpp::wrap(Array__cast(array, target_type, options));
+END_RCPP
 }
 #else
 SEXP _arrow_Array__cast(SEXP array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Array__cast(). ");
 }
 #endif
 
+// compute.cpp:43
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
 SEXP _arrow_ChunkedArray__cast(SEXP chunked_array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ChunkedArray__cast( chunked_array, target_type, options)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	return Rcpp::wrap(ChunkedArray__cast(chunked_array, target_type, options));
+END_RCPP
 }
 #else
 SEXP _arrow_ChunkedArray__cast(SEXP chunked_array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__cast(). ");
 }
 #endif
 
+// compute.cpp:55
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
 SEXP _arrow_RecordBatch__cast(SEXP batch_sexp, SEXP schema_sexp, SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__cast( batch, schema, options)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	return Rcpp::wrap(RecordBatch__cast(batch, schema, options));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__cast(SEXP batch_sexp, SEXP schema_sexp, SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__cast(). ");
 }
 #endif
 
+// compute.cpp:70
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__cast(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
 SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__cast( table, schema, options)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	return Rcpp::wrap(Table__cast(table, schema, options));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__cast(). ");
 }
 #endif
 
+// csv.cpp:25
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ options);
 SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<List_>::type options(options_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(csv___ReadOptions__initialize( options)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<List_>::type options(options_sexp);
+	return Rcpp::wrap(csv___ReadOptions__initialize(options));
+END_RCPP
 }
 #else
 SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call csv___ReadOptions__initialize(). ");
 }
 #endif
 
+// csv.cpp:36
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(List_ options);
 SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<List_>::type options(options_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(csv___ParseOptions__initialize( options)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<List_>::type options(options_sexp);
+	return Rcpp::wrap(csv___ParseOptions__initialize(options));
+END_RCPP
 }
 #else
 SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call csv___ParseOptions__initialize(). ");
 }
 #endif
 
+// csv.cpp:51
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(List_ options);
 SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<List_>::type options(options_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(csv___ConvertOptions__initialize( options)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<List_>::type options(options_sexp);
+	return Rcpp::wrap(csv___ConvertOptions__initialize(options));
+END_RCPP
 }
 #else
 SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call csv___ConvertOptions__initialize(). ");
 }
 #endif
 
+// csv.cpp:60
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(const std::shared_ptr<arrow::io::InputStream>& input, const std::shared_ptr<arrow::csv::ReadOptions>& read_options, const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options);
 SEXP _arrow_csv___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp, SEXP convert_options_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type input(input_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::csv::ReadOptions>&>::type read_options(read_options_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::csv::ParseOptions>&>::type parse_options(parse_options_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::csv::ConvertOptions>&>::type convert_options(convert_options_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(csv___TableReader__Make( input, read_options, parse_options, convert_options)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type input(input_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::csv::ReadOptions>&>::type read_options(read_options_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::csv::ParseOptions>&>::type parse_options(parse_options_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::csv::ConvertOptions>&>::type convert_options(convert_options_sexp);
+	return Rcpp::wrap(csv___TableReader__Make(input, read_options, parse_options, convert_options));
+END_RCPP
 }
 #else
 SEXP _arrow_csv___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp, SEXP convert_options_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call csv___TableReader__Make(). ");
 }
 #endif
 
+// csv.cpp:73
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> csv___TableReader__Read(const std::shared_ptr<arrow::csv::TableReader>& table_reader);
 SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::csv::TableReader>&>::type table_reader(table_reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(csv___TableReader__Read( table_reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::csv::TableReader>&>::type table_reader(table_reader_sexp);
+	return Rcpp::wrap(csv___TableReader__Read(table_reader));
+END_RCPP
 }
 #else
 SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call csv___TableReader__Read(). ");
 }
 #endif
 
+// datatype.cpp:27
 #if defined(ARROW_R_WITH_ARROW)
 bool shared_ptr_is_null(SEXP xp);
 SEXP _arrow_shared_ptr_is_null(SEXP xp_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<SEXP>::type xp(xp_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(shared_ptr_is_null( xp)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type xp(xp_sexp);
+	return Rcpp::wrap(shared_ptr_is_null(xp));
+END_RCPP
 }
 #else
 SEXP _arrow_shared_ptr_is_null(SEXP xp_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call shared_ptr_is_null(). ");
 }
 #endif
 
+// datatype.cpp:32
 #if defined(ARROW_R_WITH_ARROW)
 bool unique_ptr_is_null(SEXP xp);
 SEXP _arrow_unique_ptr_is_null(SEXP xp_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<SEXP>::type xp(xp_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(unique_ptr_is_null( xp)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type xp(xp_sexp);
+	return Rcpp::wrap(unique_ptr_is_null(xp));
+END_RCPP
 }
 #else
 SEXP _arrow_unique_ptr_is_null(SEXP xp_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call unique_ptr_is_null(). ");
 }
 #endif
 
+// datatype.cpp:37
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Int8__initialize();
 SEXP _arrow_Int8__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Int8__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Int8__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Int8__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Int8__initialize(). ");
 }
 #endif
 
+// datatype.cpp:40
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Int16__initialize();
 SEXP _arrow_Int16__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Int16__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Int16__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Int16__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Int16__initialize(). ");
 }
 #endif
 
+// datatype.cpp:43
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Int32__initialize();
 SEXP _arrow_Int32__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Int32__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Int32__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Int32__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Int32__initialize(). ");
 }
 #endif
 
+// datatype.cpp:46
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Int64__initialize();
 SEXP _arrow_Int64__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Int64__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Int64__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Int64__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Int64__initialize(). ");
 }
 #endif
 
+// datatype.cpp:49
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> UInt8__initialize();
 SEXP _arrow_UInt8__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(UInt8__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(UInt8__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_UInt8__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call UInt8__initialize(). ");
 }
 #endif
 
+// datatype.cpp:52
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> UInt16__initialize();
 SEXP _arrow_UInt16__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(UInt16__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(UInt16__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_UInt16__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call UInt16__initialize(). ");
 }
 #endif
 
+// datatype.cpp:55
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> UInt32__initialize();
 SEXP _arrow_UInt32__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(UInt32__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(UInt32__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_UInt32__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call UInt32__initialize(). ");
 }
 #endif
 
+// datatype.cpp:58
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> UInt64__initialize();
 SEXP _arrow_UInt64__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(UInt64__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(UInt64__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_UInt64__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call UInt64__initialize(). ");
 }
 #endif
 
+// datatype.cpp:61
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Float16__initialize();
 SEXP _arrow_Float16__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Float16__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Float16__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Float16__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Float16__initialize(). ");
 }
 #endif
 
+// datatype.cpp:64
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Float32__initialize();
 SEXP _arrow_Float32__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Float32__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Float32__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Float32__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Float32__initialize(). ");
 }
 #endif
 
+// datatype.cpp:67
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Float64__initialize();
 SEXP _arrow_Float64__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Float64__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Float64__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Float64__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Float64__initialize(). ");
 }
 #endif
 
+// datatype.cpp:70
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Boolean__initialize();
 SEXP _arrow_Boolean__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Boolean__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Boolean__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Boolean__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Boolean__initialize(). ");
 }
 #endif
 
+// datatype.cpp:73
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Utf8__initialize();
 SEXP _arrow_Utf8__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Utf8__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Utf8__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Utf8__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Utf8__initialize(). ");
 }
 #endif
 
+// datatype.cpp:76
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Date32__initialize();
 SEXP _arrow_Date32__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Date32__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Date32__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Date32__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Date32__initialize(). ");
 }
 #endif
 
+// datatype.cpp:79
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Date64__initialize();
 SEXP _arrow_Date64__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Date64__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Date64__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Date64__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Date64__initialize(). ");
 }
 #endif
 
+// datatype.cpp:82
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Null__initialize();
 SEXP _arrow_Null__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Null__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(Null__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_Null__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Null__initialize(). ");
 }
 #endif
 
+// datatype.cpp:85
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision, int32_t scale);
 SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<int32_t>::type precision(precision_sexp);
-Rcpp::traits::input_parameter<int32_t>::type scale(scale_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Decimal128Type__initialize( precision, scale)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<int32_t>::type precision(precision_sexp);
+	Rcpp::traits::input_parameter<int32_t>::type scale(scale_sexp);
+	return Rcpp::wrap(Decimal128Type__initialize(precision, scale));
+END_RCPP
 }
 #else
 SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Decimal128Type__initialize(). ");
 }
 #endif
 
+// datatype.cpp:91
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(int32_t byte_width);
 SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<int32_t>::type byte_width(byte_width_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(FixedSizeBinary__initialize( byte_width)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<int32_t>::type byte_width(byte_width_sexp);
+	return Rcpp::wrap(FixedSizeBinary__initialize(byte_width));
+END_RCPP
 }
 #else
 SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call FixedSizeBinary__initialize(). ");
 }
 #endif
 
+// datatype.cpp:96
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Timestamp__initialize1(arrow::TimeUnit::type unit);
 SEXP _arrow_Timestamp__initialize1(SEXP unit_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Timestamp__initialize1( unit)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);
+	return Rcpp::wrap(Timestamp__initialize1(unit));
+END_RCPP
 }
 #else
 SEXP _arrow_Timestamp__initialize1(SEXP unit_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Timestamp__initialize1(). ");
 }
 #endif
 
+// datatype.cpp:101
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Timestamp__initialize2(arrow::TimeUnit::type unit, const std::string& timezone);
 SEXP _arrow_Timestamp__initialize2(SEXP unit_sexp, SEXP timezone_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);
-Rcpp::traits::input_parameter<const std::string&>::type timezone(timezone_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Timestamp__initialize2( unit, timezone)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type timezone(timezone_sexp);
+	return Rcpp::wrap(Timestamp__initialize2(unit, timezone));
+END_RCPP
 }
 #else
 SEXP _arrow_Timestamp__initialize2(SEXP unit_sexp, SEXP timezone_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Timestamp__initialize2(). ");
 }
 #endif
 
+// datatype.cpp:107
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Time32__initialize(arrow::TimeUnit::type unit);
 SEXP _arrow_Time32__initialize(SEXP unit_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Time32__initialize( unit)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);
+	return Rcpp::wrap(Time32__initialize(unit));
+END_RCPP
 }
 #else
 SEXP _arrow_Time32__initialize(SEXP unit_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Time32__initialize(). ");
 }
 #endif
 
+// datatype.cpp:112
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit);
 SEXP _arrow_Time64__initialize(SEXP unit_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Time64__initialize( unit)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);
+	return Rcpp::wrap(Time64__initialize(unit));
+END_RCPP
 }
 #else
 SEXP _arrow_Time64__initialize(SEXP unit_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Time64__initialize(). ");
 }
 #endif
 
+// datatype.cpp:117
 #if defined(ARROW_R_WITH_ARROW)
 SEXP list__(SEXP x);
 SEXP _arrow_list__(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(list__( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
+	return Rcpp::wrap(list__(x));
+END_RCPP
 }
 #else
 SEXP _arrow_list__(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call list__(). ");
 }
 #endif
 
+// datatype.cpp:133
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> struct_(List fields);
 SEXP _arrow_struct_(SEXP fields_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<List>::type fields(fields_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(struct_( fields)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<List>::type fields(fields_sexp);
+	return Rcpp::wrap(struct_(fields));
+END_RCPP
 }
 #else
 SEXP _arrow_struct_(SEXP fields_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call struct_(). ");
 }
 #endif
 
+// datatype.cpp:138
 #if defined(ARROW_R_WITH_ARROW)
 std::string DataType__ToString(const std::shared_ptr<arrow::DataType>& type);
 SEXP _arrow_DataType__ToString(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DataType__ToString( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	return Rcpp::wrap(DataType__ToString(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DataType__ToString(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DataType__ToString(). ");
 }
 #endif
 
+// datatype.cpp:143
 #if defined(ARROW_R_WITH_ARROW)
 std::string DataType__name(const std::shared_ptr<arrow::DataType>& type);
 SEXP _arrow_DataType__name(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DataType__name( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	return Rcpp::wrap(DataType__name(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DataType__name(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DataType__name(). ");
 }
 #endif
 
+// datatype.cpp:148
 #if defined(ARROW_R_WITH_ARROW)
 bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs);
 SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type lhs(lhs_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type rhs(rhs_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DataType__Equals( lhs, rhs)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(DataType__Equals(lhs, rhs));
+END_RCPP
 }
 #else
 SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DataType__Equals(). ");
 }
 #endif
 
+// datatype.cpp:154
 #if defined(ARROW_R_WITH_ARROW)
 int DataType__num_children(const std::shared_ptr<arrow::DataType>& type);
 SEXP _arrow_DataType__num_children(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DataType__num_children( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	return Rcpp::wrap(DataType__num_children(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DataType__num_children(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DataType__num_children(). ");
 }
 #endif
 
+// datatype.cpp:159
 #if defined(ARROW_R_WITH_ARROW)
 List DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type);
 SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DataType__children_pointer( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	return Rcpp::wrap(DataType__children_pointer(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DataType__children_pointer(). ");
 }
 #endif
 
+// datatype.cpp:164
 #if defined(ARROW_R_WITH_ARROW)
 arrow::Type::type DataType__id(const std::shared_ptr<arrow::DataType>& type);
 SEXP _arrow_DataType__id(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DataType__id( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	return Rcpp::wrap(DataType__id(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DataType__id(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DataType__id(). ");
 }
 #endif
 
+// datatype.cpp:169
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> schema_(List fields);
 SEXP _arrow_schema_(SEXP fields_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<List>::type fields(fields_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(schema_( fields)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<List>::type fields(fields_sexp);
+	return Rcpp::wrap(schema_(fields));
+END_RCPP
 }
 #else
 SEXP _arrow_schema_(SEXP fields_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call schema_(). ");
 }
 #endif
 
+// datatype.cpp:174
 #if defined(ARROW_R_WITH_ARROW)
 std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s);
 SEXP _arrow_Schema__ToString(SEXP s_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Schema__ToString( s)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	return Rcpp::wrap(Schema__ToString(s));
+END_RCPP
 }
 #else
 SEXP _arrow_Schema__ToString(SEXP s_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Schema__ToString(). ");
 }
 #endif
 
+// datatype.cpp:179
 #if defined(ARROW_R_WITH_ARROW)
 int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s);
 SEXP _arrow_Schema__num_fields(SEXP s_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Schema__num_fields( s)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	return Rcpp::wrap(Schema__num_fields(s));
+END_RCPP
 }
 #else
 SEXP _arrow_Schema__num_fields(SEXP s_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Schema__num_fields(). ");
 }
 #endif
 
+// datatype.cpp:184
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s, int i);
 SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Schema__field( s, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(Schema__field(s, i));
+END_RCPP
 }
 #else
 SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Schema__field(). ");
 }
 #endif
 
+// datatype.cpp:194
 #if defined(ARROW_R_WITH_ARROW)
 CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema);
 SEXP _arrow_Schema__names(SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Schema__names( schema)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(Schema__names(schema));
+END_RCPP
 }
 #else
 SEXP _arrow_Schema__names(SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Schema__names(). ");
 }
 #endif
 
+// datatype.cpp:202
 #if defined(ARROW_R_WITH_ARROW)
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type);
 SEXP _arrow_ListType__ToString(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ListType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ListType__ToString( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ListType>&>::type type(type_sexp);
+	return Rcpp::wrap(ListType__ToString(type));
+END_RCPP
 }
 #else
 SEXP _arrow_ListType__ToString(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ListType__ToString(). ");
 }
 #endif
 
+// datatype.cpp:207
 #if defined(ARROW_R_WITH_ARROW)
 int FixedWidthType__bit_width(const std::shared_ptr<arrow::FixedWidthType>& type);
 SEXP _arrow_FixedWidthType__bit_width(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::FixedWidthType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(FixedWidthType__bit_width( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::FixedWidthType>&>::type type(type_sexp);
+	return Rcpp::wrap(FixedWidthType__bit_width(type));
+END_RCPP
 }
 #else
 SEXP _arrow_FixedWidthType__bit_width(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call FixedWidthType__bit_width(). ");
 }
 #endif
 
+// datatype.cpp:212
 #if defined(ARROW_R_WITH_ARROW)
 arrow::DateUnit DateType__unit(const std::shared_ptr<arrow::DateType>& type);
 SEXP _arrow_DateType__unit(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DateType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DateType__unit( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DateType>&>::type type(type_sexp);
+	return Rcpp::wrap(DateType__unit(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DateType__unit(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DateType__unit(). ");
 }
 #endif
 
+// datatype.cpp:217
 #if defined(ARROW_R_WITH_ARROW)
 arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& type);
 SEXP _arrow_TimeType__unit(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::TimeType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(TimeType__unit( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::TimeType>&>::type type(type_sexp);
+	return Rcpp::wrap(TimeType__unit(type));
+END_RCPP
 }
 #else
 SEXP _arrow_TimeType__unit(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call TimeType__unit(). ");
 }
 #endif
 
+// datatype.cpp:222
 #if defined(ARROW_R_WITH_ARROW)
 int32_t DecimalType__precision(const std::shared_ptr<arrow::DecimalType>& type);
 SEXP _arrow_DecimalType__precision(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DecimalType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DecimalType__precision( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DecimalType>&>::type type(type_sexp);
+	return Rcpp::wrap(DecimalType__precision(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DecimalType__precision(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DecimalType__precision(). ");
 }
 #endif
 
+// datatype.cpp:227
 #if defined(ARROW_R_WITH_ARROW)
 int32_t DecimalType__scale(const std::shared_ptr<arrow::DecimalType>& type);
 SEXP _arrow_DecimalType__scale(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DecimalType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DecimalType__scale( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DecimalType>&>::type type(type_sexp);
+	return Rcpp::wrap(DecimalType__scale(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DecimalType__scale(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DecimalType__scale(). ");
 }
 #endif
 
+// datatype.cpp:232
 #if defined(ARROW_R_WITH_ARROW)
 std::string TimestampType__timezone(const std::shared_ptr<arrow::TimestampType>& type);
 SEXP _arrow_TimestampType__timezone(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::TimestampType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(TimestampType__timezone( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::TimestampType>&>::type type(type_sexp);
+	return Rcpp::wrap(TimestampType__timezone(type));
+END_RCPP
 }
 #else
 SEXP _arrow_TimestampType__timezone(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call TimestampType__timezone(). ");
 }
 #endif
 
+// datatype.cpp:237
 #if defined(ARROW_R_WITH_ARROW)
 arrow::TimeUnit::type TimestampType__unit(const std::shared_ptr<arrow::TimestampType>& type);
 SEXP _arrow_TimestampType__unit(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::TimestampType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(TimestampType__unit( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::TimestampType>&>::type type(type_sexp);
+	return Rcpp::wrap(TimestampType__unit(type));
+END_RCPP
 }
 #else
 SEXP _arrow_TimestampType__unit(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call TimestampType__unit(). ");
 }
 #endif
 
+// datatype.cpp:243
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& index_type, const std::shared_ptr<arrow::DataType>& value_type, bool ordered);
 SEXP _arrow_DictionaryType__initialize(SEXP index_type_sexp, SEXP value_type_sexp, SEXP ordered_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type index_type(index_type_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type value_type(value_type_sexp);
-Rcpp::traits::input_parameter<bool>::type ordered(ordered_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DictionaryType__initialize( index_type, value_type, ordered)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type index_type(index_type_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type value_type(value_type_sexp);
+	Rcpp::traits::input_parameter<bool>::type ordered(ordered_sexp);
+	return Rcpp::wrap(DictionaryType__initialize(index_type, value_type, ordered));
+END_RCPP
 }
 #else
 SEXP _arrow_DictionaryType__initialize(SEXP index_type_sexp, SEXP value_type_sexp, SEXP ordered_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DictionaryType__initialize(). ");
 }
 #endif
 
+// datatype.cpp:250
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> DictionaryType__index_type(const std::shared_ptr<arrow::DictionaryType>& type);
 SEXP _arrow_DictionaryType__index_type(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DictionaryType__index_type( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
+	return Rcpp::wrap(DictionaryType__index_type(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DictionaryType__index_type(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DictionaryType__index_type(). ");
 }
 #endif
 
+// datatype.cpp:256
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> DictionaryType__value_type(const std::shared_ptr<arrow::DictionaryType>& type);
 SEXP _arrow_DictionaryType__value_type(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DictionaryType__value_type( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
+	return Rcpp::wrap(DictionaryType__value_type(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DictionaryType__value_type(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DictionaryType__value_type(). ");
 }
 #endif
 
+// datatype.cpp:262
 #if defined(ARROW_R_WITH_ARROW)
 std::string DictionaryType__name(const std::shared_ptr<arrow::DictionaryType>& type);
 SEXP _arrow_DictionaryType__name(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DictionaryType__name( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
+	return Rcpp::wrap(DictionaryType__name(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DictionaryType__name(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DictionaryType__name(). ");
 }
 #endif
 
+// datatype.cpp:267
 #if defined(ARROW_R_WITH_ARROW)
 bool DictionaryType__ordered(const std::shared_ptr<arrow::DictionaryType>& type);
 SEXP _arrow_DictionaryType__ordered(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(DictionaryType__ordered( type)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
+	return Rcpp::wrap(DictionaryType__ordered(type));
+END_RCPP
 }
 #else
 SEXP _arrow_DictionaryType__ordered(SEXP type_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call DictionaryType__ordered(). ");
 }
 #endif
 
+// feather.cpp:24
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___feather___TableWriter__SetDescription(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::string& description);
 SEXP _arrow_ipc___feather___TableWriter__SetDescription(SEXP writer_sexp, SEXP description_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
-Rcpp::traits::input_parameter<const std::string&>::type description(description_sexp);ipc___feather___TableWriter__SetDescription( writer, description);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type description(description_sexp);
+	ipc___feather___TableWriter__SetDescription(writer, description);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableWriter__SetDescription(SEXP writer_sexp, SEXP description_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__SetDescription(). ");
 }
 #endif
 
+// feather.cpp:31
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___feather___TableWriter__SetNumRows(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, int64_t num_rows);
 SEXP _arrow_ipc___feather___TableWriter__SetNumRows(SEXP writer_sexp, SEXP num_rows_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
-Rcpp::traits::input_parameter<int64_t>::type num_rows(num_rows_sexp);ipc___feather___TableWriter__SetNumRows( writer, num_rows);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type num_rows(num_rows_sexp);
+	ipc___feather___TableWriter__SetNumRows(writer, num_rows);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableWriter__SetNumRows(SEXP writer_sexp, SEXP num_rows_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__SetNumRows(). ");
 }
 #endif
 
+// feather.cpp:37
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___feather___TableWriter__Append(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::string& name, const std::shared_ptr<arrow::Array>& values);
 SEXP _arrow_ipc___feather___TableWriter__Append(SEXP writer_sexp, SEXP name_sexp, SEXP values_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
-Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type values(values_sexp);ipc___feather___TableWriter__Append( writer, name, values);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type values(values_sexp);
+	ipc___feather___TableWriter__Append(writer, name, values);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableWriter__Append(SEXP writer_sexp, SEXP name_sexp, SEXP values_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__Append(). ");
 }
 #endif
 
+// feather.cpp:44
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___feather___TableWriter__Finalize(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer);
 SEXP _arrow_ipc___feather___TableWriter__Finalize(SEXP writer_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);ipc___feather___TableWriter__Finalize( writer);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
+	ipc___feather___TableWriter__Finalize(writer);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableWriter__Finalize(SEXP writer_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__Finalize(). ");
 }
 #endif
 
+// feather.cpp:50
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream);
 SEXP _arrow_ipc___feather___TableWriter__Open(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableWriter__Open( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(ipc___feather___TableWriter__Open(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableWriter__Open(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__Open(). ");
 }
 #endif
 
+// feather.cpp:58
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___TableWriter__RecordBatch__WriteFeather(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::shared_ptr<arrow::RecordBatch>& batch);
 SEXP _arrow_ipc___TableWriter__RecordBatch__WriteFeather(SEXP writer_sexp, SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);ipc___TableWriter__RecordBatch__WriteFeather( writer, batch);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableWriter>&>::type writer(writer_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	ipc___TableWriter__RecordBatch__WriteFeather(writer, batch);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___TableWriter__RecordBatch__WriteFeather(SEXP writer_sexp, SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___TableWriter__RecordBatch__WriteFeather(). ");
 }
 #endif
 
+// feather.cpp:72
 #if defined(ARROW_R_WITH_ARROW)
 std::string ipc___feather___TableReader__GetDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 SEXP _arrow_ipc___feather___TableReader__GetDescription(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableReader__GetDescription( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__GetDescription(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableReader__GetDescription(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__GetDescription(). ");
 }
 #endif
 
+// feather.cpp:78
 #if defined(ARROW_R_WITH_ARROW)
 bool ipc___feather___TableReader__HasDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 SEXP _arrow_ipc___feather___TableReader__HasDescription(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableReader__HasDescription( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__HasDescription(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableReader__HasDescription(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__HasDescription(). ");
 }
 #endif
 
+// feather.cpp:84
 #if defined(ARROW_R_WITH_ARROW)
 int ipc___feather___TableReader__version(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 SEXP _arrow_ipc___feather___TableReader__version(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableReader__version( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__version(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableReader__version(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__version(). ");
 }
 #endif
 
+// feather.cpp:90
 #if defined(ARROW_R_WITH_ARROW)
 int64_t ipc___feather___TableReader__num_rows(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 SEXP _arrow_ipc___feather___TableReader__num_rows(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableReader__num_rows( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__num_rows(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableReader__num_rows(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__num_rows(). ");
 }
 #endif
 
+// feather.cpp:96
 #if defined(ARROW_R_WITH_ARROW)
 int64_t ipc___feather___TableReader__num_columns(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 SEXP _arrow_ipc___feather___TableReader__num_columns(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableReader__num_columns( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__num_columns(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableReader__num_columns(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__num_columns(). ");
 }
 #endif
 
+// feather.cpp:102
 #if defined(ARROW_R_WITH_ARROW)
 std::string ipc___feather___TableReader__GetColumnName(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
 SEXP _arrow_ipc___feather___TableReader__GetColumnName(SEXP reader_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableReader__GetColumnName( reader, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__GetColumnName(reader, i));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableReader__GetColumnName(SEXP reader_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__GetColumnName(). ");
 }
 #endif
 
+// feather.cpp:108
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
 SEXP _arrow_ipc___feather___TableReader__GetColumn(SEXP reader_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableReader__GetColumn( reader, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__GetColumn(reader, i));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableReader__GetColumn(SEXP reader_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__GetColumn(). ");
 }
 #endif
 
+// feather.cpp:116
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, SEXP columns);
 SEXP _arrow_ipc___feather___TableReader__Read(SEXP reader_sexp, SEXP columns_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
-Rcpp::traits::input_parameter<SEXP>::type columns(columns_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableReader__Read( reader, columns)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	Rcpp::traits::input_parameter<SEXP>::type columns(columns_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__Read(reader, columns));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableReader__Read(SEXP reader_sexp, SEXP columns_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__Read(). ");
 }
 #endif
 
+// feather.cpp:152
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::feather::TableReader> ipc___feather___TableReader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
 SEXP _arrow_ipc___feather___TableReader__Open(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___feather___TableReader__Open( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type stream(stream_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__Open(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___feather___TableReader__Open(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__Open(). ");
 }
 #endif
 
+// field.cpp:22
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& field, bool nullable);
 SEXP _arrow_Field__initialize(SEXP name_sexp, SEXP field_sexp, SEXP nullable_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type field(field_sexp);
-Rcpp::traits::input_parameter<bool>::type nullable(nullable_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Field__initialize( name, field, nullable)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::DataType>&>::type field(field_sexp);
+	Rcpp::traits::input_parameter<bool>::type nullable(nullable_sexp);
+	return Rcpp::wrap(Field__initialize(name, field, nullable));
+END_RCPP
 }
 #else
 SEXP _arrow_Field__initialize(SEXP name_sexp, SEXP field_sexp, SEXP nullable_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Field__initialize(). ");
 }
 #endif
 
+// field.cpp:29
 #if defined(ARROW_R_WITH_ARROW)
 std::string Field__ToString(const std::shared_ptr<arrow::Field>& field);
 SEXP _arrow_Field__ToString(SEXP field_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Field__ToString( field)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return Rcpp::wrap(Field__ToString(field));
+END_RCPP
 }
 #else
 SEXP _arrow_Field__ToString(SEXP field_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Field__ToString(). ");
 }
 #endif
 
+// field.cpp:34
 #if defined(ARROW_R_WITH_ARROW)
 std::string Field__name(const std::shared_ptr<arrow::Field>& field);
 SEXP _arrow_Field__name(SEXP field_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Field__name( field)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return Rcpp::wrap(Field__name(field));
+END_RCPP
 }
 #else
 SEXP _arrow_Field__name(SEXP field_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Field__name(). ");
 }
 #endif
 
+// field.cpp:39
 #if defined(ARROW_R_WITH_ARROW)
 bool Field__Equals(const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::Field>& other);
 SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type other(other_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Field__Equals( field, other)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type other(other_sexp);
+	return Rcpp::wrap(Field__Equals(field, other));
+END_RCPP
 }
 #else
 SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Field__Equals(). ");
 }
 #endif
 
+// field.cpp:45
 #if defined(ARROW_R_WITH_ARROW)
 bool Field__nullable(const std::shared_ptr<arrow::Field>& field);
 SEXP _arrow_Field__nullable(SEXP field_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Field__nullable( field)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return Rcpp::wrap(Field__nullable(field));
+END_RCPP
 }
 #else
 SEXP _arrow_Field__nullable(SEXP field_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Field__nullable(). ");
 }
 #endif
 
+// field.cpp:50
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field);
 SEXP _arrow_Field__type(SEXP field_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Field__type( field)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return Rcpp::wrap(Field__type(field));
+END_RCPP
 }
 #else
 SEXP _arrow_Field__type(SEXP field_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Field__type(). ");
 }
 #endif
 
+// io.cpp:26
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
 SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::Readable>&>::type x(x_sexp);
-Rcpp::traits::input_parameter<int64_t>::type nbytes(nbytes_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___Readable__Read( x, nbytes)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::Readable>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type nbytes(nbytes_sexp);
+	return Rcpp::wrap(io___Readable__Read(x, nbytes));
+END_RCPP
 }
 #else
 SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___Readable__Read(). ");
 }
 #endif
 
+// io.cpp:36
 #if defined(ARROW_R_WITH_ARROW)
 void io___InputStream__Close(const std::shared_ptr<arrow::io::InputStream>& x);
 SEXP _arrow_io___InputStream__Close(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type x(x_sexp);io___InputStream__Close( x);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type x(x_sexp);
+	io___InputStream__Close(x);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_io___InputStream__Close(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___InputStream__Close(). ");
 }
 #endif
 
+// io.cpp:43
 #if defined(ARROW_R_WITH_ARROW)
 void io___OutputStream__Close(const std::shared_ptr<arrow::io::OutputStream>& x);
 SEXP _arrow_io___OutputStream__Close(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type x(x_sexp);io___OutputStream__Close( x);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type x(x_sexp);
+	io___OutputStream__Close(x);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_io___OutputStream__Close(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___OutputStream__Close(). ");
 }
 #endif
 
+// io.cpp:50
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___RandomAccessFile__GetSize(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 SEXP _arrow_io___RandomAccessFile__GetSize(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___RandomAccessFile__GetSize( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	return Rcpp::wrap(io___RandomAccessFile__GetSize(x));
+END_RCPP
 }
 #else
 SEXP _arrow_io___RandomAccessFile__GetSize(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___RandomAccessFile__GetSize(). ");
 }
 #endif
 
+// io.cpp:58
 #if defined(ARROW_R_WITH_ARROW)
 bool io___RandomAccessFile__supports_zero_copy(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 SEXP _arrow_io___RandomAccessFile__supports_zero_copy(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___RandomAccessFile__supports_zero_copy( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	return Rcpp::wrap(io___RandomAccessFile__supports_zero_copy(x));
+END_RCPP
 }
 #else
 SEXP _arrow_io___RandomAccessFile__supports_zero_copy(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___RandomAccessFile__supports_zero_copy(). ");
 }
 #endif
 
+// io.cpp:64
 #if defined(ARROW_R_WITH_ARROW)
 void io___RandomAccessFile__Seek(const std::shared_ptr<arrow::io::RandomAccessFile>& x, int64_t position);
 SEXP _arrow_io___RandomAccessFile__Seek(SEXP x_sexp, SEXP position_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
-Rcpp::traits::input_parameter<int64_t>::type position(position_sexp);io___RandomAccessFile__Seek( x, position);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type position(position_sexp);
+	io___RandomAccessFile__Seek(x, position);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_io___RandomAccessFile__Seek(SEXP x_sexp, SEXP position_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___RandomAccessFile__Seek(). ");
 }
 #endif
 
+// io.cpp:70
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___RandomAccessFile__Tell(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 SEXP _arrow_io___RandomAccessFile__Tell(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___RandomAccessFile__Tell( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	return Rcpp::wrap(io___RandomAccessFile__Tell(x));
+END_RCPP
 }
 #else
 SEXP _arrow_io___RandomAccessFile__Tell(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___RandomAccessFile__Tell(). ");
 }
 #endif
 
+// io.cpp:80
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(const std::string& path, int64_t size);
 SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
-Rcpp::traits::input_parameter<int64_t>::type size(size_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___MemoryMappedFile__Create( path, size)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type size(size_sexp);
+	return Rcpp::wrap(io___MemoryMappedFile__Create(path, size));
+END_RCPP
 }
 #else
 SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___MemoryMappedFile__Create(). ");
 }
 #endif
 
+// io.cpp:88
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(const std::string& path, arrow::io::FileMode::type mode);
 SEXP _arrow_io___MemoryMappedFile__Open(SEXP path_sexp, SEXP mode_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
-Rcpp::traits::input_parameter<arrow::io::FileMode::type>::type mode(mode_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___MemoryMappedFile__Open( path, mode)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	Rcpp::traits::input_parameter<arrow::io::FileMode::type>::type mode(mode_sexp);
+	return Rcpp::wrap(io___MemoryMappedFile__Open(path, mode));
+END_RCPP
 }
 #else
 SEXP _arrow_io___MemoryMappedFile__Open(SEXP path_sexp, SEXP mode_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___MemoryMappedFile__Open(). ");
 }
 #endif
 
+// io.cpp:96
 #if defined(ARROW_R_WITH_ARROW)
 void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMappedFile>& x, int64_t size);
 SEXP _arrow_io___MemoryMappedFile__Resize(SEXP x_sexp, SEXP size_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::MemoryMappedFile>&>::type x(x_sexp);
-Rcpp::traits::input_parameter<int64_t>::type size(size_sexp);io___MemoryMappedFile__Resize( x, size);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::MemoryMappedFile>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type size(size_sexp);
+	io___MemoryMappedFile__Resize(x, size);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_io___MemoryMappedFile__Resize(SEXP x_sexp, SEXP size_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___MemoryMappedFile__Resize(). ");
 }
 #endif
 
+// io.cpp:104
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(const std::string& path);
 SEXP _arrow_io___ReadableFile__Open(SEXP path_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___ReadableFile__Open( path)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	return Rcpp::wrap(io___ReadableFile__Open(path));
+END_RCPP
 }
 #else
 SEXP _arrow_io___ReadableFile__Open(SEXP path_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___ReadableFile__Open(). ");
 }
 #endif
 
+// io.cpp:114
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(const std::shared_ptr<arrow::Buffer>& buffer);
 SEXP _arrow_io___BufferReader__initialize(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___BufferReader__initialize( buffer)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	return Rcpp::wrap(io___BufferReader__initialize(buffer));
+END_RCPP
 }
 #else
 SEXP _arrow_io___BufferReader__initialize(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___BufferReader__initialize(). ");
 }
 #endif
 
+// io.cpp:122
 #if defined(ARROW_R_WITH_ARROW)
 void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream, const std::shared_ptr<arrow::Buffer>& buf);
 SEXP _arrow_io___Writable__write(SEXP stream_sexp, SEXP buf_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::Writable>&>::type stream(stream_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buf(buf_sexp);io___Writable__write( stream, buf);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::Writable>&>::type stream(stream_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buf(buf_sexp);
+	io___Writable__write(stream, buf);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_io___Writable__write(SEXP stream_sexp, SEXP buf_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___Writable__write(). ");
 }
 #endif
 
+// io.cpp:130
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& stream);
 SEXP _arrow_io___OutputStream__Tell(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___OutputStream__Tell( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(io___OutputStream__Tell(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_io___OutputStream__Tell(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___OutputStream__Tell(). ");
 }
 #endif
 
+// io.cpp:139
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(const std::string& path);
 SEXP _arrow_io___FileOutputStream__Open(SEXP path_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___FileOutputStream__Open( path)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
+	return Rcpp::wrap(io___FileOutputStream__Open(path));
+END_RCPP
 }
 #else
 SEXP _arrow_io___FileOutputStream__Open(SEXP path_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___FileOutputStream__Open(). ");
 }
 #endif
 
+// io.cpp:149
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(int64_t initial_capacity);
 SEXP _arrow_io___BufferOutputStream__Create(SEXP initial_capacity_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<int64_t>::type initial_capacity(initial_capacity_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___BufferOutputStream__Create( initial_capacity)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<int64_t>::type initial_capacity(initial_capacity_sexp);
+	return Rcpp::wrap(io___BufferOutputStream__Create(initial_capacity));
+END_RCPP
 }
 #else
 SEXP _arrow_io___BufferOutputStream__Create(SEXP initial_capacity_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__Create(). ");
 }
 #endif
 
+// io.cpp:158
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___BufferOutputStream__capacity(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
 SEXP _arrow_io___BufferOutputStream__capacity(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___BufferOutputStream__capacity( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(io___BufferOutputStream__capacity(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_io___BufferOutputStream__capacity(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__capacity(). ");
 }
 #endif
 
+// io.cpp:164
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> io___BufferOutputStream__Finish(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
 SEXP _arrow_io___BufferOutputStream__Finish(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___BufferOutputStream__Finish( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(io___BufferOutputStream__Finish(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_io___BufferOutputStream__Finish(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__Finish(). ");
 }
 #endif
 
+// io.cpp:172
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___BufferOutputStream__Tell(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
 SEXP _arrow_io___BufferOutputStream__Tell(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___BufferOutputStream__Tell( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(io___BufferOutputStream__Tell(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_io___BufferOutputStream__Tell(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__Tell(). ");
 }
 #endif
 
+// io.cpp:180
 #if defined(ARROW_R_WITH_ARROW)
 void io___BufferOutputStream__Write(const std::shared_ptr<arrow::io::BufferOutputStream>& stream, RawVector_ bytes);
 SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP bytes_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
-Rcpp::traits::input_parameter<RawVector_>::type bytes(bytes_sexp);io___BufferOutputStream__Write( stream, bytes);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
+	Rcpp::traits::input_parameter<RawVector_>::type bytes(bytes_sexp);
+	io___BufferOutputStream__Write(stream, bytes);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP bytes_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__Write(). ");
 }
 #endif
 
+// io.cpp:188
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::MockOutputStream> io___MockOutputStream__initialize();
 SEXP _arrow_io___MockOutputStream__initialize(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___MockOutputStream__initialize( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(io___MockOutputStream__initialize());
+END_RCPP
 }
 #else
 SEXP _arrow_io___MockOutputStream__initialize(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___MockOutputStream__initialize(). ");
 }
 #endif
 
+// io.cpp:193
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___MockOutputStream__GetExtentBytesWritten(const std::shared_ptr<arrow::io::MockOutputStream>& stream);
 SEXP _arrow_io___MockOutputStream__GetExtentBytesWritten(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::MockOutputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___MockOutputStream__GetExtentBytesWritten( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::MockOutputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(io___MockOutputStream__GetExtentBytesWritten(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_io___MockOutputStream__GetExtentBytesWritten(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___MockOutputStream__GetExtentBytesWritten(). ");
 }
 #endif
 
+// io.cpp:201
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::FixedSizeBufferWriter> io___FixedSizeBufferWriter__initialize(const std::shared_ptr<arrow::Buffer>& buffer);
 SEXP _arrow_io___FixedSizeBufferWriter__initialize(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(io___FixedSizeBufferWriter__initialize( buffer)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	return Rcpp::wrap(io___FixedSizeBufferWriter__initialize(buffer));
+END_RCPP
 }
 #else
 SEXP _arrow_io___FixedSizeBufferWriter__initialize(SEXP buffer_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call io___FixedSizeBufferWriter__initialize(). ");
 }
 #endif
 
+// memorypool.cpp:21
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default();
 SEXP _arrow_MemoryPool__default(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(MemoryPool__default( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(MemoryPool__default());
+END_RCPP
 }
 #else
 SEXP _arrow_MemoryPool__default(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call MemoryPool__default(). ");
 }
 #endif
 
+// memorypool.cpp:27
 #if defined(ARROW_R_WITH_ARROW)
 int MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool);
 SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(MemoryPool__bytes_allocated( pool)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
+	return Rcpp::wrap(MemoryPool__bytes_allocated(pool));
+END_RCPP
 }
 #else
 SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call MemoryPool__bytes_allocated(). ");
 }
 #endif
 
+// memorypool.cpp:32
 #if defined(ARROW_R_WITH_ARROW)
 int MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool);
 SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(MemoryPool__max_memory( pool)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
+	return Rcpp::wrap(MemoryPool__max_memory(pool));
+END_RCPP
 }
 #else
 SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call MemoryPool__max_memory(). ");
 }
 #endif
 
+// message.cpp:22
 #if defined(ARROW_R_WITH_ARROW)
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message);
 SEXP _arrow_ipc___Message__body_length(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___Message__body_length( message)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	return Rcpp::wrap(ipc___Message__body_length(message));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___Message__body_length(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___Message__body_length(). ");
 }
 #endif
 
+// message.cpp:27
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> ipc___Message__metadata(const std::unique_ptr<arrow::ipc::Message>& message);
 SEXP _arrow_ipc___Message__metadata(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___Message__metadata( message)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	return Rcpp::wrap(ipc___Message__metadata(message));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___Message__metadata(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___Message__metadata(). ");
 }
 #endif
 
+// message.cpp:33
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> ipc___Message__body(const std::unique_ptr<arrow::ipc::Message>& message);
 SEXP _arrow_ipc___Message__body(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___Message__body( message)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	return Rcpp::wrap(ipc___Message__body(message));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___Message__body(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___Message__body(). ");
 }
 #endif
 
+// message.cpp:39
 #if defined(ARROW_R_WITH_ARROW)
 int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message);
 SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___Message__Verify( message)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	return Rcpp::wrap(ipc___Message__Verify(message));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___Message__Verify(). ");
 }
 #endif
 
+// message.cpp:44
 #if defined(ARROW_R_WITH_ARROW)
 arrow::ipc::Message::Type ipc___Message__type(const std::unique_ptr<arrow::ipc::Message>& message);
 SEXP _arrow_ipc___Message__type(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___Message__type( message)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	return Rcpp::wrap(ipc___Message__type(message));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___Message__type(SEXP message_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___Message__type(). ");
 }
 #endif
 
+// message.cpp:50
 #if defined(ARROW_R_WITH_ARROW)
 bool ipc___Message__Equals(const std::unique_ptr<arrow::ipc::Message>& x, const std::unique_ptr<arrow::ipc::Message>& y);
 SEXP _arrow_ipc___Message__Equals(SEXP x_sexp, SEXP y_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type x(x_sexp);
-Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type y(y_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___Message__Equals( x, y)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type y(y_sexp);
+	return Rcpp::wrap(ipc___Message__Equals(x, y));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___Message__Equals(SEXP x_sexp, SEXP y_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___Message__Equals(). ");
 }
 #endif
 
+// message.cpp:56
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(const std::unique_ptr<arrow::ipc::Message>& message, const std::shared_ptr<arrow::Schema>& schema);
 SEXP _arrow_ipc___ReadRecordBatch__Message__Schema(SEXP message_sexp, SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___ReadRecordBatch__Message__Schema( message, schema)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(ipc___ReadRecordBatch__Message__Schema(message, schema));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___ReadRecordBatch__Message__Schema(SEXP message_sexp, SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___ReadRecordBatch__Message__Schema(). ");
 }
 #endif
 
+// message.cpp:68
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(const std::shared_ptr<arrow::io::InputStream>& stream);
 SEXP _arrow_ipc___ReadSchema_InputStream(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___ReadSchema_InputStream( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(ipc___ReadSchema_InputStream(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___ReadSchema_InputStream(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___ReadSchema_InputStream(). ");
 }
 #endif
 
+// message.cpp:80
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___MessageReader__Open( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(ipc___MessageReader__Open(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___MessageReader__Open(). ");
 }
 #endif
 
+// message.cpp:86
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(const std::unique_ptr<arrow::ipc::MessageReader>& reader);
 SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::MessageReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___MessageReader__ReadNextMessage( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::MessageReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___MessageReader__ReadNextMessage(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___MessageReader__ReadNextMessage(). ");
 }
 #endif
 
+// message.cpp:94
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream);
 SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___ReadMessage( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(ipc___ReadMessage(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___ReadMessage(). ");
 }
 #endif
 
+// parquet.cpp:29
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> read_parquet_file(std::string filename);
 SEXP _arrow_read_parquet_file(SEXP filename_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<std::string>::type filename(filename_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(read_parquet_file( filename)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<std::string>::type filename(filename_sexp);
+	return Rcpp::wrap(read_parquet_file(filename));
+END_RCPP
 }
 #else
 SEXP _arrow_read_parquet_file(SEXP filename_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call read_parquet_file(). ");
 }
 #endif
 
+// recordbatch.cpp:26
 #if defined(ARROW_R_WITH_ARROW)
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
 SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__num_columns( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	return Rcpp::wrap(RecordBatch__num_columns(x));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__num_columns(). ");
 }
 #endif
 
+// recordbatch.cpp:31
 #if defined(ARROW_R_WITH_ARROW)
 int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
 SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__num_rows( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	return Rcpp::wrap(RecordBatch__num_rows(x));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__num_rows(). ");
 }
 #endif
 
+// recordbatch.cpp:36
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> RecordBatch__schema(const std::shared_ptr<arrow::RecordBatch>& x);
 SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__schema( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	return Rcpp::wrap(RecordBatch__schema(x));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__schema(). ");
 }
 #endif
 
+// recordbatch.cpp:42
 #if defined(ARROW_R_WITH_ARROW)
 arrow::ArrayVector RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch);
 SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__columns( batch)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	return Rcpp::wrap(RecordBatch__columns(batch));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__columns(). ");
 }
 #endif
 
+// recordbatch.cpp:53
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> RecordBatch__column(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
 SEXP _arrow_RecordBatch__column(SEXP batch_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__column( batch, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(RecordBatch__column(batch, i));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__column(SEXP batch_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__column(). ");
 }
 #endif
 
+// recordbatch.cpp:59
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
 SEXP _arrow_RecordBatch__from_dataframe(SEXP tbl_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<Rcpp::DataFrame>::type tbl(tbl_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__from_dataframe( tbl)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<Rcpp::DataFrame>::type tbl(tbl_sexp);
+	return Rcpp::wrap(RecordBatch__from_dataframe(tbl));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__from_dataframe(SEXP tbl_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__from_dataframe(). ");
 }
 #endif
 
+// recordbatch.cpp:77
 #if defined(ARROW_R_WITH_ARROW)
 bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self, const std::shared_ptr<arrow::RecordBatch>& other);
 SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type other(other_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__Equals( self, other)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type other(other_sexp);
+	return Rcpp::wrap(RecordBatch__Equals(self, other));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__Equals(). ");
 }
 #endif
 
+// recordbatch.cpp:83
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
 SEXP _arrow_RecordBatch__RemoveColumn(SEXP batch_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__RemoveColumn( batch, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(RecordBatch__RemoveColumn(batch, i));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__RemoveColumn(SEXP batch_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__RemoveColumn(). ");
 }
 #endif
 
+// recordbatch.cpp:91
 #if defined(ARROW_R_WITH_ARROW)
 std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
 SEXP _arrow_RecordBatch__column_name(SEXP batch_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__column_name( batch, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(RecordBatch__column_name(batch, i));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__column_name(SEXP batch_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__column_name(). ");
 }
 #endif
 
+// recordbatch.cpp:97
 #if defined(ARROW_R_WITH_ARROW)
 Rcpp::CharacterVector RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& batch);
 SEXP _arrow_RecordBatch__names(SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__names( batch)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	return Rcpp::wrap(RecordBatch__names(batch));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__names(SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__names(). ");
 }
 #endif
 
+// recordbatch.cpp:108
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(const std::shared_ptr<arrow::RecordBatch>& self, int offset);
 SEXP _arrow_RecordBatch__Slice1(SEXP self_sexp, SEXP offset_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
-Rcpp::traits::input_parameter<int>::type offset(offset_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__Slice1( self, offset)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
+	Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
+	return Rcpp::wrap(RecordBatch__Slice1(self, offset));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__Slice1(SEXP self_sexp, SEXP offset_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__Slice1(). ");
 }
 #endif
 
+// recordbatch.cpp:114
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(const std::shared_ptr<arrow::RecordBatch>& self, int offset, int length);
 SEXP _arrow_RecordBatch__Slice2(SEXP self_sexp, SEXP offset_sexp, SEXP length_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
-Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
-Rcpp::traits::input_parameter<int>::type length(length_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__Slice2( self, offset, length)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
+	Rcpp::traits::input_parameter<int>::type offset(offset_sexp);
+	Rcpp::traits::input_parameter<int>::type length(length_sexp);
+	return Rcpp::wrap(RecordBatch__Slice2(self, offset, length));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__Slice2(SEXP self_sexp, SEXP offset_sexp, SEXP length_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__Slice2(). ");
 }
 #endif
 
+// recordbatch.cpp:120
 #if defined(ARROW_R_WITH_ARROW)
 Rcpp::RawVector ipc___SerializeRecordBatch__Raw(const std::shared_ptr<arrow::RecordBatch>& batch);
 SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___SerializeRecordBatch__Raw( batch)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	return Rcpp::wrap(ipc___SerializeRecordBatch__Raw(batch));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___SerializeRecordBatch__Raw(). ");
 }
 #endif
 
+// recordbatch.cpp:140
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(const std::shared_ptr<arrow::io::InputStream>& stream, const std::shared_ptr<arrow::Schema>& schema);
 SEXP _arrow_ipc___ReadRecordBatch__InputStream__Schema(SEXP stream_sexp, SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___ReadRecordBatch__InputStream__Schema( stream, schema)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(ipc___ReadRecordBatch__InputStream__Schema(stream, schema));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___ReadRecordBatch__InputStream__Schema(SEXP stream_sexp, SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___ReadRecordBatch__InputStream__Schema(). ");
 }
 #endif
 
+// recordbatch.cpp:189
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst);
 SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<SEXP>::type schema_sxp(schema_sxp_sexp);
-Rcpp::traits::input_parameter<SEXP>::type lst(lst_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatch__from_arrays( schema_sxp, lst)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type schema_sxp(schema_sxp_sexp);
+	Rcpp::traits::input_parameter<SEXP>::type lst(lst_sexp);
+	return Rcpp::wrap(RecordBatch__from_arrays(schema_sxp, lst));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatch__from_arrays(). ");
 }
 #endif
 
+// recordbatchreader.cpp:22
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 SEXP _arrow_RecordBatchReader__schema(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatchReader__schema( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(RecordBatchReader__schema(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatchReader__schema(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatchReader__schema(). ");
 }
 #endif
 
+// recordbatchreader.cpp:28
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(RecordBatchReader__ReadNext( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(RecordBatchReader__ReadNext(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call RecordBatchReader__ReadNext(). ");
 }
 #endif
 
+// recordbatchreader.cpp:38
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___RecordBatchStreamReader__Open( stream)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	return Rcpp::wrap(ipc___RecordBatchStreamReader__Open(stream));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchStreamReader__Open(). ");
 }
 #endif
 
+// recordbatchreader.cpp:46
 #if defined(ARROW_R_WITH_ARROW)
 std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
 SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___RecordBatchStreamReader__batches( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___RecordBatchStreamReader__batches(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchStreamReader__batches(). ");
 }
 #endif
 
+// recordbatchreader.cpp:64
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> ipc___RecordBatchFileReader__schema(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 SEXP _arrow_ipc___RecordBatchFileReader__schema(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___RecordBatchFileReader__schema( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___RecordBatchFileReader__schema(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchFileReader__schema(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__schema(). ");
 }
 #endif
 
+// recordbatchreader.cpp:70
 #if defined(ARROW_R_WITH_ARROW)
 int ipc___RecordBatchFileReader__num_record_batches(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___RecordBatchFileReader__num_record_batches( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___RecordBatchFileReader__num_record_batches(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__num_record_batches(). ");
 }
 #endif
 
+// recordbatchreader.cpp:76
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i);
 SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP reader_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___RecordBatchFileReader__ReadRecordBatch( reader, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(ipc___RecordBatchFileReader__ReadRecordBatch(reader, i));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP reader_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__ReadRecordBatch(). ");
 }
 #endif
 
+// recordbatchreader.cpp:86
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& file);
 SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___RecordBatchFileReader__Open( file)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);
+	return Rcpp::wrap(ipc___RecordBatchFileReader__Open(file));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__Open(). ");
 }
 #endif
 
+// recordbatchreader.cpp:94
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__from_RecordBatchFileReader( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(Table__from_RecordBatchFileReader(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__from_RecordBatchFileReader(). ");
 }
 #endif
 
+// recordbatchreader.cpp:109
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
 SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__from_RecordBatchStreamReader( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(Table__from_RecordBatchStreamReader(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__from_RecordBatchStreamReader(). ");
 }
 #endif
 
+// recordbatchreader.cpp:126
 #if defined(ARROW_R_WITH_ARROW)
 std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 SEXP _arrow_ipc___RecordBatchFileReader__batches(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___RecordBatchFileReader__batches( reader)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___RecordBatchFileReader__batches(reader));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchFileReader__batches(SEXP reader_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__batches(). ");
 }
 #endif
 
+// recordbatchwriter.cpp:22
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___RecordBatchWriter__WriteRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer, const std::shared_ptr<arrow::RecordBatch>& batch);
 SEXP _arrow_ipc___RecordBatchWriter__WriteRecordBatch(SEXP batch_writer_sexp, SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);ipc___RecordBatchWriter__WriteRecordBatch( batch_writer, batch);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	ipc___RecordBatchWriter__WriteRecordBatch(batch_writer, batch);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchWriter__WriteRecordBatch(SEXP batch_writer_sexp, SEXP batch_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchWriter__WriteRecordBatch(). ");
 }
 #endif
 
+// recordbatchwriter.cpp:29
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___RecordBatchWriter__WriteTable(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer, const std::shared_ptr<arrow::Table>& table);
 SEXP _arrow_ipc___RecordBatchWriter__WriteTable(SEXP batch_writer_sexp, SEXP table_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);ipc___RecordBatchWriter__WriteTable( batch_writer, table);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	ipc___RecordBatchWriter__WriteTable(batch_writer, table);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchWriter__WriteTable(SEXP batch_writer_sexp, SEXP table_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchWriter__WriteTable(). ");
 }
 #endif
 
+// recordbatchwriter.cpp:36
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___RecordBatchWriter__Close(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer);
 SEXP _arrow_ipc___RecordBatchWriter__Close(SEXP batch_writer_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);ipc___RecordBatchWriter__Close( batch_writer);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
+	ipc___RecordBatchWriter__Close(batch_writer);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchWriter__Close(SEXP batch_writer_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchWriter__Close(). ");
 }
 #endif
 
+// recordbatchwriter.cpp:42
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema);
 SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___RecordBatchFileWriter__Open( stream, schema)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(ipc___RecordBatchFileWriter__Open(stream, schema));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileWriter__Open(). ");
 }
 #endif
 
+// recordbatchwriter.cpp:52
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema);
 SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
-Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(ipc___RecordBatchStreamWriter__Open( stream, schema)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(ipc___RecordBatchStreamWriter__Open(stream, schema));
+END_RCPP
 }
 #else
 SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEXP schema_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchStreamWriter__Open(). ");
 }
 #endif
 
+// table.cpp:27
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl);
 SEXP _arrow_Table__from_dataframe(SEXP tbl_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<DataFrame>::type tbl(tbl_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__from_dataframe( tbl)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<DataFrame>::type tbl(tbl_sexp);
+	return Rcpp::wrap(Table__from_dataframe(tbl));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__from_dataframe(SEXP tbl_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__from_dataframe(). ");
 }
 #endif
 
+// table.cpp:36
 #if defined(ARROW_R_WITH_ARROW)
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x);
 SEXP _arrow_Table__num_columns(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__num_columns( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
+	return Rcpp::wrap(Table__num_columns(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__num_columns(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__num_columns(). ");
 }
 #endif
 
+// table.cpp:41
 #if defined(ARROW_R_WITH_ARROW)
 int Table__num_rows(const std::shared_ptr<arrow::Table>& x);
 SEXP _arrow_Table__num_rows(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__num_rows( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
+	return Rcpp::wrap(Table__num_rows(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__num_rows(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__num_rows(). ");
 }
 #endif
 
+// table.cpp:44
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>& x);
 SEXP _arrow_Table__schema(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__schema( x)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
+	return Rcpp::wrap(Table__schema(x));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__schema(SEXP x_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__schema(). ");
 }
 #endif
 
+// table.cpp:49
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
 SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-Rcpp::traits::input_parameter<int>::type i(i_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__column( table, i)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(Table__column(table, i));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__column(). ");
 }
 #endif
 
+// table.cpp:55
 #if defined(ARROW_R_WITH_ARROW)
 std::vector<std::shared_ptr<arrow::Column>> Table__columns(const std::shared_ptr<arrow::Table>& table);
 SEXP _arrow_Table__columns(SEXP table_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__columns( table)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	return Rcpp::wrap(Table__columns(table));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__columns(SEXP table_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__columns(). ");
 }
 #endif
 
+// table.cpp:74
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp);
 SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<SEXP>::type lst(lst_sexp);
-Rcpp::traits::input_parameter<SEXP>::type schema_sxp(schema_sxp_sexp);Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(Table__from_dots( lst, schema_sxp)));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<SEXP>::type lst(lst_sexp);
+	Rcpp::traits::input_parameter<SEXP>::type schema_sxp(schema_sxp_sexp);
+	return Rcpp::wrap(Table__from_dots(lst, schema_sxp));
+END_RCPP
 }
 #else
 SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call Table__from_dots(). ");
 }
 #endif
 
+// threadpool.cpp:42
 #if defined(ARROW_R_WITH_ARROW)
 int GetCpuThreadPoolCapacity();
 SEXP _arrow_GetCpuThreadPoolCapacity(){
-  BEGIN_RCPP
-  Rcpp::Shield<SEXP> rcpp_result_gen(Rcpp::wrap(GetCpuThreadPoolCapacity( )));
-return rcpp_result_gen;
-  END_RCPP
+BEGIN_RCPP
+	return Rcpp::wrap(GetCpuThreadPoolCapacity());
+END_RCPP
 }
 #else
 SEXP _arrow_GetCpuThreadPoolCapacity(){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call GetCpuThreadPoolCapacity(). ");
 }
 #endif
 
+// threadpool.cpp:47
 #if defined(ARROW_R_WITH_ARROW)
 void SetCpuThreadPoolCapacity(int threads);
 SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
-  BEGIN_RCPP
-  Rcpp::traits::input_parameter<int>::type threads(threads_sexp);SetCpuThreadPoolCapacity( threads);
-return R_NilValue;
-  END_RCPP
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<int>::type threads(threads_sexp);
+	SetCpuThreadPoolCapacity(threads);
+	return R_NilValue;
+END_RCPP
 }
 #else
 SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
-  BEGIN_RCPP
-  Rcpp::stop("arrow C++ library not available");
-  END_RCPP
+	Rf_error("arrow C++ library not available. Cannot call SetCpuThreadPoolCapacity(). ");
 }
 #endif
 
@@ -3421,214 +3210,214 @@ return Rf_ScalarLogical(
 
 static const R_CallMethodDef arrow_CallEntries[] = {
 		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-		{ "_arrow_Array__Slice1", (DL_FUNC)& _arrow_Array__Slice1, 2 }, 
-		{ "_arrow_Array__Slice2", (DL_FUNC)& _arrow_Array__Slice2, 3 }, 
-		{ "_arrow_Array__IsNull", (DL_FUNC)& _arrow_Array__IsNull, 2 }, 
-		{ "_arrow_Array__IsValid", (DL_FUNC)& _arrow_Array__IsValid, 2 }, 
-		{ "_arrow_Array__length", (DL_FUNC)& _arrow_Array__length, 1 }, 
-		{ "_arrow_Array__offset", (DL_FUNC)& _arrow_Array__offset, 1 }, 
-		{ "_arrow_Array__null_count", (DL_FUNC)& _arrow_Array__null_count, 1 }, 
-		{ "_arrow_Array__type", (DL_FUNC)& _arrow_Array__type, 1 }, 
-		{ "_arrow_Array__ToString", (DL_FUNC)& _arrow_Array__ToString, 1 }, 
-		{ "_arrow_Array__type_id", (DL_FUNC)& _arrow_Array__type_id, 1 }, 
-		{ "_arrow_Array__Equals", (DL_FUNC)& _arrow_Array__Equals, 2 }, 
-		{ "_arrow_Array__ApproxEquals", (DL_FUNC)& _arrow_Array__ApproxEquals, 2 }, 
-		{ "_arrow_Array__data", (DL_FUNC)& _arrow_Array__data, 1 }, 
-		{ "_arrow_Array__RangeEquals", (DL_FUNC)& _arrow_Array__RangeEquals, 5 }, 
-		{ "_arrow_Array__Mask", (DL_FUNC)& _arrow_Array__Mask, 1 }, 
-		{ "_arrow_DictionaryArray__indices", (DL_FUNC)& _arrow_DictionaryArray__indices, 1 }, 
-		{ "_arrow_DictionaryArray__dictionary", (DL_FUNC)& _arrow_DictionaryArray__dictionary, 1 }, 
-		{ "_arrow_Array__as_vector", (DL_FUNC)& _arrow_Array__as_vector, 1 }, 
-		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC)& _arrow_ChunkedArray__as_vector, 1 }, 
-		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC)& _arrow_RecordBatch__to_dataframe, 2 }, 
-		{ "_arrow_Table__to_dataframe", (DL_FUNC)& _arrow_Table__to_dataframe, 2 }, 
-		{ "_arrow_Array__infer_type", (DL_FUNC)& _arrow_Array__infer_type, 1 }, 
-		{ "_arrow_Array__from_vector", (DL_FUNC)& _arrow_Array__from_vector, 2 }, 
-		{ "_arrow_ChunkedArray__from_list", (DL_FUNC)& _arrow_ChunkedArray__from_list, 2 }, 
-		{ "_arrow_ArrayData__get_type", (DL_FUNC)& _arrow_ArrayData__get_type, 1 }, 
-		{ "_arrow_ArrayData__get_length", (DL_FUNC)& _arrow_ArrayData__get_length, 1 }, 
-		{ "_arrow_ArrayData__get_null_count", (DL_FUNC)& _arrow_ArrayData__get_null_count, 1 }, 
-		{ "_arrow_ArrayData__get_offset", (DL_FUNC)& _arrow_ArrayData__get_offset, 1 }, 
-		{ "_arrow_ArrayData__buffers", (DL_FUNC)& _arrow_ArrayData__buffers, 1 }, 
-		{ "_arrow_Buffer__is_mutable", (DL_FUNC)& _arrow_Buffer__is_mutable, 1 }, 
-		{ "_arrow_Buffer__ZeroPadding", (DL_FUNC)& _arrow_Buffer__ZeroPadding, 1 }, 
-		{ "_arrow_Buffer__capacity", (DL_FUNC)& _arrow_Buffer__capacity, 1 }, 
-		{ "_arrow_Buffer__size", (DL_FUNC)& _arrow_Buffer__size, 1 }, 
-		{ "_arrow_r___RBuffer__initialize", (DL_FUNC)& _arrow_r___RBuffer__initialize, 1 }, 
-		{ "_arrow_ChunkedArray__length", (DL_FUNC)& _arrow_ChunkedArray__length, 1 }, 
-		{ "_arrow_ChunkedArray__null_count", (DL_FUNC)& _arrow_ChunkedArray__null_count, 1 }, 
-		{ "_arrow_ChunkedArray__num_chunks", (DL_FUNC)& _arrow_ChunkedArray__num_chunks, 1 }, 
-		{ "_arrow_ChunkedArray__chunk", (DL_FUNC)& _arrow_ChunkedArray__chunk, 2 }, 
-		{ "_arrow_ChunkedArray__chunks", (DL_FUNC)& _arrow_ChunkedArray__chunks, 1 }, 
-		{ "_arrow_ChunkedArray__type", (DL_FUNC)& _arrow_ChunkedArray__type, 1 }, 
-		{ "_arrow_ChunkArray__Slice1", (DL_FUNC)& _arrow_ChunkArray__Slice1, 2 }, 
-		{ "_arrow_ChunkArray__Slice2", (DL_FUNC)& _arrow_ChunkArray__Slice2, 3 }, 
-		{ "_arrow_Column__length", (DL_FUNC)& _arrow_Column__length, 1 }, 
-		{ "_arrow_Column__null_count", (DL_FUNC)& _arrow_Column__null_count, 1 }, 
-		{ "_arrow_Column__type", (DL_FUNC)& _arrow_Column__type, 1 }, 
-		{ "_arrow_Column__data", (DL_FUNC)& _arrow_Column__data, 1 }, 
-		{ "_arrow_util___Codec__Create", (DL_FUNC)& _arrow_util___Codec__Create, 1 }, 
-		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC)& _arrow_io___CompressedOutputStream__Make, 2 }, 
-		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC)& _arrow_io___CompressedInputStream__Make, 2 }, 
-		{ "_arrow_compute___CastOptions__initialize", (DL_FUNC)& _arrow_compute___CastOptions__initialize, 3 }, 
-		{ "_arrow_Array__cast", (DL_FUNC)& _arrow_Array__cast, 3 }, 
-		{ "_arrow_ChunkedArray__cast", (DL_FUNC)& _arrow_ChunkedArray__cast, 3 }, 
-		{ "_arrow_RecordBatch__cast", (DL_FUNC)& _arrow_RecordBatch__cast, 3 }, 
-		{ "_arrow_Table__cast", (DL_FUNC)& _arrow_Table__cast, 3 }, 
-		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC)& _arrow_csv___ReadOptions__initialize, 1 }, 
-		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC)& _arrow_csv___ParseOptions__initialize, 1 }, 
-		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC)& _arrow_csv___ConvertOptions__initialize, 1 }, 
-		{ "_arrow_csv___TableReader__Make", (DL_FUNC)& _arrow_csv___TableReader__Make, 4 }, 
-		{ "_arrow_csv___TableReader__Read", (DL_FUNC)& _arrow_csv___TableReader__Read, 1 }, 
-		{ "_arrow_shared_ptr_is_null", (DL_FUNC)& _arrow_shared_ptr_is_null, 1 }, 
-		{ "_arrow_unique_ptr_is_null", (DL_FUNC)& _arrow_unique_ptr_is_null, 1 }, 
-		{ "_arrow_Int8__initialize", (DL_FUNC)& _arrow_Int8__initialize, 0 }, 
-		{ "_arrow_Int16__initialize", (DL_FUNC)& _arrow_Int16__initialize, 0 }, 
-		{ "_arrow_Int32__initialize", (DL_FUNC)& _arrow_Int32__initialize, 0 }, 
-		{ "_arrow_Int64__initialize", (DL_FUNC)& _arrow_Int64__initialize, 0 }, 
-		{ "_arrow_UInt8__initialize", (DL_FUNC)& _arrow_UInt8__initialize, 0 }, 
-		{ "_arrow_UInt16__initialize", (DL_FUNC)& _arrow_UInt16__initialize, 0 }, 
-		{ "_arrow_UInt32__initialize", (DL_FUNC)& _arrow_UInt32__initialize, 0 }, 
-		{ "_arrow_UInt64__initialize", (DL_FUNC)& _arrow_UInt64__initialize, 0 }, 
-		{ "_arrow_Float16__initialize", (DL_FUNC)& _arrow_Float16__initialize, 0 }, 
-		{ "_arrow_Float32__initialize", (DL_FUNC)& _arrow_Float32__initialize, 0 }, 
-		{ "_arrow_Float64__initialize", (DL_FUNC)& _arrow_Float64__initialize, 0 }, 
-		{ "_arrow_Boolean__initialize", (DL_FUNC)& _arrow_Boolean__initialize, 0 }, 
-		{ "_arrow_Utf8__initialize", (DL_FUNC)& _arrow_Utf8__initialize, 0 }, 
-		{ "_arrow_Date32__initialize", (DL_FUNC)& _arrow_Date32__initialize, 0 }, 
-		{ "_arrow_Date64__initialize", (DL_FUNC)& _arrow_Date64__initialize, 0 }, 
-		{ "_arrow_Null__initialize", (DL_FUNC)& _arrow_Null__initialize, 0 }, 
-		{ "_arrow_Decimal128Type__initialize", (DL_FUNC)& _arrow_Decimal128Type__initialize, 2 }, 
-		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC)& _arrow_FixedSizeBinary__initialize, 1 }, 
-		{ "_arrow_Timestamp__initialize1", (DL_FUNC)& _arrow_Timestamp__initialize1, 1 }, 
-		{ "_arrow_Timestamp__initialize2", (DL_FUNC)& _arrow_Timestamp__initialize2, 2 }, 
-		{ "_arrow_Time32__initialize", (DL_FUNC)& _arrow_Time32__initialize, 1 }, 
-		{ "_arrow_Time64__initialize", (DL_FUNC)& _arrow_Time64__initialize, 1 }, 
-		{ "_arrow_list__", (DL_FUNC)& _arrow_list__, 1 }, 
-		{ "_arrow_struct_", (DL_FUNC)& _arrow_struct_, 1 }, 
-		{ "_arrow_DataType__ToString", (DL_FUNC)& _arrow_DataType__ToString, 1 }, 
-		{ "_arrow_DataType__name", (DL_FUNC)& _arrow_DataType__name, 1 }, 
-		{ "_arrow_DataType__Equals", (DL_FUNC)& _arrow_DataType__Equals, 2 }, 
-		{ "_arrow_DataType__num_children", (DL_FUNC)& _arrow_DataType__num_children, 1 }, 
-		{ "_arrow_DataType__children_pointer", (DL_FUNC)& _arrow_DataType__children_pointer, 1 }, 
-		{ "_arrow_DataType__id", (DL_FUNC)& _arrow_DataType__id, 1 }, 
-		{ "_arrow_schema_", (DL_FUNC)& _arrow_schema_, 1 }, 
-		{ "_arrow_Schema__ToString", (DL_FUNC)& _arrow_Schema__ToString, 1 }, 
-		{ "_arrow_Schema__num_fields", (DL_FUNC)& _arrow_Schema__num_fields, 1 }, 
-		{ "_arrow_Schema__field", (DL_FUNC)& _arrow_Schema__field, 2 }, 
-		{ "_arrow_Schema__names", (DL_FUNC)& _arrow_Schema__names, 1 }, 
-		{ "_arrow_ListType__ToString", (DL_FUNC)& _arrow_ListType__ToString, 1 }, 
-		{ "_arrow_FixedWidthType__bit_width", (DL_FUNC)& _arrow_FixedWidthType__bit_width, 1 }, 
-		{ "_arrow_DateType__unit", (DL_FUNC)& _arrow_DateType__unit, 1 }, 
-		{ "_arrow_TimeType__unit", (DL_FUNC)& _arrow_TimeType__unit, 1 }, 
-		{ "_arrow_DecimalType__precision", (DL_FUNC)& _arrow_DecimalType__precision, 1 }, 
-		{ "_arrow_DecimalType__scale", (DL_FUNC)& _arrow_DecimalType__scale, 1 }, 
-		{ "_arrow_TimestampType__timezone", (DL_FUNC)& _arrow_TimestampType__timezone, 1 }, 
-		{ "_arrow_TimestampType__unit", (DL_FUNC)& _arrow_TimestampType__unit, 1 }, 
-		{ "_arrow_DictionaryType__initialize", (DL_FUNC)& _arrow_DictionaryType__initialize, 3 }, 
-		{ "_arrow_DictionaryType__index_type", (DL_FUNC)& _arrow_DictionaryType__index_type, 1 }, 
-		{ "_arrow_DictionaryType__value_type", (DL_FUNC)& _arrow_DictionaryType__value_type, 1 }, 
-		{ "_arrow_DictionaryType__name", (DL_FUNC)& _arrow_DictionaryType__name, 1 }, 
-		{ "_arrow_DictionaryType__ordered", (DL_FUNC)& _arrow_DictionaryType__ordered, 1 }, 
-		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC)& _arrow_ipc___feather___TableWriter__SetDescription, 2 }, 
-		{ "_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC)& _arrow_ipc___feather___TableWriter__SetNumRows, 2 }, 
-		{ "_arrow_ipc___feather___TableWriter__Append", (DL_FUNC)& _arrow_ipc___feather___TableWriter__Append, 3 }, 
-		{ "_arrow_ipc___feather___TableWriter__Finalize", (DL_FUNC)& _arrow_ipc___feather___TableWriter__Finalize, 1 }, 
-		{ "_arrow_ipc___feather___TableWriter__Open", (DL_FUNC)& _arrow_ipc___feather___TableWriter__Open, 1 }, 
-		{ "_arrow_ipc___TableWriter__RecordBatch__WriteFeather", (DL_FUNC)& _arrow_ipc___TableWriter__RecordBatch__WriteFeather, 2 }, 
-		{ "_arrow_ipc___feather___TableReader__GetDescription", (DL_FUNC)& _arrow_ipc___feather___TableReader__GetDescription, 1 }, 
-		{ "_arrow_ipc___feather___TableReader__HasDescription", (DL_FUNC)& _arrow_ipc___feather___TableReader__HasDescription, 1 }, 
-		{ "_arrow_ipc___feather___TableReader__version", (DL_FUNC)& _arrow_ipc___feather___TableReader__version, 1 }, 
-		{ "_arrow_ipc___feather___TableReader__num_rows", (DL_FUNC)& _arrow_ipc___feather___TableReader__num_rows, 1 }, 
-		{ "_arrow_ipc___feather___TableReader__num_columns", (DL_FUNC)& _arrow_ipc___feather___TableReader__num_columns, 1 }, 
-		{ "_arrow_ipc___feather___TableReader__GetColumnName", (DL_FUNC)& _arrow_ipc___feather___TableReader__GetColumnName, 2 }, 
-		{ "_arrow_ipc___feather___TableReader__GetColumn", (DL_FUNC)& _arrow_ipc___feather___TableReader__GetColumn, 2 }, 
-		{ "_arrow_ipc___feather___TableReader__Read", (DL_FUNC)& _arrow_ipc___feather___TableReader__Read, 2 }, 
-		{ "_arrow_ipc___feather___TableReader__Open", (DL_FUNC)& _arrow_ipc___feather___TableReader__Open, 1 }, 
-		{ "_arrow_Field__initialize", (DL_FUNC)& _arrow_Field__initialize, 3 }, 
-		{ "_arrow_Field__ToString", (DL_FUNC)& _arrow_Field__ToString, 1 }, 
-		{ "_arrow_Field__name", (DL_FUNC)& _arrow_Field__name, 1 }, 
-		{ "_arrow_Field__Equals", (DL_FUNC)& _arrow_Field__Equals, 2 }, 
-		{ "_arrow_Field__nullable", (DL_FUNC)& _arrow_Field__nullable, 1 }, 
-		{ "_arrow_Field__type", (DL_FUNC)& _arrow_Field__type, 1 }, 
-		{ "_arrow_io___Readable__Read", (DL_FUNC)& _arrow_io___Readable__Read, 2 }, 
-		{ "_arrow_io___InputStream__Close", (DL_FUNC)& _arrow_io___InputStream__Close, 1 }, 
-		{ "_arrow_io___OutputStream__Close", (DL_FUNC)& _arrow_io___OutputStream__Close, 1 }, 
-		{ "_arrow_io___RandomAccessFile__GetSize", (DL_FUNC)& _arrow_io___RandomAccessFile__GetSize, 1 }, 
-		{ "_arrow_io___RandomAccessFile__supports_zero_copy", (DL_FUNC)& _arrow_io___RandomAccessFile__supports_zero_copy, 1 }, 
-		{ "_arrow_io___RandomAccessFile__Seek", (DL_FUNC)& _arrow_io___RandomAccessFile__Seek, 2 }, 
-		{ "_arrow_io___RandomAccessFile__Tell", (DL_FUNC)& _arrow_io___RandomAccessFile__Tell, 1 }, 
-		{ "_arrow_io___MemoryMappedFile__Create", (DL_FUNC)& _arrow_io___MemoryMappedFile__Create, 2 }, 
-		{ "_arrow_io___MemoryMappedFile__Open", (DL_FUNC)& _arrow_io___MemoryMappedFile__Open, 2 }, 
-		{ "_arrow_io___MemoryMappedFile__Resize", (DL_FUNC)& _arrow_io___MemoryMappedFile__Resize, 2 }, 
-		{ "_arrow_io___ReadableFile__Open", (DL_FUNC)& _arrow_io___ReadableFile__Open, 1 }, 
-		{ "_arrow_io___BufferReader__initialize", (DL_FUNC)& _arrow_io___BufferReader__initialize, 1 }, 
-		{ "_arrow_io___Writable__write", (DL_FUNC)& _arrow_io___Writable__write, 2 }, 
-		{ "_arrow_io___OutputStream__Tell", (DL_FUNC)& _arrow_io___OutputStream__Tell, 1 }, 
-		{ "_arrow_io___FileOutputStream__Open", (DL_FUNC)& _arrow_io___FileOutputStream__Open, 1 }, 
-		{ "_arrow_io___BufferOutputStream__Create", (DL_FUNC)& _arrow_io___BufferOutputStream__Create, 1 }, 
-		{ "_arrow_io___BufferOutputStream__capacity", (DL_FUNC)& _arrow_io___BufferOutputStream__capacity, 1 }, 
-		{ "_arrow_io___BufferOutputStream__Finish", (DL_FUNC)& _arrow_io___BufferOutputStream__Finish, 1 }, 
-		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC)& _arrow_io___BufferOutputStream__Tell, 1 }, 
-		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC)& _arrow_io___BufferOutputStream__Write, 2 }, 
-		{ "_arrow_io___MockOutputStream__initialize", (DL_FUNC)& _arrow_io___MockOutputStream__initialize, 0 }, 
-		{ "_arrow_io___MockOutputStream__GetExtentBytesWritten", (DL_FUNC)& _arrow_io___MockOutputStream__GetExtentBytesWritten, 1 }, 
-		{ "_arrow_io___FixedSizeBufferWriter__initialize", (DL_FUNC)& _arrow_io___FixedSizeBufferWriter__initialize, 1 }, 
-		{ "_arrow_MemoryPool__default", (DL_FUNC)& _arrow_MemoryPool__default, 0 }, 
-		{ "_arrow_MemoryPool__bytes_allocated", (DL_FUNC)& _arrow_MemoryPool__bytes_allocated, 1 }, 
-		{ "_arrow_MemoryPool__max_memory", (DL_FUNC)& _arrow_MemoryPool__max_memory, 1 }, 
-		{ "_arrow_ipc___Message__body_length", (DL_FUNC)& _arrow_ipc___Message__body_length, 1 }, 
-		{ "_arrow_ipc___Message__metadata", (DL_FUNC)& _arrow_ipc___Message__metadata, 1 }, 
-		{ "_arrow_ipc___Message__body", (DL_FUNC)& _arrow_ipc___Message__body, 1 }, 
-		{ "_arrow_ipc___Message__Verify", (DL_FUNC)& _arrow_ipc___Message__Verify, 1 }, 
-		{ "_arrow_ipc___Message__type", (DL_FUNC)& _arrow_ipc___Message__type, 1 }, 
-		{ "_arrow_ipc___Message__Equals", (DL_FUNC)& _arrow_ipc___Message__Equals, 2 }, 
-		{ "_arrow_ipc___ReadRecordBatch__Message__Schema", (DL_FUNC)& _arrow_ipc___ReadRecordBatch__Message__Schema, 2 }, 
-		{ "_arrow_ipc___ReadSchema_InputStream", (DL_FUNC)& _arrow_ipc___ReadSchema_InputStream, 1 }, 
-		{ "_arrow_ipc___MessageReader__Open", (DL_FUNC)& _arrow_ipc___MessageReader__Open, 1 }, 
-		{ "_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC)& _arrow_ipc___MessageReader__ReadNextMessage, 1 }, 
-		{ "_arrow_ipc___ReadMessage", (DL_FUNC)& _arrow_ipc___ReadMessage, 1 }, 
-		{ "_arrow_read_parquet_file", (DL_FUNC)& _arrow_read_parquet_file, 1 }, 
-		{ "_arrow_RecordBatch__num_columns", (DL_FUNC)& _arrow_RecordBatch__num_columns, 1 }, 
-		{ "_arrow_RecordBatch__num_rows", (DL_FUNC)& _arrow_RecordBatch__num_rows, 1 }, 
-		{ "_arrow_RecordBatch__schema", (DL_FUNC)& _arrow_RecordBatch__schema, 1 }, 
-		{ "_arrow_RecordBatch__columns", (DL_FUNC)& _arrow_RecordBatch__columns, 1 }, 
-		{ "_arrow_RecordBatch__column", (DL_FUNC)& _arrow_RecordBatch__column, 2 }, 
-		{ "_arrow_RecordBatch__from_dataframe", (DL_FUNC)& _arrow_RecordBatch__from_dataframe, 1 }, 
-		{ "_arrow_RecordBatch__Equals", (DL_FUNC)& _arrow_RecordBatch__Equals, 2 }, 
-		{ "_arrow_RecordBatch__RemoveColumn", (DL_FUNC)& _arrow_RecordBatch__RemoveColumn, 2 }, 
-		{ "_arrow_RecordBatch__column_name", (DL_FUNC)& _arrow_RecordBatch__column_name, 2 }, 
-		{ "_arrow_RecordBatch__names", (DL_FUNC)& _arrow_RecordBatch__names, 1 }, 
-		{ "_arrow_RecordBatch__Slice1", (DL_FUNC)& _arrow_RecordBatch__Slice1, 2 }, 
-		{ "_arrow_RecordBatch__Slice2", (DL_FUNC)& _arrow_RecordBatch__Slice2, 3 }, 
-		{ "_arrow_ipc___SerializeRecordBatch__Raw", (DL_FUNC)& _arrow_ipc___SerializeRecordBatch__Raw, 1 }, 
-		{ "_arrow_ipc___ReadRecordBatch__InputStream__Schema", (DL_FUNC)& _arrow_ipc___ReadRecordBatch__InputStream__Schema, 2 }, 
-		{ "_arrow_RecordBatch__from_arrays", (DL_FUNC)& _arrow_RecordBatch__from_arrays, 2 }, 
-		{ "_arrow_RecordBatchReader__schema", (DL_FUNC)& _arrow_RecordBatchReader__schema, 1 }, 
-		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC)& _arrow_RecordBatchReader__ReadNext, 1 }, 
-		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC)& _arrow_ipc___RecordBatchStreamReader__Open, 1 }, 
-		{ "_arrow_ipc___RecordBatchStreamReader__batches", (DL_FUNC)& _arrow_ipc___RecordBatchStreamReader__batches, 1 }, 
-		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__schema, 1 }, 
-		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__num_record_batches, 1 }, 
-		{ "_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2 }, 
-		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__Open, 1 }, 
-		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC)& _arrow_Table__from_RecordBatchFileReader, 1 }, 
-		{ "_arrow_Table__from_RecordBatchStreamReader", (DL_FUNC)& _arrow_Table__from_RecordBatchStreamReader, 1 }, 
-		{ "_arrow_ipc___RecordBatchFileReader__batches", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__batches, 1 }, 
-		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC)& _arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2 }, 
-		{ "_arrow_ipc___RecordBatchWriter__WriteTable", (DL_FUNC)& _arrow_ipc___RecordBatchWriter__WriteTable, 2 }, 
-		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC)& _arrow_ipc___RecordBatchWriter__Close, 1 }, 
-		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC)& _arrow_ipc___RecordBatchFileWriter__Open, 2 }, 
-		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC)& _arrow_ipc___RecordBatchStreamWriter__Open, 2 }, 
-		{ "_arrow_Table__from_dataframe", (DL_FUNC)& _arrow_Table__from_dataframe, 1 }, 
-		{ "_arrow_Table__num_columns", (DL_FUNC)& _arrow_Table__num_columns, 1 }, 
-		{ "_arrow_Table__num_rows", (DL_FUNC)& _arrow_Table__num_rows, 1 }, 
-		{ "_arrow_Table__schema", (DL_FUNC)& _arrow_Table__schema, 1 }, 
-		{ "_arrow_Table__column", (DL_FUNC)& _arrow_Table__column, 2 }, 
-		{ "_arrow_Table__columns", (DL_FUNC)& _arrow_Table__columns, 1 }, 
-		{ "_arrow_Table__from_dots", (DL_FUNC)& _arrow_Table__from_dots, 2 }, 
-		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC)& _arrow_GetCpuThreadPoolCapacity, 0 }, 
-		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC)& _arrow_SetCpuThreadPoolCapacity, 1 }, 
+		{ "_arrow_Array__Slice1", (DL_FUNC)& _arrow_Array__Slice1, 2}, 
+		{ "_arrow_Array__Slice2", (DL_FUNC)& _arrow_Array__Slice2, 3}, 
+		{ "_arrow_Array__IsNull", (DL_FUNC)& _arrow_Array__IsNull, 2}, 
+		{ "_arrow_Array__IsValid", (DL_FUNC)& _arrow_Array__IsValid, 2}, 
+		{ "_arrow_Array__length", (DL_FUNC)& _arrow_Array__length, 1}, 
+		{ "_arrow_Array__offset", (DL_FUNC)& _arrow_Array__offset, 1}, 
+		{ "_arrow_Array__null_count", (DL_FUNC)& _arrow_Array__null_count, 1}, 
+		{ "_arrow_Array__type", (DL_FUNC)& _arrow_Array__type, 1}, 
+		{ "_arrow_Array__ToString", (DL_FUNC)& _arrow_Array__ToString, 1}, 
+		{ "_arrow_Array__type_id", (DL_FUNC)& _arrow_Array__type_id, 1}, 
+		{ "_arrow_Array__Equals", (DL_FUNC)& _arrow_Array__Equals, 2}, 
+		{ "_arrow_Array__ApproxEquals", (DL_FUNC)& _arrow_Array__ApproxEquals, 2}, 
+		{ "_arrow_Array__data", (DL_FUNC)& _arrow_Array__data, 1}, 
+		{ "_arrow_Array__RangeEquals", (DL_FUNC)& _arrow_Array__RangeEquals, 5}, 
+		{ "_arrow_Array__Mask", (DL_FUNC)& _arrow_Array__Mask, 1}, 
+		{ "_arrow_DictionaryArray__indices", (DL_FUNC)& _arrow_DictionaryArray__indices, 1}, 
+		{ "_arrow_DictionaryArray__dictionary", (DL_FUNC)& _arrow_DictionaryArray__dictionary, 1}, 
+		{ "_arrow_Array__as_vector", (DL_FUNC)& _arrow_Array__as_vector, 1}, 
+		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC)& _arrow_ChunkedArray__as_vector, 1}, 
+		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC)& _arrow_RecordBatch__to_dataframe, 2}, 
+		{ "_arrow_Table__to_dataframe", (DL_FUNC)& _arrow_Table__to_dataframe, 2}, 
+		{ "_arrow_Array__infer_type", (DL_FUNC)& _arrow_Array__infer_type, 1}, 
+		{ "_arrow_Array__from_vector", (DL_FUNC)& _arrow_Array__from_vector, 2}, 
+		{ "_arrow_ChunkedArray__from_list", (DL_FUNC)& _arrow_ChunkedArray__from_list, 2}, 
+		{ "_arrow_ArrayData__get_type", (DL_FUNC)& _arrow_ArrayData__get_type, 1}, 
+		{ "_arrow_ArrayData__get_length", (DL_FUNC)& _arrow_ArrayData__get_length, 1}, 
+		{ "_arrow_ArrayData__get_null_count", (DL_FUNC)& _arrow_ArrayData__get_null_count, 1}, 
+		{ "_arrow_ArrayData__get_offset", (DL_FUNC)& _arrow_ArrayData__get_offset, 1}, 
+		{ "_arrow_ArrayData__buffers", (DL_FUNC)& _arrow_ArrayData__buffers, 1}, 
+		{ "_arrow_Buffer__is_mutable", (DL_FUNC)& _arrow_Buffer__is_mutable, 1}, 
+		{ "_arrow_Buffer__ZeroPadding", (DL_FUNC)& _arrow_Buffer__ZeroPadding, 1}, 
+		{ "_arrow_Buffer__capacity", (DL_FUNC)& _arrow_Buffer__capacity, 1}, 
+		{ "_arrow_Buffer__size", (DL_FUNC)& _arrow_Buffer__size, 1}, 
+		{ "_arrow_r___RBuffer__initialize", (DL_FUNC)& _arrow_r___RBuffer__initialize, 1}, 
+		{ "_arrow_ChunkedArray__length", (DL_FUNC)& _arrow_ChunkedArray__length, 1}, 
+		{ "_arrow_ChunkedArray__null_count", (DL_FUNC)& _arrow_ChunkedArray__null_count, 1}, 
+		{ "_arrow_ChunkedArray__num_chunks", (DL_FUNC)& _arrow_ChunkedArray__num_chunks, 1}, 
+		{ "_arrow_ChunkedArray__chunk", (DL_FUNC)& _arrow_ChunkedArray__chunk, 2}, 
+		{ "_arrow_ChunkedArray__chunks", (DL_FUNC)& _arrow_ChunkedArray__chunks, 1}, 
+		{ "_arrow_ChunkedArray__type", (DL_FUNC)& _arrow_ChunkedArray__type, 1}, 
+		{ "_arrow_ChunkArray__Slice1", (DL_FUNC)& _arrow_ChunkArray__Slice1, 2}, 
+		{ "_arrow_ChunkArray__Slice2", (DL_FUNC)& _arrow_ChunkArray__Slice2, 3}, 
+		{ "_arrow_Column__length", (DL_FUNC)& _arrow_Column__length, 1}, 
+		{ "_arrow_Column__null_count", (DL_FUNC)& _arrow_Column__null_count, 1}, 
+		{ "_arrow_Column__type", (DL_FUNC)& _arrow_Column__type, 1}, 
+		{ "_arrow_Column__data", (DL_FUNC)& _arrow_Column__data, 1}, 
+		{ "_arrow_util___Codec__Create", (DL_FUNC)& _arrow_util___Codec__Create, 1}, 
+		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC)& _arrow_io___CompressedOutputStream__Make, 2}, 
+		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC)& _arrow_io___CompressedInputStream__Make, 2}, 
+		{ "_arrow_compute___CastOptions__initialize", (DL_FUNC)& _arrow_compute___CastOptions__initialize, 3}, 
+		{ "_arrow_Array__cast", (DL_FUNC)& _arrow_Array__cast, 3}, 
+		{ "_arrow_ChunkedArray__cast", (DL_FUNC)& _arrow_ChunkedArray__cast, 3}, 
+		{ "_arrow_RecordBatch__cast", (DL_FUNC)& _arrow_RecordBatch__cast, 3}, 
+		{ "_arrow_Table__cast", (DL_FUNC)& _arrow_Table__cast, 3}, 
+		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC)& _arrow_csv___ReadOptions__initialize, 1}, 
+		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC)& _arrow_csv___ParseOptions__initialize, 1}, 
+		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC)& _arrow_csv___ConvertOptions__initialize, 1}, 
+		{ "_arrow_csv___TableReader__Make", (DL_FUNC)& _arrow_csv___TableReader__Make, 4}, 
+		{ "_arrow_csv___TableReader__Read", (DL_FUNC)& _arrow_csv___TableReader__Read, 1}, 
+		{ "_arrow_shared_ptr_is_null", (DL_FUNC)& _arrow_shared_ptr_is_null, 1}, 
+		{ "_arrow_unique_ptr_is_null", (DL_FUNC)& _arrow_unique_ptr_is_null, 1}, 
+		{ "_arrow_Int8__initialize", (DL_FUNC)& _arrow_Int8__initialize, 0}, 
+		{ "_arrow_Int16__initialize", (DL_FUNC)& _arrow_Int16__initialize, 0}, 
+		{ "_arrow_Int32__initialize", (DL_FUNC)& _arrow_Int32__initialize, 0}, 
+		{ "_arrow_Int64__initialize", (DL_FUNC)& _arrow_Int64__initialize, 0}, 
+		{ "_arrow_UInt8__initialize", (DL_FUNC)& _arrow_UInt8__initialize, 0}, 
+		{ "_arrow_UInt16__initialize", (DL_FUNC)& _arrow_UInt16__initialize, 0}, 
+		{ "_arrow_UInt32__initialize", (DL_FUNC)& _arrow_UInt32__initialize, 0}, 
+		{ "_arrow_UInt64__initialize", (DL_FUNC)& _arrow_UInt64__initialize, 0}, 
+		{ "_arrow_Float16__initialize", (DL_FUNC)& _arrow_Float16__initialize, 0}, 
+		{ "_arrow_Float32__initialize", (DL_FUNC)& _arrow_Float32__initialize, 0}, 
+		{ "_arrow_Float64__initialize", (DL_FUNC)& _arrow_Float64__initialize, 0}, 
+		{ "_arrow_Boolean__initialize", (DL_FUNC)& _arrow_Boolean__initialize, 0}, 
+		{ "_arrow_Utf8__initialize", (DL_FUNC)& _arrow_Utf8__initialize, 0}, 
+		{ "_arrow_Date32__initialize", (DL_FUNC)& _arrow_Date32__initialize, 0}, 
+		{ "_arrow_Date64__initialize", (DL_FUNC)& _arrow_Date64__initialize, 0}, 
+		{ "_arrow_Null__initialize", (DL_FUNC)& _arrow_Null__initialize, 0}, 
+		{ "_arrow_Decimal128Type__initialize", (DL_FUNC)& _arrow_Decimal128Type__initialize, 2}, 
+		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC)& _arrow_FixedSizeBinary__initialize, 1}, 
+		{ "_arrow_Timestamp__initialize1", (DL_FUNC)& _arrow_Timestamp__initialize1, 1}, 
+		{ "_arrow_Timestamp__initialize2", (DL_FUNC)& _arrow_Timestamp__initialize2, 2}, 
+		{ "_arrow_Time32__initialize", (DL_FUNC)& _arrow_Time32__initialize, 1}, 
+		{ "_arrow_Time64__initialize", (DL_FUNC)& _arrow_Time64__initialize, 1}, 
+		{ "_arrow_list__", (DL_FUNC)& _arrow_list__, 1}, 
+		{ "_arrow_struct_", (DL_FUNC)& _arrow_struct_, 1}, 
+		{ "_arrow_DataType__ToString", (DL_FUNC)& _arrow_DataType__ToString, 1}, 
+		{ "_arrow_DataType__name", (DL_FUNC)& _arrow_DataType__name, 1}, 
+		{ "_arrow_DataType__Equals", (DL_FUNC)& _arrow_DataType__Equals, 2}, 
+		{ "_arrow_DataType__num_children", (DL_FUNC)& _arrow_DataType__num_children, 1}, 
+		{ "_arrow_DataType__children_pointer", (DL_FUNC)& _arrow_DataType__children_pointer, 1}, 
+		{ "_arrow_DataType__id", (DL_FUNC)& _arrow_DataType__id, 1}, 
+		{ "_arrow_schema_", (DL_FUNC)& _arrow_schema_, 1}, 
+		{ "_arrow_Schema__ToString", (DL_FUNC)& _arrow_Schema__ToString, 1}, 
+		{ "_arrow_Schema__num_fields", (DL_FUNC)& _arrow_Schema__num_fields, 1}, 
+		{ "_arrow_Schema__field", (DL_FUNC)& _arrow_Schema__field, 2}, 
+		{ "_arrow_Schema__names", (DL_FUNC)& _arrow_Schema__names, 1}, 
+		{ "_arrow_ListType__ToString", (DL_FUNC)& _arrow_ListType__ToString, 1}, 
+		{ "_arrow_FixedWidthType__bit_width", (DL_FUNC)& _arrow_FixedWidthType__bit_width, 1}, 
+		{ "_arrow_DateType__unit", (DL_FUNC)& _arrow_DateType__unit, 1}, 
+		{ "_arrow_TimeType__unit", (DL_FUNC)& _arrow_TimeType__unit, 1}, 
+		{ "_arrow_DecimalType__precision", (DL_FUNC)& _arrow_DecimalType__precision, 1}, 
+		{ "_arrow_DecimalType__scale", (DL_FUNC)& _arrow_DecimalType__scale, 1}, 
+		{ "_arrow_TimestampType__timezone", (DL_FUNC)& _arrow_TimestampType__timezone, 1}, 
+		{ "_arrow_TimestampType__unit", (DL_FUNC)& _arrow_TimestampType__unit, 1}, 
+		{ "_arrow_DictionaryType__initialize", (DL_FUNC)& _arrow_DictionaryType__initialize, 3}, 
+		{ "_arrow_DictionaryType__index_type", (DL_FUNC)& _arrow_DictionaryType__index_type, 1}, 
+		{ "_arrow_DictionaryType__value_type", (DL_FUNC)& _arrow_DictionaryType__value_type, 1}, 
+		{ "_arrow_DictionaryType__name", (DL_FUNC)& _arrow_DictionaryType__name, 1}, 
+		{ "_arrow_DictionaryType__ordered", (DL_FUNC)& _arrow_DictionaryType__ordered, 1}, 
+		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC)& _arrow_ipc___feather___TableWriter__SetDescription, 2}, 
+		{ "_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC)& _arrow_ipc___feather___TableWriter__SetNumRows, 2}, 
+		{ "_arrow_ipc___feather___TableWriter__Append", (DL_FUNC)& _arrow_ipc___feather___TableWriter__Append, 3}, 
+		{ "_arrow_ipc___feather___TableWriter__Finalize", (DL_FUNC)& _arrow_ipc___feather___TableWriter__Finalize, 1}, 
+		{ "_arrow_ipc___feather___TableWriter__Open", (DL_FUNC)& _arrow_ipc___feather___TableWriter__Open, 1}, 
+		{ "_arrow_ipc___TableWriter__RecordBatch__WriteFeather", (DL_FUNC)& _arrow_ipc___TableWriter__RecordBatch__WriteFeather, 2}, 
+		{ "_arrow_ipc___feather___TableReader__GetDescription", (DL_FUNC)& _arrow_ipc___feather___TableReader__GetDescription, 1}, 
+		{ "_arrow_ipc___feather___TableReader__HasDescription", (DL_FUNC)& _arrow_ipc___feather___TableReader__HasDescription, 1}, 
+		{ "_arrow_ipc___feather___TableReader__version", (DL_FUNC)& _arrow_ipc___feather___TableReader__version, 1}, 
+		{ "_arrow_ipc___feather___TableReader__num_rows", (DL_FUNC)& _arrow_ipc___feather___TableReader__num_rows, 1}, 
+		{ "_arrow_ipc___feather___TableReader__num_columns", (DL_FUNC)& _arrow_ipc___feather___TableReader__num_columns, 1}, 
+		{ "_arrow_ipc___feather___TableReader__GetColumnName", (DL_FUNC)& _arrow_ipc___feather___TableReader__GetColumnName, 2}, 
+		{ "_arrow_ipc___feather___TableReader__GetColumn", (DL_FUNC)& _arrow_ipc___feather___TableReader__GetColumn, 2}, 
+		{ "_arrow_ipc___feather___TableReader__Read", (DL_FUNC)& _arrow_ipc___feather___TableReader__Read, 2}, 
+		{ "_arrow_ipc___feather___TableReader__Open", (DL_FUNC)& _arrow_ipc___feather___TableReader__Open, 1}, 
+		{ "_arrow_Field__initialize", (DL_FUNC)& _arrow_Field__initialize, 3}, 
+		{ "_arrow_Field__ToString", (DL_FUNC)& _arrow_Field__ToString, 1}, 
+		{ "_arrow_Field__name", (DL_FUNC)& _arrow_Field__name, 1}, 
+		{ "_arrow_Field__Equals", (DL_FUNC)& _arrow_Field__Equals, 2}, 
+		{ "_arrow_Field__nullable", (DL_FUNC)& _arrow_Field__nullable, 1}, 
+		{ "_arrow_Field__type", (DL_FUNC)& _arrow_Field__type, 1}, 
+		{ "_arrow_io___Readable__Read", (DL_FUNC)& _arrow_io___Readable__Read, 2}, 
+		{ "_arrow_io___InputStream__Close", (DL_FUNC)& _arrow_io___InputStream__Close, 1}, 
+		{ "_arrow_io___OutputStream__Close", (DL_FUNC)& _arrow_io___OutputStream__Close, 1}, 
+		{ "_arrow_io___RandomAccessFile__GetSize", (DL_FUNC)& _arrow_io___RandomAccessFile__GetSize, 1}, 
+		{ "_arrow_io___RandomAccessFile__supports_zero_copy", (DL_FUNC)& _arrow_io___RandomAccessFile__supports_zero_copy, 1}, 
+		{ "_arrow_io___RandomAccessFile__Seek", (DL_FUNC)& _arrow_io___RandomAccessFile__Seek, 2}, 
+		{ "_arrow_io___RandomAccessFile__Tell", (DL_FUNC)& _arrow_io___RandomAccessFile__Tell, 1}, 
+		{ "_arrow_io___MemoryMappedFile__Create", (DL_FUNC)& _arrow_io___MemoryMappedFile__Create, 2}, 
+		{ "_arrow_io___MemoryMappedFile__Open", (DL_FUNC)& _arrow_io___MemoryMappedFile__Open, 2}, 
+		{ "_arrow_io___MemoryMappedFile__Resize", (DL_FUNC)& _arrow_io___MemoryMappedFile__Resize, 2}, 
+		{ "_arrow_io___ReadableFile__Open", (DL_FUNC)& _arrow_io___ReadableFile__Open, 1}, 
+		{ "_arrow_io___BufferReader__initialize", (DL_FUNC)& _arrow_io___BufferReader__initialize, 1}, 
+		{ "_arrow_io___Writable__write", (DL_FUNC)& _arrow_io___Writable__write, 2}, 
+		{ "_arrow_io___OutputStream__Tell", (DL_FUNC)& _arrow_io___OutputStream__Tell, 1}, 
+		{ "_arrow_io___FileOutputStream__Open", (DL_FUNC)& _arrow_io___FileOutputStream__Open, 1}, 
+		{ "_arrow_io___BufferOutputStream__Create", (DL_FUNC)& _arrow_io___BufferOutputStream__Create, 1}, 
+		{ "_arrow_io___BufferOutputStream__capacity", (DL_FUNC)& _arrow_io___BufferOutputStream__capacity, 1}, 
+		{ "_arrow_io___BufferOutputStream__Finish", (DL_FUNC)& _arrow_io___BufferOutputStream__Finish, 1}, 
+		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC)& _arrow_io___BufferOutputStream__Tell, 1}, 
+		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC)& _arrow_io___BufferOutputStream__Write, 2}, 
+		{ "_arrow_io___MockOutputStream__initialize", (DL_FUNC)& _arrow_io___MockOutputStream__initialize, 0}, 
+		{ "_arrow_io___MockOutputStream__GetExtentBytesWritten", (DL_FUNC)& _arrow_io___MockOutputStream__GetExtentBytesWritten, 1}, 
+		{ "_arrow_io___FixedSizeBufferWriter__initialize", (DL_FUNC)& _arrow_io___FixedSizeBufferWriter__initialize, 1}, 
+		{ "_arrow_MemoryPool__default", (DL_FUNC)& _arrow_MemoryPool__default, 0}, 
+		{ "_arrow_MemoryPool__bytes_allocated", (DL_FUNC)& _arrow_MemoryPool__bytes_allocated, 1}, 
+		{ "_arrow_MemoryPool__max_memory", (DL_FUNC)& _arrow_MemoryPool__max_memory, 1}, 
+		{ "_arrow_ipc___Message__body_length", (DL_FUNC)& _arrow_ipc___Message__body_length, 1}, 
+		{ "_arrow_ipc___Message__metadata", (DL_FUNC)& _arrow_ipc___Message__metadata, 1}, 
+		{ "_arrow_ipc___Message__body", (DL_FUNC)& _arrow_ipc___Message__body, 1}, 
+		{ "_arrow_ipc___Message__Verify", (DL_FUNC)& _arrow_ipc___Message__Verify, 1}, 
+		{ "_arrow_ipc___Message__type", (DL_FUNC)& _arrow_ipc___Message__type, 1}, 
+		{ "_arrow_ipc___Message__Equals", (DL_FUNC)& _arrow_ipc___Message__Equals, 2}, 
+		{ "_arrow_ipc___ReadRecordBatch__Message__Schema", (DL_FUNC)& _arrow_ipc___ReadRecordBatch__Message__Schema, 2}, 
+		{ "_arrow_ipc___ReadSchema_InputStream", (DL_FUNC)& _arrow_ipc___ReadSchema_InputStream, 1}, 
+		{ "_arrow_ipc___MessageReader__Open", (DL_FUNC)& _arrow_ipc___MessageReader__Open, 1}, 
+		{ "_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC)& _arrow_ipc___MessageReader__ReadNextMessage, 1}, 
+		{ "_arrow_ipc___ReadMessage", (DL_FUNC)& _arrow_ipc___ReadMessage, 1}, 
+		{ "_arrow_read_parquet_file", (DL_FUNC)& _arrow_read_parquet_file, 1}, 
+		{ "_arrow_RecordBatch__num_columns", (DL_FUNC)& _arrow_RecordBatch__num_columns, 1}, 
+		{ "_arrow_RecordBatch__num_rows", (DL_FUNC)& _arrow_RecordBatch__num_rows, 1}, 
+		{ "_arrow_RecordBatch__schema", (DL_FUNC)& _arrow_RecordBatch__schema, 1}, 
+		{ "_arrow_RecordBatch__columns", (DL_FUNC)& _arrow_RecordBatch__columns, 1}, 
+		{ "_arrow_RecordBatch__column", (DL_FUNC)& _arrow_RecordBatch__column, 2}, 
+		{ "_arrow_RecordBatch__from_dataframe", (DL_FUNC)& _arrow_RecordBatch__from_dataframe, 1}, 
+		{ "_arrow_RecordBatch__Equals", (DL_FUNC)& _arrow_RecordBatch__Equals, 2}, 
+		{ "_arrow_RecordBatch__RemoveColumn", (DL_FUNC)& _arrow_RecordBatch__RemoveColumn, 2}, 
+		{ "_arrow_RecordBatch__column_name", (DL_FUNC)& _arrow_RecordBatch__column_name, 2}, 
+		{ "_arrow_RecordBatch__names", (DL_FUNC)& _arrow_RecordBatch__names, 1}, 
+		{ "_arrow_RecordBatch__Slice1", (DL_FUNC)& _arrow_RecordBatch__Slice1, 2}, 
+		{ "_arrow_RecordBatch__Slice2", (DL_FUNC)& _arrow_RecordBatch__Slice2, 3}, 
+		{ "_arrow_ipc___SerializeRecordBatch__Raw", (DL_FUNC)& _arrow_ipc___SerializeRecordBatch__Raw, 1}, 
+		{ "_arrow_ipc___ReadRecordBatch__InputStream__Schema", (DL_FUNC)& _arrow_ipc___ReadRecordBatch__InputStream__Schema, 2}, 
+		{ "_arrow_RecordBatch__from_arrays", (DL_FUNC)& _arrow_RecordBatch__from_arrays, 2}, 
+		{ "_arrow_RecordBatchReader__schema", (DL_FUNC)& _arrow_RecordBatchReader__schema, 1}, 
+		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC)& _arrow_RecordBatchReader__ReadNext, 1}, 
+		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC)& _arrow_ipc___RecordBatchStreamReader__Open, 1}, 
+		{ "_arrow_ipc___RecordBatchStreamReader__batches", (DL_FUNC)& _arrow_ipc___RecordBatchStreamReader__batches, 1}, 
+		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__schema, 1}, 
+		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 
+		{ "_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2}, 
+		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__Open, 1}, 
+		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC)& _arrow_Table__from_RecordBatchFileReader, 1}, 
+		{ "_arrow_Table__from_RecordBatchStreamReader", (DL_FUNC)& _arrow_Table__from_RecordBatchStreamReader, 1}, 
+		{ "_arrow_ipc___RecordBatchFileReader__batches", (DL_FUNC)& _arrow_ipc___RecordBatchFileReader__batches, 1}, 
+		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC)& _arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2}, 
+		{ "_arrow_ipc___RecordBatchWriter__WriteTable", (DL_FUNC)& _arrow_ipc___RecordBatchWriter__WriteTable, 2}, 
+		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC)& _arrow_ipc___RecordBatchWriter__Close, 1}, 
+		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC)& _arrow_ipc___RecordBatchFileWriter__Open, 2}, 
+		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC)& _arrow_ipc___RecordBatchStreamWriter__Open, 2}, 
+		{ "_arrow_Table__from_dataframe", (DL_FUNC)& _arrow_Table__from_dataframe, 1}, 
+		{ "_arrow_Table__num_columns", (DL_FUNC)& _arrow_Table__num_columns, 1}, 
+		{ "_arrow_Table__num_rows", (DL_FUNC)& _arrow_Table__num_rows, 1}, 
+		{ "_arrow_Table__schema", (DL_FUNC)& _arrow_Table__schema, 1}, 
+		{ "_arrow_Table__column", (DL_FUNC)& _arrow_Table__column, 2}, 
+		{ "_arrow_Table__columns", (DL_FUNC)& _arrow_Table__columns, 1}, 
+		{ "_arrow_Table__from_dots", (DL_FUNC)& _arrow_Table__from_dots, 2}, 
+		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC)& _arrow_GetCpuThreadPoolCapacity, 0}, 
+		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC)& _arrow_SetCpuThreadPoolCapacity, 1}, 
 		{NULL, NULL, 0}
 };
 
