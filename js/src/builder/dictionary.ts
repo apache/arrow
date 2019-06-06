@@ -80,10 +80,10 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
     }
     public valueToKey(val: any) {
         typeof val === 'string' || (val = `${val}`);
-        let h = 6, y = 9 * 9, i = val.length;
+        let key = 5381, i = val.length;
         while (i > 0) {
-            h = Math.imul(h ^ val.charCodeAt(--i), y);
+            key = (key * 33) ^ val.charCodeAt(--i);
         }
-        return (h ^ h >>> 9) as any;
+        return key >>> 0 as any;
     }
 }
