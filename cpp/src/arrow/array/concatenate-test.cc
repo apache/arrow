@@ -33,6 +33,7 @@
 #include "arrow/builder.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/random.h"
