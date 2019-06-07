@@ -22,8 +22,7 @@
 import * as fs from 'fs';
 import * as stream from 'stream';
 import { valueToString } from '../util/pretty';
-import { RecordBatch, RecordBatchReader, AsyncByteQueue } from '../Arrow.node';
-import { Schema } from '../schema';
+import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue } from '../Arrow.node';
 
 const padLeft = require('pad-left');
 const bignumJSONParse = require('json-bignum').parse;
@@ -137,13 +136,13 @@ function batchesToString(state: ToStringState, schema: Schema) {
         final(cb: (error?: Error | null) => void) {
             // if there were no batches, then print the Schema, and metadata
             if (batchId === -1) {
-                this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n\n`);
+                hr && this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n\n`);
                 this.push(`${formatRow(header, maxColWidths, sep)}\n`);
                 if (state.metadata && schema.metadata.size > 0) {
                     this.push(`metadata:\n${formatMetadata(schema.metadata)}\n`);
                 }
             }
-            this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n\n`);
+            hr && this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n\n`);
             cb();
         },
         transform(batch: RecordBatch, _enc: string, cb: (error?: Error, data?: any) => void) {
@@ -157,10 +156,10 @@ function batchesToString(state: ToStringState, schema: Schema) {
     
             // If this is the first batch in a stream, print a top horizontal rule, schema metadata, and 
             if (++batchId === 0) {
-                this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
+                hr && this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
                 if (state.metadata && batch.schema.metadata.size > 0) {
                     this.push(`metadata:\n${formatMetadata(batch.schema.metadata)}\n`);
-                    this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
+                    hr && this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
                 }
                 if (batch.length <= 0 || batch.numCols <= 0) {
                     this.push(`${formatRow(header, maxColWidths = state.maxColWidths, sep)}\n`);
@@ -186,11 +185,11 @@ function batchesToString(state: ToStringState, schema: Schema) {
     });
 }
 
-function horizontalRule(maxColWidths: number[], hr = '-', sep = ' |') {
+function horizontalRule(maxColWidths: number[], hr = '', sep = ' | ') {
     return ` ${padLeft('', maxColWidths.reduce((x, y) => x + y, -2 + maxColWidths.length * sep.length), hr)}`;
 }
 
-function formatRow(row: string[] = [], maxColWidths: number[] = [], sep = ' |') {
+function formatRow(row: string[] = [], maxColWidths: number[] = [], sep = ' | ') {
     return `${row.map((x, j) => padLeft(x, maxColWidths[j])).join(sep)}`;
 }
 
@@ -277,13 +276,13 @@ function cliOpts() {
         },
         {
             type: String,
-            name: 'sep', optional: true, default: ' |',
-            description: 'The column separator character (default: " |")'
+            name: 'sep', optional: true, default: ' | ',
+            description: 'The column separator character (default: " | ")'
         },
         {
             type: String,
-            name: 'hr', optional: true, default: '-',
-            description: 'The horizontal border character (default: "-")'
+            name: 'hr', optional: true, default: '',
+            description: 'The horizontal border character (default: "")'
         },
         {
             type: Boolean,
@@ -321,15 +320,13 @@ function print_usage() {
         {
             header: 'Example',
             content: [
-                '$ arrow2csv --schema foo baz --sep "," -f simple.arrow',
-                '>--------------------------------------',
+                '$ arrow2csv --schema foo baz --sep " , " -f simple.arrow',
                 '>   "row_id", "foo: Int32", "baz: Utf8"',
                 '>          0,            1,        "aa"',
                 '>          1,         null,        null',
                 '>          2,            3,        null',
                 '>          3,            4,       "bbb"',
                 '>          4,            5,      "cccc"',
-                '>--------------------------------------',
             ]
         }
     ]));
