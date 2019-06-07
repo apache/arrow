@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export { ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, VectorType } from './enum';
+export { ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType } from './enum';
 export { Data } from './data';
 export {
     DataType,

@@ -16,8 +16,8 @@
 // under the License.
 
 import { Vector } from './vector';
+import { BufferType } from './enum';
 import { Data, Buffers } from './data';
-import { VectorType as BufferType } from './enum';
 import { createIsValidFunction } from './builder/valid';
 import { BuilderType as B, VectorType as V} from './interfaces';
 import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer';

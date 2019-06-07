@@ -18,7 +18,7 @@
 import { Vector } from './vector';
 import { truncateBitmap } from './util/bit';
 import { popcnt_bit_range } from './util/bit';
-import { VectorType as BufferType, UnionMode, Type } from './enum';
+import { BufferType, UnionMode, Type } from './enum';
 import { DataType, SparseUnion, DenseUnion, strideForType } from './type';
 import { toArrayBufferView, toUint8Array, toInt32Array } from './util/buffer';
 import {

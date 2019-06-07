@@ -30,7 +30,7 @@ RecordBatchReader['throughDOM'] = recordBatchReaderThroughDOMStream;
 RecordBatchWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 
 export {
-    ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, VectorType,
+    ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType,
     Data,
     DataType,
     Null,

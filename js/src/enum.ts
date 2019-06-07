@@ -23,7 +23,6 @@ export import DateUnit = Schema_.org.apache.arrow.flatbuf.DateUnit;
 export import TimeUnit = Schema_.org.apache.arrow.flatbuf.TimeUnit;
 export import Precision = Schema_.org.apache.arrow.flatbuf.Precision;
 export import UnionMode = Schema_.org.apache.arrow.flatbuf.UnionMode;
-export import VectorType = Schema_.org.apache.arrow.flatbuf.VectorType;
 export import IntervalUnit = Schema_.org.apache.arrow.flatbuf.IntervalUnit;
 export import MessageHeader = Message_.org.apache.arrow.flatbuf.MessageHeader;
 export import MetadataVersion = Schema_.org.apache.arrow.flatbuf.MetadataVersion;
@@ -120,3 +119,25 @@ export enum Type {
     IntervalDayTime       = -25,
     IntervalYearMonth     = -26,
 }
+
+export enum BufferType {
+    /**
+     * used in List type, Dense Union and variable length primitive types (String, Binary)
+     */
+    OFFSET = 0,
+
+    /**
+     * actual data, either wixed width primitive types in slots or variable width delimited by an OFFSET vector
+     */
+    DATA = 1,
+
+    /**
+     * Bit vector indicating if each value is null
+     */
+    VALIDITY = 2,
+
+    /**
+     * Type vector used in Union type
+     */
+    TYPE = 3
+  }
