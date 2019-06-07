@@ -74,6 +74,16 @@ mv ${tag} ${tag}.tmp
 cp -r -L ${tag}.tmp ${tag}
 rm -rf ${tag}.tmp
 
+# Create a dummy .git/ directory to download the source files from GitHub with Source Link in C#.
+mkdir ${tag}/.git && cd $_
+curl \
+  https://api.github.com/repos/apache/arrow/tags | \
+  jq ".[] | select(.name==\"${tag}\") | .commit.sha" >> HEAD
+sed -i -e "s/\"//g" HEAD
+echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config
+mkdir objects refs
+cd -
+
 # Create new tarball from modified source directory
 tar czf ${tarball} ${tag}
 rm -rf ${tag}

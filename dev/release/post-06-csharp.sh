@@ -44,16 +44,6 @@ curl \
 rm -rf ${archive_name}
 tar xf ${tar_gz}
 pushd ${archive_name}/csharp
-
-# Create a dummy .git/ directory to download the source files from GitHub with Source Link.
-mkdir .git && cd $_
-curl \
-  https://api.github.com/repos/apache/arrow/tags | \
-  jq ".[] | select(.name==\"${archive_name}\") | .commit.sha" >> HEAD
-sed -i -e "s/\"//g" HEAD
-echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config
-mkdir objects refs
-
 dotnet pack -c Release
 for package in artifacts/Apache.Arrow/Release/*.{nupkg,snupkg}; do
   dotnet nuget push \
