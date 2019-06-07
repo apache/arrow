@@ -20,6 +20,8 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "parquet/metadata.h"
@@ -76,6 +78,11 @@ PARQUET_EXPORT
 ::arrow::Status PARQUET_EXPORT FromParquetSchema(const SchemaDescriptor* parquet_schema,
                                                  std::shared_ptr<::arrow::Schema>* out);
 
+::arrow::Status PARQUET_EXPORT FieldToNode(
+    const std::shared_ptr<::arrow::Field>& field, const WriterProperties& properties,
+    const ArrowWriterProperties& arrow_properties,
+    std::unordered_map<std::string, std::string>& metadata_map, schema::NodePtr* out);
+
 ::arrow::Status PARQUET_EXPORT FieldToNode(const std::shared_ptr<::arrow::Field>& field,
                                            const WriterProperties& properties,
                                            const ArrowWriterProperties& arrow_properties,
@@ -84,11 +91,22 @@ PARQUET_EXPORT
 ::arrow::Status PARQUET_EXPORT
 ToParquetSchema(const ::arrow::Schema* arrow_schema, const WriterProperties& properties,
                 const ArrowWriterProperties& arrow_properties,
-                std::shared_ptr<SchemaDescriptor>* out);
+                std::shared_ptr<const KeyValueMetadata>* parquet_metadata_out,
+                std::shared_ptr<SchemaDescriptor>* parquet_schema_out);
 
-::arrow::Status PARQUET_EXPORT ToParquetSchema(const ::arrow::Schema* arrow_schema,
-                                               const WriterProperties& properties,
-                                               std::shared_ptr<SchemaDescriptor>* out);
+::arrow::Status PARQUET_EXPORT
+ToParquetSchema(const ::arrow::Schema* arrow_schema, const WriterProperties& properties,
+                std::shared_ptr<const KeyValueMetadata>* parquet_metadata_out,
+                std::shared_ptr<SchemaDescriptor>* parquet_schema_out);
+
+::arrow::Status PARQUET_EXPORT
+ToParquetSchema(const ::arrow::Schema* arrow_schema, const WriterProperties& properties,
+                const ArrowWriterProperties& arrow_properties,
+                std::shared_ptr<SchemaDescriptor>* parquet_schema_out);
+
+::arrow::Status PARQUET_EXPORT
+ToParquetSchema(const ::arrow::Schema* arrow_schema, const WriterProperties& properties,
+                std::shared_ptr<SchemaDescriptor>* parquet_schema_out);
 
 PARQUET_EXPORT
 int32_t DecimalSize(int32_t precision);
