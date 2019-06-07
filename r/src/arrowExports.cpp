@@ -2563,7 +2563,7 @@ SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
 }
 #endif
 
-// parquet.cpp:29
+// parquet.cpp:28
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> read_parquet_file(std::string filename);
 SEXP _arrow_read_parquet_file(SEXP filename_sexp){
@@ -3167,7 +3167,7 @@ SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
 }
 #endif
 
-// threadpool.cpp:42
+// threadpool.cpp:41
 #if defined(ARROW_R_WITH_ARROW)
 int GetCpuThreadPoolCapacity();
 SEXP _arrow_GetCpuThreadPoolCapacity(){
@@ -3181,7 +3181,7 @@ SEXP _arrow_GetCpuThreadPoolCapacity(){
 }
 #endif
 
-// threadpool.cpp:47
+// threadpool.cpp:46
 #if defined(ARROW_R_WITH_ARROW)
 void SetCpuThreadPoolCapacity(int threads);
 SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
@@ -3208,7 +3208,7 @@ return Rf_ScalarLogical(
 );
 }
 
-static const R_CallMethodDef arrow_CallEntries[] = {
+static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
 		{ "_arrow_Array__Slice1", (DL_FUNC)& _arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC)& _arrow_Array__Slice2, 3}, 
@@ -3422,7 +3422,7 @@ static const R_CallMethodDef arrow_CallEntries[] = {
 };
 
 extern "C" void R_init_arrow(DllInfo* dll){
-  R_registerRoutines(dll, NULL, arrow_CallEntries, NULL, NULL);
+  R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 }
 
