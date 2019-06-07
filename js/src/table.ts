@@ -42,7 +42,7 @@ export interface Table<T extends { [key: string]: DataType } = any> {
     [Symbol.iterator](): IterableIterator<RowLike<T>>;
 
     slice(begin?: number, end?: number): Table<T>;
-    concat(...others: Vector<Struct<T>>[]): Table<T>;
+    concat(...others: Vector<Map_<T>>[]): Table<T>;
     clone(chunks?: RecordBatch<T>[], offsets?: Uint32Array): Table<T>;
 
     scan(next: import('./compute/dataframe').NextFunc, bind?: import('./compute/dataframe').BindFunc): void;
@@ -51,11 +51,11 @@ export interface Table<T extends { [key: string]: DataType } = any> {
 }
 
 export class Table<T extends { [key: string]: DataType } = any>
-    extends Chunked<Struct<T>>
+    extends Chunked<Map_<T>>
     implements DataFrame<T>,
                Clonable<Table<T>>,
                Sliceable<Table<T>>,
-               Applicative<Struct<T>, Table<T>> {
+               Applicative<Map_<T>, Table<T>> {
 
     /** @nocollapse */
     public static empty<T extends { [key: string]: DataType } = {}>(schema = new Schema<T>([])) { return new Table<T>(schema, []); }
@@ -196,7 +196,7 @@ export class Table<T extends { [key: string]: DataType } = any>
 
         chunks[0] || (chunks[0] = new _InternalEmptyPlaceholderRecordBatch(schema));
 
-        super(new Struct(schema.fields), chunks);
+        super(new Map_(schema.fields), chunks);
 
         this._schema = schema;
         this._chunks = chunks;

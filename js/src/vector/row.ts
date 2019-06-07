@@ -55,10 +55,13 @@ export class Row<T extends { [key: string]: DataType }> implements Iterable<T[ke
     public [Symbol.for('nodejs.util.inspect.custom')]() { return this.toString(); }
     public toString() {
         return DataType.isStruct(this[kParent].type) ?
-            [...this].map((x) => valueToString(x)).join(', ') :
-            this[kParent].type.children.reduce((props: any, { name }: Field<T[keyof T]>) => {
-                return (props[name] = valueToString((this as any)[name])) && props || props;
-            }, {});
+            `[ ${[...this].map((x) => valueToString(x)).join(', ')} ]` :
+            `{ ${
+                this[kParent].type.children.reduce((xs: string[], { name }: Field<T[keyof T]>) => {
+                    return [...xs, `"${name}": ${valueToString((this as any)[name])}`];
+                }, []).join(', ')
+            } }`
+                ;
     }
 }
 

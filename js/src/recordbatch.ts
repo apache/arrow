@@ -21,8 +21,8 @@ import { Vector } from './vector';
 import { Schema, Field } from './schema';
 import { isIterable } from './util/compat';
 import { Chunked } from './vector/chunked';
+import { MapVector } from './vector/index';
 import { selectFieldArgs } from './util/args';
-import { StructVector } from './vector/struct';
 import { DataType, Struct, Map_ } from './type';
 import { ensureSameLengthData } from './util/recordbatch';
 import { Clonable, Sliceable, Applicative } from './vector';
@@ -33,25 +33,25 @@ type Fields<T extends { [key: string]: DataType }> = (keyof T)[] | Field<T[keyof
 type ChildData<T extends { [key: string]: DataType }> = (Data<T[keyof T]> | Vector<T[keyof T]>)[];
 
 export interface RecordBatch<T extends { [key: string]: DataType } = any> {
-    concat(...others: Vector<Struct<T>>[]): Table<T>;
+    concat(...others: Vector<Map_<T>>[]): Table<T>;
     slice(begin?: number, end?: number): RecordBatch<T>;
-    clone(data: Data<Struct<T>>, children?: Vector[]): RecordBatch<T>;
+    clone(data: Data<Map_<T>>, children?: Vector[]): RecordBatch<T>;
 }
 
 export class RecordBatch<T extends { [key: string]: DataType } = any>
-    extends StructVector<T>
+    extends MapVector<T>
     implements Clonable<RecordBatch<T>>,
                Sliceable<RecordBatch<T>>,
-               Applicative<Struct<T>, Table<T>> {
+               Applicative<Map_<T>, Table<T>> {
 
     public static from<T extends { [key: string]: DataType } = any, TNull = any>(options: VectorBuilderOptions<Struct<T> | Map_<T>, TNull>): Table<T>;
     public static from<T extends { [key: string]: DataType } = any, TNull = any>(options: VectorBuilderOptionsAsync<Struct<T> | Map_<T>, TNull>): Promise<Table<T>>;
     /** @nocollapse */
     public static from<T extends { [key: string]: DataType } = any, TNull = any>(options: VectorBuilderOptions<Struct<T> | Map_<T>, TNull> | VectorBuilderOptionsAsync<Struct<T> | Map_<T>, TNull>) {
-        if (isIterable<Struct<T>['TValue'] | TNull>(options['values'])) {
-            return Table.fromStruct(StructVector.from(options as VectorBuilderOptions<Struct<T>, TNull>));
+        if (isIterable<(Struct<T> | Map_<T>)['TValue'] | TNull>(options['values'])) {
+            return Table.from(options as VectorBuilderOptions<Struct<T> | Map_<T>, TNull>);
         }
-        return StructVector.from(options as VectorBuilderOptionsAsync<Struct<T>, TNull>).then((struct) => Table.fromStruct(struct));
+        return Table.from(options as VectorBuilderOptionsAsync<Struct<T> | Map_<T>, TNull>);
     }
 
     public static new<T extends VectorMap = any>(children: T): RecordBatch<{ [P in keyof T]: T[P]['type'] }>;
@@ -66,27 +66,27 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
     protected _schema: Schema;
 
     constructor(schema: Schema<T>, length: number, children: (Data | Vector)[]);
-    constructor(schema: Schema<T>, data: Data<Struct<T>>, children?: Vector[]);
+    constructor(schema: Schema<T>, data: Data<Map_<T>>, children?: Vector[]);
     constructor(...args: any[]) {
-        let data: Data<Struct<T>>;
+        let data: Data<Map_<T>>;
         let schema = args[0] as Schema<T>;
         let children: Vector[] | undefined;
         if (args[1] instanceof Data) {
-            [, data, children] = (args as [any, Data<Struct<T>>, Vector<T[keyof T]>[]?]);
+            [, data, children] = (args as [any, Data<Map_<T>>, Vector<T[keyof T]>[]?]);
         } else {
             const fields = schema.fields as Field<T[keyof T]>[];
             const [, length, childData] = args as [any, number, Data<T[keyof T]>[]];
-            data = Data.Struct(new Struct<T>(fields), 0, length, 0, null, childData);
+            data = Data.Map(new Map_<T>(fields), 0, length, 0, null, childData);
         }
         super(data, children);
         this._schema = schema;
     }
 
-    public clone(data: Data<Struct<T>>, children = this._children) {
+    public clone(data: Data<Map_<T>>, children = this._children) {
         return new RecordBatch<T>(this._schema, data, children);
     }
 
-    public concat(...others: Vector<Struct<T>>[]): Table<T> {
+    public concat(...others: Vector<Map_<T>>[]): Table<T> {
         const schema = this._schema, chunks = Chunked.flatten(this, ...others);
         return new Table(schema, chunks.map(({ data }) => new RecordBatch(schema, data)));
     }
