@@ -1016,12 +1016,12 @@ cdef class FlightServerBase:
     cdef:
         unique_ptr[PyFlightServer] server
 
-    def run(self, location, auth_handler=None,
-            tls_cert_chain=None, tls_private_key=None):
+    def run(self, location, auth_handler=None, tls_certificates=()):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
             unique_ptr[CFlightServerOptions] c_options
+            CCertKeyPair c_cert
 
         c_options.reset(new CFlightServerOptions(Location.unwrap(location)))
 
@@ -1032,12 +1032,10 @@ cdef class FlightServerBase:
             c_options.get().auth_handler.reset(
                 (<ServerAuthHandler> auth_handler).to_handler())
 
-        if tls_cert_chain:
-            if not tls_private_key:
-                raise ValueError(
-                    "Must provide both cert chain and private key")
-            c_options.get().tls_cert_chain = tobytes(tls_cert_chain)
-            c_options.get().tls_private_key = tobytes(tls_private_key)
+        for cert, key in tls_certificates:
+            c_cert.pem_cert = tobytes(cert)
+            c_cert.pem_key = tobytes(key)
+            c_options.get().tls_certificates.push_back(c_cert)
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
