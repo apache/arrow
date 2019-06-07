@@ -233,6 +233,8 @@ Note that this requires linking Boost statically" OFF)
 
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" ON)
 
+  define_option(ARROW_REQUIRE_ENCRYPTION "Fail if OpenSSL is not found" OFF)
+
   if(CMAKE_VERSION VERSION_LESS 3.7)
     set(ARROW_WITH_ZSTD_DEFAULT OFF)
   else()
@@ -274,8 +276,6 @@ Note that this requires linking Boost statically" OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Parquet")
-
-  define_option(PARQUET_BUILD_ENCRYPTION "Build Parquet with encryption support" ON)
 
   define_option(PARQUET_MINIMAL_DEPENDENCY
                 "Depend only on Thirdparty headers to build libparquet. \

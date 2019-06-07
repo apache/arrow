@@ -181,6 +181,7 @@ else()
 endif()
 
 if(ARROW_FLIGHT)
+  set(ARROW_REQUIRE_ENCRYPTION ON)
   set(ARROW_WITH_GRPC ON)
   set(ARROW_WITH_URIPARSER ON)
 endif()
@@ -733,14 +734,20 @@ if(ARROW_WITH_BROTLI)
   include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
 endif()
 
-if(PARQUET_BUILD_ENCRYPTION)
+set(ARROW_USE_OPENSSL OFF)
+if(ARROW_REQUIRE_ENCRYPTION)
+  # This must work
+  find_package(OpenSSL REQUIRED)
+  set(ARROW_USE_OPENSSL ON)
+elseif(ARROW_PARQUET)
+  # Enable Parquet encryption if OpenSSL is there, but don't fail if it's not
   find_package(OpenSSL QUIET)
-  CMAKE_DEPENDENT_OPTION(PARQUET_BUILD_ENCRYPTION "Build with OpenSSL support" ON
+  CMAKE_DEPENDENT_OPTION(ARROW_USE_OPENSSL "Build with OpenSSL support" ON
                          "OPENSSL_FOUND" OFF)
 endif()
 
-if(PARQUET_BUILD_ENCRYPTION OR ARROW_WITH_GRPC)
-  find_package(OpenSSL REQUIRED)
+if(ARROW_USE_OPENSSL)
+  message(STATUS "Building with OpenSSL support")
   # OpenSSL::SSL and OpenSSL::Crypto
   # are not available in older CMake versions (CMake < v3.2).
   if(NOT TARGET OpenSSL::SSL)
@@ -758,6 +765,8 @@ if(PARQUET_BUILD_ENCRYPTION OR ARROW_WITH_GRPC)
   endif()
 
   include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+else()
+  message(STATUS "Building without OpenSSL support")
 endif()
 
 # ----------------------------------------------------------------------
