@@ -668,8 +668,26 @@ endfunction()
 # No main function must be present within the source file!
 #
 function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args PREFIX)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   if(NO_FUZZING)
     return()
+  endif()
+
+  get_filename_component(FUZZING_NAME ${REL_FUZZING_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(FUZZING_NAME "${ARG_PREFIX}-${FUZZING_NAME}")
   endif()
 
   if(ARROW_BUILD_STATIC)
@@ -678,13 +696,12 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
     set(FUZZ_LINK_LIBS arrow_shared)
   endif()
 
-  add_executable(${REL_FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
-  target_link_libraries(${REL_FUZZING_NAME} ${FUZZ_LINK_LIBS})
-  target_compile_options(${REL_FUZZING_NAME} PRIVATE "-fsanitize=fuzzer")
-  set_target_properties(${REL_FUZZING_NAME} PROPERTIES LINK_FLAGS "-fsanitize=fuzzer")
+  add_executable(${FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
+  target_link_libraries(${FUZZING_NAME} ${FUZZ_LINK_LIBS})
+  target_compile_options(${FUZZING_NAME} PRIVATE "-fsanitize=fuzzer")
+  set_target_properties(${FUZZING_NAME}
+                        PROPERTIES LINK_FLAGS "-fsanitize=fuzzer" LABELS "fuzzing")
 endfunction()
-
-#
 
 function(ARROW_INSTALL_ALL_HEADERS PATH)
   set(options)
