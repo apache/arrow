@@ -26,6 +26,9 @@ import org.apache.arrow.vector.types.Types.MinorType;
  */
 public class UnionMapReader extends UnionListReader {
 
+  private String keyName = MapVector.KEY_NAME;
+  private String valueName = MapVector.VALUE_NAME;
+
   /**
    * Construct a new reader for the given vector.
    *
@@ -36,12 +39,23 @@ public class UnionMapReader extends UnionListReader {
   }
 
   /**
+   * Set the key, value field names to read.
+   *
+   * @param key Field name for key.
+   * @param value Field name for value.
+   */
+  public void setKeyValueNames(String key, String value) {
+    keyName = key;
+    valueName = value;
+  }
+
+  /**
    * Start reading a key from the map entry.
    *
    * @return reader that can be used to read the key.
    */
   public FieldReader key() {
-    return reader().reader(MapVector.KEY_NAME);
+    return reader().reader(keyName);
   }
 
   /**
@@ -50,7 +64,7 @@ public class UnionMapReader extends UnionListReader {
    * @return reader that can be used to read the value.
    */
   public FieldReader value() {
-    return reader().reader(MapVector.VALUE_NAME);
+    return reader().reader(valueName);
   }
 
   /**
