@@ -82,7 +82,16 @@ class UniqueAction : public ActionBase {
 
   Status Reserve(const int64_t length) { return Status::OK(); }
 
-  void ObserveNull() {}
+  template <class Index>
+  void ObserveNullFound(Index index) {}
+
+  template <class Index>
+  void ObserveNullNotFound(Index index) {}
+
+  template <class Index>
+  void ObserveNullNotFound(Index index, Status* status) {
+    ARROW_LOG(FATAL) << "ObserveNotFound with err_status should not be called";
+  }
 
   template <class Index>
   void ObserveFound(Index index) {}
@@ -136,7 +145,23 @@ class ValueCountsAction : ActionBase {
     return Status::OK();
   }
 
-  void ObserveNull() {}
+  template <class Index>
+  void ObserveNullFound(Index index) {
+    count_builder_[index]++;
+  }
+
+  template <class Index>
+  void ObserveNullNotFound(Index index) {
+    ARROW_LOG(FATAL) << "ObserveNullNotFound without err_status should not be called";
+  }
+
+  template <class Index>
+  void ObserveNullNotFound(Index index, Status* status) {
+    Status s = count_builder_.Append(1);
+    if (ARROW_PREDICT_FALSE(!s.ok())) {
+      *status = s;
+    }
+  }
 
   template <class Index>
   void ObserveFound(Index slot) {
@@ -175,7 +200,20 @@ class DictEncodeAction : public ActionBase {
 
   Status Reserve(const int64_t length) { return indices_builder_.Reserve(length); }
 
-  void ObserveNull() { indices_builder_.UnsafeAppendNull(); }
+  template <class Index>
+  void ObserveNullFound(Index index) {
+    indices_builder_.UnsafeAppendNull();
+  }
+
+  template <class Index>
+  void ObserveNullNotFound(Index index) {
+    indices_builder_.UnsafeAppendNull();
+  }
+
+  template <class Index>
+  void ObserveNullNotFound(Index index, Status* status) {
+    ARROW_LOG(FATAL) << "ObserveNotFound with err_status should not be called";
+  }
 
   template <class Index>
   void ObserveFound(Index index) {
@@ -279,8 +317,23 @@ class RegularHashKernelImpl : public HashKernelImpl {
   }
 
   Status VisitNull() {
-    action_.ObserveNull();
-    return Status::Status::OK();
+    auto on_found = [this](int32_t memo_index) { action_.ObserveNullFound(memo_index); };
+
+    if (with_error_status) {
+      Status status;
+      auto on_not_found = [this, &status](int32_t memo_index) {
+        action_.ObserveNullNotFound(memo_index, &status);
+      };
+      memo_table_->GetOrInsertNull(on_found, on_not_found);
+      return status;
+    } else {
+      auto on_not_found = [this](int32_t memo_index) {
+        action_.ObserveNullNotFound(memo_index);
+      };
+
+      memo_table_->GetOrInsertNull(on_found, on_not_found);
+    }
+    return Status::OK();
   }
 
   Status VisitValue(const Scalar& value) {
@@ -328,7 +381,11 @@ class NullHashKernelImpl : public HashKernelImpl {
   Status Append(const ArrayData& arr) override {
     RETURN_NOT_OK(action_.Reserve(arr.length));
     for (int64_t i = 0; i < arr.length; ++i) {
-      action_.ObserveNull();
+      if (i == 0) {
+        action_.ObserveNullNotFound(0);
+      } else {
+        action_.ObserveNullFound(0);
+      }
     }
     return Status::OK();
   }
