@@ -21,7 +21,6 @@
 
 #include <arrow/util/parallel.h>
 
-
 //' View and manage the capacity of the global thread pool
 //'
 //' Get the capacity of the global thread pool

@@ -25,7 +25,6 @@
 #include <parquet/exception.h>
 #endif
 
-
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> read_parquet_file(std::string filename) {
 #ifdef ARROW_R_WITH_PARQUET

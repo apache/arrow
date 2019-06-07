@@ -27,9 +27,9 @@
 #include "./symbols.h"
 
 #define STOP_IF_NOT(TEST, MSG)    \
-do {                              \
-  if (!(TEST)) Rcpp::stop(MSG);   \
-} while (0)
+  do {                            \
+    if (!(TEST)) Rcpp::stop(MSG); \
+  } while (0)
 
 #define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
 
@@ -49,22 +49,22 @@ namespace internal {
 template <typename Pointer>
 Pointer r6_to_smart_pointer(SEXP self) {
   return reinterpret_cast<Pointer>(
-    EXTPTR_PTR(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
+      EXTPTR_PTR(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
 }
 
 }  // namespace internal
 
 template <typename T>
 class ConstReferenceSmartPtrInputParameter {
-public:
+ public:
   using const_reference = const T&;
 
   explicit ConstReferenceSmartPtrInputParameter(SEXP self)
-    : ptr(internal::r6_to_smart_pointer<const T*>(self)) {}
+      : ptr(internal::r6_to_smart_pointer<const T*>(self)) {}
 
   inline operator const_reference() { return *ptr; }
 
-private:
+ private:
   const T* ptr;
 };
 
@@ -158,8 +158,6 @@ inline std::shared_ptr<T> extract(SEXP x) {
 }  // namespace r
 }  // namespace arrow
 
-
-
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
@@ -191,14 +189,13 @@ namespace arrow {
 namespace r {
 
 std::shared_ptr<arrow::Array> Array__from_vector(
-    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered
-);
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered);
 
 template <typename T>
 std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(SEXP x) {
   std::vector<std::shared_ptr<T>> vec;
   R_xlen_t n = Rf_xlength(x);
-  for (R_xlen_t i=0; i < n; i++) {
+  for (R_xlen_t i = 0; i < n; i++) {
     Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> ptr(VECTOR_ELT(x, i));
     vec.push_back(ptr);
   }
@@ -212,18 +209,18 @@ constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 
 template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
 class RBuffer : public MutableBuffer {
-public:
+ public:
   explicit RBuffer(Vec vec)
-    : MutableBuffer(reinterpret_cast<uint8_t*>(vec.begin()),
-      vec.size() * sizeof(typename Vec::stored_type)),
-      vec_(vec) {}
+      : MutableBuffer(reinterpret_cast<uint8_t*>(vec.begin()),
+                      vec.size() * sizeof(typename Vec::stored_type)),
+        vec_(vec) {}
 
-private:
+ private:
   // vec_ holds the memory
   Vec vec_;
 };
 
-}
-}
+}  // namespace r
+}  // namespace arrow
 
 #endif
