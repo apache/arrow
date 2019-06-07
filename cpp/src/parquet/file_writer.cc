@@ -485,7 +485,7 @@ void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
 }
 
 void WriteMetaDataFile(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
-  PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
+  PARQUET_THROW_NOT_OK(sink->Write(kParquetMagic, 4));
   return WriteFileMetaData(file_metadata, sink);
 }
 
