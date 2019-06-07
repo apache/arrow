@@ -17,7 +17,7 @@
 
 test_that <- function(what, code) {
   testthat::test_that(what, {
-    skip_if(!arrow_available(), "arrow C++ library not available")
+    skip_if(!arrow:::arrow_available(), "arrow C++ library not available")
     code
   })
 }
