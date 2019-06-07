@@ -43,6 +43,10 @@ except ImportError:
 
 def assert_equal(obj1, obj2):
     if torch is not None and torch.is_tensor(obj1) and torch.is_tensor(obj2):
+        if obj1.is_sparse:
+            obj1 = obj1.to_dense()
+        if obj2.is_sparse:
+            obj2 = obj2.to_dense()
         assert torch.equal(obj1, obj2)
         return
     module_numpy = (type(obj1).__module__ == np.__name__ or
@@ -390,6 +394,9 @@ def test_torch_serialization(large_buffer):
 
     serialization_context = pa.default_serialization_context()
     pa.register_torch_serialization_handlers(serialization_context)
+
+    # Dense tensors:
+
     # These are the only types that are supported for the
     # PyTorch to NumPy conversion
     for t in ["float32", "float64",
@@ -401,6 +408,18 @@ def test_torch_serialization(large_buffer):
     tensor_requiring_grad = torch.randn(10, 10, requires_grad=True)
     serialization_roundtrip(tensor_requiring_grad, large_buffer,
                             context=serialization_context)
+
+    # Sparse tensors:
+
+    # These are the only types that are supported for the
+    # PyTorch to NumPy conversion
+    for t in ["float32", "float64",
+              "uint8", "int16", "int32", "int64"]:
+        i = torch.LongTensor([[0, 2], [1, 0], [1, 2]])
+        v = torch.from_numpy(np.array([3, 4, 5]).astype(t))
+        obj = torch.sparse_coo_tensor(i.t(), v, torch.Size([2, 3]))
+        serialization_roundtrip(obj, large_buffer,
+                                context=serialization_context)
 
 
 @pytest.mark.skipif(not torch or not torch.cuda.is_available(),
