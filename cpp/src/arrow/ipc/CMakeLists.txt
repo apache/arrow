@@ -103,4 +103,4 @@ if(ARROW_BUILD_UTILITIES)
 endif()
 
 add_arrow_benchmark(read-write-benchmark PREFIX "arrow-ipc")
-add_arrow_fuzzing(ipc-fuzzing-test)
+add_arrow_fuzzing(fuzzing-test PREFIX "arrow-ipc")

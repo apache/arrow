@@ -515,7 +515,7 @@ Now you can start one of the fuzzer, e.g.:
 .. code-block:: shell
 
    mkdir -p corpus
-   ./relwithdebinfo/ipc-fuzzing-test corpus
+   ./relwithdebinfo/arrow-ipc-fuzzing-test corpus
 
 This will try to find a malformed input that crashes the payload. A corpus of
 interesting inputs will be stored into the ``corpus`` directory. You can save and
@@ -529,13 +529,13 @@ can use GDB:
 
 .. code-block:: shell
 
-   env ASAN_OPTIONS=abort_on_error=1 gdb -ex r --args ./relwithdebinfo/ipc-fuzzing-test crash-<some id>
+   env ASAN_OPTIONS=abort_on_error=1 gdb -ex r --args ./relwithdebinfo/arrow-ipc-fuzzing-test crash-<some id>
 
 For more options, use:
 
 .. code-block:: shell
 
-   ./relwithdebinfo/ipc-fuzzing-test -help=1
+   ./relwithdebinfo/arrow-ipc-fuzzing-test -help=1
 
 or visit the `libFuzzer documentation <https://llvm.org/docs/LibFuzzer.html>`_.
 
