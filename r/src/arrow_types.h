@@ -24,7 +24,16 @@
 #include <RcppCommon.h>
 #undef Free
 
-#include "./symbols.h"
+namespace arrow {
+namespace r {
+struct symbols {
+  static SEXP units;
+  static SEXP xp;
+  static SEXP dot_Internal;
+  static SEXP inspect;
+};
+}  // namespace r
+}  // namespace arrow
 
 #define STOP_IF_NOT(TEST, MSG)    \
   do {                            \
