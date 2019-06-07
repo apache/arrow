@@ -243,21 +243,38 @@ class ConcatenateImpl {
  private:
   // Gather the index-th buffer of each input into a vector.
   // Bytes are sliced with that input's offset and length.
+  // Note that BufferVector will not contain the buffer of in_[i] if it's
+  // nullptr.
   BufferVector Buffers(size_t index) {
-    BufferVector buffers(in_.size());
+    BufferVector buffers;
+    buffers.reserve(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      buffers[i] = SliceBuffer(in_[i].buffers[index], in_[i].offset, in_[i].length);
+      const auto& buffer = in_[i].buffers[index];
+      if (buffer) {
+        buffers.push_back(
+            SliceBuffer(in_[i].buffers[index], in_[i].offset, in_[i].length));
+      }
     }
     return buffers;
   }
 
   // Gather the index-th buffer of each input into a vector.
   // Bytes are sliced with the explicitly passed ranges.
+  // Note that BufferVector will not contain the buffer of in_[i] if it's
+  // nullptr.
   BufferVector Buffers(size_t index, const std::vector<Range>& ranges) {
     DCHECK_EQ(in_.size(), ranges.size());
-    BufferVector buffers(in_.size());
+    BufferVector buffers;
+    buffers.reserve(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      buffers[i] = SliceBuffer(in_[i].buffers[index], ranges[i].offset, ranges[i].length);
+      const auto& buffer = in_[i].buffers[index];
+      if (buffer) {
+        buffers.push_back(
+            SliceBuffer(
+                in_[i].buffers[index], ranges[i].offset, ranges[i].length));
+      } else {
+        DCHECK_EQ(ranges[i].length, 0);
+      }
     }
     return buffers;
   }
@@ -265,13 +282,20 @@ class ConcatenateImpl {
   // Gather the index-th buffer of each input into a vector.
   // Buffers are assumed to contain elements of fixed.bit_width(),
   // those elements are sliced with that input's offset and length.
+  // Note that BufferVector will not contain the buffer of in_[i] if it's
+  // nullptr.
   BufferVector Buffers(size_t index, const FixedWidthType& fixed) {
     DCHECK_EQ(fixed.bit_width() % 8, 0);
     auto byte_width = fixed.bit_width() / 8;
-    BufferVector buffers(in_.size());
+    BufferVector buffers;
+    buffers.reserve(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      buffers[i] = SliceBuffer(in_[i].buffers[index], in_[i].offset * byte_width,
-                               in_[i].length * byte_width);
+      const auto& buffer = in_[i].buffers[index];
+      if (buffer) {
+        buffers.push_back(SliceBuffer(
+            in_[i].buffers[index], in_[i].offset * byte_width,
+            in_[i].length * byte_width));
+      }
     }
     return buffers;
   }

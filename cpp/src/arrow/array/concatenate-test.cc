@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/builder.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
@@ -108,6 +109,22 @@ class ConcatenateTest : public ::testing::Test {
   std::vector<int32_t> sizes_;
   std::vector<double> null_probabilities_;
 };
+
+TEST(ConcatenateEmptyArraysTest, TestValueBuffersNullPtr) {
+  BinaryBuilder builder;
+  std::shared_ptr<Array> binary_array;
+  ArrayVector inputs;
+  ASSERT_OK(builder.Finish(&binary_array));
+  inputs.push_back(std::move(binary_array));
+  builder.Reset();
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Finish(&binary_array));
+  inputs.push_back(std::move(binary_array));
+
+  std::shared_ptr<Array> actual;
+  ASSERT_OK(Concatenate(inputs, default_memory_pool(), &actual));
+  AssertArraysEqual(*actual, *inputs[1]);
+}
 
 template <typename PrimitiveType>
 class PrimitiveConcatenateTest : public ConcatenateTest {
