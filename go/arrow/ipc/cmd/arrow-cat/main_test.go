@@ -149,6 +149,16 @@ record 3...
   col[7] "date64s": [-22 (null) (null) 21 22]
 `,
 		},
+		{
+			name: "fixed_size_binaries",
+			want: `record 1...
+  col[0] "fixed_size_binary_3": ["001" (null) (null) "004" "005"]
+record 2...
+  col[0] "fixed_size_binary_3": ["011" (null) (null) "014" "015"]
+record 3...
+  col[0] "fixed_size_binary_3": ["021" (null) (null) "024" "025"]
+`,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -448,6 +458,28 @@ record 3/3...
   col[5] "timestamp": [20 (null) (null) 23 24]
   col[6] "date32s": [-22 (null) (null) 21 22]
   col[7] "date64s": [-22 (null) (null) 21 22]
+`,
+		},
+		{
+			stream: true,
+			name:   "fixed_size_binaries",
+			want: `record 1...
+  col[0] "fixed_size_binary_3": ["001" (null) (null) "004" "005"]
+record 2...
+  col[0] "fixed_size_binary_3": ["011" (null) (null) "014" "015"]
+record 3...
+  col[0] "fixed_size_binary_3": ["021" (null) (null) "024" "025"]
+`,
+		},
+		{
+			name: "fixed_size_binaries",
+			want: `version: V4
+record 1/3...
+  col[0] "fixed_size_binary_3": ["001" (null) (null) "004" "005"]
+record 2/3...
+  col[0] "fixed_size_binary_3": ["011" (null) (null) "014" "015"]
+record 3/3...
+  col[0] "fixed_size_binary_3": ["021" (null) (null) "024" "025"]
 `,
 		},
 	} {

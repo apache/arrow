@@ -39,11 +39,6 @@ func TestFixedSizeBinaryBuilder(t *testing.T) {
 	assert.Equal(t, 4, b.Len(), "unexpected Len()")
 	assert.Equal(t, 2, b.NullN(), "unexpected NullN()")
 
-	assert.Equal(t, b.Value(0), []byte("1234567"))
-	assert.Equal(t, b.Value(1), []byte{})
-	assert.Equal(t, b.Value(2), []byte("ABCDEFG"))
-	assert.Equal(t, b.Value(3), []byte{})
-
 	values := [][]byte{
 		[]byte("7654321"),
 		nil,
@@ -53,10 +48,6 @@ func TestFixedSizeBinaryBuilder(t *testing.T) {
 
 	assert.Equal(t, 7, b.Len(), "unexpected Len()")
 	assert.Equal(t, 3, b.NullN(), "unexpected NullN()")
-
-	assert.Equal(t, []byte("7654321"), b.Value(4))
-	assert.Equal(t, []byte{}, b.Value(5))
-	assert.Equal(t, []byte("AZERTYU"), b.Value(6))
 
 	a := b.NewFixedSizeBinaryArray()
 
