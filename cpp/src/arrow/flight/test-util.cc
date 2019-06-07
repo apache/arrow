@@ -22,6 +22,7 @@
 #include <mach-o/dyld.h>
 #endif
 
+#include <cstdlib>
 #include <sstream>
 
 #include <boost/filesystem.hpp>
@@ -284,6 +285,71 @@ Status TestClientAuthHandler::Authenticate(ClientAuthSender* outgoing,
 Status TestClientAuthHandler::GetToken(std::string* token) {
   *token = password_;
   return Status::OK();
+}
+
+Status GetTestResourceRoot(std::string* out) {
+  const char* c_root = std::getenv("ARROW_TEST_DATA");
+  if (!c_root) {
+    return Status::IOError("Test resources not found, set ARROW_TEST_DATA");
+  }
+  *out = std::string(c_root);
+  return Status::OK();
+}
+
+Status ExampleTlsCertificates(std::vector<CertKeyPair>* out) {
+  std::string root;
+  RETURN_NOT_OK(GetTestResourceRoot(&root));
+
+  *out = std::vector<CertKeyPair>();
+  for (int i = 0; i < 2; i++) {
+    try {
+      std::stringstream cert_path;
+      cert_path << root << "/flight/cert" << i << ".pem";
+      std::stringstream key_path;
+      key_path << root << "/flight/cert" << i << ".key";
+
+      std::ifstream cert_file(cert_path.str());
+      if (!cert_file) {
+        return Status::IOError("Could not open certificate: " + cert_path.str());
+      }
+      std::stringstream cert;
+      cert << cert_file.rdbuf();
+
+      std::ifstream key_file(key_path.str());
+      if (!key_file) {
+        return Status::IOError("Could not open key: " + key_path.str());
+      }
+      std::stringstream key;
+      key << key_file.rdbuf();
+
+      out->push_back(CertKeyPair{cert.str(), key.str()});
+    } catch (const std::ifstream::failure& e) {
+      return Status::IOError(e.what());
+    }
+  }
+  return Status::OK();
+}
+
+Status ExampleTlsCertificateRoot(CertKeyPair* out) {
+  std::string root;
+  RETURN_NOT_OK(GetTestResourceRoot(&root));
+
+  std::stringstream path;
+  path << root << "/flight/root-ca.pem";
+
+  try {
+    std::ifstream cert_file(path.str());
+    if (!cert_file) {
+      return Status::IOError("Could not open certificate: " + path.str());
+    }
+    std::stringstream cert;
+    cert << cert_file.rdbuf();
+    out->pem_cert = cert.str();
+    out->pem_key = "";
+    return Status::OK();
+  } catch (const std::ifstream::failure& e) {
+    return Status::IOError(e.what());
+  }
 }
 
 }  // namespace flight

@@ -249,6 +249,16 @@ class AuthTestServer : public FlightServerBase {
   }
 };
 
+class TlsTestServer : public FlightServerBase {
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result) override {
+    std::shared_ptr<Buffer> buf;
+    RETURN_NOT_OK(Buffer::FromString("Hello, world!", &buf));
+    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    return Status::OK();
+  }
+};
+
 class DoPutTestServer : public FlightServerBase {
  public:
   Status DoPut(const ServerCallContext& context,
@@ -334,6 +344,42 @@ class TestDoPut : public ::testing::Test {
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<InProcessTestServer> server_;
   DoPutTestServer* do_put_server_;
+};
+
+class TestTls : public ::testing::Test {
+ public:
+  void SetUp() {
+    Location location;
+    std::unique_ptr<FlightServerBase> server(new TlsTestServer);
+
+    ASSERT_OK(Location::ForGrpcTls("localhost", GetListenPort(), &location));
+    FlightServerOptions options(location);
+    ASSERT_RAISES(UnknownError, server->Init(options));
+    ASSERT_OK(ExampleTlsCertificates(&options.tls_certificates));
+    ASSERT_OK(server->Init(options));
+
+    server_.reset(new InProcessTestServer(std::move(server), location));
+    ASSERT_OK(server_->Start());
+    ASSERT_OK(ConnectClient());
+  }
+
+  void TearDown() {
+    if (server_) {
+      server_->Stop();
+    }
+  }
+
+  Status ConnectClient() {
+    auto options = FlightClientOptions();
+    CertKeyPair root_cert;
+    RETURN_NOT_OK(ExampleTlsCertificateRoot(&root_cert));
+    options.tls_root_certs = root_cert.pem_cert;
+    return FlightClient::Connect(server_->location(), options, &client_);
+  }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<InProcessTestServer> server_;
 };
 
 TEST_F(TestFlightClient, ListFlights) {
@@ -618,6 +664,22 @@ TEST_F(TestAuthHandler, CheckPeerIdentity) {
   ASSERT_NE(result, nullptr);
   // Action returns the peer identity as the result.
   ASSERT_EQ(result->body->ToString(), "user");
+}
+
+TEST_F(TestTls, DoAction) {
+  FlightCallOptions options;
+  options.timeout = TimeoutDuration{5.0};
+  Action action;
+  action.type = "test";
+  action.body = Buffer::FromString("");
+  std::unique_ptr<ResultStream> results;
+  ASSERT_OK(client_->DoAction(options, action, &results));
+  ASSERT_NE(results, nullptr);
+
+  std::unique_ptr<Result> result;
+  ASSERT_OK(results->Next(&result));
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->body->ToString(), "Hello, world!");
 }
 
 }  // namespace flight

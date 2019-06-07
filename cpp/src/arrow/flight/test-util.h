@@ -184,5 +184,11 @@ class ARROW_FLIGHT_EXPORT TestClientAuthHandler : public ClientAuthHandler {
   std::string password_;
 };
 
+ARROW_FLIGHT_EXPORT
+Status ExampleTlsCertificates(std::vector<CertKeyPair>* out);
+
+ARROW_FLIGHT_EXPORT
+Status ExampleTlsCertificateRoot(CertKeyPair* out);
+
 }  // namespace flight
 }  // namespace arrow

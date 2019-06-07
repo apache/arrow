@@ -88,6 +88,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         @staticmethod
         CStatus ForGrpcTcp(c_string& host, int port, CLocation* location)
         @staticmethod
+        CStatus ForGrpcTls(c_string& host, int port, CLocation* location)
+        @staticmethod
         CStatus ForGrpcUnix(c_string& path, CLocation* location)
 
     cdef cppclass CFlightEndpoint" arrow::flight::FlightEndpoint":
