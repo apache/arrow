@@ -338,6 +338,10 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
         col = df[name]
         name = _column_name_to_strings(name)
 
+        if _pandas_api.is_sparse(col):
+            raise TypeError(
+                "Sparse pandas data (column {}) not supported.".format(name))
+
         if schema is not None:
             field = schema.field_by_name(name)
             type = getattr(field, "type", None)
