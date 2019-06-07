@@ -270,8 +270,7 @@ class ConcatenateImpl {
       const auto& buffer = in_[i].buffers[index];
       if (buffer) {
         buffers.push_back(
-            SliceBuffer(
-                in_[i].buffers[index], ranges[i].offset, ranges[i].length));
+            SliceBuffer(in_[i].buffers[index], ranges[i].offset, ranges[i].length));
       } else {
         DCHECK_EQ(ranges[i].length, 0);
       }
@@ -292,9 +291,8 @@ class ConcatenateImpl {
     for (size_t i = 0; i < in_.size(); ++i) {
       const auto& buffer = in_[i].buffers[index];
       if (buffer) {
-        buffers.push_back(SliceBuffer(
-            in_[i].buffers[index], in_[i].offset * byte_width,
-            in_[i].length * byte_width));
+        buffers.push_back(SliceBuffer(in_[i].buffers[index], in_[i].offset * byte_width,
+                                      in_[i].length * byte_width));
       }
     }
     return buffers;
