@@ -183,5 +183,11 @@ valid:
       table3 = build_table("visible" => build_boolean_array([false]))
       assert_equal(table, table1.concatenate([table2, table3]))
     end
+
+    def test_slice
+      table1 = build_table("visible" => build_boolean_array([true, false, true]))
+      table2 = build_table("visible" => build_boolean_array([false, true]))
+      assert_equal(table2, table1.slice(1, 2))
+    end
   end
 end
