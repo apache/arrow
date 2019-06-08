@@ -93,6 +93,7 @@ set(ARROW_SRCS
     array/concatenate.cc
     buffer.cc
     compare.cc
+    error_or.cc
     extension_type.cc
     memory_pool.cc
     pretty_print.cc
@@ -362,6 +363,7 @@ add_arrow_test(pretty_print-test)
 add_arrow_test(public-api-test)
 add_arrow_test(scalar-test)
 add_arrow_test(status-test)
+add_arrow_test(error_or_test)
 add_arrow_test(stl-test)
 add_arrow_test(type-test)
 add_arrow_test(table-test)
