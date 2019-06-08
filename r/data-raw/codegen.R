@@ -57,13 +57,13 @@ cpp_functions_definitions <- decorations %>%
     // {basename(file)}:{line}
     #if defined(ARROW_R_WITH_ARROW)
     {return_type} {name}({real_params});
-    SEXP _arrow_{name}({sexp_params}){{
+    RcppExport SEXP _arrow_{name}({sexp_params}){{
     BEGIN_RCPP
     {input_params}{return_line}{wrap_call(name, return_type, args)}
     END_RCPP
     }}
     #else
-    SEXP _arrow_{name}({sexp_params}){{
+    RcppExport SEXP _arrow_{name}({sexp_params}){{
     \tRf_error("arrow C++ library not available. Cannot call {name}(). ");
     }}
     #endif
@@ -81,7 +81,7 @@ cpp_functions_definitions <- decorations %>%
 cpp_functions_registration <- decorations %>%
   select(name, return_type, args) %>%
   pmap_chr(function(name, return_type, args){
-    glue('\t\t{{ "_arrow_{name}", (DL_FUNC)& _arrow_{name}, {nrow(args)}}}, ')
+    glue('\t\t{{ "_arrow_{name}", (DL_FUNC) &_arrow_{name}, {nrow(args)}}}, ')
   }) %>%
   glue_collapse(sep  = "\n")
 
@@ -110,7 +110,7 @@ static const R_CallMethodDef CallEntries[] = {{
 \t\t{{NULL, NULL, 0}}
 }};
 
-extern "C" void R_init_arrow(DllInfo* dll){{
+RcppExport void R_init_arrow(DllInfo* dll){{
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 }}
