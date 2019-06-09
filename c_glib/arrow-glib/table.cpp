@@ -538,7 +538,7 @@ garrow_table_to_string(GArrowTable *table, GError **error)
  * @other_tables: (element-type GArrowTable): The tables to be concatenated.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (transfer full): The table concatenated vertically.
+ * Returns: (nullable) (transfer full): The table concatenated vertically.
  *
  * Since: 0.14.0
  */
