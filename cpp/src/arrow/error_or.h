@@ -408,7 +408,7 @@ class ErrorOr {
 #define ASSIGN_OR_RAISE_IMPL(status_name, lhs, rexpr) \
   auto status_name = (rexpr);                         \
   RETURN_NOT_OK(status_name.status());                \
-  lhs = std::move(status_name.ValueOrDie());
+  lhs = std::move(status_name).ValueOrDie();
 
 #define ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
 
