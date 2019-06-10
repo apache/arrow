@@ -89,7 +89,7 @@ libgandiva_glib_la_SOURCES =			\
 	$(libgandiva_glib_la_sources)		\
 	$(libgandiva_glib_la_cpp_headers)
 
-BUILT_SOURCES =	\
+BUILT_SOURCES =					\
 	$(libgandiva_glib_la_generated_sources)	\
 	stamp-enums.c				\
 	stamp-enums.h
