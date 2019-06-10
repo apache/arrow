@@ -56,15 +56,14 @@ Status Mask(FunctionContext* context, const Array& values, const Array& mask,
 /// \param[in] mask indicates which values should be masked out
 /// \param[out] out resulting datum
 ARROW_EXPORT
-Status Mask(FunctionContext* context, const Datum& values, const Datum& indices,
-            Datum* out);
+Status Mask(FunctionContext* context, const Datum& values, const Datum& mask, Datum* out);
 
 /// \brief BinaryKernel implementing Mask operation
 class ARROW_EXPORT MaskKernel : public BinaryKernel {
  public:
   explicit MaskKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
 
-  Status Call(FunctionContext* ctx, const Datum& values, const Datum& indices,
+  Status Call(FunctionContext* ctx, const Datum& values, const Datum& mask,
               Datum* out) override;
 
   std::shared_ptr<DataType> out_type() const override { return type_; }
