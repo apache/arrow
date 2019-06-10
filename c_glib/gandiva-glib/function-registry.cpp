@@ -39,7 +39,7 @@ G_BEGIN_DECLS
 
 G_DEFINE_TYPE(GGandivaFunctionRegistry,
               ggandiva_function_registry,
-              G_TYPE_OBJECT);
+              G_TYPE_OBJECT)
 
 static void
 ggandiva_function_registry_init(GGandivaFunctionRegistry *object)
