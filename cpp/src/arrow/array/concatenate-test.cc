@@ -111,11 +111,13 @@ class ConcatenateTest : public ::testing::Test {
 };
 
 TEST(ConcatenateEmptyArraysTest, TestValueBuffersNullPtr) {
-  BinaryBuilder builder;
-  std::shared_ptr<Array> binary_array;
   ArrayVector inputs;
+
+  std::shared_ptr<Array> binary_array;
+  BinaryBuilder builder;
   ASSERT_OK(builder.Finish(&binary_array));
   inputs.push_back(std::move(binary_array));
+
   builder.Reset();
   ASSERT_OK(builder.AppendNull());
   ASSERT_OK(builder.Finish(&binary_array));

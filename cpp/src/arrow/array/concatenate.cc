@@ -248,11 +248,10 @@ class ConcatenateImpl {
   BufferVector Buffers(size_t index) {
     BufferVector buffers;
     buffers.reserve(in_.size());
-    for (size_t i = 0; i < in_.size(); ++i) {
-      const auto& buffer = in_[i].buffers[index];
-      if (buffer) {
-        buffers.push_back(
-            SliceBuffer(in_[i].buffers[index], in_[i].offset, in_[i].length));
+    for (const ArrayData& array_data : in_) {
+      const auto& buffer = array_data.buffers[index];
+      if (buffer != nullptr) {
+        buffers.push_back(SliceBuffer(buffer, array_data.offset, array_data.length));
       }
     }
     return buffers;
@@ -268,9 +267,8 @@ class ConcatenateImpl {
     buffers.reserve(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
       const auto& buffer = in_[i].buffers[index];
-      if (buffer) {
-        buffers.push_back(
-            SliceBuffer(in_[i].buffers[index], ranges[i].offset, ranges[i].length));
+      if (buffer != nullptr) {
+        buffers.push_back(SliceBuffer(buffer, ranges[i].offset, ranges[i].length));
       } else {
         DCHECK_EQ(ranges[i].length, 0);
       }
@@ -288,11 +286,11 @@ class ConcatenateImpl {
     auto byte_width = fixed.bit_width() / 8;
     BufferVector buffers;
     buffers.reserve(in_.size());
-    for (size_t i = 0; i < in_.size(); ++i) {
-      const auto& buffer = in_[i].buffers[index];
-      if (buffer) {
-        buffers.push_back(SliceBuffer(in_[i].buffers[index], in_[i].offset * byte_width,
-                                      in_[i].length * byte_width));
+    for (const ArrayData& array_data : in_) {
+      const auto& buffer = array_data.buffers[index];
+      if (buffer != nullptr) {
+        buffers.push_back(SliceBuffer(buffer, array_data.offset * byte_width,
+                                      array_data.length * byte_width));
       }
     }
     return buffers;
