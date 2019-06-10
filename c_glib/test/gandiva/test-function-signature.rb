@@ -37,6 +37,34 @@ class TestGandivaFunctionSignature < Test::Unit::TestCase
                  function_signature.to_s)
   end
 
+  def test_equal
+    assert_equal(Gandiva::FunctionSignature.new("add",
+                                                [
+                                                  Arrow::Int32DataType.new,
+                                                  Arrow::Int32DataType.new,
+                                                ],
+                                                Arrow::Int32DataType.new),
+                 Gandiva::FunctionSignature.new("add",
+                                                [
+                                                  Arrow::Int32DataType.new,
+                                                  Arrow::Int32DataType.new,
+                                                ],
+                                                Arrow::Int32DataType.new))
+
+    assert_not_equal(Gandiva::FunctionSignature.new("add",
+                                                    [
+                                                      Arrow::Int32DataType.new,
+                                                      Arrow::Int32DataType.new,
+                                                    ],
+                                                    Arrow::Int32DataType.new),
+                     Gandiva::FunctionSignature.new("sub",
+                                                    [
+                                                      Arrow::Int32DataType.new,
+                                                      Arrow::Int32DataType.new,
+                                                    ],
+                                                    Arrow::Int32DataType.new))
+  end
+
   def test_to_string
     assert_equal("date64[ms] to_date(string, string, int32)",
                  @to_date.to_s)
