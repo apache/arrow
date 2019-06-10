@@ -80,7 +80,7 @@ ggandiva_native_function_class_init(GGandivaNativeFunctionClass *klass)
   gobject_class->set_property = ggandiva_native_function_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("native_function",
+  spec = g_param_spec_pointer("native-function",
                               "NativeFunction",
                               "The raw gandiva::NativeFunction *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
@@ -227,7 +227,7 @@ ggandiva_native_function_new_raw(const gandiva::NativeFunction *gandiva_native_f
 {
   auto native_function =
     GGANDIVA_NATIVE_FUNCTION(g_object_new(GGANDIVA_TYPE_NATIVE_FUNCTION,
-                                          "native_function",
+                                          "native-function",
                                           gandiva_native_function,
                                           NULL));
   return native_function;
