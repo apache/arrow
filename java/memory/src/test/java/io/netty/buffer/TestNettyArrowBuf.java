@@ -17,7 +17,6 @@
 
 package io.netty.buffer;
 
-import java.awt.*;
 import java.nio.ByteBuffer;
 
 import org.apache.arrow.memory.ArrowByteBufAllocator;
