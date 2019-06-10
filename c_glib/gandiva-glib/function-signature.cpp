@@ -103,10 +103,10 @@ ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
 {
   auto gandiva_function_signature =
     ggandiva_function_signature_get_raw(function_signature);
-  auto other_gandiva_function_signature =
+  auto gandiva_other_function_signature =
     ggandiva_function_signature_get_raw(other_function_signature);
 
-  return (*gandiva_function_signature) == (*other_gandiva_function_signature);
+  return (*gandiva_function_signature) == (*gandiva_other_function_signature);
 }
 
 /**
