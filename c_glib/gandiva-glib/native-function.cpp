@@ -111,6 +111,7 @@ ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function)
  *
  * Returns: (transfer full):
  *   The string representation of the signature of the native function.
+ *   It should be freed with g_free() when no longer needed.
  *
  * Since: 0.14.0
  */
