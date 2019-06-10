@@ -716,10 +716,10 @@ class BinaryMemoTable : public MemoTable {
     }
 
     int32_t left_offset = offsets_[start];
-    int32_t data_length = values_.size() - static_cast<size_t>(left_offset);
 
     // Ensure that the data_length is exactly missing width_size bytes to fit
     // in the expected output (n_values * width_size).
+    int64_t data_length = values_.size() - static_cast<size_t>(left_offset);
     assert(data_length + width_size == out_size);
 
     auto in_data = values_.data() + left_offset;
@@ -847,7 +847,7 @@ struct DictionaryTraits<BooleanType> {
     const auto null_index = memo_table.GetNull();
 
     // Will iterate up to 3 times.
-    for (int32_t i = start_offset; i < memo_table.size(); i++) {
+    for (int64_t i = start_offset; i < memo_table.size(); i++) {
       RETURN_NOT_OK(i == null_index ? builder.AppendNull()
                                     : builder.Append(bool_values[i]));
     }
