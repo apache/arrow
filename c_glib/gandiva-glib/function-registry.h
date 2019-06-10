@@ -35,7 +35,7 @@ struct _GGandivaFunctionRegistryClass
   GObjectClass parent_class;
 };
 
-GGandivaFunctionRegistry *ggandiva_function_registry_new();
+GGandivaFunctionRegistry *ggandiva_function_registry_new(void);
 GList *ggandiva_function_registry_get_native_functions(GGandivaFunctionRegistry *function_registry);
 
 G_END_DECLS
