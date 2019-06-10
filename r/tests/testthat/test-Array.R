@@ -397,3 +397,12 @@ test_that("array() does not convert doubles to integer", {
   }
 })
 
+test_that("array() converts raw vectors to uint8 arrays (ARROW-3794)", {
+  expect_equal(array(as.raw(1:10))$type, uint8())
+})
+
+test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
+  a <- array(1:10)$cast(int8())
+  expect_equal(a$type, int8())
+  expect_equal(a$as_vector(), 1:10)
+})

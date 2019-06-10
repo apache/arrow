@@ -76,7 +76,7 @@ test_that("arrow::table round trip", {
   chunked_array_raw <- col_raw$data()
   expect_equal(chunked_array_raw$length(), 10L)
   expect_equal(chunked_array_raw$null_count, 0L)
-  expect_equal(chunked_array_raw$as_vector(), tbl$raw)
+  expect_equal(chunked_array_raw$as_vector(), as.integer(tbl$raw))
 
   # arrow::Array
   chunks_raw <- chunked_array_raw$chunks
@@ -88,7 +88,9 @@ test_that("arrow::table round trip", {
   write_arrow(tbl, tf)
 
   res <- read_arrow(tf)
-  expect_identical(tbl, res)
+  expect_identical(tbl$int, res$int)
+  expect_identical(tbl$dbl, res$dbl)
+  expect_identical(as.integer(tbl$raw), res$raw)
   unlink(tf)
 })
 
@@ -119,7 +121,10 @@ test_that("arrow::table round trip handles NA in integer and numeric", {
   write_arrow(tbl, tf)
 
   res <- read_arrow(tf)
-  expect_identical(tbl, res)
+  expect_identical(tbl$int, res$int)
+  expect_identical(tbl$dbl, res$dbl)
+  expect_identical(as.integer(tbl$raw), res$raw)
+
   expect_true(is.na(res$int[1]))
   expect_true(is.na(res$dbl[6]))
   expect_true(is.na(res$dbl[10]))

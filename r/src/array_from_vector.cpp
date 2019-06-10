@@ -897,7 +897,7 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
       }
       return MakeSimpleArray<REALSXP, DoubleType>(x);
     case RAWSXP:
-      return MakeSimpleArray<RAWSXP, Int8Type>(x);
+      return MakeSimpleArray<RAWSXP, UInt8Type>(x);
     default:
       break;
   }
