@@ -921,6 +921,12 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
 
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered) {
+
+  // short circuit if `x` is already an Array
+  if (Rf_inherits(x, "arrow::Array")) {
+    return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>>(x);
+  }
+
   // special case when we can just use the data from the R vector
   // directly. This still needs to handle the null bitmap
   if (arrow::r::can_reuse_memory(x, type)) {

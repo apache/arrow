@@ -145,3 +145,8 @@ test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
   expect_equal(dim(batch), c(10L, 2L))
   expect_equal(nrow(batch), 10L)
 })
+
+test_that("record_batch() handles arrow::Array", {
+  batch <- record_batch(x = 1:10, y = arrow::array(1:10))
+  expect_equal(batch$schema, schema(x = int32(), y = int32()))
+})

@@ -410,3 +410,8 @@ test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
   expect_equal(a$type, uint8())
   expect_equal(a$as_vector(), 0:255)
 })
+
+test_that("array() recognise arrow::Array (ARROW-3815)", {
+  a <- array(1:10)
+  expect_equal(a, array(a))
+})
