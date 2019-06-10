@@ -31,7 +31,7 @@ namespace compute {
 
 class FunctionContext;
 
-/// \brief Mask an array with a boolean selection filter
+/// \brief Filter an array with a boolean selection filter
 ///
 /// The output array will be populated with values from the input at positions
 /// where the selection filter is not 0. Nulls in the filter will result in nulls
@@ -43,27 +43,28 @@ class FunctionContext;
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] values array from which to take
-/// \param[in] mask indicates which values should be masked out
+/// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting array
 ARROW_EXPORT
-Status Mask(FunctionContext* context, const Array& values, const Array& mask,
-            std::shared_ptr<Array>* out);
+Status Filter(FunctionContext* context, const Array& values, const Array& filter,
+              std::shared_ptr<Array>* out);
 
-/// \brief Mask an array with a boolean selection filter
+/// \brief Filter an array with a boolean selection filter
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] values datum from which to take
-/// \param[in] mask indicates which values should be masked out
+/// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting datum
 ARROW_EXPORT
-Status Mask(FunctionContext* context, const Datum& values, const Datum& mask, Datum* out);
+Status Filter(FunctionContext* context, const Datum& values, const Datum& filter,
+              Datum* out);
 
-/// \brief BinaryKernel implementing Mask operation
-class ARROW_EXPORT MaskKernel : public BinaryKernel {
+/// \brief BinaryKernel implementing Filter operation
+class ARROW_EXPORT FilterKernel : public BinaryKernel {
  public:
-  explicit MaskKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
+  explicit FilterKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
 
-  Status Call(FunctionContext* ctx, const Datum& values, const Datum& mask,
+  Status Call(FunctionContext* ctx, const Datum& values, const Datum& filter,
               Datum* out) override;
 
   std::shared_ptr<DataType> out_type() const override { return type_; }
