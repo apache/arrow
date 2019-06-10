@@ -728,7 +728,7 @@ class BinaryMemoTable : public MemoTable {
     auto null_data_offset = offsets_[null_index];
     auto left_size = null_data_offset - left_offset;
     if (left_size > 0) {
-      mempcpy(out_data, in_data + left_offset, left_size);
+      memcpy(out_data, in_data + left_offset, left_size);
     }
 
     auto right_size = values_.size() - static_cast<size_t>(null_data_offset);
@@ -736,7 +736,7 @@ class BinaryMemoTable : public MemoTable {
       // skip the null fixed size value.
       auto out_offset = left_size + width_size;
       assert(out_data + out_offset + right_size == out_data + out_size);
-      mempcpy(out_data + out_offset, in_data + null_data_offset, right_size);
+      memcpy(out_data + out_offset, in_data + null_data_offset, right_size);
     }
   }
 
