@@ -18,8 +18,6 @@
 #include "parquet/arrow/schema.h"
 
 #include <algorithm>
-#include <deque>
-#include <sstream>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -35,7 +33,6 @@
 #include "parquet/exception.h"
 #include "parquet/properties.h"
 #include "parquet/schema-internal.h"
-#include "parquet/schema.h"
 #include "parquet/types.h"
 
 using arrow::Field;
@@ -46,7 +43,6 @@ using ArrowType = arrow::DataType;
 using ArrowTypeId = arrow::Type;
 
 using parquet::Repetition;
-using parquet::schema::ColumnPath;
 using parquet::schema::GroupNode;
 using parquet::schema::Node;
 using parquet::schema::NodePtr;
@@ -59,9 +55,6 @@ using parquet::LogicalType;
 namespace parquet {
 
 namespace arrow {
-
-static const char* key_prefix = "org.apache.arrow.field[";
-static const char* key_suffix = "].timestamp.timezone";
 
 const auto TIMESTAMP_MS = ::arrow::timestamp(::arrow::TimeUnit::MILLI);
 const auto TIMESTAMP_US = ::arrow::timestamp(::arrow::TimeUnit::MICRO);
@@ -139,46 +132,31 @@ static Status MakeArrowTime64(const std::shared_ptr<const LogicalAnnotation>& an
   return Status::OK();
 }
 
-static int FetchMetadataTimezoneIndex(
-    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  int index = -1;
-  if (metadata) {
-    const std::string key(key_prefix + path + key_suffix);
-    index = metadata->FindKey(key);
-  }
-  return index;
-}
-
 static Status MakeArrowTimestamp(
-    const std::shared_ptr<const LogicalAnnotation>& annotation, const std::string& path,
-    const std::shared_ptr<const KeyValueMetadata>& metadata,
+    const std::shared_ptr<const LogicalAnnotation>& annotation,
     std::shared_ptr<ArrowType>* out) {
+  static constexpr auto utc = "UTC";
   const auto& timestamp = checked_cast<const TimestampAnnotation&>(*annotation);
-  ::arrow::TimeUnit::type time_unit;
-
   switch (timestamp.time_unit()) {
     case LogicalAnnotation::TimeUnit::MILLIS:
-      time_unit = ::arrow::TimeUnit::MILLI;
+      *out = (timestamp.is_adjusted_to_utc()
+                  ? ::arrow::timestamp(::arrow::TimeUnit::MILLI, utc)
+                  : ::arrow::timestamp(::arrow::TimeUnit::MILLI));
       break;
     case LogicalAnnotation::TimeUnit::MICROS:
-      time_unit = ::arrow::TimeUnit::MICRO;
+      *out = (timestamp.is_adjusted_to_utc()
+                  ? ::arrow::timestamp(::arrow::TimeUnit::MICRO, utc)
+                  : ::arrow::timestamp(::arrow::TimeUnit::MICRO));
       break;
     case LogicalAnnotation::TimeUnit::NANOS:
-      time_unit = ::arrow::TimeUnit::NANO;
+      *out = (timestamp.is_adjusted_to_utc()
+                  ? ::arrow::timestamp(::arrow::TimeUnit::NANO, utc)
+                  : ::arrow::timestamp(::arrow::TimeUnit::NANO));
       break;
     default:
       return Status::TypeError("Unrecognized time unit in timestamp annotation: ",
                                annotation->ToString());
   }
-
-  // Attempt to recover optional timezone for this field from file metadata
-  int index = FetchMetadataTimezoneIndex(path, metadata);
-
-  *out = (timestamp.is_adjusted_to_utc()
-              ? ::arrow::timestamp(time_unit, "UTC")
-              : (index == -1 ? ::arrow::timestamp(time_unit)
-                             : ::arrow::timestamp(time_unit, metadata->value(index))));
-
   return Status::OK();
 }
 
@@ -250,8 +228,6 @@ static Status FromInt32(const std::shared_ptr<const LogicalAnnotation>& annotati
 }
 
 static Status FromInt64(const std::shared_ptr<const LogicalAnnotation>& annotation,
-                        const std::string& path,
-                        const std::shared_ptr<const KeyValueMetadata>& metadata,
                         std::shared_ptr<ArrowType>* out) {
   switch (annotation->type()) {
     case LogicalAnnotation::Type::INT:
@@ -261,7 +237,7 @@ static Status FromInt64(const std::shared_ptr<const LogicalAnnotation>& annotati
       RETURN_NOT_OK(MakeArrowDecimal(annotation, out));
       break;
     case LogicalAnnotation::Type::TIMESTAMP:
-      RETURN_NOT_OK(MakeArrowTimestamp(annotation, path, metadata, out));
+      RETURN_NOT_OK(MakeArrowTimestamp(annotation, out));
       break;
     case LogicalAnnotation::Type::TIME:
       RETURN_NOT_OK(MakeArrowTime64(annotation, out));
@@ -276,9 +252,7 @@ static Status FromInt64(const std::shared_ptr<const LogicalAnnotation>& annotati
   return Status::OK();
 }
 
-Status FromPrimitive(const PrimitiveNode& primitive,
-                     const std::shared_ptr<const KeyValueMetadata>& metadata,
-                     std::shared_ptr<ArrowType>* out) {
+Status FromPrimitive(const PrimitiveNode& primitive, std::shared_ptr<ArrowType>* out) {
   const std::shared_ptr<const LogicalAnnotation>& annotation =
       primitive.logical_annotation();
   if (annotation->is_invalid() || annotation->is_null()) {
@@ -294,8 +268,7 @@ Status FromPrimitive(const PrimitiveNode& primitive,
       RETURN_NOT_OK(FromInt32(annotation, out));
       break;
     case ParquetType::INT64:
-      RETURN_NOT_OK(FromInt64(annotation, ColumnPath::FromNode(primitive)->ToDotString(),
-                              metadata, out));
+      RETURN_NOT_OK(FromInt64(annotation, out));
       break;
     case ParquetType::INT96:
       *out = TIMESTAMP_NS;
@@ -324,7 +297,6 @@ Status FromPrimitive(const PrimitiveNode& primitive,
 // Forward declaration
 Status NodeToFieldInternal(const Node& node,
                            const std::unordered_set<const Node*>* included_leaf_nodes,
-                           const std::shared_ptr<const KeyValueMetadata>& metadata,
                            std::shared_ptr<Field>* out);
 
 /*
@@ -342,7 +314,6 @@ inline bool IsIncludedLeaf(const Node& node,
 
 Status StructFromGroup(const GroupNode& group,
                        const std::unordered_set<const Node*>* included_leaf_nodes,
-                       const std::shared_ptr<const KeyValueMetadata>& metadata,
                        std::shared_ptr<ArrowType>* out) {
   std::vector<std::shared_ptr<Field>> fields;
   std::shared_ptr<Field> field;
@@ -350,8 +321,7 @@ Status StructFromGroup(const GroupNode& group,
   *out = nullptr;
 
   for (int i = 0; i < group.field_count(); i++) {
-    RETURN_NOT_OK(
-        NodeToFieldInternal(*group.field(i), included_leaf_nodes, metadata, &field));
+    RETURN_NOT_OK(NodeToFieldInternal(*group.field(i), included_leaf_nodes, &field));
     if (field != nullptr) {
       fields.push_back(field);
     }
@@ -364,7 +334,6 @@ Status StructFromGroup(const GroupNode& group,
 
 Status NodeToList(const GroupNode& group,
                   const std::unordered_set<const Node*>* included_leaf_nodes,
-                  const std::shared_ptr<const KeyValueMetadata>& metadata,
                   std::shared_ptr<ArrowType>* out) {
   *out = nullptr;
   if (group.field_count() == 1) {
@@ -378,8 +347,8 @@ Status NodeToList(const GroupNode& group,
       if (list_group.field_count() == 1 && !schema::HasStructListName(list_group)) {
         // List of primitive type
         std::shared_ptr<Field> item_field;
-        RETURN_NOT_OK(NodeToFieldInternal(*list_group.field(0), included_leaf_nodes,
-                                          metadata, &item_field));
+        RETURN_NOT_OK(
+            NodeToFieldInternal(*list_group.field(0), included_leaf_nodes, &item_field));
 
         if (item_field != nullptr) {
           *out = ::arrow::list(item_field);
@@ -387,8 +356,7 @@ Status NodeToList(const GroupNode& group,
       } else {
         // List of struct
         std::shared_ptr<ArrowType> inner_type;
-        RETURN_NOT_OK(
-            StructFromGroup(list_group, included_leaf_nodes, metadata, &inner_type));
+        RETURN_NOT_OK(StructFromGroup(list_group, included_leaf_nodes, &inner_type));
         if (inner_type != nullptr) {
           auto item_field = std::make_shared<Field>(list_node.name(), inner_type, false);
           *out = ::arrow::list(item_field);
@@ -398,8 +366,8 @@ Status NodeToList(const GroupNode& group,
       // repeated primitive node
       std::shared_ptr<ArrowType> inner_type;
       if (IsIncludedLeaf(static_cast<const Node&>(list_node), included_leaf_nodes)) {
-        RETURN_NOT_OK(FromPrimitive(static_cast<const PrimitiveNode&>(list_node),
-                                    metadata, &inner_type));
+        RETURN_NOT_OK(
+            FromPrimitive(static_cast<const PrimitiveNode&>(list_node), &inner_type));
         auto item_field = std::make_shared<Field>(list_node.name(), inner_type, false);
         *out = ::arrow::list(item_field);
       }
@@ -415,12 +383,11 @@ Status NodeToList(const GroupNode& group,
 }
 
 Status NodeToField(const Node& node, std::shared_ptr<Field>* out) {
-  return NodeToFieldInternal(node, nullptr, nullptr, out);
+  return NodeToFieldInternal(node, nullptr, out);
 }
 
 Status NodeToFieldInternal(const Node& node,
                            const std::unordered_set<const Node*>* included_leaf_nodes,
-                           const std::shared_ptr<const KeyValueMetadata>& metadata,
                            std::shared_ptr<Field>* out) {
   std::shared_ptr<ArrowType> type = nullptr;
   bool nullable = !node.is_required();
@@ -432,10 +399,9 @@ Status NodeToFieldInternal(const Node& node,
     std::shared_ptr<ArrowType> inner_type;
     if (node.is_group()) {
       RETURN_NOT_OK(StructFromGroup(static_cast<const GroupNode&>(node),
-                                    included_leaf_nodes, metadata, &inner_type));
+                                    included_leaf_nodes, &inner_type));
     } else if (IsIncludedLeaf(node, included_leaf_nodes)) {
-      RETURN_NOT_OK(
-          FromPrimitive(static_cast<const PrimitiveNode&>(node), metadata, &inner_type));
+      RETURN_NOT_OK(FromPrimitive(static_cast<const PrimitiveNode&>(node), &inner_type));
     }
     if (inner_type != nullptr) {
       auto item_field = std::make_shared<Field>(node.name(), inner_type, false);
@@ -445,15 +411,14 @@ Status NodeToFieldInternal(const Node& node,
   } else if (node.is_group()) {
     const auto& group = static_cast<const GroupNode&>(node);
     if (node.logical_annotation()->is_list()) {
-      RETURN_NOT_OK(NodeToList(group, included_leaf_nodes, metadata, &type));
+      RETURN_NOT_OK(NodeToList(group, included_leaf_nodes, &type));
     } else {
-      RETURN_NOT_OK(StructFromGroup(group, included_leaf_nodes, metadata, &type));
+      RETURN_NOT_OK(StructFromGroup(group, included_leaf_nodes, &type));
     }
   } else {
     // Primitive (leaf) node
     if (IsIncludedLeaf(node, included_leaf_nodes)) {
-      RETURN_NOT_OK(
-          FromPrimitive(static_cast<const PrimitiveNode&>(node), metadata, &type));
+      RETURN_NOT_OK(FromPrimitive(static_cast<const PrimitiveNode&>(node), &type));
     }
   }
   if (type != nullptr) {
@@ -462,56 +427,26 @@ Status NodeToFieldInternal(const Node& node,
   return Status::OK();
 }
 
-static std::shared_ptr<const KeyValueMetadata> FilterParquetMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  // Return a copy of the input metadata stripped of any key-values pairs
-  // that held Arrow/Parquet storage specific information
-  std::shared_ptr<KeyValueMetadata> filtered_metadata =
-      std::make_shared<KeyValueMetadata>();
-  if (metadata) {
-    for (int i = 0; i < metadata->size(); ++i) {
-      const std::string& key = metadata->key(i);
-      const std::string& value = metadata->value(i);
-      // Discard keys like "org.apache.arrow.field[*].timestamp.timezone"
-      size_t key_size = key.size();
-      size_t key_prefix_size = strlen(key_prefix);
-      size_t key_suffix_size = strlen(key_suffix);
-      bool timezone_storage_key =
-          (key_size >= (key_prefix_size + key_suffix_size)) &&
-          (key.compare(0, key_prefix_size, key_prefix) == 0) &&
-          (key.compare(key_size - key_suffix_size, key_suffix_size, key_suffix) == 0);
-      if (!timezone_storage_key) {
-        filtered_metadata->Append(key, value);
-      }
-    }
-  }
-  if (filtered_metadata->size() == 0) {
-    filtered_metadata.reset();
-  }
-  return filtered_metadata;
-}
-
-Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                         const std::shared_ptr<const KeyValueMetadata>& parquet_metadata,
-                         std::shared_ptr<::arrow::Schema>* out) {
+Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out) {
   const GroupNode& schema_node = *parquet_schema->group_node();
 
   int num_fields = static_cast<int>(schema_node.field_count());
   std::vector<std::shared_ptr<Field>> fields(num_fields);
   for (int i = 0; i < num_fields; i++) {
-    RETURN_NOT_OK(NodeToFieldInternal(*schema_node.field(i), nullptr, parquet_metadata,
-                                      &fields[i]));
+    RETURN_NOT_OK(NodeToField(*schema_node.field(i), &fields[i]));
   }
 
-  *out =
-      std::make_shared<::arrow::Schema>(fields, FilterParquetMetadata(parquet_metadata));
+  *out = std::make_shared<::arrow::Schema>(fields, key_value_metadata);
   return Status::OK();
 }
 
-Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                         const std::vector<int>& column_indices,
-                         const std::shared_ptr<const KeyValueMetadata>& parquet_metadata,
-                         std::shared_ptr<::arrow::Schema>* out) {
+Status FromParquetSchema(
+    const SchemaDescriptor* parquet_schema, const std::vector<int>& column_indices,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out) {
   // TODO(wesm): Consider adding an arrow::Schema name attribute, which comes
   // from the root Parquet node
 
@@ -535,15 +470,13 @@ Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
   std::vector<std::shared_ptr<Field>> fields;
   std::shared_ptr<Field> field;
   for (auto node : base_nodes) {
-    RETURN_NOT_OK(
-        NodeToFieldInternal(*node, &included_leaf_nodes, parquet_metadata, &field));
+    RETURN_NOT_OK(NodeToFieldInternal(*node, &included_leaf_nodes, &field));
     if (field != nullptr) {
       fields.push_back(field);
     }
   }
 
-  *out =
-      std::make_shared<::arrow::Schema>(fields, FilterParquetMetadata(parquet_metadata));
+  *out = std::make_shared<::arrow::Schema>(fields, key_value_metadata);
   return Status::OK();
 }
 
@@ -558,73 +491,13 @@ Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
   return FromParquetSchema(parquet_schema, nullptr, out);
 }
 
-class PresumedColumnPath {
-  // Pre-constructs the eventual column path dot string for a Parquet node
-  // before it is fully constructed from Arrow fields
- public:
-  PresumedColumnPath() = default;
-
-  void Extend(const std::shared_ptr<Field>& field) {
-    switch (field->type()->id()) {
-      case ArrowTypeId::DICTIONARY:
-        path_.push_back({false, ""});
-        break;
-      case ArrowTypeId::LIST:
-        path_.push_back({true, field->name() + ".list"});
-        break;
-      default:
-        path_.push_back({true, field->name()});
-        break;
-    }
-    return;
-  }
-
-  void Retract() {
-    DCHECK(!path_.empty());
-    path_.pop_back();
-    return;
-  }
-
-  std::string ToDotString() const {
-    std::stringstream ss;
-    int i = 0;
-    for (auto c = path_.cbegin(); c != path_.cend(); ++c) {
-      if (c->include) {
-        if (i > 0) {
-          ss << ".";
-        }
-        ss << c->component;
-        ++i;
-      }
-    }
-    return ss.str();
-  }
-
- private:
-  struct Component {
-    bool include;
-    std::string component;
-  };
-  std::deque<Component> path_;
-};
-
-Status FieldToNodeInternal(const std::shared_ptr<Field>& field,
-                           const WriterProperties& properties,
-                           const ArrowWriterProperties& arrow_properties,
-                           PresumedColumnPath& path,
-                           std::unordered_map<std::string, std::string>& metadata,
-                           NodePtr* out);
-
 Status ListToNode(const std::shared_ptr<::arrow::ListType>& type, const std::string& name,
                   bool nullable, const WriterProperties& properties,
-                  const ArrowWriterProperties& arrow_properties, PresumedColumnPath& path,
-                  std::unordered_map<std::string, std::string>& metadata, NodePtr* out) {
-  const Repetition::type repetition =
-      nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
+                  const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  Repetition::type repetition = nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 
   NodePtr element;
-  RETURN_NOT_OK(FieldToNodeInternal(type->value_field(), properties, arrow_properties,
-                                    path, metadata, &element));
+  RETURN_NOT_OK(FieldToNode(type->value_field(), properties, arrow_properties, &element));
 
   NodePtr list = GroupNode::Make("list", Repetition::REPEATED, {element});
   *out = GroupNode::Make(name, repetition, {list}, LogicalAnnotation::List());
@@ -634,17 +507,13 @@ Status ListToNode(const std::shared_ptr<::arrow::ListType>& type, const std::str
 Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
                     const std::string& name, bool nullable,
                     const WriterProperties& properties,
-                    const ArrowWriterProperties& arrow_properties,
-                    PresumedColumnPath& path,
-                    std::unordered_map<std::string, std::string>& metadata,
-                    NodePtr* out) {
-  const Repetition::type repetition =
-      nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
+                    const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+  Repetition::type repetition = nullable ? Repetition::OPTIONAL : Repetition::REQUIRED;
 
   std::vector<NodePtr> children(type->num_children());
   for (int i = 0; i < type->num_children(); i++) {
-    RETURN_NOT_OK(FieldToNodeInternal(type->child(i), properties, arrow_properties, path,
-                                      metadata, &children[i]));
+    RETURN_NOT_OK(
+        FieldToNode(type->child(i), properties, arrow_properties, &children[i]));
   }
 
   *out = GroupNode::Make(name, repetition, children);
@@ -657,32 +526,9 @@ static bool HasUTCTimezone(const std::string& timezone) {
                      [timezone](const std::string& utc) { return timezone == utc; });
 }
 
-static void StoreMetadataTimezone(const std::string& path,
-                                  std::unordered_map<std::string, std::string>& metadata,
-                                  const std::string& timezone) {
-  const std::string key(key_prefix + path + key_suffix);
-  if (metadata.find(key) != metadata.end()) {
-    std::stringstream ms;
-    ms << "Duplicate field name '" << path
-       << "' for timestamp with timezone field in Arrow schema.";
-    throw ParquetException(ms.str());
-  }
-  metadata.insert(std::make_pair(key, timezone));
-  return;
-}
-
 static std::shared_ptr<const LogicalAnnotation> TimestampAnnotationFromArrowTimestamp(
-    const std::string& path, const ::arrow::TimestampType& timestamp_type,
-    ::arrow::TimeUnit::type time_unit,
-    std::unordered_map<std::string, std::string>& metadata) {
-  const std::string& timezone = timestamp_type.timezone();
-  const bool utc = HasUTCTimezone(timezone);
-
-  if (!utc && !timezone.empty()) {
-    // Attempt to preserve timezone for this field as file metadata
-    StoreMetadataTimezone(path, metadata, timezone);
-  }
-
+    const ::arrow::TimestampType& timestamp_type, ::arrow::TimeUnit::type time_unit) {
+  const bool utc = HasUTCTimezone(timestamp_type.timezone());
   switch (time_unit) {
     case ::arrow::TimeUnit::MILLI:
       return LogicalAnnotation::Timestamp(utc, LogicalAnnotation::TimeUnit::MILLIS);
@@ -698,10 +544,7 @@ static std::shared_ptr<const LogicalAnnotation> TimestampAnnotationFromArrowTime
 }
 
 static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
-                                   const std::string& name,
                                    const ArrowWriterProperties& properties,
-                                   const std::string& path,
-                                   std::unordered_map<std::string, std::string>& metadata,
                                    ParquetType::type* physical_type,
                                    std::shared_ptr<const LogicalAnnotation>* annotation) {
   const bool coerce = properties.coerce_timestamps_enabled();
@@ -715,8 +558,8 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   }
 
   *physical_type = ParquetType::INT64;
-  PARQUET_CATCH_NOT_OK(*annotation = TimestampAnnotationFromArrowTimestamp(
-                           path, type, target_unit, metadata));
+  PARQUET_CATCH_NOT_OK(*annotation =
+                           TimestampAnnotationFromArrowTimestamp(type, target_unit));
 
   // The user is explicitly asking for timestamp data to be converted to the
   // specified units (target_unit).
@@ -744,22 +587,17 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   return Status::OK();
 }
 
-Status FieldToNodeInternal(const std::shared_ptr<Field>& field,
-                           const WriterProperties& properties,
-                           const ArrowWriterProperties& arrow_properties,
-                           PresumedColumnPath& path,
-                           std::unordered_map<std::string, std::string>& metadata,
-                           NodePtr* out) {
-  const Repetition::type repetition =
-      field->nullable() ? Repetition::OPTIONAL : Repetition::REQUIRED;
+Status FieldToNode(const std::shared_ptr<Field>& field,
+                   const WriterProperties& properties,
+                   const ArrowWriterProperties& arrow_properties, NodePtr* out) {
   std::shared_ptr<const LogicalAnnotation> annotation = LogicalAnnotation::None();
   ParquetType::type type;
+  Repetition::type repetition =
+      field->nullable() ? Repetition::OPTIONAL : Repetition::REQUIRED;
 
   int length = -1;
   int precision = -1;
   int scale = -1;
-
-  path.Extend(field);
 
   switch (field->type()->id()) {
     case ArrowTypeId::NA:
@@ -840,9 +678,9 @@ Status FieldToNodeInternal(const std::shared_ptr<Field>& field,
       annotation = LogicalAnnotation::Date();
       break;
     case ArrowTypeId::TIMESTAMP:
-      RETURN_NOT_OK(GetTimestampMetadata(
-          static_cast<::arrow::TimestampType&>(*field->type()), field->name(),
-          arrow_properties, path.ToDotString(), metadata, &type, &annotation));
+      RETURN_NOT_OK(
+          GetTimestampMetadata(static_cast<::arrow::TimestampType&>(*field->type()),
+                               arrow_properties, &type, &annotation));
       break;
     case ArrowTypeId::TIME32:
       type = ParquetType::INT32;
@@ -863,12 +701,12 @@ Status FieldToNodeInternal(const std::shared_ptr<Field>& field,
     case ArrowTypeId::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
       return StructToNode(struct_type, field->name(), field->nullable(), properties,
-                          arrow_properties, path, metadata, out);
+                          arrow_properties, out);
     }
     case ArrowTypeId::LIST: {
       auto list_type = std::static_pointer_cast<::arrow::ListType>(field->type());
       return ListToNode(list_type, field->name(), field->nullable(), properties,
-                        arrow_properties, path, metadata, out);
+                        arrow_properties, out);
     }
     case ArrowTypeId::DICTIONARY: {
       // Parquet has no Dictionary type, dictionary-encoded is handled on
@@ -877,8 +715,7 @@ Status FieldToNodeInternal(const std::shared_ptr<Field>& field,
           static_cast<const ::arrow::DictionaryType&>(*field->type());
       std::shared_ptr<::arrow::Field> unpacked_field = ::arrow::field(
           field->name(), dict_type.value_type(), field->nullable(), field->metadata());
-      return FieldToNodeInternal(unpacked_field, properties, arrow_properties, path,
-                                 metadata, out);
+      return FieldToNode(unpacked_field, properties, arrow_properties, out);
     }
     default: {
       // TODO: DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL_TEXT, VARCHAR
@@ -888,92 +725,34 @@ Status FieldToNodeInternal(const std::shared_ptr<Field>& field,
     }
   }
 
-  path.Retract();
-
   PARQUET_CATCH_NOT_OK(*out = PrimitiveNode::Make(field->name(), repetition, annotation,
                                                   type, length));
 
   return Status::OK();
 }
 
-Status FieldToNode(const std::shared_ptr<Field>& field,
-                   const WriterProperties& properties,
-                   const ArrowWriterProperties& arrow_properties,
-                   std::unordered_map<std::string, std::string>& parquet_metadata_map,
-                   NodePtr* out) {
-  PresumedColumnPath parquet_column_path;
-  return FieldToNodeInternal(field, properties, arrow_properties, parquet_column_path,
-                             parquet_metadata_map, out);
-}
-
-Status FieldToNode(const std::shared_ptr<Field>& field,
-                   const WriterProperties& properties,
-                   const ArrowWriterProperties& arrow_properties, NodePtr* out) {
-  PresumedColumnPath parquet_column_path;
-  std::unordered_map<std::string, std::string> dummy_metadata_map;
-  return FieldToNodeInternal(field, properties, arrow_properties, parquet_column_path,
-                             dummy_metadata_map, out);
-}
-
 Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
                        const WriterProperties& properties,
                        const ArrowWriterProperties& arrow_properties,
-                       std::shared_ptr<const KeyValueMetadata>* parquet_metadata_out,
-                       std::shared_ptr<SchemaDescriptor>* parquet_schema_out) {
-  std::unordered_map<std::string, std::string> parquet_metadata_map;
-  std::vector<NodePtr> parquet_nodes(arrow_schema->num_fields());
-
-  // TODO(tpboudreau): consider making construction of metadata map in
-  // FieldToNodeInternal() conditional on whether caller asked for metadata
-  // (parquet_metadata_out != NULL); metadata construction (even if
-  // unnecessary) can cause FieldToNodeInternal() to fail
+                       std::shared_ptr<SchemaDescriptor>* out) {
+  std::vector<NodePtr> nodes(arrow_schema->num_fields());
   for (int i = 0; i < arrow_schema->num_fields(); i++) {
-    PresumedColumnPath parquet_column_path;
-    RETURN_NOT_OK(FieldToNodeInternal(arrow_schema->field(i), properties,
-                                      arrow_properties, parquet_column_path,
-                                      parquet_metadata_map, &parquet_nodes[i]));
+    RETURN_NOT_OK(
+        FieldToNode(arrow_schema->field(i), properties, arrow_properties, &nodes[i]));
   }
 
-  if (parquet_metadata_out) {
-    if (arrow_schema->HasMetadata()) {
-      // merge Arrow application metadata with Arrow/Parquet storage specific metadata
-      auto arrow_metadata = arrow_schema->metadata();
-      std::unordered_map<std::string, std::string> arrow_metadata_map;
-      arrow_metadata->ToUnorderedMap(&arrow_metadata_map);
-      parquet_metadata_map.insert(arrow_metadata_map.cbegin(), arrow_metadata_map.cend());
-    }
-    *parquet_metadata_out =
-        std::make_shared<const KeyValueMetadata>(parquet_metadata_map);
-  }
-
-  NodePtr parquet_schema = GroupNode::Make("schema", Repetition::REQUIRED, parquet_nodes);
-  *parquet_schema_out = std::make_shared<::parquet::SchemaDescriptor>();
-  PARQUET_CATCH_NOT_OK((*parquet_schema_out)->Init(parquet_schema));
+  NodePtr schema = GroupNode::Make("schema", Repetition::REQUIRED, nodes);
+  *out = std::make_shared<::parquet::SchemaDescriptor>();
+  PARQUET_CATCH_NOT_OK((*out)->Init(schema));
 
   return Status::OK();
 }
 
 Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
                        const WriterProperties& properties,
-                       std::shared_ptr<const KeyValueMetadata>* parquet_metadata_out,
-                       std::shared_ptr<SchemaDescriptor>* parquet_schema_out) {
+                       std::shared_ptr<SchemaDescriptor>* out) {
   return ToParquetSchema(arrow_schema, properties, *default_arrow_writer_properties(),
-                         parquet_metadata_out, parquet_schema_out);
-}
-
-Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
-                       const WriterProperties& properties,
-                       const ArrowWriterProperties& arrow_properties,
-                       std::shared_ptr<SchemaDescriptor>* parquet_schema_out) {
-  return ToParquetSchema(arrow_schema, properties, arrow_properties, nullptr,
-                         parquet_schema_out);
-}
-
-Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
-                       const WriterProperties& properties,
-                       std::shared_ptr<SchemaDescriptor>* parquet_schema_out) {
-  return ToParquetSchema(arrow_schema, properties, *default_arrow_writer_properties(),
-                         nullptr, parquet_schema_out);
+                         out);
 }
 
 /// \brief Compute the number of bytes required to represent a decimal of a

@@ -1128,21 +1128,16 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
                         const std::shared_ptr<WriterProperties>& properties,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::unique_ptr<FileWriter>* writer) {
-  std::shared_ptr<const KeyValueMetadata> parquet_metadata;
   std::shared_ptr<SchemaDescriptor> parquet_schema;
-  RETURN_NOT_OK(ToParquetSchema(&schema, *properties, *arrow_properties,
-                                &parquet_metadata, &parquet_schema));
-
-  if (parquet_metadata->size() == 0) {
-    parquet_metadata.reset();
-  }
+  RETURN_NOT_OK(
+      ToParquetSchema(&schema, *properties, *arrow_properties, &parquet_schema));
 
   auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
 
   std::unique_ptr<ParquetFileWriter> base_writer =
-      ParquetFileWriter::Open(sink, schema_node, properties, parquet_metadata);
+      ParquetFileWriter::Open(sink, schema_node, properties, schema.metadata());
 
-  auto schema_ptr = schema.AddMetadata(parquet_metadata);
+  auto schema_ptr = std::make_shared<::arrow::Schema>(schema);
   writer->reset(
       new FileWriter(pool, std::move(base_writer), schema_ptr, arrow_properties));
   return Status::OK();
