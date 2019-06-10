@@ -24,6 +24,19 @@ class TestGandivaFunctionSignature < Test::Unit::TestCase
     }.signature
   end
 
+  def test_new
+    function_signature = Gandiva::FunctionSignature.new("add",
+                                                        [
+                                                          Arrow::Int32DataType.new,
+                                                          Arrow::Int32DataType.new,
+                                                        ],
+                                                        Arrow::Int32DataType.new)
+    assert_kind_of(Gandiva::FunctionSignature,
+                   function_signature)
+    assert_equal("int32 add(int32, int32)",
+                 function_signature.to_s)
+  end
+
   def test_to_string
     assert_equal("date64[ms] to_date(string, string, int32)",
                  @to_date.to_s)

@@ -33,7 +33,7 @@ G_BEGIN_DECLS
  */
 
 typedef struct GGandivaFunctionSignaturePrivate_ {
-  const gandiva::FunctionSignature *function_signature;
+  gandiva::FunctionSignature function_signature;
 } GGandivaFunctionSignaturePrivate;
 
 enum {
@@ -59,7 +59,7 @@ ggandiva_function_signature_set_property(GObject *object,
   switch (prop_id) {
   case PROP_FUNCTION_SIGNATURE:
     priv->function_signature =
-      static_cast<const gandiva::FunctionSignature *>(g_value_get_pointer(value));
+      *static_cast<const gandiva::FunctionSignature *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -86,6 +86,37 @@ ggandiva_function_signature_class_init(GGandivaFunctionSignatureClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FUNCTION_SIGNATURE, spec);
+}
+
+/**
+ * ggandiva_function_signature_new:
+ * @base_name: A base name of a function.
+ * @parameter_types: (element-type GArrowDataType)
+ *   A list of parameter data types.
+ * @return_type: A return data type.
+ *
+ * Returns:
+ *   A #GGandivaFunctionSignature.
+ *
+ * Since: 0.14.0
+ */
+GGandivaFunctionSignature *ggandiva_function_signature_new(const gchar *base_name,
+                                                           GList *parameter_types,
+                                                           GArrowDataType *return_type)
+{
+  gandiva::DataTypeVector arrow_parameter_types;
+  for (GList *node = parameter_types; node != NULL; node = g_list_next(node)) {
+    auto data_type = GARROW_DATA_TYPE(node->data);
+    auto arrow_data_type = garrow_data_type_get_raw(data_type);
+    arrow_parameter_types.push_back(arrow_data_type);
+  }
+
+  auto arrow_return_type = garrow_data_type_get_raw(return_type);
+
+  gandiva::FunctionSignature gandiva_function_signature(base_name,
+                                                        arrow_parameter_types,
+                                                        arrow_return_type);
+  return ggandiva_function_signature_new_raw(&gandiva_function_signature);
 }
 
 /**
@@ -208,5 +239,5 @@ const gandiva::FunctionSignature *
 ggandiva_function_signature_get_raw(GGandivaFunctionSignature *function_signature)
 {
   auto priv = GGANDIVA_FUNCTION_SIGNATURE_GET_PRIVATE(function_signature);
-  return priv->function_signature;
+  return &priv->function_signature;
 }

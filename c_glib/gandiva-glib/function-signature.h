@@ -35,6 +35,9 @@ struct _GGandivaFunctionSignatureClass
   GObjectClass parent_class;
 };
 
+GGandivaFunctionSignature *ggandiva_function_signature_new(const gchar *base_name,
+                                                           GList *parameter_types,
+                                                           GArrowDataType *return_type);
 gboolean ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
                                            GGandivaFunctionSignature *other_function_signature);
 gchar *ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signature);
