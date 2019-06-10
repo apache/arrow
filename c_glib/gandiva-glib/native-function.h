@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <arrow-glib/arrow-glib.h>
-
 #include <gandiva-glib/function-signature.h>
 
 G_BEGIN_DECLS
