@@ -18,7 +18,7 @@ Factory for a \code{arrow::Field}
 }
 \examples{
 
-if(arrow_available()){
+\dontrun{
    field("x", int32())
 }
 

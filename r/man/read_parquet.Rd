@@ -27,7 +27,7 @@ This function enables you to read Parquet files into R.
 }
 \examples{
 
-if (arrow_available()) {
+\dontrun{
   df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
 }
 

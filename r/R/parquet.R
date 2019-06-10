@@ -31,7 +31,7 @@
 #' `TRUE`.
 #' @examples
 #'
-#' if (arrow_available()) {
+#' \dontrun{
 #'   df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
 #' }
 #'

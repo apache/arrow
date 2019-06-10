@@ -65,7 +65,7 @@
 #'
 #' @examples
 #'
-#' if(arrow_available()){
+#' \dontrun{
 #'    field("x", int32())
 #' }
 #'
