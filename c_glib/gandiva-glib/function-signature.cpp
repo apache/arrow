@@ -115,6 +115,8 @@ ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
  *
  * Returns: (transfer full): The string representation of the function signature.
  *
+ *   It should be freed with g_free() when no longer needed.
+ *
  * Since: 0.14.0
  */
 gchar *
