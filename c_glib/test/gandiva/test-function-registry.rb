@@ -20,6 +20,14 @@ class TestGandivaFunctionRegistry < Test::Unit::TestCase
     omit("Gandiva is required") unless defined?(::Gandiva)
   end
 
+  def test_lookup_signature
+    function_registry = Gandiva::FunctionRegistry.new
+    native_function = function_registry.native_functions[0]
+    function_signature = native_function.signature
+    assert_equal(native_function.to_s,
+                 function_registry.lookup_signature(function_signature).to_s)
+  end
+
   def test_native_functions
     function_registry = Gandiva::FunctionRegistry.new
     assert_kind_of(Array,

@@ -24,6 +24,7 @@
 #include <gandiva/function_registry.h>
 #include <gandiva-glib/function-registry.h>
 
+#include <gandiva-glib/function-signature.hpp>
 #include <gandiva-glib/native-function.hpp>
 
 G_BEGIN_DECLS
@@ -62,6 +63,27 @@ GGandivaFunctionRegistry *
 ggandiva_function_registry_new(void)
 {
   return GGANDIVA_FUNCTION_REGISTRY(g_object_new(GGANDIVA_TYPE_FUNCTION_REGISTRY, NULL));
+}
+
+/**
+ * ggandiva_function_registry_lookup_signature:
+ * @function_registry: A #GGandivaFunctionRegistry.
+ * @function_signature: A #GGandivaFunctionSignature to be looked up.
+ *
+ * Returns: (transfer full):
+ *   The native functions associated to the given #GGandivaFunctionSignature.
+ *
+ * Since: 0.14.0
+ */
+GGandivaNativeFunction *
+ggandiva_function_registry_lookup_signature(GGandivaFunctionRegistry *function_registry,
+                                            GGandivaFunctionSignature *function_signature)
+{
+  gandiva::FunctionRegistry gandiva_function_registry;
+  auto gandiva_function_signature = ggandiva_function_signature_get_raw(function_signature);
+  auto gandiva_native_function =
+    gandiva_function_registry.LookupSignature(*gandiva_function_signature);
+  return ggandiva_native_function_new_raw(gandiva_native_function);
 }
 
 /**
