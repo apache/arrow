@@ -128,7 +128,7 @@ ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signat
 }
 
 /**
- * ggandiva_function_signature_get_ret_type:
+ * ggandiva_function_signature_get_return_type:
  * @function_signature: A #GGandivaFunctionSignature
  *
  * Returns: (transfer full):
@@ -137,7 +137,7 @@ ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signat
  * Since: 0.14.0
  */
 GArrowDataType *
-ggandiva_function_signature_get_ret_type(GGandivaFunctionSignature *function_signature)
+ggandiva_function_signature_get_return_type(GGandivaFunctionSignature *function_signature)
 {
   const auto gandiva_function_signature =
     ggandiva_function_signature_get_raw(function_signature);

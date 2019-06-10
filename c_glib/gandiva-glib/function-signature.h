@@ -38,7 +38,7 @@ struct _GGandivaFunctionSignatureClass
 gboolean ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
                                            GGandivaFunctionSignature *other_function_signature);
 gchar *ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signature);
-GArrowDataType *ggandiva_function_signature_get_ret_type(GGandivaFunctionSignature *function_signature);
+GArrowDataType *ggandiva_function_signature_get_return_type(GGandivaFunctionSignature *function_signature);
 gchar *ggandiva_function_signature_get_base_name(GGandivaFunctionSignature *function_signature);
 GList *ggandiva_function_signature_get_param_types(GGandivaFunctionSignature *function_signature);
 
