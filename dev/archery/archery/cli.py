@@ -383,16 +383,12 @@ def benchmark_diff(ctx, src, preserve, suite_filter, benchmark_filter,
             src, root, baseline, conf,
             suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
-        regressions = 0
         runner_comp = RunnerComparator(runner_cont, runner_base, threshold)
 
         # TODO(kszucs): test that the output is properly formatted jsonlines
         for comparator in runner_comp.comparisons:
-            regressions += comparator.regression
             json.dump(comparator, output, cls=JsonEncoder)
             output.write("\n")
-
-        sys.exit(regressions)
 
 
 if __name__ == "__main__":
