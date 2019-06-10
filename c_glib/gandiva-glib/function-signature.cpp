@@ -152,6 +152,8 @@ ggandiva_function_signature_get_ret_type(GGandivaFunctionSignature *function_sig
  *
  * Returns: (transfer full): A base name of the function signature.
  *
+ *   It should be freed with g_free() when no longer needed.
+ *
  * Since: 0.14.0
  */
 gchar *
