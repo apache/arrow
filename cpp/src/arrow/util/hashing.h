@@ -813,8 +813,8 @@ static inline Status ComputeValidityBitmap(MemoryPool* pool,
                                            const MemoTableType& memo_table,
                                            int64_t start_offset, int64_t* null_count,
                                            std::shared_ptr<Buffer>* validity_bitmap) {
-  auto dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
-  auto null_index = memo_table.GetNull();
+  int64_t dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
+  int64_t null_index = memo_table.GetNull();
   if (null_index != kKeyNotFound && null_index >= start_offset) {
     null_index -= start_offset;
     *null_count = 1;
