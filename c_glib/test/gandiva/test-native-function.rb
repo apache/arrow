@@ -51,27 +51,25 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
   def test_need_context
     assert_false(@registry.native_functions[0].need_context)
 
-    upper = @registry.native_functions.find do |nf|
-      nf.to_s == "string upper(string)"
-    end
+    string_type = Arrow::StringDataType.new
+    upper = @registry.lookup_signature(Gandiva::FunctionSignature.new("upper", [string_type], string_type))
     assert_true(upper.need_context)
   end
 
   def test_need_function_holder
     assert_false(@registry.native_functions[0].need_function_holder)
 
-    like = @registry.native_functions.find do |nf|
-      nf.to_s == "bool like(string, string)"
-    end
+    boolean_type = Arrow::BooleanDataType.new
+    string_type = Arrow::StringDataType.new
+    like = @registry.lookup_signature(Gandiva::FunctionSignature.new("like", [string_type, string_type], boolean_type))
     assert_true(like.need_function_holder)
   end
 
   def test_can_return_errors
     assert_false(@registry.native_functions[0].can_return_errors?)
 
-    divide_int8 = @registry.native_functions.find do |nf|
-      nf.to_s == "int8 divide(int8, int8)"
-    end
+    int8_type = Arrow::Int8DataType.new
+    divide_int8 = @registry.lookup_signature(Gandiva::FunctionSignature.new("divide", [int8_type, int8_type], int8_type))
     assert_true(divide_int8.can_return_errors?)
   end
 end

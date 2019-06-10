@@ -18,10 +18,14 @@
 class TestGandivaFunctionSignature < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
-    @registry = Gandiva::FunctionRegistry.new
-    @to_date = @registry.native_functions.find {|nf|
-      nf.to_s == "date64[ms] to_date(string, string, int32)"
-    }.signature
+
+    string_type = Arrow::StringDataType.new
+    int32_type = Arrow::Int32DataType.new
+    date64_type = Arrow::Date64DataType.new
+    parameter_types = [string_type, string_type, int32_type]
+    @to_date = Gandiva::FunctionSignature.new("to_date",
+                                              parameter_types,
+                                              date64_type)
   end
 
   def test_new
@@ -57,12 +61,7 @@ class TestGandivaFunctionSignature < Test::Unit::TestCase
                                                       Arrow::Int32DataType.new,
                                                     ],
                                                     Arrow::Int32DataType.new),
-                     Gandiva::FunctionSignature.new("sub",
-                                                    [
-                                                      Arrow::Int32DataType.new,
-                                                      Arrow::Int32DataType.new,
-                                                    ],
-                                                    Arrow::Int32DataType.new))
+                     @to_date)
   end
 
   def test_to_string
