@@ -115,7 +115,7 @@ std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType
       return LogicalAnnotation::Date();
     case ArrowId::TIMESTAMP: {
       const auto& ts_type = static_cast<const ::arrow::TimestampType&>(type);
-      const bool adjusted_to_utc = (ts_type.timezone() == "UTC");
+      const bool adjusted_to_utc = !(ts_type.timezone().empty());
       switch (ts_type.unit()) {
         case TimeUnit::MILLI:
           return LogicalAnnotation::Timestamp(adjusted_to_utc,

@@ -885,13 +885,13 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
        ParquetType::INT64, -1},
       {"timestamp(millisecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::MILLI, "CET"),
-       LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MILLIS),
+       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
        ParquetType::INT64, -1},
       {"timestamp(microsecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::MICRO, "CET"),
-       LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MICROS),
+       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
        ParquetType::INT64, -1},
       {"timestamp(nanosecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "CET"),
-       LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::NANOS),
+       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
        ParquetType::INT64, -1},
       {"null", ::arrow::null(), LogicalAnnotation::Null(), ParquetType::INT32, -1}};
 

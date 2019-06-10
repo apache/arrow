@@ -135,7 +135,7 @@ static Status MakeArrowTime64(const std::shared_ptr<const LogicalAnnotation>& an
 static Status MakeArrowTimestamp(
     const std::shared_ptr<const LogicalAnnotation>& annotation,
     std::shared_ptr<ArrowType>* out) {
-  static constexpr auto utc = "UTC";
+  static const char* utc = "UTC";
   const auto& timestamp = checked_cast<const TimestampAnnotation&>(*annotation);
   switch (timestamp.time_unit()) {
     case LogicalAnnotation::TimeUnit::MILLIS:
@@ -520,15 +520,9 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
   return Status::OK();
 }
 
-static bool HasUTCTimezone(const std::string& timezone) {
-  static const std::vector<std::string> utczones{"UTC", "utc"};
-  return std::any_of(utczones.begin(), utczones.end(),
-                     [timezone](const std::string& utc) { return timezone == utc; });
-}
-
 static std::shared_ptr<const LogicalAnnotation> TimestampAnnotationFromArrowTimestamp(
     const ::arrow::TimestampType& timestamp_type, ::arrow::TimeUnit::type time_unit) {
-  const bool utc = HasUTCTimezone(timestamp_type.timezone());
+  const bool utc = !(timestamp_type.timezone().empty());
   switch (time_unit) {
     case ::arrow::TimeUnit::MILLI:
       return LogicalAnnotation::Timestamp(utc, LogicalAnnotation::TimeUnit::MILLIS);
