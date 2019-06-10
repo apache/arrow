@@ -763,6 +763,12 @@ std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
 
 std::shared_ptr<arrow::DataType> InferType(SEXP x) {
   switch (TYPEOF(x)) {
+    case ENVSXP:
+      if (Rf_inherits(x, "arrow::Array")) {
+        Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>> array(x);
+        return static_cast<std::shared_ptr<arrow::Array>>(array)->type();
+      }
+      break;
     case LGLSXP:
       return boolean();
     case INTSXP:
