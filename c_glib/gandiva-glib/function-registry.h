@@ -36,6 +36,6 @@ struct _GGandivaFunctionRegistryClass
 };
 
 GGandivaFunctionRegistry *ggandiva_function_registry_new();
-GList *ggandiva_function_registry_get_native_functions(GGandivaFunctionRegistry *registry);
+GList *ggandiva_function_registry_get_native_functions(GGandivaFunctionRegistry *function_registry);
 
 G_END_DECLS
