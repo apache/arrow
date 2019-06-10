@@ -29,6 +29,7 @@
 namespace arrow {
 namespace compute {
 
+using internal::checked_pointer_cast;
 using util::string_view;
 
 template <typename ArrowType>
@@ -51,6 +52,29 @@ class TestFilterKernel : public ComputeFixture, public TestBase {
                 const std::string& filter, std::shared_ptr<Array>* out) {
     return arrow::compute::Filter(&this->ctx_, *ArrayFromJSON(type, values),
                                   *ArrayFromJSON(boolean(), filter), out);
+  }
+  void ValidateFilter(const std::shared_ptr<Array>& values,
+                      const std::shared_ptr<Array>& filter_boxed) {
+    std::shared_ptr<Array> filtered;
+    ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter_boxed, &filtered));
+
+    auto filter = checked_pointer_cast<BooleanArray>(filter_boxed);
+    int64_t values_i = 0, filtered_i = 0;
+    for (; values_i < values->length(); ++values_i, ++filtered_i) {
+      if (filter->IsNull(values_i)) {
+        ASSERT_LT(filtered_i, filtered->length());
+        ASSERT_TRUE(filtered->IsNull(filtered_i));
+        continue;
+      }
+      if (!filter->Value(values_i)) {
+        // this element was filtered out; don't examine filtered
+        --filtered_i;
+        continue;
+      }
+      ASSERT_LT(filtered_i, filtered->length());
+      ASSERT_TRUE(values->RangeEquals(values_i, values_i + 1, filtered_i, filtered));
+    }
+    ASSERT_EQ(filtered_i, filtered->length());
   }
 };
 
@@ -95,10 +119,34 @@ class TestFilterKernelWithNumeric : public TestFilterKernel<ArrowType> {
 
 TYPED_TEST_CASE(TestFilterKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
+  this->AssertFilter("[]", "[]", "[]");
+
+  this->AssertFilter("[9]", "[0]", "[]");
+  this->AssertFilter("[9]", "[1]", "[9]");
+  this->AssertFilter("[9]", "[null]", "[null]");
+  this->AssertFilter("[null]", "[0]", "[]");
+  this->AssertFilter("[null]", "[1]", "[null]");
+  this->AssertFilter("[null]", "[null]", "[null]");
+
   this->AssertFilter("[7, 8, 9]", "[0, 1, 0]", "[8]");
+  this->AssertFilter("[7, 8, 9]", "[1, 0, 1]", "[7, 9]");
   this->AssertFilter("[null, 8, 9]", "[0, 1, 0]", "[8]");
   this->AssertFilter("[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
-  this->AssertFilter("[]", "[]", "[]");
+  this->AssertFilter("[7, 8, 9]", "[1, null, 1]", "[7, null, 9]");
+}
+
+TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
+  auto rand = random::RandomArrayGenerator(0x5416447);
+  for (size_t i = 3; i < 13; i++) {
+    const int64_t length = static_cast<int64_t>(1ULL << i);
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto filter_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+        auto values = rand.Numeric<TypeParam>(length, 0, 127, null_probability);
+        auto filter = rand.Boolean(length, filter_probability, null_probability);
+        this->ValidateFilter(values, filter);
+      }
+    }
+  }
 }
 
 class TestFilterKernelWithString : public TestFilterKernel<StringType> {
