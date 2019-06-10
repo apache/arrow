@@ -80,7 +80,7 @@ ggandiva_function_signature_class_init(GGandivaFunctionSignatureClass *klass)
   gobject_class->set_property = ggandiva_function_signature_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("function_signature",
+  spec = g_param_spec_pointer("function-signature",
                               "FunctionSignature",
                               "The raw gandiva::FunctionSignature *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
@@ -194,7 +194,7 @@ ggandiva_function_signature_new_raw(const gandiva::FunctionSignature *gandiva_fu
 {
   auto function_signature =
     GGANDIVA_FUNCTION_SIGNATURE(g_object_new(GGANDIVA_TYPE_FUNCTION_SIGNATURE,
-                                             "function_signature",
+                                             "function-signature",
                                              gandiva_function_signature,
                                              NULL));
   return function_signature;
