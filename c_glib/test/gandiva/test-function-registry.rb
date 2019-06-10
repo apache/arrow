@@ -30,9 +30,7 @@ class TestGandivaFunctionRegistry < Test::Unit::TestCase
 
   def test_native_functions
     function_registry = Gandiva::FunctionRegistry.new
-    assert_kind_of(Array,
-                   function_registry.native_functions)
-    assert_kind_of(Gandiva::NativeFunction,
-                   function_registry.native_functions[0])
+    assert_equal([Gandiva::NativeFunction],
+                 function_registry.native_functions.collect(&:class).uniq)
   end
 end
