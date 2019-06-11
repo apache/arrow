@@ -16,21 +16,28 @@
 # under the License.
 
 class TestGandivaFunctionRegistry < Test::Unit::TestCase
+  include Helper::DataType
+
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
+    @registry = Gandiva::FunctionRegistry.new
   end
 
-  def test_lookup
-    function_registry = Gandiva::FunctionRegistry.new
-    native_function = function_registry.native_functions[0]
-    function_signature = native_function.signature
-    assert_equal(native_function.to_s,
-                 function_registry.lookup(function_signature).to_s)
+  def test_lookup_found
+    native_function = @registry.native_functions[0]
+    assert_equal(native_function,
+                 @registry.lookup(native_function.signature))
+  end
+
+  def test_lookup_not_found
+    signature = Gandiva::FunctionSignature.new("nonexistent",
+                                               [],
+                                               boolean_data_type)
+    assert_nil(@registry.lookup(signature))
   end
 
   def test_native_functions
-    function_registry = Gandiva::FunctionRegistry.new
     assert_equal([Gandiva::NativeFunction],
-                 function_registry.native_functions.collect(&:class).uniq)
+                 @registry.native_functions.collect(&:class).uniq)
   end
 end

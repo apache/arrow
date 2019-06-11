@@ -70,7 +70,7 @@ ggandiva_function_registry_new(void)
  * @function_registry: A #GGandivaFunctionRegistry.
  * @function_signature: A #GGandivaFunctionSignature to be looked up.
  *
- * Returns: (transfer full):
+ * Returns: (transfer full) (nullable):
  *   The native functions associated to the given #GGandivaFunctionSignature.
  *
  * Since: 0.14.0
@@ -84,7 +84,11 @@ ggandiva_function_registry_lookup(GGandivaFunctionRegistry *function_registry,
     ggandiva_function_signature_get_raw(function_signature);
   auto gandiva_native_function =
     gandiva_function_registry.LookupSignature(*gandiva_function_signature);
-  return ggandiva_native_function_new_raw(gandiva_native_function);
+  if (gandiva_native_function) {
+    return ggandiva_native_function_new_raw(gandiva_native_function);
+  } else {
+    return NULL;
+  }
 }
 
 /**
