@@ -1297,3 +1297,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
 cdef extern from 'arrow/util/thread-pool.h' namespace 'arrow' nogil:
     int GetCpuThreadPoolCapacity()
     CStatus SetCpuThreadPoolCapacity(int threads)
+
+cdef extern from 'arrow/array/concatenate.h' namespace 'arrow' nogil:
+    CStatus Concatenate(const vector[shared_ptr[CArray]]& arrays,
+                        CMemoryPool* pool, shared_ptr[CArray]* result)
