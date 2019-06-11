@@ -19,7 +19,12 @@ add_custom_target(arrow-all)
 add_custom_target(arrow)
 add_custom_target(arrow-benchmarks)
 add_custom_target(arrow-tests)
-add_dependencies(arrow-all arrow arrow-tests arrow-benchmarks)
+add_custom_target(arrow-integration)
+add_dependencies(arrow-all
+                 arrow
+                 arrow-tests
+                 arrow-benchmarks
+                 arrow-integration)
 
 # Adding unit tests part of the "arrow" portion of the test suite
 function(ADD_ARROW_TEST REL_TEST_NAME)
@@ -285,7 +290,7 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 SOURCES
@@ -303,6 +308,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
                 GTest::GTest
                 STATIC_LINK_LIBS
                 arrow_static)
+
+  add_custom_target(arrow_testing)
+  add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
 
   if(ARROW_BUILD_STATIC AND WIN32)
     target_compile_definitions(arrow_testing_static PUBLIC ARROW_STATIC)

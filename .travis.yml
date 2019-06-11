@@ -233,19 +233,23 @@ matrix:
     env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_FLIGHT=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_TRAVIS_INTEGRATION=1
+    # TODO(ARROW-4764): Using system java and plasma built with conda doesn't work
+    #- ARROW_TRAVIS_PLASMA=1
+    #- ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    # C++: Only build integration targets
+    - export ARROW_CPP_BUILD_TARGETS=arrow-integration
+    - export ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    # Javascript
     - nvm install 11.12
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
-    # TODO(ARROW-4764): Using system java and plasma built with conda doesn't work
     # - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
   - name: "NodeJS"
     language: node_js

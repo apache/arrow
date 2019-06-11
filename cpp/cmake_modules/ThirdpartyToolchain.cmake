@@ -810,7 +810,11 @@ endif()
 # ----------------------------------------------------------------------
 # gflags
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_USE_GLOG OR ARROW_WITH_GRPC)
+if(ARROW_BUILD_TESTS
+   OR ARROW_BUILD_BENCHMARKS
+   OR ARROW_BUILD_INTEGRATION
+   OR ARROW_USE_GLOG
+   OR ARROW_WITH_GRPC)
   set(ARROW_NEED_GFLAGS 1)
 else()
   set(ARROW_NEED_GFLAGS 0)
@@ -1283,7 +1287,7 @@ macro(build_gtest)
   add_dependencies(GTest::GMock googletest_ep)
 endmacro()
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   resolve_dependency(GTest)
 
   if(NOT GTEST_VENDORED)
