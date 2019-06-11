@@ -1483,6 +1483,8 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
     Parameters
     ----------
     arrays : iterable of pyarrow.Array objects
+    memory_pool : MemoryPool, default None
+        For memory allocations. If None, the default pool is used.
     """
     cdef:
         vector[shared_ptr[CArray]] c_arrays
