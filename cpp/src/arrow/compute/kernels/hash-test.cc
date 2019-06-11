@@ -161,8 +161,8 @@ TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckDictEncode<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3},
-                                {true, false, true, true, true, true}, {2, 0, 1, 3},
-                                {1, 0, 1, 1}, {0, 0, 0, 2, 0, 3});
+                                {true, false, true, true, true, true}, {2, 1, 3},
+                                {1, 1, 1}, {0, 0, 0, 1, 0, 2});
 }
 
 TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
@@ -255,11 +255,11 @@ TEST_F(TestHashKernel, ValueCountsBoolean) {
 TEST_F(TestHashKernel, DictEncodeBoolean) {
   CheckDictEncode<BooleanType, bool>(
       &this->ctx_, boolean(), {true, true, false, true, false},
-      {true, false, true, true, true}, {true, false, false}, {1, 0, 1}, {0, 1, 2, 0, 2});
+      {true, false, true, true, true}, {true, false}, {}, {0, 0, 1, 0, 1});
 
   CheckDictEncode<BooleanType, bool>(
       &this->ctx_, boolean(), {false, true, false, true, false},
-      {true, false, true, true, true}, {false, false, true}, {1, 0, 1}, {0, 1, 0, 2, 0});
+      {true, false, true, true, true}, {false, true}, {}, {0, 0, 0, 1, 0});
 
   // No nulls
   CheckDictEncode<BooleanType, bool>(&this->ctx_, boolean(),
@@ -294,13 +294,11 @@ TEST_F(TestHashKernel, ValueCountsBinary) {
 TEST_F(TestHashKernel, DictEncodeBinary) {
   CheckDictEncode<BinaryType, std::string>(
       &this->ctx_, binary(), {"test", "", "test2", "test", "baz"},
-      {true, false, true, true, true}, {"test", "", "test2", "baz"}, {1, 0, 1, 1},
-      {0, 1, 2, 0, 3});
+      {true, false, true, true, true}, {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
 
   CheckDictEncode<StringType, std::string>(
       &this->ctx_, utf8(), {"test", "", "test2", "test", "baz"},
-      {true, false, true, true, true}, {"test", "", "test2", "baz"}, {1, 0, 1, 1},
-      {0, 1, 2, 0, 3});
+      {true, false, true, true, true}, {"test", "test2", "baz"}, {}, {0, 0, 1, 0, 2});
 }
 
 TEST_F(TestHashKernel, BinaryResizeTable) {
@@ -354,8 +352,7 @@ TEST_F(TestHashKernel, UniqueFixedSizeBinary) {
 TEST_F(TestHashKernel, DictEncodeFixedSizeBinary) {
   CheckDictEncode<FixedSizeBinaryType, std::string>(
       &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      {true, false, true, true, true}, {"bbbbb", "", "aaaaa", "ccccc"}, {1, 0, 1, 1},
-      {0, 1, 0, 2, 3});
+      {true, false, true, true, true}, {"bbbbb", "aaaaa", "ccccc"}, {}, {0, 0, 0, 1, 2});
 }
 
 TEST_F(TestHashKernel, FixedSizeBinaryResizeTable) {
@@ -411,11 +408,11 @@ TEST_F(TestHashKernel, ValueCountsDecimal) {
 
 TEST_F(TestHashKernel, DictEncodeDecimal) {
   std::vector<Decimal128> values{12, 12, 11, 12, 13};
-  std::vector<Decimal128> expected{12, 0, 11, 13};
+  std::vector<Decimal128> expected{12, 11, 13};
 
   CheckDictEncode<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
                                               {true, false, true, true, true}, expected,
-                                              {1, 0, 1, 1}, {0, 1, 2, 0, 3});
+                                              {}, {0, 0, 1, 0, 2});
 }
 
 /* TODO(ARROW-4124): Determine if we wan to do something that is reproducable with floats.

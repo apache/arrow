@@ -34,7 +34,6 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
-#include "arrow/compute/kernels/util-internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -410,7 +409,7 @@ class ScalarMemoTable : public MemoTable {
     return GetOrInsertNull([](int32_t i) {}, [](int32_t i) {});
   }
 
-  // The number of entries in the memo table + if null was added.
+  // The number of entries in the memo table +1 if null was added.
   // (which is also 1 + the largest memo index)
   int32_t size() const override {
     return static_cast<int32_t>(hash_table_.size()) + (GetNull() != kKeyNotFound);
@@ -702,7 +701,7 @@ class BinaryMemoTable : public MemoTable {
   void CopyFixedWidthValues(int32_t start, int32_t width_size, int64_t out_size,
                             uint8_t* out_data) const {
     // This method exists to cope with the fact that the BinaryMemoTable does
-    // not known the fixed width when inserting the null value. The data
+    // not know the fixed width when inserting the null value. The data
     // buffer hold a zero length string for the null value (if found).
     //
     // Thus, the method will properly inject an empty value of the proper width
@@ -809,17 +808,19 @@ struct HashTraits<T, enable_if_fixed_size_binary<T>> {
 };
 
 template <typename MemoTableType>
-static inline Status ComputeValidityBitmap(MemoryPool* pool,
-                                           const MemoTableType& memo_table,
-                                           int64_t start_offset, int64_t* null_count,
-                                           std::shared_ptr<Buffer>* validity_bitmap) {
+static inline Status ComputeNullBitmap(MemoryPool* pool, const MemoTableType& memo_table,
+                                       int64_t start_offset, int64_t* null_count,
+                                       std::shared_ptr<Buffer>* null_bitmap) {
   int64_t dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
   int64_t null_index = memo_table.GetNull();
+
+  *null_count = 0;
+  *null_bitmap = nullptr;
+
   if (null_index != kKeyNotFound && null_index >= start_offset) {
     null_index -= start_offset;
     *null_count = 1;
-    RETURN_NOT_OK(
-        internal::BitmapAllButOne(pool, dict_length, null_index, validity_bitmap));
+    RETURN_NOT_OK(internal::BitmapAllButOne(pool, dict_length, null_index, null_bitmap));
   }
 
   return Status::OK();
@@ -878,11 +879,11 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
                           reinterpret_cast<c_type*>(dict_buffer->mutable_data()));
 
     int64_t null_count = 0;
-    std::shared_ptr<Buffer> validity_bitmap = nullptr;
-    RETURN_NOT_OK(ComputeValidityBitmap(pool, memo_table, start_offset, &null_count,
-                                        &validity_bitmap));
+    std::shared_ptr<Buffer> null_bitmap = nullptr;
+    RETURN_NOT_OK(
+        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length, {validity_bitmap, dict_buffer}, null_count);
+    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_buffer}, null_count);
     return Status::OK();
   }
 };
@@ -913,11 +914,11 @@ struct DictionaryTraits<T, enable_if_binary<T>> {
                           dict_data->mutable_data());
 
     int64_t null_count = 0;
-    std::shared_ptr<Buffer> validity_bitmap = nullptr;
-    RETURN_NOT_OK(ComputeValidityBitmap(pool, memo_table, start_offset, &null_count,
-                                        &validity_bitmap));
+    std::shared_ptr<Buffer> null_bitmap = nullptr;
+    RETURN_NOT_OK(
+        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length, {validity_bitmap, dict_offsets, dict_data},
+    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_offsets, dict_data},
                            null_count);
 
     return Status::OK();
@@ -947,11 +948,11 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
                                     data_length, data);
 
     int64_t null_count = 0;
-    std::shared_ptr<Buffer> validity_bitmap = nullptr;
-    RETURN_NOT_OK(ComputeValidityBitmap(pool, memo_table, start_offset, &null_count,
-                                        &validity_bitmap));
+    std::shared_ptr<Buffer> null_bitmap = nullptr;
+    RETURN_NOT_OK(
+        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
-    *out = ArrayData::Make(type, dict_length, {validity_bitmap, dict_data}, null_count);
+    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_data}, null_count);
     return Status::OK();
   }
 };
