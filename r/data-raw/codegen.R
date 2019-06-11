@@ -116,7 +116,7 @@ RcppExport void R_init_arrow(DllInfo* dll){{
 
 ') )
 
-message(glue("*** > generated file `src/arrowExports.cpp`"))
+message("*** > generated file `src/arrowExports.cpp`")
 
 r_functions <- decorations %>%
   select(name, return_type, args) %>%
@@ -150,4 +150,4 @@ writeLines(con = "R/arrowExports.R", glue::glue('
 {r_functions}
 
 '))
-message(glue("*** > generated file `R/arrowExports.R`"))
+message("*** > generated file `R/arrowExports.R`")
