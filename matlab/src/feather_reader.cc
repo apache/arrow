@@ -115,11 +115,11 @@ mxArray* ReadVariableData(const std::shared_ptr<Column>& column) {
 // uses an Arrow utility to copy each bit of an arrow::Buffer into each byte
 // of an mxLogical array.
 void BitUnpackBuffer(const std::shared_ptr<Buffer>& source, int64_t length,
-                     bool* destination) {
+                     uint8_t* destination) {
   const uint8_t* source_data = source->data();
 
   // Call into an Arrow utility to visit each bit in the bitmap.
-  auto visitFcn = [&](bool is_valid) { *destination++ = is_valid; };
+  auto visitFcn = [&](const uint8_t& is_valid) { *destination++ = is_valid; };
 
   const int64_t start_offset = 0;
   arrow::internal::VisitBitsUnrolled(source_data, start_offset, length, visitFcn);
@@ -130,7 +130,7 @@ void BitUnpackBuffer(const std::shared_ptr<Buffer>& source, int64_t length,
 // Implements a fast path for the fully-valid and fully-invalid cases.
 // Returns true if the destination buffer was successfully populated.
 template <typename ArrowType>
-bool TryBitUnpackFastPath(const std::shared_ptr<ArrowType>& array, bool* destination) {
+bool TryBitUnpackFastPath(const std::shared_ptr<ArrowType>& array, uint8_t* destination) {
   const int64_t null_count = array->null_count();
   const int64_t length = array->length();
 
@@ -159,7 +159,8 @@ mxArray* ReadVariableValidityBitmap(const std::shared_ptr<Column>& column) {
   // invalid (null) array entry and 1 (true) to represent a valid
   // (non-null) array entry.
   mxArray* validity_bitmap = mxCreateLogicalMatrix(column->length(), 1);
-  bool* validity_bitmap_unpacked = static_cast<bool*>(mxGetLogicals(validity_bitmap));
+  uint8_t* validity_bitmap_unpacked =
+      reinterpret_cast<uint8_t*>(mxGetLogicals(validity_bitmap));
 
   // The Apache Arrow specification allows validity (null) bitmaps
   // to be unallocated if there are no null values. In this case,

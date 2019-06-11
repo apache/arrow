@@ -164,7 +164,7 @@ void BitPackBuffer(const mxArray* logical_array,
 
   // Iterate over the mxLogical array and write bit-packed bools to the arrow::Buffer.
   // Call into a loop-unrolled Arrow utility for better performance when bit-packing.
-  auto generator = [&]() -> bool { return *unpacked_buffer_ptr++; };
+  auto generator = [&]() -> uint8_t { return *unpacked_buffer_ptr++; };
   const int64_t start_offset = 0;
   arrow::internal::GenerateBitsUnrolled(packed_buffer_ptr, start_offset,
                                         unpacked_buffer_length, generator);
