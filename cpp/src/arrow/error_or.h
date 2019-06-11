@@ -30,7 +30,7 @@ namespace internal {
 void DieWithMessage(const std::string& msg);
 }  // namespace internal
 
-struct ErrorOrConstants {
+struct ARROW_EXPORT ErrorOrConstants {
   static const char kValueMoveConstructorMsg[];
   static const char kValueMoveAssignmentMsg[];
   static const char kValueOrDieMovedMsg[];
@@ -91,7 +91,7 @@ struct ErrorOrConstants {
 ///   arrow::ErrorOr<int> CalculateFoo();
 /// ```
 template <class T>
-class ErrorOr {
+class ARROW_EXPORT ErrorOr {
   template <typename U>
   friend class ErrorOr;
 
