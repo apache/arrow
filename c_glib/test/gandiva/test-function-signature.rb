@@ -16,52 +16,52 @@
 # under the License.
 
 class TestGandivaFunctionSignature < Test::Unit::TestCase
+  include Helper::DataType
+
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
-
-    string_type = Arrow::StringDataType.new
-    int32_type = Arrow::Int32DataType.new
-    date64_type = Arrow::Date64DataType.new
-    parameter_types = [string_type, string_type, int32_type]
+    parameter_types = [string_data_type, string_data_type, int32_data_type]
     @to_date = Gandiva::FunctionSignature.new("to_date",
                                               parameter_types,
-                                              date64_type)
+                                              date64_data_type)
   end
 
   def test_new
-    function_signature = Gandiva::FunctionSignature.new("add",
-                                                        [
-                                                          Arrow::Int32DataType.new,
-                                                          Arrow::Int32DataType.new,
-                                                        ],
-                                                        Arrow::Int32DataType.new)
-    assert_kind_of(Gandiva::FunctionSignature,
-                   function_signature)
+    signature = Gandiva::FunctionSignature.new("add",
+                                               [
+                                                 int32_data_type,
+                                                 int32_data_type,
+                                               ],
+                                               int32_data_type)
     assert_equal("int32 add(int32, int32)",
-                 function_signature.to_s)
+                 signature.to_s)
   end
 
-  def test_equal
-    assert_equal(Gandiva::FunctionSignature.new("add",
-                                                [
-                                                  Arrow::Int32DataType.new,
-                                                  Arrow::Int32DataType.new,
-                                                ],
-                                                Arrow::Int32DataType.new),
-                 Gandiva::FunctionSignature.new("add",
-                                                [
-                                                  Arrow::Int32DataType.new,
-                                                  Arrow::Int32DataType.new,
-                                                ],
-                                                Arrow::Int32DataType.new))
+  sub_test_case("equal") do
+    def test_true
+      assert_equal(Gandiva::FunctionSignature.new("add",
+                                                  [
+                                                    int32_data_type,
+                                                    int32_data_type,
+                                                  ],
+                                                  int32_data_type),
+                   Gandiva::FunctionSignature.new("add",
+                                                  [
+                                                    int32_data_type,
+                                                    int32_data_type,
+                                                  ],
+                                                  int32_data_type))
+    end
 
-    assert_not_equal(Gandiva::FunctionSignature.new("add",
-                                                    [
-                                                      Arrow::Int32DataType.new,
-                                                      Arrow::Int32DataType.new,
-                                                    ],
-                                                    Arrow::Int32DataType.new),
-                     @to_date)
+    def test_false
+      assert_not_equal(Gandiva::FunctionSignature.new("add",
+                                                      [
+                                                        int32_data_type,
+                                                        int32_data_type,
+                                                      ],
+                                                      int32_data_type),
+                       @to_date)
+    end
   end
 
   def test_to_string
@@ -70,7 +70,7 @@ class TestGandivaFunctionSignature < Test::Unit::TestCase
   end
 
   def test_get_return_type
-    assert_equal(Arrow::Date64DataType.new,
+    assert_equal(date64_data_type,
                  @to_date.return_type)
   end
 
@@ -81,9 +81,9 @@ class TestGandivaFunctionSignature < Test::Unit::TestCase
 
   def test_get_param_types
     assert_equal([
-                   Arrow::StringDataType.new,
-                   Arrow::StringDataType.new,
-                   Arrow::Int32DataType.new
+                   string_data_type,
+                   string_data_type,
+                   int32_data_type,
                  ],
                  @to_date.param_types)
   end
