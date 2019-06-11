@@ -20,7 +20,6 @@ suppressPackageStartupMessages({
   library(decor)
 
   library(dplyr)
-  library(stringr)
   library(purrr)
   library(glue)
 })
