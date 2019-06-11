@@ -110,7 +110,7 @@ ggandiva_function_signature_new(const gchar *base_name,
                                 GArrowDataType *return_type)
 {
   gandiva::DataTypeVector arrow_parameter_types;
-  for (GList *node = parameter_types; node != NULL; node = g_list_next(node)) {
+  for (auto node = parameter_types; node; node = g_list_next(node)) {
     auto data_type = GARROW_DATA_TYPE(node->data);
     auto arrow_data_type = garrow_data_type_get_raw(data_type);
     arrow_parameter_types.push_back(arrow_data_type);
