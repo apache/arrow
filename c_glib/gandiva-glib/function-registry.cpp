@@ -66,7 +66,7 @@ ggandiva_function_registry_new(void)
 }
 
 /**
- * ggandiva_function_registry_lookup_signature:
+ * ggandiva_function_registry_lookup:
  * @function_registry: A #GGandivaFunctionRegistry.
  * @function_signature: A #GGandivaFunctionSignature to be looked up.
  *
@@ -76,11 +76,12 @@ ggandiva_function_registry_new(void)
  * Since: 0.14.0
  */
 GGandivaNativeFunction *
-ggandiva_function_registry_lookup_signature(GGandivaFunctionRegistry *function_registry,
-                                            GGandivaFunctionSignature *function_signature)
+ggandiva_function_registry_lookup(GGandivaFunctionRegistry *function_registry,
+                                  GGandivaFunctionSignature *function_signature)
 {
   gandiva::FunctionRegistry gandiva_function_registry;
-  auto gandiva_function_signature = ggandiva_function_signature_get_raw(function_signature);
+  auto gandiva_function_signature =
+    ggandiva_function_signature_get_raw(function_signature);
   auto gandiva_native_function =
     gandiva_function_registry.LookupSignature(*gandiva_function_signature);
   return ggandiva_native_function_new_raw(gandiva_native_function);

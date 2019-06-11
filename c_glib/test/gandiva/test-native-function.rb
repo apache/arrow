@@ -16,9 +16,18 @@
 # under the License.
 
 class TestGandivaNativeFunction < Test::Unit::TestCase
+  include Helper::DataType
+
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
     @registry = Gandiva::FunctionRegistry.new
+  end
+
+  def lookup(name, param_types, return_type)
+    signature = Gandiva::FunctionSignature.new(name,
+                                               param_types,
+                                               return_type)
+    @registry.lookup(signature)
   end
 
   def test_get_signature
@@ -35,15 +44,15 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
     assert_equal(Gandiva::ResultNullableType::IF_NULL,
                  @registry.native_functions[0].result_nullable_type)
 
-    isnull_int8 = @registry.native_functions.find do |nf|
-      nf.to_s == "bool isnull(int8)"
-    end
+    isnull_int8 = lookup("isnull",
+                         [int8_data_type],
+                         boolean_data_type)
     assert_equal(Gandiva::ResultNullableType::NEVER,
                  isnull_int8.result_nullable_type)
 
-    to_date = @registry.native_functions.find do |nf|
-      nf.to_s == "date64[ms] to_date(string, string, int32)"
-    end
+    to_date = lookup("to_date",
+                     [string_data_type, string_data_type, int32_data_type],
+                     date64_data_type)
     assert_equal(Gandiva::ResultNullableType::INTERNAL,
                  to_date.result_nullable_type)
   end
@@ -51,17 +60,18 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
   def test_need_context
     assert_false(@registry.native_functions[0].need_context)
 
-    string_type = Arrow::StringDataType.new
-    upper = @registry.lookup_signature(Gandiva::FunctionSignature.new("upper", [string_type], string_type))
+    upper = lookup("upper",
+                   [string_data_type],
+                   string_data_type)
     assert_true(upper.need_context)
   end
 
   def test_need_function_holder
     assert_false(@registry.native_functions[0].need_function_holder)
 
-    boolean_type = Arrow::BooleanDataType.new
-    string_type = Arrow::StringDataType.new
-    like = @registry.lookup_signature(Gandiva::FunctionSignature.new("like", [string_type, string_type], boolean_type))
+    like = lookup("like",
+                  [string_data_type, string_data_type],
+                  boolean_data_type)
     assert_true(like.need_function_holder)
   end
 
@@ -70,8 +80,9 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
       not @registry.native_functions[0].can_return_errors?
     end
 
-    int8_type = Arrow::Int8DataType.new
-    divide_int8 = @registry.lookup_signature(Gandiva::FunctionSignature.new("divide", [int8_type, int8_type], int8_type))
+    divide_int8 = lookup("divide",
+                         [int8_data_type, int8_data_type],
+                         int8_data_type)
     assert do
       divide_int8.can_return_errors?
     end
