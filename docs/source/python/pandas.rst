@@ -71,11 +71,6 @@ convert a pandas Series to an Arrow Array using :meth:`pyarrow.Array.from_pandas
 As Arrow Arrays are always nullable, you can supply an optional mask using
 the ``mask`` parameter to mark all null-entries.
 
-.. note::
-   Arrow is the default engine used by pandas to read and write parquet files. Underneath :meth:`pyarrow.Table.to_pandas`
-   and :meth:`pyarrow.Table.from_pandas` are used to perform the necessary conversions. Options to these methods can be passed through
-   ``pandas.read_parquet`` and ``pandas.to_parquet`` using the ``**kwargs`` argument.
-
 Type differences
 ----------------
 
@@ -189,9 +184,11 @@ If you want to use NumPy's ``datetime64`` dtype instead, pass
    s2 = pd.Series(arr.to_pandas(date_as_object=False))
    s2.dtype
 
-
 .. warning::
-   In Arrow versions < ``0.13`` the parameter ``date_as_object`` is ``False`` by default.
+
+   As of Arrow ``0.13`` the parameter ``date_as_object`` is ``True``
+   by default. Older versions must pass ``date_as_object=True`` to
+   obtain this behavior
 
 Time types
 ~~~~~~~~~~
