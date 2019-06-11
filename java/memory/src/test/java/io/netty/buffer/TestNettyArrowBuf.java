@@ -64,8 +64,8 @@ public class TestNettyArrowBuf {
     ) {
       NettyArrowBuf nettyBuf = buf.asNettyBuffer();
       ByteBuffer byteBuffer = nettyBuf.internalNioBuffer(4, 6);
-      Assert.assertEquals(4, byteBuffer.position());
-      Assert.assertEquals(10, byteBuffer.limit());
+      Assert.assertEquals(0, byteBuffer.position());
+      Assert.assertEquals(6, byteBuffer.limit());
       // Underlying buffer has size 32 excluding 4 should have capacity of 28.
       Assert.assertEquals(28, byteBuffer.capacity());
 
@@ -78,17 +78,24 @@ public class TestNettyArrowBuf {
          ArrowBuf buf = allocator.buffer(20);
     ) {
       NettyArrowBuf nettyBuf = buf.asNettyBuffer();
-      int intValue = 1;
-      nettyBuf._setInt(0, intValue);
-      Assert.assertEquals(nettyBuf._getIntLE(0), Integer.reverseBytes(intValue));
+      int [] intVals = new int[] {Integer.MIN_VALUE, Short.MIN_VALUE - 1,  Short.MIN_VALUE, 0 ,
+        Short.MAX_VALUE , Short.MAX_VALUE + 1, Integer.MAX_VALUE};
+      for (int intValue :intVals ) {
+        nettyBuf._setInt(0, intValue);
+        Assert.assertEquals(nettyBuf._getIntLE(0), Integer.reverseBytes(intValue));
+      }
 
-      long longValue = 1;
-      nettyBuf._setLong(0, longValue);
-      Assert.assertEquals(nettyBuf._getLongLE(0), Long.reverseBytes(longValue));
+      long [] longVals = new long[] {Long.MIN_VALUE, 0 , Long.MAX_VALUE};
+      for (long longValue :longVals ) {
+        nettyBuf._setLong(0, longValue);
+        Assert.assertEquals(nettyBuf._getLongLE(0), Long.reverseBytes(longValue));
+      }
 
-      short shortValue = 2;
-      nettyBuf._setShort(0, shortValue);
-      Assert.assertEquals(nettyBuf._getShortLE(0), Short.reverseBytes(shortValue));
+      short [] shortVals = new short[] {Short.MIN_VALUE, 0 , Short.MAX_VALUE};
+      for (short shortValue :shortVals ) {
+        nettyBuf._setShort(0, shortValue);
+        Assert.assertEquals(nettyBuf._getShortLE(0), Short.reverseBytes(shortValue));
+      }
     }
   }
 
