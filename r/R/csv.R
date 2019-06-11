@@ -29,14 +29,13 @@
 
 #' read options for the csv reader
 #'
-#' @param use_threads Whether to use the global CPU thread pool
 #' @param block_size Block size we request from the IO layer; also determines the size of chunks when use_threads is `TRUE`
 #'
 #' @export
-csv_read_options <- function(use_threads = TRUE, block_size = 1048576L) {
+csv_read_options <- function(block_size = 1048576L) {
   shared_ptr(`arrow::csv::ReadOptions`, csv___ReadOptions__initialize(
     list(
-      use_threads = use_threads,
+      use_threads = option_use_threads(),
       block_size = block_size
     )
   ))
@@ -107,7 +106,6 @@ csv_table_reader <- function(file,
   UseMethod("csv_table_reader")
 }
 
-#' @importFrom rlang abort
 #' @export
 csv_table_reader.default <- function(file,
   read_options = csv_read_options(),

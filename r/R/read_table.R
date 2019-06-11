@@ -33,8 +33,6 @@
 #'
 #'  - a raw vector: read using a [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]
 #'
-#' @param use_threads Use threads when converting to a tibble
-#'
 #' @return
 #'
 #'  - `read_table` returns an [arrow::Table][arrow__Table]
