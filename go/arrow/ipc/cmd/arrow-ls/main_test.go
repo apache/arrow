@@ -50,7 +50,7 @@ func TestLsStream(t *testing.T) {
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
-metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
+  metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
@@ -179,7 +179,7 @@ func TestLsFile(t *testing.T) {
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
-metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
+  metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
@@ -199,7 +199,7 @@ schema:
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
-metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
+  metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
