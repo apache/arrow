@@ -160,7 +160,7 @@ void BitPackBuffer(const mxArray* logical_array,
 
   // Get pointers to the internal uint8_t arrays behind arrow::Buffer and mxArray
   uint8_t* packed_buffer_ptr = packed_buffer->mutable_data();
-  uint8_t* unpacked_buffer_ptr = reinterpret_cast<uint8_t*>(mxGetLogicals(logical_array));
+  mxLogical* unpacked_buffer_ptr = mxGetLogicals(logical_array);
 
   // Iterate over the mxLogical array and write bit-packed bools to the arrow::Buffer.
   // Call into a loop-unrolled Arrow utility for better performance when bit-packing.
