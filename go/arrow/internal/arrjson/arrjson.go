@@ -19,6 +19,7 @@
 package arrjson // import "github.com/apache/arrow/go/arrow/internal/arrjson"
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"strconv"
 
@@ -355,7 +356,18 @@ func newArrayFrom(mem memory.Allocator, dt arrow.DataType, arr Array) array.Inte
 	case *arrow.FixedSizeBinaryType:
 		bldr := array.NewFixedSizeBinaryBuilder(mem, dt)
 		defer bldr.Release()
-		data := bytesToArrow(arr.Data)
+		strdata := strToArrow(arr.Data)
+		data := make([][]byte, len(strdata))
+		for i, v := range strdata {
+			if len(v) != 2*dt.ByteWidth {
+				panic(errors.Errorf("arrjson: invalid hex-string length (got=%d, want=%d)", len(v), 2*dt.ByteWidth))
+			}
+			vv, err := hex.DecodeString(v)
+			if err != nil {
+				panic(err)
+			}
+			data[i] = vv
+		}
 		valids := validsToArrow(arr.Valids)
 		bldr.AppendValues(data, valids)
 		return bldr.NewArray()
@@ -569,7 +581,14 @@ func f64ToArrow(vs []interface{}) []float64 {
 func strToArrow(vs []interface{}) []string {
 	o := make([]string, len(vs))
 	for i, v := range vs {
-		o[i] = v.(string)
+		switch v := v.(type) {
+		case string:
+			o[i] = v
+		case json.Number:
+			o[i] = v.String()
+		default:
+			panic(errors.Errorf("could not convert %v (%T) to a string", v, v))
+		}
 	}
 	return o
 }
@@ -577,7 +596,14 @@ func strToArrow(vs []interface{}) []string {
 func bytesToArrow(vs []interface{}) [][]byte {
 	o := make([][]byte, len(vs))
 	for i, v := range vs {
-		o[i] = []byte(v.(string))
+		switch v := v.(type) {
+		case string:
+			o[i] = []byte(v)
+		case json.Number:
+			o[i] = []byte(v.String())
+		default:
+			panic(errors.Errorf("could not convert %v (%T) to a string", v, v))
+		}
 	}
 	return o
 }
@@ -646,6 +672,9 @@ func buildArray(bldr array.Builder, data array.Interface) {
 	defer data.Release()
 
 	switch bldr := bldr.(type) {
+	default:
+		panic(errors.Errorf("unknown builder %T", bldr))
+
 	case *array.BooleanBuilder:
 		data := data.(*array.Boolean)
 		for i := 0; i < data.Len(); i++ {
