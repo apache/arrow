@@ -27,6 +27,7 @@ import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.NoOpStreamListener;
 import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -40,7 +41,6 @@ import org.junit.Test;
 /**
  * Ensure that example server supports get and put.
  */
-@org.junit.Ignore
 public class TestExampleServer {
 
   private BufferAllocator allocator;
@@ -78,19 +78,7 @@ public class TestExampleServer {
 
     VectorSchemaRoot root = VectorSchemaRoot.of(iv);
     ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root,
-        new StreamListener<PutResult>() {
-          @Override
-          public void onNext(PutResult val) {
-          }
-
-          @Override
-          public void onError(Throwable t) {
-          }
-
-          @Override
-          public void onCompleted() {
-          }
-        });
+        NoOpStreamListener.getInstance());
 
     //batch 1
     root.allocateNew();
@@ -117,10 +105,13 @@ public class TestExampleServer {
     listener.getResult();
 
     FlightInfo info = client.getInfo(FlightDescriptor.path("hello"));
-    FlightStream stream = client.getStream(info.getEndpoints().get(0).getTicket());
-    VectorSchemaRoot newRoot = stream.getRoot();
-    while (stream.next()) {
-      newRoot.clear();
+    try (final FlightStream stream = client.getStream(info.getEndpoints().get(0).getTicket())) {
+      VectorSchemaRoot newRoot = stream.getRoot();
+      while (stream.next()) {
+        newRoot.clear();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 }

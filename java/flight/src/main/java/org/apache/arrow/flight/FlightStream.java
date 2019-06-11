@@ -46,6 +46,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.SettableFuture;
 
 import io.grpc.stub.StreamObserver;
+import io.netty.buffer.ArrowBuf;
 
 /**
  * An adaptor between protobuf streams and flight data streams.
@@ -72,7 +73,7 @@ public class FlightStream implements AutoCloseable {
   private volatile Throwable ex;
   private volatile FlightDescriptor descriptor;
   private volatile Schema schema;
-  private volatile byte[] applicationMetadata = null;
+  private volatile ArrowBuf applicationMetadata = null;
 
   /**
    * Constructs a new instance.
@@ -117,6 +118,9 @@ public class FlightStream implements AutoCloseable {
         .collect(Collectors.toList());
 
     AutoCloseables.close(Iterables.concat(closeables, ImmutableList.of(root.get())));
+    if (applicationMetadata != null) {
+      applicationMetadata.close();
+    }
   }
 
   /**
@@ -149,31 +153,38 @@ public class FlightStream implements AutoCloseable {
           throw new Exception(ex);
         }
       } else {
-        ArrowMessage msg = ((ArrowMessage) data);
-        if (msg.getMessageType() == HeaderType.RECORD_BATCH) {
-          try (ArrowRecordBatch arb = msg.asRecordBatch()) {
-            loader.load(arb);
-          }
-          this.applicationMetadata = msg.getApplicationMetadata();
-        } else if (msg.getMessageType() == HeaderType.DICTIONARY_BATCH) {
-          try (ArrowDictionaryBatch arb = msg.asDictionaryBatch()) {
-            final long id = arb.getDictionaryId();
-            final Dictionary dictionary = dictionaries.lookup(id);
-            if (dictionary == null) {
-              throw new IllegalArgumentException("Dictionary not defined in schema: ID " + id);
+        try (ArrowMessage msg = ((ArrowMessage) data)) {
+          if (msg.getMessageType() == HeaderType.RECORD_BATCH) {
+            try (ArrowRecordBatch arb = msg.asRecordBatch()) {
+              loader.load(arb);
             }
+            if (this.applicationMetadata != null) {
+              this.applicationMetadata.close();
+            }
+            this.applicationMetadata = msg.getApplicationMetadata();
+            if (this.applicationMetadata != null) {
+              this.applicationMetadata.getReferenceManager().retain();
+            }
+          } else if (msg.getMessageType() == HeaderType.DICTIONARY_BATCH) {
+            try (ArrowDictionaryBatch arb = msg.asDictionaryBatch()) {
+              final long id = arb.getDictionaryId();
+              final Dictionary dictionary = dictionaries.lookup(id);
+              if (dictionary == null) {
+                throw new IllegalArgumentException("Dictionary not defined in schema: ID " + id);
+              }
 
-            final FieldVector vector = dictionary.getVector();
-            final VectorSchemaRoot dictionaryRoot = new VectorSchemaRoot(Collections.singletonList(vector.getField()),
-                Collections.singletonList(vector), 0);
-            final VectorLoader dictionaryLoader = new VectorLoader(dictionaryRoot);
-            dictionaryLoader.load(arb.getDictionary());
+              final FieldVector vector = dictionary.getVector();
+              final VectorSchemaRoot dictionaryRoot = new VectorSchemaRoot(Collections.singletonList(vector.getField()),
+                  Collections.singletonList(vector), 0);
+              final VectorLoader dictionaryLoader = new VectorLoader(dictionaryRoot);
+              dictionaryLoader.load(arb.getDictionary());
+            }
+            return next();
+          } else {
+            throw new UnsupportedOperationException("Message type is unsupported: " + msg.getMessageType());
           }
-          return next();
-        } else {
-          throw new UnsupportedOperationException("Message type is unsupported: " + msg.getMessageType());
+          return true;
         }
-        return true;
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -191,11 +202,12 @@ public class FlightStream implements AutoCloseable {
 
   /**
    * Get the most recent metadata sent from the server. This may be cleared by calls to {@link #next()} if the server
-   * sends a message without metadata.
+   * sends a message without metadata. This does NOT take ownership of the buffer - call retain() to create a reference
+   * if you need the buffer after a call to {@link #next()}.
    *
    * @return the application metadata. May be null.
    */
-  public byte[] getLatestMetadata() {
+  public ArrowBuf getLatestMetadata() {
     return applicationMetadata;
   }
 

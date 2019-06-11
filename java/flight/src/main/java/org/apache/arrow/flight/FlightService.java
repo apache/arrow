@@ -17,11 +17,6 @@
 
 package org.apache.arrow.flight;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BooleanSupplier;
@@ -37,17 +32,10 @@ import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
-import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.DictionaryUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +43,7 @@ import com.google.common.base.Preconditions;
 
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
+import io.netty.buffer.ArrowBuf;
 
 /**
  * GRPC service implementation for a flight server.
@@ -167,7 +156,7 @@ class FlightService extends FlightServiceImplBase {
     }
 
     @Override
-    public void putNext(byte[] metadata) {
+    public void putNext(ArrowBuf metadata) {
       Preconditions.checkNotNull(unloader);
       responseObserver.onNext(new ArrowMessage(unloader.getRecordBatch(), metadata));
     }

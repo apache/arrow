@@ -17,29 +17,32 @@
 
 package org.apache.arrow.flight;
 
-import java.nio.ByteBuffer;
-
 import org.apache.arrow.flight.impl.Flight;
+import org.apache.arrow.memory.BufferAllocator;
 
 import com.google.protobuf.ByteString;
 
+import io.netty.buffer.ArrowBuf;
+
 /**
  * A message from the server during a DoPut operation.
+ *
+ * <p>This object owns an {@link ArrowBuf} and should be closed when you are done with it.
  */
-public class PutResult {
+public class PutResult implements AutoCloseable {
 
-  private ByteBuffer applicationMetadata;
+  private ArrowBuf applicationMetadata;
 
-  private PutResult(ByteBuffer metadata) {
+  private PutResult(ArrowBuf metadata) {
     applicationMetadata = metadata;
   }
 
   /** Create a PutResult with application-specific metadata. */
-  public static PutResult metadata(byte[] metadata) {
+  public static PutResult metadata(ArrowBuf metadata) {
     if (metadata == null) {
       return empty();
     }
-    return new PutResult(ByteBuffer.wrap(metadata));
+    return new PutResult(metadata);
   }
 
   /** Create an empty PutResult. */
@@ -48,7 +51,7 @@ public class PutResult {
   }
 
   /** Get the metadata in this message. May be null. */
-  public ByteBuffer getApplicationMetadata() {
+  public ArrowBuf getApplicationMetadata() {
     return applicationMetadata;
   }
 
@@ -56,10 +59,29 @@ public class PutResult {
     if (applicationMetadata == null) {
       return Flight.PutResult.getDefaultInstance();
     }
-    return Flight.PutResult.newBuilder().setAppMetadata(ByteString.copyFrom(applicationMetadata)).build();
+    return Flight.PutResult.newBuilder().setAppMetadata(ByteString.copyFrom(applicationMetadata.nioBuffer())).build();
   }
 
-  static PutResult fromProtocol(Flight.PutResult message) {
-    return new PutResult(message.getAppMetadata().asReadOnlyByteBuffer());
+  /**
+   * Construct a PutResult from a Protobuf message.
+   *
+   * @param allocator The allocator to use for allocating application metadata memory. The result object owns the
+   *     allocated buffer, if any.
+   * @param message The gRPC/Protobuf message.
+   */
+  static PutResult fromProtocol(BufferAllocator allocator, Flight.PutResult message) {
+    final ArrowBuf buf = allocator.buffer(message.getAppMetadata().size());
+    message.getAppMetadata().asReadOnlyByteBufferList().forEach(bb -> {
+      buf.setBytes(buf.writerIndex(), bb);
+      buf.writerIndex(buf.writerIndex() + bb.limit());
+    });
+    return new PutResult(buf);
+  }
+
+  @Override
+  public void close() {
+    if (applicationMetadata != null) {
+      applicationMetadata.close();
+    }
   }
 }

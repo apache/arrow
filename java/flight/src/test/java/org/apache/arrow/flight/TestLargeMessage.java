@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
-import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -78,22 +77,7 @@ public class TestLargeMessage {
            BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE);
            VectorSchemaRoot root = generateData(testAllocator)) {
         final FlightClient.ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root,
-            new StreamListener<PutResult>() {
-              @Override
-              public void onNext(PutResult val) {
-
-              }
-
-              @Override
-              public void onError(Throwable t) {
-
-              }
-
-              @Override
-              public void onCompleted() {
-
-              }
-            });
+            NoOpStreamListener.getInstance());
         listener.putNext();
         listener.completed();
         listener.getResult();

@@ -19,12 +19,7 @@ package org.apache.arrow.flight;
 
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -42,17 +37,11 @@ import org.apache.arrow.flight.impl.FlightServiceGrpc;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceBlockingStub;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
-import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.DictionaryUtility;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -69,6 +58,7 @@ import io.grpc.stub.ClientCalls;
 import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.StreamObserver;
 
+import io.netty.buffer.ArrowBuf;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -169,9 +159,11 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Create or append a descriptor with another stream.
+   *
    * @param descriptor FlightDescriptor the descriptor for the data
    * @param root VectorSchemaRoot the root containing data
-   * @param metadataListener A handler for metadata messages from the server.
+   * @param metadataListener A handler for metadata messages from the server. This will be passed buffers that will be
+   *     freed after {@link StreamListener#onNext(Object)} is called!
    * @param options RPC-layer hints for this call.
    * @return ClientStreamListener an interface to control uploading data
    */
@@ -193,7 +185,7 @@ public class FlightClient implements AutoCloseable {
     Preconditions.checkNotNull(descriptor);
     Preconditions.checkNotNull(root);
 
-    SetStreamObserver resultObserver = new SetStreamObserver(metadataListener);
+    SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
     final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
     ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
         ClientCalls.asyncBidiStreamingCall(
@@ -268,33 +260,32 @@ public class FlightClient implements AutoCloseable {
   private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
 
     private final CompletableFuture<Void> result;
+    private final BufferAllocator allocator;
     private final StreamListener<PutResult> listener;
 
-    SetStreamObserver(FlightProducer.StreamListener<PutResult> listener) {
-      this.listener = listener;
+    SetStreamObserver(BufferAllocator allocator,
+        StreamListener<PutResult> listener) {
+      this.allocator = allocator;
+      this.listener = listener == null ? NoOpStreamListener.getInstance() : listener;
       result = new CompletableFuture<>();
     }
 
     @Override
     public void onNext(Flight.PutResult value) {
-      if (listener != null) {
-        listener.onNext(PutResult.fromProtocol(value));
+      try (final PutResult message = PutResult.fromProtocol(allocator, value)) {
+        listener.onNext(message);
       }
     }
 
     @Override
     public void onError(Throwable t) {
       result.completeExceptionally(t);
-      if (listener != null) {
-        listener.onError(t);
-      }
+      listener.onError(t);
     }
 
     @Override
     public void onCompleted() {
-      if (listener != null) {
-        listener.onCompleted();
-      }
+      listener.onCompleted();
       result.complete(null);
     }
 
@@ -322,12 +313,13 @@ public class FlightClient implements AutoCloseable {
     }
 
     @Override
-    public void putNext(byte[] appMetadata) {
+    public void putNext(ArrowBuf appMetadata) {
       ArrowRecordBatch batch = unloader.getRecordBatch();
       // Check the futureResult in case server sent an exception
       while (!observer.isReady() && !futureResult.isDone()) {
         /* busy wait */
       }
+      // Takes ownership of appMetadata
       observer.onNext(new ArrowMessage(batch, appMetadata));
     }
 
@@ -361,7 +353,11 @@ public class FlightClient implements AutoCloseable {
      */
     void putNext();
 
-    void putNext(byte[] appMetadata);
+    /**
+     * Send the current data in the corresponding {@link VectorSchemaRoot} to the server, along with
+     * application-specific metadata. This takes ownership of the buffer.
+     */
+    void putNext(ArrowBuf appMetadata);
 
     /**
      * Indicate an error to the server. Terminates the stream; do not call {@link #completed()}.
@@ -376,7 +372,6 @@ public class FlightClient implements AutoCloseable {
      * happened during the upload.
      */
     void getResult();
-
   }
 
   /**

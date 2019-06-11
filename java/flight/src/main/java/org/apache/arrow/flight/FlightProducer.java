@@ -20,6 +20,8 @@ package org.apache.arrow.flight;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 
+import io.netty.buffer.ArrowBuf;
+
 /**
  * API to Implement an Arrow Flight producer.
  */
@@ -59,7 +61,7 @@ public interface FlightProducer {
    * @param context Per-call context.
    * @param flightStream The data stream being uploaded.
    */
-  public Runnable acceptPut(CallContext context,
+  Runnable acceptPut(CallContext context,
       FlightStream flightStream, StreamListener<PutResult> ackStream);
 
   /**
@@ -82,7 +84,7 @@ public interface FlightProducer {
   /**
    * An interface for sending Arrow data back to a client.
    */
-  public interface ServerStreamListener {
+  interface ServerStreamListener {
 
     /**
      * Check whether the call has been cancelled. If so, stop sending data.
@@ -115,8 +117,9 @@ public interface FlightProducer {
 
     /**
      * Send the current contents of the associated {@link VectorSchemaRoot} alongside application-defined metadata.
+     * @param metadata The metadata to send. Ownership of the buffer is transferred to the Flight implementation.
      */
-    void putNext(byte[] metadata);
+    void putNext(ArrowBuf metadata);
 
     /**
      * Indicate an error to the client. Terminates the stream; do not call {@link #completed()} afterwards.

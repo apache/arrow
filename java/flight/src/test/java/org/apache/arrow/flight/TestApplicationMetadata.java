@@ -17,11 +17,9 @@
 
 package org.apache.arrow.flight;
 
-import java.util.Arrays;
 import java.util.Collections;
 
 import org.apache.arrow.flight.FlightProducer.StreamListener;
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -33,6 +31,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
+
+import io.grpc.Status;
+import io.netty.buffer.ArrowBuf;
 
 /**
  * Tests for application-specific metadata support in Flight.
@@ -57,7 +58,7 @@ public class TestApplicationMetadata {
         final IntVector vector = (IntVector) stream.getRoot().getVector("a");
         Assert.assertEquals(1, vector.getValueCount());
         Assert.assertEquals(10, vector.get(0));
-        Assert.assertArrayEquals(new byte[]{i}, stream.getLatestMetadata());
+        Assert.assertEquals(i, stream.getLatestMetadata().getByte(0));
         i++;
       }
     } catch (Exception e) {
@@ -85,7 +86,7 @@ public class TestApplicationMetadata {
         @Override
         public void onNext(PutResult val) {
           Assert.assertNotNull(val);
-          Assert.assertEquals(counter, val.getApplicationMetadata().get(0));
+          Assert.assertEquals(counter, val.getApplicationMetadata().getByte(0));
           counter++;
         }
 
@@ -104,10 +105,12 @@ public class TestApplicationMetadata {
       root.allocateNew();
       for (byte i = 0; i < 10; i++) {
         final IntVector vector = (IntVector) root.getVector("a");
+        final ArrowBuf metadata = a.buffer(1);
+        metadata.writeByte(i);
         vector.set(0, 10);
         vector.setValueCount(1);
         root.setRowCount(1);
-        writer.putNext(new byte[]{i});
+        writer.putNext(metadata);
       }
       writer.completed();
       // Must attempt to retrieve the result to get any server-side errors.
@@ -139,7 +142,9 @@ public class TestApplicationMetadata {
           vector.set(0, 10);
           vector.setValueCount(1);
           root.setRowCount(1);
-          listener.putNext(new byte[]{i});
+          final ArrowBuf metadata = allocator.buffer(1);
+          metadata.writeByte(i);
+          listener.putNext(metadata);
         }
         listener.completed();
       }
@@ -151,11 +156,14 @@ public class TestApplicationMetadata {
         try (FlightStream flightStream = stream) {
           byte current = 0;
           while (flightStream.next()) {
-            byte[] metadata = flightStream.getLatestMetadata();
-            if (!Arrays.equals(new byte[]{current}, metadata)) {
-              throw new IllegalArgumentException("Metadata does not match expected value.");
+            final ArrowBuf metadata = flightStream.getLatestMetadata();
+            if (current != metadata.getByte(0)) {
+              ackStream.onError(Status.INVALID_ARGUMENT.withDescription(String
+                  .format("Metadata does not match expected value; got %d but expected %d.", metadata.getByte(0),
+                      current)).asRuntimeException());
+              return;
             }
-            ackStream.onNext(PutResult.metadata(new byte[]{current}));
+            ackStream.onNext(PutResult.metadata(metadata));
             current++;
           }
           if (current != 10) {

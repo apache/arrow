@@ -36,6 +36,8 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
+import io.netty.buffer.ArrowBuf;
+
 /**
  * A collection of Arrow record batches.
  */
@@ -91,8 +93,12 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
       final VectorLoader loader = new VectorLoader(root);
       int counter = 0;
       for (ArrowRecordBatch batch : batches) {
+        final byte[] rawMetadata = Integer.toString(counter).getBytes(StandardCharsets.UTF_8);
+        final ArrowBuf metadata = allocator.buffer(rawMetadata.length);
+        metadata.writeBytes(rawMetadata);
         loader.load(batch);
-        listener.putNext(Integer.toString(counter).getBytes(StandardCharsets.UTF_8));
+        // Transfers ownership of the buffer - do not free buffer ourselves
+        listener.putNext(metadata);
         counter++;
       }
       listener.completed();

@@ -97,19 +97,8 @@ public class TestBasicOperation {
       IntVector iv = new IntVector("c1", a);
 
       VectorSchemaRoot root = VectorSchemaRoot.of(iv);
-      ClientStreamListener listener = c.startPut(FlightDescriptor.path("hello"), root, new StreamListener<PutResult>() {
-        @Override
-        public void onNext(PutResult val) {
-        }
-
-        @Override
-        public void onError(Throwable t) {
-        }
-
-        @Override
-        public void onCompleted() {
-        }
-      });
+      ClientStreamListener listener = c
+          .startPut(FlightDescriptor.path("hello"), root, NoOpStreamListener.getInstance());
 
       //batch 1
       root.allocateNew();
