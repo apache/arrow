@@ -102,6 +102,14 @@ records: 3
 records: 3
 `,
 		},
+		{
+			name: "fixed_size_binaries",
+			want: `schema:
+  fields: 1
+    - fixed_size_binary_3: type=fixed_size_binary[3], nullable
+records: 3
+`,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -237,6 +245,24 @@ schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
 records: 4
+`,
+		},
+		{
+			stream: true,
+			name:   "fixed_size_binaries",
+			want: `schema:
+  fields: 1
+    - fixed_size_binary_3: type=fixed_size_binary[3], nullable
+records: 3
+`,
+		},
+		{
+			name: "fixed_size_binaries",
+			want: `version: V4
+schema:
+  fields: 1
+    - fixed_size_binary_3: type=fixed_size_binary[3], nullable
+records: 3
 `,
 		},
 	} {

@@ -63,7 +63,7 @@ func TestMakeFromData(t *testing.T) {
 		{name: "timestamp", d: &testDataType{arrow.TIMESTAMP}},
 		{name: "time32", d: &testDataType{arrow.TIME32}},
 		{name: "time64", d: &testDataType{arrow.TIME64}},
-		{name: "fixed_size_binary", d: &testDataType{arrow.FIXED_SIZE_BINARY}, size: 3},
+		{name: "fixed_size_binary", d: &testDataType{arrow.FIXED_SIZE_BINARY}},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []*array.Data{
 			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),

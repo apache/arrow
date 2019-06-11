@@ -450,7 +450,7 @@ func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) array.Interface {
 
 func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType) array.Interface {
 	field, buffers := ctx.loadCommon(2)
-	buffers = append(buffers, nil, ctx.buffer())
+	buffers = append(buffers, ctx.buffer())
 
 	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 	defer data.Release()
