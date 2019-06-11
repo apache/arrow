@@ -17,6 +17,10 @@
 
 #include "arrow/error_or.h"
 
+#include <string>
+
+#include "arrow/util/logging.h"
+
 namespace arrow {
 
 #ifdef NDEBUG
@@ -37,5 +41,9 @@ const char ErrorOrConstants::kValueOrDieMovedMsg[] =
 const char ErrorOrConstants::kStatusMoveAssignmentMsg[] =
     "Status moved by StatusOr move assignment";
 #endif
+
+namespace internal {
+void DieWithMessage(const std::string& msg) { ARROW_LOG(FATAL) << msg; }
+}  // namespace internal
 
 }  // namespace arrow

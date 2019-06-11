@@ -18,12 +18,17 @@
 
 #pragma once
 
+#include <string>
 #include <utility>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
+
+namespace internal {
+void DieWithMessage(const std::string& msg);
+}  // namespace internal
 
 struct ErrorOrConstants {
   static const char kValueMoveConstructorMsg[];
@@ -52,7 +57,7 @@ struct ErrorOrConstants {
 ///   arrow::ErrorOr<Foo> result = CalculateFoo();
 ///   if (result.ok()) {
 ///     Foo foo = result.ValueOrDie();
-///     foo->DoSomethingCool();
+///     foo.DoSomethingCool();
 ///   } else {
 ///     ARROW_LOG(ERROR) << result.status();
 ///  }
@@ -123,8 +128,8 @@ class ErrorOr {
   /// \param status The non-OK Status object to initalize to.
   ErrorOr(const Status& status)  // NOLINT(runtime/explicit)
       : variant_(status), has_value_(false) {
-    if (status.ok()) {
-      std::abort();
+    if (ARROW_PREDICT_FALSE(status.ok())) {
+      internal::DieWithMessage("Constructed with a non-error status.");
     }
   }
 
@@ -169,6 +174,7 @@ class ErrorOr {
   ErrorOr(const ErrorOr& other)
       : has_value_(other.has_value_) {  // NOLINT(runtime/explicit)
     if (has_value_) {
+      // Re-use the memory from variant when constructing
       new (&variant_) variant(other.variant_.value_);
     } else {
       new (&variant_) variant(other.variant_.status_);
@@ -186,6 +192,7 @@ class ErrorOr {
                                                  std::is_convertible<U, T>::value>::type>
   ErrorOr(const ErrorOr<U>& other) : has_value_(other.has_value_) {
     if (has_value_) {
+      // Re-use the memory from variant when constructing
       new (&variant_) variant(other.variant_.value_);
     } else {
       new (&variant_) variant(other.variant_.status_);
@@ -223,10 +230,12 @@ class ErrorOr {
                                                  std::is_convertible<U, T>::value>::type>
   ErrorOr(ErrorOr<U>&& other) : has_value_(other.has_value_) {
     if (has_value_) {
+      // Re-use the memory from variant when constructing
       new (&variant_) variant(std::move(other.variant_.value_));
       other.OverwriteValueWithStatus(
           Status::Invalid(ErrorOrConstants::kValueMoveConstructorMsg));
     } else {
+      // Re-use the memory from variant when constructing
       new (&variant_) variant(std::move(other.variant_.status_));
 #ifndef NDEBUG
       // The other.variant_.status_ gets moved and invalidated with a Status-
@@ -269,7 +278,9 @@ class ErrorOr {
     return *this;
   }
 
-  /// Indicates whether the object contains a `T` value.
+  /// Indicates whether the object contains a `T` value.  Generally instead
+  /// of accessing this directly you will want to use ASSIGN_OR_RAISE defined
+  /// below.
   ///
   /// \return True if this ErrorOr object's status is OK (i.e. a call to ok()
   /// returns true). If this function returns true, then it is safe to access
@@ -289,8 +300,8 @@ class ErrorOr {
   ///
   /// \return The stored `T` value.
   const T& ValueOrDie() const& {
-    if (!ok()) {
-      std::abort();
+    if (ARROW_PREDICT_FALSE(!ok())) {
+      internal::DieWithMessage("ValueOrDie called on an error.");
     }
     return variant_.value_;
   }
@@ -302,8 +313,8 @@ class ErrorOr {
   ///
   /// \return The stored `T` value.
   T& ValueOrDie() & {
-    if (!ok()) {
-      std::abort();
+    if (ARROW_PREDICT_FALSE(!ok())) {
+      internal::DieWithMessage("ValueOrDie called on an error.");
     }
     return variant_.value_;
   }
@@ -317,8 +328,8 @@ class ErrorOr {
   ///
   /// \return The stored `T` value.
   T ValueOrDie() && {
-    if (!ok()) {
-      std::abort();
+    if (ARROW_PREDICT_FALSE(!ok())) {
+      internal::DieWithMessage("ValueOrDie called on an error.");
     }
     T tmp(std::move(variant_.value_));
 
@@ -345,11 +356,12 @@ class ErrorOr {
   template <class U>
   void OverwriteValueWithStatus(U&& status) {
 #ifndef NDEBUG
-    if (!ok()) {
-      std::abort();
+    if (ARROW_PREDICT_FALSE(!ok())) {
+      internal::DieWithMessage("OverwriteValueWithStatus called on with existing error.");
     }
 #endif
     variant_.value_.~T();
+    // Re-use the memory from variant when constructing
     new (&variant_) variant(std::forward<U>(status));
     has_value_ = false;
   }
@@ -365,6 +377,7 @@ class ErrorOr {
     } else {
       variant_.status_.~Status();
     }
+    // Re-use the memory from variant when constructing
     new (&variant_) variant(std::forward<U>(value));
     has_value_ = true;
   }
