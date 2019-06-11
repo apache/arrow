@@ -17,7 +17,6 @@
 
 package org.apache.arrow.flight;
 
-import io.grpc.Status;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BooleanSupplier;
@@ -42,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
+import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import io.netty.buffer.ArrowBuf;
@@ -195,6 +195,12 @@ class FlightService extends FlightServiceImplBase {
         // The client may have terminated, so the exception here is effectively swallowed.
         // Log the error as well so -something- makes it to the developer.
         logger.error("Exception handling DoPut", ex);
+      }
+      try {
+        fs.close();
+      } catch (Exception e) {
+        logger.error("Exception closing Flight stream", e);
+        throw new RuntimeException(e);
       }
     });
 

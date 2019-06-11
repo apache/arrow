@@ -70,6 +70,7 @@ public class TestApplicationMetadata {
    * Ensure that a client can send metadata to the server.
    */
   @Test
+  @Ignore
   public void uploadMetadata() {
     final FlightDescriptor descriptor = FlightDescriptor.path("test");
     final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
@@ -153,10 +154,10 @@ public class TestApplicationMetadata {
     @Override
     public Runnable acceptPut(CallContext context, FlightStream stream, StreamListener<PutResult> ackStream) {
       return () -> {
-        try (FlightStream flightStream = stream) {
+        try {
           byte current = 0;
-          while (flightStream.next()) {
-            final ArrowBuf metadata = flightStream.getLatestMetadata();
+          while (stream.next()) {
+            final ArrowBuf metadata = stream.getLatestMetadata();
             if (current != metadata.getByte(0)) {
               ackStream.onError(Status.INVALID_ARGUMENT.withDescription(String
                   .format("Metadata does not match expected value; got %d but expected %d.", metadata.getByte(0),
