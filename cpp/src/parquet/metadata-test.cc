@@ -28,35 +28,11 @@ namespace parquet {
 
 namespace metadata {
 
-TEST(Metadata, TestBuildAccess) {
-  parquet::schema::NodeVector fields;
-  parquet::schema::NodePtr root;
-  parquet::SchemaDescriptor schema;
-
-  WriterProperties::Builder prop_builder;
-
-  std::shared_ptr<WriterProperties> props =
-      prop_builder.version(ParquetVersion::PARQUET_2_0)->build();
-
-  fields.push_back(parquet::schema::Int32("int_col", Repetition::REQUIRED));
-  fields.push_back(parquet::schema::Float("float_col", Repetition::REQUIRED));
-  root = parquet::schema::GroupNode::Make("schema", Repetition::REPEATED, fields);
-  schema.Init(root);
-
-  int64_t nrows = 1000;
-  int32_t int_min = 100, int_max = 200;
-  EncodedStatistics stats_int;
-  stats_int.set_null_count(0)
-      .set_distinct_count(nrows)
-      .set_min(std::string(reinterpret_cast<const char*>(&int_min), 4))
-      .set_max(std::string(reinterpret_cast<const char*>(&int_max), 4));
-  EncodedStatistics stats_float;
-  float float_min = 100.100f, float_max = 200.200f;
-  stats_float.set_null_count(0)
-      .set_distinct_count(nrows)
-      .set_min(std::string(reinterpret_cast<const char*>(&float_min), 4))
-      .set_max(std::string(reinterpret_cast<const char*>(&float_max), 4));
-
+// Helper function for generating table metadata
+std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
+    const parquet::SchemaDescriptor& schema,
+    const std::shared_ptr<WriterProperties>& props, const int64_t& nrows,
+    EncodedStatistics stats_int, EncodedStatistics stats_float) {
   auto f_builder = FileMetaDataBuilder::Make(&schema, props);
   auto rg1_builder = f_builder->AppendRowGroup();
 
@@ -88,8 +64,41 @@ TEST(Metadata, TestBuildAccess) {
   rg2_builder->set_num_rows(nrows / 2);
   rg2_builder->Finish(1024);
 
-  // Read the metadata
-  auto f_accessor = f_builder->Finish();
+  // Return the metadata accessor
+  return f_builder->Finish();
+}
+
+TEST(Metadata, TestBuildAccess) {
+  parquet::schema::NodeVector fields;
+  parquet::schema::NodePtr root;
+  parquet::SchemaDescriptor schema;
+
+  WriterProperties::Builder prop_builder;
+
+  std::shared_ptr<WriterProperties> props =
+      prop_builder.version(ParquetVersion::PARQUET_2_0)->build();
+
+  fields.push_back(parquet::schema::Int32("int_col", Repetition::REQUIRED));
+  fields.push_back(parquet::schema::Float("float_col", Repetition::REQUIRED));
+  root = parquet::schema::GroupNode::Make("schema", Repetition::REPEATED, fields);
+  schema.Init(root);
+
+  int64_t nrows = 1000;
+  int32_t int_min = 100, int_max = 200;
+  EncodedStatistics stats_int;
+  stats_int.set_null_count(0)
+      .set_distinct_count(nrows)
+      .set_min(std::string(reinterpret_cast<const char*>(&int_min), 4))
+      .set_max(std::string(reinterpret_cast<const char*>(&int_max), 4));
+  EncodedStatistics stats_float;
+  float float_min = 100.100f, float_max = 200.200f;
+  stats_float.set_null_count(0)
+      .set_distinct_count(nrows)
+      .set_min(std::string(reinterpret_cast<const char*>(&float_min), 4))
+      .set_max(std::string(reinterpret_cast<const char*>(&float_max), 4));
+
+  // Generate the metadata
+  auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
 
   // file metadata
   ASSERT_EQ(nrows, f_accessor->num_rows());
@@ -168,6 +177,16 @@ TEST(Metadata, TestBuildAccess) {
   ASSERT_TRUE(rg2_column1->file_path().empty());
   f_accessor->set_file_path("/foo/bar/bar.parquet");
   ASSERT_EQ("/foo/bar/bar.parquet", rg2_column1->file_path());
+
+  // Test AppendRowGroups
+  auto f_accessor_2 = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
+  f_accessor->AppendRowGroups(*f_accessor_2);
+  ASSERT_EQ(4, f_accessor->num_row_groups());
+  ASSERT_EQ(nrows * 2, f_accessor->num_rows());
+  ASSERT_LE(0, static_cast<int>(f_accessor->size()));
+  ASSERT_EQ(ParquetVersion::PARQUET_2_0, f_accessor->version());
+  ASSERT_EQ(DEFAULT_CREATED_BY, f_accessor->created_by());
+  ASSERT_EQ(3, f_accessor->num_schema_elements());
 }
 
 TEST(Metadata, TestV1Version) {

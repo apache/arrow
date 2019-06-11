@@ -139,7 +139,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       PRIVATE_INCLUDES
       DEPENDENCIES
       SHARED_INSTALL_INTERFACE_LIBS
-      STATIC_INSTALL_INTERFACE_LIBS)
+      STATIC_INSTALL_INTERFACE_LIBS
+      OUTPUT_PATH)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -163,6 +164,11 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(BUILD_STATIC ${ARG_BUILD_STATIC})
   else()
     set(BUILD_STATIC ${ARROW_BUILD_STATIC})
+  endif()
+  if(ARG_OUTPUT_PATH)
+    set(OUTPUT_PATH ${ARG_OUTPUT_PATH})
+  else()
+    set(OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY})
   endif()
 
   if(WIN32 OR (CMAKE_GENERATOR STREQUAL Xcode))
@@ -234,11 +240,11 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     set_target_properties(${LIB_NAME}_shared
                           PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     "${OUTPUT_PATH}"
                                      RUNTIME_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     "${OUTPUT_PATH}"
                                      PDB_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     "${OUTPUT_PATH}"
                                      LINK_FLAGS
                                      "${ARG_SHARED_LINK_FLAGS}"
                                      OUTPUT_NAME
@@ -313,8 +319,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     set_target_properties(${LIB_NAME}_static
-                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}" OUTPUT_NAME
+                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}" OUTPUT_NAME
                                      ${LIB_NAME_STATIC})
 
     if(ARG_STATIC_INSTALL_INTERFACE_LIBS)
@@ -663,8 +668,26 @@ endfunction()
 # No main function must be present within the source file!
 #
 function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
+  set(options)
+  set(one_value_args)
+  set(multi_value_args PREFIX)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
+  if(ARG_UNPARSED_ARGUMENTS)
+    message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+  endif()
+
   if(NO_FUZZING)
     return()
+  endif()
+
+  get_filename_component(FUZZING_NAME ${REL_FUZZING_NAME} NAME_WE)
+
+  if(ARG_PREFIX)
+    set(FUZZING_NAME "${ARG_PREFIX}-${FUZZING_NAME}")
   endif()
 
   if(ARROW_BUILD_STATIC)
@@ -673,13 +696,12 @@ function(ADD_ARROW_FUZZING REL_FUZZING_NAME)
     set(FUZZ_LINK_LIBS arrow_shared)
   endif()
 
-  add_executable(${REL_FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
-  target_link_libraries(${REL_FUZZING_NAME} ${FUZZ_LINK_LIBS})
-  target_compile_options(${REL_FUZZING_NAME} PRIVATE "-fsanitize=fuzzer")
-  set_target_properties(${REL_FUZZING_NAME} PROPERTIES LINK_FLAGS "-fsanitize=fuzzer")
+  add_executable(${FUZZING_NAME} "${REL_FUZZING_NAME}.cc")
+  target_link_libraries(${FUZZING_NAME} ${FUZZ_LINK_LIBS})
+  target_compile_options(${FUZZING_NAME} PRIVATE "-fsanitize=fuzzer")
+  set_target_properties(${FUZZING_NAME}
+                        PROPERTIES LINK_FLAGS "-fsanitize=fuzzer" LABELS "fuzzing")
 endfunction()
-
-#
 
 function(ARROW_INSTALL_ALL_HEADERS PATH)
   set(options)

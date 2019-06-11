@@ -316,14 +316,12 @@ test_that("integer types casts (ARROW-3741)", {
   expect_true(a_uint64$IsNull(10L))
 })
 
-test_that("integer types cast safety (ARROW-3741)", {
+test_that("integer types cast safety (ARROW-3741, ARROW-5541)", {
   a <- array(-(1:10))
-  expect_error(a$cast(uint8()))
-  expect_error(a$cast(uint16()))
-
-  # this looks like a bug in the C++
-  # expect_error(a$cast(uint32()))
-  # expect_error(a$cast(uint64()))
+  expect_error(a$cast(uint8()), regexp = "Integer value out of bounds")
+  expect_error(a$cast(uint16()), regexp = "Integer value out of bounds")
+  expect_error(a$cast(uint32()), regexp = "Integer value out of bounds")
+  expect_error(a$cast(uint64()), regexp = "Integer value out of bounds")
 
   expect_error(a$cast(uint8(), safe = FALSE), NA)
   expect_error(a$cast(uint16(), safe = FALSE), NA)

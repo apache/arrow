@@ -35,7 +35,7 @@ Arrow is a set of technologies that enable big data systems to process and trans
 
 [Apache Arrow](https://github.com/apache/arrow) is a columnar memory layout specification for encoding vectors and table-like containers of flat and nested data. The Arrow spec aligns columnar data in memory to minimize cache misses and take advantage of the latest SIMD (Single input multiple data) and GPU operations on modern processors.
 
-Apache Arrow is the emerging standard for large in-memory columnar data ([Spark](https://spark.apache.org/), [Pandas](http://wesmckinney.com/blog/pandas-and-apache-arrow/), [Drill](https://drill.apache.org/), [Graphistry](https://www.graphistry.com), ...). By standardizing on a common binary interchange format, big data systems can reduce the costs and friction associated with cross-system communication.
+Apache Arrow is the emerging standard for large in-memory columnar data ([Spark](https://spark.apache.org/), [Pandas](https://wesmckinney.com/blog/pandas-and-apache-arrow/), [Drill](https://drill.apache.org/), [Graphistry](https://www.graphistry.com), ...). By standardizing on a common binary interchange format, big data systems can reduce the costs and friction associated with cross-system communication.
 
 # Get Started
 
@@ -207,12 +207,12 @@ We prefer to receive contributions in the form of GitHub pull requests. Please s
 
 If you are looking for some ideas on what to contribute, check out the [JIRA
 issues][3] for the Apache Arrow project. Comment on the issue and/or contact
-[dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
+[dev@arrow.apache.org](https://mail-archives.apache.org/mod_mbox/arrow-dev/)
 with your questions and ideas.
 
 If you’d like to report a bug but don’t have time to fix it, you can still post
 it on JIRA, or email the mailing list
-[dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
+[dev@arrow.apache.org](https://mail-archives.apache.org/mod_mbox/arrow-dev/)
 
 ## Packaging
 
@@ -258,12 +258,12 @@ Full list of broader Apache Arrow [projects & organizations](https://github.com/
 * [Apache Arrow](https://arrow.apache.org) -- Parent project for Powering Columnar In-Memory Analytics, including affiliated open source projects
 * [rxjs-mapd](https://github.com/graphistry/rxjs-mapd) -- A MapD Core node-driver that returns query results as Arrow columns
 * [Perspective](https://github.com/jpmorganchase/perspective) -- Perspective is a streaming data visualization engine by J.P. Morgan for JavaScript for building real-time & user-configurable analytics entirely in the browser.
-* [Falcon](https://github.com/uwdata/falcon) is a visualization tool for linked interactions across multiple aggregate visualizations of millions or billions of records. 
+* [Falcon](https://github.com/uwdata/falcon) is a visualization tool for linked interactions across multiple aggregate visualizations of millions or billions of records.
 
 ## Companies & Organizations
 
-* [CCRi](http://www.ccri.com/) -- Commonwealth Computer Research Inc, or CCRi, is a Central Virginia based data science and software engineering company
-* [GOAI](http://gpuopenanalytics.com/) -- GPU Open Analytics Initiative standardizes on Arrow as part of creating common data frameworks that enable developers and statistical researchers to accelerate data science on GPUs
+* [CCRi](https://www.ccri.com/) -- Commonwealth Computer Research Inc, or CCRi, is a Central Virginia based data science and software engineering company
+* [GOAI](https://gpuopenanalytics.com/) -- GPU Open Analytics Initiative standardizes on Arrow as part of creating common data frameworks that enable developers and statistical researchers to accelerate data science on GPUs
 * [Graphistry, Inc.](https://www.graphistry.com/) - An end-to-end GPU accelerated visual investigation platform used by teams for security, anti-fraud, and related investigations. Graphistry uses Arrow in its NodeJS GPU backend and client libraries, and is an early contributing member to GOAI and Arrow\[JS\] working to bring these technologies to the enterprise.
 
 # License
@@ -276,4 +276,4 @@ Full list of broader Apache Arrow [projects & organizations](https://github.com/
 [4]: https://github.com/apache/arrow
 [5]: https://beta.observablehq.com/@theneuralbit/introduction-to-apache-arrow
 [6]: https://beta.observablehq.com/@lmeyerov/manipulating-flat-arrays-arrow-style
-[7]: http://arrow.apache.org/docs/js/
+[7]: https://arrow.apache.org/docs/js/

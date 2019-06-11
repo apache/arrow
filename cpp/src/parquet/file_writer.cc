@@ -382,6 +382,11 @@ void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
   return WriteFileMetaData(file_metadata, &wrapper);
 }
 
+void WriteMetaDataFile(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
+  PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
+  return WriteFileMetaData(file_metadata, sink);
+}
+
 const SchemaDescriptor* ParquetFileWriter::schema() const { return contents_->schema(); }
 
 const ColumnDescriptor* ParquetFileWriter::descr(int i) const {

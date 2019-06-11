@@ -113,6 +113,10 @@ PARQUET_EXPORT
 void WriteFileMetaData(const FileMetaData& file_metadata,
                        ::arrow::io::OutputStream* sink);
 
+PARQUET_EXPORT
+void WriteMetaDataFile(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
+
 class PARQUET_EXPORT ParquetFileWriter {
  public:
   // Forward declare a virtual class 'Contents' to aid dependency injection and more
