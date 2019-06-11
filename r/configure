@@ -37,8 +37,6 @@ PKG_LIBS="-larrow -lparquet"
 if [ "$ARROW_R_DEV" == "TRUE" ]; then
   echo "*** Generating code with data-raw/codegen.R"
   ${R_HOME}/bin/Rscript data-raw/codegen.R
-else
-  echo "Environment variable $$ARROW_R_DEV not set to TRUE, skip code generation"
 fi
 
 # Note that cflags may be empty in case of success
