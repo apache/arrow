@@ -1247,6 +1247,13 @@ class IntegrationRunner(object):
             print('Testing file {0}'.format(json_path))
             print('=' * 58)
 
+            if ('Java' in (producer.name, consumer.name) and
+               "map" in test_case.name):
+                print('TODO(ARROW-1279): Enable map tests ' +
+                      ' for Java and JS once Java supports them and JS\'' +
+                      ' are unbroken')
+                continue
+
             if SKIP_FLIGHT in test_case.skip:
                 print('-- Skipping test')
                 continue
