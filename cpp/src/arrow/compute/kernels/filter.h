@@ -39,8 +39,30 @@ struct Datum;
 class ARROW_EXPORT FilterFunction {
  public:
   /// Filter an array with a scalar argument.
-  virtual Status Filter(const ArrayData& input, const Scalar& scalar,
+  virtual Status Filter(const ArrayData& array, const Scalar& scalar,
                         ArrayData* output) const = 0;
+
+  Status Filter(const ArrayData& array, const Scalar& scalar,
+                std::shared_ptr<ArrayData>* output) {
+    return Filter(array, scalar, output->get());
+  }
+
+  virtual Status Filter(const Scalar& scalar, const ArrayData& array,
+                        ArrayData* output) const = 0;
+
+  Status Filter(const Scalar& scalar, const ArrayData& array,
+                std::shared_ptr<ArrayData>* output) {
+    return Filter(scalar, array, output->get());
+  }
+
+  /// Filter an array with an array argument.
+  virtual Status Filter(const ArrayData& lhs, const ArrayData& rhs,
+                        ArrayData* output) const = 0;
+
+  Status Filter(const ArrayData& lhs, const ArrayData& rhs,
+                std::shared_ptr<ArrayData>* output) {
+    return Filter(lhs, rhs, output->get());
+  }
 
   /// By default, FilterFunction emits a result bitmap.
   virtual std::shared_ptr<DataType> out_type() const { return boolean(); }
@@ -56,6 +78,13 @@ class ARROW_EXPORT FilterBinaryKernel : public BinaryKernel {
 
   Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
               Datum* out) override;
+
+  static int64_t out_length(const Datum& left, const Datum& right) {
+    if (left.kind() == Datum::ARRAY) return left.length();
+    if (right.kind() == Datum::ARRAY) return right.length();
+
+    return 0;
+  }
 
   std::shared_ptr<DataType> out_type() const override;
 

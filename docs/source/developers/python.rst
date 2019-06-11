@@ -229,7 +229,7 @@ folder as the repositories and a target installation folder:
 
    virtualenv pyarrow
    source ./pyarrow/bin/activate
-   pip install six numpy pandas cython pytest
+   pip install six numpy pandas cython pytest hypothesis
 
    # This is the folder where we will install the Arrow libraries during
    # development

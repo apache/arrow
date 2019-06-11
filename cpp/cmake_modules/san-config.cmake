@@ -92,9 +92,14 @@ if(${ARROW_USE_COVERAGE})
   if(NOT ("${COMPILER_FAMILY}" STREQUAL "clang"))
     message(SEND_ERROR "You can only enable coverage with clang")
   endif()
-  add_definitions("-fsanitize-coverage=trace-pc-guard")
+  add_definitions(
+    "-fsanitize-coverage=pc-table,inline-8bit-counters,edge,no-prune,trace-cmp,trace-div,trace-gep"
+    )
 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize-coverage=trace-pc-guard")
+  set(
+    CMAKE_CXX_FLAGS
+    "${CMAKE_CXX_FLAGS} -fsanitize-coverage=pc-table,inline-8bit-counters,edge,no-prune,trace-cmp,trace-div,trace-gep"
+    )
 endif()
 
 if("${ARROW_USE_UBSAN}" OR "${ARROW_USE_ASAN}" OR "${ARROW_USE_TSAN}")

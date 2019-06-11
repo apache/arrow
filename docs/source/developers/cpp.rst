@@ -489,7 +489,10 @@ work). You can build them using the following code:
 
 .. code-block:: shell
 
-   cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON ..
+   export CC=clang
+   export CXX=clang++
+   cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+   make
 
 ``ARROW_FUZZING`` will enable building of fuzzer executables as well as enable the
 addition of coverage helpers via ``ARROW_USE_COVERAGE``, so that the fuzzer can observe
@@ -501,16 +504,40 @@ provoked by the fuzzer will be found early. You may also enable other sanitizers
 well. Just keep in mind that some of them do not work together and some may result
 in very long execution times, which will slow down the fuzzing procedure.
 
+We use the ``RelWithDebInfo`` build type which is optimized ``Release`` but contains
+debug information. Just using ``Debug`` would be too slow to get proper fuzzing
+results and ``Release`` would make it impossible to get proper tracebacks. Also, some
+bugs might (but hopefully are not) be specific to the release build due to
+misoptimization.
+
 Now you can start one of the fuzzer, e.g.:
 
 .. code-block:: shell
 
-   ./debug/debug/ipc-fuzzing-test
+   mkdir -p corpus
+   ./relwithdebinfo/arrow-ipc-fuzzing-test corpus
 
-This will try to find a malformed input that crashes the payload and will show the
-stack trace as well as the input data. After a problem was found this way, it should
-be reported and fixed. Usually, the fuzzing process cannot be continued until the
-fix is applied, since the fuzzer usually converts to the problem again.
+This will try to find a malformed input that crashes the payload. A corpus of
+interesting inputs will be stored into the ``corpus`` directory. You can save and
+share this with others if you want, or even pre-fill it with files to provide the
+fuzzer with a warm-start. If a crash was found, the program will show the stack trace
+as well as the input data. The input data will also be written to a file named
+``crash-<some id>``. After a problem was found this way, it should be reported and
+fixed. Usually, the fuzzing process cannot be continued until the fix is applied, since
+the fuzzer usually converts to the problem again. To debug the underlying issue, you
+can use GDB:
+
+.. code-block:: shell
+
+   env ASAN_OPTIONS=abort_on_error=1 gdb -ex r --args ./relwithdebinfo/arrow-ipc-fuzzing-test crash-<some id>
+
+For more options, use:
+
+.. code-block:: shell
+
+   ./relwithdebinfo/arrow-ipc-fuzzing-test -help=1
+
+or visit the `libFuzzer documentation <https://llvm.org/docs/LibFuzzer.html>`_.
 
 If you build fuzzers with ASAN, you need to set the ``ASAN_SYMBOLIZER_PATH``
 environment variable to the absolute path of ``llvm-symbolizer``, which is a tool

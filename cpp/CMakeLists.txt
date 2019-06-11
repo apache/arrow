@@ -256,6 +256,10 @@ if(MSVC)
   set(ARROW_USE_GLOG OFF)
 endif()
 
+if(ARROW_JNI)
+  set(ARROW_BUILD_STATIC ON)
+endif()
+
 if(ARROW_ORC)
   set(ARROW_WITH_LZ4 ON)
   set(ARROW_WITH_SNAPPY ON)
@@ -727,6 +731,10 @@ if(ARROW_PARQUET)
   if(PARQUET_BUILD_EXAMPLES)
     add_subdirectory(examples/parquet)
   endif()
+endif()
+
+if(ARROW_JNI)
+  add_subdirectory(src/jni)
 endif()
 
 if(ARROW_GANDIVA)

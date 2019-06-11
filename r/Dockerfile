@@ -61,7 +61,7 @@ RUN apt update && \
         'bit64', \
         'hms', \
         'lubridate'), \
-        repos = 'http://cran.rstudio.com')"
+        repos = 'https://cran.rstudio.com')"
 
 # So that arrowExports.* files are generated
 ENV ARROW_R_DEV=TRUE

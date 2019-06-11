@@ -134,6 +134,7 @@ go/*.tmpldata
 go/*.s
 js/.npmignore
 js/closure-compiler-scripts/*
+js/src/fb/*.ts
 python/cmake_modules/FindPythonLibsNew.cmake
 python/cmake_modules/SnappyCMakeLists.txt
 python/cmake_modules/SnappyConfig.h

@@ -37,6 +37,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
+import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
@@ -111,6 +112,15 @@ public class TypeLayout {
       public TypeLayout visit(FixedSizeList type) {
         List<BufferLayout> vectors = asList(
             BufferLayout.validityVector()
+        );
+        return new TypeLayout(vectors);
+      }
+
+      @Override
+      public TypeLayout visit(Map type) {
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector(),
+            BufferLayout.offsetBuffer()
         );
         return new TypeLayout(vectors);
       }

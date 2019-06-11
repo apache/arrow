@@ -41,6 +41,11 @@
       complex: true
     },
     {
+      name: "Map",
+      fields: [{name: "keysSorted", type: boolean}],
+      complex: true
+    },
+    {
       name: "Int",
       fields: [{name: "bitWidth", type: int}, {name: "isSigned", type: boolean}],
       complex: false

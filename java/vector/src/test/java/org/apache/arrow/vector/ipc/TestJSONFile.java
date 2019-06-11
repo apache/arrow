@@ -369,4 +369,36 @@ public class TestJSONFile extends BaseFileTest {
       reader.close();
     }
   }
+
+  @Test
+  public void testWriteReadMapJSON() throws IOException {
+    File file = new File("target/mytest_map.json");
+
+    // write
+    try (
+      BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
+    ) {
+
+      try (VectorSchemaRoot root = writeMapData(vectorAllocator)) {
+        printVectors(root.getFieldVectors());
+        validateMapData(root);
+        writeJSON(file, root, null);
+      }
+    }
+
+    // read
+    try (
+      BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    ) {
+      JsonFileReader reader = new JsonFileReader(file, readerAllocator);
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read();) {
+        validateMapData(root);
+      }
+      reader.close();
+    }
+  }
 }

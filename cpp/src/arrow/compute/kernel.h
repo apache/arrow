@@ -64,6 +64,10 @@ struct Datum;
 static inline bool CollectionEquals(const std::vector<Datum>& left,
                                     const std::vector<Datum>& right);
 
+// Datums variants may have a length. This special value indicate that the
+// current variant does not have a length.
+constexpr int64_t kUnknownLength = -1;
+
 /// \class Datum
 /// \brief Variant type for various Arrow C++ data structures
 struct ARROW_EXPORT Datum {
@@ -199,6 +203,20 @@ struct ARROW_EXPORT Datum {
       return util::get<std::shared_ptr<Scalar>>(this->value)->type;
     }
     return NULLPTR;
+  }
+
+  /// \brief The value length of the variant, if any
+  ///
+  /// \return kUnknownLength if no type
+  int64_t length() const {
+    if (this->kind() == Datum::ARRAY) {
+      return util::get<std::shared_ptr<ArrayData>>(this->value)->length;
+    } else if (this->kind() == Datum::CHUNKED_ARRAY) {
+      return util::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
+    } else if (this->kind() == Datum::SCALAR) {
+      return 1;
+    }
+    return kUnknownLength;
   }
 
   bool Equals(const Datum& other) const {

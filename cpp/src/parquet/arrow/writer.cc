@@ -1135,6 +1135,12 @@ Status WriteFileMetaData(const FileMetaData& file_metadata,
   return Status::OK();
 }
 
+Status WriteMetaDataFile(const FileMetaData& file_metadata,
+                         ::arrow::io::OutputStream* sink) {
+  PARQUET_CATCH_NOT_OK(::parquet::WriteMetaDataFile(file_metadata, sink));
+  return Status::OK();
+}
+
 Status FileWriter::WriteTable(const Table& table, int64_t chunk_size) {
   RETURN_NOT_OK(table.Validate());
 

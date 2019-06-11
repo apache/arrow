@@ -70,9 +70,9 @@ DEPENDENCIES=(
   "ARROW_RAPIDJSON_URL rapidjson-${RAPIDJSON_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${RAPIDJSON_VERSION}.tar.gz"
   "ARROW_RE2_URL re2-${RE2_VERSION}.tar.gz https://github.com/google/re2/archive/${RE2_VERSION}.tar.gz"
   "ARROW_SNAPPY_URL snappy-${SNAPPY_VERSION}.tar.gz https://github.com/google/snappy/archive/${SNAPPY_VERSION}.tar.gz"
-  "ARROW_THRIFT_URL thrift-${THRIFT_VERSION}.tar.gz http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
+  "ARROW_THRIFT_URL thrift-${THRIFT_VERSION}.tar.gz https://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
   "ARROW_URIPARSER_URL uriparser-${URIPARSER_VERSION}.tar.gz https://github.com/uriparser/uriparser/archive/uriparser-${URIPARSER_VERSION}.tar.gz"
-  "ARROW_ZLIB_URL zlib-${ZLIB_VERSION}.tar.gz http://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz"
+  "ARROW_ZLIB_URL zlib-${ZLIB_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz"
   "ARROW_ZSTD_URL zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/${ZSTD_VERSION}.tar.gz"
 )
 

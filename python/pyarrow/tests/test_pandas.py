@@ -2301,6 +2301,12 @@ class TestConvertMisc(object):
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table.column('B').type == pa.int32()
 
+    def test_error_sparse(self):
+        # ARROW-2818
+        df = pd.DataFrame({'a': pd.SparseArray([1, np.nan, 3])})
+        with pytest.raises(TypeError, match="Sparse pandas data"):
+            pa.Table.from_pandas(df)
+
 
 def test_safe_cast_from_float_with_nans_to_int():
     # TODO(kszucs): write tests for creating Date32 and Date64 arrays, see

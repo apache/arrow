@@ -395,6 +395,20 @@ class FileMetaData::FileMetaDataImpl {
     }
   }
 
+  format::RowGroup& row_group(int i) {
+    DCHECK_LT(i, num_row_groups());
+    return metadata_->row_groups[i];
+  }
+
+  void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
+    format::RowGroup other_rg;
+    for (int i = 0; i < other->num_row_groups(); i++) {
+      other_rg = other->row_group(i);
+      metadata_->row_groups.push_back(other_rg);
+      metadata_->num_rows += other_rg.num_rows;
+    }
+  }
+
  private:
   friend FileMetaDataBuilder;
   uint32_t metadata_len_;
@@ -493,6 +507,10 @@ std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const
 }
 
 void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
+
+void FileMetaData::AppendRowGroups(const FileMetaData& other) {
+  impl_->AppendRowGroups(other.impl_);
+}
 
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
   return impl_->WriteTo(dst);
