@@ -104,9 +104,10 @@ ggandiva_function_signature_class_init(GGandivaFunctionSignatureClass *klass)
  *
  * Since: 0.14.0
  */
-GGandivaFunctionSignature *ggandiva_function_signature_new(const gchar *base_name,
-                                                           GList *parameter_types,
-                                                           GArrowDataType *return_type)
+GGandivaFunctionSignature *
+ggandiva_function_signature_new(const gchar *base_name,
+                                GList *parameter_types,
+                                GArrowDataType *return_type)
 {
   gandiva::DataTypeVector arrow_parameter_types;
   for (GList *node = parameter_types; node != NULL; node = g_list_next(node)) {
