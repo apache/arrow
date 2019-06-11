@@ -39,28 +39,39 @@ class TestGandivaFunctionSignature < Test::Unit::TestCase
 
   sub_test_case("equal") do
     def test_true
-      assert_equal(Gandiva::FunctionSignature.new("add",
-                                                  [
-                                                    int32_data_type,
-                                                    int32_data_type,
-                                                  ],
-                                                  int32_data_type),
-                   Gandiva::FunctionSignature.new("add",
-                                                  [
-                                                    int32_data_type,
-                                                    int32_data_type,
-                                                  ],
-                                                  int32_data_type))
+      add_int32_1 = Gandiva::FunctionSignature.new("add",
+                                                   [
+                                                     int32_data_type,
+                                                     int32_data_type,
+                                                   ],
+                                                   int32_data_type)
+      add_int32_2 = Gandiva::FunctionSignature.new("add",
+                                                   [
+                                                     int32_data_type,
+                                                     int32_data_type,
+                                                   ],
+                                                   int32_data_type)
+      assert do
+        add_int32_1 == add_int32_2
+      end
     end
 
     def test_false
-      assert_not_equal(Gandiva::FunctionSignature.new("add",
-                                                      [
-                                                        int32_data_type,
-                                                        int32_data_type,
-                                                      ],
-                                                      int32_data_type),
-                       @to_date)
+      add_int32 = Gandiva::FunctionSignature.new("add",
+                                                 [
+                                                   int32_data_type,
+                                                   int32_data_type,
+                                                 ],
+                                                 int32_data_type)
+      add_int16 = Gandiva::FunctionSignature.new("add",
+                                                 [
+                                                   int16_data_type,
+                                                   int16_data_type,
+                                                 ],
+                                                 int16_data_type)
+      assert do
+        add_int32 != add_int16
+      end
     end
   end
 

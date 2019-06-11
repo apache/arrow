@@ -37,15 +37,17 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
                    @not.signature)
   end
 
-  def test_equal
-    assert do
-      @not == @registry.lookup(@not.signature)
+  sub_test_case("equal") do
+    def test_true
+      assert do
+        @not == @registry.lookup(@not.signature)
+      end
     end
-  end
 
-  def test_not_equal
-    assert do
-      @not != @isnull
+    def test_false
+      assert do
+        @not != @isnull
+      end
     end
   end
 

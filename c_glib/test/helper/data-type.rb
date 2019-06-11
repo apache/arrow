@@ -40,6 +40,10 @@ module Helper
       Arrow::Int8DataType.new
     end
 
+    def int16_data_type
+      Arrow::Int16DataType.new
+    end
+
     def int32_data_type
       Arrow::Int32DataType.new
     end
