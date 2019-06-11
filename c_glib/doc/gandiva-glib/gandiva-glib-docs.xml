@@ -66,6 +66,10 @@
       <title>Signature</title>
       <xi:include href="xml/function-signature.xml"/>
     </chapter>
+    <chapter id="native-function">
+      <title>Native function</title>
+      <xi:include href="xml/native-function.xml"/>
+    </chapter>
   </part>
 
   <chapter id="object-tree">
