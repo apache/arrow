@@ -21,10 +21,10 @@
 Reading JSON files
 ==================
 
-Arrow supports reading columnar data from JSON files.  A JSON file consists
-of multiple JSON objects, one per line, representing individual data rows.
-For example, this file represents two rows of data with four columns "a", "b",
-"c", "d":
+Arrow supports reading columnar data from JSON files.  In this context, a
+JSON file consists of multiple JSON objects, one per line, representing
+individual data rows.  For example, this file represents two rows of data
+with four columns "a", "b", "c", "d":
 
 .. code-block:: json
 
@@ -48,7 +48,7 @@ with the file path you want to read from::
 
    >>> from pyarrow import json
    >>> fn = 'my_data.json'
-   >>> table = json.read_csv(fn)
+   >>> table = json.read_json(fn)
    >>> table
    pyarrow.Table
    a: int64
