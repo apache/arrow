@@ -82,7 +82,7 @@ cpp_functions_definitions <- decorations %>%
     }}
     #else
     RcppExport SEXP _arrow_{name}({sexp_params}){{
-    \tRf_error("arrow C++ library not available. Cannot call {name}(). ");
+    \tRf_error("Cannot call {name}(). Please use arrow::install_arrow() to install required runtime libraries. ");
     }}
     #endif
 

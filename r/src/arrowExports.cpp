@@ -16,7 +16,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__Slice1(SEXP array_sexp, SEXP offset_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__Slice1(). ");
+	Rf_error("Cannot call Array__Slice1(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -33,7 +33,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__Slice2(SEXP array_sexp, SEXP offset_sexp, SEXP length_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__Slice2(). ");
+	Rf_error("Cannot call Array__Slice2(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -49,7 +49,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__IsNull(SEXP x_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__IsNull(). ");
+	Rf_error("Cannot call Array__IsNull(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -65,7 +65,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__IsValid(SEXP x_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__IsValid(). ");
+	Rf_error("Cannot call Array__IsValid(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -80,7 +80,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__length(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__length(). ");
+	Rf_error("Cannot call Array__length(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -95,7 +95,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__offset(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__offset(). ");
+	Rf_error("Cannot call Array__offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -110,7 +110,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__null_count(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__null_count(). ");
+	Rf_error("Cannot call Array__null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -125,7 +125,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__type(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__type(). ");
+	Rf_error("Cannot call Array__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -140,7 +140,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__ToString(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__ToString(). ");
+	Rf_error("Cannot call Array__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -155,7 +155,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__type_id(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__type_id(). ");
+	Rf_error("Cannot call Array__type_id(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -171,7 +171,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__Equals(). ");
+	Rf_error("Cannot call Array__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -187,7 +187,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__ApproxEquals(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__ApproxEquals(). ");
+	Rf_error("Cannot call Array__ApproxEquals(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -202,7 +202,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__data(SEXP array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__data(). ");
+	Rf_error("Cannot call Array__data(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -221,7 +221,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__RangeEquals(SEXP self_sexp, SEXP other_sexp, SEXP start_idx_sexp, SEXP end_idx_sexp, SEXP other_start_idx_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__RangeEquals(). ");
+	Rf_error("Cannot call Array__RangeEquals(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -236,7 +236,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__Mask(SEXP array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__Mask(). ");
+	Rf_error("Cannot call Array__Mask(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -251,7 +251,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DictionaryArray__indices(SEXP array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DictionaryArray__indices(). ");
+	Rf_error("Cannot call DictionaryArray__indices(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -266,7 +266,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DictionaryArray__dictionary(SEXP array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DictionaryArray__dictionary(). ");
+	Rf_error("Cannot call DictionaryArray__dictionary(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -281,7 +281,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__as_vector(SEXP array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__as_vector(). ");
+	Rf_error("Cannot call Array__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -296,7 +296,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__as_vector(). ");
+	Rf_error("Cannot call ChunkedArray__as_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -312,7 +312,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__to_dataframe(). ");
+	Rf_error("Cannot call RecordBatch__to_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -328,7 +328,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__to_dataframe(). ");
+	Rf_error("Cannot call Table__to_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -343,7 +343,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__infer_type(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__infer_type(). ");
+	Rf_error("Cannot call Array__infer_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -359,7 +359,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__from_vector(). ");
+	Rf_error("Cannot call Array__from_vector(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -375,7 +375,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__from_list(). ");
+	Rf_error("Cannot call ChunkedArray__from_list(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -390,7 +390,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ArrayData__get_type(). ");
+	Rf_error("Cannot call ArrayData__get_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -405,7 +405,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ArrayData__get_length(). ");
+	Rf_error("Cannot call ArrayData__get_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -420,7 +420,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ArrayData__get_null_count(). ");
+	Rf_error("Cannot call ArrayData__get_null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -435,7 +435,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ArrayData__get_offset(). ");
+	Rf_error("Cannot call ArrayData__get_offset(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -450,7 +450,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ArrayData__buffers(). ");
+	Rf_error("Cannot call ArrayData__buffers(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -465,7 +465,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Buffer__is_mutable(SEXP buffer_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Buffer__is_mutable(). ");
+	Rf_error("Cannot call Buffer__is_mutable(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -481,7 +481,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Buffer__ZeroPadding(SEXP buffer_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Buffer__ZeroPadding(). ");
+	Rf_error("Cannot call Buffer__ZeroPadding(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -496,7 +496,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Buffer__capacity(SEXP buffer_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Buffer__capacity(). ");
+	Rf_error("Cannot call Buffer__capacity(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -511,7 +511,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Buffer__size(SEXP buffer_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Buffer__size(). ");
+	Rf_error("Cannot call Buffer__size(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -526,7 +526,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_r___RBuffer__initialize(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call r___RBuffer__initialize(). ");
+	Rf_error("Cannot call r___RBuffer__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -541,7 +541,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__length(). ");
+	Rf_error("Cannot call ChunkedArray__length(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -556,7 +556,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkedArray__null_count(SEXP chunked_array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__null_count(). ");
+	Rf_error("Cannot call ChunkedArray__null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -571,7 +571,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__num_chunks(). ");
+	Rf_error("Cannot call ChunkedArray__num_chunks(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -587,7 +587,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkedArray__chunk(SEXP chunked_array_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__chunk(). ");
+	Rf_error("Cannot call ChunkedArray__chunk(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -602,7 +602,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkedArray__chunks(SEXP chunked_array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__chunks(). ");
+	Rf_error("Cannot call ChunkedArray__chunks(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -617,7 +617,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkedArray__type(SEXP chunked_array_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__type(). ");
+	Rf_error("Cannot call ChunkedArray__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -633,7 +633,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkArray__Slice1(SEXP chunked_array_sexp, SEXP offset_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkArray__Slice1(). ");
+	Rf_error("Cannot call ChunkArray__Slice1(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -650,7 +650,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkArray__Slice2(SEXP chunked_array_sexp, SEXP offset_sexp, SEXP length_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkArray__Slice2(). ");
+	Rf_error("Cannot call ChunkArray__Slice2(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -665,7 +665,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Column__length(SEXP column_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Column__length(). ");
+	Rf_error("Cannot call Column__length(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -680,7 +680,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Column__null_count(SEXP column_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Column__null_count(). ");
+	Rf_error("Cannot call Column__null_count(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -695,7 +695,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Column__type(SEXP column_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Column__type(). ");
+	Rf_error("Cannot call Column__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -710,7 +710,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Column__data(SEXP column_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Column__data(). ");
+	Rf_error("Cannot call Column__data(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -725,7 +725,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_util___Codec__Create(SEXP codec_sexp){
-	Rf_error("arrow C++ library not available. Cannot call util___Codec__Create(). ");
+	Rf_error("Cannot call util___Codec__Create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -741,7 +741,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___CompressedOutputStream__Make(). ");
+	Rf_error("Cannot call io___CompressedOutputStream__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -757,7 +757,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___CompressedInputStream__Make(). ");
+	Rf_error("Cannot call io___CompressedInputStream__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -774,7 +774,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflow_sexp, SEXP allow_time_truncate_sexp, SEXP allow_float_truncate_sexp){
-	Rf_error("arrow C++ library not available. Cannot call compute___CastOptions__initialize(). ");
+	Rf_error("Cannot call compute___CastOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -791,7 +791,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Array__cast(SEXP array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Array__cast(). ");
+	Rf_error("Cannot call Array__cast(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -808,7 +808,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ChunkedArray__cast(SEXP chunked_array_sexp, SEXP target_type_sexp, SEXP options_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ChunkedArray__cast(). ");
+	Rf_error("Cannot call ChunkedArray__cast(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -825,7 +825,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__cast(SEXP batch_sexp, SEXP schema_sexp, SEXP options_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__cast(). ");
+	Rf_error("Cannot call RecordBatch__cast(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -842,7 +842,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP options_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__cast(). ");
+	Rf_error("Cannot call Table__cast(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -857,7 +857,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
-	Rf_error("arrow C++ library not available. Cannot call csv___ReadOptions__initialize(). ");
+	Rf_error("Cannot call csv___ReadOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -872,7 +872,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
-	Rf_error("arrow C++ library not available. Cannot call csv___ParseOptions__initialize(). ");
+	Rf_error("Cannot call csv___ParseOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -887,7 +887,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
-	Rf_error("arrow C++ library not available. Cannot call csv___ConvertOptions__initialize(). ");
+	Rf_error("Cannot call csv___ConvertOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -905,7 +905,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_csv___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp, SEXP convert_options_sexp){
-	Rf_error("arrow C++ library not available. Cannot call csv___TableReader__Make(). ");
+	Rf_error("Cannot call csv___TableReader__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -920,7 +920,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call csv___TableReader__Read(). ");
+	Rf_error("Cannot call csv___TableReader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -935,7 +935,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xp_sexp){
-	Rf_error("arrow C++ library not available. Cannot call shared_ptr_is_null(). ");
+	Rf_error("Cannot call shared_ptr_is_null(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -950,7 +950,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_unique_ptr_is_null(SEXP xp_sexp){
-	Rf_error("arrow C++ library not available. Cannot call unique_ptr_is_null(). ");
+	Rf_error("Cannot call unique_ptr_is_null(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -964,7 +964,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Int8__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Int8__initialize(). ");
+	Rf_error("Cannot call Int8__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -978,7 +978,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Int16__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Int16__initialize(). ");
+	Rf_error("Cannot call Int16__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -992,7 +992,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Int32__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Int32__initialize(). ");
+	Rf_error("Cannot call Int32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1006,7 +1006,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Int64__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Int64__initialize(). ");
+	Rf_error("Cannot call Int64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1020,7 +1020,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_UInt8__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call UInt8__initialize(). ");
+	Rf_error("Cannot call UInt8__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1034,7 +1034,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_UInt16__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call UInt16__initialize(). ");
+	Rf_error("Cannot call UInt16__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1048,7 +1048,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_UInt32__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call UInt32__initialize(). ");
+	Rf_error("Cannot call UInt32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1062,7 +1062,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_UInt64__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call UInt64__initialize(). ");
+	Rf_error("Cannot call UInt64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1076,7 +1076,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Float16__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Float16__initialize(). ");
+	Rf_error("Cannot call Float16__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1090,7 +1090,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Float32__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Float32__initialize(). ");
+	Rf_error("Cannot call Float32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1104,7 +1104,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Float64__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Float64__initialize(). ");
+	Rf_error("Cannot call Float64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1118,7 +1118,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Boolean__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Boolean__initialize(). ");
+	Rf_error("Cannot call Boolean__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1132,7 +1132,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Utf8__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Utf8__initialize(). ");
+	Rf_error("Cannot call Utf8__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1146,7 +1146,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Date32__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Date32__initialize(). ");
+	Rf_error("Cannot call Date32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1160,7 +1160,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Date64__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Date64__initialize(). ");
+	Rf_error("Cannot call Date64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1174,7 +1174,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Null__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call Null__initialize(). ");
+	Rf_error("Cannot call Null__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1190,7 +1190,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Decimal128Type__initialize(). ");
+	Rf_error("Cannot call Decimal128Type__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1205,7 +1205,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
-	Rf_error("arrow C++ library not available. Cannot call FixedSizeBinary__initialize(). ");
+	Rf_error("Cannot call FixedSizeBinary__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1220,7 +1220,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Timestamp__initialize1(SEXP unit_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Timestamp__initialize1(). ");
+	Rf_error("Cannot call Timestamp__initialize1(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1236,7 +1236,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Timestamp__initialize2(SEXP unit_sexp, SEXP timezone_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Timestamp__initialize2(). ");
+	Rf_error("Cannot call Timestamp__initialize2(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1251,7 +1251,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Time32__initialize(SEXP unit_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Time32__initialize(). ");
+	Rf_error("Cannot call Time32__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1266,7 +1266,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Time64__initialize(SEXP unit_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Time64__initialize(). ");
+	Rf_error("Cannot call Time64__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1281,7 +1281,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_list__(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call list__(). ");
+	Rf_error("Cannot call list__(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1296,7 +1296,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_struct_(SEXP fields_sexp){
-	Rf_error("arrow C++ library not available. Cannot call struct_(). ");
+	Rf_error("Cannot call struct_(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1311,7 +1311,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DataType__ToString(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DataType__ToString(). ");
+	Rf_error("Cannot call DataType__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1326,7 +1326,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DataType__name(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DataType__name(). ");
+	Rf_error("Cannot call DataType__name(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1342,7 +1342,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DataType__Equals(). ");
+	Rf_error("Cannot call DataType__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1357,7 +1357,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DataType__num_children(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DataType__num_children(). ");
+	Rf_error("Cannot call DataType__num_children(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1372,7 +1372,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DataType__children_pointer(). ");
+	Rf_error("Cannot call DataType__children_pointer(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1387,7 +1387,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DataType__id(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DataType__id(). ");
+	Rf_error("Cannot call DataType__id(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1402,7 +1402,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_schema_(SEXP fields_sexp){
-	Rf_error("arrow C++ library not available. Cannot call schema_(). ");
+	Rf_error("Cannot call schema_(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1417,7 +1417,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Schema__ToString(SEXP s_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Schema__ToString(). ");
+	Rf_error("Cannot call Schema__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1432,7 +1432,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Schema__num_fields(SEXP s_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Schema__num_fields(). ");
+	Rf_error("Cannot call Schema__num_fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1448,7 +1448,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Schema__field(). ");
+	Rf_error("Cannot call Schema__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1463,7 +1463,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Schema__names(). ");
+	Rf_error("Cannot call Schema__names(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1478,7 +1478,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ListType__ToString(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ListType__ToString(). ");
+	Rf_error("Cannot call ListType__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1493,7 +1493,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_FixedWidthType__bit_width(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call FixedWidthType__bit_width(). ");
+	Rf_error("Cannot call FixedWidthType__bit_width(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1508,7 +1508,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DateType__unit(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DateType__unit(). ");
+	Rf_error("Cannot call DateType__unit(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1523,7 +1523,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_TimeType__unit(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call TimeType__unit(). ");
+	Rf_error("Cannot call TimeType__unit(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1538,7 +1538,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DecimalType__precision(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DecimalType__precision(). ");
+	Rf_error("Cannot call DecimalType__precision(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1553,7 +1553,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DecimalType__scale(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DecimalType__scale(). ");
+	Rf_error("Cannot call DecimalType__scale(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1568,7 +1568,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_TimestampType__timezone(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call TimestampType__timezone(). ");
+	Rf_error("Cannot call TimestampType__timezone(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1583,7 +1583,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_TimestampType__unit(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call TimestampType__unit(). ");
+	Rf_error("Cannot call TimestampType__unit(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1600,7 +1600,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DictionaryType__initialize(SEXP index_type_sexp, SEXP value_type_sexp, SEXP ordered_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DictionaryType__initialize(). ");
+	Rf_error("Cannot call DictionaryType__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1615,7 +1615,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DictionaryType__index_type(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DictionaryType__index_type(). ");
+	Rf_error("Cannot call DictionaryType__index_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1630,7 +1630,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DictionaryType__value_type(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DictionaryType__value_type(). ");
+	Rf_error("Cannot call DictionaryType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1645,7 +1645,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DictionaryType__name(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DictionaryType__name(). ");
+	Rf_error("Cannot call DictionaryType__name(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1660,7 +1660,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_DictionaryType__ordered(SEXP type_sexp){
-	Rf_error("arrow C++ library not available. Cannot call DictionaryType__ordered(). ");
+	Rf_error("Cannot call DictionaryType__ordered(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1677,7 +1677,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableWriter__SetDescription(SEXP writer_sexp, SEXP description_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__SetDescription(). ");
+	Rf_error("Cannot call ipc___feather___TableWriter__SetDescription(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1694,7 +1694,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableWriter__SetNumRows(SEXP writer_sexp, SEXP num_rows_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__SetNumRows(). ");
+	Rf_error("Cannot call ipc___feather___TableWriter__SetNumRows(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1712,7 +1712,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableWriter__Append(SEXP writer_sexp, SEXP name_sexp, SEXP values_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__Append(). ");
+	Rf_error("Cannot call ipc___feather___TableWriter__Append(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1728,7 +1728,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableWriter__Finalize(SEXP writer_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__Finalize(). ");
+	Rf_error("Cannot call ipc___feather___TableWriter__Finalize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1743,7 +1743,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableWriter__Open(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableWriter__Open(). ");
+	Rf_error("Cannot call ipc___feather___TableWriter__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1760,7 +1760,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___TableWriter__RecordBatch__WriteFeather(SEXP writer_sexp, SEXP batch_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___TableWriter__RecordBatch__WriteFeather(). ");
+	Rf_error("Cannot call ipc___TableWriter__RecordBatch__WriteFeather(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1775,7 +1775,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableReader__GetDescription(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__GetDescription(). ");
+	Rf_error("Cannot call ipc___feather___TableReader__GetDescription(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1790,7 +1790,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableReader__HasDescription(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__HasDescription(). ");
+	Rf_error("Cannot call ipc___feather___TableReader__HasDescription(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1805,7 +1805,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableReader__version(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__version(). ");
+	Rf_error("Cannot call ipc___feather___TableReader__version(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1820,7 +1820,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableReader__num_rows(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__num_rows(). ");
+	Rf_error("Cannot call ipc___feather___TableReader__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1835,7 +1835,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableReader__num_columns(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__num_columns(). ");
+	Rf_error("Cannot call ipc___feather___TableReader__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1851,7 +1851,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumnName(SEXP reader_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__GetColumnName(). ");
+	Rf_error("Cannot call ipc___feather___TableReader__GetColumnName(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1867,7 +1867,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumn(SEXP reader_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__GetColumn(). ");
+	Rf_error("Cannot call ipc___feather___TableReader__GetColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1883,7 +1883,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP reader_sexp, SEXP columns_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__Read(). ");
+	Rf_error("Cannot call ipc___feather___TableReader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1898,7 +1898,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___feather___TableReader__Open(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___feather___TableReader__Open(). ");
+	Rf_error("Cannot call ipc___feather___TableReader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1915,7 +1915,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Field__initialize(SEXP name_sexp, SEXP field_sexp, SEXP nullable_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Field__initialize(). ");
+	Rf_error("Cannot call Field__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1930,7 +1930,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Field__ToString(SEXP field_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Field__ToString(). ");
+	Rf_error("Cannot call Field__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1945,7 +1945,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Field__name(SEXP field_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Field__name(). ");
+	Rf_error("Cannot call Field__name(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1961,7 +1961,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Field__Equals(). ");
+	Rf_error("Cannot call Field__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1976,7 +1976,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Field__nullable(SEXP field_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Field__nullable(). ");
+	Rf_error("Cannot call Field__nullable(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -1991,7 +1991,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Field__type(SEXP field_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Field__type(). ");
+	Rf_error("Cannot call Field__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2007,7 +2007,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___Readable__Read(). ");
+	Rf_error("Cannot call io___Readable__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2023,7 +2023,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___InputStream__Close(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___InputStream__Close(). ");
+	Rf_error("Cannot call io___InputStream__Close(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2039,7 +2039,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___OutputStream__Close(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___OutputStream__Close(). ");
+	Rf_error("Cannot call io___OutputStream__Close(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2054,7 +2054,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___RandomAccessFile__GetSize(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___RandomAccessFile__GetSize(). ");
+	Rf_error("Cannot call io___RandomAccessFile__GetSize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2069,7 +2069,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___RandomAccessFile__supports_zero_copy(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___RandomAccessFile__supports_zero_copy(). ");
+	Rf_error("Cannot call io___RandomAccessFile__supports_zero_copy(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2086,7 +2086,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___RandomAccessFile__Seek(SEXP x_sexp, SEXP position_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___RandomAccessFile__Seek(). ");
+	Rf_error("Cannot call io___RandomAccessFile__Seek(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2101,7 +2101,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___RandomAccessFile__Tell(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___RandomAccessFile__Tell(). ");
+	Rf_error("Cannot call io___RandomAccessFile__Tell(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2117,7 +2117,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___MemoryMappedFile__Create(). ");
+	Rf_error("Cannot call io___MemoryMappedFile__Create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2133,7 +2133,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___MemoryMappedFile__Open(SEXP path_sexp, SEXP mode_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___MemoryMappedFile__Open(). ");
+	Rf_error("Cannot call io___MemoryMappedFile__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2150,7 +2150,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___MemoryMappedFile__Resize(SEXP x_sexp, SEXP size_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___MemoryMappedFile__Resize(). ");
+	Rf_error("Cannot call io___MemoryMappedFile__Resize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2165,7 +2165,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___ReadableFile__Open(SEXP path_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___ReadableFile__Open(). ");
+	Rf_error("Cannot call io___ReadableFile__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2180,7 +2180,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___BufferReader__initialize(SEXP buffer_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___BufferReader__initialize(). ");
+	Rf_error("Cannot call io___BufferReader__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2197,7 +2197,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___Writable__write(SEXP stream_sexp, SEXP buf_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___Writable__write(). ");
+	Rf_error("Cannot call io___Writable__write(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2212,7 +2212,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___OutputStream__Tell(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___OutputStream__Tell(). ");
+	Rf_error("Cannot call io___OutputStream__Tell(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2227,7 +2227,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___FileOutputStream__Open(SEXP path_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___FileOutputStream__Open(). ");
+	Rf_error("Cannot call io___FileOutputStream__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2242,7 +2242,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___BufferOutputStream__Create(SEXP initial_capacity_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__Create(). ");
+	Rf_error("Cannot call io___BufferOutputStream__Create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2257,7 +2257,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___BufferOutputStream__capacity(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__capacity(). ");
+	Rf_error("Cannot call io___BufferOutputStream__capacity(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2272,7 +2272,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___BufferOutputStream__Finish(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__Finish(). ");
+	Rf_error("Cannot call io___BufferOutputStream__Finish(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2287,7 +2287,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___BufferOutputStream__Tell(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__Tell(). ");
+	Rf_error("Cannot call io___BufferOutputStream__Tell(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2304,7 +2304,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP bytes_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___BufferOutputStream__Write(). ");
+	Rf_error("Cannot call io___BufferOutputStream__Write(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2318,7 +2318,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___MockOutputStream__initialize(){
-	Rf_error("arrow C++ library not available. Cannot call io___MockOutputStream__initialize(). ");
+	Rf_error("Cannot call io___MockOutputStream__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2333,7 +2333,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___MockOutputStream__GetExtentBytesWritten(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___MockOutputStream__GetExtentBytesWritten(). ");
+	Rf_error("Cannot call io___MockOutputStream__GetExtentBytesWritten(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2348,7 +2348,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_io___FixedSizeBufferWriter__initialize(SEXP buffer_sexp){
-	Rf_error("arrow C++ library not available. Cannot call io___FixedSizeBufferWriter__initialize(). ");
+	Rf_error("Cannot call io___FixedSizeBufferWriter__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2362,7 +2362,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_MemoryPool__default(){
-	Rf_error("arrow C++ library not available. Cannot call MemoryPool__default(). ");
+	Rf_error("Cannot call MemoryPool__default(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2377,7 +2377,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
-	Rf_error("arrow C++ library not available. Cannot call MemoryPool__bytes_allocated(). ");
+	Rf_error("Cannot call MemoryPool__bytes_allocated(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2392,7 +2392,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
-	Rf_error("arrow C++ library not available. Cannot call MemoryPool__max_memory(). ");
+	Rf_error("Cannot call MemoryPool__max_memory(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2407,7 +2407,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___Message__body_length(SEXP message_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___Message__body_length(). ");
+	Rf_error("Cannot call ipc___Message__body_length(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2422,7 +2422,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___Message__metadata(SEXP message_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___Message__metadata(). ");
+	Rf_error("Cannot call ipc___Message__metadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2437,7 +2437,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___Message__body(SEXP message_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___Message__body(). ");
+	Rf_error("Cannot call ipc___Message__body(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2452,7 +2452,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___Message__Verify(). ");
+	Rf_error("Cannot call ipc___Message__Verify(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2467,7 +2467,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___Message__type(SEXP message_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___Message__type(). ");
+	Rf_error("Cannot call ipc___Message__type(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2483,7 +2483,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___Message__Equals(SEXP x_sexp, SEXP y_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___Message__Equals(). ");
+	Rf_error("Cannot call ipc___Message__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2499,7 +2499,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___ReadRecordBatch__Message__Schema(SEXP message_sexp, SEXP schema_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___ReadRecordBatch__Message__Schema(). ");
+	Rf_error("Cannot call ipc___ReadRecordBatch__Message__Schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2514,7 +2514,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___ReadSchema_InputStream(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___ReadSchema_InputStream(). ");
+	Rf_error("Cannot call ipc___ReadSchema_InputStream(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2529,7 +2529,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___MessageReader__Open(). ");
+	Rf_error("Cannot call ipc___MessageReader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2544,7 +2544,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___MessageReader__ReadNextMessage(). ");
+	Rf_error("Cannot call ipc___MessageReader__ReadNextMessage(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2559,7 +2559,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___ReadMessage(). ");
+	Rf_error("Cannot call ipc___ReadMessage(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2574,7 +2574,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_read_parquet_file(SEXP filename_sexp){
-	Rf_error("arrow C++ library not available. Cannot call read_parquet_file(). ");
+	Rf_error("Cannot call read_parquet_file(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2589,7 +2589,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__num_columns(). ");
+	Rf_error("Cannot call RecordBatch__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2604,7 +2604,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__num_rows(). ");
+	Rf_error("Cannot call RecordBatch__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2619,7 +2619,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__schema(). ");
+	Rf_error("Cannot call RecordBatch__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2634,7 +2634,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__columns(). ");
+	Rf_error("Cannot call RecordBatch__columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2650,7 +2650,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__column(SEXP batch_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__column(). ");
+	Rf_error("Cannot call RecordBatch__column(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2665,7 +2665,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tbl_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__from_dataframe(). ");
+	Rf_error("Cannot call RecordBatch__from_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2681,7 +2681,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__Equals(). ");
+	Rf_error("Cannot call RecordBatch__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2697,7 +2697,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__RemoveColumn(SEXP batch_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__RemoveColumn(). ");
+	Rf_error("Cannot call RecordBatch__RemoveColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2713,7 +2713,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__column_name(SEXP batch_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__column_name(). ");
+	Rf_error("Cannot call RecordBatch__column_name(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2728,7 +2728,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__names(SEXP batch_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__names(). ");
+	Rf_error("Cannot call RecordBatch__names(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2744,7 +2744,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__Slice1(SEXP self_sexp, SEXP offset_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__Slice1(). ");
+	Rf_error("Cannot call RecordBatch__Slice1(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2761,7 +2761,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__Slice2(SEXP self_sexp, SEXP offset_sexp, SEXP length_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__Slice2(). ");
+	Rf_error("Cannot call RecordBatch__Slice2(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2776,7 +2776,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batch_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___SerializeRecordBatch__Raw(). ");
+	Rf_error("Cannot call ipc___SerializeRecordBatch__Raw(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2792,7 +2792,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___ReadRecordBatch__InputStream__Schema(SEXP stream_sexp, SEXP schema_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___ReadRecordBatch__InputStream__Schema(). ");
+	Rf_error("Cannot call ipc___ReadRecordBatch__InputStream__Schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2808,7 +2808,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatch__from_arrays(). ");
+	Rf_error("Cannot call RecordBatch__from_arrays(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2823,7 +2823,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatchReader__schema(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatchReader__schema(). ");
+	Rf_error("Cannot call RecordBatchReader__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2838,7 +2838,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call RecordBatchReader__ReadNext(). ");
+	Rf_error("Cannot call RecordBatchReader__ReadNext(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2853,7 +2853,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchStreamReader__Open(). ");
+	Rf_error("Cannot call ipc___RecordBatchStreamReader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2868,7 +2868,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchStreamReader__batches(). ");
+	Rf_error("Cannot call ipc___RecordBatchStreamReader__batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2883,7 +2883,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__schema(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__schema(). ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2898,7 +2898,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__num_record_batches(). ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__num_record_batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2914,7 +2914,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP reader_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__ReadRecordBatch(). ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__ReadRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2929,7 +2929,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__Open(). ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2944,7 +2944,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__from_RecordBatchFileReader(). ");
+	Rf_error("Cannot call Table__from_RecordBatchFileReader(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2959,7 +2959,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__from_RecordBatchStreamReader(). ");
+	Rf_error("Cannot call Table__from_RecordBatchStreamReader(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2974,7 +2974,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__batches(SEXP reader_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileReader__batches(). ");
+	Rf_error("Cannot call ipc___RecordBatchFileReader__batches(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -2991,7 +2991,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchWriter__WriteRecordBatch(SEXP batch_writer_sexp, SEXP batch_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchWriter__WriteRecordBatch(). ");
+	Rf_error("Cannot call ipc___RecordBatchWriter__WriteRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3008,7 +3008,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchWriter__WriteTable(SEXP batch_writer_sexp, SEXP table_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchWriter__WriteTable(). ");
+	Rf_error("Cannot call ipc___RecordBatchWriter__WriteTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3024,7 +3024,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchWriter__Close(SEXP batch_writer_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchWriter__Close(). ");
+	Rf_error("Cannot call ipc___RecordBatchWriter__Close(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3040,7 +3040,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchFileWriter__Open(). ");
+	Rf_error("Cannot call ipc___RecordBatchFileWriter__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3056,7 +3056,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEXP schema_sexp){
-	Rf_error("arrow C++ library not available. Cannot call ipc___RecordBatchStreamWriter__Open(). ");
+	Rf_error("Cannot call ipc___RecordBatchStreamWriter__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3071,7 +3071,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__from_dataframe(SEXP tbl_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__from_dataframe(). ");
+	Rf_error("Cannot call Table__from_dataframe(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3086,7 +3086,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__num_columns(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__num_columns(). ");
+	Rf_error("Cannot call Table__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3101,7 +3101,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__num_rows(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__num_rows(). ");
+	Rf_error("Cannot call Table__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3116,7 +3116,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__schema(SEXP x_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__schema(). ");
+	Rf_error("Cannot call Table__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3132,7 +3132,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__column(). ");
+	Rf_error("Cannot call Table__column(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3147,7 +3147,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__columns(SEXP table_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__columns(). ");
+	Rf_error("Cannot call Table__columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3163,7 +3163,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
-	Rf_error("arrow C++ library not available. Cannot call Table__from_dots(). ");
+	Rf_error("Cannot call Table__from_dots(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3177,7 +3177,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_GetCpuThreadPoolCapacity(){
-	Rf_error("arrow C++ library not available. Cannot call GetCpuThreadPoolCapacity(). ");
+	Rf_error("Cannot call GetCpuThreadPoolCapacity(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3193,7 +3193,7 @@ END_RCPP
 }
 #else
 RcppExport SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
-	Rf_error("arrow C++ library not available. Cannot call SetCpuThreadPoolCapacity(). ");
+	Rf_error("Cannot call SetCpuThreadPoolCapacity(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
