@@ -145,10 +145,15 @@ func (b *FixedSizeListBuilder) Release() {
 			b.nullBitmap.Release()
 			b.nullBitmap = nil
 		}
+		if b.values != nil {
+			b.values.Release()
+			b.values = nil
+		}
+		if b.offsets != nil {
+			b.offsets.Release()
+			b.offsets = nil
+		}
 	}
-
-	b.values.Release()
-	b.offsets.Release()
 }
 
 func (b *FixedSizeListBuilder) appendNextOffset() {
