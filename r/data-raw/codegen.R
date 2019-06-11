@@ -15,6 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# This file is used to generate code in the files
+# src/arrowExports.cpp and R/arrowExports.R
+#
+# This is similar to what Rcpp::compileAttributes() would do,
+# with some arrow specific changes.
+#
+# Functions are decorated with [[arrow::export]] instead of [[Rcpp::export]]
+# and the generated code adds a layer of protection so that
+# the arrow package can be installed even when libarrow is not
+#
+# All the C++ code should be guarded by
+#
+# #if defined(ARROW_R_WITH_ARROW)
+# // [[arrow::export]]
+# std::shared_ptr<arrow::Array> some_function_using_arrow_api(){
+#     ...
+# }
+# #endif
+
 suppressPackageStartupMessages({
   # pak::pkg_install("romainfrancois/decor")
   library(decor)
