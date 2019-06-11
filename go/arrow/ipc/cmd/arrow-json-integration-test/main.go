@@ -97,6 +97,7 @@ func cnvToJSON(arrowName, jsonName string, verbose bool) error {
 	if err != nil {
 		return errors.Wrap(err, "could not create JSON encoder")
 	}
+	defer ww.Close()
 
 	n, err := ipc.Copy(ww, rr)
 	if err != nil {
@@ -105,6 +106,11 @@ func cnvToJSON(arrowName, jsonName string, verbose bool) error {
 
 	if got, want := n, int64(rr.NumRecords()); got != want {
 		return errors.Errorf("invalid number of records copied (got=%d, want=%d", got, want)
+	}
+
+	err = ww.Close()
+	if err != nil {
+		return errors.Wrapf(err, "could not close JSON encoder %q", jsonName)
 	}
 
 	err = w.Close()

@@ -53,11 +53,11 @@ func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
 		opt(cfg)
 	}
 
-	schema := newSchemaFrom(raw.Schema)
+	schema := schemaFromJSON(raw.Schema)
 	rr := &Reader{
 		refs:   1,
 		schema: schema,
-		recs:   newRecordsFrom(cfg.alloc, schema, raw.Records),
+		recs:   recordsFromJSON(cfg.alloc, schema, raw.Records),
 	}
 	return rr, nil
 }

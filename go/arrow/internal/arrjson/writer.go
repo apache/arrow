@@ -25,15 +25,30 @@ import (
 	"github.com/apache/arrow/go/arrow/ipc"
 )
 
+const (
+	jsonIndent    = "  "
+	jsonPrefix    = "  "
+	jsonRecPrefix = "    "
+)
+
 type Writer struct {
-	enc *json.Encoder
+	w io.Writer
+
+	schema *arrow.Schema
+	nrecs  int64
 }
 
 func NewWriter(w io.Writer, schema *arrow.Schema) (*Writer, error) {
-	ww := &Writer{enc: json.NewEncoder(w)}
-	ww.enc.SetIndent("", "  ")
+	ww := &Writer{
+		w:      w,
+		schema: schema,
+	}
+	_, err := ww.w.Write([]byte("{\n"))
+	if err != nil {
+		return nil, err
+	}
 
-	err := ww.writeSchema(schema)
+	err = ww.writeSchema()
 	if err != nil {
 		return nil, err
 	}
@@ -41,11 +56,53 @@ func NewWriter(w io.Writer, schema *arrow.Schema) (*Writer, error) {
 }
 
 func (w *Writer) Write(rec array.Record) error {
+	switch {
+	case w.nrecs == 0:
+		_, err := w.w.Write([]byte(",\n" + jsonPrefix + `"batches": [` + "\n" + jsonRecPrefix))
+		if err != nil {
+			return err
+		}
+	case w.nrecs > 0:
+		_, err := w.w.Write([]byte(",\n"))
+		if err != nil {
+			return err
+		}
+	}
+
+	raw, err := json.MarshalIndent(recordToJSON(rec), jsonRecPrefix, jsonIndent)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.w.Write(raw)
+	if err != nil {
+		return err
+	}
+
+	w.nrecs++
 	return nil
 }
 
-func (w *Writer) writeSchema(s *arrow.Schema) error {
+func (w *Writer) writeSchema() error {
+	_, err := w.w.Write([]byte(`  "schema": `))
+	if err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(schemaToJSON(w.schema), jsonPrefix, jsonIndent)
+	if err != nil {
+		return err
+	}
+	_, err = w.w.Write(raw)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func (w *Writer) Close() error {
+	_, err := w.w.Write([]byte("\n  ]\n}"))
+	return err
 }
 
 var (
