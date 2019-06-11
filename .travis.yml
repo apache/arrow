@@ -362,6 +362,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
     - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
+    - export CXX11FLAGS=-Wall
     - pushd ${TRAVIS_BUILD_DIR}/r
     after_success:
     - Rscript ../ci/travis_upload_r_coverage.R
