@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import io.grpc.Status;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BooleanSupplier;
@@ -179,7 +180,11 @@ class FlightService extends FlightServiceImplBase {
     responseObserver.disableAutoInboundFlowControl();
     responseObserver.request(1);
 
-    FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, null, responseObserver::request);
+    // Set a default metadata listener that does nothing. Service implementations should call
+    // FlightStream#setMetadataListener before returning a Runnable if they want to receive metadata.
+    FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, (String message, Throwable cause) -> {
+      responseObserver.onError(Status.CANCELLED.withCause(cause).withDescription(message).asException());
+    }, responseObserver::request);
     executors.submit(() -> {
       try {
         producer.acceptPut(makeContext(responseObserver), fs,
