@@ -158,7 +158,7 @@ ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
 gchar *
 ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signature)
 {
-  const auto gandiva_function_signature =
+  auto gandiva_function_signature =
     ggandiva_function_signature_get_raw(function_signature);
   return g_strdup(gandiva_function_signature->ToString().c_str());
 }
@@ -175,7 +175,7 @@ ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signat
 GArrowDataType *
 ggandiva_function_signature_get_return_type(GGandivaFunctionSignature *function_signature)
 {
-  const auto gandiva_function_signature =
+  auto gandiva_function_signature =
     ggandiva_function_signature_get_raw(function_signature);
   auto arrow_data_type = gandiva_function_signature->ret_type();
   auto data_type = garrow_data_type_new_raw(&arrow_data_type);
@@ -195,7 +195,7 @@ ggandiva_function_signature_get_return_type(GGandivaFunctionSignature *function_
 gchar *
 ggandiva_function_signature_get_base_name(GGandivaFunctionSignature *function_signature)
 {
-  const auto gandiva_function_signature =
+  auto gandiva_function_signature =
     ggandiva_function_signature_get_raw(function_signature);
   return g_strdup(gandiva_function_signature->base_name().c_str());
 }
