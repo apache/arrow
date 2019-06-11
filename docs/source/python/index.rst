@@ -43,6 +43,7 @@ files into Arrow structures.
    pandas
    timestamps
    csv
+   json
    parquet
    cuda
    extending
