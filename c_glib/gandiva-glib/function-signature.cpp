@@ -216,10 +216,9 @@ ggandiva_function_signature_get_param_types(GGandivaFunctionSignature *function_
     ggandiva_function_signature_get_raw(function_signature);
 
   GList *param_type_list = nullptr;
-  auto param_types = gandiva_function_signature->param_types();
-  for (auto i = param_types.begin(); i != param_types.end(); ++i) {
-    auto arrow_data_type = *i;
-    auto data_type = garrow_data_type_new_raw(&arrow_data_type);
+  auto arrow_param_types = gandiva_function_signature->param_types();
+  for (auto &arrow_param_type : arrow_param_types) {
+    auto data_type = garrow_data_type_new_raw(&arrow_param_type);
     param_type_list = g_list_prepend(param_type_list, data_type);
   }
   param_type_list = g_list_reverse(param_type_list);
