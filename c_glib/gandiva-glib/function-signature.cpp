@@ -212,7 +212,7 @@ ggandiva_function_signature_get_base_name(GGandivaFunctionSignature *function_si
 GList *
 ggandiva_function_signature_get_param_types(GGandivaFunctionSignature *function_signature)
 {
-  const auto gandiva_function_signature =
+  auto gandiva_function_signature =
     ggandiva_function_signature_get_raw(function_signature);
 
   GList *param_type_list = nullptr;
