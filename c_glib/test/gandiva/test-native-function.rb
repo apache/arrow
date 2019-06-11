@@ -21,6 +21,8 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
     @registry = Gandiva::FunctionRegistry.new
+    @not = lookup("not", [boolean_data_type], boolean_data_type)
+    @isnull = lookup("isnull", [int8_data_type], boolean_data_type)
   end
 
   def lookup(name, param_types, return_type)
@@ -32,7 +34,19 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
 
   def test_get_signature
     assert_kind_of(Gandiva::FunctionSignature,
-                   @registry.native_functions[0].signature)
+                   @not.signature)
+  end
+
+  def test_equal
+    assert do
+      @not == @registry.lookup(@not.signature)
+    end
+  end
+
+  def test_not_equal
+    assert do
+      @not != @isnull
+    end
   end
 
   def test_to_string

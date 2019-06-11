@@ -52,6 +52,9 @@ struct _GGandivaNativeFunctionClass
 };
 
 GGandivaFunctionSignature *ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function);
+gboolean
+ggandiva_native_function_equal(GGandivaNativeFunction *native_function,
+                               GGandivaNativeFunction *other_native_function);
 gchar *ggandiva_native_function_to_string(GGandivaNativeFunction *native_function);
 GGandivaResultNullableType ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native_function);
 gboolean ggandiva_native_function_need_context(GGandivaNativeFunction *native_function);

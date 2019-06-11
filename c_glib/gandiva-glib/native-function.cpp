@@ -110,6 +110,26 @@ ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function)
 }
 
 /**
+ * ggandiva_native_function_equal:
+ * @native_function: A #GGandivaNativeFunction.
+ * @other_native_function: A #GGandivaNativeFunction to be compared.
+ *
+ * Returns: %TRUE if both of them have the same data, %FALSE otherwise.
+ *
+ * Since: 0.14.0
+ */
+gboolean
+ggandiva_native_function_equal(GGandivaNativeFunction *native_function,
+                               GGandivaNativeFunction *other_native_function)
+{
+  auto gandiva_native_function =
+    ggandiva_native_function_get_raw(native_function);
+  auto gandiva_other_native_function =
+    ggandiva_native_function_get_raw(other_native_function);
+  return gandiva_native_function == gandiva_other_native_function;
+}
+
+/**
  * ggandiva_native_function_to_string:
  * @native_function: A #GGandivaNativeFunction.
  *
