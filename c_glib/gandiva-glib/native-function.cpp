@@ -104,8 +104,9 @@ ggandiva_native_function_class_init(GGandivaNativeFunctionClass *klass)
 GGandivaFunctionSignature *
 ggandiva_native_function_get_signature(GGandivaNativeFunction *native_function)
 {
-  auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
-  auto& gandiva_function_signature = priv->native_function->signature();
+  auto gandiva_native_function =
+    ggandiva_native_function_get_raw(native_function);
+  auto &gandiva_function_signature = gandiva_native_function->signature();
   return ggandiva_function_signature_new_raw(&gandiva_function_signature);
 }
 
@@ -142,8 +143,9 @@ ggandiva_native_function_equal(GGandivaNativeFunction *native_function,
 gchar *
 ggandiva_native_function_to_string(GGandivaNativeFunction *native_function)
 {
-  auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
-  auto gandiva_function_signature = priv->native_function->signature();
+  auto gandiva_native_function =
+    ggandiva_native_function_get_raw(native_function);
+  auto gandiva_function_signature = gandiva_native_function->signature();
   return g_strdup(gandiva_function_signature.ToString().c_str());
 }
 
@@ -159,8 +161,10 @@ ggandiva_native_function_to_string(GGandivaNativeFunction *native_function)
 GGandivaResultNullableType
 ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native_function)
 {
-  auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
-  auto gandiva_result_nullable_type = priv->native_function->result_nullable_type();
+  auto gandiva_native_function =
+    ggandiva_native_function_get_raw(native_function);
+  const auto gandiva_result_nullable_type =
+    gandiva_native_function->result_nullable_type();
   return ggandiva_result_nullable_type_from_raw(gandiva_result_nullable_type);
 }
 
@@ -177,8 +181,9 @@ ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native
 gboolean
 ggandiva_native_function_need_context(GGandivaNativeFunction *native_function)
 {
-  auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
-  return priv->native_function->NeedsContext();
+  auto gandiva_native_function =
+    ggandiva_native_function_get_raw(native_function);
+  return gandiva_native_function->NeedsContext();
 }
 
 /**
@@ -194,8 +199,9 @@ ggandiva_native_function_need_context(GGandivaNativeFunction *native_function)
 gboolean
 ggandiva_native_function_need_function_holder(GGandivaNativeFunction *native_function)
 {
-  auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
-  return priv->native_function->NeedsFunctionHolder();
+  auto gandiva_native_function =
+    ggandiva_native_function_get_raw(native_function);
+  return gandiva_native_function->NeedsFunctionHolder();
 }
 
 /**
@@ -211,8 +217,9 @@ ggandiva_native_function_need_function_holder(GGandivaNativeFunction *native_fun
 gboolean
 ggandiva_native_function_can_return_errors(GGandivaNativeFunction *native_function)
 {
-  auto priv = GGANDIVA_NATIVE_FUNCTION_GET_PRIVATE(native_function);
-  return priv->native_function->CanReturnErrors();
+  auto gandiva_native_function =
+    ggandiva_native_function_get_raw(native_function);
+  return gandiva_native_function->CanReturnErrors();
 }
 
 G_END_DECLS
