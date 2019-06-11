@@ -1381,3 +1381,14 @@ def test_array_from_large_pyints():
     with pytest.raises(pa.ArrowInvalid):
         # too large for int64 so dtype must be explicitly provided
         pa.array([int(2 ** 63)])
+
+
+def test_concat_array():
+    concatenated = pa.concat_arrays(
+        [pa.array([1, 2]), pa.array([3, 4])])
+    assert concatenated.equals(pa.array([1, 2, 3, 4]))
+
+
+def test_concat_array_different_types():
+    with pytest.raises(pa.ArrowInvalid):
+        pa.concat_arrays([pa.array([1]), pa.array([2.])])
