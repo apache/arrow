@@ -66,10 +66,14 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
   end
 
   def test_can_return_errors
-    assert_false(@registry.native_functions[0].can_return_errors?)
+    assert do
+      not @registry.native_functions[0].can_return_errors?
+    end
 
     int8_type = Arrow::Int8DataType.new
     divide_int8 = @registry.lookup_signature(Gandiva::FunctionSignature.new("divide", [int8_type, int8_type], int8_type))
-    assert_true(divide_int8.can_return_errors?)
+    assert do
+      divide_int8.can_return_errors?
+    end
   end
 end
