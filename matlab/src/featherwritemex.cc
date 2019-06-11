@@ -15,20 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_MATLAB_UTIL_HANDLE_STATUS_H
-#define ARROW_MATLAB_UTIL_HANDLE_STATUS_H
+#include <string>
 
-#include <arrow/status.h>
+#include <mex.h>
 
-namespace arrow {
-namespace matlab {
-namespace util {
-// Terminates execution and returns to the MATLAB prompt,
-// displaying an error message if the given status
-// indicates that an error has occurred.
-void HandleStatus(const Status& status);
-}  // namespace util
-}  // namespace matlab
-}  // namespace arrow
+#include "feather_writer.h"
+#include "util/handle_status.h"
 
-#endif  // ARROW_MATLAB_UTIL_HANDLE_STATUS_H
+// MEX gateway function. This is the entry point for featherwritemex.cc.
+void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
+  const std::string filename{mxArrayToUTF8String(prhs[0])};
+
+  // Open a Feather file at the provided file path for writing.
+  std::shared_ptr<arrow::matlab::FeatherWriter> feather_writer{nullptr};
+  arrow::matlab::util::HandleStatus(
+      arrow::matlab::FeatherWriter::Open(filename, &feather_writer));
+
+  // Write the Feather file table variables and table metadata from MATLAB.
+  feather_writer->WriteMetadata(prhs[2]);
+  arrow::matlab::util::HandleStatus(feather_writer->WriteVariables(prhs[1]));
+}

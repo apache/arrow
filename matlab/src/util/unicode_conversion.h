@@ -15,20 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_MATLAB_UTIL_HANDLE_STATUS_H
-#define ARROW_MATLAB_UTIL_HANDLE_STATUS_H
+#ifndef ARROW_MATLAB_UTIL_UNICODE_CONVERSION_H
+#define ARROW_MATLAB_UTIL_UNICODE_CONVERSION_H
 
-#include <arrow/status.h>
+#include <string>
+#include <mex.h>
 
 namespace arrow {
 namespace matlab {
 namespace util {
-// Terminates execution and returns to the MATLAB prompt,
-// displaying an error message if the given status
-// indicates that an error has occurred.
-void HandleStatus(const Status& status);
+// Converts a UTF-8 encoded std::string to a heap-allocated UTF-16 encoded
+// mxCharArray.
+mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string);
 }  // namespace util
 }  // namespace matlab
 }  // namespace arrow
 
-#endif  // ARROW_MATLAB_UTIL_HANDLE_STATUS_H
+#endif /* ARROW_MATLAB_UTIL_UNICODE_CONVERSION_H */
