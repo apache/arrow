@@ -383,9 +383,8 @@ class ArrowColumnWriter {
   Status WriteTimestamps(const Array& data, int64_t num_levels, const int16_t* def_levels,
                          const int16_t* rep_levels);
 
-  Status WriteTimestampsCoerce(const bool truncated_timestamps_allowed, const Array& data,
-                               int64_t num_levels, const int16_t* def_levels,
-                               const int16_t* rep_levels);
+  Status WriteTimestampsCoerce(const Array& data, int64_t num_levels,
+                               const int16_t* def_levels, const int16_t* rep_levels);
 
   template <typename ParquetType, typename ArrowType>
   Status WriteNonNullableBatch(const ArrowType& type, int64_t num_values,
@@ -650,18 +649,16 @@ Status ArrowColumnWriter::WriteNonNullableBatch<Int96Type, ::arrow::TimestampTyp
 Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_levels,
                                           const int16_t* def_levels,
                                           const int16_t* rep_levels) {
-  const auto& type = static_cast<const ::arrow::TimestampType&>(*values.type());
+  const auto& source_type = static_cast<const ::arrow::TimestampType&>(*values.type());
 
   if (ctx_->properties->support_deprecated_int96_timestamps()) {
-    // The user explicitly required to use Int96 storage.
+    // User explicitly requested Int96 timestamps
     return TypedWriteBatch<Int96Type, ::arrow::TimestampType>(values, num_levels,
                                                               def_levels, rep_levels);
   } else if (ctx_->properties->coerce_timestamps_enabled() &&
-             (type.unit() != ctx_->properties->coerce_timestamps_unit())) {
-    // Casting is required: coerce_timestamps_enabled_, cast all timestamps to requested
-    // unit
-    return WriteTimestampsCoerce(ctx_->properties->truncated_timestamps_allowed(), values,
-                                 num_levels, def_levels, rep_levels);
+             (source_type.unit() != ctx_->properties->coerce_timestamps_unit())) {
+    // Convert timestamps to requested unit
+    return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels);
   } else {
     // No casting of timestamps is required, take the fast path
     return TypedWriteBatch<Int64Type, ::arrow::TimestampType>(values, num_levels,
@@ -669,27 +666,51 @@ Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_level
   }
 }
 
-Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_allowed,
-                                                const Array& array, int64_t num_levels,
+#define COERCE_DIVIDE -1
+#define COERCE_INVALID 0
+#define COERCE_MULTIPLY +1
+
+static std::pair<int, int64_t> kTimestampCoercionFactors[4][4] = {
+    // from seconds ...
+    {{COERCE_INVALID, 0},                      // ... to seconds
+     {COERCE_MULTIPLY, 1000},                  // ... to millis
+     {COERCE_MULTIPLY, 1000000},               // ... to micros
+     {COERCE_MULTIPLY, INT64_C(1000000000)}},  // ... to nanos
+    // from millis ...
+    {{COERCE_INVALID, 0},
+     {COERCE_MULTIPLY, 1},
+     {COERCE_MULTIPLY, 1000},
+     {COERCE_MULTIPLY, 1000000}},
+    // from micros ...
+    {{COERCE_INVALID, 0},
+     {COERCE_DIVIDE, 1000},
+     {COERCE_MULTIPLY, 1},
+     {COERCE_MULTIPLY, 1000}},
+    // from nanos ...
+    {{COERCE_INVALID, 0},
+     {COERCE_DIVIDE, 1000000},
+     {COERCE_DIVIDE, 1000},
+     {COERCE_MULTIPLY, 1}}};
+
+Status ArrowColumnWriter::WriteTimestampsCoerce(const Array& array, int64_t num_levels,
                                                 const int16_t* def_levels,
                                                 const int16_t* rep_levels) {
   int64_t* buffer;
   RETURN_NOT_OK(ctx_->GetScratchData<int64_t>(num_levels, &buffer));
 
   const auto& data = static_cast<const ::arrow::TimestampArray&>(array);
-
   auto values = data.raw_values();
+
   const auto& source_type = static_cast<const ::arrow::TimestampType&>(*array.type());
   auto source_unit = source_type.unit();
 
-  TimeUnit::type target_unit = ctx_->properties->coerce_timestamps_enabled()
-                                   ? ctx_->properties->coerce_timestamps_unit()
-                                   : TimeUnit::MICRO;
+  TimeUnit::type target_unit = ctx_->properties->coerce_timestamps_unit();
   auto target_type = ::arrow::timestamp(target_unit);
+  bool truncation_allowed = ctx_->properties->truncated_timestamps_allowed();
 
   auto DivideBy = [&](const int64_t factor) {
     for (int64_t i = 0; i < array.length(); i++) {
-      if (!truncated_timestamps_allowed && !data.IsNull(i) && (values[i] % factor != 0)) {
+      if (!truncation_allowed && !data.IsNull(i) && (values[i] % factor != 0)) {
         return Status::Invalid("Casting from ", source_type.ToString(), " to ",
                                target_type->ToString(), " would lose data: ", values[i]);
       }
@@ -705,38 +726,12 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_
     return Status::OK();
   };
 
-  if (source_unit == TimeUnit::NANO) {
-    if (target_unit == TimeUnit::MICRO) {
-      RETURN_NOT_OK(DivideBy(1000));
-    } else {
-      DCHECK_EQ(TimeUnit::MILLI, target_unit);
-      RETURN_NOT_OK(DivideBy(1000000));
-    }
-  } else if (source_unit == TimeUnit::MICRO) {
-    if (target_unit == TimeUnit::NANO) {
-      RETURN_NOT_OK(MultiplyBy(1000));
-    } else {
-      DCHECK_EQ(TimeUnit::MILLI, target_unit);
-      RETURN_NOT_OK(DivideBy(1000));
-    }
-  } else if (source_unit == TimeUnit::MILLI) {
-    if (target_unit == TimeUnit::MICRO) {
-      RETURN_NOT_OK(MultiplyBy(1000));
-    } else {
-      DCHECK_EQ(TimeUnit::NANO, target_unit);
-      RETURN_NOT_OK(MultiplyBy(1000000));
-    }
-  } else {
-    DCHECK_EQ(TimeUnit::SECOND, source_unit);
-    if (target_unit == TimeUnit::MILLI) {
-      RETURN_NOT_OK(MultiplyBy(1000));
-    } else if (target_unit == TimeUnit::MICRO) {
-      RETURN_NOT_OK(MultiplyBy(1000000));
-    } else {
-      DCHECK_EQ(TimeUnit::NANO, target_unit);
-      RETURN_NOT_OK(MultiplyBy(INT64_C(1000000000)));
-    }
-  }
+  const auto& coercion = kTimestampCoercionFactors[static_cast<int>(source_unit)]
+                                                  [static_cast<int>(target_unit)];
+  // .first -> coercion operation; .second -> scale factor
+  DCHECK_NE(coercion.first, COERCE_INVALID);
+  RETURN_NOT_OK(coercion.first == COERCE_DIVIDE ? DivideBy(coercion.second)
+                                                : MultiplyBy(coercion.second));
 
   if (writer_->descr()->schema_node()->is_required() || (data.null_count() == 0)) {
     // no nulls, just dump the data
@@ -749,8 +744,13 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const bool truncated_timestamps_
         static_cast<const ::arrow::TimestampType&>(*target_type), array.length(),
         num_levels, def_levels, rep_levels, valid_bits, data.offset(), buffer)));
   }
+
   return Status::OK();
 }
+
+#undef COERCE_DIVIDE
+#undef COERCE_INVALID
+#undef COERCE_MULTIPLY
 
 // This specialization seems quite similar but it significantly differs in two points:
 // * offset is added at the most latest time to the pointer as we have sub-byte access

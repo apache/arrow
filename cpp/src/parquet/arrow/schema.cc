@@ -60,16 +60,16 @@ const auto TIMESTAMP_MS = ::arrow::timestamp(::arrow::TimeUnit::MILLI);
 const auto TIMESTAMP_US = ::arrow::timestamp(::arrow::TimeUnit::MICRO);
 const auto TIMESTAMP_NS = ::arrow::timestamp(::arrow::TimeUnit::NANO);
 
-static Status MakeArrowDecimal(const std::shared_ptr<const LogicalAnnotation>& annotation,
+static Status MakeArrowDecimal(const LogicalAnnotation& annotation,
                                std::shared_ptr<ArrowType>* out) {
-  const auto& decimal = checked_cast<const DecimalAnnotation&>(*annotation);
+  const auto& decimal = checked_cast<const DecimalAnnotation&>(annotation);
   *out = ::arrow::decimal(decimal.precision(), decimal.scale());
   return Status::OK();
 }
 
-static Status MakeArrowInt(const std::shared_ptr<const LogicalAnnotation>& annotation,
+static Status MakeArrowInt(const LogicalAnnotation& annotation,
                            std::shared_ptr<ArrowType>* out) {
-  const auto& integer = checked_cast<const IntAnnotation&>(*annotation);
+  const auto& integer = checked_cast<const IntAnnotation&>(annotation);
   switch (integer.bit_width()) {
     case 8:
       *out = integer.is_signed() ? ::arrow::int8() : ::arrow::uint8();
@@ -81,43 +81,43 @@ static Status MakeArrowInt(const std::shared_ptr<const LogicalAnnotation>& annot
       *out = integer.is_signed() ? ::arrow::int32() : ::arrow::uint32();
       break;
     default:
-      return Status::TypeError(annotation->ToString(),
+      return Status::TypeError(annotation.ToString(),
                                " can not annotate physical type Int32");
   }
   return Status::OK();
 }
 
-static Status MakeArrowInt64(const std::shared_ptr<const LogicalAnnotation>& annotation,
+static Status MakeArrowInt64(const LogicalAnnotation& annotation,
                              std::shared_ptr<ArrowType>* out) {
-  const auto& integer = checked_cast<const IntAnnotation&>(*annotation);
+  const auto& integer = checked_cast<const IntAnnotation&>(annotation);
   switch (integer.bit_width()) {
     case 64:
       *out = integer.is_signed() ? ::arrow::int64() : ::arrow::uint64();
       break;
     default:
-      return Status::TypeError(annotation->ToString(),
+      return Status::TypeError(annotation.ToString(),
                                " can not annotate physical type Int64");
   }
   return Status::OK();
 }
 
-static Status MakeArrowTime32(const std::shared_ptr<const LogicalAnnotation>& annotation,
+static Status MakeArrowTime32(const LogicalAnnotation& annotation,
                               std::shared_ptr<ArrowType>* out) {
-  const auto& time = checked_cast<const TimeAnnotation&>(*annotation);
+  const auto& time = checked_cast<const TimeAnnotation&>(annotation);
   switch (time.time_unit()) {
     case LogicalAnnotation::TimeUnit::MILLIS:
       *out = ::arrow::time32(::arrow::TimeUnit::MILLI);
       break;
     default:
-      return Status::TypeError(annotation->ToString(),
+      return Status::TypeError(annotation.ToString(),
                                " can not annotate physical type Time32");
   }
   return Status::OK();
 }
 
-static Status MakeArrowTime64(const std::shared_ptr<const LogicalAnnotation>& annotation,
+static Status MakeArrowTime64(const LogicalAnnotation& annotation,
                               std::shared_ptr<ArrowType>* out) {
-  const auto& time = checked_cast<const TimeAnnotation&>(*annotation);
+  const auto& time = checked_cast<const TimeAnnotation&>(annotation);
   switch (time.time_unit()) {
     case LogicalAnnotation::TimeUnit::MICROS:
       *out = ::arrow::time64(::arrow::TimeUnit::MICRO);
@@ -126,17 +126,16 @@ static Status MakeArrowTime64(const std::shared_ptr<const LogicalAnnotation>& an
       *out = ::arrow::time64(::arrow::TimeUnit::NANO);
       break;
     default:
-      return Status::TypeError(annotation->ToString(),
+      return Status::TypeError(annotation.ToString(),
                                " can not annotate physical type Time64");
   }
   return Status::OK();
 }
 
-static Status MakeArrowTimestamp(
-    const std::shared_ptr<const LogicalAnnotation>& annotation,
-    std::shared_ptr<ArrowType>* out) {
+static Status MakeArrowTimestamp(const LogicalAnnotation& annotation,
+                                 std::shared_ptr<ArrowType>* out) {
   static const char* utc = "UTC";
-  const auto& timestamp = checked_cast<const TimestampAnnotation&>(*annotation);
+  const auto& timestamp = checked_cast<const TimestampAnnotation&>(annotation);
   switch (timestamp.time_unit()) {
     case LogicalAnnotation::TimeUnit::MILLIS:
       *out = (timestamp.is_adjusted_to_utc()
@@ -155,14 +154,14 @@ static Status MakeArrowTimestamp(
       break;
     default:
       return Status::TypeError("Unrecognized time unit in timestamp annotation: ",
-                               annotation->ToString());
+                               annotation.ToString());
   }
   return Status::OK();
 }
 
-static Status FromByteArray(const std::shared_ptr<const LogicalAnnotation>& annotation,
+static Status FromByteArray(const LogicalAnnotation& annotation,
                             std::shared_ptr<ArrowType>* out) {
-  switch (annotation->type()) {
+  switch (annotation.type()) {
     case LogicalAnnotation::Type::STRING:
       *out = ::arrow::utf8();
       break;
@@ -177,14 +176,14 @@ static Status FromByteArray(const std::shared_ptr<const LogicalAnnotation>& anno
       break;
     default:
       return Status::NotImplemented("Unhandled logical annotation ",
-                                    annotation->ToString(), " for binary array");
+                                    annotation.ToString(), " for binary array");
   }
   return Status::OK();
 }
 
-static Status FromFLBA(const std::shared_ptr<const LogicalAnnotation>& annotation,
-                       int32_t physical_length, std::shared_ptr<ArrowType>* out) {
-  switch (annotation->type()) {
+static Status FromFLBA(const LogicalAnnotation& annotation, int32_t physical_length,
+                       std::shared_ptr<ArrowType>* out) {
+  switch (annotation.type()) {
     case LogicalAnnotation::Type::DECIMAL:
       RETURN_NOT_OK(MakeArrowDecimal(annotation, out));
       break;
@@ -195,16 +194,16 @@ static Status FromFLBA(const std::shared_ptr<const LogicalAnnotation>& annotatio
       break;
     default:
       return Status::NotImplemented("Unhandled logical annotation ",
-                                    annotation->ToString(),
+                                    annotation.ToString(),
                                     " for fixed-length binary array");
   }
 
   return Status::OK();
 }
 
-static Status FromInt32(const std::shared_ptr<const LogicalAnnotation>& annotation,
+static Status FromInt32(const LogicalAnnotation& annotation,
                         std::shared_ptr<ArrowType>* out) {
-  switch (annotation->type()) {
+  switch (annotation.type()) {
     case LogicalAnnotation::Type::INT:
       RETURN_NOT_OK(MakeArrowInt(annotation, out));
       break;
@@ -221,15 +220,15 @@ static Status FromInt32(const std::shared_ptr<const LogicalAnnotation>& annotati
       *out = ::arrow::int32();
       break;
     default:
-      return Status::NotImplemented("Unhandled logical type ", annotation->ToString(),
+      return Status::NotImplemented("Unhandled logical type ", annotation.ToString(),
                                     " for INT32");
   }
   return Status::OK();
 }
 
-static Status FromInt64(const std::shared_ptr<const LogicalAnnotation>& annotation,
+static Status FromInt64(const LogicalAnnotation& annotation,
                         std::shared_ptr<ArrowType>* out) {
-  switch (annotation->type()) {
+  switch (annotation.type()) {
     case LogicalAnnotation::Type::INT:
       RETURN_NOT_OK(MakeArrowInt64(annotation, out));
       break;
@@ -246,7 +245,7 @@ static Status FromInt64(const std::shared_ptr<const LogicalAnnotation>& annotati
       *out = ::arrow::int64();
       break;
     default:
-      return Status::NotImplemented("Unhandled logical type ", annotation->ToString(),
+      return Status::NotImplemented("Unhandled logical type ", annotation.ToString(),
                                     " for INT64");
   }
   return Status::OK();
@@ -265,10 +264,10 @@ Status FromPrimitive(const PrimitiveNode& primitive, std::shared_ptr<ArrowType>*
       *out = ::arrow::boolean();
       break;
     case ParquetType::INT32:
-      RETURN_NOT_OK(FromInt32(annotation, out));
+      RETURN_NOT_OK(FromInt32(*annotation, out));
       break;
     case ParquetType::INT64:
-      RETURN_NOT_OK(FromInt64(annotation, out));
+      RETURN_NOT_OK(FromInt64(*annotation, out));
       break;
     case ParquetType::INT96:
       *out = TIMESTAMP_NS;
@@ -280,10 +279,10 @@ Status FromPrimitive(const PrimitiveNode& primitive, std::shared_ptr<ArrowType>*
       *out = ::arrow::float64();
       break;
     case ParquetType::BYTE_ARRAY:
-      RETURN_NOT_OK(FromByteArray(annotation, out));
+      RETURN_NOT_OK(FromByteArray(*annotation, out));
       break;
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
-      RETURN_NOT_OK(FromFLBA(annotation, primitive.type_length(), out));
+      RETURN_NOT_OK(FromFLBA(*annotation, primitive.type_length(), out));
       break;
     default: {
       // PARQUET-1565: This can occur if the file is corrupt
@@ -552,8 +551,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   }
 
   *physical_type = ParquetType::INT64;
-  PARQUET_CATCH_NOT_OK(*annotation =
-                           TimestampAnnotationFromArrowTimestamp(type, target_unit));
+  *annotation = TimestampAnnotationFromArrowTimestamp(type, target_unit);
 
   // The user is explicitly asking for timestamp data to be converted to the
   // specified units (target_unit).
@@ -603,26 +601,26 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::UINT8:
       type = ParquetType::INT32;
-      PARQUET_CATCH_NOT_OK(annotation = LogicalAnnotation::Int(8, false));
+      annotation = LogicalAnnotation::Int(8, false);
       break;
     case ArrowTypeId::INT8:
       type = ParquetType::INT32;
-      PARQUET_CATCH_NOT_OK(annotation = LogicalAnnotation::Int(8, true));
+      annotation = LogicalAnnotation::Int(8, true);
       break;
     case ArrowTypeId::UINT16:
       type = ParquetType::INT32;
-      PARQUET_CATCH_NOT_OK(annotation = LogicalAnnotation::Int(16, false));
+      annotation = LogicalAnnotation::Int(16, false);
       break;
     case ArrowTypeId::INT16:
       type = ParquetType::INT32;
-      PARQUET_CATCH_NOT_OK(annotation = LogicalAnnotation::Int(16, true));
+      annotation = LogicalAnnotation::Int(16, true);
       break;
     case ArrowTypeId::UINT32:
       if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0) {
         type = ParquetType::INT64;
       } else {
         type = ParquetType::INT32;
-        PARQUET_CATCH_NOT_OK(annotation = LogicalAnnotation::Int(32, false));
+        annotation = LogicalAnnotation::Int(32, false);
       }
       break;
     case ArrowTypeId::INT32:
@@ -630,7 +628,7 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::UINT64:
       type = ParquetType::INT64;
-      PARQUET_CATCH_NOT_OK(annotation = LogicalAnnotation::Int(64, false));
+      annotation = LogicalAnnotation::Int(64, false);
       break;
     case ArrowTypeId::INT64:
       type = ParquetType::INT64;
@@ -678,18 +676,15 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::TIME32:
       type = ParquetType::INT32;
-      PARQUET_CATCH_NOT_OK(annotation = LogicalAnnotation::Time(
-                               false, LogicalAnnotation::TimeUnit::MILLIS));
+      annotation = LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MILLIS);
       break;
     case ArrowTypeId::TIME64: {
       type = ParquetType::INT64;
       auto time_type = static_cast<::arrow::Time64Type*>(field->type().get());
       if (time_type->unit() == ::arrow::TimeUnit::NANO) {
-        PARQUET_CATCH_NOT_OK(annotation = LogicalAnnotation::Time(
-                                 false, LogicalAnnotation::TimeUnit::NANOS));
+        annotation = LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::NANOS);
       } else {
-        PARQUET_CATCH_NOT_OK(annotation = LogicalAnnotation::Time(
-                                 false, LogicalAnnotation::TimeUnit::MICROS));
+        annotation = LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MICROS);
       }
     } break;
     case ArrowTypeId::STRUCT: {

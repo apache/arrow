@@ -87,9 +87,7 @@ static constexpr int LARGE_SIZE = 10000;
 
 static constexpr uint32_t kDefaultSeed = 0;
 
-std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType& type,
-                                                                int32_t precision,
-                                                                int32_t scale) {
+std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType& type) {
   switch (type.id()) {
     case ArrowId::UINT8:
       return LogicalAnnotation::Int(8, false);
@@ -149,18 +147,12 @@ std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType
     case ArrowId::DICTIONARY: {
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(type);
-      const ::DataType& ty = *dict_type.value_type();
-      int32_t pr = -1;
-      int32_t sc = -1;
-      if (ty.id() == ArrowId::DECIMAL) {
-        const auto& dt = static_cast<const ::arrow::Decimal128Type&>(ty);
-        pr = dt.precision();
-        sc = dt.scale();
-      }
-      return get_logical_annotation(ty, pr, sc);
+      return get_logical_annotation(*dict_type.value_type());
     }
-    case ArrowId::DECIMAL:
-      return LogicalAnnotation::Decimal(precision, scale);
+    case ArrowId::DECIMAL: {
+      const auto& dec_type = static_cast<const ::arrow::Decimal128Type&>(type);
+      return LogicalAnnotation::Decimal(dec_type.precision(), dec_type.scale());
+    }
     default:
       break;
   }
@@ -417,8 +409,6 @@ void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group
 static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
                                                    Repetition::type repetition) {
   int32_t byte_width = -1;
-  int32_t precision = -1;
-  int32_t scale = -1;
 
   switch (type.id()) {
     case ::arrow::Type::DICTIONARY: {
@@ -432,9 +422,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
         case ::arrow::Type::DECIMAL: {
           const auto& decimal_type =
               static_cast<const ::arrow::Decimal128Type&>(values_type);
-          precision = decimal_type.precision();
-          scale = decimal_type.scale();
-          byte_width = DecimalSize(precision);
+          byte_width = DecimalSize(decimal_type.precision());
         } break;
         default:
           break;
@@ -445,15 +433,12 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
       break;
     case ::arrow::Type::DECIMAL: {
       const auto& decimal_type = static_cast<const ::arrow::Decimal128Type&>(type);
-      precision = decimal_type.precision();
-      scale = decimal_type.scale();
-      byte_width = DecimalSize(precision);
+      byte_width = DecimalSize(decimal_type.precision());
     } break;
     default:
       break;
   }
-  auto pnode = PrimitiveNode::Make("column1", repetition,
-                                   get_logical_annotation(type, precision, scale),
+  auto pnode = PrimitiveNode::Make("column1", repetition, get_logical_annotation(type),
                                    get_physical_type(type), byte_width);
   NodePtr node_ =
       GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
@@ -1378,23 +1363,20 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
   ArrayFromVector<::arrow::TimestampType, int64_t>(t_ns, is_valid, ns_values, &a_ns);
 
   // Input table, all data as is
-  auto s1 = std::shared_ptr<::arrow::Schema>(
-      new ::arrow::Schema({field("f_s", t_s), field("f_ms", t_ms), field("f_us", t_us),
-                           field("f_ns", t_ns)}));
+  auto s1 = ::arrow::schema(
+      {field("f_s", t_s), field("f_ms", t_ms), field("f_us", t_us), field("f_ns", t_ns)});
   auto input = Table::Make(
       s1,
       {std::make_shared<Column>("f_s", a_s), std::make_shared<Column>("f_ms", a_ms),
        std::make_shared<Column>("f_us", a_us), std::make_shared<Column>("f_ns", a_ns)});
 
   // Result when coercing to milliseconds
-  auto s2 = std::shared_ptr<::arrow::Schema>(
-      new ::arrow::Schema({field("f_s", t_ms), field("f_ms", t_ms), field("f_us", t_ms),
-                           field("f_ns", t_ms)}));
+  auto s2 = ::arrow::schema({field("f_s", t_ms), field("f_ms", t_ms), field("f_us", t_ms),
+                             field("f_ns", t_ms)});
   auto ex_milli_result = Table::Make(
       s2,
       {std::make_shared<Column>("f_s", a_ms), std::make_shared<Column>("f_ms", a_ms),
        std::make_shared<Column>("f_us", a_ms), std::make_shared<Column>("f_ns", a_ms)});
-
   std::shared_ptr<Table> milli_result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
       input, false /* use_threads */, input->num_rows(), {}, &milli_result,
@@ -1404,14 +1386,12 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_milli_result, *milli_result));
 
   // Result when coercing to microseconds
-  auto s3 = std::shared_ptr<::arrow::Schema>(
-      new ::arrow::Schema({field("f_s", t_us), field("f_ms", t_us), field("f_us", t_us),
-                           field("f_ns", t_us)}));
+  auto s3 = ::arrow::schema({field("f_s", t_us), field("f_ms", t_us), field("f_us", t_us),
+                             field("f_ns", t_us)});
   auto ex_micro_result = Table::Make(
       s3,
       {std::make_shared<Column>("f_s", a_us), std::make_shared<Column>("f_ms", a_us),
        std::make_shared<Column>("f_us", a_us), std::make_shared<Column>("f_ns", a_us)});
-
   std::shared_ptr<Table> micro_result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
       input, false /* use_threads */, input->num_rows(), {}, &micro_result,
@@ -1421,14 +1401,12 @@ TEST(TestArrowReadWrite, CoerceTimestamps) {
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_micro_result, *micro_result));
 
   // Result when coercing to nanoseconds
-  auto s4 = std::shared_ptr<::arrow::Schema>(
-      new ::arrow::Schema({field("f_s", t_ns), field("f_ms", t_ns), field("f_us", t_ns),
-                           field("f_ns", t_ns)}));
+  auto s4 = ::arrow::schema({field("f_s", t_ns), field("f_ms", t_ns), field("f_us", t_ns),
+                             field("f_ns", t_ns)});
   auto ex_nano_result = Table::Make(
       s4,
       {std::make_shared<Column>("f_s", a_ns), std::make_shared<Column>("f_ms", a_ns),
        std::make_shared<Column>("f_us", a_ns), std::make_shared<Column>("f_ns", a_ns)});
-
   std::shared_ptr<Table> nano_result;
   ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(
       input, false /* use_threads */, input->num_rows(), {}, &nano_result,
@@ -1465,10 +1443,10 @@ TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
   ArrayFromVector<::arrow::TimestampType, int64_t>(t_us, is_valid, us_values, &a_us);
   ArrayFromVector<::arrow::TimestampType, int64_t>(t_ns, is_valid, ns_values, &a_ns);
 
-  auto s1 = std::shared_ptr<::arrow::Schema>(new ::arrow::Schema({field("f_s", t_s)}));
-  auto s2 = std::shared_ptr<::arrow::Schema>(new ::arrow::Schema({field("f_ms", t_ms)}));
-  auto s3 = std::shared_ptr<::arrow::Schema>(new ::arrow::Schema({field("f_us", t_us)}));
-  auto s4 = std::shared_ptr<::arrow::Schema>(new ::arrow::Schema({field("f_ns", t_ns)}));
+  auto s1 = ::arrow::schema({field("f_s", t_s)});
+  auto s2 = ::arrow::schema({field("f_ms", t_ms)});
+  auto s3 = ::arrow::schema({field("f_us", t_us)});
+  auto s4 = ::arrow::schema({field("f_ns", t_ns)});
 
   auto c1 = std::make_shared<Column>("f_s", a_s);
   auto c2 = std::make_shared<Column>("f_ms", a_ms);

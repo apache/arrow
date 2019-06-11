@@ -498,11 +498,13 @@ std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Date() {
 
 std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Time(
     bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit) {
+  DCHECK(time_unit != LogicalAnnotation::TimeUnit::UNKNOWN);
   return TimeAnnotation::Make(is_adjusted_to_utc, time_unit);
 }
 
 std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Timestamp(
     bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit) {
+  DCHECK(time_unit != LogicalAnnotation::TimeUnit::UNKNOWN);
   return TimestampAnnotation::Make(is_adjusted_to_utc, time_unit);
 }
 
@@ -512,6 +514,7 @@ std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Interval() {
 
 std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Int(int bit_width,
                                                                 bool is_signed) {
+  DCHECK(bit_width == 64 || bit_width == 32 || bit_width == 16 || bit_width == 8);
   return IntAnnotation::Make(bit_width, is_signed);
 }
 
