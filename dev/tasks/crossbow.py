@@ -208,7 +208,8 @@ class Repo:
         try:
             self.origin.push(self._updated_refs, callbacks=callbacks)
         except pygit2.GitError:
-            raise RuntimeError('Failed to push updated references: {}'
+            raise RuntimeError('Failed to push updated references, '
+                               'potentially because of credential issues: {}'
                                .format(self._updated_refs))
         else:
             self.updated_refs = []
