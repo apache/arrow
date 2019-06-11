@@ -69,14 +69,12 @@ else
         BREWDIR=$(brew --prefix)
 
         if brew ls --versions apache-arrow > /dev/null; then
-          echo "Found brew install of apache-arrow formula"
-          PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-          PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
-        else
-          echo "apache-arrow brew formula not installed :/"
-          PKG_CFLAGS=""
-          PKG_LIBS=""
+          # right now, we need HEAD version
+          brew install apache-arrow --HEAD
         fi
+
+        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
+        PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
       else
         echo "brew is not available, trying autobrew"
         curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
