@@ -204,6 +204,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
   @Override
   public ByteBuffer internalNioBuffer(int index, int length) {
     ByteBuffer nioBuf =  getDirectBuffer(index);
+    // Follows convention from other ByteBuf implementations.
     return (ByteBuffer)nioBuf.clear().position(index).limit(index + length);
   }
 
@@ -223,6 +224,10 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable  {
   }
 
   @Override
+  /**
+   * Returns a buffer that is zero positioned but points
+   * to a slice of the original buffer starting at given index.
+   */
   public ByteBuffer nioBuffer(int index, int length) {
     chk(index, length);
     final ByteBuffer buffer = getDirectBuffer(index);
