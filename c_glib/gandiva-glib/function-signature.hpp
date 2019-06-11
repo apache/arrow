@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include <gandiva-glib/expression.h>
-#include <gandiva-glib/function-registry.h>
+#include <gandiva/function_signature.h>
+
 #include <gandiva-glib/function-signature.h>
-#include <gandiva-glib/native-function.h>
-#include <gandiva-glib/node.h>
-#include <gandiva-glib/projector.h>
+
+GGandivaFunctionSignature *ggandiva_function_signature_new_raw(const gandiva::FunctionSignature *gandiva_function_signature);
+const gandiva::FunctionSignature *ggandiva_function_signature_get_raw(GGandivaFunctionSignature *signature);

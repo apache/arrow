@@ -19,9 +19,18 @@
 
 #pragma once
 
-#include <gandiva-glib/expression.h>
-#include <gandiva-glib/function-registry.h>
-#include <gandiva-glib/function-signature.h>
+#include <gandiva/native_function.h>
+
 #include <gandiva-glib/native-function.h>
-#include <gandiva-glib/node.h>
-#include <gandiva-glib/projector.h>
+
+G_BEGIN_DECLS
+
+GGandivaResultNullableType
+ggandiva_result_nullable_type_from_raw(gandiva::ResultNullableType gandiva_type);
+gandiva::ResultNullableType
+ggandiva_result_nullable_type_to_raw(GGandivaResultNullableType type);
+
+GGandivaNativeFunction *ggandiva_native_function_new_raw(const gandiva::NativeFunction *gandiva_native_function);
+const gandiva::NativeFunction *ggandiva_native_function_get_raw(GGandivaNativeFunction *native_function);
+
+G_END_DECLS

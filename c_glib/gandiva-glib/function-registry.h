@@ -19,9 +19,26 @@
 
 #pragma once
 
-#include <gandiva-glib/expression.h>
-#include <gandiva-glib/function-registry.h>
-#include <gandiva-glib/function-signature.h>
 #include <gandiva-glib/native-function.h>
-#include <gandiva-glib/node.h>
-#include <gandiva-glib/projector.h>
+
+G_BEGIN_DECLS
+
+#define GGANDIVA_TYPE_FUNCTION_REGISTRY (ggandiva_function_registry_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaFunctionRegistry,
+                         ggandiva_function_registry,
+                         GGANDIVA,
+                         FUNCTION_REGISTRY,
+                         GObject)
+
+struct _GGandivaFunctionRegistryClass
+{
+  GObjectClass parent_class;
+};
+
+GGandivaFunctionRegistry *ggandiva_function_registry_new(void);
+GGandivaNativeFunction *
+ggandiva_function_registry_lookup(GGandivaFunctionRegistry *function_registry,
+                                  GGandivaFunctionSignature *function_signature);
+GList *ggandiva_function_registry_get_native_functions(GGandivaFunctionRegistry *function_registry);
+
+G_END_DECLS
