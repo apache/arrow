@@ -17,6 +17,10 @@
  * under the License.
  */
 
+#ifdef HAVE_CONFIG_H
+#  include <config.h>
+#endif
+
 #include <gandiva-glib/native-function.hpp>
 
 #include <gandiva-glib/function-signature.hpp>
