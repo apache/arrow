@@ -50,55 +50,78 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal(@registry.native_functions[0].signature.to_s,
-                 @registry.native_functions[0].to_s)
+    assert_equal(@not.signature.to_s,
+                 @not.to_s)
   end
 
-  def test_get_result_nullable_type
-    assert_equal(Gandiva::ResultNullableType::IF_NULL,
-                 @registry.native_functions[0].result_nullable_type)
-
-    isnull_int8 = lookup("isnull",
-                         [int8_data_type],
-                         boolean_data_type)
-    assert_equal(Gandiva::ResultNullableType::NEVER,
-                 isnull_int8.result_nullable_type)
-
-    to_date = lookup("to_date",
-                     [string_data_type, string_data_type, int32_data_type],
-                     date64_data_type)
-    assert_equal(Gandiva::ResultNullableType::INTERNAL,
-                 to_date.result_nullable_type)
-  end
-
-  def test_need_context
-    assert_false(@registry.native_functions[0].need_context)
-
-    upper = lookup("upper",
-                   [string_data_type],
-                   string_data_type)
-    assert_true(upper.need_context)
-  end
-
-  def test_need_function_holder
-    assert_false(@registry.native_functions[0].need_function_holder)
-
-    like = lookup("like",
-                  [string_data_type, string_data_type],
-                  boolean_data_type)
-    assert_true(like.need_function_holder)
-  end
-
-  def test_can_return_errors
-    assert do
-      not @registry.native_functions[0].can_return_errors?
+  sub_test_case("get_result_nullbale_type") do
+    def test_if_null
+      assert_equal(Gandiva::ResultNullableType::IF_NULL,
+                   @not.result_nullable_type)
     end
 
-    divide_int8 = lookup("divide",
-                         [int8_data_type, int8_data_type],
-                         int8_data_type)
-    assert do
-      divide_int8.can_return_errors?
+    def test_never
+      assert_equal(Gandiva::ResultNullableType::NEVER,
+                   @isnull.result_nullable_type)
+    end
+
+    def test_internal
+      to_date = lookup("to_date",
+                       [string_data_type, string_data_type, int32_data_type],
+                       date64_data_type)
+      assert_equal(Gandiva::ResultNullableType::INTERNAL,
+                   to_date.result_nullable_type)
+    end
+  end
+
+  sub_test_case("need_context") do
+    def test_need
+      assert do
+        not @not.need_context
+      end
+    end
+
+    def test_not_need
+      upper = lookup("upper",
+                     [string_data_type],
+                     string_data_type)
+      assert do
+        upper.need_context
+      end
+    end
+  end
+
+  sub_test_case("need_function_holder") do
+    def test_need
+      like = lookup("like",
+                    [string_data_type, string_data_type],
+                    boolean_data_type)
+      assert do
+        like.need_function_holder
+      end
+    end
+
+    def test_not_need
+      assert do
+        not @not.need_function_holder
+      end
+    end
+  end
+
+  sub_test_case("can_return_errors") do
+    def test_can
+      divide = lookup("divide",
+                      [int8_data_type, int8_data_type],
+                      int8_data_type)
+      assert do
+        divide.can_return_errors?
+      end
+    end
+
+    def test_not_can
+      assert do
+        not @not.can_return_errors?
+      end
     end
   end
 end
