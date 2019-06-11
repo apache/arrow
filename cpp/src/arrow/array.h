@@ -305,6 +305,14 @@ class ARROW_EXPORT Array {
 
   Status Accept(ArrayVisitor* visitor) const;
 
+  /// Construct a zero-copy view of this array with the given type.
+  ///
+  /// This method checks if the types are layout-compatible.
+  /// Nested types are traversed in depth-first order. Data buffers must have
+  /// the same item sizes, even though the logical types may be different.
+  /// An error is returned if the types are not layout-compatible.
+  Status View(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length
   ///
@@ -747,7 +755,7 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
   TypeClass::DayMilliseconds GetValue(int64_t i) const;
   TypeClass::DayMilliseconds Value(int64_t i) const { return GetValue(i); }
 
-  // For compability with Take kernel.
+  // For compatibility with Take kernel.
   TypeClass::DayMilliseconds GetView(int64_t i) const { return GetValue(i); }
 
   int32_t byte_width() const { return sizeof(TypeClass::DayMilliseconds); }

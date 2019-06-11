@@ -147,6 +147,18 @@ struct Type {
   };
 };
 
+struct ARROW_EXPORT DataTypeLayout {
+  // The bit width for each buffer in this DataType's representation
+  // (kVariableSizeBuffer if the item size for a given buffer is unknown or variable,
+  //  kAlwaysNullBuffer if the buffer is always null).
+  // Child types are not included, they should be inspected separately.
+  std::vector<int64_t> bit_widths;
+  bool has_dictionary;
+
+  static constexpr int64_t kAlwaysNullBuffer = 0;
+  static constexpr int64_t kVariableSizeBuffer = -1;
+};
+
 /// \brief Base class for all data types
 ///
 /// Data types in this library are all *logical*. They can be expressed as
@@ -186,6 +198,11 @@ class ARROW_EXPORT DataType {
   /// \note Experimental API
   /// \since 0.7.0
   virtual std::string name() const = 0;
+
+  /// \brief Return the data type layout.  Children are not included.
+  ///
+  /// \note Experimental API
+  virtual DataTypeLayout layout() const = 0;
 
   /// \brief Return the type category
   Type::type id() const { return id_; }
@@ -319,6 +336,8 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+
   std::string ToString() const override { return this->name(); }
 };
 
@@ -338,6 +357,10 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 
   std::string ToString() const override;
 
+  DataTypeLayout layout() const override {
+    return {{DataTypeLayout::kAlwaysNullBuffer}, false};
+  }
+
   std::string name() const override { return "null"; }
 };
 
@@ -349,6 +372,8 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   BooleanType() : FixedWidthType(Type::BOOL) {}
 
   std::string ToString() const override;
+
+  DataTypeLayout layout() const override { return {{1, 1}, false}; }
 
   int bit_width() const override { return 1; }
   std::string name() const override { return "bool"; }
@@ -456,6 +481,10 @@ class ARROW_EXPORT ListType : public NestedType {
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(int32_t)}, false};
+  }
+
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
@@ -505,6 +534,8 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
+  DataTypeLayout layout() const override { return {{1}, false}; }
+
   std::string ToString() const override;
 
   std::string name() const override { return "fixed_size_list"; }
@@ -521,6 +552,10 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   static constexpr Type::type type_id = Type::BINARY;
 
   BinaryType() : BinaryType(Type::BINARY) {}
+
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(int32_t), DataTypeLayout::kVariableSizeBuffer}, false};
+  }
 
   std::string ToString() const override;
   std::string name() const override { return "binary"; }
@@ -542,6 +577,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
 
   std::string ToString() const override;
   std::string name() const override { return "fixed_size_binary"; }
+
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
 
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
@@ -569,6 +606,8 @@ class ARROW_EXPORT StructType : public NestedType {
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
 
   ~StructType() override;
+
+  DataTypeLayout layout() const override { return {{1}, false}; }
 
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
@@ -637,6 +676,8 @@ class ARROW_EXPORT UnionType : public NestedType {
             const std::vector<uint8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
+  DataTypeLayout layout() const override;
+
   std::string ToString() const override;
   std::string name() const override { return "union"; }
 
@@ -662,6 +703,8 @@ enum class DateUnit : char { DAY = 0, MILLI = 1 };
 class ARROW_EXPORT TemporalType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
+
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
 };
 
 /// \brief Base type class for date data
@@ -874,6 +917,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   std::string name() const override { return "dictionary"; }
 
   int bit_width() const override;
+
+  DataTypeLayout layout() const override;
 
   std::shared_ptr<DataType> index_type() const { return index_type_; }
   std::shared_ptr<DataType> value_type() const { return value_type_; }

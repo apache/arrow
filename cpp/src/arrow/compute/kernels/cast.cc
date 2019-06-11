@@ -93,7 +93,10 @@ struct CastFunctor {};
 template <>
 struct CastFunctor<NullType, DictionaryType> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
-                  const ArrayData& input, ArrayData* output) {}
+                  const ArrayData& input, ArrayData* output) {
+    output->buffers = {nullptr};
+    output->null_count = output->length;
+  }
 };
 
 // ----------------------------------------------------------------------

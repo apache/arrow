@@ -269,6 +269,14 @@ UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
   children_ = fields;
 }
 
+DataTypeLayout UnionType::layout() const {
+  if (mode_ == UnionMode::SPARSE) {
+    return {{1, CHAR_BIT, DataTypeLayout::kAlwaysNullBuffer}, false};
+  } else {
+    return {{1, CHAR_BIT, sizeof(int32_t) * CHAR_BIT}, false};
+  }
+}
+
 std::string UnionType::ToString() const {
   std::stringstream s;
 
@@ -413,6 +421,12 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
   const auto& int_type = checked_cast<const IntegerType&>(*index_type);
   DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
 #endif
+}
+
+DataTypeLayout DictionaryType::layout() const {
+  auto layout = index_type_->layout();
+  layout.has_dictionary = true;
+  return layout;
 }
 
 std::string DictionaryType::ToString() const {

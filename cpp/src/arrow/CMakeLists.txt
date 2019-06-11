@@ -340,7 +340,8 @@ add_arrow_test(array-test
                array-dict-test.cc
                array-list-test.cc
                array-struct-test.cc
-               array-union-test.cc)
+               array-union-test.cc
+               array-view-test.cc)
 add_arrow_test(buffer-test)
 
 if(ARROW_IPC)
