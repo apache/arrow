@@ -68,7 +68,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   protected ArrowBuf validityBuffer;
-  private UnionListReader reader;
+  protected UnionListReader reader;
   private CallBack callBack;
   private final FieldType fieldType;
   private int validityAllocationSizeInBytes;
@@ -94,7 +94,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    * Constructs a new instance.
    *
    * @param name The name of the instance.
-   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param allocator The allocator to use for allocating/reallocating buffers.
    * @param fieldType The type of this list.
    * @param callBack A schema change callback.
    */
