@@ -200,8 +200,10 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
       for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
         auto options = CompareOptions(op);
         Datum selection, filtered;
-        ASSERT_OK(Compare(&this->ctx_, Datum(array), Datum(fifty), options, &selection));
-        ASSERT_OK(Filter(&this->ctx_, Datum(array), selection, &filtered));
+        ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(fifty),
+                                          options, &selection));
+        ASSERT_OK(
+            arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
         auto expected =
             CompareAndFilter(array->raw_values(), array->length(), c_fifty, op);
       }
@@ -223,8 +225,9 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
       for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
         auto options = CompareOptions(op);
         Datum selection, filtered;
-        ASSERT_OK(Compare(&this->ctx_, Datum(lhs), Datum(rhs), options, &selection));
-        ASSERT_OK(Filter(&this->ctx_, Datum(lhs), selection, &filtered));
+        ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(lhs), Datum(rhs), options,
+                                          &selection));
+        ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(lhs), selection, &filtered));
         auto expected =
             CompareAndFilter(lhs->raw_values(), lhs->length(), rhs->raw_values(), op);
       }
