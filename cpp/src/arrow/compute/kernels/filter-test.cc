@@ -151,23 +151,40 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
 }
 
 template <typename CType>
-std::vector<CType> CompareAndFilter(const CType* data, int64_t length, CType val,
-                                    CompareOperator op) {
-  using cmp_t = bool(const CType&, const CType&);
+decltype(Comparator<CType, EQUAL>::Compare)* GetComparator(CompareOperator op) {
+  using cmp_t = decltype(Comparator<CType, EQUAL>::Compare);
   static cmp_t* cmp[] = {
       Comparator<CType, EQUAL>::Compare,   Comparator<CType, NOT_EQUAL>::Compare,
       Comparator<CType, GREATER>::Compare, Comparator<CType, GREATER_EQUAL>::Compare,
       Comparator<CType, LESS>::Compare,    Comparator<CType, LESS_EQUAL>::Compare,
   };
+  return cmp[op];
+}
 
+template <typename CType>
+std::vector<CType> CompareAndFilter(const CType* data, int64_t length, CType val,
+                                    CompareOperator op) {
   std::vector<CType> filtered;
   filtered.reserve(length);
+  auto cmp = GetComparator<CType>(op);
   std::copy_if(data, data + length, std::back_inserter(filtered),
-               [op, val](CType e) { return cmp[op](e, val); });
+               [cmp, val](CType e) { return cmp(e, val); });
   return filtered;
 }
 
-TYPED_TEST(TestFilterKernelWithNumeric, CompareAndFilterRandomNumeric) {
+template <typename CType>
+std::vector<CType> CompareAndFilter(const CType* data, int64_t length, const CType* other,
+                                    CompareOperator op) {
+  std::vector<CType> filtered;
+  filtered.reserve(length);
+  auto cmp = GetComparator<CType>(op);
+  int64_t i = 0;
+  std::copy_if(data, data + length, std::back_inserter(filtered),
+               [cmp, other, &i](CType e) { return cmp(e, other[i++]); });
+  return filtered;
+}
+
+TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using CType = typename TypeTraits<TypeParam>::CType;
@@ -187,6 +204,29 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareAndFilterRandomNumeric) {
         ASSERT_OK(Filter(&this->ctx_, Datum(array), selection, &filtered));
         auto expected =
             CompareAndFilter(array->raw_values(), array->length(), c_fifty, op);
+      }
+    }
+  }
+}
+
+TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+
+  auto rand = random::RandomArrayGenerator(0x5416447);
+  for (size_t i = 3; i < 13; i++) {
+    const int64_t length = static_cast<int64_t>(1ULL << i);
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      auto lhs = checked_pointer_cast<ArrayType>(
+          rand.Numeric<TypeParam>(length, 0, 100, null_probability));
+      auto rhs = checked_pointer_cast<ArrayType>(
+          rand.Numeric<TypeParam>(length, 0, 100, null_probability));
+      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+        auto options = CompareOptions(op);
+        Datum selection, filtered;
+        ASSERT_OK(Compare(&this->ctx_, Datum(lhs), Datum(rhs), options, &selection));
+        ASSERT_OK(Filter(&this->ctx_, Datum(lhs), selection, &filtered));
+        auto expected =
+            CompareAndFilter(lhs->raw_values(), lhs->length(), rhs->raw_values(), op);
       }
     }
   }
