@@ -23,17 +23,19 @@ class TestGandivaFunctionRegistry < Test::Unit::TestCase
     @registry = Gandiva::FunctionRegistry.new
   end
 
-  def test_lookup_found
-    native_function = @registry.native_functions[0]
-    assert_equal(native_function,
-                 @registry.lookup(native_function.signature))
-  end
+  sub_test_case("lookup") do
+    def test_found
+      native_function = @registry.native_functions[0]
+      assert_equal(native_function,
+                   @registry.lookup(native_function.signature))
+    end
 
-  def test_lookup_not_found
-    signature = Gandiva::FunctionSignature.new("nonexistent",
-                                               [],
-                                               boolean_data_type)
-    assert_nil(@registry.lookup(signature))
+    def test_not_found
+      signature = Gandiva::FunctionSignature.new("nonexistent",
+                                                 [],
+                                                 boolean_data_type)
+      assert_nil(@registry.lookup(signature))
+    end
   end
 
   def test_native_functions
