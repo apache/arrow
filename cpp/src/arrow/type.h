@@ -461,18 +461,43 @@ class ARROW_EXPORT ListType : public NestedType {
   std::string name() const override { return "list"; }
 };
 
+/// \brief Concrete type class for map data
+///
+/// Map data is nested data where each value is a variable number of
+/// key-item pairs.  Maps can be recursively nested, for example
+/// map(utf8, map(utf8, int32)).
+class ARROW_EXPORT MapType : public ListType {
+ public:
+  static constexpr Type::type type_id = Type::MAP;
+
+  MapType(const std::shared_ptr<DataType>& key_type,
+          const std::shared_ptr<DataType>& item_type, bool keys_sorted = false);
+
+  std::shared_ptr<DataType> key_type() const { return value_type()->child(0)->type(); }
+
+  std::shared_ptr<DataType> item_type() const { return value_type()->child(1)->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "map"; }
+
+  bool keys_sorted() const { return keys_sorted_; }
+
+ private:
+  bool keys_sorted_;
+};
+
 /// \brief Concrete type class for fixed size list data
 class ARROW_EXPORT FixedSizeListType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
 
   // List can contain any other logical value type
-  explicit FixedSizeListType(const std::shared_ptr<DataType>& value_type,
-                             int32_t list_size)
+  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
       : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
 
-  explicit FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
-      : NestedType(Type::FIXED_SIZE_LIST), list_size_(list_size) {
+  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+      : NestedType(type_id), list_size_(list_size) {
     children_ = {value_field};
   }
 
@@ -981,6 +1006,12 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a MapType instance from its key and value DataTypes
+ARROW_EXPORT
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<DataType>& value_type,
+                              bool keys_sorted = false);
 
 /// \brief Create a FixedSizeListType instance from its child Field type
 ARROW_EXPORT

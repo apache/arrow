@@ -48,6 +48,15 @@ std::shared_ptr<T> checked_pointer_cast(const std::shared_ptr<U>& r) noexcept {
 #endif
 }
 
+template <class T, class U>
+std::unique_ptr<T> checked_pointer_cast(std::unique_ptr<U> r) noexcept {
+#ifndef NDEBUG
+  return std::unique_ptr<T>(static_cast<T*>(r.release()));
+#else
+  return std::unique_ptr<T>(dynamic_cast<T*>(r.release()));
+#endif
+}
+
 }  // namespace internal
 }  // namespace arrow
 

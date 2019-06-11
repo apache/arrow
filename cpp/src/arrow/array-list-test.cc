@@ -35,6 +35,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // List tests
@@ -338,6 +339,151 @@ TEST_F(TestListArray, TestBuilderPreserveFieleName) {
 
   const auto& type = checked_cast<ListType&>(*list_array->type());
   ASSERT_EQ("counts", type.value_field()->name());
+}
+
+// ----------------------------------------------------------------------
+// Map tests
+
+class TestMapArray : public TestBuilder {
+ public:
+  void SetUp() {
+    TestBuilder::SetUp();
+
+    key_type_ = utf8();
+    value_type_ = int32();
+    type_ = map(key_type_, value_type_);
+
+    std::unique_ptr<ArrayBuilder> tmp;
+    ASSERT_OK(MakeBuilder(pool_, type_, &tmp));
+    builder_ = checked_pointer_cast<MapBuilder>(std::move(tmp));
+  }
+
+  void Done() {
+    std::shared_ptr<Array> out;
+    FinishAndCheckPadding(builder_.get(), &out);
+    result_ = std::dynamic_pointer_cast<MapArray>(out);
+  }
+
+ protected:
+  std::shared_ptr<DataType> value_type_, key_type_;
+
+  std::shared_ptr<MapBuilder> builder_;
+  std::shared_ptr<MapArray> result_;
+};
+
+TEST_F(TestMapArray, Equality) {
+  auto& kb = checked_cast<StringBuilder&>(*builder_->key_builder());
+  auto& ib = checked_cast<Int32Builder&>(*builder_->item_builder());
+
+  std::shared_ptr<Array> array, equal_array, unequal_array;
+  std::vector<int32_t> equal_offsets = {0, 1, 2, 5, 6, 7, 8, 10};
+  std::vector<util::string_view> equal_keys = {"a", "a", "a", "b", "c",
+                                               "a", "a", "a", "a", "b"};
+  std::vector<int32_t> equal_values = {1, 2, 3, 4, 5, 2, 2, 2, 5, 6};
+  std::vector<int32_t> unequal_offsets = {0, 1, 4, 7};
+  std::vector<util::string_view> unequal_keys = {"a", "a", "b", "c", "a", "b", "c"};
+  std::vector<int32_t> unequal_values = {1, 2, 2, 2, 3, 4, 5};
+
+  // setup two equal arrays
+  for (auto out : {&array, &equal_array}) {
+    ASSERT_OK(builder_->AppendValues(equal_offsets.data(), equal_offsets.size()));
+    for (auto&& key : equal_keys) {
+      ASSERT_OK(kb.Append(key));
+    }
+    ASSERT_OK(ib.AppendValues(equal_values.data(), equal_values.size()));
+    ASSERT_OK(builder_->Finish(out));
+  }
+
+  // now an unequal one
+  ASSERT_OK(builder_->AppendValues(unequal_offsets.data(), unequal_offsets.size()));
+  for (auto&& key : unequal_keys) {
+    ASSERT_OK(kb.Append(key));
+  }
+  ASSERT_OK(ib.AppendValues(unequal_values.data(), unequal_values.size()));
+  ASSERT_OK(builder_->Finish(&unequal_array));
+
+  // Test array equality
+  EXPECT_TRUE(array->Equals(array));
+  EXPECT_TRUE(array->Equals(equal_array));
+  EXPECT_TRUE(equal_array->Equals(array));
+  EXPECT_FALSE(equal_array->Equals(unequal_array));
+  EXPECT_FALSE(unequal_array->Equals(equal_array));
+
+  // Test range equality
+  EXPECT_TRUE(array->RangeEquals(0, 1, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(0, 2, 0, unequal_array));
+  EXPECT_FALSE(array->RangeEquals(1, 2, 1, unequal_array));
+  EXPECT_TRUE(array->RangeEquals(2, 3, 2, unequal_array));
+}
+
+TEST_F(TestMapArray, BuildingIntToInt) {
+  auto type = map(int16(), int16());
+
+  auto expected_keys = ArrayFromJSON(int16(), R"([
+    0, 1, 2, 3, 4, 5,
+    0, 1, 2, 3, 4, 5
+  ])");
+  auto expected_items = ArrayFromJSON(int16(), R"([
+    1,    1,    2,  3,  5,    8,
+    null, null, 0,  1,  null, 2
+  ])");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 6, 6, 12, 12]")->data()->buffers[1];
+  auto expected_null_bitmap =
+      ArrayFromJSON(boolean(), "[1, 0, 1, 1]")->data()->buffers[1];
+
+  MapArray expected(type, 4, expected_offsets, expected_keys, expected_items,
+                    expected_null_bitmap, 1, 0);
+
+  auto key_builder = std::make_shared<Int16Builder>();
+  auto item_builder = std::make_shared<Int16Builder>();
+  MapBuilder map_builder(default_memory_pool(), key_builder, item_builder);
+
+  std::shared_ptr<Array> actual;
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder->AppendValues({1, 1, 2, 3, 5, 8}));
+  ASSERT_OK(map_builder.AppendNull());
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder->AppendValues({-1, -1, 0, 1, -1, 2}, {0, 0, 1, 1, 0, 1}));
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(map_builder.Finish(&actual));
+  ASSERT_OK(ValidateArray(*actual));
+
+  ASSERT_ARRAYS_EQUAL(*actual, expected);
+}
+
+TEST_F(TestMapArray, BuildingStringToInt) {
+  auto type = map(utf8(), int32());
+
+  std::vector<int32_t> offsets = {0, 2, 2, 3, 3};
+  auto expected_keys = ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])");
+  auto expected_values = ArrayFromJSON(int32(), "[0, null, 8]");
+  std::shared_ptr<Buffer> expected_null_bitmap;
+  ASSERT_OK(
+      BitUtil::BytesToBits({1, 0, 1, 1}, default_memory_pool(), &expected_null_bitmap));
+  MapArray expected(type, 4, Buffer::Wrap(offsets), expected_keys, expected_values,
+                    expected_null_bitmap, 1);
+
+  auto key_builder = std::make_shared<StringBuilder>();
+  auto item_builder = std::make_shared<Int32Builder>();
+  MapBuilder map_builder(default_memory_pool(), key_builder, item_builder);
+
+  std::shared_ptr<Array> actual;
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->Append("joe"));
+  ASSERT_OK(item_builder->Append(0));
+  ASSERT_OK(key_builder->Append("mark"));
+  ASSERT_OK(item_builder->AppendNull());
+  ASSERT_OK(map_builder.AppendNull());
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->Append("cap"));
+  ASSERT_OK(item_builder->Append(8));
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(map_builder.Finish(&actual));
+  ASSERT_OK(ValidateArray(*actual));
+
+  ASSERT_ARRAYS_EQUAL(*actual, expected);
 }
 
 // ----------------------------------------------------------------------

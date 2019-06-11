@@ -705,6 +705,66 @@ class ListColumn(Column):
         return [self.values.get_json()]
 
 
+class MapType(DataType):
+
+    def __init__(self, name, key_type, item_type, nullable=True,
+                 keysSorted=False):
+        super(MapType, self).__init__(name, nullable=nullable)
+
+        assert not key_type.nullable
+        self.key_type = key_type
+        self.item_type = item_type
+        self.pair_type = StructType('item', [key_type, item_type], False)
+        self.keysSorted = keysSorted
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'map'),
+            ('keysSorted', self.keysSorted)
+        ])
+
+    def _get_children(self):
+        return [self.pair_type.get_json()]
+
+    def generate_column(self, size, name=None):
+        MAX_MAP_SIZE = 4
+
+        is_valid = self._make_is_valid(size)
+        map_sizes = np.random.randint(0, MAX_MAP_SIZE + 1, size=size)
+        offsets = [0]
+
+        offset = 0
+        for i in range(size):
+            if is_valid[i]:
+                offset += int(map_sizes[i])
+            offsets.append(offset)
+
+        # The offset now is the total number of elements in the child array
+        pairs = self.pair_type.generate_column(offset)
+        if name is None:
+            name = self.name
+
+        return MapColumn(name, size, is_valid, offsets, pairs)
+
+
+class MapColumn(Column):
+
+    def __init__(self, name, count, is_valid, offsets, pairs):
+        super(MapColumn, self).__init__(name, count)
+        self.is_valid = is_valid
+        self.offsets = offsets
+        self.pairs = pairs
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('OFFSET', list(self.offsets))
+        ]
+
+    def _get_children(self):
+        return [self.pairs.get_json()]
+
+
 class StructType(DataType):
 
     def __init__(self, name, field_types, nullable=True):
@@ -957,6 +1017,18 @@ def generate_interval_case():
     return _generate_file("interval", fields, batch_sizes)
 
 
+def generate_map_case():
+    # TODO(bkietz): separated from nested_case so it can be
+    # independently skipped, consolidate after Java supports map
+    fields = [
+        MapType('map_nullable', get_field('key', 'utf8', False),
+                get_field('item', 'int32')),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("map", fields, batch_sizes)
+
+
 def generate_nested_case():
     fields = [
         ListType('list_nullable', get_field('item', 'int32')),
@@ -1035,6 +1107,7 @@ def get_generated_json_files(tempdir=None, flight=False):
         generate_decimal_case(),
         generate_datetime_case(),
         generate_interval_case(),
+        generate_map_case(),
         generate_nested_case(),
         generate_dictionary_case().skip_category(SKIP_FLIGHT),
         generate_nested_dictionary_case().skip_category(SKIP_ARROW)
@@ -1104,10 +1177,18 @@ class IntegrationRunner(object):
 
             file_id = guid()[:8]
 
+            if (('JS' in (producer.name, consumer.name) or
+                    'Java' in (producer.name, consumer.name)) and
+                    "map" in test_case.name):
+                print('TODO(ARROW-1279): Enable map tests ' +
+                      ' for Java and JS once Java supports them and JS\'' +
+                      ' are unbroken')
+                continue
+
             if ('JS' in (producer.name, consumer.name) and
                     "interval" in test_case.name):
                 print('TODO(ARROW-5239): Enable interval tests ' +
-                      ' for JS once, JS supports them')
+                      ' for JS once JS supports them')
                 continue
 
             # Make the random access file
@@ -1165,6 +1246,13 @@ class IntegrationRunner(object):
             print('=' * 58)
             print('Testing file {0}'.format(json_path))
             print('=' * 58)
+
+            if ('Java' in (producer.name, consumer.name) and
+               "map" in test_case.name):
+                print('TODO(ARROW-1279): Enable map tests ' +
+                      ' for Java and JS once Java supports them and JS\'' +
+                      ' are unbroken')
+                continue
 
             if SKIP_FLIGHT in test_case.skip:
                 print('-- Skipping test')
@@ -1503,6 +1591,7 @@ def run_all_tests(args):
 
 
 def write_js_test_json(directory):
+    generate_map_case().write(os.path.join(directory, 'map.json'))
     generate_nested_case().write(os.path.join(directory, 'nested.json'))
     generate_decimal_case().write(os.path.join(directory, 'decimal.json'))
     generate_datetime_case().write(os.path.join(directory, 'datetime.json'))

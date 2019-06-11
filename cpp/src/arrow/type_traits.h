@@ -279,6 +279,14 @@ struct TypeTraits<ListType> {
 };
 
 template <>
+struct TypeTraits<MapType> {
+  using ArrayType = MapArray;
+  using BuilderType = MapBuilder;
+  using ScalarType = MapScalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
 struct TypeTraits<FixedSizeListType> {
   using ArrayType = FixedSizeListArray;
   using BuilderType = FixedSizeListBuilder;

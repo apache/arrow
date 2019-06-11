@@ -114,6 +114,7 @@ class LevelBuilder {
                                   " not supported yet");                   \
   }
 
+  NOT_IMPLEMENTED_VISIT(Map)
   NOT_IMPLEMENTED_VISIT(FixedSizeList)
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)

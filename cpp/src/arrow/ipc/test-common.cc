@@ -115,6 +115,23 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   return ValidateArray(**out);
 }
 
+Status MakeRandomMapArray(const std::shared_ptr<Array>& key_array,
+                          const std::shared_ptr<Array>& item_array, int num_maps,
+                          bool include_nulls, MemoryPool* pool,
+                          std::shared_ptr<Array>* out) {
+  auto pair_type = struct_(
+      {field("key", key_array->type(), false), field("item", item_array->type())});
+
+  auto pair_array = std::make_shared<StructArray>(pair_type, num_maps,
+                                                  ArrayVector{key_array, item_array});
+
+  RETURN_NOT_OK(MakeRandomListArray(pair_array, num_maps, include_nulls, pool, out));
+  auto map_data = (*out)->data();
+  map_data->type = map(key_array->type(), item_array->type());
+  out->reset(new MapArray(map_data));
+  return Status::OK();
+}
+
 Status MakeRandomBooleanArray(const int length, bool include_nulls,
                               std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values(length);

@@ -56,6 +56,7 @@ namespace arrow {
   ACTION(Time64);                            \
   ACTION(Decimal128);                        \
   ACTION(List);                              \
+  ACTION(Map);                               \
   ACTION(FixedSizeList);                     \
   ACTION(Struct);                            \
   ACTION(Union);                             \

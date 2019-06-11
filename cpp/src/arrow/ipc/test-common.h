@@ -49,6 +49,11 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
                            std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
+Status MakeRandomMapArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                          bool include_nulls, MemoryPool* pool,
+                          std::shared_ptr<Array>* out);
+
+ARROW_EXPORT
 Status MakeRandomBooleanArray(const int length, bool include_nulls,
                               std::shared_ptr<Array>* out);
 

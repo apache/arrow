@@ -170,6 +170,11 @@ class SchemaWriter {
                           void>::type
   WriteTypeMetadata(const T& type) {}
 
+  void WriteTypeMetadata(const MapType& type) {
+    writer_->Key("keysSorted");
+    writer_->Int(type.keys_sorted());
+  }
+
   void WriteTypeMetadata(const IntegerType& type) {
     writer_->Key("bitWidth");
     writer_->Int(type.bit_width());
@@ -322,6 +327,11 @@ class SchemaWriter {
 
   Status Visit(const ListType& type) {
     WriteName("list", type);
+    return Status::OK();
+  }
+
+  Status Visit(const MapType& type) {
+    WriteName("map", type);
     return Status::OK();
   }
 
@@ -682,6 +692,28 @@ static Status GetFloatingPoint(const RjObject& json_type,
   return Status::OK();
 }
 
+static Status GetMap(const RjObject& json_type,
+                     const std::vector<std::shared_ptr<Field>>& children,
+                     std::shared_ptr<DataType>* type) {
+  if (children.size() != 1) {
+    return Status::Invalid("Map must have exactly one child");
+  }
+
+  if (children[0]->type()->id() != Type::STRUCT ||
+      children[0]->type()->num_children() != 2) {
+    return Status::Invalid("Map's key-item pairs must be structs");
+  }
+
+  const auto& it_keys_sorted = json_type.FindMember("keysSorted");
+  RETURN_NOT_BOOL("keysSorted", it_keys_sorted, json_type);
+
+  auto pair_children = children[0]->type()->children();
+
+  bool keys_sorted = it_keys_sorted->value.GetBool();
+  *type = map(pair_children[0]->type(), pair_children[1]->type(), keys_sorted);
+  return Status::OK();
+}
+
 static Status GetFixedSizeBinary(const RjObject& json_type,
                                  std::shared_ptr<DataType>* type) {
   const auto& it_byte_width = json_type.FindMember("byteWidth");
@@ -900,6 +932,8 @@ static Status GetType(const RjObject& json_type,
       return Status::Invalid("List must have exactly one child");
     }
     *type = list(children[0]);
+  } else if (type_name == "map") {
+    return GetMap(json_type, children, type);
   } else if (type_name == "fixedsizelist") {
     return GetFixedSizeList(json_type, children, type);
   } else if (type_name == "struct") {
@@ -1216,7 +1250,7 @@ class ArrayReader {
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) {
+  Status CreateList(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
     int32_t null_count = 0;
     std::shared_ptr<Buffer> validity_buffer;
     RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
@@ -1228,12 +1262,26 @@ class ArrayReader {
                                        &offsets_buffer));
 
     std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(obj_, type, &children));
+    RETURN_NOT_OK(GetChildren(obj_, *type, &children));
     DCHECK_EQ(children.size(), 1);
 
-    result_ = std::make_shared<ListArray>(type_, length_, offsets_buffer, children[0],
-                                          validity_buffer, null_count);
+    out->reset(new ListArray(type, length_, offsets_buffer, children[0], validity_buffer,
+                             null_count));
+    return Status::OK();
+  }
 
+  Status Visit(const ListType& type) { return CreateList(type_, &result_); }
+
+  Status Visit(const MapType& type) {
+    auto list_type = std::make_shared<ListType>(field(
+        "item",
+        struct_({field("key", type.key_type(), false), field("item", type.item_type())}),
+        false));
+    std::shared_ptr<Array> list_array;
+    RETURN_NOT_OK(CreateList(list_type, &list_array));
+    auto map_data = list_array->data();
+    map_data->type = type_;
+    result_ = std::make_shared<MapArray>(map_data);
     return Status::OK();
   }
 
