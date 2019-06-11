@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "arrow/compute/context.h"
+#include "arrow/compute/kernels/compare.h"
 #include "arrow/compute/kernels/filter.h"
 #include "arrow/compute/test-util.h"
 #include "arrow/testing/gtest_common.h"
@@ -144,6 +145,48 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
         auto values = rand.Numeric<TypeParam>(length, 0, 127, null_probability);
         auto filter = rand.Boolean(length, filter_probability, null_probability);
         this->ValidateFilter(values, filter);
+      }
+    }
+  }
+}
+
+template <typename CType>
+std::vector<CType> CompareAndFilter(const CType* data, int64_t length, CType val,
+                                    CompareOperator op) {
+  using cmp_t = bool(const CType&, const CType&);
+  static cmp_t* cmp[] = {
+      Comparator<CType, EQUAL>::Compare,   Comparator<CType, NOT_EQUAL>::Compare,
+      Comparator<CType, GREATER>::Compare, Comparator<CType, GREATER_EQUAL>::Compare,
+      Comparator<CType, LESS>::Compare,    Comparator<CType, LESS_EQUAL>::Compare,
+  };
+
+  std::vector<CType> filtered;
+  filtered.reserve(length);
+  std::copy_if(data, data + length, std::back_inserter(filtered),
+               [op, val](CType e) { return cmp[op](e, val); });
+  return filtered;
+}
+
+TYPED_TEST(TestFilterKernelWithNumeric, CompareAndFilterRandomNumeric) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+
+  auto rand = random::RandomArrayGenerator(0x5416447);
+  for (size_t i = 3; i < 13; i++) {
+    const int64_t length = static_cast<int64_t>(1ULL << i);
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      auto array = checked_pointer_cast<ArrayType>(
+          rand.Numeric<TypeParam>(length, 0, 100, null_probability));
+      CType c_fifty = 50;
+      auto fifty = std::make_shared<ScalarType>(c_fifty);
+      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+        auto options = CompareOptions(op);
+        Datum selection, filtered;
+        ASSERT_OK(Compare(&this->ctx_, Datum(array), Datum(fifty), options, &selection));
+        ASSERT_OK(Filter(&this->ctx_, Datum(array), selection, &filtered));
+        auto expected =
+            CompareAndFilter(array->raw_values(), array->length(), c_fifty, op);
       }
     }
   }
