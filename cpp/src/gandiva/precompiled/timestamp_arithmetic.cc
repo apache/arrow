@@ -98,7 +98,7 @@ TIMESTAMP_DIFF(timestamp)
 
 #define ADD_INT32_TO_TIMESTAMP_FIXED_UNITS(TYPE, NAME, TO_MILLIS) \
   FORCE_INLINE                                                    \
-  TYPE NAME##_##TYPE##_int32(TYPE millis, int32 count) {          \
+  TYPE NAME##_##TYPE##_int32(int32 count, TYPE millis) {          \
     return millis + TO_MILLIS * static_cast<TYPE>(count);         \
   }
 
@@ -118,7 +118,7 @@ TIMESTAMP_DIFF(timestamp)
 // TODO: Handle overflow while converting int64 to millis
 #define ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(TYPE, NAME, TO_MILLIS) \
   FORCE_INLINE                                                    \
-  TYPE NAME##_##TYPE##_int64(TYPE millis, int64 count) {          \
+  TYPE NAME##_##TYPE##_int64(int64 count, TYPE millis) {          \
     return millis + TO_MILLIS * static_cast<TYPE>(count);         \
   }
 

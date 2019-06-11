@@ -74,11 +74,11 @@ int32 hash32_buf(const uint8* buf, int len, int32 seed);
 int64 hash64(double val, int64 seed);
 int64 hash64_buf(const uint8* buf, int len, int64 seed);
 
-int64 timestampaddSecond_timestamp_int32(timestamp, int32);
-int64 timestampaddMinute_timestamp_int32(timestamp, int32);
-int64 timestampaddHour_timestamp_int32(timestamp, int32);
-int64 timestampaddDay_timestamp_int32(timestamp, int32);
-int64 timestampaddWeek_timestamp_int32(timestamp, int32);
+int64 timestampaddSecond_timestamp_int32(int32, timestamp);
+int64 timestampaddMinute_timestamp_int32(int32, timestamp);
+int64 timestampaddHour_timestamp_int32(int32, timestamp);
+int64 timestampaddDay_timestamp_int32(int32, timestamp);
+int64 timestampaddWeek_timestamp_int32(int32, timestamp);
 int64 timestampaddMonth_timestamp_int32(timestamp, int32);
 int64 timestampaddQuarter_timestamp_int32(timestamp, int32);
 int64 timestampaddYear_timestamp_int32(timestamp, int32);
@@ -92,13 +92,13 @@ int64 timestampaddMonth_timestamp_int64(timestamp, int64);
 int64 timestampaddQuarter_timestamp_int64(timestamp, int64);
 int64 timestampaddYear_timestamp_int64(timestamp, int64);
 
-int64 date_add_timestamp_int32(timestamp, int32);
+int64 date_add_timestamp_int32(int32, timestamp);
 int64 add_timestamp_int64(timestamp, int64);
 int64 add_int32_timestamp(int32, timestamp);
 int64 date_add_int64_timestamp(int64, timestamp);
 
-int64 date_sub_timestamp_int32(timestamp, int32);
-int64 subtract_timestamp_int32(timestamp, int32);
+int64 date_sub_timestamp_int32(int32, timestamp);
+int64 subtract_timestamp_int32(int32, timestamp);
 int64 date_diff_timestamp_int64(timestamp, int64);
 
 bool is_distinct_from_timestamp_timestamp(int64, bool, int64, bool);
