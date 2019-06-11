@@ -37,6 +37,8 @@ class ARROW_EXPORT ExtensionType : public DataType {
   /// \brief The type of array used to represent this extension type's data
   std::shared_ptr<DataType> storage_type() const { return storage_type_; }
 
+  DataTypeLayout layout() const override;
+
   std::string ToString() const override;
   std::string name() const override;
 
