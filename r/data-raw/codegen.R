@@ -72,7 +72,7 @@ cpp_functions_definitions <- decorations %>%
   select(name, return_type, args, file, line) %>%
   pmap_chr(function(name, return_type, args, file, line){
     glue::glue('
-    // {basename(file)}:{line}
+    // {basename(file)}
     #if defined(ARROW_R_WITH_ARROW)
     {return_type} {name}({real_params});
     RcppExport SEXP _arrow_{name}({sexp_params}){{
