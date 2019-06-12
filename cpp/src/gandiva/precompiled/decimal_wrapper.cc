@@ -97,4 +97,130 @@ int32_t compare_internal_decimal128_decimal128(int64_t x_high, uint64_t x_low,
   return gandiva::decimalops::Compare(x, y);
 }
 
+FORCE_INLINE
+void abs_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                             int32_t x_scale, int64_t* out_high, uint64_t* out_low) {
+  gandiva::BasicDecimal128 x(x_high, x_low);
+  x.Abs();
+  *out_high = x.high_bits();
+  *out_low = x.low_bits();
+}
+
+FORCE_INLINE
+void ceil_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                              int32_t x_scale, int64_t* out_high, uint64_t* out_low) {
+  gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
+
+  bool overflow = false;
+  auto out = gandiva::decimalops::Ceil(x, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+void floor_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                               int32_t x_scale, int64_t* out_high, uint64_t* out_low) {
+  gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
+
+  bool overflow = false;
+  auto out = gandiva::decimalops::Floor(x, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+void round_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                               int32_t x_scale, int64_t* out_high, uint64_t* out_low) {
+  gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
+
+  bool overflow = false;
+  auto out = gandiva::decimalops::Round(x, 0, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+void round_decimal128_int32_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                     int32_t x_scale, int32_t rounding_scale,
+                                     int64_t* out_high, uint64_t* out_low) {
+  gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
+
+  bool overflow = false;
+  auto out = gandiva::decimalops::Round(x, rounding_scale, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+void truncate_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                  int32_t x_scale, int64_t* out_high, uint64_t* out_low) {
+  gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
+
+  bool overflow = false;
+  auto out = gandiva::decimalops::Truncate(x, 0, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+void truncate_decimal128_int32_internal(int64_t x_high, uint64_t x_low,
+                                        int32_t x_precision, int32_t x_scale,
+                                        int32_t rounding_scale, int64_t* out_high,
+                                        uint64_t* out_low) {
+  gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
+
+  bool overflow = false;
+  auto out = gandiva::decimalops::Truncate(x, rounding_scale, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+double castFLOAT8_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                      int32_t x_scale) {
+  gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
+
+  bool overflow = false;
+  return gandiva::decimalops::ToDouble(x, &overflow);
+}
+
+FORCE_INLINE
+int64_t castBIGINT_decimal128_internal(int64_t x_high, uint64_t x_low,
+                                       int32_t x_precision, int32_t x_scale) {
+  gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
+
+  bool overflow = false;
+  return gandiva::decimalops::ToInt64(x, &overflow);
+}
+
+FORCE_INLINE
+void castDECIMAL_int64_internal(int64_t in, int32_t x_precision, int32_t x_scale,
+                                int64_t* out_high, uint64_t* out_low) {
+  bool overflow = false;
+  auto out = gandiva::decimalops::FromInt64(in, x_precision, x_scale, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+void castDECIMAL_float64_internal(double in, int32_t x_precision, int32_t x_scale,
+                                  int64_t* out_high, uint64_t* out_low) {
+  bool overflow = false;
+  auto out = gandiva::decimalops::FromDouble(in, x_precision, x_scale, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+void castDECIMAL_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                     int32_t x_scale, int32_t out_precision,
+                                     int32_t out_scale, int64_t* out_high,
+                                     int64_t* out_low) {
+  gandiva::BasicDecimalScalar128 x({x_high, x_low}, x_precision, x_scale);
+  bool overflow = false;
+  auto out = gandiva::decimalops::Convert(x, out_precision, out_scale, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
 }  // extern "C"

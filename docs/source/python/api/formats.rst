@@ -18,12 +18,12 @@
 Tabular File Formats
 ====================
 
-.. currentmodule:: pyarrow.csv
-
 .. _api.csv:
 
 CSV Files
 ---------
+
+.. currentmodule:: pyarrow.csv
 
 .. autosummary::
    :toctree: ../generated/
@@ -46,7 +46,19 @@ Feather Files
    read_feather
    write_feather
 
-.. currentmodule:: pyarrow
+.. _api.json:
+
+JSON Files
+----------
+
+.. currentmodule:: pyarrow.json
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ReadOptions
+   ParseOptions
+   read_json
 
 .. _api.parquet:
 

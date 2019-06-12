@@ -37,7 +37,8 @@ before_script:
   - sudo pip install -U docker-compose
 
 script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout {{ arrow.head }}
   - mkdir -p dist
 

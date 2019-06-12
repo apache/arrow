@@ -21,7 +21,7 @@
 Reading CSV files
 =================
 
-Arrow provides preliminary support for reading data from CSV files.
+Arrow supports reading columnar data from CSV files.
 The features currently offered are the following:
 
 * multi-threaded or single-threaded reading

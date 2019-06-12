@@ -530,9 +530,6 @@ class Converter_Int64 : public Converter {
 std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
   switch (arrays[0]->type_id()) {
     // direct support
-    case Type::INT8:
-      return std::make_shared<arrow::r::Converter_SimpleArray<RAWSXP>>(arrays);
-
     case Type::INT32:
       return std::make_shared<arrow::r::Converter_SimpleArray<INTSXP>>(arrays);
 
@@ -557,6 +554,10 @@ std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
       return std::make_shared<arrow::r::Converter_Date64>(arrays);
 
       // promotions to integer vector
+    case Type::INT8:
+      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int8Type>>(
+          arrays);
+
     case Type::UINT8:
       return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt8Type>>(
           arrays);

@@ -33,8 +33,6 @@
 #'
 #'  - a raw vector: read using a [arrow::ipc::RecordBatchStreamReader][arrow__ipc__RecordBatchStreamReader]
 #'
-#' @param use_threads Use threads when converting to a tibble
-#'
 #' @return
 #'
 #'  - `read_table` returns an [arrow::Table][arrow__Table]
@@ -85,6 +83,6 @@ read_table.fs_path <- function(stream) {
 
 #' @rdname read_table
 #' @export
-read_arrow <- function(stream, use_threads = TRUE){
+read_arrow <- function(stream){
   as_tibble(read_table(stream))
 }

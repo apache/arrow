@@ -17,8 +17,7 @@
 
 // Private header, not to be exported
 
-#ifndef ARROW_UTIL_HASHING_H
-#define ARROW_UTIL_HASHING_H
+#pragma once
 
 #include <algorithm>
 #include <cassert>
@@ -189,9 +188,14 @@ hash_t ComputeStringHash(const void* data, int64_t length) {
 template <typename Payload>
 class HashTable {
  public:
+  static constexpr hash_t kSentinel = 0ULL;
+
   struct Entry {
     hash_t h;
     Payload payload;
+
+    // An entry is valid if the hash is different from the sentinel value
+    operator bool() const { return h != kSentinel; }
   };
 
   explicit HashTable(uint64_t capacity) {
@@ -222,7 +226,8 @@ class HashTable {
   }
 
   void Insert(Entry* entry, hash_t h, const Payload& payload) {
-    assert(entry->h == 0);
+    // Ensure entry is empty before inserting
+    assert(!*entry);
     entry->h = FixHash(h);
     entry->payload = payload;
     ++n_filled_;
@@ -239,7 +244,7 @@ class HashTable {
   template <typename VisitFunc>
   void VisitEntries(VisitFunc&& visit_func) const {
     for (const auto& entry : entries_) {
-      if (entry.h != 0U) {
+      if (entry) {
         visit_func(&entry);
       }
     }
@@ -302,16 +307,13 @@ class HashTable {
 
     std::vector<Entry> new_entries(new_size);
     for (auto& entry : entries_) {
-      hash_t h = entry.h;
-      if (h != 0) {
+      if (entry) {
         // Dummy compare function (will not be called)
         auto cmp_func = [](const Payload*) { return false; };
         // Non-empty slot, move into new
-        auto p = Lookup<NoCompare>(h, new_entries.data(), new_mask, cmp_func);
+        auto p = Lookup<NoCompare>(entry.h, new_entries.data(), new_mask, cmp_func);
         assert(!p.second);  // shouldn't have found a matching entry
-        Entry* new_entry = &new_entries[p.first];
-        new_entry->h = h;
-        new_entry->payload = entry.payload;
+        new_entries[p.first] = entry;
       }
     }
     std::swap(entries_, new_entries);
@@ -319,10 +321,7 @@ class HashTable {
     size_mask_ = new_mask;
   }
 
-  hash_t FixHash(hash_t h) const {
-    // 0 is used to indicate empty entries
-    return (h == 0U) ? 42U : h;
-  }
+  hash_t FixHash(hash_t h) const { return (h == kSentinel) ? 42U : h; }
 
   uint64_t size_;
   uint64_t size_mask_;
@@ -331,6 +330,8 @@ class HashTable {
 };
 
 // XXX typedef memo_index_t int32_t ?
+
+constexpr int32_t kKeyNotFound = -1;
 
 // ----------------------------------------------------------------------
 // A base class for memoization table.
@@ -363,7 +364,7 @@ class ScalarMemoTable : public MemoTable {
     if (p.second) {
       return p.first->payload.memo_index;
     } else {
-      return -1;
+      return kKeyNotFound;
     }
   }
 
@@ -390,9 +391,29 @@ class ScalarMemoTable : public MemoTable {
     return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {});
   }
 
-  // The number of entries in the memo table
+  int32_t GetNull() const { return null_index_; }
+
+  template <typename Func1, typename Func2>
+  int32_t GetOrInsertNull(Func1&& on_found, Func2&& on_not_found) {
+    int32_t memo_index = GetNull();
+    if (memo_index != kKeyNotFound) {
+      on_found(memo_index);
+    } else {
+      null_index_ = memo_index = size();
+      on_not_found(memo_index);
+    }
+    return memo_index;
+  }
+
+  int32_t GetOrInsertNull() {
+    return GetOrInsertNull([](int32_t i) {}, [](int32_t i) {});
+  }
+
+  // The number of entries in the memo table +1 if null was added.
   // (which is also 1 + the largest memo index)
-  int32_t size() const override { return static_cast<int32_t>(hash_table_.size()); }
+  int32_t size() const override {
+    return static_cast<int32_t>(hash_table_.size()) + (GetNull() != kKeyNotFound);
+  }
 
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
@@ -415,6 +436,7 @@ class ScalarMemoTable : public MemoTable {
   using HashTableType = HashTableTemplateType<Payload>;
   using HashTableEntry = typename HashTableType::Entry;
   HashTableType hash_table_;
+  int32_t null_index_ = kKeyNotFound;
 
   hash_t ComputeHash(const Scalar& value) const {
     return ScalarHelper<Scalar, 0>::ComputeHash(value);
@@ -448,7 +470,7 @@ template <typename Scalar, template <class> class HashTableTemplateType = HashTa
 class SmallScalarMemoTable : public MemoTable {
  public:
   explicit SmallScalarMemoTable(int64_t entries = 0) {
-    std::fill(value_to_index_, value_to_index_ + cardinality, -1);
+    std::fill(value_to_index_, value_to_index_ + cardinality + 1, kKeyNotFound);
     index_to_value_.reserve(cardinality);
   }
 
@@ -461,11 +483,11 @@ class SmallScalarMemoTable : public MemoTable {
   int32_t GetOrInsert(const Scalar value, Func1&& on_found, Func2&& on_not_found) {
     auto value_index = AsIndex(value);
     auto memo_index = value_to_index_[value_index];
-    if (memo_index < 0) {
+    if (memo_index == kKeyNotFound) {
       memo_index = static_cast<int32_t>(index_to_value_.size());
       index_to_value_.push_back(value);
       value_to_index_[value_index] = memo_index;
-      assert(memo_index < cardinality);
+      assert(memo_index < cardinality + 1);
       on_not_found(memo_index);
     } else {
       on_found(memo_index);
@@ -475,6 +497,25 @@ class SmallScalarMemoTable : public MemoTable {
 
   int32_t GetOrInsert(const Scalar value) {
     return GetOrInsert(value, [](int32_t i) {}, [](int32_t i) {});
+  }
+
+  int32_t GetNull() const { return value_to_index_[cardinality]; }
+
+  template <typename Func1, typename Func2>
+  int32_t GetOrInsertNull(Func1&& on_found, Func2&& on_not_found) {
+    auto memo_index = GetNull();
+    if (memo_index == kKeyNotFound) {
+      memo_index = value_to_index_[cardinality] = size();
+      index_to_value_.push_back(0);
+      on_not_found(memo_index);
+    } else {
+      on_found(memo_index);
+    }
+    return memo_index;
+  }
+
+  int32_t GetOrInsertNull() {
+    return GetOrInsertNull([](int32_t i) {}, [](int32_t i) {});
   }
 
   // The number of entries in the memo table
@@ -501,7 +542,8 @@ class SmallScalarMemoTable : public MemoTable {
     return SmallScalarTraits<Scalar>::AsIndex(value);
   }
 
-  int32_t value_to_index_[cardinality];
+  // The last index is reserved for the null element.
+  int32_t value_to_index_[cardinality + 1];
   std::vector<Scalar> index_to_value_;
 };
 
@@ -527,7 +569,7 @@ class BinaryMemoTable : public MemoTable {
     if (p.second) {
       return p.first->payload.memo_index;
     } else {
-      return -1;
+      return kKeyNotFound;
     }
   }
 
@@ -584,9 +626,33 @@ class BinaryMemoTable : public MemoTable {
     return GetOrInsert(value.data(), static_cast<int32_t>(value.length()));
   }
 
+  int32_t GetNull() const { return null_index_; }
+
+  template <typename Func1, typename Func2>
+  int32_t GetOrInsertNull(Func1&& on_found, Func2&& on_not_found) {
+    auto memo_index = GetNull();
+    if (memo_index == kKeyNotFound) {
+      memo_index = null_index_ = size();
+      auto offset = static_cast<int32_t>(values_.size());
+      // Only the offset array needs to be updated.
+      offsets_.push_back(offset);
+
+      on_not_found(memo_index);
+    } else {
+      on_found(memo_index);
+    }
+    return memo_index;
+  }
+
+  int32_t GetOrInsertNull() {
+    return GetOrInsertNull([](int32_t i) {}, [](int32_t i) {});
+  }
+
   // The number of entries in the memo table
   // (which is also 1 + the largest memo index)
-  int32_t size() const override { return static_cast<int32_t>(hash_table_.size()); }
+  int32_t size() const override {
+    return static_cast<int32_t>(hash_table_.size() + (GetNull() != kKeyNotFound));
+  }
 
   int32_t values_size() const { return static_cast<int32_t>(values_.size()); }
 
@@ -632,6 +698,47 @@ class BinaryMemoTable : public MemoTable {
     CopyValues(0, out_size, out_data);
   }
 
+  void CopyFixedWidthValues(int32_t start, int32_t width_size, int64_t out_size,
+                            uint8_t* out_data) const {
+    // This method exists to cope with the fact that the BinaryMemoTable does
+    // not know the fixed width when inserting the null value. The data
+    // buffer hold a zero length string for the null value (if found).
+    //
+    // Thus, the method will properly inject an empty value of the proper width
+    // in the output buffer.
+
+    int32_t null_index = GetNull();
+    if (null_index < start) {
+      // Nothing to skip, proceed as usual.
+      CopyValues(start, out_size, out_data);
+      return;
+    }
+
+    int32_t left_offset = offsets_[start];
+
+    // Ensure that the data_length is exactly missing width_size bytes to fit
+    // in the expected output (n_values * width_size).
+    int64_t data_length = values_.size() - static_cast<size_t>(left_offset);
+    assert(data_length + width_size == out_size);
+
+    auto in_data = values_.data() + left_offset;
+    // The null use 0-length in the data, slice the data in 2 and skip by
+    // width_size in out_data. [part_1][width_size][part_2]
+    auto null_data_offset = offsets_[null_index];
+    auto left_size = null_data_offset - left_offset;
+    if (left_size > 0) {
+      memcpy(out_data, in_data + left_offset, left_size);
+    }
+
+    auto right_size = values_.size() - static_cast<size_t>(null_data_offset);
+    if (right_size > 0) {
+      // skip the null fixed size value.
+      auto out_offset = left_size + width_size;
+      assert(out_data + out_offset + right_size == out_data + out_size);
+      memcpy(out_data + out_offset, in_data + null_data_offset, right_size);
+    }
+  }
+
   // Visit the stored values in insertion order.
   // The visitor function should have the signature `void(util::string_view)`
   // or `void(const util::string_view&)`.
@@ -654,6 +761,8 @@ class BinaryMemoTable : public MemoTable {
 
   std::vector<int32_t> offsets_;
   std::string values_;
+
+  int32_t null_index_ = kKeyNotFound;
 
   std::pair<const HashTableEntry*, bool> Lookup(hash_t h, const void* data,
                                                 int32_t length) const {
@@ -698,6 +807,25 @@ struct HashTraits<T, enable_if_fixed_size_binary<T>> {
   using MemoTableType = BinaryMemoTable;
 };
 
+template <typename MemoTableType>
+static inline Status ComputeNullBitmap(MemoryPool* pool, const MemoTableType& memo_table,
+                                       int64_t start_offset, int64_t* null_count,
+                                       std::shared_ptr<Buffer>* null_bitmap) {
+  int64_t dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
+  int64_t null_index = memo_table.GetNull();
+
+  *null_count = 0;
+  *null_bitmap = nullptr;
+
+  if (null_index != kKeyNotFound && null_index >= start_offset) {
+    null_index -= start_offset;
+    *null_count = 1;
+    RETURN_NOT_OK(internal::BitmapAllButOne(pool, dict_length, null_index, null_bitmap));
+  }
+
+  return Status::OK();
+}
+
 template <typename T, typename Enable = void>
 struct DictionaryTraits {};
 
@@ -711,15 +839,23 @@ struct DictionaryTraits<BooleanType> {
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
                                        std::shared_ptr<ArrayData>* out) {
+    if (start_offset < 0) {
+      return Status::Invalid("invalid start_offset ", start_offset);
+    }
+
     BooleanBuilder builder(pool);
     const auto& bool_values = memo_table.values();
-    auto it = bool_values.begin() + start_offset;
-    for (; it != bool_values.end(); ++it) {
-      RETURN_NOT_OK(builder.Append(*it));
+    const auto null_index = memo_table.GetNull();
+
+    // Will iterate up to 3 times.
+    for (int64_t i = start_offset; i < memo_table.size(); i++) {
+      RETURN_NOT_OK(i == null_index ? builder.AppendNull()
+                                    : builder.Append(bool_values[i]));
     }
+
     return builder.FinishInternal(out);
   }
-};
+};  // namespace internal
 
 template <typename T>
 struct DictionaryTraits<T, enable_if_has_c_type<T>> {
@@ -741,7 +877,13 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
         AllocateBuffer(pool, TypeTraits<T>::bytes_required(dict_length), &dict_buffer));
     memo_table.CopyValues(static_cast<int32_t>(start_offset),
                           reinterpret_cast<c_type*>(dict_buffer->mutable_data()));
-    *out = ArrayData::Make(type, dict_length, {nullptr, dict_buffer}, 0 /* null_count */);
+
+    int64_t null_count = 0;
+    std::shared_ptr<Buffer> null_bitmap = nullptr;
+    RETURN_NOT_OK(
+        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
+
+    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_buffer}, null_count);
     return Status::OK();
   }
 };
@@ -771,8 +913,14 @@ struct DictionaryTraits<T, enable_if_binary<T>> {
     memo_table.CopyValues(static_cast<int32_t>(start_offset), dict_data->size(),
                           dict_data->mutable_data());
 
-    *out = ArrayData::Make(type, dict_length, {nullptr, dict_offsets, dict_data},
-                           0 /* null_count */);
+    int64_t null_count = 0;
+    std::shared_ptr<Buffer> null_bitmap = nullptr;
+    RETURN_NOT_OK(
+        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
+
+    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_offsets, dict_data},
+                           null_count);
+
     return Status::OK();
   }
 };
@@ -791,17 +939,23 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
 
     // Create the data buffer
     auto dict_length = static_cast<int64_t>(memo_table.size() - start_offset);
-    auto data_length = dict_length * concrete_type.byte_width();
+    auto width_length = concrete_type.byte_width();
+    auto data_length = dict_length * width_length;
     RETURN_NOT_OK(AllocateBuffer(pool, data_length, &dict_data));
-    memo_table.CopyValues(static_cast<int32_t>(start_offset), data_length,
-                          dict_data->mutable_data());
+    auto data = dict_data->mutable_data();
 
-    *out = ArrayData::Make(type, dict_length, {nullptr, dict_data}, 0 /* null_count */);
+    memo_table.CopyFixedWidthValues(static_cast<int32_t>(start_offset), width_length,
+                                    data_length, data);
+
+    int64_t null_count = 0;
+    std::shared_ptr<Buffer> null_bitmap = nullptr;
+    RETURN_NOT_OK(
+        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
+
+    *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_data}, null_count);
     return Status::OK();
   }
 };
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_HASHING_H

@@ -81,6 +81,7 @@ cdef class ReadOptions:
     def block_size(self, value):
         self.options.block_size = value
 
+
 cdef class ParseOptions:
     """
     Options for parsing JSON files.
@@ -160,9 +161,9 @@ def read_json(input_file, read_options=None, parse_options=None,
     ----------
     input_file: string, path or file-like object
         The location of JSON data.
-    read_options: ReadOptions, optional
+    read_options: pyarrow.json.ReadOptions, optional
         Options for the JSON reader (see ReadOptions constructor for defaults)
-    parse_options: ParseOptions, optional
+    parse_options: pyarrow.json.ParseOptions, optional
         Options for the JSON parser
         (see ParseOptions constructor for defaults)
     memory_pool: MemoryPool, optional
