@@ -14,7 +14,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 #ifndef ARROW_UTIL_BIT_UTIL_H
 #define ARROW_UTIL_BIT_UTIL_H
 
@@ -871,6 +870,12 @@ Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
 ARROW_EXPORT
 void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out);
+
+/// \brief Generate Bitmap with all position to `value` except for one found
+/// at `straggler_pos`.
+ARROW_EXPORT
+Status BitmapAllButOne(MemoryPool* pool, int64_t length, int64_t straggler_pos,
+                       std::shared_ptr<Buffer>* output, bool value = true);
 
 /// \brief Store a stack of bitsets efficiently. The top bitset may be
 /// accessed and its bits may be modified, but it may not be resized.

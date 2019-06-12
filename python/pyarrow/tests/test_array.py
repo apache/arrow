@@ -713,7 +713,7 @@ def test_unique_simple():
     cases = [
         (pa.array([1, 2, 3, 1, 2, 3]), pa.array([1, 2, 3])),
         (pa.array(['foo', None, 'bar', 'foo']),
-         pa.array(['foo', 'bar']))
+         pa.array(['foo', None, 'bar']))
     ]
     for arr, expected in cases:
         result = arr.unique()
