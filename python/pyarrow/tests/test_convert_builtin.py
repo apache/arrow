@@ -488,6 +488,17 @@ def test_ndarray_nested_numpy_double(from_pandas, inner_seq):
                                 [[1., 2.], [1., 2., 3.], [np.nan], None])
 
 
+def test_array_ignore_nan_from_pandas():
+    # See ARROW-4324, this reverts logic that was introduced in
+    # ARROW-2240
+    with pytest.raises(ValueError):
+        pa.array([np.nan, 'str'])
+
+    arr = pa.array([np.nan, 'str'], from_pandas=True)
+    expected = pa.array([None, 'str'])
+    assert arr.equals(expected)
+
+
 def test_nested_ndarray_different_dtypes():
     data = [
         np.array([1, 2, 3], dtype='int64'),
