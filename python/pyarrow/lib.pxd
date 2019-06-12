@@ -53,8 +53,9 @@ cdef class DataType:
         shared_ptr[CDataType] sp_type
         CDataType* type
         bytes pep3118_format
+        object __weakref__
 
-    cdef void init(self, const shared_ptr[CDataType]& type)
+    cdef void init(self, const shared_ptr[CDataType]& type) except *
     cdef Field child(self, int i)
 
 
@@ -104,6 +105,16 @@ cdef class FixedSizeBinaryType(DataType):
 cdef class Decimal128Type(FixedSizeBinaryType):
     cdef:
         const CDecimal128Type* decimal128_type
+
+
+cdef class BaseExtensionType(DataType):
+    cdef:
+        const CExtensionType* ext_type
+
+
+cdef class ExtensionType(BaseExtensionType):
+    cdef:
+        const CPyExtensionType* cpy_ext_type
 
 
 cdef class Field:
@@ -199,11 +210,12 @@ cdef class Array(_PandasConvertible):
     cdef:
         shared_ptr[CArray] sp_array
         CArray* ap
+        object __weakref__
 
     cdef readonly:
         DataType type
 
-    cdef void init(self, const shared_ptr[CArray]& sp_array)
+    cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
 
@@ -314,6 +326,10 @@ cdef class BinaryArray(Array):
 cdef class DictionaryArray(Array):
     cdef:
         object _indices, _dictionary
+
+
+cdef class ExtensionArray(Array):
+    pass
 
 
 cdef wrap_array_output(PyObject* output)

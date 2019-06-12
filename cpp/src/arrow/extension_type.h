@@ -85,6 +85,8 @@ class ARROW_EXPORT ExtensionType : public DataType {
 class ARROW_EXPORT ExtensionArray : public Array {
  public:
   explicit ExtensionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+  ExtensionArray(const std::shared_ptr<DataType>& type,
+                 const std::shared_ptr<Array>& storage);
 
   /// \brief The physical storage for the extension array
   std::shared_ptr<Array> storage() const { return storage_; }
