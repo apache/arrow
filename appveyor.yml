@@ -138,7 +138,8 @@ for:
   install:
     - pushd r
     - ps: Bootstrap
-    - popd
+    # No need to popd because Bootstrap changes directory?
+    #- popd
     - python ci\detect-changes.py > generated_changes.bat
     # Populate ARROW_CI_* variables
     - call generated_changes.bat
