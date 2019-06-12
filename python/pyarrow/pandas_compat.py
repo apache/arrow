@@ -374,6 +374,7 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     # all_names : all of the columns in the resulting table including the data
     # columns and serialized index columns
     # column_names : the names of the data columns
+    # index_column_names : the names of the serialized index columns
     # index_descriptors : descriptions of each index to be used for
     # reconstruction
     # index_levels : the extracted index level values
