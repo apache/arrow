@@ -54,7 +54,7 @@ def read_flight_resource(path):
     except FileNotFoundError as e:
         raise RuntimeError(
             "Test resource {} not found; did you initialize the "
-            "test resource submodule?".format(path)) from e
+            "test resource submodule?".format(root / path)) from e
 
 
 def example_tls_certs():
@@ -315,6 +315,17 @@ def flight_server(server_base, *args, **kwargs):
     thread = threading.Thread(target=_server_thread, daemon=True)
     thread.start()
 
+    # Wait for server to start
+    client = flight.FlightClient.connect(location)
+    while True:
+        try:
+            list(client.list_flights())
+        except Exception as e:
+            if 'Connect Failed' in str(e):
+                time.sleep(0.025)
+                continue
+            break
+
     yield location
 
     server_instance.shutdown()
@@ -521,7 +532,22 @@ def test_location_invalid():
         server.run("%")
 
 
-def test_tls():
+@pytest.mark.slow
+def test_tls_fails():
+    """Make sure clients cannot connect when cert verification fails."""
+    certs = example_tls_certs()
+
+    with flight_server(
+            ConstantFlightServer, tls_certificates=certs["certificates"]
+    ) as server_location:
+        # Ensure client doesn't connect when certificate verification
+        # fails (this is a slow test since gRPC does retry a few times)
+        client = flight.FlightClient.connect(server_location)
+        with pytest.raises(pa.ArrowIOError, match="Connect Failed"):
+            client.do_get(flight.Ticket(b'ints'))
+
+
+def test_tls_do_get():
     """Try a simple do_get call over TLS."""
     table = simple_ints_table()
     certs = example_tls_certs()
@@ -529,14 +555,6 @@ def test_tls():
     with flight_server(
             ConstantFlightServer, tls_certificates=certs["certificates"]
     ) as server_location:
-        # Ensure client doesn't connect when certificate verification
-        # fails; set a timeout to prevent it from retrying for a long
-        # time
-        options = flight.FlightCallOptions(timeout=0.5)
-        client = flight.FlightClient.connect(server_location)
-        with pytest.raises(pa.ArrowIOError, match="Deadline Exceeded"):
-            client.do_get(flight.Ticket(b'ints'), options=options)
-
         client = flight.FlightClient.connect(
             server_location, tls_root_certs=certs["root_cert"])
         data = client.do_get(flight.Ticket(b'ints')).read_all()

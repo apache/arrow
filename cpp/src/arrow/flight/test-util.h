@@ -86,6 +86,10 @@ class ARROW_FLIGHT_EXPORT InProcessTestServer {
   std::thread thread_;
 };
 
+/// \brief Create a simple Flight server for testing
+ARROW_FLIGHT_EXPORT
+std::unique_ptr<FlightServerBase> ExampleTestServer();
+
 // ----------------------------------------------------------------------
 // A RecordBatchReader for serving a sequence of in-memory record batches
 

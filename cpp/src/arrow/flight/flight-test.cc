@@ -176,29 +176,22 @@ TEST(TestFlight, ConnectUri) {
 
 class TestFlightClient : public ::testing::Test {
  public:
-  // Uncomment these when you want to run the server separately for
-  // debugging/valgrind/gdb
-
-  // void SetUp() {
-  //   port_ = 92358;
-  //   ASSERT_OK(ConnectClient());
-  // }
-  // void TearDown() {}
-
   void SetUp() {
-    server_.reset(new TestServer("flight-test-server"));
-    server_->Start();
-    port_ = server_->port();
+    Location location;
+    std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
+    FlightServerOptions options(location);
+    ASSERT_OK(server->Init(options));
+
+    server_.reset(new InProcessTestServer(std::move(server), location));
+    ASSERT_OK(server_->Start());
     ASSERT_OK(ConnectClient());
   }
 
   void TearDown() { server_->Stop(); }
 
-  Status ConnectClient() {
-    Location location;
-    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", port_, &location));
-    return FlightClient::Connect(location, &client_);
-  }
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
 
   template <typename EndpointCheckFunc>
   void CheckDoGet(const FlightDescriptor& descr, const BatchVector& expected_batches,
@@ -236,7 +229,7 @@ class TestFlightClient : public ::testing::Test {
  protected:
   int port_;
   std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<TestServer> server_;
+  std::unique_ptr<InProcessTestServer> server_;
 };
 
 class AuthTestServer : public FlightServerBase {
