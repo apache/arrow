@@ -176,6 +176,3 @@ test: off
 
 after_build:
   - if "%USE_CLCACHE%" == "true" clcache -s
-
-matrix:
-  fast_finish: true
