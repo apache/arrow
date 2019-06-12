@@ -55,7 +55,12 @@ std::vector<Decimal128> TestDecimal::MakeDecimalVector(std::vector<std::string> 
     DCHECK_OK(status);
 
     Decimal128 scaled_value;
-    status = str_value.Rescale(str_scale, scale, &scaled_value);
+    if (str_scale == scale) {
+      scaled_value = str_value;
+    } else {
+      status = str_value.Rescale(str_scale, scale, &scaled_value);
+      DCHECK_OK(status);
+    }
     ret.push_back(scaled_value);
   }
   return ret;
@@ -295,6 +300,184 @@ TEST_F(TestDecimal, TestCompare) {
                             outputs[4]);  // greater_than
   EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, false, true, false}),
                             outputs[5]);  // greater_than_or_equal_to
+}
+
+TEST_F(TestDecimal, TestRoundFunctions) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 2;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field_a = field("a", decimal_type);
+  auto schema = arrow::schema({field_a});
+
+  auto scale_1 = TreeExprBuilder::MakeLiteral(1);
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("abs", {field_a}, field("abs_ceil", decimal_type)),
+      TreeExprBuilder::MakeExpression("ceil", {field_a},
+                                      field("res_ceil", arrow::decimal(precision, 0))),
+      TreeExprBuilder::MakeExpression("floor", {field_a},
+                                      field("res_floor", arrow::decimal(precision, 0))),
+      TreeExprBuilder::MakeExpression("round", {field_a},
+                                      field("res_round", arrow::decimal(precision, 0))),
+      TreeExprBuilder::MakeExpression(
+          "truncate", {field_a}, field("res_truncate", arrow::decimal(precision, 0))),
+
+      TreeExprBuilder::MakeExpression(
+          TreeExprBuilder::MakeFunction("round",
+                                        {TreeExprBuilder::MakeField(field_a), scale_1},
+                                        arrow::decimal(precision, 1)),
+          field("res_round_3", arrow::decimal(precision, 1))),
+
+      TreeExprBuilder::MakeExpression(
+          TreeExprBuilder::MakeFunction("truncate",
+                                        {TreeExprBuilder::MakeField(field_a), scale_1},
+                                        arrow::decimal(precision, 1)),
+          field("res_truncate_3", arrow::decimal(precision, 1))),
+  };
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto validity = {true, true, true, true};
+  auto array_a = MakeArrowArrayDecimal(
+      decimal_type, MakeDecimalVector({"1.23", "1.58", "-1.23", "-1.58"}, scale),
+      validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+
+  // abs(x)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(decimal_type,
+                            MakeDecimalVector({"1.23", "1.58", "1.23", "1.58"}, scale),
+                            validity),
+      outputs[0]);
+
+  // ceil(x)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(arrow::decimal(precision, 0),
+                            MakeDecimalVector({"2", "2", "-1", "-1"}, 0), validity),
+      outputs[1]);
+
+  // floor(x)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(arrow::decimal(precision, 0),
+                            MakeDecimalVector({"1", "1", "-2", "-2"}, 0), validity),
+      outputs[2]);
+
+  // round(x)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(arrow::decimal(precision, 0),
+                            MakeDecimalVector({"1", "2", "-1", "-2"}, 0), validity),
+      outputs[3]);
+
+  // truncate(x)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(arrow::decimal(precision, 0),
+                            MakeDecimalVector({"1", "1", "-1", "-1"}, 0), validity),
+      outputs[4]);
+
+  // round(x, 1)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(arrow::decimal(precision, 1),
+                            MakeDecimalVector({"1.2", "1.6", "-1.2", "-1.6"}, 1),
+                            validity),
+      outputs[5]);
+
+  // truncate(x, 1)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(arrow::decimal(precision, 1),
+                            MakeDecimalVector({"1.2", "1.5", "-1.2", "-1.5"}, 1),
+                            validity),
+      outputs[6]);
+}
+
+TEST_F(TestDecimal, TestCastFunctions) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 2;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto decimal_type_scale_1 = std::make_shared<arrow::Decimal128Type>(precision, 1);
+  auto field_int64 = field("intt64", arrow::int64());
+  auto field_float64 = field("float64", arrow::float64());
+  auto field_dec = field("dec", decimal_type);
+  auto schema = arrow::schema({field_int64, field_float64, field_dec});
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("castDECIMAL", {field_int64},
+                                      field("int64_to_dec", decimal_type)),
+      TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64},
+                                      field("float64_to_dec", decimal_type)),
+      TreeExprBuilder::MakeExpression("castDECIMAL", {field_dec},
+                                      field("dec_to_dec", decimal_type_scale_1)),
+      TreeExprBuilder::MakeExpression("castBIGINT", {field_dec},
+                                      field("dec_to_int64", arrow::int64())),
+      TreeExprBuilder::MakeExpression("castFLOAT8", {field_dec},
+                                      field("dec_to_float64", arrow::float64())),
+  };
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto validity = {true, true, true, true};
+
+  auto array_int64 = MakeArrowArrayInt64({123, 158, -123, -158});
+  auto array_float64 = MakeArrowArrayFloat64({1.23, 1.58, -1.23, -1.58});
+  auto array_dec = MakeArrowArrayDecimal(
+      decimal_type, MakeDecimalVector({"1.23", "1.58", "-1.23", "-1.58"}, scale),
+      validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
+                                           {array_int64, array_float64, array_dec});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+
+  // castDECIMAL(int64)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(decimal_type,
+                            MakeDecimalVector({"123", "158", "-123", "-158"}, scale),
+                            validity),
+      outputs[0]);
+
+  // castDECIMAL(float64)
+  EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[1]);
+
+  // castDECIMAL(decimal)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(arrow::decimal(precision, 1),
+                            MakeDecimalVector({"1.2", "1.6", "-1.2", "-1.6"}, 1),
+                            validity),
+      outputs[2]);
+
+  // castBIGINT(decimal)
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayInt64({1, 1, -1, -1}), outputs[3]);
+
+  // castDOUBLE(decimal)
+  EXPECT_ARROW_ARRAY_EQUALS(array_float64, outputs[4]);
 }
 
 }  // namespace gandiva
