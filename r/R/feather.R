@@ -169,7 +169,7 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
 read_feather <- function(file, columns = NULL, as_tibble = TRUE, use_threads = TRUE, ...){
   out <- FeatherTableReader(file, ...)$Read(columns)
   if (isTRUE(as_tibble)) {
-    out <- as_tibble(out, use_threads = use_threads)
+    out <- as.data.frame(out, use_threads = use_threads)
   }
   out
 }

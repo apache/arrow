@@ -72,7 +72,8 @@ test_that("feather handles columns = <names>", {
   tab1 <- read_feather(tf1, columns = c("x", "y"))
   expect_is(tab1, "data.frame")
 
-  expect_equal(tib[, c("x", "y")], as_tibble(tab1))
+  expect_equal(tib$x, tab1$x)
+  expect_equal(tib$y, tab1$y)
 
   unlink(tf1)
 })
@@ -87,7 +88,8 @@ test_that("feather handles columns = <integer>", {
   tab1 <- read_feather(tf1, columns = 1:2)
   expect_is(tab1, "data.frame")
 
-  expect_equal(tib[, c("x", "y")], as_tibble(tab1))
+  expect_equal(tib$x, tab1$x)
+  expect_equal(tib$y, tab1$y)
   unlink(tf1)
 })
 
@@ -101,7 +103,7 @@ test_that("feather read/write round trip", {
   tab1 <- read_feather(tf1, as_tibble = FALSE)
   expect_is(tab1, "arrow::Table")
 
-  expect_equal(tib, as_tibble(tab1))
+  expect_equal(tib, as.data.frame(tab1))
   unlink(tf1)
 })
 

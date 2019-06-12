@@ -21,9 +21,9 @@ Encoding: UTF-8
 LazyData: true
 SystemRequirements: C++11
 LinkingTo:
-    Rcpp (>= 1.0.0)
+    Rcpp (>= 1.0.1)
 Imports:
-    Rcpp (>= 1.0.0),
+    Rcpp (>= 1.0.1),
     rlang,
     purrr,
     assertthat,
@@ -31,12 +31,12 @@ Imports:
     R6,
     vctrs (>= 0.1.0),
     fs,
-    tibble,
     crayon,
     bit64
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
+    tibble,
     covr,
     pkgdown,
     rmarkdown,
@@ -74,6 +74,5 @@ Collate:
     'read_record_batch.R'
     'read_table.R'
     'reexports-bit64.R'
-    'reexports-tibble.R'
     'write_arrow.R'
     'zzz.R'

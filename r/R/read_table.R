@@ -86,5 +86,5 @@ read_table.fs_path <- function(stream) {
 #' @rdname read_table
 #' @export
 read_arrow <- function(stream, use_threads = TRUE){
-  as_tibble(read_table(stream))
+  as.data.frame(read_table(stream))
 }

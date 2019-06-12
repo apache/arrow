@@ -26,7 +26,7 @@ test_that("reading a known Parquet file to tibble", {
   # TODO: assert more about the contents
 })
 
-test_that("as_tibble with and without threads", {
+test_that("as.data.frame with and without threads", {
   expect_identical(
     read_parquet(pq_file),
     read_parquet(pq_file, use_threads = FALSE)

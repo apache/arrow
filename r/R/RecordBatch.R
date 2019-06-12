@@ -85,7 +85,7 @@
 }
 
 #' @export
-`as_tibble.arrow::RecordBatch` <- function(x, use_threads = TRUE, ...){
+`as.data.frame.arrow::RecordBatch` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
   RecordBatch__to_dataframe(x, use_threads = use_threads)
 }
 

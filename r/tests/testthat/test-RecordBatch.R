@@ -75,13 +75,13 @@ test_that("RecordBatch", {
     schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int32(), array(letters[1:10])))
   )
   expect_equal(batch2$column(0), batch$column(1))
-  expect_identical(as_tibble(batch2), tbl[,-1])
+  expect_identical(as.data.frame(batch2), tbl[,-1])
 
   batch3 <- batch$Slice(5)
-  expect_identical(as_tibble(batch3), tbl[6:10,])
+  expect_identical(as.data.frame(batch3), tbl[6:10,])
 
   batch4 <- batch$Slice(5, 2)
-  expect_identical(as_tibble(batch4), tbl[6:7,])
+  expect_identical(as.data.frame(batch4), tbl[6:7,])
 })
 
 test_that("RecordBatch with 0 rows are supported", {
