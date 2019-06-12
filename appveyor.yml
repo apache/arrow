@@ -139,6 +139,11 @@ for:
     - pushd r
     - ps: Bootstrap
     - popd
+    - python ci\detect-changes.py > generated_changes.bat
+    # Populate ARROW_CI_* variables
+    - call generated_changes.bat
+    # Decide to exit if current job doesn't exercise affected topics
+    - call ci\appveyor-filter-changes.bat
 
   # Adapt as necessary starting from here
 
