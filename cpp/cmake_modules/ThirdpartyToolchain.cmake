@@ -36,7 +36,6 @@ endif()
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
-# ARROW-5564(wesm): add uriparser when it is available on conda-forge
 set(ARROW_THIRDPARTY_DEPENDENCIES
     benchmark
     BOOST
@@ -56,6 +55,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     RapidJSON
     Snappy
     Thrift
+    uriparser
     ZLIB
     ZSTD)
 
@@ -591,13 +591,14 @@ endmacro()
 
 if(ARROW_WITH_URIPARSER)
   macro(bundle_uriparser)
-    # If we fail to find uriparser in the system, the build from source
     set(uriparser_SOURCE "BUNDLED")
     resolve_dependency(uriparser)
   endmacro()
 
-  if("${uriparser_SOURCE}" STREQUAL "AUTO")
-    pkg_check_modules(URIPARSER_PC liburiparser)
+  # If we fail to find a suitably recent uriparser in the system,
+  # build it from source
+  if(NOT ("${uriparser_SOURCE}" STREQUAL "BUNDLED"))
+    pkg_check_modules(URIPARSER_PC "liburiparser >= 0.9.0")
     if(URIPARSER_PC_FOUND)
       set(URIPARSER_INCLUDE_DIR "${URIPARSER_PC_INCLUDEDIR}")
       list(APPEND URIPARSER_PC_LIBRARY_DIRS "${URIPARSER_PC_LIBDIR}")
