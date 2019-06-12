@@ -612,6 +612,22 @@ io___FixedSizeBufferWriter__initialize <- function(buffer){
     .Call(`_arrow_io___FixedSizeBufferWriter__initialize` , buffer)
 }
 
+json___ReadOptions__initialize <- function(options){
+    .Call(`_arrow_json___ReadOptions__initialize` , options)
+}
+
+json___ParseOptions__initialize <- function(options){
+    .Call(`_arrow_json___ParseOptions__initialize` , options)
+}
+
+json___TableReader__Make <- function(input, read_options, parse_options){
+    .Call(`_arrow_json___TableReader__Make` , input, read_options, parse_options)
+}
+
+json___TableReader__Read <- function(table_reader){
+    .Call(`_arrow_json___TableReader__Read` , table_reader)
+}
+
 MemoryPool__default <- function(){
     .Call(`_arrow_MemoryPool__default` )
 }

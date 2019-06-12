@@ -16,13 +16,14 @@
 // under the License.
 
 #include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/json/reader.h>
 
 using Rcpp::CharacterVector;
 using Rcpp::List_;
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(List_ options) {
   auto res =
       std::make_shared<arrow::json::ReadOptions>(arrow::json::ReadOptions::Defaults());
@@ -31,7 +32,7 @@ std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(List_ o
   return res;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize(
     List_ options) {
   auto res =
@@ -40,7 +41,7 @@ std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize(
   return res;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::json::ReadOptions>& read_options,
@@ -51,10 +52,12 @@ std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(
   return table_reader;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> json___TableReader__Read(
     const std::shared_ptr<arrow::json::TableReader>& table_reader) {
   std::shared_ptr<arrow::Table> table;
   STOP_IF_NOT_OK(table_reader->Read(&table));
   return table;
 }
+
+#endif
