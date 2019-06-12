@@ -601,9 +601,9 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc_static)
-  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc)
+  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc::liborc)
 endif()
 
 if(ARROW_USE_GLOG)
