@@ -1,13 +1,19 @@
+STOP! Are you reporting a bug, or something that seems bug-like? If
+so, please report under the ARROW project on the ASF JIRA server
+https://issues.apache.org/jira.
+
 ## GitHub Issues for Apache Arrow
 
-We support GitHub issues as a lightweight way to ask questions and engage with
-the Arrow developer community. We use the Apache Software Foundation's JIRA
-instance for maintaining a queue of development work and as the public record
-for work on the project. So, feel free to delete this text and open an issue
-here if you have a question or aren't sure whether something is a bug or
-feature request. Any bugs, suggestions, or feature requests will eventually
-need to end up in JIRA (https://issues.apache.org/jira/browse/ARROW),
-either before or after completing a pull request.
+We support GitHub issues as a way for new contributors and passers-by
+to ask questions and engage with the Arrow developer community. We use
+the Apache Software Foundation's JIRA instance for maintaining a queue
+of development work and as the public record for work on the
+project. So, feel free to delete this text and open an issue here if
+you have a question or aren't sure whether something is a bug or
+feature request. Any bugs, suggestions, or feature requests will
+eventually need to end up in JIRA
+(https://issues.apache.org/jira/browse/ARROW), either before or after
+completing a pull request.
 
 See our contribution guidelines for more information: http://arrow.apache.org/docs/developers/contributing.html
 
