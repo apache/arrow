@@ -317,7 +317,7 @@ test_that("integer types casts (ARROW-3741)", {
 })
 
 test_that("integer types cast safety (ARROW-3741, ARROW-5541)", {
-  a <- arrow_array(-(1:10)) a <- array(-(1:10))
+  a <- arrow_array(-(1:10))
   expect_error(a$cast(uint8()), regexp = "Integer value out of bounds")
   expect_error(a$cast(uint16()), regexp = "Integer value out of bounds")
   expect_error(a$cast(uint32()), regexp = "Integer value out of bounds")
