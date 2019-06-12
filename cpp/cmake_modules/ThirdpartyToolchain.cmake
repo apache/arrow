@@ -36,7 +36,7 @@ endif()
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
-# TODO: add uriparser here when it gets a conda package
+# ARROW-5564(wesm): add uriparser when it is available on conda-forge
 set(ARROW_THIRDPARTY_DEPENDENCIES
     benchmark
     BOOST
@@ -590,12 +590,34 @@ macro(build_uriparser)
 endmacro()
 
 if(ARROW_WITH_URIPARSER)
-  # Unless the user overrides uriparser_SOURCE, build uriparser ourselves
-  if("${uriparser_SOURCE}" STREQUAL "")
+  macro(bundle_uriparser)
+    # If we fail to find uriparser in the system, the build from source
     set(uriparser_SOURCE "BUNDLED")
-  endif()
+    resolve_dependency(uriparser)
+  endmacro()
 
-  resolve_dependency(uriparser)
+  if("${uriparser_SOURCE}" STREQUAL "AUTO")
+    pkg_check_modules(URIPARSER_PC liburiparser)
+    if(URIPARSER_PC_FOUND)
+      set(URIPARSER_INCLUDE_DIR "${URIPARSER_PC_INCLUDEDIR}")
+      list(APPEND URIPARSER_PC_LIBRARY_DIRS "${URIPARSER_PC_LIBDIR}")
+      find_library(URIPARSER_LIB uriparser
+                   PATHS ${URIPARSER_PC_LIBRARY_DIRS}
+                   NO_DEFAULT_PATH
+                   PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+      add_library(uriparser::uriparser STATIC IMPORTED)
+      set_target_properties(uriparser::uriparser
+                            PROPERTIES IMPORTED_LOCATION ${URIPARSER_LIB}
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       ${URIPARSER_PC_INCLUDEDIR}
+                                       # URI_STATIC_BUILD required on Windows
+                                       INTERFACE_COMPILE_DEFINITIONS "URI_NO_UNICODE")
+    else()
+      bundle_uriparser()
+    endif()
+  else()
+    bundle_uriparser()
+  endif()
 
   get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
                       INTERFACE_INCLUDE_DIRECTORIES)
