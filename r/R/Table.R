@@ -67,7 +67,7 @@ table <- function(..., schema = NULL){
 
 #' @export
 `as.data.frame.arrow::Table` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
-  Table__to_dataframe(x, use_threads = use_threads)
+  Table__to_dataframe(x, use_threads = option_use_threads())
 }
 
 #' @export

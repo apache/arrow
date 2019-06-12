@@ -37,7 +37,7 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
     tab1$schema,
     schema(hello = float64(), world = boolean(), yo = utf8())
   )
-  tib <- as_tibble(tab1)
+  tib <- as.data.frame(tab1)
   expect_equal(tib$hello, c(3.5, 3.25, 3.125, 0))
   expect_equal(tib$world, c(FALSE, NA, NA, TRUE))
   expect_equal(tib$yo, c("thing", NA, "\u5fcd", NA))
@@ -99,7 +99,7 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     )
   )
   # cannot yet test list and struct types in R api
-  # tib <- as_tibble(tab1)
+  # tib <- as.data.frame(tab1)
 
   unlink(tf)
 })

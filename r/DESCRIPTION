@@ -60,6 +60,7 @@ Collate:
     'Table.R'
     'array.R'
     'arrowExports.R'
+    'arrow-package.R'
     'buffer.R'
     'io.R'
     'compression.R'
@@ -75,4 +76,3 @@ Collate:
     'read_table.R'
     'reexports-bit64.R'
     'write_arrow.R'
-    'zzz.R'

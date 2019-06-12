@@ -25,10 +25,3 @@ test_that("reading a known Parquet file to tibble", {
   expect_identical(dim(df), c(10L, 11L))
   # TODO: assert more about the contents
 })
-
-test_that("as.data.frame with and without threads", {
-  expect_identical(
-    read_parquet(pq_file),
-    read_parquet(pq_file, use_threads = FALSE)
-  )
-})

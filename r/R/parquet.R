@@ -23,8 +23,6 @@
 #' @param file a file path
 #' @param as_tibble Should the [arrow::Table][arrow__Table] be converted to a
 #' tibble? Default is `TRUE`.
-#' @param use_threads Use threads when converting to a tibble? Default is
-#' '`TRUE`. Only relevant if `as_tibble` is `TRUE`.
 #' @param ... Additional arguments, currently ignored
 #'
 #' @return A [arrow::Table][arrow__Table], or a `tbl_df` if `as_tibble` is
@@ -36,10 +34,10 @@
 #' }
 #'
 #' @export
-read_parquet <- function(file, as_tibble = TRUE, use_threads = TRUE, ...) {
+read_parquet <- function(file, as_tibble = TRUE, ...) {
   tab <- shared_ptr(`arrow::Table`, read_parquet_file(file))
   if (isTRUE(as_tibble)) {
-    tab <- as.data.frame(tab, use_threads = use_threads)
+    tab <- as.data.frame(tab)
   }
   tab
 }

@@ -4,8 +4,7 @@
 \alias{read_feather}
 \title{Read a feather file}
 \usage{
-read_feather(file, columns = NULL, as_tibble = TRUE,
-  use_threads = TRUE, ...)
+read_feather(file, columns = NULL, as_tibble = TRUE, ...)
 }
 \arguments{
 \item{file}{a arrow::ipc::feather::TableReader or whatever the \code{\link[=FeatherTableReader]{FeatherTableReader()}} function can handle}
@@ -13,8 +12,6 @@ read_feather(file, columns = NULL, as_tibble = TRUE,
 \item{columns}{names if the columns to read. The default \code{NULL} means all columns}
 
 \item{as_tibble}{should the \link[=arrow__Table]{arrow::Table} be converted to a tibble.}
-
-\item{use_threads}{Use threads when converting to a tibble.}
 
 \item{...}{additional parameters}
 }

@@ -60,7 +60,6 @@
 #' @param \dots Vectors to coerce
 #' @param type currently ignored
 #'
-#' @importFrom rlang list2 %||%
 #' @export
 chunked_array <- function(..., type = NULL){
   shared_ptr(`arrow::ChunkedArray`, ChunkedArray__from_list(list2(...), type))

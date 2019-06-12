@@ -86,7 +86,7 @@
 
 #' @export
 `as.data.frame.arrow::RecordBatch` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
-  RecordBatch__to_dataframe(x, use_threads = use_threads)
+  RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
 
 #' Create an [arrow::RecordBatch][arrow__RecordBatch] from a data frame

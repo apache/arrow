@@ -15,9 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @useDynLib arrow, .registration = TRUE
+#' @importFrom R6 R6Class
+#' @importFrom glue glue
+#' @importFrom purrr map map_int map2
+#' @importFrom assertthat assert_that
+#' @importFrom rlang list2 %||% is_false abort dots_n warn
 #' @importFrom Rcpp sourceCpp
-NULL
+#' @useDynLib arrow, .registration = TRUE
+#' @keywords internal
+"_PACKAGE"
 
 #' Is the C++ Arrow library available
 #'
@@ -26,3 +32,6 @@ arrow_available <- function() {
   .Call(`_arrow_available`)
 }
 
+option_use_threads <- function() {
+  !is_false(getOption("arrow.use_threads"))
+}
