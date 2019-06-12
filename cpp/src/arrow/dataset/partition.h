@@ -117,9 +117,35 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
 // ----------------------------------------------------------------------
 //
 
+// Partitioned datasets come in different forms. Here is an example of
+// a Hive-style partitioned dataset:
+//
+// dataset_root/
+//   key1=$k1_v1/
+//     key2=$k2_v1/
+//       0.parquet
+//       1.parquet
+//       2.parquet
+//       3.parquet
+//     key2=$k2_v2/
+//       0.parquet
+//       1.parquet
+//   key1=$k1_v2/
+//     key2=$k2_v1/
+//       0.parquet
+//       1.parquet
+//     key2=$k2_v2/
+//       0.parquet
+//       1.parquet
+//       2.parquet
+//
+// In this case, the dataset has 11 fragments (11 files) to be
+// scanned, or potentially more if it is configured to split Parquet
+// files at the row group level
+
 class ARROW_DS_EXPORT Partition : public DataSource {
  public:
-  DataSource::Type type() const override;
+  std::string type() const override;
 
   /// \brief The key for this partition source, may be nullptr,
   /// e.g. for the top-level partitioned source container
@@ -129,7 +155,7 @@ class ARROW_DS_EXPORT Partition : public DataSource {
       const Selector& selector) = 0;
 };
 
-/// \brief Container for a dataset partition, which consists of a
+/// \brief Simple implementation of Partition, which consists of a
 /// partition identifier, subpartitions, and some data fragments
 class ARROW_DS_EXPORT SimplePartition : public Partition {
  public:

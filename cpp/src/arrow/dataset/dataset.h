@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "arrow/dataset/type_fwd.h"
@@ -54,15 +55,9 @@ struct DataSelector {
 /// DataFragments
 class ARROW_DS_EXPORT DataSource {
  public:
-  enum Type {
-    SIMPLE,       // Flat collection
-    PARTITIONED,  // Partitioned collection
-    GENERIC       // All others
-  };
-
   virtual ~DataSource() = default;
 
-  virtual Type type() const = 0;
+  virtual std::string type() const = 0;
 
   virtual std::unique_ptr<DataFragmentIterator> GetFragments(
       const DataSelector& selector) = 0;
