@@ -224,20 +224,36 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		p.body = append(p.body, nil)
 
 	case *arrow.BooleanType:
-		data := arr.Data()
-		p.body = append(p.body, newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[1]))
+		var (
+			data = arr.Data()
+			bitm *memory.Buffer
+		)
+
+		if data.Len() != 0 {
+			bitm = newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[1])
+		}
+		p.body = append(p.body, bitm)
 
 	case arrow.FixedWidthDataType:
 		data := arr.Data()
 		values := data.Buffers()[1]
-		typeWidth := dtype.BitWidth() / 8
-		minLength := paddedLength(int64(arr.Len())*int64(typeWidth), kArrowAlignment)
+		arrLen := int64(arr.Len())
+		typeWidth := int64(dtype.BitWidth() / 8)
+		minLength := paddedLength(arrLen*typeWidth, kArrowAlignment)
 
 		switch {
 		case needTruncate(int64(data.Offset()), values, minLength):
-			panic("not implemented") // FIXME(sbinet) writer.cc:212
+			// non-zero offset: slice the buffer
+			offset := int64(data.Offset()) * typeWidth
+			// send padding if available
+			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(data.Len())-offset)
+			data = array.NewSliceData(data, offset, offset+len)
+			defer data.Release()
+			values = data.Buffers()[1]
 		default:
-			values.Retain()
+			if values != nil {
+				values.Retain()
+			}
 		}
 		p.body = append(p.body, values)
 
@@ -259,7 +275,9 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		case needTruncate(int64(data.Offset()), values, totalDataBytes):
 			panic("not implemented") // FIXME(sbinet) writer.cc:264
 		default:
-			values.Retain()
+			if values != nil {
+				values.Retain()
+			}
 		}
 		p.body = append(p.body, voffsets)
 		p.body = append(p.body, values)
@@ -282,7 +300,9 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		case needTruncate(int64(data.Offset()), values, totalDataBytes):
 			panic("not implemented") // FIXME(sbinet) writer.cc:264
 		default:
-			values.Retain()
+			if values != nil {
+				values.Retain()
+			}
 		}
 		p.body = append(p.body, voffsets)
 		p.body = append(p.body, values)
@@ -300,6 +320,44 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 
 	case *arrow.ListType:
 		arr := arr.(*array.List)
+		voffsets, err := w.getZeroBasedValueOffsets(arr)
+		if err != nil {
+			return errors.Wrapf(err, "could not retrieve zero-based value offsets for array %T", arr)
+		}
+		p.body = append(p.body, voffsets)
+
+		w.depth--
+		var (
+			values        = arr.ListValues()
+			mustRelease   = false
+			values_offset int64
+			values_length int64
+		)
+		defer func() {
+			if mustRelease {
+				values.Release()
+			}
+		}()
+
+		if voffsets != nil {
+			values_offset = int64(arr.Offsets()[0])
+			values_length = int64(arr.Offsets()[arr.Len()]) - values_offset
+		}
+
+		if len(arr.Offsets()) != 0 || values_length < int64(values.Len()) {
+			// must also slice the values
+			values = array.NewSlice(values, values_offset, values_length)
+			mustRelease = true
+		}
+		err = w.visit(p, values)
+
+		if err != nil {
+			return errors.Wrapf(err, "could not visit list element for array %T", arr)
+		}
+		w.depth++
+
+	case *arrow.FixedSizeListType:
+		arr := arr.(*array.FixedSizeList)
 		voffsets, err := w.getZeroBasedValueOffsets(arr)
 		if err != nil {
 			return errors.Wrapf(err, "could not retrieve zero-based value offsets for array %T", arr)
@@ -382,4 +440,11 @@ func needTruncate(offset int64, buf *memory.Buffer, minLength int64) bool {
 		return false
 	}
 	return offset != 0 || minLength < int64(buf.Len())
+}
+
+func minI64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
 }

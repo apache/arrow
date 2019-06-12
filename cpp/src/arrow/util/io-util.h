@@ -18,8 +18,16 @@
 #ifndef ARROW_UTIL_IO_UTIL_H
 #define ARROW_UTIL_IO_UTIL_H
 
+#ifndef _WIN32
+#define ARROW_HAVE_SIGACTION 1
+#endif
+
 #include <memory>
 #include <string>
+
+#if ARROW_HAVE_SIGACTION
+#include <signal.h>  // Needed for struct sigaction
+#endif
 
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
@@ -94,14 +102,17 @@ class ARROW_EXPORT StdinStream : public InputStream {
 
 namespace internal {
 
-class ARROW_EXPORT PlatformFilename {
- public:
+// NOTE: 8-bit path strings on Windows are encoded using UTF-8.
+// Using MBCS would fail encoding some paths.
+
 #if defined(_WIN32)
-  using NativePathString = std::wstring;
+using NativePathString = std::wstring;
 #else
-  using NativePathString = std::string;
+using NativePathString = std::string;
 #endif
 
+class ARROW_EXPORT PlatformFilename {
+ public:
   ~PlatformFilename();
   PlatformFilename();
   PlatformFilename(const PlatformFilename&);
@@ -126,6 +137,7 @@ class ARROW_EXPORT PlatformFilename {
 
   // Those functions need access to the embedded path object
   friend ARROW_EXPORT Status CreateDir(const PlatformFilename&, bool*);
+  friend ARROW_EXPORT Status CreateDirTree(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status DeleteDirTree(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status DeleteFile(const PlatformFilename&, bool*);
   friend ARROW_EXPORT Status FileExists(const PlatformFilename&, bool*);
@@ -133,6 +145,8 @@ class ARROW_EXPORT PlatformFilename {
 
 ARROW_EXPORT
 Status CreateDir(const PlatformFilename& dir_path, bool* created = NULLPTR);
+ARROW_EXPORT
+Status CreateDirTree(const PlatformFilename& dir_path, bool* created = NULLPTR);
 ARROW_EXPORT
 Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
 ARROW_EXPORT
@@ -191,6 +205,13 @@ Status DelEnvVar(const char* name);
 ARROW_EXPORT
 Status DelEnvVar(const std::string& name);
 
+ARROW_EXPORT
+std::string ErrnoMessage(int errnum);
+#if _WIN32
+ARROW_EXPORT
+std::string WinErrorMessage(int errnum);
+#endif
+
 class ARROW_EXPORT TemporaryDir {
  public:
   ~TemporaryDir();
@@ -204,6 +225,37 @@ class ARROW_EXPORT TemporaryDir {
 
   explicit TemporaryDir(PlatformFilename&&);
 };
+
+class ARROW_EXPORT SignalHandler {
+ public:
+  typedef void (*Callback)(int);
+
+  SignalHandler();
+  explicit SignalHandler(Callback cb);
+#if ARROW_HAVE_SIGACTION
+  explicit SignalHandler(const struct sigaction& sa);
+#endif
+
+  Callback callback() const;
+#if ARROW_HAVE_SIGACTION
+  const struct sigaction& action() const;
+#endif
+
+ protected:
+#if ARROW_HAVE_SIGACTION
+  // Storing the full sigaction allows to restore the entire signal handling
+  // configuration.
+  struct sigaction sa_;
+#else
+  Callback cb_;
+#endif
+};
+
+ARROW_EXPORT
+Status GetSignalHandler(int signum, SignalHandler* out);
+ARROW_EXPORT
+Status SetSignalHandler(int signum, SignalHandler handler,
+                        SignalHandler* old_handler = NULLPTR);
 
 }  // namespace internal
 }  // namespace arrow

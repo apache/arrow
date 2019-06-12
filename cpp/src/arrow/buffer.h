@@ -86,6 +86,8 @@ class ARROW_EXPORT Buffer {
     parent_ = parent;
   }
 
+  uint8_t operator[](std::size_t i) const { return data_[i]; }
+
   bool is_mutable() const { return is_mutable_; }
 
   /// \brief Construct a new std::string with a hexadecimal representation of the buffer.

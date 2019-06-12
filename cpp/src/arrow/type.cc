@@ -127,17 +127,41 @@ std::ostream& operator<<(std::ostream& os, const DataType& type) {
 
 std::string BooleanType::ToString() const { return name(); }
 
-FloatingPoint::Precision HalfFloatType::precision() const { return FloatingPoint::HALF; }
+FloatingPointType::Precision HalfFloatType::precision() const {
+  return FloatingPointType::HALF;
+}
 
-FloatingPoint::Precision FloatType::precision() const { return FloatingPoint::SINGLE; }
+FloatingPointType::Precision FloatType::precision() const {
+  return FloatingPointType::SINGLE;
+}
 
-FloatingPoint::Precision DoubleType::precision() const { return FloatingPoint::DOUBLE; }
+FloatingPointType::Precision DoubleType::precision() const {
+  return FloatingPointType::DOUBLE;
+}
 
 std::string StringType::ToString() const { return std::string("string"); }
 
 std::string ListType::ToString() const {
   std::stringstream s;
   s << "list<" << value_field()->ToString() << ">";
+  return s.str();
+}
+
+MapType::MapType(const std::shared_ptr<DataType>& key_type,
+                 const std::shared_ptr<DataType>& item_type, bool keys_sorted)
+    : ListType(struct_({std::make_shared<Field>("key", key_type, false),
+                        std::make_shared<Field>("item", item_type)})),
+      keys_sorted_(keys_sorted) {
+  id_ = type_id;
+}
+
+std::string MapType::ToString() const {
+  std::stringstream s;
+  s << "map<" << key_type()->ToString() << ", " << item_type()->ToString();
+  if (keys_sorted_) {
+    s << ", keys_sorted";
+  }
+  s << ">";
   return s.str();
 }
 
@@ -243,6 +267,14 @@ UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
                      const std::vector<uint8_t>& type_codes, UnionMode::type mode)
     : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
   children_ = fields;
+}
+
+DataTypeLayout UnionType::layout() const {
+  if (mode_ == UnionMode::SPARSE) {
+    return {{1, CHAR_BIT, DataTypeLayout::kAlwaysNullBuffer}, false};
+  } else {
+    return {{1, CHAR_BIT, sizeof(int32_t) * CHAR_BIT}, false};
+  }
 }
 
 std::string UnionType::ToString() const {
@@ -386,9 +418,15 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
       value_type_(value_type),
       ordered_(ordered) {
 #ifndef NDEBUG
-  const auto& int_type = checked_cast<const Integer&>(*index_type);
+  const auto& int_type = checked_cast<const IntegerType&>(*index_type);
   DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
 #endif
+}
+
+DataTypeLayout DictionaryType::layout() const {
+  auto layout = index_type_->layout();
+  layout.has_dictionary = true;
+  return layout;
 }
 
 std::string DictionaryType::ToString() const {
@@ -655,6 +693,12 @@ std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
 
 std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
   return std::make_shared<ListType>(value_field);
+}
+
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<DataType>& value_type,
+                              bool keys_sorted) {
+  return std::make_shared<MapType>(key_type, value_type, keys_sorted);
 }
 
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,

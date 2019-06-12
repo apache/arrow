@@ -147,6 +147,18 @@ struct Type {
   };
 };
 
+struct ARROW_EXPORT DataTypeLayout {
+  // The bit width for each buffer in this DataType's representation
+  // (kVariableSizeBuffer if the item size for a given buffer is unknown or variable,
+  //  kAlwaysNullBuffer if the buffer is always null).
+  // Child types are not included, they should be inspected separately.
+  std::vector<int64_t> bit_widths;
+  bool has_dictionary;
+
+  static constexpr int64_t kAlwaysNullBuffer = 0;
+  static constexpr int64_t kVariableSizeBuffer = -1;
+};
+
 /// \brief Base class for all data types
 ///
 /// Data types in this library are all *logical*. They can be expressed as
@@ -187,6 +199,11 @@ class ARROW_EXPORT DataType {
   /// \since 0.7.0
   virtual std::string name() const = 0;
 
+  /// \brief Return the data type layout.  Children are not included.
+  ///
+  /// \note Experimental API
+  virtual DataTypeLayout layout() const = 0;
+
   /// \brief Return the type category
   Type::type id() const { return id_; }
 
@@ -215,22 +232,22 @@ class ARROW_EXPORT PrimitiveCType : public FixedWidthType {
 };
 
 /// \brief Base class for all numeric data types
-class ARROW_EXPORT Number : public PrimitiveCType {
+class ARROW_EXPORT NumberType : public PrimitiveCType {
  public:
   using PrimitiveCType::PrimitiveCType;
 };
 
 /// \brief Base class for all integral data types
-class ARROW_EXPORT Integer : public Number {
+class ARROW_EXPORT IntegerType : public NumberType {
  public:
-  using Number::Number;
+  using NumberType::NumberType;
   virtual bool is_signed() const = 0;
 };
 
 /// \brief Base class for all floating-point data types
-class ARROW_EXPORT FloatingPoint : public Number {
+class ARROW_EXPORT FloatingPointType : public NumberType {
  public:
-  using Number::Number;
+  using NumberType::NumberType;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
 };
@@ -319,11 +336,13 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+
   std::string ToString() const override { return this->name(); }
 };
 
 template <typename DERIVED, Type::type TYPE_ID, typename C_TYPE>
-class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, Integer, TYPE_ID, C_TYPE> {
+class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, C_TYPE> {
   bool is_signed() const override { return std::is_signed<C_TYPE>::value; }
 };
 
@@ -338,6 +357,10 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 
   std::string ToString() const override;
 
+  DataTypeLayout layout() const override {
+    return {{DataTypeLayout::kAlwaysNullBuffer}, false};
+  }
+
   std::string name() const override { return "null"; }
 };
 
@@ -349,6 +372,8 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   BooleanType() : FixedWidthType(Type::BOOL) {}
 
   std::string ToString() const override;
+
+  DataTypeLayout layout() const override { return {{1, 1}, false}; }
 
   int bit_width() const override { return 1; }
   std::string name() const override { return "bool"; }
@@ -412,7 +437,8 @@ class ARROW_EXPORT Int64Type
 
 /// Concrete type class for 16-bit floating-point data
 class ARROW_EXPORT HalfFloatType
-    : public detail::CTypeImpl<HalfFloatType, FloatingPoint, Type::HALF_FLOAT, uint16_t> {
+    : public detail::CTypeImpl<HalfFloatType, FloatingPointType, Type::HALF_FLOAT,
+                               uint16_t> {
  public:
   Precision precision() const override;
   std::string name() const override { return "halffloat"; }
@@ -420,7 +446,7 @@ class ARROW_EXPORT HalfFloatType
 
 /// Concrete type class for 32-bit floating-point data (C "float")
 class ARROW_EXPORT FloatType
-    : public detail::CTypeImpl<FloatType, FloatingPoint, Type::FLOAT, float> {
+    : public detail::CTypeImpl<FloatType, FloatingPointType, Type::FLOAT, float> {
  public:
   Precision precision() const override;
   std::string name() const override { return "float"; }
@@ -428,7 +454,7 @@ class ARROW_EXPORT FloatType
 
 /// Concrete type class for 64-bit floating-point data (C "double")
 class ARROW_EXPORT DoubleType
-    : public detail::CTypeImpl<DoubleType, FloatingPoint, Type::DOUBLE, double> {
+    : public detail::CTypeImpl<DoubleType, FloatingPointType, Type::DOUBLE, double> {
  public:
   Precision precision() const override;
   std::string name() const override { return "double"; }
@@ -455,9 +481,39 @@ class ARROW_EXPORT ListType : public NestedType {
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(int32_t)}, false};
+  }
+
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
+};
+
+/// \brief Concrete type class for map data
+///
+/// Map data is nested data where each value is a variable number of
+/// key-item pairs.  Maps can be recursively nested, for example
+/// map(utf8, map(utf8, int32)).
+class ARROW_EXPORT MapType : public ListType {
+ public:
+  static constexpr Type::type type_id = Type::MAP;
+
+  MapType(const std::shared_ptr<DataType>& key_type,
+          const std::shared_ptr<DataType>& item_type, bool keys_sorted = false);
+
+  std::shared_ptr<DataType> key_type() const { return value_type()->child(0)->type(); }
+
+  std::shared_ptr<DataType> item_type() const { return value_type()->child(1)->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "map"; }
+
+  bool keys_sorted() const { return keys_sorted_; }
+
+ private:
+  bool keys_sorted_;
 };
 
 /// \brief Concrete type class for fixed size list data
@@ -466,18 +522,19 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
 
   // List can contain any other logical value type
-  explicit FixedSizeListType(const std::shared_ptr<DataType>& value_type,
-                             int32_t list_size)
+  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
       : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
 
-  explicit FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
-      : NestedType(Type::FIXED_SIZE_LIST), list_size_(list_size) {
+  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+      : NestedType(type_id), list_size_(list_size) {
     children_ = {value_field};
   }
 
   std::shared_ptr<Field> value_field() const { return children_[0]; }
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+
+  DataTypeLayout layout() const override { return {{1}, false}; }
 
   std::string ToString() const override;
 
@@ -495,6 +552,10 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   static constexpr Type::type type_id = Type::BINARY;
 
   BinaryType() : BinaryType(Type::BINARY) {}
+
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(int32_t), DataTypeLayout::kVariableSizeBuffer}, false};
+  }
 
   std::string ToString() const override;
   std::string name() const override { return "binary"; }
@@ -516,6 +577,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
 
   std::string ToString() const override;
   std::string name() const override { return "fixed_size_binary"; }
+
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
 
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
@@ -543,6 +606,8 @@ class ARROW_EXPORT StructType : public NestedType {
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
 
   ~StructType() override;
+
+  DataTypeLayout layout() const override { return {{1}, false}; }
 
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
@@ -611,6 +676,8 @@ class ARROW_EXPORT UnionType : public NestedType {
             const std::vector<uint8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
+  DataTypeLayout layout() const override;
+
   std::string ToString() const override;
   std::string name() const override { return "union"; }
 
@@ -636,6 +703,8 @@ enum class DateUnit : char { DAY = 0, MILLI = 1 };
 class ARROW_EXPORT TemporalType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
+
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
 };
 
 /// \brief Base type class for date data
@@ -849,6 +918,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
 
   int bit_width() const override;
 
+  DataTypeLayout layout() const override;
+
   std::shared_ptr<DataType> index_type() const { return index_type_; }
   std::shared_ptr<DataType> value_type() const { return value_type_; }
 
@@ -980,6 +1051,12 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a MapType instance from its key and value DataTypes
+ARROW_EXPORT
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<DataType>& value_type,
+                              bool keys_sorted = false);
 
 /// \brief Create a FixedSizeListType instance from its child Field type
 ARROW_EXPORT

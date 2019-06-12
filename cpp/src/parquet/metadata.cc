@@ -24,6 +24,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/schema-internal.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
@@ -32,8 +33,6 @@
 #include <boost/regex.hpp>  // IWYU pragma: keep
 
 namespace parquet {
-
-class OutputStream;
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
   static ApplicationVersion version("parquet-mr", 1, 8, 0);
@@ -105,6 +104,8 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
       return MakeTypedColumnStats<ByteArrayType>(meta_data, descr);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return MakeTypedColumnStats<FLBAType>(meta_data, descr);
+    case Type::UNDEFINED:
+      break;
   }
   throw ParquetException("Can't decode page statistics for selected column type");
 }
@@ -365,7 +366,7 @@ class FileMetaData::FileMetaDataImpl {
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
-  void WriteTo(OutputStream* dst) const {
+  void WriteTo(::arrow::io::OutputStream* dst) const {
     ThriftSerializer serializer;
     serializer.Serialize(metadata_.get(), dst);
   }
@@ -391,6 +392,20 @@ class FileMetaData::FileMetaDataImpl {
       for (format::ColumnChunk& chunk : row_group.columns) {
         chunk.__set_file_path(path);
       }
+    }
+  }
+
+  format::RowGroup& row_group(int i) {
+    DCHECK_LT(i, num_row_groups());
+    return metadata_->row_groups[i];
+  }
+
+  void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
+    format::RowGroup other_rg;
+    for (int i = 0; i < other->num_row_groups(); i++) {
+      other_rg = other->row_group(i);
+      metadata_->row_groups.push_back(other_rg);
+      metadata_->num_rows += other_rg.num_rows;
     }
   }
 
@@ -493,7 +508,13 @@ std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const
 
 void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
 
-void FileMetaData::WriteTo(OutputStream* dst) const { return impl_->WriteTo(dst); }
+void FileMetaData::AppendRowGroups(const FileMetaData& other) {
+  impl_->AppendRowGroups(other.impl_);
+}
+
+void FileMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
+  return impl_->WriteTo(dst);
+}
 
 ApplicationVersion::ApplicationVersion(const std::string& application, int major,
                                        int minor, int patch)
@@ -666,7 +687,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
   }
 
-  void WriteTo(OutputStream* sink) {
+  void WriteTo(::arrow::io::OutputStream* sink) {
     ThriftSerializer serializer;
     serializer.Serialize(column_chunk_, sink);
   }
@@ -731,7 +752,9 @@ void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
                 compressed_size, uncompressed_size, has_dictionary, dictionary_fallback);
 }
 
-void ColumnChunkMetaDataBuilder::WriteTo(OutputStream* sink) { impl_->WriteTo(sink); }
+void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink) {
+  impl_->WriteTo(sink);
+}
 
 const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
   return impl_->descr();

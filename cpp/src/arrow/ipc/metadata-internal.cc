@@ -41,6 +41,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -314,6 +315,25 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("List must have exactly 1 child field");
       }
       *out = std::make_shared<ListType>(children[0]);
+      return Status::OK();
+    case flatbuf::Type_Map:
+      if (children.size() != 1) {
+        return Status::Invalid("Map must have exactly 1 child field");
+      }
+      if (  // FIXME(bkietz) temporarily disabled: this field is sometimes read nullable
+            // children[0]->nullable() ||
+          children[0]->type()->id() != Type::STRUCT ||
+          children[0]->type()->num_children() != 2) {
+        return Status::Invalid("Map's key-item pairs must be non-nullable structs");
+      }
+      if (children[0]->type()->child(0)->nullable()) {
+        return Status::Invalid("Map's keys must be non-nullable");
+      } else {
+        auto map = static_cast<const flatbuf::Map*>(type_data);
+        *out = std::make_shared<MapType>(children[0]->type()->child(0)->type(),
+                                         children[0]->type()->child(1)->type(),
+                                         map->keysSorted());
+      }
       return Status::OK();
     case flatbuf::Type_FixedSizeList:
       if (children.size() != 1) {
@@ -600,6 +620,13 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const MapType& type) {
+    fb_type_ = flatbuf::Type_Map;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateMap(fbb_, type.keys_sorted()).Union();
+    return Status::OK();
+  }
+
   Status Visit(const FixedSizeListType& type) {
     fb_type_ = flatbuf::Type_FixedSizeList;
     RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
@@ -630,7 +657,8 @@ class FieldToFlatbufferVisitor {
       type_ids.push_back(code);
     }
 
-    auto fb_type_ids = fbb_.CreateVector(type_ids);
+    auto fb_type_ids =
+        fbb_.CreateVector(util::MakeNonNull(type_ids.data()), type_ids.size());
 
     type_offset_ = flatbuf::CreateUnion(fbb_, mode, fb_type_ids).Union();
     return Status::OK();
@@ -653,7 +681,8 @@ class FieldToFlatbufferVisitor {
   Status GetResult(const std::shared_ptr<Field>& field, FieldOffset* offset) {
     auto fb_name = fbb_.CreateString(field->name());
     RETURN_NOT_OK(VisitType(*field->type()));
-    auto fb_children = fbb_.CreateVector(children_);
+    auto fb_children =
+        fbb_.CreateVector(util::MakeNonNull(children_.data()), children_.size());
 
     DictionaryOffset dictionary = 0;
     if (field->type()->id() == Type::DICTIONARY) {
@@ -799,7 +828,7 @@ static Status WriteFieldNodes(FBB& fbb, const std::vector<FieldMetadata>& nodes,
     }
     fb_nodes.emplace_back(node.length, node.null_count);
   }
-  *out = fbb.CreateVectorOfStructs(fb_nodes);
+  *out = fbb.CreateVectorOfStructs(util::MakeNonNull(fb_nodes.data()), fb_nodes.size());
   return Status::OK();
 }
 
@@ -812,7 +841,9 @@ static Status WriteBuffers(FBB& fbb, const std::vector<BufferMetadata>& buffers,
     const BufferMetadata& buffer = buffers[i];
     fb_buffers.emplace_back(buffer.offset, buffer.length);
   }
-  *out = fbb.CreateVectorOfStructs(fb_buffers);
+  *out =
+      fbb.CreateVectorOfStructs(util::MakeNonNull(fb_buffers.data()), fb_buffers.size());
+
   return Status::OK();
 }
 
@@ -871,9 +902,11 @@ Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
     dims.push_back(flatbuf::CreateTensorDim(fbb, tensor.shape()[i], name));
   }
 
-  auto fb_shape = fbb.CreateVector(dims);
-  auto fb_strides = fbb.CreateVector(tensor.strides());
+  auto fb_shape = fbb.CreateVector(util::MakeNonNull(dims.data()), dims.size());
 
+  flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_strides;
+  fb_strides = fbb.CreateVector(util::MakeNonNull(tensor.strides().data()),
+                                tensor.strides().size());
   int64_t body_length = tensor.size() * elem_size;
   flatbuf::Buffer buffer(buffer_start_offset, body_length);
 
@@ -1004,7 +1037,7 @@ FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
     fb_blocks.emplace_back(block.offset, block.metadata_length, block.body_length);
   }
 
-  return fbb.CreateVectorOfStructs(fb_blocks);
+  return fbb.CreateVectorOfStructs(util::MakeNonNull(fb_blocks.data()), fb_blocks.size());
 }
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
@@ -1035,7 +1068,6 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
 
   auto footer = flatbuf::CreateFooter(fbb, kCurrentMetadataVersion, fb_schema,
                                       fb_dictionaries, fb_record_batches);
-
   fbb.Finish(footer);
 
   int32_t size = fbb.GetSize();

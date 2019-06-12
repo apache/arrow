@@ -28,7 +28,6 @@
 
 #include "parquet/statistics.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 

@@ -34,6 +34,7 @@ endif()
 # - disable 'vptr' because it currently crashes somewhere in boost::intrusive::list code
 # - disable 'alignment' because unaligned access is really OK on Nehalem and we do it
 #   all over the place.
+# - disable 'function' because it appears to give a false positive https://github.com/google/sanitizers/issues/911
 if(${ARROW_USE_UBSAN})
   if(NOT
      (("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -45,7 +46,7 @@ if(${ARROW_USE_UBSAN})
   endif()
   set(
     CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr -fno-sanitize-recover=all"
+    "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr,function -fno-sanitize-recover=all"
     )
 endif()
 
@@ -91,9 +92,14 @@ if(${ARROW_USE_COVERAGE})
   if(NOT ("${COMPILER_FAMILY}" STREQUAL "clang"))
     message(SEND_ERROR "You can only enable coverage with clang")
   endif()
-  add_definitions("-fsanitize-coverage=trace-pc-guard")
+  add_definitions(
+    "-fsanitize-coverage=pc-table,inline-8bit-counters,edge,no-prune,trace-cmp,trace-div,trace-gep"
+    )
 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize-coverage=trace-pc-guard")
+  set(
+    CMAKE_CXX_FLAGS
+    "${CMAKE_CXX_FLAGS} -fsanitize-coverage=pc-table,inline-8bit-counters,edge,no-prune,trace-cmp,trace-div,trace-gep"
+    )
 endif()
 
 if("${ARROW_USE_UBSAN}" OR "${ARROW_USE_ASAN}" OR "${ARROW_USE_TSAN}")

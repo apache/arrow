@@ -239,7 +239,8 @@ class TestConvertMetadata(object):
             ),
             columns=['a', None, '__index_level_0__'],
         )
-        t = pa.Table.from_pandas(df, preserve_index=True)
+        with pytest.warns(UserWarning):
+            t = pa.Table.from_pandas(df, preserve_index=True)
         js = t.schema.pandas_metadata
 
         col1, col2, col3, idx0, foo = js['columns']
@@ -363,12 +364,22 @@ class TestConvertMetadata(object):
 
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_mixed_unicode_column_names(self):
-        df = pd.DataFrame({u'あ': [u'い'], b'a': 1}, index=[u'う'])
+    def test_mixed_column_names(self):
+        # mixed type column names are not reconstructed exactly
+        df = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
 
-        # TODO(phillipc): Should this raise?
-        with pytest.raises(AssertionError):
-            _check_pandas_roundtrip(df, preserve_index=True)
+        for cols in [[u'あ', b'a'], [1, '2'], [1, 1.5]]:
+            df.columns = pd.Index(cols, dtype=object)
+
+            # assert that the from_pandas raises the warning
+            with pytest.warns(UserWarning):
+                pa.Table.from_pandas(df)
+
+            expected = df.copy()
+            expected.columns = df.columns.astype(six.text_type)
+            with pytest.warns(UserWarning):
+                _check_pandas_roundtrip(df, expected=expected,
+                                        preserve_index=True)
 
     def test_binary_column_name(self):
         column_data = [u'い']
@@ -2277,12 +2288,6 @@ class TestConvertMisc(object):
         arr = pa.array(data['y'], type=pa.int16())
         assert arr.to_pylist() == [-1, 2]
 
-    def test_mixed_integer_columns(self):
-        row = [[], []]
-        df = pd.DataFrame(data=[row], columns=['foo', 123])
-        expected_df = pd.DataFrame(data=[row], columns=['foo', '123'])
-        _check_pandas_roundtrip(df, expected=expected_df, preserve_index=True)
-
     def test_safe_unsafe_casts(self):
         # ARROW-2799
         df = pd.DataFrame({
@@ -2300,6 +2305,12 @@ class TestConvertMisc(object):
 
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table.column('B').type == pa.int32()
+
+    def test_error_sparse(self):
+        # ARROW-2818
+        df = pd.DataFrame({'a': pd.SparseArray([1, np.nan, 3])})
+        with pytest.raises(TypeError, match="Sparse pandas data"):
+            pa.Table.from_pandas(df)
 
 
 def test_safe_cast_from_float_with_nans_to_int():

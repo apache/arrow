@@ -409,6 +409,58 @@ std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element, int nod
   return std::unique_ptr<Node>(group_node.release());
 }
 
+namespace {
+
+// If the parquet file is corrupted it is possible the type value decoded
+// will not be in the range of format::Type::type, which is undefined behavior.
+// This method prevents this by loading the value as the underlying type and checking
+// to make sure it is in range.
+template <typename ApiType>
+struct SafeLoader {
+  using ApiTypeEnum = typename ApiType::type;
+  using ApiTypeRawEnum = typename std::underlying_type<ApiTypeEnum>::type;
+
+  template <typename ThriftType>
+  inline static ApiTypeRawEnum LoadRaw(ThriftType* in) {
+    static_assert(
+        sizeof(ApiTypeEnum) >= sizeof(ThriftType),
+        "parquet type should always be the same size of larger then thrift type");
+    typename std::underlying_type<ThriftType>::type raw_value;
+    memcpy(&raw_value, in, sizeof(ThriftType));
+    return static_cast<ApiTypeRawEnum>(raw_value);
+  }
+
+  template <typename ThriftType, bool IsUnsigned = true>
+  inline static ApiTypeEnum LoadChecked(
+      typename std::enable_if<IsUnsigned, ThriftType>::type* in) {
+    auto raw_value = LoadRaw(in);
+    if (ARROW_PREDICT_FALSE(raw_value >=
+                            static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED))) {
+      return ApiType::UNDEFINED;
+    }
+    return FromThrift(static_cast<ThriftType>(raw_value));
+  }
+
+  template <typename ThriftType, bool IsUnsigned = false>
+  inline static ApiTypeEnum LoadChecked(
+      typename std::enable_if<!IsUnsigned, ThriftType>::type* in) {
+    auto raw_value = LoadRaw(in);
+    if (ARROW_PREDICT_FALSE(raw_value >=
+                                static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED) ||
+                            raw_value < 0)) {
+      return ApiType::UNDEFINED;
+    }
+    return FromThrift(static_cast<ThriftType>(raw_value));
+  }
+
+  template <typename ThriftType>
+  inline static ApiTypeEnum Load(ThriftType* in) {
+    return LoadChecked<ThriftType, std::is_unsigned<ApiTypeRawEnum>::value>(in);
+  }
+};
+
+}  // namespace
+
 std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
                                                  int node_id) {
   const format::SchemaElement* element =
@@ -417,21 +469,23 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
   std::unique_ptr<PrimitiveNode> primitive_node;
   if (element->__isset.logicalType) {
     // updated writer with logical type present
-    primitive_node = std::unique_ptr<PrimitiveNode>(
-        new PrimitiveNode(element->name, FromThrift(element->repetition_type),
-                          LogicalAnnotation::FromThrift(element->logicalType),
-                          FromThrift(element->type), element->type_length, node_id));
+    primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
+        element->name, SafeLoader<Repetition>::Load(&(element->repetition_type)),
+        LogicalAnnotation::FromThrift(element->logicalType),
+        SafeLoader<Type>::Load(&(element->type)), element->type_length, node_id));
   } else if (element->__isset.converted_type) {
     // legacy writer with logical type present
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
-        element->name, FromThrift(element->repetition_type), FromThrift(element->type),
-        FromThrift(element->converted_type), element->type_length, element->precision,
-        element->scale, node_id));
+        element->name, SafeLoader<Repetition>::Load(&(element->repetition_type)),
+        SafeLoader<Type>::Load(&(element->type)),
+        SafeLoader<LogicalType>::Load(&(element->converted_type)), element->type_length,
+        element->precision, element->scale, node_id));
   } else {
     // logical type not present
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
-        element->name, FromThrift(element->repetition_type), NoAnnotation::Make(),
-        FromThrift(element->type), element->type_length, node_id));
+        element->name, SafeLoader<Repetition>::Load(&(element->repetition_type)),
+        NoAnnotation::Make(), SafeLoader<Type>::Load(&(element->type)),
+        element->type_length, node_id));
   }
 
   // Return as unique_ptr to the base type

@@ -31,6 +31,8 @@
 
 namespace arrow {
 
+DataTypeLayout ExtensionType::layout() const { return storage_type_->layout(); }
+
 std::string ExtensionType::ToString() const {
   std::stringstream ss;
   ss << "extension<" << this->extension_name() << ">";

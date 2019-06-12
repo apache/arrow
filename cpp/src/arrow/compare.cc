@@ -760,6 +760,15 @@ class TypeEqualsVisitor {
 
   Status Visit(const ListType& left) { return VisitChildren(left); }
 
+  Status Visit(const MapType& left) {
+    const auto& right = checked_cast<const MapType&>(right_);
+    if (left.keys_sorted() != right.keys_sorted()) {
+      result_ = false;
+      return Status::OK();
+    }
+    return VisitChildren(left);
+  }
+
   Status Visit(const FixedSizeListType& left) { return VisitChildren(left); }
 
   Status Visit(const StructType& left) { return VisitChildren(left); }
@@ -851,6 +860,13 @@ class ScalarEqualsVisitor {
   Status Visit(const ListScalar& left) {
     const auto& right = checked_cast<const ListScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
+    return Status::OK();
+  }
+
+  Status Visit(const MapScalar& left) {
+    const auto& right = checked_cast<const MapScalar&>(right_);
+    result_ = internal::SharedPtrEquals(left.keys, right.keys) &&
+              internal::SharedPtrEquals(left.items, right.items);
     return Status::OK();
   }
 

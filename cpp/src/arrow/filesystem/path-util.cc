@@ -23,7 +23,7 @@ namespace arrow {
 namespace fs {
 namespace internal {
 
-static constexpr char kSep = '/';
+// XXX How does this encode Windows UNC paths?
 
 std::vector<std::string> SplitAbstractPath(const std::string& path) {
   std::vector<std::string> parts;
@@ -81,7 +81,23 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
 
 std::string ConcatAbstractPath(const std::string& base, const std::string& stem) {
   DCHECK(!stem.empty());
-  return base.empty() ? stem : base + kSep + stem;
+  if (base.empty()) {
+    return stem;
+  } else if (base.back() == kSep) {
+    return base + stem;
+  } else {
+    return base + kSep + stem;
+  }
+}
+
+std::string EnsureTrailingSlash(const std::string& s) {
+  if (s.length() > 0 && s.back() != kSep) {
+    // XXX How about "C:" on Windows?  We probably don't want to turn it into "C:/"...
+    // Unless the local filesystem always uses absolute paths
+    return s + kSep;
+  } else {
+    return s;
+  }
 }
 
 }  // namespace internal

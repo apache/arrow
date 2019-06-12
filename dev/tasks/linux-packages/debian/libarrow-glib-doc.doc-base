@@ -5,5 +5,5 @@ Abstract: Apache Arrow GLib is a data processing library for analysis that uses 
 Section: Programming
 
 Format: HTML
-Index: /usr/share/doc/libarrow-glib-doc/arrow-glib/index.html
-Files: /usr/share/doc/libarrow-glib-doc/arrow-glib/*.html
+Index: /usr/share/gtk-doc/html/arrow-glib/index.html
+Files: /usr/share/gtk-doc/html/arrow-glib/*.html

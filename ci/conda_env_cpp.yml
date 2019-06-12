@@ -28,15 +28,12 @@ glog
 gmock>=1.8.1
 grpc-cpp
 gtest>=1.8.1
-clangdev=7
-llvmdev=7
 libprotobuf
 lz4-c
 ninja
 pkg-config
 python
 rapidjson
-re2
 snappy
 thrift-cpp>=0.11.0
 zlib

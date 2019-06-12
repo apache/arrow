@@ -175,5 +175,13 @@ valid:
   ]
       TABLE
     end
+
+    def test_concatenate
+      table = build_table("visible" => build_boolean_array([true, false, true, false]))
+      table1 = build_table("visible" => build_boolean_array([true]))
+      table2 = build_table("visible" => build_boolean_array([false, true]))
+      table3 = build_table("visible" => build_boolean_array([false]))
+      assert_equal(table, table1.concatenate([table2, table3]))
+    end
   end
 end

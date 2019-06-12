@@ -204,6 +204,82 @@ func Example_listArray() {
 	// List      = [[0 1 2] (null) [3] [4 5] [6 7 8] (null) [9]]
 }
 
+// This example shows how to create a FixedSizeList array.
+// The resulting array should be:
+//  [[0, 1, 2], (null), [3, 4, 5], [6, 7, 8], (null)]
+func Example_fixedSizeListArray() {
+	pool := memory.NewGoAllocator()
+
+	lb := array.NewFixedSizeListBuilder(pool, 3, arrow.PrimitiveTypes.Int64)
+	defer lb.Release()
+
+	vb := lb.ValueBuilder().(*array.Int64Builder)
+	defer vb.Release()
+
+	vb.Reserve(10)
+
+	lb.Append(true)
+	vb.Append(0)
+	vb.Append(1)
+	vb.Append(2)
+
+	lb.AppendNull()
+
+	lb.Append(true)
+	vb.Append(3)
+	vb.Append(4)
+	vb.Append(5)
+
+	lb.Append(true)
+	vb.Append(6)
+	vb.Append(7)
+	vb.Append(8)
+
+	lb.AppendNull()
+
+	arr := lb.NewArray().(*array.FixedSizeList)
+	defer arr.Release()
+
+	fmt.Printf("NullN()   = %d\n", arr.NullN())
+	fmt.Printf("Len()     = %d\n", arr.Len())
+	fmt.Printf("Offsets() = %v\n", arr.Offsets())
+	fmt.Printf("Type()    = %v\n", arr.DataType())
+
+	offsets := arr.Offsets()[1:]
+
+	varr := arr.ListValues().(*array.Int64)
+
+	pos := 0
+	for i := 0; i < arr.Len(); i++ {
+		if !arr.IsValid(i) {
+			fmt.Printf("List[%d]   = (null)\n", i)
+			continue
+		}
+		fmt.Printf("List[%d]   = [", i)
+		for j := pos; j < int(offsets[i]); j++ {
+			if j != pos {
+				fmt.Printf(", ")
+			}
+			fmt.Printf("%v", varr.Value(j))
+		}
+		pos = int(offsets[i])
+		fmt.Printf("]\n")
+	}
+	fmt.Printf("List      = %v\n", arr)
+
+	// Output:
+	// NullN()   = 2
+	// Len()     = 5
+	// Offsets() = [0 3 3 6 9 9]
+	// Type()    = fixed_size_list<item: int64>[3]
+	// List[0]   = [0, 1, 2]
+	// List[1]   = (null)
+	// List[2]   = [3, 4, 5]
+	// List[3]   = [6, 7, 8]
+	// List[4]   = (null)
+	// List      = [[0 1 2] (null) [3 4 5] [6 7 8] (null)]
+}
+
 // This example shows how to create a Struct array.
 // The resulting array should be:
 //  [{‘joe’, 1}, {null, 2}, null, {‘mark’, 4}]

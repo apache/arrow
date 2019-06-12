@@ -50,8 +50,8 @@ csv_read_options <- function(use_threads = TRUE, block_size = 1048576L) {
 #' @param double_quote Whether a quote inside a value is double-quoted
 #' @param escaping Whether escaping is used
 #' @param escape_char Escaping character (if `escaping` is `TRUE`)
-#' @param newlines_in_values Whether values are allowed to contain CR (`0x0d``) and LF (`0x0a``) characters
-#' @param ignore_empty_lines Whether empty lines are ignored.  If false, an empty line represents
+#' @param newlines_in_values Whether values are allowed to contain CR (`0x0d`) and LF (`0x0a`) characters
+#' @param ignore_empty_lines Whether empty lines are ignored.  If `FALSE`, an empty line represents
 #' @param header_rows Number of header rows to skip (including the first row containing column names)
 #'
 #' @export
@@ -179,4 +179,3 @@ csv_table_reader.default <- function(file,
 read_csv_arrow <- function(...) {
   csv_table_reader(...)$Read()
 }
-

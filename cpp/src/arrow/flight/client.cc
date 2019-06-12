@@ -17,12 +17,14 @@
 
 #include "arrow/flight/client.h"
 
+// Platform-specific defines
+#include "arrow/flight/platform.h"
+
 #include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
 
-#include "arrow/util/config.h"
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
 #else

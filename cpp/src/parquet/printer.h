@@ -21,7 +21,7 @@
 #include <iosfwd>
 #include <list>
 
-#include "parquet/util/visibility.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 

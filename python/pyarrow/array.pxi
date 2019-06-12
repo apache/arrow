@@ -1472,3 +1472,30 @@ cdef object get_series_values(object obj):
         result = pandas_api.make_series(obj).values
 
     return result
+
+
+def concat_arrays(arrays, MemoryPool memory_pool=None):
+    """
+    Returns a concatenation of the given arrays. The contents of those arrays
+    are copied into the returned array. Raises exception if all of the arrays
+    are not of the same type.
+
+    Parameters
+    ----------
+    arrays : iterable of pyarrow.Array objects
+    memory_pool : MemoryPool, default None
+        For memory allocations. If None, the default pool is used.
+    """
+    cdef:
+        vector[shared_ptr[CArray]] c_arrays
+        shared_ptr[CArray] c_result
+        Array array
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+    for array in arrays:
+        c_arrays.push_back(array.sp_array)
+
+    with nogil:
+        check_status(Concatenate(c_arrays, pool, &c_result))
+
+    return pyarrow_wrap_array(c_result)

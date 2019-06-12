@@ -30,56 +30,63 @@
 namespace arrow {
 namespace json {
 
-static void BenchmarkJSONChunking(benchmark::State& state,  // NOLINT non-const reference
+std::shared_ptr<Schema> TestSchema() {
+  return schema({field("int", int32()), field("str", utf8())});
+}
+
+constexpr int seed = 0x432432;
+
+std::string TestJsonData(int num_rows, bool pretty = false) {
+  std::default_random_engine engine(seed);
+  std::string json;
+  for (int i = 0; i < num_rows; ++i) {
+    StringBuffer sb;
+    Writer writer(sb);
+    ABORT_NOT_OK(Generate(TestSchema(), engine, &writer));
+    json += pretty ? PrettyPrint(sb.GetString()) : sb.GetString();
+    json += "\n";
+  }
+
+  return json;
+}
+
+static void BenchmarkJSONChunking(benchmark::State& state,
                                   const std::shared_ptr<Buffer>& json,
-                                  ParseOptions options) {
+                                  ParseOptions options) {  // NOLINT non-const reference
   auto chunker = Chunker::Make(options);
+
   for (auto _ : state) {
     std::shared_ptr<Buffer> chunked, partial;
     ABORT_NOT_OK(chunker->Process(json, &chunked, &partial));
   }
+
   state.SetBytesProcessed(state.iterations() * json->size());
 }
 
-static void BM_ChunkJSONPrettyPrinted(
+static void ChunkJSONPrettyPrinted(
     benchmark::State& state) {  // NOLINT non-const reference
   const int32_t num_rows = 5000;
+
   auto options = ParseOptions::Defaults();
   options.newlines_in_values = true;
-  options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
-  std::default_random_engine engine;
-  std::string json;
-  for (int i = 0; i < num_rows; ++i) {
-    StringBuffer sb;
-    Writer writer(sb);
-    ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));
-    json += PrettyPrint(sb.GetString());
-    json += "\n";
-  }
+  options.explicit_schema = TestSchema();
+
+  auto json = TestJsonData(num_rows, /* pretty */ true);
   BenchmarkJSONChunking(state, std::make_shared<Buffer>(json), options);
 }
 
-BENCHMARK(BM_ChunkJSONPrettyPrinted)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-
-static void BM_ChunkJSONLineDelimited(
+static void ChunkJSONLineDelimited(
     benchmark::State& state) {  // NOLINT non-const reference
   const int32_t num_rows = 5000;
+
   auto options = ParseOptions::Defaults();
   options.newlines_in_values = false;
-  options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
-  std::default_random_engine engine;
-  std::string json;
-  for (int i = 0; i < num_rows; ++i) {
-    StringBuffer sb;
-    Writer writer(sb);
-    ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));
-    json += sb.GetString();
-    json += "\n";
-  }
-  BenchmarkJSONChunking(state, std::make_shared<Buffer>(json), options);
-}
+  options.explicit_schema = TestSchema();
 
-BENCHMARK(BM_ChunkJSONLineDelimited)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+  auto json = TestJsonData(num_rows);
+  BenchmarkJSONChunking(state, std::make_shared<Buffer>(json), options);
+  state.SetBytesProcessed(0);
+}
 
 static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const reference
                                  const std::shared_ptr<Buffer>& json, int32_t num_rows,
@@ -88,37 +95,23 @@ static void BenchmarkJSONParsing(benchmark::State& state,  // NOLINT non-const r
     std::unique_ptr<BlockParser> parser;
     ABORT_NOT_OK(BlockParser::Make(options, &parser));
     ABORT_NOT_OK(parser->Parse(json));
-    if (parser->num_rows() != num_rows) {
-      std::cerr << "Parsing incomplete\n";
-      std::abort();
-    }
+
     std::shared_ptr<Array> parsed;
     ABORT_NOT_OK(parser->Finish(&parsed));
   }
   state.SetBytesProcessed(state.iterations() * json->size());
 }
 
-static void BM_ParseJSONBlockWithSchema(
+static void ParseJSONBlockWithSchema(
     benchmark::State& state) {  // NOLINT non-const reference
   const int32_t num_rows = 5000;
   auto options = ParseOptions::Defaults();
   options.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
-  options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
-  std::default_random_engine engine;
-  std::string json;
-  for (int i = 0; i < num_rows; ++i) {
-    StringBuffer sb;
-    Writer writer(sb);
-    ABORT_NOT_OK(Generate(options.explicit_schema, engine, &writer));
-    json += sb.GetString();
-    json += "\n";
-  }
+  options.explicit_schema = TestSchema();
+
+  auto json = TestJsonData(num_rows);
   BenchmarkJSONParsing(state, std::make_shared<Buffer>(json), num_rows, options);
 }
-
-BENCHMARK(BM_ParseJSONBlockWithSchema)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-
-std::shared_ptr<Table> tables[2];
 
 static void BenchmarkJSONReading(benchmark::State& state,  // NOLINT non-const reference
                                  const std::string& json, int32_t num_rows,
@@ -133,49 +126,41 @@ static void BenchmarkJSONReading(benchmark::State& state,  // NOLINT non-const r
 
     std::shared_ptr<Table> table;
     ABORT_NOT_OK(reader->Read(&table));
-
-    if (table->num_rows() != num_rows) {
-      std::cerr << "Parsing incomplete\n";
-      std::abort();
-    }
-
-    tables[read_options.use_threads] = table;
   }
+
   state.SetBytesProcessed(state.iterations() * json.size());
-
-  if (tables[false] && tables[true]) {
-    AssertTablesEqual(*tables[false], *tables[true]);
-  }
 }
 
-static void BM_ReadJSONBlockWithSchema(
-    benchmark::State& state) {  // NOLINT non-const reference
-  const int32_t num_rows = 50000;
+static void BenchmarkReadJSONBlockWithSchema(
+    benchmark::State& state, bool use_threads) {  // NOLINT non-const reference
+  const int32_t num_rows = 500000;
   auto read_options = ReadOptions::Defaults();
-  read_options.use_threads = state.range(0);
+  read_options.use_threads = use_threads;
 
   auto parse_options = ParseOptions::Defaults();
   parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::Error;
-  parse_options.explicit_schema = schema({field("int", int32()), field("str", utf8())});
+  parse_options.explicit_schema = TestSchema();
 
-  std::default_random_engine engine;
-  std::string json;
-  for (int i = 0; i < num_rows; ++i) {
-    StringBuffer sb;
-    Writer writer(sb);
-    ABORT_NOT_OK(Generate(parse_options.explicit_schema, engine, &writer));
-    json += sb.GetString();
-    json += "\n";
-  }
+  auto json = TestJsonData(num_rows);
   BenchmarkJSONReading(state, json, num_rows, read_options, parse_options);
 }
 
-BENCHMARK(BM_ReadJSONBlockWithSchema)
-    ->MinTime(1.0)
-    ->Unit(benchmark::kMicrosecond)
-    ->Arg(true)
-    ->Arg(false)
-    ->UseRealTime();
+static void ReadJSONBlockWithSchemaSingleThread(
+    benchmark::State& state) {  // NOLINT non-const reference
+  BenchmarkReadJSONBlockWithSchema(state, false);
+}
+
+static void ReadJSONBlockWithSchemaMultiThread(
+    benchmark::State& state) {  // NOLINT non-const reference
+  BenchmarkReadJSONBlockWithSchema(state, true);
+}
+
+BENCHMARK(ChunkJSONPrettyPrinted);
+BENCHMARK(ChunkJSONLineDelimited);
+BENCHMARK(ParseJSONBlockWithSchema);
+
+BENCHMARK(ReadJSONBlockWithSchemaSingleThread);
+BENCHMARK(ReadJSONBlockWithSchemaMultiThread)->UseRealTime();
 
 }  // namespace json
 }  // namespace arrow

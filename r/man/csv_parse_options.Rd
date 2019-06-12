@@ -22,9 +22,9 @@ csv_parse_options(delimiter = ",", quoting = TRUE,
 
 \item{escape_char}{Escaping character (if \code{escaping} is \code{TRUE})}
 
-\item{newlines_in_values}{Whether values are allowed to contain CR (\code{0x0d``) and LF (}0x0a``) characters}
+\item{newlines_in_values}{Whether values are allowed to contain CR (\code{0x0d}) and LF (\code{0x0a}) characters}
 
-\item{ignore_empty_lines}{Whether empty lines are ignored.  If false, an empty line represents}
+\item{ignore_empty_lines}{Whether empty lines are ignored.  If \code{FALSE}, an empty line represents}
 
 \item{header_rows}{Number of header rows to skip (including the first row containing column names)}
 }

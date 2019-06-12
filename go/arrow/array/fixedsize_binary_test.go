@@ -33,6 +33,8 @@ func TestFixedSizeBinary(t *testing.T) {
 	dtype := arrow.FixedSizeBinaryType{ByteWidth: 7}
 	b := array.NewFixedSizeBinaryBuilder(mem, &dtype)
 
+	zero := make([]byte, dtype.ByteWidth)
+
 	values := [][]byte{
 		[]byte("7654321"),
 		nil,
@@ -48,7 +50,9 @@ func TestFixedSizeBinary(t *testing.T) {
 	assert.Equal(t, 3, a.Len())
 	assert.Equal(t, 1, a.NullN())
 	assert.Equal(t, []byte("7654321"), a.Value(0))
-	assert.Equal(t, []byte{}, a.Value(1))
+	assert.Equal(t, zero, a.Value(1))
+	assert.Equal(t, true, a.IsNull(1))
+	assert.Equal(t, false, a.IsValid(1))
 	assert.Equal(t, []byte("AZERTYU"), a.Value(2))
 	a.Release()
 
@@ -58,7 +62,7 @@ func TestFixedSizeBinary(t *testing.T) {
 	assert.Equal(t, 3, a.Len())
 	assert.Equal(t, 1, a.NullN())
 	assert.Equal(t, []byte("7654321"), a.Value(0))
-	assert.Equal(t, []byte{}, a.Value(1))
+	assert.Equal(t, zero, a.Value(1))
 	assert.Equal(t, []byte("AZERTYU"), a.Value(2))
 	a.Release()
 

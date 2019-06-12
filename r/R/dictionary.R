@@ -34,7 +34,7 @@
 
   active = list(
     index_type = function() `arrow::DataType`$dispatch(DictionaryType__index_type(self)),
-    dictionary = function() shared_ptr(`arrow::Array`, DictionaryType__dictionary(self)),
+    value_type = function() `arrow::DataType`$dispatch(DictionaryType__value_type(self)),
     name = function() DictionaryType__name(self),
     ordered = function() DictionaryType__ordered(self)
   )
@@ -42,17 +42,17 @@
 
 #' dictionary type factory
 #'
-#' @param type indices type, e.g. [int32()]
-#' @param values values array, typically an arrow array of strings
-#' @param ordered Is this an ordered dictionary
+#' @param index_type index type, e.g. [int32()]
+#' @param value_type value type, probably [utf8()]
+#' @param ordered Is this an ordered dictionary ?
 #'
 #' @return a [arrow::DictionaryType][arrow__DictionaryType]
 #'
 #' @export
-dictionary <- function(type, values, ordered = FALSE) {
+dictionary <- function(index_type, value_type, ordered = FALSE) {
   assert_that(
-    inherits(type, "arrow::DataType"),
-    inherits(values, "arrow::Array")
+    inherits(index_type, "arrow::DataType"),
+    inherits(index_type, "arrow::DataType")
   )
-  shared_ptr(`arrow::DictionaryType`, DictionaryType__initialize(type, values, ordered))
+  shared_ptr(`arrow::DictionaryType`, DictionaryType__initialize(index_type, value_type, ordered))
 }

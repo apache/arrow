@@ -305,6 +305,14 @@ class ARROW_EXPORT Array {
 
   Status Accept(ArrayVisitor* visitor) const;
 
+  /// Construct a zero-copy view of this array with the given type.
+  ///
+  /// This method checks if the types are layout-compatible.
+  /// Nested types are traversed in depth-first order. Data buffers must have
+  /// the same item sizes, even though the logical types may be different.
+  /// An error is returned if the types are not layout-compatible.
+  Status View(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out);
+
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length
   ///
@@ -500,7 +508,7 @@ class ARROW_EXPORT ListArray : public Array {
   static Status FromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
                            std::shared_ptr<Array>* out);
 
-  const ListType* list_type() const;
+  const ListType* list_type() const { return list_type_; }
 
   /// \brief Return array object containing the list's values
   std::shared_ptr<Array> values() const;
@@ -521,11 +529,48 @@ class ARROW_EXPORT ListArray : public Array {
   }
 
  protected:
+  // this constructor defers SetData to a derived array class
+  ListArray() = default;
   void SetData(const std::shared_ptr<ArrayData>& data);
   const int32_t* raw_value_offsets_;
 
  private:
+  const ListType* list_type_;
   std::shared_ptr<Array> values_;
+};
+
+// ----------------------------------------------------------------------
+// MapArray
+
+/// Concrete Array class for map data
+///
+/// NB: "value" in this context refers to a pair of a key and the correspondint item
+class ARROW_EXPORT MapArray : public ListArray {
+ public:
+  using TypeClass = MapType;
+
+  explicit MapArray(const std::shared_ptr<ArrayData>& data);
+
+  MapArray(const std::shared_ptr<DataType>& type, int64_t length,
+           const std::shared_ptr<Buffer>& value_offsets,
+           const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& values,
+           const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+           int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  const MapType* map_type() const { return map_type_; }
+
+  /// \brief Return array object containing all map keys
+  std::shared_ptr<Array> keys() const { return keys_; }
+
+  /// \brief Return array object containing all mapped items
+  std::shared_ptr<Array> items() const { return items_; }
+
+ protected:
+  void SetData(const std::shared_ptr<ArrayData>& data);
+
+ private:
+  const MapType* map_type_;
+  std::shared_ptr<Array> keys_, items_;
 };
 
 // ----------------------------------------------------------------------
@@ -710,7 +755,7 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
   TypeClass::DayMilliseconds GetValue(int64_t i) const;
   TypeClass::DayMilliseconds Value(int64_t i) const { return GetValue(i); }
 
-  // For compability with Take kernel.
+  // For compatibility with Take kernel.
   TypeClass::DayMilliseconds GetView(int64_t i) const { return GetValue(i); }
 
   int32_t byte_width() const { return sizeof(TypeClass::DayMilliseconds); }

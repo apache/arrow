@@ -48,10 +48,13 @@ fn main() {
         Field::new("c13", DataType::Utf8, false),
     ]));
 
+    let testdata =
+        ::std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+
     // register csv file with the execution context
     ctx.register_csv(
         "aggregate_test_100",
-        "../../testing/data/csv/aggregate_test_100.csv",
+        &format!("{}/csv/aggregate_test_100.csv", testdata),
         &schema,
         true,
     );

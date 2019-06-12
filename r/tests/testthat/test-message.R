@@ -18,7 +18,7 @@
 context("arrow::ipc::Message")
 
 test_that("read_message can read from input stream", {
-  batch <- record_batch(tibble::tibble(x = 1:10))
+  batch <- record_batch(x = 1:10)
   bytes <- batch$serialize()
   stream <- BufferReader(bytes)
 

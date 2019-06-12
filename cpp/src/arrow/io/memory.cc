@@ -100,9 +100,11 @@ Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
     return Status::IOError("OutputStream is closed");
   }
   DCHECK(buffer_);
-  RETURN_NOT_OK(Reserve(nbytes));
-  memcpy(mutable_data_ + position_, data, nbytes);
-  position_ += nbytes;
+  if (ARROW_PREDICT_TRUE(nbytes > 0)) {
+    RETURN_NOT_OK(Reserve(nbytes));
+    memcpy(mutable_data_ + position_, data, nbytes);
+    position_ += nbytes;
+  }
   return Status::OK();
 }
 
@@ -299,14 +301,13 @@ Status BufferReader::Tell(int64_t* position) const {
   return Status::OK();
 }
 
-util::string_view BufferReader::Peek(int64_t nbytes) const {
-  if (!is_open_) {
-    return {};
-  }
+Status BufferReader::Peek(int64_t nbytes, util::string_view* out) {
+  RETURN_NOT_OK(CheckClosed());
 
   const int64_t bytes_available = std::min(nbytes, size_ - position_);
-  return util::string_view(reinterpret_cast<const char*>(data_) + position_,
+  *out = util::string_view(reinterpret_cast<const char*>(data_) + position_,
                            static_cast<size_t>(bytes_available));
+  return Status::OK();
 }
 
 bool BufferReader::supports_zero_copy() const { return true; }

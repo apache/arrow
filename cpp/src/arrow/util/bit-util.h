@@ -53,6 +53,7 @@
 #define ARROW_BYTE_SWAP32 __builtin_bswap32
 #endif
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -402,6 +403,9 @@ static inline bool GetBit(const uint8_t* bits, uint64_t i) {
   return (bits[i >> 3] >> (i & 0x07)) & 1;
 }
 
+// Gets the i-th bit from a byte. Should only be used with i <= 7.
+static inline bool GetBitFromByte(uint8_t byte, uint8_t i) { return byte & kBitmask[i]; }
+
 static inline void ClearBit(uint8_t* bits, int64_t i) {
   bits[i / 8] &= kFlippedBitmask[i % 8];
 }
@@ -684,6 +688,65 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
     }
     *cur++ = current_byte;
   }
+}
+
+// A function that visits each bit in a bitmap and calls a visitor function with a
+// boolean representation of that bit. This is intended to be analogous to
+// GenerateBits.
+template <class Visitor>
+void VisitBits(const uint8_t* bitmap, int64_t start_offset, int64_t length,
+               Visitor&& visit) {
+  BitmapReader reader(bitmap, start_offset, length);
+  for (int64_t index = 0; index < length; ++index) {
+    visit(reader.IsSet());
+    reader.Next();
+  }
+}
+
+// Like VisitBits(), but unrolls its main loop for better performance.
+template <class Visitor>
+void VisitBitsUnrolled(const uint8_t* bitmap, int64_t start_offset, int64_t length,
+                       Visitor&& visit) {
+  if (length == 0) {
+    return;
+  }
+
+  // Start by visiting any bits preceding the first full byte.
+  int64_t num_bits_before_full_bytes =
+      BitUtil::RoundUpToMultipleOf8(start_offset) - start_offset;
+  // Truncate num_bits_before_full_bytes if it is greater than length.
+  if (num_bits_before_full_bytes > length) {
+    num_bits_before_full_bytes = length;
+  }
+  // Use the non loop-unrolled VisitBits since we don't want to add branches
+  VisitBits<Visitor>(bitmap, start_offset, num_bits_before_full_bytes, visit);
+
+  // Shift the start pointer to the first full byte and compute the
+  // number of full bytes to be read.
+  const uint8_t* first_full_byte = bitmap + BitUtil::CeilDiv(start_offset, 8);
+  const int64_t num_full_bytes = (length - num_bits_before_full_bytes) / 8;
+
+  // Iterate over each full byte of the input bitmap and call the visitor in
+  // a loop-unrolled manner.
+  for (int64_t byte_index = 0; byte_index < num_full_bytes; ++byte_index) {
+    // Get the current bit-packed byte value from the bitmap.
+    const uint8_t byte = *(first_full_byte + byte_index);
+
+    // Execute the visitor function on each bit of the current byte.
+    visit(BitUtil::GetBitFromByte(byte, 0));
+    visit(BitUtil::GetBitFromByte(byte, 1));
+    visit(BitUtil::GetBitFromByte(byte, 2));
+    visit(BitUtil::GetBitFromByte(byte, 3));
+    visit(BitUtil::GetBitFromByte(byte, 4));
+    visit(BitUtil::GetBitFromByte(byte, 5));
+    visit(BitUtil::GetBitFromByte(byte, 6));
+    visit(BitUtil::GetBitFromByte(byte, 7));
+  }
+
+  // Write any leftover bits in the last byte.
+  const int64_t num_bits_after_full_bytes = (length - num_bits_before_full_bytes) % 8;
+  VisitBits<Visitor>(first_full_byte + num_full_bytes, 0, num_bits_after_full_bytes,
+                     visit);
 }
 
 // ----------------------------------------------------------------------

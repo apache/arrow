@@ -50,7 +50,7 @@ func TestLsStream(t *testing.T) {
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
-metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
+  metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
@@ -67,6 +67,46 @@ records: 2
 			want: `schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
+records: 4
+`,
+		},
+		{
+			name: "strings",
+			want: `schema:
+  fields: 2
+    - strings: type=utf8
+    - bytes: type=binary
+records: 3
+`,
+		},
+		{
+			name: "fixed_size_lists",
+			want: `schema:
+  fields: 1
+    - fixed_size_list_nullable: type=fixed_size_list<item: int32>[3], nullable
+records: 3
+`,
+		},
+		{
+			name: "fixed_width_types",
+			want: `schema:
+  fields: 8
+    - float16s: type=float16, nullable
+    - time32ms: type=time32[ms], nullable
+    - time32s: type=time32[s], nullable
+    - time64ns: type=time64[ns], nullable
+    - time64us: type=time64[us], nullable
+    - timestamp: type=timestamp[ns], nullable
+    - date32s: type=date32, nullable
+    - date64s: type=date64, nullable
+records: 3
+`,
+		},
+		{
+			name: "fixed_size_binaries",
+			want: `schema:
+  fields: 1
+    - fixed_size_binary_3: type=fixed_size_binary[3], nullable
 records: 3
 `,
 		},
@@ -147,7 +187,7 @@ func TestLsFile(t *testing.T) {
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
-metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
+  metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
@@ -167,7 +207,7 @@ schema:
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
-metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
+  metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
@@ -195,7 +235,7 @@ records: 2
 			want: `schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
-records: 3
+records: 4
 `,
 		},
 		{
@@ -204,6 +244,24 @@ records: 3
 schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
+records: 4
+`,
+		},
+		{
+			stream: true,
+			name:   "fixed_size_binaries",
+			want: `schema:
+  fields: 1
+    - fixed_size_binary_3: type=fixed_size_binary[3], nullable
+records: 3
+`,
+		},
+		{
+			name: "fixed_size_binaries",
+			want: `version: V4
+schema:
+  fields: 1
+    - fixed_size_binary_3: type=fixed_size_binary[3], nullable
 records: 3
 `,
 		},

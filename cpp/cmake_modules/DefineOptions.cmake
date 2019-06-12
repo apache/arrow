@@ -93,8 +93,16 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_BUILD_TESTS "Build the Arrow googletest unit tests, default OFF"
                 OFF)
 
+  define_option(ARROW_BUILD_INTEGRATION
+                "Build the Arrow integration test executables, default OFF" OFF)
+
   define_option(ARROW_BUILD_BENCHMARKS "Build the Arrow micro benchmarks, default OFF"
                 OFF)
+
+  # Reference benchmarks are used to compare to naive implementation, or
+  # discover various hardware limits.
+  define_option(ARROW_BUILD_BENCHMARKS_REFERENCE
+                "Build the Arrow micro reference benchmarks, default OFF." OFF)
 
   define_option_string(ARROW_TEST_LINKAGE
                        "Linkage of Arrow libraries with unit tests executables."
@@ -124,6 +132,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_USE_TSAN "Enable Thread Sanitizer checks" OFF)
 
+  define_option(ARROW_USE_UBSAN "Enable Undefined Behavior sanitizer checks" OFF)
+
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
@@ -143,6 +153,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_CUDA "Build the Arrow CUDA extensions (requires CUDA toolkit)" OFF)
 
   define_option(ARROW_ORC "Build the Arrow ORC adapter" OFF)
+
+  define_option(ARROW_JNI "Build the Arrow JNI lib" OFF)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 

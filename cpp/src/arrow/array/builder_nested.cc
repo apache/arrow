@@ -140,9 +140,84 @@ ArrayBuilder* ListBuilder::value_builder() const {
   DCHECK(!values_) << "Using value builder is pointless when values_ is set";
   return value_builder_.get();
 }
+// ----------------------------------------------------------------------
+// MapBuilder
+
+MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
+                       std::shared_ptr<ArrayBuilder> const& item_builder,
+                       const std::shared_ptr<DataType>& type)
+    : ArrayBuilder(type, pool), key_builder_(key_builder), item_builder_(item_builder) {
+  list_builder_ = std::make_shared<ListBuilder>(
+      pool, key_builder, list(field("key", key_builder->type(), false)));
+}
+
+MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
+                       const std::shared_ptr<ArrayBuilder>& item_builder,
+                       bool keys_sorted)
+    : MapBuilder(pool, key_builder, item_builder,
+                 map(key_builder->type(), item_builder->type(), keys_sorted)) {}
+
+Status MapBuilder::Resize(int64_t capacity) {
+  RETURN_NOT_OK(list_builder_->Resize(capacity));
+  capacity_ = list_builder_->capacity();
+  return Status::OK();
+}
+
+void MapBuilder::Reset() {
+  list_builder_->Reset();
+  ArrayBuilder::Reset();
+}
+
+Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  // finish list(keys) builder
+  RETURN_NOT_OK(list_builder_->FinishInternal(out));
+  // finish values builder
+  std::shared_ptr<ArrayData> items_data;
+  RETURN_NOT_OK(item_builder_->FinishInternal(&items_data));
+
+  auto keys_data = (*out)->child_data[0];
+  (*out)->type = type_;
+  (*out)->child_data[0] = ArrayData::Make(type_->child(0)->type(), keys_data->length,
+                                          {nullptr}, {keys_data, items_data}, 0, 0);
+  ArrayBuilder::Reset();
+  return Status::OK();
+}
+
+Status MapBuilder::AppendValues(const int32_t* offsets, int64_t length,
+                                const uint8_t* valid_bytes) {
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  RETURN_NOT_OK(list_builder_->AppendValues(offsets, length, valid_bytes));
+  length_ = list_builder_->length();
+  null_count_ = list_builder_->null_count();
+  return Status::OK();
+}
+
+Status MapBuilder::Append() {
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  RETURN_NOT_OK(list_builder_->Append());
+  length_ = list_builder_->length();
+  return Status::OK();
+}
+
+Status MapBuilder::AppendNull() {
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  RETURN_NOT_OK(list_builder_->AppendNull());
+  length_ = list_builder_->length();
+  null_count_ = list_builder_->null_count();
+  return Status::OK();
+}
+
+Status MapBuilder::AppendNulls(int64_t length) {
+  DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  RETURN_NOT_OK(list_builder_->AppendNulls(length));
+  length_ = list_builder_->length();
+  null_count_ = list_builder_->null_count();
+  return Status::OK();
+}
 
 // ----------------------------------------------------------------------
-// ListBuilder
+// FixedSizeListBuilder
 
 FixedSizeListBuilder::FixedSizeListBuilder(
     MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,

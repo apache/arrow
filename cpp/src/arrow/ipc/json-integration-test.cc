@@ -79,7 +79,7 @@ static Status ConvertJsonToArrow(const std::string& json_path,
   RETURN_NOT_OK(internal::json::JsonReader::Open(json_buffer, &reader));
 
   if (FLAGS_verbose) {
-    std::cout << "Found schema: " << reader->schema()->ToString() << std::endl;
+    std::cout << "Found schema:\n" << reader->schema()->ToString() << std::endl;
   }
 
   std::shared_ptr<RecordBatchWriter> writer;
@@ -106,7 +106,7 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   RETURN_NOT_OK(RecordBatchFileReader::Open(in_file.get(), &reader));
 
   if (FLAGS_verbose) {
-    std::cout << "Found schema: " << reader->schema()->ToString() << std::endl;
+    std::cout << "Found schema:\n" << reader->schema()->ToString() << std::endl;
   }
 
   std::unique_ptr<internal::json::JsonWriter> writer;

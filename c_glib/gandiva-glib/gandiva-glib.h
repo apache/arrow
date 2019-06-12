@@ -20,5 +20,8 @@
 #pragma once
 
 #include <gandiva-glib/expression.h>
+#include <gandiva-glib/function-registry.h>
+#include <gandiva-glib/function-signature.h>
+#include <gandiva-glib/native-function.h>
 #include <gandiva-glib/node.h>
 #include <gandiva-glib/projector.h>

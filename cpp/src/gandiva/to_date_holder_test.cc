@@ -134,9 +134,4 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeMakeError) {
   EXPECT_EQ(status.IsInvalid(), true) << status.message();
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
 }  // namespace gandiva

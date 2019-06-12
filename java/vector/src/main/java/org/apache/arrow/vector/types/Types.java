@@ -59,6 +59,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
@@ -110,6 +111,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
+import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
@@ -634,6 +636,21 @@ public class Types {
         return new UnionWriter((UnionVector) vector);
       }
     },
+    MAP(null) {
+      @Override
+      public FieldVector getNewVector(
+          String name,
+          FieldType fieldType,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        return new MapVector(name, allocator, fieldType, schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new UnionListWriter((MapVector) vector);
+      }
+    },
     TIMESTAMPSECTZ(null) {
       @Override
       public FieldVector getNewVector(
@@ -749,6 +766,11 @@ public class Types {
       @Override
       public MinorType visit(Union type) {
         return MinorType.UNION;
+      }
+
+      @Override
+      public MinorType visit(Map type) {
+        return MinorType.MAP;
       }
 
       @Override

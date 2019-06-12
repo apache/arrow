@@ -22,9 +22,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/memory_pool.h"
-
-#include "parquet/util/memory.h"
+#include "parquet/platform.h"
 
 namespace arrow {
 

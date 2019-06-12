@@ -32,17 +32,44 @@ class FunctionContext;
 struct Datum;
 
 template <typename ArrowType, CompareOperator Op,
-          typename ArrayType = typename TypeTraits<ArrowType>::ArrayType,
           typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
           typename T = typename TypeTraits<ArrowType>::CType>
-static Status CompareArrayScalar(const ArrayData& input, const ScalarType& scalar,
-                                 uint8_t* bitmap) {
+static Status CompareArrayScalar(const ArrayData& array, const ScalarType& scalar,
+                                 uint8_t* output_bitmap) {
+  const T* left = array.GetValues<T>(1);
   const T right = scalar.value;
-  const T* values = input.GetValues<T>(1);
 
-  size_t i = 0;
-  internal::GenerateBitsUnrolled(bitmap, 0, input.length, [values, right, &i]() -> bool {
-    return Comparator<T, Op>::Compare(values[i++], right);
+  internal::GenerateBitsUnrolled(
+      output_bitmap, 0, array.length,
+      [&left, right]() -> bool { return Comparator<T, Op>::Compare(*left++, right); });
+
+  return Status::OK();
+}
+
+template <typename ArrowType, CompareOperator Op,
+          typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
+          typename T = typename TypeTraits<ArrowType>::CType>
+static Status CompareScalarArray(const ScalarType& scalar, const ArrayData& array,
+                                 uint8_t* output_bitmap) {
+  const T left = scalar.value;
+  const T* right = array.GetValues<T>(1);
+
+  internal::GenerateBitsUnrolled(
+      output_bitmap, 0, array.length,
+      [left, &right]() -> bool { return Comparator<T, Op>::Compare(left, *right++); });
+
+  return Status::OK();
+}
+
+template <typename ArrowType, CompareOperator Op,
+          typename T = typename TypeTraits<ArrowType>::CType>
+static Status CompareArrayArray(const ArrayData& lhs, const ArrayData& rhs,
+                                uint8_t* output_bitmap) {
+  const T* left = lhs.GetValues<T>(1);
+  const T* right = rhs.GetValues<T>(1);
+
+  internal::GenerateBitsUnrolled(output_bitmap, 0, lhs.length, [&left, &right]() -> bool {
+    return Comparator<T, Op>::Compare(*left++, *right++);
   });
 
   return Status::OK();
@@ -50,31 +77,68 @@ static Status CompareArrayScalar(const ArrayData& input, const ScalarType& scala
 
 template <typename ArrowType, CompareOperator Op>
 class CompareFunction final : public FilterFunction {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
  public:
   explicit CompareFunction(FunctionContext* ctx) : ctx_(ctx) {}
 
-  Status Filter(const ArrayData& input, const Scalar& scalar, ArrayData* output) const {
+  Status Filter(const ArrayData& array, const Scalar& scalar, ArrayData* output) const {
     // Caller must cast
-    DCHECK(input.type->Equals(scalar.type));
+    DCHECK(array.type->Equals(scalar.type));
     // Output must be a boolean array
     DCHECK(output->type->Equals(boolean()));
     // Output must be of same length
-    DCHECK_EQ(output->length, input.length);
+    DCHECK_EQ(output->length, array.length);
 
     // Scalar is null, all comparisons are null.
     if (!scalar.is_valid) {
-      return detail::SetAllNulls(ctx_, input, output);
+      return detail::SetAllNulls(ctx_, array, output);
     }
 
     // Copy null_bitmap
-    RETURN_NOT_OK(detail::PropagateNulls(ctx_, input, output));
+    RETURN_NOT_OK(detail::PropagateNulls(ctx_, array, output));
 
     uint8_t* bitmap_result = output->buffers[1]->mutable_data();
     return CompareArrayScalar<ArrowType, Op>(
-        input, static_cast<const ScalarType&>(scalar), bitmap_result);
+        array, static_cast<const ScalarType&>(scalar), bitmap_result);
+  }
+
+  Status Filter(const Scalar& scalar, const ArrayData& array, ArrayData* output) const {
+    // Caller must cast
+    DCHECK(array.type->Equals(scalar.type));
+    // Output must be a boolean array
+    DCHECK(output->type->Equals(boolean()));
+    // Output must be of same length
+    DCHECK_EQ(output->length, array.length);
+
+    // Scalar is null, all comparisons are null.
+    if (!scalar.is_valid) {
+      return detail::SetAllNulls(ctx_, array, output);
+    }
+
+    // Copy null_bitmap
+    RETURN_NOT_OK(detail::PropagateNulls(ctx_, array, output));
+
+    uint8_t* bitmap_result = output->buffers[1]->mutable_data();
+    return CompareScalarArray<ArrowType, Op>(static_cast<const ScalarType&>(scalar),
+                                             array, bitmap_result);
+  }
+
+  Status Filter(const ArrayData& lhs, const ArrayData& rhs, ArrayData* output) const {
+    // Caller must cast
+    DCHECK(lhs.type->Equals(rhs.type));
+    // Output must be a boolean array
+    DCHECK(output->type->Equals(boolean()));
+    // Inputs must be of same length
+    DCHECK_EQ(lhs.length, rhs.length);
+    // Output must be of same length as inputs
+    DCHECK_EQ(output->length, lhs.length);
+
+    // Copy null_bitmap
+    RETURN_NOT_OK(detail::AssignNullIntersection(ctx_, lhs, rhs, output));
+
+    uint8_t* bitmap_result = output->buffers[1]->mutable_data();
+    return CompareArrayArray<ArrowType, Op>(lhs, rhs, bitmap_result);
   }
 
  private:
@@ -152,13 +216,9 @@ Status Compare(FunctionContext* context, const Datum& left, const Datum& right,
                struct CompareOptions options, Datum* out) {
   DCHECK(out);
 
-  DCHECK_EQ(left.kind(), Datum::ARRAY);
-  DCHECK_EQ(right.kind(), Datum::SCALAR);
-  DCHECK(left.type()->Equals(right.type()));
-
-  auto array = left.make_array();
-  auto type = array->type();
-
+  auto type = left.type();
+  DCHECK(type->Equals(right.type()));
+  // Requires that both types are equal.
   auto fn = MakeCompareFilterFunction(context, *type, options);
   if (fn == nullptr) {
     return Status::NotImplemented("Compare not implemented for type ", type->ToString());
@@ -166,7 +226,9 @@ Status Compare(FunctionContext* context, const Datum& left, const Datum& right,
 
   FilterBinaryKernel filter_kernel(fn);
   detail::PrimitiveAllocatingBinaryKernel kernel(&filter_kernel);
-  out->value = ArrayData::Make(filter_kernel.out_type(), array->length());
+
+  const int64_t length = FilterBinaryKernel::out_length(left, right);
+  out->value = ArrayData::Make(filter_kernel.out_type(), length);
 
   return kernel.Call(context, left, right, out);
 }

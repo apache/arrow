@@ -47,6 +47,7 @@ namespace internal {
 namespace json {
 
 using ::arrow::internal::checked_cast;
+using ::arrow::internal::checked_pointer_cast;
 
 // Avoid undefined behaviour on signed overflow
 template <typename Signed>
@@ -535,9 +536,137 @@ TEST(TestList, IntegerListList) {
   }
 }
 
+TEST(TestMap, IntegerToInteger) {
+  auto type = map(int16(), int16());
+  std::shared_ptr<Array> expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, R"([
+    [[0, 1], [1, 1], [2, 2], [3, 3], [4, 5], [5, 8]],
+    null,
+    [[0, null], [1, null], [2, 0], [3, 1], [4, null], [5, 2]],
+    []
+  ])",
+                          &actual));
+
+  std::unique_ptr<ArrayBuilder> builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder));
+  auto& map_builder = checked_cast<MapBuilder&>(*builder);
+  auto& key_builder = checked_cast<Int16Builder&>(*map_builder.key_builder());
+  auto& item_builder = checked_cast<Int16Builder&>(*map_builder.item_builder());
+
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder.AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder.AppendValues({1, 1, 2, 3, 5, 8}));
+  ASSERT_OK(map_builder.AppendNull());
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder.AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder.AppendValues({-1, -1, 0, 1, -1, 2}, {0, 0, 1, 1, 0, 1}));
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(map_builder.Finish(&expected));
+
+  ASSERT_ARRAYS_EQUAL(*actual, *expected);
+}
+
+TEST(TestMap, StringToInteger) {
+  auto type = map(utf8(), int32());
+  auto actual = ArrayFromJSON(type, R"([
+    [["joe", 0], ["mark", null]],
+    null,
+    [["cap", 8]],
+    []
+  ])");
+  std::vector<int32_t> offsets = {0, 2, 2, 3, 3};
+  auto expected_keys = ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])");
+  auto expected_values = ArrayFromJSON(int32(), "[0, null, 8]");
+  std::shared_ptr<Buffer> expected_null_bitmap;
+  ASSERT_OK(
+      BitUtil::BytesToBits({1, 0, 1, 1}, default_memory_pool(), &expected_null_bitmap));
+  auto expected =
+      std::make_shared<MapArray>(type, 4, Buffer::Wrap(offsets), expected_keys,
+                                 expected_values, expected_null_bitmap, 1);
+  ASSERT_ARRAYS_EQUAL(*actual, *expected);
+}
+
+TEST(TestMap, Errors) {
+  auto type = map(int16(), int16());
+  std::shared_ptr<Array> array;
+
+  // list of pairs isn't an array
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
+  // pair isn't an array
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[null]]", &array));
+  // pair with length != 2
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[0]]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[0, 1, 2]]]", &array));
+  // null key
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[null, 0]]]", &array));
+  // key or value fails to convert
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[0.0, 0]]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[0, 0.0]]]", &array));
+}
+
+TEST(TestMap, IntegerMapToStringList) {
+  auto type = map(map(int16(), int16()), list(utf8()));
+  std::shared_ptr<Array> expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, R"([
+    [
+      [
+        [],
+        [null, "empty"]
+      ],
+      [
+        [[0, 1]],
+        null
+      ],
+      [
+        [[0, 0], [1, 1]],
+        ["bootstrapping tautology?", "lispy", null, "i can see eternity"]
+      ]
+    ],
+    null
+  ])",
+                          &actual));
+
+  std::unique_ptr<ArrayBuilder> builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder));
+  auto& map_builder = checked_cast<MapBuilder&>(*builder);
+  auto& key_builder = checked_cast<MapBuilder&>(*map_builder.key_builder());
+  auto& key_key_builder = checked_cast<Int16Builder&>(*key_builder.key_builder());
+  auto& key_item_builder = checked_cast<Int16Builder&>(*key_builder.item_builder());
+  auto& item_builder = checked_cast<ListBuilder&>(*map_builder.item_builder());
+  auto& item_value_builder = checked_cast<StringBuilder&>(*item_builder.value_builder());
+
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder.Append());
+  ASSERT_OK(item_builder.Append());
+  ASSERT_OK(item_value_builder.AppendNull());
+  ASSERT_OK(item_value_builder.Append("empty"));
+
+  ASSERT_OK(key_builder.Append());
+  ASSERT_OK(item_builder.AppendNull());
+  ASSERT_OK(key_key_builder.AppendValues({0}));
+  ASSERT_OK(key_item_builder.AppendValues({1}));
+
+  ASSERT_OK(key_builder.Append());
+  ASSERT_OK(item_builder.Append());
+  ASSERT_OK(key_key_builder.AppendValues({0, 1}));
+  ASSERT_OK(key_item_builder.AppendValues({0, 1}));
+  ASSERT_OK(item_value_builder.Append("bootstrapping tautology?"));
+  ASSERT_OK(item_value_builder.Append("lispy"));
+  ASSERT_OK(item_value_builder.AppendNull());
+  ASSERT_OK(item_value_builder.Append("i can see eternity"));
+
+  ASSERT_OK(map_builder.AppendNull());
+
+  ASSERT_OK(map_builder.Finish(&expected));
+  ASSERT_ARRAYS_EQUAL(*actual, *expected);
+}
+
 TEST(TestFixedSizeList, IntegerList) {
   auto pool = default_memory_pool();
-  std::shared_ptr<DataType> type = fixed_size_list(int64(), 2);
+  auto type = fixed_size_list(int64(), 2);
   std::shared_ptr<Array> values, expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));

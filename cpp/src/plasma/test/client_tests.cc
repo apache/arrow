@@ -591,6 +591,7 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
       client_.Create(object_id2, data_size, metadata, metadata_size, &data, 1));
   ARROW_CHECK_OK(client_.Seal(object_id2));
   // Release the ref count of Create function.
+  data = nullptr;
   ARROW_CHECK_OK(client_.Release(object_id1));
   ARROW_CHECK_OK(client_.Release(object_id2));
   // Increase the ref count by calling Get using client2_.
@@ -615,6 +616,42 @@ TEST_F(TestPlasmaStore, DeleteObjectsGPUTest) {
   ASSERT_FALSE(has_object);
   ARROW_CHECK_OK(client_.Contains(object_id2, &has_object));
   ASSERT_FALSE(has_object);
+}
+
+TEST_F(TestPlasmaStore, RepeatlyCreateGPUTest) {
+  const int64_t loop_times = 100;
+  const int64_t object_num = 5;
+  const int64_t data_size = 40;
+
+  std::vector<ObjectID> object_ids;
+
+  // create new gpu objects
+  for (int64_t i = 0; i < object_num; i++) {
+    object_ids.push_back(random_object_id());
+    ObjectID& object_id = object_ids[i];
+
+    std::shared_ptr<Buffer> data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, 1));
+    ARROW_CHECK_OK(client_.Seal(object_id));
+    ARROW_CHECK_OK(client_.Release(object_id));
+  }
+
+  // delete and create again
+  for (int64_t i = 0; i < loop_times; i++) {
+    ObjectID& object_id = object_ids[i % object_num];
+
+    ARROW_CHECK_OK(client_.Delete(object_id));
+
+    std::shared_ptr<Buffer> data;
+    ARROW_CHECK_OK(client_.Create(object_id, data_size, 0, 0, &data, 1));
+    ARROW_CHECK_OK(client_.Seal(object_id));
+
+    data = nullptr;
+    ARROW_CHECK_OK(client_.Release(object_id));
+  }
+
+  // delete all
+  ARROW_CHECK_OK(client_.Delete(object_ids));
 }
 
 TEST_F(TestPlasmaStore, MultipleClientGPUTest) {

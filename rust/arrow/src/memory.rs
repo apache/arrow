@@ -19,6 +19,7 @@
 //! regions.
 
 use std::alloc::Layout;
+use std::mem::align_of;
 
 pub const ALIGNMENT: usize = 64;
 
@@ -59,6 +60,11 @@ pub fn is_aligned<T>(p: *const T, a: usize) -> bool {
     let a_minus_one = a.wrapping_sub(1);
     let pmoda = p as usize & a_minus_one;
     pmoda == 0
+}
+
+pub fn is_ptr_aligned<T>(p: *const T) -> bool {
+    let alignment = align_of::<T>();
+    is_aligned(p, alignment)
 }
 
 #[cfg(test)]

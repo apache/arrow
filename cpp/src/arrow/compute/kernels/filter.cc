@@ -19,6 +19,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -30,11 +31,28 @@ std::shared_ptr<DataType> FilterBinaryKernel::out_type() const {
 
 Status FilterBinaryKernel::Call(FunctionContext* ctx, const Datum& left,
                                 const Datum& right, Datum* out) {
-  auto array = left.array();
-  auto scalar = right.scalar();
-  auto result = out->array();
+  DCHECK(left.type()->Equals(right.type()));
 
-  return filter_function_->Filter(*array, *scalar, result.get());
+  auto lk = left.kind();
+  auto rk = right.kind();
+  auto out_array = out->array();
+
+  if (lk == Datum::ARRAY && rk == Datum::SCALAR) {
+    auto array = left.array();
+    auto scalar = right.scalar();
+    return filter_function_->Filter(*array, *scalar, &out_array);
+  } else if (lk == Datum::SCALAR && rk == Datum::ARRAY) {
+    auto scalar = left.scalar();
+    auto array = right.array();
+    auto out_array = out->array();
+    return filter_function_->Filter(*scalar, *array, &out_array);
+  } else if (lk == Datum::ARRAY && rk == Datum::ARRAY) {
+    auto lhs = left.array();
+    auto rhs = right.array();
+    return filter_function_->Filter(*lhs, *rhs, &out_array);
+  }
+
+  return Status::Invalid("Invalid datum signature for FilterBinaryKernel");
 }
 
 }  // namespace compute

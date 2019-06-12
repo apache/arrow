@@ -18,7 +18,7 @@
 context("arrow::ipc::MessageReader")
 
 test_that("MessageReader can be created from raw vectors", {
-  batch <- record_batch(tibble::tibble(x = 1:10))
+  batch <- record_batch(x = 1:10)
   bytes <- batch$serialize()
 
   reader <- MessageReader(bytes)
@@ -34,7 +34,7 @@ test_that("MessageReader can be created from raw vectors", {
 })
 
 test_that("MessageReader can be created from input stream", {
-  batch <- record_batch(tibble::tibble(x = 1:10))
+  batch <- record_batch(x = 1:10)
   bytes <- batch$serialize()
 
   stream <- BufferReader(bytes)

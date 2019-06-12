@@ -97,8 +97,7 @@ library(arrow)
 #> 
 #>     array, table
 
-tib <- tibble::tibble(x = 1:10, y = rnorm(10))
-tab <- table(tib)
+tab <- arrow::table(x = 1:10, y = rnorm(10))
 tab$schema
 #> arrow::Schema 
 #> x: int32
@@ -107,18 +106,18 @@ tab
 #> arrow::Table
 as_tibble(tab)
 #> # A tibble: 10 x 2
-#>        x        y
-#>    <int>    <dbl>
-#>  1     1 -1.70   
-#>  2     2  0.764  
-#>  3     3 -0.00735
-#>  4     4 -0.192  
-#>  5     5  0.513  
-#>  6     6 -1.81   
-#>  7     7 -0.371  
-#>  8     8 -1.40   
-#>  9     9 -0.0599 
-#> 10    10 -0.359
+#>        x      y
+#>    <int>  <dbl>
+#>  1     1  0.524
+#>  2     2 -0.606
+#>  3     3 -0.655
+#>  4     4  1.37 
+#>  5     5  1.53 
+#>  6     6  1.96 
+#>  7     7  1.80 
+#>  8     8  1.27 
+#>  9     9  0.698
+#> 10    10 -0.661
 ```
 
 ## Developing
@@ -132,6 +131,10 @@ install.packages("devtools")
 devtools::install_dev_deps()
 ```
 
+If you change C++ code, you need to set the `ARROW_R_DEV` environment
+variable to `TRUE`, e.g.  in your `~/.Renviron` so that the
+`data-raw/codegen.R` file is used for code generation.
+
 ### Useful functions
 
 ``` r
@@ -139,6 +142,7 @@ devtools::load_all() # Load the dev package
 devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
 devtools::document() # Update roxygen documentation
 rmarkdown::render("README.Rmd") # To rebuild README.md
+pkgdown::build_site() # To preview the documentation website
 devtools::check() # All package checks; see also below
 ```
 

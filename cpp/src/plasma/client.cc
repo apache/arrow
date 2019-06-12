@@ -416,12 +416,15 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
     }
   } else {
 #ifdef PLASMA_CUDA
-    std::lock_guard<std::mutex> lock(gpu_mutex);
     std::shared_ptr<CudaContext> context;
     RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context));
     GpuProcessHandle* handle = new GpuProcessHandle();
+    handle->client_count = 2;
     RETURN_NOT_OK(context->OpenIpcBuffer(*object.ipc_handle, &handle->ptr));
-    gpu_object_map[object_id] = handle;
+    {
+      std::lock_guard<std::mutex> lock(gpu_mutex);
+      gpu_object_map[object_id] = handle;
+    }
     *data = handle->ptr;
     if (metadata != NULL) {
       // Copy the metadata to the buffer.
@@ -500,7 +503,11 @@ Status PlasmaClient::Impl::GetBuffers(
             data + object->data_offset, object->data_size + object->metadata_size);
       } else {
 #ifdef PLASMA_CUDA
-        physical_buf = gpu_object_map.find(object_ids[i])->second->ptr;
+        std::lock_guard<std::mutex> lock(gpu_mutex);
+        auto iter = gpu_object_map.find(object_ids[i]);
+        ARROW_CHECK(iter != gpu_object_map.end());
+        iter->second->client_count++;
+        physical_buf = iter->second->ptr;
 #else
         ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
 #endif
@@ -568,11 +575,12 @@ Status PlasmaClient::Impl::GetBuffers(
           std::shared_ptr<CudaContext> context;
           RETURN_NOT_OK(manager_->GetContext(object->device_num - 1, &context));
           GpuProcessHandle* obj_handle = new GpuProcessHandle();
+          obj_handle->client_count = 1;
           RETURN_NOT_OK(context->OpenIpcBuffer(*object->ipc_handle, &obj_handle->ptr));
           gpu_object_map[object_ids[i]] = obj_handle;
           physical_buf = obj_handle->ptr;
         } else {
-          handle->second->client_count += 1;
+          handle->second->client_count++;
           physical_buf = handle->second->ptr;
         }
 #else
@@ -633,6 +641,19 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
   }
   auto object_entry = objects_in_use_.find(object_id);
   ARROW_CHECK(object_entry != objects_in_use_.end());
+
+#ifdef PLASMA_CUDA
+  if (object_entry->second->object.device_num != 0) {
+    std::lock_guard<std::mutex> lock(gpu_mutex);
+    auto iter = gpu_object_map.find(object_id);
+    ARROW_CHECK(iter != gpu_object_map.end());
+    if (--iter->second->client_count == 0) {
+      delete iter->second;
+      gpu_object_map.erase(iter);
+    }
+  }
+#endif
+
   object_entry->second->count -= 1;
   ARROW_CHECK(object_entry->second->count >= 0);
   // Check if the client is no longer using this object.
@@ -785,6 +806,17 @@ Status PlasmaClient::Impl::Abort(const ObjectID& object_id) {
   if (object_entry->second->count > 1) {
     return Status::Invalid("Plasma client cannot have a reference to the buffer.");
   }
+
+#ifdef PLASMA_CUDA
+  if (object_entry->second->object.device_num != 0) {
+    std::lock_guard<std::mutex> lock(gpu_mutex);
+    auto iter = gpu_object_map.find(object_id);
+    ARROW_CHECK(iter != gpu_object_map.end());
+    ARROW_CHECK(iter->second->client_count == 1);
+    delete iter->second;
+    gpu_object_map.erase(iter);
+  }
+#endif
 
   // Send the abort request.
   RETURN_NOT_OK(SendAbortRequest(store_conn_, object_id));

@@ -22,12 +22,10 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 #include "parquet/hasher.h"
+#include "parquet/platform.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/visibility.h"
 
 namespace arrow {
 
@@ -61,7 +59,7 @@ class PARQUET_EXPORT BloomFilter {
   /// include bitset length, hash strategy, algorithm, and bitset.
   ///
   /// @param sink the output stream to write
-  virtual void WriteTo(OutputStream* sink) const = 0;
+  virtual void WriteTo(ArrowOutputStream* sink) const = 0;
 
   /// Get the number of bytes of bitset
   virtual uint32_t GetBitsetSize() const = 0;
@@ -190,7 +188,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 
   bool FindHash(uint64_t hash) const override;
   void InsertHash(uint64_t hash) override;
-  void WriteTo(OutputStream* sink) const override;
+  void WriteTo(ArrowOutputStream* sink) const override;
   uint32_t GetBitsetSize() const override { return num_bytes_; }
 
   uint64_t Hash(int64_t value) const override { return hasher_->Hash(value); }
@@ -208,7 +206,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   ///
   /// @param input_stream The input stream from which to construct the Bloom filter
   /// @return The BlockSplitBloomFilter.
-  static BlockSplitBloomFilter Deserialize(InputStream* input_stream);
+  static BlockSplitBloomFilter Deserialize(ArrowInputStream* input_stream);
 
  private:
   // Bytes in a tiny Bloom filter block.

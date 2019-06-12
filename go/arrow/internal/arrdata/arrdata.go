@@ -23,6 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -36,6 +37,9 @@ func init() {
 	Records["structs"] = makeStructsRecords()
 	Records["lists"] = makeListsRecords()
 	Records["strings"] = makeStringsRecords()
+	Records["fixed_size_lists"] = makeFixedSizeListsRecords()
+	Records["fixed_width_types"] = makeFixedWidthTypesRecords()
+	Records["fixed_size_binaries"] = makeFixedSizeBinariesRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -202,6 +206,64 @@ func makeListsRecords() []array.Record {
 				arrayOf(mem, []int32{-21, -22, -23, -24, -25}, mask),
 			}, []bool{true, false, true}),
 		},
+		[]array.Interface{
+			func() array.Interface {
+				bldr := array.NewListBuilder(mem, arrow.PrimitiveTypes.Int32)
+				defer bldr.Release()
+
+				return bldr.NewListArray()
+			}(),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
+func makeFixedSizeListsRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+	const N = 3
+	dtype := arrow.FixedSizeListOf(N, arrow.PrimitiveTypes.Int32)
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "fixed_size_list_nullable", Type: dtype, Nullable: true},
+	}, nil)
+
+	mask := []bool{true, false, true}
+
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			fixedSizeListOf(mem, N, []array.Interface{
+				arrayOf(mem, []int32{1, 2, 3}, mask),
+				arrayOf(mem, []int32{11, 12, 13}, mask),
+				arrayOf(mem, []int32{21, 22, 23}, mask),
+			}, nil),
+		},
+		[]array.Interface{
+			fixedSizeListOf(mem, N, []array.Interface{
+				arrayOf(mem, []int32{-1, -2, -3}, mask),
+				arrayOf(mem, []int32{-11, -12, -13}, mask),
+				arrayOf(mem, []int32{-21, -22, -23}, mask),
+			}, nil),
+		},
+		[]array.Interface{
+			fixedSizeListOf(mem, N, []array.Interface{
+				arrayOf(mem, []int32{-1, -2, -3}, mask),
+				arrayOf(mem, []int32{-11, -12, -13}, mask),
+				arrayOf(mem, []int32{-21, -22, -23}, mask),
+			}, []bool{true, false, true}),
+		},
 	}
 
 	defer func() {
@@ -240,6 +302,123 @@ func makeStringsRecords() []array.Record {
 		[]array.Interface{
 			arrayOf(mem, []string{"111", "222", "333", "444", "555"}, mask),
 			arrayOf(mem, [][]byte{[]byte("111"), []byte("222"), []byte("333"), []byte("444"), []byte("555")}, mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
+type time32s arrow.Time32
+type time32ms arrow.Time32
+type time64ns arrow.Time64
+type time64us arrow.Time64
+
+func makeFixedWidthTypesRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "float16s", Type: arrow.FixedWidthTypes.Float16, Nullable: true},
+			arrow.Field{Name: "time32ms", Type: arrow.FixedWidthTypes.Time32ms, Nullable: true},
+			arrow.Field{Name: "time32s", Type: arrow.FixedWidthTypes.Time32s, Nullable: true},
+			arrow.Field{Name: "time64ns", Type: arrow.FixedWidthTypes.Time64ns, Nullable: true},
+			arrow.Field{Name: "time64us", Type: arrow.FixedWidthTypes.Time64us, Nullable: true},
+			arrow.Field{Name: "timestamp", Type: arrow.FixedWidthTypes.Timestamp, Nullable: true},
+			arrow.Field{Name: "date32s", Type: arrow.FixedWidthTypes.Date32, Nullable: true},
+			arrow.Field{Name: "date64s", Type: arrow.FixedWidthTypes.Date64, Nullable: true},
+		}, nil,
+	)
+
+	float16s := func(vs []float32) []float16.Num {
+		o := make([]float16.Num, len(vs))
+		for i, v := range vs {
+			o[i] = float16.New(v)
+		}
+		return o
+	}
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			arrayOf(mem, float16s([]float32{+1, +2, +3, +4, +5}), mask),
+			arrayOf(mem, []time32ms{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []time32s{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []time64ns{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []time64us{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []arrow.Timestamp{0, +1, +2, +3, +4}, mask),
+			arrayOf(mem, []arrow.Date32{-2, -1, 0, +1, +2}, mask),
+			arrayOf(mem, []arrow.Date64{-2, -1, 0, +1, +2}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, float16s([]float32{+11, +12, +13, +14, +15}), mask),
+			arrayOf(mem, []time32ms{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []time32s{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []time64ns{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []time64us{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []arrow.Timestamp{10, +11, +12, +13, +14}, mask),
+			arrayOf(mem, []arrow.Date32{-12, -11, 10, +11, +12}, mask),
+			arrayOf(mem, []arrow.Date64{-12, -11, 10, +11, +12}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, float16s([]float32{+21, +22, +23, +24, +25}), mask),
+			arrayOf(mem, []time32ms{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []time32s{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []time64ns{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []time64us{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []arrow.Timestamp{20, +21, +22, +23, +24}, mask),
+			arrayOf(mem, []arrow.Date32{-22, -21, 20, +21, +22}, mask),
+			arrayOf(mem, []arrow.Date64{-22, -21, 20, +21, +22}, mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
+type fsb3 string
+
+func makeFixedSizeBinariesRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "fixed_size_binary_3", Type: &arrow.FixedSizeBinaryType{ByteWidth: 3}, Nullable: true},
+		}, nil,
+	)
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			arrayOf(mem, []fsb3{"001", "002", "003", "004", "005"}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []fsb3{"011", "012", "013", "014", "015"}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []fsb3{"021", "022", "023", "024", "025"}, mask),
 		},
 	}
 
@@ -328,6 +507,13 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 		bldr.AppendValues(a, valids)
 		return bldr.NewUint64Array()
 
+	case []float16.Num:
+		bldr := array.NewFloat16Builder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewFloat16Array()
+
 	case []float32:
 		bldr := array.NewFloat32Builder(mem)
 		defer bldr.Release()
@@ -356,6 +542,81 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 		bldr.AppendValues(a, valids)
 		return bldr.NewBinaryArray()
 
+	case []time32s:
+		bldr := array.NewTime32Builder(mem, arrow.FixedWidthTypes.Time32s.(*arrow.Time32Type))
+		defer bldr.Release()
+
+		vs := make([]arrow.Time32, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Time32(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []time32ms:
+		bldr := array.NewTime32Builder(mem, arrow.FixedWidthTypes.Time32ms.(*arrow.Time32Type))
+		defer bldr.Release()
+
+		vs := make([]arrow.Time32, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Time32(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []time64ns:
+		bldr := array.NewTime64Builder(mem, arrow.FixedWidthTypes.Time64ns.(*arrow.Time64Type))
+		defer bldr.Release()
+
+		vs := make([]arrow.Time64, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Time64(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []time64us:
+		bldr := array.NewTime64Builder(mem, arrow.FixedWidthTypes.Time64us.(*arrow.Time64Type))
+		defer bldr.Release()
+
+		vs := make([]arrow.Time64, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Time64(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []arrow.Timestamp:
+		bldr := array.NewTimestampBuilder(mem, arrow.FixedWidthTypes.Timestamp.(*arrow.TimestampType))
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+
+	case []arrow.Date32:
+		bldr := array.NewDate32Builder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+
+	case []arrow.Date64:
+		bldr := array.NewDate64Builder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+
+	case []fsb3:
+		bldr := array.NewFixedSizeBinaryBuilder(mem, &arrow.FixedSizeBinaryType{ByteWidth: 3})
+		defer bldr.Release()
+		vs := make([][]byte, len(a))
+		for i, v := range a {
+			vs[i] = []byte(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
 	default:
 		panic(fmt.Errorf("arrdata: invalid data slice type %T", a))
 	}
@@ -367,6 +628,30 @@ func listOf(mem memory.Allocator, values []array.Interface, valids []bool) *arra
 	}
 
 	bldr := array.NewListBuilder(mem, values[0].DataType())
+	defer bldr.Release()
+
+	valid := func(i int) bool {
+		return valids[i]
+	}
+
+	if valids == nil {
+		valid = func(i int) bool { return true }
+	}
+
+	for i, value := range values {
+		bldr.Append(valid(i))
+		buildArray(bldr.ValueBuilder(), value)
+	}
+
+	return bldr.NewListArray()
+}
+
+func fixedSizeListOf(mem memory.Allocator, n int32, values []array.Interface, valids []bool) *array.FixedSizeList {
+	if mem == nil {
+		mem = memory.NewGoAllocator()
+	}
+
+	bldr := array.NewFixedSizeListBuilder(mem, n, values[0].DataType())
 	defer bldr.Release()
 
 	valid := func(i int) bool {

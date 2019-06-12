@@ -31,7 +31,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (Buffer, Array, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
-                          Table,
+                          Table, NativeFile,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
                           pyarrow_wrap_table,
@@ -39,7 +39,8 @@ from pyarrow.lib cimport (Buffer, Array, Schema,
                           NativeFile, get_reader, get_writer)
 
 from pyarrow.compat import tobytes, frombytes
-from pyarrow.lib import ArrowException, NativeFile, _stringify_path
+from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
+                         BufferOutputStream)
 from pyarrow.util import indent
 
 
@@ -421,11 +422,13 @@ cdef class FileMetaData:
         self._metadata = metadata.get()
 
     def __reduce__(self):
-        cdef ParquetInMemoryOutputStream sink
+        cdef:
+            NativeFile sink = BufferOutputStream()
+            OutputStream* c_sink = sink.get_output_stream().get()
         with nogil:
-            self._metadata.WriteTo(&sink)
+            self._metadata.WriteTo(c_sink)
 
-        cdef Buffer buffer = pyarrow_wrap_buffer(sink.GetBuffer())
+        cdef Buffer buffer = sink.getvalue()
         return _reconstruct_filemetadata, (buffer,)
 
     def __repr__(self):
@@ -532,6 +535,36 @@ cdef class FileMetaData:
         cdef:
             c_string c_path = tobytes(path)
         self._metadata.set_file_path(c_path)
+
+    def append_row_groups(self, FileMetaData other):
+        """
+        Append row groups of other FileMetaData object
+        """
+        cdef shared_ptr[CFileMetaData] c_metadata
+
+        c_metadata = other.sp_metadata
+        self._metadata.AppendRowGroups(deref(c_metadata))
+
+    def write_metadata_file(self, where):
+        """
+        Write the metadata object to a metadata-only file
+        """
+        cdef:
+            shared_ptr[OutputStream] sink
+            c_string c_where
+
+        try:
+            where = _stringify_path(where)
+        except TypeError:
+            get_writer(where, &sink)
+        else:
+            c_where = tobytes(where)
+            with nogil:
+                check_status(FileOutputStream.Open(c_where, &sink))
+
+        with nogil:
+            check_status(
+                WriteMetaDataFile(deref(self._metadata), sink.get()))
 
 
 cdef class ParquetSchema:

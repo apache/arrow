@@ -355,6 +355,43 @@ TEST_F(TestPrettyPrint, ListType) {
   CheckStream(*array, {0, 1}, ex_3);
 }
 
+TEST_F(TestPrettyPrint, MapType) {
+  auto map_type = map(utf8(), int64());
+  auto array = ArrayFromJSON(map_type, R"([
+    [["joe", 0], ["mark", null]],
+    null,
+    [["cap", 8]],
+    []
+  ])");
+
+  static const char* ex = R"expected([
+  keys:
+  [
+    "joe",
+    "mark"
+  ]
+  values:
+  [
+    0,
+    null
+  ],
+  null,
+  keys:
+  [
+    "cap"
+  ]
+  values:
+  [
+    8
+  ],
+  keys:
+  []
+  values:
+  []
+])expected";
+  CheckArray(*array, {0, 10}, ex);
+}
+
 TEST_F(TestPrettyPrint, FixedSizeListType) {
   auto list_type = fixed_size_list(int32(), 3);
   auto array = ArrayFromJSON(list_type,

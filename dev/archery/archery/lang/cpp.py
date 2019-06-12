@@ -60,6 +60,7 @@ class CppConfiguration:
         if self.cxx_flags:
             yield ("ARROW_CXXFLAGS", self.cxx_flags)
 
+        yield ("CMAKE_EXPORT_COMPILE_COMMANDS", truthifier(True))
         yield ("CMAKE_BUILD_TYPE", or_else(self.build_type, "debug"))
         yield ("BUILD_WARNING_LEVEL", or_else(self.warn_level, "production"))
 

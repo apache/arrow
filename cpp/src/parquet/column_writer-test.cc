@@ -19,17 +19,18 @@
 
 #include <gtest/gtest.h>
 
-#include <arrow/testing/gtest_util.h>
+#include "arrow/io/buffered.h"
+#include "arrow/testing/gtest_util.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/test-util.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -77,8 +78,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   void BuildReader(int64_t num_rows,
                    Compression::type compression = Compression::UNCOMPRESSED) {
-    auto buffer = sink_->GetBuffer();
-    std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_OK(sink_->Finish(&buffer));
+    auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     std::unique_ptr<PageReader> page_reader =
         PageReader::Open(std::move(source), num_rows, compression);
     reader_ = std::static_pointer_cast<TypedColumnReader<TestType>>(
@@ -89,7 +91,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       int64_t output_size = SMALL_SIZE,
       const ColumnProperties& column_properties = ColumnProperties(),
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0) {
-    sink_.reset(new InMemoryOutputStream());
+    sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version);
     if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
@@ -105,7 +107,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
     std::unique_ptr<PageWriter> pager =
-        PageWriter::Open(sink_.get(), column_properties.compression(), metadata_.get());
+        PageWriter::Open(sink_, column_properties.compression(), metadata_.get());
     std::shared_ptr<ColumnWriter> writer =
         ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
     return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
@@ -280,7 +282,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
  private:
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
-  std::unique_ptr<InMemoryOutputStream> sink_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
   std::vector<std::vector<uint8_t>> data_buffer_;
 };
@@ -669,12 +671,12 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   SchemaDescriptor schema;
   schema.Init(root);
 
-  InMemoryOutputStream sink;
+  auto sink = CreateOutputStream();
   auto props = WriterProperties::Builder().build();
 
   auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
   std::unique_ptr<PageWriter> pager =
-      PageWriter::Open(&sink, Compression::UNCOMPRESSED, metadata.get());
+      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
   auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);

@@ -33,4 +33,4 @@ CPPLINT=$CPP_BUILD_SUPPORT/cpplint.py
 $CPP_BUILD_SUPPORT/run_cpplint.py \
     --cpplint_binary=$CPPLINT \
     --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \
-    --source_dir=$SOURCE_DIR/src --quiet $1
+    --source_dir=$SOURCE_DIR/src --quiet

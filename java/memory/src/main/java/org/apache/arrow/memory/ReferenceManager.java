@@ -173,5 +173,6 @@ public interface ReferenceManager {
     public int getAccountedSize() {
       return 0;
     }
+
   };
 }
