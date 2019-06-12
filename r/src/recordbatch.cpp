@@ -150,12 +150,16 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
 
 arrow::Status check_consistent_array_size(
     const std::vector<std::shared_ptr<arrow::Array>>& arrays, int64_t* num_rows) {
-  *num_rows = arrays[0]->length();
-  for (int64_t i = 1; i < arrays.size(); i++) {
-    if (arrays[i]->length() != *num_rows) {
-      return arrow::Status::Invalid("All arrays must have the same length");
+  if (arrays.size()) {
+    *num_rows = arrays[0]->length();
+
+    for (const auto& array : arrays) {
+      if (array->length() != *num_rows) {
+        return arrow::Status::Invalid("All arrays must have the same length");
+      }
     }
   }
+
   return arrow::Status::OK();
 }
 
@@ -181,7 +185,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
         arrow::r::Array__from_vector(VECTOR_ELT(lst, i), schema->field(i)->type(), false);
   }
 
-  int64_t num_rows;
+  int64_t num_rows = 0;
   STOP_IF_NOT_OK(check_consistent_array_size(arrays, &num_rows));
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }
@@ -223,7 +227,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
   schema = std::make_shared<arrow::Schema>(std::move(fields));
 
   // check all sizes are the same
-  int64_t num_rows;
+  int64_t num_rows = 0;
   STOP_IF_NOT_OK(check_consistent_array_size(arrays, &num_rows));
 
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
