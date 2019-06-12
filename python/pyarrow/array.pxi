@@ -149,12 +149,16 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
     """
     type = ensure_type(type, allow_none=True)
     cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+    cdef bint is_pandas_object = False
 
     if _is_array_like(obj):
         if mask is not None:
-            mask = get_series_values(mask)
+            # out argument unused
+            mask = get_series_values(mask, &is_pandas_object)
 
-        values = get_series_values(obj)
+        values = get_series_values(obj, &is_pandas_object)
+        if is_pandas_object:
+            from_pandas = True
 
         if pandas_api.is_categorical(values):
             return DictionaryArray.from_arrays(
@@ -1463,13 +1467,16 @@ cdef dict _array_classes = {
 }
 
 
-cdef object get_series_values(object obj):
+cdef object get_series_values(object obj, bint* is_series):
     if pandas_api.is_series(obj):
         result = obj.values
+        is_series[0] = True
     elif isinstance(obj, np.ndarray):
         result = obj
+        is_series[0] = False
     else:
         result = pandas_api.make_series(obj).values
+        is_series[0] = False
 
     return result
 
