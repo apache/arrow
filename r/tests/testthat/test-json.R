@@ -26,9 +26,9 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
     { "hello": 0.0, "world": true, "yo": null }
   ', tf)
 
-  tab1 <- read_json_arrow(tf)
-  tab2 <- read_json_arrow(mmap_open(tf))
-  tab3 <- read_json_arrow(ReadableFile(tf))
+  tab1 <- read_json_arrow(tf, as_tibble = FALSE)
+  tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
+  tab3 <- read_json_arrow(ReadableFile(tf), as_tibble = FALSE)
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)
@@ -45,6 +45,33 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
   unlink(tf)
 })
 
+test_that("read_json_arrow() converts to tibble", {
+  tf <- tempfile()
+  writeLines('
+    { "hello": 3.5, "world": false, "yo": "thing" }
+    { "hello": 3.25, "world": null }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd" }
+    { "hello": 0.0, "world": true, "yo": null }
+  ', tf)
+
+  tab1 <- read_json_arrow(tf)
+  tab2 <- read_json_arrow(mmap_open(tf))
+  tab3 <- read_json_arrow(ReadableFile(tf))
+
+  expect_is(tab1, "tbl_df")
+  expect_is(tab2, "tbl_df")
+  expect_is(tab3, "tbl_df")
+
+  expect_equal(tab1, tab2)
+  expect_equal(tab1, tab3)
+
+  expect_equal(tab1$hello, c(3.5, 3.25, 3.125, 0))
+  expect_equal(tab1$world, c(FALSE, NA, NA, TRUE))
+  expect_equal(tab1$yo, c("thing", NA, "\u5fcd", NA))
+
+  unlink(tf)
+})
+
 test_that("Can read json file with nested columns (ARROW-5503)", {
   tf <- tempfile()
   writeLines('
@@ -54,9 +81,9 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90 } }
   ', tf)
 
-  tab1 <- read_json_arrow(tf)
-  tab2 <- read_json_arrow(mmap_open(tf))
-  tab3 <- read_json_arrow(ReadableFile(tf))
+  tab1 <- read_json_arrow(tf, as_tibble = FALSE)
+  tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
+  tab3 <- read_json_arrow(ReadableFile(tf), as_tibble = FALSE)
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)

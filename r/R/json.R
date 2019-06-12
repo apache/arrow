@@ -17,6 +17,20 @@
 
 #' @include R6.R
 
+#' @include R6.R
+#'
+#' @title class arrow::json::TableReader
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' - `Read()` : read the json file as an [arrow::Table][arrow__Table]
+#'
+#' @rdname arrow__json__TableReader
+#' @name arrow__json__TableReader
 `arrow::json::TableReader` <- R6Class("arrow::json::TableReader", inherit = `arrow::Object`,
   public = list(
     Read = function() shared_ptr(`arrow::Table`, json___TableReader__Read(self))
@@ -130,10 +144,16 @@ json_table_reader.default <- function(file,
 
 #' Read json file into an arrow::Table
 #'
-#' Use arrow::json::TableReader from [json_table_reader()]
+#' Use [arrow::json::TableReader][arrow__json__TableReader] from [json_table_reader()]
 #'
 #' @param ... Used to construct an arrow::json::TableReader
+#' @param as_tibble convert the [arrow::Table][arrow__Table] to a data frame
+#'
 #' @export
-read_json_arrow <- function(...) {
-  json_table_reader(...)$Read()
+read_json_arrow <- function(..., as_tibble = TRUE) {
+  tab <- json_table_reader(...)$Read()
+  if (isTRUE(as_tibble)) {
+    tab <- as_tibble(tab)
+  }
+  tab
 }
