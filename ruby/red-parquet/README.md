@@ -33,9 +33,7 @@ gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Parqu
 
 ## Install
 
-Install Apache Parquet GLib before install Red Parquet. Use [packages.red-data-tools.org](https://github.com/red-data-tools/packages.red-data-tools.org) for installing Apache Parquet GLib.
-
-Note that the Apache Parquet GLib packages are "unofficial". "Official" packages will be released in the future.
+Install Apache Parquet GLib before install Red Parquet. See [Apache Arrow install document](https://arrow.apache.org/install/) for details.
 
 Install Red Parquet after you install Apache Parquet GLib:
 
