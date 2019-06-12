@@ -91,7 +91,7 @@ library(arrow)
 tab <- arrow::table(x = 1:10, y = rnorm(10))
 tab$schema
 tab
-as_tibble(tab)
+as.data.frame(tab)
 ```
 
 ## Developing

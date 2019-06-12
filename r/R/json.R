@@ -153,7 +153,7 @@ json_table_reader.default <- function(file,
 read_json_arrow <- function(..., as_tibble = TRUE) {
   tab <- json_table_reader(...)$Read()
   if (isTRUE(as_tibble)) {
-    tab <- as_tibble(tab)
+    tab <- as.data.frame(tab)
   }
   tab
 }
