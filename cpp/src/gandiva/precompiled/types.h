@@ -79,18 +79,18 @@ int64 timestampaddMinute_int32_timestamp(int32, timestamp);
 int64 timestampaddHour_int32_timestamp(int32, timestamp);
 int64 timestampaddDay_int32_timestamp(int32, timestamp);
 int64 timestampaddWeek_int32_timestamp(int32, timestamp);
-int64 timestampaddMonth_timestamp_int32(timestamp, int32);
-int64 timestampaddQuarter_timestamp_int32(timestamp, int32);
-int64 timestampaddYear_timestamp_int32(timestamp, int32);
+int64 timestampaddMonth_int32_timestamp(int32, timestamp);
+int64 timestampaddQuarter_int32_timestamp(int32, timestamp);
+int64 timestampaddYear_int32_timestamp(int32, timestamp);
 
 int64 timestampaddSecond_int64_timestamp(int64, timestamp);
 int64 timestampaddMinute_int64_timestamp(int64, timestamp);
 int64 timestampaddHour_int64_timestamp(int64, timestamp);
 int64 timestampaddDay_int64_timestamp(int64, timestamp);
 int64 timestampaddWeek_int64_timestamp(int64, timestamp);
-int64 timestampaddMonth_timestamp_int64(timestamp, int64);
-int64 timestampaddQuarter_timestamp_int64(timestamp, int64);
-int64 timestampaddYear_timestamp_int64(timestamp, int64);
+int64 timestampaddMonth_int64_timestamp(int64, timestamp);
+int64 timestampaddQuarter_int64_timestamp(int64, timestamp);
+int64 timestampaddYear_int64_timestamp(int64, timestamp);
 
 int64 date_add_int32_timestamp(int32, timestamp);
 int64 add_int64_timestamp(int64, timestamp);
