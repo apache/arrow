@@ -136,10 +136,9 @@ for:
           Invoke-WebRequest http://raw.githubusercontent.com/krlmlr/r-appveyor/master/scripts/appveyor-tool.ps1 -OutFile "..\appveyor-tool.ps1"
           Import-Module '..\appveyor-tool.ps1'
   install:
-    - pushd r
+    - cd r
     - ps: Bootstrap
-    # No need to popd because Bootstrap changes directory?
-    #- popd
+    - cd %APPVEYOR_BUILD_FOLDER%
     - python ci\detect-changes.py > generated_changes.bat
     # Populate ARROW_CI_* variables
     - call generated_changes.bat
