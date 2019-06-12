@@ -84,7 +84,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
 
 
-def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
+def array(object obj, type=None, mask=None, size=None, from_pandas=None,
           bint safe=True, MemoryPool memory_pool=None):
     """
     Create pyarrow.Array instance from a Python object
@@ -105,11 +105,13 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
         will be treated as a "max size", but will involve an initial allocation
         of size followed by a resize to the actual size (so if you know the
         exact size specifying it correctly will give you better performance).
-    from_pandas : boolean, default False
-        Use pandas's semantics for inferring nulls from values in ndarray-like
-        data. If passed, the mask tasks precendence, but if a value is unmasked
-        (not-null), but still null according to pandas semantics, then it is
-        null
+    from_pandas : boolean, default None
+        Use pandas's semantics for inferring nulls from values in
+        ndarray-like data. If passed, the mask tasks precendence, but
+        if a value is unmasked (not-null), but still null according to
+        pandas semantics, then it is null. Defaults to False if not
+        passed explicitly by user, or True if a pandas object is
+        passed in
     safe : boolean, default True
         Check for overflows or other unsafe conversions
     memory_pool : pyarrow.MemoryPool, optional
@@ -147,9 +149,17 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
     array : pyarrow.Array or pyarrow.ChunkedArray (if object data
     overflowed binary storage)
     """
+    cdef:
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        bint is_pandas_object = False
+        bint c_from_pandas
+
     type = ensure_type(type, allow_none=True)
-    cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
-    cdef bint is_pandas_object = False
+
+    if from_pandas is None:
+        c_from_pandas = False
+    else:
+        c_from_pandas = from_pandas
 
     if _is_array_like(obj):
         if mask is not None:
@@ -157,8 +167,8 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
             mask = get_series_values(mask, &is_pandas_object)
 
         values = get_series_values(obj, &is_pandas_object)
-        if is_pandas_object:
-            from_pandas = True
+        if is_pandas_object and from_pandas is None:
+            c_from_pandas = True
 
         if pandas_api.is_categorical(values):
             return DictionaryArray.from_arrays(
@@ -170,11 +180,11 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
-            return _ndarray_to_array(values, mask, type, from_pandas, safe,
+            return _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                      pool)
     else:
         # ConvertPySequence does strict conversion if type is explicitly passed
-        return _sequence_to_array(obj, mask, size, type, pool, from_pandas)
+        return _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
 
 def asarray(values, type=None):
