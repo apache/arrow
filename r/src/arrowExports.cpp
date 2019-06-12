@@ -2352,6 +2352,68 @@ RcppExport SEXP _arrow_io___FixedSizeBufferWriter__initialize(SEXP buffer_sexp){
 }
 #endif
 
+// json.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(List_ options);
+RcppExport SEXP _arrow_json___ReadOptions__initialize(SEXP options_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<List_>::type options(options_sexp);
+	return Rcpp::wrap(json___ReadOptions__initialize(options));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_json___ReadOptions__initialize(SEXP options_sexp){
+	Rf_error("Cannot call json___ReadOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// json.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize(List_ options);
+RcppExport SEXP _arrow_json___ParseOptions__initialize(SEXP options_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<List_>::type options(options_sexp);
+	return Rcpp::wrap(json___ParseOptions__initialize(options));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_json___ParseOptions__initialize(SEXP options_sexp){
+	Rf_error("Cannot call json___ParseOptions__initialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// json.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(const std::shared_ptr<arrow::io::InputStream>& input, const std::shared_ptr<arrow::json::ReadOptions>& read_options, const std::shared_ptr<arrow::json::ParseOptions>& parse_options);
+RcppExport SEXP _arrow_json___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::InputStream>&>::type input(input_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::json::ReadOptions>&>::type read_options(read_options_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::json::ParseOptions>&>::type parse_options(parse_options_sexp);
+	return Rcpp::wrap(json___TableReader__Make(input, read_options, parse_options));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_json___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp){
+	Rf_error("Cannot call json___TableReader__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// json.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> json___TableReader__Read(const std::shared_ptr<arrow::json::TableReader>& table_reader);
+RcppExport SEXP _arrow_json___TableReader__Read(SEXP table_reader_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::json::TableReader>&>::type table_reader(table_reader_sexp);
+	return Rcpp::wrap(json___TableReader__Read(table_reader));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_json___TableReader__Read(SEXP table_reader_sexp){
+	Rf_error("Cannot call json___TableReader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // memorypool.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default();
@@ -3363,6 +3425,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___MockOutputStream__initialize", (DL_FUNC) &_arrow_io___MockOutputStream__initialize, 0}, 
 		{ "_arrow_io___MockOutputStream__GetExtentBytesWritten", (DL_FUNC) &_arrow_io___MockOutputStream__GetExtentBytesWritten, 1}, 
 		{ "_arrow_io___FixedSizeBufferWriter__initialize", (DL_FUNC) &_arrow_io___FixedSizeBufferWriter__initialize, 1}, 
+		{ "_arrow_json___ReadOptions__initialize", (DL_FUNC) &_arrow_json___ReadOptions__initialize, 1}, 
+		{ "_arrow_json___ParseOptions__initialize", (DL_FUNC) &_arrow_json___ParseOptions__initialize, 1}, 
+		{ "_arrow_json___TableReader__Make", (DL_FUNC) &_arrow_json___TableReader__Make, 3}, 
+		{ "_arrow_json___TableReader__Read", (DL_FUNC) &_arrow_json___TableReader__Read, 1}, 
 		{ "_arrow_MemoryPool__default", (DL_FUNC) &_arrow_MemoryPool__default, 0}, 
 		{ "_arrow_MemoryPool__bytes_allocated", (DL_FUNC) &_arrow_MemoryPool__bytes_allocated, 1}, 
 		{ "_arrow_MemoryPool__max_memory", (DL_FUNC) &_arrow_MemoryPool__max_memory, 1}, 
