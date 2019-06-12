@@ -19,7 +19,6 @@
 
 import os
 import re
-import sys
 import time
 import click
 import hashlib
@@ -206,8 +205,14 @@ class Repo:
 
     def push(self):
         callbacks = GitRemoteCallbacks(self.github_token)
-        self.origin.push(self._updated_refs, callbacks=callbacks)
-        self.updated_refs = []
+        try:
+            self.origin.push(self._updated_refs, callbacks=callbacks)
+        except pygit2.GitError:
+            raise RuntimeError('Failed to push updated references, '
+                               'potentially because of credential issues: {}'
+                               .format(self._updated_refs))
+        else:
+            self.updated_refs = []
 
     @property
     def head(self):
@@ -222,29 +227,44 @@ class Repo:
     @property
     def remote(self):
         """Currently checked out branch's remote counterpart"""
-        return self.repo.remotes[self.branch.upstream.remote_name]
+        if self.branch.upstream is None:
+            raise RuntimeError('Cannot determine git remote to push to, try '
+                               'to push the branch first to have a remote '
+                               'tracking counterpart.')
+        else:
+            return self.repo.remotes[self.branch.upstream.remote_name]
 
     @property
     def remote_url(self):
-        """
-        Currently checked out branch's remote counterpart URL
+        """Currently checked out branch's remote counterpart URL
 
         If an SSH github url is set, it will be replaced by the https
-        equivalent.
+        equivalent usable with Github OAuth token.
         """
-        return self.remote.url.replace(
-            'git@github.com:', 'https://github.com/')
+        return self.remote.url.replace('git@github.com:',
+                                       'https://github.com/')
 
     @property
-    def email(self):
-        return next(self.repo.config.get_multivar('user.email'))
+    def user_name(self):
+        try:
+            return next(self.repo.config.get_multivar('user.name'))
+        except StopIteration:
+            return os.environ.get('GIT_COMMITTER_NAME', 'unkown')
+
+    @property
+    def user_email(self):
+        try:
+            return next(self.repo.config.get_multivar('user.email'))
+        except StopIteration:
+            return os.environ.get('GIT_COMMITTER_EMAIL', 'unkown')
 
     @property
     def signature(self):
-        name = next(self.repo.config.get_multivar('user.name'))
-        return pygit2.Signature(name, self.email, int(time.time()))
+        return pygit2.Signature(self.user_name, self.user_email,
+                                int(time.time()))
 
-    def create_branch(self, branch_name, files, parents=[], message=''):
+    def create_branch(self, branch_name, files, parents=[], message='',
+                      signature=None):
         # 1. create tree
         builder = self.repo.TreeBuilder()
 
@@ -256,6 +276,7 @@ class Repo:
         tree_id = builder.write()
 
         # 2. create commit with the tree created above
+        # TODO(kszucs): pass signature explicitly
         author = committer = self.signature
         commit_id = self.repo.create_commit(None, author, committer, message,
                                             tree_id, parents)
@@ -317,10 +338,11 @@ class Queue(Repo):
         return yaml.load(buffer)
 
     def put(self, job, prefix='build'):
-        # TODO(kszucs): more verbose error handling
-        assert isinstance(job, Job)
-        assert job.branch is None
-        assert len(job.tasks) > 0
+        if not isinstance(job, Job):
+            raise ValueError('`job` must be an instance of Job')
+        if job.branch is not None:
+            raise ValueError('`job.branch` is automatically generated, thus '
+                             'it must be blank')
 
         # auto increment and set next job id, e.g. build-85
         job.branch = self._next_job_id(prefix)
@@ -409,18 +431,27 @@ class Target:
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
 
     @classmethod
-    def from_repo(cls, repo, version=None):
+    def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
+                  email=None):
+        """Initialize from a repository
+
+        Optionally override detected remote, branch, head, and/or version.
+        """
         assert isinstance(repo, Repo)
+
+        if head is None:
+            head = str(repo.head.target)
+        if branch is None:
+            branch = repo.branch.branch_name
+        if remote is None:
+            remote = repo.remote_url
         if version is None:
-            version = get_version(repo.path)
-            formatted_version = version.format_with('{tag}.dev{distance}')
-        else:
-            formatted_version = version
-        return cls(head=str(repo.head.target),
-                   email=repo.email,
-                   branch=repo.branch.branch_name,
-                   remote=repo.remote_url,
-                   version=formatted_version)
+            version = get_version(repo.path).format_with('{tag}.dev{distance}')
+        if email is None:
+            email = repo.user_email
+
+        return cls(head=head, email=email, branch=branch, remote=remote,
+                   version=version)
 
 
 class Task:
@@ -473,8 +504,12 @@ class Job:
     """Describes multiple tasks against a single target repository"""
 
     def __init__(self, target, tasks):
-        assert isinstance(target, Target)
-        assert all(isinstance(task, Task) for task in tasks.values())
+        if not tasks:
+            raise ValueError('no tasks were provided for the job')
+        if not all(isinstance(task, Task) for task in tasks.values()):
+            raise ValueError('each `tasks` mus be an instance of Task')
+        if not isinstance(target, Target):
+            raise ValueError('`target` must be an instance of Target')
         self.target = target
         self.tasks = tasks
         self.branch = None  # filled after adding to a queue
@@ -601,50 +636,37 @@ def load_tasks_from_config(config_path, task_names, group_names):
               type=click.Path(exists=True), default=DEFAULT_CONFIG_PATH,
               help='Task configuration yml. Defaults to tasks.yml')
 @click.option('--arrow-version', '-v', default=None,
-              help='Set target version explicitly')
-@click.option('--arrow-repo', '-r', default=None,
-              help='Set Github repo name explicitly, e.g. apache/arrow, '
-                   'kszucs/arrow, this repository is going to be cloned on '
-                   'the CI services. Note, that no validation happens locally '
-                   'and potentially --arrow-branch and --arrow-sha must be '
-                   'defined as well')
-@click.option('--arrow-branch', '-b', default='master',
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.'
-                   'Only available if --arrow-repo is set.')
-@click.option('--arrow-sha', '-t', default='HEAD',
+              help='Set target version explicitly.')
+@click.option('--arrow-remote', '-r', default=None,
+              help='Set Github remote explicitly, which is going to be cloned '
+                   'on the CI services. Note, that no validation happens '
+                   'locally. Examples: https://github.com/apache/arrow or '
+                   'https://github.com/kszucs/arrow.')
+@click.option('--arrow-branch', '-b', default=None,
+              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+@click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
-                   'apache-arrow-0.11.1. Only available if both --arrow-repo '
-                   '--arrow-branch are set.')
+                   'apache-arrow-0.11.1.')
 @click.option('--dry-run/--push', default=False,
               help='Just display the rendered CI configurations without '
                    'submitting them')
+@click.option('--output', metavar='<output>',
+              type=click.File('w', encoding='utf8'), default='-',
+              help='Capture output result into file.')
 @click.pass_context
 def submit(ctx, task, group, job_prefix, config_path, arrow_version,
-           arrow_repo, arrow_branch, arrow_sha, dry_run):
+           arrow_remote, arrow_branch, arrow_sha, dry_run, output):
     queue, arrow = ctx.obj['queue'], ctx.obj['arrow']
 
-    if arrow_repo is not None:
-        values = {'version': arrow_version,
-                  'branch': arrow_branch,
-                  'sha': arrow_sha}
-        for k, v in values.items():
-            if not v:
-                raise ValueError('Must pass --arrow-{} argument'.format(k))
-
-        # Set repo url, branch and sha explicitly - this aims to make release
-        # procedure a bit simpler.
-        # Note, that the target resivion's crossbow templates must be
-        # compatible with the locally checked out version of crossbow (which is
-        # in case of the release procedure), because the templates still
-        # contain some business logic (dependency installation, deployments)
-        # which will be reduced to a single command in the future.
-        remote = 'https://github.com/{}'.format(arrow_repo)
-        target = Target(head=arrow_sha, branch=arrow_branch, remote=remote,
-                        version=arrow_version)
-    else:
-        # instantiate target from the locally checked out repository and branch
-        target = Target.from_repo(arrow, version=arrow_version)
-
+    # Override the detected repo url / remote, branch and sha - this aims to
+    # make release procedure a bit simpler.
+    # Note, that the target resivion's crossbow templates must be
+    # compatible with the locally checked out version of crossbow (which is
+    # in case of the release procedure), because the templates still
+    # contain some business logic (dependency installation, deployments)
+    # which will be reduced to a single command in the future.
+    target = Target.from_repo(arrow, remote=arrow_remote, branch=arrow_branch,
+                              head=arrow_sha, version=arrow_version)
     params = {
         'version': target.version,
         'no_rc_version': target.no_rc_version,
@@ -663,35 +685,29 @@ def submit(ctx, task, group, job_prefix, config_path, arrow_version,
     job = Job(target=target, tasks=tasks)
 
     if dry_run:
-        yaml.dump(job, sys.stdout)
-        delimiter = '-' * 79
-        for task_name, task in job.tasks.items():
-            files = task.render_files(job=job, arrow=job.target)
-            for filename, content in files.items():
-                click.echo('\n\n')
-                click.echo(delimiter)
-                click.echo('{:<29}{:>50}'.format(task_name, filename))
-                click.echo(delimiter)
-                click.echo(content)
+        yaml.dump(job, output)
     else:
         queue.fetch()
         queue.put(job, prefix=job_prefix)
         queue.push()
-        yaml.dump(job, sys.stdout)
+        yaml.dump(job, output)
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
 
 @crossbow.command()
 @click.argument('job-name', required=True)
+@click.option('--output', metavar='<output>',
+              type=click.File('w', encoding='utf8'), default='-',
+              help='Capture output result into file.')
 @click.pass_context
-def status(ctx, job_name):
+def status(ctx, job_name, output):
     queue = ctx.obj['queue']
     queue.fetch()
 
     tpl = '[{:>7}] {:<49} {:>20}'
     header = tpl.format('status', 'branch', 'artifacts')
-    click.echo(header)
-    click.echo('-' * len(header))
+    click.echo(header, file=output)
+    click.echo('-' * len(header), file=output)
 
     job = queue.get(job_name)
     statuses = queue.github_statuses(job)
@@ -705,7 +721,7 @@ def status(ctx, job_name):
             len(task.artifacts)
         )
         leadline = tpl.format(status.state.upper(), task.branch, uploaded)
-        click.echo(click.style(leadline, fg=COLORS[status.state]))
+        click.echo(click.style(leadline, fg=COLORS[status.state]), file=output)
 
         for artifact in task.artifacts:
             try:
@@ -718,7 +734,8 @@ def status(ctx, job_name):
                 filename = '{:>70} '.format(asset.name)
 
             statemsg = '[{:>7}]'.format(state.upper())
-            click.echo(filename + click.style(statemsg, fg=COLORS[state]))
+            click.echo(filename + click.style(statemsg, fg=COLORS[state]),
+                       file=output)
 
 
 def hashbytes(bytes, algoname):

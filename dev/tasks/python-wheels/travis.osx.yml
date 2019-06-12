@@ -34,7 +34,8 @@ before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
   - git -C multibuild checkout 4e7a9396e9a50731bb83fc0d16bb98fb0c4032d7
 
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout {{ arrow.head }}
 
   # Also remove artifacts that depend on Boost
