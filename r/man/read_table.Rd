@@ -7,7 +7,7 @@
 \usage{
 read_table(stream)
 
-read_arrow(stream)
+read_arrow(stream, use_threads = TRUE)
 }
 \arguments{
 \item{stream}{stream.
