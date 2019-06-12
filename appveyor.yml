@@ -101,6 +101,12 @@ environment:
       GO111MODULE: on
       GOTOOLDIR: '%GOROOT%\pkg\tool\windows_amd64'
       PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
+    - JOB: "R"
+      MINGW_ARCH: x86_64
+      MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
+      MINGW_PREFIX: c:\msys64\mingw64
+      MSYSTEM: MINGW64
+      USE_CLCACHE: false
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
@@ -117,6 +123,53 @@ before_build:
 
 build_script:
   - call ci\appveyor-build.bat
+
+for:
+-
+  matrix:
+    only:
+      - JOB: "R"
+  init:
+    ps: |
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest http://raw.githubusercontent.com/krlmlr/r-appveyor/master/scripts/appveyor-tool.ps1 -OutFile "..\appveyor-tool.ps1"
+          Import-Module '..\appveyor-tool.ps1'
+  install:
+    ps: Bootstrap
+
+  # Adapt as necessary starting from here
+
+  build_script:
+    - pushd r
+    - travis-tool.sh install_deps
+
+  test_script:
+    - travis-tool.sh run_tests
+
+  on_failure:
+    - travis-tool.sh dump_logs
+
+  environment:
+    NOT_CRAN: true
+
+  artifacts:
+    - path: '*.Rcheck\**\*.log'
+      name: Logs
+
+    - path: '*.Rcheck\**\*.out'
+      name: Logs
+
+    - path: '*.Rcheck\**\*.fail'
+      name: Logs
+
+    - path: '*.Rcheck\**\*.Rout'
+      name: Logs
+
+    - path: '\*_*.tar.gz'
+      name: Bits
+
+    - path: '\*_*.zip'
+      name: Bits
 
 # Disable test discovery
 test: off
