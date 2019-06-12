@@ -19,7 +19,7 @@
 os: Visual Studio 2015
 
 only_commits:
-  # Skip commits not related to Python, C++, C#, Go or Rust
+  # Skip commits not related to Python, C++, C#, Go, R, or Rust
   files:
     - appveyor.yml
     - c_glib/
@@ -29,6 +29,7 @@ only_commits:
     - format/
     - go/
     - python/
+    - r/
     - rust/
 
 cache:
@@ -135,19 +136,21 @@ for:
           Invoke-WebRequest http://raw.githubusercontent.com/krlmlr/r-appveyor/master/scripts/appveyor-tool.ps1 -OutFile "..\appveyor-tool.ps1"
           Import-Module '..\appveyor-tool.ps1'
   install:
-    ps: Bootstrap
+    - pushd r
+    - ps: Bootstrap
+    - popd
 
   # Adapt as necessary starting from here
 
   build_script:
     - pushd r
-    - ../travis-tool.sh install_deps
+    - travis-tool.sh install_deps
 
   test_script:
-    - ../travis-tool.sh run_tests
+    - travis-tool.sh run_tests
 
   on_failure:
-    - ../travis-tool.sh dump_logs
+    - travis-tool.sh dump_logs
 
   environment:
     NOT_CRAN: true
