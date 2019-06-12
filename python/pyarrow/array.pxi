@@ -156,6 +156,14 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
 
         values = get_series_values(obj)
 
+        if np.ma.isMaskedArray(values):
+            if mask is not None:
+                raise ValueError("Cannot pass a numpy masked array and "
+                                 "specify a mask at the same time")
+            else:
+                mask = values.mask
+                values = values.data
+
         if pandas_api.is_categorical(values):
             return DictionaryArray.from_arrays(
                 values.codes, values.categories.values,
