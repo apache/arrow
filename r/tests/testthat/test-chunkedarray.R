@@ -265,3 +265,10 @@ test_that("chunked_array() handles 0 chunks if given a type", {
     expect_equal(a$length(), 0L)
   }
 })
+
+test_that("chunked_array() can ingest arrays (ARROW-3815)", {
+  expect_equal(
+    chunked_array(1:5, array(6:10))$as_vector(),
+    1:10
+  )
+})
