@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
 
 namespace arrow {
 namespace r {
@@ -955,12 +956,12 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 }  // namespace r
 }  // namespace arrow
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
   return arrow::r::InferType(x);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   // the type might be NULL, in which case we need to infer it from the data
   // we keep track of whether it was infered or supplied
@@ -975,7 +976,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   return arrow::r::Array__from_vector(x, type, type_infered);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
                                                              SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
@@ -1016,3 +1017,5 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
 
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));
 }
+
+#endif

@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,17 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
-
-export ARROW_HOME=$CONDA_PREFIX
-
-# Build arrow
-pushd /arrow/r
-
-R CMD build --keep-empty-dirs .
-R CMD INSTALL $(ls | grep arrow_*.tar.gz)
-
-export _R_CHECK_FORCE_SUGGESTS_=false
-R CMD check $(ls | grep arrow_*.tar.gz) --as-cran --no-manual
-
-popd
+test_that <- function(what, code) {
+  testthat::test_that(what, {
+    skip_if(!arrow:::arrow_available(), "arrow C++ library not available")
+    code
+  })
+}

@@ -30,7 +30,11 @@
 #' @return A [arrow::Table][arrow__Table], or a `tbl_df` if `as_tibble` is
 #' `TRUE`.
 #' @examples
-#' df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+#'
+#' \dontrun{
+#'   df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+#' }
+#'
 #' @export
 read_parquet <- function(file, as_tibble = TRUE, use_threads = TRUE, ...) {
   tab <- shared_ptr(`arrow::Table`, read_parquet_file(file))

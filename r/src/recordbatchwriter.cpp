@@ -17,27 +17,29 @@
 
 #include "./arrow_types.h"
 
-// [[Rcpp::export]]
+#if defined(ARROW_R_WITH_ARROW)
+
+// [[arrow::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   STOP_IF_NOT_OK(batch_writer->WriteRecordBatch(*batch, true));
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 void ipc___RecordBatchWriter__WriteTable(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,
     const std::shared_ptr<arrow::Table>& table) {
   STOP_IF_NOT_OK(batch_writer->WriteTable(*table));
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 void ipc___RecordBatchWriter__Close(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer) {
   STOP_IF_NOT_OK(batch_writer->Close());
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema) {
@@ -47,7 +49,7 @@ std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open
   return file_writer;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema) {
@@ -56,3 +58,5 @@ std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Op
       arrow::ipc::RecordBatchStreamWriter::Open(stream.get(), schema, &stream_writer));
   return stream_writer;
 }
+
+#endif

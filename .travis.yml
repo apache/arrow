@@ -365,7 +365,22 @@ matrix:
     - pushd ${TRAVIS_BUILD_DIR}/r
     after_success:
     - Rscript ../ci/travis_upload_r_coverage.R
-
+  - name: R_no_libarrow
+    language: r
+    cache: packages
+    latex: false
+    dist: xenial
+    before_install:
+    # Have to copy-paste this here because of how R's build steps work
+    - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
+    - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
+    - |
+        if [ $TRAVIS_OS_NAME == "linux" ]; then
+          sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get update -qq
+        fi
+    - pushd ${TRAVIS_BUILD_DIR}/r
 
 after_failure:
 - |

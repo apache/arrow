@@ -17,7 +17,9 @@
 
 #include "./arrow_types.h"
 
-// [[Rcpp::export]]
+#if defined(ARROW_R_WITH_ARROW)
+
+// [[arrow::export]]
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(
     bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate) {
   auto options = std::make_shared<arrow::compute::CastOptions>();
@@ -27,7 +29,7 @@ std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(
   return options;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__cast(
     const std::shared_ptr<arrow::Array>& array,
     const std::shared_ptr<arrow::DataType>& target_type,
@@ -38,7 +40,7 @@ std::shared_ptr<arrow::Array> Array__cast(
   return out;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
     const std::shared_ptr<arrow::DataType>& target_type,
@@ -50,7 +52,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(
   return out.chunked_array();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(
     const std::shared_ptr<arrow::RecordBatch>& batch,
     const std::shared_ptr<arrow::Schema>& schema,
@@ -65,7 +67,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(
   return arrow::RecordBatch::Make(schema, batch->num_rows(), std::move(columns));
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__cast(
     const std::shared_ptr<arrow::Table>& table,
     const std::shared_ptr<arrow::Schema>& schema,
@@ -82,3 +84,5 @@ std::shared_ptr<arrow::Table> Table__cast(
 
   return arrow::Table::Make(schema, std::move(columns), table->num_rows());
 }
+
+#endif

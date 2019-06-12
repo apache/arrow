@@ -88,8 +88,7 @@ For any other build/configuration challenges, see the [C++ developer guide](http
 ```{r}
 library(arrow)
 
-tib <- tibble::tibble(x = 1:10, y = rnorm(10))
-tab <- table(tib)
+tab <- arrow::table(x = 1:10, y = rnorm(10))
 tab$schema
 tab
 as_tibble(tab)
@@ -103,6 +102,9 @@ It is recommended to use the `devtools` package to help with some package-relate
 install.packages("devtools")
 devtools::install_dev_deps()
 ```
+
+If you change C++ code, you need to set the `ARROW_R_DEV` environment variable to `TRUE`, e.g. 
+in your `~/.Renviron` so that the `data-raw/codegen.R` file is used for code generation. 
 
 ### Useful functions
 

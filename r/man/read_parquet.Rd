@@ -26,5 +26,9 @@ A \link[=arrow__Table]{arrow::Table}, or a \code{tbl_df} if \code{as_tibble} is
 This function enables you to read Parquet files into R.
 }
 \examples{
-df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+
+\dontrun{
+  df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+}
+
 }

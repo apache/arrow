@@ -18,3 +18,11 @@
 #' @useDynLib arrow, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
 NULL
+
+#' Is the C++ Arrow library available
+#'
+#' @export
+arrow_available <- function() {
+  .Call(`_arrow_available`)
+}
+

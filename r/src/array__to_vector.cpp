@@ -15,9 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
+
 #include <arrow/util/parallel.h>
 #include <arrow/util/task-group.h>
-#include "./arrow_types.h"
 
 namespace arrow {
 namespace r {
@@ -664,18 +666,18 @@ Rcpp::List to_dataframe_parallel(
 }  // namespace r
 }  // namespace arrow
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   return arrow::r::ArrayVector__as_vector(array->length(), {array});
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return arrow::r::ArrayVector__as_vector(chunked_array->length(),
                                           chunked_array->chunks());
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
                                      bool use_threads) {
   int64_t nc = batch->num_columns();
@@ -697,7 +699,7 @@ Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& 
   }
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
                                bool use_threads) {
   int64_t nc = table->num_columns();
@@ -716,3 +718,5 @@ Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
     return arrow::r::to_dataframe_serial(nr, nc, names, converters);
   }
 }
+
+#endif
