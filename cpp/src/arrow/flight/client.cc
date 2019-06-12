@@ -147,9 +147,7 @@ class GrpcStreamReader : public FlightStreamReader {
                      std::unique_ptr<grpc::ClientReader<pb::FlightData>> stream,
                      std::unique_ptr<GrpcStreamReader>* out);
   std::shared_ptr<Schema> schema() const override;
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
-  Status ReadWithMetadata(std::shared_ptr<RecordBatch>* out,
-                          std::shared_ptr<Buffer>* app_metadata) override;
+  Status Next(FlightStreamChunk* out) override;
   void Cancel() override;
 
  private:
@@ -224,15 +222,10 @@ std::shared_ptr<Schema> GrpcStreamReader::schema() const {
   return batch_reader_->schema();
 }
 
-Status GrpcStreamReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
-  std::shared_ptr<Buffer> app_metadata;
-  return ReadWithMetadata(out, &app_metadata);
-}
-
-Status GrpcStreamReader::ReadWithMetadata(std::shared_ptr<RecordBatch>* out,
-                                          std::shared_ptr<Buffer>* app_metadata) {
-  RETURN_NOT_OK(batch_reader_->ReadNext(out));
-  *app_metadata = std::move(last_app_metadata_);
+Status GrpcStreamReader::Next(FlightStreamChunk* out) {
+  out->app_metadata = nullptr;
+  RETURN_NOT_OK(batch_reader_->ReadNext(&out->data));
+  out->app_metadata = std::move(last_app_metadata_);
   return Status::OK();
 }
 

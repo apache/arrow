@@ -100,14 +100,13 @@ class FlightIntegrationTestServer : public FlightServerBase {
     std::string key = descriptor.path[0];
 
     std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
-    std::shared_ptr<arrow::RecordBatch> chunk;
-    std::shared_ptr<arrow::Buffer> metadata;
+    arrow::flight::FlightStreamChunk chunk;
     while (true) {
-      RETURN_NOT_OK(reader->ReadWithMetadata(&chunk, &metadata));
-      if (chunk == nullptr) break;
-      retrieved_chunks.push_back(chunk);
-      if (metadata) {
-        RETURN_NOT_OK(writer->WriteMetadata(*metadata));
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (chunk.data == nullptr) break;
+      retrieved_chunks.push_back(chunk.data);
+      if (chunk.app_metadata) {
+        RETURN_NOT_OK(writer->WriteMetadata(*chunk.app_metadata));
       }
     }
     std::shared_ptr<arrow::Table> retrieved_data;

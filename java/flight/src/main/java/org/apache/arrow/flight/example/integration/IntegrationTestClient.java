@@ -130,8 +130,9 @@ class IntegrationTestClient {
           });
       int counter = 0;
       while (reader.read(root)) {
-        final ArrowBuf metadata = allocator.buffer(0);
-        metadata.writeBytes(Integer.toString(counter).getBytes(StandardCharsets.UTF_8));
+        final byte[] rawMetadata = Integer.toString(counter).getBytes(StandardCharsets.UTF_8);
+        final ArrowBuf metadata = allocator.buffer(rawMetadata.length);
+        metadata.writeBytes(rawMetadata);
         // Transfers ownership of the buffer, so do not release it ourselves
         stream.putNext(metadata);
         jsonLoader.load(unloader.getRecordBatch());

@@ -27,14 +27,15 @@
 #include <vector>
 
 #include "arrow/flight/visibility.h"
-#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 
 namespace arrow {
 
 class Buffer;
+class RecordBatch;
 class Schema;
 class Status;
+class Table;
 
 namespace ipc {
 
@@ -280,26 +281,29 @@ class ARROW_FLIGHT_EXPORT ResultStream {
   virtual Status Next(std::unique_ptr<Result>* info) = 0;
 };
 
-// Silence warning
-// "non dll-interface class RecordBatchReader used as base for dll-interface class"
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4275)
-#endif
+/// \brief A holder for a RecordBatch with associated Flight metadata.
+struct ARROW_FLIGHT_EXPORT FlightStreamChunk {
+ public:
+  std::shared_ptr<RecordBatch> data;
+  std::shared_ptr<Buffer> app_metadata;
+};
 
-/// \brief A RecordBatchReader that also exposes application-defined
-/// metadata from the Flight protocol.
-class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader : public RecordBatchReader {
+/// \brief An interface to read Flight data with metadata.
+class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
  public:
   virtual ~MetadataRecordBatchReader() = default;
 
-  virtual Status ReadWithMetadata(std::shared_ptr<RecordBatch>* out,
-                                  std::shared_ptr<Buffer>* app_metadata) = 0;
+  /// \brief Get the schema for this stream.
+  virtual std::shared_ptr<Schema> schema() const = 0;
+  /// \brief Get the next message from Flight. If the stream is
+  /// finished, then the members of \a FlightStreamChunk will be
+  /// nullptr.
+  virtual Status Next(FlightStreamChunk* next) = 0;
+  /// \brief Consume entire stream as a vector of record batches
+  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+  /// \brief Consume entire stream as a Table
+  virtual Status ReadAll(std::shared_ptr<Table>* table);
 };
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 // \brief Create a FlightListing from a vector of FlightInfo objects. This can
 // be iterated once, then it is consumed

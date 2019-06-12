@@ -137,19 +137,10 @@ class FlightMessageReaderImpl : public FlightMessageReader {
 
   std::shared_ptr<Schema> schema() const override { return batch_reader_->schema(); }
 
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
-    return ReadWithMetadata(out, nullptr);
-  }
-
-  Status ReadWithMetadata(std::shared_ptr<RecordBatch>* out,
-                          std::shared_ptr<Buffer>* app_metadata) override {
-    if (app_metadata) {
-      *app_metadata = nullptr;
-    }
-    RETURN_NOT_OK(batch_reader_->ReadNext(out));
-    if (app_metadata) {
-      *app_metadata = std::move(last_metadata_);
-    }
+  Status Next(FlightStreamChunk* out) override {
+    out->app_metadata = nullptr;
+    RETURN_NOT_OK(batch_reader_->ReadNext(&out->data));
+    out->app_metadata = std::move(last_metadata_);
     return Status::OK();
   }
 

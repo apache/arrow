@@ -214,16 +214,16 @@ class TestFlightClient : public ::testing::Test {
     std::unique_ptr<FlightStreamReader> stream;
     ASSERT_OK(client_->DoGet(ticket, &stream));
 
-    std::shared_ptr<RecordBatch> chunk;
+    FlightStreamChunk chunk;
     for (int i = 0; i < num_batches; ++i) {
-      ASSERT_OK(stream->ReadNext(&chunk));
-      ASSERT_NE(nullptr, chunk);
-      ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk);
+      ASSERT_OK(stream->Next(&chunk));
+      ASSERT_NE(nullptr, chunk.data);
+      ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
     }
 
     // Stream exhausted
-    ASSERT_OK(stream->ReadNext(&chunk));
-    ASSERT_EQ(nullptr, chunk);
+    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_EQ(nullptr, chunk.data);
   }
 
  protected:
@@ -284,18 +284,17 @@ class MetadataTestServer : public FlightServerBase {
   Status DoPut(const ServerCallContext& context,
                std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
-    std::shared_ptr<arrow::RecordBatch> chunk;
-    std::shared_ptr<Buffer> app_metadata;
+    FlightStreamChunk chunk;
     int counter = 0;
     while (true) {
-      RETURN_NOT_OK(reader->ReadWithMetadata(&chunk, &app_metadata));
-      if (chunk == nullptr) break;
-      if (app_metadata == nullptr) {
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (chunk.data == nullptr) break;
+      if (chunk.app_metadata == nullptr) {
         return Status::Invalid("Expected application metadata to be provided");
       }
-      if (std::to_string(counter) != app_metadata->ToString()) {
+      if (std::to_string(counter) != chunk.app_metadata->ToString()) {
         return Status::Invalid("Expected metadata value: " + std::to_string(counter) +
-                               " but got: " + app_metadata->ToString());
+                               " but got: " + chunk.app_metadata->ToString());
       }
       auto metadata = Buffer::FromString(std::to_string(counter));
       RETURN_NOT_OK(writer->WriteMetadata(*metadata));
@@ -770,18 +769,17 @@ TEST_F(TestMetadata, DoGet) {
   BatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
 
-  std::shared_ptr<RecordBatch> chunk;
-  std::shared_ptr<Buffer> metadata;
+  FlightStreamChunk chunk;
   auto num_batches = static_cast<int>(expected_batches.size());
   for (int i = 0; i < num_batches; ++i) {
-    ASSERT_OK(stream->ReadWithMetadata(&chunk, &metadata));
-    ASSERT_NE(nullptr, chunk);
-    ASSERT_NE(nullptr, metadata);
-    ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk);
-    ASSERT_EQ(std::to_string(i), metadata->ToString());
+    ASSERT_OK(stream->Next(&chunk));
+    ASSERT_NE(nullptr, chunk.data);
+    ASSERT_NE(nullptr, chunk.app_metadata);
+    ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
+    ASSERT_EQ(std::to_string(i), chunk.app_metadata->ToString());
   }
-  ASSERT_OK(stream->ReadNext(&chunk));
-  ASSERT_EQ(nullptr, chunk);
+  ASSERT_OK(stream->Next(&chunk));
+  ASSERT_EQ(nullptr, chunk.data);
 }
 
 TEST_F(TestMetadata, DoPut) {

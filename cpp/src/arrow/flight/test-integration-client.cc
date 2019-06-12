@@ -50,17 +50,16 @@ arrow::Status ReadToTable(arrow::flight::MetadataRecordBatchReader& reader,
   // For integration testing, we expect the server numbers the
   // batches, to test the application metadata part of the spec.
   std::vector<std::shared_ptr<arrow::RecordBatch>> retrieved_chunks;
-  std::shared_ptr<arrow::RecordBatch> chunk;
-  std::shared_ptr<arrow::Buffer> metadata_chunk;
+  arrow::flight::FlightStreamChunk chunk;
   int counter = 0;
   while (true) {
-    RETURN_NOT_OK(reader.ReadWithMetadata(&chunk, &metadata_chunk));
-    if (chunk == nullptr) break;
-    retrieved_chunks.push_back(chunk);
-    if (std::to_string(counter) != metadata_chunk->ToString()) {
+    RETURN_NOT_OK(reader.Next(&chunk));
+    if (!chunk.data) break;
+    retrieved_chunks.push_back(chunk.data);
+    if (std::to_string(counter) != chunk.app_metadata->ToString()) {
       return arrow::Status::Invalid(
           "Expected metadata value: " + std::to_string(counter) +
-          " but got: " + metadata_chunk->ToString());
+          " but got: " + chunk.app_metadata->ToString());
     }
     counter++;
   }

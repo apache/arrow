@@ -133,7 +133,7 @@ class MetadataFlightServer(flight.FlightServerBase):
         expected_data = [-10, -5, 0, 5, 10]
         while True:
             try:
-                batch, buf = reader.read_with_metadata()
+                batch, buf = reader.read_chunk()
                 assert batch.equals(pa.RecordBatch.from_arrays(
                     [pa.array([expected_data[counter]])],
                     ['a']
@@ -424,6 +424,17 @@ def test_flight_do_get_ints():
         assert data.equals(table)
 
 
+@pytest.mark.pandas
+def test_do_get_ints_pandas():
+    """Try a simple do_get call."""
+    table = simple_ints_table()
+
+    with flight_server(ConstantFlightServer) as server_location:
+        client = flight.FlightClient.connect(server_location)
+        data = client.do_get(flight.Ticket(b'ints')).read_pandas()
+        assert list(data['some_ints']) == table.column(0).to_pylist()
+
+
 def test_flight_do_get_dicts():
     table = simple_dicts_table()
 
@@ -683,7 +694,7 @@ def test_flight_do_get_metadata():
         idx = 0
         while True:
             try:
-                batch, metadata = reader.read_with_metadata()
+                batch, metadata = reader.read_chunk()
                 batches.append(batch)
                 server_idx, = struct.unpack('<i', metadata.to_pybytes())
                 assert idx == server_idx
@@ -724,7 +735,7 @@ def test_cancel_do_get():
         reader = client.do_get(flight.Ticket(b'ints'))
         reader.cancel()
         with pytest.raises(pa.ArrowIOError, match=".*Cancel.*"):
-            reader.read_next_batch()
+            reader.read_chunk()
 
 
 @pytest.mark.slow
@@ -740,11 +751,11 @@ def test_cancel_do_get_threaded():
         raised_proper_exception = threading.Event()
 
         def block_read():
-            reader.read_next_batch()
+            reader.read_chunk()
             read_first_message.set()
             stream_canceled.wait(timeout=5)
             try:
-                reader.read_next_batch()
+                reader.read_chunk()
             except pa.ArrowIOError:
                 with result_lock:
                     raised_proper_exception.set()

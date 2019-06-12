@@ -450,52 +450,82 @@ cdef class FlightInfo:
         return result
 
 
-_AppMetadataRecordBatch = collections.namedtuple(
-    '_BatchWithMetadata',
-    ['record_batch', 'app_metadata'],
-)
-
-
-class AppMetadataRecordBatch(_AppMetadataRecordBatch):
+cdef class FlightStreamChunk:
     """A RecordBatch with application metadata on the side."""
+    cdef:
+        CFlightStreamChunk chunk
+
+    @property
+    def data(self):
+        if self.chunk.data == NULL:
+            return None
+        return pyarrow_wrap_batch(self.chunk.data)
+
+    @property
+    def app_metadata(self):
+        if self.chunk.app_metadata == NULL:
+            return None
+        return pyarrow_wrap_buffer(self.chunk.app_metadata)
+
+    def __iter__(self):
+        return iter((self.data, self.app_metadata))
 
 
-cdef class MetadataRecordBatchReader(_CRecordBatchReader, _ReadPandasOption):
-    """A RecordBatchReader that also allows reading application metadata."""
+cdef class _MetadataRecordBatchReader:
+    """A reader for Flight streams."""
+
+    # Needs to be separate class so the "real" class can subclass the
+    # pure-Python mixin class
 
     cdef dict __dict__
+    cdef shared_ptr[CMetadataRecordBatchReader] reader
 
     cdef readonly:
         Schema schema
 
-    def read_with_metadata(self):
+
+cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
+                                     _ReadPandasOption):
+    """A reader for Flight streams."""
+
+    def __iter__(self):
+        while True:
+            yield self.read_chunk()
+
+    def read_all(self):
+        """Read the entire contents of the stream as a Table."""
+        cdef:
+            shared_ptr[CTable] c_table
+        with nogil:
+            check_status(self.reader.get().ReadAll(&c_table))
+        return pyarrow_wrap_table(c_table)
+
+    def read_chunk(self):
         """Read the next RecordBatch along with any metadata.
 
         Returns
         -------
-        batch : RecordBatch
+        data : RecordBatch
             The next RecordBatch in the stream.
-        metadata : Buffer or None
+        app_metadata : Buffer or None
             Application-specific metadata for the batch as defined by
             Flight.
+
+        Raises
+        ------
+        StopIteration
+            when the stream is finished
         """
         cdef:
-            shared_ptr[CRecordBatch] batch
-            shared_ptr[CBuffer] app_metadata
+            FlightStreamChunk chunk = FlightStreamChunk()
 
         with nogil:
-            check_status((<CMetadataRecordBatchReader*> self.reader.get())
-                         .ReadWithMetadata(&batch, &app_metadata))
+            check_status(self.reader.get().Next(&chunk.chunk))
 
-        if batch.get() == NULL:
+        if chunk.chunk.data == NULL:
             raise StopIteration
 
-        if app_metadata != NULL:
-            metadata = pyarrow_wrap_buffer(app_metadata)
-        else:
-            metadata = None
-
-        return AppMetadataRecordBatch(pyarrow_wrap_batch(batch), metadata)
+        return chunk
 
 
 cdef class FlightStreamReader(MetadataRecordBatchReader):

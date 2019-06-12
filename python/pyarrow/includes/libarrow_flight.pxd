@@ -121,10 +121,16 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         shared_ptr[CSchema] schema()
         CStatus Next(CFlightPayload*)
 
+    cdef cppclass CFlightStreamChunk" arrow::flight::FlightStreamChunk":
+        CFlightStreamChunk()
+        shared_ptr[CRecordBatch] data
+        shared_ptr[CBuffer] app_metadata
+
     cdef cppclass CMetadataRecordBatchReader \
-            " arrow::flight::MetadataRecordBatchReader"(CRecordBatchReader):
-        CStatus ReadWithMetadata(shared_ptr[CRecordBatch]* out,
-                                 shared_ptr[CBuffer]* app_metadata)
+            " arrow::flight::MetadataRecordBatchReader":
+        shared_ptr[CSchema] schema()
+        CStatus Next(CFlightStreamChunk* out)
+        CStatus ReadAll(shared_ptr[CTable]* table)
 
     cdef cppclass CFlightStreamReader \
             " arrow::flight::FlightStreamReader"(CMetadataRecordBatchReader):
