@@ -4,7 +4,7 @@
 
 using namespace Rcpp;
 
-// array.cpp:25
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, int offset);
 RcppExport SEXP _arrow_Array__Slice1(SEXP array_sexp, SEXP offset_sexp){
@@ -20,7 +20,7 @@ RcppExport SEXP _arrow_Array__Slice1(SEXP array_sexp, SEXP offset_sexp){
 }
 #endif
 
-// array.cpp:31
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array, int offset, int length);
 RcppExport SEXP _arrow_Array__Slice2(SEXP array_sexp, SEXP offset_sexp, SEXP length_sexp){
@@ -37,7 +37,7 @@ RcppExport SEXP _arrow_Array__Slice2(SEXP array_sexp, SEXP offset_sexp, SEXP len
 }
 #endif
 
-// array.cpp:37
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, int i);
 RcppExport SEXP _arrow_Array__IsNull(SEXP x_sexp, SEXP i_sexp){
@@ -53,7 +53,7 @@ RcppExport SEXP _arrow_Array__IsNull(SEXP x_sexp, SEXP i_sexp){
 }
 #endif
 
-// array.cpp:40
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, int i);
 RcppExport SEXP _arrow_Array__IsValid(SEXP x_sexp, SEXP i_sexp){
@@ -69,7 +69,7 @@ RcppExport SEXP _arrow_Array__IsValid(SEXP x_sexp, SEXP i_sexp){
 }
 #endif
 
-// array.cpp:45
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int Array__length(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array__length(SEXP x_sexp){
@@ -84,7 +84,7 @@ RcppExport SEXP _arrow_Array__length(SEXP x_sexp){
 }
 #endif
 
-// array.cpp:48
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int Array__offset(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array__offset(SEXP x_sexp){
@@ -99,7 +99,7 @@ RcppExport SEXP _arrow_Array__offset(SEXP x_sexp){
 }
 #endif
 
-// array.cpp:51
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int Array__null_count(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array__null_count(SEXP x_sexp){
@@ -114,7 +114,7 @@ RcppExport SEXP _arrow_Array__null_count(SEXP x_sexp){
 }
 #endif
 
-// array.cpp:54
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array__type(SEXP x_sexp){
@@ -129,7 +129,7 @@ RcppExport SEXP _arrow_Array__type(SEXP x_sexp){
 }
 #endif
 
-// array.cpp:59
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string Array__ToString(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array__ToString(SEXP x_sexp){
@@ -144,7 +144,7 @@ RcppExport SEXP _arrow_Array__ToString(SEXP x_sexp){
 }
 #endif
 
-// array.cpp:64
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 arrow::Type::type Array__type_id(const std::shared_ptr<arrow::Array>& x);
 RcppExport SEXP _arrow_Array__type_id(SEXP x_sexp){
@@ -159,7 +159,7 @@ RcppExport SEXP _arrow_Array__type_id(SEXP x_sexp){
 }
 #endif
 
-// array.cpp:69
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 RcppExport SEXP _arrow_Array__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
@@ -175,7 +175,7 @@ RcppExport SEXP _arrow_Array__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
 }
 #endif
 
-// array.cpp:75
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 RcppExport SEXP _arrow_Array__ApproxEquals(SEXP lhs_sexp, SEXP rhs_sexp){
@@ -191,7 +191,7 @@ RcppExport SEXP _arrow_Array__ApproxEquals(SEXP lhs_sexp, SEXP rhs_sexp){
 }
 #endif
 
-// array.cpp:81
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array>& array);
 RcppExport SEXP _arrow_Array__data(SEXP array_sexp){
@@ -206,7 +206,7 @@ RcppExport SEXP _arrow_Array__data(SEXP array_sexp){
 }
 #endif
 
-// array.cpp:87
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self, const std::shared_ptr<arrow::Array>& other, int start_idx, int end_idx, int other_start_idx);
 RcppExport SEXP _arrow_Array__RangeEquals(SEXP self_sexp, SEXP other_sexp, SEXP start_idx_sexp, SEXP end_idx_sexp, SEXP other_start_idx_sexp){
@@ -225,7 +225,7 @@ RcppExport SEXP _arrow_Array__RangeEquals(SEXP self_sexp, SEXP other_sexp, SEXP 
 }
 #endif
 
-// array.cpp:94
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 LogicalVector Array__Mask(const std::shared_ptr<arrow::Array>& array);
 RcppExport SEXP _arrow_Array__Mask(SEXP array_sexp){
@@ -240,7 +240,7 @@ RcppExport SEXP _arrow_Array__Mask(SEXP array_sexp){
 }
 #endif
 
-// array.cpp:110
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> DictionaryArray__indices(const std::shared_ptr<arrow::DictionaryArray>& array);
 RcppExport SEXP _arrow_DictionaryArray__indices(SEXP array_sexp){
@@ -255,7 +255,7 @@ RcppExport SEXP _arrow_DictionaryArray__indices(SEXP array_sexp){
 }
 #endif
 
-// array.cpp:116
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> DictionaryArray__dictionary(const std::shared_ptr<arrow::DictionaryArray>& array);
 RcppExport SEXP _arrow_DictionaryArray__dictionary(SEXP array_sexp){
@@ -270,7 +270,7 @@ RcppExport SEXP _arrow_DictionaryArray__dictionary(SEXP array_sexp){
 }
 #endif
 
-// array__to_vector.cpp:669
+// array__to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 RcppExport SEXP _arrow_Array__as_vector(SEXP array_sexp){
@@ -285,7 +285,7 @@ RcppExport SEXP _arrow_Array__as_vector(SEXP array_sexp){
 }
 #endif
 
-// array__to_vector.cpp:674
+// array__to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
@@ -300,7 +300,7 @@ RcppExport SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
 }
 #endif
 
-// array__to_vector.cpp:680
+// array__to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
 RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
@@ -316,7 +316,7 @@ RcppExport SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threa
 }
 #endif
 
-// array__to_vector.cpp:702
+// array__to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
 RcppExport SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
@@ -332,7 +332,7 @@ RcppExport SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sex
 }
 #endif
 
-// array_from_vector.cpp:959
+// array_from_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
 RcppExport SEXP _arrow_Array__infer_type(SEXP x_sexp){
@@ -347,7 +347,7 @@ RcppExport SEXP _arrow_Array__infer_type(SEXP x_sexp){
 }
 #endif
 
-// array_from_vector.cpp:964
+// array_from_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type);
 RcppExport SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
@@ -363,7 +363,7 @@ RcppExport SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
 }
 #endif
 
-// array_from_vector.cpp:979
+// array_from_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks, SEXP s_type);
 RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
@@ -379,7 +379,7 @@ RcppExport SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sex
 }
 #endif
 
-// arraydata.cpp:25
+// arraydata.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
@@ -394,7 +394,7 @@ RcppExport SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
 }
 #endif
 
-// arraydata.cpp:31
+// arraydata.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
@@ -409,7 +409,7 @@ RcppExport SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
 }
 #endif
 
-// arraydata.cpp:36
+// arraydata.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
@@ -424,7 +424,7 @@ RcppExport SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
 }
 #endif
 
-// arraydata.cpp:41
+// arraydata.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
@@ -439,7 +439,7 @@ RcppExport SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
 }
 #endif
 
-// arraydata.cpp:46
+// arraydata.cpp
 #if defined(ARROW_R_WITH_ARROW)
 List ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x);
 RcppExport SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
@@ -454,7 +454,7 @@ RcppExport SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
 }
 #endif
 
-// buffer.cpp:22
+// buffer.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool Buffer__is_mutable(const std::shared_ptr<arrow::Buffer>& buffer);
 RcppExport SEXP _arrow_Buffer__is_mutable(SEXP buffer_sexp){
@@ -469,7 +469,7 @@ RcppExport SEXP _arrow_Buffer__is_mutable(SEXP buffer_sexp){
 }
 #endif
 
-// buffer.cpp:27
+// buffer.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void Buffer__ZeroPadding(const std::shared_ptr<arrow::Buffer>& buffer);
 RcppExport SEXP _arrow_Buffer__ZeroPadding(SEXP buffer_sexp){
@@ -485,7 +485,7 @@ RcppExport SEXP _arrow_Buffer__ZeroPadding(SEXP buffer_sexp){
 }
 #endif
 
-// buffer.cpp:32
+// buffer.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t Buffer__capacity(const std::shared_ptr<arrow::Buffer>& buffer);
 RcppExport SEXP _arrow_Buffer__capacity(SEXP buffer_sexp){
@@ -500,7 +500,7 @@ RcppExport SEXP _arrow_Buffer__capacity(SEXP buffer_sexp){
 }
 #endif
 
-// buffer.cpp:37
+// buffer.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer);
 RcppExport SEXP _arrow_Buffer__size(SEXP buffer_sexp){
@@ -515,7 +515,7 @@ RcppExport SEXP _arrow_Buffer__size(SEXP buffer_sexp){
 }
 #endif
 
-// buffer.cpp:42
+// buffer.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x);
 RcppExport SEXP _arrow_r___RBuffer__initialize(SEXP x_sexp){
@@ -530,7 +530,7 @@ RcppExport SEXP _arrow_r___RBuffer__initialize(SEXP x_sexp){
 }
 #endif
 
-// chunkedarray.cpp:25
+// chunkedarray.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 RcppExport SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
@@ -545,7 +545,7 @@ RcppExport SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
 }
 #endif
 
-// chunkedarray.cpp:30
+// chunkedarray.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 RcppExport SEXP _arrow_ChunkedArray__null_count(SEXP chunked_array_sexp){
@@ -560,7 +560,7 @@ RcppExport SEXP _arrow_ChunkedArray__null_count(SEXP chunked_array_sexp){
 }
 #endif
 
-// chunkedarray.cpp:35
+// chunkedarray.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 RcppExport SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
@@ -575,7 +575,7 @@ RcppExport SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
 }
 #endif
 
-// chunkedarray.cpp:40
+// chunkedarray.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> ChunkedArray__chunk(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i);
 RcppExport SEXP _arrow_ChunkedArray__chunk(SEXP chunked_array_sexp, SEXP i_sexp){
@@ -591,7 +591,7 @@ RcppExport SEXP _arrow_ChunkedArray__chunk(SEXP chunked_array_sexp, SEXP i_sexp)
 }
 #endif
 
-// chunkedarray.cpp:46
+// chunkedarray.cpp
 #if defined(ARROW_R_WITH_ARROW)
 List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 RcppExport SEXP _arrow_ChunkedArray__chunks(SEXP chunked_array_sexp){
@@ -606,7 +606,7 @@ RcppExport SEXP _arrow_ChunkedArray__chunks(SEXP chunked_array_sexp){
 }
 #endif
 
-// chunkedarray.cpp:51
+// chunkedarray.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> ChunkedArray__type(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 RcppExport SEXP _arrow_ChunkedArray__type(SEXP chunked_array_sexp){
@@ -621,7 +621,7 @@ RcppExport SEXP _arrow_ChunkedArray__type(SEXP chunked_array_sexp){
 }
 #endif
 
-// chunkedarray.cpp:57
+// chunkedarray.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice1(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset);
 RcppExport SEXP _arrow_ChunkArray__Slice1(SEXP chunked_array_sexp, SEXP offset_sexp){
@@ -637,7 +637,7 @@ RcppExport SEXP _arrow_ChunkArray__Slice1(SEXP chunked_array_sexp, SEXP offset_s
 }
 #endif
 
-// chunkedarray.cpp:63
+// chunkedarray.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length);
 RcppExport SEXP _arrow_ChunkArray__Slice2(SEXP chunked_array_sexp, SEXP offset_sexp, SEXP length_sexp){
@@ -654,7 +654,7 @@ RcppExport SEXP _arrow_ChunkArray__Slice2(SEXP chunked_array_sexp, SEXP offset_s
 }
 #endif
 
-// column.cpp:22
+// column.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int Column__length(const std::shared_ptr<arrow::Column>& column);
 RcppExport SEXP _arrow_Column__length(SEXP column_sexp){
@@ -669,7 +669,7 @@ RcppExport SEXP _arrow_Column__length(SEXP column_sexp){
 }
 #endif
 
-// column.cpp:27
+// column.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int Column__null_count(const std::shared_ptr<arrow::Column>& column);
 RcppExport SEXP _arrow_Column__null_count(SEXP column_sexp){
@@ -684,7 +684,7 @@ RcppExport SEXP _arrow_Column__null_count(SEXP column_sexp){
 }
 #endif
 
-// column.cpp:32
+// column.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Column__type(const std::shared_ptr<arrow::Column>& column);
 RcppExport SEXP _arrow_Column__type(SEXP column_sexp){
@@ -699,7 +699,7 @@ RcppExport SEXP _arrow_Column__type(SEXP column_sexp){
 }
 #endif
 
-// column.cpp:38
+// column.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> Column__data(const std::shared_ptr<arrow::Column>& column);
 RcppExport SEXP _arrow_Column__data(SEXP column_sexp){
@@ -714,7 +714,7 @@ RcppExport SEXP _arrow_Column__data(SEXP column_sexp){
 }
 #endif
 
-// compression.cpp:22
+// compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec);
 RcppExport SEXP _arrow_util___Codec__Create(SEXP codec_sexp){
@@ -729,7 +729,7 @@ RcppExport SEXP _arrow_util___Codec__Create(SEXP codec_sexp){
 }
 #endif
 
-// compression.cpp:29
+// compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::OutputStream>& raw);
 RcppExport SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
@@ -745,7 +745,7 @@ RcppExport SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP r
 }
 #endif
 
-// compression.cpp:38
+// compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::InputStream>& raw);
 RcppExport SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
@@ -761,7 +761,7 @@ RcppExport SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP ra
 }
 #endif
 
-// compute.cpp:22
+// compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate);
 RcppExport SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflow_sexp, SEXP allow_time_truncate_sexp, SEXP allow_float_truncate_sexp){
@@ -778,7 +778,7 @@ RcppExport SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflow
 }
 #endif
 
-// compute.cpp:32
+// compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__cast(const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
 RcppExport SEXP _arrow_Array__cast(SEXP array_sexp, SEXP target_type_sexp, SEXP options_sexp){
@@ -795,7 +795,7 @@ RcppExport SEXP _arrow_Array__cast(SEXP array_sexp, SEXP target_type_sexp, SEXP 
 }
 #endif
 
-// compute.cpp:43
+// compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
 RcppExport SEXP _arrow_ChunkedArray__cast(SEXP chunked_array_sexp, SEXP target_type_sexp, SEXP options_sexp){
@@ -812,7 +812,7 @@ RcppExport SEXP _arrow_ChunkedArray__cast(SEXP chunked_array_sexp, SEXP target_t
 }
 #endif
 
-// compute.cpp:55
+// compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
 RcppExport SEXP _arrow_RecordBatch__cast(SEXP batch_sexp, SEXP schema_sexp, SEXP options_sexp){
@@ -829,7 +829,7 @@ RcppExport SEXP _arrow_RecordBatch__cast(SEXP batch_sexp, SEXP schema_sexp, SEXP
 }
 #endif
 
-// compute.cpp:70
+// compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__cast(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
 RcppExport SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP options_sexp){
@@ -846,7 +846,7 @@ RcppExport SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP optio
 }
 #endif
 
-// csv.cpp:25
+// csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ options);
 RcppExport SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
@@ -861,7 +861,7 @@ RcppExport SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
 }
 #endif
 
-// csv.cpp:36
+// csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(List_ options);
 RcppExport SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
@@ -876,7 +876,7 @@ RcppExport SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
 }
 #endif
 
-// csv.cpp:51
+// csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(List_ options);
 RcppExport SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
@@ -891,7 +891,7 @@ RcppExport SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
 }
 #endif
 
-// csv.cpp:60
+// csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(const std::shared_ptr<arrow::io::InputStream>& input, const std::shared_ptr<arrow::csv::ReadOptions>& read_options, const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options);
 RcppExport SEXP _arrow_csv___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp, SEXP convert_options_sexp){
@@ -909,7 +909,7 @@ RcppExport SEXP _arrow_csv___TableReader__Make(SEXP input_sexp, SEXP read_option
 }
 #endif
 
-// csv.cpp:73
+// csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> csv___TableReader__Read(const std::shared_ptr<arrow::csv::TableReader>& table_reader);
 RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
@@ -924,7 +924,7 @@ RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 }
 #endif
 
-// datatype.cpp:27
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool shared_ptr_is_null(SEXP xp);
 RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xp_sexp){
@@ -939,7 +939,7 @@ RcppExport SEXP _arrow_shared_ptr_is_null(SEXP xp_sexp){
 }
 #endif
 
-// datatype.cpp:32
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool unique_ptr_is_null(SEXP xp);
 RcppExport SEXP _arrow_unique_ptr_is_null(SEXP xp_sexp){
@@ -954,7 +954,7 @@ RcppExport SEXP _arrow_unique_ptr_is_null(SEXP xp_sexp){
 }
 #endif
 
-// datatype.cpp:37
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Int8__initialize();
 RcppExport SEXP _arrow_Int8__initialize(){
@@ -968,7 +968,7 @@ RcppExport SEXP _arrow_Int8__initialize(){
 }
 #endif
 
-// datatype.cpp:40
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Int16__initialize();
 RcppExport SEXP _arrow_Int16__initialize(){
@@ -982,7 +982,7 @@ RcppExport SEXP _arrow_Int16__initialize(){
 }
 #endif
 
-// datatype.cpp:43
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Int32__initialize();
 RcppExport SEXP _arrow_Int32__initialize(){
@@ -996,7 +996,7 @@ RcppExport SEXP _arrow_Int32__initialize(){
 }
 #endif
 
-// datatype.cpp:46
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Int64__initialize();
 RcppExport SEXP _arrow_Int64__initialize(){
@@ -1010,7 +1010,7 @@ RcppExport SEXP _arrow_Int64__initialize(){
 }
 #endif
 
-// datatype.cpp:49
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> UInt8__initialize();
 RcppExport SEXP _arrow_UInt8__initialize(){
@@ -1024,7 +1024,7 @@ RcppExport SEXP _arrow_UInt8__initialize(){
 }
 #endif
 
-// datatype.cpp:52
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> UInt16__initialize();
 RcppExport SEXP _arrow_UInt16__initialize(){
@@ -1038,7 +1038,7 @@ RcppExport SEXP _arrow_UInt16__initialize(){
 }
 #endif
 
-// datatype.cpp:55
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> UInt32__initialize();
 RcppExport SEXP _arrow_UInt32__initialize(){
@@ -1052,7 +1052,7 @@ RcppExport SEXP _arrow_UInt32__initialize(){
 }
 #endif
 
-// datatype.cpp:58
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> UInt64__initialize();
 RcppExport SEXP _arrow_UInt64__initialize(){
@@ -1066,7 +1066,7 @@ RcppExport SEXP _arrow_UInt64__initialize(){
 }
 #endif
 
-// datatype.cpp:61
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Float16__initialize();
 RcppExport SEXP _arrow_Float16__initialize(){
@@ -1080,7 +1080,7 @@ RcppExport SEXP _arrow_Float16__initialize(){
 }
 #endif
 
-// datatype.cpp:64
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Float32__initialize();
 RcppExport SEXP _arrow_Float32__initialize(){
@@ -1094,7 +1094,7 @@ RcppExport SEXP _arrow_Float32__initialize(){
 }
 #endif
 
-// datatype.cpp:67
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Float64__initialize();
 RcppExport SEXP _arrow_Float64__initialize(){
@@ -1108,7 +1108,7 @@ RcppExport SEXP _arrow_Float64__initialize(){
 }
 #endif
 
-// datatype.cpp:70
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Boolean__initialize();
 RcppExport SEXP _arrow_Boolean__initialize(){
@@ -1122,7 +1122,7 @@ RcppExport SEXP _arrow_Boolean__initialize(){
 }
 #endif
 
-// datatype.cpp:73
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Utf8__initialize();
 RcppExport SEXP _arrow_Utf8__initialize(){
@@ -1136,7 +1136,7 @@ RcppExport SEXP _arrow_Utf8__initialize(){
 }
 #endif
 
-// datatype.cpp:76
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Date32__initialize();
 RcppExport SEXP _arrow_Date32__initialize(){
@@ -1150,7 +1150,7 @@ RcppExport SEXP _arrow_Date32__initialize(){
 }
 #endif
 
-// datatype.cpp:79
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Date64__initialize();
 RcppExport SEXP _arrow_Date64__initialize(){
@@ -1164,7 +1164,7 @@ RcppExport SEXP _arrow_Date64__initialize(){
 }
 #endif
 
-// datatype.cpp:82
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Null__initialize();
 RcppExport SEXP _arrow_Null__initialize(){
@@ -1178,7 +1178,7 @@ RcppExport SEXP _arrow_Null__initialize(){
 }
 #endif
 
-// datatype.cpp:85
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision, int32_t scale);
 RcppExport SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
@@ -1194,7 +1194,7 @@ RcppExport SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scal
 }
 #endif
 
-// datatype.cpp:91
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(int32_t byte_width);
 RcppExport SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
@@ -1209,7 +1209,7 @@ RcppExport SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 }
 #endif
 
-// datatype.cpp:96
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Timestamp__initialize1(arrow::TimeUnit::type unit);
 RcppExport SEXP _arrow_Timestamp__initialize1(SEXP unit_sexp){
@@ -1224,7 +1224,7 @@ RcppExport SEXP _arrow_Timestamp__initialize1(SEXP unit_sexp){
 }
 #endif
 
-// datatype.cpp:101
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Timestamp__initialize2(arrow::TimeUnit::type unit, const std::string& timezone);
 RcppExport SEXP _arrow_Timestamp__initialize2(SEXP unit_sexp, SEXP timezone_sexp){
@@ -1240,7 +1240,7 @@ RcppExport SEXP _arrow_Timestamp__initialize2(SEXP unit_sexp, SEXP timezone_sexp
 }
 #endif
 
-// datatype.cpp:107
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Time32__initialize(arrow::TimeUnit::type unit);
 RcppExport SEXP _arrow_Time32__initialize(SEXP unit_sexp){
@@ -1255,7 +1255,7 @@ RcppExport SEXP _arrow_Time32__initialize(SEXP unit_sexp){
 }
 #endif
 
-// datatype.cpp:112
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit);
 RcppExport SEXP _arrow_Time64__initialize(SEXP unit_sexp){
@@ -1270,7 +1270,7 @@ RcppExport SEXP _arrow_Time64__initialize(SEXP unit_sexp){
 }
 #endif
 
-// datatype.cpp:117
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP list__(SEXP x);
 RcppExport SEXP _arrow_list__(SEXP x_sexp){
@@ -1285,7 +1285,7 @@ RcppExport SEXP _arrow_list__(SEXP x_sexp){
 }
 #endif
 
-// datatype.cpp:133
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> struct_(List fields);
 RcppExport SEXP _arrow_struct_(SEXP fields_sexp){
@@ -1300,7 +1300,7 @@ RcppExport SEXP _arrow_struct_(SEXP fields_sexp){
 }
 #endif
 
-// datatype.cpp:138
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string DataType__ToString(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType__ToString(SEXP type_sexp){
@@ -1315,7 +1315,7 @@ RcppExport SEXP _arrow_DataType__ToString(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:143
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string DataType__name(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType__name(SEXP type_sexp){
@@ -1330,7 +1330,7 @@ RcppExport SEXP _arrow_DataType__name(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:148
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs);
 RcppExport SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
@@ -1346,7 +1346,7 @@ RcppExport SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
 }
 #endif
 
-// datatype.cpp:154
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int DataType__num_children(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType__num_children(SEXP type_sexp){
@@ -1361,7 +1361,7 @@ RcppExport SEXP _arrow_DataType__num_children(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:159
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 List DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
@@ -1376,7 +1376,7 @@ RcppExport SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:164
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 arrow::Type::type DataType__id(const std::shared_ptr<arrow::DataType>& type);
 RcppExport SEXP _arrow_DataType__id(SEXP type_sexp){
@@ -1391,7 +1391,7 @@ RcppExport SEXP _arrow_DataType__id(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:169
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> schema_(List fields);
 RcppExport SEXP _arrow_schema_(SEXP fields_sexp){
@@ -1406,7 +1406,7 @@ RcppExport SEXP _arrow_schema_(SEXP fields_sexp){
 }
 #endif
 
-// datatype.cpp:174
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s);
 RcppExport SEXP _arrow_Schema__ToString(SEXP s_sexp){
@@ -1421,7 +1421,7 @@ RcppExport SEXP _arrow_Schema__ToString(SEXP s_sexp){
 }
 #endif
 
-// datatype.cpp:179
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s);
 RcppExport SEXP _arrow_Schema__num_fields(SEXP s_sexp){
@@ -1436,7 +1436,7 @@ RcppExport SEXP _arrow_Schema__num_fields(SEXP s_sexp){
 }
 #endif
 
-// datatype.cpp:184
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s, int i);
 RcppExport SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
@@ -1452,7 +1452,7 @@ RcppExport SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
 }
 #endif
 
-// datatype.cpp:194
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema);
 RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
@@ -1467,7 +1467,7 @@ RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
 }
 #endif
 
-// datatype.cpp:202
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type);
 RcppExport SEXP _arrow_ListType__ToString(SEXP type_sexp){
@@ -1482,7 +1482,7 @@ RcppExport SEXP _arrow_ListType__ToString(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:207
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int FixedWidthType__bit_width(const std::shared_ptr<arrow::FixedWidthType>& type);
 RcppExport SEXP _arrow_FixedWidthType__bit_width(SEXP type_sexp){
@@ -1497,7 +1497,7 @@ RcppExport SEXP _arrow_FixedWidthType__bit_width(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:212
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 arrow::DateUnit DateType__unit(const std::shared_ptr<arrow::DateType>& type);
 RcppExport SEXP _arrow_DateType__unit(SEXP type_sexp){
@@ -1512,7 +1512,7 @@ RcppExport SEXP _arrow_DateType__unit(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:217
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& type);
 RcppExport SEXP _arrow_TimeType__unit(SEXP type_sexp){
@@ -1527,7 +1527,7 @@ RcppExport SEXP _arrow_TimeType__unit(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:222
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int32_t DecimalType__precision(const std::shared_ptr<arrow::DecimalType>& type);
 RcppExport SEXP _arrow_DecimalType__precision(SEXP type_sexp){
@@ -1542,7 +1542,7 @@ RcppExport SEXP _arrow_DecimalType__precision(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:227
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int32_t DecimalType__scale(const std::shared_ptr<arrow::DecimalType>& type);
 RcppExport SEXP _arrow_DecimalType__scale(SEXP type_sexp){
@@ -1557,7 +1557,7 @@ RcppExport SEXP _arrow_DecimalType__scale(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:232
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string TimestampType__timezone(const std::shared_ptr<arrow::TimestampType>& type);
 RcppExport SEXP _arrow_TimestampType__timezone(SEXP type_sexp){
@@ -1572,7 +1572,7 @@ RcppExport SEXP _arrow_TimestampType__timezone(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:237
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 arrow::TimeUnit::type TimestampType__unit(const std::shared_ptr<arrow::TimestampType>& type);
 RcppExport SEXP _arrow_TimestampType__unit(SEXP type_sexp){
@@ -1587,7 +1587,7 @@ RcppExport SEXP _arrow_TimestampType__unit(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:243
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& index_type, const std::shared_ptr<arrow::DataType>& value_type, bool ordered);
 RcppExport SEXP _arrow_DictionaryType__initialize(SEXP index_type_sexp, SEXP value_type_sexp, SEXP ordered_sexp){
@@ -1604,7 +1604,7 @@ RcppExport SEXP _arrow_DictionaryType__initialize(SEXP index_type_sexp, SEXP val
 }
 #endif
 
-// datatype.cpp:250
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> DictionaryType__index_type(const std::shared_ptr<arrow::DictionaryType>& type);
 RcppExport SEXP _arrow_DictionaryType__index_type(SEXP type_sexp){
@@ -1619,7 +1619,7 @@ RcppExport SEXP _arrow_DictionaryType__index_type(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:256
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> DictionaryType__value_type(const std::shared_ptr<arrow::DictionaryType>& type);
 RcppExport SEXP _arrow_DictionaryType__value_type(SEXP type_sexp){
@@ -1634,7 +1634,7 @@ RcppExport SEXP _arrow_DictionaryType__value_type(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:262
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string DictionaryType__name(const std::shared_ptr<arrow::DictionaryType>& type);
 RcppExport SEXP _arrow_DictionaryType__name(SEXP type_sexp){
@@ -1649,7 +1649,7 @@ RcppExport SEXP _arrow_DictionaryType__name(SEXP type_sexp){
 }
 #endif
 
-// datatype.cpp:267
+// datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool DictionaryType__ordered(const std::shared_ptr<arrow::DictionaryType>& type);
 RcppExport SEXP _arrow_DictionaryType__ordered(SEXP type_sexp){
@@ -1664,7 +1664,7 @@ RcppExport SEXP _arrow_DictionaryType__ordered(SEXP type_sexp){
 }
 #endif
 
-// feather.cpp:24
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___feather___TableWriter__SetDescription(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::string& description);
 RcppExport SEXP _arrow_ipc___feather___TableWriter__SetDescription(SEXP writer_sexp, SEXP description_sexp){
@@ -1681,7 +1681,7 @@ RcppExport SEXP _arrow_ipc___feather___TableWriter__SetDescription(SEXP writer_s
 }
 #endif
 
-// feather.cpp:31
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___feather___TableWriter__SetNumRows(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, int64_t num_rows);
 RcppExport SEXP _arrow_ipc___feather___TableWriter__SetNumRows(SEXP writer_sexp, SEXP num_rows_sexp){
@@ -1698,7 +1698,7 @@ RcppExport SEXP _arrow_ipc___feather___TableWriter__SetNumRows(SEXP writer_sexp,
 }
 #endif
 
-// feather.cpp:37
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___feather___TableWriter__Append(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::string& name, const std::shared_ptr<arrow::Array>& values);
 RcppExport SEXP _arrow_ipc___feather___TableWriter__Append(SEXP writer_sexp, SEXP name_sexp, SEXP values_sexp){
@@ -1716,7 +1716,7 @@ RcppExport SEXP _arrow_ipc___feather___TableWriter__Append(SEXP writer_sexp, SEX
 }
 #endif
 
-// feather.cpp:44
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___feather___TableWriter__Finalize(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer);
 RcppExport SEXP _arrow_ipc___feather___TableWriter__Finalize(SEXP writer_sexp){
@@ -1732,7 +1732,7 @@ RcppExport SEXP _arrow_ipc___feather___TableWriter__Finalize(SEXP writer_sexp){
 }
 #endif
 
-// feather.cpp:50
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream);
 RcppExport SEXP _arrow_ipc___feather___TableWriter__Open(SEXP stream_sexp){
@@ -1747,7 +1747,7 @@ RcppExport SEXP _arrow_ipc___feather___TableWriter__Open(SEXP stream_sexp){
 }
 #endif
 
-// feather.cpp:58
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___TableWriter__RecordBatch__WriteFeather(const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_ipc___TableWriter__RecordBatch__WriteFeather(SEXP writer_sexp, SEXP batch_sexp){
@@ -1764,7 +1764,7 @@ RcppExport SEXP _arrow_ipc___TableWriter__RecordBatch__WriteFeather(SEXP writer_
 }
 #endif
 
-// feather.cpp:72
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string ipc___feather___TableReader__GetDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 RcppExport SEXP _arrow_ipc___feather___TableReader__GetDescription(SEXP reader_sexp){
@@ -1779,7 +1779,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__GetDescription(SEXP reader_s
 }
 #endif
 
-// feather.cpp:78
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool ipc___feather___TableReader__HasDescription(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 RcppExport SEXP _arrow_ipc___feather___TableReader__HasDescription(SEXP reader_sexp){
@@ -1794,7 +1794,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__HasDescription(SEXP reader_s
 }
 #endif
 
-// feather.cpp:84
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int ipc___feather___TableReader__version(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 RcppExport SEXP _arrow_ipc___feather___TableReader__version(SEXP reader_sexp){
@@ -1809,7 +1809,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__version(SEXP reader_sexp){
 }
 #endif
 
-// feather.cpp:90
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t ipc___feather___TableReader__num_rows(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 RcppExport SEXP _arrow_ipc___feather___TableReader__num_rows(SEXP reader_sexp){
@@ -1824,7 +1824,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__num_rows(SEXP reader_sexp){
 }
 #endif
 
-// feather.cpp:96
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t ipc___feather___TableReader__num_columns(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
 RcppExport SEXP _arrow_ipc___feather___TableReader__num_columns(SEXP reader_sexp){
@@ -1839,7 +1839,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__num_columns(SEXP reader_sexp
 }
 #endif
 
-// feather.cpp:102
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string ipc___feather___TableReader__GetColumnName(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
 RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumnName(SEXP reader_sexp, SEXP i_sexp){
@@ -1855,7 +1855,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumnName(SEXP reader_se
 }
 #endif
 
-// feather.cpp:108
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i);
 RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumn(SEXP reader_sexp, SEXP i_sexp){
@@ -1871,7 +1871,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__GetColumn(SEXP reader_sexp, 
 }
 #endif
 
-// feather.cpp:116
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, SEXP columns);
 RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP reader_sexp, SEXP columns_sexp){
@@ -1887,7 +1887,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__Read(SEXP reader_sexp, SEXP 
 }
 #endif
 
-// feather.cpp:152
+// feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::feather::TableReader> ipc___feather___TableReader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
 RcppExport SEXP _arrow_ipc___feather___TableReader__Open(SEXP stream_sexp){
@@ -1902,7 +1902,7 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__Open(SEXP stream_sexp){
 }
 #endif
 
-// field.cpp:22
+// field.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& field, bool nullable);
 RcppExport SEXP _arrow_Field__initialize(SEXP name_sexp, SEXP field_sexp, SEXP nullable_sexp){
@@ -1919,7 +1919,7 @@ RcppExport SEXP _arrow_Field__initialize(SEXP name_sexp, SEXP field_sexp, SEXP n
 }
 #endif
 
-// field.cpp:29
+// field.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string Field__ToString(const std::shared_ptr<arrow::Field>& field);
 RcppExport SEXP _arrow_Field__ToString(SEXP field_sexp){
@@ -1934,7 +1934,7 @@ RcppExport SEXP _arrow_Field__ToString(SEXP field_sexp){
 }
 #endif
 
-// field.cpp:34
+// field.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string Field__name(const std::shared_ptr<arrow::Field>& field);
 RcppExport SEXP _arrow_Field__name(SEXP field_sexp){
@@ -1949,7 +1949,7 @@ RcppExport SEXP _arrow_Field__name(SEXP field_sexp){
 }
 #endif
 
-// field.cpp:39
+// field.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool Field__Equals(const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::Field>& other);
 RcppExport SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp){
@@ -1965,7 +1965,7 @@ RcppExport SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp){
 }
 #endif
 
-// field.cpp:45
+// field.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool Field__nullable(const std::shared_ptr<arrow::Field>& field);
 RcppExport SEXP _arrow_Field__nullable(SEXP field_sexp){
@@ -1980,7 +1980,7 @@ RcppExport SEXP _arrow_Field__nullable(SEXP field_sexp){
 }
 #endif
 
-// field.cpp:50
+// field.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field);
 RcppExport SEXP _arrow_Field__type(SEXP field_sexp){
@@ -1995,7 +1995,7 @@ RcppExport SEXP _arrow_Field__type(SEXP field_sexp){
 }
 #endif
 
-// io.cpp:26
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
 RcppExport SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
@@ -2011,7 +2011,7 @@ RcppExport SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
 }
 #endif
 
-// io.cpp:36
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void io___InputStream__Close(const std::shared_ptr<arrow::io::InputStream>& x);
 RcppExport SEXP _arrow_io___InputStream__Close(SEXP x_sexp){
@@ -2027,7 +2027,7 @@ RcppExport SEXP _arrow_io___InputStream__Close(SEXP x_sexp){
 }
 #endif
 
-// io.cpp:43
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void io___OutputStream__Close(const std::shared_ptr<arrow::io::OutputStream>& x);
 RcppExport SEXP _arrow_io___OutputStream__Close(SEXP x_sexp){
@@ -2043,7 +2043,7 @@ RcppExport SEXP _arrow_io___OutputStream__Close(SEXP x_sexp){
 }
 #endif
 
-// io.cpp:50
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___RandomAccessFile__GetSize(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 RcppExport SEXP _arrow_io___RandomAccessFile__GetSize(SEXP x_sexp){
@@ -2058,7 +2058,7 @@ RcppExport SEXP _arrow_io___RandomAccessFile__GetSize(SEXP x_sexp){
 }
 #endif
 
-// io.cpp:58
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool io___RandomAccessFile__supports_zero_copy(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 RcppExport SEXP _arrow_io___RandomAccessFile__supports_zero_copy(SEXP x_sexp){
@@ -2073,7 +2073,7 @@ RcppExport SEXP _arrow_io___RandomAccessFile__supports_zero_copy(SEXP x_sexp){
 }
 #endif
 
-// io.cpp:64
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void io___RandomAccessFile__Seek(const std::shared_ptr<arrow::io::RandomAccessFile>& x, int64_t position);
 RcppExport SEXP _arrow_io___RandomAccessFile__Seek(SEXP x_sexp, SEXP position_sexp){
@@ -2090,7 +2090,7 @@ RcppExport SEXP _arrow_io___RandomAccessFile__Seek(SEXP x_sexp, SEXP position_se
 }
 #endif
 
-// io.cpp:70
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___RandomAccessFile__Tell(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 RcppExport SEXP _arrow_io___RandomAccessFile__Tell(SEXP x_sexp){
@@ -2105,7 +2105,7 @@ RcppExport SEXP _arrow_io___RandomAccessFile__Tell(SEXP x_sexp){
 }
 #endif
 
-// io.cpp:80
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(const std::string& path, int64_t size);
 RcppExport SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_sexp){
@@ -2121,7 +2121,7 @@ RcppExport SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_s
 }
 #endif
 
-// io.cpp:88
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(const std::string& path, arrow::io::FileMode::type mode);
 RcppExport SEXP _arrow_io___MemoryMappedFile__Open(SEXP path_sexp, SEXP mode_sexp){
@@ -2137,7 +2137,7 @@ RcppExport SEXP _arrow_io___MemoryMappedFile__Open(SEXP path_sexp, SEXP mode_sex
 }
 #endif
 
-// io.cpp:96
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMappedFile>& x, int64_t size);
 RcppExport SEXP _arrow_io___MemoryMappedFile__Resize(SEXP x_sexp, SEXP size_sexp){
@@ -2154,7 +2154,7 @@ RcppExport SEXP _arrow_io___MemoryMappedFile__Resize(SEXP x_sexp, SEXP size_sexp
 }
 #endif
 
-// io.cpp:104
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(const std::string& path);
 RcppExport SEXP _arrow_io___ReadableFile__Open(SEXP path_sexp){
@@ -2169,7 +2169,7 @@ RcppExport SEXP _arrow_io___ReadableFile__Open(SEXP path_sexp){
 }
 #endif
 
-// io.cpp:114
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(const std::shared_ptr<arrow::Buffer>& buffer);
 RcppExport SEXP _arrow_io___BufferReader__initialize(SEXP buffer_sexp){
@@ -2184,7 +2184,7 @@ RcppExport SEXP _arrow_io___BufferReader__initialize(SEXP buffer_sexp){
 }
 #endif
 
-// io.cpp:122
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream, const std::shared_ptr<arrow::Buffer>& buf);
 RcppExport SEXP _arrow_io___Writable__write(SEXP stream_sexp, SEXP buf_sexp){
@@ -2201,7 +2201,7 @@ RcppExport SEXP _arrow_io___Writable__write(SEXP stream_sexp, SEXP buf_sexp){
 }
 #endif
 
-// io.cpp:130
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& stream);
 RcppExport SEXP _arrow_io___OutputStream__Tell(SEXP stream_sexp){
@@ -2216,7 +2216,7 @@ RcppExport SEXP _arrow_io___OutputStream__Tell(SEXP stream_sexp){
 }
 #endif
 
-// io.cpp:139
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(const std::string& path);
 RcppExport SEXP _arrow_io___FileOutputStream__Open(SEXP path_sexp){
@@ -2231,7 +2231,7 @@ RcppExport SEXP _arrow_io___FileOutputStream__Open(SEXP path_sexp){
 }
 #endif
 
-// io.cpp:149
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(int64_t initial_capacity);
 RcppExport SEXP _arrow_io___BufferOutputStream__Create(SEXP initial_capacity_sexp){
@@ -2246,7 +2246,7 @@ RcppExport SEXP _arrow_io___BufferOutputStream__Create(SEXP initial_capacity_sex
 }
 #endif
 
-// io.cpp:158
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___BufferOutputStream__capacity(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
 RcppExport SEXP _arrow_io___BufferOutputStream__capacity(SEXP stream_sexp){
@@ -2261,7 +2261,7 @@ RcppExport SEXP _arrow_io___BufferOutputStream__capacity(SEXP stream_sexp){
 }
 #endif
 
-// io.cpp:164
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> io___BufferOutputStream__Finish(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
 RcppExport SEXP _arrow_io___BufferOutputStream__Finish(SEXP stream_sexp){
@@ -2276,7 +2276,7 @@ RcppExport SEXP _arrow_io___BufferOutputStream__Finish(SEXP stream_sexp){
 }
 #endif
 
-// io.cpp:172
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___BufferOutputStream__Tell(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
 RcppExport SEXP _arrow_io___BufferOutputStream__Tell(SEXP stream_sexp){
@@ -2291,7 +2291,7 @@ RcppExport SEXP _arrow_io___BufferOutputStream__Tell(SEXP stream_sexp){
 }
 #endif
 
-// io.cpp:180
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void io___BufferOutputStream__Write(const std::shared_ptr<arrow::io::BufferOutputStream>& stream, RawVector_ bytes);
 RcppExport SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP bytes_sexp){
@@ -2308,7 +2308,7 @@ RcppExport SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP byt
 }
 #endif
 
-// io.cpp:188
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::MockOutputStream> io___MockOutputStream__initialize();
 RcppExport SEXP _arrow_io___MockOutputStream__initialize(){
@@ -2322,7 +2322,7 @@ RcppExport SEXP _arrow_io___MockOutputStream__initialize(){
 }
 #endif
 
-// io.cpp:193
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t io___MockOutputStream__GetExtentBytesWritten(const std::shared_ptr<arrow::io::MockOutputStream>& stream);
 RcppExport SEXP _arrow_io___MockOutputStream__GetExtentBytesWritten(SEXP stream_sexp){
@@ -2337,7 +2337,7 @@ RcppExport SEXP _arrow_io___MockOutputStream__GetExtentBytesWritten(SEXP stream_
 }
 #endif
 
-// io.cpp:201
+// io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::FixedSizeBufferWriter> io___FixedSizeBufferWriter__initialize(const std::shared_ptr<arrow::Buffer>& buffer);
 RcppExport SEXP _arrow_io___FixedSizeBufferWriter__initialize(SEXP buffer_sexp){
@@ -2352,7 +2352,7 @@ RcppExport SEXP _arrow_io___FixedSizeBufferWriter__initialize(SEXP buffer_sexp){
 }
 #endif
 
-// memorypool.cpp:21
+// memorypool.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default();
 RcppExport SEXP _arrow_MemoryPool__default(){
@@ -2366,7 +2366,7 @@ RcppExport SEXP _arrow_MemoryPool__default(){
 }
 #endif
 
-// memorypool.cpp:27
+// memorypool.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool);
 RcppExport SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
@@ -2381,7 +2381,7 @@ RcppExport SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
 }
 #endif
 
-// memorypool.cpp:32
+// memorypool.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool);
 RcppExport SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
@@ -2396,7 +2396,7 @@ RcppExport SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
 }
 #endif
 
-// message.cpp:22
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message);
 RcppExport SEXP _arrow_ipc___Message__body_length(SEXP message_sexp){
@@ -2411,7 +2411,7 @@ RcppExport SEXP _arrow_ipc___Message__body_length(SEXP message_sexp){
 }
 #endif
 
-// message.cpp:27
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> ipc___Message__metadata(const std::unique_ptr<arrow::ipc::Message>& message);
 RcppExport SEXP _arrow_ipc___Message__metadata(SEXP message_sexp){
@@ -2426,7 +2426,7 @@ RcppExport SEXP _arrow_ipc___Message__metadata(SEXP message_sexp){
 }
 #endif
 
-// message.cpp:33
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> ipc___Message__body(const std::unique_ptr<arrow::ipc::Message>& message);
 RcppExport SEXP _arrow_ipc___Message__body(SEXP message_sexp){
@@ -2441,7 +2441,7 @@ RcppExport SEXP _arrow_ipc___Message__body(SEXP message_sexp){
 }
 #endif
 
-// message.cpp:39
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message);
 RcppExport SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
@@ -2456,7 +2456,7 @@ RcppExport SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
 }
 #endif
 
-// message.cpp:44
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 arrow::ipc::Message::Type ipc___Message__type(const std::unique_ptr<arrow::ipc::Message>& message);
 RcppExport SEXP _arrow_ipc___Message__type(SEXP message_sexp){
@@ -2471,7 +2471,7 @@ RcppExport SEXP _arrow_ipc___Message__type(SEXP message_sexp){
 }
 #endif
 
-// message.cpp:50
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool ipc___Message__Equals(const std::unique_ptr<arrow::ipc::Message>& x, const std::unique_ptr<arrow::ipc::Message>& y);
 RcppExport SEXP _arrow_ipc___Message__Equals(SEXP x_sexp, SEXP y_sexp){
@@ -2487,7 +2487,7 @@ RcppExport SEXP _arrow_ipc___Message__Equals(SEXP x_sexp, SEXP y_sexp){
 }
 #endif
 
-// message.cpp:56
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(const std::unique_ptr<arrow::ipc::Message>& message, const std::shared_ptr<arrow::Schema>& schema);
 RcppExport SEXP _arrow_ipc___ReadRecordBatch__Message__Schema(SEXP message_sexp, SEXP schema_sexp){
@@ -2503,7 +2503,7 @@ RcppExport SEXP _arrow_ipc___ReadRecordBatch__Message__Schema(SEXP message_sexp,
 }
 #endif
 
-// message.cpp:68
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___ReadSchema_InputStream(SEXP stream_sexp){
@@ -2518,7 +2518,7 @@ RcppExport SEXP _arrow_ipc___ReadSchema_InputStream(SEXP stream_sexp){
 }
 #endif
 
-// message.cpp:80
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
@@ -2533,7 +2533,7 @@ RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
 }
 #endif
 
-// message.cpp:86
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(const std::unique_ptr<arrow::ipc::MessageReader>& reader);
 RcppExport SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
@@ -2548,7 +2548,7 @@ RcppExport SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
 }
 #endif
 
-// message.cpp:94
+// message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
@@ -2563,7 +2563,7 @@ RcppExport SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
 }
 #endif
 
-// parquet.cpp:28
+// parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> read_parquet_file(std::string filename);
 RcppExport SEXP _arrow_read_parquet_file(SEXP filename_sexp){
@@ -2578,7 +2578,7 @@ RcppExport SEXP _arrow_read_parquet_file(SEXP filename_sexp){
 }
 #endif
 
-// recordbatch.cpp:26
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
 RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
@@ -2593,7 +2593,7 @@ RcppExport SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
 }
 #endif
 
-// recordbatch.cpp:31
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
 RcppExport SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
@@ -2608,7 +2608,7 @@ RcppExport SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
 }
 #endif
 
-// recordbatch.cpp:36
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> RecordBatch__schema(const std::shared_ptr<arrow::RecordBatch>& x);
 RcppExport SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
@@ -2623,7 +2623,7 @@ RcppExport SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
 }
 #endif
 
-// recordbatch.cpp:42
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 arrow::ArrayVector RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
@@ -2638,7 +2638,7 @@ RcppExport SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
 }
 #endif
 
-// recordbatch.cpp:53
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> RecordBatch__column(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
 RcppExport SEXP _arrow_RecordBatch__column(SEXP batch_sexp, SEXP i_sexp){
@@ -2654,7 +2654,7 @@ RcppExport SEXP _arrow_RecordBatch__column(SEXP batch_sexp, SEXP i_sexp){
 }
 #endif
 
-// recordbatch.cpp:59
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
 RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tbl_sexp){
@@ -2669,7 +2669,7 @@ RcppExport SEXP _arrow_RecordBatch__from_dataframe(SEXP tbl_sexp){
 }
 #endif
 
-// recordbatch.cpp:77
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self, const std::shared_ptr<arrow::RecordBatch>& other);
 RcppExport SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp){
@@ -2685,7 +2685,7 @@ RcppExport SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp){
 }
 #endif
 
-// recordbatch.cpp:83
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
 RcppExport SEXP _arrow_RecordBatch__RemoveColumn(SEXP batch_sexp, SEXP i_sexp){
@@ -2701,7 +2701,7 @@ RcppExport SEXP _arrow_RecordBatch__RemoveColumn(SEXP batch_sexp, SEXP i_sexp){
 }
 #endif
 
-// recordbatch.cpp:91
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& batch, int i);
 RcppExport SEXP _arrow_RecordBatch__column_name(SEXP batch_sexp, SEXP i_sexp){
@@ -2717,7 +2717,7 @@ RcppExport SEXP _arrow_RecordBatch__column_name(SEXP batch_sexp, SEXP i_sexp){
 }
 #endif
 
-// recordbatch.cpp:97
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 Rcpp::CharacterVector RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_RecordBatch__names(SEXP batch_sexp){
@@ -2732,7 +2732,7 @@ RcppExport SEXP _arrow_RecordBatch__names(SEXP batch_sexp){
 }
 #endif
 
-// recordbatch.cpp:108
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(const std::shared_ptr<arrow::RecordBatch>& self, int offset);
 RcppExport SEXP _arrow_RecordBatch__Slice1(SEXP self_sexp, SEXP offset_sexp){
@@ -2748,7 +2748,7 @@ RcppExport SEXP _arrow_RecordBatch__Slice1(SEXP self_sexp, SEXP offset_sexp){
 }
 #endif
 
-// recordbatch.cpp:114
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(const std::shared_ptr<arrow::RecordBatch>& self, int offset, int length);
 RcppExport SEXP _arrow_RecordBatch__Slice2(SEXP self_sexp, SEXP offset_sexp, SEXP length_sexp){
@@ -2765,7 +2765,7 @@ RcppExport SEXP _arrow_RecordBatch__Slice2(SEXP self_sexp, SEXP offset_sexp, SEX
 }
 #endif
 
-// recordbatch.cpp:120
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 Rcpp::RawVector ipc___SerializeRecordBatch__Raw(const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batch_sexp){
@@ -2780,7 +2780,7 @@ RcppExport SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batch_sexp){
 }
 #endif
 
-// recordbatch.cpp:140
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(const std::shared_ptr<arrow::io::InputStream>& stream, const std::shared_ptr<arrow::Schema>& schema);
 RcppExport SEXP _arrow_ipc___ReadRecordBatch__InputStream__Schema(SEXP stream_sexp, SEXP schema_sexp){
@@ -2796,7 +2796,7 @@ RcppExport SEXP _arrow_ipc___ReadRecordBatch__InputStream__Schema(SEXP stream_se
 }
 #endif
 
-// recordbatch.cpp:189
+// recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst);
 RcppExport SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_sexp){
@@ -2812,7 +2812,7 @@ RcppExport SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_s
 }
 #endif
 
-// recordbatchreader.cpp:22
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 RcppExport SEXP _arrow_RecordBatchReader__schema(SEXP reader_sexp){
@@ -2827,7 +2827,7 @@ RcppExport SEXP _arrow_RecordBatchReader__schema(SEXP reader_sexp){
 }
 #endif
 
-// recordbatchreader.cpp:28
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 RcppExport SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
@@ -2842,7 +2842,7 @@ RcppExport SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
 }
 #endif
 
-// recordbatchreader.cpp:38
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
@@ -2857,7 +2857,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 }
 #endif
 
-// recordbatchreader.cpp:46
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
 RcppExport SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
@@ -2872,7 +2872,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
 }
 #endif
 
-// recordbatchreader.cpp:64
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> ipc___RecordBatchFileReader__schema(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__schema(SEXP reader_sexp){
@@ -2887,7 +2887,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchFileReader__schema(SEXP reader_sexp){
 }
 #endif
 
-// recordbatchreader.cpp:70
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int ipc___RecordBatchFileReader__num_record_batches(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP reader_sexp){
@@ -2902,7 +2902,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP read
 }
 #endif
 
-// recordbatchreader.cpp:76
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i);
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP reader_sexp, SEXP i_sexp){
@@ -2918,7 +2918,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP reader_
 }
 #endif
 
-// recordbatchreader.cpp:86
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& file);
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
@@ -2933,7 +2933,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
 }
 #endif
 
-// recordbatchreader.cpp:94
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 RcppExport SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
@@ -2948,7 +2948,7 @@ RcppExport SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
 }
 #endif
 
-// recordbatchreader.cpp:109
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
 RcppExport SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
@@ -2963,7 +2963,7 @@ RcppExport SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
 }
 #endif
 
-// recordbatchreader.cpp:126
+// recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 RcppExport SEXP _arrow_ipc___RecordBatchFileReader__batches(SEXP reader_sexp){
@@ -2978,7 +2978,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchFileReader__batches(SEXP reader_sexp){
 }
 #endif
 
-// recordbatchwriter.cpp:22
+// recordbatchwriter.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___RecordBatchWriter__WriteRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer, const std::shared_ptr<arrow::RecordBatch>& batch);
 RcppExport SEXP _arrow_ipc___RecordBatchWriter__WriteRecordBatch(SEXP batch_writer_sexp, SEXP batch_sexp){
@@ -2995,7 +2995,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchWriter__WriteRecordBatch(SEXP batch_writ
 }
 #endif
 
-// recordbatchwriter.cpp:29
+// recordbatchwriter.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___RecordBatchWriter__WriteTable(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer, const std::shared_ptr<arrow::Table>& table);
 RcppExport SEXP _arrow_ipc___RecordBatchWriter__WriteTable(SEXP batch_writer_sexp, SEXP table_sexp){
@@ -3012,7 +3012,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchWriter__WriteTable(SEXP batch_writer_sex
 }
 #endif
 
-// recordbatchwriter.cpp:36
+// recordbatchwriter.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___RecordBatchWriter__Close(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer);
 RcppExport SEXP _arrow_ipc___RecordBatchWriter__Close(SEXP batch_writer_sexp){
@@ -3028,7 +3028,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchWriter__Close(SEXP batch_writer_sexp){
 }
 #endif
 
-// recordbatchwriter.cpp:42
+// recordbatchwriter.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema);
 RcppExport SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp){
@@ -3044,7 +3044,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP 
 }
 #endif
 
-// recordbatchwriter.cpp:52
+// recordbatchwriter.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema);
 RcppExport SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEXP schema_sexp){
@@ -3060,7 +3060,7 @@ RcppExport SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 }
 #endif
 
-// table.cpp:27
+// table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl);
 RcppExport SEXP _arrow_Table__from_dataframe(SEXP tbl_sexp){
@@ -3075,7 +3075,7 @@ RcppExport SEXP _arrow_Table__from_dataframe(SEXP tbl_sexp){
 }
 #endif
 
-// table.cpp:36
+// table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x);
 RcppExport SEXP _arrow_Table__num_columns(SEXP x_sexp){
@@ -3090,7 +3090,7 @@ RcppExport SEXP _arrow_Table__num_columns(SEXP x_sexp){
 }
 #endif
 
-// table.cpp:41
+// table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int Table__num_rows(const std::shared_ptr<arrow::Table>& x);
 RcppExport SEXP _arrow_Table__num_rows(SEXP x_sexp){
@@ -3105,7 +3105,7 @@ RcppExport SEXP _arrow_Table__num_rows(SEXP x_sexp){
 }
 #endif
 
-// table.cpp:44
+// table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>& x);
 RcppExport SEXP _arrow_Table__schema(SEXP x_sexp){
@@ -3120,7 +3120,7 @@ RcppExport SEXP _arrow_Table__schema(SEXP x_sexp){
 }
 #endif
 
-// table.cpp:49
+// table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table, int i);
 RcppExport SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
@@ -3136,7 +3136,7 @@ RcppExport SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
 }
 #endif
 
-// table.cpp:55
+// table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::vector<std::shared_ptr<arrow::Column>> Table__columns(const std::shared_ptr<arrow::Table>& table);
 RcppExport SEXP _arrow_Table__columns(SEXP table_sexp){
@@ -3151,7 +3151,7 @@ RcppExport SEXP _arrow_Table__columns(SEXP table_sexp){
 }
 #endif
 
-// table.cpp:74
+// table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp);
 RcppExport SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
@@ -3167,7 +3167,7 @@ RcppExport SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
 }
 #endif
 
-// threadpool.cpp:41
+// threadpool.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int GetCpuThreadPoolCapacity();
 RcppExport SEXP _arrow_GetCpuThreadPoolCapacity(){
@@ -3181,7 +3181,7 @@ RcppExport SEXP _arrow_GetCpuThreadPoolCapacity(){
 }
 #endif
 
-// threadpool.cpp:46
+// threadpool.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void SetCpuThreadPoolCapacity(int threads);
 RcppExport SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
