@@ -148,6 +148,7 @@ for:
   # Adapt as necessary starting from here
 
   build_script:
+    - call ci\appveyor-build.bat
     - pushd r
     - travis-tool.sh install_deps
 
