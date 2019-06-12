@@ -384,7 +384,8 @@ class ArrowColumnWriter {
                          const int16_t* rep_levels);
 
   Status WriteTimestampsCoerce(const Array& data, int64_t num_levels,
-                               const int16_t* def_levels, const int16_t* rep_levels);
+                               const int16_t* def_levels, const int16_t* rep_levels,
+                               const ArrowWriterProperties& properties);
 
   template <typename ParquetType, typename ArrowType>
   Status WriteNonNullableBatch(const ArrowType& type, int64_t num_values,
@@ -657,8 +658,15 @@ Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_level
                                                               def_levels, rep_levels);
   } else if (ctx_->properties->coerce_timestamps_enabled() &&
              (source_type.unit() != ctx_->properties->coerce_timestamps_unit())) {
-    // Convert timestamps to requested unit
-    return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels);
+    // User explicitly requested conversion to specific units
+    return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels,
+                                 *(ctx_->properties));
+  } else if (source_type.unit() == TimeUnit::SECOND) {
+    // Absent superseding user instructions, timestamps in seconds are implicitly
+    // converted to milliseconds
+    std::shared_ptr<ArrowWriterProperties> properties =
+        (ArrowWriterProperties::Builder()).coerce_timestamps(TimeUnit::MILLI)->build();
+    return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels, *properties);
   } else {
     // No casting of timestamps is required, take the fast path
     return TypedWriteBatch<Int64Type, ::arrow::TimestampType>(values, num_levels,
@@ -694,7 +702,8 @@ static std::pair<int, int64_t> kTimestampCoercionFactors[4][4] = {
 
 Status ArrowColumnWriter::WriteTimestampsCoerce(const Array& array, int64_t num_levels,
                                                 const int16_t* def_levels,
-                                                const int16_t* rep_levels) {
+                                                const int16_t* rep_levels,
+                                                const ArrowWriterProperties& properties) {
   int64_t* buffer;
   RETURN_NOT_OK(ctx_->GetScratchData<int64_t>(num_levels, &buffer));
 
@@ -704,9 +713,9 @@ Status ArrowColumnWriter::WriteTimestampsCoerce(const Array& array, int64_t num_
   const auto& source_type = static_cast<const ::arrow::TimestampType&>(*array.type());
   auto source_unit = source_type.unit();
 
-  TimeUnit::type target_unit = ctx_->properties->coerce_timestamps_unit();
+  TimeUnit::type target_unit = properties.coerce_timestamps_unit();
   auto target_type = ::arrow::timestamp(target_unit);
-  bool truncation_allowed = ctx_->properties->truncated_timestamps_allowed();
+  bool truncation_allowed = properties.truncated_timestamps_allowed();
 
   auto DivideBy = [&](const int64_t factor) {
     for (int64_t i = 0; i < array.length(); i++) {

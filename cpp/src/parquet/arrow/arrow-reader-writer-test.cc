@@ -1507,6 +1507,41 @@ TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
                                 default_writer_properties(), allow_truncation_to_micros));
 }
 
+TEST(TestArrowReadWrite, ImplicitSecondToMillisecondTimestampCoercion) {
+  using ::arrow::ArrayFromVector;
+  using ::arrow::field;
+  using ::arrow::schema;
+
+  std::vector<bool> is_valid = {true, true, true, false, true, true};
+
+  auto t_s = ::arrow::timestamp(TimeUnit::SECOND);
+  auto t_ms = ::arrow::timestamp(TimeUnit::MILLI);
+
+  std::vector<int64_t> s_values = {1489269, 1489270, 1489271, 1489272, 1489272, 1489273};
+  std::vector<int64_t> ms_values = {1489269000, 1489270000, 1489271000,
+                                    1489272000, 1489272000, 1489273000};
+
+  std::shared_ptr<Array> a_s, a_ms;
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, is_valid, s_values, &a_s);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ms, is_valid, ms_values, &a_ms);
+
+  auto si = schema({field("timestamp", t_s)});
+  auto sx = schema({field("timestamp", t_ms)});
+
+  auto ci = std::make_shared<Column>("timestamp", a_s);
+  auto cx = std::make_shared<Column>("timestamp", a_ms);
+
+  auto ti = Table::Make(si, {ci});  // input
+  auto tx = Table::Make(sx, {cx});  // expected output
+  std::shared_ptr<Table> to;        // actual output
+
+  // default properties (without explicit coercion instructions) used ...
+  ASSERT_NO_FATAL_FAILURE(
+      DoSimpleRoundtrip(ti, false /* use_threads */, ti->num_rows(), {}, &to));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*tx->schema(), *to->schema()));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*tx, *to));
+}
+
 TEST(TestArrowReadWrite, ConvertedDateTimeTypes) {
   using ::arrow::ArrayFromVector;
 

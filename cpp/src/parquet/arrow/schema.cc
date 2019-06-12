@@ -570,10 +570,10 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   }
 
   // The user implicitly wants timestamp data to retain its original time units,
-  // however the Arrow seconds time unit can not be represented (annotated) in Parquet.
+  // however the Arrow seconds time unit can not be represented (annotated) in
+  // Parquet and must be converted to milliseconds.
   if (type.unit() == ::arrow::TimeUnit::SECOND) {
-    return Status::NotImplemented(
-        "Only MILLI, MICRO, and NANO units supported for Arrow timestamps with Parquet.");
+    *annotation = TimestampAnnotationFromArrowTimestamp(type, ::arrow::TimeUnit::MILLI);
   }
 
   return Status::OK();
