@@ -19,12 +19,12 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/filter.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/concatenate.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 #include "arrow/visitor_inline.h"
