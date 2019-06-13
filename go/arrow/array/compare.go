@@ -114,6 +114,16 @@ func ArrayEqual(left, right Interface) bool {
 	}
 }
 
+// ArraySliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
+func ArraySliceEqual(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64) bool {
+	l := NewSlice(left, lbeg, lend)
+	defer l.Release()
+	r := NewSlice(right, rbeg, rend)
+	defer r.Release()
+
+	return ArrayEqual(l, r)
+}
+
 func baseArrayEqual(left, right Interface) bool {
 	switch {
 	case left.Len() != right.Len():
