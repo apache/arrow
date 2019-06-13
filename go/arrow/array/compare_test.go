@@ -50,6 +50,35 @@ func TestArrayEqual(t *testing.T) {
 	}
 }
 
+func TestArraySliceEqual(t *testing.T) {
+	for name, recs := range arrdata.Records {
+		t.Run(name, func(t *testing.T) {
+			rec := recs[0]
+			schema := rec.Schema()
+			for i, col := range rec.Columns() {
+				t.Run(schema.Field(i).Name, func(t *testing.T) {
+					arr := col
+					if !array.ArraySliceEqual(
+						arr, 0, int64(arr.Len()),
+						arr, 0, int64(arr.Len()),
+					) {
+						t.Fatalf("identical slices should compare equal:\narray=%v", arr)
+					}
+					sub1 := array.NewSlice(arr, 1, int64(arr.Len()))
+					defer sub1.Release()
+
+					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
+					defer sub2.Release()
+
+					if array.ArraySliceEqual(sub1, 0, int64(sub1.Len()), sub2, 0, int64(sub2.Len())) {
+						t.Fatalf("non-identical slices should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestArrayEqualBaseArray(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
