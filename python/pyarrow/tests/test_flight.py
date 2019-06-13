@@ -28,7 +28,6 @@ import time
 import traceback
 
 import pytest
-
 import pyarrow as pa
 
 from pyarrow.compat import tobytes

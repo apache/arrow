@@ -109,8 +109,9 @@ class IntegrationTestClient {
 
             @Override
             public void onNext(PutResult val) {
-              final String metadata = StandardCharsets.UTF_8.decode(val.getApplicationMetadata().nioBuffer())
-                  .toString();
+              final byte[] metadataRaw = new byte[val.getApplicationMetadata().readableBytes()];
+              val.getApplicationMetadata().readBytes(metadataRaw);
+              final String metadata = new String(metadataRaw, StandardCharsets.UTF_8);
               if (!Integer.toString(counter).equals(metadata)) {
                 throw new RuntimeException(
                     String.format("Invalid ACK from server. Expected '%d' but got '%s'.", counter, metadata));

@@ -307,7 +307,8 @@ class ArrowMessage implements AutoCloseable {
       cos.writeBytes(FlightData.DATA_HEADER_FIELD_NUMBER, bytes);
 
       if (appMetadata != null && appMetadata.capacity() > 0) {
-        cos.writeByteBuffer(FlightData.APP_METADATA_FIELD_NUMBER, appMetadata.asNettyBuffer().nioBuffer());
+        // Must call slice() as CodedOutputStream#writeByteBuffer writes -capacity- bytes, not -limit- bytes
+        cos.writeByteBuffer(FlightData.APP_METADATA_FIELD_NUMBER, appMetadata.asNettyBuffer().nioBuffer().slice());
         // This is weird, but implicitly, writing an ArrowMessage frees any references it has
         appMetadata.getReferenceManager().release();
       }
