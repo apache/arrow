@@ -138,6 +138,32 @@ func TestArrayEqualNull(t *testing.T) {
 	}
 }
 
+func TestArrayEqualMaskedArray(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewInt32Builder(mem)
+	defer ab.Release()
+
+	valids := []bool{false, false, false, false}
+	ab.AppendValues([]int32{1, 2, 0, 4}, valids)
+
+	a1 := ab.NewInt32Array()
+	defer a1.Release()
+
+	ab.AppendValues([]int32{1, 2, 3, 4}, valids)
+	a2 := ab.NewInt32Array()
+	defer a2.Release()
+
+	if !array.ArrayEqual(a1, a1) || !array.ArrayEqual(a2, a2) {
+		t.Errorf("an array must be equal to itself")
+	}
+
+	if !array.ArrayEqual(a1, a2) {
+		t.Errorf("%v must be equal to %v", a1, a2)
+	}
+}
+
 func TestArrayEqualDifferentMaskedValues(t *testing.T) {
 	// test 2 int32 arrays, with same nulls (but different masked values) compare equal.
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
