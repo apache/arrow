@@ -579,6 +579,8 @@ cdef class Array(_PandasConvertible):
         offset : int, default 0
             The array's logical offset (in values, not in bytes) from the
             start of each buffer
+        children : List[Array], default None
+            Nested type children with length matching type.num_children
 
         Returns
         -------

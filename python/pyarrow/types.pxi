@@ -127,7 +127,7 @@ cdef class DataType:
     @property
     def num_children(self):
         """
-        The number of struct fields.
+        The number of child fields.
         """
         return self.type.num_children()
 
