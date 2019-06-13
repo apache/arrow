@@ -23,14 +23,14 @@ import socket
 import tempfile
 import threading
 import time
+import traceback
 
 import pytest
 
 import pyarrow as pa
 
-from pathlib import Path
 from pyarrow.compat import tobytes
-
+from pyarrow.util import pathlib
 
 flight = pytest.importorskip("pyarrow.flight")
 
@@ -40,7 +40,7 @@ def resource_root():
     if not os.environ.get("ARROW_TEST_DATA"):
         raise RuntimeError("Test resources not found; set "
                            "ARROW_TEST_DATA to <repo root>/testing")
-    return Path(os.environ["ARROW_TEST_DATA"]) / "flight"
+    return pathlib.Path(os.environ["ARROW_TEST_DATA"]) / "flight"
 
 
 def read_flight_resource(path):
@@ -51,10 +51,11 @@ def read_flight_resource(path):
     try:
         with (root / path).open("rb") as f:
             return f.read()
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         raise RuntimeError(
             "Test resource {} not found; did you initialize the "
-            "test resource submodule?".format(root / path)) from e
+            "test resource submodule?\n{}".format(root / path,
+                                                  traceback.format_exc()))
 
 
 def example_tls_certs():
