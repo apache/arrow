@@ -24,6 +24,25 @@ import (
 	"github.com/pkg/errors"
 )
 
+// RecordEqual reports whether the two provided records are equal.
+func RecordEqual(left, right Record) bool {
+	switch {
+	case left.NumCols() != right.NumCols():
+		return false
+	case left.NumRows() != right.NumRows():
+		return false
+	}
+
+	for i := range left.Columns() {
+		lc := left.Column(i)
+		rc := right.Column(i)
+		if !ArrayEqual(lc, rc) {
+			return false
+		}
+	}
+	return true
+}
+
 // ArrayEqual reports whether the two provided arrays are equal.
 func ArrayEqual(left, right Interface) bool {
 	switch {
