@@ -78,9 +78,9 @@ record 3...
 		{
 			name: "structs",
 			want: `record 1...
-  col[0] "struct_nullable": {[-1 (null) (null) -4 -5] ["111" (null) (null) "444" "555"]}
+  col[0] "struct_nullable": {[-1 (null) (null) -4 -5 (null) -11 (null) (null) -14 -15 -21 (null) (null) -24 -25 -31 (null) (null) -34 -35 -41 (null) (null) -44 -45] ["111" (null) (null) "444" "555" (null) "1111" (null) (null) "1444" "1555" "2111" (null) (null) "2444" "2555" "3111" (null) (null) "3444" "3555" "4111" (null) (null) "4444" "4555"]}
 record 2...
-  col[0] "struct_nullable": {[-11 (null) (null) -14 -15 -16 (null) -18] ["1" (null) (null) "4" "5" "6" (null) "8"]}
+  col[0] "struct_nullable": {[1 (null) (null) 4 5 (null) 11 (null) (null) 14 15 (null) 21 (null) (null) 24 25 31 (null) (null) 34 35 41 (null) (null) 44 45] ["-111" (null) (null) "-444" "-555" (null) "-1111" (null) (null) "-1444" "-1555" (null) "-2111" (null) (null) "-2444" "-2555" "-3111" (null) (null) "-3444" "-3555" "-4111" (null) (null) "-4444" "-4555"]}
 `,
 		},
 		{
@@ -306,18 +306,18 @@ record 3/3...
 			stream: true,
 			name:   "structs",
 			want: `record 1...
-  col[0] "struct_nullable": {[-1 (null) (null) -4 -5] ["111" (null) (null) "444" "555"]}
+  col[0] "struct_nullable": {[-1 (null) (null) -4 -5 (null) -11 (null) (null) -14 -15 -21 (null) (null) -24 -25 -31 (null) (null) -34 -35 -41 (null) (null) -44 -45] ["111" (null) (null) "444" "555" (null) "1111" (null) (null) "1444" "1555" "2111" (null) (null) "2444" "2555" "3111" (null) (null) "3444" "3555" "4111" (null) (null) "4444" "4555"]}
 record 2...
-  col[0] "struct_nullable": {[-11 (null) (null) -14 -15 -16 (null) -18] ["1" (null) (null) "4" "5" "6" (null) "8"]}
+  col[0] "struct_nullable": {[1 (null) (null) 4 5 (null) 11 (null) (null) 14 15 (null) 21 (null) (null) 24 25 31 (null) (null) 34 35 41 (null) (null) 44 45] ["-111" (null) (null) "-444" "-555" (null) "-1111" (null) (null) "-1444" "-1555" (null) "-2111" (null) (null) "-2444" "-2555" "-3111" (null) (null) "-3444" "-3555" "-4111" (null) (null) "-4444" "-4555"]}
 `,
 		},
 		{
 			name: "structs",
 			want: `version: V4
 record 1/2...
-  col[0] "struct_nullable": {[-1 (null) (null) -4 -5] ["111" (null) (null) "444" "555"]}
+  col[0] "struct_nullable": {[-1 (null) (null) -4 -5 (null) -11 (null) (null) -14 -15 -21 (null) (null) -24 -25 -31 (null) (null) -34 -35 -41 (null) (null) -44 -45] ["111" (null) (null) "444" "555" (null) "1111" (null) (null) "1444" "1555" "2111" (null) (null) "2444" "2555" "3111" (null) (null) "3444" "3555" "4111" (null) (null) "4444" "4555"]}
 record 2/2...
-  col[0] "struct_nullable": {[-11 (null) (null) -14 -15 -16 (null) -18] ["1" (null) (null) "4" "5" "6" (null) "8"]}
+  col[0] "struct_nullable": {[1 (null) (null) 4 5 (null) 11 (null) (null) 14 15 (null) 21 (null) (null) 24 25 31 (null) (null) 34 35 41 (null) (null) 44 45] ["-111" (null) (null) "-444" "-555" (null) "-1111" (null) (null) "-1444" "-1555" (null) "-2111" (null) (null) "-2444" "-2555" "-3111" (null) (null) "-3444" "-3555" "-4111" (null) (null) "-4444" "-4555"]}
 `,
 		},
 		{

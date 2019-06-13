@@ -65,6 +65,16 @@ func (a *Struct) setData(data *Data) {
 	}
 }
 
+func arrayEqualStruct(left, right *Struct) bool {
+	for i, lf := range left.fields {
+		rf := right.fields[i]
+		if !ArrayEqual(lf, rf) {
+			return false
+		}
+	}
+	return true
+}
+
 func (a *Struct) Retain() {
 	a.array.Retain()
 	for _, f := range a.fields {

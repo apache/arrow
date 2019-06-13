@@ -17,6 +17,7 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"unsafe"
@@ -115,3 +116,19 @@ func (a *Binary) setData(data *Data) {
 		a.valueOffsets = arrow.Int32Traits.CastFromBytes(valueOffsets.Bytes())
 	}
 }
+
+func arrayEqualBinary(left, right *Binary) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if bytes.Compare(left.Value(i), right.Value(i)) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+var (
+	_ Interface = (*Binary)(nil)
+)
