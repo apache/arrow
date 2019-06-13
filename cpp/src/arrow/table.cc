@@ -478,6 +478,23 @@ Status Table::FromChunkedStructArray(const std::shared_ptr<ChunkedArray>& array,
   return Status::OK();
 }
 
+std::vector<std::string> Table::ColumnNames() const {
+  std::vector<std::string> names(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    names[i] = column(i)->name();
+  }
+  return names;
+}
+
+std::shared_ptr<Table> Table::RenameColumns(const std::vector<std::string>& names) const {
+  std::vector<std::shared_ptr<Column>> columns(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    auto col = column(i);
+    columns[i] = std::make_shared<Column>(col->field()->WithName(names[i]), col->data());
+  }
+  return Table::Make(schema(), std::move(columns), num_rows());
+}
+
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
                          std::shared_ptr<Table>* table) {
   if (tables.size() == 0) {

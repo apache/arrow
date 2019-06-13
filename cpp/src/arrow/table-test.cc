@@ -498,6 +498,15 @@ TEST_F(TestTable, SetColumn) {
   ASSERT_TRUE(result->Equals(*expected));
 }
 
+TEST_F(TestTable, RenameColumns) {
+  auto table = Table::Make(schema_, columns_);
+  auto names = table->ColumnNames();
+  ASSERT_EQ(names, std::vector<std::string>({"f0", "f1", "f2"}));
+  names = {"zero", "one", "two"};
+  table->RenameColumns(names);
+  ASSERT_EQ(table->ColumnNames(), names);
+}
+
 TEST_F(TestTable, RemoveColumnEmpty) {
   // ARROW-1865
   const int64_t length = 10;

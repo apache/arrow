@@ -297,6 +297,12 @@ class ARROW_EXPORT Table {
   virtual Status SetColumn(int i, const std::shared_ptr<Column>& column,
                            std::shared_ptr<Table>* out) const = 0;
 
+  /// \brief Return names of all columns
+  std::vector<std::string> ColumnNames() const;
+
+  /// \brief Rename columns with provided names
+  std::shared_ptr<Table> RenameColumns(const std::vector<std::string>& names) const;
+
   /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
   /// \since 0.5.0
   ///

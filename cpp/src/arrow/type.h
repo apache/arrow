@@ -291,6 +291,9 @@ class ARROW_EXPORT Field {
   /// \brief Return a copy of this field with the replaced type.
   std::shared_ptr<Field> WithType(const std::shared_ptr<DataType>& type) const;
 
+  /// \brief Return a copy of this field with the replaced name.
+  std::shared_ptr<Field> WithName(const std::string& name) const;
+
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
   bool Equals(const Field& other, bool check_metadata = true) const;
