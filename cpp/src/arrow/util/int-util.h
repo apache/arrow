@@ -83,6 +83,22 @@ SignedInt SafeLeftShift(SignedInt u, Shift shift) {
   return static_cast<SignedInt>(static_cast<UnsignedInt>(u) << shift);
 }
 
+/// Upcast an integer to the largest possible width (currently 64 bits)
+
+template <typename Integer>
+typename std::enable_if<
+    std::is_integral<Integer>::value && std::is_signed<Integer>::value, int64_t>::type
+UpcastInt(Integer v) {
+  return v;
+}
+
+template <typename Integer>
+typename std::enable_if<
+    std::is_integral<Integer>::value && std::is_unsigned<Integer>::value, uint64_t>::type
+UpcastInt(Integer v) {
+  return v;
+}
+
 }  // namespace internal
 }  // namespace arrow
 
