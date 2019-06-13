@@ -59,18 +59,5 @@ ARROW_EXPORT
 Status Filter(FunctionContext* context, const Datum& values, const Datum& filter,
               Datum* out);
 
-/// \brief BinaryKernel implementing Filter operation
-class ARROW_EXPORT FilterKernel : public BinaryKernel {
- public:
-  explicit FilterKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
-
-  Status Call(FunctionContext* ctx, const Datum& values, const Datum& filter,
-              Datum* out) override;
-
-  std::shared_ptr<DataType> out_type() const override { return type_; }
-
- private:
-  std::shared_ptr<DataType> type_;
-};
 }  // namespace compute
 }  // namespace arrow

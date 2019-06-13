@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "arrow/compute/context.h"
+#include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/compute/kernels/filter.h"
 #include "arrow/compute/test-util.h"
@@ -161,27 +162,28 @@ decltype(Comparator<CType, EQUAL>::Compare)* GetComparator(CompareOperator op) {
   return cmp[op];
 }
 
-template <typename CType>
-std::vector<CType> CompareAndFilter(const CType* data, int64_t length, CType val,
-                                    CompareOperator op) {
+template <typename T, typename Fn, typename CType = typename TypeTraits<T>::CType>
+std::shared_ptr<Array> CompareAndFilter(const CType* data, int64_t length, Fn&& fn) {
   std::vector<CType> filtered;
   filtered.reserve(length);
-  auto cmp = GetComparator<CType>(op);
-  std::copy_if(data, data + length, std::back_inserter(filtered),
-               [cmp, val](CType e) { return cmp(e, val); });
-  return filtered;
+  std::copy_if(data, data + length, std::back_inserter(filtered), std::forward<Fn>(fn));
+  std::shared_ptr<Array> filtered_array;
+  ArrayFromVector<T, CType>(filtered, &filtered_array);
+  return filtered_array;
 }
 
-template <typename CType>
-std::vector<CType> CompareAndFilter(const CType* data, int64_t length, const CType* other,
-                                    CompareOperator op) {
-  std::vector<CType> filtered;
-  filtered.reserve(length);
+template <typename T, typename CType = typename TypeTraits<T>::CType>
+std::shared_ptr<Array> CompareAndFilter(const CType* data, int64_t length, CType val,
+                                        CompareOperator op) {
   auto cmp = GetComparator<CType>(op);
-  int64_t i = 0;
-  std::copy_if(data, data + length, std::back_inserter(filtered),
-               [cmp, other, &i](CType e) { return cmp(e, other[i++]); });
-  return filtered;
+  return CompareAndFilter<T>(data, length, [&](CType e) { return cmp(e, val); });
+}
+
+template <typename T, typename CType = typename TypeTraits<T>::CType>
+std::shared_ptr<Array> CompareAndFilter(const CType* data, int64_t length,
+                                        const CType* other, CompareOperator op) {
+  auto cmp = GetComparator<CType>(op);
+  return CompareAndFilter<T>(data, length, [&](CType e) { return cmp(e, *other++); });
 }
 
 TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
@@ -192,21 +194,21 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
   auto rand = random::RandomArrayGenerator(0x5416447);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      auto array = checked_pointer_cast<ArrayType>(
-          rand.Numeric<TypeParam>(length, 0, 100, null_probability));
-      CType c_fifty = 50;
-      auto fifty = std::make_shared<ScalarType>(c_fifty);
-      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        auto options = CompareOptions(op);
-        Datum selection, filtered;
-        ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(fifty),
-                                          options, &selection));
-        ASSERT_OK(
-            arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
-        auto expected =
-            CompareAndFilter(array->raw_values(), array->length(), c_fifty, op);
-      }
+    // TODO(bkietz) rewrite with some nulls
+    auto array =
+        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    CType c_fifty = 50;
+    auto fifty = std::make_shared<ScalarType>(c_fifty);
+    for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+      auto options = CompareOptions(op);
+      Datum selection, filtered;
+      ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(fifty), options,
+                                        &selection));
+      ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
+      auto filtered_array = filtered.make_array();
+      auto expected =
+          CompareAndFilter<TypeParam>(array->raw_values(), array->length(), c_fifty, op);
+      ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
     }
   }
 }
@@ -217,21 +219,50 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
   auto rand = random::RandomArrayGenerator(0x5416447);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      auto lhs = checked_pointer_cast<ArrayType>(
-          rand.Numeric<TypeParam>(length, 0, 100, null_probability));
-      auto rhs = checked_pointer_cast<ArrayType>(
-          rand.Numeric<TypeParam>(length, 0, 100, null_probability));
-      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        auto options = CompareOptions(op);
-        Datum selection, filtered;
-        ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(lhs), Datum(rhs), options,
-                                          &selection));
-        ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(lhs), selection, &filtered));
-        auto expected =
-            CompareAndFilter(lhs->raw_values(), lhs->length(), rhs->raw_values(), op);
-      }
+    auto lhs =
+        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    auto rhs =
+        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+      auto options = CompareOptions(op);
+      Datum selection, filtered;
+      ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(lhs), Datum(rhs), options,
+                                        &selection));
+      ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(lhs), selection, &filtered));
+      auto filtered_array = filtered.make_array();
+      auto expected = CompareAndFilter<TypeParam>(lhs->raw_values(), lhs->length(),
+                                                  rhs->raw_values(), op);
+      ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
     }
+  }
+}
+
+TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+
+  auto rand = random::RandomArrayGenerator(0x5416447);
+  for (size_t i = 3; i < 13; i++) {
+    const int64_t length = static_cast<int64_t>(1ULL << i);
+    auto array =
+        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    CType c_fifty = 50, c_hundred = 100;
+    auto fifty = std::make_shared<ScalarType>(c_fifty);
+    auto hundred = std::make_shared<ScalarType>(c_hundred);
+    Datum greater_than_fifty, less_than_hundred, selection, filtered;
+    ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(fifty),
+                                      CompareOptions(GREATER), &greater_than_fifty));
+    ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(hundred),
+                                      CompareOptions(LESS), &less_than_hundred));
+    ASSERT_OK(arrow::compute::And(&this->ctx_, greater_than_fifty, less_than_hundred,
+                                  &selection));
+    ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
+    auto filtered_array = filtered.make_array();
+    auto expected = CompareAndFilter<TypeParam>(
+        array->raw_values(), array->length(),
+        [&](CType e) { return (e > c_fifty) && (e < c_hundred); });
+    ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
   }
 }
 
@@ -268,6 +299,42 @@ TEST_F(TestFilterKernelWithString, FilterDictionary) {
   this->AssertFilterDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[4]");
   this->AssertFilterDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[4]");
   this->AssertFilterDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4]");
+}
+
+class TestFilterKernelWithList : public TestFilterKernel<ListType> {};
+
+TEST_F(TestFilterKernelWithList, FilterListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  this->AssertFilter(list(int32()), list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(list(int32()), list_json, "[0, 1, 1, null]", "[[1,2], null, null]");
+  this->AssertFilter(list(int32()), list_json, "[1, 1, 1, 1]", list_json);
+  this->AssertFilter(list(int32()), list_json, "[0, 1, 0, 1]", "[[1,2], [3]]");
+}
+
+class TestFilterKernelWithFixedSizeList : public TestFilterKernel<FixedSizeListType> {};
+
+TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
+  std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 1, 1, null]",
+                     "[[1, null, 3], [4, 5, 6], null]");
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[1, 1, 1, 1]", list_json);
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 1, 0, 1]",
+                     "[[1, null, 3], [7, 8, null]]");
+}
+
+class TestFilterKernelWithStruct : public TestFilterKernel<StructType> {};
+
+TEST_F(TestFilterKernelWithStruct, FilterStruct) {
+  auto struct_type = struct_({field("a", int32()), field("b", utf8())});
+  auto struct_json =
+      R"([null, {"a": 1, "b": ""}, {"a": 2, "b": "hello"}, {"a": 4, "b": "eh"}])";
+  this->AssertFilter(struct_type, struct_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(struct_type, struct_json, "[0, 1, 1, null]",
+                     R"([{"a": 1, "b": ""}, {"a": 2, "b": "hello"}, null])");
+  this->AssertFilter(struct_type, struct_json, "[1, 1, 1, 1]", struct_json);
+  this->AssertFilter(struct_type, struct_json, "[1, 0, 1, 0]",
+                     R"([null, {"a": 2, "b": "hello"}])");
 }
 
 }  // namespace compute
