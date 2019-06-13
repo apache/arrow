@@ -83,6 +83,8 @@ integrations in other projects, we'd be happy to have you involved:
 - [Learn the format][2]
 - Contribute code to one of the reference implementations
 
+Testing ursabot status push.
+
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/master/format
 [3]: https://issues.apache.org/jira/browse/ARROW
