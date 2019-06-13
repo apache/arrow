@@ -185,7 +185,7 @@ func init() {
 		arrow.TIMESTAMP:         func(data *Data) Interface { return NewTimestampData(data) },
 		arrow.TIME32:            func(data *Data) Interface { return NewTime32Data(data) },
 		arrow.TIME64:            func(data *Data) Interface { return NewTime64Data(data) },
-		arrow.INTERVAL:          unsupportedArrayType,
+		arrow.INTERVAL:          func(data *Data) Interface { return NewIntervalData(data) },
 		arrow.DECIMAL:           unsupportedArrayType,
 		arrow.LIST:              func(data *Data) Interface { return NewListData(data) },
 		arrow.STRUCT:            func(data *Data) Interface { return NewStructData(data) },

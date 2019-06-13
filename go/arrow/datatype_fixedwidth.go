@@ -94,25 +94,29 @@ func (t *Time64Type) String() string { return "time64[" + t.Unit.String() + "]" 
 
 var (
 	FixedWidthTypes = struct {
-		Boolean   FixedWidthDataType
-		Date32    FixedWidthDataType
-		Date64    FixedWidthDataType
-		Float16   FixedWidthDataType
-		Time32s   FixedWidthDataType
-		Time32ms  FixedWidthDataType
-		Time64us  FixedWidthDataType
-		Time64ns  FixedWidthDataType
-		Timestamp FixedWidthDataType
+		Boolean         FixedWidthDataType
+		Date32          FixedWidthDataType
+		Date64          FixedWidthDataType
+		DayTimeInterval FixedWidthDataType
+		Float16         FixedWidthDataType
+		MonthInterval   FixedWidthDataType
+		Time32s         FixedWidthDataType
+		Time32ms        FixedWidthDataType
+		Time64us        FixedWidthDataType
+		Time64ns        FixedWidthDataType
+		Timestamp       FixedWidthDataType
 	}{
-		Boolean:   &BooleanType{},
-		Date32:    &Date32Type{},
-		Date64:    &Date64Type{},
-		Float16:   &Float16Type{},
-		Time32s:   &Time32Type{Unit: Second},
-		Time32ms:  &Time32Type{Unit: Millisecond},
-		Time64us:  &Time64Type{Unit: Microsecond},
-		Time64ns:  &Time64Type{Unit: Nanosecond},
-		Timestamp: &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
+		Boolean:         &BooleanType{},
+		Date32:          &Date32Type{},
+		Date64:          &Date64Type{},
+		DayTimeInterval: &DayTimeIntervalType{},
+		Float16:         &Float16Type{},
+		MonthInterval:   &MonthIntervalType{},
+		Time32s:         &Time32Type{Unit: Second},
+		Time32ms:        &Time32Type{Unit: Millisecond},
+		Time64us:        &Time64Type{Unit: Microsecond},
+		Time64ns:        &Time64Type{Unit: Nanosecond},
+		Timestamp:       &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
 	}
 
 	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)
@@ -126,3 +130,34 @@ func (t *Float16Type) String() string { return "float16" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *Float16Type) BitWidth() int { return 16 }
+
+// MonthInterval represents a number of months.
+type MonthInterval int32
+
+// MonthIntervalType is encoded as a 32-bit signed integer,
+// representing a number of months.
+type MonthIntervalType struct{}
+
+func (*MonthIntervalType) ID() Type       { return INTERVAL }
+func (*MonthIntervalType) Name() string   { return "month_interval" }
+func (*MonthIntervalType) String() string { return "month_interval" }
+
+// BitWidth returns the number of bits required to store a single element of this data type in memory.
+func (t *MonthIntervalType) BitWidth() int { return 32 }
+
+// DayTimeInterval represents a number of days and milliseconds (fraction of day).
+type DayTimeInterval struct {
+	Days         int32
+	Milliseconds int32
+}
+
+// DayTimeIntervalType is encoded as a pair of 32-bit signed integer,
+// representing a number of days and milliseconds (fraction of day).
+type DayTimeIntervalType struct{}
+
+func (*DayTimeIntervalType) ID() Type       { return INTERVAL }
+func (*DayTimeIntervalType) Name() string   { return "day_time_interval" }
+func (*DayTimeIntervalType) String() string { return "day_time_interval" }
+
+// BitWidth returns the number of bits required to store a single element of this data type in memory.
+func (t *DayTimeIntervalType) BitWidth() int { return 64 }
