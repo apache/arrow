@@ -70,6 +70,18 @@ func (a *Int64) setData(data *Data) {
 	}
 }
 
+func arrayEqualInt64(left, right *Int64) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A type which represents an immutable sequence of uint64 values.
 type Uint64 struct {
 	array
@@ -113,6 +125,18 @@ func (a *Uint64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func arrayEqualUint64(left, right *Uint64) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
 }
 
 // A type which represents an immutable sequence of float64 values.
@@ -160,6 +184,18 @@ func (a *Float64) setData(data *Data) {
 	}
 }
 
+func arrayEqualFloat64(left, right *Float64) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A type which represents an immutable sequence of int32 values.
 type Int32 struct {
 	array
@@ -203,6 +239,18 @@ func (a *Int32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func arrayEqualInt32(left, right *Int32) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
 }
 
 // A type which represents an immutable sequence of uint32 values.
@@ -250,6 +298,18 @@ func (a *Uint32) setData(data *Data) {
 	}
 }
 
+func arrayEqualUint32(left, right *Uint32) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A type which represents an immutable sequence of float32 values.
 type Float32 struct {
 	array
@@ -293,6 +353,18 @@ func (a *Float32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func arrayEqualFloat32(left, right *Float32) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
 }
 
 // A type which represents an immutable sequence of int16 values.
@@ -340,6 +412,18 @@ func (a *Int16) setData(data *Data) {
 	}
 }
 
+func arrayEqualInt16(left, right *Int16) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A type which represents an immutable sequence of uint16 values.
 type Uint16 struct {
 	array
@@ -383,6 +467,18 @@ func (a *Uint16) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func arrayEqualUint16(left, right *Uint16) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
 }
 
 // A type which represents an immutable sequence of int8 values.
@@ -430,6 +526,18 @@ func (a *Int8) setData(data *Data) {
 	}
 }
 
+func arrayEqualInt8(left, right *Int8) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A type which represents an immutable sequence of uint8 values.
 type Uint8 struct {
 	array
@@ -473,6 +581,18 @@ func (a *Uint8) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func arrayEqualUint8(left, right *Uint8) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
 }
 
 // A type which represents an immutable sequence of arrow.Timestamp values.
@@ -520,6 +640,18 @@ func (a *Timestamp) setData(data *Data) {
 	}
 }
 
+func arrayEqualTimestamp(left, right *Timestamp) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A type which represents an immutable sequence of arrow.Time32 values.
 type Time32 struct {
 	array
@@ -563,6 +695,18 @@ func (a *Time32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func arrayEqualTime32(left, right *Time32) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
 }
 
 // A type which represents an immutable sequence of arrow.Time64 values.
@@ -610,6 +754,18 @@ func (a *Time64) setData(data *Data) {
 	}
 }
 
+func arrayEqualTime64(left, right *Time64) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A type which represents an immutable sequence of arrow.Date32 values.
 type Date32 struct {
 	array
@@ -655,6 +811,18 @@ func (a *Date32) setData(data *Data) {
 	}
 }
 
+func arrayEqualDate32(left, right *Date32) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A type which represents an immutable sequence of arrow.Date64 values.
 type Date64 struct {
 	array
@@ -698,4 +866,16 @@ func (a *Date64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func arrayEqualDate64(left, right *Date64) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
 }

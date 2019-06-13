@@ -972,7 +972,7 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   bool strict_conversions = false;
 
   if (options.type == nullptr) {
-    RETURN_NOT_OK(InferArrowType(seq, &real_type));
+    RETURN_NOT_OK(InferArrowType(seq, options.from_pandas, &real_type));
   } else {
     real_type = options.type;
     strict_conversions = true;

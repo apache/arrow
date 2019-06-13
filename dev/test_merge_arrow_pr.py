@@ -25,22 +25,31 @@ import merge_arrow_pr
 
 
 FakeIssue = namedtuple('issue', ['fields'])
-FakeFields = namedtuple('fields', ['status', 'summary', 'assignee'])
+FakeFields = namedtuple('fields', ['status', 'summary', 'assignee',
+                                   'components'])
 FakeAssignee = namedtuple('assignee', ['displayName'])
 FakeStatus = namedtuple('status', ['name'])
+FakeComponent = namedtuple('component', ['name'])
 FakeProjectVersion = namedtuple('version', ['name', 'raw'])
 
-SOURCE_VERSIONS = [FakeProjectVersion('JS-0.4.0', {'released': False}),
-                   FakeProjectVersion('0.11.0', {'released': False}),
-                   FakeProjectVersion('0.12.0', {'released': False}),
-                   FakeProjectVersion('0.10.0', {'released': True}),
-                   FakeProjectVersion('0.9.0', {'released': True})]
+RAW_VERSION_JSON = [
+    {'version': 'JS-0.4.0', 'released': False},
+    {'version': '0.11.0', 'released': False},
+    {'version': '0.12.0', 'released': False},
+    {'version': '0.10.0', 'released': True},
+    {'version': '0.9.0', 'released': True}
+]
+
+
+SOURCE_VERSIONS = [FakeProjectVersion(raw['version'], raw)
+                   for raw in RAW_VERSION_JSON]
 
 TRANSITIONS = [{'name': 'Resolve Issue', 'id': 1}]
 
 jira_id = 'ARROW-1234'
 status = FakeStatus('In Progress')
-fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'))
+fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
+                    [FakeComponent('C++'), FakeComponent('Format')])
 FAKE_ISSUE_1 = FakeIssue(fields)
 
 
@@ -65,6 +74,9 @@ class FakeJIRA:
             'comment': comment,
             'fixVersions': fixVersions
         }
+
+    def get_candidate_fix_versions(self):
+        return SOURCE_VERSIONS, ['0.12.0']
 
     def project_versions(self, project):
         return self._project_versions
@@ -91,11 +103,7 @@ def test_jira_fix_versions():
 
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
     all_versions, default_versions = issue.get_candidate_fix_versions()
-
-    expected = sorted([x for x in SOURCE_VERSIONS
-                       if not x.raw['released']],
-                      key=lambda x: x.name, reverse=True)
-    assert all_versions == expected
+    assert all_versions == SOURCE_VERSIONS
     assert default_versions == ['0.11.0']
 
 
@@ -147,9 +155,21 @@ def test_jira_resolve_non_mainline():
     }
 
 
+def test_jira_resolve_released_fix_version():
+    # ARROW-5083
+    jira = FakeJIRA(issue=FAKE_ISSUE_1,
+                    project_versions=SOURCE_VERSIONS,
+                    transitions=TRANSITIONS)
+
+    cmd = FakeCLI(responses=['0.9.0'])
+    fix_versions_json = merge_arrow_pr.prompt_for_fix_version(cmd, jira)
+    assert fix_versions_json == [RAW_VERSION_JSON[-1]]
+
+
 def test_jira_already_resolved():
     status = FakeStatus('Resolved')
-    fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'))
+    fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
+                        [FakeComponent('Java')])
     issue = FakeIssue(fields)
 
     jira = FakeJIRA(issue=issue,
@@ -162,3 +182,30 @@ def test_jira_already_resolved():
     with pytest.raises(Exception,
                        match="ARROW-1234 already has status 'Resolved'"):
         issue.resolve(fix_versions, "")
+
+
+def test_jira_output_no_components():
+    # ARROW-5472
+    status = 'Interesting work'
+    components = []
+    output = merge_arrow_pr.format_resolved_issue_status(
+        'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
+        components)
+
+    assert output == """=== JIRA ARROW-1234 ===
+Summary\t\tInteresting work
+Assignee\tFoo Bar
+Components\tNO COMPONENTS!!!
+Status\t\tResolved
+URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
+
+    output = merge_arrow_pr.format_resolved_issue_status(
+        'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
+        [FakeComponent('C++'), FakeComponent('Python')])
+
+    assert output == """=== JIRA ARROW-1234 ===
+Summary\t\tInteresting work
+Assignee\tFoo Bar
+Components\tC++, Python
+Status\t\tResolved
+URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""

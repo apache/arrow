@@ -124,6 +124,21 @@ cdef class DataType:
             raise ValueError("Non-fixed width type")
         return ty.bit_width()
 
+    @property
+    def num_children(self):
+        """
+        The number of child fields.
+        """
+        return self.type.num_children()
+
+    @property
+    def num_buffers(self):
+        """
+        Number of data buffers required to construct Array type
+        excluding children
+        """
+        return self.type.layout().bit_widths.size()
+
     def __str__(self):
         return frombytes(self.type.ToString())
 
@@ -297,13 +312,6 @@ cdef class StructType(DataType):
     def __reduce__(self):
         return struct, (list(self),)
 
-    @property
-    def num_children(self):
-        """
-        The number of struct fields.
-        """
-        return self.type.num_children()
-
 
 cdef class UnionType(DataType):
     """
@@ -312,13 +320,6 @@ cdef class UnionType(DataType):
 
     cdef void init(self, const shared_ptr[CDataType]& type):
         DataType.init(self, type)
-
-    @property
-    def num_children(self):
-        """
-        The number of union members.
-        """
-        return self.type.num_children()
 
     @property
     def mode(self):

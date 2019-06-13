@@ -139,6 +139,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" ON)
 
+  define_option(ARROW_DATASET "Build the Arrow Dataset Modules" ON)
+
   define_option(ARROW_FLIGHT
                 "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)" OFF)
 

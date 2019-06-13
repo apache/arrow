@@ -83,6 +83,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         TimeUnit_MICRO" arrow::TimeUnit::MICRO"
         TimeUnit_NANO" arrow::TimeUnit::NANO"
 
+    cdef cppclass CDataTypeLayout" arrow::DataTypeLayout":
+        vector[int64_t] bit_widths
+        c_bool has_dictionary
+
     cdef cppclass CDataType" arrow::DataType":
         Type id()
 
@@ -93,6 +97,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const vector[shared_ptr[CField]] children()
 
         int num_children()
+
+        CDataTypeLayout layout()
 
         c_string ToString()
 

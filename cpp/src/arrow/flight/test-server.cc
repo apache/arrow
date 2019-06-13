@@ -25,120 +25,19 @@
 
 #include <gflags/gflags.h>
 
-#include "arrow/buffer.h"
-#include "arrow/io/test-common.h"
-#include "arrow/record_batch.h"
-#include "arrow/util/logging.h"
-
 #include "arrow/flight/server.h"
-#include "arrow/flight/server_auth.h"
 #include "arrow/flight/test-util.h"
+#include "arrow/flight/types.h"
+#include "arrow/util/logging.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
 
-namespace arrow {
-namespace flight {
-
-Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader>* out) {
-  if (ticket.ticket == "ticket-ints-1") {
-    BatchVector batches;
-    RETURN_NOT_OK(ExampleIntBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
-    return Status::OK();
-  } else if (ticket.ticket == "ticket-dicts-1") {
-    BatchVector batches;
-    RETURN_NOT_OK(ExampleDictBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
-    return Status::OK();
-  } else {
-    return Status::NotImplemented("no stream implemented for this ticket");
-  }
-}
-
-class FlightTestServer : public FlightServerBase {
-  Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
-                     std::unique_ptr<FlightListing>* listings) override {
-    std::vector<FlightInfo> flights = ExampleFlightInfo();
-    *listings = std::unique_ptr<FlightListing>(new SimpleFlightListing(flights));
-    return Status::OK();
-  }
-
-  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
-                       std::unique_ptr<FlightInfo>* out) override {
-    std::vector<FlightInfo> flights = ExampleFlightInfo();
-
-    for (const auto& info : flights) {
-      if (info.descriptor().Equals(request)) {
-        *out = std::unique_ptr<FlightInfo>(new FlightInfo(info));
-        return Status::OK();
-      }
-    }
-    return Status::Invalid("Flight not found: ", request.ToString());
-  }
-
-  Status DoGet(const ServerCallContext& context, const Ticket& request,
-               std::unique_ptr<FlightDataStream>* data_stream) override {
-    // Test for ARROW-5095
-    if (request.ticket == "ARROW-5095-fail") {
-      return Status::UnknownError("Server-side error");
-    }
-    if (request.ticket == "ARROW-5095-success") {
-      return Status::OK();
-    }
-
-    std::shared_ptr<RecordBatchReader> batch_reader;
-    RETURN_NOT_OK(GetBatchForFlight(request, &batch_reader));
-
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
-    return Status::OK();
-  }
-
-  Status RunAction1(const Action& action, std::unique_ptr<ResultStream>* out) {
-    std::vector<Result> results;
-    for (int i = 0; i < 3; ++i) {
-      Result result;
-      std::string value = action.body->ToString() + "-part" + std::to_string(i);
-      RETURN_NOT_OK(Buffer::FromString(value, &result.body));
-      results.push_back(result);
-    }
-    *out = std::unique_ptr<ResultStream>(new SimpleResultStream(std::move(results)));
-    return Status::OK();
-  }
-
-  Status RunAction2(std::unique_ptr<ResultStream>* out) {
-    // Empty
-    *out = std::unique_ptr<ResultStream>(new SimpleResultStream({}));
-    return Status::OK();
-  }
-
-  Status DoAction(const ServerCallContext& context, const Action& action,
-                  std::unique_ptr<ResultStream>* out) override {
-    if (action.type == "action1") {
-      return RunAction1(action, out);
-    } else if (action.type == "action2") {
-      return RunAction2(out);
-    } else {
-      return Status::NotImplemented(action.type);
-    }
-  }
-
-  Status ListActions(const ServerCallContext& context,
-                     std::vector<ActionType>* out) override {
-    std::vector<ActionType> actions = ExampleActionTypes();
-    *out = std::move(actions);
-    return Status::OK();
-  }
-};
-
-}  // namespace flight
-}  // namespace arrow
-
-std::unique_ptr<arrow::flight::FlightTestServer> g_server;
+std::unique_ptr<arrow::flight::FlightServerBase> g_server;
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  g_server.reset(new arrow::flight::FlightTestServer);
+  g_server = arrow::flight::ExampleTestServer();
 
   arrow::flight::Location location;
   ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));

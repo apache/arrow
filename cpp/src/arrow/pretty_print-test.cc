@@ -165,6 +165,45 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   CheckPrimitive<StringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
 }
 
+TEST_F(TestPrettyPrint, Int8) {
+  static const char* expected = R"expected([
+  0,
+  127,
+  -128
+])expected";
+  CheckPrimitive<Int8Type, int8_t>({0, 10}, {true, true, true}, {0, 127, -128}, expected);
+}
+
+TEST_F(TestPrettyPrint, UInt8) {
+  static const char* expected = R"expected([
+  0,
+  255
+])expected";
+  CheckPrimitive<UInt8Type, uint8_t>({0, 10}, {true, true}, {0, 255}, expected);
+}
+
+TEST_F(TestPrettyPrint, Int64) {
+  static const char* expected = R"expected([
+  0,
+  9223372036854775807,
+  -9223372036854775808
+])expected";
+  CheckPrimitive<Int64Type, int64_t>(
+      {0, 10}, {true, true, true}, {0, 9223372036854775807LL, -9223372036854775807LL - 1},
+      expected);
+}
+
+TEST_F(TestPrettyPrint, UInt64) {
+  static const char* expected = R"expected([
+  0,
+  9223372036854775803,
+  18446744073709551615
+])expected";
+  CheckPrimitive<UInt64Type, uint64_t>(
+      {0, 10}, {true, true, true}, {0, 9223372036854775803ULL, 18446744073709551615ULL},
+      expected);
+}
+
 TEST_F(TestPrettyPrint, DateTimeTypes) {
   std::vector<bool> is_valid = {true, true, false, true, false};
 

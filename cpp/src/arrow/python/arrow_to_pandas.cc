@@ -173,19 +173,11 @@ inline void set_numpy_metadata(int type, DataType* datatype, PyArray_Descr* out)
   }
 }
 
-static inline PyArray_Descr* GetSafeNumPyDtype(int type) {
-  if (type == NPY_DATETIME) {
-    // It is not safe to mutate the result of DescrFromType
-    return PyArray_DescrNewFromType(type);
-  } else {
-    return PyArray_DescrFromType(type);
-  }
-}
 static inline PyObject* NewArray1DFromType(DataType* arrow_type, int type, int64_t length,
                                            void* data) {
   npy_intp dims[1] = {length};
 
-  PyArray_Descr* descr = GetSafeNumPyDtype(type);
+  PyArray_Descr* descr = internal::GetSafeNumPyDtype(type);
   if (descr == nullptr) {
     // Error occurred, trust error state is set
     return nullptr;
@@ -244,7 +236,7 @@ class PandasBlock {
   Status AllocateNDArray(int npy_type, int ndim = 2) {
     PyAcquireGIL lock;
 
-    PyArray_Descr* descr = GetSafeNumPyDtype(npy_type);
+    PyArray_Descr* descr = internal::GetSafeNumPyDtype(npy_type);
 
     PyObject* block_arr;
     if (ndim == 2) {
@@ -1220,7 +1212,7 @@ class CategoricalBlock : public PandasBlock {
 
     PyAcquireGIL lock;
 
-    PyArray_Descr* descr = GetSafeNumPyDtype(npy_type);
+    PyArray_Descr* descr = internal::GetSafeNumPyDtype(npy_type);
     if (descr == nullptr) {
       // Error occurred, trust error state is set
       return Status::OK();

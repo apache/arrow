@@ -593,6 +593,13 @@ class TestConvertPrimitiveTypes(object):
         expected = pd.Series([False, True, True, None, True])
         _check_array_roundtrip(s, expected=expected, type=pa.bool_())
 
+    def test_series_from_pandas_false_respected(self):
+        # Check that explicit from_pandas=False is respected
+        s = pd.Series([0.0, np.nan])
+        arr = pa.array(s, from_pandas=False)
+        assert arr.null_count == 0
+        assert np.isnan(arr[1].as_py())
+
     def test_integer_no_nulls(self):
         data = OrderedDict()
         fields = []

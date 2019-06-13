@@ -44,6 +44,7 @@ RUN apk add --no-cache -q \
 # ARROW-4917: ORC fails with compiler problems
 ENV CC=gcc \
     CXX=g++ \
+    ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
