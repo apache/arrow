@@ -195,7 +195,7 @@ ADD_INT64_TO_TIMESTAMP_FIXED_UNITS(timestamp, date_diff, -1 * MILLIS_IN_DAY)
   TYPE NAME##_##TYPE##_int64(TYPE millis, int64 count) {          \
     return millis + TO_MILLIS * (TYPE)count;                      \
   }
-  
+
 // add timestamp to int32
 ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(date64, date_add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT32_FIXED_UNITS(date64, add, MILLIS_IN_DAY)
