@@ -40,6 +40,7 @@ func init() {
 	Records["fixed_size_lists"] = makeFixedSizeListsRecords()
 	Records["fixed_width_types"] = makeFixedWidthTypesRecords()
 	Records["fixed_size_binaries"] = makeFixedSizeBinariesRecords()
+	Records["intervals"] = makeIntervalsRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -474,6 +475,48 @@ func makeFixedSizeBinariesRecords() []array.Record {
 	return recs
 }
 
+func makeIntervalsRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "months", Type: arrow.FixedWidthTypes.MonthInterval, Nullable: true},
+			arrow.Field{Name: "days", Type: arrow.FixedWidthTypes.DayTimeInterval, Nullable: true},
+		}, nil,
+	)
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			arrayOf(mem, []arrow.MonthInterval{1, 2, 3, 4, 5}, mask),
+			arrayOf(mem, []arrow.DayTimeInterval{{1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []arrow.MonthInterval{11, 12, 13, 14, 15}, mask),
+			arrayOf(mem, []arrow.DayTimeInterval{{11, 11}, {12, 12}, {13, 13}, {14, 14}, {15, 15}}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []arrow.MonthInterval{21, 22, 23, 24, 25}, mask),
+			arrayOf(mem, []arrow.DayTimeInterval{{21, 21}, {22, 22}, {23, 23}, {24, 24}, {25, 25}}, mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
@@ -651,6 +694,20 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 			vs[i] = []byte(v)
 		}
 		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []arrow.MonthInterval:
+		bldr := array.NewMonthIntervalBuilder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+
+	case []arrow.DayTimeInterval:
+		bldr := array.NewDayTimeIntervalBuilder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
 		return bldr.NewArray()
 
 	default:

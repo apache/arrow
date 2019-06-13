@@ -334,6 +334,18 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 		flatbuf.FixedSizeListAddListSize(fv.b, dt.Len())
 		fv.offset = flatbuf.FixedSizeListEnd(fv.b)
 
+	case *arrow.MonthIntervalType:
+		fv.dtype = flatbuf.TypeInterval
+		flatbuf.IntervalStart(fv.b)
+		flatbuf.IntervalAddUnit(fv.b, flatbuf.IntervalUnitYEAR_MONTH)
+		fv.offset = flatbuf.IntervalEnd(fv.b)
+
+	case *arrow.DayTimeIntervalType:
+		fv.dtype = flatbuf.TypeInterval
+		flatbuf.IntervalStart(fv.b)
+		flatbuf.IntervalAddUnit(fv.b, flatbuf.IntervalUnitDAY_TIME)
+		fv.offset = flatbuf.IntervalEnd(fv.b)
+
 	default:
 		err := errors.Errorf("arrow/ipc: invalid data type %v", dt)
 		panic(err) // FIXME(sbinet): implement all data-types.
@@ -537,6 +549,11 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		dt.Init(data.Bytes, data.Pos)
 		return dateFromFB(dt)
 
+	case flatbuf.TypeInterval:
+		var dt flatbuf.Interval
+		dt.Init(data.Bytes, data.Pos)
+		return intervalFromFB(dt)
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
@@ -664,6 +681,16 @@ func dateFromFB(data flatbuf.Date) (arrow.DataType, error) {
 		return arrow.FixedWidthTypes.Date64, nil
 	}
 	return nil, errors.Errorf("arrow/ipc: Date type with %d unit not implemented", data.Unit())
+}
+
+func intervalFromFB(data flatbuf.Interval) (arrow.DataType, error) {
+	switch data.Unit() {
+	case flatbuf.IntervalUnitYEAR_MONTH:
+		return arrow.FixedWidthTypes.MonthInterval, nil
+	case flatbuf.IntervalUnitDAY_TIME:
+		return arrow.FixedWidthTypes.DayTimeInterval, nil
+	}
+	return nil, errors.Errorf("arrow/ipc: Interval type with %d unit not implemented", data.Unit())
 }
 
 type customMetadataer interface {
