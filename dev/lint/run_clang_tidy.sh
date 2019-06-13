@@ -18,10 +18,8 @@
 
 set -ex
 
-source /arrow/dev/lint/lint_user.sh
-
 mkdir -p /build/lint
 pushd /build/lint
   cmake -GNinja /arrow/cpp
-  su lint_user -c "ninja clang-tidy"
+  ninja check-clang-tidy
 popd
