@@ -19,6 +19,7 @@ import re
 import warnings
 
 from pyarrow import compat
+from pyarrow.compat import builtin_pickle
 
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
@@ -516,6 +517,11 @@ cdef class ExtensionType(BaseExtensionType):
     Concrete base class for Python-defined extension types.
     """
 
+    def __cinit__(self):
+        if type(self) is ExtensionType:
+            raise TypeError("Can only instantiate subclasses of "
+                            "ExtensionType")
+
     def __init__(self, DataType storage_type):
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
@@ -541,11 +547,45 @@ cdef class ExtensionType(BaseExtensionType):
             return NotImplemented
 
     def __reduce__(self):
-        raise NotImplementedError("Please implement {}.__reduce__"
+        raise NotImplementedError("Please implement {0}.__reduce__"
                                   .format(type(self).__name__))
 
     def __arrow_ext_serialize__(self):
-        return compat.pickle.dumps(self)
+        return builtin_pickle.dumps(self)
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        try:
+            ty = builtin_pickle.loads(serialized)
+        except Exception:
+            # For some reason, it's impossible to deserialize the
+            # ExtensionType instance.  Perhaps the serialized data is
+            # corrupt, or more likely the type is being deserialized
+            # in an environment where the original Python class or module
+            # is not available.  Fall back on a generic BaseExtensionType.
+            return UnknownExtensionType(storage_type, serialized)
+
+        if ty.storage_type != storage_type:
+            raise TypeError("Expected storage type {0} but got {1}"
+                            .format(ty.storage_type, storage_type))
+        return ty
+
+
+cdef class UnknownExtensionType(ExtensionType):
+    """
+    A concrete class for Python-defined extension types that refer to
+    an unknown Python implementation.
+    """
+
+    cdef:
+        bytes serialized
+
+    def __init__(self, DataType storage_type, serialized):
+        self.serialized = serialized
+        ExtensionType.__init__(self, storage_type)
+
+    def __arrow_ext_serialize__(self):
+        return self.serialized
 
 
 cdef class _ExtensionTypesInitializer:
@@ -559,10 +599,12 @@ cdef class _ExtensionTypesInitializer:
             DataType storage_type
             shared_ptr[CExtensionType] cpy_ext_type
 
+        # Make a dummy C++ ExtensionType
         storage_type = null()
         check_status(CPyExtensionType.FromClass(storage_type.sp_type,
                                                 ExtensionType, &cpy_ext_type))
-        check_status(RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
+        check_status(
+            RegisterPyExtensionType(<shared_ptr[CDataType]> cpy_ext_type))
 
     def __dealloc__(self):
         # This needs to be done explicitly before the Python interpreter is

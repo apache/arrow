@@ -1280,7 +1280,8 @@ cdef extern from 'arrow/extension_type.h' namespace 'arrow':
 
 
 cdef extern from 'arrow/python/extension_type.h' namespace 'arrow::py':
-    cdef cppclass CPyExtensionType" arrow::py::PyExtensionType"(CExtensionType):
+    cdef cppclass CPyExtensionType \
+            " arrow::py::PyExtensionType"(CExtensionType):
         @staticmethod
         CStatus FromClass(shared_ptr[CDataType] storage_type,
                           object typ, shared_ptr[CExtensionType]* out)

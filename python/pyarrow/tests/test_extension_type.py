@@ -42,6 +42,19 @@ class ParamExtType(pa.ExtensionType):
         return ParamExtType, (self.width,)
 
 
+def ipc_write_batch(batch):
+    stream = pa.BufferOutputStream()
+    writer = pa.RecordBatchStreamWriter(stream, batch.schema)
+    writer.write_batch(batch)
+    writer.close()
+    return stream.getvalue()
+
+
+def ipc_read_batch(buf):
+    reader = pa.RecordBatchStreamReader(buf)
+    return reader.read_next_batch()
+
+
 def test_ext_type_basics():
     ty = UuidType()
     assert ty.extension_name == "arrow.py_extension_type"
@@ -150,4 +163,57 @@ def test_ext_array_pickling():
         assert arr.storage.to_pylist() == [b"foo", b"bar"]
 
 
-# TODO test ipc
+def example_batch():
+    ty = ParamExtType(3)
+    storage = pa.array([b"foo", b"bar"], type=pa.binary(3))
+    arr = pa.ExtensionArray.from_storage(ty, storage)
+    return pa.RecordBatch.from_arrays([arr], ["exts"])
+
+
+def check_example_batch(batch):
+    arr = batch.column(0)
+    assert isinstance(arr, pa.ExtensionArray)
+    assert arr.type.storage_type == pa.binary(3)
+    assert arr.storage.to_pylist() == [b"foo", b"bar"]
+    return arr
+
+
+def test_ipc():
+    batch = example_batch()
+    buf = ipc_write_batch(batch)
+    del batch
+
+    batch = ipc_read_batch(buf)
+    arr = check_example_batch(batch)
+    assert arr.type == ParamExtType(3)
+
+
+def test_ipc_unknown_type():
+    batch = example_batch()
+    buf = ipc_write_batch(batch)
+    del batch
+
+    orig_type = ParamExtType
+    try:
+        # Simulate the original Python type being unavailable.
+        # Deserialization should not fail but return a placeholder type.
+        del globals()['ParamExtType']
+
+        batch = ipc_read_batch(buf)
+        arr = check_example_batch(batch)
+        assert isinstance(arr.type, pa.UnknownExtensionType)
+
+        # Can be serialized again
+        buf2 = ipc_write_batch(batch)
+        del batch, arr
+
+        batch = ipc_read_batch(buf2)
+        arr = check_example_batch(batch)
+        assert isinstance(arr.type, pa.UnknownExtensionType)
+    finally:
+        globals()['ParamExtType'] = orig_type
+
+    # Deserialize again with the type restored
+    batch = ipc_read_batch(buf2)
+    arr = check_example_batch(batch)
+    assert arr.type == ParamExtType(3)

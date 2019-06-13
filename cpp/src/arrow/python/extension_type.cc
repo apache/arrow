@@ -129,7 +129,7 @@ Status PyExtensionType::Deserialize(std::shared_ptr<DataType> storage_type,
                                     std::shared_ptr<DataType>* out) const {
   PyAcquireGIL lock;
 
-  if (!import_pyarrow()) {
+  if (import_pyarrow()) {
     return ConvertPyError();
   }
   OwnedRef res(DeserializeExtInstance(type_class_.obj(), storage_type, serialized_data));
@@ -158,15 +158,19 @@ PyObject* PyExtensionType::GetInstance() const {
 }
 
 Status PyExtensionType::SetInstance(PyObject* inst) const {
+  // Check we have the right type
+  PyObject* typ = reinterpret_cast<PyObject*>(Py_TYPE(inst));
+  if (typ != type_class_.obj()) {
+    return Status::TypeError("Unexpected Python ExtensionType class ",
+                             internal::PyObject_StdStringRepr(typ), " expected ",
+                             internal::PyObject_StdStringRepr(type_class_.obj()));
+  }
+
   PyObject* wr = PyWeakref_NewRef(inst, nullptr);
   if (wr == NULL) {
-    ConvertPyError();
+    return ConvertPyError();
   }
   type_instance_.reset(wr);
-  // Need to update the extension type class to the concrete instance class
-  PyObject* typ = reinterpret_cast<PyObject*>(Py_TYPE(inst));
-  Py_INCREF(typ);
-  type_class_.reset(typ);
   return SerializeExtInstance(inst, &serialized_);
 }
 
@@ -175,14 +179,6 @@ Status PyExtensionType::FromClass(std::shared_ptr<DataType> storage_type, PyObje
   Py_INCREF(typ);
   out->reset(new PyExtensionType(storage_type, typ));
   return Status::OK();
-}
-
-Status PyExtensionType::FromInstance(std::shared_ptr<DataType> storage_type,
-                                     PyObject* inst,
-                                     std::shared_ptr<ExtensionType>* out) {
-  PyObject* typ = reinterpret_cast<PyObject*>(Py_TYPE(inst));
-  RETURN_NOT_OK(FromClass(storage_type, typ, out));
-  return checked_cast<PyExtensionType*>(out->get())->SetInstance(inst);
 }
 
 Status RegisterPyExtensionType(const std::shared_ptr<DataType>& type) {

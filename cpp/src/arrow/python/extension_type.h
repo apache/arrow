@@ -23,6 +23,7 @@
 #include "arrow/extension_type.h"
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace py {
@@ -46,21 +47,21 @@ class ARROW_PYTHON_EXPORT PyExtensionType : public ExtensionType {
   static Status FromClass(std::shared_ptr<DataType> storage_type, PyObject* typ,
                           std::shared_ptr<ExtensionType>* out);
 
-  // XXX unneeded?
-  static Status FromInstance(std::shared_ptr<DataType> storage_type, PyObject* inst,
-                             std::shared_ptr<ExtensionType>* out);
-
   // Return new ref
   PyObject* GetInstance() const;
   Status SetInstance(PyObject*) const;
 
  protected:
   PyExtensionType(std::shared_ptr<DataType> storage_type, PyObject* typ,
-                  PyObject* inst = nullptr);
+                  PyObject* inst = NULLPTR);
 
   // These fields are mutable because of two-step initialization.
   mutable OwnedRefNoGIL type_class_;
-  // A weakref or null
+  // A weakref or null.  Storing a strong reference to the Python extension type
+  // instance would create an unreclaimable reference cycle between Python and C++
+  // (the Python instance has to keep a strong reference to the C++ ExtensionType
+  //  in other direction).  Instead, we store a weakref to the instance.
+  // If the weakref is dead, we reconstruct the instance from its serialized form.
   mutable OwnedRefNoGIL type_instance_;
   // Empty if type_instance_ is null
   mutable std::string serialized_;
