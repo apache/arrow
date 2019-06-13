@@ -301,7 +301,8 @@ class ARROW_EXPORT Table {
   std::vector<std::string> ColumnNames() const;
 
   /// \brief Rename columns with provided names
-  std::shared_ptr<Table> RenameColumns(const std::vector<std::string>& names) const;
+  Status RenameColumns(const std::vector<std::string>& names,
+                       std::shared_ptr<Table>* out) const;
 
   /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
   /// \since 0.5.0

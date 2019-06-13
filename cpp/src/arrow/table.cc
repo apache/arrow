@@ -486,13 +486,19 @@ std::vector<std::string> Table::ColumnNames() const {
   return names;
 }
 
-std::shared_ptr<Table> Table::RenameColumns(const std::vector<std::string>& names) const {
+Status Table::RenameColumns(const std::vector<std::string>& names,
+                            std::shared_ptr<Table>* out) const {
+  if (names.size() != static_cast<size_t>(num_columns())) {
+    return Status::Invalid("tried to rename a table of ", num_columns(),
+                           " columns but only ", names.size(), " names were provided");
+  }
   std::vector<std::shared_ptr<Column>> columns(num_columns());
   for (int i = 0; i < num_columns(); ++i) {
     auto col = column(i);
     columns[i] = std::make_shared<Column>(col->field()->WithName(names[i]), col->data());
   }
-  return Table::Make(schema(), std::move(columns), num_rows());
+  *out = Table::Make(schema(), std::move(columns), num_rows());
+  return Status::OK();
 }
 
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,

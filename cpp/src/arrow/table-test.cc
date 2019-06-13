@@ -499,12 +499,14 @@ TEST_F(TestTable, SetColumn) {
 }
 
 TEST_F(TestTable, RenameColumns) {
+  MakeExample1(10);
   auto table = Table::Make(schema_, columns_);
   auto names = table->ColumnNames();
   ASSERT_EQ(names, std::vector<std::string>({"f0", "f1", "f2"}));
   names = {"zero", "one", "two"};
-  table->RenameColumns(names);
-  ASSERT_EQ(table->ColumnNames(), names);
+  std::shared_ptr<Table> renamed;
+  ASSERT_OK(table->RenameColumns(names, &renamed));
+  ASSERT_EQ(renamed->ColumnNames(), names);
 }
 
 TEST_F(TestTable, RemoveColumnEmpty) {
