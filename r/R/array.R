@@ -118,12 +118,20 @@
   )
 )
 
+`arrow::ListArray` <- R6Class("arrow::ListArray", inherit = `arrow::Array`,
+  active = list(
+    value_type = function() `arrow::DataType`$dispatch(ListArray__value_type(self))
+  )
+)
+
 `arrow::Array`$dispatch <- function(xp){
   a <- shared_ptr(`arrow::Array`, xp)
   if(a$type_id() == Type$DICTIONARY){
     a <- shared_ptr(`arrow::DictionaryArray`, xp)
   } else if (a$type_id() == Type$STRUCT) {
     a <- shared_ptr(`arrow::StructArray`, xp)
+  } else if(a$type_id() == Type$LIST) {
+    a <- shared_ptr(`arrow::ListArray`, xp)
   }
   a
 }

@@ -80,6 +80,10 @@ StructArray__Flatten <- function(array){
     .Call(`_arrow_StructArray__Flatten` , array)
 }
 
+ListArray__value_type <- function(array){
+    .Call(`_arrow_ListArray__value_type` , array)
+}
+
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector` , array)
 }

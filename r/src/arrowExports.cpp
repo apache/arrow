@@ -317,6 +317,21 @@ RcppExport SEXP _arrow_StructArray__Flatten(SEXP array_sexp){
 }
 #endif
 
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> ListArray__value_type(const std::shared_ptr<arrow::ListArray>& array);
+RcppExport SEXP _arrow_ListArray__value_type(SEXP array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
+	return Rcpp::wrap(ListArray__value_type(array));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ListArray__value_type(SEXP array_sexp){
+	Rf_error("Cannot call ListArray__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // array__to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -3371,6 +3386,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_StructArray__field", (DL_FUNC) &_arrow_StructArray__field, 2}, 
 		{ "_arrow_StructArray__GetFieldByName", (DL_FUNC) &_arrow_StructArray__GetFieldByName, 2}, 
 		{ "_arrow_StructArray__Flatten", (DL_FUNC) &_arrow_StructArray__Flatten, 1}, 
+		{ "_arrow_ListArray__value_type", (DL_FUNC) &_arrow_ListArray__value_type, 1}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 

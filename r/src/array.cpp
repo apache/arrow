@@ -140,4 +140,9 @@ arrow::ArrayVector StructArray__Flatten(
   return out;
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> ListArray__value_type(const std::shared_ptr<arrow::ListArray>& array) {
+  return array->value_type();
+}
+
 #endif
