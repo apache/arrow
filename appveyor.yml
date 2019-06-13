@@ -145,10 +145,8 @@ for:
     # Decide to exit if current job doesn't exercise affected topics
     - call ci\appveyor-filter-changes.bat
 
-  # Adapt as necessary starting from here
-
   build_script:
-    - call ci\appveyor-build.bat
+    # - call ci\appveyor-build.bat
     - pushd r
     - travis-tool.sh install_deps
 
