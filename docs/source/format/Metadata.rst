@@ -189,6 +189,7 @@ categories:
 
 Refer to `Schema.fbs`_ for up-to-date descriptions of each built-in
 logical type.
+
 Custom Application Metadata
 ---------------------------
 
@@ -208,7 +209,7 @@ Extension Types
 ---------------
 
 User-defined "extension" types can be defined setting certain
-``KeyValue`` pairs in ``custom_metadata` in the ``Field`` metadata
+``KeyValue`` pairs in ``custom_metadata`` in the ``Field`` metadata
 structure. These extension keys are:
 
 * ``'ARROW:extension:name'`` for the string name identifying the
