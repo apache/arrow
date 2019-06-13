@@ -101,6 +101,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <cwchar>
 #include <exception>
 #include <fstream>
 #include <iostream>
@@ -120,6 +121,14 @@
 // gcc/mingw supports unistd.h on Win32 but MSVC does not.
 
 #ifdef _WIN32
+#  ifdef WINAPI_FAMILY
+#    include <winapifamily.h>
+#    if WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP
+#      define WINRT
+#      define INSTALL .
+#    endif
+#  endif
+
 #  include <io.h> // _unlink etc.
 
 #  if defined(__clang__)
@@ -176,6 +185,7 @@ static CONSTDATA char folder_delimiter = '/';
 #if !USE_OS_TZDB
 
 #  ifdef _WIN32
+#    ifndef WINRT
 
 namespace
 {
@@ -202,10 +212,19 @@ get_known_folder(const GUID& folderid)
     if (SUCCEEDED(hr))
     {
         co_task_mem_ptr folder_ptr(pfolder);
-        folder = std::string(folder_ptr.get(), folder_ptr.get() + wcslen(folder_ptr.get()));
+        const wchar_t* fptr = folder_ptr.get();
+        auto state = std::mbstate_t();
+        const auto required = std::wcsrtombs(nullptr, &fptr, 0, &state);
+        if (required != 0 && required != std::size_t(-1))
+        {
+            folder.resize(required);
+            std::wcsrtombs(&folder[0], &fptr, folder.size(), &state);
+        }
     }
     return folder;
 }
+
+#      ifndef INSTALL
 
 // Usually something like "c:\Users\username\Downloads".
 static
@@ -215,6 +234,9 @@ get_download_folder()
     return get_known_folder(FOLDERID_Downloads);
 }
 
+#      endif  // !INSTALL
+
+#    endif // WINRT
 #  else // !_WIN32
 
 #    if !defined(INSTALL) || HAS_REMOTE_API
@@ -314,8 +336,8 @@ get_download_gz_file(const std::string& version)
 CONSTDATA auto min_year = date::year::min();
 CONSTDATA auto max_year = date::year::max();
 
-CONSTDATA auto min_day = date::jan/1;
-CONSTDATA auto max_day = date::dec/31;
+CONSTDATA auto min_day = date::January/1;
+CONSTDATA auto max_day = date::December/31;
 
 #if USE_OS_TZDB
 
@@ -379,11 +401,6 @@ get_tz_dir()
 // +-------------------+
 // | End Configuration |
 // +-------------------+
-
-namespace detail
-{
-struct undocumented {explicit undocumented() = default;};
-}
 
 #ifndef _MSC_VER
 static_assert(min_year <= max_year, "Configuration error");
@@ -504,7 +521,7 @@ native_to_standard_timezone_name(const std::string& native_tz_name,
 }
 
 // Parse this XML file:
-// http://unicode.org/repos/cldr/trunk/common/supplemental/windowsZones.xml
+// https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml
 // The parsing method is designed to be simple and quick. It is not overly
 // forgiving of change but it should diagnose basic format issues.
 // See timezone_mapping structure for more info.
@@ -1229,7 +1246,7 @@ detail::operator<<(std::ostream& os, const Rule& r)
 {
     using namespace date;
     using namespace std::chrono;
-    detail::save_stream<char> _(os);
+    detail::save_ostream<char> _(os);
     os.fill(' ');
     os.flags(std::ios::dec | std::ios::left);
     os.width(15);
@@ -2546,7 +2563,7 @@ operator<<(std::ostream& os, const time_zone& z)
 {
     using namespace date;
     using namespace std::chrono;
-    detail::save_stream<char> _(os);
+    detail::save_ostream<char> _(os);
     os.fill(' ');
     os.flags(std::ios::dec | std::ios::left);
     std::call_once(*z.adjusted_,
@@ -2655,6 +2672,8 @@ init_tzdb()
                 strcmp(d->d_name, "+VERSION")     == 0      ||
                 strcmp(d->d_name, "zone.tab")     == 0      ||
                 strcmp(d->d_name, "zone1970.tab") == 0      ||
+                strcmp(d->d_name, "tzdata.zi")    == 0      ||
+                strcmp(d->d_name, "leapseconds")  == 0      ||
                 strcmp(d->d_name, "leap-seconds.list") == 0   )
                 continue;
             auto subname = dirname + folder_delimiter + d->d_name;
@@ -2720,7 +2739,7 @@ std::ostream&
 operator<<(std::ostream& os, const link& x)
 {
     using namespace date;
-    detail::save_stream<char> _(os);
+    detail::save_ostream<char> _(os);
     os.fill(' ');
     os.flags(std::ios::dec | std::ios::left);
     os.width(35);
@@ -2796,6 +2815,7 @@ download_to_string(const std::string& url, std::string& str)
     if (!curl)
         return false;
     std::string version;
+    curl_easy_setopt(curl.get(), CURLOPT_USERAGENT, "curl");
     curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
     curl_write_callback write_cb = [](char* contents, std::size_t size, std::size_t nmemb,
                                       void* userp) -> std::size_t
@@ -2969,7 +2989,7 @@ make_directory(const std::string& folder)
 #    endif // !USE_SHELL_API
 #  else  // !_WIN32
 #    if USE_SHELL_API
-    return std::system(("mkdir " + folder).c_str()) == EXIT_SUCCESS;
+    return std::system(("mkdir -p " + folder).c_str()) == EXIT_SUCCESS;
 #    else  // !USE_SHELL_API
     return mkdir(folder.c_str(), 0777) == 0;
 #    endif  // !USE_SHELL_API
@@ -3254,10 +3274,11 @@ remote_download(const std::string& version)
     // Download folder should be always available for Windows
 #  else  // !_WIN32
     // Create download folder if it does not exist on UNIX system
-    auto download_folder = get_download_folder();
+    auto download_folder = get_install();
     if (!file_exists(download_folder))
     {
-        make_directory(download_folder);
+        if (!make_directory(download_folder))
+            return false;
     }
 #  endif  // _WIN32
 
@@ -3269,8 +3290,9 @@ remote_download(const std::string& version)
     if (result)
     {
         auto mapping_file = get_download_mapping_file(version);
-        result = download_to_file("http://unicode.org/repos/cldr/trunk/common/"
-                                  "supplemental/windowsZones.xml",
+        result = download_to_file(
+			"https://raw.githubusercontent.com/unicode-org/cldr/master/"
+			"common/supplemental/windowsZones.xml",
             mapping_file, download_file_options::text);
     }
 #  endif  // _WIN32
