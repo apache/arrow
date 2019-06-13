@@ -218,84 +218,55 @@ TEST_F(TestIsInKernel, IsInBoolean) {
                                {});
 }
 
-TEST_F(TestIsInKernel, IsInBinary) {
-  CheckIsIn<BinaryType, std::string>(
-      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
+template <typename Type>
+class TestIsInKernelBinary : public ComputeFixture, public TestBase {};
+
+using BinaryTypes = ::testing::Types<BinaryType, StringType>;
+TYPED_TEST_CASE(TestIsInKernelBinary, BinaryTypes);
+
+TYPED_TEST(TestIsInKernelBinary, IsInBinary) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  CheckIsIn<TypeParam, std::string>(
+      &this->ctx_, type, {"test", "", "test2", "test"}, {true, false, true, true},
       {"test", "", "test2", "test"}, {true, false, true, true}, {true, true, true, true},
       {});
 
   // No match
-  CheckIsIn<BinaryType, std::string>(
-      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
+  CheckIsIn<TypeParam, std::string>(
+      &this->ctx_, type, {"test", "", "test2", "test"}, {true, false, true, true},
       {"test3", "test4", "test3"}, {true, true, true}, {false, false, false, false},
       {true, false, true, true});
 
   // Nulls in left array
-  CheckIsIn<BinaryType, std::string>(
-      &this->ctx_, binary(), {"test", "", "test2", "test"}, {false, false, false, false},
+  CheckIsIn<TypeParam, std::string>(
+      &this->ctx_, type, {"test", "", "test2", "test"}, {false, false, false, false},
       {"test", "test2", "test"}, {true, true, true}, {false, false, false, false},
       {false, false, false, false});
 
   // Nulls in right array
-  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(), {"test", "test2", "test"},
-                                     {true, true, true}, {"test", "", "test2", "test"},
-                                     {false, false, false, false}, {false, false, false},
-                                     {});
+  CheckIsIn<TypeParam, std::string>(&this->ctx_, type, {"test", "test2", "test"},
+                                    {true, true, true}, {"test", "", "test2", "test"},
+                                    {false, false, false, false}, {false, false, false},
+                                    {});
 
   // Both array have Nulls
-  CheckIsIn<BinaryType, std::string>(
-      &this->ctx_, binary(), {"test", "", "test2", "test"}, {false, false, false, false},
+  CheckIsIn<TypeParam, std::string>(
+      &this->ctx_, type, {"test", "", "test2", "test"}, {false, false, false, false},
       {"test", "", "test2", "test"}, {false, false, false, false},
       {true, true, true, true}, {});
 
   // Empty arrays
-  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(), {}, {}, {}, {}, {}, {});
+  CheckIsIn<TypeParam, std::string>(&this->ctx_, type, {}, {}, {}, {}, {}, {});
 
   // Empty left array
-  CheckIsIn<BinaryType, std::string>(&this->ctx_, binary(), {}, {},
-                                     {"test", "", "test2", "test"},
-                                     {true, false, true, false}, {}, {});
+  CheckIsIn<TypeParam, std::string>(&this->ctx_, type, {}, {},
+                                    {"test", "", "test2", "test"},
+                                    {true, false, true, false}, {}, {});
 
   // Empty right array
-  CheckIsIn<BinaryType, std::string>(
-      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true}, {},
-      {}, {false, false, false, false}, {true, false, true, true});
-
-  CheckIsIn<StringType, std::string>(
-      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {true, false, true, true},
-      {"test", "", "test2", "test"}, {true, false, true, false}, {true, true, true, true},
-      {});
-
-  // Nulls in left array
-  CheckIsIn<StringType, std::string>(
-      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {false, false, false, false},
-      {"test", "test2", "test"}, {true, true, true}, {false, false, false, false},
-      {false, false, false, false});
-
-  // Nulls in right array
-  CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), {"test", "test2", "test"},
-                                     {true, true, true}, {"test", "", "test2", "test"},
-                                     {false, false, false, false}, {false, false, false},
-                                     {});
-
-  // Both array have Nulls
-  CheckIsIn<StringType, std::string>(
-      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {false, false, false, false},
-      {"test", "", "test2", "test"}, {false, false, false, false},
-      {true, true, true, true}, {});
-
-  // Both array are empty
-  CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), {}, {}, {}, {}, {}, {});
-
-  // Empty left array
-  CheckIsIn<StringType, std::string>(&this->ctx_, utf8(), {}, {},
-                                     {"test", "", "test2", "test"},
-                                     {true, false, true, false}, {}, {});
-
-  // Empty right array
-  CheckIsIn<StringType, std::string>(
-      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {true, false, true, true}, {},
-      {}, {false, false, false, false}, {true, false, true, true});
+  CheckIsIn<TypeParam, std::string>(
+      &this->ctx_, type, {"test", "", "test2", "test"}, {true, false, true, true}, {}, {},
+      {false, false, false, false}, {true, false, true, true});
 }
 
 TEST_F(TestIsInKernel, BinaryResizeTable) {
