@@ -95,6 +95,8 @@ dev/tasks/linux-packages/debian/libarrow-cuda-dev.install
 dev/tasks/linux-packages/debian/libarrow-cuda-glib-dev.install
 dev/tasks/linux-packages/debian/libarrow-cuda-glib14.install
 dev/tasks/linux-packages/debian/libarrow-cuda14.install
+dev/tasks/linux-packages/debian/libarrow-flight-dev.install
+dev/tasks/linux-packages/debian/libarrow-flight14.install
 dev/tasks/linux-packages/debian/libarrow-python-dev.install
 dev/tasks/linux-packages/debian/libarrow-python14.install
 dev/tasks/linux-packages/debian/libarrow14.install

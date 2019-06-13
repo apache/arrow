@@ -51,13 +51,12 @@ RUN \
     libboost-regex-dev \
     libboost-system-dev \
     libbrotli-dev \
+    libc-ares-dev \
     libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgoogle-glog-dev \
     liblz4-dev \
-    libprotobuf-dev \
-    libprotoc-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
@@ -65,15 +64,22 @@ RUN \
     lsb-release \
     ninja-build \
     pkg-config \
-    protobuf-compiler \
     python3-dev \
     python3-numpy \
+    python3-pip \
     tzdata && \
   apt install -y -V -t stretch-backports ${quiet} \
     debhelper \
+    libgmock-dev \
+    libgrpc++-dev \
     libgtest-dev \
-    meson \
+    libprotobuf-dev \
+    libprotoc-dev \
     nvidia-cuda-toolkit \
+    protobuf-compiler \
+    protobuf-compiler-grpc \
     rapidjson-dev && \
+  pip3 install --upgrade meson && \
+  ln -s /usr/local/bin/meson /usr/bin/ && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
