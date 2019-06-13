@@ -323,18 +323,46 @@ TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
                      "[[1, null, 3], [7, 8, null]]");
 }
 
+class TestFilterKernelWithMap : public TestFilterKernel<MapType> {};
+
+TEST_F(TestFilterKernelWithMap, FilterMapStringToInt32) {
+  std::string map_json = R"([
+    [["joe", 0], ["mark", null]],
+    null,
+    [["cap", 8]],
+    []
+  ])";
+  this->AssertFilter(map(utf8(), int32()), map_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(map(utf8(), int32()), map_json, "[0, 1, 1, null]", R"([
+    null,
+    [["cap", 8]],
+    null
+  ])");
+  this->AssertFilter(map(utf8(), int32()), map_json, "[1, 1, 1, 1]", map_json);
+  this->AssertFilter(map(utf8(), int32()), map_json, "[0, 1, 0, 1]", "[null, []]");
+}
+
 class TestFilterKernelWithStruct : public TestFilterKernel<StructType> {};
 
 TEST_F(TestFilterKernelWithStruct, FilterStruct) {
   auto struct_type = struct_({field("a", int32()), field("b", utf8())});
-  auto struct_json =
-      R"([null, {"a": 1, "b": ""}, {"a": 2, "b": "hello"}, {"a": 4, "b": "eh"}])";
+  auto struct_json = R"([
+    null,
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
   this->AssertFilter(struct_type, struct_json, "[0, 0, 0, 0]", "[]");
-  this->AssertFilter(struct_type, struct_json, "[0, 1, 1, null]",
-                     R"([{"a": 1, "b": ""}, {"a": 2, "b": "hello"}, null])");
+  this->AssertFilter(struct_type, struct_json, "[0, 1, 1, null]", R"([
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    null
+  ])");
   this->AssertFilter(struct_type, struct_json, "[1, 1, 1, 1]", struct_json);
-  this->AssertFilter(struct_type, struct_json, "[1, 0, 1, 0]",
-                     R"([null, {"a": 2, "b": "hello"}])");
+  this->AssertFilter(struct_type, struct_json, "[1, 0, 1, 0]", R"([
+    null,
+    {"a": 2, "b": "hello"}
+  ])");
 }
 
 }  // namespace compute

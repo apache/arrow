@@ -407,6 +407,8 @@ struct UnpackValues {
 
   Status Visit(const ListType& t) { return Make<ListFilterImpl>(); }
 
+  Status Visit(const MapType& t) { return Make<ListFilterImpl>(); }
+
   Status Visit(const FixedSizeListType& t) {
     return Make<FilterImpl<FixedSizeListType>>();
   }
