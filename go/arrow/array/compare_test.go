@@ -24,7 +24,7 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
-func TestArrayEquals(t *testing.T) {
+func TestArrayEqual(t *testing.T) {
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
 			rec := recs[0]
@@ -32,7 +32,7 @@ func TestArrayEquals(t *testing.T) {
 			for i, col := range rec.Columns() {
 				t.Run(schema.Field(i).Name, func(t *testing.T) {
 					arr := col
-					if !array.ArrayEquals(arr, arr) {
+					if !array.ArrayEqual(arr, arr) {
 						t.Fatalf("identical arrays should compare equal:\narray=%v", arr)
 					}
 					sub1 := array.NewSlice(arr, 1, int64(arr.Len()))
@@ -41,7 +41,7 @@ func TestArrayEquals(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArrayEquals(sub1, sub2) {
+					if array.ArrayEqual(sub1, sub2) {
 						t.Fatalf("non-identical arrays should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -50,7 +50,7 @@ func TestArrayEquals(t *testing.T) {
 	}
 }
 
-func TestBaseArrayEquals(t *testing.T) {
+func TestBaseArrayEqual(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -65,7 +65,7 @@ func TestBaseArrayEquals(t *testing.T) {
 	a2 := b2.NewBooleanArray()
 	defer a2.Release()
 
-	if array.ArrayEquals(a1, a2) {
+	if array.ArrayEqual(a1, a2) {
 		t.Errorf("two arrays with different lengths must not be equal")
 	}
 
@@ -75,7 +75,7 @@ func TestBaseArrayEquals(t *testing.T) {
 	a3 := b3.NewBooleanArray()
 	defer a3.Release()
 
-	if array.ArrayEquals(a1, a3) {
+	if array.ArrayEqual(a1, a3) {
 		t.Errorf("two arrays with different number of null values must not be equal")
 	}
 
@@ -85,7 +85,7 @@ func TestBaseArrayEquals(t *testing.T) {
 	a4 := b4.NewInt32Array()
 	defer a4.Release()
 
-	if array.ArrayEquals(a1, a4) {
+	if array.ArrayEqual(a1, a4) {
 		t.Errorf("two arrays with different types must not be equal")
 	}
 
@@ -97,12 +97,12 @@ func TestBaseArrayEquals(t *testing.T) {
 	defer a5.Release()
 	b1.AppendNull()
 
-	if array.ArrayEquals(a1, a5) {
+	if array.ArrayEqual(a1, a5) {
 		t.Errorf("two arrays with different validity bitmaps must not be equal")
 	}
 }
 
-func TestArrayEqualsDifferentMaskedValues(t *testing.T) {
+func TestArrayEqualDifferentMaskedValues(t *testing.T) {
 	// test 2 int32 arrays, with same nulls (but different masked values) compare equal.
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -120,11 +120,11 @@ func TestArrayEqualsDifferentMaskedValues(t *testing.T) {
 	a2 := ab.NewInt32Array()
 	defer a2.Release()
 
-	if !array.ArrayEquals(a1, a1) || !array.ArrayEquals(a2, a2) {
+	if !array.ArrayEqual(a1, a1) || !array.ArrayEqual(a2, a2) {
 		t.Errorf("an array must be equal to itself")
 	}
 
-	if !array.ArrayEquals(a1, a2) {
+	if !array.ArrayEqual(a1, a2) {
 		t.Errorf("%v must be equal to %v", a1, a2)
 	}
 }

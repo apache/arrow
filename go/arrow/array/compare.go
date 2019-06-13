@@ -23,10 +23,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ArrayEquals reports whether the two provided arrays are equal.
-func ArrayEquals(left, right Interface) bool {
+// ArrayEqual reports whether the two provided arrays are equal.
+func ArrayEqual(left, right Interface) bool {
 	switch {
-	case !baseArrayEquals(left, right):
+	case !baseArrayEqual(left, right):
 		return false
 	case left.Len() == 0:
 		return true
@@ -43,80 +43,80 @@ func ArrayEquals(left, right Interface) bool {
 		return true
 	case *Boolean:
 		r := right.(*Boolean)
-		return booleanArrayEquals(l, r)
+		return booleanArrayEqual(l, r)
 	case *FixedSizeBinary:
 		r := right.(*FixedSizeBinary)
-		return fixedSizeBinaryArrayEquals(l, r)
+		return fixedSizeBinaryArrayEqual(l, r)
 	case *Binary:
 		r := right.(*Binary)
-		return binaryArrayEquals(l, r)
+		return binaryArrayEqual(l, r)
 	case *String:
 		r := right.(*String)
-		return stringArrayEquals(l, r)
+		return stringArrayEqual(l, r)
 	case *Int8:
 		r := right.(*Int8)
-		return i8ArrayEquals(l, r)
+		return i8ArrayEqual(l, r)
 	case *Int16:
 		r := right.(*Int16)
-		return i16ArrayEquals(l, r)
+		return i16ArrayEqual(l, r)
 	case *Int32:
 		r := right.(*Int32)
-		return i32ArrayEquals(l, r)
+		return i32ArrayEqual(l, r)
 	case *Int64:
 		r := right.(*Int64)
-		return i64ArrayEquals(l, r)
+		return i64ArrayEqual(l, r)
 	case *Uint8:
 		r := right.(*Uint8)
-		return u8ArrayEquals(l, r)
+		return u8ArrayEqual(l, r)
 	case *Uint16:
 		r := right.(*Uint16)
-		return u16ArrayEquals(l, r)
+		return u16ArrayEqual(l, r)
 	case *Uint32:
 		r := right.(*Uint32)
-		return u32ArrayEquals(l, r)
+		return u32ArrayEqual(l, r)
 	case *Uint64:
 		r := right.(*Uint64)
-		return u64ArrayEquals(l, r)
+		return u64ArrayEqual(l, r)
 	case *Float16:
 		r := right.(*Float16)
-		return f16ArrayEquals(l, r)
+		return f16ArrayEqual(l, r)
 	case *Float32:
 		r := right.(*Float32)
-		return f32ArrayEquals(l, r)
+		return f32ArrayEqual(l, r)
 	case *Float64:
 		r := right.(*Float64)
-		return f64ArrayEquals(l, r)
+		return f64ArrayEqual(l, r)
 	case *Date32:
 		r := right.(*Date32)
-		return date32ArrayEquals(l, r)
+		return date32ArrayEqual(l, r)
 	case *Date64:
 		r := right.(*Date64)
-		return date64ArrayEquals(l, r)
+		return date64ArrayEqual(l, r)
 	case *Time32:
 		r := right.(*Time32)
-		return time32ArrayEquals(l, r)
+		return time32ArrayEqual(l, r)
 	case *Time64:
 		r := right.(*Time64)
-		return time64ArrayEquals(l, r)
+		return time64ArrayEqual(l, r)
 	case *Timestamp:
 		r := right.(*Timestamp)
-		return timestampArrayEquals(l, r)
+		return timestampArrayEqual(l, r)
 	case *List:
 		r := right.(*List)
-		return listArrayEquals(l, r)
+		return listArrayEqual(l, r)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
-		return fixedSizeListArrayEquals(l, r)
+		return fixedSizeListArrayEqual(l, r)
 	case *Struct:
 		r := right.(*Struct)
-		return structArrayEquals(l, r)
+		return structArrayEqual(l, r)
 
 	default:
 		panic(errors.Errorf("arrow/array: unknown array type %T", l))
 	}
 }
 
-func baseArrayEquals(left, right Interface) bool {
+func baseArrayEqual(left, right Interface) bool {
 	switch {
 	case left.Len() != right.Len():
 		return false
@@ -124,13 +124,13 @@ func baseArrayEquals(left, right Interface) bool {
 		return false
 	case !arrow.TypeEquals(left.DataType(), right.DataType()): // We do not check for metadata as in the C++ implementation.
 		return false
-	case !validityBitmapEquals(left, right):
+	case !validityBitmapEqual(left, right):
 		return false
 	}
 	return true
 }
 
-func validityBitmapEquals(left, right Interface) bool {
+func validityBitmapEqual(left, right Interface) bool {
 	// TODO(alexandreyc): make it faster by comparing byte slices of the validity bitmap?
 	n := left.Len()
 	if n != right.Len() {
@@ -144,7 +144,7 @@ func validityBitmapEquals(left, right Interface) bool {
 	return true
 }
 
-func booleanArrayEquals(left, right *Boolean) bool {
+func booleanArrayEqual(left, right *Boolean) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -156,7 +156,7 @@ func booleanArrayEquals(left, right *Boolean) bool {
 	return true
 }
 
-func fixedSizeBinaryArrayEquals(left, right *FixedSizeBinary) bool {
+func fixedSizeBinaryArrayEqual(left, right *FixedSizeBinary) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -168,7 +168,7 @@ func fixedSizeBinaryArrayEquals(left, right *FixedSizeBinary) bool {
 	return true
 }
 
-func binaryArrayEquals(left, right *Binary) bool {
+func binaryArrayEqual(left, right *Binary) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -180,7 +180,7 @@ func binaryArrayEquals(left, right *Binary) bool {
 	return true
 }
 
-func stringArrayEquals(left, right *String) bool {
+func stringArrayEqual(left, right *String) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -192,7 +192,7 @@ func stringArrayEquals(left, right *String) bool {
 	return true
 }
 
-func i8ArrayEquals(left, right *Int8) bool {
+func i8ArrayEqual(left, right *Int8) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -204,7 +204,7 @@ func i8ArrayEquals(left, right *Int8) bool {
 	return true
 }
 
-func i16ArrayEquals(left, right *Int16) bool {
+func i16ArrayEqual(left, right *Int16) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -216,7 +216,7 @@ func i16ArrayEquals(left, right *Int16) bool {
 	return true
 }
 
-func i32ArrayEquals(left, right *Int32) bool {
+func i32ArrayEqual(left, right *Int32) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -228,7 +228,7 @@ func i32ArrayEquals(left, right *Int32) bool {
 	return true
 }
 
-func i64ArrayEquals(left, right *Int64) bool {
+func i64ArrayEqual(left, right *Int64) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -240,7 +240,7 @@ func i64ArrayEquals(left, right *Int64) bool {
 	return true
 }
 
-func u8ArrayEquals(left, right *Uint8) bool {
+func u8ArrayEqual(left, right *Uint8) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -252,7 +252,7 @@ func u8ArrayEquals(left, right *Uint8) bool {
 	return true
 }
 
-func u16ArrayEquals(left, right *Uint16) bool {
+func u16ArrayEqual(left, right *Uint16) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -264,7 +264,7 @@ func u16ArrayEquals(left, right *Uint16) bool {
 	return true
 }
 
-func u32ArrayEquals(left, right *Uint32) bool {
+func u32ArrayEqual(left, right *Uint32) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -276,7 +276,7 @@ func u32ArrayEquals(left, right *Uint32) bool {
 	return true
 }
 
-func u64ArrayEquals(left, right *Uint64) bool {
+func u64ArrayEqual(left, right *Uint64) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -288,7 +288,7 @@ func u64ArrayEquals(left, right *Uint64) bool {
 	return true
 }
 
-func f16ArrayEquals(left, right *Float16) bool {
+func f16ArrayEqual(left, right *Float16) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -300,7 +300,7 @@ func f16ArrayEquals(left, right *Float16) bool {
 	return true
 }
 
-func f32ArrayEquals(left, right *Float32) bool {
+func f32ArrayEqual(left, right *Float32) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -312,7 +312,7 @@ func f32ArrayEquals(left, right *Float32) bool {
 	return true
 }
 
-func f64ArrayEquals(left, right *Float64) bool {
+func f64ArrayEqual(left, right *Float64) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -324,7 +324,7 @@ func f64ArrayEquals(left, right *Float64) bool {
 	return true
 }
 
-func date32ArrayEquals(left, right *Date32) bool {
+func date32ArrayEqual(left, right *Date32) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -336,7 +336,7 @@ func date32ArrayEquals(left, right *Date32) bool {
 	return true
 }
 
-func date64ArrayEquals(left, right *Date64) bool {
+func date64ArrayEqual(left, right *Date64) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -348,7 +348,7 @@ func date64ArrayEquals(left, right *Date64) bool {
 	return true
 }
 
-func time32ArrayEquals(left, right *Time32) bool {
+func time32ArrayEqual(left, right *Time32) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -360,7 +360,7 @@ func time32ArrayEquals(left, right *Time32) bool {
 	return true
 }
 
-func time64ArrayEquals(left, right *Time64) bool {
+func time64ArrayEqual(left, right *Time64) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -372,7 +372,7 @@ func time64ArrayEquals(left, right *Time64) bool {
 	return true
 }
 
-func timestampArrayEquals(left, right *Timestamp) bool {
+func timestampArrayEqual(left, right *Timestamp) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -384,7 +384,7 @@ func timestampArrayEquals(left, right *Timestamp) bool {
 	return true
 }
 
-func listArrayEquals(left, right *List) bool {
+func listArrayEqual(left, right *List) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -394,7 +394,7 @@ func listArrayEquals(left, right *List) bool {
 			defer l.Release()
 			r := right.newListValue(i)
 			defer r.Release()
-			return ArrayEquals(l, r)
+			return ArrayEqual(l, r)
 		}()
 		if !o {
 			return false
@@ -403,7 +403,7 @@ func listArrayEquals(left, right *List) bool {
 	return true
 }
 
-func fixedSizeListArrayEquals(left, right *FixedSizeList) bool {
+func fixedSizeListArrayEqual(left, right *FixedSizeList) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
@@ -413,7 +413,7 @@ func fixedSizeListArrayEquals(left, right *FixedSizeList) bool {
 			defer l.Release()
 			r := right.newListValue(i)
 			defer r.Release()
-			return ArrayEquals(l, r)
+			return ArrayEqual(l, r)
 		}()
 		if !o {
 			return false
@@ -422,10 +422,10 @@ func fixedSizeListArrayEquals(left, right *FixedSizeList) bool {
 	return true
 }
 
-func structArrayEquals(left, right *Struct) bool {
+func structArrayEqual(left, right *Struct) bool {
 	for i, lf := range left.fields {
 		rf := right.fields[i]
-		if !ArrayEquals(lf, rf) {
+		if !ArrayEqual(lf, rf) {
 			return false
 		}
 	}
