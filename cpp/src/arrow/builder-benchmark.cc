@@ -160,7 +160,7 @@ static void BuildChunkedBinaryArray(
 
 static void BuildFixedSizeBinaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
-  auto type = fixed_size_binary(kBinaryView.size());
+  auto type = fixed_size_binary(static_cast<int32_t>(kBinaryView.size()));
 
   for (auto _ : state) {
     FixedSizeBinaryBuilder builder(type);
@@ -227,7 +227,8 @@ static std::vector<Integer> MakeRandomIntDictFodder() {
                   [&]() { return static_cast<Integer>(values_dist(gen)); });
   }
   {
-    std::uniform_int_distribution<int32_t> indices_dist(0, kDistinctElements - 1);
+    std::uniform_int_distribution<int32_t> indices_dist(
+        0, static_cast<int32_t>(kDistinctElements - 1));
     std::generate(values.begin(), values.end(),
                   [&]() { return values_dict[indices_dist(gen)]; });
   }
@@ -262,7 +263,8 @@ static std::vector<std::string> MakeStringDictFodder() {
     });
   }
   {
-    std::uniform_int_distribution<int32_t> indices_dist(0, kDistinctElements - 1);
+    std::uniform_int_distribution<int32_t> indices_dist(
+        0, static_cast<int32_t>(kDistinctElements - 1));
     std::generate(values.begin(), values.end(),
                   [&] { return values_dict[indices_dist(gen)]; });
   }
@@ -311,7 +313,7 @@ static void BuildStringDictionaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
   const auto fodder = MakeStringDictFodder();
   auto fodder_size =
-      std::accumulate(fodder.begin(), fodder.end(), 0UL,
+      std::accumulate(fodder.begin(), fodder.end(), 0ULL,
                       [&](size_t acc, const std::string& s) { return acc + s.size(); });
 
   for (auto _ : state) {
