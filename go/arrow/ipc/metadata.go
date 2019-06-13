@@ -346,6 +346,13 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 		flatbuf.IntervalAddUnit(fv.b, flatbuf.IntervalUnitDAY_TIME)
 		fv.offset = flatbuf.IntervalEnd(fv.b)
 
+	case *arrow.DurationType:
+		fv.dtype = flatbuf.TypeDuration
+		unit := unitToFB(dt.Unit)
+		flatbuf.DurationStart(fv.b)
+		flatbuf.DurationAddUnit(fv.b, unit)
+		fv.offset = flatbuf.DurationEnd(fv.b)
+
 	default:
 		err := errors.Errorf("arrow/ipc: invalid data type %v", dt)
 		panic(err) // FIXME(sbinet): implement all data-types.
@@ -554,6 +561,11 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		dt.Init(data.Bytes, data.Pos)
 		return intervalFromFB(dt)
 
+	case flatbuf.TypeDuration:
+		var dt flatbuf.Duration
+		dt.Init(data.Bytes, data.Pos)
+		return durationFromFB(dt)
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(fmt.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
@@ -691,6 +703,20 @@ func intervalFromFB(data flatbuf.Interval) (arrow.DataType, error) {
 		return arrow.FixedWidthTypes.DayTimeInterval, nil
 	}
 	return nil, errors.Errorf("arrow/ipc: Interval type with %d unit not implemented", data.Unit())
+}
+
+func durationFromFB(data flatbuf.Duration) (arrow.DataType, error) {
+	switch data.Unit() {
+	case flatbuf.TimeUnitSECOND:
+		return arrow.FixedWidthTypes.Duration_s, nil
+	case flatbuf.TimeUnitMILLISECOND:
+		return arrow.FixedWidthTypes.Duration_ms, nil
+	case flatbuf.TimeUnitMICROSECOND:
+		return arrow.FixedWidthTypes.Duration_us, nil
+	case flatbuf.TimeUnitNANOSECOND:
+		return arrow.FixedWidthTypes.Duration_ns, nil
+	}
+	return nil, errors.Errorf("arrow/ipc: Duration type with %d unit not implemented", data.Unit())
 }
 
 type customMetadataer interface {

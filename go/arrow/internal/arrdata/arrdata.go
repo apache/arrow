@@ -41,6 +41,7 @@ func init() {
 	Records["fixed_width_types"] = makeFixedWidthTypesRecords()
 	Records["fixed_size_binaries"] = makeFixedSizeBinariesRecords()
 	Records["intervals"] = makeIntervalsRecords()
+	Records["durations"] = makeDurationsRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -517,6 +518,63 @@ func makeIntervalsRecords() []array.Record {
 	return recs
 }
 
+type (
+	duration_s  arrow.Duration
+	duration_ms arrow.Duration
+	duration_us arrow.Duration
+	duration_ns arrow.Duration
+)
+
+func makeDurationsRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "durations-s", Type: &arrow.DurationType{Unit: arrow.Second}, Nullable: true},
+			arrow.Field{Name: "durations-ms", Type: &arrow.DurationType{Unit: arrow.Millisecond}, Nullable: true},
+			arrow.Field{Name: "durations-us", Type: &arrow.DurationType{Unit: arrow.Microsecond}, Nullable: true},
+			arrow.Field{Name: "durations-ns", Type: &arrow.DurationType{Unit: arrow.Nanosecond}, Nullable: true},
+		}, nil,
+	)
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			arrayOf(mem, []duration_s{1, 2, 3, 4, 5}, mask),
+			arrayOf(mem, []duration_ms{1, 2, 3, 4, 5}, mask),
+			arrayOf(mem, []duration_us{1, 2, 3, 4, 5}, mask),
+			arrayOf(mem, []duration_ns{1, 2, 3, 4, 5}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []duration_s{11, 12, 13, 14, 15}, mask),
+			arrayOf(mem, []duration_ms{11, 12, 13, 14, 15}, mask),
+			arrayOf(mem, []duration_us{11, 12, 13, 14, 15}, mask),
+			arrayOf(mem, []duration_ns{11, 12, 13, 14, 15}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []duration_s{21, 22, 23, 24, 25}, mask),
+			arrayOf(mem, []duration_ms{21, 22, 23, 24, 25}, mask),
+			arrayOf(mem, []duration_us{21, 22, 23, 24, 25}, mask),
+			arrayOf(mem, []duration_ns{21, 22, 23, 24, 25}, mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
@@ -708,6 +766,46 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 		defer bldr.Release()
 
 		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+
+	case []duration_s:
+		bldr := array.NewDurationBuilder(mem, &arrow.DurationType{Unit: arrow.Second})
+		defer bldr.Release()
+		vs := make([]arrow.Duration, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Duration(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []duration_ms:
+		bldr := array.NewDurationBuilder(mem, &arrow.DurationType{Unit: arrow.Millisecond})
+		defer bldr.Release()
+		vs := make([]arrow.Duration, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Duration(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []duration_us:
+		bldr := array.NewDurationBuilder(mem, &arrow.DurationType{Unit: arrow.Microsecond})
+		defer bldr.Release()
+		vs := make([]arrow.Duration, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Duration(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []duration_ns:
+		bldr := array.NewDurationBuilder(mem, &arrow.DurationType{Unit: arrow.Nanosecond})
+		defer bldr.Release()
+		vs := make([]arrow.Duration, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Duration(v)
+		}
+		bldr.AppendValues(vs, valids)
 		return bldr.NewArray()
 
 	default:
