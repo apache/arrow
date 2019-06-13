@@ -49,6 +49,15 @@ class Uri;
 
 namespace flight {
 
+/// \brief A TLS certificate plus key.
+struct ARROW_FLIGHT_EXPORT CertKeyPair {
+  /// \brief The certificate in PEM format.
+  std::string pem_cert;
+
+  /// \brief The key in PEM format.
+  std::string pem_key;
+};
+
 /// \brief A type of action that can be performed with the DoAction RPC
 struct ARROW_FLIGHT_EXPORT ActionType {
   /// Name of action
@@ -144,6 +153,13 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \param[in] port The port
   /// \param[out] location The resulting location
   static Status ForGrpcTcp(const std::string& host, const int port, Location* location);
+
+  /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
+  /// service from a host and port
+  /// \param[in] host The hostname to connect to
+  /// \param[in] port The port
+  /// \param[out] location The resulting location
+  static Status ForGrpcTls(const std::string& host, const int port, Location* location);
 
   /// \brief Initialize a location for a domain socket-based Flight
   /// service

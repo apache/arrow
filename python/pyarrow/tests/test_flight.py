@@ -28,10 +28,50 @@ import pytest
 
 import pyarrow as pa
 
+from pathlib import Path
 from pyarrow.compat import tobytes
 
 
 flight = pytest.importorskip("pyarrow.flight")
+
+
+def resource_root():
+    """Get the path to the test resources directory."""
+    if not os.environ.get("ARROW_TEST_DATA"):
+        raise RuntimeError("Test resources not found; set "
+                           "ARROW_TEST_DATA to <repo root>/testing")
+    return Path(os.environ["ARROW_TEST_DATA"]) / "flight"
+
+
+def read_flight_resource(path):
+    """Get the contents of a test resource file."""
+    root = resource_root()
+    if not root:
+        return None
+    try:
+        with (root / path).open("rb") as f:
+            return f.read()
+    except FileNotFoundError as e:
+        raise RuntimeError(
+            "Test resource {} not found; did you initialize the "
+            "test resource submodule?".format(root / path)) from e
+
+
+def example_tls_certs():
+    """Get the paths to test TLS certificates."""
+    return {
+        "root_cert": read_flight_resource("root-ca.pem"),
+        "certificates": [
+            flight.CertKeyPair(
+                cert=read_flight_resource("cert0.pem"),
+                key=read_flight_resource("cert0.key"),
+            ),
+            flight.CertKeyPair(
+                cert=read_flight_resource("cert1.pem"),
+                key=read_flight_resource("cert1.key"),
+            ),
+        ]
+    }
 
 
 def simple_ints_table():
@@ -245,6 +285,7 @@ class TokenClientAuthHandler(flight.ClientAuthHandler):
 def flight_server(server_base, *args, **kwargs):
     """Spawn a Flight server on a free port, shutting it down when done."""
     auth_handler = kwargs.pop('auth_handler', None)
+    tls_certificates = kwargs.pop('tls_certificates', None)
     location = kwargs.pop('location', None)
 
     if location is None:
@@ -254,7 +295,10 @@ def flight_server(server_base, *args, **kwargs):
             sock.bind(('', 0))
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             port = sock.getsockname()[1]
-        location = flight.Location.for_grpc_tcp("localhost", port)
+        ctor = flight.Location.for_grpc_tcp
+        if tls_certificates:
+            ctor = flight.Location.for_grpc_tls
+        location = ctor("localhost", port)
     else:
         port = None
 
@@ -262,10 +306,25 @@ def flight_server(server_base, *args, **kwargs):
     server_instance = server_base(*args, **ctor_kwargs)
 
     def _server_thread():
-        server_instance.run(location, auth_handler=auth_handler)
+        server_instance.run(
+            location,
+            auth_handler=auth_handler,
+            tls_certificates=tls_certificates,
+        )
 
     thread = threading.Thread(target=_server_thread, daemon=True)
     thread.start()
+
+    # Wait for server to start
+    client = flight.FlightClient.connect(location)
+    while True:
+        try:
+            list(client.list_flights())
+        except Exception as e:
+            if 'Connect Failed' in str(e):
+                time.sleep(0.025)
+                continue
+            break
 
     yield location
 
@@ -471,3 +530,32 @@ def test_location_invalid():
     server = ConstantFlightServer()
     with pytest.raises(pa.ArrowInvalid, match=".*Cannot parse URI:.*"):
         server.run("%")
+
+
+@pytest.mark.slow
+def test_tls_fails():
+    """Make sure clients cannot connect when cert verification fails."""
+    certs = example_tls_certs()
+
+    with flight_server(
+            ConstantFlightServer, tls_certificates=certs["certificates"]
+    ) as server_location:
+        # Ensure client doesn't connect when certificate verification
+        # fails (this is a slow test since gRPC does retry a few times)
+        client = flight.FlightClient.connect(server_location)
+        with pytest.raises(pa.ArrowIOError, match="Connect Failed"):
+            client.do_get(flight.Ticket(b'ints'))
+
+
+def test_tls_do_get():
+    """Try a simple do_get call over TLS."""
+    table = simple_ints_table()
+    certs = example_tls_certs()
+
+    with flight_server(
+            ConstantFlightServer, tls_certificates=certs["certificates"]
+    ) as server_location:
+        client = flight.FlightClient.connect(
+            server_location, tls_root_certs=certs["root_cert"])
+        data = client.do_get(flight.Ticket(b'ints')).read_all()
+        assert data.equals(table)

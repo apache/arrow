@@ -88,6 +88,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         @staticmethod
         CStatus ForGrpcTcp(c_string& host, int port, CLocation* location)
         @staticmethod
+        CStatus ForGrpcTls(c_string& host, int port, CLocation* location)
+        @staticmethod
         CStatus ForGrpcUnix(c_string& path, CLocation* location)
 
     cdef cppclass CFlightEndpoint" arrow::flight::FlightEndpoint":
@@ -154,12 +156,16 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CFlightCallOptions()
         CTimeoutDuration timeout
 
+    cdef cppclass CCertKeyPair" arrow::flight::CertKeyPair":
+        CCertKeyPair()
+        c_string pem_cert
+        c_string pem_key
+
     cdef cppclass CFlightServerOptions" arrow::flight::FlightServerOptions":
         CFlightServerOptions(const CLocation& location)
         CLocation location
         unique_ptr[CServerAuthHandler] auth_handler
-        c_string tls_cert_chain
-        c_string tls_private_key
+        vector[CCertKeyPair] tls_certificates
 
     cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
         CFlightClientOptions()
