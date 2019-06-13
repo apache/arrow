@@ -60,7 +60,7 @@
 #'
 #' @export
 table <- function(..., schema = NULL){
-  dots <- tibble::lst(...)
+  dots <- list2(...)
   stopifnot(length(dots) > 0)
   shared_ptr(`arrow::Table`, Table__from_dots(dots, schema))
 }
