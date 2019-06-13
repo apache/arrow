@@ -561,9 +561,10 @@ cdef class Array(_PandasConvertible):
             (_reduce_array_data(self.sp_array.get().data().get()),)
 
     @staticmethod
-    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0):
+    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
+                     children=None):
         """
-        Construct an Array from a sequence of buffers.  The concrete type
+        Construct an Array from a sequence of buffers. The concrete type
         returned depends on the datatype.
 
         Parameters
@@ -578,6 +579,8 @@ cdef class Array(_PandasConvertible):
         offset : int, default 0
             The array's logical offset (in values, not in bytes) from the
             start of each buffer
+        children : List[Array], default None
+            Nested type children with length matching type.num_children
 
         Returns
         -------
@@ -585,19 +588,36 @@ cdef class Array(_PandasConvertible):
         """
         cdef:
             Buffer buf
+            Array child
             vector[shared_ptr[CBuffer]] c_buffers
-            shared_ptr[CArrayData] ad
+            vector[shared_ptr[CArrayData]] c_child_data
+            shared_ptr[CArrayData] array_data
 
-        if not is_primitive(type.id):
-            raise NotImplementedError("from_buffers is only supported for "
-                                      "primitive arrays yet.")
+        children = children or []
+
+        if type.num_children != len(children):
+            raise ValueError("Type's expected number of children "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_children, len(children)))
+
+        if type.num_buffers != len(buffers):
+            raise ValueError("Type's expected number of buffers "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_buffers, len(buffers)))
 
         for buf in buffers:
             # None will produce a null buffer pointer
             c_buffers.push_back(pyarrow_unwrap_buffer(buf))
-        ad = CArrayData.Make(type.sp_type, length, c_buffers,
-                             null_count, offset)
-        return pyarrow_wrap_array(MakeArray(ad))
+
+        for child in children:
+            c_child_data.push_back(child.ap.data())
+
+        array_data = CArrayData.MakeWithChildren(type.sp_type, length,
+                                                 c_buffers, c_child_data,
+                                                 null_count, offset)
+        cdef Array result = pyarrow_wrap_array(MakeArray(array_data))
+        result.validate()
+        return result
 
     @property
     def null_count(self):
@@ -1214,18 +1234,9 @@ cdef class StringArray(Array):
         -------
         string_array : StringArray
         """
-        cdef shared_ptr[CBuffer] c_null_bitmap
-        cdef shared_ptr[CArray] out
-
-        if null_bitmap is not None:
-            c_null_bitmap = null_bitmap.buffer
-        else:
-            null_count = 0
-
-        out.reset(new CStringArray(
-            length, value_offsets.buffer, data.buffer, c_null_bitmap,
-            null_count, offset))
-        return pyarrow_wrap_array(out)
+        return Array.from_buffers(utf8(), length,
+                                  [null_bitmap, value_offsets, data],
+                                  null_count, offset)
 
 
 cdef class BinaryArray(Array):
