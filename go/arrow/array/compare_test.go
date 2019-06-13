@@ -106,6 +106,13 @@ func TestArrayEqualNull(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
+	null := array.NewNull(0)
+	defer null.Release()
+
+	if !array.ArrayEqual(null, null) {
+		t.Fatalf("identical arrays should compare equal")
+	}
+
 	n0 := array.NewNull(10)
 	defer n0.Release()
 
