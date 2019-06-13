@@ -55,15 +55,19 @@ func (a *List) String() string {
 			o.WriteString("(null)")
 			continue
 		}
-		j := i + a.array.data.offset
-		beg := int64(a.offsets[j])
-		end := int64(a.offsets[j+1])
-		sub := NewSlice(a.values, beg, end)
+		sub := a.newListValue(i)
 		fmt.Fprintf(o, "%v", sub)
 		sub.Release()
 	}
 	o.WriteString("]")
 	return o.String()
+}
+
+func (a *List) newListValue(i int) Interface {
+	j := i + a.array.data.offset
+	beg := int64(a.offsets[j])
+	end := int64(a.offsets[j+1])
+	return NewSlice(a.values, beg, end)
 }
 
 func (a *List) setData(data *Data) {

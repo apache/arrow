@@ -14,55 +14,82 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package array
+package array_test
 
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/arrow/memory"
 )
+
+func TestArrayEquals(t *testing.T) {
+	for name, recs := range arrdata.Records {
+		t.Run(name, func(t *testing.T) {
+			rec := recs[0]
+			schema := rec.Schema()
+			for i, col := range rec.Columns() {
+				t.Run(schema.Field(i).Name, func(t *testing.T) {
+					arr := col
+					if !array.ArrayEquals(arr, arr) {
+						t.Fatalf("identical arrays should compare equal:\narray=%v", arr)
+					}
+					sub1 := array.NewSlice(arr, 1, int64(arr.Len()))
+					defer sub1.Release()
+
+					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
+					defer sub2.Release()
+
+					if array.ArrayEquals(sub1, sub2) {
+						t.Fatalf("non-identical arrays should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
+					}
+				})
+			}
+		})
+	}
+}
 
 func TestBaseArrayEquals(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	b1 := NewBooleanBuilder(mem)
+	b1 := array.NewBooleanBuilder(mem)
 	defer b1.Release()
 	b1.Append(true)
 	a1 := b1.NewBooleanArray()
 	defer a1.Release()
 
-	b2 := NewBooleanBuilder(mem)
+	b2 := array.NewBooleanBuilder(mem)
 	defer b2.Release()
 	a2 := b2.NewBooleanArray()
 	defer a2.Release()
 
-	if baseArrayEquals(a1, a2) {
+	if array.ArrayEquals(a1, a2) {
 		t.Errorf("two arrays with different lengths must not be equal")
 	}
 
-	b3 := NewBooleanBuilder(mem)
+	b3 := array.NewBooleanBuilder(mem)
 	defer b3.Release()
 	b3.AppendNull()
 	a3 := b3.NewBooleanArray()
 	defer a3.Release()
 
-	if baseArrayEquals(a1, a3) {
+	if array.ArrayEquals(a1, a3) {
 		t.Errorf("two arrays with different number of null values must not be equal")
 	}
 
-	b4 := NewInt32Builder(mem)
+	b4 := array.NewInt32Builder(mem)
 	defer b4.Release()
 	b4.Append(0)
 	a4 := b4.NewInt32Array()
 	defer a4.Release()
 
-	if baseArrayEquals(a1, a4) {
+	if array.ArrayEquals(a1, a4) {
 		t.Errorf("two arrays with different types must not be equal")
 	}
 
-	b5 := NewBooleanBuilder(mem)
+	b5 := array.NewBooleanBuilder(mem)
 	defer b5.Release()
 	b5.AppendNull()
 	b5.Append(true)
@@ -70,192 +97,34 @@ func TestBaseArrayEquals(t *testing.T) {
 	defer a5.Release()
 	b1.AppendNull()
 
-	if baseArrayEquals(a1, a5) {
+	if array.ArrayEquals(a1, a5) {
 		t.Errorf("two arrays with different validity bitmaps must not be equal")
 	}
 }
 
-func TestBooleanArrayEquals(t *testing.T) {
+func TestArrayEqualsDifferentMaskedValues(t *testing.T) {
+	// test 2 int32 arrays, with same nulls (but different masked values) compare equal.
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	v1 := []bool{true, false, true}
-	v2 := []bool{false, false, true}
+	ab := array.NewInt32Builder(mem)
+	defer ab.Release()
 
-	b1 := NewBooleanBuilder(mem)
-	b2 := NewBooleanBuilder(mem)
-	defer b1.Release()
-	defer b2.Release()
+	valids := []bool{true, true, false, true}
+	ab.AppendValues([]int32{1, 2, 0, 4}, valids)
 
-	for _, v := range v1 {
-		b1.Append(v)
-	}
-
-	for _, v := range v2 {
-		b2.Append(v)
-	}
-
-	a1 := b1.NewBooleanArray()
-	a2 := b2.NewBooleanArray()
+	a1 := ab.NewInt32Array()
 	defer a1.Release()
+
+	ab.AppendValues([]int32{1, 2, 3, 4}, valids)
+	a2 := ab.NewInt32Array()
 	defer a2.Release()
 
-	if !ArrayEquals(a1, a1) || !ArrayEquals(a2, a2) {
+	if !array.ArrayEquals(a1, a1) || !array.ArrayEquals(a2, a2) {
 		t.Errorf("an array must be equal to itself")
 	}
 
-	if ArrayEquals(a1, a2) {
-		t.Errorf("%q is not equal to %q", a1, a2)
-	}
-}
-
-func TestFixedSizeBinaryArrayEquals(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	v1 := [][]byte{
-		[]byte("QWERTY"),
-		nil,
-		[]byte("123456"),
-	}
-	vv1 := []bool{true, false, true}
-
-	v2 := [][]byte{
-		[]byte("AZERTY"),
-		nil,
-		[]byte("123456"),
-	}
-	vv2 := []bool{true, false, true}
-
-	dtype := &arrow.FixedSizeBinaryType{ByteWidth: 7}
-	b1 := NewFixedSizeBinaryBuilder(mem, dtype)
-	defer b1.Release()
-	b2 := NewFixedSizeBinaryBuilder(mem, dtype)
-	defer b2.Release()
-
-	b1.AppendValues(v1, vv1)
-	b2.AppendValues(v2, vv2)
-
-	a1 := b1.NewFixedSizeBinaryArray()
-	defer a1.Release()
-	a2 := b2.NewFixedSizeBinaryArray()
-	defer a2.Release()
-
-	if !ArrayEquals(a1, a1) || !ArrayEquals(a2, a2) {
-		t.Errorf("an array must be equal to itself")
-	}
-
-	if ArrayEquals(a1, a2) {
-		t.Errorf("%v is not equal to %v", a1, a2)
-	}
-}
-
-func TestBinaryArrayEquals(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	v1 := [][]byte{
-		[]byte("Apache"),
-		nil,
-		[]byte("Arrow"),
-	}
-	vv1 := []bool{true, false, true}
-
-	v2 := [][]byte{
-		[]byte("Apache"),
-		nil,
-		[]byte("Foundation"),
-	}
-	vv2 := []bool{true, false, true}
-
-	b1 := NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
-	defer b1.Release()
-	b2 := NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
-	defer b2.Release()
-
-	b1.AppendValues(v1, vv1)
-	b2.AppendValues(v2, vv2)
-
-	a1 := b1.NewBinaryArray()
-	defer a1.Release()
-	a2 := b2.NewBinaryArray()
-	defer a2.Release()
-
-	if !ArrayEquals(a1, a1) || !ArrayEquals(a2, a2) {
-		t.Errorf("an array must be equal to itself")
-	}
-
-	if ArrayEquals(a1, a2) {
-		t.Errorf("%v is not equal to %v", a1, a2)
-	}
-}
-
-func TestNullArrayEquals(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	b1 := NewNullBuilder(mem)
-	defer b1.Release()
-	b2 := NewNullBuilder(mem)
-	defer b2.Release()
-	b3 := NewNullBuilder(mem)
-	defer b3.Release()
-
-	b1.AppendNull()
-	b1.AppendNull()
-
-	b2.AppendNull()
-	b2.AppendNull()
-
-	b3.AppendNull()
-
-	a1 := b1.NewNullArray()
-	defer a1.Release()
-	a2 := b2.NewNullArray()
-	defer a2.Release()
-	a3 := b3.NewNullArray()
-	defer a3.Release()
-
-	if !ArrayEquals(a1, a1) || !ArrayEquals(a2, a2) || !ArrayEquals(a3, a3) {
-		t.Errorf("an array must be equal to itself")
-	}
-
-	if !ArrayEquals(a1, a2) {
+	if !array.ArrayEquals(a1, a2) {
 		t.Errorf("%v must be equal to %v", a1, a2)
-	}
-
-	if ArrayEquals(a1, a3) {
-		t.Errorf("%v must not be equal to %v", a1, a3)
-	}
-}
-
-func TestStringArrayEquals(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	b1 := NewStringBuilder(mem)
-	defer b1.Release()
-	b2 := NewStringBuilder(mem)
-	defer b2.Release()
-
-	b1.Append("Apache")
-	b1.AppendNull()
-	b1.Append("Arrow")
-
-	b2.Append("Apache")
-	b2.AppendNull()
-	b2.Append("Foundation")
-
-	a1 := b1.NewStringArray()
-	defer a1.Release()
-	a2 := b2.NewStringArray()
-	defer a2.Release()
-
-	if !ArrayEquals(a1, a1) || !ArrayEquals(a2, a2) {
-		t.Errorf("an array must be equal to itself")
-	}
-
-	if ArrayEquals(a1, a2) {
-		t.Errorf("%v must not be equal to %v", a1, a2)
 	}
 }
