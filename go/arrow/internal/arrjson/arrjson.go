@@ -122,6 +122,22 @@ func dtypeToJSON(dt arrow.DataType) dataType {
 		case arrow.Nanosecond:
 			return dataType{Name: "timestamp", Unit: "NANOSECOND", TimeZone: dt.TimeZone}
 		}
+	case *arrow.MonthIntervalType:
+		return dataType{Name: "interval", Unit: "YEAR_MONTH"}
+	case *arrow.DayTimeIntervalType:
+		return dataType{Name: "interval", Unit: "DAY_TIME"}
+	case *arrow.DurationType:
+		switch dt.Unit {
+		case arrow.Second:
+			return dataType{Name: "duration", Unit: "SECOND"}
+		case arrow.Millisecond:
+			return dataType{Name: "duration", Unit: "MILLISECOND"}
+		case arrow.Microsecond:
+			return dataType{Name: "duration", Unit: "MICROSECOND"}
+		case arrow.Nanosecond:
+			return dataType{Name: "duration", Unit: "NANOSECOND"}
+		}
+
 	case *arrow.ListType:
 		return dataType{Name: "list"}
 	case *arrow.StructType:
@@ -222,6 +238,24 @@ func dtypeFromJSON(dt dataType, children []Field) arrow.DataType {
 		return &arrow.FixedSizeBinaryType{ByteWidth: dt.ByteWidth}
 	case "fixedsizelist":
 		return arrow.FixedSizeListOf(dt.ListSize, dtypeFromJSON(children[0].Type, nil))
+	case "interval":
+		switch dt.Unit {
+		case "YEAR_MONTH":
+			return arrow.FixedWidthTypes.MonthInterval
+		case "DAY_TIME":
+			return arrow.FixedWidthTypes.DayTimeInterval
+		}
+	case "duration":
+		switch dt.Unit {
+		case "SECOND":
+			return arrow.FixedWidthTypes.Duration_s
+		case "MILLISECOND":
+			return arrow.FixedWidthTypes.Duration_ms
+		case "MICROSECOND":
+			return arrow.FixedWidthTypes.Duration_us
+		case "NANOSECOND":
+			return arrow.FixedWidthTypes.Duration_ns
+		}
 	}
 	panic(errors.Errorf("unknown DataType %#v", dt))
 }
@@ -552,6 +586,30 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		bldr.AppendValues(data, valids)
 		return bldr.NewArray()
 
+	case *arrow.MonthIntervalType:
+		bldr := array.NewMonthIntervalBuilder(mem)
+		defer bldr.Release()
+		data := monthintervalFromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return bldr.NewArray()
+
+	case *arrow.DayTimeIntervalType:
+		bldr := array.NewDayTimeIntervalBuilder(mem)
+		defer bldr.Release()
+		data := daytimeintervalFromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return bldr.NewArray()
+
+	case *arrow.DurationType:
+		bldr := array.NewDurationBuilder(mem, dt)
+		defer bldr.Release()
+		data := durationFromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return bldr.NewArray()
+
 	default:
 		panic(errors.Errorf("unknown data type %v %T", dt, dt))
 	}
@@ -763,6 +821,27 @@ func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 			Name:   field.Name,
 			Count:  arr.Len(),
 			Data:   timestampToJSON(arr),
+			Valids: validsToJSON(arr),
+		}
+	case *array.MonthInterval:
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   monthintervalToJSON(arr),
+			Valids: validsToJSON(arr),
+		}
+	case *array.DayTimeInterval:
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   daytimeintervalToJSON(arr),
+			Valids: validsToJSON(arr),
+		}
+	case *array.Duration:
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   durationToJSON(arr),
 			Valids: validsToJSON(arr),
 		}
 
@@ -1174,6 +1253,71 @@ func timestampToJSON(arr *array.Timestamp) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
 		o[i] = int64(arr.Value(i))
+	}
+	return o
+}
+
+func monthintervalFromJSON(vs []interface{}) []arrow.MonthInterval {
+	o := make([]arrow.MonthInterval, len(vs))
+	for i, v := range vs {
+		vv, err := v.(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		o[i] = arrow.MonthInterval(int32(vv))
+	}
+	return o
+}
+
+func monthintervalToJSON(arr *array.MonthInterval) []interface{} {
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		o[i] = int32(arr.Value(i))
+	}
+	return o
+}
+
+func daytimeintervalFromJSON(vs []interface{}) []arrow.DayTimeInterval {
+	o := make([]arrow.DayTimeInterval, len(vs))
+	for i, vv := range vs {
+		v := vv.(map[string]interface{})
+		days, err := v["days"].(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		ms, err := v["milliseconds"].(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		o[i] = arrow.DayTimeInterval{Days: int32(days), Milliseconds: int32(ms)}
+	}
+	return o
+}
+
+func daytimeintervalToJSON(arr *array.DayTimeInterval) []interface{} {
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		o[i] = arr.Value(i)
+	}
+	return o
+}
+
+func durationFromJSON(vs []interface{}) []arrow.Duration {
+	o := make([]arrow.Duration, len(vs))
+	for i, v := range vs {
+		vv, err := v.(json.Number).Int64()
+		if err != nil {
+			panic(err)
+		}
+		o[i] = arrow.Duration(vv)
+	}
+	return o
+}
+
+func durationToJSON(arr *array.Duration) []interface{} {
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		o[i] = arr.Value(i)
 	}
 	return o
 }

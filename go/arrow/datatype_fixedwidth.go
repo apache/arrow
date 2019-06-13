@@ -130,8 +130,8 @@ func (t *MonthIntervalType) BitWidth() int { return 32 }
 
 // DayTimeInterval represents a number of days and milliseconds (fraction of day).
 type DayTimeInterval struct {
-	Days         int32
-	Milliseconds int32
+	Days         int32 `json:"days"`
+	Milliseconds int32 `json:"milliseconds"`
 }
 
 // DayTimeIntervalType is encoded as a pair of 32-bit signed integer,
