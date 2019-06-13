@@ -25,6 +25,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
@@ -51,31 +52,21 @@ using internal::HashTraits;
 
 namespace compute {
 
-#define CHECK_IMPLEMENTED(KERNEL, FUNCNAME, TYPE)                                       \
-  if (!KERNEL) {                                                                        \
-    return Status::NotImplemented(FUNCNAME, " not implemented for ", type->ToString()); \
-  }
-
-class HashBinaryKernelImpl : public BinaryKernel {
-  virtual Status Compute(FunctionContext* ctx, const ArrayData& left,
-                         const ArrayData& right, std::shared_ptr<ArrayData>& out) = 0;
+class IsInKernelImpl : public UnaryKernel {
+  virtual Status Compute(FunctionContext* ctx, const ArrayData& right) = 0;
 
  public:
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
-              Datum* out) override {
+  Status Call(FunctionContext* ctx, const Datum& right, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, right.kind());
-    DCHECK_EQ(Datum::ARRAY, left.kind());
-
-    const ArrayData& left_data = *left.array();
     const ArrayData& right_data = *right.array();
-
-    std::shared_ptr<ArrayData> result;
-    RETURN_NOT_OK(Compute(ctx, left_data, right_data, result));
-
-    out->value = std::move(result);
+    RETURN_NOT_OK(Compute(ctx, right_data));
     return Status::OK();
   }
+
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
+
+  virtual Status CompareArray(FunctionContext* ctx, const ArrayData& left,
+                              std::shared_ptr<ArrayData>* out) = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -110,10 +101,10 @@ struct MemoTableRight {
 
 // Additional member "right_null_count" is used to check if
 // null count in right is not 0, then append true to the BooleanBuilder
-// when left array has a null, else append false.
+// when left array has a null, else append null.
 
 template <typename T, typename Scalar>
-class IsInKernel : public HashBinaryKernelImpl {
+class IsInKernel : public IsInKernelImpl {
  public:
   IsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
 
@@ -121,34 +112,34 @@ class IsInKernel : public HashBinaryKernelImpl {
     if (right_null_count != 0) {
       bool_builder_.UnsafeAppend(true);
     } else {
-      bool_builder_.UnsafeAppend(false);
+      bool_builder_.UnsafeAppendNull();
     }
     return Status::OK();
   }
 
   Status VisitValue(const Scalar& value) {
-    if (memo_table_->Get(value) != -1) {
-      bool_builder_.UnsafeAppend(true);
-    } else {
-      bool_builder_.UnsafeAppend(false);
-    }
+    bool_builder_.UnsafeAppend(memo_table_->Get(value) != -1);
     return Status::OK();
   }
 
-  Status Compute(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
-                 std::shared_ptr<ArrayData>& out) override {
-    bool_builder_.Reset();
-    bool_builder_.Reserve(left.length);
+  Status Compute(FunctionContext* ctx, const ArrayData& right) override {
     memo_table_.reset(new MemoTable(0));
 
     MemoTableRight<T, Scalar> func;
     func.Append(right);
     memo_table_ = std::move(func.memo_table_);
 
-    right_null_count = right.null_count;
-    ArrayDataVisitor<T>::Visit(left, this);
+    right_null_count = right.GetNullCount();
 
-    RETURN_NOT_OK(bool_builder_.FinishInternal(&out));
+    return Status::OK();
+  }
+
+  Status CompareArray(FunctionContext* ctx, const ArrayData& left,
+                      std::shared_ptr<ArrayData>* out) override {
+    bool_builder_.Reset();
+    bool_builder_.Reserve(left.length);
+    ArrayDataVisitor<T>::Visit(left, this);
+    RETURN_NOT_OK(bool_builder_.FinishInternal(out));
     return Status::OK();
   }
 
@@ -167,71 +158,78 @@ class IsInKernel : public HashBinaryKernelImpl {
 // \brief When array is NullType, based on the null_count for the arrays,
 // append true/false tp the BooleanBuilder
 
-class NullIsInKernel : public HashBinaryKernelImpl {
+class NullIsInKernel : public IsInKernelImpl {
  public:
   NullIsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
 
-  Status Compute(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
-                 std::shared_ptr<ArrayData>& out) override {
+  Status Compute(FunctionContext* ctx, const ArrayData& right) override {
+    right_null_count = right.GetNullCount();
+    return Status::OK();
+  }
+
+  Status CompareArray(FunctionContext* ctx, const ArrayData& left,
+                      std::shared_ptr<ArrayData>* out) override {
     bool_builder_.Reset();
     bool_builder_.Reserve(left.length);
 
-    if (left.null_count != 0 && right.null_count != 0) {
+    if (left.GetNullCount() != 0 && right_null_count != 0) {
       for (int64_t i = 0; i < left.length; ++i) {
         bool_builder_.UnsafeAppend(true);
       }
-    } else if (left.null_count != 0 && right.null_count == 0) {
+    } else if (left.GetNullCount() != 0 && right_null_count == 0) {
       for (int64_t i = 0; i < left.length; ++i) {
-        bool_builder_.UnsafeAppend(false);
+        bool_builder_.UnsafeAppendNull();
       }
     }
-    RETURN_NOT_OK(bool_builder_.FinishInternal(&out));
+
+    RETURN_NOT_OK(bool_builder_.FinishInternal(out));
     return Status::OK();
   }
 
  private:
   BooleanBuilder bool_builder_;
+  int64_t right_null_count;
 };
 
 // ----------------------------------------------------------------------
 // Kernel wrapper for generic hash table kernels
 
 template <typename Type, typename Enable = void>
-struct HashBinaryKernelTraits {};
+struct IsInKernelTraits {};
 
 template <typename Type>
-struct HashBinaryKernelTraits<Type, enable_if_null<Type>> {
-  using HashBinaryKernelImpl = NullIsInKernel;
+struct IsInKernelTraits<Type, enable_if_null<Type>> {
+  using IsInKernelImpl = NullIsInKernel;
 };
 
 template <typename Type>
-struct HashBinaryKernelTraits<Type, enable_if_has_c_type<Type>> {
-  using HashBinaryKernelImpl = IsInKernel<Type, typename Type::c_type>;
+struct IsInKernelTraits<Type, enable_if_has_c_type<Type>> {
+  using IsInKernelImpl = IsInKernel<Type, typename Type::c_type>;
 };
 
 template <typename Type>
-struct HashBinaryKernelTraits<Type, enable_if_boolean<Type>> {
-  using HashBinaryKernelImpl = IsInKernel<Type, bool>;
+struct IsInKernelTraits<Type, enable_if_boolean<Type>> {
+  using IsInKernelImpl = IsInKernel<Type, bool>;
 };
 
 template <typename Type>
-struct HashBinaryKernelTraits<Type, enable_if_binary<Type>> {
-  using HashBinaryKernelImpl = IsInKernel<Type, util::string_view>;
+struct IsInKernelTraits<Type, enable_if_binary<Type>> {
+  using IsInKernelImpl = IsInKernel<Type, util::string_view>;
 };
 
 template <typename Type>
-struct HashBinaryKernelTraits<Type, enable_if_fixed_size_binary<Type>> {
-  using HashBinaryKernelImpl = IsInKernel<Type, util::string_view>;
+struct IsInKernelTraits<Type, enable_if_fixed_size_binary<Type>> {
+  using IsInKernelImpl = IsInKernel<Type, util::string_view>;
 };
 
 Status GetIsInKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
-                     std::unique_ptr<HashBinaryKernelImpl>* out) {
-  std::unique_ptr<HashBinaryKernelImpl> kernel;
+                     std::unique_ptr<IsInKernelImpl>* out) {
+  std::unique_ptr<IsInKernelImpl> kernel;
 
-#define ISIN_CASE(InType)                                                           \
-  case InType::type_id:                                                             \
-    kernel.reset(new typename HashBinaryKernelTraits<InType>::HashBinaryKernelImpl( \
-        type, ctx->memory_pool()));                                                 \
+#define ISIN_CASE(InType)                                               \
+  case InType::type_id:                                                 \
+    kernel.reset(new typename IsInKernelTraits<InType>::IsInKernelImpl( \
+        type, ctx->memory_pool()));                                     \
     break
 
   switch (type->id()) {
@@ -261,19 +259,27 @@ Status GetIsInKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type
   }
 #undef ISIN_CASE
 
-  CHECK_IMPLEMENTED(kernel, "isin", type);
+  if (!kernel) {
+    return Status::NotImplemented("isin", " not implemented for ", type->ToString());
+  }
+
   *out = std::move(kernel);
   return Status::OK();
 }
 
 Status IsIn(FunctionContext* context, const Datum& left, const Datum& right, Datum* out) {
   DCHECK(left.type()->Equals(right.type()));
-  std::unique_ptr<HashBinaryKernelImpl> isin_kernel;
+  std::unique_ptr<IsInKernelImpl> isin_kernel;
+  std::vector<Datum> unused_output;
   RETURN_NOT_OK(GetIsInKernel(context, right.type(), &isin_kernel));
 
-  detail::PrimitiveAllocatingBinaryKernel kernel(isin_kernel.get());
-  out->value = ArrayData::Make(isin_kernel->out_type(), (left.make_array())->length());
-  kernel.Call(context, left, right, out);
+  RETURN_NOT_OK(
+      detail::InvokeUnaryArrayKernel(context, isin_kernel.get(), right, &unused_output));
+
+  std::shared_ptr<ArrayData> result;
+  const ArrayData& left_data = *left.array();
+  RETURN_NOT_OK(isin_kernel->CompareArray(context, left_data, &result));
+  out->value = std::move(result);
 
   return Status::OK();
 }
