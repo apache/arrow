@@ -78,7 +78,7 @@ struct RegressionArgs {
   // proportion of nulls in generated arrays
   const double null_proportion;
 
-  RegressionArgs(benchmark::State& state)
+  explicit RegressionArgs(benchmark::State& state)
       : size(state.range(0) / 4),
         null_proportion(static_cast<double>(state.range(1)) / 100.0),
         state_(state) {}
