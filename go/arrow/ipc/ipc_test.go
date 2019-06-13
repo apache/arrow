@@ -21,7 +21,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -30,36 +29,6 @@ import (
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 )
-
-func cmpRecs(r1, r2 array.Record) bool {
-	// FIXME(sbinet): impl+use arrow.Record.Equal ?
-
-	if !r1.Schema().Equal(r2.Schema()) {
-		return false
-	}
-	if r1.NumCols() != r2.NumCols() {
-		return false
-	}
-	if r1.NumRows() != r2.NumRows() {
-		return false
-	}
-
-	var (
-		txt1 = new(strings.Builder)
-		txt2 = new(strings.Builder)
-	)
-
-	printRec(txt1, r1)
-	printRec(txt2, r2)
-
-	return txt1.String() == txt2.String()
-}
-
-func printRec(w io.Writer, rec array.Record) {
-	for i, col := range rec.Columns() {
-		fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
-	}
-}
 
 func checkArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
 	t.Helper()
@@ -85,7 +54,7 @@ func checkArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arro
 		if err != nil {
 			t.Fatalf("could not read record %d: %v", i, err)
 		}
-		if !cmpRecs(rec, recs[i]) {
+		if !array.RecordEqual(rec, recs[i]) {
 			t.Fatalf("records[%d] differ", i)
 		}
 	}
@@ -119,7 +88,7 @@ func checkArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *ar
 	n := 0
 	for r.Next() {
 		rec := r.Record()
-		if !cmpRecs(rec, recs[n]) {
+		if !array.RecordEqual(rec, recs[n]) {
 			t.Fatalf("records[%d] differ", n)
 		}
 		n++

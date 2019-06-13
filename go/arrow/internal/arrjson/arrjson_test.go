@@ -17,11 +17,9 @@
 package arrjson // import "github.com/apache/arrow/go/arrow/internal/arrjson"
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/array"
@@ -98,7 +96,7 @@ func TestReadWrite(t *testing.T) {
 					t.Fatalf("could not read record[%d]: %v", nrecs, err)
 				}
 
-				if !cmpRecs(rec, recs[nrecs]) {
+				if !array.RecordEqual(rec, recs[nrecs]) {
 					t.Fatalf("records[%d] differ", nrecs)
 				}
 				nrecs++
@@ -108,35 +106,5 @@ func TestReadWrite(t *testing.T) {
 				t.Fatalf("invalid number of records: got=%d, want=%d", got, want)
 			}
 		})
-	}
-}
-
-func cmpRecs(r1, r2 array.Record) bool {
-	// FIXME(sbinet): impl+use arrow.Record.Equal ?
-
-	if !r1.Schema().Equal(r2.Schema()) {
-		return false
-	}
-	if r1.NumCols() != r2.NumCols() {
-		return false
-	}
-	if r1.NumRows() != r2.NumRows() {
-		return false
-	}
-
-	var (
-		txt1 = new(strings.Builder)
-		txt2 = new(strings.Builder)
-	)
-
-	printRec(txt1, r1)
-	printRec(txt2, r2)
-
-	return txt1.String() == txt2.String()
-}
-
-func printRec(w io.Writer, rec array.Record) {
-	for i, col := range rec.Columns() {
-		fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
 	}
 }

@@ -18,7 +18,6 @@ package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-json-inte
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
@@ -211,7 +210,7 @@ func validate(arrowName, jsonName string, verbose bool) error {
 		if err != nil {
 			return errors.Wrapf(err, "could not read record %d from JSON file", i)
 		}
-		if !approxEquals(jrec, arec) {
+		if !array.RecordApproxEqual(jrec, arec) {
 			return errors.Errorf("record batch %d did not match\nJSON:\n%v\nARROW:\n%v\n",
 				i, jrec, arec,
 			)
@@ -223,24 +222,4 @@ func validate(arrowName, jsonName string, verbose bool) error {
 	}
 
 	return nil
-}
-
-func approxEquals(r1, r2 array.Record) bool {
-	// FIXME(sbinet): use array.RecordEqual when available
-	if !r1.Schema().Equal(r2.Schema()) {
-		return false
-	}
-	if r1.NumRows() != r2.NumRows() {
-		return false
-	}
-	for i := range r1.Columns() {
-		c1 := r1.Column(i)
-		c2 := r2.Column(i)
-		s1 := fmt.Sprintf("%v", c1)
-		s2 := fmt.Sprintf("%v", c2)
-		if s1 != s2 {
-			return false
-		}
-	}
-	return true
 }
