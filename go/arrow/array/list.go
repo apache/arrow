@@ -79,6 +79,25 @@ func (a *List) setData(data *Data) {
 	a.values = MakeFromData(data.childData[0])
 }
 
+func arrayEqualList(left, right *List) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return ArrayEqual(l, r)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
 // Len returns the number of elements in the array.
 func (a *List) Len() int { return a.array.Len() }
 

@@ -17,8 +17,6 @@
 package array
 
 import (
-	"bytes"
-
 	"github.com/apache/arrow/go/arrow"
 	"github.com/pkg/errors"
 )
@@ -43,73 +41,73 @@ func ArrayEqual(left, right Interface) bool {
 		return true
 	case *Boolean:
 		r := right.(*Boolean)
-		return booleanArrayEqual(l, r)
+		return arrayEqualBoolean(l, r)
 	case *FixedSizeBinary:
 		r := right.(*FixedSizeBinary)
-		return fixedSizeBinaryArrayEqual(l, r)
+		return arrayEqualFixedSizeBinary(l, r)
 	case *Binary:
 		r := right.(*Binary)
-		return binaryArrayEqual(l, r)
+		return arrayEqualBinary(l, r)
 	case *String:
 		r := right.(*String)
-		return stringArrayEqual(l, r)
+		return arrayEqualString(l, r)
 	case *Int8:
 		r := right.(*Int8)
-		return i8ArrayEqual(l, r)
+		return arrayEqualInt8(l, r)
 	case *Int16:
 		r := right.(*Int16)
-		return i16ArrayEqual(l, r)
+		return arrayEqualInt16(l, r)
 	case *Int32:
 		r := right.(*Int32)
-		return i32ArrayEqual(l, r)
+		return arrayEqualInt32(l, r)
 	case *Int64:
 		r := right.(*Int64)
-		return i64ArrayEqual(l, r)
+		return arrayEqualInt64(l, r)
 	case *Uint8:
 		r := right.(*Uint8)
-		return u8ArrayEqual(l, r)
+		return arrayEqualUint8(l, r)
 	case *Uint16:
 		r := right.(*Uint16)
-		return u16ArrayEqual(l, r)
+		return arrayEqualUint16(l, r)
 	case *Uint32:
 		r := right.(*Uint32)
-		return u32ArrayEqual(l, r)
+		return arrayEqualUint32(l, r)
 	case *Uint64:
 		r := right.(*Uint64)
-		return u64ArrayEqual(l, r)
+		return arrayEqualUint64(l, r)
 	case *Float16:
 		r := right.(*Float16)
-		return f16ArrayEqual(l, r)
+		return arrayEqualFloat16(l, r)
 	case *Float32:
 		r := right.(*Float32)
-		return f32ArrayEqual(l, r)
+		return arrayEqualFloat32(l, r)
 	case *Float64:
 		r := right.(*Float64)
-		return f64ArrayEqual(l, r)
+		return arrayEqualFloat64(l, r)
 	case *Date32:
 		r := right.(*Date32)
-		return date32ArrayEqual(l, r)
+		return arrayEqualDate32(l, r)
 	case *Date64:
 		r := right.(*Date64)
-		return date64ArrayEqual(l, r)
+		return arrayEqualDate64(l, r)
 	case *Time32:
 		r := right.(*Time32)
-		return time32ArrayEqual(l, r)
+		return arrayEqualTime32(l, r)
 	case *Time64:
 		r := right.(*Time64)
-		return time64ArrayEqual(l, r)
+		return arrayEqualTime64(l, r)
 	case *Timestamp:
 		r := right.(*Timestamp)
-		return timestampArrayEqual(l, r)
+		return arrayEqualTimestamp(l, r)
 	case *List:
 		r := right.(*List)
-		return listArrayEqual(l, r)
+		return arrayEqualList(l, r)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
-		return fixedSizeListArrayEqual(l, r)
+		return arrayEqualFixedSizeList(l, r)
 	case *Struct:
 		r := right.(*Struct)
-		return structArrayEqual(l, r)
+		return arrayEqualStruct(l, r)
 
 	default:
 		panic(errors.Errorf("arrow/array: unknown array type %T", l))
@@ -138,294 +136,6 @@ func validityBitmapEqual(left, right Interface) bool {
 	}
 	for i := 0; i < n; i++ {
 		if left.IsNull(i) != right.IsNull(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func booleanArrayEqual(left, right *Boolean) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func fixedSizeBinaryArrayEqual(left, right *FixedSizeBinary) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if bytes.Compare(left.Value(i), right.Value(i)) != 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func binaryArrayEqual(left, right *Binary) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if bytes.Compare(left.Value(i), right.Value(i)) != 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func stringArrayEqual(left, right *String) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func i8ArrayEqual(left, right *Int8) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func i16ArrayEqual(left, right *Int16) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func i32ArrayEqual(left, right *Int32) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func i64ArrayEqual(left, right *Int64) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func u8ArrayEqual(left, right *Uint8) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func u16ArrayEqual(left, right *Uint16) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func u32ArrayEqual(left, right *Uint32) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func u64ArrayEqual(left, right *Uint64) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func f16ArrayEqual(left, right *Float16) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func f32ArrayEqual(left, right *Float32) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func f64ArrayEqual(left, right *Float64) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func date32ArrayEqual(left, right *Date32) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func date64ArrayEqual(left, right *Date64) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func time32ArrayEqual(left, right *Time32) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func time64ArrayEqual(left, right *Time64) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func timestampArrayEqual(left, right *Timestamp) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-func listArrayEqual(left, right *List) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		o := func() bool {
-			l := left.newListValue(i)
-			defer l.Release()
-			r := right.newListValue(i)
-			defer r.Release()
-			return ArrayEqual(l, r)
-		}()
-		if !o {
-			return false
-		}
-	}
-	return true
-}
-
-func fixedSizeListArrayEqual(left, right *FixedSizeList) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		o := func() bool {
-			l := left.newListValue(i)
-			defer l.Release()
-			r := right.newListValue(i)
-			defer r.Release()
-			return ArrayEqual(l, r)
-		}()
-		if !o {
-			return false
-		}
-	}
-	return true
-}
-
-func structArrayEqual(left, right *Struct) bool {
-	for i, lf := range left.fields {
-		rf := right.fields[i]
-		if !ArrayEqual(lf, rf) {
 			return false
 		}
 	}
