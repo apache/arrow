@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @useDynLib arrow, .registration = TRUE
-#' @importFrom Rcpp sourceCpp
-NULL
+test_that <- function(what, code) {
+  testthat::test_that(what, {
+    skip_if(!arrow:::arrow_available(), "arrow C++ library not available")
+    code
+  })
+}

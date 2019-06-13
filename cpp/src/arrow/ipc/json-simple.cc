@@ -442,6 +442,60 @@ class ListConverter final : public ConcreteConverter<ListConverter> {
 };
 
 // ------------------------------------------------------------------------
+// Converter for map arrays
+
+class MapConverter final : public ConcreteConverter<MapConverter> {
+ public:
+  explicit MapConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
+
+  Status Init() override {
+    const auto& map_type = checked_cast<const MapType&>(*type_);
+    RETURN_NOT_OK(GetConverter(map_type.key_type(), &key_converter_));
+    RETURN_NOT_OK(GetConverter(map_type.item_type(), &item_converter_));
+    auto key_builder = key_converter_->builder();
+    auto item_builder = item_converter_->builder();
+    builder_ = std::make_shared<MapBuilder>(default_memory_pool(), key_builder,
+                                            item_builder, type_);
+    return Status::OK();
+  }
+
+  Status AppendNull() override { return builder_->AppendNull(); }
+
+  Status AppendValue(const rj::Value& json_obj) override {
+    if (json_obj.IsNull()) {
+      return AppendNull();
+    }
+    RETURN_NOT_OK(builder_->Append());
+    if (!json_obj.IsArray()) {
+      return JSONTypeError("array", json_obj.GetType());
+    }
+    auto size = json_obj.Size();
+    for (uint32_t i = 0; i < size; ++i) {
+      const auto& json_pair = json_obj[i];
+      if (!json_pair.IsArray()) {
+        return JSONTypeError("array", json_pair.GetType());
+      }
+      if (json_pair.Size() != 2) {
+        return Status::Invalid("key item pair must have exactly two elements, had ",
+                               json_pair.Size());
+      }
+      if (json_pair[0].IsNull()) {
+        return Status::Invalid("null key is invalid");
+      }
+      RETURN_NOT_OK(key_converter_->AppendValue(json_pair[0]));
+      RETURN_NOT_OK(item_converter_->AppendValue(json_pair[1]));
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
+
+ private:
+  std::shared_ptr<MapBuilder> builder_;
+  std::shared_ptr<Converter> key_converter_, item_converter_;
+};
+
+// ------------------------------------------------------------------------
 // Converter for fixed size list arrays
 
 class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConverter> {
@@ -587,6 +641,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::FLOAT, FloatConverter<FloatType>)
     SIMPLE_CONVERTER_CASE(Type::DOUBLE, FloatConverter<DoubleType>)
     SIMPLE_CONVERTER_CASE(Type::LIST, ListConverter)
+    SIMPLE_CONVERTER_CASE(Type::MAP, MapConverter)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_LIST, FixedSizeListConverter)
     SIMPLE_CONVERTER_CASE(Type::STRUCT, StructConverter)
     SIMPLE_CONVERTER_CASE(Type::STRING, StringConverter)

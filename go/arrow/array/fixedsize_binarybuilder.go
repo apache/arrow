@@ -17,6 +17,7 @@
 package array
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
@@ -28,16 +29,14 @@ import (
 type FixedSizeBinaryBuilder struct {
 	builder
 
-	dtype   *arrow.FixedSizeBinaryType
-	offsets *int32BufferBuilder
-	values  *byteBufferBuilder
+	dtype  *arrow.FixedSizeBinaryType
+	values *byteBufferBuilder
 }
 
 func NewFixedSizeBinaryBuilder(mem memory.Allocator, dtype *arrow.FixedSizeBinaryType) *FixedSizeBinaryBuilder {
 	b := &FixedSizeBinaryBuilder{
 		builder: builder{refCount: 1, mem: mem},
 		dtype:   dtype,
-		offsets: newInt32BufferBuilder(mem),
 		values:  newByteBufferBuilder(mem),
 	}
 	return b
@@ -54,10 +53,6 @@ func (b *FixedSizeBinaryBuilder) Release() {
 			b.nullBitmap.Release()
 			b.nullBitmap = nil
 		}
-		if b.offsets != nil {
-			b.offsets.Release()
-			b.offsets = nil
-		}
 		if b.values != nil {
 			b.values.Release()
 			b.values = nil
@@ -72,14 +67,13 @@ func (b *FixedSizeBinaryBuilder) Append(v []byte) {
 	}
 
 	b.Reserve(1)
-	b.appendNextOffset()
 	b.values.Append(v)
 	b.UnsafeAppendBoolToBitmap(true)
 }
 
 func (b *FixedSizeBinaryBuilder) AppendNull() {
 	b.Reserve(1)
-	b.appendNextOffset()
+	b.values.Advance(b.dtype.ByteWidth)
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
@@ -97,23 +91,17 @@ func (b *FixedSizeBinaryBuilder) AppendValues(v [][]byte, valid []bool) {
 
 	b.Reserve(len(v))
 	for _, vv := range v {
-		b.appendNextOffset()
-		b.values.Append(vv)
+		switch len(vv) {
+		case 0:
+			b.values.Advance(b.dtype.ByteWidth)
+		case b.dtype.ByteWidth:
+			b.values.Append(vv)
+		default:
+			panic(fmt.Errorf("array: invalid binary length (got=%d, want=%d)", len(vv), b.dtype.ByteWidth))
+		}
 	}
 
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
-}
-
-func (b *FixedSizeBinaryBuilder) Value(i int) []byte {
-	offsets := b.offsets.Values()
-	start := int(offsets[i])
-	var end int
-	if i == (b.length - 1) {
-		end = b.values.Len()
-	} else {
-		end = int(offsets[i+1])
-	}
-	return b.values.Bytes()[start:end]
 }
 
 func (b *FixedSizeBinaryBuilder) init(capacity int) {
@@ -130,7 +118,6 @@ func (b *FixedSizeBinaryBuilder) Reserve(n int) {
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
 func (b *FixedSizeBinaryBuilder) Resize(n int) {
-	b.offsets.resize((n + 1) * arrow.Int32SizeBytes)
 	b.builder.resize(n, b.init)
 }
 
@@ -150,27 +137,16 @@ func (b *FixedSizeBinaryBuilder) NewFixedSizeBinaryArray() (a *FixedSizeBinary) 
 }
 
 func (b *FixedSizeBinaryBuilder) newData() (data *Data) {
-	b.appendNextOffset()
 	values := b.values.Finish()
-	offsets := b.offsets.Finish()
-	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, offsets, values}, nil, b.nulls, 0)
+	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, values}, nil, b.nulls, 0)
 
 	if values != nil {
 		values.Release()
-	}
-	if offsets != nil {
-		offsets.Release()
 	}
 
 	b.builder.reset()
 
 	return
-}
-
-func (b *FixedSizeBinaryBuilder) appendNextOffset() {
-	numBytes := b.values.Len()
-	// TODO(alexandre): check binaryArrayMaximumCapacity?
-	b.offsets.AppendValue(int32(numBytes))
 }
 
 var (

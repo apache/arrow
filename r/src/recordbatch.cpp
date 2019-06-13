@@ -15,29 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "./arrow_types.h"
+
+#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
-#include "./arrow_types.h"
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
   return x->num_columns();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x) {
   return x->num_rows();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> RecordBatch__schema(
     const std::shared_ptr<arrow::RecordBatch>& x) {
   return x->schema();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 arrow::ArrayVector RecordBatch__columns(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   auto nc = batch->num_columns();
@@ -48,19 +50,37 @@ arrow::ArrayVector RecordBatch__columns(
   return res;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> RecordBatch__column(
     const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
   return batch->column(i);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl) {
+  Rcpp::CharacterVector names = tbl.names();
+
+  std::vector<std::shared_ptr<arrow::Field>> fields;
+  std::vector<std::shared_ptr<arrow::Array>> arrays;
+
+  for (int i = 0; i < tbl.size(); i++) {
+    SEXP x = tbl[i];
+    arrays.push_back(Array__from_vector(x, R_NilValue));
+    fields.push_back(
+        std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type()));
+  }
+  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
+
+  return arrow::RecordBatch::Make(schema, tbl.nrow(), std::move(arrays));
+}
+
+// [[arrow::export]]
 bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
                          const std::shared_ptr<arrow::RecordBatch>& other) {
   return self->Equals(*other);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
     const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
   std::shared_ptr<arrow::RecordBatch> res;
@@ -68,13 +88,13 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
   return res;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& batch,
                                      int i) {
   return batch->column_name(i);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 Rcpp::CharacterVector RecordBatch__names(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   int n = batch->num_columns();
@@ -85,19 +105,19 @@ Rcpp::CharacterVector RecordBatch__names(
   return names;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(
     const std::shared_ptr<arrow::RecordBatch>& self, int offset) {
   return self->Slice(offset);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(
     const std::shared_ptr<arrow::RecordBatch>& self, int offset, int length) {
   return self->Slice(offset, length);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 Rcpp::RawVector ipc___SerializeRecordBatch__Raw(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   // how many bytes do we need ?
@@ -117,7 +137,7 @@ Rcpp::RawVector ipc___SerializeRecordBatch__Raw(
   return out;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
     const std::shared_ptr<arrow::io::InputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema) {
@@ -130,12 +150,16 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
 
 arrow::Status check_consistent_array_size(
     const std::vector<std::shared_ptr<arrow::Array>>& arrays, int64_t* num_rows) {
-  *num_rows = arrays[0]->length();
-  for (int64_t i = 1; i < arrays.size(); i++) {
-    if (arrays[i]->length() != *num_rows) {
-      return arrow::Status::Invalid("All arrays must have the same length");
+  if (arrays.size()) {
+    *num_rows = arrays[0]->length();
+
+    for (const auto& array : arrays) {
+      if (array->length() != *num_rows) {
+        return arrow::Status::Invalid("All arrays must have the same length");
+      }
     }
   }
+
   return arrow::Status::OK();
 }
 
@@ -161,12 +185,12 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
         arrow::r::Array__from_vector(VECTOR_ELT(lst, i), schema->field(i)->type(), false);
   }
 
-  int64_t num_rows;
+  int64_t num_rows = 0;
   STOP_IF_NOT_OK(check_consistent_array_size(arrays, &num_rows));
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst) {
   if (Rf_inherits(schema_sxp, "arrow::Schema")) {
     return RecordBatch__from_arrays__known_schema(
@@ -203,8 +227,10 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
   schema = std::make_shared<arrow::Schema>(std::move(fields));
 
   // check all sizes are the same
-  int64_t num_rows;
+  int64_t num_rows = 0;
   STOP_IF_NOT_OK(check_consistent_array_size(arrays, &num_rows));
 
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }
+
+#endif

@@ -45,7 +45,7 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
  public:
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
-  ListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
+  ListBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& value_builder,
               const std::shared_ptr<DataType>& type = NULLPTR);
 
   Status Resize(int64_t capacity) override;
@@ -85,6 +85,66 @@ class ARROW_EXPORT ListBuilder : public ArrayBuilder {
   Status CheckNextOffset() const;
   Status AppendNextOffset();
   Status AppendNextOffset(int64_t num_repeats);
+};
+
+// ----------------------------------------------------------------------
+// Map builder
+
+/// \class MapBuilder
+/// \brief Builder class for arrays of variable-size maps
+///
+/// To use this class, you must append values to the key and item array builders
+/// and use the Append function to delimit each distinct map (once the keys and items
+/// have been appended) or use the bulk API to append a sequence of offests and null
+/// maps.
+///
+/// Key uniqueness and ordering are not validated.
+class ARROW_EXPORT MapBuilder : public ArrayBuilder {
+ public:
+  /// Use this constructor to incrementally build the key and item arrays along with
+  /// offsets and null bitmap.
+  MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
+             const std::shared_ptr<ArrayBuilder>& item_builder,
+             const std::shared_ptr<DataType>& type);
+
+  /// Derive built type from key and item builders' types
+  MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
+             const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted = false);
+
+  Status Resize(int64_t capacity) override;
+  void Reset() override;
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<MapArray>* out) { return FinishTyped(out); }
+
+  /// \brief Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
+  Status AppendValues(const int32_t* offsets, int64_t length,
+                      const uint8_t* valid_bytes = NULLPTR);
+
+  /// \brief Start a new variable-length map slot
+  ///
+  /// This function should be called before beginning to append elements to the
+  /// key and value builders
+  Status Append();
+
+  Status AppendNull() final;
+
+  Status AppendNulls(int64_t length) final;
+
+  ArrayBuilder* key_builder() const { return key_builder_.get(); }
+  ArrayBuilder* item_builder() const { return item_builder_.get(); }
+
+ protected:
+  std::shared_ptr<ListBuilder> list_builder_;
+  std::shared_ptr<ArrayBuilder> key_builder_;
+  std::shared_ptr<ArrayBuilder> item_builder_;
 };
 
 // ----------------------------------------------------------------------

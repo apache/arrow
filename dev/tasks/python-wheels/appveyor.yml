@@ -34,8 +34,11 @@ init:
 build_script:
   - mkdir wheels
   - git config core.symlinks true
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} %ARROW_SRC% || exit /B
+
+  - git clone --no-checkout {{ arrow.remote }} %ARROW_SRC% || exit /B
+  - git -C %ARROW_SRC% fetch -t {{ arrow.remote }} {{ arrow.branch }} || exit /B
   - git -C %ARROW_SRC% checkout {{ arrow.head }} || exit /B
+
   - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
 
 after_build:

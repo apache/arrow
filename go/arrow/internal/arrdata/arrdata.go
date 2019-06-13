@@ -39,6 +39,7 @@ func init() {
 	Records["strings"] = makeStringsRecords()
 	Records["fixed_size_lists"] = makeFixedSizeListsRecords()
 	Records["fixed_width_types"] = makeFixedWidthTypesRecords()
+	Records["fixed_size_binaries"] = makeFixedSizeBinariesRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -398,6 +399,45 @@ func makeFixedWidthTypesRecords() []array.Record {
 	return recs
 }
 
+type fsb3 string
+
+func makeFixedSizeBinariesRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "fixed_size_binary_3", Type: &arrow.FixedSizeBinaryType{ByteWidth: 3}, Nullable: true},
+		}, nil,
+	)
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			arrayOf(mem, []fsb3{"001", "002", "003", "004", "005"}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []fsb3{"011", "012", "013", "014", "015"}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []fsb3{"021", "022", "023", "024", "025"}, mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
@@ -565,6 +605,16 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 		defer bldr.Release()
 
 		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+
+	case []fsb3:
+		bldr := array.NewFixedSizeBinaryBuilder(mem, &arrow.FixedSizeBinaryType{ByteWidth: 3})
+		defer bldr.Release()
+		vs := make([][]byte, len(a))
+		for i, v := range a {
+			vs[i] = []byte(v)
+		}
+		bldr.AppendValues(vs, valids)
 		return bldr.NewArray()
 
 	default:

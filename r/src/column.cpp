@@ -17,24 +17,28 @@
 
 #include "./arrow_types.h"
 
-// [[Rcpp::export]]
+#if defined(ARROW_R_WITH_ARROW)
+
+// [[arrow::export]]
 int Column__length(const std::shared_ptr<arrow::Column>& column) {
   return column->length();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int Column__null_count(const std::shared_ptr<arrow::Column>& column) {
   return column->null_count();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Column__type(
     const std::shared_ptr<arrow::Column>& column) {
   return column->type();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Column__data(
     const std::shared_ptr<arrow::Column>& column) {
   return column->data();
 }
+
+#endif

@@ -342,7 +342,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       offsetBuffer.writerIndex(0);
       valueBuffer.writerIndex(0);
     } else {
-      final int lastDataOffset = getstartOffset(valueCount);
+      final int lastDataOffset = getStartOffset(valueCount);
       validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       offsetBuffer.writerIndex((valueCount + 1) * OFFSET_WIDTH);
       valueBuffer.writerIndex(lastDataOffset);
@@ -928,7 +928,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     assert index >= 0;
     handleSafe(index, length);
     fillHoles(index);
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + length);
     lastSet = index;
   }
@@ -944,7 +944,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (isSet(index) == 0) {
       return 0;
     }
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     final int dataLength =
             offsetBuffer.getInt((index + 1) * OFFSET_WIDTH) - startOffset;
     return dataLength;
@@ -1032,7 +1032,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     assert index >= 0;
     fillHoles(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + length);
     valueBuffer.setBytes(startOffset, value, start, length);
     lastSet = index;
@@ -1053,7 +1053,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     fillEmpties(index);
     handleSafe(index, length);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + length);
     valueBuffer.setBytes(startOffset, value, start, length);
     lastSet = index;
@@ -1176,14 +1176,25 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     /* end offset of current last element in the vector. this will
      * be the start offset of new element we are trying to store.
      */
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     /* set new end offset */
     offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + length);
     /* store the var length data in value buffer */
     valueBuffer.setBytes(startOffset, value, start, length);
   }
 
+  /**
+   * Gets the starting offset of a record, given its index.
+   * This method is deprecated. Please use {@link BaseVariableWidthVector#getStartOffset(int)} instead.
+   * @param index index of the record.
+   * @return the starting offset of the record.
+   */
+  @Deprecated
   protected final int getstartOffset(int index) {
+    return getStartOffset(index);
+  }
+
+  protected final int getStartOffset(int index) {
     return offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
@@ -1211,7 +1222,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     while (index >= getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
-    final int startOffset = getstartOffset(index);
+    final int startOffset = getStartOffset(index);
     while (valueBuffer.capacity() < (startOffset + dataLength)) {
       reallocDataBuffer();
     }

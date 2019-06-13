@@ -78,6 +78,11 @@ class ListArray;
 class ListBuilder;
 struct ListScalar;
 
+class MapType;
+class MapArray;
+class MapBuilder;
+struct MapScalar;
+
 class FixedSizeListType;
 class FixedSizeListArray;
 class FixedSizeListBuilder;

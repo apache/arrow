@@ -15,12 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <array>
 #include <climits>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <limits>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -370,6 +373,122 @@ TYPED_TEST(TestGenerateBits, NormalOperation) {
         // Check the byte following generated contents wasn't clobbered
         auto byte_after = bitmap[BitUtil::CeilDiv(start_offset + length, 8)];
         ASSERT_EQ(byte_after, fill_byte);
+      }
+    }
+  }
+}
+
+// Tests for VisitBits and VisitBitsUnrolled. Based on the tests for GenerateBits and
+// GenerateBitsUnrolled.
+struct VisitBitsFunctor {
+  void operator()(const uint8_t* bitmap, int64_t start_offset, int64_t length,
+                  bool* destination) {
+    auto writer = [&](const bool& bit_value) { *destination++ = bit_value; };
+    return internal::VisitBits(bitmap, start_offset, length, writer);
+  }
+};
+
+struct VisitBitsUnrolledFunctor {
+  void operator()(const uint8_t* bitmap, int64_t start_offset, int64_t length,
+                  bool* destination) {
+    auto writer = [&](const bool& bit_value) { *destination++ = bit_value; };
+    return internal::VisitBitsUnrolled(bitmap, start_offset, length, writer);
+  }
+};
+
+/* Define a typed test class with some utility members. */
+template <typename T>
+class TestVisitBits : public ::testing::Test {
+ protected:
+  // The bitmap size that will be used throughout the VisitBits tests.
+  static const int64_t kBitmapSizeInBytes = 32;
+
+  // Typedefs for the source and expected destination types in this test.
+  using PackedBitmapType = std::array<uint8_t, kBitmapSizeInBytes>;
+  using UnpackedBitmapType = std::array<bool, 8 * kBitmapSizeInBytes>;
+
+  // Helper functions to generate the source bitmap and expected destination
+  // arrays.
+  static PackedBitmapType generate_packed_bitmap() {
+    PackedBitmapType bitmap;
+    // Assign random values into the source array.
+    random_bytes(kBitmapSizeInBytes, 0, bitmap.data());
+    return bitmap;
+  }
+
+  static UnpackedBitmapType generate_unpacked_bitmap(PackedBitmapType bitmap) {
+    // Use a BitmapReader (tested earlier) to populate the expected
+    // unpacked bitmap.
+    UnpackedBitmapType result;
+    internal::BitmapReader reader(bitmap.data(), 0, 8 * kBitmapSizeInBytes);
+    for (int64_t index = 0; index < 8 * kBitmapSizeInBytes; ++index) {
+      result[index] = reader.IsSet();
+      reader.Next();
+    }
+    return result;
+  }
+
+  // A pre-defined packed bitmap for use in test cases.
+  const PackedBitmapType packed_bitmap_;
+
+  // The expected unpacked bitmap that would be generated if each bit in
+  // the entire source bitmap was correctly unpacked to bytes.
+  const UnpackedBitmapType expected_unpacked_bitmap_;
+
+  // Define a test constructor that populates the packed bitmap and the expected
+  // unpacked bitmap.
+  TestVisitBits()
+      : packed_bitmap_(generate_packed_bitmap()),
+        expected_unpacked_bitmap_(generate_unpacked_bitmap(packed_bitmap_)) {}
+};
+
+using VisitBitsTestTypes = ::testing::Types<VisitBitsFunctor, VisitBitsUnrolledFunctor>;
+TYPED_TEST_CASE(TestVisitBits, VisitBitsTestTypes);
+
+/* Test bit-unpacking when reading less than eight bits from the input */
+TYPED_TEST(TestVisitBits, NormalOperation) {
+  typename TestFixture::UnpackedBitmapType unpacked_bitmap;
+  const int64_t start_offsets[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 21, 31, 32};
+  const int64_t lengths[] = {0,  1,  2,  3,  4,   5,   6,   7,   8,   9,   12,  16,
+                             17, 21, 31, 32, 100, 201, 202, 203, 204, 205, 206, 207};
+  const bool fill_values[] = {false, true};
+
+  for (const bool fill_value : fill_values) {
+    auto is_unmodified = [=](bool value) -> bool { return value == fill_value; };
+
+    for (const int64_t start_offset : start_offsets) {
+      for (const int64_t length : lengths) {
+        std::string failure_info = std::string("fill value: ") +
+                                   std::to_string(fill_value) +
+                                   ", start offset: " + std::to_string(start_offset) +
+                                   ", length: " + std::to_string(length);
+        // Pre-fill the unpacked_bitmap array.
+        unpacked_bitmap.fill(fill_value);
+
+        // Attempt to read bits from the input bitmap into the unpacked_bitmap bitmap.
+        using VisitBitsFunctor = TypeParam;
+        VisitBitsFunctor()(this->packed_bitmap_.data(), start_offset, length,
+                           unpacked_bitmap.data() + start_offset);
+
+        // Verify that the correct values have been written in the [start_offset,
+        // start_offset+length) range.
+        EXPECT_TRUE(std::equal(unpacked_bitmap.begin() + start_offset,
+                               unpacked_bitmap.begin() + start_offset + length,
+                               this->expected_unpacked_bitmap_.begin() + start_offset))
+            << "Invalid bytes unpacked when using " << failure_info;
+
+        // Verify that the unpacked_bitmap array has not changed before or after
+        // the [start_offset, start_offset+length) range.
+        EXPECT_TRUE(std::all_of(unpacked_bitmap.begin(),
+                                unpacked_bitmap.begin() + start_offset, is_unmodified))
+            << "Unexpected modification to unpacked_bitmap array before written range "
+               "when using "
+            << failure_info;
+        EXPECT_TRUE(std::all_of(unpacked_bitmap.begin() + start_offset + length,
+                                unpacked_bitmap.end(), is_unmodified))
+            << "Unexpected modification to unpacked_bitmap array after written range "
+               "when using "
+            << failure_info;
       }
     }
   }

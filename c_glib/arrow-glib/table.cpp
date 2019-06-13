@@ -532,6 +532,36 @@ garrow_table_to_string(GArrowTable *table, GError **error)
   }
 }
 
+/**
+ * garrow_table_concatenate:
+ * @table: A #GArrowTable.
+ * @other_tables: (element-type GArrowTable): The tables to be concatenated.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The table concatenated vertically.
+ *
+ * Since: 0.14.0
+ */
+GArrowTable *
+garrow_table_concatenate(GArrowTable *table,
+                         GList *other_tables,
+                         GError **error)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  std::vector<std::shared_ptr<arrow::Table>> arrow_tables = { arrow_table };
+  for (auto node = other_tables; node; node = g_list_next(node)) {
+    auto arrow_other_table = garrow_table_get_raw(GARROW_TABLE(node->data));
+    arrow_tables.push_back(arrow_other_table);
+  }
+  std::shared_ptr<arrow::Table> arrow_concatenated_table;
+  auto status = arrow::ConcatenateTables(arrow_tables, &arrow_concatenated_table);
+  if (garrow_error_check(error, status, "[table][concatenate]")) {
+    return garrow_table_new_raw(&arrow_concatenated_table);
+  } else {
+    return NULL;
+  }
+}
+
 G_END_DECLS
 
 GArrowTable *

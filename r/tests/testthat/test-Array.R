@@ -316,14 +316,12 @@ test_that("integer types casts (ARROW-3741)", {
   expect_true(a_uint64$IsNull(10L))
 })
 
-test_that("integer types cast safety (ARROW-3741)", {
+test_that("integer types cast safety (ARROW-3741, ARROW-5541)", {
   a <- array(-(1:10))
-  expect_error(a$cast(uint8()))
-  expect_error(a$cast(uint16()))
-
-  # this looks like a bug in the C++
-  # expect_error(a$cast(uint32()))
-  # expect_error(a$cast(uint64()))
+  expect_error(a$cast(uint8()), regexp = "Integer value out of bounds")
+  expect_error(a$cast(uint16()), regexp = "Integer value out of bounds")
+  expect_error(a$cast(uint32()), regexp = "Integer value out of bounds")
+  expect_error(a$cast(uint64()), regexp = "Integer value out of bounds")
 
   expect_error(a$cast(uint8(), safe = FALSE), NA)
   expect_error(a$cast(uint16(), safe = FALSE), NA)
@@ -399,3 +397,21 @@ test_that("array() does not convert doubles to integer", {
   }
 })
 
+test_that("array() converts raw vectors to uint8 arrays (ARROW-3794)", {
+  expect_equal(array(as.raw(1:10))$type, uint8())
+})
+
+test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
+  a <- array((-128):127)$cast(int8())
+  expect_equal(a$type, int8())
+  expect_equal(a$as_vector(), (-128):127)
+
+  a <- array(0:255)$cast(uint8())
+  expect_equal(a$type, uint8())
+  expect_equal(a$as_vector(), 0:255)
+})
+
+test_that("array() recognise arrow::Array (ARROW-3815)", {
+  a <- array(1:10)
+  expect_equal(a, array(a))
+})

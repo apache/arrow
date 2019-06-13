@@ -91,10 +91,11 @@ void CheckValueCounts(FunctionContext* ctx, const std::shared_ptr<DataType>& typ
                       const std::vector<T>& out_values,
                       const std::vector<bool>& out_is_valid,
                       const std::vector<int64_t>& out_counts) {
+  std::vector<bool> all_valids(out_is_valid.size(), true);
   std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
   std::shared_ptr<Array> ex_values = _MakeArray<Type, T>(type, out_values, out_is_valid);
   std::shared_ptr<Array> ex_counts =
-      _MakeArray<Int64Type, int64_t>(int64(), out_counts, out_is_valid);
+      _MakeArray<Int64Type, int64_t>(int64(), out_counts, all_valids);
 
   std::shared_ptr<Array> result;
   ASSERT_OK(ValueCounts(ctx, input, &result));
@@ -141,17 +142,17 @@ TYPED_TEST(TestHashKernelPrimitive, Unique) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckUnique<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1}, {true, false, true, true},
-                            {2, 1}, {});
+                            {2, 0, 1}, {1, 0, 1});
   CheckUnique<TypeParam, T>(&this->ctx_, type, {2, 1, 3, 1}, {false, false, true, true},
-                            {3, 1}, {});
+                            {0, 3, 1}, {0, 1, 1});
 }
 
 TYPED_TEST(TestHashKernelPrimitive, ValueCounts) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckValueCounts<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3, 4},
-                                 {true, false, true, true, true, true, false}, {2, 1, 3},
-                                 {}, {3, 1, 1});
+                                 {true, false, true, true, true, true, false},
+                                 {2, 0, 1, 3}, {1, 0, 1, 1}, {3, 2, 1, 1});
   CheckValueCounts<TypeParam, T>(&this->ctx_, type, {}, {}, {}, {}, {});
   CheckValueCountsNull<TypeParam, T>(&this->ctx_, type);
 }
@@ -160,8 +161,8 @@ TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckDictEncode<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3},
-                                {true, false, true, true, true, true}, {2, 1, 3}, {},
-                                {0, 0, 0, 1, 0, 2});
+                                {true, false, true, true, true, true}, {2, 1, 3},
+                                {1, 1, 1}, {0, 0, 0, 1, 0, 2});
 }
 
 TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
@@ -193,35 +194,38 @@ TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
 
 TEST_F(TestHashKernel, UniqueTimeTimestamp) {
   CheckUnique<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {2, 1, 2, 1},
-                                   {true, false, true, true}, {2, 1}, {});
+                                   {true, false, true, true}, {2, 0, 1}, {1, 0, 1});
 
   CheckUnique<Time64Type, int64_t>(&this->ctx_, time64(TimeUnit::NANO), {2, 1, 2, 1},
-                                   {true, false, true, true}, {2, 1}, {});
+                                   {true, false, true, true}, {2, 0, 1}, {1, 0, 1});
 
   CheckUnique<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO),
-                                      {2, 1, 2, 1}, {true, false, true, true}, {2, 1},
-                                      {});
+                                      {2, 1, 2, 1}, {true, false, true, true}, {2, 0, 1},
+                                      {1, 0, 1});
 }
 
 TEST_F(TestHashKernel, ValueCountsTimeTimestamp) {
   CheckValueCounts<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND),
-                                        {2, 1, 2, 1}, {true, false, true, true}, {2, 1},
-                                        {}, {2, 1});
+                                        {2, 1, 2, 1}, {true, false, true, true},
+                                        {2, 0, 1}, {1, 0, 1}, {2, 1, 1});
 
   CheckValueCounts<Time64Type, int64_t>(&this->ctx_, time64(TimeUnit::NANO), {2, 1, 2, 1},
-                                        {true, false, true, true}, {2, 1}, {}, {2, 1});
+                                        {true, false, true, true}, {2, 0, 1}, {1, 0, 1},
+                                        {2, 1, 1});
 
   CheckValueCounts<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO),
                                            {2, 1, 2, 1}, {true, false, true, true},
-                                           {2, 1}, {}, {2, 1});
+                                           {2, 0, 1}, {1, 0, 1}, {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, UniqueBoolean) {
   CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true},
-                                 {true, false, true, true}, {true, false}, {});
+                                 {true, false, true, true}, {true, false, false},
+                                 {1, 0, 1});
 
   CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
-                                 {true, false, true, true}, {false, true}, {});
+                                 {true, false, true, true}, {false, false, true},
+                                 {1, 0, 1});
 
   // No nulls
   CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true}, {},
@@ -233,12 +237,12 @@ TEST_F(TestHashKernel, UniqueBoolean) {
 
 TEST_F(TestHashKernel, ValueCountsBoolean) {
   CheckValueCounts<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true},
-                                      {true, false, true, true}, {true, false}, {},
-                                      {2, 1});
+                                      {true, false, true, true}, {true, false, false},
+                                      {1, 0, 1}, {2, 1, 1});
 
   CheckValueCounts<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
-                                      {true, false, true, true}, {false, true}, {},
-                                      {2, 1});
+                                      {true, false, true, true}, {false, false, true},
+                                      {1, 0, 1}, {2, 1, 1});
 
   // No nulls
   CheckValueCounts<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true},
@@ -268,22 +272,23 @@ TEST_F(TestHashKernel, DictEncodeBoolean) {
 }
 
 TEST_F(TestHashKernel, UniqueBinary) {
-  CheckUnique<BinaryType, std::string>(&this->ctx_, binary(),
-                                       {"test", "", "test2", "test"},
-                                       {true, false, true, true}, {"test", "test2"}, {});
+  CheckUnique<BinaryType, std::string>(
+      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "", "test2"}, {1, 0, 1});
 
   CheckUnique<StringType, std::string>(&this->ctx_, utf8(), {"test", "", "test2", "test"},
-                                       {true, false, true, true}, {"test", "test2"}, {});
+                                       {true, false, true, true}, {"test", "", "test2"},
+                                       {1, 0, 1});
 }
 
 TEST_F(TestHashKernel, ValueCountsBinary) {
   CheckValueCounts<BinaryType, std::string>(
       &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
-      {"test", "test2"}, {}, {2, 1});
+      {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
 
   CheckValueCounts<StringType, std::string>(
       &this->ctx_, utf8(), {"test", "", "test2", "test"}, {true, false, true, true},
-      {"test", "test2"}, {}, {2, 1});
+      {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, DictEncodeBinary) {
@@ -341,7 +346,7 @@ TEST_F(TestHashKernel, BinaryResizeTable) {
 TEST_F(TestHashKernel, UniqueFixedSizeBinary) {
   CheckUnique<FixedSizeBinaryType, std::string>(
       &this->ctx_, fixed_size_binary(5), {"aaaaa", "", "bbbbb", "aaaaa"},
-      {true, false, true, true}, {"aaaaa", "bbbbb"}, {});
+      {true, false, true, true}, {"aaaaa", "", "bbbbb"}, {1, 0, 1});
 }
 
 TEST_F(TestHashKernel, DictEncodeFixedSizeBinary) {
@@ -386,19 +391,19 @@ TEST_F(TestHashKernel, FixedSizeBinaryResizeTable) {
 
 TEST_F(TestHashKernel, UniqueDecimal) {
   std::vector<Decimal128> values{12, 12, 11, 12};
-  std::vector<Decimal128> expected{12, 11};
+  std::vector<Decimal128> expected{12, 0, 11};
 
   CheckUnique<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
-                                          {true, false, true, true}, expected, {});
+                                          {true, false, true, true}, expected, {1, 0, 1});
 }
 
 TEST_F(TestHashKernel, ValueCountsDecimal) {
   std::vector<Decimal128> values{12, 12, 11, 12};
-  std::vector<Decimal128> expected{12, 11};
+  std::vector<Decimal128> expected{12, 0, 11};
 
   CheckValueCounts<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
-                                               {true, false, true, true}, expected, {},
-                                               {2, 1});
+                                               {true, false, true, true}, expected,
+                                               {1, 0, 1}, {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, DictEncodeDecimal) {

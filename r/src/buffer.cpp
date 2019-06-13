@@ -17,27 +17,29 @@
 
 #include "./arrow_types.h"
 
-// [[Rcpp::export]]
+#if defined(ARROW_R_WITH_ARROW)
+
+// [[arrow::export]]
 bool Buffer__is_mutable(const std::shared_ptr<arrow::Buffer>& buffer) {
   return buffer->is_mutable();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 void Buffer__ZeroPadding(const std::shared_ptr<arrow::Buffer>& buffer) {
   buffer->ZeroPadding();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int64_t Buffer__capacity(const std::shared_ptr<arrow::Buffer>& buffer) {
   return buffer->capacity();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer) {
   return buffer->size();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
   switch (TYPEOF(x)) {
     case RAWSXP:
@@ -54,3 +56,5 @@ std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
   }
   return nullptr;
 }
+
+#endif

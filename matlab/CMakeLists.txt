@@ -42,5 +42,14 @@ matlab_add_mex(NAME featherreadmex
                SRC src/featherreadmex.cc
                    src/feather_reader.cc
                    src/util/handle_status.cc
+                   src/util/unicode_conversion.cc
                LINK_TO ${ARROW_SHARED_LIB})
 target_include_directories(featherreadmex PRIVATE ${ARROW_INCLUDE_DIR})
+
+# Build featherwrite mex file based on the arrow shared library
+matlab_add_mex(NAME featherwritemex
+               SRC src/featherwritemex.cc
+                   src/feather_writer.cc
+                   src/util/handle_status.cc
+               LINK_TO ${ARROW_SHARED_LIB})
+target_include_directories(featherwritemex PRIVATE ${ARROW_INCLUDE_DIR})

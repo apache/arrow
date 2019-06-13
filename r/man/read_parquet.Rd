@@ -4,16 +4,13 @@
 \alias{read_parquet}
 \title{Read Parquet file from disk}
 \usage{
-read_parquet(file, as_tibble = TRUE, use_threads = TRUE, ...)
+read_parquet(file, as_tibble = TRUE, ...)
 }
 \arguments{
 \item{file}{a file path}
 
 \item{as_tibble}{Should the \link[=arrow__Table]{arrow::Table} be converted to a
 tibble? Default is \code{TRUE}.}
-
-\item{use_threads}{Use threads when converting to a tibble? Default is
-'\code{TRUE}. Only relevant if \code{as_tibble} is \code{TRUE}.}
 
 \item{...}{Additional arguments, currently ignored}
 }
@@ -26,5 +23,9 @@ A \link[=arrow__Table]{arrow::Table}, or a \code{tbl_df} if \code{as_tibble} is
 This function enables you to read Parquet files into R.
 }
 \examples{
-df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+
+\dontrun{
+  df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+}
+
 }

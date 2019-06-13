@@ -17,35 +17,37 @@
 
 #include "./arrow_types.h"
 
+#if defined(ARROW_R_WITH_ARROW)
+
 // ---------- TableWriter
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 void ipc___feather___TableWriter__SetDescription(
     const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
     const std::string& description) {
   writer->SetDescription(description);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 void ipc___feather___TableWriter__SetNumRows(
     const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer, int64_t num_rows) {
   writer->SetNumRows(num_rows);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 void ipc___feather___TableWriter__Append(
     const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
     const std::string& name, const std::shared_ptr<arrow::Array>& values) {
   STOP_IF_NOT_OK(writer->Append(name, *values));
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 void ipc___feather___TableWriter__Finalize(
     const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer) {
   STOP_IF_NOT_OK(writer->Finalize());
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream) {
   std::unique_ptr<arrow::ipc::feather::TableWriter> writer;
@@ -53,7 +55,7 @@ std::unique_ptr<arrow::ipc::feather::TableWriter> ipc___feather___TableWriter__O
   return writer;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 void ipc___TableWriter__RecordBatch__WriteFeather(
     const std::unique_ptr<arrow::ipc::feather::TableWriter>& writer,
     const std::shared_ptr<arrow::RecordBatch>& batch) {
@@ -67,43 +69,43 @@ void ipc___TableWriter__RecordBatch__WriteFeather(
 
 // ----------- TableReader
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string ipc___feather___TableReader__GetDescription(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->GetDescription();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool ipc___feather___TableReader__HasDescription(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->HasDescription();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int ipc___feather___TableReader__version(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->version();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int64_t ipc___feather___TableReader__num_rows(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->num_rows();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int64_t ipc___feather___TableReader__num_columns(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
   return reader->num_columns();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string ipc___feather___TableReader__GetColumnName(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i) {
   return reader->GetColumnName(i);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, int i) {
   std::shared_ptr<arrow::Column> column;
@@ -111,7 +113,7 @@ std::shared_ptr<arrow::Column> ipc___feather___TableReader__GetColumn(
   return column;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
     const std::unique_ptr<arrow::ipc::feather::TableReader>& reader, SEXP columns) {
   std::shared_ptr<arrow::Table> table;
@@ -147,10 +149,12 @@ std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
   return table;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::unique_ptr<arrow::ipc::feather::TableReader> ipc___feather___TableReader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
   std::unique_ptr<arrow::ipc::feather::TableReader> reader;
   STOP_IF_NOT_OK(arrow::ipc::feather::TableReader::Open(stream, &reader));
   return reader;
 }
+
+#endif

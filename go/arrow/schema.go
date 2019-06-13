@@ -183,3 +183,18 @@ func (sc *Schema) Equal(o *Schema) bool {
 	}
 	return true
 }
+
+func (s *Schema) String() string {
+	o := new(strings.Builder)
+	fmt.Fprintf(o, "schema:\n  fields: %d\n", len(s.Fields()))
+	for i, f := range s.Fields() {
+		if i > 0 {
+			o.WriteString("\n")
+		}
+		fmt.Fprintf(o, "    - %v", f)
+	}
+	if meta := s.Metadata(); meta.Len() > 0 {
+		fmt.Fprintf(o, "\n  metadata: %v", meta)
+	}
+	return o.String()
+}

@@ -393,8 +393,8 @@ will have the following representation: ::
       |--------------------------|-----------------------|
       | 00001101                 | 0 (padding)           |
 
-    * Values array (char array):
-      * Length: 7,  Null count: 0
+    * Values array (byte array):
+      * Length: 16,  Null count: 0
       * Null bitmap buffer: Not required
 
         | Bytes 0-3       | Bytes 4-7   | Bytes 8-15                      |
@@ -490,6 +490,91 @@ This is illustrated in the example above, the child arrays have valid entries
 for the null struct but are 'hidden' from the consumer by the parent array's
 null bitmap.  However, when treated independently corresponding
 values of the children array will be non-null.
+
+
+Map type
+--------
+
+Map is a nested type in which each array slot contains a variable size sequence
+of key-item pairs.
+
+A map type is specified like ``Map<K, I>``, where ``K`` and ``I`` are
+any relative type (primitive or nested) and represent the key and item types
+respectively.
+
+A map array is represented by the combination of the following:
+
+* A child array (of type ``Struct<K, I>``) containing key item pairs. This has
+  child arrays:
+  * A keys array of type ``K``. This array may not contain nulls.
+  * An items array of type ``I``.
+* An offsets buffer containing 32-bit signed integers with length equal to the
+  length of the top-level array plus one. Note that this limits the size of the
+  child arrays to 2 :sup:`31` -1.
+
+The offsets array encodes a start position in the child arrays, and the length
+of the map in each slot is computed using the first difference with the next
+element in the offsets array. (Equivalent offsets layout to ``List<T>``).
+Each slice of the child arrays delimited by the offsets array represent a set
+of key item pairs in the corresponding slot of the parent map array.
+
+Example Layout: ``Map<K, I>`` Array
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Let's consider an example, the type ``Map<String, Int32>``.
+
+For an array of length 4 with respective values: ::
+
+    [{'joe': 0}, null, {'mark': null, 'cap': 8}, {}]
+
+will have the following representation: ::
+
+    * Length: 4, Null count: 1
+    * Null bitmap buffer:
+
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
+      |--------------------------|-----------------------|
+      | 00001101                 | 0 (padding)           |
+
+    * Offsets buffer (int32):
+
+      | Bytes 0-19     |
+      |----------------|
+      | 0, 1, 1, 3, 3  |
+
+    * 'pairs' array (`Struct<String, Int32>`):
+      * Length: 3, Null count: 0
+      * Null bitmap buffer: Not required
+
+      * 'keys' array (`String`):
+        * Length: 3, Null count: 0
+        * Null bitmap buffer: Not required
+        * Offsets buffer (int32):
+
+          | Bytes 0-15   |
+          |--------------|
+          | 0, 3, 7, 10  |
+
+         * Values buffer:
+
+          | Bytes 0-10     |
+          |----------------|
+          | joemarkcap     |
+
+      * 'items' array (`Int32`):
+        * Length: 3, Null count: 1
+        * Null bitmap buffer:
+
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00000101                 | 0 (padding)           |
+
+        * Value Buffer (int32):
+
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  |
+          |-------------|-------------|-------------|
+          |  0          | unspecified |  8          |
+
 
 Dense union type
 ----------------

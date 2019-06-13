@@ -237,12 +237,19 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 	case arrow.FixedWidthDataType:
 		data := arr.Data()
 		values := data.Buffers()[1]
-		typeWidth := dtype.BitWidth() / 8
-		minLength := paddedLength(int64(arr.Len())*int64(typeWidth), kArrowAlignment)
+		arrLen := int64(arr.Len())
+		typeWidth := int64(dtype.BitWidth() / 8)
+		minLength := paddedLength(arrLen*typeWidth, kArrowAlignment)
 
 		switch {
 		case needTruncate(int64(data.Offset()), values, minLength):
-			panic("not implemented") // FIXME(sbinet) writer.cc:212
+			// non-zero offset: slice the buffer
+			offset := int64(data.Offset()) * typeWidth
+			// send padding if available
+			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(data.Len())-offset)
+			data = array.NewSliceData(data, offset, offset+len)
+			defer data.Release()
+			values = data.Buffers()[1]
 		default:
 			if values != nil {
 				values.Retain()
@@ -268,7 +275,9 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		case needTruncate(int64(data.Offset()), values, totalDataBytes):
 			panic("not implemented") // FIXME(sbinet) writer.cc:264
 		default:
-			values.Retain()
+			if values != nil {
+				values.Retain()
+			}
 		}
 		p.body = append(p.body, voffsets)
 		p.body = append(p.body, values)
@@ -291,7 +300,9 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 		case needTruncate(int64(data.Offset()), values, totalDataBytes):
 			panic("not implemented") // FIXME(sbinet) writer.cc:264
 		default:
-			values.Retain()
+			if values != nil {
+				values.Retain()
+			}
 		}
 		p.body = append(p.body, voffsets)
 		p.body = append(p.body, values)
@@ -429,4 +440,11 @@ func needTruncate(offset int64, buf *memory.Buffer, minLength int64) bool {
 		return false
 	}
 	return offset != 0 || minLength < int64(buf.Len())
+}
+
+func minI64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
 }

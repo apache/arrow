@@ -316,6 +316,25 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type_Map:
+      if (children.size() != 1) {
+        return Status::Invalid("Map must have exactly 1 child field");
+      }
+      if (  // FIXME(bkietz) temporarily disabled: this field is sometimes read nullable
+            // children[0]->nullable() ||
+          children[0]->type()->id() != Type::STRUCT ||
+          children[0]->type()->num_children() != 2) {
+        return Status::Invalid("Map's key-item pairs must be non-nullable structs");
+      }
+      if (children[0]->type()->child(0)->nullable()) {
+        return Status::Invalid("Map's keys must be non-nullable");
+      } else {
+        auto map = static_cast<const flatbuf::Map*>(type_data);
+        *out = std::make_shared<MapType>(children[0]->type()->child(0)->type(),
+                                         children[0]->type()->child(1)->type(),
+                                         map->keysSorted());
+      }
+      return Status::OK();
     case flatbuf::Type_FixedSizeList:
       if (children.size() != 1) {
         return Status::Invalid("FixedSizeList must have exactly 1 child field");
@@ -598,6 +617,13 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type_List;
     RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
     type_offset_ = flatbuf::CreateList(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const MapType& type) {
+    fb_type_ = flatbuf::Type_Map;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateMap(fbb_, type.keys_sorted()).Union();
     return Status::OK();
   }
 
