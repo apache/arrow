@@ -198,3 +198,14 @@ Assignee\tFoo Bar
 Components\tNO COMPONENTS!!!
 Status\t\tResolved
 URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
+
+    output = merge_arrow_pr.format_resolved_issue_status(
+        'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
+        [FakeComponent('C++'), FakeComponent('Python')])
+
+    assert output == """=== JIRA ARROW-1234 ===
+Summary\t\tInteresting work
+Assignee\tFoo Bar
+Components\tC++, Python
+Status\t\tResolved
+URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
