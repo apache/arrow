@@ -656,19 +656,34 @@ Status ArrowColumnWriter::WriteTimestamps(const Array& values, int64_t num_level
     // User explicitly requested Int96 timestamps
     return TypedWriteBatch<Int96Type, ::arrow::TimestampType>(values, num_levels,
                                                               def_levels, rep_levels);
-  } else if (ctx_->properties->coerce_timestamps_enabled() &&
-             (source_type.unit() != ctx_->properties->coerce_timestamps_unit())) {
-    // User explicitly requested conversion to specific units
-    return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels,
-                                 *(ctx_->properties));
+  } else if (ctx_->properties->coerce_timestamps_enabled()) {
+    // User explicitly requested coercion to specific unit
+    if (source_type.unit() == ctx_->properties->coerce_timestamps_unit()) {
+      // No data conversion necessary
+      return TypedWriteBatch<Int64Type, ::arrow::TimestampType>(values, num_levels,
+                                                                def_levels, rep_levels);
+    } else {
+      return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels,
+                                   *(ctx_->properties));
+    }
+  } else if (writer_->properties()->version() == ParquetVersion::PARQUET_1_0 &&
+             source_type.unit() == TimeUnit::NANO) {
+    // Absent superseding user instructions, when writing Parquet version 1.0 files,
+    // timestamps in nanoseconds are coerced to microseconds
+    std::shared_ptr<ArrowWriterProperties> properties =
+        (ArrowWriterProperties::Builder())
+            .coerce_timestamps(TimeUnit::MICRO)
+            ->disallow_truncated_timestamps()
+            ->build();
+    return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels, *properties);
   } else if (source_type.unit() == TimeUnit::SECOND) {
-    // Absent superseding user instructions, timestamps in seconds are implicitly
-    // converted to milliseconds
+    // Absent superseding user instructions, timestamps in seconds are coerced to
+    // milliseconds
     std::shared_ptr<ArrowWriterProperties> properties =
         (ArrowWriterProperties::Builder()).coerce_timestamps(TimeUnit::MILLI)->build();
     return WriteTimestampsCoerce(values, num_levels, def_levels, rep_levels, *properties);
   } else {
-    // No casting of timestamps is required, take the fast path
+    // No data conversion necessary
     return TypedWriteBatch<Int64Type, ::arrow::TimestampType>(values, num_levels,
                                                               def_levels, rep_levels);
   }

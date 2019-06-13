@@ -1005,6 +1005,71 @@ def test_list_of_datetime_time_roundtrip():
     _roundtrip_pandas_dataframe(df, write_kwargs={})
 
 
+@pytest.mark.pandas
+def test_parquet_version_timestamp_differences():
+    i_s = pd.Timestamp('2010-01-01').value / 1000000000  # := 1262304000
+
+    d_s = np.arange(i_s, i_s + 10, 1, dtype='int64')
+    d_ms = d_s * 1000
+    d_us = d_ms * 1000
+    d_ns = d_us * 1000
+
+    a_s = pa.array(d_s, type=pa.timestamp('s'))
+    a_ms = pa.array(d_ms, type=pa.timestamp('ms'))
+    a_us = pa.array(d_us, type=pa.timestamp('us'))
+    a_ns = pa.array(d_ns, type=pa.timestamp('ns'))
+
+    names = ['ts:s', 'ts:ms', 'ts:us', 'ts:ns']
+    table = pa.Table.from_arrays([a_s, a_ms, a_us, a_ns], names)
+
+    # Using Parquet version 1.0, seconds should be coerced to milliseconds
+    # and nanoseconds should be coerced to microseconds by default
+    expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_us], names)
+    actual = _roundtrip_table(table)
+    assert actual.equals(expected)
+
+    # Using Parquet version 2.0, seconds should be coerced to milliseconds
+    # and nanoseconds should be retained by default
+    expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_ns], names)
+    actual = _roundtrip_table(table, version='2.0')
+    assert actual.equals(expected)
+
+    # Using Parquet version 1.0, coercing to milliseconds or microseconds
+    # is allowed
+    expected = pa.Table.from_arrays([a_ms, a_ms, a_ms, a_ms], names)
+    actual = _roundtrip_table(table, coerce_timestamps='ms')
+    assert actual.equals(expected)
+
+    # Using Parquet version 2.0, coercing to milliseconds or microseconds
+    # is allowed
+    expected = pa.Table.from_arrays([a_us, a_us, a_us, a_us], names)
+    actual = _roundtrip_table(table, coerce_timestamps='us')
+    assert actual.equals(expected)
+
+    # TODO: after pyarrow allows coerce_timestamps='ns', tests like the
+    # following should pass ...
+
+    # Using Parquet version 1.0, coercing to nanoseconds is not allowed
+    # expected = None
+    # with pytest.raises(NotImplementedError):
+    #     _roundtrip_table(table, coerce_timestamps='ns')
+
+    # Using Parquet version 2.0, coercing to nanoseconds is allowed
+    # expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
+    # actual = _roundtrip_table(table, version='2.0', coerce_timestamps='ns')
+    # assert actual.equals(expected)
+
+    # For either Parquet version, coercing to nanoseconds is allowed
+    # if Int96 storage is used
+    expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
+    actual = _roundtrip_table(table,
+                              use_deprecated_int96_timestamps=True)
+    assert actual.equals(expected)
+    actual = _roundtrip_table(table, version='2.0',
+                              use_deprecated_int96_timestamps=True)
+    assert actual.equals(expected)
+
+
 def test_large_list_records():
     # This was fixed in PARQUET-1100
 
@@ -2041,7 +2106,7 @@ def test_write_error_deletes_incomplete_file(tempdir):
 
     filename = tempdir / 'tmp_file'
     try:
-        _write_table(pdf, filename, coerce_timestamps='ms')
+        _write_table(pdf, filename)
     except pa.ArrowException:
         pass
 
@@ -2050,7 +2115,8 @@ def test_write_error_deletes_incomplete_file(tempdir):
 
 @pytest.mark.pandas
 def test_noncoerced_nanoseconds_written_without_exception(tempdir):
-    # ARROW-1957
+    # ARROW-1957: the Parquet version 2.0 writer preserves Arrow
+    # nanosecond timestamps by default
     n = 9
     df = pd.DataFrame({'x': range(n)},
                       index=pd.DatetimeIndex(start='2017-01-01',
@@ -2060,18 +2126,18 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
 
     filename = tempdir / 'written.parquet'
     try:
-        pq.write_table(tb, filename)
+        pq.write_table(tb, filename, version='2.0')
     except Exception:
         pass
     assert filename.exists()
 
-    recovered_table = _simple_table_roundtrip(tb)
+    recovered_table = _roundtrip_table(tb, version='2.0')
     assert tb.equals(recovered_table)
 
     # Loss of data thru coercion (without explicit override) still an error
     filename = tempdir / 'not_written.parquet'
     with pytest.raises(ValueError):
-        pq.write_table(tb, filename, coerce_timestamps='ms')
+        pq.write_table(tb, filename, coerce_timestamps='ms', version='2.0')
 
 
 def test_read_non_existent_file(tempdir):

@@ -537,15 +537,17 @@ static std::shared_ptr<const LogicalAnnotation> TimestampAnnotationFromArrowTime
 }
 
 static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
-                                   const ArrowWriterProperties& properties,
+                                   const WriterProperties& properties,
+                                   const ArrowWriterProperties& arrow_properties,
                                    ParquetType::type* physical_type,
                                    std::shared_ptr<const LogicalAnnotation>* annotation) {
-  const bool coerce = properties.coerce_timestamps_enabled();
-  const auto target_unit = coerce ? properties.coerce_timestamps_unit() : type.unit();
+  const bool coerce = arrow_properties.coerce_timestamps_enabled();
+  const auto target_unit =
+      coerce ? arrow_properties.coerce_timestamps_unit() : type.unit();
 
   // The user is explicitly asking for Impala int96 encoding, there is no
   // logical type.
-  if (properties.support_deprecated_int96_timestamps()) {
+  if (arrow_properties.support_deprecated_int96_timestamps()) {
     *physical_type = ParquetType::INT96;
     return Status::OK();
   }
@@ -556,24 +558,48 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   // The user is explicitly asking for timestamp data to be converted to the
   // specified units (target_unit).
   if (coerce) {
-    switch (target_unit) {
-      case ::arrow::TimeUnit::MILLI:
-      case ::arrow::TimeUnit::MICRO:
-      case ::arrow::TimeUnit::NANO:
-        break;
-      case ::arrow::TimeUnit::SECOND:
-        return Status::NotImplemented(
-            "Can only coerce Arrow timestamps to milliseconds, microseconds, or "
-            "nanoseconds");
+    if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0) {
+      switch (target_unit) {
+        case ::arrow::TimeUnit::MILLI:
+        case ::arrow::TimeUnit::MICRO:
+          break;
+        case ::arrow::TimeUnit::NANO:
+        case ::arrow::TimeUnit::SECOND:
+          return Status::NotImplemented(
+              "For Parquet version 1.0 files, can only coerce Arrow timestamps to "
+              "milliseconds or microseconds");
+      }
+    } else {
+      switch (target_unit) {
+        case ::arrow::TimeUnit::MILLI:
+        case ::arrow::TimeUnit::MICRO:
+        case ::arrow::TimeUnit::NANO:
+          break;
+        case ::arrow::TimeUnit::SECOND:
+          return Status::NotImplemented(
+              "For Parquet files, can only coerce Arrow timestamps to milliseconds, "
+              "microseconds, or nanoseconds");
+      }
     }
     return Status::OK();
   }
 
   // The user implicitly wants timestamp data to retain its original time units,
+  // however the ConvertedType field used to indicate logical types for Parquet
+  // version 1.0 fields does not allow for nanosecond time units and so nanoseconds
+  // must be coerced to microseconds.
+  if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0 &&
+      type.unit() == ::arrow::TimeUnit::NANO) {
+    *annotation = TimestampAnnotationFromArrowTimestamp(type, ::arrow::TimeUnit::MICRO);
+    return Status::OK();
+  }
+
+  // The user implicitly wants timestamp data to retain its original time units,
   // however the Arrow seconds time unit can not be represented (annotated) in
-  // Parquet and must be converted to milliseconds.
+  // any version of Parquet and so must be coerced to milliseconds.
   if (type.unit() == ::arrow::TimeUnit::SECOND) {
     *annotation = TimestampAnnotationFromArrowTimestamp(type, ::arrow::TimeUnit::MILLI);
+    return Status::OK();
   }
 
   return Status::OK();
@@ -672,7 +698,7 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
     case ArrowTypeId::TIMESTAMP:
       RETURN_NOT_OK(
           GetTimestampMetadata(static_cast<::arrow::TimestampType&>(*field->type()),
-                               arrow_properties, &type, &annotation));
+                               properties, arrow_properties, &type, &annotation));
       break;
     case ArrowTypeId::TIME32:
       type = ParquetType::INT32;

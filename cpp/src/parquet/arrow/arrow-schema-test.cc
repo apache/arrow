@@ -873,7 +873,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MICROS),
        ParquetType::INT64, -1},
       {"timestamp(nanosecond)", ::arrow::timestamp(::arrow::TimeUnit::NANO),
-       LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::NANOS),
+       LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MICROS),
        ParquetType::INT64, -1},
       {"timestamp(millisecond, UTC)", ::arrow::timestamp(::arrow::TimeUnit::MILLI, "UTC"),
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
@@ -882,7 +882,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
        ParquetType::INT64, -1},
       {"timestamp(nanosecond, UTC)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "UTC"),
-       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
+       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
        ParquetType::INT64, -1},
       {"timestamp(millisecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::MILLI, "CET"),
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
@@ -891,7 +891,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
        ParquetType::INT64, -1},
       {"timestamp(nanosecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "CET"),
-       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
+       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
        ParquetType::INT64, -1},
       {"null", ::arrow::null(), LogicalAnnotation::Null(), ParquetType::INT32, -1}};
 
