@@ -23,6 +23,7 @@ import socket
 import tempfile
 import threading
 import time
+import traceback
 
 import pytest
 
@@ -51,10 +52,11 @@ def read_flight_resource(path):
     try:
         with (root / path).open("rb") as f:
             return f.read()
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         raise RuntimeError(
             "Test resource {} not found; did you initialize the "
-            "test resource submodule?".format(root / path)) from e
+            "test resource submodule?\n{}".format(root / path,
+                                                  traceback.format_exc()))
 
 
 def example_tls_certs():
