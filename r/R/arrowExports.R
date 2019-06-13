@@ -84,6 +84,22 @@ ListArray__value_type <- function(array){
     .Call(`_arrow_ListArray__value_type` , array)
 }
 
+ListArray__values <- function(array){
+    .Call(`_arrow_ListArray__values` , array)
+}
+
+ListArray__value_length <- function(array, i){
+    .Call(`_arrow_ListArray__value_length` , array, i)
+}
+
+ListArray__value_offset <- function(array, i){
+    .Call(`_arrow_ListArray__value_offset` , array, i)
+}
+
+ListArray__raw_value_offsets <- function(array){
+    .Call(`_arrow_ListArray__raw_value_offsets` , array)
+}
+
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector` , array)
 }

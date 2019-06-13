@@ -119,6 +119,12 @@
 )
 
 `arrow::ListArray` <- R6Class("arrow::ListArray", inherit = `arrow::Array`,
+  public = list(
+    values = function() `arrow::Array`$dispatch(ListArray__values(self)),
+    value_length = function(i) ListArray__value_length(self, i),
+    value_offset = function(i) ListArray__value_offset(self, i),
+    raw_value_offsets = function() ListArray__raw_value_offsets(self)
+  ),
   active = list(
     value_type = function() `arrow::DataType`$dispatch(ListArray__value_type(self))
   )
