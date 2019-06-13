@@ -46,7 +46,7 @@ type FileReader struct {
 	schema *arrow.Schema
 	record array.Record
 
-	irec int   // current record index. used for the RecordReader interface
+	irec int   // current record index. used for the arrio.Reader interface
 	err  error // last error
 }
 

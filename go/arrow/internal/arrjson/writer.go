@@ -22,7 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/ipc"
+	"github.com/apache/arrow/go/arrow/arrio"
 )
 
 const (
@@ -106,5 +106,5 @@ func (w *Writer) Close() error {
 }
 
 var (
-	_ ipc.RecordWriter = (*Writer)(nil)
+	_ arrio.Writer = (*Writer)(nil)
 )

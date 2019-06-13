@@ -23,8 +23,8 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/ipc"
 )
 
 type Reader struct {
@@ -33,7 +33,7 @@ type Reader struct {
 	schema *arrow.Schema
 	recs   []array.Record
 
-	irec int // current record index. used for the ipc.RecordReader interface.
+	irec int // current record index. used for the arrio.Reader interface.
 }
 
 func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
@@ -96,5 +96,5 @@ func (r *Reader) Read() (array.Record, error) {
 }
 
 var (
-	_ ipc.RecordReader = (*Reader)(nil)
+	_ arrio.Reader = (*Reader)(nil)
 )

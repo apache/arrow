@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/internal/arrjson"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/pkg/errors"
@@ -98,7 +99,7 @@ func cnvToJSON(arrowName, jsonName string, verbose bool) error {
 	}
 	defer ww.Close()
 
-	n, err := ipc.Copy(ww, rr)
+	n, err := arrio.Copy(ww, rr)
 	if err != nil {
 		return errors.Wrap(err, "could not convert ARROW file reader data to JSON data")
 	}
@@ -148,7 +149,7 @@ func cnvToARROW(arrowName, jsonName string, verbose bool) error {
 	}
 	defer ww.Close()
 
-	n, err := ipc.Copy(ww, rr)
+	n, err := arrio.Copy(ww, rr)
 	if err != nil {
 		return errors.Wrap(err, "could not convert JSON data to ARROW data")
 	}

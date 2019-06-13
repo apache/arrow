@@ -23,6 +23,7 @@ import (
 	"os"
 
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/pkg/errors"
@@ -57,7 +58,7 @@ func processStream(w *os.File, r io.Reader) error {
 	}
 	defer ww.Close()
 
-	_, err = ipc.Copy(ww, rr)
+	_, err = arrio.Copy(ww, rr)
 	if err != nil {
 		return errors.Wrap(err, "could not copy ARROW stream")
 	}

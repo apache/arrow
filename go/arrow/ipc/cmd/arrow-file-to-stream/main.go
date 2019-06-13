@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/pkg/errors"
@@ -65,7 +66,7 @@ func processFile(w io.Writer, fname string) error {
 	ww := ipc.NewWriter(w, ipc.WithAllocator(mem), ipc.WithSchema(rr.Schema()))
 	defer ww.Close()
 
-	n, err := ipc.Copy(ww, rr)
+	n, err := arrio.Copy(ww, rr)
 	if err != nil {
 		return errors.Wrap(err, "could not copy ARROW stream")
 	}
