@@ -50,7 +50,7 @@ func TestArrayEqual(t *testing.T) {
 	}
 }
 
-func TestBaseArrayEqual(t *testing.T) {
+func TestArrayEqualBaseArray(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -99,6 +99,42 @@ func TestBaseArrayEqual(t *testing.T) {
 
 	if array.ArrayEqual(a1, a5) {
 		t.Errorf("two arrays with different validity bitmaps must not be equal")
+	}
+}
+
+func TestArrayEqualNull(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	n0 := array.NewNull(10)
+	defer n0.Release()
+
+	n1 := array.NewNull(10)
+	defer n1.Release()
+
+	if !array.ArrayEqual(n0, n0) {
+		t.Fatalf("identical arrays should compare equal")
+	}
+	if !array.ArrayEqual(n1, n1) {
+		t.Fatalf("identical arrays should compare equal")
+	}
+	if !array.ArrayEqual(n0, n1) || !array.ArrayEqual(n1, n0) {
+		t.Fatalf("n0 and n1 should compare equal")
+	}
+
+	sub07 := array.NewSlice(n0, 0, 7)
+	defer sub07.Release()
+	sub08 := array.NewSlice(n0, 0, 8)
+	defer sub08.Release()
+	sub19 := array.NewSlice(n0, 1, 9)
+	defer sub19.Release()
+
+	if !array.ArrayEqual(sub08, sub19) {
+		t.Fatalf("sub08 and sub19 should compare equal")
+	}
+
+	if array.ArrayEqual(sub08, sub07) {
+		t.Fatalf("sub08 and sub07 should not compare equal")
 	}
 }
 
