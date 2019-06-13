@@ -1307,6 +1307,8 @@ class JavaTester(Tester):
 
     FLIGHT_PORT = 31338
 
+    JAVA_OPTS = ['-Dio.netty.tryReflectionSetAccessible=true']
+
     _arrow_version = load_version_from_pom()
     ARROW_TOOLS_JAR = os.environ.get(
         'ARROW_JAVA_INTEGRATION_JAR',
@@ -1326,8 +1328,8 @@ class JavaTester(Tester):
     name = 'Java'
 
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.Integration']
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR, 'org.apache.arrow.tools.Integration']
 
         if arrow_path is not None:
             cmd.extend(['-a', arrow_path])
@@ -1349,35 +1351,34 @@ class JavaTester(Tester):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.StreamToFile',
-               stream_path, file_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR,
+             'org.apache.arrow.tools.StreamToFile', stream_path, file_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.FileToStream',
-               file_path, stream_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR,
+             'org.apache.arrow.tools.FileToStream', file_path, stream_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     def flight_request(self, port, json_path):
-        cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               self.ARROW_FLIGHT_CLIENT,
-               '-port', str(port),
-               '-j', json_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_CLIENT,
+             '-port', str(port), '-j', json_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     @contextlib.contextmanager
     def flight_server(self):
-        cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               self.ARROW_FLIGHT_SERVER,
-               '-port', str(self.FLIGHT_PORT)]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_SERVER,
+             '-port', str(self.FLIGHT_PORT)]
         if self.debug:
             print(' '.join(cmd))
         server = subprocess.Popen(cmd, stdout=subprocess.PIPE)
