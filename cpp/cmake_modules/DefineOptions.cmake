@@ -233,8 +233,6 @@ Note that this requires linking Boost statically" OFF)
 
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" ON)
 
-  define_option(ARROW_REQUIRE_ENCRYPTION "Fail if OpenSSL is not found" OFF)
-
   if(CMAKE_VERSION VERSION_LESS 3.7)
     set(ARROW_WITH_ZSTD_DEFAULT OFF)
   else()
@@ -287,6 +285,8 @@ Always OFF if building binaries" OFF)
 
   define_option(PARQUET_BUILD_EXAMPLES
                 "Build the Parquet examples. Requires static libraries to be built." OFF)
+
+  define_option(PARQUET_REQUIRE_ENCRYPTION "Fail if OpenSSL is not found" OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")

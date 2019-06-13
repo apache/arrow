@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-include(CMakeDependentOption)
-
 add_custom_target(rapidjson)
 add_custom_target(toolchain)
 add_custom_target(toolchain-benchmarks)
@@ -181,7 +179,6 @@ else()
 endif()
 
 if(ARROW_FLIGHT)
-  set(ARROW_REQUIRE_ENCRYPTION ON)
   set(ARROW_WITH_GRPC ON)
   set(ARROW_WITH_URIPARSER ON)
 endif()
@@ -735,15 +732,19 @@ if(ARROW_WITH_BROTLI)
 endif()
 
 set(ARROW_USE_OPENSSL OFF)
-if(ARROW_REQUIRE_ENCRYPTION)
+if (PARQUET_BUILD_ENCRYPTION AND NOT ARROW_PARQUET)
+  set(PARQUET_BUILD_ENCRYPTION OFF)
+endif()
+if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT)
   # This must work
   find_package(OpenSSL REQUIRED)
   set(ARROW_USE_OPENSSL ON)
 elseif(ARROW_PARQUET)
   # Enable Parquet encryption if OpenSSL is there, but don't fail if it's not
   find_package(OpenSSL QUIET)
-  CMAKE_DEPENDENT_OPTION(ARROW_USE_OPENSSL "Build with OpenSSL support" ON
-                         "OPENSSL_FOUND" OFF)
+  if(OPENSSL_FOUND)
+    set(ARROW_USE_OPENSSL ON)
+  endif()
 endif()
 
 if(ARROW_USE_OPENSSL)
