@@ -33,7 +33,8 @@ namespace {
 
 // Serialize a Python ExtensionType instance
 Status SerializeExtInstance(PyObject* type_instance, std::string* out) {
-  OwnedRef res(PyObject_CallMethod(type_instance, "__arrow_ext_serialize__", nullptr));
+  OwnedRef res(
+      cpp_PyObject_CallMethod(type_instance, "__arrow_ext_serialize__", nullptr));
   if (!res) {
     return ConvertPyError();
   }
