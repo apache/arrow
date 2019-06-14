@@ -743,6 +743,9 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
 
   // Reconstruct the data type
   auto children = field->children();
+  if (children == nullptr) {
+    return Status::IOError("Children-pointer of flatbuffer-encoded Field is null.");
+  }
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
   for (int i = 0; i < static_cast<int>(children->size()); ++i) {
     RETURN_NOT_OK(

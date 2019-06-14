@@ -33,6 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int-util.h"
 #include "arrow/util/string.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visitor_inline.h"
@@ -151,7 +152,8 @@ class ArrayPrinter : public PrettyPrinter {
                                  Status>::type
   WriteDataValues(const T& array) {
     const auto data = array.raw_values();
-    WriteValues(array, [&](int64_t i) { (*sink_) << static_cast<int64_t>(data[i]); });
+    // Need to upcast integers to avoid selecting operator<<(char)
+    WriteValues(array, [&](int64_t i) { (*sink_) << internal::UpcastInt(data[i]); });
     return Status::OK();
   }
 

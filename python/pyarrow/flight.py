@@ -25,6 +25,7 @@ if sys.version_info < (3,):
 from pyarrow._flight import (  # noqa
     Action,
     ActionType,
+    CertKeyPair,
     DescriptorType,
     FlightCallOptions,
     FlightClient,

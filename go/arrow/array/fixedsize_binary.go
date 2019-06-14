@@ -17,6 +17,7 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -75,6 +76,18 @@ func (a *FixedSizeBinary) setData(data *Data) {
 		a.valueBytes = vals.Bytes()
 	}
 
+}
+
+func arrayEqualFixedSizeBinary(left, right *FixedSizeBinary) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if bytes.Compare(left.Value(i), right.Value(i)) != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 var (

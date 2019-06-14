@@ -310,8 +310,81 @@ def test_array_from_buffers():
     with pytest.raises(TypeError):
         pa.Array.from_buffers(pa.int16(), 3, [u'', u''], offset=1)
 
-    with pytest.raises(NotImplementedError):
-        pa.Array.from_buffers(pa.list_(pa.int16()), 4, [None, values_buf])
+
+def test_string_binary_from_buffers():
+    array = pa.array(["a", None, "b", "c"])
+
+    buffers = array.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(array), buffers[1], buffers[2], buffers[0], array.null_count,
+        array.offset)
+    assert copied.to_pylist() == ["a", None, "b", "c"]
+
+    binary_copy = pa.Array.from_buffers(pa.binary(), len(array),
+                                        array.buffers(), array.null_count,
+                                        array.offset)
+    assert binary_copy.to_pylist() == [b"a", None, b"b", b"c"]
+
+    copied = pa.StringArray.from_buffers(
+        len(array), buffers[1], buffers[2], buffers[0])
+    assert copied.to_pylist() == ["a", None, "b", "c"]
+
+    sliced = array[1:]
+    buffers = sliced.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(sliced), buffers[1], buffers[2], buffers[0], -1, sliced.offset)
+    assert copied.to_pylist() == [None, "b", "c"]
+    assert copied.null_count == 1
+
+    # Slice but exclude all null entries so that we don't need to pass
+    # the null bitmap.
+    sliced = array[2:]
+    buffers = sliced.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(sliced), buffers[1], buffers[2], None, -1, sliced.offset)
+    assert copied.to_pylist() == ["b", "c"]
+    assert copied.null_count == 0
+
+
+def test_list_from_buffers():
+    ty = pa.list_(pa.int16())
+    array = pa.array([[0, 1, 2], None, [], [3, 4, 5]], type=ty)
+
+    buffers = array.buffers()
+
+    with pytest.raises(ValueError):
+        # No children
+        pa.Array.from_buffers(ty, 4, [None, buffers[1]])
+
+    child = pa.Array.from_buffers(pa.int16(), 6, buffers[2:])
+    copied = pa.Array.from_buffers(ty, 4, buffers[:2], children=[child])
+    assert copied.equals(array)
+
+    with pytest.raises(ValueError):
+        # too many children
+        pa.Array.from_buffers(ty, 4, [None, buffers[1]],
+                              children=[child, child])
+
+
+def test_struct_from_buffers():
+    ty = pa.struct([pa.field('a', pa.int16()), pa.field('b', pa.utf8())])
+    array = pa.array([{'a': 0, 'b': 'foo'}, None, {'a': 5, 'b': ''}],
+                     type=ty)
+    buffers = array.buffers()
+
+    with pytest.raises(ValueError):
+        # No children
+        pa.Array.from_buffers(ty, 3, [None, buffers[1]])
+
+    children = [pa.Array.from_buffers(pa.int16(), 3, buffers[1:3]),
+                pa.Array.from_buffers(pa.utf8(), 3, buffers[3:])]
+    copied = pa.Array.from_buffers(ty, 3, buffers[:1], children=children)
+    assert copied.equals(array)
+
+    with pytest.raises(ValueError):
+        # not enough many children
+        pa.Array.from_buffers(ty, 3, [buffers[0]],
+                              children=children[:1])
 
 
 def test_dictionary_from_numpy():
@@ -497,36 +570,6 @@ def test_union_array_slice():
     for i in range(len(arr)):
         for j in range(i, len(arr)):
             assert arr[i:j].to_pylist() == lst[i:j]
-
-
-def test_string_from_buffers():
-    array = pa.array(["a", None, "b", "c"])
-
-    buffers = array.buffers()
-    copied = pa.StringArray.from_buffers(
-        len(array), buffers[1], buffers[2], buffers[0], array.null_count,
-        array.offset)
-    assert copied.to_pylist() == ["a", None, "b", "c"]
-
-    copied = pa.StringArray.from_buffers(
-        len(array), buffers[1], buffers[2], buffers[0])
-    assert copied.to_pylist() == ["a", None, "b", "c"]
-
-    sliced = array[1:]
-    buffers = sliced.buffers()
-    copied = pa.StringArray.from_buffers(
-        len(sliced), buffers[1], buffers[2], buffers[0], -1, sliced.offset)
-    assert copied.to_pylist() == [None, "b", "c"]
-    assert copied.null_count == 1
-
-    # Slice but exclude all null entries so that we don't need to pass
-    # the null bitmap.
-    sliced = array[2:]
-    buffers = sliced.buffers()
-    copied = pa.StringArray.from_buffers(
-        len(sliced), buffers[1], buffers[2], None, -1, sliced.offset)
-    assert copied.to_pylist() == ["b", "c"]
-    assert copied.null_count == 0
 
 
 def _check_cast_case(case, safe=True):

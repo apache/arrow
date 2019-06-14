@@ -84,7 +84,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
 
 
-def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
+def array(object obj, type=None, mask=None, size=None, from_pandas=None,
           bint safe=True, MemoryPool memory_pool=None):
     """
     Create pyarrow.Array instance from a Python object
@@ -105,11 +105,13 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
         will be treated as a "max size", but will involve an initial allocation
         of size followed by a resize to the actual size (so if you know the
         exact size specifying it correctly will give you better performance).
-    from_pandas : boolean, default False
-        Use pandas's semantics for inferring nulls from values in ndarray-like
-        data. If passed, the mask tasks precendence, but if a value is unmasked
-        (not-null), but still null according to pandas semantics, then it is
-        null
+    from_pandas : boolean, default None
+        Use pandas's semantics for inferring nulls from values in
+        ndarray-like data. If passed, the mask tasks precendence, but
+        if a value is unmasked (not-null), but still null according to
+        pandas semantics, then it is null. Defaults to False if not
+        passed explicitly by user, or True if a pandas object is
+        passed in
     safe : boolean, default True
         Check for overflows or other unsafe conversions
     memory_pool : pyarrow.MemoryPool, optional
@@ -147,14 +149,26 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
     array : pyarrow.Array or pyarrow.ChunkedArray (if object data
     overflowed binary storage)
     """
+    cdef:
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        bint is_pandas_object = False
+        bint c_from_pandas
+
     type = ensure_type(type, allow_none=True)
-    cdef CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+    if from_pandas is None:
+        c_from_pandas = False
+    else:
+        c_from_pandas = from_pandas
 
     if _is_array_like(obj):
         if mask is not None:
-            mask = get_series_values(mask)
+            # out argument unused
+            mask = get_series_values(mask, &is_pandas_object)
 
-        values = get_series_values(obj)
+        values = get_series_values(obj, &is_pandas_object)
+        if is_pandas_object and from_pandas is None:
+            c_from_pandas = True
 
         if np.ma.isMaskedArray(values):
             if mask is not None:
@@ -174,11 +188,11 @@ def array(object obj, type=None, mask=None, size=None, bint from_pandas=False,
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
-            return _ndarray_to_array(values, mask, type, from_pandas, safe,
+            return _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                      pool)
     else:
         # ConvertPySequence does strict conversion if type is explicitly passed
-        return _sequence_to_array(obj, mask, size, type, pool, from_pandas)
+        return _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
 
 def asarray(values, type=None):
@@ -555,9 +569,10 @@ cdef class Array(_PandasConvertible):
             (_reduce_array_data(self.sp_array.get().data().get()),)
 
     @staticmethod
-    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0):
+    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
+                     children=None):
         """
-        Construct an Array from a sequence of buffers.  The concrete type
+        Construct an Array from a sequence of buffers. The concrete type
         returned depends on the datatype.
 
         Parameters
@@ -572,6 +587,8 @@ cdef class Array(_PandasConvertible):
         offset : int, default 0
             The array's logical offset (in values, not in bytes) from the
             start of each buffer
+        children : List[Array], default None
+            Nested type children with length matching type.num_children
 
         Returns
         -------
@@ -579,19 +596,36 @@ cdef class Array(_PandasConvertible):
         """
         cdef:
             Buffer buf
+            Array child
             vector[shared_ptr[CBuffer]] c_buffers
-            shared_ptr[CArrayData] ad
+            vector[shared_ptr[CArrayData]] c_child_data
+            shared_ptr[CArrayData] array_data
 
-        if not is_primitive(type.id):
-            raise NotImplementedError("from_buffers is only supported for "
-                                      "primitive arrays yet.")
+        children = children or []
+
+        if type.num_children != len(children):
+            raise ValueError("Type's expected number of children "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_children, len(children)))
+
+        if type.num_buffers != len(buffers):
+            raise ValueError("Type's expected number of buffers "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_buffers, len(buffers)))
 
         for buf in buffers:
             # None will produce a null buffer pointer
             c_buffers.push_back(pyarrow_unwrap_buffer(buf))
-        ad = CArrayData.Make(type.sp_type, length, c_buffers,
-                             null_count, offset)
-        return pyarrow_wrap_array(MakeArray(ad))
+
+        for child in children:
+            c_child_data.push_back(child.ap.data())
+
+        array_data = CArrayData.MakeWithChildren(type.sp_type, length,
+                                                 c_buffers, c_child_data,
+                                                 null_count, offset)
+        cdef Array result = pyarrow_wrap_array(MakeArray(array_data))
+        result.validate()
+        return result
 
     @property
     def null_count(self):
@@ -1208,18 +1242,9 @@ cdef class StringArray(Array):
         -------
         string_array : StringArray
         """
-        cdef shared_ptr[CBuffer] c_null_bitmap
-        cdef shared_ptr[CArray] out
-
-        if null_bitmap is not None:
-            c_null_bitmap = null_bitmap.buffer
-        else:
-            null_count = 0
-
-        out.reset(new CStringArray(
-            length, value_offsets.buffer, data.buffer, c_null_bitmap,
-            null_count, offset))
-        return pyarrow_wrap_array(out)
+        return Array.from_buffers(utf8(), length,
+                                  [null_bitmap, value_offsets, data],
+                                  null_count, offset)
 
 
 cdef class BinaryArray(Array):
@@ -1471,13 +1496,16 @@ cdef dict _array_classes = {
 }
 
 
-cdef object get_series_values(object obj):
+cdef object get_series_values(object obj, bint* is_series):
     if pandas_api.is_series(obj):
         result = obj.values
+        is_series[0] = True
     elif isinstance(obj, np.ndarray):
         result = obj
+        is_series[0] = False
     else:
         result = pandas_api.make_series(obj).values
+        is_series[0] = False
 
     return result
 

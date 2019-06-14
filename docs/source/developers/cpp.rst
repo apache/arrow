@@ -514,18 +514,18 @@ Now you can start one of the fuzzer, e.g.:
 
 .. code-block:: shell
 
-   mkdir -p corpus
    ./relwithdebinfo/arrow-ipc-fuzzing-test corpus
 
 This will try to find a malformed input that crashes the payload. A corpus of
 interesting inputs will be stored into the ``corpus`` directory. You can save and
 share this with others if you want, or even pre-fill it with files to provide the
-fuzzer with a warm-start. If a crash was found, the program will show the stack trace
-as well as the input data. The input data will also be written to a file named
-``crash-<some id>``. After a problem was found this way, it should be reported and
-fixed. Usually, the fuzzing process cannot be continued until the fix is applied, since
-the fuzzer usually converts to the problem again. To debug the underlying issue, you
-can use GDB:
+fuzzer with a warm-start. Apache provides a test corpus under
+https://github.com/apache/arrow-testing. If a crash was found, the program will
+show the stack trace as well as the input data. The input data will also be written
+to a file named ``crash-<some id>``. After a problem was found this way, it should be
+reported and fixed. Usually, the fuzzing process cannot be continued until the fix is
+applied, since the fuzzer usually converts to the problem again. To debug the
+underlying issue, you can use GDB:
 
 .. code-block:: shell
 

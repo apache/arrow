@@ -56,15 +56,19 @@ func (a *FixedSizeList) String() string {
 			o.WriteString("(null)")
 			continue
 		}
-		j := i + a.array.data.offset
-		beg := int64(a.offsets[j])
-		end := int64(a.offsets[j+1])
-		sub := NewSlice(a.values, beg, end)
+		sub := a.newListValue(i)
 		fmt.Fprintf(o, "%v", sub)
 		sub.Release()
 	}
 	o.WriteString("]")
 	return o.String()
+}
+
+func (a *FixedSizeList) newListValue(i int) Interface {
+	j := i + a.array.data.offset
+	beg := int64(a.offsets[j])
+	end := int64(a.offsets[j+1])
+	return NewSlice(a.values, beg, end)
 }
 
 func (a *FixedSizeList) setData(data *Data) {
@@ -74,6 +78,25 @@ func (a *FixedSizeList) setData(data *Data) {
 		a.offsets = arrow.Int32Traits.CastFromBytes(vals.Bytes())
 	}
 	a.values = MakeFromData(data.childData[0])
+}
+
+func arrayEqualFixedSizeList(left, right *FixedSizeList) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return ArrayEqual(l, r)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
 }
 
 // Len returns the number of elements in the array.

@@ -765,6 +765,47 @@ class MapColumn(Column):
         return [self.pairs.get_json()]
 
 
+class FixedSizeListType(DataType):
+
+    def __init__(self, name, value_type, list_size, nullable=True):
+        super(FixedSizeListType, self).__init__(name, nullable=nullable)
+        self.value_type = value_type
+        self.list_size = list_size
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'fixedsizelist'),
+            ('listSize', self.list_size)
+        ])
+
+    def _get_children(self):
+        return [self.value_type.get_json()]
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+        values = self.value_type.generate_column(size * self.list_size)
+
+        if name is None:
+            name = self.name
+        return FixedSizeListColumn(name, size, is_valid, values)
+
+
+class FixedSizeListColumn(Column):
+
+    def __init__(self, name, count, is_valid, values):
+        super(FixedSizeListColumn, self).__init__(name, count)
+        self.is_valid = is_valid
+        self.values = values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid])
+        ]
+
+    def _get_children(self):
+        return [self.values.get_json()]
+
+
 class StructType(DataType):
 
     def __init__(self, name, field_types, nullable=True):
@@ -1032,6 +1073,8 @@ def generate_map_case():
 def generate_nested_case():
     fields = [
         ListType('list_nullable', get_field('item', 'int32')),
+        FixedSizeListType('fixedsizelist_nullable',
+                          get_field('item', 'int32'), 4),
         StructType('struct_nullable', [get_field('f1', 'int32'),
                                        get_field('f2', 'utf8')]),
 
@@ -1307,6 +1350,8 @@ class JavaTester(Tester):
 
     FLIGHT_PORT = 31338
 
+    JAVA_OPTS = ['-Dio.netty.tryReflectionSetAccessible=true']
+
     _arrow_version = load_version_from_pom()
     ARROW_TOOLS_JAR = os.environ.get(
         'ARROW_JAVA_INTEGRATION_JAR',
@@ -1326,8 +1371,8 @@ class JavaTester(Tester):
     name = 'Java'
 
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.Integration']
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR, 'org.apache.arrow.tools.Integration']
 
         if arrow_path is not None:
             cmd.extend(['-a', arrow_path])
@@ -1349,35 +1394,34 @@ class JavaTester(Tester):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.StreamToFile',
-               stream_path, file_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR,
+             'org.apache.arrow.tools.StreamToFile', stream_path, file_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.FileToStream',
-               file_path, stream_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR,
+             'org.apache.arrow.tools.FileToStream', file_path, stream_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     def flight_request(self, port, json_path):
-        cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               self.ARROW_FLIGHT_CLIENT,
-               '-port', str(port),
-               '-j', json_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_CLIENT,
+             '-port', str(port), '-j', json_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     @contextlib.contextmanager
     def flight_server(self):
-        cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               self.ARROW_FLIGHT_SERVER,
-               '-port', str(self.FLIGHT_PORT)]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_SERVER,
+             '-port', str(self.FLIGHT_PORT)]
         if self.debug:
             print(' '.join(cmd))
         server = subprocess.Popen(cmd, stdout=subprocess.PIPE)
