@@ -152,6 +152,12 @@ func ArrayEqual(left, right Interface) bool {
 	case *Struct:
 		r := right.(*Struct)
 		return arrayEqualStruct(l, r)
+	case *MonthInterval:
+		r := right.(*MonthInterval)
+		return arrayEqualMonthInterval(l, r)
+	case *DayTimeInterval:
+		r := right.(*DayTimeInterval)
+		return arrayEqualDayTimeInterval(l, r)
 
 	default:
 		panic(errors.Errorf("arrow/array: unknown array type %T", l))
@@ -329,6 +335,12 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 	case *Struct:
 		r := right.(*Struct)
 		return arrayApproxEqualStruct(l, r, opt)
+	case *MonthInterval:
+		r := right.(*MonthInterval)
+		return arrayEqualMonthInterval(l, r)
+	case *DayTimeInterval:
+		r := right.(*DayTimeInterval)
+		return arrayEqualDayTimeInterval(l, r)
 
 	default:
 		panic(errors.Errorf("arrow/array: unknown array type %T", l))
