@@ -374,7 +374,7 @@ class ARROW_EXPORT ErrorOr {
     if (ARROW_PREDICT_FALSE(!ok())) {
       internal::DieWithMessage(
           std::string("OverwriteValueWithStatus called on with existing error: ") +
-          status().ToString());
+          status.ToString());
     }
 #endif
     variant_.value_.~T();
