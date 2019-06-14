@@ -479,3 +479,53 @@ func TestArrayEqualDifferentMaskedValues(t *testing.T) {
 		t.Errorf("%v must be equal to %v", a1, a2)
 	}
 }
+
+func TestRecordEqual(t *testing.T) {
+	for name, recs := range arrdata.Records {
+		t.Run(name, func(t *testing.T) {
+			rec0 := recs[0]
+			rec1 := recs[1]
+			if !array.RecordEqual(rec0, rec0) {
+				t.Fatalf("identical records should compare equal:\nrecord:\n%v", rec0)
+			}
+
+			if array.RecordEqual(rec0, rec1) {
+				t.Fatalf("non-identical records should not compare equal:\nrec0:\n%v\nrec1:\n%v", rec0, rec1)
+			}
+
+			sub00 := rec0.NewSlice(0, recs[0].NumRows()-1)
+			defer sub00.Release()
+			sub01 := rec0.NewSlice(1, recs[0].NumRows())
+			defer sub01.Release()
+
+			if array.RecordEqual(sub00, sub01) {
+				t.Fatalf("non-identical records should not compare equal:\nsub0:\n%v\nsub1:\n%v", sub00, sub01)
+			}
+		})
+	}
+}
+
+func TestRecordApproxEqual(t *testing.T) {
+	for name, recs := range arrdata.Records {
+		t.Run(name, func(t *testing.T) {
+			rec0 := recs[0]
+			rec1 := recs[1]
+			if !array.RecordApproxEqual(rec0, rec0) {
+				t.Fatalf("identical records should compare equal:\nrecord:\n%v", rec0)
+			}
+
+			if array.RecordApproxEqual(rec0, rec1) {
+				t.Fatalf("non-identical records should not compare equal:\nrec0:\n%v\nrec1:\n%v", rec0, rec1)
+			}
+
+			sub00 := rec0.NewSlice(0, recs[0].NumRows()-1)
+			defer sub00.Release()
+			sub01 := rec0.NewSlice(1, recs[0].NumRows())
+			defer sub01.Release()
+
+			if array.RecordApproxEqual(sub00, sub01) {
+				t.Fatalf("non-identical records should not compare equal:\nsub0:\n%v\nsub1:\n%v", sub00, sub01)
+			}
+		})
+	}
+}
