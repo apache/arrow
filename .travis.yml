@@ -382,8 +382,9 @@ matrix:
           sudo apt-get update -qq
         fi
     - pushd ${TRAVIS_BUILD_DIR}/r
-  - name: R + Homebrew --HEAD
+  - name: R-devel + Homebrew --HEAD
     language: r
+    r: devel
     cache: packages
     latex: false
     os: osx
