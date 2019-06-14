@@ -17,9 +17,12 @@
 package array_test
 
 import (
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -76,6 +79,256 @@ func TestArraySliceEqual(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func TestArrayApproxEqual(t *testing.T) {
+	for name, recs := range arrdata.Records {
+		t.Run(name, func(t *testing.T) {
+			rec := recs[0]
+			schema := rec.Schema()
+			for i, col := range rec.Columns() {
+				t.Run(schema.Field(i).Name, func(t *testing.T) {
+					arr := col
+					if !array.ArrayApproxEqual(arr, arr) {
+						t.Fatalf("identical arrays should compare equal:\narray=%v", arr)
+					}
+					sub1 := array.NewSlice(arr, 1, int64(arr.Len()))
+					defer sub1.Release()
+
+					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
+					defer sub2.Release()
+
+					if array.ArrayApproxEqual(sub1, sub2) {
+						t.Fatalf("non-identical arrays should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestArrayApproxEqualFloats(t *testing.T) {
+	f16sFrom := func(vs []float64) []float16.Num {
+		o := make([]float16.Num, len(vs))
+		for i, v := range vs {
+			o[i] = float16.New(float32(v))
+		}
+		return o
+	}
+
+	for _, tc := range []struct {
+		name string
+		a1   interface{}
+		a2   interface{}
+		opts []array.EqualOption
+		want bool
+	}{
+		{
+			name: "f16",
+			a1:   f16sFrom([]float64{1, 2, 3, 4, 5, 6}),
+			a2:   f16sFrom([]float64{1, 2, 3, 4, 5, 6}),
+			want: true,
+		},
+		{
+			name: "f16-no-tol",
+			a1:   f16sFrom([]float64{1, 2, 3, 4, 5, 6}),
+			a2:   f16sFrom([]float64{1, 2, 3, 4, 5, 7}),
+			want: false,
+		},
+		{
+			name: "f16-tol-ok",
+			a1:   f16sFrom([]float64{1, 2, 3, 4, 5, 6}),
+			a2:   f16sFrom([]float64{1, 2, 3, 4, 5, 7}),
+			opts: []array.EqualOption{array.WithAbsTolerance(1)},
+			want: true,
+		},
+		{
+			name: "f16-nan",
+			a1:   f16sFrom([]float64{1, 2, 3, 4, 5, 6}),
+			a2:   f16sFrom([]float64{1, 2, 3, 4, 5, math.NaN()}),
+			want: false,
+		},
+		{
+			name: "f16-nan-not",
+			a1:   f16sFrom([]float64{1, 2, 3, 4, 5, 6}),
+			a2:   f16sFrom([]float64{1, 2, 3, 4, 5, math.NaN()}),
+			opts: []array.EqualOption{array.WithNaNsEqual(true)},
+			want: false,
+		},
+		{
+			name: "f16-nan-ok",
+			a1:   f16sFrom([]float64{1, 2, 3, 4, 5, math.NaN()}),
+			a2:   f16sFrom([]float64{1, 2, 3, 4, 5, math.NaN()}),
+			opts: []array.EqualOption{array.WithNaNsEqual(true)},
+			want: true,
+		},
+		{
+			name: "f16-nan-no-tol",
+			a1:   f16sFrom([]float64{1, 2, 3, 4, 5, math.NaN()}),
+			a2:   f16sFrom([]float64{1, 2, 3, 4, 6, math.NaN()}),
+			opts: []array.EqualOption{array.WithNaNsEqual(true)},
+			want: false,
+		},
+		{
+			name: "f16-nan-tol",
+			a1:   f16sFrom([]float64{1, 2, 3, 4, 5, math.NaN()}),
+			a2:   f16sFrom([]float64{1, 2, 3, 4, 6, math.NaN()}),
+			opts: []array.EqualOption{array.WithNaNsEqual(true), array.WithAbsTolerance(1)},
+			want: true,
+		},
+		{
+			name: "f32",
+			a1:   []float32{1, 2, 3, 4, 5, 6},
+			a2:   []float32{1, 2, 3, 4, 5, 6},
+			want: true,
+		},
+		{
+			name: "f32-no-tol",
+			a1:   []float32{1, 2, 3, 4, 5, 6},
+			a2:   []float32{1, 2, 3, 4, 5, 7},
+			want: false,
+		},
+		{
+			name: "f32-tol-ok",
+			a1:   []float32{1, 2, 3, 4, 5, 6},
+			a2:   []float32{1, 2, 3, 4, 5, 7},
+			opts: []array.EqualOption{array.WithAbsTolerance(1)},
+			want: true,
+		},
+		{
+			name: "f32-nan",
+			a1:   []float32{1, 2, 3, 4, 5, 6},
+			a2:   []float32{1, 2, 3, 4, 5, float32(math.NaN())},
+			want: false,
+		},
+		{
+			name: "f32-nan-not",
+			a1:   []float32{1, 2, 3, 4, 5, 6},
+			a2:   []float32{1, 2, 3, 4, 5, float32(math.NaN())},
+			opts: []array.EqualOption{array.WithNaNsEqual(true)},
+			want: false,
+		},
+		{
+			name: "f32-nan-ok",
+			a1:   []float32{1, 2, 3, 4, 5, float32(math.NaN())},
+			a2:   []float32{1, 2, 3, 4, 5, float32(math.NaN())},
+			opts: []array.EqualOption{array.WithNaNsEqual(true)},
+			want: true,
+		},
+		{
+			name: "f32-nan-no-tol",
+			a1:   []float32{1, 2, 3, 4, 5, float32(math.NaN())},
+			a2:   []float32{1, 2, 3, 4, 6, float32(math.NaN())},
+			opts: []array.EqualOption{array.WithNaNsEqual(true)},
+			want: false,
+		},
+		{
+			name: "f32-nan-tol",
+			a1:   []float32{1, 2, 3, 4, 5, float32(math.NaN())},
+			a2:   []float32{1, 2, 3, 4, 6, float32(math.NaN())},
+			opts: []array.EqualOption{array.WithNaNsEqual(true), array.WithAbsTolerance(1)},
+			want: true,
+		},
+		{
+			name: "f64",
+			a1:   []float64{1, 2, 3, 4, 5, 6},
+			a2:   []float64{1, 2, 3, 4, 5, 6},
+			want: true,
+		},
+		{
+			name: "f64-no-tol",
+			a1:   []float64{1, 2, 3, 4, 5, 6},
+			a2:   []float64{1, 2, 3, 4, 5, 7},
+			want: false,
+		},
+		{
+			name: "f64-tol-ok",
+			a1:   []float64{1, 2, 3, 4, 5, 6},
+			a2:   []float64{1, 2, 3, 4, 5, 7},
+			opts: []array.EqualOption{array.WithAbsTolerance(1)},
+			want: true,
+		},
+		{
+			name: "f64-nan",
+			a1:   []float64{1, 2, 3, 4, 5, 6},
+			a2:   []float64{1, 2, 3, 4, 5, math.NaN()},
+			want: false,
+		},
+		{
+			name: "f64-nan-not",
+			a1:   []float64{1, 2, 3, 4, 5, 6},
+			a2:   []float64{1, 2, 3, 4, 5, math.NaN()},
+			opts: []array.EqualOption{array.WithNaNsEqual(true)},
+			want: false,
+		},
+		{
+			name: "f64-nan-ok",
+			a1:   []float64{1, 2, 3, 4, 5, math.NaN()},
+			a2:   []float64{1, 2, 3, 4, 5, math.NaN()},
+			opts: []array.EqualOption{array.WithNaNsEqual(true)},
+			want: true,
+		},
+		{
+			name: "f64-nan-no-tol",
+			a1:   []float64{1, 2, 3, 4, 5, math.NaN()},
+			a2:   []float64{1, 2, 3, 4, 6, math.NaN()},
+			opts: []array.EqualOption{array.WithNaNsEqual(true)},
+			want: false,
+		},
+		{
+			name: "f64-nan-tol",
+			a1:   []float64{1, 2, 3, 4, 5, math.NaN()},
+			a2:   []float64{1, 2, 3, 4, 6, math.NaN()},
+			opts: []array.EqualOption{array.WithNaNsEqual(true), array.WithAbsTolerance(1)},
+			want: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer mem.AssertSize(t, 0)
+
+			a1 := arrayOf(mem, tc.a1, nil)
+			defer a1.Release()
+			a2 := arrayOf(mem, tc.a2, nil)
+			defer a2.Release()
+
+			if got, want := array.ArrayApproxEqual(a1, a2, tc.opts...), tc.want; got != want {
+				t.Fatalf("invalid comparison: got=%v, want=%v\na1: %v\na2: %v\n", got, want, a1, a2)
+			}
+		})
+	}
+}
+
+func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
+	if mem == nil {
+		mem = memory.NewGoAllocator()
+	}
+
+	switch a := a.(type) {
+	case []float16.Num:
+		bldr := array.NewFloat16Builder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewFloat16Array()
+
+	case []float32:
+		bldr := array.NewFloat32Builder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewFloat32Array()
+
+	case []float64:
+		bldr := array.NewFloat64Builder(mem)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		return bldr.NewFloat64Array()
+
+	default:
+		panic(fmt.Errorf("arrdata: invalid data slice type %T", a))
 	}
 }
 
