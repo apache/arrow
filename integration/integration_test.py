@@ -765,6 +765,47 @@ class MapColumn(Column):
         return [self.pairs.get_json()]
 
 
+class FixedSizeListType(DataType):
+
+    def __init__(self, name, value_type, list_size, nullable=True):
+        super(FixedSizeListType, self).__init__(name, nullable=nullable)
+        self.value_type = value_type
+        self.list_size = list_size
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'fixedsizelist'),
+            ('listSize', self.list_size)
+        ])
+
+    def _get_children(self):
+        return [self.value_type.get_json()]
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+        values = self.value_type.generate_column(size * self.list_size)
+
+        if name is None:
+            name = self.name
+        return FixedSizeListColumn(name, size, is_valid, values)
+
+
+class FixedSizeListColumn(Column):
+
+    def __init__(self, name, count, is_valid, values):
+        super(FixedSizeListColumn, self).__init__(name, count)
+        self.is_valid = is_valid
+        self.values = values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid])
+        ]
+
+    def _get_children(self):
+        return [self.values.get_json()]
+
+
 class StructType(DataType):
 
     def __init__(self, name, field_types, nullable=True):
@@ -1032,6 +1073,8 @@ def generate_map_case():
 def generate_nested_case():
     fields = [
         ListType('list_nullable', get_field('item', 'int32')),
+        FixedSizeListType('fixedsizelist_nullable',
+                          get_field('item', 'int32'), 4),
         StructType('struct_nullable', [get_field('f1', 'int32'),
                                        get_field('f2', 'utf8')]),
 

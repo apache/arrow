@@ -142,7 +142,7 @@ public class ArrowFileReader extends ArrowReader {
     ensureInitialized();
     int blockIndex = footer.getRecordBatches().indexOf(block);
     if (blockIndex == -1) {
-      throw new IllegalArgumentException("Arrow bock does not exist in record batches: " + block);
+      throw new IllegalArgumentException("Arrow block does not exist in record batches: " + block);
     }
     currentRecordBatch = blockIndex;
     return loadNextBatch();
