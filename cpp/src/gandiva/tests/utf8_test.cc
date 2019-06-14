@@ -504,4 +504,21 @@ TEST_F(TestUtf8, TestIsNull) {
                             outputs[1]);  // isnotnull
 }
 
+TEST_F(TestUtf8, TestVarlenOutput) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // build expressions.
+  auto expr = TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeField(field_a),
+                                              field("res", utf8()));
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+
+  // assert that it fails gracefully.
+  ASSERT_RAISES(NotImplemented,
+                Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+}
+
 }  // namespace gandiva
