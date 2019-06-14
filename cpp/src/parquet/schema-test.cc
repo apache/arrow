@@ -585,17 +585,16 @@ TEST(TestColumnDescriptor, TestAttrs) {
   ASSERT_EQ(Type::BYTE_ARRAY, descr.physical_type());
 
   ASSERT_EQ(-1, descr.type_length());
-  ASSERT_EQ(
-      R"(column descriptor = {
+  const char* expected_descr = R"(column descriptor = {
   name: name
-  path: 
+  path:
   physical_type: BYTE_ARRAY
   logical_type: UTF8
   logical_annotation: String
   max_definition_level: 4
   max_repetition_level: 1
-})",
-      descr.ToString());
+})";
+  ASSERT_EQ(expected_descr, descr.ToString());
 
   // Test FIXED_LEN_BYTE_ARRAY
   node = PrimitiveNode::Make("name", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
@@ -605,10 +604,9 @@ TEST(TestColumnDescriptor, TestAttrs) {
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, descr.physical_type());
   ASSERT_EQ(12, descr.type_length());
 
-  ASSERT_EQ(
-      R"(column descriptor = {
+  expected_descr = R"(column descriptor = {
   name: name
-  path: 
+  path:
   physical_type: FIXED_LEN_BYTE_ARRAY
   logical_type: DECIMAL
   logical_annotation: Decimal(precision=10, scale=4)
@@ -617,8 +615,8 @@ TEST(TestColumnDescriptor, TestAttrs) {
   length: 12
   precision: 10
   scale: 4
-})",
-      descr.ToString());
+})";
+  ASSERT_EQ(expected_descr, descr.ToString());
 }
 
 class TestSchemaDescriptor : public ::testing::Test {
