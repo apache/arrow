@@ -370,10 +370,10 @@ matrix:
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
     - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
     - export CXX11FLAGS=-Wall
+    # Add this env var so we can assert in the tests that the library is installed correctly
+    - export TEST_R_WITH_ARROW=TRUE
     - pushd ${TRAVIS_BUILD_DIR}/r
     after_success:
-    # Double-check that we just ran with libarrow support
-    - Rscript -e 'if (!arrow::arrow_available()) q(status=1)'
     - Rscript ../ci/travis_upload_r_coverage.R
 
 after_failure:
