@@ -158,6 +158,9 @@ func ArrayEqual(left, right Interface) bool {
 	case *DayTimeInterval:
 		r := right.(*DayTimeInterval)
 		return arrayEqualDayTimeInterval(l, r)
+	case *Duration:
+		r := right.(*Duration)
+		return arrayEqualDuration(l, r)
 
 	default:
 		panic(errors.Errorf("arrow/array: unknown array type %T", l))
@@ -341,6 +344,9 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 	case *DayTimeInterval:
 		r := right.(*DayTimeInterval)
 		return arrayEqualDayTimeInterval(l, r)
+	case *Duration:
+		r := right.(*Duration)
+		return arrayEqualDuration(l, r)
 
 	default:
 		panic(errors.Errorf("arrow/array: unknown array type %T", l))

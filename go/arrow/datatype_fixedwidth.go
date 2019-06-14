@@ -46,6 +46,7 @@ type (
 	TimeUnit  int
 	Date32    int32
 	Date64    int64
+	Duration  int64
 )
 
 const (
@@ -92,36 +93,18 @@ func (*Time64Type) Name() string     { return "time64" }
 func (*Time64Type) BitWidth() int    { return 64 }
 func (t *Time64Type) String() string { return "time64[" + t.Unit.String() + "]" }
 
-var (
-	FixedWidthTypes = struct {
-		Boolean         FixedWidthDataType
-		Date32          FixedWidthDataType
-		Date64          FixedWidthDataType
-		DayTimeInterval FixedWidthDataType
-		Float16         FixedWidthDataType
-		MonthInterval   FixedWidthDataType
-		Time32s         FixedWidthDataType
-		Time32ms        FixedWidthDataType
-		Time64us        FixedWidthDataType
-		Time64ns        FixedWidthDataType
-		Timestamp       FixedWidthDataType
-	}{
-		Boolean:         &BooleanType{},
-		Date32:          &Date32Type{},
-		Date64:          &Date64Type{},
-		DayTimeInterval: &DayTimeIntervalType{},
-		Float16:         &Float16Type{},
-		MonthInterval:   &MonthIntervalType{},
-		Time32s:         &Time32Type{Unit: Second},
-		Time32ms:        &Time32Type{Unit: Millisecond},
-		Time64us:        &Time64Type{Unit: Microsecond},
-		Time64ns:        &Time64Type{Unit: Nanosecond},
-		Timestamp:       &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
-	}
+// DurationType is encoded as a 64-bit signed integer, representing an amount
+// of elapsed time without any relation to a calendar artifact.
+type DurationType struct {
+	Unit TimeUnit
+}
 
-	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)
-)
+func (*DurationType) ID() Type         { return DURATION }
+func (*DurationType) Name() string     { return "duration" }
+func (*DurationType) BitWidth() int    { return 64 }
+func (t *DurationType) String() string { return "duration[" + t.Unit.String() + "]" }
 
+// Float16Type represents a floating point value encoded with a 16-bit precision.
 type Float16Type struct{}
 
 func (t *Float16Type) ID() Type       { return FLOAT16 }
@@ -161,3 +144,41 @@ func (*DayTimeIntervalType) String() string { return "day_time_interval" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *DayTimeIntervalType) BitWidth() int { return 64 }
+
+var (
+	FixedWidthTypes = struct {
+		Boolean         FixedWidthDataType
+		Date32          FixedWidthDataType
+		Date64          FixedWidthDataType
+		DayTimeInterval FixedWidthDataType
+		Duration_s      FixedWidthDataType
+		Duration_ms     FixedWidthDataType
+		Duration_us     FixedWidthDataType
+		Duration_ns     FixedWidthDataType
+		Float16         FixedWidthDataType
+		MonthInterval   FixedWidthDataType
+		Time32s         FixedWidthDataType
+		Time32ms        FixedWidthDataType
+		Time64us        FixedWidthDataType
+		Time64ns        FixedWidthDataType
+		Timestamp       FixedWidthDataType
+	}{
+		Boolean:         &BooleanType{},
+		Date32:          &Date32Type{},
+		Date64:          &Date64Type{},
+		DayTimeInterval: &DayTimeIntervalType{},
+		Duration_s:      &DurationType{Unit: Second},
+		Duration_ms:     &DurationType{Unit: Millisecond},
+		Duration_us:     &DurationType{Unit: Microsecond},
+		Duration_ns:     &DurationType{Unit: Nanosecond},
+		Float16:         &Float16Type{},
+		MonthInterval:   &MonthIntervalType{},
+		Time32s:         &Time32Type{Unit: Second},
+		Time32ms:        &Time32Type{Unit: Millisecond},
+		Time64us:        &Time64Type{Unit: Microsecond},
+		Time64ns:        &Time64Type{Unit: Nanosecond},
+		Timestamp:       &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
+	}
+
+	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)
+)

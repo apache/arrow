@@ -194,7 +194,7 @@ func init() {
 		arrow.MAP:               unsupportedArrayType,
 		arrow.EXTENSION:         unsupportedArrayType,
 		arrow.FIXED_SIZE_LIST:   func(data *Data) Interface { return NewFixedSizeListData(data) },
-		arrow.DURATION:          unsupportedArrayType,
+		arrow.DURATION:          func(data *Data) Interface { return NewDurationData(data) },
 
 		// invalid data types to fill out array size 2⁵-1
 		31: invalidDataType,

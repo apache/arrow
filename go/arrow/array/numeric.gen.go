@@ -879,3 +879,60 @@ func arrayEqualDate64(left, right *Date64) bool {
 	}
 	return true
 }
+
+// A type which represents an immutable sequence of arrow.Duration values.
+type Duration struct {
+	array
+	values []arrow.Duration
+}
+
+func NewDurationData(data *Data) *Duration {
+	a := &Duration{}
+	a.refCount = 1
+	a.setData(data)
+	return a
+}
+
+func (a *Duration) Value(i int) arrow.Duration       { return a.values[i] }
+func (a *Duration) DurationValues() []arrow.Duration { return a.values }
+
+func (a *Duration) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i, v := range a.values {
+		if i > 0 {
+			fmt.Fprintf(o, " ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%v", v)
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *Duration) setData(data *Data) {
+	a.array.setData(data)
+	vals := data.buffers[1]
+	if vals != nil {
+		a.values = arrow.DurationTraits.CastFromBytes(vals.Bytes())
+		beg := a.array.data.offset
+		end := beg + a.array.data.length
+		a.values = a.values[beg:end]
+	}
+}
+
+func arrayEqualDuration(left, right *Duration) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
