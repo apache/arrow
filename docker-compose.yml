@@ -32,6 +32,11 @@ x-ubuntu-volumes:
   - .:/arrow:delegated
   - ubuntu-cache:/build:delegated
 
+x-ubuntu-trusty-volumes:
+  &ubuntu-trusty-volumes
+  - .:/arrow:delegated
+  - ubuntu-trusty-cache:/build:delegated
+
 x-ubuntu-xenial-volumes:
   &ubuntu-xenial-volumes
   - .:/arrow:delegated
@@ -59,6 +64,7 @@ x-debian-testing-volumes:
 
 volumes:
   ubuntu-cache:
+  ubuntu-trusty-cache:
   ubuntu-xenial-cache:
   ubuntu-bionic-cache:
   alpine-cache:
@@ -189,6 +195,19 @@ services:
     environment:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *debian-testing-volumes
+
+  cpp-ubuntu-trusty:
+    # Usage:
+    #   docker-compose build cpp-ubuntu-trusty
+    #   docker-compose run cpp-ubuntu-trusty
+    image: arrow:cpp-ubuntu-trusty
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-trusty
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-trusty-volumes
 
   cpp-ubuntu-xenial:
     # Usage:
