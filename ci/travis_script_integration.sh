@@ -40,6 +40,12 @@ npm run build -- -t apache-arrow
 
 popd
 
+pushd $ARROW_GO_DIR
+
+go get -v ./...
+
+popd
+
 pushd $ARROW_INTEGRATION_DIR
 
 conda activate $CPP_TOOLCHAIN
