@@ -279,8 +279,8 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
 
   ASSERT_OK(UnregisterExtensionType("uuid"));
   auto ext_metadata =
-      key_value_metadata({{"arrow_extension_name", "uuid"},
-                          {"arrow_extension_data", "uuid-type-unique-code"}});
+      key_value_metadata({{"ARROW:extension:name", "uuid"},
+                          {"ARROW:extension:metadata", "uuid-type-unique-code"}});
   auto ext_field = field("f0", fixed_size_binary(16), true, ext_metadata);
   auto batch_no_ext = RecordBatch::Make(schema({ext_field}), 4, {storage_arr});
 

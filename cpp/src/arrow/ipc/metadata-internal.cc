@@ -62,8 +62,8 @@ using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
 using KVVector = flatbuffers::Vector<KeyValueOffset>;
 
-static const char kExtensionTypeKeyName[] = "arrow_extension_name";
-static const char kExtensionDataKeyName[] = "arrow_extension_data";
+static const char kExtensionTypeKeyName[] = "ARROW:extension:name";
+static const char kExtensionMetadataKeyName[] = "ARROW:extension:metadata";
 
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
   switch (version) {
@@ -370,7 +370,7 @@ static Status TypeFromFlatbuffer(const flatbuf::Field* field,
       return Status::OK();
     }
     std::string type_name = field_metadata->value(name_index);
-    int data_index = field_metadata->FindKey(kExtensionDataKeyName);
+    int data_index = field_metadata->FindKey(kExtensionMetadataKeyName);
     std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
 
     std::shared_ptr<ExtensionType> type = GetExtensionType(type_name);
@@ -674,7 +674,7 @@ class FieldToFlatbufferVisitor {
   Status Visit(const ExtensionType& type) {
     RETURN_NOT_OK(VisitType(*type.storage_type()));
     extra_type_metadata_[kExtensionTypeKeyName] = type.extension_name();
-    extra_type_metadata_[kExtensionDataKeyName] = type.Serialize();
+    extra_type_metadata_[kExtensionMetadataKeyName] = type.Serialize();
     return Status::OK();
   }
 
