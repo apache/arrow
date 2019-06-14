@@ -1531,7 +1531,7 @@ cdef class Table(_PandasConvertible):
             vector[c_string] c_names
 
         for name in names:
-          c_names.push_back(name)
+            c_names.push_back(name)
 
         with nogil:
             check_status(self.table.RenameColumns(c_names, &c_table))
