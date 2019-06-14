@@ -397,8 +397,10 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
     return Status::IOError("Verification of flatbuffer-encoded Message failed.");
   }
   auto message = flatbuf::GetMessage(metadata.data());
-  auto dictionary_batch =
-      reinterpret_cast<const flatbuf::DictionaryBatch*>(message->header());
+  auto dictionary_batch = message->header_as_DictionaryBatch();
+  if (dictionary_batch == nullptr) {
+    return Status::IOError("Header-type of flatbuffer-encoded Message is not DictionaryBatch.");
+  }
 
   int64_t id = dictionary_batch->id();
 
@@ -892,7 +894,10 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
     return Status::IOError("Verification of flatbuffer-encoded Message failed.");
   }
   auto message = flatbuf::GetMessage(metadata.data());
-  auto sparse_tensor = reinterpret_cast<const flatbuf::SparseTensor*>(message->header());
+  auto sparse_tensor = message->header_as_SparseTensor();
+  if (sparse_tensor == nullptr) {
+    return Status::IOError("Header-type of flatbuffer-encoded Message is not SparseTensor.");
+  }
   const flatbuf::Buffer* buffer = sparse_tensor->data();
   DCHECK(BitUtil::IsMultipleOf8(buffer->offset()))
       << "Buffer of sparse index data "
