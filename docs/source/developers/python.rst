@@ -39,6 +39,14 @@ build. Check for style errors before submitting your pull request with:
    flake8 .
    flake8 --config=.flake8.cython .
 
+The package ``autopep8`` (also available from pip or conda) can automatically
+fix many of the errors reported by ``flake8``:
+
+.. code-block:: shell
+
+   autopep8 --in-place ../integration/integration_test.py
+   autopep8 --in-place --global-config=.flake8.cython pyarrow/table.pxi
+
 Unit Testing
 ============
 
