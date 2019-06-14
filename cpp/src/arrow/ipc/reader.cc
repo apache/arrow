@@ -385,7 +385,8 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
   auto message = flatbuf::GetMessage(metadata.data());
   auto batch = message->header_as_RecordBatch();
   if (batch == nullptr) {
-    return Status::IOError("Header-type of flatbuffer-encoded Message is not RecordBatch.");
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not RecordBatch.");
   }
   return ReadRecordBatch(batch, schema, dictionary_memo, max_recursion_depth, file, out);
 }
@@ -399,7 +400,8 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   auto message = flatbuf::GetMessage(metadata.data());
   auto dictionary_batch = message->header_as_DictionaryBatch();
   if (dictionary_batch == nullptr) {
-    return Status::IOError("Header-type of flatbuffer-encoded Message is not DictionaryBatch.");
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not DictionaryBatch.");
   }
 
   int64_t id = dictionary_batch->id();
@@ -896,7 +898,8 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
   auto message = flatbuf::GetMessage(metadata.data());
   auto sparse_tensor = message->header_as_SparseTensor();
   if (sparse_tensor == nullptr) {
-    return Status::IOError("Header-type of flatbuffer-encoded Message is not SparseTensor.");
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not SparseTensor.");
   }
   const flatbuf::Buffer* buffer = sparse_tensor->data();
   DCHECK(BitUtil::IsMultipleOf8(buffer->offset()))

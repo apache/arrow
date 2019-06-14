@@ -1157,7 +1157,8 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
   auto message = flatbuf::GetMessage(metadata.data());
   auto sparse_tensor = message->header_as_SparseTensor();
   if (sparse_tensor == nullptr) {
-    return Status::IOError("Header-type of flatbuffer-encoded Message is not SparseTensor.");
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not SparseTensor.");
   }
   int ndim = static_cast<int>(sparse_tensor->shape()->size());
 
