@@ -161,7 +161,10 @@ var (
 		Time32ms        FixedWidthDataType
 		Time64us        FixedWidthDataType
 		Time64ns        FixedWidthDataType
-		Timestamp       FixedWidthDataType
+		Timestamp_s     FixedWidthDataType
+		Timestamp_ms    FixedWidthDataType
+		Timestamp_us    FixedWidthDataType
+		Timestamp_ns    FixedWidthDataType
 	}{
 		Boolean:         &BooleanType{},
 		Date32:          &Date32Type{},
@@ -177,7 +180,10 @@ var (
 		Time32ms:        &Time32Type{Unit: Millisecond},
 		Time64us:        &Time64Type{Unit: Microsecond},
 		Time64ns:        &Time64Type{Unit: Nanosecond},
-		Timestamp:       &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
+		Timestamp_s:     &TimestampType{Unit: Second, TimeZone: "UTC"},
+		Timestamp_ms:    &TimestampType{Unit: Millisecond, TimeZone: "UTC"},
+		Timestamp_us:    &TimestampType{Unit: Microsecond, TimeZone: "UTC"},
+		Timestamp_ns:    &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
 	}
 
 	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)
