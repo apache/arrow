@@ -411,8 +411,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 
   // The dictionary is embedded in a record batch with a single column
   std::shared_ptr<RecordBatch> batch;
-  auto batch_meta =
-      reinterpret_cast<const flatbuf::RecordBatch*>(dictionary_batch->data());
+  auto batch_meta = dictionary_batch->data();
   RETURN_NOT_OK(ReadRecordBatch(batch_meta, ::arrow::schema({value_field}),
                                 dictionary_memo, kMaxNestingDepth, file, &batch));
   if (batch->num_columns() != 1) {
