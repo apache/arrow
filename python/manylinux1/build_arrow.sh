@@ -90,6 +90,7 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_GANDIVA_JAVA=OFF \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
+    -DORC_SOURCE=BUNDLED \  # ARROW-3052
     -GNinja /arrow/cpp
 ninja install
 popd

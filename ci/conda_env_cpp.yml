@@ -31,7 +31,6 @@ gtest>=1.8.1
 libprotobuf
 lz4-c
 ninja
-orc
 pkg-config
 python
 rapidjson
