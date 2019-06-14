@@ -370,6 +370,15 @@ test_rust() {
   popd
 }
 
+test_go() {
+  pushd go
+
+  go get -v ./...
+  go test ./...
+
+  popd
+}
+
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
 
 test_package_java() {
@@ -424,6 +433,7 @@ import_gpg_keys
 : ${TEST_PYTHON:=${TEST_DEFAULT}}
 : ${TEST_JS:=${TEST_DEFAULT}}
 : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
+: ${TEST_GO:=${TEST_DEFAULT}}
 : ${TEST_RUST:=${TEST_DEFAULT}}
 : ${TEST_BINARY:=${TEST_DEFAULT}}
 : ${TEST_APT:=${TEST_DEFAULT}}
@@ -471,6 +481,9 @@ if [ "$ARTIFACT" == "source" ]; then
   fi
   if [ ${TEST_INTEGRATION} -gt 0 ]; then
     test_integration
+  fi
+  if [ ${TEST_GO} -gt 0 ]; then
+    test_go
   fi
   if [ ${TEST_RUST} -gt 0 ]; then
     test_rust
