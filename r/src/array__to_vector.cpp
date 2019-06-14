@@ -548,7 +548,7 @@ class Converter_Decimal : public Converter {
 };
 
 class Converter_List : public Converter {
-public:
+ public:
   explicit Converter_List(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const { return Rcpp::List(no_init(n)); }
@@ -559,20 +559,29 @@ public:
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-    R_xlen_t start, R_xlen_t n) const {
+                           R_xlen_t start, R_xlen_t n) const {
+    using internal::checked_cast;
+    auto list_array = checked_cast<arrow::ListArray*>(array.get());
+    auto values_array = list_array->values();
+
+    auto ingest_one = [&](R_xlen_t i) {
+      auto slice =
+          values_array->Slice(list_array->value_offset(i), list_array->value_length(i));
+      SET_VECTOR_ELT(data, i + start, Array__as_vector(slice));
+    };
 
     if (array->null_count()) {
-      // internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-      //   n);
-      //
-      // for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
-      //   *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
-      //     : NA_REAL;
-      // }
+      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                           n);
+
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
+        if (bitmap_reader.IsSet()) ingest_one(i);
+      }
+
     } else {
-      // for (R_xlen_t i = 0; i < n; i++, ++p_data) {
-      //   *p_data = std::stod(decimals_arr.FormatValue(i).c_str());
-      // }
+      for (R_xlen_t i = 0; i < n; i++) {
+        ingest_one(i);
+      }
     }
 
     return Status::OK();
