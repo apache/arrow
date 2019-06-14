@@ -387,6 +387,8 @@ matrix:
     cache: packages
     latex: false
     os: osx
+    # This fails on xcode9.4
+    osx_image: xcode10.2
     before_install:
     # Have to copy-paste this here because of how R's build steps work
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
