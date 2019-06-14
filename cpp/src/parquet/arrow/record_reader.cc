@@ -354,12 +354,12 @@ class RecordReader::RecordReaderImpl {
 
       std::copy(def_data + levels_position_, def_data + levels_written_, def_data);
       PARQUET_THROW_NOT_OK(
-                           def_levels_->Resize(levels_remaining * sizeof(int16_t), false));
+          def_levels_->Resize(levels_remaining * sizeof(int16_t), false));
 
       if (max_rep_level_ > 0) {
         std::copy(rep_data + levels_position_, rep_data + levels_written_, rep_data);
         PARQUET_THROW_NOT_OK(
-                             rep_levels_->Resize(levels_remaining * sizeof(int16_t), false));
+            rep_levels_->Resize(levels_remaining * sizeof(int16_t), false));
       }
 
       levels_written_ -= levels_position_;
