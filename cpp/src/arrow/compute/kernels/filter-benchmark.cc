@@ -66,11 +66,19 @@ static void FilterFixedSizeList1Int64(benchmark::State& state) {
   }
 }
 
-BENCHMARK(FilterInt64)->Apply(RegressionSetArgs)->Args({1 << 20, 1})->Args({1 << 23, 1});
+BENCHMARK(FilterInt64)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 1})
+    ->Args({1 << 23, 1})
+    ->MinTime(1.0)
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
 BENCHMARK(FilterFixedSizeList1Int64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
-    ->Args({1 << 23, 1});
+    ->Args({1 << 23, 1})
+    ->MinTime(1.0)
+    ->Unit(benchmark::TimeUnit::kNanosecond);
 
 }  // namespace compute
 }  // namespace arrow
