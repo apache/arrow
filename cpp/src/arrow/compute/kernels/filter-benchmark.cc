@@ -66,8 +66,11 @@ static void FilterFixedSizeList1Int64(benchmark::State& state) {
   }
 }
 
-BENCHMARK(FilterInt64)->Apply(RegressionSetArgs);
-BENCHMARK(FilterFixedSizeList1Int64)->Apply(RegressionSetArgs);
+BENCHMARK(FilterInt64)->Apply(RegressionSetArgs)->Args({1 << 20, 1})->Args({1 << 23, 1});
+BENCHMARK(FilterFixedSizeList1Int64)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 1})
+    ->Args({1 << 23, 1});
 
 }  // namespace compute
 }  // namespace arrow
