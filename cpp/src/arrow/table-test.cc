@@ -19,6 +19,7 @@
 #include <memory>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -503,8 +504,10 @@ TEST_F(TestTable, RenameColumns) {
   auto table = Table::Make(schema_, columns_);
   ASSERT_EQ(table->ColumnNames(), std::vector<std::string>({"f0", "f1", "f2"}));
   std::shared_ptr<Table> renamed;
+  EXPECT_THAT(table->ColumnNames(), testing::ElementsAre("f0", "f1", "f2"));
+
   ASSERT_OK(table->RenameColumns({"zero", "one", "two"}, &renamed));
-  ASSERT_EQ(table->ColumnNames(), std::vector<std::string>({"zero", "one", "two"}));
+  EXPECT_THAT(table->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
 
   ASSERT_RAISES(Invalid, table->RenameColumns({"hello", "world"}, &renamed));
 }
