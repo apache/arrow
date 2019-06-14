@@ -193,6 +193,16 @@ class TestConvertMetadata(object):
         assert _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
         assert result2.index.name is None
 
+    def test_rangeindex_doesnt_warn(self):
+        # ARROW-5606: pandas 0.25 deprecated private _start/stop/step
+        # attributes -> can be removed if support < pd 0.25 is dropped
+        df = pd.DataFrame(np.random.randn(4, 2), columns=['a', 'b'])
+
+        with pytest.warns(None) as record:
+            _check_pandas_roundtrip(df, preserve_index=True)
+
+        assert len(record) == 0
+
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
             ['one', 'two'], ['X', 'Y']
