@@ -16,10 +16,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package arrow
+package arrow // import "github.com/apache/arrow/go/arrow"
 
 import (
 	"encoding/binary"
+	"math"
 	"reflect"
 	"unsafe"
 )
@@ -153,7 +154,7 @@ func (float64Traits) BytesRequired(n int) int { return Float64SizeBytes * n }
 
 // PutValue
 func (float64Traits) PutValue(b []byte, v float64) {
-	binary.LittleEndian.PutUint64(b, uint64(v))
+	binary.LittleEndian.PutUint64(b, math.Float64bits(v))
 }
 
 // CastFromBytes reinterprets the slice b to a slice of type float64.
@@ -297,7 +298,7 @@ func (float32Traits) BytesRequired(n int) int { return Float32SizeBytes * n }
 
 // PutValue
 func (float32Traits) PutValue(b []byte, v float32) {
-	binary.LittleEndian.PutUint32(b, uint32(v))
+	binary.LittleEndian.PutUint32(b, math.Float32bits(v))
 }
 
 // CastFromBytes reinterprets the slice b to a slice of type float32.

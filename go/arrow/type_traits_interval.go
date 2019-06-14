@@ -89,8 +89,8 @@ func (daytimeTraits) BytesRequired(n int) int { return DayTimeIntervalSizeBytes 
 
 // PutValue
 func (daytimeTraits) PutValue(b []byte, v DayTimeInterval) {
-	binary.LittleEndian.PutUint32(b, uint32(v.Days))
-	binary.LittleEndian.PutUint32(b, uint32(v.Milliseconds))
+	binary.LittleEndian.PutUint32(b[0:4], uint32(v.Days))
+	binary.LittleEndian.PutUint32(b[4:8], uint32(v.Milliseconds))
 }
 
 // CastFromBytes reinterprets the slice b to a slice of type DayTimeInterval.
