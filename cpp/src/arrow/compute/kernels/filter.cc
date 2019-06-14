@@ -1,7 +1,7 @@
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
-// returnGegarding copyright ownership.  The ASF licenses this file
+// regarding copyright ownership.  The ASF licenses this file
 // to you under the Apache License, Version 2.0 (the
 // "License"); you may not use this file except in compliance
 // with the License.  You may obtain a copy of the License at
@@ -444,8 +444,7 @@ Status FilterKernel::Make(const std::shared_ptr<DataType>& value_type,
   params.value_type = value_type;
   params.out = out;
   UnpackValues unpack = {params};
-  RETURN_NOT_OK(VisitTypeInline(*value_type, &unpack));
-  return Status::OK();
+  return VisitTypeInline(*value_type, &unpack);
 }
 
 Status Filter(FunctionContext* context, const Array& values, const Array& filter,
@@ -460,8 +459,7 @@ Status Filter(FunctionContext* context, const Datum& values, const Datum& filter
               Datum* out) {
   std::unique_ptr<FilterKernel> kernel;
   RETURN_NOT_OK(FilterKernel::Make(values.type(), &kernel));
-  RETURN_NOT_OK(kernel->Call(context, values, filter, out));
-  return Status::OK();
+  return kernel->Call(context, values, filter, out);
 }
 
 }  // namespace compute
