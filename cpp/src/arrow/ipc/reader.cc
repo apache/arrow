@@ -610,8 +610,12 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     RETURN_NOT_OK(file_->ReadAt(footer_offset_ - footer_length - file_end_size,
                                 footer_length, &footer_buffer_));
 
-    // TODO(wesm): Verify the footer
-    footer_ = flatbuf::GetFooter(footer_buffer_->data());
+    auto data = footer_buffer_->data();
+    flatbuffers::Verifier verifier(data, footer_buffer_->size(), 128);
+    if (!flatbuf::VerifyFooterBuffer(verifier)) {
+      return Status::IOError("Verification of flatbuffer-encoded Footer failed.");
+    }
+    footer_ = flatbuf::GetFooter(data);
 
     return Status::OK();
   }
