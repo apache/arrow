@@ -415,7 +415,7 @@ cdef class Array(_PandasConvertible):
                         "the `pyarrow.Array.from_*` functions instead."
                         .format(self.__class__.__name__))
 
-    cdef void init(self, const shared_ptr[CArray]& sp_array):
+    cdef void init(self, const shared_ptr[CArray]& sp_array) except *:
         self.sp_array = sp_array
         self.ap = sp_array.get()
         self.type = pyarrow_wrap_data_type(self.sp_array.get().type())
@@ -1458,6 +1458,45 @@ cdef class StructArray(Array):
         return pyarrow_wrap_array(c_result)
 
 
+cdef class ExtensionArray(Array):
+    """
+    Concrete class for Arrow extension arrays.
+    """
+
+    @property
+    def storage(self):
+        cdef:
+            CExtensionArray* ext_array = <CExtensionArray*>(self.ap)
+
+        return pyarrow_wrap_array(ext_array.storage())
+
+    @staticmethod
+    def from_storage(BaseExtensionType typ, Array storage):
+        """
+        Construct ExtensionArray from type and storage array.
+
+        Parameters
+        ----------
+        typ: DataType
+            The extension type for the result array.
+        storage: Array
+            The underlying storage for the result array.
+
+        Returns
+        -------
+        ext_array : ExtensionArray
+        """
+        cdef:
+            shared_ptr[CExtensionArray] ext_array
+
+        if storage.type != typ.storage_type:
+            raise TypeError("Incompatible storage type {0} "
+                            "for extension type {1}".format(storage.type, typ))
+
+        ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
+        return pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
+
+
 cdef dict _array_classes = {
     _Type_NA: NullArray,
     _Type_BOOL: BooleanArray,
@@ -1485,6 +1524,7 @@ cdef dict _array_classes = {
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
     _Type_DECIMAL: Decimal128Array,
     _Type_STRUCT: StructArray,
+    _Type_EXTENSION: ExtensionArray,
 }
 
 
