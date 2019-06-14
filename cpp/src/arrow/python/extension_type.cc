@@ -61,8 +61,8 @@ PyObject* DeserializeExtInstance(PyObject* type_class,
     return nullptr;
   }
 
-  return PyObject_CallMethod(type_class, "__arrow_ext_deserialize__", "OO",
-                             storage_ref.obj(), data_ref.obj());
+  return cpp_PyObject_CallMethod(type_class, "__arrow_ext_deserialize__", "OO",
+                                 storage_ref.obj(), data_ref.obj());
 }
 
 }  // namespace
