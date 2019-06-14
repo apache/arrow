@@ -64,11 +64,6 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-struct FilterParameters {
-  std::shared_ptr<DataType> value_type;
-  std::unique_ptr<FilterKernel>* out;
-};
-
 template <typename Builder, typename Scalar>
 static Status UnsafeAppend(Builder* builder, Scalar&& value) {
   builder->UnsafeAppend(std::forward<Scalar>(value));
@@ -91,7 +86,7 @@ static Status UnsafeAppend(StringBuilder* builder, util::string_view value) {
 static int64_t OutputSize(const BooleanArray& filter) {
   auto offset = filter.offset();
   auto length = filter.length();
-  internal::BitmapReader filter_data(filter.data()->buffers[1]->data(), offset, length);
+  internal::BitmapReader filter_data(filter.values()->data(), offset, length);
   int64_t size = 0;
   for (auto i = offset; i < offset + length; ++i) {
     if (filter.IsNull(i) || filter_data.IsSet()) {
@@ -271,7 +266,8 @@ class FilterImpl<FixedSizeListType> : public FilterKernel {
   }
 };
 
-class ListFilterImpl : public FilterKernel {
+template <>
+class FilterImpl<ListType> : public FilterKernel {
  public:
   using FilterKernel::FilterKernel;
 
@@ -330,6 +326,11 @@ class ListFilterImpl : public FilterKernel {
   }
 };
 
+template <>
+class FilterImpl<MapType> : public FilterImpl<ListType> {
+  using FilterImpl<ListType>::FilterImpl;
+};
+
 class DictionaryFilterImpl : public FilterKernel {
  public:
   DictionaryFilterImpl(const std::shared_ptr<DataType>& type,
@@ -370,60 +371,63 @@ class ExtensionFilterImpl : public FilterKernel {
   std::unique_ptr<FilterKernel> impl_;
 };
 
-template <typename T>
-using ArrayType = typename TypeTraits<T>::ArrayType;
+Status FilterKernel::Make(const std::shared_ptr<DataType>& value_type,
+                          std::unique_ptr<FilterKernel>* out) {
+  switch (value_type->id()) {
+#define NO_CHILD_CASE(T)                                           \
+  case T##Type::type_id:                                           \
+    *out = internal::make_unique<FilterImpl<T##Type>>(value_type); \
+    return Status::OK()
 
-struct UnpackValues {
-  template <typename ValueType>
-  Status Visit(const ValueType&) {
-    return Make<FilterImpl<ValueType>>();
+#define SINGLE_CHILD_CASE(T, IMPL, CHILD_TYPE)                              \
+  case T##Type::type_id: {                                                  \
+    auto t = checked_pointer_cast<T##Type>(value_type);                     \
+    std::unique_ptr<FilterKernel> child_filter_impl;                        \
+    RETURN_NOT_OK(FilterKernel::Make(t->CHILD_TYPE(), &child_filter_impl)); \
+    *out = internal::make_unique<IMPL>(t, std::move(child_filter_impl));    \
+    return Status::OK();                                                    \
   }
 
-  Status Visit(const NullType&) { return Make<FilterImpl<NullType>>(); }
+    NO_CHILD_CASE(Null);
+    NO_CHILD_CASE(Boolean);
+    NO_CHILD_CASE(Int8);
+    NO_CHILD_CASE(Int16);
+    NO_CHILD_CASE(Int32);
+    NO_CHILD_CASE(Int64);
+    NO_CHILD_CASE(UInt8);
+    NO_CHILD_CASE(UInt16);
+    NO_CHILD_CASE(UInt32);
+    NO_CHILD_CASE(UInt64);
+    NO_CHILD_CASE(Date32);
+    NO_CHILD_CASE(Date64);
+    NO_CHILD_CASE(Time32);
+    NO_CHILD_CASE(Time64);
+    NO_CHILD_CASE(Timestamp);
+    NO_CHILD_CASE(Duration);
+    NO_CHILD_CASE(HalfFloat);
+    NO_CHILD_CASE(Float);
+    NO_CHILD_CASE(Double);
+    NO_CHILD_CASE(String);
+    NO_CHILD_CASE(Binary);
+    NO_CHILD_CASE(FixedSizeBinary);
+    NO_CHILD_CASE(Decimal128);
 
-  Status Visit(const DictionaryType& t) {
-    std::unique_ptr<FilterKernel> indices_filter_impl;
-    FilterParameters params = params_;
-    params.value_type = t.index_type();
-    params.out = &indices_filter_impl;
-    UnpackValues unpack = {params};
-    RETURN_NOT_OK(VisitTypeInline(*t.index_type(), &unpack));
-    return Make<DictionaryFilterImpl>(std::move(indices_filter_impl));
+    SINGLE_CHILD_CASE(Dictionary, DictionaryFilterImpl, index_type);
+    SINGLE_CHILD_CASE(Extension, ExtensionFilterImpl, storage_type);
+
+    NO_CHILD_CASE(List);
+    NO_CHILD_CASE(FixedSizeList);
+    NO_CHILD_CASE(Map);
+
+    NO_CHILD_CASE(Struct);
+
+#undef NO_CHILD_CASE
+#undef SINGLE_CHILD_CASE
+
+    default:
+      return Status::NotImplemented("gathering values of type ", *value_type);
   }
-
-  Status Visit(const ExtensionType& t) {
-    std::unique_ptr<FilterKernel> storage_filter_impl;
-    FilterParameters params = params_;
-    params.value_type = t.storage_type();
-    params.out = &storage_filter_impl;
-    UnpackValues unpack = {params};
-    RETURN_NOT_OK(VisitTypeInline(*t.storage_type(), &unpack));
-    return Make<ExtensionFilterImpl>(std::move(storage_filter_impl));
-  }
-
-  Status Visit(const UnionType& t) {
-    return Status::NotImplemented("gathering values of type ", t);
-  }
-
-  Status Visit(const ListType& t) { return Make<ListFilterImpl>(); }
-
-  Status Visit(const MapType& t) { return Make<ListFilterImpl>(); }
-
-  Status Visit(const FixedSizeListType& t) {
-    return Make<FilterImpl<FixedSizeListType>>();
-  }
-
-  Status Visit(const StructType& t) { return Make<FilterImpl<StructType>>(); }
-
-  template <typename Impl, typename... Extra>
-  Status Make(Extra&&... extra) {
-    *params_.out =
-        internal::make_unique<Impl>(params_.value_type, std::forward<Extra>(extra)...);
-    return Status::OK();
-  }
-
-  const FilterParameters& params_;
-};
+}
 
 Status FilterKernel::Call(FunctionContext* ctx, const Datum& values, const Datum& filter,
                           Datum* out) {
@@ -436,15 +440,6 @@ Status FilterKernel::Call(FunctionContext* ctx, const Datum& values, const Datum
   RETURN_NOT_OK(this->Filter(ctx, *values_array, *filter_array, &out_array));
   *out = out_array;
   return Status::OK();
-}
-
-Status FilterKernel::Make(const std::shared_ptr<DataType>& value_type,
-                          std::unique_ptr<FilterKernel>* out) {
-  FilterParameters params;
-  params.value_type = value_type;
-  params.out = out;
-  UnpackValues unpack = {params};
-  return VisitTypeInline(*value_type, &unpack);
 }
 
 Status Filter(FunctionContext* context, const Array& values, const Array& filter,
