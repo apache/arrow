@@ -24,15 +24,14 @@ namespace Apache.Arrow
     /// </summary>
     public class Column
     {
-        private readonly Field _field;
-        public Field Field => _field;
+        public Field Field { get;  }
         private readonly ChunkedArray _columnArrays;
 
         public Column(Field field, IList<Array> arrays)
         {
             _columnArrays = new ChunkedArray(arrays);
-            _field = field;
-            if (!Validate())
+            Field = field;
+            if (!ValidateArrayDataTypes())
             {
                 throw new ArgumentException($"{Field.DataType} must match {_columnArrays.DataType}");
             }
@@ -40,7 +39,7 @@ namespace Apache.Arrow
 
         private Column(Field field, ChunkedArray arrays)
         {
-            _field = field;
+            Field = field;
             _columnArrays = arrays;
         }
 
@@ -59,11 +58,11 @@ namespace Apache.Arrow
             return new Column(Field, _columnArrays.Slice(offset));
         }
 
-        private bool Validate()
+        private bool ValidateArrayDataTypes()
         {
-            for (int ii = 0; ii < _columnArrays.Arrays.Count; ii++)
+            for (int i = 0; i < _columnArrays.Arrays.Count; i++)
             {
-                if (_columnArrays.Arrays[ii].Data.DataType != Field.DataType)
+                if (_columnArrays.Arrays[i].Data.DataType != Field.DataType)
                 {
                     return false;
                 }

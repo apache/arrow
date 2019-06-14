@@ -39,16 +39,16 @@ namespace Apache.Arrow.Tests
         public void TestEmptyTable()
         {
             Table table = new Table();
-            Assert.Equal(0, table.NumColumns);
-            Assert.Equal(0, table.NumRows);
+            Assert.Equal(0, table.ColumnCount);
+            Assert.Equal(0, table.RowCount);
         }
 
         [Fact]
         public void TestTableBasics()
         {
             Table table = MakeTableWithOneColumnOfTwoIntArrays(10);
-            Assert.Equal(20, table.NumRows);
-            Assert.Equal(1, table.NumColumns);
+            Assert.Equal(20, table.RowCount);
+            Assert.Equal(1, table.ColumnCount);
         }
 
         [Fact]
@@ -68,13 +68,13 @@ namespace Apache.Arrow.Tests
             Column existingColumn = table.Column(0);
 
             table.InsertColumn(0, equalLengthColumn);
-            Assert.Equal(2, table.NumColumns);
+            Assert.Equal(2, table.ColumnCount);
             Assert.True(table.Column(0) == equalLengthColumn);
             Assert.True(table.Column(1) == existingColumn);
 
-            table.RemoveColumn(1);
-            Assert.Equal(1, table.NumColumns);
-            Assert.True(table.Column(0) == equalLengthColumn);
+            table.RemoveColumn(1, out Table newTable);
+            Assert.Equal(1, newTable.ColumnCount);
+            Assert.True(newTable.Column(0) == equalLengthColumn);
 
             table.SetColumn(0, existingColumn);
             Assert.True(table.Column(0) == existingColumn);

@@ -55,7 +55,6 @@ namespace Apache.Arrow
             Children = children;
         }
 
-
         public void Dispose()
         {
             if (Buffers != null)
@@ -85,7 +84,7 @@ namespace Apache.Arrow
             length = Math.Min(Length - offset, length);
             offset += Offset;
 
-            return new ArrayData(DataType, length, NullCount, offset, Buffers, Children);
+            return new ArrayData(DataType, length, -1, offset, Buffers, Children);
         }
     }
 }

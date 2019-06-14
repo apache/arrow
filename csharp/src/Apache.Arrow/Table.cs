@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Flatbuf;
 using System;
 using System.Collections.Generic;
 
@@ -23,9 +24,9 @@ namespace Apache.Arrow
     /// </summary>
     public class Table
     {
-        public Schema Schema;
-        public long NumRows;
-        public int NumColumns;
+        public Schema Schema { get; }
+        public long RowCount;
+        public int ColumnCount;
         public Column Column(int columnIndex) => _columns[columnIndex];
 
         private readonly IList<Column> _columns;
@@ -54,8 +55,8 @@ namespace Apache.Arrow
             _columns = columns;
             if (columns.Count > 0)
             {
-                NumRows = columns[0].Length;
-                NumColumns = columns.Count;
+                RowCount = columns[0].Length;
+                ColumnCount = columns.Count;
             }
         }
 
@@ -66,12 +67,21 @@ namespace Apache.Arrow
         }
 
 
-        public void RemoveColumn(int columnIndex)
+        public void RemoveColumn(int columnIndex, out Table newTable)
         {
             // Does not return a new table.
-            Schema.RemoveField(columnIndex);
-            _columns.RemoveAt(columnIndex);
-            NumColumns--;
+            Schema.RemoveField(columnIndex, out Schema newSchema);
+            List<Column> newColumns = new List<Column>(_columns.Count - 1);
+            for (int i = 0; i < columnIndex; i++)
+            {
+                newColumns.Add(_columns[i]);
+            }
+
+            for (int i = columnIndex + 1; i < _columns.Count; i++)
+            {
+                newColumns.Add(_columns[i]);
+            }
+            newTable = new Table(newSchema, newColumns);
         }
 
         public void InsertColumn(int columnIndex, Column column)
@@ -82,25 +92,25 @@ namespace Apache.Arrow
             {
                 throw new ArgumentException($"Invalid columnIndex {columnIndex} passed into Table.AddColumn");
             }
-            if (column.Length != NumRows)
+            if (column.Length != RowCount)
             {
-                throw new ArgumentException($"Column's length {column.Length} must match Table's length {NumRows}");
+                throw new ArgumentException($"Column's length {column.Length} must match Table's length {RowCount}");
             }
             Schema.InsertField(columnIndex, column.Field);
             _columns.Insert(columnIndex, column);
-            NumColumns++;
+            ColumnCount++;
         }
 
         public void SetColumn(int columnIndex, Column column)
         {
             column = column ?? throw new ArgumentNullException(nameof(column));
-            if (columnIndex < 0 || columnIndex >= NumColumns)
+            if (columnIndex < 0 || columnIndex >= ColumnCount)
             {
                 throw new ArgumentException($"Invalid columnIndex {columnIndex} passed in to Table.SetColumn");
             }
-            if (column.Length != NumRows)
+            if (column.Length != RowCount)
             {
-                throw new ArgumentException($"Column's length {column.Length} must match table's length {NumRows}");
+                throw new ArgumentException($"Column's length {column.Length} must match table's length {RowCount}");
             }
             Schema.SetField(columnIndex, column.Field);
             _columns[columnIndex] = column;
