@@ -382,6 +382,17 @@ matrix:
           sudo apt-get update -qq
         fi
     - pushd ${TRAVIS_BUILD_DIR}/r
+  - name: R + Homebrew --HEAD
+    language: r
+    cache: packages
+    latex: false
+    os: osx
+    before_install:
+    # Have to copy-paste this here because of how R's build steps work
+    - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
+    - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
+    - pushd ${TRAVIS_BUILD_DIR}/r
+    - brew install apache-arrow --HEAD
 
 after_failure:
 - |
