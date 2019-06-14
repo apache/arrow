@@ -27,7 +27,6 @@ Imports:
     rlang,
     purrr,
     assertthat,
-    glue,
     R6,
     fs,
     bit64
@@ -41,7 +40,7 @@ Suggests:
     roxygen2,
     testthat,
     lubridate,
-    vctrs (>= 0.1.0),
+    vctrs,
     hms
 Collate:
     'enums.R'
