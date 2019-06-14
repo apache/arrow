@@ -42,8 +42,14 @@ popd
 
 pushd $ARROW_GO_DIR/arrow
 
+eval $(gimme 1.12.x)
+
 export GO111MODULE=on
 export GOBIN=`pwd`/bin
+
+which go
+go version
+go env
 go get -v ./...
 
 popd
