@@ -348,6 +348,11 @@ When using ``CHECKIN`` for debug builds, ``-Werror`` is added when using gcc
 and clang, causing build failures for any warning, and ``/WX`` is set with MSVC
 having the same effect.
 
+Additionally, when using ``CHECKIN`` and compiling with ``clang``
+`documentation warnings
+<https://releases.llvm.org/7.0.1/tools/clang/docs/DiagnosticsReference.html#wdocumentation>`_
+will be issued and cause build failure.
+
 Code Style, Linting, and CI
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

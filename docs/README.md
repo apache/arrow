@@ -23,7 +23,7 @@ This directory contains source files for building the main project
 documentation. This includes the [Arrow columnar format specification][2].
 
 Instructions for building the documentation site are found in
-[docs/source/building.rst][1]. The build depends on the API
+[docs/source/developers/documentation.rst][1]. The build depends on the API
 documentation for some of the project subcomponents.
 
 [1]: https://github.com/apache/arrow/blob/master/docs/source/developers/documentation.rst
