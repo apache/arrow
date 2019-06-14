@@ -348,7 +348,7 @@ matrix:
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
     - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
     # First check that it builds without libarrow
-    - R -e 'install.packages("devtools"); devtools::install_deps(dep = TRUE)'
+    - R -e 'install.packages("remotes"); remotes::install_deps(dep = TRUE)'
     - R CMD build .
     - R CMD check arrow_*tar.gz
     - rm arrow_*tar.gz
