@@ -27,7 +27,7 @@
 namespace arrow {
 namespace compute {
 
-static void Filter(benchmark::State& state) {
+static void FilterInt64(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
@@ -45,7 +45,29 @@ static void Filter(benchmark::State& state) {
   }
 }
 
-BENCHMARK(Filter)->Apply(RegressionSetArgs);
+static void FilterFixedSizeList1Int64(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  auto rand = random::RandomArrayGenerator(0x94378165);
+  auto int_array = std::static_pointer_cast<NumericArray<Int64Type>>(
+      rand.Int64(array_size, -100, 100, args.null_proportion));
+  auto array = std::make_shared<FixedSizeListArray>(
+      fixed_size_list(int64(), 1), array_size, int_array, int_array->null_bitmap(),
+      int_array->null_count());
+  auto filter = std::static_pointer_cast<BooleanArray>(
+      rand.Boolean(array_size, 0.75, args.null_proportion));
+
+  FunctionContext ctx;
+  for (auto _ : state) {
+    Datum out;
+    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
+    benchmark::DoNotOptimize(out);
+  }
+}
+
+BENCHMARK(FilterInt64)->Apply(RegressionSetArgs);
+BENCHMARK(FilterFixedSizeList1Int64)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow
