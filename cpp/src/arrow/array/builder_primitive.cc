@@ -128,4 +128,11 @@ Status BooleanBuilder::AppendValues(const std::vector<bool>& values) {
   return Status::OK();
 }
 
+Status BooleanBuilder::AppendValues(int64_t length, bool value) {
+  RETURN_NOT_OK(Reserve(length));
+  data_builder_.UnsafeAppend(length, value);
+  ArrayBuilder::UnsafeSetNotNull(length);
+  return Status::OK();
+}
+
 }  // namespace arrow

@@ -307,6 +307,8 @@ TEST_F(TestFilterKernelWithList, FilterListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
   this->AssertFilter(list(int32()), list_json, "[0, 0, 0, 0]", "[]");
   this->AssertFilter(list(int32()), list_json, "[0, 1, 1, null]", "[[1,2], null, null]");
+  this->AssertFilter(list(int32()), list_json, "[0, 0, 1, null]", "[null, null]");
+  this->AssertFilter(list(int32()), list_json, "[1, 0, 0, 1]", "[[], [3]]");
   this->AssertFilter(list(int32()), list_json, "[1, 1, 1, 1]", list_json);
   this->AssertFilter(list(int32()), list_json, "[0, 1, 0, 1]", "[[1,2], [3]]");
 }
@@ -318,6 +320,8 @@ TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 0, 0, 0]", "[]");
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 1, 1, null]",
                      "[[1, null, 3], [4, 5, 6], null]");
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 0, 1, null]",
+                     "[[4, 5, 6], null]");
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[1, 1, 1, 1]", list_json);
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 1, 0, 1]",
                      "[[1, null, 3], [7, 8, null]]");
