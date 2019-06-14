@@ -19,8 +19,6 @@ package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
 /**

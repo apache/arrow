@@ -19,7 +19,6 @@ package org.apache.arrow.flight.example.integration;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 
