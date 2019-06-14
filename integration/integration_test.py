@@ -1590,8 +1590,9 @@ class GoTester(Tester):
     PRODUCER = True
     CONSUMER = True
 
-    GOPATH = os.getenv('GOPATH')
-    GOBIN = os.path.join(GOPATH, 'bin')
+    GOPATH = os.getenv('GOPATH') ## FIXME(sbinet): revisit for Go modules
+    GOBIN = os.environ.get('GOBIN', os.path.join(GOPATH, 'bin'))
+
     GO_INTEGRATION_EXE = os.path.join(GOBIN, 'arrow-json-integration-test')
     STREAM_TO_FILE = os.path.join(GOBIN, 'arrow-stream-to-file')
     FILE_TO_STREAM = os.path.join(GOBIN, 'arrow-file-to-stream')

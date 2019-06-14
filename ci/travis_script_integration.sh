@@ -40,8 +40,10 @@ npm run build -- -t apache-arrow
 
 popd
 
-pushd $ARROW_GO_DIR
+pushd $ARROW_GO_DIR/arrow
 
+export GO111MODULE=on
+export GOBIN=`pwd`/bin
 go get -v ./...
 
 popd
