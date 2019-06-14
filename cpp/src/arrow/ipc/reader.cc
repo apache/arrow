@@ -378,14 +378,15 @@ static inline Status ReadRecordBatch(const flatbuf::RecordBatch* metadata,
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo, int max_recursion_depth,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
+  flatbuffers::Verifier verifier(metadata.data(), metadata.size(), 128);
+  if (!flatbuf::VerifyMessageBuffer(verifier)) {
+    return Status::IOError("Verification of flatbuffer-encoded Message failed.");
+  }
   auto message = flatbuf::GetMessage(metadata.data());
-  if (message->header_type() != flatbuf::MessageHeader_RecordBatch) {
-    DCHECK_EQ(message->header_type(), flatbuf::MessageHeader_RecordBatch);
+  auto batch = message->header_as_RecordBatch();
+  if (batch == nullptr) {
+    return Status::IOError("Header-type of flatbuffer-encoded Message is not RecordBatch.");
   }
-  if (message->header() == nullptr) {
-    return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
-  }
-  auto batch = reinterpret_cast<const flatbuf::RecordBatch*>(message->header());
   return ReadRecordBatch(batch, schema, dictionary_memo, max_recursion_depth, file, out);
 }
 
