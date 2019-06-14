@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.sort;
+package org.apache.arrow.algorithm.sort;
 
-import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -28,11 +26,13 @@ import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**
- * Default sorter for fixed-width vectors.
+ * Default out-of-place sorter for fixed-width vectors.
  * It is an out-of-place sort, with time complexity O(n*log(n)).
  * @param <V> vector type.
  */
-public class FixedWidthVectorSorter<V extends BaseFixedWidthVector> implements VectorSorter<V> {
+public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> implements VectorSorter<V> {
+
+  private final IndexSorter<V> indexSorter = new IndexSorter<>();
 
   @Override
   public V sort(V srcVector, VectorValueComparator<V> comparator) {
@@ -50,8 +50,8 @@ public class FixedWidthVectorSorter<V extends BaseFixedWidthVector> implements V
     ArrowBuf dstValueBuffer = dstVector.getDataBuffer();
 
     // sort value indices
-    List<Integer> sortedIndices = IntStream.range(0, srcVector.getValueCount()).boxed().collect(Collectors.toList());
-    sortedIndices.sort((index1, index2) -> comparator.compare(index1.intValue(), index2.intValue()));
+    int[] sortedIndices = IntStream.range(0, srcVector.getValueCount()).toArray();
+    indexSorter.sort(sortedIndices, comparator);
 
     // copy sorted values to the output vector
     int dstIndex = 0;
@@ -70,5 +70,10 @@ public class FixedWidthVectorSorter<V extends BaseFixedWidthVector> implements V
 
     dstVector.setValueCount(srcVector.getValueCount());
     return dstVector;
+  }
+
+  @Override
+  public boolean isInPlace() {
+    return false;
   }
 }

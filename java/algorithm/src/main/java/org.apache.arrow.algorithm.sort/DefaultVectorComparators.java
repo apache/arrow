@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.sort;
+package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -43,21 +43,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public int compare(Integer index1, Integer index2) {
-      boolean isNull1 = vector1.isNull(index1);
-      boolean isNull2 = vector2.isNull(index2);
-
-      if (isNull1 || isNull2) {
-        if (isNull1 && isNull2) {
-          return 0;
-        } else if (isNull1) {
-          // null is smaller
-          return -1;
-        } else {
-          return 1;
-        }
-      }
-
+    public int compareNotNull(int index1, int index2) {
       int value1 = vector1.get(index1);
       int value2 = vector2.get(index2);
       return value1 - value2;
@@ -70,34 +56,24 @@ public class DefaultVectorComparators {
    */
   public static class VarCharComparator extends VectorValueComparator<VarCharVector> {
 
+    private NullableVarCharHolder holder1 = new NullableVarCharHolder();
+    private NullableVarCharHolder holder2 = new NullableVarCharHolder();
+
     @Override
     public VarCharVector newVector(BufferAllocator allocator) {
       return new VarCharVector("", allocator);
     }
 
     @Override
-    public int compare(Integer index1, Integer index2) {
-      NullableVarCharHolder holder1 = new NullableVarCharHolder();
-      NullableVarCharHolder holder2 = new NullableVarCharHolder();
-
+    public int compareNotNull(int index1, int index2) {
       vector1.get(index1, holder1);
       vector2.get(index2, holder2);
-
-      if (holder1.isSet == 0 || holder2.isSet == 0) {
-        if (holder1.isSet == 0 && holder2.isSet == 0) {
-          return 0;
-        } else if (holder1.isSet == 0) {
-          // null is smaller
-          return -1;
-        } else {
-          return 1;
-        }
-      }
 
       int length1 = holder1.end - holder1.start;
       int length2 = holder2.end - holder2.start;
 
-      for (int i = 0; i < length1 && i < length2; i++) {
+      int minLength = length1 < length2 ? length1 : length2;
+      for (int i = 0; i < minLength; i++) {
         byte b1 = holder1.buffer.getByte(holder1.start + i);
         byte b2 = holder2.buffer.getByte(holder2.start + i);
 

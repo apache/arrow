@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.sort;
+package org.apache.arrow.algorithm.sort;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+
+import java.util.stream.IntStream;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -26,6 +29,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -47,6 +51,38 @@ public class TestVectorSort {
   }
 
   @Test
+  public void testIndexSort() {
+    try (IntVector vec = new IntVector("", allocator)) {
+      vec.allocateNew(10);
+      vec.setValueCount(10);
+
+      // fill data to sort
+      vec.set(0, 11);
+      vec.set(1, 8);
+      vec.set(2, 33);
+      vec.set(3, 10);
+      vec.set(4, 12);
+      vec.set(5, 17);
+      vec.setNull(6);
+      vec.set(7, 23);
+      vec.set(8, 35);
+      vec.set(9, 2);
+
+      // sort the index
+      IndexSorter<IntVector> indexSorter = new IndexSorter<>();
+      DefaultVectorComparators.IntComparator intComparator = new DefaultVectorComparators.IntComparator();
+      intComparator.attachVector(vec);
+
+      int[] indices = IntStream.range(0, 10).toArray();
+      indexSorter.sort(indices, intComparator);
+
+      int[] expected = new int[] {6, 9, 1, 3, 0, 4, 5, 7, 2, 8};
+
+      assertArrayEquals(expected, indices);
+    }
+  }
+
+  @Test
   public void testSortInt() {
     try (IntVector vec = new IntVector("", allocator)) {
       vec.allocateNew(10);
@@ -65,24 +101,24 @@ public class TestVectorSort {
       vec.set(9, 2);
 
       // sort the vector
-      FixedWidthVectorSorter sorter = new FixedWidthVectorSorter();
+      FixedWidthOutOfPlaceVectorSorter sorter = new FixedWidthOutOfPlaceVectorSorter();
       DefaultVectorComparators.IntComparator comparator = new DefaultVectorComparators.IntComparator();
 
       IntVector sortedVec = (IntVector) sorter.sort(vec, comparator);
 
       // verify results
-      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));
-      assertEquals(2, sortedVec.get(2));
-      assertEquals(8, sortedVec.get(3));
-      assertEquals(10, sortedVec.get(4));
-      assertEquals(10, sortedVec.get(5));
-      assertEquals(12, sortedVec.get(6));
-      assertEquals(17, sortedVec.get(7));
-      assertEquals(23, sortedVec.get(8));
-      assertEquals(35, sortedVec.get(9));
+      Assert.assertEquals(2, sortedVec.get(2));
+      Assert.assertEquals(8, sortedVec.get(3));
+      Assert.assertEquals(10, sortedVec.get(4));
+      Assert.assertEquals(10, sortedVec.get(5));
+      Assert.assertEquals(12, sortedVec.get(6));
+      Assert.assertEquals(17, sortedVec.get(7));
+      Assert.assertEquals(23, sortedVec.get(8));
+      Assert.assertEquals(35, sortedVec.get(9));
 
       sortedVec.close();
     }
@@ -107,15 +143,15 @@ public class TestVectorSort {
       vec.set(9, "yes".getBytes());
 
       // sort the vector
-      VariableWidthVectorSorter sorter = new VariableWidthVectorSorter();
+      VariableWidthOutOfPlaceVectorSorter sorter = new VariableWidthOutOfPlaceVectorSorter();
       DefaultVectorComparators.VarCharComparator comparator = new DefaultVectorComparators.VarCharComparator();
 
       VarCharVector sortedVec = (VarCharVector) sorter.sort(vec, comparator);
 
       // verify results
-      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
-      assertEquals(vec.getByteCapacity(), sortedVec.getByteCapacity());
-      assertEquals(vec.getLastSet(), sortedVec.getLastSet());
+      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      Assert.assertEquals(vec.getByteCapacity(), sortedVec.getByteCapacity());
+      Assert.assertEquals(vec.getLastSet(), sortedVec.getLastSet());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));

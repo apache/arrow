@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.sort;
-
-import java.util.Comparator;
+package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ValueVector;
@@ -27,7 +25,7 @@ import org.apache.arrow.vector.ValueVector;
  * This is used for vector sorting.
  * @param <V> type of the vector.
  */
-public abstract class VectorValueComparator<V extends ValueVector> implements Comparator<Integer> {
+public abstract class VectorValueComparator<V extends ValueVector> {
 
   /**
    * The first vector to compare.
@@ -88,4 +86,41 @@ public abstract class VectorValueComparator<V extends ValueVector> implements Co
    * @return the new vector.
    */
   public abstract V newVector(BufferAllocator allocator);
+
+  /**
+   * Compare two values, given their indices.
+   * @param index1 index of the first value to compare.
+   * @param index2 index of the second value to compare.
+   * @return an integer greater than 0, if the first value is greater;
+   *     an integer smaller than 0, if the first value is smaller; or 0, if both
+   *     values are equal.
+   */
+  public int compare(int index1, int index2) {
+    boolean isNull1 = vector1.isNull(index1);
+    boolean isNull2 = vector2.isNull(index2);
+
+    if (isNull1 || isNull2) {
+      if (isNull1 && isNull2) {
+        return 0;
+      } else if (isNull1) {
+        // null is smaller
+        return -1;
+      } else {
+        return 1;
+      }
+    }
+    return compareNotNull(index1, index2);
+  }
+
+  /**
+   * Compare two values, given their indices.
+   * This is a fast path for comparing non-null values, so the caller
+   * must make sure that values at both indices are not null.
+   * @param index1 index of the first value to compare.
+   * @param index2 index of the second value to compare.
+   * @return an integer greater than 0, if the first value is greater;
+   *     an integer smaller than 0, if the first value is smaller; or 0, if both
+   *     values are equal.
+   */
+  public abstract int compareNotNull(int index1, int index2);
 }

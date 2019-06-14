@@ -15,12 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.sort;
+package org.apache.arrow.algorithm.sort;
 
-import static org.apache.arrow.vector.BaseVariableWidthVector.OFFSET_WIDTH;
-
-import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.vector.BaseVariableWidthVector;
@@ -34,7 +30,9 @@ import io.netty.util.internal.PlatformDependent;
  * It is an out-of-place sort, with time complexity O(n*log(n)).
  * @param <V> vector type.
  */
-public class VariableWidthVectorSorter<V extends BaseVariableWidthVector> implements VectorSorter<V> {
+public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVector> implements VectorSorter<V> {
+
+  private final IndexSorter<V> indexSorter = new IndexSorter<>();
 
   @Override
   public V sort(V srcVector, VectorValueComparator<V> comparator) {
@@ -52,8 +50,8 @@ public class VariableWidthVectorSorter<V extends BaseVariableWidthVector> implem
     ArrowBuf dstOffsetBuffer = dstVector.getOffsetBuffer();
 
     // sort value indices
-    List<Integer> sortedIndices = IntStream.range(0, srcVector.getValueCount()).boxed().collect(Collectors.toList());
-    sortedIndices.sort((index1, index2) -> comparator.compare(index1.intValue(), index2.intValue()));
+    int[] sortedIndices = IntStream.range(0, srcVector.getValueCount()).toArray();
+    indexSorter.sort(sortedIndices, comparator);
 
     int dstIndex = 0;
     int dstOffset = 0;
@@ -65,8 +63,8 @@ public class VariableWidthVectorSorter<V extends BaseVariableWidthVector> implem
         BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 0);
       } else {
         BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 1);
-        int srcOffset = srcOffsetBuffer.getInt(srcIndex * OFFSET_WIDTH);
-        int valueLength = srcOffsetBuffer.getInt((srcIndex + 1) * OFFSET_WIDTH) - srcOffset;
+        int srcOffset = srcOffsetBuffer.getInt(srcIndex * BaseVariableWidthVector.OFFSET_WIDTH);
+        int valueLength = srcOffsetBuffer.getInt((srcIndex + 1) * BaseVariableWidthVector.OFFSET_WIDTH) - srcOffset;
         PlatformDependent.copyMemory(
                 srcValueBuffer.memoryAddress() + srcOffset,
                 dstValueBuffer.memoryAddress() + dstOffset,
@@ -74,10 +72,15 @@ public class VariableWidthVectorSorter<V extends BaseVariableWidthVector> implem
         dstOffset += valueLength;
       }
       dstIndex += 1;
-      dstOffsetBuffer.setInt(dstIndex * OFFSET_WIDTH, dstOffset);
+      dstOffsetBuffer.setInt(dstIndex * BaseVariableWidthVector.OFFSET_WIDTH, dstOffset);
     }
     dstVector.setLastSet(dstIndex - 1);
     dstVector.setValueCount(srcVector.getValueCount());
     return dstVector;
+  }
+
+  @Override
+  public boolean isInPlace() {
+    return false;
   }
 }

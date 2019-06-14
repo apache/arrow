@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.sort;
+package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.vector.ValueVector;
 
 /**
  * Basic interface for sorting a vector.
+ *
  * @param <V> the vector type.
  */
 public interface VectorSorter<V extends ValueVector> {
@@ -29,9 +30,16 @@ public interface VectorSorter<V extends ValueVector> {
    * Sort the vector by the given criteria.
    * The sort can be in-place or out-of-place, depending on the algorithm.
    * So the returned vector can be the same vector as, or a different vector from the input vector.
-   * @param vec the vector to sort.
+   *
+   * @param vec        the vector to sort.
    * @param comparator the criteria for sort.
    * @return the sorted vector.
    */
   V sort(V vec, VectorValueComparator<V> comparator);
+
+  /**
+   * Check if this is a in-place sort.
+   * @return if the sort is in-place.
+   */
+  boolean isInPlace();
 }
