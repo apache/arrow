@@ -499,11 +499,6 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
     lib_filename = os.path.basename(libs[0])
     shutil.move(pjoin(build_prefix, lib_filename),
                 pjoin(build_lib, 'pyarrow', lib_filename))
-    for lib in libs[1:]:
-        filename = os.path.basename(lib)
-        link_name = pjoin(build_lib, 'pyarrow', filename)
-        if not os.path.exists(link_name):
-            os.symlink(lib_filename, link_name)
 
 
 # If the event of not running from a git clone (e.g. from a git archive

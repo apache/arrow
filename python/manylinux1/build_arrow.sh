@@ -111,6 +111,7 @@ PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext \
     --bundle-boost \
     --boost-namespace=arrow_boost
 PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
+# Source distribution is used for debian pyarrow packages.
 PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
 
 if [ -n "$UBUNTU_WHEELS" ]; then
