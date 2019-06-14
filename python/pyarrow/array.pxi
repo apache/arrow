@@ -170,7 +170,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         if is_pandas_object and from_pandas is None:
             c_from_pandas = True
 
-        if np.ma.isMaskedArray(values):
+        if isinstance(values, np.ma.MaskedArray):
             if mask is not None:
                 raise ValueError("Cannot pass a numpy masked array and "
                                  "specify a mask at the same time")

@@ -1117,9 +1117,10 @@ def test_array_from_numpy_unicode():
 
 
 def test_array_from_masked():
-    ma = np.ma.array([1, 2, 3, 4], mask=[False, False, True, False])
+    ma = np.ma.array([1, 2, 3, 4], dtype='int64',
+                     mask=[False, False, True, False])
     result = pa.array(ma)
-    expected = pa.array([1, 2, None, 4])
+    expected = pa.array([1, 2, None, 4], type='int64')
     assert expected.equals(result)
 
     with pytest.raises(ValueError, match="Cannot pass a numpy masked array"):
