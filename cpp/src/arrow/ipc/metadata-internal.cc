@@ -1112,6 +1112,10 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
 Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                          std::vector<int64_t>* shape, std::vector<int64_t>* strides,
                          std::vector<std::string>* dim_names) {
+  flatbuffers::Verifier verifier(metadata.data(), metadata.size(), 128);
+  if (!flatbuf::VerifyMessageBuffer(verifier)) {
+    return Status::IOError("Verification of flatbuffer-encoded Message failed.");
+  }
   auto message = flatbuf::GetMessage(metadata.data());
   auto tensor = reinterpret_cast<const flatbuf::Tensor*>(message->header());
 
@@ -1143,6 +1147,10 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
                                std::vector<std::string>* dim_names,
                                int64_t* non_zero_length,
                                SparseTensorFormat::type* sparse_tensor_format_id) {
+  flatbuffers::Verifier verifier(metadata.data(), metadata.size(), 128);
+  if (!flatbuf::VerifyMessageBuffer(verifier)) {
+    return Status::IOError("Verification of flatbuffer-encoded Message failed.");
+  }
   auto message = flatbuf::GetMessage(metadata.data());
   if (message->header_type() != flatbuf::MessageHeader_SparseTensor) {
     return Status::IOError("Header of flatbuffer-encoded Message is not SparseTensor.");

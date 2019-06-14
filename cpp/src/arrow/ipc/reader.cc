@@ -392,6 +392,10 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
                       io::RandomAccessFile* file) {
+  flatbuffers::Verifier verifier(metadata.data(), metadata.size(), 128);
+  if (!flatbuf::VerifyMessageBuffer(verifier)) {
+    return Status::IOError("Verification of flatbuffer-encoded Message failed.");
+  }
   auto message = flatbuf::GetMessage(metadata.data());
   auto dictionary_batch =
       reinterpret_cast<const flatbuf::DictionaryBatch*>(message->header());
@@ -880,6 +884,10 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
   RETURN_NOT_OK(internal::GetSparseTensorMetadata(
       metadata, &type, &shape, &dim_names, &non_zero_length, &sparse_tensor_format_id));
 
+  flatbuffers::Verifier verifier(metadata.data(), metadata.size(), 128);
+  if (!flatbuf::VerifyMessageBuffer(verifier)) {
+    return Status::IOError("Verification of flatbuffer-encoded Message failed.");
+  }
   auto message = flatbuf::GetMessage(metadata.data());
   auto sparse_tensor = reinterpret_cast<const flatbuf::SparseTensor*>(message->header());
   const flatbuf::Buffer* buffer = sparse_tensor->data();

@@ -43,7 +43,12 @@ class Message::MessageImpl {
       : metadata_(metadata), message_(nullptr), body_(body) {}
 
   Status Open() {
-    message_ = flatbuf::GetMessage(metadata_->data());
+    auto data = metadata_->data();
+    flatbuffers::Verifier verifier(data, metadata_->size(), /*max_depth=*/128);
+    if (!flatbuf::VerifyMessageBuffer(verifier)) {
+      return Status::IOError("Invalid flatbuffers message.");
+    }
+    message_ = flatbuf::GetMessage(data);
 
     // Check that the metadata version is supported
     if (message_->version() < internal::kMinMetadataVersion) {
@@ -164,7 +169,12 @@ Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStrea
 
 Status Message::ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& metadata,
                          io::RandomAccessFile* file, std::unique_ptr<Message>* out) {
-  auto fb_message = flatbuf::GetMessage(metadata->data());
+  auto data = metadata->data();
+  flatbuffers::Verifier verifier(data, metadata->size(), /*max_depth=*/128);
+  if (!flatbuf::VerifyMessageBuffer(verifier)) {
+    return Status::IOError("Invalid flatbuffers message.");
+  }
+  auto fb_message = flatbuf::GetMessage(data);
 
   int64_t body_length = fb_message->bodyLength();
 
