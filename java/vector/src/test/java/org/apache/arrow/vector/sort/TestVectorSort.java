@@ -102,7 +102,7 @@ public class TestVectorSort {
       vec.set(4, "12".getBytes());
       vec.set(5, "dictionary".getBytes());
       vec.setNull(6);
-      vec.set(7, "sort".getBytes());
+      vec.set(7, "hello".getBytes());
       vec.set(8, "good".getBytes());
       vec.set(9, "yes".getBytes());
 
@@ -124,7 +124,7 @@ public class TestVectorSort {
       assertEquals("dictionary", new String(sortedVec.get(4)));
       assertEquals("good", new String(sortedVec.get(5)));
       assertEquals("hello", new String(sortedVec.get(6)));
-      assertEquals("sort", new String(sortedVec.get(7)));
+      assertEquals("hello", new String(sortedVec.get(7)));
       assertEquals("world", new String(sortedVec.get(8)));
       assertEquals("yes", new String(sortedVec.get(9)));
 

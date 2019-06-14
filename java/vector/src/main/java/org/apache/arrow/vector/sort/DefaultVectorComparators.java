@@ -34,7 +34,7 @@ public class DefaultVectorComparators {
   public static class IntComparator extends VectorValueComparator<IntVector> {
 
     public IntComparator() {
-      valueWidth = 4;
+      super(4);
     }
 
     @Override
