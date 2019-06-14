@@ -36,7 +36,7 @@
 #' @return
 #'
 #'  - `read_table` returns an [arrow::Table][arrow__Table]
-#'  - `read_arrow` returns a [tibble::tibble()]
+#'  - `read_arrow` returns a `data.frame`
 #'
 #' @details
 #'
@@ -84,5 +84,5 @@ read_table.fs_path <- function(stream) {
 #' @rdname read_table
 #' @export
 read_arrow <- function(stream){
-  as_tibble(read_table(stream))
+  as.data.frame(read_table(stream))
 }
