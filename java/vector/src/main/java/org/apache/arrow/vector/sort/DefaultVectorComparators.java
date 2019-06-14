@@ -48,7 +48,9 @@ public class DefaultVectorComparators {
       boolean isNull2 = vector2.isNull(index2);
 
       if (isNull1 || isNull2) {
-        if (isNull1) {
+        if (isNull1 && isNull2) {
+          return 0;
+        } else if (isNull1) {
           // null is smaller
           return -1;
         } else {
@@ -58,12 +60,7 @@ public class DefaultVectorComparators {
 
       int value1 = vector1.get(index1);
       int value2 = vector2.get(index2);
-      if (value1 != value2) {
-        return value1 - value2;
-      } else {
-        // never return 0, so no value will be considered duplicated and removed.
-        return 1;
-      }
+      return value1 - value2;
     }
   }
 
@@ -87,7 +84,9 @@ public class DefaultVectorComparators {
       vector2.get(index2, holder2);
 
       if (holder1.isSet == 0 || holder2.isSet == 0) {
-        if (holder1.isSet == 0) {
+        if (holder1.isSet == 0 && holder2.isSet == 0) {
+          return 0;
+        } else if (holder1.isSet == 0) {
           // null is smaller
           return -1;
         } else {
@@ -107,10 +106,7 @@ public class DefaultVectorComparators {
         }
       }
 
-      if (length1 != length2) {
-        return length1 - length2;
-      }
-      return -1;
+      return length1 - length2;
     }
   }
 

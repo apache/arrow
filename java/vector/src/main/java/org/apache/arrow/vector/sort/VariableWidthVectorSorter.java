@@ -19,7 +19,8 @@ package org.apache.arrow.vector.sort;
 
 import static org.apache.arrow.vector.BaseVariableWidthVector.OFFSET_WIDTH;
 
-import java.util.TreeSet;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.vector.BaseVariableWidthVector;
@@ -51,8 +52,8 @@ public class VariableWidthVectorSorter<V extends BaseVariableWidthVector> implem
     ArrowBuf dstOffsetBuffer = dstVector.getOffsetBuffer();
 
     // sort value indices
-    TreeSet<Integer> sortedIndices = new TreeSet<>((index1, index2) -> comparator.compare(index1, index2));
-    IntStream.range(0, srcVector.getValueCount()).forEach(i -> sortedIndices.add(i));
+    List<Integer> sortedIndices = IntStream.range(0, srcVector.getValueCount()).boxed().collect(Collectors.toList());
+    sortedIndices.sort((index1, index2) -> comparator.compare(index1.intValue(), index2.intValue()));
 
     int dstIndex = 0;
     int dstOffset = 0;

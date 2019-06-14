@@ -17,7 +17,8 @@
 
 package org.apache.arrow.vector.sort;
 
-import java.util.TreeSet;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -49,8 +50,8 @@ public class FixedWidthVectorSorter<V extends BaseFixedWidthVector> implements V
     ArrowBuf dstValueBuffer = dstVector.getDataBuffer();
 
     // sort value indices
-    TreeSet<Integer> sortedIndices = new TreeSet<>((index1, index2) -> comparator.compare(index1, index2));
-    IntStream.range(0, srcVector.getValueCount()).forEach(i -> sortedIndices.add(i));
+    List<Integer> sortedIndices = IntStream.range(0, srcVector.getValueCount()).boxed().collect(Collectors.toList());
+    sortedIndices.sort((index1, index2) -> comparator.compare(index1.intValue(), index2.intValue()));
 
     // copy sorted values to the output vector
     int dstIndex = 0;
