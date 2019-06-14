@@ -30,14 +30,6 @@ namespace internal {
 void DieWithMessage(const std::string& msg);
 }  // namespace internal
 
-struct ARROW_EXPORT ErrorOrConstants {
-  static const char kValueMoveConstructorMsg[];
-  static const char kValueMoveAssignmentMsg[];
-  static const char kValueOrDieMovedMsg[];
-  static const char kStatusMoveConstructorMsg[];
-  static const char kStatusMoveAssignmentMsg[];
-};
-
 // A class for representing either a usable value, or an error.
 ///
 /// A ErrorOr object either contains a value of type `T` or a Status object
@@ -129,7 +121,8 @@ class ARROW_EXPORT ErrorOr {
   ErrorOr(const Status& status)  // NOLINT(runtime/explicit)
       : variant_(status), has_value_(false) {
     if (ARROW_PREDICT_FALSE(status.ok())) {
-      internal::DieWithMessage("Constructed with a non-error status.");
+      internal::DieWithMessage(std::string("Constructed with a non-error status: ") +
+                               status.ToString());
     }
   }
 
@@ -232,8 +225,13 @@ class ARROW_EXPORT ErrorOr {
     if (has_value_) {
       // Re-use the memory from variant when constructing
       new (&variant_) variant(std::move(other.variant_.value_));
+#ifndef NDEBUG
       other.OverwriteValueWithStatus(
-          Status::Invalid(ErrorOrConstants::kValueMoveConstructorMsg));
+          Status::Invalid("Value was moved to another ErrorOr."));
+#else
+      new (&other.variant_) variant(Status::OK());
+      other.has_value_ = false;
+#endif
     } else {
       // Re-use the memory from variant when constructing
       new (&variant_) variant(std::move(other.variant_.status_));
@@ -241,8 +239,7 @@ class ARROW_EXPORT ErrorOr {
       // The other.variant_.status_ gets moved and invalidated with a Status-
       // specific error message above. To aid debugging, set the status to a
       // ErrorOr-specific error message.
-      other.variant_.status_ =
-          Status::Invalid(ErrorOrConstants::kStatusMoveConstructorMsg);
+      other.variant_.status_ = Status::Invalid("status was moved to another ErrorOr.");
 #endif
     }
   }
@@ -262,16 +259,20 @@ class ARROW_EXPORT ErrorOr {
     // Construct the variant object using the variant object of the donor.
     if (other.has_value_) {
       AssignValue(std::move(other.variant_.value_));
+#ifndef NDEBUG
       other.OverwriteValueWithStatus(
-          Status::Invalid(ErrorOrConstants::kValueMoveAssignmentMsg));
+          Status::Invalid("Value was moved to another ErrorOr."));
+#else
+      new (&other.variant_) variant(Status::OK());
+      other.has_value_ = false;
+#endif
     } else {
       AssignStatus(std::move(other.variant_.status_));
 #ifndef NDEBUG
       // The other.variant_.status_ gets moved and invalidated with a Status-
       // specific error message above. To aid debugging, set the status to a
       // ErrorOr-specific error message.
-      other.variant_.status_ =
-          Status::Invalid(ErrorOrConstants::kStatusMoveAssignmentMsg);
+      other.variant_.status_ = Status::Invalid("Status was moved to another ErrorOr.");
 #endif
     }
 
@@ -287,6 +288,9 @@ class ARROW_EXPORT ErrorOr {
   /// the wrapped element through a call to ValueOrDie().
   bool ok() const { return has_value_; }
 
+  /// \brief Equivelant to ok().
+  // operator bool() const { return ok(); }
+
   /// Gets the stored status object, or an OK status if a `T` value is stored.
   ///
   /// \return The stored non-OK status object, or an OK status if this object
@@ -301,10 +305,12 @@ class ARROW_EXPORT ErrorOr {
   /// \return The stored `T` value.
   const T& ValueOrDie() const& {
     if (ARROW_PREDICT_FALSE(!ok())) {
-      internal::DieWithMessage("ValueOrDie called on an error.");
+      internal::DieWithMessage(std::string("ValueOrDie called on an error: ") +
+                               status().ToString());
     }
     return variant_.value_;
   }
+  const T& operator*() const& { return ValueOrDie(); }
 
   /// Gets a mutable reference to the stored `T` value.
   ///
@@ -314,10 +320,12 @@ class ARROW_EXPORT ErrorOr {
   /// \return The stored `T` value.
   T& ValueOrDie() & {
     if (ARROW_PREDICT_FALSE(!ok())) {
-      internal::DieWithMessage("ValueOrDie called on an error.");
+      internal::DieWithMessage(std::string("ValueOrDie called on an error: ") +
+                               status().ToString());
     }
     return variant_.value_;
   }
+  T& operator*() & { return ValueOrDie(); }
 
   /// Moves and returns the internally-stored `T` value.
   ///
@@ -329,14 +337,21 @@ class ARROW_EXPORT ErrorOr {
   /// \return The stored `T` value.
   T ValueOrDie() && {
     if (ARROW_PREDICT_FALSE(!ok())) {
-      internal::DieWithMessage("ValueOrDie called on an error.");
+      internal::DieWithMessage(std::string("ValueOrDie called on an error: ") +
+                               status().ToString());
     }
     T tmp(std::move(variant_.value_));
 
+#ifndef NDEBUG
     // Invalidate this ErrorOr object.
-    OverwriteValueWithStatus(Status::Invalid(ErrorOrConstants::kValueOrDieMovedMsg));
+    OverwriteValueWithStatus(Status::Invalid("Object already returned with ValueOrDie"));
+#else
+    new (&variant_) variant(Status::OK());
+    has_value_ = false;
+#endif
     return std::move(tmp);
   }
+  T operator*() && { return ValueOrDie(); }
 
  private:
   // Resets the |variant_| member to contain |status|.
@@ -357,7 +372,9 @@ class ARROW_EXPORT ErrorOr {
   void OverwriteValueWithStatus(U&& status) {
 #ifndef NDEBUG
     if (ARROW_PREDICT_FALSE(!ok())) {
-      internal::DieWithMessage("OverwriteValueWithStatus called on with existing error.");
+      internal::DieWithMessage(
+          std::string("OverwriteValueWithStatus called on with existing error: ") +
+          status().ToString());
     }
 #endif
     variant_.value_.~T();
@@ -418,23 +435,23 @@ class ARROW_EXPORT ErrorOr {
   bool has_value_;
 };
 
-#define ASSIGN_OR_RAISE_IMPL(status_name, lhs, rexpr) \
-  auto status_name = (rexpr);                         \
-  ARROW_RETURN_NOT_OK(status_name.status());          \
+#define ARROW_ASSIGN_OR_RAISE_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                               \
+  ARROW_RETURN_NOT_OK(status_name.status());                \
   lhs = std::move(status_name).ValueOrDie();
 
-#define ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
+#define ARROW_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
 
 // Executes an expression that returns a ErrorOr, extracting its value
 // into the variable defined by lhs (or returning on error).
 //
 // Example: Assigning to an existing value
 //   ValueType value;
-//   ASSIGN_OR_RAISE(value, MaybeGetValue(arg));
+//   ARROW_ASSIGN_OR_RAISE(value, MaybeGetValue(arg));
 //
 // WARNING: ASSIGN_OR_RAISE expands into multiple statements; it cannot be used
 //  in a single statement (e.g. as the body of an if statement without {})!
-#define ASSIGN_OR_RAISE(lhs, rexpr) \
-  ASSIGN_OR_RAISE_IMPL(ASSIGN_OR_RAISE_NAME(_status_or_value, __COUNTER__), lhs, rexpr);
-
+#define ARROW_ASSIGN_OR_RAISE(lhs, rexpr)                                              \
+  ARROW_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                             lhs, rexpr);
 }  // namespace arrow

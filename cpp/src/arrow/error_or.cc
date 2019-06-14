@@ -23,27 +23,10 @@
 
 namespace arrow {
 
-#ifdef NDEBUG
-const char ErrorOrConstants::kValueMoveConstructorMsg[] = "";
-const char ErrorOrConstants::kValueMoveAssignmentMsg[] = "";
-const char ErrorOrConstants::kValueOrDieMovedMsg[] = "";
-const char ErrorOrConstants::kStatusMoveConstructorMsg[] = "";
-const char ErrorOrConstants::kStatusMoveAssignmentMsg[] = "";
-#else
-const char ErrorOrConstants::kValueMoveConstructorMsg[] =
-    "Value moved by StatusOr move constructor";
-const char ErrorOrConstants::kValueMoveAssignmentMsg[] =
-    "Value moved by StatusOr move assignment";
-const char ErrorOrConstants::kStatusMoveConstructorMsg[] =
-    "Status moved by StatusOr move constructor";
-const char ErrorOrConstants::kValueOrDieMovedMsg[] =
-    "Value moved by StatusOr::ValueOrDie";
-const char ErrorOrConstants::kStatusMoveAssignmentMsg[] =
-    "Status moved by StatusOr move assignment";
-#endif
-
 namespace internal {
+
 void DieWithMessage(const std::string& msg) { ARROW_LOG(FATAL) << msg; }
+
 }  // namespace internal
 
 }  // namespace arrow

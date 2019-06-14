@@ -869,7 +869,7 @@ License: Apache 2.0
 
 This project includes code from Google's protobuf project
 
-* cpp/src/arrow/erro_or ASSIGN_OR_ERROR is based off ASSIGN_OR_RETURN
+* cpp/src/arrow/error_or ASSIGN_OR_RAISE is based off ASSIGN_OR_RETURN
 
 Copyright 2008 Google Inc.  All rights reserved.
 Homepage: https://developers.google.com/protocol-buffers/ 

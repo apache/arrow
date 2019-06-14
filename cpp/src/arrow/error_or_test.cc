@@ -194,6 +194,7 @@ TYPED_TEST(ErrorOrTest, ConstructorElementConstReference) {
   ASSERT_TRUE(statusor.ok());
   ASSERT_TRUE(statusor.status().ok());
   EXPECT_EQ(statusor.ValueOrDie(), value);
+  EXPECT_EQ(*statusor, value);
 }
 
 // Verify that ErrorOr can be constructed from an rvalue reference of an object
@@ -229,6 +230,7 @@ TYPED_TEST(ErrorOrTest, CopyConstructorOkStatus) {
   EXPECT_EQ(statusor1.ok(), statusor2.ok());
   ASSERT_TRUE(statusor2.ok());
   EXPECT_EQ(statusor1.ValueOrDie(), statusor2.ValueOrDie());
+  EXPECT_EQ(*statusor1, *statusor2);
 }
 
 // Verify that copy-assignment of a ErrorOr with a non-ok is working as
@@ -254,6 +256,7 @@ TYPED_TEST(ErrorOrTest, CopyAssignmentOkStatus) {
   EXPECT_EQ(statusor1.ok(), statusor2.ok());
   ASSERT_TRUE(statusor2.ok());
   EXPECT_EQ(statusor1.ValueOrDie(), statusor2.ValueOrDie());
+  EXPECT_EQ(*statusor1, *statusor2);
 }
 
 // Verify that copy-assignment of a ErrorOr with a non-ok status to itself is
@@ -276,6 +279,7 @@ TYPED_TEST(ErrorOrTest, CopyAssignmentSelfOkStatus) {
 
   ASSERT_TRUE(statusor.ok());
   EXPECT_EQ(statusor.ValueOrDie(), value);
+  EXPECT_EQ(*statusor, value);
 }
 
 // Verify that ErrorOr can be move-constructed from a ErrorOr with a non-ok
@@ -289,7 +293,6 @@ TYPED_TEST(ErrorOrTest, MoveConstructorNonOkStatus) {
 #ifndef NDEBUG
   EXPECT_FALSE(statusor1.ok());
   EXPECT_THAT(statusor1.status().code(), Eq(StatusCode::Invalid));
-  EXPECT_THAT(statusor1.status().message(), ErrorOrConstants::kStatusMoveConstructorMsg);
 #endif
 
   // Verify that the destination object contains the status previously held by
@@ -307,8 +310,6 @@ TYPED_TEST(ErrorOrTest, MoveConstructorOkStatus) {
 
   // Verify that the donor object was updated to contain a non-ok status.
   EXPECT_FALSE(statusor1.ok());
-  EXPECT_THAT(statusor1.status().message(),
-              Eq(ErrorOrConstants::kValueMoveConstructorMsg));
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -328,8 +329,6 @@ TYPED_TEST(ErrorOrTest, MoveAssignmentOperatorNonOkStatus) {
 
   // Verify that the status of the donor object was updated.
   EXPECT_FALSE(statusor1.ok());
-  EXPECT_THAT(statusor1.status().message(),
-              Eq(ErrorOrConstants::kStatusMoveAssignmentMsg));
 
   // Verify that the destination object contains the status previously held by
   // the donor.
@@ -349,8 +348,6 @@ TYPED_TEST(ErrorOrTest, MoveAssignmentOperatorOkStatus) {
 
   // Verify that the donor object was updated to contain a non-ok status.
   EXPECT_FALSE(statusor1.ok());
-  EXPECT_THAT(statusor1.status().message(),
-              Eq(ErrorOrConstants::kValueMoveAssignmentMsg));
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -410,8 +407,6 @@ TEST(ErrorOrTest, MoveConstructorMoveOnlyType) {
 
   // Verify that the donor object was updated to contain a non-ok status.
   EXPECT_FALSE(statusor1.ok());
-  EXPECT_THAT(statusor1.status().message(),
-              Eq(ErrorOrConstants::kValueMoveConstructorMsg));
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -432,8 +427,6 @@ TEST(ErrorOrTest, MoveAssignmentMoveOnlyType) {
 
   // Verify that the donor object was updated to contain a non-ok status.
   EXPECT_FALSE(statusor1.ok());
-  EXPECT_THAT(statusor1.status().message(),
-              Eq(ErrorOrConstants::kValueMoveAssignmentMsg));
 
   // The destination object should possess the value previously held by the
   // donor.
@@ -453,7 +446,6 @@ TEST(ErrorOrTest, ValueOrDieMovedValue) {
 
   // Verify that the ErrorOr object was invalidated after the value was moved.
   EXPECT_FALSE(statusor.ok());
-  EXPECT_THAT(statusor.status().message(), Eq(ErrorOrConstants::kValueOrDieMovedMsg));
 }
 
 // Verify that a ErrorOr<T> is implicitly constructible from some U, where T is
@@ -504,8 +496,6 @@ TEST(ErrorOrTest, TemplateMoveAssign) {
   //  NOLINTNEXTLINE use after move.
   EXPECT_FALSE(statusor.ok());
   //  NOLINTNEXTLINE use after move.
-  EXPECT_THAT(statusor.status().message(),
-              Eq(ErrorOrConstants::kValueMoveConstructorMsg));
 }
 
 // Verify that a ErrorOr<U> is constructible from a ErrorOr<T>, where T is a
@@ -534,8 +524,6 @@ TEST(ErrorOrTest, TemplateMoveConstruct) {
   //  NOLINTNEXTLINE use after move.
   EXPECT_FALSE(statusor.ok());
   //  NOLINTNEXTLINE use after move.
-  EXPECT_THAT(statusor.status().message(),
-              Eq(ErrorOrConstants::kValueMoveConstructorMsg));
 }
 
 }  // namespace
