@@ -856,6 +856,40 @@ TYPED_TEST(TestParquetIO, FileMetaDataWrite) {
   ASSERT_EQ(metadata->RowGroup(0)->num_rows(), metadata_written->RowGroup(0)->num_rows());
 }
 
+TYPED_TEST(TestParquetIO, CheckIterativeColumnRead) {
+  // ARROW-5608: Test using ColumnReader with small batch size (1) and non-repeated
+  // nullable fields with ASAN.
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
+  std::shared_ptr<Table> table = MakeSimpleTable(values, true);
+  this->ResetSink();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
+                                values->length(), default_writer_properties()));
+
+  std::unique_ptr<FileReader> reader;
+  this->ReaderFromSink(&reader);
+  std::unique_ptr<ColumnReader> column_reader;
+  ASSERT_OK_NO_THROW(reader->GetColumn(0, &column_reader));
+  ASSERT_NE(nullptr, column_reader.get());
+
+  // Read one record at a time.
+  std::vector<std::shared_ptr<::arrow::Array>> batches;
+
+  for (int64_t i = 0; i < values->length(); ++i) {
+    std::shared_ptr<::arrow::ChunkedArray> batch;
+    ASSERT_OK_NO_THROW(column_reader->NextBatch(1, &batch));
+    ASSERT_EQ(1, batch->length());
+    ASSERT_EQ(1, batch->num_chunks());
+    batches.push_back(batch->chunk(0));
+  }
+
+  auto chunked = std::make_shared<::arrow::ChunkedArray>(batches);
+  auto chunked_col =
+      std::make_shared<::arrow::Column>(table->schema()->field(0), chunked);
+  auto chunked_table = ::arrow::Table::Make(table->schema(), {chunked_col});
+  ASSERT_TRUE(table->Equals(*chunked_table));
+}
+
 using TestInt96ParquetIO = TestParquetIO<::arrow::TimestampType>;
 
 TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
