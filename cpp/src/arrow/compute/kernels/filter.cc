@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "arrow/builder.h"
 #include "arrow/compute/context.h"
