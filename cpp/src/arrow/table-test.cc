@@ -502,12 +502,11 @@ TEST_F(TestTable, SetColumn) {
 TEST_F(TestTable, RenameColumns) {
   MakeExample1(10);
   auto table = Table::Make(schema_, columns_);
-  ASSERT_EQ(table->ColumnNames(), std::vector<std::string>({"f0", "f1", "f2"}));
-  std::shared_ptr<Table> renamed;
   EXPECT_THAT(table->ColumnNames(), testing::ElementsAre("f0", "f1", "f2"));
 
+  std::shared_ptr<Table> renamed;
   ASSERT_OK(table->RenameColumns({"zero", "one", "two"}, &renamed));
-  EXPECT_THAT(table->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
+  EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
 
   ASSERT_RAISES(Invalid, table->RenameColumns({"hello", "world"}, &renamed));
 }
