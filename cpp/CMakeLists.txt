@@ -270,7 +270,12 @@ if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 else()
   add_custom_target(all-tests)
-  add_custom_target(unittest ctest -L unittest)
+  add_custom_target(unittest
+                    ctest
+                    -j4
+                    -L
+                    unittest
+                    --output-on-failure)
   add_dependencies(unittest all-tests)
 endif()
 
