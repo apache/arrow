@@ -133,6 +133,31 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.2.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <artifactSet>
+                <excludes>
+                  <exclude>com.google.flatbuffers:*</exclude>
+                  <exclude>io.netty:*</exclude>
+                  <exclude>com.fasterxml.jackson.core:*</exclude>
+                  <exclude>org.slf4j:slf4j-api</exclude>
+                  <exclude>org.apache.arrow:arrow-memory</exclude>
+                  <exclude>org.apache.arrow:arrow-format</exclude>
+                </excludes>
+              </artifactSet>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
