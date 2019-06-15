@@ -290,10 +290,7 @@ TYPED_TEST(ErrorOrTest, MoveConstructorNonOkStatus) {
   ErrorOr<typename TypeParam::value_type> statusor2(std::move(statusor1));
 
   // Verify that the status of the donor object was updated.
-#ifndef NDEBUG
   EXPECT_FALSE(statusor1.ok());
-  EXPECT_THAT(statusor1.status().code(), Eq(StatusCode::Invalid));
-#endif
 
   // Verify that the destination object contains the status previously held by
   // the donor.

@@ -23,6 +23,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/variant.h"
 
 namespace arrow {
 
@@ -86,11 +87,10 @@ template <class T>
 class ARROW_EXPORT ErrorOr {
   template <typename U>
   friend class ErrorOr;
+  using VariantType = arrow::util::variant<T, Status, const char*>;
 
  public:
   /// Constructs a ErrorOr object that contains a non-OK status.
-  /// The non-OK status has an error code of -1. This is a non-standard POSIX
-  /// error code and is used in this context to indicate an unknown error.
   ///
   /// This constructor is marked `explicit` to prevent attempts to `return {}`
   /// from a function with a return type of, for example,
@@ -98,15 +98,9 @@ class ARROW_EXPORT ErrorOr {
   /// an empty vector, it will actually invoke the default constructor of
   /// ErrorOr.
   explicit ErrorOr()  // NOLINT(runtime/explicit)
-      : variant_(Status::UnknownError("Unknown error")), has_value_(false) {}
+      : variant_(Status::UnknownError("Unknown error")) {}
 
-  ~ErrorOr() {
-    if (has_value_) {
-      variant_.value_.~T();
-    } else {
-      variant_.status_.~Status();
-    }
-  }
+  ~ErrorOr() = default;
 
   /// Constructs a ErrorOr object with the given non-OK Status object. All
   /// calls to ValueOrDie() on this object will abort. The given `status` must
@@ -119,7 +113,7 @@ class ARROW_EXPORT ErrorOr {
   ///
   /// \param status The non-OK Status object to initalize to.
   ErrorOr(const Status& status)  // NOLINT(runtime/explicit)
-      : variant_(status), has_value_(false) {
+      : variant_(status) {
     if (ARROW_PREDICT_FALSE(status.ok())) {
       internal::DieWithMessage(std::string("Constructed with a non-error status: ") +
                                status.ToString());
@@ -152,7 +146,7 @@ class ARROW_EXPORT ErrorOr {
                                   typename std::remove_cv<U>::type>::type,
                               Status>::value>::type>
   ErrorOr(U&& value)  // NOLINT(runtime/explicit)
-      : variant_(std::forward<U>(value)), has_value_(true) {}
+      : variant_(std::forward<U>(value)) {}
 
   /// Copy constructor.
   ///
@@ -164,14 +158,7 @@ class ARROW_EXPORT ErrorOr {
   /// object results in a compilation error.
   ///
   /// \param other The value to copy from.
-  ErrorOr(const ErrorOr& other)
-      : has_value_(other.has_value_) {  // NOLINT(runtime/explicit)
-    if (has_value_) {
-      // Re-use the memory from variant when constructing
-      new (&variant_) variant(other.variant_.value_);
-    } else {
-      new (&variant_) variant(other.variant_.status_);
-    }
+  ErrorOr(const ErrorOr& other) : variant_(other.variant_) {  // NOLINT(runtime/explicit)
   }
 
   /// Templatized constructor that constructs a `ErrorOr<T>` from a const
@@ -183,12 +170,11 @@ class ARROW_EXPORT ErrorOr {
   template <typename U,
             typename E = typename std::enable_if<std::is_constructible<T, U>::value &&
                                                  std::is_convertible<U, T>::value>::type>
-  ErrorOr(const ErrorOr<U>& other) : has_value_(other.has_value_) {
-    if (has_value_) {
-      // Re-use the memory from variant when constructing
-      new (&variant_) variant(other.variant_.value_);
+  ErrorOr(const ErrorOr<U>& other) : variant_("unitialized") {
+    if (arrow::util::holds_alternative<U>(other.variant_)) {
+      new (&variant_) VariantType(arrow::util::get<U>(other.variant_));
     } else {
-      new (&variant_) variant(other.variant_.status_);
+      new (&variant_) VariantType(arrow::util::get<Status>(other.variant_));
     }
   }
 
@@ -202,10 +188,12 @@ class ARROW_EXPORT ErrorOr {
     }
 
     // Construct the variant object using the variant object of the source.
-    if (other.has_value_) {
-      AssignValue(other.variant_.value_);
+    variant_.~variant<T, Status, const char*>();
+    if (arrow::util::holds_alternative<T>(other.variant_)) {
+      // Reuse memory of variant_ for construction
+      new (&variant_) VariantType(arrow::util::get<T>(other.variant_));
     } else {
-      AssignStatus(other.variant_.status_);
+      new (&variant_) VariantType(arrow::util::get<Status>(other.variant_));
     }
     return *this;
   }
@@ -221,32 +209,19 @@ class ARROW_EXPORT ErrorOr {
   template <typename U,
             typename E = typename std::enable_if<std::is_constructible<T, U>::value &&
                                                  std::is_convertible<U, T>::value>::type>
-  ErrorOr(ErrorOr<U>&& other) : has_value_(other.has_value_) {
-    if (has_value_) {
-      // Re-use the memory from variant when constructing
-      new (&variant_) variant(std::move(other.variant_.value_));
-#ifndef NDEBUG
-      other.OverwriteValueWithStatus(
-          Status::Invalid("Value was moved to another ErrorOr."));
-#else
-      new (&other.variant_) variant(Status::OK());
-      other.has_value_ = false;
-#endif
+  ErrorOr(ErrorOr<U>&& other) : variant_("unitialized") {
+    if (arrow::util::holds_alternative<U>(other.variant_)) {
+      new (&variant_) VariantType(arrow::util::get<U>(std::move(other.variant_)));
     } else {
-      // Re-use the memory from variant when constructing
-      new (&variant_) variant(std::move(other.variant_.status_));
-#ifndef NDEBUG
-      // The other.variant_.status_ gets moved and invalidated with a Status-
-      // specific error message above. To aid debugging, set the status to a
-      // ErrorOr-specific error message.
-      other.variant_.status_ = Status::Invalid("status was moved to another ErrorOr.");
-#endif
+      new (&variant_) VariantType(arrow::util::get<Status>(other.variant_));
     }
+
+    other.variant_ = "Value was moved to another ErrorOr.";
   }
 
   /// Move-assignment operator.
   ///
-  /// Sets `other` to contain a non-OK status.
+  /// Sets `other` to an invalid state..
   ///
   /// \param other The ErrorOr object to assign from and set to a non-OK
   /// status.
@@ -257,24 +232,15 @@ class ARROW_EXPORT ErrorOr {
     }
 
     // Construct the variant object using the variant object of the donor.
-    if (other.has_value_) {
-      AssignValue(std::move(other.variant_.value_));
-#ifndef NDEBUG
-      other.OverwriteValueWithStatus(
-          Status::Invalid("Value was moved to another ErrorOr."));
-#else
-      new (&other.variant_) variant(Status::OK());
-      other.has_value_ = false;
-#endif
+    variant_.~variant();
+    if (arrow::util::holds_alternative<T>(other.variant_)) {
+      // Reuse memory of variant_ for construction
+      new (&variant_) VariantType(arrow::util::get<T>(std::move(other.variant_)));
     } else {
-      AssignStatus(std::move(other.variant_.status_));
-#ifndef NDEBUG
-      // The other.variant_.status_ gets moved and invalidated with a Status-
-      // specific error message above. To aid debugging, set the status to a
-      // ErrorOr-specific error message.
-      other.variant_.status_ = Status::Invalid("Status was moved to another ErrorOr.");
-#endif
+      new (&variant_) VariantType(arrow::util::get<Status>(std::move(other.variant_)));
     }
+
+    other.variant_ = "Value was moved to another ErrorOr.";
 
     return *this;
   }
@@ -286,7 +252,7 @@ class ARROW_EXPORT ErrorOr {
   /// \return True if this ErrorOr object's status is OK (i.e. a call to ok()
   /// returns true). If this function returns true, then it is safe to access
   /// the wrapped element through a call to ValueOrDie().
-  bool ok() const { return has_value_; }
+  bool ok() const { return arrow::util::holds_alternative<T>(variant_); }
 
   /// \brief Equivelant to ok().
   // operator bool() const { return ok(); }
@@ -295,7 +261,9 @@ class ARROW_EXPORT ErrorOr {
   ///
   /// \return The stored non-OK status object, or an OK status if this object
   ///         has a value.
-  Status status() const { return ok() ? Status::OK() : variant_.status_; }
+  Status status() const {
+    return ok() ? Status::OK() : arrow::util::get<Status>(variant_);
+  }
 
   /// Gets the stored `T` value.
   ///
@@ -308,7 +276,7 @@ class ARROW_EXPORT ErrorOr {
       internal::DieWithMessage(std::string("ValueOrDie called on an error: ") +
                                status().ToString());
     }
-    return variant_.value_;
+    return arrow::util::get<T>(variant_);
   }
   const T& operator*() const& { return ValueOrDie(); }
 
@@ -323,7 +291,7 @@ class ARROW_EXPORT ErrorOr {
       internal::DieWithMessage(std::string("ValueOrDie called on an error: ") +
                                status().ToString());
     }
-    return variant_.value_;
+    return arrow::util::get<T>(variant_);
   }
   T& operator*() & { return ValueOrDie(); }
 
@@ -340,99 +308,14 @@ class ARROW_EXPORT ErrorOr {
       internal::DieWithMessage(std::string("ValueOrDie called on an error: ") +
                                status().ToString());
     }
-    T tmp(std::move(variant_.value_));
-
-#ifndef NDEBUG
-    // Invalidate this ErrorOr object.
-    OverwriteValueWithStatus(Status::Invalid("Object already returned with ValueOrDie"));
-#else
-    new (&variant_) variant(Status::OK());
-    has_value_ = false;
-#endif
+    T tmp(std::move(arrow::util::get<T>(variant_)));
+    variant_ = "Object already returned with ValueOrDie";
     return std::move(tmp);
   }
   T operator*() && { return ValueOrDie(); }
 
  private:
-  // Resets the |variant_| member to contain |status|.
-  template <class U>
-  void AssignStatus(U&& status) {
-    if (ok()) {
-      OverwriteValueWithStatus(std::forward<U>(status));
-    } else {
-      // Reuse the existing Status object. has_value_ is already false.
-      variant_.status_ = std::forward<U>(status);
-    }
-  }
-
-  // Under the assumption that |this| is currently holding a value, resets the
-  // |variant_| member to contain |status| and sets |has_value_| to indicate
-  // that |this| does not have a value. Destroys the existing |variant_| member.
-  template <class U>
-  void OverwriteValueWithStatus(U&& status) {
-#ifndef NDEBUG
-    if (ARROW_PREDICT_FALSE(!ok())) {
-      internal::DieWithMessage(
-          std::string("OverwriteValueWithStatus called on with existing error: ") +
-          status.ToString());
-    }
-#endif
-    variant_.value_.~T();
-    // Re-use the memory from variant when constructing
-    new (&variant_) variant(std::forward<U>(status));
-    has_value_ = false;
-  }
-
-  // Resets the |variant_| member to contain the |value| and sets |has_value_|
-  // to indicate that the ErrorOr object has a value. Destroys the existing
-  // |variant_| member.
-  template <class U>
-  void AssignValue(U&& value) {
-    if (ok()) {
-      // We cannot assume that T is move-assignable.
-      variant_.value_.~T();
-    } else {
-      variant_.status_.~Status();
-    }
-    // Re-use the memory from variant when constructing
-    new (&variant_) variant(std::forward<U>(value));
-    has_value_ = true;
-  }
-
-  // Use custom variant instead of c++ standard, to avoid header polution.
-  union variant {
-    // A non-OK status.
-    Status status_;
-
-    // An element of type T.
-    T value_;
-
-    variant() {}
-
-    variant(const Status& status) : status_(status) {}
-
-    variant(Status&& status) : status_(std::move(status)) {}
-
-    template <typename U, typename E = typename std::enable_if<
-                              std::is_constructible<T, U>::value &&
-                              std::is_convertible<U, T>::value>::type>
-    variant(U&& value) : value_(std::forward<U>(value)) {}
-
-    // This destructor must be explicitly defined because it is deleted due to
-    // the variant type having non-static data members with non-trivial
-    // destructors.
-    ~variant() {}
-  };
-
-  // One of: a non-OK status or an element of type T.
-  variant variant_;
-
-  // Indicates the active member of the variant_ member.
-  //
-  // A value of true indicates that value_ is the active member of variant_.
-  //
-  // A value of false indicates that status_ is the active member of variant_.
-  bool has_value_;
+  arrow::util::variant<T, Status, const char*> variant_;
 };
 
 #define ARROW_ASSIGN_OR_RAISE_IMPL(status_name, lhs, rexpr) \
