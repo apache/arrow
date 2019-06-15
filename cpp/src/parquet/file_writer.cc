@@ -316,8 +316,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
           file_encryptor_->wipeout_encryption_keys();
         }
       }
-
-      PARQUET_THROW_NOT_OK(sink_->Close());
     }
   }
 
