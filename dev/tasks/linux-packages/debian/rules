@@ -14,36 +14,53 @@ BUILD_TYPE=release
 	dh $@ --with gir
 
 override_dh_auto_configure:
-	dh_auto_configure \
-	  --sourcedirectory=cpp \
-	  --builddirectory=cpp_build \
-	  --buildsystem=cmake+ninja \
-	  -- \
-	  -DARROW_BUILD_TESTS=OFF \
-	  -DARROW_CUDA=ON \
-	  -DARROW_FLIGHT=ON \
-	  -DARROW_GANDIVA=ON \
-	  -DARROW_GANDIVA_JAVA=OFF \
-	  -DARROW_ORC=ON \
-	  -DARROW_PARQUET=ON \
-	  -DARROW_PLASMA=ON \
-	  -DARROW_PYTHON=ON \
-	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-	  -DPythonInterp_FIND_VERSION=ON \
+	if dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then	\
+	  ARROW_CUDA=ON;					\
+	  ARROW_PLASMA=ON;					\
+	else							\
+	  ARROW_CUDA=OFF;					\
+	  ARROW_PLASMA=OFF;					\
+	fi;							\
+	if dpkg -l clang-7 > /dev/null 2>&1; then		\
+	  ARROW_GANDIVA=ON;					\
+	else							\
+	  ARROW_GANDIVA=OFF;					\
+	fi;							\
+	if dpkg -l libprotobuf-dev > /dev/null 2>&1; then	\
+	  cpp_build_system=cmake+ninja;				\
+	else							\
+	  cpp_build_system=cmake;				\
+	fi;							\
+	dh_auto_configure					\
+	  --sourcedirectory=cpp					\
+	  --builddirectory=cpp_build				\
+	  --buildsystem=$${cpp_build_system}			\
+	  --							\
+	  -DARROW_BUILD_TESTS=OFF				\
+	  -DARROW_CUDA=$${ARROW_CUDA}				\
+	  -DARROW_FLIGHT=ON					\
+	  -DARROW_GANDIVA=$${ARROW_GANDIVA}			\
+	  -DARROW_GANDIVA_JAVA=OFF				\
+	  -DARROW_ORC=ON					\
+	  -DARROW_PARQUET=ON					\
+	  -DARROW_PLASMA=$${ARROW_GANDIVA}			\
+	  -DARROW_PYTHON=ON					\
+	  -DARROW_VERBOSE_THIRDPARTY_BUILD=ON			\
+	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
+	  -DPythonInterp_FIND_VERSION=ON			\
 	  -DPythonInterp_FIND_VERSION_MAJOR=3
 
 override_dh_auto_build:
 	dh_auto_build				\
 	  --sourcedirectory=cpp			\
-	  --builddirectory=cpp_build		\
-	  --buildsystem=cmake+ninja
-	dh_auto_configure \
-	  --sourcedirectory=c_glib \
-	  --builddirectory=c_glib_build \
-	  --buildsystem=meson+ninja \
-	  -- \
-	  -Darrow_cpp_build_type=$(BUILD_TYPE) \
-	  -Darrow_cpp_build_dir=$(CURDIR)/cpp_build \
+	  --builddirectory=cpp_build
+	dh_auto_configure				\
+	  --sourcedirectory=c_glib			\
+	  --builddirectory=c_glib_build			\
+	  --buildsystem=meson+ninja			\
+	  --						\
+	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
+	  -Darrow_cpp_build_dir=$(CURDIR)/cpp_build	\
 	  -Dgtk_doc=true
 	env							\
 	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE)	\
