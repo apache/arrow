@@ -34,7 +34,6 @@ RUN apt-get update -y -q && \
         libbz2-dev \
         libc-ares-dev \
         libdouble-conversion-dev \
-        libgflags-dev \
         libgoogle-glog-dev \
         libprotoc-dev \
         libprotobuf-dev \
@@ -55,9 +54,10 @@ RUN apt-get update -y -q && \
 #   config for it.
 # - Disabling Gandiva since LLVM 7 require gcc >= 4.9 toolchain
 # - ORC has compilation warnings that cause errors on gcc 4.8
-# - libbrotli-dev unavailble
+# - libbrotli-dev unavailable
+# - libgflags-dev is too old
 # - libre2-dev unavailable
-# - liblz4-dev in Trusty is too old
+# - liblz4-dev is too old
 ENV CC=gcc \
      CXX=g++ \
      ARROW_BUILD_TESTS=ON \
@@ -72,6 +72,7 @@ ENV CC=gcc \
 -DThrift_SOURCE=BUNDLED \
 -Dbenchmark_SOURCE=BUNDLED \
 -DBrotli_SOURCE=BUNDLED \
+-Dgflags_SOURCE=BUNDLED \
 -DGTest_SOURCE=BUNDLED \
 -DFlatbuffers_SOURCE=BUNDLED \
 -DLz4_SOURCE=BUNDLED \
