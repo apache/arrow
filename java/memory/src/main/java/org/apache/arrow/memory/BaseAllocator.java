@@ -701,7 +701,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   /**
    * Enum for logging verbosity.
    */
-  public static enum Verbosity {
+  public enum Verbosity {
     BASIC(false, false), // only include basic information
     LOG(true, false), // include basic
     LOG_WITH_STACKTRACE(true, true) //
