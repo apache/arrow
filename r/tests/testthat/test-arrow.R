@@ -15,9 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_that <- function(what, code) {
-  testthat::test_that(what, {
-    skip_if(!arrow::arrow_available(), "arrow C++ library not available")
-    code
+context("General checks")
+
+if (identical(Sys.getenv("TEST_R_WITH_ARROW"), "TRUE")) {
+  testthat::test_that("Arrow C++ is available", {
+    expect_true(arrow_available())
   })
 }
