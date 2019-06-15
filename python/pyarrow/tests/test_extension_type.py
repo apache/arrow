@@ -114,7 +114,7 @@ def test_ext_array_lifetime():
     storage = pa.array([b"foo", b"bar"], type=pa.binary(3))
     arr = pa.ExtensionArray.from_storage(ty, storage)
 
-    refs = [weakref.ref(obj) for obj in (ty, arr, storage)]
+    refs = [weakref.ref(ty), weakref.ref(arr), weakref.ref(storage)]
     del ty, storage, arr
     for ref in refs:
         assert ref() is None
