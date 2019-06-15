@@ -873,6 +873,8 @@ macro(build_gflags)
                           PROPERTIES INTERFACE_LINK_LIBRARIES "shlwapi.lib")
   endif()
   set(GFLAGS_LIBRARIES ${GFLAGS_LIBRARY})
+
+  set(GFLAGS_VENDORED TRUE)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
@@ -1441,6 +1443,8 @@ macro(build_rapidjson)
 
   add_dependencies(toolchain rapidjson_ep)
   add_dependencies(rapidjson rapidjson_ep)
+
+  set(RAPIDJSON_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_RAPIDJSON)
@@ -1851,6 +1855,8 @@ macro(build_cares)
   set_target_properties(c-ares::cares
                         PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
+
+  set(CARES_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_GRPC)

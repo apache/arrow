@@ -20,8 +20,6 @@ Build-Depends:
   libgoogle-glog-dev,
   libgtest-dev,
   liblz4-dev,
-  libprotobuf-dev,
-  libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
@@ -29,7 +27,6 @@ Build-Depends:
   ninja-build,
   nvidia-cuda-toolkit,
   pkg-config,
-  protobuf-compiler,
   python3-dev,
   python3-numpy,
   tzdata
@@ -77,6 +74,19 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for CUDA support.
 
+Package: libarrow-flight14
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow14 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for Flight RPC system.
+
 Package: libarrow-dev
 Section: libdevel
 Architecture: any
@@ -111,6 +121,18 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for CUDA support.
+
+Package: libarrow-flight-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dev (= ${binary:Version}),
+  libarrow-flight14 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ header files for Flight RPC system.
 
 Package: libgandiva14
 Section: libs
