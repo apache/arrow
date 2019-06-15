@@ -1234,6 +1234,24 @@ class IntegrationRunner(object):
                       ' for JS once JS supports them')
                 continue
 
+            if ('Go' in (producer.name, consumer.name) and
+                    "decimal" in test_case.name):
+                print('TODO(ARROW-3676): Enable decimal tests ' +
+                      ' for Go')
+                continue
+
+            if ('Go' in (producer.name, consumer.name) and
+                    "map" in test_case.name):
+                print('TODO(ARROW-3679): Enable map tests ' +
+                      ' for Go')
+                continue
+
+            if ('Go' in (producer.name, consumer.name) and
+                    "dictionary" in test_case.name):
+                print('TODO(ARROW-3039): Enable dictionary tests ' +
+                      ' for Go')
+                continue
+
             # Make the random access file
             producer_file_path = os.path.join(self.temp_dir, file_id + '_' +
                                               name + '.json_as_file')
