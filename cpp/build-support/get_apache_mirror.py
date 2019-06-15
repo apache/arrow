@@ -28,4 +28,4 @@ except ImportError:
 
 suggested_mirror = urlopen('https://www.apache.org/dyn/'
                            'closer.cgi?as_json=1').read()
-print(json.loads(suggested_mirror)['preferred'])
+print(json.loads(suggested_mirror.decode('utf-8'))['preferred'])
