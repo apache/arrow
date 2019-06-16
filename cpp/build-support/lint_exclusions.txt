@@ -9,3 +9,4 @@
 *vendored/*
 *RcppExports.cpp*
 *arrowExports.cpp*
+*avro*
