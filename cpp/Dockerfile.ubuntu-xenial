@@ -50,6 +50,7 @@ RUN apt-get update -y -q && \
         ninja-build \
         pkg-config \
         protobuf-compiler \
+        python \
         tzdata \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

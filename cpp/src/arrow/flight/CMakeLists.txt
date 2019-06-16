@@ -25,12 +25,15 @@ configure_file(arrow-flight.pc.in "${CMAKE_CURRENT_BINARY_DIR}/arrow-flight.pc" 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-flight.pc"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 
+set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
+
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
     protobuf::libprotobuf
     gRPC::grpc++
     gRPC::grpc
     gRPC::gpr
-    c-ares::cares)
+    c-ares::cares
+    ${ARROW_OPENSSL_LIBS})
 
 if(WIN32)
   list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS Ws2_32.lib)

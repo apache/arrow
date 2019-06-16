@@ -932,13 +932,13 @@ if(ARROW_USE_OPENSSL)
   if(NOT TARGET OpenSSL::SSL)
     add_library(OpenSSL::SSL UNKNOWN IMPORTED)
     set_target_properties(OpenSSL::SSL
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_LIBRARIES}"
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${OPENSSL_INCLUDE_DIR}")
 
     add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
     set_target_properties(OpenSSL::Crypto
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_LIBRARIES}"
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${OPENSSL_INCLUDE_DIR}")
   endif()
