@@ -761,7 +761,7 @@ elseif(ARROW_PARQUET)
   endif()
 endif()
 
-if(ARROW_USE_OPENSSL AND OPENSSL_VERSION VERSION_LESS "1.0.2" )
+if(ARROW_USE_OPENSSL AND OPENSSL_VERSION VERSION_LESS "1.0.2")
   message(STATUS "Minimum OpenSSL version 1.0.2 required")
   set(ARROW_USE_OPENSSL OFF)
 endif()
