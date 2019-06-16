@@ -590,34 +590,24 @@ macro(build_uriparser)
 endmacro()
 
 if(ARROW_WITH_URIPARSER)
-  macro(bundle_uriparser)
-    set(uriparser_SOURCE "BUNDLED")
-    resolve_dependency(uriparser)
-  endmacro()
-
-  # If we fail to find a suitably recent uriparser in the system,
-  # build it from source
-  if(NOT ("${uriparser_SOURCE}" STREQUAL "BUNDLED"))
-    pkg_check_modules(URIPARSER_PC "liburiparser >= 0.9.0")
-    if(URIPARSER_PC_FOUND)
-      set(URIPARSER_INCLUDE_DIR "${URIPARSER_PC_INCLUDEDIR}")
-      list(APPEND URIPARSER_PC_LIBRARY_DIRS "${URIPARSER_PC_LIBDIR}")
-      find_library(URIPARSER_LIB uriparser
-                   PATHS ${URIPARSER_PC_LIBRARY_DIRS}
-                   NO_DEFAULT_PATH
-                   PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-      add_library(uriparser::uriparser STATIC IMPORTED)
-      set_target_properties(uriparser::uriparser
-                            PROPERTIES IMPORTED_LOCATION ${URIPARSER_LIB}
-                                       INTERFACE_INCLUDE_DIRECTORIES
-                                       ${URIPARSER_PC_INCLUDEDIR}
-                                       # URI_STATIC_BUILD required on Windows
-                                       INTERFACE_COMPILE_DEFINITIONS "URI_NO_UNICODE")
-    else()
-      bundle_uriparser()
+  set(ARROW_URIPARSER_REQUIRED_VERSION "0.9.0")
+  if(uriparser_SOURCE STREQUAL "AUTO")
+    # Debian does not ship cmake configs for uriparser
+    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
+    if(NOT uriparser_FOUND)
+      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION})
     endif()
-  else()
-    bundle_uriparser()
+    if(NOT uriparser_FOUND AND NOT uriparserAlt_FOUND)
+      build_uriparser()
+    endif()
+  elseif(uriparser_SOURCE STREQUAL "BUNDLED")
+    build_rapidjson()
+  elseif(uriparser_SOURCE STREQUAL "SYSTEM")
+    # Debian does not ship cmake configs for uriparser
+    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
+    if(NOT uriparser_FOUND)
+      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION} REQUIRED)
+    endif()
   endif()
 
   get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
