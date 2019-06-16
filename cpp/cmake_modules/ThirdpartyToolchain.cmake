@@ -78,7 +78,7 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   endif()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
   message(STATUS "Using CONDA_PREFIX for ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
-  # TODO: Remove this when uriparser gets a conda package
+  # ARROW-5564: Remove this when uriparser gets a conda package
   if(uriparser_SOURCE STREQUAL "")
     set(uriparser_SOURCE "AUTO")
   endif()
