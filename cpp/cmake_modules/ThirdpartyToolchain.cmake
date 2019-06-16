@@ -540,7 +540,7 @@ if(ARROW_BOOST_VENDORED)
                              ${BOOST_STATIC_FILESYSTEM_LIBRARY}
                              ${BOOST_STATIC_REGEX_LIBRARY})
     set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
-                                "--with-libraries=filesystem,process,regex,system")
+                                "--with-libraries=filesystem,regex,system")
     if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
       set(BOOST_BUILD_VARIANT "debug")
     else()
