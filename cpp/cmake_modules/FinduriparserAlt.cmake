@@ -24,8 +24,8 @@ if(uriparser_ROOT)
   find_path(uriparser_INCLUDE_DIR
             NAMES uriparser/Uri.h
             PATHS ${uriparser_ROOT}
-            NO_DEFAULT_PATH
-            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES}
+            NO_DEFAULT_PATH)
 else()
   set(uriparser_PC_MODULE liburiparser)
   if(uriparserAlt_FIND_VERSION)
@@ -38,8 +38,8 @@ else()
     list(APPEND uriparser_PC_LIBRARY_DIRS "${uriparser_PC_LIBDIR}")
     find_library(uriparser_LIB uriparser
                  PATHS ${uriparser_PC_LIBRARY_DIRS}
-                 NO_DEFAULT_PATH
-                 PATH_SUFFIXES "${CMAKE_LIBRARY_ARCHITECTURE}")
+                 PATH_SUFFIXES "${CMAKE_LIBRARY_ARCHITECTURE}"
+                 NO_DEFAULT_PATH)
   else()
     find_library(uriparser_LIB NAMES uriparser PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
     find_path(uriparser_INCLUDE_DIR
