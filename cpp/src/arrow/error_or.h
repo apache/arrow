@@ -88,7 +88,9 @@ class ARROW_EXPORT ErrorOr {
   template <typename U>
   friend class ErrorOr;
   using VariantType = arrow::util::variant<T, Status, const char*>;
-  static_assert(!std::is_same<T, Status>::value, "this assert indicates you have probably made a metaprogramming error");
+  static_assert(!std::is_same<T, Status>::value,
+                "this assert indicates you have probably made a metaprogramming error");
+
  public:
   /// Constructs a ErrorOr object that contains a non-OK status.
   ///
