@@ -1759,3 +1759,13 @@ Dynamic NDArray Developers list:
 
 Some source code from Ibis (https://github.com/cloudera/ibis) has been adapted
 for PyArrow. Ibis is released under the Apache License, Version 2.0.
+--------------------------------------------------------------------------------
+
+This project includes code from Apache Avro.
+
+ * cpp/src/arrow/datasets/avro was originally copied from the Apache Avro project
+
+Copyright: 2019 The Apache Software Foundation.
+Home page: https://avro.apache.org/
+License: http://www.apache.org/licenses/LICENSE-2.0
+
