@@ -30,106 +30,63 @@ namespace avro {
 /// Class that wraps a Writer or ValidatingWriter with an interface that uses
 /// explicit write* names instead of writeValue
 
-template<class Writer>
-class Serializer : private boost::noncopyable
-{
+template <class Writer>
+class Serializer : private boost::noncopyable {
+ public:
+  /// Constructor only works with Writer
+  explicit Serializer() : writer_() {}
 
-  public:
+  /// Constructor only works with ValidatingWriter
+  Serializer(const ValidSchema& schema) : writer_(schema) {}
 
-    /// Constructor only works with Writer
-    explicit Serializer() :
-        writer_()
-    {}
+  void writeNull() { writer_.writeValue(Null()); }
 
-    /// Constructor only works with ValidatingWriter
-    Serializer(const ValidSchema &schema) :
-        writer_(schema)
-    {}
+  void writeBool(bool val) { writer_.writeValue(val); }
 
-    void writeNull() {
-        writer_.writeValue(Null());
-    }
+  void writeInt(int32_t val) { writer_.writeValue(val); }
 
-    void writeBool(bool val) {
-        writer_.writeValue(val);
-    }
+  void writeLong(int64_t val) { writer_.writeValue(val); }
 
-    void writeInt(int32_t val) {
-        writer_.writeValue(val);
-    }
+  void writeFloat(float val) { writer_.writeValue(val); }
 
-    void writeLong(int64_t val) {
-        writer_.writeValue(val);
-    }
+  void writeDouble(double val) { writer_.writeValue(val); }
 
-    void writeFloat(float val) {
-        writer_.writeValue(val);
-    }
+  void writeBytes(const void* val, size_t size) { writer_.writeBytes(val); }
 
-    void writeDouble(double val) {
-        writer_.writeValue(val);
-    }
+  template <size_t N>
+  void writeFixed(const uint8_t (&val)[N]) {
+    writer_.writeFixed(val);
+  }
 
-    void writeBytes(const void *val, size_t size) {
-        writer_.writeBytes(val);
-    }
+  template <size_t N>
+  void writeFixed(const std::array<uint8_t, N>& val) {
+    writer_.writeFixed(val);
+  }
 
-    template <size_t N>
-    void writeFixed(const uint8_t (&val)[N]) {
-        writer_.writeFixed(val);
-    }
+  void writeString(const std::string& val) { writer_.writeValue(val); }
 
-    template <size_t N>
-    void writeFixed(const std::array<uint8_t, N> &val) {
-        writer_.writeFixed(val);
-    }
+  void writeRecord() { writer_.writeRecord(); }
 
-    void writeString(const std::string &val) {
-        writer_.writeValue(val);
-    }
+  void writeRecordEnd() { writer_.writeRecordEnd(); }
 
-    void writeRecord() {
-        writer_.writeRecord();
-    }
+  void writeArrayBlock(int64_t size) { writer_.writeArrayBlock(size); }
 
-    void writeRecordEnd() {
-        writer_.writeRecordEnd();
-    }
+  void writeArrayEnd() { writer_.writeArrayEnd(); }
 
-    void writeArrayBlock(int64_t size) {
-        writer_.writeArrayBlock(size);
-    }
+  void writeMapBlock(int64_t size) { writer_.writeMapBlock(size); }
 
-    void writeArrayEnd() {
-        writer_.writeArrayEnd();
-    }
+  void writeMapEnd() { writer_.writeMapEnd(); }
 
-    void writeMapBlock(int64_t size) {
-        writer_.writeMapBlock(size);
-    }
+  void writeUnion(int64_t choice) { writer_.writeUnion(choice); }
 
-    void writeMapEnd() {
-        writer_.writeMapEnd();
-    }
+  void writeEnum(int64_t choice) { writer_.writeEnum(choice); }
 
-    void writeUnion(int64_t choice) {
-        writer_.writeUnion(choice);
-    }
+  InputBuffer buffer() const { return writer_.buffer(); }
 
-    void writeEnum(int64_t choice) {
-        writer_.writeEnum(choice);
-    }
-
-    InputBuffer buffer() const {
-        return writer_.buffer();
-    }
-
-  private:
-
-    Writer writer_;
-
+ private:
+  Writer writer_;
 };
 
-} // namespace avro
+}  // namespace avro
 
 #endif

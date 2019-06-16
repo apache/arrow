@@ -26,58 +26,37 @@
 ///
 
 namespace avro {
-    
+
 class AVRO_DECL Layout : private boost::noncopyable {
+ protected:
+  Layout(size_t offset = 0) : offset_(offset) {}
 
-  protected:
+ public:
+  size_t offset() const { return offset_; }
 
-    Layout(size_t offset = 0) :
-        offset_(offset)
-    {}
+  virtual ~Layout() {}
 
-  public:
-
-    size_t offset() const {
-        return offset_;
-    }
-
-    virtual ~Layout() {}
-
-  private:
-
-    const size_t offset_;
+ private:
+  const size_t offset_;
 };
 
 class AVRO_DECL PrimitiveLayout : public Layout {
-
-  public:
-
-    PrimitiveLayout(size_t offset = 0) :
-        Layout(offset)
-    {}
+ public:
+  PrimitiveLayout(size_t offset = 0) : Layout(offset) {}
 };
 
 class AVRO_DECL CompoundLayout : public Layout {
+ public:
+  CompoundLayout(size_t offset = 0) : Layout(offset) {}
 
-  public:
+  void add(std::unique_ptr<Layout>& layout) { layouts_.push_back(std::move(layout)); }
 
-    CompoundLayout(size_t offset = 0) :
-        Layout(offset)
-    {}
+  const Layout& at(size_t idx) const { return *layouts_.at(idx); }
 
-    void add(std::unique_ptr<Layout> &layout) {
-        layouts_.push_back(std::move(layout));
-    }
-
-    const Layout &at (size_t idx) const {
-        return *layouts_.at(idx);
-    }
-
-  private:
-
-    std::vector<std::unique_ptr<Layout> > layouts_;
+ private:
+  std::vector<std::unique_ptr<Layout> > layouts_;
 };
 
-} // namespace avro
+}  // namespace avro
 
 #endif

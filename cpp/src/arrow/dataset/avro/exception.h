@@ -19,28 +19,22 @@
 #ifndef avro_Exception_hh__
 #define avro_Exception_hh__
 
-#include "Config.hh"
-#include <stdexcept>
 #include <boost/format.hpp>
+#include <stdexcept>
+#include "Config.hh"
 
 namespace avro {
 
 /// Wrapper for std::runtime_error that provides convenience constructor
 /// for boost::format objects
 
-class AVRO_DECL Exception : public virtual std::runtime_error
-{
-  public:
+class AVRO_DECL Exception : public virtual std::runtime_error {
+ public:
+  Exception(const std::string& msg) : std::runtime_error(msg) {}
 
-    Exception(const std::string &msg) :
-        std::runtime_error(msg)
-    { }
-
-    Exception(const boost::format &msg) :
-        std::runtime_error( boost::str(msg))
-    { }  
+  Exception(const boost::format& msg) : std::runtime_error(boost::str(msg)) {}
 };
 
-} // namespace avro
+}  // namespace avro
 
 #endif

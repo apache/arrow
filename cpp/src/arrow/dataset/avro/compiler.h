@@ -19,9 +19,9 @@
 #ifndef avro_Compiler_hh__
 #define avro_Compiler_hh__
 
-#include "Config.hh"
 #include <stdint.h>
 #include <istream>
+#include "Config.hh"
 
 namespace avro {
 
@@ -31,22 +31,22 @@ class AVRO_DECL InputStream;
 /// compiler.  In order for the lexer to be reentrant, this class provides a
 /// lexer object for each parse.  The bison parser also uses this class to
 /// build up an avro parse tree as the avro spec is parsed.
-    
+
 class AVRO_DECL ValidSchema;
 
 /// Given a stream comtaining a JSON schema, compiles the schema to a
 /// ValidSchema object.  Throws if the schema cannot be compiled to a valid
 /// schema
 
-AVRO_DECL void compileJsonSchema(std::istream &is, ValidSchema &schema);
+AVRO_DECL void compileJsonSchema(std::istream& is, ValidSchema& schema);
 
-/// Non-throwing version of compileJsonSchema.  
+/// Non-throwing version of compileJsonSchema.
 ///
 /// \return True if no error, false if error (with the error string set)
 ///
 
-AVRO_DECL bool compileJsonSchema(std::istream &is, ValidSchema &schema,
-    std::string &error);
+AVRO_DECL bool compileJsonSchema(std::istream& is, ValidSchema& schema,
+                                 std::string& error);
 
 AVRO_DECL ValidSchema compileJsonSchemaFromStream(InputStream& is);
 
@@ -58,6 +58,6 @@ AVRO_DECL ValidSchema compileJsonSchemaFromString(const std::string& input);
 
 AVRO_DECL ValidSchema compileJsonSchemaFromFile(const char* filename);
 
-} // namespace avro
+}  // namespace avro
 
 #endif

@@ -19,10 +19,10 @@
 #ifndef avro_AvroTraits_hh__
 #define avro_AvroTraits_hh__
 
-#include "Config.hh"
-#include "Types.hh"
 #include <stdint.h>
 #include <type_traits>
+#include "Config.hh"
+#include "Types.hh"
 
 /** @file
  *
@@ -31,18 +31,18 @@
 namespace avro {
 
 /**
- * Define an is_serializable trait for types we can serialize natively. 
+ * Define an is_serializable trait for types we can serialize natively.
  * New types will need to define the trait as well.
  */
 template <typename T>
-struct is_serializable : public std::false_type{};
+struct is_serializable : public std::false_type {};
 
 template <typename T>
-struct is_promotable : public std::false_type{};
+struct is_promotable : public std::false_type {};
 
 template <typename T>
 struct type_to_avro {
-    static const Type type = AVRO_NUM_TYPES;
+  static const Type type = AVRO_NUM_TYPES;
 };
 
 /**
@@ -54,16 +54,21 @@ struct type_to_avro {
  */
 template <class T>
 struct is_defined {
+  typedef char yes[1];
 
-    typedef char yes[1];
+  typedef char no[2];
 
-    typedef char no[2];
+  template <class U>
+  static yes& test(char (*)[sizeof(U)]) {
+    throw 0;
+  };
 
-    template <class U> static yes& test(char(*)[sizeof(U)]) { throw 0; };
+  template <class U>
+  static no& test(...) {
+    throw 0;
+  };
 
-    template <class U> static no& test(...) { throw 0; };
-
-    static const bool value = sizeof(test<T>(0)) == sizeof(yes);
+  static const bool value = sizeof(test<T>(0)) == sizeof(yes);
 };
 
 /**
@@ -74,32 +79,37 @@ struct is_defined {
  */
 template <class T>
 struct is_not_defined {
+  typedef char yes[1];
 
-    typedef char yes[1];
+  typedef char no[2];
 
-    typedef char no[2];
+  template <class U>
+  static yes& test(char (*)[sizeof(U)]) {
+    throw 0;
+  };
 
-    template <class U> static yes& test(char(*)[sizeof(U)]) { throw 0; };
+  template <class U>
+  static no& test(...) {
+    throw 0;
+  };
 
-    template <class U> static no& test(...) { throw 0; };
-
-    static const bool value = sizeof(test<T>(0)) == sizeof(no);
+  static const bool value = sizeof(test<T>(0)) == sizeof(no);
 };
 
-#define DEFINE_PRIMITIVE(CTYPE, AVROTYPE) \
-template <> \
-struct is_serializable<CTYPE> : public std::true_type{}; \
-\
-template <> \
-struct type_to_avro<CTYPE> { \
-    static const Type type = AVROTYPE; \
-};
+#define DEFINE_PRIMITIVE(CTYPE, AVROTYPE)                   \
+  template <>                                               \
+  struct is_serializable<CTYPE> : public std::true_type {}; \
+                                                            \
+  template <>                                               \
+  struct type_to_avro<CTYPE> {                              \
+    static const Type type = AVROTYPE;                      \
+  };
 
-#define DEFINE_PROMOTABLE_PRIMITIVE(CTYPE, AVROTYPE) \
-template <> \
-struct is_promotable<CTYPE> : public std::true_type{}; \
-\
-DEFINE_PRIMITIVE(CTYPE, AVROTYPE)
+#define DEFINE_PROMOTABLE_PRIMITIVE(CTYPE, AVROTYPE)      \
+  template <>                                             \
+  struct is_promotable<CTYPE> : public std::true_type {}; \
+                                                          \
+  DEFINE_PRIMITIVE(CTYPE, AVROTYPE)
 
 DEFINE_PROMOTABLE_PRIMITIVE(int32_t, AVRO_INT)
 DEFINE_PROMOTABLE_PRIMITIVE(int64_t, AVRO_LONG)
@@ -110,7 +120,6 @@ DEFINE_PRIMITIVE(Null, AVRO_NULL)
 DEFINE_PRIMITIVE(std::string, AVRO_STRING)
 DEFINE_PRIMITIVE(std::vector<uint8_t>, AVRO_BYTES)
 
-
-} // namespace avro
+}  // namespace avro
 
 #endif

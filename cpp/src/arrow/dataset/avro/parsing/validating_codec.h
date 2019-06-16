@@ -22,30 +22,29 @@
 #include <map>
 #include <vector>
 
+#include "NodeImpl.hh"
 #include "Symbol.hh"
 #include "ValidSchema.hh"
-#include "NodeImpl.hh"
 
 namespace avro {
 namespace parsing {
 
 class ValidatingGrammarGenerator {
-protected:
-    template<typename T>
-    static void doFixup(Production& p, const std::map<T, ProductionPtr> &m);
+ protected:
+  template <typename T>
+  static void doFixup(Production& p, const std::map<T, ProductionPtr>& m);
 
-    template<typename T>
-    static void doFixup(Symbol &s, const std::map<T, ProductionPtr> &m);
-    virtual ProductionPtr doGenerate(const NodePtr& n,
-        std::map<NodePtr, ProductionPtr> &m);
+  template <typename T>
+  static void doFixup(Symbol& s, const std::map<T, ProductionPtr>& m);
+  virtual ProductionPtr doGenerate(const NodePtr& n, std::map<NodePtr, ProductionPtr>& m);
 
-    ProductionPtr generate(const NodePtr& schema);
-public:
-    Symbol generate(const ValidSchema& schema);
+  ProductionPtr generate(const NodePtr& schema);
 
+ public:
+  Symbol generate(const ValidSchema& schema);
 };
 
-}   // namespace parsing
-}   // namespace avro
+}  // namespace parsing
+}  // namespace avro
 
 #endif

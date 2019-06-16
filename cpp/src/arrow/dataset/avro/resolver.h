@@ -19,9 +19,9 @@
 #ifndef avro_Resolver_hh__
 #define avro_Resolver_hh__
 
-#include <memory>
-#include <boost/noncopyable.hpp>
 #include <stdint.h>
+#include <boost/noncopyable.hpp>
+#include <memory>
 
 #include "Config.hh"
 #include "Reader.hh"
@@ -33,25 +33,17 @@ namespace avro {
 
 class ValidSchema;
 class Layout;
-    
-class AVRO_DECL Resolver : private boost::noncopyable
-{
 
-  public:
-
-    virtual void parse(Reader &reader, uint8_t *address) const = 0;
-    virtual ~Resolver() {}
-
+class AVRO_DECL Resolver : private boost::noncopyable {
+ public:
+  virtual void parse(Reader& reader, uint8_t* address) const = 0;
+  virtual ~Resolver() {}
 };
 
-std::unique_ptr<Resolver> constructResolver(
-        const ValidSchema &rwriterSchema,
-        const ValidSchema &readerSchema,
-        const Layout &readerLayout
-    );
+std::unique_ptr<Resolver> constructResolver(const ValidSchema& rwriterSchema,
+                                            const ValidSchema& readerSchema,
+                                            const Layout& readerLayout);
 
-
-
-} // namespace avro
+}  // namespace avro
 
 #endif

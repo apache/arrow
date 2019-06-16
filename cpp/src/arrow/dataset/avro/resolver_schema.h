@@ -19,8 +19,8 @@
 #ifndef avro_ResolverSchema_hh__
 #define avro_ResolverSchema_hh__
 
-#include <boost/noncopyable.hpp>
 #include <stdint.h>
+#include <boost/noncopyable.hpp>
 #include <memory>
 
 #include "Config.hh"
@@ -30,27 +30,24 @@
 ///
 
 namespace avro {
-    
+
 class ValidSchema;
 class Layout;
 class Resolver;
 
 class AVRO_DECL ResolverSchema {
+ public:
+  ResolverSchema(const ValidSchema& writer, const ValidSchema& reader,
+                 const Layout& readerLayout);
 
-  public:
+ private:
+  friend class ResolvingReader;
 
-    ResolverSchema(const ValidSchema &writer, const ValidSchema &reader, const Layout &readerLayout);
+  void parse(Reader& reader, uint8_t* address);
 
-  private:
-
-    friend class ResolvingReader;
-
-    void parse(Reader &reader, uint8_t *address); 
-
-    std::shared_ptr<Resolver> resolver_;
-
+  std::shared_ptr<Resolver> resolver_;
 };
 
-} // namespace avro
+}  // namespace avro
 
 #endif

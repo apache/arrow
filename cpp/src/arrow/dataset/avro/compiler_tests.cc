@@ -27,9 +27,9 @@
 // Assert that empty defaults don't make json schema compilation violate bounds
 // checks, as they did in AVRO-1853. Please note that on Linux bounds are only
 // checked in Debug builds (CMAKE_BUILD_TYPE=Debug).
-void testEmptyBytesDefault()
-{
-    std::string input = "{\n\
+void testEmptyBytesDefault() {
+  std::string input =
+      "{\n\
     \"type\": \"record\",\n\
     \"name\": \"testrecord\",\n\
     \"fields\": [\n\
@@ -41,7 +41,8 @@ void testEmptyBytesDefault()
     ]\n\
 }\n\
 ";
-    std::string expected = "{\n\
+  std::string expected =
+      "{\n\
     \"type\": \"record\",\n\
     \"name\": \"testrecord\",\n\
     \"fields\": [\n\
@@ -54,15 +55,15 @@ void testEmptyBytesDefault()
 }\n\
 ";
 
-    avro::ValidSchema schema = avro::compileJsonSchemaFromString(input);
-    std::ostringstream actual;
-    schema.toJson(actual);
-    BOOST_CHECK_EQUAL(expected, actual.str());
+  avro::ValidSchema schema = avro::compileJsonSchemaFromString(input);
+  std::ostringstream actual;
+  schema.toJson(actual);
+  BOOST_CHECK_EQUAL(expected, actual.str());
 }
 
-void test2dArray()
-{
-    std::string input = "{\n\
+void test2dArray() {
+  std::string input =
+      "{\n\
     \"type\": \"array\",\n\
     \"items\": {\n\
         \"type\": \"array\",\n\
@@ -70,7 +71,8 @@ void test2dArray()
     }\n\
 }\n";
 
-    std::string expected = "{\n\
+  std::string expected =
+      "{\n\
     \"type\": \"array\",\n\
     \"items\": {\n\
         \"type\": \"array\",\n\
@@ -78,20 +80,17 @@ void test2dArray()
     }\n\
 }\n\
 ";
-    avro::ValidSchema schema = avro::compileJsonSchemaFromString(input);
-    std::ostringstream actual;
-    schema.toJson(actual);
-    BOOST_CHECK_EQUAL(expected, actual.str());
-
+  avro::ValidSchema schema = avro::compileJsonSchemaFromString(input);
+  std::ostringstream actual;
+  schema.toJson(actual);
+  BOOST_CHECK_EQUAL(expected, actual.str());
 }
 
-boost::unit_test::test_suite*
-init_unit_test_suite(int argc, char* argv[])
-{
-    using namespace boost::unit_test;
+boost::unit_test::test_suite* init_unit_test_suite(int argc, char* argv[]) {
+  using namespace boost::unit_test;
 
-    test_suite* ts= BOOST_TEST_SUITE("Avro C++ unit tests for Compiler.cc");
-    ts->add(BOOST_TEST_CASE(&testEmptyBytesDefault));
-    ts->add(BOOST_TEST_CASE(&test2dArray));
-    return ts;
+  test_suite* ts = BOOST_TEST_SUITE("Avro C++ unit tests for Compiler.cc");
+  ts->add(BOOST_TEST_CASE(&testEmptyBytesDefault));
+  ts->add(BOOST_TEST_CASE(&test2dArray));
+  return ts;
 }

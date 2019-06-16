@@ -19,9 +19,9 @@
 #ifndef avro_Validating_hh__
 #define avro_Validating_hh__
 
+#include <stdint.h>
 #include <boost/noncopyable.hpp>
 #include <vector>
-#include <stdint.h>
 
 #include "Config.hh"
 #include "Types.hh"
@@ -29,39 +29,25 @@
 
 namespace avro {
 
-class AVRO_DECL NullValidator : private boost::noncopyable
-{
-  public:
+class AVRO_DECL NullValidator : private boost::noncopyable {
+ public:
+  explicit NullValidator(const ValidSchema& schema) {}
+  NullValidator() {}
 
-    explicit NullValidator(const ValidSchema &schema) {}
-    NullValidator() {}
+  void setCount(int64_t val) {}
 
-    void setCount(int64_t val) {}
+  bool typeIsExpected(Type type) const { return true; }
 
-    bool typeIsExpected(Type type) const {
-        return true;
-    }
+  Type nextTypeExpected() const { return AVRO_UNKNOWN; }
 
-    Type nextTypeExpected() const {
-        return AVRO_UNKNOWN;
-    }
+  int nextSizeExpected() const { return 0; }
 
-    int nextSizeExpected() const {
-        return 0;
-    }
+  bool getCurrentRecordName(std::string& name) const { return true; }
 
-    bool getCurrentRecordName(std::string &name) const {
-        return true;
-    }
+  bool getNextFieldName(std::string& name) const { return true; }
 
-    bool getNextFieldName(std::string &name) const {
-        return true;
-    }
-
-    void checkTypeExpected(Type type) { }
-    void checkFixedSizeExpected(int size) { }
-
-
+  void checkTypeExpected(Type type) {}
+  void checkFixedSizeExpected(int size) {}
 };
 
 /// This class is used by both the ValidatingSerializer and ValidationParser
@@ -70,92 +56,80 @@ class AVRO_DECL NullValidator : private boost::noncopyable
 /// through all leaf nodes but a union only skips to one), and reports which
 /// type is next.
 
-class AVRO_DECL Validator : private boost::noncopyable
-{
-  public:
+class AVRO_DECL Validator : private boost::noncopyable {
+ public:
+  explicit Validator(const ValidSchema& schema);
 
-    explicit Validator(const ValidSchema &schema);
+  void setCount(int64_t val);
 
-    void setCount(int64_t val);
+  bool typeIsExpected(Type type) const {
+    return (expectedTypesFlag_ & typeToFlag(type)) != 0;
+  }
 
-    bool typeIsExpected(Type type) const {
-        return (expectedTypesFlag_ & typeToFlag(type)) != 0;
+  Type nextTypeExpected() const { return nextType_; }
+
+  int nextSizeExpected() const;
+
+  bool getCurrentRecordName(std::string& name) const;
+  bool getNextFieldName(std::string& name) const;
+
+  void checkTypeExpected(Type type) {
+    if (!typeIsExpected(type)) {
+      throw Exception(boost::format("Type %1% does not match schema %2%") % type %
+                      nextType_);
     }
+    advance();
+  }
 
-    Type nextTypeExpected() const {
-        return nextType_;
+  void checkFixedSizeExpected(int size) {
+    if (nextSizeExpected() != size) {
+      throw Exception(boost::format("Wrong size for fixed, got %1%, expected %2%") %
+                      size % nextSizeExpected());
     }
+    checkTypeExpected(AVRO_FIXED);
+  }
 
-    int nextSizeExpected() const;
+ private:
+  typedef uint32_t flag_t;
 
-    bool getCurrentRecordName(std::string &name) const;
-    bool getNextFieldName(std::string &name) const;
+  flag_t typeToFlag(Type type) const {
+    flag_t flag = (1L << type);
+    return flag;
+  }
 
-    void checkTypeExpected(Type type) {
-        if(! typeIsExpected(type)) {
-            throw Exception(
-                boost::format("Type %1% does not match schema %2%") 
-                    % type % nextType_
-            );
-        }
-        advance();
-    }
+  void setupOperation(const NodePtr& node);
 
-    void checkFixedSizeExpected(int size) { 
-        if( nextSizeExpected() != size) {
-            throw Exception(
-                boost::format("Wrong size for fixed, got %1%, expected %2%") 
-                    % size % nextSizeExpected()
-            );
-        }
-        checkTypeExpected(AVRO_FIXED);
-    }
+  void setWaitingForCount();
 
-  private:
+  void advance();
+  void doAdvance();
 
-    typedef uint32_t flag_t;
+  void enumAdvance();
+  bool countingSetup();
+  void countingAdvance();
+  void unionAdvance();
+  void fixedAdvance();
 
-    flag_t typeToFlag(Type type) const {
-        flag_t flag = (1L << type);
-        return flag;
-    }
+  void setupFlag(Type type);
 
-    void setupOperation(const NodePtr &node);
+  const ValidSchema schema_;
 
-    void setWaitingForCount();
+  Type nextType_;
+  flag_t expectedTypesFlag_;
+  bool compoundStarted_;
+  bool waitingForCount_;
+  int64_t count_;
 
-    void advance();
-    void doAdvance();
+  struct CompoundType {
+    explicit CompoundType(const NodePtr& n) : node(n), pos(0) {}
+    NodePtr node;  ///< save the node
+    size_t pos;    ///< track the leaf position to visit
+  };
 
-    void enumAdvance();
-    bool countingSetup();
-    void countingAdvance();
-    void unionAdvance();
-    void fixedAdvance();
-
-    void setupFlag(Type type);
-
-    const ValidSchema schema_;
-
-    Type nextType_; 
-    flag_t expectedTypesFlag_;
-    bool compoundStarted_;
-    bool waitingForCount_;
-    int64_t count_;
-
-    struct CompoundType {
-        explicit CompoundType(const NodePtr &n) :
-            node(n), pos(0)
-        {}
-        NodePtr node;  ///< save the node
-        size_t  pos;   ///< track the leaf position to visit
-    };
-
-    std::vector<CompoundType> compoundStack_;
-    std::vector<size_t> counters_;
-
+  std::vector<CompoundType> compoundStack_;
+  std::vector<size_t> counters_;
 };
 
-} // namespace avro
+}  // namespace avro
 
 #endif

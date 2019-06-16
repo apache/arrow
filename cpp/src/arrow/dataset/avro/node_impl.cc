@@ -16,12 +16,10 @@
  * limitations under the License.
  */
 
-
-#include <sstream>
-#include <iomanip>
 #include <boost/algorithm/string/replace.hpp>
+#include <iomanip>
+#include <sstream>
 #include "NodeImpl.hh"
-
 
 using std::string;
 namespace avro {
@@ -29,7 +27,7 @@ namespace avro {
 namespace {
 
 // Escape string for serialization.
-string escape(const string &unescaped) {
+string escape(const string& unescaped) {
   string s;
   s.reserve(unescaped.length());
   for (std::string::const_iterator it = unescaped.begin(); it != unescaped.end(); ++it) {
@@ -74,233 +72,198 @@ string escape(const string &unescaped) {
 
 // Wrap an indentation in a struct for ostream operator<<
 struct indent {
-    indent(int depth) :
-        d(depth)
-    { }
-    int d;
+  indent(int depth) : d(depth) {}
+  int d;
 };
 
 /// ostream operator for indent
-std::ostream& operator <<(std::ostream &os, indent x)
-{
-    static const string spaces("    ");
-    while (x.d--) {
-        os << spaces;
-    }
-    return os;
+std::ostream& operator<<(std::ostream& os, indent x) {
+  static const string spaces("    ");
+  while (x.d--) {
+    os << spaces;
+  }
+  return os;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 const int kByteStringSize = 6;
 
-SchemaResolution
-NodePrimitive::resolve(const Node &reader) const
-{
-    if (type() == reader.type()) {
-        return RESOLVE_MATCH;
-    }
+SchemaResolution NodePrimitive::resolve(const Node& reader) const {
+  if (type() == reader.type()) {
+    return RESOLVE_MATCH;
+  }
 
-    switch ( type() ) {
+  switch (type()) {
+    case AVRO_INT:
 
-      case AVRO_INT:
+      if (reader.type() == AVRO_LONG) {
+        return RESOLVE_PROMOTABLE_TO_LONG;
+      }
 
-        if ( reader.type() == AVRO_LONG ) {
-            return RESOLVE_PROMOTABLE_TO_LONG;
-        }
+      // fall-through intentional
 
-        // fall-through intentional
+    case AVRO_LONG:
 
-      case AVRO_LONG:
+      if (reader.type() == AVRO_FLOAT) {
+        return RESOLVE_PROMOTABLE_TO_FLOAT;
+      }
 
-        if (reader.type() == AVRO_FLOAT) {
-            return RESOLVE_PROMOTABLE_TO_FLOAT;
-        }
+      // fall-through intentional
 
-        // fall-through intentional
+    case AVRO_FLOAT:
 
-      case AVRO_FLOAT:
+      if (reader.type() == AVRO_DOUBLE) {
+        return RESOLVE_PROMOTABLE_TO_DOUBLE;
+      }
 
-        if (reader.type() == AVRO_DOUBLE) {
-            return RESOLVE_PROMOTABLE_TO_DOUBLE;
-        }
+    default:
+      break;
+  }
 
-      default:
-        break;
-    }
-
-    return furtherResolution(reader);
+  return furtherResolution(reader);
 }
 
-SchemaResolution
-NodeRecord::resolve(const Node &reader) const
-{
-    if (reader.type() == AVRO_RECORD) {
-        if (name() == reader.name()) {
-            return RESOLVE_MATCH;
-        }
+SchemaResolution NodeRecord::resolve(const Node& reader) const {
+  if (reader.type() == AVRO_RECORD) {
+    if (name() == reader.name()) {
+      return RESOLVE_MATCH;
     }
-    return furtherResolution(reader);
+  }
+  return furtherResolution(reader);
 }
 
-SchemaResolution
-NodeEnum::resolve(const Node &reader) const
-{
-    if (reader.type() == AVRO_ENUM) {
-        return (name() == reader.name()) ? RESOLVE_MATCH : RESOLVE_NO_MATCH;
-    }
-    return furtherResolution(reader);
+SchemaResolution NodeEnum::resolve(const Node& reader) const {
+  if (reader.type() == AVRO_ENUM) {
+    return (name() == reader.name()) ? RESOLVE_MATCH : RESOLVE_NO_MATCH;
+  }
+  return furtherResolution(reader);
 }
 
-SchemaResolution
-NodeArray::resolve(const Node &reader) const
-{
-    if (reader.type() == AVRO_ARRAY) {
-        const NodePtr &arrayType = leafAt(0);
-        return arrayType->resolve(*reader.leafAt(0));
-    }
-    return furtherResolution(reader);
+SchemaResolution NodeArray::resolve(const Node& reader) const {
+  if (reader.type() == AVRO_ARRAY) {
+    const NodePtr& arrayType = leafAt(0);
+    return arrayType->resolve(*reader.leafAt(0));
+  }
+  return furtherResolution(reader);
 }
 
-SchemaResolution
-NodeMap::resolve(const Node &reader) const
-{
-    if (reader.type() == AVRO_MAP) {
-        const NodePtr &mapType = leafAt(1);
-        return mapType->resolve(*reader.leafAt(1));
-    }
-    return furtherResolution(reader);
+SchemaResolution NodeMap::resolve(const Node& reader) const {
+  if (reader.type() == AVRO_MAP) {
+    const NodePtr& mapType = leafAt(1);
+    return mapType->resolve(*reader.leafAt(1));
+  }
+  return furtherResolution(reader);
 }
 
-SchemaResolution
-NodeUnion::resolve(const Node &reader) const
-{
+SchemaResolution NodeUnion::resolve(const Node& reader) const {
+  // If the writer is union, resolution only needs to occur when the selected
+  // type of the writer is known, so this function is not very helpful.
+  //
+  // In this case, this function returns if there is a possible match given
+  // any writer type, so just search type by type returning the best match
+  // found.
 
-    // If the writer is union, resolution only needs to occur when the selected
-    // type of the writer is known, so this function is not very helpful.
-    //
-    // In this case, this function returns if there is a possible match given
-    // any writer type, so just search type by type returning the best match
-    // found.
-
-    SchemaResolution match = RESOLVE_NO_MATCH;
-    for (size_t i=0; i < leaves(); ++i) {
-        const NodePtr &node = leafAt(i);
-        SchemaResolution thisMatch = node->resolve(reader);
-        if (thisMatch == RESOLVE_MATCH) {
-            match = thisMatch;
-            break;
-        }
-        if (match == RESOLVE_NO_MATCH) {
-            match = thisMatch;
-        }
+  SchemaResolution match = RESOLVE_NO_MATCH;
+  for (size_t i = 0; i < leaves(); ++i) {
+    const NodePtr& node = leafAt(i);
+    SchemaResolution thisMatch = node->resolve(reader);
+    if (thisMatch == RESOLVE_MATCH) {
+      match = thisMatch;
+      break;
     }
-    return match;
+    if (match == RESOLVE_NO_MATCH) {
+      match = thisMatch;
+    }
+  }
+  return match;
 }
 
-SchemaResolution
-NodeFixed::resolve(const Node &reader) const
-{
-    if (reader.type() == AVRO_FIXED) {
-        return (
-                (reader.fixedSize() == fixedSize()) &&
-                (reader.name() == name())
-            ) ?
-            RESOLVE_MATCH : RESOLVE_NO_MATCH;
-    }
-    return furtherResolution(reader);
+SchemaResolution NodeFixed::resolve(const Node& reader) const {
+  if (reader.type() == AVRO_FIXED) {
+    return ((reader.fixedSize() == fixedSize()) && (reader.name() == name()))
+               ? RESOLVE_MATCH
+               : RESOLVE_NO_MATCH;
+  }
+  return furtherResolution(reader);
 }
 
-SchemaResolution
-NodeSymbolic::resolve(const Node &reader) const
-{
-    const NodePtr &node = leafAt(0);
-    return node->resolve(reader);
+SchemaResolution NodeSymbolic::resolve(const Node& reader) const {
+  const NodePtr& node = leafAt(0);
+  return node->resolve(reader);
 }
 
-void
-NodePrimitive::printJson(std::ostream &os, int depth) const
-{
-    bool hasLogicalType = logicalType().type() != LogicalType::NONE;
+void NodePrimitive::printJson(std::ostream& os, int depth) const {
+  bool hasLogicalType = logicalType().type() != LogicalType::NONE;
 
-    if (hasLogicalType) {
-        os << "{\n" << indent(depth) << "\"type\": ";
-    }
+  if (hasLogicalType) {
+    os << "{\n" << indent(depth) << "\"type\": ";
+  }
 
-    os << '\"' << type() << '\"';
+  os << '\"' << type() << '\"';
 
-    if (hasLogicalType) {
-        os << ",\n" << indent(depth);
-        logicalType().printJson(os);
-        os << "\n}";
-    }
-    if (getDoc().size()) {
-        os << ",\n" << indent(depth) << "\"doc\": \""
-           << escape(getDoc()) << "\"";
-    }
+  if (hasLogicalType) {
+    os << ",\n" << indent(depth);
+    logicalType().printJson(os);
+    os << "\n}";
+  }
+  if (getDoc().size()) {
+    os << ",\n" << indent(depth) << "\"doc\": \"" << escape(getDoc()) << "\"";
+  }
 }
 
-void
-NodeSymbolic::printJson(std::ostream &os, int depth) const
-{
-    os << '\"' << nameAttribute_.get() << '\"';
-    if (getDoc().size()) {
-        os << ",\n" << indent(depth) << "\"doc\": \""
-           << escape(getDoc()) << "\"";
-    }
+void NodeSymbolic::printJson(std::ostream& os, int depth) const {
+  os << '\"' << nameAttribute_.get() << '\"';
+  if (getDoc().size()) {
+    os << ",\n" << indent(depth) << "\"doc\": \"" << escape(getDoc()) << "\"";
+  }
 }
 
-static void printName(std::ostream& os, const Name& n, int depth)
-{
-    if (!n.ns().empty()) {
-        os << indent(depth) << "\"namespace\": \"" << n.ns() << "\",\n";
-    }
-    os << indent(depth) << "\"name\": \"" << n.simpleName() << "\",\n";
+static void printName(std::ostream& os, const Name& n, int depth) {
+  if (!n.ns().empty()) {
+    os << indent(depth) << "\"namespace\": \"" << n.ns() << "\",\n";
+  }
+  os << indent(depth) << "\"name\": \"" << n.simpleName() << "\",\n";
 }
 
-void
-NodeRecord::printJson(std::ostream &os, int depth) const
-{
-    os << "{\n";
-    os << indent(++depth) << "\"type\": \"record\",\n";
-    printName(os, nameAttribute_.get(), depth);
-    if (getDoc().size()) {
-        os << indent(depth) << "\"doc\": \""
-           << escape(getDoc()) << "\",\n";
-    }
-    os << indent(depth) << "\"fields\": [";
+void NodeRecord::printJson(std::ostream& os, int depth) const {
+  os << "{\n";
+  os << indent(++depth) << "\"type\": \"record\",\n";
+  printName(os, nameAttribute_.get(), depth);
+  if (getDoc().size()) {
+    os << indent(depth) << "\"doc\": \"" << escape(getDoc()) << "\",\n";
+  }
+  os << indent(depth) << "\"fields\": [";
 
-    size_t fields = leafAttributes_.size();
-    ++depth;
-    // Serialize "default" field:
-    assert(defaultValues.empty() || (defaultValues.size() == fields));
-    for (size_t i = 0; i < fields; ++i) {
-        if (i > 0) {
-            os << ',';
-        }
-        os << '\n' << indent(depth) << "{\n";
-        os << indent(++depth) << "\"name\": \"" << leafNameAttributes_.get(i) << "\",\n";
-        os << indent(depth) << "\"type\": ";
-        leafAttributes_.get(i)->printJson(os, depth);
-
-        if (!defaultValues.empty()) {
-          if (!defaultValues[i].isUnion() &&
-              defaultValues[i].type() == AVRO_NULL) {
-            // No "default" field.
-          } else {
-            os << ",\n" << indent(depth) << "\"default\": ";
-            leafAttributes_.get(i)->printDefaultToJson(defaultValues[i], os,
-                                                       depth);
-          }
-        }
-        os << '\n';
-        os << indent(--depth) << '}';
+  size_t fields = leafAttributes_.size();
+  ++depth;
+  // Serialize "default" field:
+  assert(defaultValues.empty() || (defaultValues.size() == fields));
+  for (size_t i = 0; i < fields; ++i) {
+    if (i > 0) {
+      os << ',';
     }
-    os << '\n' << indent(--depth) << "]\n";
+    os << '\n' << indent(depth) << "{\n";
+    os << indent(++depth) << "\"name\": \"" << leafNameAttributes_.get(i) << "\",\n";
+    os << indent(depth) << "\"type\": ";
+    leafAttributes_.get(i)->printJson(os, depth);
+
+    if (!defaultValues.empty()) {
+      if (!defaultValues[i].isUnion() && defaultValues[i].type() == AVRO_NULL) {
+        // No "default" field.
+      } else {
+        os << ",\n" << indent(depth) << "\"default\": ";
+        leafAttributes_.get(i)->printDefaultToJson(defaultValues[i], os, depth);
+      }
+    }
+    os << '\n';
     os << indent(--depth) << '}';
+  }
+  os << '\n' << indent(--depth) << "]\n";
+  os << indent(--depth) << '}';
 }
 
-void NodePrimitive::printDefaultToJson(const GenericDatum &g, std::ostream &os,
+void NodePrimitive::printDefaultToJson(const GenericDatum& g, std::ostream& os,
                                        int depth) const {
   assert(isPrimitive(g.type()));
 
@@ -328,12 +291,12 @@ void NodePrimitive::printDefaultToJson(const GenericDatum &g, std::ostream &os,
       break;
     case AVRO_BYTES: {
       // Convert to a string:
-      const std::vector<uint8_t> &vg = g.value<std::vector<uint8_t> >();
+      const std::vector<uint8_t>& vg = g.value<std::vector<uint8_t> >();
       string s;
       s.resize(vg.size() * kByteStringSize);
       for (unsigned int i = 0; i < vg.size(); i++) {
         string hex_string = intToHex(static_cast<int>(vg[i]));
-        s.replace(i*kByteStringSize, kByteStringSize, hex_string);
+        s.replace(i * kByteStringSize, kByteStringSize, hex_string);
       }
       os << "\"" << s << "\"";
     } break;
@@ -342,33 +305,33 @@ void NodePrimitive::printDefaultToJson(const GenericDatum &g, std::ostream &os,
   }
 }
 
-void NodeEnum::printDefaultToJson(const GenericDatum &g, std::ostream &os,
+void NodeEnum::printDefaultToJson(const GenericDatum& g, std::ostream& os,
                                   int depth) const {
   assert(g.type() == AVRO_ENUM);
   os << "\"" << g.value<GenericEnum>().symbol() << "\"";
 }
 
-void NodeFixed::printDefaultToJson(const GenericDatum &g, std::ostream &os,
+void NodeFixed::printDefaultToJson(const GenericDatum& g, std::ostream& os,
                                    int depth) const {
   assert(g.type() == AVRO_FIXED);
   // ex: "\uOOff"
   // Convert to a string
-  const std::vector<uint8_t> &vg = g.value<GenericFixed>().value();
+  const std::vector<uint8_t>& vg = g.value<GenericFixed>().value();
   string s;
   s.resize(vg.size() * kByteStringSize);
   for (unsigned int i = 0; i < vg.size(); i++) {
     string hex_string = intToHex(static_cast<int>(vg[i]));
-    s.replace(i*kByteStringSize, kByteStringSize, hex_string);
+    s.replace(i * kByteStringSize, kByteStringSize, hex_string);
   }
   os << "\"" << s << "\"";
 }
 
-void NodeUnion::printDefaultToJson(const GenericDatum &g, std::ostream &os,
+void NodeUnion::printDefaultToJson(const GenericDatum& g, std::ostream& os,
                                    int depth) const {
   leafAt(0)->printDefaultToJson(g, os, depth);
 }
 
-void NodeArray::printDefaultToJson(const GenericDatum &g, std::ostream &os,
+void NodeArray::printDefaultToJson(const GenericDatum& g, std::ostream& os,
                                    int depth) const {
   assert(g.type() == AVRO_ARRAY);
   // ex: "default": [1]
@@ -384,19 +347,18 @@ void NodeArray::printDefaultToJson(const GenericDatum &g, std::ostream &os,
         os << ",\n";
       }
       os << indent(depth);
-      leafAt(0)->printDefaultToJson(g.value<GenericArray>().value()[i], os,
-                                    depth);
+      leafAt(0)->printDefaultToJson(g.value<GenericArray>().value()[i], os, depth);
     }
     os << "\n" << indent(--depth) << "]";
   }
 }
 
-void NodeSymbolic::printDefaultToJson(const GenericDatum &g, std::ostream &os,
+void NodeSymbolic::printDefaultToJson(const GenericDatum& g, std::ostream& os,
                                       int depth) const {
   getNode()->printDefaultToJson(g, os, depth);
 }
 
-void NodeRecord::printDefaultToJson(const GenericDatum &g, std::ostream &os,
+void NodeRecord::printDefaultToJson(const GenericDatum& g, std::ostream& os,
                                     int depth) const {
   assert(g.type() == AVRO_RECORD);
   if (g.value<GenericRecord>().fieldCount() == 0) {
@@ -420,14 +382,13 @@ void NodeRecord::printDefaultToJson(const GenericDatum &g, std::ostream &os,
       // Recursive call on child node to be able to get the name attribute
       // (In case of a record we need the name of the leaves (contained in
       // 'this'))
-      leafAt(i)->printDefaultToJson(g.value<GenericRecord>().fieldAt(i), os,
-                                    depth);
+      leafAt(i)->printDefaultToJson(g.value<GenericRecord>().fieldAt(i), os, depth);
     }
     os << "\n" << indent(--depth) << "}";
   }
 }
 
-void NodeMap::printDefaultToJson(const GenericDatum &g, std::ostream &os,
+void NodeMap::printDefaultToJson(const GenericDatum& g, std::ostream& os,
                                  int depth) const {
   assert(g.type() == AVRO_MAP);
   //{"a": 1}
@@ -442,106 +403,90 @@ void NodeMap::printDefaultToJson(const GenericDatum &g, std::ostream &os,
       } else {
         os << ",\n";
       }
-      os << indent(depth) << "\"" << g.value<GenericMap>().value()[i].first
-         << "\": ";
+      os << indent(depth) << "\"" << g.value<GenericMap>().value()[i].first << "\": ";
 
-      leafAt(i)->printDefaultToJson(g.value<GenericMap>().value()[i].second, os,
-                                    depth);
+      leafAt(i)->printDefaultToJson(g.value<GenericMap>().value()[i].second, os, depth);
     }
     os << "\n" << indent(--depth) << "}";
   }
 }
 
-void
-NodeEnum::printJson(std::ostream &os, int depth) const
-{
-    os << "{\n";
-    os << indent(++depth) << "\"type\": \"enum\",\n";
-    if (getDoc().size()) {
-        os << indent(depth) << "\"doc\": \""
-           << escape(getDoc()) << "\",\n";
-    }
-    printName(os, nameAttribute_.get(), depth);
-    os << indent(depth) << "\"symbols\": [\n";
+void NodeEnum::printJson(std::ostream& os, int depth) const {
+  os << "{\n";
+  os << indent(++depth) << "\"type\": \"enum\",\n";
+  if (getDoc().size()) {
+    os << indent(depth) << "\"doc\": \"" << escape(getDoc()) << "\",\n";
+  }
+  printName(os, nameAttribute_.get(), depth);
+  os << indent(depth) << "\"symbols\": [\n";
 
-    int names = leafNameAttributes_.size();
-    ++depth;
-    for (int i = 0; i < names; ++i) {
-        if (i > 0) {
-            os << ",\n";
-        }
-        os << indent(depth) << '\"' << leafNameAttributes_.get(i) << '\"';
+  int names = leafNameAttributes_.size();
+  ++depth;
+  for (int i = 0; i < names; ++i) {
+    if (i > 0) {
+      os << ",\n";
     }
-    os << '\n';
-    os << indent(--depth) << "]\n";
-    os << indent(--depth) << '}';
+    os << indent(depth) << '\"' << leafNameAttributes_.get(i) << '\"';
+  }
+  os << '\n';
+  os << indent(--depth) << "]\n";
+  os << indent(--depth) << '}';
 }
 
-void
-NodeArray::printJson(std::ostream &os, int depth) const
-{
-    os << "{\n";
-    os << indent(depth+1) << "\"type\": \"array\",\n";
-    if (getDoc().size()) {
-        os << indent(depth+1) << "\"doc\": \""
-           << escape(getDoc()) << "\",\n";
-    }
-    os << indent(depth+1) <<  "\"items\": ";
-    leafAttributes_.get()->printJson(os, depth+1);
-    os << '\n';
-    os << indent(depth) << '}';
+void NodeArray::printJson(std::ostream& os, int depth) const {
+  os << "{\n";
+  os << indent(depth + 1) << "\"type\": \"array\",\n";
+  if (getDoc().size()) {
+    os << indent(depth + 1) << "\"doc\": \"" << escape(getDoc()) << "\",\n";
+  }
+  os << indent(depth + 1) << "\"items\": ";
+  leafAttributes_.get()->printJson(os, depth + 1);
+  os << '\n';
+  os << indent(depth) << '}';
 }
 
-void
-NodeMap::printJson(std::ostream &os, int depth) const
-{
-    os << "{\n";
-    os << indent(depth+1) <<"\"type\": \"map\",\n";
-    if (getDoc().size()) {
-        os << indent(depth+1) << "\"doc\": \""
-           << escape(getDoc()) << "\",\n";
-    }
-    os << indent(depth+1) << "\"values\": ";
-    leafAttributes_.get(1)->printJson(os, depth+1);
-    os << '\n';
-    os << indent(depth) << '}';
+void NodeMap::printJson(std::ostream& os, int depth) const {
+  os << "{\n";
+  os << indent(depth + 1) << "\"type\": \"map\",\n";
+  if (getDoc().size()) {
+    os << indent(depth + 1) << "\"doc\": \"" << escape(getDoc()) << "\",\n";
+  }
+  os << indent(depth + 1) << "\"values\": ";
+  leafAttributes_.get(1)->printJson(os, depth + 1);
+  os << '\n';
+  os << indent(depth) << '}';
 }
 
-void
-NodeUnion::printJson(std::ostream &os, int depth) const
-{
-    os << "[\n";
-    int fields = leafAttributes_.size();
-    ++depth;
-    for (int i = 0; i < fields; ++i) {
-        if (i > 0) {
-            os << ",\n";
-        }
-        os << indent(depth);
-        leafAttributes_.get(i)->printJson(os, depth);
+void NodeUnion::printJson(std::ostream& os, int depth) const {
+  os << "[\n";
+  int fields = leafAttributes_.size();
+  ++depth;
+  for (int i = 0; i < fields; ++i) {
+    if (i > 0) {
+      os << ",\n";
     }
-    os << '\n';
-    os << indent(--depth) << ']';
+    os << indent(depth);
+    leafAttributes_.get(i)->printJson(os, depth);
+  }
+  os << '\n';
+  os << indent(--depth) << ']';
 }
 
-void
-NodeFixed::printJson(std::ostream &os, int depth) const
-{
-    os << "{\n";
-    os << indent(++depth) << "\"type\": \"fixed\",\n";
-    if (getDoc().size()) {
-        os << indent(depth) << "\"doc\": \""
-           << escape(getDoc()) << "\",\n";
-    }
-    printName(os, nameAttribute_.get(), depth);
-    os << indent(depth) << "\"size\": " << sizeAttribute_.get();
+void NodeFixed::printJson(std::ostream& os, int depth) const {
+  os << "{\n";
+  os << indent(++depth) << "\"type\": \"fixed\",\n";
+  if (getDoc().size()) {
+    os << indent(depth) << "\"doc\": \"" << escape(getDoc()) << "\",\n";
+  }
+  printName(os, nameAttribute_.get(), depth);
+  os << indent(depth) << "\"size\": " << sizeAttribute_.get();
 
-    if (logicalType().type() != LogicalType::NONE) {
-      os << ",\n" << indent(depth);
-      logicalType().printJson(os);
-    }
+  if (logicalType().type() != LogicalType::NONE) {
+    os << ",\n" << indent(depth);
+    logicalType().printJson(os);
+  }
 
-    os << "\n" << indent(--depth) << '}';
+  os << "\n" << indent(--depth) << '}';
 }
 
-} // namespace avro
+}  // namespace avro

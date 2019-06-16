@@ -16,124 +16,83 @@
  * limitations under the License.
  */
 
-
 #include "Schema.hh"
 
 namespace avro {
 
-Schema::Schema() 
-{ }
+Schema::Schema() {}
 
-Schema::~Schema() 
-{ }
+Schema::~Schema() {}
 
-Schema::Schema(const NodePtr &node) :
-    node_(node)
-{ }
+Schema::Schema(const NodePtr& node) : node_(node) {}
 
-Schema::Schema(Node *node) :
-    node_(node)
-{ }
+Schema::Schema(Node* node) : node_(node) {}
 
-RecordSchema::RecordSchema(const std::string &name) :
-    Schema(new NodeRecord)
-{
-    node_->setName(name);
+RecordSchema::RecordSchema(const std::string& name) : Schema(new NodeRecord) {
+  node_->setName(name);
 }
 
-void
-RecordSchema::addField(const std::string &name, const Schema &fieldSchema) 
-{
-    // add the name first. it will throw if the name is a duplicate, preventing
-    // the leaf from being added
-    node_->addName(name);
+void RecordSchema::addField(const std::string& name, const Schema& fieldSchema) {
+  // add the name first. it will throw if the name is a duplicate, preventing
+  // the leaf from being added
+  node_->addName(name);
 
-    node_->addLeaf(fieldSchema.root());
+  node_->addLeaf(fieldSchema.root());
 }
 
-std::string RecordSchema::getDoc() const
-{
-    return node_->getDoc();
-}
-void RecordSchema::setDoc(const std::string& doc)
-{
-    node_->setDoc(doc);
+std::string RecordSchema::getDoc() const { return node_->getDoc(); }
+void RecordSchema::setDoc(const std::string& doc) { node_->setDoc(doc); }
+
+EnumSchema::EnumSchema(const std::string& name) : Schema(new NodeEnum) {
+  node_->setName(name);
 }
 
-EnumSchema::EnumSchema(const std::string &name) :
-    Schema(new NodeEnum)
-{
-    node_->setName(name);
+void EnumSchema::addSymbol(const std::string& symbol) { node_->addName(symbol); }
+
+ArraySchema::ArraySchema(const Schema& itemsSchema) : Schema(new NodeArray) {
+  node_->addLeaf(itemsSchema.root());
 }
 
-void
-EnumSchema::addSymbol(const std::string &symbol)
-{
-    node_->addName(symbol);
+ArraySchema::ArraySchema(const ArraySchema& itemsSchema) : Schema(new NodeArray) {
+  node_->addLeaf(itemsSchema.root());
 }
 
-ArraySchema::ArraySchema(const Schema &itemsSchema) :
-    Schema(new NodeArray)
-{
-    node_->addLeaf(itemsSchema.root());
+MapSchema::MapSchema(const Schema& valuesSchema) : Schema(new NodeMap) {
+  node_->addLeaf(valuesSchema.root());
 }
 
-ArraySchema::ArraySchema(const ArraySchema &itemsSchema) :
-    Schema(new NodeArray)
-{
-    node_->addLeaf(itemsSchema.root());
+MapSchema::MapSchema(const MapSchema& valuesSchema) : Schema(new NodeMap) {
+  node_->addLeaf(valuesSchema.root());
 }
 
-MapSchema::MapSchema(const Schema &valuesSchema) :
-    Schema(new NodeMap)
-{
-    node_->addLeaf(valuesSchema.root());
-}
+UnionSchema::UnionSchema() : Schema(new NodeUnion) {}
 
-MapSchema::MapSchema(const MapSchema &valuesSchema) :
-    Schema(new NodeMap)
-{
-    node_->addLeaf(valuesSchema.root());
-}
+void UnionSchema::addType(const Schema& typeSchema) {
+  if (typeSchema.type() == AVRO_UNION) {
+    throw Exception("Cannot add unions to unions");
+  }
 
-UnionSchema::UnionSchema() :
-    Schema(new NodeUnion)
-{ }
-
-void
-UnionSchema::addType(const Schema &typeSchema) 
-{
-    if(typeSchema.type() == AVRO_UNION) {
-        throw Exception("Cannot add unions to unions");
+  if (typeSchema.type() == AVRO_RECORD) {
+    // check for duplicate records
+    size_t types = node_->leaves();
+    for (size_t i = 0; i < types; ++i) {
+      const NodePtr& leaf = node_->leafAt(i);
+      // TODO, more checks?
+      if (leaf->type() == AVRO_RECORD && leaf->name() == typeSchema.root()->name()) {
+        throw Exception("Records in unions cannot have duplicate names");
+      }
     }
+  }
 
-    if(typeSchema.type() == AVRO_RECORD) {
-        // check for duplicate records
-        size_t types = node_->leaves();
-        for(size_t i = 0; i < types; ++i) {
-            const NodePtr &leaf = node_->leafAt(i);
-            // TODO, more checks?
-            if(leaf->type() == AVRO_RECORD && leaf->name() == typeSchema.root()->name()) {
-                throw Exception("Records in unions cannot have duplicate names");
-            }
-        }
-    }
-
-    node_->addLeaf(typeSchema.root());
+  node_->addLeaf(typeSchema.root());
 }
 
-FixedSchema::FixedSchema(int size, const std::string &name) :
-    Schema(new NodeFixed)
-{
-    node_->setFixedSize(size);
-    node_->setName(name);
+FixedSchema::FixedSchema(int size, const std::string& name) : Schema(new NodeFixed) {
+  node_->setFixedSize(size);
+  node_->setName(name);
 }
 
-SymbolicSchema::SymbolicSchema(const Name &name, const NodePtr& link) :
-    Schema(new NodeSymbolic(HasName(name), link))
-{
-}
+SymbolicSchema::SymbolicSchema(const Name& name, const NodePtr& link)
+    : Schema(new NodeSymbolic(HasName(name), link)) {}
 
-
-
-} // namespace avro
+}  // namespace avro
