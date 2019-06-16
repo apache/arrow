@@ -761,8 +761,13 @@ elseif(ARROW_PARQUET)
   endif()
 endif()
 
+if(ARROW_USE_OPENSSL AND OPENSSL_VERSION VERSION_LESS "1.0.2" )
+  message(STATUS "Minimum OpenSSL version 1.0.2 required")
+  set(ARROW_USE_OPENSSL OFF)
+endif()
+
 if(ARROW_USE_OPENSSL)
-  message(STATUS "Building with OpenSSL support")
+  message(STATUS "Building with OpenSSL (VERSION: ${OPENSSL_VERSION}) support")
   # OpenSSL::SSL and OpenSSL::Crypto
   # are not available in older CMake versions (CMake < v3.2).
   if(NOT TARGET OpenSSL::SSL)
