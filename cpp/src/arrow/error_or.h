@@ -188,13 +188,7 @@ class ARROW_EXPORT ErrorOr {
     }
 
     // Construct the variant object using the variant object of the source.
-    variant_.~variant<T, Status, const char*>();
-    if (arrow::util::holds_alternative<T>(other.variant_)) {
-      // Reuse memory of variant_ for construction
-      new (&variant_) VariantType(arrow::util::get<T>(other.variant_));
-    } else {
-      new (&variant_) VariantType(arrow::util::get<Status>(other.variant_));
-    }
+    AssignVariant(other.variant_);
     return *this;
   }
 
@@ -210,12 +204,7 @@ class ARROW_EXPORT ErrorOr {
             typename E = typename std::enable_if<std::is_constructible<T, U>::value &&
                                                  std::is_convertible<U, T>::value>::type>
   ErrorOr(ErrorOr<U>&& other) : variant_("unitialized") {
-    if (arrow::util::holds_alternative<U>(other.variant_)) {
-      new (&variant_) VariantType(arrow::util::get<U>(std::move(other.variant_)));
-    } else {
-      new (&variant_) VariantType(arrow::util::get<Status>(other.variant_));
-    }
-
+    AssignVariant(std::move(other.variant_));
     other.variant_ = "Value was moved to another ErrorOr.";
   }
 
@@ -230,16 +219,7 @@ class ARROW_EXPORT ErrorOr {
     if (this == &other) {
       return *this;
     }
-
-    // Construct the variant object using the variant object of the donor.
-    variant_.~variant();
-    if (arrow::util::holds_alternative<T>(other.variant_)) {
-      // Reuse memory of variant_ for construction
-      new (&variant_) VariantType(arrow::util::get<T>(std::move(other.variant_)));
-    } else {
-      new (&variant_) VariantType(arrow::util::get<Status>(std::move(other.variant_)));
-    }
-
+    AssignVariant(std::move(other.variant_));
     other.variant_ = "Value was moved to another ErrorOr.";
 
     return *this;
@@ -315,6 +295,32 @@ class ARROW_EXPORT ErrorOr {
   T operator*() && { return ValueOrDie(); }
 
  private:
+  // Assignment is disabled by default so we need to destruct/reconstruct
+  // the value.
+  template <typename U>
+  void AssignVariant(arrow::util::variant<U, Status, const char*>&& other) {
+    variant_.~variant();
+    if (arrow::util::holds_alternative<U>(other)) {
+      // Reuse memory of variant_ for construction
+      new (&variant_) VariantType(arrow::util::get<U>(std::move(other)));
+    } else {
+      new (&variant_) VariantType(arrow::util::get<Status>(std::move(other)));
+    }
+  }
+
+  // Assignment is disabled by default so we need to destruct/reconstruct
+  // the value.
+  template <typename U>
+  void AssignVariant(const arrow::util::variant<U, Status, const char*>& other) {
+    variant_.~variant();
+    if (arrow::util::holds_alternative<U>(other)) {
+      // Reuse memory of variant_ for construction
+      new (&variant_) VariantType(arrow::util::get<U>(other));
+    } else {
+      new (&variant_) VariantType(arrow::util::get<Status>(other));
+    }
+  }
+
   arrow::util::variant<T, Status, const char*> variant_;
 };
 
