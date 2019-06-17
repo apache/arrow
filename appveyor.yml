@@ -105,7 +105,7 @@ environment:
       PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
     - JOB: "R without libarrow"
       USE_CLCACHE: false
-  
+
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
 
@@ -155,22 +155,22 @@ for:
     NOT_CRAN: true
 
   artifacts:
-    - path: '*.Rcheck\**\*.log'
+    - path: 'r\*.Rcheck\**\*.log'
       name: Logs
 
-    - path: '*.Rcheck\**\*.out'
+    - path: 'r\*.Rcheck\**\*.out'
       name: Logs
 
-    - path: '*.Rcheck\**\*.fail'
+    - path: 'r\*.Rcheck\**\*.fail'
       name: Logs
 
-    - path: '*.Rcheck\**\*.Rout'
+    - path: 'r\*.Rcheck\**\*.Rout'
       name: Logs
 
-    - path: '\*_*.tar.gz'
+    - path: 'r\*_*.tar.gz'
       name: Bits
 
-    - path: '\*_*.zip'
+    - path: 'r\*_*.zip'
       name: Bits
 
 # Disable test discovery
