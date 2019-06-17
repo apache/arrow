@@ -436,6 +436,14 @@ DictionaryType__ordered <- function(type){
     .Call(`_arrow_DictionaryType__ordered` , type)
 }
 
+StructType__GetFieldByName <- function(type, name){
+    .Call(`_arrow_StructType__GetFieldByName` , type, name)
+}
+
+StructType__GetFieldIndex <- function(type, name){
+    .Call(`_arrow_StructType__GetFieldIndex` , type, name)
+}
+
 ipc___feather___TableWriter__SetDescription <- function(writer, description){
     invisible(.Call(`_arrow_ipc___feather___TableWriter__SetDescription` , writer, description))
 }

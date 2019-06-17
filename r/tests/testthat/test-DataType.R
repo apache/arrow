@@ -311,6 +311,13 @@ test_that("struct type works as expected", {
     x$children(),
     list(field("x", int32()), field("y", boolean()))
   )
+  expect_equal(x$GetFieldIndex("x"), 0L)
+  expect_equal(x$GetFieldIndex("y"), 1L)
+  expect_equal(x$GetFieldIndex("z"), -1L)
+
+  expect_equal(x$GetFieldByName("x"), field("x", int32()))
+  expect_equal(x$GetFieldByName("y"), field("y", boolean()))
+  expect_null(x$GetFieldByName("z"))
 })
 
 test_that("DictionaryType works as expected (ARROW-3355)", {
