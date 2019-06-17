@@ -21,10 +21,10 @@
 namespace gandiva {
 
 #define TIMESTAMP_ADD_FNS(name)                                            \
-  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int32, timestamp),     \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int32, date64),       \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int64, timestamp), \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int64, date64)
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int32, timestamp, timestamp),     \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int32, date64, date64),       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int64, timestamp, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int64, date64, date64)
 
 #define TIMESTAMP_DIFF_FN(name) \
   BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, timestamp, int32)
@@ -40,10 +40,10 @@ namespace gandiva {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int64, timestamp, timestamp)
 
 #define DATE_DIFF_FNS(name)                                             \
-  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int32, date64),        \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int32, date64), \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, date64, int64, date64),    \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, timestamp, int64, date64)
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int32, date64, date64),        \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int32, timestamp, date64), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int64, date64, date64),    \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, int64, timestamp, date64)
 
 std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> datetime_fn_registry_ = {
