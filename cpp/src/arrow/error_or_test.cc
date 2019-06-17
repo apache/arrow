@@ -114,18 +114,36 @@ struct ARROW_EXPORT HeapAllocatedObject {
   ~HeapAllocatedObject() { delete value; }
 };
 
+bool operator==(const Foo& lhs, const Foo& rhs) {
+  return (lhs.bar == rhs.bar) && (lhs.baz == rhs.baz);
+}
+
+bool operator==(const HeapAllocatedObject& lhs, const HeapAllocatedObject& rhs) {
+  return *lhs.value == *rhs.value;
+}
+
 } // namespace testing
 
-template class ARROW_EXPORT ErrorOr<Foo>;
-template class ARROW_EXPORT ErrorOr<CopyOnlyDataType>;
-template class ARROW_EXPORT ErrorOr<HeapAllocatedObject>;
-template class ARROW_EXPORT ErrorOr<MoveOnlyDataType>;
+template class ARROW_EXPORT ErrorOr<testing::Foo>;
+template class ARROW_EXPORT ErrorOr<testing::CopyOnlyDataType>;
+template class ARROW_EXPORT ErrorOr<testing::HeapAllocatedObject>;
+template class ARROW_EXPORT ErrorOr<testing::MoveOnlyDataType>;
 template class ARROW_EXPORT ErrorOr<int>;
 template class ARROW_EXPORT ErrorOr<std::string>;
 
-
-
 namespace {
+
+using testing::Foo;
+using testing::CopyOnlyDataType;
+using testing::HeapAllocatedObject;
+using testing::MoveOnlyDataType;
+using testing::ImplicitlyCopyConvertible;
+using testing::ImplicitlyMoveConvertible;
+using testing::kErrorMessage;
+using testing::kErrorCode;
+using testing::kErrorMessage;
+using testing::kIntElement;
+using testing::kStringElement;
 
 // Constructs a Foo.
 struct ARROW_EXPORT FooCtor {
@@ -161,14 +179,6 @@ struct ARROW_EXPORT StringVectorCtor {
 
   std::vector<std::string> operator()() { return {kStringElement, kErrorMessage}; }
 };
-
-bool operator==(const Foo& lhs, const Foo& rhs) {
-  return (lhs.bar == rhs.bar) && (lhs.baz == rhs.baz);
-}
-
-bool operator==(const HeapAllocatedObject& lhs, const HeapAllocatedObject& rhs) {
-  return *lhs.value == *rhs.value;
-}
 
 // Returns an rvalue reference to the ErrorOr<T> object pointed to by
 // |statusor|.
