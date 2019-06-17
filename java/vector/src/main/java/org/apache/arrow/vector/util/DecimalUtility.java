@@ -209,10 +209,10 @@ public class DecimalUtility {
    * Write the given long to the ArrowBuf at the given value index.
    */
   public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index) {
-    final int startIndex = index * DECIMAL_BYTE_LENGTH;
-    PlatformDependent.putLong(bytebuf.memoryAddress() + startIndex, value);
+    final long startIndex = bytebuf.memoryAddress() + index * DECIMAL_BYTE_LENGTH;
+    PlatformDependent.putLong(startIndex, value);
     final long padValue = Long.signum(value) == -1 ? -1L : 0L;
-    PlatformDependent.putLong(bytebuf.memoryAddress() + startIndex + Long.BYTES, padValue);
+    PlatformDependent.putLong(startIndex + Long.BYTES, padValue);
   }
 
   /**
