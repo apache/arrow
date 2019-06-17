@@ -389,6 +389,7 @@ class Converter_Struct : public Converter {
                            R_xlen_t start, R_xlen_t n) const {
     auto struct_array = internal::checked_cast<arrow::StructArray*>(array.get());
     int nf = converters.size();
+    // Flatten() deals with merging of nulls
     ArrayVector arrays(nf);
     STOP_IF_NOT_OK(struct_array->Flatten(default_memory_pool(), &arrays));
     for (int i = 0; i < nf; i++) {
