@@ -181,10 +181,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                    InternalFileDecryptor* file_decryptor = NULLPTR)
       : column_(column), descr_(descr), writer_version_(writer_version) {
     if (column->__isset.crypto_metadata) {  // column metadata is encrypted
-      is_metadata_set_ = false;
       format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
+        is_metadata_set_ = false;
         if (file_decryptor != NULLPTR && file_decryptor->properties() != NULLPTR) {
           // should decrypt metadata
           std::shared_ptr<schema::ColumnPath> path = std::make_shared<schema::ColumnPath>(
@@ -199,9 +199,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
           uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
           DeserializeThriftMsg(
               reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
-              &len, &metadata_, decryptor, false);
+              &len, &decrypted_metadata_, decryptor, false);
           is_metadata_set_ = true;
         }
+      } else {
+        is_metadata_set_ = true;
       }
     } else {  // column metadata is not encrypted
       is_metadata_set_ = true;
@@ -299,19 +301,20 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
   const format::ColumnChunk* column_;
-  format::ColumnMetaData metadata_;
+  format::ColumnMetaData decrypted_metadata_;
   const ColumnDescriptor* descr_;
   const ApplicationVersion* writer_version_;
   bool is_metadata_set_;
 
   inline const format::ColumnMetaData& GetMetadataIfSet() const {
-    if (column_->__isset.crypto_metadata) {
+    if (column_->__isset.crypto_metadata
+        && column_->crypto_metadata.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
       if (!is_metadata_set_) {
         throw ParquetException(
             "Cannot decrypt ColumnMetadata. "
             "FileDecryptionProperties must be provided.");
       } else {
-        return metadata_;
+        return decrypted_metadata_;
       }
     } else {
       return column_->meta_data;
@@ -920,7 +923,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
-              bool dictionary_fallback) {
+              bool dictionary_fallback, const std::shared_ptr<Encryptor>& encryptor) {
     if (dictionary_page_offset > 0) {
       column_chunk_->meta_data.__set_dictionary_page_offset(dictionary_page_offset);
       column_chunk_->__set_file_offset(dictionary_page_offset + compressed_size);
@@ -954,37 +957,11 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
     }
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
-  }
-
-  void WriteTo(::arrow::io::OutputStream* sink,
-               const std::shared_ptr<Encryptor>& encryptor) {
-    ThriftSerializer serializer;
 
     const auto& encrypt_md = properties_->column_encryption_properties(column_->path());
-    // column is unencrypted
-    if (encrypt_md == NULLPTR || !encrypt_md->is_encrypted()) {
-      serializer.Serialize(column_chunk_, sink);
-    } else {  // column is encrypted
-      // copy column chunk, except for meta_data
-      format::ColumnChunk column_chunk;
-      column_chunk.__set_file_offset(column_chunk_->file_offset);
-      if (column_chunk_->__isset.file_path) {
-        column_chunk.__set_file_path(column_chunk_->file_path);
-      }
-      if (column_chunk_->__isset.offset_index_offset) {
-        column_chunk.__set_offset_index_offset(column_chunk_->offset_index_offset);
-      }
-      if (column_chunk_->__isset.offset_index_length) {
-        column_chunk.__set_offset_index_length(column_chunk_->offset_index_length);
-      }
-      if (column_chunk_->__isset.column_index_offset) {
-        column_chunk.__set_column_index_offset(column_chunk_->column_index_offset);
-      }
-      if (column_chunk_->__isset.column_index_length) {
-        column_chunk.__set_column_index_length(column_chunk_->column_index_length);
-      }
-
-      column_chunk.__isset.crypto_metadata = true;
+    // column is encrypted
+    if (encrypt_md != NULLPTR && encrypt_md->is_encrypted()) {
+      column_chunk_->__isset.crypto_metadata = true;
       format::ColumnCryptoMetaData ccmd;
       if (encrypt_md->is_encrypted_with_footer_key()) {
         // encrypted with footer key
@@ -997,13 +974,14 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_COLUMN_KEY(eck);
       }
-      column_chunk.__set_crypto_metadata(ccmd);
+      column_chunk_->__set_crypto_metadata(ccmd);
 
       bool encrypted_footer =
           properties_->file_encryption_properties()->encrypted_footer();
       bool encrypt_metadata =
           !encrypted_footer || !encrypt_md->is_encrypted_with_footer_key();
       if (encrypt_metadata) {
+        ThriftSerializer serializer;
         // Serialize and encrypt ColumnMetadata separately
         // Thrift-serialize the ColumnMetaData structure,
         // encrypt it with the column key, and write to encrypted_column_metadata
@@ -1021,10 +999,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         const char* temp =
             const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));
         std::string encrypted_column_metadata(temp, encrypted_len);
-        column_chunk.__set_encrypted_column_metadata(encrypted_column_metadata);
+        column_chunk_->__set_encrypted_column_metadata(encrypted_column_metadata);
 
         if (encrypted_footer) {
-          column_chunk.__isset.meta_data = false;
+          column_chunk_->__isset.meta_data = false;
         } else {
           // Keep redacted metadata version for old readers
           format::ColumnMetaData metadata_redacted;
@@ -1057,12 +1035,16 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
           metadata_redacted.__isset.statistics = false;
           metadata_redacted.__isset.encoding_stats = false;
 
-          column_chunk.__isset.meta_data = true;
-          column_chunk.__set_meta_data(metadata_redacted);
+          column_chunk_->__isset.meta_data = true;
+          column_chunk_->__set_meta_data(metadata_redacted);
         }
       }
-      serializer.Serialize(&column_chunk, sink);
     }
+  }
+
+  void WriteTo(::arrow::io::OutputStream* sink) {
+    ThriftSerializer serializer;
+    serializer.Serialize(column_chunk_, sink);
   }
 
   const ColumnDescriptor* descr() const { return column_; }
@@ -1124,14 +1106,15 @@ void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
                                         int64_t index_page_offset,
                                         int64_t data_page_offset, int64_t compressed_size,
                                         int64_t uncompressed_size, bool has_dictionary,
-                                        bool dictionary_fallback) {
+                                        bool dictionary_fallback,
+                                        const std::shared_ptr<Encryptor>& encryptor) {
   impl_->Finish(num_values, dictionary_page_offset, index_page_offset, data_page_offset,
-                compressed_size, uncompressed_size, has_dictionary, dictionary_fallback);
+                compressed_size, uncompressed_size, has_dictionary, dictionary_fallback,
+                encryptor);
 }
 
-void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink,
-                                         const std::shared_ptr<Encryptor>& encryptor) {
-  impl_->WriteTo(sink, encryptor);
+void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink) {
+  impl_->WriteTo(sink);
 }
 
 const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {

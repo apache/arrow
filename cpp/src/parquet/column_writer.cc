@@ -235,17 +235,17 @@ class SerializedPageWriter : public PageWriter {
   }
 
   void Close(bool has_dictionary, bool fallback) override {
-    // index_page_offset = -1 since they are not supported
-    metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
-                      total_compressed_size_, total_uncompressed_size_, has_dictionary,
-                      fallback);
     if (meta_encryptor_ != nullptr) {
       meta_encryptor_->update_aad(encryption::CreateModuleAad(
           meta_encryptor_->file_aad(), encryption::kColumnMetaData, row_group_ordinal_,
           column_ordinal_, (int16_t)-1));
     }
+    // index_page_offset = -1 since they are not supported
+    metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
+                      total_compressed_size_, total_uncompressed_size_, has_dictionary,
+                      fallback, meta_encryptor_);
     // Write metadata at end of column chunk
-    metadata_->WriteTo(sink_.get(), meta_encryptor_);
+    metadata_->WriteTo(sink_.get());
   }
 
   /**
