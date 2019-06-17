@@ -25,7 +25,7 @@ namespace Apache.Arrow
     /// </summary>
     internal class ChunkedArray
     {
-        public readonly IList<Array> Arrays;
+        public IList<Array> Arrays { get; }
         public readonly IArrowType DataType;
         public readonly long Length;
         public readonly long NullCount;
@@ -49,10 +49,20 @@ namespace Apache.Arrow
 
         public ChunkedArray Slice(long offset, long length)
         {
-            int curArrayIndex = GetArrayContainingRowIndex(ref offset);
+            if (offset >= Length)
+            {
+                throw new ArgumentException($"Index {offset} cannot be greater than the Column's Length {Length}");
+            }
+
+            int curArrayIndex = 0;
+            int numArrays = Arrays.Count;
+            while (curArrayIndex < numArrays && offset > Arrays[curArrayIndex].Length)
+            {
+                offset -= Arrays[curArrayIndex].Length;
+                curArrayIndex++;
+            }
 
             IList<Array> newArrays = new List<Array>();
-            var numArrays = Arrays.Count;
             while (curArrayIndex < numArrays && length > 0)
             {
                 newArrays.Add(Arrays[curArrayIndex].Slice((int)offset,
@@ -63,25 +73,12 @@ namespace Apache.Arrow
             }
             return new ChunkedArray(newArrays);
         }
+
         public ChunkedArray Slice(long offset)
         {
-            return Slice(offset, Length);
+            return Slice(offset, Length - offset);
         }
-        private int GetArrayContainingRowIndex(ref long rowIndex)
-        {
-            if (rowIndex > Length)
-            {
-                throw new ArgumentException($"Index {rowIndex} cannot be greater than the Column's Length {Length}");
-            }
-            int curArrayIndex = 0;
-            int numArrays = Arrays.Count;
-            while (curArrayIndex < numArrays && rowIndex > Arrays[curArrayIndex].Length)
-            {
-                rowIndex -= Arrays[curArrayIndex].Length;
-                curArrayIndex++;
-            }
-            return curArrayIndex;
-        }
+
         // TODO: Flatten for Structs
     }
 }

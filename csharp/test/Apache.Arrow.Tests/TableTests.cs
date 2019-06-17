@@ -22,7 +22,7 @@ namespace Apache.Arrow.Tests
 {
     public class TableTests
     {
-        public Table MakeTableWithOneColumnOfTwoIntArrays(int lengthOfEachArray)
+        public static Table MakeTableWithOneColumnOfTwoIntArrays(int lengthOfEachArray)
         {
             Array intArray = ColumnTests.MakeIntArray(lengthOfEachArray);
             Array intArrayCopy = ColumnTests.MakeIntArray(lengthOfEachArray);
@@ -67,17 +67,17 @@ namespace Apache.Arrow.Tests
             Column equalLengthColumn = new Column(field2, new[] { equalLengthIntArray});
             Column existingColumn = table.Column(0);
 
-            table.InsertColumn(0, equalLengthColumn);
-            Assert.Equal(2, table.ColumnCount);
-            Assert.True(table.Column(0) == equalLengthColumn);
-            Assert.True(table.Column(1) == existingColumn);
+            Table newTable = table.InsertColumn(0, equalLengthColumn);
+            Assert.Equal(2, newTable.ColumnCount);
+            Assert.True(newTable.Column(0) == equalLengthColumn);
+            Assert.True(newTable.Column(1) == existingColumn);
 
-            table.RemoveColumn(1, out Table newTable);
+            newTable = newTable.RemoveColumn(1);
             Assert.Equal(1, newTable.ColumnCount);
             Assert.True(newTable.Column(0) == equalLengthColumn);
 
-            table.SetColumn(0, existingColumn);
-            Assert.True(table.Column(0) == existingColumn);
+            newTable = table.SetColumn(0, existingColumn);
+            Assert.True(newTable.Column(0) == existingColumn);
         }
     }
 }

@@ -25,8 +25,8 @@ namespace Apache.Arrow
     public class Table
     {
         public Schema Schema { get; }
-        public long RowCount;
-        public int ColumnCount;
+        public long RowCount { get; }
+        public int ColumnCount { get; private set; }
         public Column Column(int columnIndex) => _columns[columnIndex];
 
         private readonly IList<Column> _columns;
@@ -67,10 +67,9 @@ namespace Apache.Arrow
         }
 
 
-        public void RemoveColumn(int columnIndex, out Table newTable)
+        public Table RemoveColumn(int columnIndex)
         {
-            // Does not return a new table.
-            Schema.RemoveField(columnIndex, out Schema newSchema);
+            Schema newSchema = Schema.RemoveField(columnIndex);
             List<Column> newColumns = new List<Column>(_columns.Count - 1);
             for (int i = 0; i < columnIndex; i++)
             {
@@ -81,12 +80,11 @@ namespace Apache.Arrow
             {
                 newColumns.Add(_columns[i]);
             }
-            newTable = new Table(newSchema, newColumns);
+            return new Table(newSchema, newColumns);
         }
 
-        public void InsertColumn(int columnIndex, Column column)
+        public Table InsertColumn(int columnIndex, Column column)
         {
-            // Does not return a new table
             column = column ?? throw new ArgumentNullException(nameof(column));
             if (columnIndex < 0 || columnIndex > _columns.Count)
             {
@@ -96,24 +94,48 @@ namespace Apache.Arrow
             {
                 throw new ArgumentException($"Column's length {column.Length} must match Table's length {RowCount}");
             }
-            Schema.InsertField(columnIndex, column.Field);
-            _columns.Insert(columnIndex, column);
-            ColumnCount++;
+
+            Schema newSchema = Schema.InsertField(columnIndex, column.Field);
+            List<Column> newColumns = new List<Column>(_columns.Count + 1);
+            for (int i = 0; i < columnIndex; i++)
+            {
+                newColumns.Add(_columns[i]);
+            }
+            newColumns.Add(column);
+            for (int i = columnIndex; i < _columns.Count; i++)
+            {
+                newColumns.Add(_columns[i]);
+            }
+
+            return new Table(newSchema, newColumns);
         }
 
-        public void SetColumn(int columnIndex, Column column)
+        public Table SetColumn(int columnIndex, Column column)
         {
             column = column ?? throw new ArgumentNullException(nameof(column));
             if (columnIndex < 0 || columnIndex >= ColumnCount)
             {
                 throw new ArgumentException($"Invalid columnIndex {columnIndex} passed in to Table.SetColumn");
             }
+
             if (column.Length != RowCount)
             {
                 throw new ArgumentException($"Column's length {column.Length} must match table's length {RowCount}");
             }
-            Schema.SetField(columnIndex, column.Field);
-            _columns[columnIndex] = column;
+
+            Schema newSchema = Schema.SetField(columnIndex, column.Field);
+            List<Column> newColumns = new List<Column>(_columns.Count);
+            for (int i = 0; i < columnIndex; i++)
+            {
+                newColumns.Add(_columns[i]);
+            }
+            newColumns.Add(column);
+            for (int i = columnIndex + 1; i < _columns.Count; i++)
+            {
+                newColumns.Add(_columns[i]);
+            }
+
+            return new Table(newSchema, newColumns);
         }
 
         // TODO: Flatten for Tables with Lists/Structs?

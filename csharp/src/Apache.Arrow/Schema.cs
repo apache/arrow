@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Flatbuf;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -70,37 +71,68 @@ namespace Apache.Arrow
                 _fields.Single(x => comparer.Compare(x.Name, name) == 0));
         }
 
-        public void RemoveField(int fieldIndex)
+        public Schema RemoveField(int fieldIndex)
         {
-            if (fieldIndex < 0 || fieldIndex > _fields.Count)
+            if (fieldIndex < 0 || fieldIndex >= _fields.Count)
             {
                 throw new ArgumentException("Invalid fieldIndex", nameof(fieldIndex));
             }
-            _fieldsDictionary.Remove(_fields[fieldIndex].Name);
-            _fields.RemoveAt(fieldIndex);
+
+            List<Field> fields = new List<Field>(_fields.Count - 1);
+            for (int i = 0; i < fieldIndex; i++)
+            {
+                fields.Add(_fields[i]);
+            }
+
+            for (int i = fieldIndex + 1; i < _fields.Count; i++)
+            {
+                fields.Add(_fields[i]);
+            }
+
+            return new Schema(fields, Metadata);
         }
 
-        public void InsertField(int fieldIndex, Field newField)
+        public Schema InsertField(int fieldIndex, Field newField)
         {
             newField = newField ?? throw new ArgumentNullException(nameof(newField));
             if (fieldIndex < 0 || fieldIndex > _fields.Count)
             {
                 throw new ArgumentException(nameof(fieldIndex), $"Invalid fieldIndex {fieldIndex} passed in to Schema.AddField");
             }
-            _fields.Insert(fieldIndex, newField);
-            _fieldsDictionary.Add(newField.Name, newField);
+
+            List<Field> fields = new List<Field>(_fields.Count + 1);
+            for (int i = 0; i < fieldIndex; i++)
+            {
+                fields.Add(_fields[i]);
+            }
+            fields.Add(newField);
+            for (int i = fieldIndex; i < _fields.Count; i++)
+            {
+                fields.Add(_fields[i]);
+            }
+
+            return new Schema(fields, Metadata);
         }
 
-        public void SetField(int fieldIndex, Field newField)
+        public Schema SetField(int fieldIndex, Field newField)
         {
             if (fieldIndex <0 || fieldIndex >= Fields.Count)
             {
                 throw new ArgumentException($"Invalid fieldIndex {fieldIndex} passed in to Schema.SetColumn");
             }
-            Field oldField = GetFieldByIndex(fieldIndex);
-            _fields[fieldIndex] = newField ?? throw new ArgumentNullException(nameof(newField));
-            _fieldsDictionary.Remove(oldField.Name);
-            _fieldsDictionary.Add(newField.Name, newField);
+
+            List<Field> fields = new List<Field>(_fields.Count);
+            for (int i = 0; i < fieldIndex; i++)
+            {
+                fields.Add(_fields[i]);
+            }
+            fields.Add(newField);
+            for (int i = fieldIndex + 1; i < _fields.Count; i++)
+            {
+                fields.Add(_fields[i]);
+            }
+
+            return new Schema(fields, Metadata);
         }
     }
 }

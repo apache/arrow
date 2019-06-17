@@ -21,7 +21,7 @@ namespace Apache.Arrow.Tests
 {
     public class ColumnTests
     {
-        static public Array MakeIntArray(int length)
+        public static Array MakeIntArray(int length)
         {
             // The following should be improved once the ArrayBuilder PR goes in
             var intBuilder = new ArrowBuffer.Builder<int>();
