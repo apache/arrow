@@ -18,7 +18,6 @@
 
 import base64
 import contextlib
-import multiprocessing
 import os
 import socket
 import struct
@@ -336,20 +335,6 @@ class TokenClientAuthHandler(flight.ClientAuthHandler):
         return self.token
 
 
-def _server_thread(server_base, args, ctor_kwargs, uri,
-                   auth_handler, tls_certificates):
-    """Helper function to run the Flight server as a subprocess."""
-    server_instance = server_base(*args, **ctor_kwargs)
-    # Accept URI because flight Location is unpicklable (for
-    # multiprocessing)
-    location = flight.Location(uri)
-    server_instance.run(
-        location,
-        auth_handler=auth_handler,
-        tls_certificates=tls_certificates,
-    )
-
-
 @contextlib.contextmanager
 def flight_server(server_base, *args, **kwargs):
     """Spawn a Flight server on a free port, shutting it down when done."""
@@ -374,18 +359,14 @@ def flight_server(server_base, *args, **kwargs):
         port = None
 
     ctor_kwargs = kwargs
+    server_instance = server_base(*args, **ctor_kwargs)
 
-    server_process = multiprocessing.Process(
-        target=_server_thread,
-        args=(
-            server_base,
-            args,
-            ctor_kwargs,
-            location.uri,
-            auth_handler,
-            tls_certificates,
-        ),
-    )
+    def _server_thread():
+        server_instance.run(
+            location,
+            auth_handler=auth_handler,
+            tls_certificates=tls_certificates,
+        )
 
     thread = threading.Thread(target=_server_thread, daemon=True)
     thread.start()
@@ -410,7 +391,7 @@ def flight_server(server_base, *args, **kwargs):
         yield location
     finally:
         server_instance.shutdown()
-        thread.join()
+        thread.join(3.0)
 
 
 def test_flight_do_get_ints():
@@ -550,7 +531,9 @@ def test_timeout_fires():
         client = flight.FlightClient.connect(server_location)
         action = flight.Action("", b"")
         options = flight.FlightCallOptions(timeout=0.2)
-        with pytest.raises(pa.ArrowIOError, match="Deadline Exceeded"):
+        # gRPC error messages change based on version, so don't look
+        # for a particular error
+        with pytest.raises(pa.ArrowIOError):
             list(client.do_action(action, options=options))
 
 
@@ -571,6 +554,7 @@ token_auth_handler = TokenServerAuthHandler(creds={
 })
 
 
+@pytest.mark.slow
 def test_http_basic_unauth():
     """Test that auth fails when not authenticated."""
     with flight_server(EchoStreamFlightServer,
@@ -645,7 +629,9 @@ def test_tls_fails():
         # Ensure client doesn't connect when certificate verification
         # fails (this is a slow test since gRPC does retry a few times)
         client = flight.FlightClient.connect(server_location)
-        with pytest.raises(pa.ArrowIOError, match="Connect Failed"):
+        # gRPC error messages change based on version, so don't look
+        # for a particular error
+        with pytest.raises(pa.ArrowIOError):
             client.do_get(flight.Ticket(b'ints'))
 
 
