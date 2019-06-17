@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Flatbuf;
 using System;
 using System.Collections.Generic;
 
@@ -46,6 +45,7 @@ namespace Apache.Arrow
                 columns.Add(new Arrow.Column(schema.GetFieldByIndex(icol), columnArrays));
                 columnArrays.Clear();
             }
+
             return new Table(schema, columns);
         }
 
@@ -65,7 +65,6 @@ namespace Apache.Arrow
             Schema = new Schema.Builder().Build();
             _columns = new List<Column>();
         }
-
 
         public Table RemoveColumn(int columnIndex)
         {

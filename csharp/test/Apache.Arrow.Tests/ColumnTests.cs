@@ -31,6 +31,7 @@ namespace Apache.Arrow.Tests
             Array intArray = ArrowArrayFactory.BuildArray(intData) as Array;
             return intArray;
         }
+
         [Fact]
         public void TestColumn()
         {
