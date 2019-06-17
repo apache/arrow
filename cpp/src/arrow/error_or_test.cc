@@ -26,7 +26,8 @@
 #include <gtest/gtest.h>
 
 namespace arrow {
-namespace {
+
+namespace testing {
 
 using ::testing::Eq;
 
@@ -113,7 +114,7 @@ struct ARROW_EXPORT HeapAllocatedObject {
   ~HeapAllocatedObject() { delete value; }
 };
 
-} // namespace
+} // namespace testing
 
 template class ARROW_EXPORT ErrorOr<Foo>;
 template class ARROW_EXPORT ErrorOr<CopyOnlyDataType>;
