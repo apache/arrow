@@ -294,14 +294,14 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   void Finish(int64_t num_values, int64_t dictonary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
-              bool dictionary_fallback);
+              bool dictionary_fallback,
+              const std::shared_ptr<Encryptor>& encryptor = NULLPTR);
 
   // The metadata contents, suitable for passing to ColumnChunkMetaData::Make
   const void* contents() const;
 
   // For writing metadata at end of column chunk
-  void WriteTo(::arrow::io::OutputStream* sink,
-               const std::shared_ptr<parquet::Encryptor>& encryptor = NULLPTR);
+  void WriteTo(::arrow::io::OutputStream* sink);
 
  private:
   explicit ColumnChunkMetaDataBuilder(const std::shared_ptr<WriterProperties>& props,
