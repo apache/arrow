@@ -151,7 +151,8 @@ class BufferedOutputStream::Impl : public BufferedBase {
   }
 
   Status Detach(std::shared_ptr<OutputStream>* raw) {
-    RETURN_NOT_OK(Flush());
+    std::lock_guard<std::mutex> guard(lock_);
+    RETURN_NOT_OK(FlushUnlocked());
     *raw = std::move(raw_);
     is_open_ = false;
     return Status::OK();

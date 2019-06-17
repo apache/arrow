@@ -254,7 +254,7 @@ class ARROW_EXPORT SignalHandler {
 ARROW_EXPORT
 Status GetSignalHandler(int signum, SignalHandler* out);
 ARROW_EXPORT
-Status SetSignalHandler(int signum, SignalHandler handler,
+Status SetSignalHandler(int signum, const SignalHandler& handler,
                         SignalHandler* old_handler = NULLPTR);
 
 }  // namespace internal

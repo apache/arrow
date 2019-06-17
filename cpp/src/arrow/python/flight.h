@@ -80,7 +80,8 @@ class ARROW_PYTHON_EXPORT PyClientAuthHandlerVtable {
 /// \brief A helper to implement an auth mechanism in Python.
 class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuthHandler {
  public:
-  explicit PyServerAuthHandler(PyObject* handler, PyServerAuthHandlerVtable vtable);
+  explicit PyServerAuthHandler(PyObject* handler,
+                               const PyServerAuthHandlerVtable& vtable);
   Status Authenticate(arrow::flight::ServerAuthSender* outgoing,
                       arrow::flight::ServerAuthReader* incoming) override;
   Status IsValid(const std::string& token, std::string* peer_identity) override;
@@ -93,7 +94,8 @@ class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuth
 /// \brief A helper to implement an auth mechanism in Python.
 class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuthHandler {
  public:
-  explicit PyClientAuthHandler(PyObject* handler, PyClientAuthHandlerVtable vtable);
+  explicit PyClientAuthHandler(PyObject* handler,
+                               const PyClientAuthHandlerVtable& vtable);
   Status Authenticate(arrow::flight::ClientAuthSender* outgoing,
                       arrow::flight::ClientAuthReader* incoming) override;
   Status GetToken(std::string* token) override;
@@ -105,7 +107,7 @@ class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuth
 
 class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBase {
  public:
-  explicit PyFlightServer(PyObject* server, PyFlightServerVtable vtable);
+  explicit PyFlightServer(PyObject* server, const PyFlightServerVtable& vtable);
 
   // Like Serve(), but set up signals and invoke Python signal handlers
   // if necessary.  This function may return with a Python exception set.
