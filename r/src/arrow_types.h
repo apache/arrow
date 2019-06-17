@@ -31,6 +31,7 @@ struct symbols {
   static SEXP xp;
   static SEXP dot_Internal;
   static SEXP inspect;
+  static SEXP row_names;
 };
 }  // namespace r
 }  // namespace arrow
