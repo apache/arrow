@@ -19,7 +19,7 @@
 os: Visual Studio 2015
 
 only_commits:
-  # Skip commits not related to Python, C++, C#, Go or Rust
+  # Skip commits not related to Python, C++, C#, Go, Ruby or Rust
   files:
     - appveyor.yml
     - c_glib/
@@ -29,6 +29,7 @@ only_commits:
     - format/
     - go/
     - python/
+    - ruby/
     - rust/
 
 cache:

@@ -22,10 +22,10 @@ if "%JOB%" == "Rust" (
         echo ===
         appveyor exit
     )
-) else if "%JOB%" == "MinGW" (
-    if "%ARROW_CI_GLIB_AFFECTED%" == "0" (
+) else if "%JOB:~,5%" == "MinGW" (
+    if "%ARROW_CI_RUBY_AFFECTED%" == "0" (
         echo ===
-        echo === No C++, or GLib changes, exiting job
+        echo === No C++, GLib or Ruby changes, exiting job
         echo ===
         appveyor exit
     )
