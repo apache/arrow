@@ -273,6 +273,9 @@ std::string DurationType::ToString() const {
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
                      const std::vector<uint8_t>& type_codes, UnionMode::type mode)
     : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
+  DCHECK_LE(fields.size(), type_codes.size()) << "union field with unknown type id";
+  DCHECK_GE(fields.size(), type_codes.size())
+      << "type id provided without corresponding union field";
   children_ = fields;
 }
 
