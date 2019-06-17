@@ -17,7 +17,6 @@
 
 package org.apache.arrow.algorithm.sort;
 
-import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
