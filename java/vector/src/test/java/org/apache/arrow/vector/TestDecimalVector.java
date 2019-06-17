@@ -166,25 +166,20 @@ public class TestDecimalVector {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
             new ArrowType.Decimal(38, 0), allocator)) {
       decimalVector.allocateNew();
-      long long1 = 0L;
-      long long2 = -2L;
-      long long3 = Long.MAX_VALUE;
-      long long4 = Long.MIN_VALUE;
-      long long5 = 12385749L;
 
-      decimalVector.set(0, long1);
-      decimalVector.set(1, long2);
-      decimalVector.set(2, long3);
-      decimalVector.set(3, long4);
-      decimalVector.set(4, long5);
+      long[] longValues = {0L, -2L, Long.MAX_VALUE, Long.MIN_VALUE, 187L};
+
+      for(int i = 0; i < longValues.length; ++i) {
+        decimalVector.set(i, longValues[i]);
+      }
 
       decimalVector.setValueCount(8);
       assertEquals(8, decimalVector.getValueCount());
-      assertEquals(new BigDecimal(long1), decimalVector.getObject(0));
-      assertEquals(new BigDecimal(long2), decimalVector.getObject(1));
-      assertEquals(new BigDecimal(long3), decimalVector.getObject(2));
-      assertEquals(new BigDecimal(long4), decimalVector.getObject(3));
-      assertEquals(new BigDecimal(long5), decimalVector.getObject(4));
+
+      for(int i = 0; i < longValues.length; ++i) {
+        decimalVector.set(i, longValues[i]);
+        assertEquals(new BigDecimal(longValues[i]), decimalVector.getObject(i));
+      }
     }
   }
 
