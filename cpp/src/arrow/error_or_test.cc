@@ -113,6 +113,19 @@ struct ARROW_EXPORT HeapAllocatedObject {
   ~HeapAllocatedObject() { delete value; }
 };
 
+} // namespace
+
+template class ARROW_EXPORT ErrorOr<Foo>;
+template class ARROW_EXPORT ErrorOr<CopyOnlyDataType>;
+template class ARROW_EXPORT ErrorOr<HeapAllocatedObject>;
+template class ARROW_EXPORT ErrorOr<MoveOnlyDataType>;
+template class ARROW_EXPORT ErrorOr<int>;
+template class ARROW_EXPORT ErrorOr<std::string>;
+
+
+
+namespace {
+
 // Constructs a Foo.
 struct ARROW_EXPORT FooCtor {
   using value_type = Foo;
@@ -529,12 +542,4 @@ TEST(ErrorOrTest, TemplateMoveConstruct) {
 }
 
 }  // namespace
-
-template class ARROW_EXPORT ErrorOr<Foo>;
-template class ARROW_EXPORT ErrorOr<CopyOnlyDataType>;
-template class ARROW_EXPORT ErrorOr<HeapAllocatedObject>;
-template class ARROW_EXPORT ErrorOr<MoveOnlyDataType>;
-template class ARROW_EXPORT ErrorOr<int>;
-template class ARROW_EXPORT ErrorOr<std::string>;
-
 }  // namespace arrow
