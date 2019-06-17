@@ -30,8 +30,6 @@ namespace Apache.Arrow
         public long Length { get; }
         public long NullCount { get; }
 
-        public Array Array(int index) => Arrays[index];
-
         public ChunkedArray(IList<Array> arrays)
         {
             Arrays = arrays ?? throw new ArgumentNullException(nameof(arrays));
