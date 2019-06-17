@@ -100,6 +100,11 @@ struct ARROW_EXPORT HeapAllocatedObject {
     *value = *other.value;
   }
 
+  HeapAllocatedObject& operator=(const HeapAllocatedObject& other) {
+    *value = *other.value;
+    return *this;
+  }
+
   HeapAllocatedObject(HeapAllocatedObject&& other) {
     value = other.value;
     other.value = nullptr;
@@ -524,4 +529,12 @@ TEST(ErrorOrTest, TemplateMoveConstruct) {
 }
 
 }  // namespace
+
+template class ARROW_EXPORT ErrorOr<Foo>;
+template class ARROW_EXPORT ErrorOr<CopyOnlyDataType>;
+template class ARROW_EXPORT ErrorOr<HeapAllocatedObject>;
+template class ARROW_EXPORT ErrorOr<MoveOnlyDataType>;
+template class ARROW_EXPORT ErrorOr<int>;
+template class ARROW_EXPORT ErrorOr<std::string>;
+
 }  // namespace arrow

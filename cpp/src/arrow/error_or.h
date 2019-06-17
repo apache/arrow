@@ -160,8 +160,7 @@ class ARROW_EXPORT ErrorOr {
   /// object results in a compilation error.
   ///
   /// \param other The value to copy from.
-  ErrorOr(const ErrorOr& other) : variant_(other.variant_) {  // NOLINT(runtime/explicit)
-  }
+  ErrorOr(const ErrorOr& other) = default;
 
   /// Templatized constructor that constructs a `ErrorOr<T>` from a const
   /// reference to a `ErrorOr<U>`.
@@ -173,26 +172,13 @@ class ARROW_EXPORT ErrorOr {
             typename E = typename std::enable_if<std::is_constructible<T, U>::value &&
                                                  std::is_convertible<U, T>::value>::type>
   ErrorOr(const ErrorOr<U>& other) : variant_("unitialized") {
-    if (arrow::util::holds_alternative<U>(other.variant_)) {
-      new (&variant_) VariantType(arrow::util::get<U>(other.variant_));
-    } else {
-      new (&variant_) VariantType(arrow::util::get<Status>(other.variant_));
-    }
+    AssignVariant(other.variant_);
   }
 
   /// Copy-assignment operator.
   ///
   /// \param other The ErrorOr object to copy.
-  ErrorOr& operator=(const ErrorOr& other) {
-    // Check for self-assignment.
-    if (this == &other) {
-      return *this;
-    }
-
-    // Construct the variant object using the variant object of the source.
-    AssignVariant(other.variant_);
-    return *this;
-  }
+  ErrorOr& operator=(const ErrorOr& other) = default;
 
   /// Templatized constructor which constructs a `ErrorOr<T>` by moving the
   /// contents of a `ErrorOr<U>`. `T` must be implicitly constructible from `U
@@ -294,7 +280,7 @@ class ARROW_EXPORT ErrorOr {
     variant_ = "Object already returned with ValueOrDie";
     return std::move(tmp);
   }
-  T operator*() && { return ValueOrDie(); }
+  T operator*() && { return std::move(ValueOrDie()); }
 
  private:
   // Assignment is disabled by default so we need to destruct/reconstruct
