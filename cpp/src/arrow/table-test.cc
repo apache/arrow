@@ -507,6 +507,7 @@ TEST_F(TestTable, RenameColumns) {
   std::shared_ptr<Table> renamed;
   ASSERT_OK(table->RenameColumns({"zero", "one", "two"}, &renamed));
   EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
+  ASSERT_OK(renamed->Validate());
 
   ASSERT_RAISES(Invalid, table->RenameColumns({"hello", "world"}, &renamed));
 }

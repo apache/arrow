@@ -493,11 +493,12 @@ Status Table::RenameColumns(const std::vector<std::string>& names,
                            " columns but only ", names.size(), " names were provided");
   }
   std::vector<std::shared_ptr<Column>> columns(num_columns());
+  std::vector<std::shared_ptr<Field>> fields(num_columns());
   for (int i = 0; i < num_columns(); ++i) {
-    auto col = column(i);
-    columns[i] = std::make_shared<Column>(col->field()->WithName(names[i]), col->data());
+    fields[i] = column(i)->field()->WithName(names[i]);
+    columns[i] = std::make_shared<Column>(fields[i], column(i)->data());
   }
-  *out = Table::Make(schema(), std::move(columns), num_rows());
+  *out = Table::Make(::arrow::schema(std::move(fields)), std::move(columns), num_rows());
   return Status::OK();
 }
 
