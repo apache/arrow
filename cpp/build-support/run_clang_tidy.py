@@ -94,8 +94,13 @@ if __name__ == "__main__":
                         help="If specified, only print errors")
     arguments = parser.parse_args()
 
+    exclude_globs = []
+    if arguments.exclude_globs:
+        for line in open(arguments.exclude_globs):
+            exclude_globs.append(line.strip())
+
     linted_filenames = []
-    for path in lintutils.get_sources(arguments.source_dir):
+    for path in lintutils.get_sources(arguments.source_dir, exclude_globs):
         linted_filenames.append(path)
 
     if not arguments.quiet:
@@ -111,8 +116,9 @@ if __name__ == "__main__":
         cmd.append('-fix')
         results = lintutils.run_parallel(
             [cmd + some for some in lintutils.chunk(linted_filenames, 16)])
-        for result in results:
-            result.check_returncode()
+        for returncode, stdout, stderr in results:
+            if returncode != 0:
+                sys.exit(returncode)
 
     else:
         _check_all(cmd, linted_filenames)

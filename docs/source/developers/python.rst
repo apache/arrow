@@ -341,6 +341,32 @@ environment variable when building pyarrow:
 
    export PYARROW_WITH_CUDA=1
 
+Debugging
+---------
+
+Since pyarrow depends on the Arrow C++ libraries, debugging can
+frequently involve crossing between Python and C++ shared libraries.
+
+Using gdb on Linux
+~~~~~~~~~~~~~~~~~~
+
+To debug the C++ libraries with gdb while running the Python unit
+   test, first start pytest with gdb:
+
+.. code-block:: shell
+
+   gdb --args python -m pytest pyarrow/tests/test_to_run.py -k $TEST_TO_MATCH
+
+To set a breakpoint, use the same gdb syntax that you would when
+debugging a C++ unitttest, for example:
+
+.. code-block:: shell
+
+   (gdb) b src/arrow/python/arrow_to_pandas.cc:1874
+   No source file named src/arrow/python/arrow_to_pandas.cc.
+   Make breakpoint pending on future shared library load? (y or [n]) y
+   Breakpoint 1 (src/arrow/python/arrow_to_pandas.cc:1874) pending.
+
 Building on Windows
 ===================
 

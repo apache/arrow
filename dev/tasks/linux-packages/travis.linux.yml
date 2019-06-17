@@ -16,16 +16,17 @@
 # under the License.
 
 os: linux
-dist: trusty
-sudo: required
+dist: xenial
 language: ruby
+
+services:
+  - docker
 
 # don't build twice
 if: tag IS blank
 
 env:
   global:
-    - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
     - BUILD_REF={{ arrow.head }}
     - ARROW_VERSION={{ arrow.version }}

@@ -35,7 +35,6 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Perf;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Token;

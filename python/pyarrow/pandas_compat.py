@@ -386,14 +386,13 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
 
 
 def _get_range_index_descriptor(level):
-    # TODO(wesm): Why are these non-public and is there a more public way to
-    # get them?
+    # public start/stop/step attributes added in pandas 0.25.0
     return {
         'kind': 'range',
         'name': level.name,
-        'start': level._start,
-        'stop': level._stop,
-        'step': level._step
+        'start': _pandas_api.get_rangeindex_attribute(level, 'start'),
+        'stop': _pandas_api.get_rangeindex_attribute(level, 'stop'),
+        'step': _pandas_api.get_rangeindex_attribute(level, 'step')
     }
 
 

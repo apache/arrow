@@ -353,6 +353,16 @@ services:
     command: arrow/dev/lint/run_clang_format.sh
     volumes: *ubuntu-volumes
 
+  clang-tidy:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build lint
+    #   docker-compose run clang-tidy
+    image: arrow:lint
+    command: arrow/dev/lint/run_clang_tidy.sh
+    volumes: *ubuntu-volumes
+
   docs:
     # Usage:
     #   docker-compose build cpp

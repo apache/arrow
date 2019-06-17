@@ -355,8 +355,6 @@ This project follows `Google's C++ Style Guide
 <https://google.github.io/styleguide/cppguide.html>`_ with minor exceptions:
 
 * We relax the line length restriction to 90 characters.
-* We use doxygen style comments ("///") in header files for comments that we
-  wish to show up in API documentation
 * We use the ``NULLPTR`` macro in header files (instead of ``nullptr``) defined
   in ``src/arrow/util/macros.h`` to support building C++/CLI (ARROW-1134)
 
@@ -368,7 +366,10 @@ codebase is subjected to a number of code style and code cleanliness checks.
 In order to have a passing CI build, your modified git branch must pass the
 following checks:
 
-* C++ builds without compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``
+* C++ builds with the project's active version of ``clang`` without
+  compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``. Note that
+  there are classes of warnings (such as `-Wdocumentation`, see more
+  on this below) that are not caught by `gcc`.
 * C++ unit test suite with valgrind enabled, use ``-DARROW_TEST_MEMCHECK=ON``
   when invoking CMake
 * Passes cpplint checks, checked with ``make lint``
@@ -399,6 +400,31 @@ target that is executable from the root of the repository:
 
 See :ref:`integration` for more information about the project's
 ``docker-compose`` configuration.
+
+API Documentation
+~~~~~~~~~~~~~~~~~
+
+We use Doxygen style comments (``///``) in header files for comments
+that we wish to show up in API documentation for classes and
+functions.
+
+When using ``clang`` and building with
+``-DBUILD_WARNING_LEVEL=CHECKIN``, the ``-Wdocumentation`` flag is
+used which checks for some common documnetation inconsistencies, like
+documenting some, but not all function parameters with ``\param``. See
+the `LLVM documentation warnings section
+<https://releases.llvm.org/7.0.1/tools/clang/docs/DiagnosticsReference.html#wdocumentation>`_
+for more about this.
+
+While we publish the API documentation as part of the main Sphinx-based
+documentation site, you can also build the C++ API documentation anytime using
+Doxygen. Run the following command from the ``cpp/apidoc`` directory:
+
+.. code-block:: shell
+
+   doxygen Doxyfile
+
+This requires `Doxygen <https://www.doxygen.org>`_ to be installed.
 
 Modular Build Targets
 ~~~~~~~~~~~~~~~~~~~~~
@@ -431,19 +457,6 @@ Parquet libraries, its tests, and its dependencies, you can run:
 
 If you omit an explicit target when invoking ``make``, all targets will be
 built.
-
-Building API Documentation
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-While we publish the API documentation as part of the main Sphinx-based
-documentation site, you can also build the C++ API documentation anytime using
-Doxygen. Run the following command from the ``cpp/apidoc`` directory:
-
-.. code-block:: shell
-
-   doxygen Doxyfile
-
-This requires `Doxygen <https://www.doxygen.org>`_ to be installed.
 
 Benchmarking
 ~~~~~~~~~~~~

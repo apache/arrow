@@ -314,7 +314,7 @@ TEST_F(TestDecimal, TestRoundFunctions) {
 
   // build expressions
   auto exprs = std::vector<ExpressionPtr>{
-      TreeExprBuilder::MakeExpression("abs", {field_a}, field("abs_ceil", decimal_type)),
+      TreeExprBuilder::MakeExpression("abs", {field_a}, field("res_abs", decimal_type)),
       TreeExprBuilder::MakeExpression("ceil", {field_a},
                                       field("res_ceil", arrow::decimal(precision, 0))),
       TreeExprBuilder::MakeExpression("floor", {field_a},

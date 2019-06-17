@@ -31,7 +31,7 @@ public interface ArrowMessage extends FBSerializable, AutoCloseable {
    *
    * @param <T> The type of value to return after visiting.
    */
-  static interface ArrowMessageVisitor<T> {
+  interface ArrowMessageVisitor<T> {
     T visit(ArrowDictionaryBatch message);
 
     T visit(ArrowRecordBatch message);

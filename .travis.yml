@@ -336,10 +336,9 @@ matrix:
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/go/arrow
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-  - name: R
+  - name: R (with and without libarrow)
     language: r
     cache: packages
-    latex: false
     dist: xenial
     env:
     - ARROW_TRAVIS_PARQUET=1
@@ -348,6 +347,14 @@ matrix:
     # Have to copy-paste this here because of how R's build steps work
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
     - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
+    # First check that it builds without libarrow
+    - pushd ${TRAVIS_BUILD_DIR}/r
+    - R -e 'install.packages("remotes"); remotes::install_deps(dep = TRUE)'
+    - R CMD build .
+    - R CMD check arrow_*tar.gz
+    - rm arrow_*tar.gz
+    - popd
+    # Now, proceed to install the c++ lib and the rest of the job
     - |
         if [ $TRAVIS_OS_NAME == "linux" ]; then
           sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
@@ -363,25 +370,11 @@ matrix:
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
     - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
     - export CXX11FLAGS=-Wall
+    # Add this env var so we can assert in the tests that the library is installed correctly
+    - export TEST_R_WITH_ARROW=TRUE
     - pushd ${TRAVIS_BUILD_DIR}/r
     after_success:
     - Rscript ../ci/travis_upload_r_coverage.R
-  - name: R_no_libarrow
-    language: r
-    cache: packages
-    latex: false
-    dist: xenial
-    before_install:
-    # Have to copy-paste this here because of how R's build steps work
-    - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
-    - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
-    - |
-        if [ $TRAVIS_OS_NAME == "linux" ]; then
-          sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update -qq
-        fi
-    - pushd ${TRAVIS_BUILD_DIR}/r
 
 after_failure:
 - |

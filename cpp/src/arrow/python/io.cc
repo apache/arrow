@@ -36,17 +36,6 @@ namespace py {
 // ----------------------------------------------------------------------
 // Python file
 
-// This is annoying: because C++11 does not allow implicit conversion of string
-// literals to non-const char*, we need to go through some gymnastics to use
-// PyObject_CallMethod without a lot of pain (its arguments are non-const
-// char*)
-template <typename... ArgTypes>
-static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* method_name,
-                                                const char* argspec, ArgTypes... args) {
-  return PyObject_CallMethod(obj, const_cast<char*>(method_name),
-                             const_cast<char*>(argspec), args...);
-}
-
 // A common interface to a Python file-like object. Must acquire GIL before
 // calling any methods
 class PythonFile {

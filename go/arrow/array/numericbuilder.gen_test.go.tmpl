@@ -38,6 +38,9 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 {{end -}}
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -76,6 +79,46 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []{{or .QualifiedType .Type}}{7, 8}, a.{{.Name}}Values())
 	assert.Len(t, a.{{.Name}}Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []{{or .QualifiedType .Type}}{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.New{{.Name}}Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.{{.Name}}); !ok {
+		t.Fatalf("could not type-assert to array.{{.Name}}")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.{{.Name}})
+	if !ok {
+		t.Fatalf("could not type-assert to array.{{.Name}}")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }

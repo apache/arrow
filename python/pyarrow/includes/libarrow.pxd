@@ -73,6 +73,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
         _Type_MAP" arrow::Type::MAP"
 
+        _Type_EXTENSION" arrow::Type::EXTENSION"
+
     enum UnionMode" arrow::UnionMode::type":
         _UnionMode_SPARSE" arrow::UnionMode::SPARSE"
         _UnionMode_DENSE" arrow::UnionMode::DENSE"
@@ -1270,6 +1272,36 @@ cdef extern from 'arrow/python/inference.h' namespace 'arrow::py':
     c_bool IsPyBool(object o)
     c_bool IsPyInt(object o)
     c_bool IsPyFloat(object o)
+
+
+cdef extern from 'arrow/extension_type.h' namespace 'arrow':
+    cdef cppclass CExtensionType" arrow::ExtensionType"(CDataType):
+        c_string extension_name()
+        shared_ptr[CDataType] storage_type()
+
+    cdef cppclass CExtensionArray" arrow::ExtensionArray"(CArray):
+        CExtensionArray(shared_ptr[CDataType], shared_ptr[CArray] storage)
+
+        shared_ptr[CArray] storage()
+
+
+cdef extern from 'arrow/python/extension_type.h' namespace 'arrow::py':
+    cdef cppclass CPyExtensionType \
+            " arrow::py::PyExtensionType"(CExtensionType):
+        @staticmethod
+        CStatus FromClass(shared_ptr[CDataType] storage_type,
+                          object typ, shared_ptr[CExtensionType]* out)
+
+        @staticmethod
+        CStatus FromInstance(shared_ptr[CDataType] storage_type,
+                             object inst, shared_ptr[CExtensionType]* out)
+
+        object GetInstance()
+        CStatus SetInstance(object)
+
+    c_string PyExtensionName()
+    CStatus RegisterPyExtensionType(shared_ptr[CDataType])
+    CStatus UnregisterPyExtensionType()
 
 
 cdef extern from 'arrow/python/benchmark.h' namespace 'arrow::py::benchmark':

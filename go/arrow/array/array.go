@@ -185,7 +185,7 @@ func init() {
 		arrow.TIMESTAMP:         func(data *Data) Interface { return NewTimestampData(data) },
 		arrow.TIME32:            func(data *Data) Interface { return NewTime32Data(data) },
 		arrow.TIME64:            func(data *Data) Interface { return NewTime64Data(data) },
-		arrow.INTERVAL:          unsupportedArrayType,
+		arrow.INTERVAL:          func(data *Data) Interface { return NewIntervalData(data) },
 		arrow.DECIMAL:           unsupportedArrayType,
 		arrow.LIST:              func(data *Data) Interface { return NewListData(data) },
 		arrow.STRUCT:            func(data *Data) Interface { return NewStructData(data) },
@@ -194,7 +194,7 @@ func init() {
 		arrow.MAP:               unsupportedArrayType,
 		arrow.EXTENSION:         unsupportedArrayType,
 		arrow.FIXED_SIZE_LIST:   func(data *Data) Interface { return NewFixedSizeListData(data) },
-		arrow.DURATION:          unsupportedArrayType,
+		arrow.DURATION:          func(data *Data) Interface { return NewDurationData(data) },
 
 		// invalid data types to fill out array size 2⁵-1
 		31: invalidDataType,

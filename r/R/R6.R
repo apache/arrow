@@ -26,7 +26,7 @@
       self$`.:xp:.` <- xp
     },
     print = function(...){
-      cat(crayon::silver(glue::glue("{cl}", cl = class(self)[[1]])), "\n")
+      cat(class(self)[[1]], "\n")
       if(!is.null(self$ToString)){
         cat(self$ToString(), "\n")
       }

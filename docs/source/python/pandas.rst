@@ -184,6 +184,12 @@ If you want to use NumPy's ``datetime64`` dtype instead, pass
    s2 = pd.Series(arr.to_pandas(date_as_object=False))
    s2.dtype
 
+.. warning::
+
+   As of Arrow ``0.13`` the parameter ``date_as_object`` is ``True``
+   by default. Older versions must pass ``date_as_object=True`` to
+   obtain this behavior
+
 Time types
 ~~~~~~~~~~
 

@@ -27,7 +27,7 @@ to process it.
 \value{
 \itemize{
 \item \code{read_table} returns an \link[=arrow__Table]{arrow::Table}
-\item \code{read_arrow} returns a \code{\link[tibble:tibble]{tibble::tibble()}}
+\item \code{read_arrow} returns a \code{data.frame}
 }
 }
 \description{
