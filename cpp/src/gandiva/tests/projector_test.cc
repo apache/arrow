@@ -162,6 +162,51 @@ TEST_F(TestProjector, TestProjectCacheFloat) {
   EXPECT_TRUE(projector0.get() != projector1.get());
 }
 
+TEST_F(TestProjector, TestProjectCacheLiteral) {
+  auto schema = arrow::schema({});
+  auto res = field("result", arrow::decimal(38, 5));
+
+  DecimalScalar128 d0("12345678", 38, 5);
+  DecimalScalar128 d1("98756432", 38, 5);
+
+  auto literal0 = TreeExprBuilder::MakeDecimalLiteral(d0);
+  auto expr0 = TreeExprBuilder::MakeExpression(literal0, res);
+  std::shared_ptr<Projector> projector0;
+  ASSERT_OK(Projector::Make(schema, {expr0}, TestConfiguration(), &projector0));
+
+  auto literal1 = TreeExprBuilder::MakeDecimalLiteral(d1);
+  auto expr1 = TreeExprBuilder::MakeExpression(literal1, res);
+  std::shared_ptr<Projector> projector1;
+  ASSERT_OK(Projector::Make(schema, {expr1}, TestConfiguration(), &projector1));
+
+  EXPECT_NE(projector0.get(), projector1.get());
+}
+
+TEST_F(TestProjector, TestProjectCacheDecimalCast) {
+  auto field_float64 = field("float64", arrow::float64());
+  auto schema = arrow::schema({field_float64});
+
+  auto res_31_13 = field("result", arrow::decimal(31, 13));
+  auto expr0 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13);
+  std::shared_ptr<Projector> projector0;
+  ASSERT_OK(Projector::Make(schema, {expr0}, TestConfiguration(), &projector0));
+
+  // if the output scale is different, the cache can't be used.
+  auto res_31_14 = field("result", arrow::decimal(31, 14));
+  auto expr1 = TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_14);
+  std::shared_ptr<Projector> projector1;
+  ASSERT_OK(Projector::Make(schema, {expr1}, TestConfiguration(), &projector1));
+  EXPECT_NE(projector0.get(), projector1.get());
+
+  // if the output scale/precision are same, should get a cache hit.
+  auto res_31_13_alt = field("result", arrow::decimal(31, 13));
+  auto expr2 =
+      TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13_alt);
+  std::shared_ptr<Projector> projector2;
+  ASSERT_OK(Projector::Make(schema, {expr2}, TestConfiguration(), &projector2));
+  EXPECT_EQ(projector0.get(), projector2.get());
+}
+
 TEST_F(TestProjector, TestIntSumSub) {
   // schema for input fields
   auto field0 = field("f0", int32());
