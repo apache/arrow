@@ -19,11 +19,17 @@ os: linux
 dist: xenial
 language: ruby
 
+# don't build twice
+if: tag IS blank
+
 services:
   - docker
 
-# don't build twice
-if: tag IS blank
+addons:
+  apt:
+    packages:
+      - qemu-user-static
+      - unar
 
 env:
   global:
@@ -40,6 +46,16 @@ script:
   - pushd arrow/dev/tasks/linux-packages
   - rake version:update
   - rake dist
+  # We can remove this with binfmt-support 2.1.7 or later and
+  # qemu-user-static 2.12 or later. It requires Debian buster or later,
+  # or Ubuntu 18.10 or later.
+  - wget http://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/qemu-user-static_3.1+dfsg-2ubuntu5_amd64.deb
+  - unar *.deb
+  - rm *.deb
+  - pushd qemu-user-static*
+  - unar data.*
+  - cp data/usr/bin/qemu-aarch64-static ../apt/debian-stretch-arm64/
+  - popd
   - {{ build_command }}
 
 deploy:

@@ -42,6 +42,8 @@ groups:
     - wheel-win-cp37m
   linux:
     - debian-stretch
+    # We can't finish this on Travis CI for now.
+    # - debian-stretch-arm64
     - ubuntu-xenial
     - ubuntu-bionic
     - ubuntu-cosmic
@@ -319,6 +321,44 @@ tasks:
       - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
+  # Don't use this for now. We can't complete this task in 50min on Travis CI.
+  debian-stretch-arm64:
+    platform: linux
+    template: linux-packages/travis.linux.arm64.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=debian-stretch-arm64
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-doc_{no_rc_version}-1_all.deb
+      - libarrow-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-python-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-python14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libparquet-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-doc_{no_rc_version}-1_all.deb
+      - libparquet-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
+
   ubuntu-xenial:
     platform: linux
     template: linux-packages/travis.linux.yml
@@ -371,7 +411,7 @@ tasks:
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
-      build_command: travis_wait 45 rake apt:build APT_TARGETS=ubuntu-bionic
+      build_command: rake apt:build APT_TARGETS=ubuntu-bionic
       upload_extensions:
         - .deb
         - .dsc
@@ -422,7 +462,7 @@ tasks:
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
-      build_command: travis_wait 45 rake apt:build APT_TARGETS=ubuntu-cosmic
+      build_command: rake apt:build APT_TARGETS=ubuntu-cosmic
       upload_extensions:
         - .deb
         - .dsc
