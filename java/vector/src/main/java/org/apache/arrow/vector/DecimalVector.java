@@ -336,9 +336,9 @@ public class DecimalVector extends BaseFixedWidthVector {
    * Set the element at the given index to the given value.
    *
    * @param index   position of element
-   * @param value   Long containing TODO signed(?) long value.
+   * @param value   long value.
    */
-  public void set(int index, Long value) {
+  public void set(int index, long value) {
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     DecimalUtility.writeLongToArrowBuf(value, valueBuffer, index);
   }
@@ -424,14 +424,14 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, Long)} except that it handles the
+   * Same as {@link #set(int, long)} except that it handles the
    * case when index is greater than or equal to existing
    * value capacity {@link #getValueCapacity()}.
    *
    * @param index   position of element
-   * @param value   Long containing long value.
+   * @param value   long value.
    */
-  public void setSafe(int index, Long value) {
+  public void setSafe(int index, long value) {
     handleSafe(index);
     set(index, value);
   }

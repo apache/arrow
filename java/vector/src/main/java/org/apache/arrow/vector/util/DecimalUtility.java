@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.util;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -205,18 +206,13 @@ public class DecimalUtility {
   }
 
   /**
-   * Write the given Long to the ArrowBuf at the given value index.
+   * Write the given long to the ArrowBuf at the given value index.
    */
-  public static void writeLongToArrowBuf(Long value, ArrowBuf bytebuf, int index) {
-
+  public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index) {
     final int startIndex = index * DECIMAL_BYTE_LENGTH;
-    bytebuf.setLong(startIndex, value); // TODO confirm if written in LE
-
-    // Write padding after data
-    final int padValue = Long.signum(value) == -1 ? 0xFF : 0;
-    for (int i = Long.BYTES; i < DECIMAL_BYTE_LENGTH; i++) {
-      bytebuf.setByte(startIndex + i, padValue);
-    }
+    PlatformDependent.putLong(bytebuf.memoryAddress() + startIndex, value);
+    final long padValue = Long.signum(value) == -1 ? -1L : 0L;
+    PlatformDependent.putLong(bytebuf.memoryAddress() + startIndex + Long.BYTES, padValue);
   }
 
   /**
