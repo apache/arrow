@@ -927,8 +927,10 @@ endif()
 
 if(ARROW_USE_OPENSSL)
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
-  # OpenSSL::SSL and OpenSSL::Crypto
-  # are not available in older CMake versions (CMake < v3.2).
+
+  # OpenSSL::SSL and OpenSSL::Crypto were not added to
+  # FindOpenSSL.cmake until version 3.4.0.
+  # https://gitlab.kitware.com/cmake/cmake/blob/75e3a8e811b290cb9921887f2b086377af90880f/Modules/FindOpenSSL.cmake
   if(NOT TARGET OpenSSL::SSL)
     add_library(OpenSSL::SSL UNKNOWN IMPORTED)
     set_target_properties(OpenSSL::SSL
