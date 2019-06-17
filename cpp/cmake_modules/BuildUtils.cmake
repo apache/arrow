@@ -20,6 +20,7 @@
 # search there as well.
 set(LIB_PATH_SUFFIXES
     "${CMAKE_LIBRARY_ARCHITECTURE}"
+    "lib/${CMAKE_LIBRARY_ARCHITECTURE}"
     "lib64"
     "lib32"
     "lib"

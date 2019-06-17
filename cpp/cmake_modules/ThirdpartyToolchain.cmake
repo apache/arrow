@@ -51,7 +51,6 @@ endmacro()
 # ----------------------------------------------------------------------
 # Resolve the dependencies
 
-# TODO: add uriparser here when it gets a conda package
 set(ARROW_THIRDPARTY_DEPENDENCIES
     benchmark
     BOOST
@@ -71,6 +70,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     RapidJSON
     Snappy
     Thrift
+    uriparser
     ZLIB
     ZSTD)
 
@@ -93,6 +93,10 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   endif()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
   message(STATUS "Using CONDA_PREFIX for ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
+  # ARROW-5564: Remove this when uriparser gets a conda package
+  if("${uriparser_SOURCE}" STREQUAL "")
+    set(uriparser_SOURCE "AUTO")
+  endif()
 else()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE}")
 endif()
@@ -604,12 +608,25 @@ macro(build_uriparser)
 endmacro()
 
 if(ARROW_WITH_URIPARSER)
-  # Unless the user overrides uriparser_SOURCE, build uriparser ourselves
-  if("${uriparser_SOURCE}" STREQUAL "")
-    set(uriparser_SOURCE "BUNDLED")
+  set(ARROW_URIPARSER_REQUIRED_VERSION "0.9.0")
+  if(uriparser_SOURCE STREQUAL "AUTO")
+    # Debian does not ship cmake configs for uriparser
+    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
+    if(NOT uriparser_FOUND)
+      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION})
+    endif()
+    if(NOT uriparser_FOUND AND NOT uriparserAlt_FOUND)
+      build_uriparser()
+    endif()
+  elseif(uriparser_SOURCE STREQUAL "BUNDLED")
+    build_rapidjson()
+  elseif(uriparser_SOURCE STREQUAL "SYSTEM")
+    # Debian does not ship cmake configs for uriparser
+    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
+    if(NOT uriparser_FOUND)
+      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION} REQUIRED)
+    endif()
   endif()
-
-  resolve_dependency(uriparser)
 
   get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
                       INTERFACE_INCLUDE_DIRECTORIES)
