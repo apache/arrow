@@ -65,8 +65,7 @@ class IsInKernelImpl : public UnaryKernel {
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
 
-  virtual Status CompareArray(FunctionContext* ctx, const ArrayData& left,
-                              std::shared_ptr<ArrayData>* out) = 0;
+  virtual Status CompareArray(const Datum& left, Datum* out) = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -130,33 +129,34 @@ class IsInKernel : public IsInKernelImpl {
     memo_table_ = std::move(func.memo_table_);
 
     right_null_count = right.GetNullCount();
-
     return Status::OK();
   }
 
-  Status CompareArray(FunctionContext* ctx, const ArrayData& left,
-                      std::shared_ptr<ArrayData>* out) override {
+  Status CompareArray(const Datum& left, Datum* out) override {
+    const ArrayData& left_data = *left.array();
     bool_builder_.Reset();
-    bool_builder_.Reserve(left.length);
-    ArrayDataVisitor<T>::Visit(left, this);
-    RETURN_NOT_OK(bool_builder_.FinishInternal(out));
+    bool_builder_.Reserve(left_data.length);
+    ArrayDataVisitor<T>::Visit(left_data, this);
+    RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
+    out->value = std::move(output);
     return Status::OK();
   }
 
  protected:
   using MemoTable = typename HashTraits<T>::MemoTableType;
   std::unique_ptr<MemoTable> memo_table_;
-  int64_t right_null_count;
 
  private:
+  int64_t right_null_count;
   BooleanBuilder bool_builder_;
+  std::shared_ptr<ArrayData> output;
 };
 
 // ----------------------------------------------------------------------
 // (NullType has a separate implementation)
 
 // \brief When array is NullType, based on the null_count for the arrays,
-// append true/false tp the BooleanBuilder
+// append true/null to the BooleanBuilder
 
 class NullIsInKernel : public IsInKernelImpl {
  public:
@@ -167,28 +167,32 @@ class NullIsInKernel : public IsInKernelImpl {
     return Status::OK();
   }
 
-  Status CompareArray(FunctionContext* ctx, const ArrayData& left,
-                      std::shared_ptr<ArrayData>* out) override {
+  Status CompareArray(const Datum& left, Datum* out) override {
+    const ArrayData& left_data = *left.array();
     bool_builder_.Reset();
-    bool_builder_.Reserve(left.length);
+    bool_builder_.Reserve(left_data.length);
+    left_null_count = left_data.GetNullCount();
 
-    if (left.GetNullCount() != 0 && right_null_count != 0) {
-      for (int64_t i = 0; i < left.length; ++i) {
+    if (left_null_count != 0 && right_null_count != 0) {
+      for (int64_t i = 0; i < left_data.length; ++i) {
         bool_builder_.UnsafeAppend(true);
       }
-    } else if (left.GetNullCount() != 0 && right_null_count == 0) {
-      for (int64_t i = 0; i < left.length; ++i) {
+    } else if (left_null_count != 0 && right_null_count == 0) {
+      for (int64_t i = 0; i < left_data.length; ++i) {
         bool_builder_.UnsafeAppendNull();
       }
     }
 
-    RETURN_NOT_OK(bool_builder_.FinishInternal(out));
+    RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
+    out->value = std::move(output);
     return Status::OK();
   }
 
  private:
-  BooleanBuilder bool_builder_;
+  int64_t left_null_count;
   int64_t right_null_count;
+  BooleanBuilder bool_builder_;
+  std::shared_ptr<ArrayData> output;
 };
 
 // ----------------------------------------------------------------------
@@ -269,18 +273,29 @@ Status GetIsInKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type
 
 Status IsIn(FunctionContext* context, const Datum& left, const Datum& right, Datum* out) {
   DCHECK(left.type()->Equals(right.type()));
-  std::unique_ptr<IsInKernelImpl> isin_kernel;
+  std::unique_ptr<IsInKernelImpl> kernel;
   std::vector<Datum> unused_output;
-  RETURN_NOT_OK(GetIsInKernel(context, right.type(), &isin_kernel));
+  RETURN_NOT_OK(GetIsInKernel(context, right.type(), &kernel));
 
   RETURN_NOT_OK(
-      detail::InvokeUnaryArrayKernel(context, isin_kernel.get(), right, &unused_output));
+      detail::InvokeUnaryArrayKernel(context, kernel.get(), right, &unused_output));
 
-  std::shared_ptr<ArrayData> result;
-  const ArrayData& left_data = *left.array();
-  RETURN_NOT_OK(isin_kernel->CompareArray(context, left_data, &result));
-  out->value = std::move(result);
+  Datum output;
+  std::vector<std::shared_ptr<Array>> arrays;
 
+  if (left.kind() == Datum::CHUNKED_ARRAY) {
+    const ChunkedArray& left_array = *left.chunked_array();
+    for (int i = 0; i < left_array.num_chunks(); i++) {
+      output.value = ArrayData::Make(kernel->out_type(), left_array.chunk(i)->length());
+      RETURN_NOT_OK(kernel->CompareArray(left_array.chunk(i), &output));
+      arrays.emplace_back(MakeArray(output.array()));
+    }
+  } else {
+    RETURN_NOT_OK(kernel->CompareArray(left, &output));
+    arrays.emplace_back(MakeArray(output.array()));
+  }
+
+  *out = detail::WrapArraysLike(left, arrays);
   return Status::OK();
 }
 
