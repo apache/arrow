@@ -77,8 +77,8 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
   writeLines('
     { "hello": 3.5, "world": false, "yo": "thing", "arr": [1, 2, 3], "nuf": {} }
     { "hello": 3.25, "world": null, "arr": [2], "nuf": null }
-    { "hello": 3.125, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
-    { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90 } }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78.0 } }
+    { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90.0 } }
   ', tf)
 
   tab1 <- read_json_arrow(tf, as_tibble = FALSE)
@@ -95,9 +95,15 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
       world = boolean(),
       yo = utf8(),
       arr = list_of(int64()),
-      nuf = struct(ps = int64())
+      nuf = struct(ps = float64())
     )
   )
+
+  struct_array <- tab1$column(4)$data()$chunk(0)
+  a <- array(c(NA, NA, 78, 90))
+  expect_equal(struct_array$field(0L), a)
+  expect_equal(struct_array$GetFieldByName("ps"), a)
+
   # cannot yet test list and struct types in R api
   # tib <- as.data.frame(tab1)
 

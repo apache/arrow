@@ -103,10 +103,27 @@
   )
 )
 
+`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,
+  public = list(
+    indices = function() `arrow::Array`$dispatch(DictionaryArray__indices(self)),
+    dictionary = function() `arrow::Array`$dispatch(DictionaryArray__dictionary(self))
+  )
+)
+
+`arrow::StructArray` <- R6Class("arrow::StructArray", inherit = `arrow::Array`,
+  public = list(
+    field = function(i) `arrow::Array`$dispatch(StructArray__field(self, i)),
+    GetFieldByName = function(name) `arrow::Array`$dispatch(StructArray__GetFieldByName(self, name)),
+    Flatten = function() map(StructArray__Flatten(self), ~ `arrow::Array`$dispatch(.x))
+  )
+)
+
 `arrow::Array`$dispatch <- function(xp){
   a <- shared_ptr(`arrow::Array`, xp)
   if(a$type_id() == Type$DICTIONARY){
     a <- shared_ptr(`arrow::DictionaryArray`, xp)
+  } else if (a$type_id() == Type$STRUCT) {
+    a <- shared_ptr(`arrow::StructArray`, xp)
   }
   a
 }
@@ -126,11 +143,3 @@
 array <- function(x, type = NULL){
   `arrow::Array`$dispatch(Array__from_vector(x, type))
 }
-
-`arrow::DictionaryArray` <- R6Class("arrow::DictionaryArray", inherit = `arrow::Array`,
-  public = list(
-    indices = function() `arrow::Array`$dispatch(DictionaryArray__indices(self)),
-    dictionary = function() `arrow::Array`$dispatch(DictionaryArray__dictionary(self))
-  )
-)
-

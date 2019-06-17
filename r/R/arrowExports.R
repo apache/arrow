@@ -68,6 +68,18 @@ DictionaryArray__dictionary <- function(array){
     .Call(`_arrow_DictionaryArray__dictionary` , array)
 }
 
+StructArray__field <- function(array, i){
+    .Call(`_arrow_StructArray__field` , array, i)
+}
+
+StructArray__GetFieldByName <- function(array, name){
+    .Call(`_arrow_StructArray__GetFieldByName` , array, name)
+}
+
+StructArray__Flatten <- function(array){
+    .Call(`_arrow_StructArray__Flatten` , array)
+}
+
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector` , array)
 }
