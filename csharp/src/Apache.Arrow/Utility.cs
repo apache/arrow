@@ -20,7 +20,7 @@ using System.Text;
 
 namespace Apache.Arrow
 {
-    public static class Utility
+    internal static class Utility
     {
         public static IList<T> DeleteListElement<T>(IList<T> values, int index)
         {

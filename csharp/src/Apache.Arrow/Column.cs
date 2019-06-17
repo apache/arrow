@@ -26,6 +26,7 @@ namespace Apache.Arrow
     {
         public Field Field { get;  }
         private readonly ChunkedArray _columnArrays;
+        public ChunkedArray Data => _columnArrays;
 
         public Column(Field field, IList<Array> arrays)
         {

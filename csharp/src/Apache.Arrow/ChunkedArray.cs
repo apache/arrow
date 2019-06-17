@@ -23,12 +23,14 @@ namespace Apache.Arrow
     /// <summary>
     /// A data structure to manage a list of primitive Array arrays logically as one large array
     /// </summary>
-    internal class ChunkedArray
+    public class ChunkedArray
     {
         public IList<Array> Arrays { get; }
-        public readonly IArrowType DataType;
-        public readonly long Length;
-        public readonly long NullCount;
+        public IArrowType DataType { get; }
+        public long Length { get; }
+        public long NullCount { get; }
+
+        public Array Array(int index) => Arrays[index];
 
         public ChunkedArray(IList<Array> arrays)
         {
