@@ -25,7 +25,6 @@
 #include "BufferReader.hh"
 
 /**
- * \file BufferPrint.hh
  *
  * \brief Convenience functions for printing buffer contents
  **/

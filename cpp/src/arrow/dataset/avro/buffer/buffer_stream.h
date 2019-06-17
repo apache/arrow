@@ -22,7 +22,6 @@
 #include "BufferStreambuf.hh"
 
 /**
- * \file BufferStream.hh
  *
  * \brief Custom istream and ostream classes for use with buffers
  **/

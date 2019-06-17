@@ -23,7 +23,6 @@
 #include "Config.hh"
 #include "NodeImpl.hh"
 
-/// \file
 ///
 /// Schemas for representing all the avro types.  The compound schema objects
 /// allow composition from other schemas.

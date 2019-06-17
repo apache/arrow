@@ -28,7 +28,6 @@
 #include "Stream.hh"
 #include "ValidSchema.hh"
 
-/// \file
 ///
 /// Low level support for encoding avro values.
 /// This class has two types of funtions.  One type of functions support

@@ -146,7 +146,7 @@ class AVRO_DECL JsonParser : boost::noncopyable {
 
   /**
    * Return byte-encoded string value. It is an error if the input
-   * JSON string contained unicode characters more than "\u00ff'.
+   * JSON string contained unicode characters more than "\u00ff".
    */
   static std::string toBytesValue(const std::string& sv) {
     return decodeString(sv, true);

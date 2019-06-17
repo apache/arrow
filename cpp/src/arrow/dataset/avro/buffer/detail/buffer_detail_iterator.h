@@ -22,7 +22,6 @@
 #include "BufferDetail.hh"
 
 /**
- * \file BufferDetailIterator.hh
  *
  * \brief The implementation details for the Buffer iterators.
  **/

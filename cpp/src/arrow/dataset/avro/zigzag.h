@@ -23,7 +23,6 @@
 #include <array>
 
 #include "Config.hh"
-/// \file
 /// Functions for encoding and decoding integers with zigzag compression
 
 namespace avro {

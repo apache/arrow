@@ -21,7 +21,6 @@
 
 #include "Buffer.hh"
 
-/** \file BufferStreambuf.hh
     \brief streambuf implementation for istream and ostream.
 */
 

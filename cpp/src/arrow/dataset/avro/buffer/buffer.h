@@ -29,7 +29,6 @@
 #include "detail/BufferDetailIterator.hh"
 
 /**
- * \file Buffer.hh
  *
  * \brief Definitions for InputBuffer and OutputBuffer classes
  *

@@ -23,7 +23,6 @@
 #include "Config.hh"
 #include "ResolvingReader.hh"
 
-/// \file
 ///
 /// Standalone parse functions for Avro types.
 

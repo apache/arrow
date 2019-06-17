@@ -32,7 +32,6 @@
 #include <exception>
 
 /**
- * \file BufferDetail.hh
  *
  * \brief The implementation details for the Buffer class.
  *

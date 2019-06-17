@@ -26,7 +26,6 @@
 #include "Config.hh"
 #include "Reader.hh"
 
-/// \file Resolver.hh
 ///
 
 namespace avro {

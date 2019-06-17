@@ -22,7 +22,6 @@
 #include "AvroTraits.hh"
 #include "Config.hh"
 
-/// \file
 ///
 /// Standalone serialize functions for Avro types.
 
