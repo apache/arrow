@@ -66,9 +66,16 @@ type TimestampType struct {
 	TimeZone string
 }
 
-func (*TimestampType) ID() Type         { return TIMESTAMP }
-func (*TimestampType) Name() string     { return "timestamp" }
-func (t *TimestampType) String() string { return "timestamp[" + t.Unit.String() + "]" }
+func (*TimestampType) ID() Type     { return TIMESTAMP }
+func (*TimestampType) Name() string { return "timestamp" }
+func (t *TimestampType) String() string {
+	switch len(t.TimeZone) {
+	case 0:
+		return "timestamp[" + t.Unit.String() + "]"
+	default:
+		return "timestamp[" + t.Unit.String() + ", tz=" + t.TimeZone + "]"
+	}
+}
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }

@@ -96,10 +96,10 @@ records: 3
     - time32s: type=time32[s], nullable
     - time64ns: type=time64[ns], nullable
     - time64us: type=time64[us], nullable
-    - timestamp_s: type=timestamp[s], nullable
-    - timestamp_ms: type=timestamp[ms], nullable
-    - timestamp_us: type=timestamp[us], nullable
-    - timestamp_ns: type=timestamp[ns], nullable
+    - timestamp_s: type=timestamp[s, tz=UTC], nullable
+    - timestamp_ms: type=timestamp[ms, tz=UTC], nullable
+    - timestamp_us: type=timestamp[us, tz=UTC], nullable
+    - timestamp_ns: type=timestamp[ns, tz=UTC], nullable
     - date32s: type=date32, nullable
     - date64s: type=date64, nullable
 records: 3
