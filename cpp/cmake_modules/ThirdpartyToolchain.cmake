@@ -619,7 +619,7 @@ if(ARROW_WITH_URIPARSER)
       build_uriparser()
     endif()
   elseif(uriparser_SOURCE STREQUAL "BUNDLED")
-    build_rapidjson()
+    build_uriparser()
   elseif(uriparser_SOURCE STREQUAL "SYSTEM")
     # Debian does not ship cmake configs for uriparser
     find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
