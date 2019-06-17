@@ -423,6 +423,43 @@ TEST_F(TestTable, FromRecordBatchesZeroLength) {
   ASSERT_TRUE(result->schema()->Equals(*schema_));
 }
 
+TEST_F(TestTable, CompactEmptyTable) {
+  MakeExample1(10);
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(Table::FromRecordBatches(schema_, {}, &table));
+  ASSERT_EQ(0, table->num_rows());
+
+  std::shared_ptr<Table> compacted;
+  ASSERT_OK(table->Compact(default_memory_pool(), &compacted));
+
+  EXPECT_TRUE(compacted->Equals(*table));
+}
+
+TEST_F(TestTable, CompactTable) {
+  const int64_t length = 10;
+
+  MakeExample1(length);
+  auto batch1 = RecordBatch::Make(schema_, length, arrays_);
+
+  MakeExample1(length);
+  auto batch2 = RecordBatch::Make(schema_, length, arrays_);
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(Table::FromRecordBatches({batch1, batch2}, &table));
+  for (int i = 0; i < table->num_columns(); ++i) {
+    ASSERT_EQ(2, table->column(i)->data()->num_chunks());
+  }
+
+  std::shared_ptr<Table> compacted;
+  ASSERT_OK(table->Compact(default_memory_pool(), &compacted));
+
+  EXPECT_TRUE(compacted->Equals(*table));
+  for (int i = 0; i < compacted->num_columns(); ++i) {
+    EXPECT_EQ(1, compacted->column(i)->data()->num_chunks());
+  }
+}
+
 TEST_F(TestTable, ConcatenateTables) {
   const int64_t length = 10;
 

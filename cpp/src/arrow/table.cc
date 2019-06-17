@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -32,8 +33,25 @@
 #include "arrow/util/stl.h"
 
 namespace arrow {
+namespace {
+using ::arrow::internal::checked_cast;
 
-using internal::checked_cast;
+// If a column contains multiple chunks, concatenates those chunks into one and
+// makes a new column out of it. Otherwise makes `compacted` point to the same
+// column.
+Status CompactColumn(const std::shared_ptr<Column>& column, MemoryPool* pool,
+                     std::shared_ptr<Column>* compacted) {
+  if (column->data()->num_chunks() <= 1) {
+    *compacted = column;
+    return Status::OK();
+  }
+  std::shared_ptr<Array> merged_data_array;
+  RETURN_NOT_OK(Concatenate(column->data()->chunks(), pool, &merged_data_array));
+  *compacted = std::make_shared<Column>(column->field(), merged_data_array);
+  return Status::OK();
+}
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // ChunkedArray and Column methods
@@ -571,6 +589,19 @@ bool Table::Equals(const Table& other) const {
     }
   }
   return true;
+}
+
+Status Table::Compact(MemoryPool* pool, std::shared_ptr<Table>* out) const {
+  const int ncolumns = num_columns();
+  std::vector<std::shared_ptr<Column>> compacted_columns;
+  compacted_columns.reserve(ncolumns);
+  for (int i = 0; i < ncolumns; ++i) {
+    std::shared_ptr<Column> compacted_column;
+    RETURN_NOT_OK(CompactColumn(column(i), pool, &compacted_column));
+    compacted_columns.push_back(std::move(compacted_column));
+  }
+  *out = Table::Make(schema(), compacted_columns);
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

@@ -337,6 +337,13 @@ class ARROW_EXPORT Table {
   /// However, they may be equal even if they have different chunkings.
   bool Equals(const Table& other) const;
 
+  // Returns a new table of the same schema and contents but with all the
+  // underlying chunks in the ChunkedArray of each column concatenated
+  // into one chunk.
+  // \param[in] pool The pool for buffer allocations.
+  // \param[out] out The compacted table.
+  Status Compact(MemoryPool* pool, std::shared_ptr<Table>* out) const;
+
  protected:
   Table();
 
