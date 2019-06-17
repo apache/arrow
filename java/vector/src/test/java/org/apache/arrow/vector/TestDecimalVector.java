@@ -169,14 +169,14 @@ public class TestDecimalVector {
 
       long[] longValues = {0L, -2L, Long.MAX_VALUE, Long.MIN_VALUE, 187L};
 
-      for(int i = 0; i < longValues.length; ++i) {
+      for (int i = 0; i < longValues.length; ++i) {
         decimalVector.set(i, longValues[i]);
       }
 
       decimalVector.setValueCount(8);
       assertEquals(8, decimalVector.getValueCount());
 
-      for(int i = 0; i < longValues.length; ++i) {
+      for (int i = 0; i < longValues.length; ++i) {
         decimalVector.set(i, longValues[i]);
         assertEquals(new BigDecimal(longValues[i]), decimalVector.getObject(i));
       }
