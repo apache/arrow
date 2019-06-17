@@ -252,6 +252,11 @@ if(GTEST_FOUND)
         add_library(GTest::Main ${GTEST_MAIN_LIBRARY_TYPE} IMPORTED)
         set_target_properties(GTest::Main PROPERTIES
             INTERFACE_LINK_LIBRARIES "GTest::GTest")
+        if(GTEST_LIBRARY_TYPE STREQUAL "SHARED")
+	    set_target_properties(GTest::Main PROPERTIES
+                INTERFACE_COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1")
+        endif()
+
         __gtest_import_library(GTest::Main GTEST_MAIN_LIBRARY "")
         __gtest_import_library(GTest::Main GTEST_MAIN_LIBRARY "RELEASE")
         __gtest_import_library(GTest::Main GTEST_MAIN_LIBRARY "DEBUG")
