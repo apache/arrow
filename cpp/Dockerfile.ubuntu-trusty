@@ -32,11 +32,8 @@ RUN apt-get update -y -q && \
         gcc \
         git \
         libbz2-dev \
-        libc-ares-dev \
         libdouble-conversion-dev \
         libgoogle-glog-dev \
-        libprotoc-dev \
-        libprotobuf-dev \
         libsnappy-dev \
         libssl-dev \
         make \
@@ -50,10 +47,11 @@ RUN apt-get update -y -q && \
     && pip install --upgrade cmake \
     && rm -rf /var/lib/apt/lists/*
 
-# - Flight is deactivated as Ubuntu provides gflags but not the CMake
-#   config for it.
+# - Flight is deactivated because the OpenSSL in Ubuntu 14.04 is too old
 # - Disabling Gandiva since LLVM 7 require gcc >= 4.9 toolchain
 # - ORC has compilation warnings that cause errors on gcc 4.8
+# - c-ares in Trusty isn't recognized by gRPC build system
+# - libprotobuf-dev / libprotoc-dev in Trusty too old for gRPC
 # - libbrotli-dev unavailable
 # - libgflags-dev is too old
 # - libre2-dev unavailable
@@ -72,10 +70,13 @@ ENV CC=gcc \
      CMAKE_ARGS="-DThrift_SOURCE=BUNDLED \
 -Dbenchmark_SOURCE=BUNDLED \
 -DBrotli_SOURCE=BUNDLED \
+-Dc-ares_SOURCE=BUNDLED \
+-DFlatbuffers_SOURCE=BUNDLED \
 -Dgflags_SOURCE=BUNDLED \
 -DGTest_SOURCE=BUNDLED \
--DFlatbuffers_SOURCE=BUNDLED \
+-DgRPC_SOURCE=BUNDLED \
 -DLz4_SOURCE=BUNDLED \
+-DProtobuf_SOURCE=BUNDLED \
 -DRapidJSON_SOURCE=BUNDLED \
 -DRE2_SOURCE=BUNDLED \
 -DZSTD_SOURCE=BUNDLED"
