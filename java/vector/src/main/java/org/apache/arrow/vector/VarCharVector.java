@@ -241,11 +241,13 @@ public class VarCharVector extends BaseVariableWidthVector {
     assert index >= 0;
     fillHoles(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
-    final int dataLength = holder.isSet == 0 ? 0 : holder.end - holder.start;
     final int startOffset = getStartOffset(index);
-    offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
     if (holder.isSet != 0) {
+      final int dataLength = holder.end - holder.start;
+      offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
       valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
+    } else {
+      offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset);
     }
     lastSet = index;
   }
