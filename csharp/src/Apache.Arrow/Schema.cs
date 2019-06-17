@@ -77,16 +77,7 @@ namespace Apache.Arrow
                 throw new ArgumentException("Invalid fieldIndex", nameof(fieldIndex));
             }
 
-            List<Field> fields = new List<Field>(_fields.Count - 1);
-            for (int i = 0; i < fieldIndex; i++)
-            {
-                fields.Add(_fields[i]);
-            }
-
-            for (int i = fieldIndex + 1; i < _fields.Count; i++)
-            {
-                fields.Add(_fields[i]);
-            }
+            IList<Field> fields = Utility.DeleteListElement(_fields, fieldIndex);
 
             return new Schema(fields, Metadata);
         }
@@ -99,16 +90,7 @@ namespace Apache.Arrow
                 throw new ArgumentException(nameof(fieldIndex), $"Invalid fieldIndex {fieldIndex} passed in to Schema.AddField");
             }
 
-            List<Field> fields = new List<Field>(_fields.Count + 1);
-            for (int i = 0; i < fieldIndex; i++)
-            {
-                fields.Add(_fields[i]);
-            }
-            fields.Add(newField);
-            for (int i = fieldIndex; i < _fields.Count; i++)
-            {
-                fields.Add(_fields[i]);
-            }
+            IList<Field> fields = Utility.AddListElement(_fields, fieldIndex, newField);
 
             return new Schema(fields, Metadata);
         }
@@ -120,16 +102,7 @@ namespace Apache.Arrow
                 throw new ArgumentException($"Invalid fieldIndex {fieldIndex} passed in to Schema.SetColumn");
             }
 
-            List<Field> fields = new List<Field>(_fields.Count);
-            for (int i = 0; i < fieldIndex; i++)
-            {
-                fields.Add(_fields[i]);
-            }
-            fields.Add(newField);
-            for (int i = fieldIndex + 1; i < _fields.Count; i++)
-            {
-                fields.Add(_fields[i]);
-            }
+            IList<Field> fields = Utility.SetListElement(_fields, fieldIndex, newField);
 
             return new Schema(fields, Metadata);
         }

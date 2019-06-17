@@ -69,16 +69,7 @@ namespace Apache.Arrow
         public Table RemoveColumn(int columnIndex)
         {
             Schema newSchema = Schema.RemoveField(columnIndex);
-            List<Column> newColumns = new List<Column>(_columns.Count - 1);
-            for (int i = 0; i < columnIndex; i++)
-            {
-                newColumns.Add(_columns[i]);
-            }
-
-            for (int i = columnIndex + 1; i < _columns.Count; i++)
-            {
-                newColumns.Add(_columns[i]);
-            }
+            IList<Column> newColumns = Utility.DeleteListElement(_columns, columnIndex);
             return new Table(newSchema, newColumns);
         }
 
@@ -95,17 +86,7 @@ namespace Apache.Arrow
             }
 
             Schema newSchema = Schema.InsertField(columnIndex, column.Field);
-            List<Column> newColumns = new List<Column>(_columns.Count + 1);
-            for (int i = 0; i < columnIndex; i++)
-            {
-                newColumns.Add(_columns[i]);
-            }
-            newColumns.Add(column);
-            for (int i = columnIndex; i < _columns.Count; i++)
-            {
-                newColumns.Add(_columns[i]);
-            }
-
+            IList<Column> newColumns = Utility.AddListElement(_columns, columnIndex, column);
             return new Table(newSchema, newColumns);
         }
 
@@ -123,17 +104,7 @@ namespace Apache.Arrow
             }
 
             Schema newSchema = Schema.SetField(columnIndex, column.Field);
-            List<Column> newColumns = new List<Column>(_columns.Count);
-            for (int i = 0; i < columnIndex; i++)
-            {
-                newColumns.Add(_columns[i]);
-            }
-            newColumns.Add(column);
-            for (int i = columnIndex + 1; i < _columns.Count; i++)
-            {
-                newColumns.Add(_columns[i]);
-            }
-
+            IList<Column> newColumns = Utility.SetListElement(_columns, columnIndex, column);
             return new Table(newSchema, newColumns);
         }
 
