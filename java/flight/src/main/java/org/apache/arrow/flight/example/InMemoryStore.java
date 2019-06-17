@@ -36,7 +36,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
  * A FlightProducer that hosts an in memory store of Arrow buffers.
