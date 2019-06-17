@@ -766,20 +766,21 @@ set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
+set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT)
   # This must work
-  find_package(OpenSSL REQUIRED)
+  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
   set(ARROW_USE_OPENSSL ON)
 elseif(ARROW_PARQUET)
   # Enable Parquet encryption if OpenSSL is there, but don't fail if it's not
-  find_package(OpenSSL QUIET)
+  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} QUIET)
   if(OPENSSL_FOUND)
     set(ARROW_USE_OPENSSL ON)
   endif()
 endif()
 
 if(ARROW_USE_OPENSSL)
-  message(STATUS "Building with OpenSSL support")
+  message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
   # OpenSSL::SSL and OpenSSL::Crypto
   # are not available in older CMake versions (CMake < v3.2).
   if(NOT TARGET OpenSSL::SSL)
@@ -798,7 +799,10 @@ if(ARROW_USE_OPENSSL)
 
   include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 else()
-  message(STATUS "Building without OpenSSL support")
+  message(
+    STATUS
+      "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
+    )
 endif()
 
 # ----------------------------------------------------------------------

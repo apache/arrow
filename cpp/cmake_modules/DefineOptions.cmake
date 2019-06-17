@@ -291,7 +291,8 @@ Always OFF if building binaries" OFF)
   define_option(PARQUET_BUILD_EXAMPLES
                 "Build the Parquet examples. Requires static libraries to be built." OFF)
 
-  define_option(PARQUET_REQUIRE_ENCRYPTION "Fail if OpenSSL is not found" OFF)
+  define_option(PARQUET_REQUIRE_ENCRYPTION
+                "Build support for encryption. Fail if OpenSSL is not found" OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")
