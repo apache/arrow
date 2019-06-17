@@ -477,6 +477,152 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 # ----------------------------------------------------------------------
+# Add Boost dependencies (code adapted from Apache Kudu)
+
+set(Boost_USE_MULTITHREADED ON)
+if(MSVC AND ARROW_USE_STATIC_CRT)
+  set(Boost_USE_STATIC_RUNTIME ON)
+endif()
+set(Boost_ADDITIONAL_VERSIONS
+    "1.70.0"
+    "1.70"
+    "1.69.0"
+    "1.69"
+    "1.68.0"
+    "1.68"
+    "1.67.0"
+    "1.67"
+    "1.66.0"
+    "1.66"
+    "1.65.0"
+    "1.65"
+    "1.64.0"
+    "1.64"
+    "1.63.0"
+    "1.63"
+    "1.62.0"
+    "1.61"
+    "1.61.0"
+    "1.62"
+    "1.60.0"
+    "1.60")
+
+if(ARROW_BOOST_VENDORED)
+  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+
+  # This is needed by the thrift_ep build
+  set(BOOST_ROOT ${BOOST_PREFIX})
+
+  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
+  set(BOOST_BUILD_LINK "static")
+  set(
+    BOOST_STATIC_SYSTEM_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(
+    BOOST_STATIC_FILESYSTEM_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(
+    BOOST_STATIC_REGEX_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(BOOST_SYSTEM_LIBRARY boost_system_static)
+  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+  set(BOOST_REGEX_LIBRARY boost_regex_static)
+
+  if(ARROW_BOOST_HEADER_ONLY)
+    set(BOOST_BUILD_PRODUCTS)
+    set(BOOST_CONFIGURE_COMMAND "")
+    set(BOOST_BUILD_COMMAND "")
+  else()
+    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
+                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
+                             ${BOOST_STATIC_REGEX_LIBRARY})
+    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
+                                "--with-libraries=filesystem,regex,system")
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      set(BOOST_BUILD_VARIANT "debug")
+    else()
+      set(BOOST_BUILD_VARIANT "release")
+    endif()
+    set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
+                            "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
+
+    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
+
+    set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+  endif()
+  externalproject_add(boost_ep
+                      URL ${BOOST_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
+                      BUILD_IN_SOURCE 1
+                      CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
+                      BUILD_COMMAND ${BOOST_BUILD_COMMAND}
+                      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
+  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
+  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+  add_dependencies(toolchain boost_ep)
+else()
+  if(MSVC)
+    # disable autolinking in boost
+    add_definitions(-DBOOST_ALL_NO_LIB)
+  endif()
+
+  if(DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
+    # In older versions of CMake (such as 3.2), the system paths for Boost will
+    # be looked in first even if we set $BOOST_ROOT or pass -DBOOST_ROOT
+    set(Boost_NO_SYSTEM_PATHS ON)
+  endif()
+
+  if(ARROW_BOOST_USE_SHARED)
+    # Find shared Boost libraries.
+    set(Boost_USE_STATIC_LIBS OFF)
+    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS ON)
+
+    if(MSVC)
+      # force all boost libraries to dynamic link
+      add_definitions(-DBOOST_ALL_DYN_LINK)
+    endif()
+
+    if(ARROW_BOOST_HEADER_ONLY)
+      find_package(Boost REQUIRED)
+    else()
+      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
+      set(BOOST_SYSTEM_LIBRARY Boost::system)
+      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+      set(BOOST_REGEX_LIBRARY Boost::regex)
+      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+    endif()
+    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
+    unset(BUILD_SHARED_LIBS_KEEP)
+  else()
+    # Find static boost headers and libs
+    # TODO Differentiate here between release and debug builds
+    set(Boost_USE_STATIC_LIBS ON)
+    if(ARROW_BOOST_HEADER_ONLY)
+      find_package(Boost REQUIRED)
+    else()
+      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
+      set(BOOST_SYSTEM_LIBRARY Boost::system)
+      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+      set(BOOST_REGEX_LIBRARY Boost::regex)
+      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+    endif()
+  endif()
+endif()
+
+message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
+message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
+
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+
+# ----------------------------------------------------------------------
 # Google double-conversion
 
 macro(build_double_conversion)
@@ -781,18 +927,20 @@ endif()
 
 if(ARROW_USE_OPENSSL)
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
-  # OpenSSL::SSL and OpenSSL::Crypto
-  # are not available in older CMake versions (CMake < v3.2).
+
+  # OpenSSL::SSL and OpenSSL::Crypto were not added to
+  # FindOpenSSL.cmake until version 3.4.0.
+  # https://gitlab.kitware.com/cmake/cmake/blob/75e3a8e811b290cb9921887f2b086377af90880f/Modules/FindOpenSSL.cmake
   if(NOT TARGET OpenSSL::SSL)
     add_library(OpenSSL::SSL UNKNOWN IMPORTED)
     set_target_properties(OpenSSL::SSL
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_LIBRARIES}"
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}"
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${OPENSSL_INCLUDE_DIR}")
 
     add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
     set_target_properties(OpenSSL::Crypto
-                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_LIBRARIES}"
+                          PROPERTIES IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}"
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${OPENSSL_INCLUDE_DIR}")
   endif()
@@ -1002,6 +1150,10 @@ macro(build_thrift)
     set(THRIFT_CMAKE_ARGS "-DZLIB_LIBRARY=${ZLIB_STATIC_LIB}" ${THRIFT_CMAKE_ARGS})
   endif()
   set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} ${ZLIB_LIBRARY})
+
+  if(ARROW_BOOST_VENDORED)
+    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
+  endif()
 
   if(MSVC)
     set(WINFLEXBISON_VERSION 2.4.9)
@@ -2104,148 +2256,6 @@ if(ARROW_WITH_GRPC)
     endif()
   endif()
 endif()
-
-# ----------------------------------------------------------------------
-# Add Boost dependencies (code adapted from Apache Kudu (incubating))
-
-set(Boost_USE_MULTITHREADED ON)
-if(MSVC AND ARROW_USE_STATIC_CRT)
-  set(Boost_USE_STATIC_RUNTIME ON)
-endif()
-set(Boost_ADDITIONAL_VERSIONS
-    "1.70.0"
-    "1.70"
-    "1.69.0"
-    "1.69"
-    "1.68.0"
-    "1.68"
-    "1.67.0"
-    "1.67"
-    "1.66.0"
-    "1.66"
-    "1.65.0"
-    "1.65"
-    "1.64.0"
-    "1.64"
-    "1.63.0"
-    "1.63"
-    "1.62.0"
-    "1.61"
-    "1.61.0"
-    "1.62"
-    "1.60.0"
-    "1.60")
-
-if(ARROW_BOOST_VENDORED)
-  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
-  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-  set(BOOST_BUILD_LINK "static")
-  set(
-    BOOST_STATIC_SYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_FILESYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_REGEX_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(BOOST_SYSTEM_LIBRARY boost_system_static)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-  set(BOOST_REGEX_LIBRARY boost_regex_static)
-
-  if(ARROW_BOOST_HEADER_ONLY)
-    set(BOOST_BUILD_PRODUCTS)
-    set(BOOST_CONFIGURE_COMMAND "")
-    set(BOOST_BUILD_COMMAND "")
-  else()
-    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
-                             ${BOOST_STATIC_REGEX_LIBRARY})
-    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
-                                "--with-libraries=filesystem,regex,system")
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_BUILD_VARIANT "debug")
-    else()
-      set(BOOST_BUILD_VARIANT "release")
-    endif()
-    set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
-                            "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
-
-    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
-
-    set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-  endif()
-  externalproject_add(boost_ep
-                      URL ${BOOST_SOURCE_URL}
-                      BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
-                      BUILD_IN_SOURCE 1
-                      CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
-                      BUILD_COMMAND ${BOOST_BUILD_COMMAND}
-                      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
-  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
-  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
-  add_dependencies(toolchain boost_ep)
-else()
-  if(MSVC)
-    # disable autolinking in boost
-    add_definitions(-DBOOST_ALL_NO_LIB)
-  endif()
-
-  if(DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
-    # In older versions of CMake (such as 3.2), the system paths for Boost will
-    # be looked in first even if we set $BOOST_ROOT or pass -DBOOST_ROOT
-    set(Boost_NO_SYSTEM_PATHS ON)
-  endif()
-
-  if(ARROW_BOOST_USE_SHARED)
-    # Find shared Boost libraries.
-    set(Boost_USE_STATIC_LIBS OFF)
-    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS ON)
-
-    if(MSVC)
-      # force all boost libraries to dynamic link
-      add_definitions(-DBOOST_ALL_DYN_LINK)
-    endif()
-
-    if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost REQUIRED)
-    else()
-      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
-      set(BOOST_SYSTEM_LIBRARY Boost::system)
-      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-      set(BOOST_REGEX_LIBRARY Boost::regex)
-      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-    endif()
-    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
-    unset(BUILD_SHARED_LIBS_KEEP)
-  else()
-    # Find static boost headers and libs
-    # TODO Differentiate here between release and debug builds
-    set(Boost_USE_STATIC_LIBS ON)
-    if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost REQUIRED)
-    else()
-      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
-      set(BOOST_SYSTEM_LIBRARY Boost::system)
-      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-      set(BOOST_REGEX_LIBRARY Boost::regex)
-      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-    endif()
-  endif()
-endif()
-
-message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
-message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
-
-include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 #
 # HDFS thirdparty setup
