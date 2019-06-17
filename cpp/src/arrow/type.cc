@@ -287,6 +287,12 @@ DataTypeLayout UnionType::layout() const {
   }
 }
 
+uint8_t UnionType::max_type_code() const {
+  return type_codes_.size() == 0
+             ? 0
+             : *std::max_element(type_codes_.begin(), type_codes_.end());
+}
+
 std::string UnionType::ToString() const {
   std::stringstream s;
 

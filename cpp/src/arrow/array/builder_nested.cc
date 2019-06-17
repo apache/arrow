@@ -300,7 +300,7 @@ Status FixedSizeListBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 // Struct
 
 StructBuilder::StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                             std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders)
+                             std::vector<std::shared_ptr<ArrayBuilder>> field_builders)
     : ArrayBuilder(type, pool) {
   children_ = std::move(field_builders);
 }

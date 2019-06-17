@@ -71,19 +71,11 @@ class SequenceBuilder {
         types_(::arrow::int8(), pool),
         offsets_(::arrow::int32(), pool),
         type_map_(PythonType::NUM_PYTHON_TYPES, -1) {
-    builder_.reset(new DenseUnionBuilder(pool));
+    builder_.reset(new DenseUnionBuilder(pool, {}, nullptr));
   }
 
   // Appending a none to the sequence
   Status AppendNone() { return builder_->AppendNull(); }
-
-  template <typename BuilderType>
-  Status Update(BuilderType* child_builder, int8_t tag) {
-    int32_t offset32 = -1;
-    RETURN_NOT_OK(internal::CastSize(child_builder->length(), &offset32));
-    DCHECK_GE(offset32, 0);
-    return builder_->Append(tag, offset32);
-  }
 
   template <typename BuilderType, typename MakeBuilderFn>
   Status CreateAndUpdate(std::shared_ptr<BuilderType>* child_builder, int8_t tag,
@@ -95,7 +87,7 @@ class SequenceBuilder {
       convert << static_cast<int>(tag);
       type_map_[tag] = builder_->AppendChild(*child_builder, convert.str());
     }
-    return Update(child_builder->get(), type_map_[tag]);
+    return builder_->Append(type_map_[tag]);
   }
 
   template <typename BuilderType, typename T>

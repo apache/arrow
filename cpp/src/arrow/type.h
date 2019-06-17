@@ -686,6 +686,8 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   const std::vector<uint8_t>& type_codes() const { return type_codes_; }
 
+  uint8_t max_type_code() const;
+
   UnionMode::type mode() const { return mode_; }
 
  private:

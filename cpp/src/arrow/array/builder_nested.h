@@ -218,7 +218,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
   StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                std::vector<std::shared_ptr<ArrayBuilder>>&& field_builders);
+                std::vector<std::shared_ptr<ArrayBuilder>> field_builders);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 

@@ -19,36 +19,50 @@
 
 #include <utility>
 
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 
+using internal::checked_cast;
+
 DenseUnionBuilder::DenseUnionBuilder(MemoryPool* pool,
+                                     std::vector<std::shared_ptr<ArrayBuilder>> children,
                                      const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(type, pool), types_builder_(pool), offsets_builder_(pool) {}
+    : ArrayBuilder(type, pool),
+      union_type_(checked_cast<const UnionType*>(type.get())),
+      types_builder_(pool),
+      offsets_builder_(pool),
+      type_id_to_child_num_(union_type_->max_type_code() + 1, -1) {
+  DCHECK_EQ(union_type_->mode(), UnionMode::DENSE);
+  int child_i = 0;
+  for (auto type_id : union_type_->type_codes()) {
+    type_id_to_child_num_[type_id] = child_i++;
+  }
+  children_ = std::move(children);
+}
 
 Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  std::shared_ptr<Buffer> types;
+  std::shared_ptr<Buffer> types, offsets, null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(types_builder_.Finish(&types));
-  std::shared_ptr<Buffer> offsets;
   RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
 
-  std::shared_ptr<Buffer> null_bitmap;
-  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-
-  std::vector<std::shared_ptr<Field>> fields;
   std::vector<std::shared_ptr<ArrayData>> child_data(children_.size());
-  std::vector<uint8_t> type_ids;
   for (size_t i = 0; i < children_.size(); ++i) {
     std::shared_ptr<ArrayData> data;
     RETURN_NOT_OK(children_[i]->FinishInternal(&data));
     child_data[i] = data;
-    fields.push_back(field(field_names_[i], children_[i]->type()));
-    type_ids.push_back(static_cast<uint8_t>(i));
   }
 
   // If the type has not been specified in the constructor, infer it
   if (!type_) {
+    std::vector<std::shared_ptr<Field>> fields;
+    std::vector<uint8_t> type_ids;
+    for (size_t i = 0; i < children_.size(); ++i) {
+      fields.push_back(field(field_names_[i], children_[i]->type()));
+      type_ids.push_back(static_cast<uint8_t>(i));
+    }
     type_ = union_(fields, type_ids, UnionMode::DENSE);
   }
 

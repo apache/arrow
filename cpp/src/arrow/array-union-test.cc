@@ -188,4 +188,60 @@ TEST_F(TestUnionArrayFactories, TestMakeSparse) {
                   type_codes);
 }
 
+TEST(UnionArrayBuilders, DenseUnionBuilder) {
+  enum { I8 = 8, STR = 13, DBL = 7 };
+
+  auto i8_builder = std::make_shared<Int8Builder>();
+  auto str_builder = std::make_shared<StringBuilder>();
+  auto dbl_builder = std::make_shared<DoubleBuilder>();
+  DenseUnionBuilder union_builder(
+      default_memory_pool(), {i8_builder, str_builder, dbl_builder},
+      union_({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+             {I8, STR, DBL}, UnionMode::DENSE));
+
+  ASSERT_OK(union_builder.Append(I8));
+  ASSERT_OK(i8_builder->Append(33));
+
+  ASSERT_OK(union_builder.Append(STR));
+  ASSERT_OK(str_builder->Append("abc"));
+
+  ASSERT_OK(union_builder.Append(DBL));
+  ASSERT_OK(dbl_builder->Append(1.0));
+
+  ASSERT_OK(union_builder.Append(DBL));
+  ASSERT_OK(dbl_builder->Append(-1.0));
+
+  ASSERT_OK(union_builder.Append(STR));
+  ASSERT_OK(str_builder->Append(""));
+
+  ASSERT_OK(union_builder.Append(I8));
+  ASSERT_OK(i8_builder->Append(10));
+
+  ASSERT_OK(union_builder.Append(STR));
+  ASSERT_OK(str_builder->Append("def"));
+
+  ASSERT_OK(union_builder.Append(I8));
+  ASSERT_OK(i8_builder->Append(-10));
+
+  ASSERT_OK(union_builder.Append(DBL));
+  ASSERT_OK(dbl_builder->Append(0.5));
+
+  std::shared_ptr<UnionArray> actual;
+  ASSERT_OK(union_builder.Finish(&actual));
+
+  auto expected_i8 = ArrayFromJSON(int8(), "[33, 10, -10]");
+  auto expected_str = ArrayFromJSON(utf8(), R"(["abc", "", "def"])");
+  auto expected_dbl = ArrayFromJSON(float64(), "[1.0, -1.0, 0.5]");
+
+  std::shared_ptr<Array> expected_types;
+  ArrayFromVector<Int8Type>({I8, STR, DBL, DBL, STR, I8, STR, I8, DBL}, &expected_types);
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 1, 2, 2, 2]");
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeDense(*expected_types, *expected_offsets,
+                                  {expected_i8, expected_str, expected_dbl},
+                                  {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
+}
+
 }  // namespace arrow

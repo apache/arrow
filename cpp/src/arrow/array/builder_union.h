@@ -45,7 +45,8 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
   /// Use this constructor to incrementally build the union array along
   /// with types, offsets, and null bitmap.
   explicit DenseUnionBuilder(MemoryPool* pool,
-                             const std::shared_ptr<DataType>& type = NULLPTR);
+                             std::vector<std::shared_ptr<ArrayBuilder>> children,
+                             const std::shared_ptr<DataType>& type);
 
   Status AppendNull() final {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));
@@ -54,22 +55,20 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
   }
 
   Status AppendNulls(int64_t length) final {
-    ARROW_RETURN_NOT_OK(types_builder_.Reserve(length));
-    ARROW_RETURN_NOT_OK(offsets_builder_.Reserve(length));
-    ARROW_RETURN_NOT_OK(Reserve(length));
-    for (int64_t i = 0; i < length; ++i) {
-      types_builder_.UnsafeAppend(0);
-      offsets_builder_.UnsafeAppend(0);
-    }
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, 0));
+    ARROW_RETURN_NOT_OK(offsets_builder_.Append(length, 0));
     return AppendToBitmap(length, false);
   }
 
   /// \brief Append an element to the UnionArray. This must be followed
   ///        by an append to the appropriate child builder.
+  ///
   /// \param[in] type index of the child the value will be appended
-  /// \param[in] offset offset of the value in that child
-  Status Append(int8_t type, int32_t offset) {
+  /// The corresponding child builder must be appended to independently
+  /// after this method is called.
+  Status Append(int8_t type) {
     ARROW_RETURN_NOT_OK(types_builder_.Append(type));
+    auto offset = static_cast<int32_t>(children_[type_id_to_child_num_[type]]->length());
     ARROW_RETURN_NOT_OK(offsets_builder_.Append(offset));
     return AppendToBitmap(true);
   }
@@ -98,9 +97,11 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
   }
 
  private:
+  const UnionType* union_type_;
   TypedBufferBuilder<int8_t> types_builder_;
   TypedBufferBuilder<int32_t> offsets_builder_;
   std::vector<std::string> field_names_;
+  std::vector<int8_t> type_id_to_child_num_;
 };
 
 }  // namespace arrow
