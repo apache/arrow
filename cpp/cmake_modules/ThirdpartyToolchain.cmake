@@ -763,7 +763,7 @@ elseif(ARROW_PARQUET)
 endif()
 
 if(ARROW_USE_OPENSSL)
-  message(STATUS "Building with OpenSSL (VERSION: ${OPENSSL_VERSION}) support")
+  message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
   # OpenSSL::SSL and OpenSSL::Crypto
   # are not available in older CMake versions (CMake < v3.2).
   if(NOT TARGET OpenSSL::SSL)
@@ -782,7 +782,10 @@ if(ARROW_USE_OPENSSL)
 
   include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 else()
-  message(STATUS "Building without OpenSSL support")
+  message(
+    STATUS
+      "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
+    )
 endif()
 
 # ----------------------------------------------------------------------
