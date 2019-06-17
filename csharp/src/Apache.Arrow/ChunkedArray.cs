@@ -25,10 +25,17 @@ namespace Apache.Arrow
     /// </summary>
     public class ChunkedArray
     {
-        public IList<Array> Arrays { get; }
+        private IList<Array> Arrays { get; }
         public IArrowType DataType { get; }
         public long Length { get; }
         public long NullCount { get; }
+
+        public int ArrayCount
+        {
+            get => Arrays.Count;
+        }
+
+        public Array Array(int index) => Arrays[index];
 
         public ChunkedArray(IList<Array> arrays)
         {

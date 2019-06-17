@@ -61,9 +61,9 @@ namespace Apache.Arrow
 
         private bool ValidateArrayDataTypes()
         {
-            for (int i = 0; i < _columnArrays.Arrays.Count; i++)
+            for (int i = 0; i < _columnArrays.ArrayCount; i++)
             {
-                if (_columnArrays.Arrays[i].Data.DataType != Field.DataType)
+                if (_columnArrays.Array(i).Data.DataType != Field.DataType)
                 {
                     return false;
                 }
