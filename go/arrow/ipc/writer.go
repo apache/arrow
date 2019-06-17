@@ -429,6 +429,9 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr array.Interface) (*memory.B
 		// FIXME(sbinet): writer.cc:231
 		panic(fmt.Errorf("not implemented offset=%d", data.Offset()))
 	}
+	if voffsets == nil || voffsets.Len() == 0 {
+		return nil, nil
+	}
 
 	voffsets.Retain()
 	return voffsets, nil
