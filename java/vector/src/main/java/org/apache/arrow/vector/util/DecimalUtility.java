@@ -17,11 +17,11 @@
 
 package org.apache.arrow.vector.util;
 
+import io.netty.buffer.ArrowBuf;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-
-import io.netty.buffer.ArrowBuf;
 
 public class DecimalUtility {
 
@@ -202,6 +202,21 @@ public class DecimalUtility {
     final byte[] bytes = value.unscaledValue().toByteArray();
     final int padValue = value.signum() == -1 ? 0xFF : 0;
     writeByteArrayToArrowBuf(bytes, bytebuf, index, padValue);
+  }
+
+  /**
+   * Write the given Long to the ArrowBuf at the given value index.
+   */
+  public static void writeLongToArrowBuf(Long value, ArrowBuf bytebuf, int index) {
+
+    final int startIndex = index * DECIMAL_BYTE_LENGTH;
+    bytebuf.setLong(startIndex, value); // TODO confirm if written in LE
+
+    // Write padding after data
+    final int padValue = Long.signum(value) == -1 ? 0xFF : 0;
+    for (int i = Long.BYTES; i < DECIMAL_BYTE_LENGTH; i++) {
+      bytebuf.setByte(startIndex + i, padValue);
+    }
   }
 
   /**

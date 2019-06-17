@@ -162,6 +162,35 @@ public class TestDecimalVector {
   }
 
   @Test
+  public void testLongReadWrite() {
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
+            new ArrowType.Decimal(38, 0), allocator)) {
+      decimalVector.allocateNew();
+      Long long1 = 0L;
+      Long long2 = -2L;
+      Long long3 = Long.MAX_VALUE;
+      Long long4 = Long.MIN_VALUE;
+      Long long5 = 12385749L;
+
+      decimalVector.set(0, long1);
+      decimalVector.set(1, long2);
+      decimalVector.set(2, long3);
+      decimalVector.set(3, long4);
+      decimalVector.set(4, long5);
+
+      decimalVector.setValueCount(8);
+      assertEquals(8, decimalVector.getValueCount());
+      assertEquals(new BigDecimal(long1), decimalVector.getObject(0));
+      assertEquals(new BigDecimal(long2), decimalVector.getObject(1));
+      assertEquals(new BigDecimal(long3), decimalVector.getObject(2));
+      assertEquals(new BigDecimal(long4), decimalVector.getObject(3));
+      assertEquals(new BigDecimal(long5), decimalVector.getObject(4));
+
+    }
+  }
+
+
+  @Test
   public void testBigDecimalReadWrite() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
       new ArrowType.Decimal(38, 9), allocator);) {
