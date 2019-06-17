@@ -392,8 +392,8 @@ class Converter_Struct : public Converter {
     ArrayVector arrays(nf);
     STOP_IF_NOT_OK(struct_array->Flatten(default_memory_pool(), &arrays));
     for (int i = 0; i < nf; i++) {
-      STOP_IF_NOT_OK(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i),
-                                                      struct_array->field(i), start, n));
+      STOP_IF_NOT_OK(
+          converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start, n));
     }
 
     return Status::OK();
