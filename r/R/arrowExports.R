@@ -476,6 +476,14 @@ StructType__GetFieldIndex <- function(type, name){
     .Call(`_arrow_StructType__GetFieldIndex` , type, name)
 }
 
+ListType__value_field <- function(type){
+    .Call(`_arrow_ListType__value_field` , type)
+}
+
+ListType__value_type <- function(type){
+    .Call(`_arrow_ListType__value_type` , type)
+}
+
 ipc___feather___TableWriter__SetDescription <- function(writer, description){
     invisible(.Call(`_arrow_ipc___feather___TableWriter__SetDescription` , writer, description))
 }
