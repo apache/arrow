@@ -69,16 +69,20 @@ public class TestVectorSort {
       vec.set(9, 2);
 
       // sort the index
-      IndexSorter<IntVector> indexSorter = new IndexSorter<>();
-      DefaultVectorComparators.IntComparator intComparator = new DefaultVectorComparators.IntComparator();
-      intComparator.attachVector(vec);
+      try (IndexSorter<IntVector> indexSorter = new IndexSorter<>()) {
+        DefaultVectorComparators.IntComparator intComparator = new DefaultVectorComparators.IntComparator();
+        intComparator.attachVector(vec);
 
-      int[] indices = IntStream.range(0, 10).toArray();
-      indexSorter.sort(indices, intComparator);
+        indexSorter.sort(vec, intComparator);
+        IntVector indices = indexSorter.getSortedIndices();
 
-      int[] expected = new int[] {6, 9, 1, 3, 0, 4, 5, 7, 2, 8};
+        int[] expected = new int[]{6, 9, 1, 3, 0, 4, 5, 7, 2, 8};
 
-      assertArrayEquals(expected, indices);
+        for (int i = 0; i < expected.length; i++) {
+          assertTrue(!indices.isNull(i));
+          assertEquals(expected[i], indices.get(i));
+        }
+      }
     }
   }
 

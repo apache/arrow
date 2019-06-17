@@ -17,23 +17,23 @@
 
 package org.apache.arrow.algorithm.sort;
 
+
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * Basic interface for sorting a vector.
- *
+ * Basic interface for sorting a vector out-of-place.
+ * That is, the sorting is performed on a newly-created vector,
+ * and the original vector is not modified.
  * @param <V> the vector type.
  */
-public interface VectorSorter<V extends ValueVector> {
+public interface OutOfPlaceVectorSorter<V extends ValueVector> extends VectorSorter<V> {
 
   /**
-   * Sort the vector by the given criteria.
-   * The sort can be in-place or out-of-place, depending on the algorithm.
-   * So the returned vector can be the same vector as, or a different vector from the input vector.
-   *
-   * @param vec        the vector to sort.
-   * @param comparator the criteria for sort.
-   * @return the sorted vector.
+   * Create the output vector based on the input vector.
+   * @param allocator the allocator for creating the new vector.
+   * @param inputVector the input vector.
+   * @return the output vector.
    */
-  V sort(V vec, VectorValueComparator<V> comparator);
+  V createOutputVector(BufferAllocator allocator, V inputVector);
 }

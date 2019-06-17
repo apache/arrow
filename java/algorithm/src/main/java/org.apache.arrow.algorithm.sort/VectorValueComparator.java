@@ -81,13 +81,6 @@ public abstract class VectorValueComparator<V extends ValueVector> {
   }
 
   /**
-   * Create a new vector with the same type. This can be used for out-of-place sort.
-   * @param allocator the allocator for creating the new vector.
-   * @return the new vector.
-   */
-  public abstract V newVector(BufferAllocator allocator);
-
-  /**
    * Compare two values, given their indices.
    * @param index1 index of the first value to compare.
    * @param index2 index of the second value to compare.

@@ -34,12 +34,7 @@ public class DefaultVectorComparators {
   public static class IntComparator extends VectorValueComparator<IntVector> {
 
     public IntComparator() {
-      super(4);
-    }
-
-    @Override
-    public IntVector newVector(BufferAllocator allocator) {
-      return  new IntVector("", allocator);
+      super(Integer.SIZE / 8);
     }
 
     @Override
@@ -58,11 +53,6 @@ public class DefaultVectorComparators {
 
     private NullableVarCharHolder holder1 = new NullableVarCharHolder();
     private NullableVarCharHolder holder2 = new NullableVarCharHolder();
-
-    @Override
-    public VarCharVector newVector(BufferAllocator allocator) {
-      return new VarCharVector("", allocator);
-    }
 
     @Override
     public int compareNotNull(int index1, int index2) {

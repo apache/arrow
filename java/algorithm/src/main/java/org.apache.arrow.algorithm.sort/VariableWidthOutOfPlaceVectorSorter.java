@@ -17,10 +17,10 @@
 
 package org.apache.arrow.algorithm.sort;
 
-import java.util.stream.IntStream;
-
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BitVectorHelper;
+import org.apache.arrow.vector.IntVector;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
@@ -30,17 +30,15 @@ import io.netty.util.internal.PlatformDependent;
  * It is an out-of-place sort, with time complexity O(n*log(n)).
  * @param <V> vector type.
  */
-public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVector> implements VectorSorter<V> {
-
-  private final IndexSorter<V> indexSorter = new IndexSorter<>();
+public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVector>
+        implements OutOfPlaceVectorSorter<V> {
 
   @Override
   public V sort(V srcVector, VectorValueComparator<V> comparator) {
     comparator.attachVector(srcVector);
 
     // create the output vector
-    V dstVector = comparator.newVector(srcVector.getAllocator());
-    dstVector.allocateNew(srcVector.getByteCapacity(), srcVector.getValueCount());
+    V dstVector = createOutputVector(srcVector.getAllocator(), srcVector);
 
     // buffers referenced in the sort
     ArrowBuf srcValueBuffer = srcVector.getDataBuffer();
@@ -50,37 +48,40 @@ public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVect
     ArrowBuf dstOffsetBuffer = dstVector.getOffsetBuffer();
 
     // sort value indices
-    int[] sortedIndices = IntStream.range(0, srcVector.getValueCount()).toArray();
-    indexSorter.sort(sortedIndices, comparator);
+    try (IndexSorter<V> indexSorter = new IndexSorter<>()) {
+      indexSorter.sort(srcVector, comparator);
+      IntVector sortedIndices = indexSorter.getSortedIndices();
 
-    int dstIndex = 0;
-    int dstOffset = 0;
-    dstOffsetBuffer.setInt(dstIndex, dstOffset);
+      int dstOffset = 0;
+      dstOffsetBuffer.setInt(0, 0);
 
-    // copy sorted values to the output vector
-    for (int srcIndex : sortedIndices) {
-      if (srcVector.isNull(srcIndex)) {
-        BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 0);
-      } else {
-        BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 1);
-        int srcOffset = srcOffsetBuffer.getInt(srcIndex * BaseVariableWidthVector.OFFSET_WIDTH);
-        int valueLength = srcOffsetBuffer.getInt((srcIndex + 1) * BaseVariableWidthVector.OFFSET_WIDTH) - srcOffset;
-        PlatformDependent.copyMemory(
-                srcValueBuffer.memoryAddress() + srcOffset,
-                dstValueBuffer.memoryAddress() + dstOffset,
-                valueLength);
-        dstOffset += valueLength;
+      // copy sorted values to the output vector
+      for (int dstIndex = 0; dstIndex < sortedIndices.getValueCount(); dstIndex++) {
+        int srcIndex = sortedIndices.get(dstIndex);
+        if (srcVector.isNull(srcIndex)) {
+          BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 0);
+        } else {
+          BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 1);
+          int srcOffset = srcOffsetBuffer.getInt(srcIndex * BaseVariableWidthVector.OFFSET_WIDTH);
+          int valueLength = srcOffsetBuffer.getInt((srcIndex + 1) * BaseVariableWidthVector.OFFSET_WIDTH) - srcOffset;
+          PlatformDependent.copyMemory(
+                  srcValueBuffer.memoryAddress() + srcOffset,
+                  dstValueBuffer.memoryAddress() + dstOffset,
+                  valueLength);
+          dstOffset += valueLength;
+        }
+        dstOffsetBuffer.setInt((dstIndex + 1) * BaseVariableWidthVector.OFFSET_WIDTH, dstOffset);
       }
-      dstIndex += 1;
-      dstOffsetBuffer.setInt(dstIndex * BaseVariableWidthVector.OFFSET_WIDTH, dstOffset);
     }
-    dstVector.setLastSet(dstIndex - 1);
+    dstVector.setLastSet(srcVector.getValueCount() - 1);
     dstVector.setValueCount(srcVector.getValueCount());
     return dstVector;
   }
 
   @Override
-  public boolean isInPlace() {
-    return false;
+  public V createOutputVector(BufferAllocator allocator, V inputVector) {
+    V outVec = (V) inputVector.getField().getFieldType().createNewSingleVector("", allocator, null);
+    outVec.allocateNew(inputVector.getByteCapacity(), inputVector.getValueCount());
+    return outVec;
   }
 }

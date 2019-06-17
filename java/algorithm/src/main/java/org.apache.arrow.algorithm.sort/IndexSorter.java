@@ -17,13 +17,16 @@
 
 package org.apache.arrow.algorithm.sort;
 
+import java.util.stream.IntStream;
+
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 
 /**
  * Sorter for the indices of a vector.
  * @param <V> vector type.
  */
-public class IndexSorter<V extends ValueVector> {
+public class IndexSorter<V extends ValueVector> implements AutoCloseable {
 
   /**
    * Comparator for vector indices.
@@ -33,20 +36,41 @@ public class IndexSorter<V extends ValueVector> {
   /**
    * Vector indices to sort.
    */
-  private int[] indices;
+  private IntVector indices;
+
+  /**
+   * The buffer to store the pivot which is used in quick sort.
+   * This vector always have a length of 1.
+   */
+  private IntVector pivotBuffer;
 
   /**
    * Sorts indices, by quick-sort. Suppose the vector is denoted by v.
    * After calling this method, the following relations hold:
    * v(indices[0]) <= v(indices[1]) <= ...
-   * @param indices the indices to sort.
+   * @param vector the vector whose indices need to be sorted.
    * @param comparator the comparator to sort indices.
    */
-  public void sort(int[] indices, VectorValueComparator<V> comparator) {
-    this.indices = indices;
+  public void sort(V vector, VectorValueComparator<V> comparator) {
+    comparator.attachVector(vector);
+
+    // clear the vectors for the previous sort, if any
+    if (this.indices != null) {
+      close();
+    }
+    this.indices = new IntVector("", vector.getAllocator());
+    indices.allocateNew(vector.getValueCount());
+    indices.setValueCount(vector.getValueCount());
+
+    this.pivotBuffer = new IntVector("", vector.getAllocator());
+    pivotBuffer.allocateNew(1);
+    pivotBuffer.setValueCount(1);
+
+    IntStream.range(0, vector.getValueCount()).forEach(i -> indices.set(i, i));
+
     this.comparator = comparator;
 
-    quickSort(0, indices.length - 1);
+    quickSort(0, indices.getValueCount() - 1);
   }
 
   private void quickSort(int low, int high) {
@@ -58,21 +82,46 @@ public class IndexSorter<V extends ValueVector> {
   }
 
   private int partition(int low, int high) {
-    int pivotIndex = indices[low];
+    copyIntElement(indices, low, pivotBuffer, 0);
 
     while (low < high) {
-      while (low < high && comparator.compare(indices[high], pivotIndex) >= 0) {
+      while (low < high && comparator.compare(indices.get(high), pivotBuffer.get(0)) >= 0) {
         high -= 1;
       }
-      indices[low] = indices[high];
+      copyIntElement(indices, high, indices, low);
 
-      while (low < high && comparator.compare(indices[low], pivotIndex) <= 0) {
+      while (low < high && comparator.compare(indices.get(low), pivotBuffer.get(0)) <= 0) {
         low += 1;
       }
-      indices[high] = indices[low];
+      copyIntElement(indices, low, indices, high);
     }
 
-    indices[low] = pivotIndex;
+    copyIntElement(pivotBuffer, 0, indices, low);
     return low;
+  }
+
+  private void copyIntElement(IntVector srcVector, int srcIndex, IntVector dstVector, int dstIndex) {
+    if (srcVector.isNull(srcIndex)) {
+      dstVector.setNull(dstIndex);
+    } else {
+      dstVector.set(dstIndex, 1, srcVector.get(srcIndex));
+    }
+  }
+
+  public IntVector getSortedIndices() {
+    return indices;
+  }
+
+  @Override
+  public void close() {
+    if (indices != null) {
+      indices.close();
+      indices = null;
+    }
+
+    if (pivotBuffer != null) {
+      pivotBuffer.close();
+      pivotBuffer = null;
+    }
   }
 }
