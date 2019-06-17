@@ -22,6 +22,7 @@ set -e
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 export TARGET_ID=u79f6bXYgNH4NkU99iWK
+export FUZZIT_API_KEY=${FUZZIT_API_KEY:-ac6089a1bc2313679f2d99bb80553162c380676bff3f094de826b16229e28184a8084b86f52c95112bde6b3dbb07b9b7}
 wget -O fuzzit https://bin.fuzzit.dev/fuzzit-1.1
 chmod a+x fuzzit
 ./fuzzit auth $FUZZIT_API_KEY
@@ -30,8 +31,8 @@ chmod a+x fuzzit
 mkdir $ARROW_CPP_BUILD_DIR/relwithdebinfo/out
 cp $ARROW_CPP_BUILD_DIR/relwithdebinfo/arrow-ipc-fuzzing-test $ARROW_CPP_BUILD_DIR/relwithdebinfo/out/fuzzer
 ldd $ARROW_CPP_BUILD_DIR/relwithdebinfo/arrow-ipc-fuzzing-test | grep "=> /" | awk '{print $3}' | xargs -I '{}' cp -v '{}' $ARROW_CPP_BUILD_DIR/relwithdebinfo/out/.
-tar -czvf fuzzer.tar.gz $ARROW_CPP_BUILD_DIR/relwithdebinfo/out/*
-
-./fuzzit create job --type sanity --revision $TRAVIS_COMMIT --branch $TRAVIS_BRANCH $TARGET_ID $ARROW_CPP_BUILD_DIR/relwithdebinfo/arrow-ipc-fuzzing-test
-
+cd $ARROW_CPP_BUILD_DIR/relwithdebinfo/out/
+tar -czvf fuzzer.tar.gz *
+cd ../../../
+./fuzzit create job --type fuzzing --revision $TRAVIS_COMMIT --branch $TRAVIS_BRANCH $TARGET_ID $ARROW_CPP_BUILD_DIR/relwithdebinfo/out/fuzzer.tar.gz
 
