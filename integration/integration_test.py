@@ -1609,7 +1609,7 @@ class GoTester(Tester):
     CONSUMER = True
 
     # FIXME(sbinet): revisit for Go modules
-    GOPATH = os.getenv('GOPATH')
+    GOPATH = os.getenv('GOPATH', '~/go')
     GOBIN = os.environ.get('GOBIN', os.path.join(GOPATH, 'bin'))
 
     GO_INTEGRATION_EXE = os.path.join(GOBIN, 'arrow-json-integration-test')
