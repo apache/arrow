@@ -374,11 +374,24 @@ public:
   }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    int nf = converters.size();
+    for(int i=0; i<nf; i++) {
+      STOP_IF_NOT_OK(converters[i]->Ingest_all_nulls(VECTOR_ELT(data, i), start, n));
+    }
     return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
     R_xlen_t start, R_xlen_t n) const {
+
+    auto struct_array = internal::checked_cast<arrow::StructArray*>(array.get());
+    int nf = converters.size();
+    ArrayVector arrays(nf);
+    STOP_IF_NOT_OK(struct_array->Flatten(default_memory_pool(), &arrays));
+    for (int i=0; i<nf; i++) {
+      STOP_IF_NOT_OK(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), struct_array->field(i), start, n));
+    }
+
     return Status::OK();
   }
 

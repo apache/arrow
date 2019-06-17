@@ -104,6 +104,9 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
   expect_equal(struct_array$field(0L), a)
   expect_equal(struct_array$GetFieldByName("ps"), a)
   expect_equal(struct_array$Flatten(), list(a))
+  expect_equal(struct_array$as_vector(), data.frame(ps = c(NA, NA, 78, 90)))
+
+
   # cannot yet test list and struct types in R api
   # tib <- as.data.frame(tab1)
 
