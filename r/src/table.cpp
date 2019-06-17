@@ -15,33 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
+
 #include <arrow/io/file.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
-#include "./arrow_types.h"
 
 using Rcpp::DataFrame;
 
-// [[Rcpp::export]]
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl) {
+  auto rb = RecordBatch__from_dataframe(tbl);
+
+  std::shared_ptr<arrow::Table> out;
+  STOP_IF_NOT_OK(arrow::Table::FromRecordBatches({std::move(rb)}, &out));
+  return out;
+}
+
+// [[arrow::export]]
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
   return x->num_columns();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int Table__num_rows(const std::shared_ptr<arrow::Table>& x) { return x->num_rows(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>& x) {
   return x->schema();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Column> Table__column(const std::shared_ptr<arrow::Table>& table,
                                              int i) {
   return table->column(i);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::vector<std::shared_ptr<arrow::Column>> Table__columns(
     const std::shared_ptr<arrow::Table>& table) {
   auto nc = table->num_columns();
@@ -60,13 +71,13 @@ bool all_record_batches(SEXP lst) {
   return true;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   // lst can be either:
   // - a list of record batches, in which case we call Table::FromRecordBatches
 
   if (all_record_batches(lst)) {
-    auto batches = arrow::r::list_to_shared_ptr_vector<arrow::RecordBatch>(lst);
+    auto batches = arrow::r::List_to_shared_ptr_vector<arrow::RecordBatch>(lst);
     std::shared_ptr<arrow::Table> tab;
 
     if (Rf_inherits(schema_sxp, "arrow::Schema")) {
@@ -132,3 +143,5 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
 
   return arrow::Table::Make(schema, columns);
 }
+
+#endif

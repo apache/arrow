@@ -185,6 +185,9 @@
                   <include>com.google.protobuf:*</include>
                   <include>com.google.guava:*</include>
                 </includes>
+                <excludes>
+                  <exclude>com.google.flatbuffers:*</exclude>
+                </excludes>
               </artifactSet>
               <relocations>
                 <relocation>

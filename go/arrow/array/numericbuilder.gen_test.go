@@ -34,6 +34,9 @@ func TestNewInt64Builder(t *testing.T) {
 	ab := array.NewInt64Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -72,6 +75,46 @@ func TestNewInt64Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []int64{7, 8}, a.Int64Values())
 	assert.Len(t, a.Int64Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []int64{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewInt64Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Int64); !ok {
+		t.Fatalf("could not type-assert to array.Int64")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Int64)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Int64")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -157,6 +200,9 @@ func TestNewUint64Builder(t *testing.T) {
 	ab := array.NewUint64Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -195,6 +241,46 @@ func TestNewUint64Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []uint64{7, 8}, a.Uint64Values())
 	assert.Len(t, a.Uint64Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []uint64{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewUint64Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Uint64); !ok {
+		t.Fatalf("could not type-assert to array.Uint64")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Uint64)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Uint64")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -280,6 +366,9 @@ func TestNewFloat64Builder(t *testing.T) {
 	ab := array.NewFloat64Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -318,6 +407,46 @@ func TestNewFloat64Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []float64{7, 8}, a.Float64Values())
 	assert.Len(t, a.Float64Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []float64{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewFloat64Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Float64); !ok {
+		t.Fatalf("could not type-assert to array.Float64")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Float64)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Float64")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -403,6 +532,9 @@ func TestNewInt32Builder(t *testing.T) {
 	ab := array.NewInt32Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -441,6 +573,46 @@ func TestNewInt32Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []int32{7, 8}, a.Int32Values())
 	assert.Len(t, a.Int32Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []int32{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewInt32Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Int32); !ok {
+		t.Fatalf("could not type-assert to array.Int32")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Int32)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Int32")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -526,6 +698,9 @@ func TestNewUint32Builder(t *testing.T) {
 	ab := array.NewUint32Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -564,6 +739,46 @@ func TestNewUint32Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []uint32{7, 8}, a.Uint32Values())
 	assert.Len(t, a.Uint32Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []uint32{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewUint32Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Uint32); !ok {
+		t.Fatalf("could not type-assert to array.Uint32")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Uint32)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Uint32")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -649,6 +864,9 @@ func TestNewFloat32Builder(t *testing.T) {
 	ab := array.NewFloat32Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -687,6 +905,46 @@ func TestNewFloat32Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []float32{7, 8}, a.Float32Values())
 	assert.Len(t, a.Float32Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []float32{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewFloat32Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Float32); !ok {
+		t.Fatalf("could not type-assert to array.Float32")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Float32)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Float32")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -772,6 +1030,9 @@ func TestNewInt16Builder(t *testing.T) {
 	ab := array.NewInt16Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -810,6 +1071,46 @@ func TestNewInt16Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []int16{7, 8}, a.Int16Values())
 	assert.Len(t, a.Int16Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []int16{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewInt16Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Int16); !ok {
+		t.Fatalf("could not type-assert to array.Int16")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Int16)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Int16")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -895,6 +1196,9 @@ func TestNewUint16Builder(t *testing.T) {
 	ab := array.NewUint16Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -933,6 +1237,46 @@ func TestNewUint16Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []uint16{7, 8}, a.Uint16Values())
 	assert.Len(t, a.Uint16Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []uint16{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewUint16Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Uint16); !ok {
+		t.Fatalf("could not type-assert to array.Uint16")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Uint16)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Uint16")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -1018,6 +1362,9 @@ func TestNewInt8Builder(t *testing.T) {
 	ab := array.NewInt8Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -1056,6 +1403,46 @@ func TestNewInt8Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []int8{7, 8}, a.Int8Values())
 	assert.Len(t, a.Int8Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []int8{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewInt8Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Int8); !ok {
+		t.Fatalf("could not type-assert to array.Int8")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Int8)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Int8")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -1141,6 +1528,9 @@ func TestNewUint8Builder(t *testing.T) {
 	ab := array.NewUint8Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -1179,6 +1569,46 @@ func TestNewUint8Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []uint8{7, 8}, a.Uint8Values())
 	assert.Len(t, a.Uint8Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []uint8{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewUint8Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Uint8); !ok {
+		t.Fatalf("could not type-assert to array.Uint8")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Uint8)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Uint8")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -1265,6 +1695,9 @@ func TestNewTimestampBuilder(t *testing.T) {
 	ab := array.NewTimestampBuilder(mem, dtype)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -1303,6 +1736,46 @@ func TestNewTimestampBuilder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []arrow.Timestamp{7, 8}, a.TimestampValues())
 	assert.Len(t, a.TimestampValues(), 2)
+
+	a.Release()
+
+	var (
+		want   = []arrow.Timestamp{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewTimestampArray()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Timestamp); !ok {
+		t.Fatalf("could not type-assert to array.Timestamp")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Timestamp)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Timestamp")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -1392,6 +1865,9 @@ func TestNewTime32Builder(t *testing.T) {
 	ab := array.NewTime32Builder(mem, dtype)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -1430,6 +1906,46 @@ func TestNewTime32Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []arrow.Time32{7, 8}, a.Time32Values())
 	assert.Len(t, a.Time32Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []arrow.Time32{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewTime32Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Time32); !ok {
+		t.Fatalf("could not type-assert to array.Time32")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Time32)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Time32")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -1519,6 +2035,9 @@ func TestNewTime64Builder(t *testing.T) {
 	ab := array.NewTime64Builder(mem, dtype)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -1557,6 +2076,46 @@ func TestNewTime64Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []arrow.Time64{7, 8}, a.Time64Values())
 	assert.Len(t, a.Time64Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []arrow.Time64{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewTime64Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Time64); !ok {
+		t.Fatalf("could not type-assert to array.Time64")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Time64)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Time64")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -1645,6 +2204,9 @@ func TestNewDate32Builder(t *testing.T) {
 	ab := array.NewDate32Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -1683,6 +2245,46 @@ func TestNewDate32Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []arrow.Date32{7, 8}, a.Date32Values())
 	assert.Len(t, a.Date32Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []arrow.Date32{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewDate32Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Date32); !ok {
+		t.Fatalf("could not type-assert to array.Date32")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Date32)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Date32")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -1768,6 +2370,9 @@ func TestNewDate64Builder(t *testing.T) {
 	ab := array.NewDate64Builder(mem)
 	defer ab.Release()
 
+	ab.Retain()
+	ab.Release()
+
 	ab.Append(1)
 	ab.Append(2)
 	ab.Append(3)
@@ -1806,6 +2411,46 @@ func TestNewDate64Builder(t *testing.T) {
 	assert.Equal(t, 0, a.NullN())
 	assert.Equal(t, []arrow.Date64{7, 8}, a.Date64Values())
 	assert.Len(t, a.Date64Values(), 2)
+
+	a.Release()
+
+	var (
+		want   = []arrow.Date64{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewDate64Array()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Date64); !ok {
+		t.Fatalf("could not type-assert to array.Date64")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Date64)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Date64")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
 
 	a.Release()
 }
@@ -1862,6 +2507,176 @@ func TestDate64Builder_Resize(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDate64Builder(mem)
+	defer ab.Release()
+
+	assert.Equal(t, 0, ab.Cap())
+	assert.Equal(t, 0, ab.Len())
+
+	ab.Reserve(63)
+	assert.Equal(t, 64, ab.Cap())
+	assert.Equal(t, 0, ab.Len())
+
+	for i := 0; i < 63; i++ {
+		ab.Append(0)
+	}
+	assert.Equal(t, 64, ab.Cap())
+	assert.Equal(t, 63, ab.Len())
+
+	ab.Resize(5)
+	assert.Equal(t, 5, ab.Len())
+
+	ab.Resize(32)
+	assert.Equal(t, 5, ab.Len())
+}
+
+func TestNewDurationBuilder(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dtype := &arrow.DurationType{Unit: arrow.Second}
+	ab := array.NewDurationBuilder(mem, dtype)
+	defer ab.Release()
+
+	ab.Retain()
+	ab.Release()
+
+	ab.Append(1)
+	ab.Append(2)
+	ab.Append(3)
+	ab.AppendNull()
+	ab.Append(5)
+	ab.Append(6)
+	ab.AppendNull()
+	ab.Append(8)
+	ab.Append(9)
+	ab.Append(10)
+
+	// check state of builder before NewDurationArray
+	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
+
+	a := ab.NewDurationArray()
+
+	// check state of builder after NewDurationArray
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewDurationArray did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewDurationArray did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewDurationArray did not reset state")
+
+	// check state of array
+	assert.Equal(t, 2, a.NullN(), "unexpected null count")
+	assert.Equal(t, []arrow.Duration{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.DurationValues(), "unexpected DurationValues")
+	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
+	assert.Len(t, a.DurationValues(), 10, "unexpected length of DurationValues")
+
+	a.Release()
+
+	ab.Append(7)
+	ab.Append(8)
+
+	a = ab.NewDurationArray()
+
+	assert.Equal(t, 0, a.NullN())
+	assert.Equal(t, []arrow.Duration{7, 8}, a.DurationValues())
+	assert.Len(t, a.DurationValues(), 2)
+
+	a.Release()
+
+	var (
+		want   = []arrow.Duration{1, 2, 3, 4}
+		valids = []bool{true, true, false, true}
+	)
+
+	ab.AppendValues(want, valids)
+	a = ab.NewDurationArray()
+
+	sub := array.MakeFromData(a.Data())
+	defer sub.Release()
+
+	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
+		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	}
+
+	if _, ok := sub.(*array.Duration); !ok {
+		t.Fatalf("could not type-assert to array.Duration")
+	}
+
+	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	slice := array.NewSliceData(a.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.Duration)
+	if !ok {
+		t.Fatalf("could not type-assert to array.Duration")
+	}
+
+	if got, want := v.String(), `[(null) 4]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	a.Release()
+}
+
+func TestDurationBuilder_AppendValues(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dtype := &arrow.DurationType{Unit: arrow.Second}
+	ab := array.NewDurationBuilder(mem, dtype)
+	defer ab.Release()
+
+	exp := []arrow.Duration{0, 1, 2, 3}
+	ab.AppendValues(exp, nil)
+	a := ab.NewDurationArray()
+	assert.Equal(t, exp, a.DurationValues())
+
+	a.Release()
+}
+
+func TestDurationBuilder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dtype := &arrow.DurationType{Unit: arrow.Second}
+	ab := array.NewDurationBuilder(mem, dtype)
+	defer ab.Release()
+
+	exp := []arrow.Duration{0, 1, 2, 3}
+
+	ab.AppendValues([]arrow.Duration{}, nil)
+	a := ab.NewDurationArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(nil, nil)
+	a = ab.NewDurationArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues([]arrow.Duration{}, nil)
+	ab.AppendValues(exp, nil)
+	a = ab.NewDurationArray()
+	assert.Equal(t, exp, a.DurationValues())
+	a.Release()
+
+	ab.AppendValues(exp, nil)
+	ab.AppendValues([]arrow.Duration{}, nil)
+	a = ab.NewDurationArray()
+	assert.Equal(t, exp, a.DurationValues())
+	a.Release()
+}
+
+func TestDurationBuilder_Resize(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dtype := &arrow.DurationType{Unit: arrow.Second}
+	ab := array.NewDurationBuilder(mem, dtype)
 	defer ab.Release()
 
 	assert.Equal(t, 0, ab.Cap())

@@ -19,8 +19,9 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build \
 	  --buildsystem=cmake+ninja \
 	  -- \
-	  -DARROW_BUILD_TESTS=ON \
+	  -DARROW_BUILD_TESTS=OFF \
 	  -DARROW_CUDA=ON \
+	  -DARROW_FLIGHT=ON \
 	  -DARROW_GANDIVA=ON \
 	  -DARROW_GANDIVA_JAVA=OFF \
 	  -DARROW_ORC=ON \
@@ -61,10 +62,12 @@ override_dh_auto_install:
 	  --buildsystem=meson+ninja
 
 override_dh_auto_test:
-	git clone --depth 1 https://github.com/apache/arrow-testing.git
-	git clone --depth 1 https://github.com/apache/parquet-testing.git
-	cd cpp_build &&								\
-	  env									\
-	    ARROW_TEST_DATA=$(CURDIR)/arrow-testing/data			\
-	    PARQUET_TEST_DATA=$(CURDIR)/parquet-testing/data			\
-	      ctest --exclude-regex 'arrow-cuda-test|plasma-client_tests'
+	# TODO: We need Boost 1.64 or later to build tests for
+	# Apache Arrow Flight.
+	# git clone --depth 1 https://github.com/apache/arrow-testing.git
+	# git clone --depth 1 https://github.com/apache/parquet-testing.git
+	# cd cpp_build &&								\
+	#   env									\
+	#     ARROW_TEST_DATA=$(CURDIR)/arrow-testing/data			\
+	#     PARQUET_TEST_DATA=$(CURDIR)/parquet-testing/data			\
+	#       ctest --exclude-regex 'arrow-cuda-test|plasma-client_tests'

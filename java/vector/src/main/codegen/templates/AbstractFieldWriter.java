@@ -30,6 +30,20 @@ package org.apache.arrow.vector.complex.impl;
  */
 @SuppressWarnings("unused")
 abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWriter {
+
+  protected boolean addVectorAsNullable = true;
+
+  /**
+   * Set flag to control the FieldType.nullable property when a writer creates a new vector.
+   * If true then vectors created will be nullable, this is the default behavior. If false then
+   * vectors created will be non-nullable.
+   *
+   * @param nullable Whether or not to create nullable vectors (default behavior is true)
+   */
+  public void setAddVectorAsNullable(boolean nullable) {
+    addVectorAsNullable = nullable;
+  }
+
   @Override
   public void start() {
     throw new IllegalStateException(String.format("You tried to start when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));

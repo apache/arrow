@@ -362,7 +362,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 		*arrow.Float16Type, *arrow.Float32Type, *arrow.Float64Type,
 		*arrow.Time32Type, *arrow.Time64Type,
 		*arrow.TimestampType,
-		*arrow.Date32Type, *arrow.Date64Type:
+		*arrow.Date32Type, *arrow.Date64Type,
+		*arrow.MonthIntervalType, *arrow.DayTimeIntervalType,
+		*arrow.DurationType:
 		return ctx.loadPrimitive(dt)
 
 	case *arrow.BinaryType, *arrow.StringType:
@@ -450,7 +452,7 @@ func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) array.Interface {
 
 func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType) array.Interface {
 	field, buffers := ctx.loadCommon(2)
-	buffers = append(buffers, nil, ctx.buffer())
+	buffers = append(buffers, ctx.buffer())
 
 	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 	defer data.Release()

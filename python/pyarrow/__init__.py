@@ -58,6 +58,8 @@ from pyarrow.lib import (null, bool_,
                          DataType, DictionaryType, ListType, StructType,
                          UnionType, TimestampType, Time32Type, Time64Type,
                          FixedSizeBinaryType, Decimal128Type,
+                         BaseExtensionType, ExtensionType,
+                         UnknownExtensionType,
                          DictionaryMemo,
                          Field,
                          Schema,
@@ -78,7 +80,7 @@ from pyarrow.lib import (null, bool_,
                          DictionaryArray,
                          Date32Array, Date64Array,
                          TimestampArray, Time32Array, Time64Array,
-                         Decimal128Array, StructArray,
+                         Decimal128Array, StructArray, ExtensionArray,
                          ArrayValue, Scalar, NA, _NULL as NULL,
                          BooleanValue,
                          Int8Value, Int16Value, Int32Value, Int64Value,
@@ -109,7 +111,7 @@ from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          MockOutputStream, input_stream, output_stream)
 
 from pyarrow.lib import (ChunkedArray, Column, RecordBatch, Table,
-                         concat_tables)
+                         concat_arrays, concat_tables)
 
 # Exceptions
 from pyarrow.lib import (ArrowException,

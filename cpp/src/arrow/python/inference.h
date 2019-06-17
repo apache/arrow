@@ -40,10 +40,12 @@ namespace py {
 
 // These three functions take a sequence input, not arbitrary iterables
 ARROW_PYTHON_EXPORT
-arrow::Status InferArrowType(PyObject* obj, std::shared_ptr<arrow::DataType>* out_type);
+arrow::Status InferArrowType(PyObject* obj, bool pandas_null_sentinels,
+                             std::shared_ptr<arrow::DataType>* out_type);
 
 ARROW_PYTHON_EXPORT
-arrow::Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
+arrow::Status InferArrowTypeAndSize(PyObject* obj, bool pandas_null_sentinels,
+                                    int64_t* size,
                                     std::shared_ptr<arrow::DataType>* out_type);
 
 /// Checks whether the passed Python object is a boolean scalar

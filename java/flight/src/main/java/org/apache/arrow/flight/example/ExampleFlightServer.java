@@ -21,7 +21,6 @@ import java.io.IOException;
 
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;

@@ -33,9 +33,7 @@ gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Plasm
 
 ## Install
 
-Install Plasma GLib before install Red Plasma. Use [packages.red-data-tools.org](https://github.com/red-data-tools/packages.red-data-tools.org) for installing Plasma GLib.
-
-Note that the Plasma GLib packages are "unofficial". "Official" packages will be released in the future.
+Install Plasma GLib before install Red Plasma. See [Apache Arrow install document](https://arrow.apache.org/install/) for details.
 
 Install Red Plasma after you install Plasma GLib:
 

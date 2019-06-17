@@ -121,6 +121,7 @@ public class VectorSchemaRoot implements AutoCloseable {
     for (FieldVector v : fieldVectors) {
       v.allocateNew();
     }
+    rowCount = 0;
   }
 
   /**
@@ -130,6 +131,7 @@ public class VectorSchemaRoot implements AutoCloseable {
     for (FieldVector v : fieldVectors) {
       v.clear();
     }
+    rowCount = 0;
   }
 
   public List<FieldVector> getFieldVectors() {

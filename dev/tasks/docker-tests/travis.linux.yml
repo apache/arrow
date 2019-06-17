@@ -43,12 +43,14 @@ before_install:
   - docker-compose -v
 
 before_script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
-  - cd arrow
-  - git checkout {{ arrow.head }}
-  - git submodule update --init --recursive
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+  - git -C arrow checkout {{ arrow.head }}
+  - git -C arrow submodule update --init --recursive
 
 script:
+  - pushd arrow
 {%- for command in commands %}
   - {{ command }}
 {%- endfor %}
+  - popd

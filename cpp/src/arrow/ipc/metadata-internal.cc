@@ -62,8 +62,8 @@ using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
 using KVVector = flatbuffers::Vector<KeyValueOffset>;
 
-static const char kExtensionTypeKeyName[] = "arrow_extension_name";
-static const char kExtensionDataKeyName[] = "arrow_extension_data";
+static const char kExtensionTypeKeyName[] = "ARROW:extension:name";
+static const char kExtensionMetadataKeyName[] = "ARROW:extension:metadata";
 
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
   switch (version) {
@@ -316,6 +316,25 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type_Map:
+      if (children.size() != 1) {
+        return Status::Invalid("Map must have exactly 1 child field");
+      }
+      if (  // FIXME(bkietz) temporarily disabled: this field is sometimes read nullable
+            // children[0]->nullable() ||
+          children[0]->type()->id() != Type::STRUCT ||
+          children[0]->type()->num_children() != 2) {
+        return Status::Invalid("Map's key-item pairs must be non-nullable structs");
+      }
+      if (children[0]->type()->child(0)->nullable()) {
+        return Status::Invalid("Map's keys must be non-nullable");
+      } else {
+        auto map = static_cast<const flatbuf::Map*>(type_data);
+        *out = std::make_shared<MapType>(children[0]->type()->child(0)->type(),
+                                         children[0]->type()->child(1)->type(),
+                                         map->keysSorted());
+      }
+      return Status::OK();
     case flatbuf::Type_FixedSizeList:
       if (children.size() != 1) {
         return Status::Invalid("FixedSizeList must have exactly 1 child field");
@@ -351,7 +370,7 @@ static Status TypeFromFlatbuffer(const flatbuf::Field* field,
       return Status::OK();
     }
     std::string type_name = field_metadata->value(name_index);
-    int data_index = field_metadata->FindKey(kExtensionDataKeyName);
+    int data_index = field_metadata->FindKey(kExtensionMetadataKeyName);
     std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
 
     std::shared_ptr<ExtensionType> type = GetExtensionType(type_name);
@@ -601,6 +620,13 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const MapType& type) {
+    fb_type_ = flatbuf::Type_Map;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateMap(fbb_, type.keys_sorted()).Union();
+    return Status::OK();
+  }
+
   Status Visit(const FixedSizeListType& type) {
     fb_type_ = flatbuf::Type_FixedSizeList;
     RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
@@ -648,7 +674,7 @@ class FieldToFlatbufferVisitor {
   Status Visit(const ExtensionType& type) {
     RETURN_NOT_OK(VisitType(*type.storage_type()));
     extra_type_metadata_[kExtensionTypeKeyName] = type.extension_name();
-    extra_type_metadata_[kExtensionDataKeyName] = type.Serialize();
+    extra_type_metadata_[kExtensionMetadataKeyName] = type.Serialize();
     return Status::OK();
   }
 
@@ -717,6 +743,9 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
 
   // Reconstruct the data type
   auto children = field->children();
+  if (children == nullptr) {
+    return Status::IOError("Children-pointer of flatbuffer-encoded Field is null.");
+  }
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
   for (int i = 0; i < static_cast<int>(children->size()); ++i) {
     RETURN_NOT_OK(

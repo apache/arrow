@@ -34,9 +34,23 @@ else()
 endif()
 
 # ----------------------------------------------------------------------
+# We should not use the Apache dist server for build dependencies
+
+set(APACHE_MIRROR "")
+
+macro(get_apache_mirror)
+  if(APACHE_MIRROR STREQUAL "")
+    exec_program(${PYTHON_EXECUTABLE}
+                 ARGS
+                 ${CMAKE_SOURCE_DIR}/build-support/get_apache_mirror.py
+                 OUTPUT_VARIABLE
+                 APACHE_MIRROR)
+  endif()
+endmacro()
+
+# ----------------------------------------------------------------------
 # Resolve the dependencies
 
-# TODO: add uriparser here when it gets a conda package
 set(ARROW_THIRDPARTY_DEPENDENCIES
     benchmark
     BOOST
@@ -56,6 +70,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     RapidJSON
     Snappy
     Thrift
+    uriparser
     ZLIB
     ZSTD)
 
@@ -78,6 +93,10 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   endif()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
   message(STATUS "Using CONDA_PREFIX for ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
+  # ARROW-5564: Remove this when uriparser gets a conda package
+  if("${uriparser_SOURCE}" STREQUAL "")
+    set(uriparser_SOURCE "AUTO")
+  endif()
 else()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE}")
 endif()
@@ -200,7 +219,9 @@ endif()
 file(STRINGS "${THIRDPARTY_DIR}/versions.txt" TOOLCHAIN_VERSIONS_TXT)
 foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   # Exclude comments
-  if(NOT _VERSION_ENTRY MATCHES "^[^#][A-Za-z0-9-_]+_VERSION=")
+  if(NOT
+     ((_VERSION_ENTRY MATCHES "^[^#][A-Za-z0-9-_]+_VERSION=")
+      OR (_VERSION_ENTRY MATCHES "^[^#][A-Za-z0-9-_]+_CHECKSUM=")))
     continue()
   endif()
 
@@ -344,10 +365,7 @@ endif()
 if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
-  set(
-    THRIFT_SOURCE_URL
-    "http://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
-    )
+  set(THRIFT_SOURCE_URL "FROM-APACHE-MIRROR")
 endif()
 
 if(DEFINED ENV{ARROW_URIPARSER_URL})
@@ -363,7 +381,7 @@ endif()
 if(DEFINED ENV{ARROW_ZLIB_URL})
   set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
 else()
-  set(ZLIB_SOURCE_URL "http://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
+  set(ZLIB_SOURCE_URL "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ZSTD_URL})
@@ -590,12 +608,25 @@ macro(build_uriparser)
 endmacro()
 
 if(ARROW_WITH_URIPARSER)
-  # Unless the user overrides uriparser_SOURCE, build uriparser ourselves
-  if("${uriparser_SOURCE}" STREQUAL "")
-    set(uriparser_SOURCE "BUNDLED")
+  set(ARROW_URIPARSER_REQUIRED_VERSION "0.9.0")
+  if(uriparser_SOURCE STREQUAL "AUTO")
+    # Debian does not ship cmake configs for uriparser
+    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
+    if(NOT uriparser_FOUND)
+      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION})
+    endif()
+    if(NOT uriparser_FOUND AND NOT uriparserAlt_FOUND)
+      build_uriparser()
+    endif()
+  elseif(uriparser_SOURCE STREQUAL "BUNDLED")
+    build_uriparser()
+  elseif(uriparser_SOURCE STREQUAL "SYSTEM")
+    # Debian does not ship cmake configs for uriparser
+    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
+    if(NOT uriparser_FOUND)
+      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION} REQUIRED)
+    endif()
   endif()
-
-  resolve_dependency(uriparser)
 
   get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -731,8 +762,25 @@ if(ARROW_WITH_BROTLI)
   include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
 endif()
 
-if(PARQUET_BUILD_ENCRYPTION OR ARROW_WITH_GRPC)
-  find_package(OpenSSL REQUIRED)
+set(ARROW_USE_OPENSSL OFF)
+if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
+  set(PARQUET_REQUIRE_ENCRYPTION OFF)
+endif()
+set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
+if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT)
+  # This must work
+  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  set(ARROW_USE_OPENSSL ON)
+elseif(ARROW_PARQUET)
+  # Enable Parquet encryption if OpenSSL is there, but don't fail if it's not
+  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} QUIET)
+  if(OPENSSL_FOUND)
+    set(ARROW_USE_OPENSSL ON)
+  endif()
+endif()
+
+if(ARROW_USE_OPENSSL)
+  message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
   # OpenSSL::SSL and OpenSSL::Crypto
   # are not available in older CMake versions (CMake < v3.2).
   if(NOT TARGET OpenSSL::SSL)
@@ -750,6 +798,11 @@ if(PARQUET_BUILD_ENCRYPTION OR ARROW_WITH_GRPC)
   endif()
 
   include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+else()
+  message(
+    STATUS
+      "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
+    )
 endif()
 
 # ----------------------------------------------------------------------
@@ -810,7 +863,11 @@ endif()
 # ----------------------------------------------------------------------
 # gflags
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_USE_GLOG OR ARROW_WITH_GRPC)
+if(ARROW_BUILD_TESTS
+   OR ARROW_BUILD_BENCHMARKS
+   OR ARROW_BUILD_INTEGRATION
+   OR ARROW_USE_GLOG
+   OR ARROW_WITH_GRPC)
   set(ARROW_NEED_GFLAGS 1)
 else()
   set(ARROW_NEED_GFLAGS 0)
@@ -855,6 +912,8 @@ macro(build_gflags)
                           PROPERTIES INTERFACE_LINK_LIBRARIES "shlwapi.lib")
   endif()
   set(GFLAGS_LIBRARIES ${GFLAGS_LIBRARY})
+
+  set(GFLAGS_VENDORED TRUE)
 endmacro()
 
 if(ARROW_NEED_GFLAGS)
@@ -992,11 +1051,24 @@ macro(build_thrift)
                           ${THRIFT_CMAKE_ARGS})
   endif()
 
+  if("${THRIFT_SOURCE_URL}" STREQUAL "FROM-APACHE-MIRROR")
+    get_apache_mirror()
+    set(THRIFT_SOURCE_URL
+        "${APACHE_MIRROR}/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz")
+  endif()
+
+  message("Downloading Apache Thrift from ${THRIFT_SOURCE_URL}")
+
   externalproject_add(thrift_ep
                       URL ${THRIFT_SOURCE_URL}
+                      URL_HASH "MD5=${THRIFT_MD5_CHECKSUM}"
                       BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}" "${THRIFT_COMPILER}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-                      DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
+                      DEPENDS ${THRIFT_DEPENDENCIES}
+                              # ARROW-5576 showing verbose logs until we know
+                              # what is wrong
+                              # ${EP_LOG_OPTIONS}
+                      )
 
   add_library(Thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
@@ -1202,45 +1274,55 @@ macro(build_gtest)
   set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix/src/googletest_ep")
   set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
+  set(_GTEST_RUNTIME_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
+
   if(MSVC)
     set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
     set(_GTEST_LIBRARY_SUFFIX
         "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    # Use the import libraries from the EP
+    set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
   else()
     set(_GTEST_IMPORTED_TYPE IMPORTED_LOCATION)
     set(_GTEST_LIBRARY_SUFFIX
         "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+
+    # Library and runtime same on non-Windows
+    set(_GTEST_LIBRARY_DIR "${_GTEST_RUNTIME_DIR}")
   endif()
 
   set(GTEST_SHARED_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_LIBRARY_SUFFIX}")
+      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_LIBRARY_SUFFIX}")
   set(GMOCK_SHARED_LIB
-      "${GTEST_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_LIBRARY_SUFFIX}")
+      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_LIBRARY_SUFFIX}")
   set(
     GTEST_MAIN_SHARED_LIB
-
-    "${GTEST_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_LIBRARY_SUFFIX}"
+    "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_LIBRARY_SUFFIX}"
     )
   set(GTEST_CMAKE_ARGS
       ${EP_COMMON_TOOLCHAIN}
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       "-DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}"
-      "-DCMAKE_INSTALL_LIBDIR=lib"
       -DBUILD_SHARED_LIBS=ON
       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS})
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
 
-  if(MSVC)
-    if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
-      set(_GTEST_LIBRARY_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
-    else()
-      set(_GTEST_LIBRARY_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_BUILD_TYPE})
-    endif()
+  if(APPLE)
+    set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} "-DCMAKE_MACOSX_RPATH:BOOL=ON")
+  endif()
 
+  if(MSVC)
+    if(NOT ("${CMAKE_GENERATOR}" STREQUAL "Ninja"))
+      set(_GTEST_RUNTIME_DIR ${_GTEST_RUNTIME_DIR}/${CMAKE_BUILD_TYPE})
+    endif()
     set(GTEST_CMAKE_ARGS
-        ${GTEST_CMAKE_ARGS} "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${_GTEST_LIBRARY_DIR}"
-        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_LIBRARY_DIR}")
+        ${GTEST_CMAKE_ARGS} "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${_GTEST_RUNTIME_DIR}"
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
+  else()
+    set(GTEST_CMAKE_ARGS
+        ${GTEST_CMAKE_ARGS} "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${_GTEST_RUNTIME_DIR}"
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE}=${_GTEST_RUNTIME_DIR}")
   endif()
 
   add_definitions(-DGTEST_LINKED_AS_SHARED_LIBRARY=1)
@@ -1278,7 +1360,7 @@ macro(build_gtest)
   add_dependencies(GTest::GMock googletest_ep)
 endmacro()
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   resolve_dependency(GTest)
 
   if(NOT GTEST_VENDORED)
@@ -1400,6 +1482,8 @@ macro(build_rapidjson)
 
   add_dependencies(toolchain rapidjson_ep)
   add_dependencies(rapidjson rapidjson_ep)
+
+  set(RAPIDJSON_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_RAPIDJSON)
@@ -1810,6 +1894,8 @@ macro(build_cares)
   set_target_properties(c-ares::cares
                         PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
+
+  set(CARES_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_GRPC)

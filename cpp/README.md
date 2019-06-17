@@ -24,8 +24,8 @@ as well as for the C++ libraries for Apache Parquet.
 
 ## Installation
 
-See http://arrow.apache.org/install/ for the latest instructions how to install
-pre-compiled binary versions of the library.
+See https://arrow.apache.org/install/ for the latest instructions how
+to install pre-compiled binary versions of the library.
 
 ## Source Builds and Development
 

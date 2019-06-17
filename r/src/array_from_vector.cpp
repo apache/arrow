@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
 
 namespace arrow {
 namespace r {
@@ -762,6 +763,13 @@ std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
 
 std::shared_ptr<arrow::DataType> InferType(SEXP x) {
   switch (TYPEOF(x)) {
+    case ENVSXP:
+      if (Rf_inherits(x, "arrow::Array")) {
+        Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>> array(
+            x);
+        return static_cast<std::shared_ptr<arrow::Array>>(array)->type();
+      }
+      break;
     case LGLSXP:
       return boolean();
     case INTSXP:
@@ -896,7 +904,7 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
       }
       return MakeSimpleArray<REALSXP, DoubleType>(x);
     case RAWSXP:
-      return MakeSimpleArray<RAWSXP, Int8Type>(x);
+      return MakeSimpleArray<RAWSXP, UInt8Type>(x);
     default:
       break;
   }
@@ -914,6 +922,11 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
 
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered) {
+  // short circuit if `x` is already an Array
+  if (Rf_inherits(x, "arrow::Array")) {
+    return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>>(x);
+  }
+
   // special case when we can just use the data from the R vector
   // directly. This still needs to handle the null bitmap
   if (arrow::r::can_reuse_memory(x, type)) {
@@ -955,12 +968,12 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 }  // namespace r
 }  // namespace arrow
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
   return arrow::r::InferType(x);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   // the type might be NULL, in which case we need to infer it from the data
   // we keep track of whether it was infered or supplied
@@ -975,7 +988,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
   return arrow::r::Array__from_vector(x, type, type_infered);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
                                                              SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
@@ -1016,3 +1029,5 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(Rcpp::List chunks,
 
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));
 }
+
+#endif

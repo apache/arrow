@@ -23,6 +23,8 @@ function t = featherread(filename)
 % specific language governing permissions and limitations
 % under the License.
 
+import mlarrow.util.*;
+
 % Validate input arguments.
 narginchk(1, 1);
 filename = convertStringsToChars(filename);
@@ -46,14 +48,19 @@ end
 % libarrow.
 [variables, metadata] = featherreadmex(filename);
 
-% Preallocate a cell array for the case in which
-% the table VariableDescriptions property needs to be modified.
-variableDescriptions = cell(1, numel(variables));
+% Make valid MATLAB table variable names out of any of the
+% Feather table column names that are not valid MATLAB table
+% variable names.
+[variableNames, variableDescriptions] = makeValidMATLABTableVariableNames({variables.Name});
 
-% Iterate over each table variable, handling null entries and invalid
-% variable names appropriately.
+% Iterate over each table variable, handling invalid (null) entries
+% and invalid MATLAB table variable names appropriately.
+% Note: All Arrow arrays can have an associated validity (null) bitmap.
+% The Apache Arrow specification defines 0 (false) to represent an
+% invalid (null) array entry and 1 (true) to represent a valid
+% (non-null) array entry.
 for ii = 1:length(variables)
-    if any(variables(ii).Nulls)
+    if ~all(variables(ii).Valid)
         switch variables(ii).Type
             case {'uint8', 'uint16', 'uint32', 'uint64', 'int8', 'int16', 'int32', 'int64'}
                 % MATLAB does not support missing values for integer types, so
@@ -61,31 +68,21 @@ for ii = 1:length(variables)
                 variables(ii).Data = double(variables(ii).Data);
         end
 
-        % Set null entries to the appropriate MATLAB missing value using
+        % Set invalid (null) entries to the appropriate MATLAB missing value using
         % logical indexing.
-        variables(ii).Data(variables(ii).Nulls) = missing;
-    end
-
-    % Store invalid variable names in the VariableDescriptons
-    % property, and convert any invalid variable names into valid variable
-    % names.
-    setVariableDescriptions = false;
-    if ~isvarname(variables(ii).Name)
-        variableDescriptions{ii} = sprintf('Original variable name: ''%s''', variables(ii).Name);
-        setVariableDescriptions = true;
-    else
-        variableDescriptions{ii} = '';
+        variables(ii).Data(~variables(ii).Valid) = missing;
     end
 end
 
 % Construct a MATLAB table from the Feather file data.
-t = table(variables.Data, 'VariableNames', matlab.lang.makeValidName({variables.Name}));
+t = table(variables.Data, 'VariableNames', cellstr(variableNames));
 
-% Store original variable names in the VariableDescriptions property
-% if they were modified to be valid MATLAB table variable names.
-if setVariableDescriptions
-    t.Properties.VariableDescriptions = variableDescriptions;
+% Store original Feather table column names in the table.Properties.VariableDescriptions
+% property if they were modified to be valid MATLAB table variable names.
+if ~isempty(variableDescriptions)
+    t.Properties.VariableDescriptions = cellstr(variableDescriptions);
 end
+
 % Set the Description property of the table based on the Feather file
 % description.
 t.Properties.Description = metadata.Description;

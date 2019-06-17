@@ -147,6 +147,18 @@ struct Type {
   };
 };
 
+struct ARROW_EXPORT DataTypeLayout {
+  // The bit width for each buffer in this DataType's representation
+  // (kVariableSizeBuffer if the item size for a given buffer is unknown or variable,
+  //  kAlwaysNullBuffer if the buffer is always null).
+  // Child types are not included, they should be inspected separately.
+  std::vector<int64_t> bit_widths;
+  bool has_dictionary;
+
+  static constexpr int64_t kAlwaysNullBuffer = 0;
+  static constexpr int64_t kVariableSizeBuffer = -1;
+};
+
 /// \brief Base class for all data types
 ///
 /// Data types in this library are all *logical*. They can be expressed as
@@ -186,6 +198,11 @@ class ARROW_EXPORT DataType {
   /// \note Experimental API
   /// \since 0.7.0
   virtual std::string name() const = 0;
+
+  /// \brief Return the data type layout.  Children are not included.
+  ///
+  /// \note Experimental API
+  virtual DataTypeLayout layout() const = 0;
 
   /// \brief Return the type category
   Type::type id() const { return id_; }
@@ -319,6 +336,8 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   int bit_width() const override { return static_cast<int>(sizeof(C_TYPE) * CHAR_BIT); }
 
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
+
   std::string ToString() const override { return this->name(); }
 };
 
@@ -338,6 +357,10 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 
   std::string ToString() const override;
 
+  DataTypeLayout layout() const override {
+    return {{DataTypeLayout::kAlwaysNullBuffer}, false};
+  }
+
   std::string name() const override { return "null"; }
 };
 
@@ -349,6 +372,8 @@ class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
   BooleanType() : FixedWidthType(Type::BOOL) {}
 
   std::string ToString() const override;
+
+  DataTypeLayout layout() const override { return {{1, 1}, false}; }
 
   int bit_width() const override { return 1; }
   std::string name() const override { return "bool"; }
@@ -456,9 +481,39 @@ class ARROW_EXPORT ListType : public NestedType {
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(int32_t)}, false};
+  }
+
   std::string ToString() const override;
 
   std::string name() const override { return "list"; }
+};
+
+/// \brief Concrete type class for map data
+///
+/// Map data is nested data where each value is a variable number of
+/// key-item pairs.  Maps can be recursively nested, for example
+/// map(utf8, map(utf8, int32)).
+class ARROW_EXPORT MapType : public ListType {
+ public:
+  static constexpr Type::type type_id = Type::MAP;
+
+  MapType(const std::shared_ptr<DataType>& key_type,
+          const std::shared_ptr<DataType>& item_type, bool keys_sorted = false);
+
+  std::shared_ptr<DataType> key_type() const { return value_type()->child(0)->type(); }
+
+  std::shared_ptr<DataType> item_type() const { return value_type()->child(1)->type(); }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "map"; }
+
+  bool keys_sorted() const { return keys_sorted_; }
+
+ private:
+  bool keys_sorted_;
 };
 
 /// \brief Concrete type class for fixed size list data
@@ -467,18 +522,19 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
   static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
 
   // List can contain any other logical value type
-  explicit FixedSizeListType(const std::shared_ptr<DataType>& value_type,
-                             int32_t list_size)
+  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
       : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
 
-  explicit FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
-      : NestedType(Type::FIXED_SIZE_LIST), list_size_(list_size) {
+  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+      : NestedType(type_id), list_size_(list_size) {
     children_ = {value_field};
   }
 
   std::shared_ptr<Field> value_field() const { return children_[0]; }
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+
+  DataTypeLayout layout() const override { return {{1}, false}; }
 
   std::string ToString() const override;
 
@@ -496,6 +552,10 @@ class ARROW_EXPORT BinaryType : public DataType, public NoExtraMeta {
   static constexpr Type::type type_id = Type::BINARY;
 
   BinaryType() : BinaryType(Type::BINARY) {}
+
+  DataTypeLayout layout() const override {
+    return {{1, CHAR_BIT * sizeof(int32_t), DataTypeLayout::kVariableSizeBuffer}, false};
+  }
 
   std::string ToString() const override;
   std::string name() const override { return "binary"; }
@@ -517,6 +577,8 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
 
   std::string ToString() const override;
   std::string name() const override { return "fixed_size_binary"; }
+
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
 
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
@@ -544,6 +606,8 @@ class ARROW_EXPORT StructType : public NestedType {
   explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
 
   ~StructType() override;
+
+  DataTypeLayout layout() const override { return {{1}, false}; }
 
   std::string ToString() const override;
   std::string name() const override { return "struct"; }
@@ -612,6 +676,8 @@ class ARROW_EXPORT UnionType : public NestedType {
             const std::vector<uint8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
+  DataTypeLayout layout() const override;
+
   std::string ToString() const override;
   std::string name() const override { return "union"; }
 
@@ -637,6 +703,8 @@ enum class DateUnit : char { DAY = 0, MILLI = 1 };
 class ARROW_EXPORT TemporalType : public FixedWidthType {
  public:
   using FixedWidthType::FixedWidthType;
+
+  DataTypeLayout layout() const override { return {{1, bit_width()}, false}; }
 };
 
 /// \brief Base type class for date data
@@ -701,6 +769,8 @@ class ARROW_EXPORT TimeType : public TemporalType, public ParametricType {
   TimeUnit::type unit_;
 };
 
+/// Concrete type class for 32-bit time data (as number of seconds or milliseconds
+/// since midnight)
 class ARROW_EXPORT Time32Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME32;
@@ -715,6 +785,8 @@ class ARROW_EXPORT Time32Type : public TimeType {
   std::string name() const override { return "time32"; }
 };
 
+/// Concrete type class for 64-bit time data (as number of microseconds or nanoseconds
+/// since midnight)
 class ARROW_EXPORT Time64Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME64;
@@ -729,6 +801,38 @@ class ARROW_EXPORT Time64Type : public TimeType {
   std::string name() const override { return "time64"; }
 };
 
+/// \brief Concrete type class for datetime data (as number of seconds, milliseconds,
+/// microseconds or nanoseconds since UNIX epoch)
+///
+/// If supplied, the timezone string should take either the form (i) "Area/Location",
+/// with values drawn from the names in the IANA Time Zone Database (such as
+/// "Europe/Zurich"); or (ii) "(+|-)HH:MM" indicating an absolute offset from GMT
+/// (such as "-08:00").  To indicate a native UTC timestamp, one of the strings "UTC",
+/// "Etc/UTC" or "+00:00" should be used.
+///
+/// If any non-empty string is supplied as the timezone for a TimestampType, then the
+/// Arrow field containing that timestamp type (and by extension the column associated
+/// with such a field) is considered "timezone-aware".  The integer arrays that comprise
+/// a timezone-aware column must contain UTC normalized datetime values, regardless of
+/// the contents of their timezone string.  More precisely, (i) the producer of a
+/// timezone-aware column must populate its constituent arrays with valid UTC values
+/// (performing offset conversions from non-UTC values if necessary); and (ii) the
+/// consumer of a timezone-aware column may assume that the column's values are directly
+/// comparable (that is, with no offset adjustment required) to the values of any other
+/// timezone-aware column or to any other valid UTC datetime value (provided all values
+/// are expressed in the same units).
+///
+/// If a TimestampType is constructed without a timezone (or, equivalently, if the
+/// timezone supplied is an empty string) then the resulting Arrow field (column) is
+/// considered "timezone-naive".  The producer of a timezone-naive column may populate
+/// its constituent integer arrays with datetime values from any timezone; the consumer
+/// of a timezone-naive column should make no assumptions about the interoperability or
+/// comparability of the values of such a column with those of any other timestamp
+/// column or datetime value.
+///
+/// If a timezone-aware field contains a recognized timezone, its values may be
+/// localized to that locale upon display; the values of timezone-naive fields must
+/// always be displayed "as is", with no localization performed on them.
 class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
@@ -849,6 +953,8 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
   std::string name() const override { return "dictionary"; }
 
   int bit_width() const override;
+
+  DataTypeLayout layout() const override;
 
   std::shared_ptr<DataType> index_type() const { return index_type_; }
   std::shared_ptr<DataType> value_type() const { return value_type_; }
@@ -981,6 +1087,12 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a MapType instance from its key and value DataTypes
+ARROW_EXPORT
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<DataType>& value_type,
+                              bool keys_sorted = false);
 
 /// \brief Create a FixedSizeListType instance from its child Field type
 ARROW_EXPORT

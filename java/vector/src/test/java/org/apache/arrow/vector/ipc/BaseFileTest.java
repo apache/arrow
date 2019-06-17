@@ -19,6 +19,7 @@ package org.apache.arrow.vector.ipc;
 
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
@@ -35,6 +36,7 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Collections2;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
@@ -48,9 +50,12 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.complex.impl.UnionMapReader;
+import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
@@ -75,6 +80,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.Text;
 import org.junit.After;
 import org.junit.Assert;
@@ -682,5 +688,143 @@ public class BaseFileTest {
     assertTrue(vector.isNull(0));
     assertEquals(vector.get(1), 1);
     assertEquals(vector.get(2), 2);
+  }
+
+  protected VectorSchemaRoot writeMapData(BufferAllocator bufferAllocator) {
+    MapVector mapVector = MapVector.empty("map", bufferAllocator, false);
+    MapVector sortedMapVector = MapVector.empty("mapSorted", bufferAllocator, true);
+    mapVector.allocateNew();
+    sortedMapVector.allocateNew();
+    UnionMapWriter mapWriter = mapVector.getWriter();
+    UnionMapWriter sortedMapWriter = sortedMapVector.getWriter();
+
+    final int count = 10;
+    for (int i = 0; i < count; i++) {
+      // Write mapVector with NULL values
+      // i == 1 is a NULL
+      if (i != 1) {
+        mapWriter.setPosition(i);
+        mapWriter.startMap();
+        // i == 3 is an empty map
+        if (i != 3) {
+          for (int j = 0; j < i + 1; j++) {
+            mapWriter.startEntry();
+            mapWriter.key().bigInt().writeBigInt(j);
+            // i == 5 maps to a NULL value
+            if (i != 5) {
+              mapWriter.value().integer().writeInt(j);
+            }
+            mapWriter.endEntry();
+          }
+        }
+        mapWriter.endMap();
+      }
+      // Write sortedMapVector
+      sortedMapWriter.setPosition(i);
+      sortedMapWriter.startMap();
+      for (int j = 0; j < i + 1; j++) {
+        sortedMapWriter.startEntry();
+        sortedMapWriter.key().bigInt().writeBigInt(j);
+        sortedMapWriter.value().integer().writeInt(j);
+        sortedMapWriter.endEntry();
+      }
+      sortedMapWriter.endMap();
+    }
+    mapWriter.setValueCount(COUNT);
+    sortedMapWriter.setValueCount(COUNT);
+
+    List<Field> fields = Collections2.asImmutableList(mapVector.getField(), sortedMapVector.getField());
+    List<FieldVector> vectors = Collections2.asImmutableList(mapVector, sortedMapVector);
+    return new VectorSchemaRoot(fields, vectors, count);
+  }
+
+  protected void validateMapData(VectorSchemaRoot root) {
+    MapVector mapVector = (MapVector) root.getVector("map");
+    MapVector sortedMapVector = (MapVector) root.getVector("mapSorted");
+
+    final int count = 10;
+    Assert.assertEquals(count, root.getRowCount());
+
+    UnionMapReader mapReader = new UnionMapReader(mapVector);
+    UnionMapReader sortedMapReader = new UnionMapReader(sortedMapVector);
+    for (int i = 0; i < count; i++) {
+      // Read mapVector with NULL values
+      mapReader.setPosition(i);
+      if (i == 1) {
+        assertFalse(mapReader.isSet());
+      } else {
+        if (i == 3) {
+          JsonStringArrayList<?> result = (JsonStringArrayList<?>) mapReader.readObject();
+          assertTrue(result.isEmpty());
+        } else {
+          for (int j = 0; j < i + 1; j++) {
+            mapReader.next();
+            assertEquals(j, mapReader.key().readLong().longValue());
+            if (i == 5) {
+              assertFalse(mapReader.value().isSet());
+            } else {
+              assertEquals(j, mapReader.value().readInteger().intValue());
+            }
+          }
+        }
+      }
+      // Read sortedMapVector
+      sortedMapReader.setPosition(i);
+      for (int j = 0; j < i + 1; j++) {
+        sortedMapReader.next();
+        assertEquals(j, sortedMapReader.key().readLong().longValue());
+        assertEquals(j, sortedMapReader.value().readInteger().intValue());
+      }
+    }
+  }
+
+  protected VectorSchemaRoot writeListAsMapData(BufferAllocator bufferAllocator) {
+    ListVector mapEntryList = ListVector.empty("entryList", bufferAllocator);
+    FieldType mapEntryType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
+    StructVector mapEntryData = new StructVector("entryData", bufferAllocator, mapEntryType, null);
+    mapEntryData.addOrGet("myKey", new FieldType(false, new ArrowType.Int(64, true), null), BigIntVector.class);
+    mapEntryData.addOrGet("myValue", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+    mapEntryList.initializeChildrenFromFields(Collections2.asImmutableList(mapEntryData.getField()));
+    UnionListWriter entryWriter = mapEntryList.getWriter();
+    entryWriter.allocate();
+
+    final int count = 10;
+    for (int i = 0; i < count; i++) {
+      entryWriter.setPosition(i);
+      entryWriter.startList();
+      for (int j = 0; j < i + 1; j++) {
+        entryWriter.struct().start();
+        entryWriter.struct().bigInt("myKey").writeBigInt(j);
+        entryWriter.struct().integer("myValue").writeInt(j);
+        entryWriter.struct().end();
+      }
+      entryWriter.endList();
+    }
+    entryWriter.setValueCount(COUNT);
+
+    MapVector mapVector = MapVector.empty("map", bufferAllocator, false);
+    mapEntryList.makeTransferPair(mapVector).transfer();
+
+    List<Field> fields = Collections2.asImmutableList(mapVector.getField());
+    List<FieldVector> vectors = Collections2.asImmutableList(mapVector);
+    return new VectorSchemaRoot(fields, vectors, count);
+  }
+
+  protected void validateListAsMapData(VectorSchemaRoot root) {
+    MapVector sortedMapVector = (MapVector) root.getVector("map");
+
+    final int count = 10;
+    Assert.assertEquals(count, root.getRowCount());
+
+    UnionMapReader sortedMapReader = new UnionMapReader(sortedMapVector);
+    sortedMapReader.setKeyValueNames("myKey", "myValue");
+    for (int i = 0; i < count; i++) {
+      sortedMapReader.setPosition(i);
+      for (int j = 0; j < i + 1; j++) {
+        sortedMapReader.next();
+        assertEquals(j, sortedMapReader.key().readLong().longValue());
+        assertEquals(j, sortedMapReader.value().readInteger().intValue());
+      }
+    }
   }
 }

@@ -24,7 +24,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor.DescriptorType;
 import org.apache.arrow.flight.impl.Flight.PutResult;

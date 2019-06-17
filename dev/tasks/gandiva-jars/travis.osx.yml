@@ -33,8 +33,10 @@ env:
     - ARROW_TRAVIS_GANDIVA=1
 
 before_script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout {{ arrow.head }}
+
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
   - brew update
   - brew upgrade cmake

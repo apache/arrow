@@ -50,7 +50,7 @@ func TestLsStream(t *testing.T) {
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
-metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
+  metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
@@ -99,6 +99,14 @@ records: 3
     - timestamp: type=timestamp[ns], nullable
     - date32s: type=date32, nullable
     - date64s: type=date64, nullable
+records: 3
+`,
+		},
+		{
+			name: "fixed_size_binaries",
+			want: `schema:
+  fields: 1
+    - fixed_size_binary_3: type=fixed_size_binary[3], nullable
 records: 3
 `,
 		},
@@ -179,7 +187,7 @@ func TestLsFile(t *testing.T) {
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
-metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
+  metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
@@ -199,7 +207,7 @@ schema:
     - uint64s: type=uint64, nullable
     - float32s: type=float32, nullable
     - float64s: type=float64, nullable
-metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
+  metadata: ["k1": "v1", "k2": "v2", "k3": "v3"]
 records: 3
 `,
 		},
@@ -237,6 +245,24 @@ schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
 records: 4
+`,
+		},
+		{
+			stream: true,
+			name:   "fixed_size_binaries",
+			want: `schema:
+  fields: 1
+    - fixed_size_binary_3: type=fixed_size_binary[3], nullable
+records: 3
+`,
+		},
+		{
+			name: "fixed_size_binaries",
+			want: `version: V4
+schema:
+  fields: 1
+    - fixed_size_binary_3: type=fixed_size_binary[3], nullable
+records: 3
 `,
 		},
 	} {

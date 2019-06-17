@@ -95,6 +95,8 @@ dev/tasks/linux-packages/debian/libarrow-cuda-dev.install
 dev/tasks/linux-packages/debian/libarrow-cuda-glib-dev.install
 dev/tasks/linux-packages/debian/libarrow-cuda-glib14.install
 dev/tasks/linux-packages/debian/libarrow-cuda14.install
+dev/tasks/linux-packages/debian/libarrow-flight-dev.install
+dev/tasks/linux-packages/debian/libarrow-flight14.install
 dev/tasks/linux-packages/debian/libarrow-python-dev.install
 dev/tasks/linux-packages/debian/libarrow-python14.install
 dev/tasks/linux-packages/debian/libarrow14.install
@@ -134,6 +136,7 @@ go/*.tmpldata
 go/*.s
 js/.npmignore
 js/closure-compiler-scripts/*
+js/src/fb/*.ts
 python/cmake_modules/FindPythonLibsNew.cmake
 python/cmake_modules/SnappyCMakeLists.txt
 python/cmake_modules/SnappyConfig.h
@@ -192,8 +195,8 @@ csharp/test/Directory.Build.props
 *.svg
 *.devhelp2
 *.scss
-r/R/RcppExports.R
-r/src/RcppExports.cpp
+r/R/arrowExports.R
+r/src/arrowExports.cpp
 r/DESCRIPTION
 r/LICENSE.md
 r/NAMESPACE

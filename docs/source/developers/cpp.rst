@@ -355,8 +355,6 @@ This project follows `Google's C++ Style Guide
 <https://google.github.io/styleguide/cppguide.html>`_ with minor exceptions:
 
 * We relax the line length restriction to 90 characters.
-* We use doxygen style comments ("///") in header files for comments that we
-  wish to show up in API documentation
 * We use the ``NULLPTR`` macro in header files (instead of ``nullptr``) defined
   in ``src/arrow/util/macros.h`` to support building C++/CLI (ARROW-1134)
 
@@ -368,7 +366,10 @@ codebase is subjected to a number of code style and code cleanliness checks.
 In order to have a passing CI build, your modified git branch must pass the
 following checks:
 
-* C++ builds without compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``
+* C++ builds with the project's active version of ``clang`` without
+  compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``. Note that
+  there are classes of warnings (such as `-Wdocumentation`, see more
+  on this below) that are not caught by `gcc`.
 * C++ unit test suite with valgrind enabled, use ``-DARROW_TEST_MEMCHECK=ON``
   when invoking CMake
 * Passes cpplint checks, checked with ``make lint``
@@ -399,6 +400,31 @@ target that is executable from the root of the repository:
 
 See :ref:`integration` for more information about the project's
 ``docker-compose`` configuration.
+
+API Documentation
+~~~~~~~~~~~~~~~~~
+
+We use Doxygen style comments (``///``) in header files for comments
+that we wish to show up in API documentation for classes and
+functions.
+
+When using ``clang`` and building with
+``-DBUILD_WARNING_LEVEL=CHECKIN``, the ``-Wdocumentation`` flag is
+used which checks for some common documnetation inconsistencies, like
+documenting some, but not all function parameters with ``\param``. See
+the `LLVM documentation warnings section
+<https://releases.llvm.org/7.0.1/tools/clang/docs/DiagnosticsReference.html#wdocumentation>`_
+for more about this.
+
+While we publish the API documentation as part of the main Sphinx-based
+documentation site, you can also build the C++ API documentation anytime using
+Doxygen. Run the following command from the ``cpp/apidoc`` directory:
+
+.. code-block:: shell
+
+   doxygen Doxyfile
+
+This requires `Doxygen <https://www.doxygen.org>`_ to be installed.
 
 Modular Build Targets
 ~~~~~~~~~~~~~~~~~~~~~
@@ -431,19 +457,6 @@ Parquet libraries, its tests, and its dependencies, you can run:
 
 If you omit an explicit target when invoking ``make``, all targets will be
 built.
-
-Building API Documentation
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-While we publish the API documentation as part of the main Sphinx-based
-documentation site, you can also build the C++ API documentation anytime using
-Doxygen. Run the following command from the ``cpp/apidoc`` directory:
-
-.. code-block:: shell
-
-   doxygen Doxyfile
-
-This requires `Doxygen <https://www.doxygen.org>`_ to be installed.
 
 Benchmarking
 ~~~~~~~~~~~~
@@ -489,7 +502,10 @@ work). You can build them using the following code:
 
 .. code-block:: shell
 
-   cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON ..
+   export CC=clang
+   export CXX=clang++
+   cmake -DARROW_FUZZING=ON -DARROW_USE_ASAN=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+   make
 
 ``ARROW_FUZZING`` will enable building of fuzzer executables as well as enable the
 addition of coverage helpers via ``ARROW_USE_COVERAGE``, so that the fuzzer can observe
@@ -501,16 +517,40 @@ provoked by the fuzzer will be found early. You may also enable other sanitizers
 well. Just keep in mind that some of them do not work together and some may result
 in very long execution times, which will slow down the fuzzing procedure.
 
+We use the ``RelWithDebInfo`` build type which is optimized ``Release`` but contains
+debug information. Just using ``Debug`` would be too slow to get proper fuzzing
+results and ``Release`` would make it impossible to get proper tracebacks. Also, some
+bugs might (but hopefully are not) be specific to the release build due to
+misoptimization.
+
 Now you can start one of the fuzzer, e.g.:
 
 .. code-block:: shell
 
-   ./debug/debug/ipc-fuzzing-test
+   ./relwithdebinfo/arrow-ipc-fuzzing-test corpus
 
-This will try to find a malformed input that crashes the payload and will show the
-stack trace as well as the input data. After a problem was found this way, it should
-be reported and fixed. Usually, the fuzzing process cannot be continued until the
-fix is applied, since the fuzzer usually converts to the problem again.
+This will try to find a malformed input that crashes the payload. A corpus of
+interesting inputs will be stored into the ``corpus`` directory. You can save and
+share this with others if you want, or even pre-fill it with files to provide the
+fuzzer with a warm-start. Apache provides a test corpus under
+https://github.com/apache/arrow-testing. If a crash was found, the program will
+show the stack trace as well as the input data. The input data will also be written
+to a file named ``crash-<some id>``. After a problem was found this way, it should be
+reported and fixed. Usually, the fuzzing process cannot be continued until the fix is
+applied, since the fuzzer usually converts to the problem again. To debug the
+underlying issue, you can use GDB:
+
+.. code-block:: shell
+
+   env ASAN_OPTIONS=abort_on_error=1 gdb -ex r --args ./relwithdebinfo/arrow-ipc-fuzzing-test crash-<some id>
+
+For more options, use:
+
+.. code-block:: shell
+
+   ./relwithdebinfo/arrow-ipc-fuzzing-test -help=1
+
+or visit the `libFuzzer documentation <https://llvm.org/docs/LibFuzzer.html>`_.
 
 If you build fuzzers with ASAN, you need to set the ``ASAN_SYMBOLIZER_PATH``
 environment variable to the absolute path of ``llvm-symbolizer``, which is a tool

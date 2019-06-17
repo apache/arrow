@@ -33,6 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int-util.h"
 #include "arrow/util/string.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visitor_inline.h"
@@ -151,7 +152,8 @@ class ArrayPrinter : public PrettyPrinter {
                                  Status>::type
   WriteDataValues(const T& array) {
     const auto data = array.raw_values();
-    WriteValues(array, [&](int64_t i) { (*sink_) << static_cast<int64_t>(data[i]); });
+    // Need to upcast integers to avoid selecting operator<<(char)
+    WriteValues(array, [&](int64_t i) { (*sink_) << internal::UpcastInt(data[i]); });
     return Status::OK();
   }
 
@@ -269,6 +271,40 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
+  Status WriteDataValues(const MapArray& array) {
+    bool skip_comma = true;
+    for (int64_t i = 0; i < array.length(); ++i) {
+      if (skip_comma) {
+        skip_comma = false;
+      } else {
+        (*sink_) << ",\n";
+      }
+      if ((i >= window_) && (i < (array.length() - window_))) {
+        Indent();
+        (*sink_) << "...\n";
+        i = array.length() - window_ - 1;
+        skip_comma = true;
+      } else if (array.IsNull(i)) {
+        Indent();
+        (*sink_) << null_rep_;
+      } else {
+        Indent();
+        (*sink_) << "keys:\n";
+        auto keys_slice =
+            array.keys()->Slice(array.value_offset(i), array.value_length(i));
+        RETURN_NOT_OK(PrettyPrint(*keys_slice, {indent_, window_}, sink_));
+        (*sink_) << "\n";
+        Indent();
+        (*sink_) << "values:\n";
+        auto values_slice =
+            array.items()->Slice(array.value_offset(i), array.value_length(i));
+        RETURN_NOT_OK(PrettyPrint(*values_slice, {indent_, window_}, sink_));
+      }
+    }
+    (*sink_) << "\n";
+    return Status::OK();
+  }
+
   Status Visit(const NullArray& array) {
     (*sink_) << array.length() << " nulls";
     return Status::OK();
@@ -279,6 +315,7 @@ class ArrayPrinter : public PrettyPrinter {
                               std::is_base_of<FixedSizeBinaryArray, T>::value ||
                               std::is_base_of<BinaryArray, T>::value ||
                               std::is_base_of<ListArray, T>::value ||
+                              std::is_base_of<MapArray, T>::value ||
                               std::is_base_of<FixedSizeListArray, T>::value,
                           Status>::type
   Visit(const T& array) {

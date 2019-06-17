@@ -64,14 +64,17 @@
 #' @param metadata currently ignored
 #'
 #' @examples
-#' field("x", int32())
+#'
+#' \dontrun{
+#'    field("x", int32())
+#' }
 #'
 #' @export
 field <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)
   assert_that(inherits(type, "arrow::DataType"))
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
-  shared_ptr(`arrow::Field`, Field__initialize(name, type))
+  shared_ptr(`arrow::Field`, Field__initialize(name, type, TRUE))
 }
 
 .fields <- function(.list){

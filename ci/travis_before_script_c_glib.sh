@@ -21,17 +21,14 @@ set -ex
 
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
-
-conda create -n meson -y -q python=3.6
-conda activate meson
-
-pip install meson
-
 if [ $TRAVIS_OS_NAME = "osx" ]; then
   export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/libffi/lib/pkgconfig
   export XML_CATALOG_FILES=/usr/local/etc/xml/catalog
 else
+  source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
+  conda create -n meson -y -q python=3.6
+  conda activate meson
+  pip install meson
   sudo apt-get install -y -q \
     autoconf-archive \
     gtk-doc-tools \

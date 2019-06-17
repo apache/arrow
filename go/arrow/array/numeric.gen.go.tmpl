@@ -69,4 +69,17 @@ func (a *{{.Name}}) setData(data *Data) {
 		a.values = a.values[beg:end]
 	}
 }
+
+func arrayEqual{{.Name}}(left, right *{{.Name}}) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 {{end}}

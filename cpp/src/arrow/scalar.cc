@@ -69,6 +69,15 @@ ListScalar::ListScalar(const std::shared_ptr<Array>& value,
 ListScalar::ListScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : ListScalar(value, value->type(), is_valid) {}
 
+MapScalar::MapScalar(const std::shared_ptr<Array>& keys,
+                     const std::shared_ptr<Array>& items,
+                     const std::shared_ptr<DataType>& type, bool is_valid)
+    : Scalar{type, is_valid}, keys(keys), items(items) {}
+
+MapScalar::MapScalar(const std::shared_ptr<Array>& keys,
+                     const std::shared_ptr<Array>& values, bool is_valid)
+    : MapScalar(keys, values, map(keys->type(), values->type()), is_valid) {}
+
 FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
                                          const std::shared_ptr<DataType>& type,
                                          bool is_valid)

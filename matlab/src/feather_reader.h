@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef MLARROW_FEATHER_READER_H
-#define MLARROW_FEATHER_READER_H
+#ifndef ARROW_MATLAB_FEATHER_READER_H
+#define ARROW_MATLAB_FEATHER_READER_H
 
 #include <memory>
 #include <string>
@@ -27,45 +27,53 @@
 
 #include <matrix.h>
 
-namespace mlarrow {
+namespace arrow {
+namespace matlab {
 
 class FeatherReader {
  public:
   ~FeatherReader() = default;
 
-  /// \brief Read the table metadata as a mxArray* struct from the given Feather file.
-  ///        The returned struct includes fields describing the number of rows
-  ///        in the table (NumRows), the number of variables (NumVariables), the
-  ///        Feather file version (Version), and the table description (Description).
-  ///        Callers are responsible for freeing the returned mxArray memory
+  /// \brief Read the table metadata as an mxArray* struct from the given
+  ///        Feather file.
+  ///        The returned mxArray* struct contains the following fields:
+  ///         - "Description"  :: Nx1 mxChar array, table-level description
+  ///         - "NumRows"      :: scalar mxDouble array, number of rows in the
+  ///                             table
+  ///         - "NumVariables" :: scalar mxDouble array, number of variables in
+  ///                             the table
+  ///        Clients are responsible for freeing the returned mxArray memory
   ///        when it is no longer needed, or passing it to MATLAB to be managed.
   /// \return metadata mxArray* scalar struct containing table level metadata
   mxArray* ReadMetadata() const;
 
-  /// \brief Read the table metadata as a mxArray* struct array from the given
-  ///        Feather file. Each struct includes fields for variable data (Data),
-  ///        null values (Nulls), variable name (Name), and original Feather
-  ///        datatype (Type). Callers are responsible for freeing the returned
-  ///        mxArray memory when it is no longer needed, or passing it to MATLAB
-  ///        to be managed.
+  /// \brief Read the table variable data as an mxArray* struct array from the
+  ///        given Feather file.
+  ///        The returned mxArray* struct array has the following fields:
+  ///         - "Name"  :: Nx1 mxChar array, name of the variable
+  ///         - "Type"  :: Nx1 mxChar array, the variable's Arrow datatype
+  ///         - "Data"  :: Nx1 mxArray, data for the variable
+  ///         - "Valid" :: Nx1 mxLogical array, validity (null) bitmap
+  ///        Clients are responsible for freeing the returned mxArray memory
+  ///        when it is no longer needed, or passing it to MATLAB to be managed.
   /// \return variables mxArray* struct array containing table variable data
   mxArray* ReadVariables() const;
 
   /// \brief Initialize a FeatherReader object from a given Feather file.
   /// \param[in] filename path to a Feather file
   /// \param[out] feather_reader uninitialized FeatherReader object
-  static arrow::Status Open(const std::string& filename,
-                            std::shared_ptr<FeatherReader>* feather_reader);
+  static Status Open(const std::string& filename,
+                     std::shared_ptr<FeatherReader>* feather_reader);
 
  private:
   FeatherReader() = default;
-  std::unique_ptr<arrow::ipc::feather::TableReader> table_reader_;
+  std::unique_ptr<ipc::feather::TableReader> table_reader_;
   int64_t num_rows_;
   int64_t num_variables_;
   std::string description_;
-  int version_;
 };
 
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow
 
-#endif  // MLARROW_FEATHER_READER_H
+#endif  // ARROW_MATLAB_FEATHER_READER_H

@@ -20,6 +20,11 @@ add_custom_target(arrow_flight)
 # Header files
 arrow_install_all_headers("arrow/flight")
 
+# pkg-config support
+configure_file(arrow-flight.pc.in "${CMAKE_CURRENT_BINARY_DIR}/arrow-flight.pc" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-flight.pc"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
     protobuf::libprotobuf
     gRPC::grpc++
@@ -106,7 +111,7 @@ foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
 endforeach()
 
 # Define arrow_flight_testing library
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   add_arrow_lib(arrow_flight_testing
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
@@ -146,6 +151,14 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES} GTest::GTest)
 
+  if(ARROW_BUILD_TESTS)
+    add_dependencies(arrow-flight-test flight-test-server)
+  endif()
+
+  add_dependencies(arrow_flight flight-test-server)
+endif()
+
+if(ARROW_BUILD_INTEGRATION)
   add_executable(flight-test-integration-server test-integration-server.cc)
   target_link_libraries(flight-test-integration-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES} GTest::GTest)
@@ -154,12 +167,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES} GTest::GTest)
 
-  # This is needed for the unit tests
-  if(ARROW_BUILD_TESTS)
-    add_dependencies(arrow-flight-test flight-test-server)
-  endif()
-
-  add_dependencies(arrow_flight flight-test-server flight-test-integration-client
+  add_dependencies(arrow_flight flight-test-integration-client
+                   flight-test-integration-server)
+  add_dependencies(arrow-integration flight-test-integration-client
                    flight-test-integration-server)
 endif()
 

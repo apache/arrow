@@ -166,25 +166,21 @@ class JiraIssue(object):
                     default_fix_versions = [x for x in default_fix_versions
                                             if x != v]
 
-        return unreleased_versions, default_fix_versions
+        return all_versions, default_fix_versions
 
     def resolve(self, fix_versions, comment):
-        cur_status = self.issue.fields.status.name
-        cur_summary = self.issue.fields.summary
-        cur_assignee = self.issue.fields.assignee
-        if cur_assignee is None:
-            cur_assignee = "NOT ASSIGNED!!!"
-        else:
-            cur_assignee = cur_assignee.displayName
+        fields = self.issue.fields
+        cur_status = fields.status.name
 
         if cur_status == "Resolved" or cur_status == "Closed":
             self.cmd.fail("JIRA issue %s already has status '%s'"
                           % (self.jira_id, cur_status))
-        print("=== JIRA %s ===" % self.jira_id)
-        print("summary\t\t%s\nassignee\t%s\nstatus\t\t%s\nurl\t\t%s/%s\n"
-              % (cur_summary, cur_assignee, cur_status,
-                 '/'.join((JIRA_API_BASE, 'browse')),
-                 self.jira_id))
+
+        console_output = format_resolved_issue_status(self.jira_id, cur_status,
+                                                      fields.summary,
+                                                      fields.assignee,
+                                                      fields.components)
+        print(console_output)
 
         resolve = [x for x in self.jira_con.transitions(self.jira_id)
                    if x['name'] == "Resolve Issue"][0]
@@ -193,6 +189,28 @@ class JiraIssue(object):
                                        fixVersions=fix_versions)
 
         print("Successfully resolved %s!" % (self.jira_id))
+
+
+def format_resolved_issue_status(jira_id, status, summary, assignee,
+                                 components):
+    if assignee is None:
+        assignee = "NOT ASSIGNED!!!"
+    else:
+        assignee = assignee.displayName
+
+    if len(components) == 0:
+        components = 'NO COMPONENTS!!!'
+    else:
+        components = ', '.join((x.name for x in components))
+
+    return """=== JIRA {} ===
+Summary\t\t{}
+Assignee\t{}
+Components\t{}
+Status\t\t{}
+URL\t\t{}/{}""".format(jira_id, summary, assignee, components, status,
+                       '/'.join((JIRA_API_BASE, 'browse')),
+                       jira_id)
 
 
 class GitHubAPI(object):
@@ -376,15 +394,26 @@ class PullRequest(object):
         return merge_hash
 
 
-def cli():
-    # Location of your Arrow git clone
-    ARROW_HOME = os.path.abspath(os.path.dirname(__file__))
-    PROJECT_NAME = os.environ.get('ARROW_PROJECT_NAME') or 'arrow'
-    print("ARROW_HOME = " + ARROW_HOME)
-    print("PROJECT_NAME = " + PROJECT_NAME)
+def prompt_for_fix_version(cmd, jira_issue):
+    (all_versions,
+     default_fix_versions) = jira_issue.get_candidate_fix_versions()
 
-    cmd = CommandInput()
+    default_fix_versions = ",".join(default_fix_versions)
 
+    issue_fix_versions = cmd.prompt("Enter comma-separated "
+                                    "fix version(s) [%s]: "
+                                    % default_fix_versions)
+    if issue_fix_versions == "":
+        issue_fix_versions = default_fix_versions
+    issue_fix_versions = issue_fix_versions.replace(" ", "").split(",")
+
+    def get_version_json(version_str):
+        return [x for x in all_versions if x.name == version_str][0].raw
+
+    return [get_version_json(v) for v in issue_fix_versions]
+
+
+def connect_jira(cmd):
     # ASF JIRA username
     jira_username = os.environ.get("JIRA_USERNAME")
 
@@ -400,6 +429,19 @@ def cli():
                                     "please enter "
                                     "your JIRA password:")
 
+    return jira.client.JIRA({'server': JIRA_API_BASE},
+                            basic_auth=(jira_username, jira_password))
+
+
+def cli():
+    # Location of your Arrow git clone
+    ARROW_HOME = os.path.abspath(os.path.dirname(__file__))
+    PROJECT_NAME = os.environ.get('ARROW_PROJECT_NAME') or 'arrow'
+    print("ARROW_HOME = " + ARROW_HOME)
+    print("PROJECT_NAME = " + PROJECT_NAME)
+
+    cmd = CommandInput()
+
     pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
 
     # Remote name which points to the GitHub site
@@ -407,10 +449,9 @@ def cli():
 
     os.chdir(ARROW_HOME)
 
-    jira_con = jira.client.JIRA({'server': JIRA_API_BASE},
-                                basic_auth=(jira_username, jira_password))
     github_api = GitHubAPI(PROJECT_NAME)
 
+    jira_con = connect_jira(cmd)
     pr = PullRequest(cmd, github_api, git_remote, jira_con, pr_num)
 
     if pr.is_merged:
@@ -436,21 +477,7 @@ def cli():
            "https://github.com/apache/" + PROJECT_NAME + "/pull",
            pr_num))
 
-    versions, default_fix_versions = pr.jira_issue.get_candidate_fix_versions()
-
-    default_fix_versions = ",".join(default_fix_versions)
-
-    issue_fix_versions = cmd.prompt("Enter comma-separated "
-                                    "fix version(s) [%s]: "
-                                    % default_fix_versions)
-    if issue_fix_versions == "":
-        issue_fix_versions = default_fix_versions
-    issue_fix_versions = issue_fix_versions.replace(" ", "").split(",")
-
-    def get_version_json(version_str):
-        return [x for x in versions if x.name == version_str][0].raw
-
-    fix_versions_json = [get_version_json(v) for v in issue_fix_versions]
+    fix_versions_json = prompt_for_fix_version(cmd, pr.jira_issue)
     pr.jira_issue.resolve(fix_versions_json, jira_comment)
 
 

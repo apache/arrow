@@ -18,7 +18,6 @@
 package org.apache.arrow.gandiva.evaluator;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

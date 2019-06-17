@@ -21,6 +21,7 @@ import ast
 import json
 import operator
 import re
+import warnings
 
 import numpy as np
 
@@ -248,6 +249,11 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
 def _get_simple_index_descriptor(level):
     string_dtype, extra_metadata = get_extension_dtype_info(level)
     pandas_type = get_logical_type_from_numpy(level)
+    if 'mixed' in pandas_type:
+        warnings.warn(
+            "The DataFrame has column names of mixed type. They will be "
+            "converted to strings and not roundtrip correctly.",
+            UserWarning, stacklevel=4)
     if pandas_type == 'unicode':
         assert not extra_metadata
         extra_metadata = {'encoding': 'UTF-8'}
@@ -337,6 +343,10 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     for name in columns:
         col = df[name]
         name = _column_name_to_strings(name)
+
+        if _pandas_api.is_sparse(col):
+            raise TypeError(
+                "Sparse pandas data (column {}) not supported.".format(name))
 
         if schema is not None:
             field = schema.field_by_name(name)
@@ -785,8 +795,6 @@ _pandas_logical_type_map = {
     'bytes': np.bytes_,
     'string': np.str_,
     'empty': np.object_,
-    'mixed': np.object_,
-    'mixed-integer': np.object_
 }
 
 
@@ -806,6 +814,9 @@ def _pandas_type_to_numpy_type(pandas_type):
     try:
         return _pandas_logical_type_map[pandas_type]
     except KeyError:
+        if 'mixed' in pandas_type:
+            # catching 'mixed', 'mixed-integer' and 'mixed-integer-float'
+            return np.object_
         return np.dtype(pandas_type)
 
 

@@ -22,97 +22,99 @@ using Rcpp::List;
 using Rcpp::stop;
 using Rcpp::wrap;
 
-// [[Rcpp::export]]
+#if defined(ARROW_R_WITH_ARROW)
+
+// [[arrow::export]]
 bool shared_ptr_is_null(SEXP xp) {
   return reinterpret_cast<std::shared_ptr<void>*>(EXTPTR_PTR(xp))->get() == nullptr;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool unique_ptr_is_null(SEXP xp) {
   return reinterpret_cast<std::unique_ptr<void>*>(EXTPTR_PTR(xp))->get() == nullptr;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Int8__initialize() { return arrow::int8(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Int16__initialize() { return arrow::int16(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Int32__initialize() { return arrow::int32(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Int64__initialize() { return arrow::int64(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> UInt8__initialize() { return arrow::uint8(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> UInt16__initialize() { return arrow::uint16(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> UInt32__initialize() { return arrow::uint32(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> UInt64__initialize() { return arrow::uint64(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Float16__initialize() { return arrow::float16(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Float32__initialize() { return arrow::float32(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Float64__initialize() { return arrow::float64(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Boolean__initialize() { return arrow::boolean(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Utf8__initialize() { return arrow::utf8(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Date32__initialize() { return arrow::date32(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Date64__initialize() { return arrow::date64(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Null__initialize() { return arrow::null(); }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
                                                             int32_t scale) {
   return arrow::decimal(precision, scale);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(int32_t byte_width) {
   return arrow::fixed_size_binary(byte_width);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Timestamp__initialize1(arrow::TimeUnit::type unit) {
   return arrow::timestamp(unit);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Timestamp__initialize2(arrow::TimeUnit::type unit,
                                                         const std::string& timezone) {
   return arrow::timestamp(unit, timezone);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Time32__initialize(arrow::TimeUnit::type unit) {
   return arrow::time32(unit);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit) {
   return arrow::time64(unit);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 SEXP list__(SEXP x) {
   if (Rf_inherits(x, "arrow::Field")) {
     Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Field>> field(x);
@@ -128,68 +130,58 @@ SEXP list__(SEXP x) {
   return R_NilValue;
 }
 
-template <typename T>
-std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(List x) {
-  std::vector<std::shared_ptr<T>> vec;
-  for (SEXP element : x) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> ptr(element);
-    vec.push_back(ptr);
-  }
-  return vec;
-}
-
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> struct_(List fields) {
-  return arrow::struct_(List_to_shared_ptr_vector<arrow::Field>(fields));
+  return arrow::struct_(arrow::r::List_to_shared_ptr_vector<arrow::Field>(fields));
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string DataType__ToString(const std::shared_ptr<arrow::DataType>& type) {
   return type->ToString();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string DataType__name(const std::shared_ptr<arrow::DataType>& type) {
   return type->name();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs,
                       const std::shared_ptr<arrow::DataType>& rhs) {
   return lhs->Equals(*rhs);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int DataType__num_children(const std::shared_ptr<arrow::DataType>& type) {
   return type->num_children();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 List DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type) {
   return List(type->children().begin(), type->children().end());
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 arrow::Type::type DataType__id(const std::shared_ptr<arrow::DataType>& type) {
   return type->id();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> schema_(List fields) {
-  return arrow::schema(List_to_shared_ptr_vector<arrow::Field>(fields));
+  return arrow::schema(arrow::r::List_to_shared_ptr_vector<arrow::Field>(fields));
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s) {
   return s->ToString();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s) {
   return s->num_fields();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s,
                                             int i) {
   if (i >= s->num_fields() || i < 0) {
@@ -199,7 +191,7 @@ std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>
   return s->field(i);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema) {
   auto fields = schema->fields();
   return CharacterVector(
@@ -207,72 +199,74 @@ CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema) {
       [](const std::shared_ptr<arrow::Field>& field) { return field->name(); });
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type) {
   return type->ToString();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int FixedWidthType__bit_width(const std::shared_ptr<arrow::FixedWidthType>& type) {
   return type->bit_width();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 arrow::DateUnit DateType__unit(const std::shared_ptr<arrow::DateType>& type) {
   return type->unit();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& type) {
   return type->unit();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int32_t DecimalType__precision(const std::shared_ptr<arrow::DecimalType>& type) {
   return type->precision();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int32_t DecimalType__scale(const std::shared_ptr<arrow::DecimalType>& type) {
   return type->scale();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string TimestampType__timezone(const std::shared_ptr<arrow::TimestampType>& type) {
   return type->timezone();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 arrow::TimeUnit::type TimestampType__unit(
     const std::shared_ptr<arrow::TimestampType>& type) {
   return type->unit();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(
     const std::shared_ptr<arrow::DataType>& index_type,
     const std::shared_ptr<arrow::DataType>& value_type, bool ordered) {
   return arrow::dictionary(index_type, value_type, ordered);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> DictionaryType__index_type(
     const std::shared_ptr<arrow::DictionaryType>& type) {
   return type->index_type();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> DictionaryType__value_type(
     const std::shared_ptr<arrow::DictionaryType>& type) {
   return type->value_type();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string DictionaryType__name(const std::shared_ptr<arrow::DictionaryType>& type) {
   return type->name();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool DictionaryType__ordered(const std::shared_ptr<arrow::DictionaryType>& type) {
   return type->ordered();
 }
+
+#endif

@@ -233,19 +233,23 @@ matrix:
     env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
     - ARROW_TRAVIS_FLIGHT=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
+    - ARROW_TRAVIS_INTEGRATION=1
+    # TODO(ARROW-4764): Using system java and plasma built with conda doesn't work
+    #- ARROW_TRAVIS_PLASMA=1
+    #- ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
     before_script:
     - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    # C++: Only build integration targets
+    - export ARROW_CPP_BUILD_TARGETS=arrow-integration
+    - export ARROW_TRAVIS_OPTIONAL_INSTALL=1
+    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
+    # Javascript
     - nvm install 11.12
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
-    # TODO(ARROW-4764): Using system java and plasma built with conda doesn't work
     # - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
   - name: "NodeJS"
     language: node_js
@@ -332,10 +336,9 @@ matrix:
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/go/arrow
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-  - name: R
+  - name: R (with and without libarrow)
     language: r
     cache: packages
-    latex: false
     dist: xenial
     env:
     - ARROW_TRAVIS_PARQUET=1
@@ -344,6 +347,14 @@ matrix:
     # Have to copy-paste this here because of how R's build steps work
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
     - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
+    # First check that it builds without libarrow
+    - pushd ${TRAVIS_BUILD_DIR}/r
+    - R -e 'install.packages("remotes"); remotes::install_deps(dep = TRUE)'
+    - R CMD build .
+    - R CMD check arrow_*tar.gz
+    - rm arrow_*tar.gz
+    - popd
+    # Now, proceed to install the c++ lib and the rest of the job
     - |
         if [ $TRAVIS_OS_NAME == "linux" ]; then
           sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
@@ -358,10 +369,12 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
     - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
+    - export CXX11FLAGS=-Wall
+    # Add this env var so we can assert in the tests that the library is installed correctly
+    - export TEST_R_WITH_ARROW=TRUE
     - pushd ${TRAVIS_BUILD_DIR}/r
     after_success:
     - Rscript ../ci/travis_upload_r_coverage.R
-
 
 after_failure:
 - |

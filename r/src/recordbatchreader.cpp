@@ -17,13 +17,15 @@
 
 #include "./arrow_types.h"
 
-// [[Rcpp::export]]
+#if defined(ARROW_R_WITH_ARROW)
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   return reader->schema();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   std::shared_ptr<arrow::RecordBatch> batch;
@@ -33,7 +35,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
 
 // -------- RecordBatchStreamReader
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
   std::shared_ptr<arrow::RecordBatchReader> reader;
@@ -41,7 +43,7 @@ std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(
   return reader;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__batches(
     const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> res;
@@ -59,19 +61,19 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__
 
 // -------- RecordBatchFileReader
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> ipc___RecordBatchFileReader__schema(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   return reader->schema();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int ipc___RecordBatchFileReader__num_record_batches(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   return reader->num_record_batches();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i) {
   std::shared_ptr<arrow::RecordBatch> batch;
@@ -81,7 +83,7 @@ std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch
   return batch;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader;
@@ -89,7 +91,7 @@ std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__
   return reader;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   int num_batches = reader->num_record_batches();
@@ -104,7 +106,7 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(
   return table;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(
     const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader) {
   std::shared_ptr<arrow::RecordBatch> batch;
@@ -121,7 +123,7 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(
   return table;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__batches(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   auto n = reader->num_record_batches();
@@ -133,3 +135,5 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__ba
 
   return res;
 }
+
+#endif

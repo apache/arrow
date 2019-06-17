@@ -39,8 +39,8 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class UnionListWriter extends AbstractFieldWriter {
 
-  private ListVector vector;
-  private PromotableWriter writer;
+  protected ListVector vector;
+  protected PromotableWriter writer;
   private boolean inStruct = false;
   private String structName;
   private int lastIndex = 0;

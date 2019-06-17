@@ -27,12 +27,12 @@ import java.util.Set;
 public interface DictionaryProvider {
 
   /** Return the dictionary for the given ID. */
-  public Dictionary lookup(long id);
+  Dictionary lookup(long id);
 
   /**
    * Implementation of {@link DictionaryProvider} that is backed by a hash-map.
    */
-  public static class MapDictionaryProvider implements DictionaryProvider {
+  class MapDictionaryProvider implements DictionaryProvider {
 
     private final Map<Long, Dictionary> map;
 

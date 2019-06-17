@@ -47,8 +47,10 @@ install:
     conda install -n root -c conda-forge --quiet --yes conda-forge-ci-setup=2 conda-build
 
 before_script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout {{ arrow.head }}
+
   - pushd arrow/dev/tasks/conda-recipes
 
   # Configure conda

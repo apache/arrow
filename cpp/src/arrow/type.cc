@@ -147,6 +147,24 @@ std::string ListType::ToString() const {
   return s.str();
 }
 
+MapType::MapType(const std::shared_ptr<DataType>& key_type,
+                 const std::shared_ptr<DataType>& item_type, bool keys_sorted)
+    : ListType(struct_({std::make_shared<Field>("key", key_type, false),
+                        std::make_shared<Field>("item", item_type)})),
+      keys_sorted_(keys_sorted) {
+  id_ = type_id;
+}
+
+std::string MapType::ToString() const {
+  std::stringstream s;
+  s << "map<" << key_type()->ToString() << ", " << item_type()->ToString();
+  if (keys_sorted_) {
+    s << ", keys_sorted";
+  }
+  s << ">";
+  return s.str();
+}
+
 std::string FixedSizeListType::ToString() const {
   std::stringstream s;
   s << "fixed_size_list<" << value_field()->ToString() << ">[" << list_size_ << "]";
@@ -249,6 +267,14 @@ UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
                      const std::vector<uint8_t>& type_codes, UnionMode::type mode)
     : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
   children_ = fields;
+}
+
+DataTypeLayout UnionType::layout() const {
+  if (mode_ == UnionMode::SPARSE) {
+    return {{1, CHAR_BIT, DataTypeLayout::kAlwaysNullBuffer}, false};
+  } else {
+    return {{1, CHAR_BIT, sizeof(int32_t) * CHAR_BIT}, false};
+  }
 }
 
 std::string UnionType::ToString() const {
@@ -395,6 +421,12 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
   const auto& int_type = checked_cast<const IntegerType&>(*index_type);
   DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
 #endif
+}
+
+DataTypeLayout DictionaryType::layout() const {
+  auto layout = index_type_->layout();
+  layout.has_dictionary = true;
+  return layout;
 }
 
 std::string DictionaryType::ToString() const {
@@ -661,6 +693,12 @@ std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
 
 std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
   return std::make_shared<ListType>(value_field);
+}
+
+std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
+                              const std::shared_ptr<DataType>& value_type,
+                              bool keys_sorted) {
+  return std::make_shared<MapType>(key_type, value_type, keys_sorted);
 }
 
 std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,

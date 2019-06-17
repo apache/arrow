@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_RECORD_BATCH_H
-#define ARROW_RECORD_BATCH_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -24,6 +23,7 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -186,5 +186,3 @@ class ARROW_EXPORT RecordBatchReader {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_RECORD_BATCH_H

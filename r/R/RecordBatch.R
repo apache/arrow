@@ -85,8 +85,8 @@
 }
 
 #' @export
-`as_tibble.arrow::RecordBatch` <- function(x, use_threads = TRUE, ...){
-  RecordBatch__to_dataframe(x, use_threads = use_threads)
+`as.data.frame.arrow::RecordBatch` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+  RecordBatch__to_dataframe(x, use_threads = option_use_threads())
 }
 
 #' Create an [arrow::RecordBatch][arrow__RecordBatch] from a data frame
@@ -97,7 +97,7 @@
 #' @return a [arrow::RecordBatch][arrow__RecordBatch]
 #' @export
 record_batch <- function(..., schema = NULL){
-  arrays <- tibble::lst(...)
+  arrays <- list2(...)
   stopifnot(length(arrays) > 0)
   shared_ptr(`arrow::RecordBatch`, RecordBatch__from_arrays(schema, arrays))
 }

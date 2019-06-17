@@ -60,14 +60,14 @@
 #'
 #' @export
 table <- function(..., schema = NULL){
-  dots <- tibble::lst(...)
+  dots <- list2(...)
   stopifnot(length(dots) > 0)
   shared_ptr(`arrow::Table`, Table__from_dots(dots, schema))
 }
 
 #' @export
-`as_tibble.arrow::Table` <- function(x, use_threads = TRUE, ...){
-  Table__to_dataframe(x, use_threads = use_threads)
+`as.data.frame.arrow::Table` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+  Table__to_dataframe(x, use_threads = option_use_threads())
 }
 
 #' @export

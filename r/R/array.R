@@ -122,7 +122,6 @@
 #' @param x R object
 #' @param type Explicit [type][arrow__DataType], or NULL (the default) to infer from the data
 #'
-#' @importFrom rlang warn
 #' @export
 array <- function(x, type = NULL){
   `arrow::Array`$dispatch(Array__from_vector(x, type))

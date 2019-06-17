@@ -61,7 +61,6 @@ import io.grpc.stub.StreamObserver;
 
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
-import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 
 /**

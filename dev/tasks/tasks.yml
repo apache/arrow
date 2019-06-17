@@ -287,6 +287,9 @@ tasks:
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-python14_{no_rc_version}-1_amd64.deb
@@ -368,7 +371,7 @@ tasks:
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-bionic
+      build_command: travis_wait 45 rake apt:build APT_TARGETS=ubuntu-bionic
       upload_extensions:
         - .deb
         - .dsc
@@ -391,6 +394,9 @@ tasks:
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python14_{no_rc_version}-1_amd64.deb
       - libarrow14_{no_rc_version}-1_amd64.deb
@@ -416,7 +422,7 @@ tasks:
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-cosmic
+      build_command: travis_wait 45 rake apt:build APT_TARGETS=ubuntu-cosmic
       upload_extensions:
         - .deb
         - .dsc
@@ -439,6 +445,9 @@ tasks:
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python14_{no_rc_version}-1_amd64.deb
       - libarrow14_{no_rc_version}-1_amd64.deb

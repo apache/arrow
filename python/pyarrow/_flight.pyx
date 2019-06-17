@@ -57,6 +57,13 @@ cdef class FlightCallOptions:
                         "'{}'".format(type(obj)))
 
 
+_CertKeyPair = collections.namedtuple('_CertKeyPair', ['cert', 'key'])
+
+
+class CertKeyPair(_CertKeyPair):
+    """A TLS certificate and key for use in Flight."""
+
+
 cdef class Action:
     """An action executable on a Flight service."""
     cdef:
@@ -225,6 +232,16 @@ cdef class Location:
             int c_port = port
             Location result = Location.__new__(Location)
         check_status(CLocation.ForGrpcTcp(c_host, c_port, &result.location))
+        return result
+
+    @staticmethod
+    def for_grpc_tls(host, port):
+        """Create a Location for a TLS-based gRPC service."""
+        cdef:
+            c_string c_host = tobytes(host)
+            int c_port = port
+            Location result = Location.__new__(Location)
+        check_status(CLocation.ForGrpcTls(c_host, c_port, &result.location))
         return result
 
     @staticmethod
@@ -1016,12 +1033,12 @@ cdef class FlightServerBase:
     cdef:
         unique_ptr[PyFlightServer] server
 
-    def run(self, location, auth_handler=None,
-            tls_cert_chain=None, tls_private_key=None):
+    def run(self, location, auth_handler=None, tls_certificates=None):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
             unique_ptr[CFlightServerOptions] c_options
+            CCertKeyPair c_cert
 
         c_options.reset(new CFlightServerOptions(Location.unwrap(location)))
 
@@ -1032,12 +1049,11 @@ cdef class FlightServerBase:
             c_options.get().auth_handler.reset(
                 (<ServerAuthHandler> auth_handler).to_handler())
 
-        if tls_cert_chain:
-            if not tls_private_key:
-                raise ValueError(
-                    "Must provide both cert chain and private key")
-            c_options.get().tls_cert_chain = tobytes(tls_cert_chain)
-            c_options.get().tls_private_key = tobytes(tls_private_key)
+        if tls_certificates:
+            for cert, key in tls_certificates:
+                c_cert.pem_cert = tobytes(cert)
+                c_cert.pem_key = tobytes(key)
+                c_options.get().tls_certificates.push_back(c_cert)
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info

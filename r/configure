@@ -33,11 +33,10 @@ PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
 PKG_LIBS="-larrow -lparquet"
 
-# Use pkg-config if available
-pkg-config --version >/dev/null 2>&1
-if [ $? -eq 0 ]; then
-  PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
-  PKGCONFIG_LIBS=`pkg-config --libs ${PKG_CONFIG_NAME}`
+# generate code
+if [ "$ARROW_R_DEV" == "TRUE" ]; then
+  echo "*** Generating code with data-raw/codegen.R"
+  ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
 
 # Note that cflags may be empty in case of success
@@ -45,26 +44,48 @@ if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
   echo "Found INCLUDE_DIR and/or LIB_DIR!"
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
   PKG_LIBS="-L$LIB_DIR $PKG_LIBS"
-elif [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
-  echo "Found pkg-config cflags and libs!"
-  PKG_CFLAGS=${PKGCONFIG_CFLAGS}
-  PKG_LIBS=${PKGCONFIG_LIBS}
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-  if [ "$(command -v brew)" ]; then
-    BREWDIR=$(brew --prefix)
-  else
-    curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
-    source autobrew
+else
+  # Use pkg-config if available
+  pkg-config --version >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    echo "$ pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}"
+    PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
+    echo "PKGCONFIG_CFLAGS = \"${PKGCONFIG_CFLAGS}\""
+
+    echo "$ pkg-config --libs ${PKG_CONFIG_NAME}"
+    PKGCONFIG_LIBS=`pkg-config --libs --silence-errors ${PKG_CONFIG_NAME}`
+    echo "PKGCONFIG_LIBS = \"${PKGCONFIG_LIBS}\""
+    echo ""
   fi
-  PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-  PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+
+  if [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
+    echo "Found pkg-config cflags and libs!"
+    PKG_CFLAGS="$PKGCONFIG_CFLAGS"
+    PKG_LIBS=${PKGCONFIG_LIBS}
+  else
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      if [ "$(command -v brew)" ]; then
+        echo "brew is available"
+        BREWDIR=$(brew --prefix)
+
+        if brew ls --versions apache-arrow > /dev/null; then
+          # right now, we need HEAD version
+          brew install apache-arrow --HEAD
+        fi
+
+        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
+        PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+      else
+        echo "brew is not available, trying autobrew"
+        curl -sfL "https://jeroen.github.io/autobrew/$PKG_BREW_NAME" > autobrew
+        source autobrew
+        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
+        PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+      fi
+
+    fi
+  fi
 fi
-
-PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
-
-# For debugging
-echo "PKG_CFLAGS=$PKG_CFLAGS"
-echo "PKG_LIBS=$PKG_LIBS"
 
 # Find compiler
 CXXCPP=$("${R_HOME}"/bin/R CMD config CXXCPP)
@@ -82,15 +103,16 @@ echo "#include $PKG_TEST_HEADER" | ${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FL
 
 # Customize the error
 if [ $? -ne 0 ]; then
-  echo "------------------------- ANTICONF ERROR ---------------------------"
-  echo "Configuration failed because $PKG_CONFIG_NAME was not found. Try installing:"
-  echo " * brew: $PKG_BREW_NAME (Mac OSX)"
-  echo "If $PKG_CONFIG_NAME is already installed, check that 'pkg-config' is in your"
-  echo "PATH and PKG_CONFIG_PATH contains a $PKG_CONFIG_NAME.pc file. If pkg-config"
-  echo "is unavailable you can set INCLUDE_DIR and LIB_DIR manually via:"
-  echo "R CMD INSTALL --configure-vars='INCLUDE_DIR=... LIB_DIR=...'"
-  echo "--------------------------------------------------------------------"
-  exit 1;
+  echo "------------------------- NOTE ---------------------------"
+  echo "After installation, please run arrow::install_arrow() to install"
+  echo "required runtime libraries"
+  echo "---------------------------------------------------------"
+  PKG_LIBS=""
+  PKG_CFLAGS=""
+else
+  PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET"
+  echo "PKG_CFLAGS=$PKG_CFLAGS"
+  echo "PKG_LIBS=$PKG_LIBS"
 fi
 
 # Write to Makevars

@@ -1523,6 +1523,38 @@ def test_invalid_pred_op(tempdir):
                           ])
 
 
+@pytest.mark.pandas
+def test_filters_read_table(tempdir):
+    # test that filters keyword is passed through in read_table
+    fs = LocalFileSystem.get_instance()
+    base_path = tempdir
+
+    integer_keys = [0, 1, 2, 3, 4]
+    partition_spec = [
+        ['integers', integer_keys],
+    ]
+    N = 5
+
+    df = pd.DataFrame({
+        'index': np.arange(N),
+        'integers': np.array(integer_keys, dtype='i4'),
+    }, columns=['index', 'integers'])
+
+    _generate_partition_directories(fs, base_path, partition_spec, df)
+
+    table = pq.read_table(
+        base_path, filesystem=fs, filters=[('integers', '<', 3)])
+    assert table.num_rows == 3
+
+    table = pq.read_table(
+        base_path, filesystem=fs, filters=[[('integers', '<', 3)]])
+    assert table.num_rows == 3
+
+    table = pq.read_pandas(
+        base_path, filters=[('integers', '<', 3)])
+    assert table.num_rows == 3
+
+
 @pytest.yield_fixture
 def s3_example():
     access_key = os.environ['PYARROW_TEST_S3_ACCESS_KEY']
@@ -1921,7 +1953,7 @@ def test_ignore_private_directories(tempdir):
 
 
 @pytest.mark.pandas
-def test_ignore_hidden_files(tempdir):
+def test_ignore_hidden_files_dot(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -1933,6 +1965,24 @@ def test_ignore_hidden_files(tempdir):
 
     with (dirpath / '.private').open('wb') as f:
         f.write(b'gibberish')
+
+    dataset = pq.ParquetDataset(dirpath)
+    assert set(map(str, paths)) == set(x.path for x in dataset.pieces)
+
+
+@pytest.mark.pandas
+def test_ignore_hidden_files_underscore(tempdir):
+    dirpath = tempdir / guid()
+    dirpath.mkdir()
+
+    paths = _make_example_multifile_dataset(dirpath, nfiles=10,
+                                            file_nrows=5)
+
+    with (dirpath / '_committed_123').open('wb') as f:
+        f.write(b'abcd')
+
+    with (dirpath / '_started_321').open('wb') as f:
+        f.write(b'abcd')
 
     dataset = pq.ParquetDataset(dirpath)
     assert set(map(str, paths)) == set(x.path for x in dataset.pieces)
@@ -2668,3 +2718,45 @@ def test_parquet_file_too_small(tempdir):
         with open(path, 'wb') as f:
             f.write(b'ffff')
         pq.read_table(path)
+
+
+def test_multi_dataset_metadata(tempdir):
+    filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
+    metapath = str(tempdir / "_metadata")
+
+    # create a test dataset
+    df = pd.DataFrame({
+        'one': [1, 2, 3],
+        'two': [-1, -2, -3],
+        'three': [[1, 2], [2, 3], [3, 4]],
+        })
+    table = pa.Table.from_pandas(df)
+
+    # write dataset twice and collect/merge metadata
+    _meta = None
+    for filename in filenames:
+        meta = []
+        pq.write_table(table, str(tempdir / filename),
+                       metadata_collector=meta)
+        meta[0].set_file_path(filename)
+        if _meta is None:
+            _meta = meta[0]
+        else:
+            _meta.append_row_groups(meta[0])
+
+    # Write merged metadata-only file
+    with open(metapath, "wb") as f:
+        _meta.write_metadata_file(f)
+
+    # Read back the metadata
+    meta = pq.read_metadata(metapath)
+    md = meta.to_dict()
+    _md = _meta.to_dict()
+    for key in _md:
+        if key != 'serialized_size':
+            assert _md[key] == md[key]
+    assert _md['num_columns'] == 3
+    assert _md['num_rows'] == 6
+    assert _md['num_row_groups'] == 2
+    assert _md['serialized_size'] == 0
+    assert md['serialized_size'] > 0

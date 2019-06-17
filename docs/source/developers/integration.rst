@@ -49,7 +49,8 @@ build mount is used for caching and sharing state between staged images.
 - *rust*: Builds the rust project
 - *lint*: Run various lint on the C++ sources
 - *iwyu*: Run include-what-you-use on the C++ sources
-- *clang-format*: Run clang-format on the C++ sources
+- *clang-format*: Run clang-format on the C++ sources, modifying in place
+- *clang-tidy*: Run clang-tidy on the C++ sources, outputting recommendations
 - *docs*: Builds this documentation
 
 You can build and run a service by using the `build` and `run` docker-compose

@@ -114,6 +114,7 @@ class LevelBuilder {
                                   " not supported yet");                   \
   }
 
+  NOT_IMPLEMENTED_VISIT(Map)
   NOT_IMPLEMENTED_VISIT(FixedSizeList)
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
@@ -1132,6 +1133,12 @@ Status FileWriter::Open(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool
 Status WriteFileMetaData(const FileMetaData& file_metadata,
                          ::arrow::io::OutputStream* sink) {
   PARQUET_CATCH_NOT_OK(::parquet::WriteFileMetaData(file_metadata, sink));
+  return Status::OK();
+}
+
+Status WriteMetaDataFile(const FileMetaData& file_metadata,
+                         ::arrow::io::OutputStream* sink) {
+  PARQUET_CATCH_NOT_OK(::parquet::WriteMetaDataFile(file_metadata, sink));
   return Status::OK();
 }
 
