@@ -25,9 +25,6 @@
 # INCLUDE_DIR and LIB_DIR manually via e.g:
 # R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
 
-# Fail script on failing commands
-set -e
-
 # Library settings
 PKG_CONFIG_NAME="arrow parquet"
 PKG_DEB_NAME="(unsuppored)"
