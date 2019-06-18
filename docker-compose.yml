@@ -222,7 +222,9 @@ services:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-xenial-volumes
 
-  cpp-boost-1-58:
+  cpp-minimum-boost-version:
+    # Ubuntu Xenial 16.04 has Boost 1.58, our minimum version
+    #
     # Usage:
     #   docker-compose build cpp-boost-1-58
     #   docker-compose run cpp-boost-1-58

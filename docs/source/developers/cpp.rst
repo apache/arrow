@@ -40,7 +40,9 @@ Building requires:
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
   sufficient. For Windows, at least Visual Studio 2015 is required.
 * CMake 3.2 or higher
-* Boost
+* Boost 1.58 or higher, though some unit tests require 1.64 or
+  newer. Use ``-DARROW_BOOST_VENDORED=ON`` when invoking CMake to have
+  the Arrow build system automatically build a recent version of Boost.
 * ``bison`` and ``flex`` (for building Apache Thrift from source only, an
   Apache Parquet dependency.)
 
