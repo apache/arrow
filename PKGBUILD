@@ -2,7 +2,7 @@
 _realname=arrow
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=0.13.0
+pkgver=0.13.0.9000
 pkgrel=8000
 pkgdesc="Apache Arrow is a cross-language development platform for in-memory data (mingw-w64)"
 arch=("any")
@@ -16,13 +16,14 @@ depends=("${MINGW_PACKAGE_PREFIX}-boost"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
-source=("https://archive.apache.org/dist/arrow/arrow-${pkgver}/apache-arrow-${pkgver}.tar.gz")
-sha256sums=("ac2a77dd9168e9892e432c474611e86ded0be6dfe15f689c948751d37f81391a")
+source=("${_realname}"::"git+https://github.com/apache/arrow")
+sha256sums=("SKIP")
 
 cmake_build_type=release
 
 #source_dir=${_realname}-${pkgver}
-source_dir=apache-${_realname}-${pkgver}
+#source_dir=apache-${_realname}-${pkgver}
+source_dir=arrow
 cpp_build_dir=build-${CARCH}-cpp
 c_glib_build_dir=build-${CARCH}-c-glib
 
@@ -38,6 +39,7 @@ prepare() {
 }
 
 build() {
+  ARROW_CPP_DIR="$(pwd)/${source_dir}/cpp"
   [[ -d ${cpp_build_dir} ]] && rm -rf ${cpp_build_dir}
   mkdir -p ${cpp_build_dir}
   pushd ${cpp_build_dir}
@@ -53,7 +55,7 @@ build() {
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
     ${MINGW_PREFIX}/bin/cmake.exe \
-    ../${source_dir}/cpp \
+    ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DCMAKE_BUILD_TYPE=${cmake_build_type} \
