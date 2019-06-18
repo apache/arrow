@@ -346,36 +346,6 @@ TEST_F(TestIsInKernel, IsInFixedSizeBinary) {
                                               {}, {}, {}, {});
 }
 
-TEST_F(TestIsInKernel, FixedSizeBinaryResizeTable) {
-  const int32_t kTotalValues = 10000;
-#if !defined(ARROW_VALGRIND)
-  const int32_t kRepeats = 10;
-#else
-  // Mitigate Valgrind's slowness
-  const int32_t kRepeats = 3;
-#endif
-
-  std::vector<std::string> values;
-  std::vector<std::string> member_set;
-  std::vector<bool> expected;
-  char buf[7] = "test..";
-
-  for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
-    int32_t index = i % kTotalValues;
-
-    buf[4] = static_cast<char>(index / 128);
-    buf[5] = static_cast<char>(index % 128);
-    values.emplace_back(buf, 6);
-    member_set.emplace_back(buf, 6);
-
-    expected.push_back(true);
-  }
-
-  auto type = fixed_size_binary(6);
-  CheckIsIn<FixedSizeBinaryType, std::string>(&this->ctx_, type, values, {}, member_set,
-                                              {}, expected, {});
-}
-
 TEST_F(TestIsInKernel, IsInDecimal) {
   std::vector<Decimal128> input{12, 12, 11, 12};
   std::vector<Decimal128> member_set{12, 12, 11, 12};
