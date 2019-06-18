@@ -488,6 +488,20 @@ def test_ndarray_nested_numpy_double(from_pandas, inner_seq):
                                 [[1., 2.], [1., 2., 3.], [np.nan], None])
 
 
+def test_nested_ndarray_in_object_array():
+    # ARROW-4350
+    arr = np.empty(2, dtype=object)
+    arr[:] = [np.array([1, 2]), np.array([2, 3])]
+
+    expected_type = pa.list_(pa.list_(pa.int64()))
+    assert pa.infer_type([arr]) == expected_type
+
+    result = pa.array([arr, arr])
+    expected = pa.array([list(map(list, arr))] * 2, type=expected_type)
+
+    assert result.equals(expected)
+
+
 def test_array_ignore_nan_from_pandas():
     # See ARROW-4324, this reverts logic that was introduced in
     # ARROW-2240

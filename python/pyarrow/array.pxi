@@ -218,6 +218,29 @@ def asarray(values, type=None):
         return array(values, type=type)
 
 
+def infer_type(value, from_pandas=False):
+    """
+    Attempt to infer Arrow data type that can hold the passed Python
+    sequence type in an Array object
+
+    Parameters
+    ----------
+    value : array-like
+    from_pandas : boolean, default False
+        Use pandas's NA/null sentinel values for type inference
+
+    Returns
+    -------
+    type : DataType
+    """
+    cdef:
+        shared_ptr[CDataType] out
+        c_bool use_pandas_sentinels = from_pandas
+
+    check_status(InferArrowType(value, use_pandas_sentinels, &out))
+    return pyarrow_wrap_data_type(out)
+
+
 def _normalize_slice(object arrow_obj, slice key):
     cdef:
         Py_ssize_t start, stop, step
