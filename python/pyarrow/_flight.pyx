@@ -419,7 +419,7 @@ cdef class FlightClient:
                         .format(self.__class__.__name__))
 
     @staticmethod
-    def connect(location, tls_root_certs=None):
+    def connect(location, tls_root_certs=None, override_hostname=None):
         """
         Connect to a Flight service on the given host and port.
 
@@ -428,8 +428,10 @@ cdef class FlightClient:
         location : Location
             location to connect to
 
-        tls_root_certs : bytes
+        tls_root_certs : bytes or None
             PEM-encoded
+        unsafe_override_hostname : str or None
+            Override the hostname checked by TLS. Insecure, use with caution.
         """
         cdef:
             FlightClient result = FlightClient.__new__(FlightClient)
@@ -439,6 +441,8 @@ cdef class FlightClient:
 
         if tls_root_certs:
             c_options.tls_root_certs = tobytes(tls_root_certs)
+        if override_hostname:
+            c_options.override_hostname = tobytes(override_hostname)
 
         with nogil:
             check_status(CFlightClient.Connect(c_location, c_options,

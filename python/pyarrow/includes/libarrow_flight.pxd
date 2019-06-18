@@ -170,6 +170,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
         CFlightClientOptions()
         c_string tls_root_certs
+        c_string override_hostname
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod

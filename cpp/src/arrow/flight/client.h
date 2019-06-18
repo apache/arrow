@@ -59,7 +59,11 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
 
 class ARROW_FLIGHT_EXPORT FlightClientOptions {
  public:
+  /// \brief Root certificates to use for validating server
+  /// certificates.
   std::string tls_root_certs;
+  /// \brief Override the hostname checked by TLS. Use with caution.
+  std::string override_hostname;
 };
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
