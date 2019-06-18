@@ -281,9 +281,9 @@ func fieldsToJSON(fields []arrow.Field) []Field {
 		}
 		switch dt := f.Type.(type) {
 		case *arrow.ListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem()}})
+			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable}})
 		case *arrow.FixedSizeListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem()}})
+			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable}})
 		case *arrow.StructType:
 			o[i].Children = fieldsToJSON(dt.Fields())
 		}
