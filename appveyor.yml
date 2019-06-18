@@ -136,7 +136,6 @@ for:
   before_build:
     - cd r
     - ps: Bootstrap
-    - ps: InstallRtools
     - cd %APPVEYOR_BUILD_FOLDER%
 
   build_script:
