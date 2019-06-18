@@ -39,6 +39,8 @@ prepare() {
 }
 
 build() {
+  echo ${cpp_build_dir}
+  ARROW_CPP_DIR="$(pwd)/arrow/cpp"
   [[ -d ${cpp_build_dir} ]] && rm -rf ${cpp_build_dir}
   mkdir -p ${cpp_build_dir}
   pushd ${cpp_build_dir}
@@ -54,7 +56,7 @@ build() {
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
     ${MINGW_PREFIX}/bin/cmake.exe \
-    ../cpp \
+    ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DCMAKE_BUILD_TYPE=${cmake_build_type} \
