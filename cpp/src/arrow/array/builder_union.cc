@@ -33,11 +33,13 @@ DenseUnionBuilder::DenseUnionBuilder(MemoryPool* pool,
       union_type_(checked_cast<const UnionType*>(type.get())),
       types_builder_(pool),
       offsets_builder_(pool),
-      type_id_to_child_num_(union_type_->max_type_code() + 1, -1) {
-  DCHECK_EQ(union_type_->mode(), UnionMode::DENSE);
-  int child_i = 0;
-  for (auto type_id : union_type_->type_codes()) {
-    type_id_to_child_num_[type_id] = child_i++;
+      type_id_to_child_num_(union_type_ ? union_type_->max_type_code() + 1 : 0, -1) {
+  if (union_type_) {
+    DCHECK_EQ(union_type_->mode(), UnionMode::DENSE);
+    int child_i = 0;
+    for (auto type_id : union_type_->type_codes()) {
+      type_id_to_child_num_[type_id] = child_i++;
+    }
   }
   children_ = std::move(children);
 }

@@ -93,7 +93,18 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
                      const std::string& field_name = "") {
     children_.push_back(child);
     field_names_.push_back(field_name);
-    return static_cast<int8_t>(children_.size() - 1);
+    auto child_num = static_cast<int8_t>(children_.size() - 1);
+    // search for an available type_id
+    // FIXME(bkietz) far from optimal
+    auto max_type = static_cast<int8_t>(type_id_to_child_num_.size());
+    for (int8_t type = 0; type < max_type; ++type) {
+      if (type_id_to_child_num_[type] == -1) {
+        type_id_to_child_num_[type] = child_num;
+        return type;
+      }
+    }
+    type_id_to_child_num_.push_back(child_num);
+    return max_type;
   }
 
  private:
