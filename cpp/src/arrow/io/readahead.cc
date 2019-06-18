@@ -67,7 +67,7 @@ class ReadaheadSpooler::Impl {
       io_worker_.join();
       lock.lock();
     }
-    return raw_->Close();
+    return Status::OK();
   }
 
   Status Read(ReadaheadBuffer* out) {

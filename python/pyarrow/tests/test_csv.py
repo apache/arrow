@@ -495,3 +495,10 @@ class TestBZ2CSVRead(BaseTestCompressedCSVRead, unittest.TestCase):
     def write_file(self, path, contents):
         with bz2.BZ2File(path, 'w') as f:
             f.write(contents)
+
+
+def test_read_csv_does_not_close_passed_file_handles():
+    # ARROW-4823
+    buf = io.BytesIO(b"a,b,c\n1,2,3\n4,5,6")
+    read_csv(buf)
+    assert not buf.closed
