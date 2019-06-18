@@ -136,12 +136,20 @@ for:
   before_build:
     - cd r
     - ps: Bootstrap
+    - ps: InstallRtools
     - cd %APPVEYOR_BUILD_FOLDER%
 
   build_script:
-    # TODO: for the version of the R tests that builds, probably can't use this
-    # ci script because we need to build with the Rtools toolchain
-    # - call ci\appveyor-build.bat
+    # - rmdir /s /Q C:\OpenSSL-Win32 C:\OpenSSL-Win64
+    - C:\msys64\usr\bin\pacman --noconfirm --ask 20 --sync --refresh --refresh --sysupgrade --sysupgrade
+    - pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain gcc pkg-config
+    - pacman --noconfirm -Scc
+    - pacman --noconfirm -Syyu
+    - pacman --noconfirm --needed -S git base-devel binutils
+
+    # Install core build stuff
+    - pacman --noconfirm --needed -S mingw-w64-{i686,x86_64}-{crt,winpthreads,gcc,libtre,pkg-config,xz}
+
     - makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
     - pushd r
     - travis-tool.sh install_deps
