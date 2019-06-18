@@ -27,14 +27,14 @@ cpp_build_dir=build-${CARCH}-cpp
 c_glib_build_dir=build-${CARCH}-c-glib
 
 pkgver() {
-  cd "$source_dir"
+  #cd "$source_dir"
   grep Version r/DESCRIPTION | cut -d " " -f 2
 }
 
 prepare() {
-  pushd ${source_dir}
+  #pushd ${source_dir}
   #patch -p1 -N -i ${srcdir}/3923.patch
-  popd
+  #popd
 }
 
 build() {
@@ -53,7 +53,7 @@ build() {
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
     ${MINGW_PREFIX}/bin/cmake.exe \
-    ../${source_dir}/cpp \
+    ../cpp \
     -G "MSYS Makefiles" \
     -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
     -DCMAKE_BUILD_TYPE=${cmake_build_type} \
