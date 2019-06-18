@@ -593,12 +593,9 @@ bool Table::Equals(const Table& other) const {
 
 Status Table::Compact(MemoryPool* pool, std::shared_ptr<Table>* out) const {
   const int ncolumns = num_columns();
-  std::vector<std::shared_ptr<Column>> compacted_columns;
-  compacted_columns.reserve(ncolumns);
+  std::vector<std::shared_ptr<Column>> compacted_columns(ncolumns);
   for (int i = 0; i < ncolumns; ++i) {
-    std::shared_ptr<Column> compacted_column;
-    RETURN_NOT_OK(CompactColumn(column(i), pool, &compacted_column));
-    compacted_columns.push_back(std::move(compacted_column));
+    RETURN_NOT_OK(CompactColumn(column(i), pool, &compacted_columns[i]));
   }
   *out = Table::Make(schema(), compacted_columns);
   return Status::OK();
