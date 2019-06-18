@@ -160,6 +160,27 @@ public class TestDecimalVector {
   }
 
   @Test
+  public void testLongReadWrite() {
+    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
+            new ArrowType.Decimal(38, 0), allocator)) {
+      decimalVector.allocateNew();
+
+      long[] longValues = {0L, -2L, Long.MAX_VALUE, Long.MIN_VALUE, 187L};
+
+      for (int i = 0; i < longValues.length; ++i) {
+        decimalVector.set(i, longValues[i]);
+      }
+
+      decimalVector.setValueCount(longValues.length);
+
+      for (int i = 0; i < longValues.length; ++i) {
+        assertEquals(new BigDecimal(longValues[i]), decimalVector.getObject(i));
+      }
+    }
+  }
+
+
+  @Test
   public void testBigDecimalReadWrite() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
       new ArrowType.Decimal(38, 9), allocator);) {
