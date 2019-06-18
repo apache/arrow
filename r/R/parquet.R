@@ -44,14 +44,19 @@ read_parquet <- function(file, as_tibble = TRUE, ...) {
 
 #' Write Parquet file to disk
 #'
-#' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
+#' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
 #' This function enables you to write Parquet files from R.
 #'
 #' @param table An [arrow::Table][arrow__Table], or an object convertible to it
 #' @param file a file path
 #'
 #' @examples
-#' write_parquet(tibble::tibble(x = 1:5), "data.parquet")
+#'
+#' \dontrun{
+#'   tf <- tempfile(fileext = ".parquet")
+#'   write_parquet(tibble::tibble(x = 1:5), tf)
+#' }
+#'
 #' @export
 write_parquet <- function(table, file) {
   write_parquet_file(to_arrow(table), file)

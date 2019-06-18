@@ -12,9 +12,14 @@ write_parquet(table, file)
 \item{file}{a file path}
 }
 \description{
-'\href{https://parquet.apache.org/}{Parquet}' is a columnar storage file format.
+\href{https://parquet.apache.org/}{Parquet} is a columnar storage file format.
 This function enables you to write Parquet files from R.
 }
 \examples{
-write_parquet(tibble::tibble(x = 1:5), "data.parquet")
+
+\dontrun{
+  tf <- tempfile(fileext = ".parquet")
+  write_parquet(tibble::tibble(x = 1:5), tf)
+}
+
 }
