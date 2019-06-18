@@ -130,6 +130,10 @@ func (a *array) setData(data *Data) {
 	a.data = data
 }
 
+func (a *array) Offset() int {
+	return a.data.Offset()
+}
+
 type arrayConstructorFn func(*Data) Interface
 
 var (

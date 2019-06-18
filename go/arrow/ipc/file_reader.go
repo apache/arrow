@@ -496,8 +496,7 @@ func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) array.Interface {
 }
 
 func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) array.Interface {
-	field, buffers := ctx.loadCommon(2)
-	buffers = append(buffers, ctx.buffer())
+	field, buffers := ctx.loadCommon(1)
 
 	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
