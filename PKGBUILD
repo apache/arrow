@@ -28,7 +28,7 @@ c_glib_build_dir=build-${CARCH}-c-glib
 
 pkgver() {
   # cd "$source_dir"
-  grep Version r/DESCRIPTION | cut -d " " -f 2
+  grep Version arrow/r/DESCRIPTION | cut -d " " -f 2
 }
 
 prepare() {

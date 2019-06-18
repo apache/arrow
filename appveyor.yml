@@ -172,7 +172,7 @@ for:
     - path: 'r\*_*.zip'
       name: Bits
 
-# Disable test discovery
+#  Disable test discovery
 test: off
 
 after_build:
