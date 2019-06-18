@@ -27,7 +27,7 @@ cpp_build_dir=build-${CARCH}-cpp
 c_glib_build_dir=build-${CARCH}-c-glib
 
 pkgver() {
-  #cd "$source_dir"
+  # cd "$source_dir"
   grep Version r/DESCRIPTION | cut -d " " -f 2
 }
 
