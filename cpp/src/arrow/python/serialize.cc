@@ -341,7 +341,6 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
     return PassPyError();
   }
-  return Status::OK();
 }
 
 Status CallSerializeCallback(PyObject* context, PyObject* value,

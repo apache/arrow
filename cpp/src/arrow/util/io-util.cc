@@ -888,7 +888,7 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
   return Status::OK();
 }
 
-SignalHandler::SignalHandler() {}
+SignalHandler::SignalHandler() : SignalHandler(static_cast<Callback>(nullptr)) {}
 
 SignalHandler::SignalHandler(Callback cb) {
 #if ARROW_HAVE_SIGACTION
@@ -939,7 +939,8 @@ Status GetSignalHandler(int signum, SignalHandler* out) {
   return Status::OK();
 }
 
-Status SetSignalHandler(int signum, SignalHandler handler, SignalHandler* old_handler) {
+Status SetSignalHandler(int signum, const SignalHandler& handler,
+                        SignalHandler* old_handler) {
 #if ARROW_HAVE_SIGACTION
   struct sigaction old_sa;
   int ret = sigaction(signum, &handler.action(), &old_sa);

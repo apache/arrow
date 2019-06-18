@@ -120,13 +120,13 @@ std::string PyObject_StdStringRepr(PyObject* obj) {
   }
 #else
   OwnedRef bytes_ref(PyObject_Repr(obj));
+#endif
   if (!bytes_ref) {
     PyErr_Clear();
     std::stringstream ss;
     ss << "<object of type '" << Py_TYPE(obj)->tp_name << "' repr() failed>";
     return ss.str();
   }
-#endif
   return PyBytes_AsStdString(bytes_ref.obj());
 }
 

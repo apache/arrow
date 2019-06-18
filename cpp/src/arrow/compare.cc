@@ -646,9 +646,6 @@ class ApproxEqualsVisitor : public ArrayEqualsVisitor {
         left, checked_cast<const DoubleArray&>(right_), opts_);
     return Status::OK();
   }
-
- protected:
-  double epsilon_;
 };
 
 static bool BaseDataEquals(const Array& left, const Array& right) {
