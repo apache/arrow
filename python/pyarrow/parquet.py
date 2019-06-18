@@ -990,12 +990,12 @@ class ParquetDataset(object):
         if split_row_groups:
             raise NotImplementedError("split_row_groups not yet implemented")
 
-        if validate_schema:
-            self.validate_schemas()
-
         if filters is not None:
             filters = _check_filters(filters)
             self._filter(filters)
+
+        if validate_schema:
+            self.validate_schemas()
 
     def equals(self, other):
         if not isinstance(other, ParquetDataset):

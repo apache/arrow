@@ -2760,3 +2760,24 @@ def test_multi_dataset_metadata(tempdir):
     assert _md['num_row_groups'] == 2
     assert _md['serialized_size'] == 0
     assert md['serialized_size'] > 0
+
+
+def test_filter_before_validate_schema(tempdir):
+    # ARROW-4076 apply filter before schema validation
+    # to avoid checking unneeded schemas
+
+    # create partitioned dataset with mismatching schemas which would
+    # otherwise raise if first validation all schemas
+    dir1 = tempdir / 'A=0'
+    dir1.mkdir()
+    table1 = pa.Table.from_pandas(pd.DataFrame({'B': [1, 2, 3]}))
+    pq.write_table(table1, dir1 / 'data.parquet')
+
+    dir2 = tempdir / 'A=1'
+    dir2.mkdir()
+    table2 = pa.Table.from_pandas(pd.DataFrame({'B': ['a', 'b', 'c']}))
+    pq.write_table(table2, dir2 / 'data.parquet')
+
+    # read single file using filter
+    table = pq.read_table(tempdir, filters=[[('A', '==', 0)]])
+    assert table.column('B').equals(pa.column('B', pa.array([1, 2, 3])))
