@@ -318,6 +318,10 @@ use_deprecated_int96_timestamps : boolean, default None
 coerce_timestamps : string, default None
     Cast timestamps a particular resolution.
     Valid values: {None, 'ms', 'us'}
+data_page_size : int, default None
+    Set a target threshhold for the approximate encoded size of data
+    pages within a column chunk. If None, use the default data page
+    size of 1MByte.
 allow_truncated_timestamps : boolean, default False
     Allow loss of data when coercing timestamps to a particular
     resolution. E.g. if microsecond or nanosecond data is lost when coercing to
@@ -326,7 +330,8 @@ compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}
 flavor : {'spark'}, default None
-    Sanitize schema or set other compatibility options for compatibility
+    Sanitize schema or set other compatibility options to work with
+    various target systems
 filesystem : FileSystem, default None
     If nothing passed, will be inferred from `where` if path-like, else
     `where` is already a file-like object so no filesystem is needed."""
@@ -1238,7 +1243,8 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=None,
                 coerce_timestamps=None,
                 allow_truncated_timestamps=False,
-                flavor=None, filesystem=None, **kwargs):
+                data_page_size=None, flavor=None,
+                filesystem=None, **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
     try:
@@ -1249,6 +1255,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 flavor=flavor,
                 use_dictionary=use_dictionary,
                 coerce_timestamps=coerce_timestamps,
+                data_page_size=data_page_size,
                 allow_truncated_timestamps=allow_truncated_timestamps,
                 compression=compression,
                 use_deprecated_int96_timestamps=use_int96,
@@ -1316,8 +1323,8 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
     **kwargs : dict,
         kwargs for write_table function. Using `metadata_collector` in
         kwargs allows one to collect the file metadata instances of
-        dataset pieces. See `ParquetWriter.__doc__` for more
-        information.
+        dataset pieces. See docstring for `write_table` or
+        `ParquetWriter` for more information.
     """
     if preserve_index is not None:
         warnings.warn('preserve_index argument is deprecated as of 0.13.0 and '
