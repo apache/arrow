@@ -65,6 +65,9 @@ else
   export BUILD_ARROW_GANDIVA=OFF
 fi
 
+# ARROW-3052(wesm): ORC is being bundled until it can be added to the
+# manylinux1 image
+
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}-${UNICODE_WIDTH}
 mkdir -p "${ARROW_BUILD_DIR}"
@@ -90,6 +93,7 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_GANDIVA_JAVA=OFF \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
+    -DORC_SOURCE=BUNDLED \
     -GNinja /arrow/cpp
 ninja install
 popd

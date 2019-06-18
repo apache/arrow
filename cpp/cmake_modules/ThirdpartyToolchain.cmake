@@ -65,6 +65,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     GTest
     LLVM
     Lz4
+    ORC
     RE2
     Protobuf
     RapidJSON
@@ -145,6 +146,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gtest()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
     build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
+    build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
   elseif("${DEPENDENCY_NAME}" STREQUAL "RE2")
@@ -179,10 +182,6 @@ endmacro()
 # Thirdparty versions, environment variables, source URLs
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
-
-if(DEFINED ENV{ORC_HOME})
-  set(ORC_HOME "$ENV{ORC_HOME}")
-endif()
 
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
@@ -2281,93 +2280,91 @@ include_directories(SYSTEM "${HADOOP_HOME}/include")
 # ----------------------------------------------------------------------
 # Apache ORC
 
-if(ARROW_ORC)
-  # orc
-  if("${ORC_HOME}" STREQUAL "")
-    set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
-    set(ORC_HOME "${ORC_PREFIX}")
-    set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
-    set(
-      ORC_STATIC_LIB
+macro(build_orc)
+  message("Building Apache ORC from source")
+  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+  set(ORC_HOME "${ORC_PREFIX}")
+  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+  set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-    if("${COMPILER_FAMILY}" STREQUAL "clang")
-      if("${COMPILER_VERSION}" VERSION_EQUAL "4.0")
-        # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
-        # disabling the following errors
-        set(ORC_CMAKE_CXX_FLAGS " -Wno-error=weak-vtables -Wno-error=undef ")
-      endif()
-      if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
-        set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
-  -Wno-inconsistent-missing-destructor-override ")
-      endif()
+  if("${COMPILER_FAMILY}" STREQUAL "clang")
+    if("${COMPILER_VERSION}" VERSION_EQUAL "4.0")
+      # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
+      # disabling the following errors
+      set(ORC_CMAKE_CXX_FLAGS " -Wno-error=weak-vtables -Wno-error=undef ")
     endif()
-
-    set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
-
-    get_target_property(ORC_PROTOBUF_INCLUDE_DIR protobuf::libprotobuf
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-    get_target_property(ORC_PROTOBUF_LIBRARY protobuf::libprotobuf IMPORTED_LOCATION)
-
-    get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
-
-    get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
-
-    # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
-    # the protoc library.
-    set(ORC_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
-        -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
-        -DBUILD_LIBHDFSPP=OFF
-        -DBUILD_JAVA=OFF
-        -DBUILD_TOOLS=OFF
-        -DBUILD_CPP_TESTS=OFF
-        -DINSTALL_VENDORED_LIBS=OFF
-        "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
-        "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
-        "-DPROTOBUF_HOME=${ORC_PB_ROOT}"
-        "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
-        "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-        "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-        "-DLZ4_HOME=${LZ4_HOME}")
-    if(ZLIB_ROOT)
-      set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
+    if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+      set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
+-Wno-inconsistent-missing-destructor-override ")
     endif()
-
-    externalproject_add(orc_ep
-                        URL ${ORC_SOURCE_URL}
-                        BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-                        CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
-
-    add_dependencies(toolchain orc_ep)
-
-    set(ORC_VENDORED 1)
-    add_dependencies(orc_ep ZLIB::ZLIB)
-    add_dependencies(orc_ep LZ4::lz4)
-    add_dependencies(orc_ep Snappy::snappy)
-    add_dependencies(orc_ep protobuf::libprotobuf)
-  else()
-    set(ORC_INCLUDE_DIR "${ORC_HOME}/include")
-    set(ORC_STATIC_LIB
-        "${ORC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(ORC_VENDORED 0)
   endif()
 
+  set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
+
+  get_target_property(ORC_PROTOBUF_INCLUDE_DIR protobuf::libprotobuf
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+  get_target_property(ORC_PROTOBUF_LIBRARY protobuf::libprotobuf IMPORTED_LOCATION)
+
+  get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
+
+  get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
+
+  # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
+  # the protoc library.
+  set(ORC_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
+      -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
+      -DBUILD_LIBHDFSPP=OFF
+      -DBUILD_JAVA=OFF
+      -DBUILD_TOOLS=OFF
+      -DBUILD_CPP_TESTS=OFF
+      -DINSTALL_VENDORED_LIBS=OFF
+      "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
+      "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
+      "-DPROTOBUF_HOME=${ORC_PB_ROOT}"
+      "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
+      "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
+      "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
+      "-DLZ4_HOME=${LZ4_HOME}")
+  if(ZLIB_ROOT)
+    set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
+  endif()
+
+  # Work around CMake bug
+  file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
+
+  externalproject_add(orc_ep
+                      URL ${ORC_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+
+  add_dependencies(toolchain orc_ep)
+
+  set(ORC_VENDORED 1)
+  add_dependencies(orc_ep ZLIB::ZLIB)
+  add_dependencies(orc_ep LZ4::lz4)
+  add_dependencies(orc_ep Snappy::snappy)
+  add_dependencies(orc_ep protobuf::libprotobuf)
+
+  add_library(orc::liborc STATIC IMPORTED)
+  set_target_properties(orc::liborc
+                        PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+
+  add_dependencies(toolchain orc_ep)
+  add_dependencies(orc::liborc orc_ep)
+endmacro()
+
+if(ARROW_ORC)
+  resolve_dependency(ORC)
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
-  add_thirdparty_lib(orc
-                     STATIC_LIB
-                     ${ORC_STATIC_LIB}
-                     DEPS
-                     protobuf::libprotobuf)
-
-  if(ORC_VENDORED)
-    add_dependencies(orc_static orc_ep)
-  endif()
+  message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
+  message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
 
 # Write out the package configurations.
