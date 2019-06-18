@@ -54,6 +54,7 @@ build() {
   export CPPFLAGS="-I${MINGW_PREFIX}/include"
   export LIBS="-L${MINGW_PREFIX}/libs"
 
+  git checkout apache-arrow-0.13.0
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
     ${MINGW_PREFIX}/bin/cmake.exe \
     ${ARROW_CPP_DIR} \
