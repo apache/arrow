@@ -926,7 +926,7 @@ cdef class Schema:
         """
         Append a field at the end of the schema.
 
-        In contract to Python's ``list.append()`` it does return a new
+        In contrast to Python's ``list.append()`` it does return a new
         object, leaving the original Schema unmodified.
 
         Parameters
