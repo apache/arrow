@@ -1025,26 +1025,22 @@ def test_parquet_version_timestamp_differences():
     # Using Parquet version 1.0, seconds should be coerced to milliseconds
     # and nanoseconds should be coerced to microseconds by default
     expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_us], names)
-    actual = _roundtrip_table(table)
-    assert actual.equals(expected)
+    _check_roundtrip(table, expected)
 
     # Using Parquet version 2.0, seconds should be coerced to milliseconds
     # and nanoseconds should be retained by default
     expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_ns], names)
-    actual = _roundtrip_table(table, version='2.0')
-    assert actual.equals(expected)
+    _check_roundtrip(table, expected, version='2.0')
 
     # Using Parquet version 1.0, coercing to milliseconds or microseconds
     # is allowed
     expected = pa.Table.from_arrays([a_ms, a_ms, a_ms, a_ms], names)
-    actual = _roundtrip_table(table, coerce_timestamps='ms')
-    assert actual.equals(expected)
+    _check_roundtrip(table, expected, coerce_timestamps='ms')
 
     # Using Parquet version 2.0, coercing to milliseconds or microseconds
     # is allowed
     expected = pa.Table.from_arrays([a_us, a_us, a_us, a_us], names)
-    actual = _roundtrip_table(table, coerce_timestamps='us')
-    assert actual.equals(expected)
+    _check_roundtrip(table, expected, version='2.0', coerce_timestamps='us')
 
     # TODO: after pyarrow allows coerce_timestamps='ns', tests like the
     # following should pass ...
@@ -1056,18 +1052,15 @@ def test_parquet_version_timestamp_differences():
 
     # Using Parquet version 2.0, coercing to nanoseconds is allowed
     # expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
-    # actual = _roundtrip_table(table, version='2.0', coerce_timestamps='ns')
-    # assert actual.equals(expected)
+    # _check_roundtrip(table, expected, version='2.0', coerce_timestamps='ns')
 
     # For either Parquet version, coercing to nanoseconds is allowed
     # if Int96 storage is used
     expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
-    actual = _roundtrip_table(table,
-                              use_deprecated_int96_timestamps=True)
-    assert actual.equals(expected)
-    actual = _roundtrip_table(table, version='2.0',
-                              use_deprecated_int96_timestamps=True)
-    assert actual.equals(expected)
+    _check_roundtrip(table, expected,
+                     use_deprecated_int96_timestamps=True)
+    _check_roundtrip(table, expected, version='2.0',
+                     use_deprecated_int96_timestamps=True)
 
 
 def test_large_list_records():
@@ -2131,7 +2124,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
         pass
     assert filename.exists()
 
-    recovered_table = _roundtrip_table(tb, version='2.0')
+    recovered_table = pq.read_table(filename)
     assert tb.equals(recovered_table)
 
     # Loss of data thru coercion (without explicit override) still an error
