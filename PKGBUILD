@@ -23,12 +23,13 @@ cmake_build_type=release
 
 #source_dir=${_realname}-${pkgver}
 source_dir=apache-${_realname}-${pkgver}
+#source_dir=${_realname}
 cpp_build_dir=build-${CARCH}-cpp
 c_glib_build_dir=build-${CARCH}-c-glib
 
 pkgver() {
-  # cd "$source_dir"
-  grep Version arrow/r/DESCRIPTION | cut -d " " -f 2
+  cd "$source_dir"
+  grep Version r/DESCRIPTION | cut -d " " -f 2
 }
 
 prepare() {
@@ -40,7 +41,7 @@ prepare() {
 
 build() {
   echo ${cpp_build_dir}
-  ARROW_CPP_DIR="$(pwd)/arrow/cpp"
+  ARROW_CPP_DIR="$(pwd)/${source_dir}/cpp"
   [[ -d ${cpp_build_dir} ]] && rm -rf ${cpp_build_dir}
   mkdir -p ${cpp_build_dir}
   pushd ${cpp_build_dir}
