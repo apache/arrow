@@ -507,6 +507,24 @@ def test_nested_ndarray_in_object_array():
     assert result.equals(expected)
 
 
+@pytest.mark.xfail(reason=("Type inference for multidimensional ndarray "
+                           "not yet implemented"),
+                   raises=AssertionError)
+def test_multidimensional_ndarray_as_nested_list():
+    # TODO(wesm): see ARROW-5645
+    arr = np.array([[1, 2], [2, 3]])
+    arr2 = np.array([[3, 4], [5, 6]])
+
+    expected_type = pa.list_(pa.list_(pa.int64()))
+    assert pa.infer_type([arr]) == expected_type
+
+    result = pa.array([arr, arr2])
+    expected = pa.array([[[1, 2], [2, 3]], [[3, 4], [5, 6]]],
+                        type=expected_type)
+
+    assert result.equals(expected)
+
+
 def test_array_ignore_nan_from_pandas():
     # See ARROW-4324, this reverts logic that was introduced in
     # ARROW-2240
