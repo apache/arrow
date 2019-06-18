@@ -263,13 +263,18 @@ public class VarBinaryVector extends BaseVariableWidthVector {
    */
   public void setSafe(int index, NullableVarBinaryHolder holder) {
     assert index >= 0;
-    final int dataLength = holder.end - holder.start;
     fillEmpties(index);
-    handleSafe(index, dataLength);
     BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
     final int startOffset = getStartOffset(index);
-    offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
-    valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
+    if (holder.isSet != 0) {
+      final int dataLength = holder.end - holder.start;
+      handleSafe(index, dataLength);
+      offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
+      valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
+    } else {
+      handleSafe(index, 0);
+      offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset);
+    }
     lastSet = index;
   }
 
