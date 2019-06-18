@@ -611,6 +611,81 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
 };
 
 // ------------------------------------------------------------------------
+// Converter for struct arrays
+
+class UnionConverter final : public ConcreteConverter<UnionConverter> {
+ public:
+  explicit UnionConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
+
+  Status Init() override {
+    std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
+    for (const auto& field : type_->children()) {
+      std::shared_ptr<Converter> child_converter;
+      RETURN_NOT_OK(GetConverter(field->type(), &child_converter));
+      child_converters_.push_back(child_converter);
+      child_builders.push_back(child_converter->builder());
+    }
+    builder_ = std::make_shared<UnionBuilder>(type_, default_memory_pool(),
+                                              std::move(child_builders));
+    return Status::OK();
+  }
+
+  Status AppendNull() override {
+    for (auto& converter : child_converters_) {
+      RETURN_NOT_OK(converter->AppendNull());
+    }
+    return builder_->AppendNull();
+  }
+
+  // Append a JSON value that is either an array of N elements in order
+  // or an object mapping struct names to values (omitted struct members
+  // are mapped to null).
+  Status AppendValue(const rj::Value& json_obj) override {
+    if (json_obj.IsNull()) {
+      return AppendNull();
+    }
+    if (json_obj.IsArray()) {
+      auto size = json_obj.Size();
+      auto expected_size = static_cast<uint32_t>(type_->num_children());
+      if (size != expected_size) {
+        return Status::Invalid("Expected array of size ", expected_size,
+                               ", got array of size ", size);
+      }
+      for (uint32_t i = 0; i < size; ++i) {
+        RETURN_NOT_OK(child_converters_[i]->AppendValue(json_obj[i]));
+      }
+      return builder_->Append();
+    }
+    if (json_obj.IsObject()) {
+      auto remaining = json_obj.MemberCount();
+      auto num_children = type_->num_children();
+      for (int32_t i = 0; i < num_children; ++i) {
+        const auto& field = type_->child(i);
+        auto it = json_obj.FindMember(field->name());
+        if (it != json_obj.MemberEnd()) {
+          --remaining;
+          RETURN_NOT_OK(child_converters_[i]->AppendValue(it->value));
+        } else {
+          RETURN_NOT_OK(child_converters_[i]->AppendNull());
+        }
+      }
+      if (remaining > 0) {
+        return Status::Invalid("Unexpected members in JSON object for type ",
+                               type_->ToString());
+      }
+      return builder_->Append();
+    }
+    return JSONTypeError("array or object", json_obj.GetType());
+  }
+
+  std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
+
+ private:
+  std::shared_ptr<UnionBuilder> builder_;
+  std::vector<std::shared_ptr<Converter>> child_converters_;
+};
+
+// ------------------------------------------------------------------------
 // General conversion functions
 
 Status GetConverter(const std::shared_ptr<DataType>& type,

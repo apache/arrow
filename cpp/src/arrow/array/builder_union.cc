@@ -73,4 +73,49 @@ Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
+SparseUnionBuilder::SparseUnionBuilder(
+    MemoryPool* pool, std::vector<std::shared_ptr<ArrayBuilder>> children,
+    const std::shared_ptr<DataType>& type)
+    : ArrayBuilder(type, pool),
+      union_type_(checked_cast<const UnionType*>(type.get())),
+      types_builder_(pool),
+      type_id_to_child_num_(union_type_ ? union_type_->max_type_code() + 1 : 0, -1) {
+  if (union_type_) {
+    DCHECK_EQ(union_type_->mode(), UnionMode::SPARSE);
+    int child_i = 0;
+    for (auto type_id : union_type_->type_codes()) {
+      type_id_to_child_num_[type_id] = child_i++;
+    }
+  }
+  children_ = std::move(children);
+}
+
+Status SparseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  std::shared_ptr<Buffer> types, offsets, null_bitmap;
+  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+  RETURN_NOT_OK(types_builder_.Finish(&types));
+
+  std::vector<std::shared_ptr<ArrayData>> child_data(children_.size());
+  for (size_t i = 0; i < children_.size(); ++i) {
+    std::shared_ptr<ArrayData> data;
+    RETURN_NOT_OK(children_[i]->FinishInternal(&data));
+    child_data[i] = data;
+  }
+
+  // If the type has not been specified in the constructor, infer it
+  if (!type_) {
+    std::vector<std::shared_ptr<Field>> fields;
+    std::vector<uint8_t> type_ids;
+    for (size_t i = 0; i < children_.size(); ++i) {
+      fields.push_back(field(field_names_[i], children_[i]->type()));
+      type_ids.push_back(static_cast<uint8_t>(i));
+    }
+    type_ = union_(fields, type_ids, UnionMode::SPARSE);
+  }
+
+  *out = ArrayData::Make(type_, length(), {null_bitmap, types, offsets}, null_count_);
+  (*out)->child_data = std::move(child_data);
+  return Status::OK();
+}
+
 }  // namespace arrow

@@ -329,4 +329,117 @@ TEST_F(DenseUnionBuilderTest, ListOfInferredType) {
   ASSERT_EQ(expected_type->ToString(), actual->type()->ToString());
 }
 
+class SparseUnionBuilderTest : public ::testing::Test {
+ public:
+  void AppendInt(int8_t i) {
+    ASSERT_OK(union_builder->Append(I8));
+    ASSERT_OK(i8_builder->Append(i));
+    ASSERT_OK(str_builder->AppendNull());
+    ASSERT_OK(dbl_builder->AppendNull());
+  }
+
+  void AppendString(const std::string& str) {
+    ASSERT_OK(union_builder->Append(STR));
+    ASSERT_OK(i8_builder->AppendNull());
+    ASSERT_OK(str_builder->Append(str));
+    ASSERT_OK(dbl_builder->AppendNull());
+  }
+
+  void AppendDouble(double dbl) {
+    ASSERT_OK(union_builder->Append(DBL));
+    ASSERT_OK(i8_builder->AppendNull());
+    ASSERT_OK(str_builder->AppendNull());
+    ASSERT_OK(dbl_builder->Append(dbl));
+  }
+
+  uint8_t I8 = 8, STR = 13, DBL = 7;
+
+  std::shared_ptr<Int8Builder> i8_builder = std::make_shared<Int8Builder>();
+  std::shared_ptr<StringBuilder> str_builder = std::make_shared<StringBuilder>();
+  std::shared_ptr<DoubleBuilder> dbl_builder = std::make_shared<DoubleBuilder>();
+  std::shared_ptr<SparseUnionBuilder> union_builder;
+};
+
+TEST_F(SparseUnionBuilderTest, Basics) {
+  union_builder.reset(new SparseUnionBuilder(
+      default_memory_pool(), {i8_builder, str_builder, dbl_builder},
+      union_({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+             {I8, STR, DBL}, UnionMode::SPARSE)));
+
+  AppendInt(33);
+  AppendString("abc");
+  AppendDouble(1.0);
+  AppendDouble(-1.0);
+  AppendString("");
+  AppendInt(10);
+  AppendString("def");
+  AppendInt(-10);
+  AppendDouble(0.5);
+
+  std::shared_ptr<UnionArray> actual;
+  ASSERT_OK(union_builder->Finish(&actual));
+
+  auto expected_i8 =
+      ArrayFromJSON(int8(), "[33, null, null, null, null, 10, null, -10, null]");
+  auto expected_str =
+      ArrayFromJSON(utf8(), R"([null, "abc", null, null, "",  null, "def", null, null])");
+  auto expected_dbl =
+      ArrayFromJSON(float64(), "[null, null, 1.0, -1.0, null, null, null, null, 0.5]");
+
+  std::shared_ptr<Array> expected_types;
+  ArrayFromVector<Int8Type, uint8_t>({I8, STR, DBL, DBL, STR, I8, STR, I8, DBL},
+                                     &expected_types);
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeSparse(*expected_types,
+                                   {expected_i8, expected_str, expected_dbl},
+                                   {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+
+  ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
+}
+
+TEST_F(SparseUnionBuilderTest, InferredType) {
+  union_builder.reset(new SparseUnionBuilder(default_memory_pool(), {}, nullptr));
+
+  I8 = union_builder->AppendChild(i8_builder, "i8");
+  ASSERT_EQ(I8, 0);
+  AppendInt(33);
+  AppendInt(10);
+
+  STR = union_builder->AppendChild(str_builder, "str");
+  ASSERT_EQ(STR, 1);
+  AppendString("abc");
+  AppendString("");
+  AppendString("def");
+  AppendInt(-10);
+
+  DBL = union_builder->AppendChild(dbl_builder, "dbl");
+  ASSERT_EQ(DBL, 2);
+  AppendDouble(1.0);
+  AppendDouble(-1.0);
+  AppendDouble(0.5);
+
+  std::shared_ptr<UnionArray> actual;
+  ASSERT_OK(union_builder->Finish(&actual));
+
+  auto expected_i8 =
+      ArrayFromJSON(int8(), "[33, 10, null, null, null, -10, null, null, null]");
+  auto expected_str =
+      ArrayFromJSON(utf8(), R"([null, null, "abc", "", "def",  null, null, null, null])");
+  auto expected_dbl =
+      ArrayFromJSON(float64(), "[null, null, null, null, null, null, 1.0, -1.0, 0.5]");
+
+  std::shared_ptr<Array> expected_types;
+  ArrayFromVector<Int8Type, uint8_t>({I8, I8, STR, STR, STR, I8, DBL, DBL, DBL},
+                                     &expected_types);
+
+  std::shared_ptr<Array> expected;
+  ASSERT_OK(UnionArray::MakeSparse(*expected_types,
+                                   {expected_i8, expected_str, expected_dbl},
+                                   {"i8", "str", "dbl"}, {I8, STR, DBL}, &expected));
+
+  ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
+  ASSERT_ARRAYS_EQUAL(*expected, *actual);
+}
 }  // namespace arrow
