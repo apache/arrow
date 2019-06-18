@@ -1006,10 +1006,12 @@ cdef class ParquetWriter:
         object allow_truncated_timestamps
         object compression
         object version
+        object write_statistics
         int row_group_size
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
+                  write_statistics=None,
                   MemoryPool memory_pool=None,
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
@@ -1034,6 +1036,7 @@ cdef class ParquetWriter:
         self.use_dictionary = use_dictionary
         self.compression = compression
         self.version = version
+        self.write_statistics = write_statistics
         self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
         self.coerce_timestamps = coerce_timestamps
         self.allow_truncated_timestamps = allow_truncated_timestamps
@@ -1042,6 +1045,7 @@ cdef class ParquetWriter:
         self._set_version(&properties_builder)
         self._set_compression_props(&properties_builder)
         self._set_dictionary_props(&properties_builder)
+        self._set_statistics_props(&properties_builder)
         properties = properties_builder.build()
 
         cdef ArrowWriterProperties.Builder arrow_properties_builder
@@ -1109,6 +1113,18 @@ cdef class ParquetWriter:
             props.disable_dictionary()
             for column in self.use_dictionary:
                 props.enable_dictionary(column)
+
+    cdef void _set_statistics_props(self, WriterProperties.Builder* props):
+        if isinstance(self.write_statistics, bool):
+            if self.write_statistics:
+                props.enable_statistics()
+            else:
+                props.disable_statistics()
+        elif self.write_statistics is not None:
+            # Deactivate statistics by default and enable for specified columns
+            props.disable_statistics()
+            for column in self.write_statistics:
+                props.enable_statistics(column)
 
     def close(self):
         with nogil:
