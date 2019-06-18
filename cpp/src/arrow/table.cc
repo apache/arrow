@@ -478,6 +478,30 @@ Status Table::FromChunkedStructArray(const std::shared_ptr<ChunkedArray>& array,
   return Status::OK();
 }
 
+std::vector<std::string> Table::ColumnNames() const {
+  std::vector<std::string> names(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    names[i] = column(i)->name();
+  }
+  return names;
+}
+
+Status Table::RenameColumns(const std::vector<std::string>& names,
+                            std::shared_ptr<Table>* out) const {
+  if (names.size() != static_cast<size_t>(num_columns())) {
+    return Status::Invalid("tried to rename a table of ", num_columns(),
+                           " columns but only ", names.size(), " names were provided");
+  }
+  std::vector<std::shared_ptr<Column>> columns(num_columns());
+  std::vector<std::shared_ptr<Field>> fields(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    fields[i] = column(i)->field()->WithName(names[i]);
+    columns[i] = std::make_shared<Column>(fields[i], column(i)->data());
+  }
+  *out = Table::Make(::arrow::schema(std::move(fields)), std::move(columns), num_rows());
+  return Status::OK();
+}
+
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
                          std::shared_ptr<Table>* table) {
   if (tables.size() == 0) {

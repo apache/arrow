@@ -551,6 +551,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus SetColumn(int i, const shared_ptr[CColumn]& column,
                           shared_ptr[CTable]* out)
 
+        vector[c_string] ColumnNames()
+        CStatus RenameColumns(const vector[c_string]&, shared_ptr[CTable]* out)
+
         CStatus Flatten(CMemoryPool* pool, shared_ptr[CTable]* out)
 
         CStatus Validate()
