@@ -2,7 +2,7 @@
 _realname=arrow
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=0.13.0
+pkgver=0.13.0.9000
 pkgrel=8000
 pkgdesc="Apache Arrow is a cross-language development platform for in-memory data (mingw-w64)"
 arch=("any")
@@ -28,8 +28,11 @@ cpp_build_dir=build-${CARCH}-cpp
 c_glib_build_dir=build-${CARCH}-c-glib
 
 pkgver() {
-  cd "$source_dir"
-  grep Version r/DESCRIPTION | cut -d " " -f 2
+  # cd "$source_dir"
+  # grep Version r/DESCRIPTION | cut -d " " -f 2
+  pwd
+  ls
+  echo ${pkgver}
 }
 
 prepare() {
