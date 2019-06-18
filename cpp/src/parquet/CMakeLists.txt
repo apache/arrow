@@ -322,7 +322,9 @@ add_parquet_test(arrow-test
                  test_util.cc)
 
 if(PARQUET_BUILD_ENCRYPTION)
-  add_parquet_test(encryption-test)
+  add_parquet_test(encryption-test
+                   SOURCES
+                   encryption-properties-test.cc)
 endif()
 
 # Those tests need to use static linking as they access thrift-generated
