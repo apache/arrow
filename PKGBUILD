@@ -16,7 +16,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-boost"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
-source=("${_realname}"::"git+https://github.com/apache/arrow")
+source=("${_realname}"::"https://github.com/apache/arrow/archive/apache-arrow-0.13.0.tar.gz")
 sha256sums=("SKIP")
 
 cmake_build_type=release
@@ -54,7 +54,6 @@ build() {
   export CPPFLAGS="-I${MINGW_PREFIX}/include"
   export LIBS="-L${MINGW_PREFIX}/libs"
 
-  git checkout apache-arrow-0.13.0
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
     ${MINGW_PREFIX}/bin/cmake.exe \
     ${ARROW_CPP_DIR} \

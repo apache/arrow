@@ -10,7 +10,7 @@ pacman --noconfirm -Scc
 pacman --noconfirm -Syyu
 pacman --noconfirm --needed -S git base-devel binutils
 
-#  Install core build stuff
+# Install core build stuff
 pacman --noconfirm --needed -S mingw-w64-{i686,x86_64}-{crt,winpthreads,gcc,libtre,pkg-config,xz}
 
 # Force static linking
