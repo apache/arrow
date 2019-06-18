@@ -87,6 +87,18 @@ func (a *String) setData(data *Data) {
 	}
 }
 
+func arrayEqualString(left, right *String) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A StringBuilder is used to build a String array using the Append methods.
 type StringBuilder struct {
 	builder *BinaryBuilder

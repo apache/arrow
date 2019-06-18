@@ -98,7 +98,8 @@ def lint_files():
 
             # Only run on header files
             if filename.endswith('.h'):
-                yield from lint_file(full_path)
+                for _ in lint_file(full_path):
+                    yield _
 
 
 if __name__ == '__main__':

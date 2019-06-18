@@ -19,7 +19,6 @@ package org.apache.arrow.flight;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.perf.PerformanceTestServer;
 import org.apache.arrow.flight.perf.TestPerf;
 import org.apache.arrow.memory.BufferAllocator;

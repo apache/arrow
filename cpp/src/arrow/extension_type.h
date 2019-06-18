@@ -84,7 +84,14 @@ class ARROW_EXPORT ExtensionType : public DataType {
 /// \brief Base array class for user-defined extension types
 class ARROW_EXPORT ExtensionArray : public Array {
  public:
-  explicit ExtensionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+  /// \brief Construct an ExtensionArray from an ArrayData.
+  ///
+  /// The ArrayData must have the right ExtensionType.
+  explicit ExtensionArray(const std::shared_ptr<ArrayData>& data);
+
+  /// \brief Construct an ExtensionArray from a type and the underlying storage.
+  ExtensionArray(const std::shared_ptr<DataType>& type,
+                 const std::shared_ptr<Array>& storage);
 
   /// \brief The physical storage for the extension array
   std::shared_ptr<Array> storage() const { return storage_; }

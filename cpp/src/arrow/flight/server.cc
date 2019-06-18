@@ -460,7 +460,7 @@ thread_local std::atomic<FlightServerBase::Impl*>
 #endif
 
 FlightServerOptions::FlightServerOptions(const Location& location_)
-    : location(location_), auth_handler(nullptr) {}
+    : location(location_), auth_handler(nullptr), tls_certificates() {}
 
 FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 
@@ -483,8 +483,9 @@ Status FlightServerBase::Init(FlightServerOptions& options) {
     std::shared_ptr<grpc::ServerCredentials> creds;
     if (scheme == kSchemeGrpcTls) {
       grpc::SslServerCredentialsOptions ssl_options;
-      ssl_options.pem_key_cert_pairs.push_back(
-          {options.tls_private_key, options.tls_cert_chain});
+      for (const auto& pair : options.tls_certificates) {
+        ssl_options.pem_key_cert_pairs.push_back({pair.pem_key, pair.pem_cert});
+      }
       creds = grpc::SslServerCredentials(ssl_options);
     } else {
       creds = grpc::InsecureServerCredentials();

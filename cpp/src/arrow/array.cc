@@ -1259,7 +1259,16 @@ struct ValidateVisitor {
     return Status::OK();
   }
 
-  Status Visit(const ExtensionArray& array) { return ValidateArray(*array.storage()); }
+  Status Visit(const ExtensionArray& array) {
+    const auto& ext_type = checked_cast<const ExtensionType&>(*array.type());
+
+    if (!array.storage()->type()->Equals(*ext_type.storage_type())) {
+      return Status::Invalid("Extension array of type '", array.type()->ToString(),
+                             "' has storage array of incompatible type '",
+                             array.storage()->type()->ToString(), "'");
+    }
+    return ValidateArray(*array.storage());
+  }
 
  protected:
   template <typename ArrayType>

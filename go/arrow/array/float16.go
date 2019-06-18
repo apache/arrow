@@ -70,6 +70,18 @@ func (a *Float16) setData(data *Data) {
 	}
 }
 
+func arrayEqualFloat16(left, right *Float16) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 var (
 	_ Interface = (*Float16)(nil)
 )

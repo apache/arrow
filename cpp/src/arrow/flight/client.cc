@@ -60,9 +60,6 @@ struct ClientRpc {
   grpc::ClientContext context;
 
   explicit ClientRpc(const FlightCallOptions& options) {
-    /// XXX workaround until we have a handshake in Connect
-    context.set_wait_for_ready(true);
-
     if (options.timeout.count() >= 0) {
       std::chrono::system_clock::time_point deadline =
           std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(

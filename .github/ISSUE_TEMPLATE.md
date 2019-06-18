@@ -1,16 +1,21 @@
-## GitHub Issues for Apache Arrow
+STOP! Are you reporting a bug, a possible bug, or requesting a
+feature? If so, please report under the ARROW project on the ASF JIRA
+server https://issues.apache.org/jira/browse/ARROW. This JIRA server
+is free to use and open to the public, but you must create an account
+if it is your first time.
 
-We support GitHub issues as a lightweight way to ask questions and engage with
-the Arrow developer community. We use the Apache Software Foundation's JIRA
-instance for maintaining a queue of development work and as the public record
-for work on the project. So, feel free to delete this text and open an issue
-here if you have a question or aren't sure whether something is a bug or
-feature request. Any bugs, suggestions, or feature requests will eventually
-need to end up in JIRA (https://issues.apache.org/jira/browse/ARROW),
-either before or after completing a pull request.
+See our contribution guidelines for more information:
+http://arrow.apache.org/docs/developers/contributing.html
 
-See our contribution guidelines for more information: http://arrow.apache.org/docs/developers/contributing.html
+We have GitHub issues available as a way for new contributors and
+passers-by who are unfamiliar with Apache Software Foundation projects
+to ask questions and interact with the project. Do not be surprised if
+the first response is to open a JIRA issue or to write an e-mail to
+one of the public mailing lists:
 
-For more in-depth development discussions, please use the public mailing list
-dev@arrow.apache.org (first subscribe by sending an e-mail to
-dev-subscribe@arrow.apache.org).
+* Development discussions: dev@arrow.apache.org (first subscribe by
+  sending an e-mail to dev-subscribe@arrow.apache.org).
+* User discussions: user@arrow.apache.org (first subscribe by
+  sending an e-mail to user-subscribe@arrow.apache.org).
+
+Thank you!

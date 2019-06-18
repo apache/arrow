@@ -318,11 +318,16 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
 
   // save the value in the output vector.
   builder->SetInsertPoint(loop_body_tail);
-  if (output->Type()->id() == arrow::Type::BOOL) {
+  auto output_type_id = output->Type()->id();
+  if (output_type_id == arrow::Type::BOOL) {
     SetPackedBitValue(output_ref, loop_var, output_value->data());
-  } else {
+  } else if (arrow::is_primitive(output_type_id) ||
+             output_type_id == arrow::Type::DECIMAL) {
     llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
     builder->CreateStore(output_value->data(), slot_offset);
+  } else {
+    return Status::NotImplemented("output type ", output->Type()->ToString(),
+                                  " not supported");
   }
   ADD_TRACE("saving result " + output->Name() + " value %T", output_value->data());
 

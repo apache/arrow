@@ -18,7 +18,6 @@
 package org.apache.arrow.vector;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampMicroReaderImpl;

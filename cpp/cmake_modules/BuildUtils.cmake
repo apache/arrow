@@ -20,6 +20,7 @@
 # search there as well.
 set(LIB_PATH_SUFFIXES
     "${CMAKE_LIBRARY_ARCHITECTURE}"
+    "lib/${CMAKE_LIBRARY_ARCHITECTURE}"
     "lib64"
     "lib32"
     "lib"
@@ -720,9 +721,11 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
 
   set(PUBLIC_HEADERS)
   foreach(HEADER ${CURRENT_DIRECTORY_HEADERS})
-    if(NOT ((HEADER MATCHES "internal")))
-      list(APPEND PUBLIC_HEADERS ${HEADER})
+    get_filename_component(HEADER_BASENAME ${HEADER} NAME)
+    if(HEADER_BASENAME MATCHES "internal")
+      continue()
     endif()
+    list(APPEND PUBLIC_HEADERS ${HEADER})
   endforeach()
   install(FILES ${PUBLIC_HEADERS} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PATH}")
 endfunction()

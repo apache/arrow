@@ -27,9 +27,13 @@
 #include "arrow/array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+using internal::checked_cast;
 
 DataTypeLayout ExtensionType::layout() const { return storage_type_->layout(); }
 
@@ -41,7 +45,21 @@ std::string ExtensionType::ToString() const {
 
 std::string ExtensionType::name() const { return "extension"; }
 
+ExtensionArray::ExtensionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+
+ExtensionArray::ExtensionArray(const std::shared_ptr<DataType>& type,
+                               const std::shared_ptr<Array>& storage) {
+  DCHECK_EQ(type->id(), Type::EXTENSION);
+  DCHECK(
+      storage->type()->Equals(*checked_cast<const ExtensionType&>(*type).storage_type()));
+  auto data = storage->data()->Copy();
+  // XXX This pointer is reverted below in SetData()...
+  data->type = type;
+  SetData(data);
+}
+
 void ExtensionArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
   this->Array::SetData(data);
 
   auto storage_data = data->Copy();

@@ -592,6 +592,8 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("ceil_decimal128", i128,
@@ -599,6 +601,8 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("floor_decimal128", i128,
@@ -606,6 +610,8 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("round_decimal128", i128,
@@ -613,6 +619,8 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("round_decimal128_int32", i128,
@@ -621,6 +629,8 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
                                                            {"round_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("truncate_decimal128", i128,
@@ -628,6 +638,8 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("truncate_decimal128_int32", i128,
@@ -636,6 +648,8 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
                                                            {"round_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castDECIMAL_int64", i128,

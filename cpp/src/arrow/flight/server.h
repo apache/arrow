@@ -106,8 +106,7 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
 
   Location location;
   std::unique_ptr<ServerAuthHandler> auth_handler;
-  std::string tls_cert_chain;
-  std::string tls_private_key;
+  std::vector<CertKeyPair> tls_certificates;
 };
 
 /// \brief Skeleton RPC server implementation which can be used to create

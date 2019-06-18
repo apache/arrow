@@ -66,7 +66,10 @@ cdef api shared_ptr[CDataType] pyarrow_unwrap_data_type(
 
 cdef api object pyarrow_wrap_data_type(
         const shared_ptr[CDataType]& type):
-    cdef DataType out
+    cdef:
+        const CExtensionType* ext_type
+        const CPyExtensionType* cpy_ext_type
+        DataType out
 
     if type.get() == NULL:
         return None
@@ -85,6 +88,13 @@ cdef api object pyarrow_wrap_data_type(
         out = FixedSizeBinaryType.__new__(FixedSizeBinaryType)
     elif type.get().id() == _Type_DECIMAL:
         out = Decimal128Type.__new__(Decimal128Type)
+    elif type.get().id() == _Type_EXTENSION:
+        ext_type = <const CExtensionType*> type.get()
+        if ext_type.extension_name() == PyExtensionName():
+            cpy_ext_type = <const CPyExtensionType*> ext_type
+            return cpy_ext_type.GetInstance()
+        else:
+            out = BaseExtensionType.__new__(BaseExtensionType)
     else:
         out = DataType.__new__(DataType)
 

@@ -270,7 +270,12 @@ if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 else()
   add_custom_target(all-tests)
-  add_custom_target(unittest ctest -L unittest)
+  add_custom_target(unittest
+                    ctest
+                    -j4
+                    -L
+                    unittest
+                    --output-on-failure)
   add_dependencies(unittest all-tests)
 endif()
 
@@ -555,7 +560,7 @@ if(ARROW_WITH_URIPARSER)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
 endif()
 
-if(PARQUET_BUILD_ENCRYPTION)
+if(ARROW_USE_OPENSSL)
   list(APPEND ARROW_LINK_LIBS OpenSSL::Crypto)
   list(APPEND ARROW_STATIC_LINK_LIBS OpenSSL::Crypto)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS OpenSSL::Crypto)

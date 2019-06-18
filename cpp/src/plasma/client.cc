@@ -510,7 +510,7 @@ Status PlasmaClient::Impl::GetBuffers(
             data + object->data_offset, object->data_size + object->metadata_size);
       } else {
 #ifdef PLASMA_CUDA
-        std::lock_guard<std::mutex> lock(gpu_mutex);
+        std::lock_guard<std::recursive_mutex> lock(gpu_mutex);
         auto iter = gpu_object_map.find(object_ids[i]);
         ARROW_CHECK(iter != gpu_object_map.end());
         iter->second->client_count++;
@@ -576,7 +576,7 @@ Status PlasmaClient::Impl::GetBuffers(
             data + object->data_offset, object->data_size + object->metadata_size);
       } else {
 #ifdef PLASMA_CUDA
-        std::lock_guard<std::mutex> lock(gpu_mutex);
+        std::lock_guard<std::recursive_mutex> lock(gpu_mutex);
         auto handle = gpu_object_map.find(object_ids[i]);
         if (handle == gpu_object_map.end()) {
           std::shared_ptr<CudaContext> context;
@@ -657,7 +657,7 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
 
 #ifdef PLASMA_CUDA
   if (object_entry->second->object.device_num != 0) {
-    std::lock_guard<std::mutex> lock(gpu_mutex);
+    std::lock_guard<std::recursive_mutex> lock(gpu_mutex);
     auto iter = gpu_object_map.find(object_id);
     ARROW_CHECK(iter != gpu_object_map.end());
     if (--iter->second->client_count == 0) {
@@ -828,7 +828,7 @@ Status PlasmaClient::Impl::Abort(const ObjectID& object_id) {
 
 #ifdef PLASMA_CUDA
   if (object_entry->second->object.device_num != 0) {
-    std::lock_guard<std::mutex> lock(gpu_mutex);
+    std::lock_guard<std::recursive_mutex> lock(gpu_mutex);
     auto iter = gpu_object_map.find(object_id);
     ARROW_CHECK(iter != gpu_object_map.end());
     ARROW_CHECK(iter->second->client_count == 1);

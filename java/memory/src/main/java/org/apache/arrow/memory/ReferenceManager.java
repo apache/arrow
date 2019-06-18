@@ -119,7 +119,7 @@ public interface ReferenceManager {
    */
   int getAccountedSize();
 
-  public static String NO_OP_ERROR_MESSAGE = "Operation not supported on NO_OP Reference Manager";
+  String NO_OP_ERROR_MESSAGE = "Operation not supported on NO_OP Reference Manager";
 
   // currently used for empty ArrowBufs
   ReferenceManager NO_OP = new ReferenceManager() {

@@ -105,7 +105,10 @@ except ImportError:
 
 
 def pytest_configure(config):
-    pass
+    for mark in groups:
+        config.addinivalue_line(
+            "markers", mark,
+        )
 
 
 def pytest_addoption(parser):

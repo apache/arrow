@@ -20,6 +20,11 @@ add_custom_target(arrow_flight)
 # Header files
 arrow_install_all_headers("arrow/flight")
 
+# pkg-config support
+configure_file(arrow-flight.pc.in "${CMAKE_CURRENT_BINARY_DIR}/arrow-flight.pc" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-flight.pc"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
     protobuf::libprotobuf
     gRPC::grpc++
