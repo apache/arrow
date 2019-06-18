@@ -139,7 +139,7 @@ for:
     - cd %APPVEYOR_BUILD_FOLDER%
 
   build_script:
-    - C:\msys64\usr\bin\bash --login -c ci/appveyor-build-r.sh
+    - C:\msys64\usr\bin\bash --login -c "$(cygpath ${APPVEYOR_BUILD_FOLDER})/ci/appveyor-build-r.sh"
     - pushd r
     - travis-tool.sh install_deps
 
