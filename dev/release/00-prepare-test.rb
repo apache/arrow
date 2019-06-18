@@ -131,13 +131,6 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "r/src/Makevars.win",
-                     hunks: [
-                       ["-VERSION = #{@previous_version}.9000",
-                        "+VERSION = #{@release_version}"],
-                     ],
-                   },
-                   {
                      path: "ruby/red-arrow-cuda/lib/arrow-cuda/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@snapshot_version}\"",
@@ -277,13 +270,6 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-Version: #{@release_version}",
                         "+Version: #{@release_version}.9000"],
-                     ],
-                   },
-                   {
-                     path: "r/src/Makevars.win",
-                     hunks: [
-                       ["-VERSION = #{@release_version}",
-                        "+VERSION = #{@release_version}.9000"],
                      ],
                    },
                    {

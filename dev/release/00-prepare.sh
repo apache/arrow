@@ -101,14 +101,6 @@ update_versions() {
   git add DESCRIPTION
   cd -
 
-  cd "${SOURCE_DIR}/../../r/src"
-  sed -i.bak -E -e \
-    "s/^VERSION = .+/VERSION = ${r_version}/" \
-    Makevars.win
-  rm -f Makevars.win.bak
-  git add Makevars.win
-  cd -
-
   cd "${SOURCE_DIR}/../../ruby"
   sed -i.bak -E -e \
     "s/^  VERSION = \".+\"/  VERSION = \"${version}\"/g" \
