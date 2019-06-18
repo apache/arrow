@@ -32,6 +32,7 @@ pkgver() {
 }
 
 prepare() {
+  echo "Preparing"
   #pushd ${source_dir}
   #patch -p1 -N -i ${srcdir}/3923.patch
   #popd
