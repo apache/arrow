@@ -1124,7 +1124,7 @@ cdef class ParquetWriter:
             # Deactivate statistics by default and enable for specified columns
             props.disable_statistics()
             for column in self.write_statistics:
-                props.enable_statistics(column)
+                props.enable_statistics(tobytes(column))
 
     def close(self):
         with nogil:

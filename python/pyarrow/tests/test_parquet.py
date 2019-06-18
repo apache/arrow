@@ -764,7 +764,7 @@ def test_parquet_write_disable_statistics(tempdir):
         assert cc.is_stats_set is False
         assert cc.statistics is None
 
-    _write_table(table, tempdir / 'data3.parquet', write_statistics=[b'a'])
+    _write_table(table, tempdir / 'data3.parquet', write_statistics=['a'])
     meta = pq.read_metadata(tempdir / 'data3.parquet')
     cc_a = meta.row_group(0).column(0)
     assert cc_a.is_stats_set is True
