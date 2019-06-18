@@ -2103,6 +2103,21 @@ RcppExport SEXP _arrow_ipc___feather___TableReader__Open(SEXP stream_sexp){
 }
 #endif
 
+// feather.cpp
+#if defined(ARROW_R_WITH_ARROW)
+Rcpp::CharacterVector ipc___feather___TableReader__column_names(const std::unique_ptr<arrow::ipc::feather::TableReader>& reader);
+RcppExport SEXP _arrow_ipc___feather___TableReader__column_names(SEXP reader_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::feather::TableReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(ipc___feather___TableReader__column_names(reader));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ipc___feather___TableReader__column_names(SEXP reader_sexp){
+	Rf_error("Cannot call ipc___feather___TableReader__column_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // field.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& field, bool nullable);
@@ -3659,6 +3674,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___feather___TableReader__GetColumn", (DL_FUNC) &_arrow_ipc___feather___TableReader__GetColumn, 2}, 
 		{ "_arrow_ipc___feather___TableReader__Read", (DL_FUNC) &_arrow_ipc___feather___TableReader__Read, 2}, 
 		{ "_arrow_ipc___feather___TableReader__Open", (DL_FUNC) &_arrow_ipc___feather___TableReader__Open, 1}, 
+		{ "_arrow_ipc___feather___TableReader__column_names", (DL_FUNC) &_arrow_ipc___feather___TableReader__column_names, 1}, 
 		{ "_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3}, 
 		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1}, 
 		{ "_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1}, 

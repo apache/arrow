@@ -29,7 +29,8 @@ Imports:
     assertthat,
     R6,
     fs,
-    bit64
+    bit64,
+    tidyselect
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 Suggests:
