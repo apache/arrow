@@ -74,4 +74,5 @@ Collate:
     'read_record_batch.R'
     'read_table.R'
     'reexports-bit64.R'
+    'reexports-tidyselect.R'
     'write_arrow.R'
