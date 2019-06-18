@@ -139,17 +139,7 @@ for:
     - cd %APPVEYOR_BUILD_FOLDER%
 
   build_script:
-    # - rmdir /s /Q C:\OpenSSL-Win32 C:\OpenSSL-Win64
-    - C:\msys64\usr\bin\pacman --noconfirm --ask 20 --sync --refresh --refresh --sysupgrade --sysupgrade
-    - C:\msys64\usr\bin\pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain gcc pkg-config
-    - C:\msys64\usr\bin\pacman --noconfirm -Scc
-    - C:\msys64\usr\bin\pacman --noconfirm -Syyu
-    - C:\msys64\usr\bin\pacman --noconfirm --needed -S git base-devel binutils
-
-    # Install core build stuff
-    - C:\msys64\usr\bin\pacman --noconfirm --needed -S mingw-w64-{i686,x86_64}-{crt,winpthreads,gcc,libtre,pkg-config,xz}
-
-    - C:\msys64\usr\bin\makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
+    - C:\msys64\usr\bin\bash --login -c ci/appveyor-build-r.sh
     - pushd r
     - travis-tool.sh install_deps
 
