@@ -281,4 +281,16 @@ int StructType__GetFieldIndex(const std::shared_ptr<arrow::StructType>& type,
   return type->GetFieldIndex(name);
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> ListType__value_field(
+    const std::shared_ptr<arrow::ListType>& type) {
+  return type->value_field();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> ListType__value_type(
+    const std::shared_ptr<arrow::ListType>& type) {
+  return type->value_type();
+}
+
 #endif

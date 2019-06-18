@@ -80,6 +80,26 @@ StructArray__Flatten <- function(array){
     .Call(`_arrow_StructArray__Flatten` , array)
 }
 
+ListArray__value_type <- function(array){
+    .Call(`_arrow_ListArray__value_type` , array)
+}
+
+ListArray__values <- function(array){
+    .Call(`_arrow_ListArray__values` , array)
+}
+
+ListArray__value_length <- function(array, i){
+    .Call(`_arrow_ListArray__value_length` , array, i)
+}
+
+ListArray__value_offset <- function(array, i){
+    .Call(`_arrow_ListArray__value_offset` , array, i)
+}
+
+ListArray__raw_value_offsets <- function(array){
+    .Call(`_arrow_ListArray__raw_value_offsets` , array)
+}
+
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector` , array)
 }
@@ -454,6 +474,14 @@ StructType__GetFieldByName <- function(type, name){
 
 StructType__GetFieldIndex <- function(type, name){
     .Call(`_arrow_StructType__GetFieldIndex` , type, name)
+}
+
+ListType__value_field <- function(type){
+    .Call(`_arrow_ListType__value_field` , type)
+}
+
+ListType__value_type <- function(type){
+    .Call(`_arrow_ListType__value_type` , type)
 }
 
 ipc___feather___TableWriter__SetDescription <- function(writer, description){
