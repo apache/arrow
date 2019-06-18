@@ -2719,6 +2719,23 @@ RcppExport SEXP _arrow_read_parquet_file(SEXP filename_sexp){
 }
 #endif
 
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void write_parquet_file(const std::shared_ptr<arrow::Table>& table, std::string filename);
+RcppExport SEXP _arrow_write_parquet_file(SEXP table_sexp, SEXP filename_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<std::string>::type filename(filename_sexp);
+	write_parquet_file(table, filename);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_write_parquet_file(SEXP table_sexp, SEXP filename_sexp){
+	Rf_error("Cannot call write_parquet_file(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
@@ -3528,6 +3545,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1}, 
 		{ "_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1}, 
 		{ "_arrow_read_parquet_file", (DL_FUNC) &_arrow_read_parquet_file, 1}, 
+		{ "_arrow_write_parquet_file", (DL_FUNC) &_arrow_write_parquet_file, 2}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
 		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1}, 

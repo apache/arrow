@@ -708,6 +708,10 @@ read_parquet_file <- function(filename){
     .Call(`_arrow_read_parquet_file` , filename)
 }
 
+write_parquet_file <- function(table, filename){
+    invisible(.Call(`_arrow_write_parquet_file` , table, filename))
+}
+
 RecordBatch__num_columns <- function(x){
     .Call(`_arrow_RecordBatch__num_columns` , x)
 }
