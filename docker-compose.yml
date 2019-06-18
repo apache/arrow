@@ -222,6 +222,21 @@ services:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-xenial-volumes
 
+  cpp-boost-1-58:
+    # Usage:
+    #   docker-compose build cpp-boost-1-58
+    #   docker-compose run cpp-boost-1-58
+    image: arrow:cpp-ubuntu-xenial
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-xenial
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+      ARROW_BOOST_VENDORED: "OFF"
+      ARROW_FLIGHT: "OFF"
+    volumes: *ubuntu-xenial-volumes
+
   cpp-ubuntu-bionic:
     # Usage:
     #   docker-compose build cpp-ubuntu-bionic
