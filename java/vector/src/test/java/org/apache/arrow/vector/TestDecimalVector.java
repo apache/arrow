@@ -173,11 +173,7 @@ public class TestDecimalVector {
         decimalVector.set(i, longValues[i]);
       }
 
-      decimalVector.setValueCount(8);
-      assertEquals(8, decimalVector.getValueCount());
-
       for (int i = 0; i < longValues.length; ++i) {
-        decimalVector.set(i, longValues[i]);
         assertEquals(new BigDecimal(longValues[i]), decimalVector.getObject(i));
       }
     }
