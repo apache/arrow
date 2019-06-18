@@ -93,6 +93,28 @@ test_that("feather handles col_select = <integer>", {
   unlink(tf1)
 })
 
+test_that("feather handles col_select = <tidyselect helper>", {
+  tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
+
+  tf1 <- tempfile()
+  write_feather(tib, tf1)
+  expect_true(fs::file_exists(tf1))
+
+  tab1 <- read_feather(tf1, col_select = everything())
+  expect_identical(tib, tab1)
+
+  tab2 <- read_feather(tf1, col_select = starts_with("x"))
+  expect_identical(tab2, tib[, "x", drop = FALSE])
+
+  tab3 <- read_feather(tf1, col_select = c(starts_with("x"), contains("y")))
+  expect_identical(tab3, tib[, c("x", "y"), drop = FALSE])
+
+  tab4 <- read_feather(tf1, col_select = -z)
+  expect_identical(tab4, tib[, c("x", "y"), drop = FALSE])
+
+  unlink(tf1)
+})
+
 test_that("feather read/write round trip", {
   tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
