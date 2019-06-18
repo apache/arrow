@@ -105,6 +105,7 @@ environment:
     #   PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
     - JOB: "R without libarrow"
       USE_CLCACHE: false
+      PATH: C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Program Files\Git\cmd;C:\Program Files\7-Zip
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
@@ -139,6 +140,7 @@ for:
     - cd %APPVEYOR_BUILD_FOLDER%
 
   build_script:
+    - rmdir /s /Q C:\OpenSSL-Win32 C:\OpenSSL-Win64
     - C:\msys64\usr\bin\pacman --noconfirm --ask 20 --sync --refresh --refresh --sysupgrade --sysupgrade
     - C:\msys64\usr\bin\bash --login -c "$(cygpath ${APPVEYOR_BUILD_FOLDER})/ci/appveyor-build-r.sh"
     - pushd r

@@ -1,11 +1,11 @@
 #!/bin/bash
 set -x
 
+pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain gcc pkg-config
+
 wget https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf
 cp -f pacman.conf /etc/pacman.conf
 
-# - rmdir /s /Q C:\OpenSSL-Win32 C:\OpenSSL-Win64
-pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain gcc pkg-config
 pacman --noconfirm -Scc
 pacman --noconfirm -Syyu
 pacman --noconfirm --needed -S git base-devel binutils
