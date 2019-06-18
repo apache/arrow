@@ -226,8 +226,8 @@ services:
     # Ubuntu Xenial 16.04 has Boost 1.58, our minimum version
     #
     # Usage:
-    #   docker-compose build cpp-boost-1-58
-    #   docker-compose run cpp-boost-1-58
+    #   docker-compose build cpp-minimum-boost-version
+    #   docker-compose run cpp-minimum-boost-version
     image: arrow:cpp-ubuntu-xenial
     shm_size: 2G
     build:
