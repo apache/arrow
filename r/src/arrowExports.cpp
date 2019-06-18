@@ -270,6 +270,53 @@ RcppExport SEXP _arrow_DictionaryArray__dictionary(SEXP array_sexp){
 }
 #endif
 
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> StructArray__field(const std::shared_ptr<arrow::StructArray>& array, int i);
+RcppExport SEXP _arrow_StructArray__field(SEXP array_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(StructArray__field(array, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_StructArray__field(SEXP array_sexp, SEXP i_sexp){
+	Rf_error("Cannot call StructArray__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> StructArray__GetFieldByName(const std::shared_ptr<arrow::StructArray>& array, const std::string& name);
+RcppExport SEXP _arrow_StructArray__GetFieldByName(SEXP array_sexp, SEXP name_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
+	return Rcpp::wrap(StructArray__GetFieldByName(array, name));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_StructArray__GetFieldByName(SEXP array_sexp, SEXP name_sexp){
+	Rf_error("Cannot call StructArray__GetFieldByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+arrow::ArrayVector StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array);
+RcppExport SEXP _arrow_StructArray__Flatten(SEXP array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
+	return Rcpp::wrap(StructArray__Flatten(array));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_StructArray__Flatten(SEXP array_sexp){
+	Rf_error("Cannot call StructArray__Flatten(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // array__to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -1661,6 +1708,38 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_DictionaryType__ordered(SEXP type_sexp){
 	Rf_error("Cannot call DictionaryType__ordered(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Field> StructType__GetFieldByName(const std::shared_ptr<arrow::StructType>& type, const std::string& name);
+RcppExport SEXP _arrow_StructType__GetFieldByName(SEXP type_sexp, SEXP name_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::StructType>&>::type type(type_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
+	return Rcpp::wrap(StructType__GetFieldByName(type, name));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_StructType__GetFieldByName(SEXP type_sexp, SEXP name_sexp){
+	Rf_error("Cannot call StructType__GetFieldByName(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int StructType__GetFieldIndex(const std::shared_ptr<arrow::StructType>& type, const std::string& name);
+RcppExport SEXP _arrow_StructType__GetFieldIndex(SEXP type_sexp, SEXP name_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::StructType>&>::type type(type_sexp);
+	Rcpp::traits::input_parameter<const std::string&>::type name(name_sexp);
+	return Rcpp::wrap(StructType__GetFieldIndex(type, name));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_StructType__GetFieldIndex(SEXP type_sexp, SEXP name_sexp){
+	Rf_error("Cannot call StructType__GetFieldIndex(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3289,6 +3368,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__Mask", (DL_FUNC) &_arrow_Array__Mask, 1}, 
 		{ "_arrow_DictionaryArray__indices", (DL_FUNC) &_arrow_DictionaryArray__indices, 1}, 
 		{ "_arrow_DictionaryArray__dictionary", (DL_FUNC) &_arrow_DictionaryArray__dictionary, 1}, 
+		{ "_arrow_StructArray__field", (DL_FUNC) &_arrow_StructArray__field, 2}, 
+		{ "_arrow_StructArray__GetFieldByName", (DL_FUNC) &_arrow_StructArray__GetFieldByName, 2}, 
+		{ "_arrow_StructArray__Flatten", (DL_FUNC) &_arrow_StructArray__Flatten, 1}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
@@ -3381,6 +3463,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_DictionaryType__value_type", (DL_FUNC) &_arrow_DictionaryType__value_type, 1}, 
 		{ "_arrow_DictionaryType__name", (DL_FUNC) &_arrow_DictionaryType__name, 1}, 
 		{ "_arrow_DictionaryType__ordered", (DL_FUNC) &_arrow_DictionaryType__ordered, 1}, 
+		{ "_arrow_StructType__GetFieldByName", (DL_FUNC) &_arrow_StructType__GetFieldByName, 2}, 
+		{ "_arrow_StructType__GetFieldIndex", (DL_FUNC) &_arrow_StructType__GetFieldIndex, 2}, 
 		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2}, 
 		{ "_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetNumRows, 2}, 
 		{ "_arrow_ipc___feather___TableWriter__Append", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Append, 3}, 

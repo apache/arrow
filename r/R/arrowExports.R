@@ -68,6 +68,18 @@ DictionaryArray__dictionary <- function(array){
     .Call(`_arrow_DictionaryArray__dictionary` , array)
 }
 
+StructArray__field <- function(array, i){
+    .Call(`_arrow_StructArray__field` , array, i)
+}
+
+StructArray__GetFieldByName <- function(array, name){
+    .Call(`_arrow_StructArray__GetFieldByName` , array, name)
+}
+
+StructArray__Flatten <- function(array){
+    .Call(`_arrow_StructArray__Flatten` , array)
+}
+
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector` , array)
 }
@@ -434,6 +446,14 @@ DictionaryType__name <- function(type){
 
 DictionaryType__ordered <- function(type){
     .Call(`_arrow_DictionaryType__ordered` , type)
+}
+
+StructType__GetFieldByName <- function(type, name){
+    .Call(`_arrow_StructType__GetFieldByName` , type, name)
+}
+
+StructType__GetFieldIndex <- function(type, name){
+    .Call(`_arrow_StructType__GetFieldIndex` , type, name)
 }
 
 ipc___feather___TableWriter__SetDescription <- function(writer, description){

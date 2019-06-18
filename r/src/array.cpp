@@ -119,4 +119,25 @@ std::shared_ptr<arrow::Array> DictionaryArray__dictionary(
   return array->dictionary();
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> StructArray__field(
+    const std::shared_ptr<arrow::StructArray>& array, int i) {
+  return array->field(i);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
+    const std::shared_ptr<arrow::StructArray>& array, const std::string& name) {
+  return array->GetFieldByName(name);
+}
+
+// [[arrow::export]]
+arrow::ArrayVector StructArray__Flatten(
+    const std::shared_ptr<arrow::StructArray>& array) {
+  int nf = array->num_fields();
+  arrow::ArrayVector out(nf);
+  STOP_IF_NOT_OK(array->Flatten(arrow::default_memory_pool(), &out));
+  return out;
+}
+
 #endif

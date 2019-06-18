@@ -32,7 +32,7 @@
 `arrow::ChunkedArray` <- R6Class("arrow::ChunkedArray", inherit = `arrow::Object`,
   public = list(
     length = function() ChunkedArray__length(self),
-    chunk = function(i) shared_ptr(`arrow::Array`, ChunkedArray__chunk(self, i)),
+    chunk = function(i) `arrow::Array`$dispatch(ChunkedArray__chunk(self, i)),
     as_vector = function() ChunkedArray__as_vector(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
@@ -50,7 +50,7 @@
   active = list(
     null_count = function() ChunkedArray__null_count(self),
     num_chunks = function() ChunkedArray__num_chunks(self),
-    chunks = function() map(ChunkedArray__chunks(self), shared_ptr, class = `arrow::Array`),
+    chunks = function() map(ChunkedArray__chunks(self), ~ `arrow::Array`$dispatch(.x)),
     type = function() `arrow::DataType`$dispatch(ChunkedArray__type(self))
   )
 )
