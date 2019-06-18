@@ -1323,8 +1323,8 @@ def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
     **kwargs : dict,
         kwargs for write_table function. Using `metadata_collector` in
         kwargs allows one to collect the file metadata instances of
-        dataset pieces. See `ParquetWriter.__doc__` for more
-        information.
+        dataset pieces. See docstring for `write_table` or
+        `ParquetWriter` for more information.
     """
     if preserve_index is not None:
         warnings.warn('preserve_index argument is deprecated as of 0.13.0 and '
