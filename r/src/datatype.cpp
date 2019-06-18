@@ -293,5 +293,4 @@ std::shared_ptr<arrow::DataType> ListType__value_type(
   return type->value_type();
 }
 
-
 #endif

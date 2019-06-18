@@ -109,21 +109,28 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
     data.frame(ps = ps$as_vector(), hello = hello$as_vector(), stringsAsFactors = FALSE)
   )
 
-  list_array <- tab1$column(0)$data()$as_vector()
+  list_array_r <- list(
+    c(1, 2, 3),
+    c(2),
+    numeric(),
+    NULL,
+    5,
+    c(5, 6)
+  )
+  list_array <- tab1$column(0)$data()
   expect_identical(
-    arr,
-    list(
-      c(1, 2, 3),
-      c(2),
-      numeric(),
-      NULL,
-      5,
-      c(5, 6)
-    )
+    list_array$as_vector(),
+    list_array_r
   )
 
-  # cannot yet test list and struct types in R api
-  # tib <- as.data.frame(tab1)
+  tib <- as.data.frame(tab1)
+  expect_identical(
+    tib,
+    tibble::tibble(
+      arr = list_array_r,
+      nuf = data.frame(ps = ps$as_vector(), hello = hello$as_vector(), stringsAsFactors = FALSE)
+    )
+  )
 
   unlink(tf)
 })
