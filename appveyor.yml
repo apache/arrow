@@ -105,7 +105,6 @@ environment:
     #   PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
     - JOB: "R without libarrow"
       USE_CLCACHE: false
-      PATH: 'C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Program Files\Git\cmd;C:\Program Files\7-Zip'
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
