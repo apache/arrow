@@ -302,7 +302,10 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 	case *arrow.TimestampType:
 		fv.dtype = flatbuf.TypeTimestamp
 		unit := unitToFB(dt.Unit)
-		tz := fv.b.CreateString(dt.TimeZone)
+		var tz flatbuffers.UOffsetT
+		if dt.TimeZone != "" {
+			tz = fv.b.CreateString(dt.TimeZone)
+		}
 		flatbuf.TimestampStart(fv.b)
 		flatbuf.TimestampAddUnit(fv.b, unit)
 		flatbuf.TimestampAddTimezone(fv.b, tz)
