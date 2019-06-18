@@ -375,7 +375,7 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* out) {
 }
 
 void DebugPrint(PyObject* obj) {
-  std::cerr << internal::PyObject_StdStringRepr(obj) << std::endl;
+  std::cerr << PyObject_StdStringRepr(obj) << std::endl;
 }
 
 }  // namespace internal
