@@ -992,38 +992,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
           column_chunk_->__isset.meta_data = false;
         } else {
           // Keep redacted metadata version for old readers
-          format::ColumnMetaData metadata_redacted;
-          metadata_redacted.__set_type(column_chunk_->meta_data.type);
-          metadata_redacted.__set_encodings(column_chunk_->meta_data.encodings);
-          metadata_redacted.__set_path_in_schema(column_chunk_->meta_data.path_in_schema);
-          metadata_redacted.__set_codec(column_chunk_->meta_data.codec);
-          metadata_redacted.__set_num_values(column_chunk_->meta_data.num_values);
-          metadata_redacted.__set_total_uncompressed_size(
-              column_chunk_->meta_data.total_uncompressed_size);
-          metadata_redacted.__set_total_compressed_size(
-              column_chunk_->meta_data.total_compressed_size);
-          if (column_chunk_->meta_data.__isset.key_value_metadata) {
-            metadata_redacted.__isset.key_value_metadata = true;
-            metadata_redacted.__set_key_value_metadata(
-                column_chunk_->meta_data.key_value_metadata);
-          }
-          metadata_redacted.__set_data_page_offset(
-              column_chunk_->meta_data.data_page_offset);
-          if (column_chunk_->meta_data.__isset.index_page_offset) {
-            metadata_redacted.__isset.index_page_offset = true;
-            metadata_redacted.__set_index_page_offset(
-                column_chunk_->meta_data.index_page_offset);
-          }
-          if (column_chunk_->meta_data.__isset.dictionary_page_offset) {
-            metadata_redacted.__isset.dictionary_page_offset = true;
-            metadata_redacted.__set_dictionary_page_offset(
-                column_chunk_->meta_data.dictionary_page_offset);
-          }
-          metadata_redacted.__isset.statistics = false;
-          metadata_redacted.__isset.encoding_stats = false;
-
           column_chunk_->__isset.meta_data = true;
-          column_chunk_->__set_meta_data(metadata_redacted);
+          column_chunk_->meta_data.__isset.statistics = false;
+          column_chunk_->meta_data.__isset.encoding_stats = false;
         }
       }
     }
