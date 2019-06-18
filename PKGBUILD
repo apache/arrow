@@ -22,17 +22,14 @@ sha256sums=("SKIP")
 cmake_build_type=release
 
 #source_dir=${_realname}-${pkgver}
-source_dir=apache-${_realname}-${pkgver}
+source_dir=${_realname}-apache-${_realname}-${pkgver}
 #source_dir=${_realname}
 cpp_build_dir=build-${CARCH}-cpp
 c_glib_build_dir=build-${CARCH}-c-glib
 
 pkgver() {
-  # cd "$source_dir"
-  # grep Version r/DESCRIPTION | cut -d " " -f 2
-  pwd
-  ls
-  echo ${pkgver}
+  cd "$source_dir"
+  grep Version r/DESCRIPTION | cut -d " " -f 2
 }
 
 prepare() {
