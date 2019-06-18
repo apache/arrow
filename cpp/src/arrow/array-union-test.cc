@@ -300,4 +300,33 @@ TEST_F(DenseUnionBuilderTest, InferredType) {
   ASSERT_ARRAYS_EQUAL(*expected, *actual);
 }
 
+TEST_F(DenseUnionBuilderTest, ListOfInferredType) {
+  union_builder.reset(new DenseUnionBuilder(default_memory_pool(), {}, nullptr));
+  ListBuilder list_builder(default_memory_pool(), union_builder);
+
+  ASSERT_OK(list_builder.Append());
+  I8 = union_builder->AppendChild(i8_builder, "i8");
+  ASSERT_EQ(I8, 0);
+  AppendInt(10);
+
+  ASSERT_OK(list_builder.Append());
+  STR = union_builder->AppendChild(str_builder, "str");
+  ASSERT_EQ(STR, 1);
+  AppendString("abc");
+  AppendInt(-10);
+
+  ASSERT_OK(list_builder.Append());
+  DBL = union_builder->AppendChild(dbl_builder, "dbl");
+  ASSERT_EQ(DBL, 2);
+  AppendDouble(0.5);
+
+  std::shared_ptr<ListArray> actual;
+  ASSERT_OK(list_builder.Finish(&actual));
+
+  auto expected_type =
+      list(union_({field("i8", int8()), field("str", utf8()), field("dbl", float64())},
+                  {I8, STR, DBL}, UnionMode::DENSE));
+  ASSERT_EQ(expected_type->ToString(), actual->type()->ToString());
+}
+
 }  // namespace arrow
