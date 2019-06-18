@@ -129,6 +129,9 @@ Status IntegerScalarToDoubleSafe(PyObject* obj, double* result);
 ARROW_PYTHON_EXPORT
 Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);
 
+// \brief Print Python object __repr__
+void DebugPrint(PyObject* obj);
+
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow

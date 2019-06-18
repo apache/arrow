@@ -20,6 +20,7 @@
 
 #include "arrow/python/helpers.h"
 
+#include <iostream>
 #include <limits>
 #include <sstream>
 #include <type_traits>
@@ -371,6 +372,10 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* out) {
   }
   *out = static_cast<float>(value);
   return Status::OK();
+}
+
+void DebugPrint(PyObject* obj) {
+  std::cerr << internal::PyObject_StdStringRepr(obj) << std::endl;
 }
 
 }  // namespace internal

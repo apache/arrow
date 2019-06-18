@@ -493,11 +493,16 @@ def test_nested_ndarray_in_object_array():
     arr = np.empty(2, dtype=object)
     arr[:] = [np.array([1, 2]), np.array([2, 3])]
 
+    arr2 = np.empty(2, dtype=object)
+    arr2[0] = [3, 4]
+    arr2[1] = [5, 6]
+
     expected_type = pa.list_(pa.list_(pa.int64()))
     assert pa.infer_type([arr]) == expected_type
 
-    result = pa.array([arr, arr])
-    expected = pa.array([list(map(list, arr))] * 2, type=expected_type)
+    result = pa.array([arr, arr2])
+    expected = pa.array([[[1, 2], [2, 3]], [[3, 4], [5, 6]]],
+                        type=expected_type)
 
     assert result.equals(expected)
 
