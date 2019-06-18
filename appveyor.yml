@@ -147,9 +147,9 @@ for:
     - C:\msys64\usr\bin\pacman --noconfirm --needed -S git base-devel binutils
 
     # Install core build stuff
-    - pacman --noconfirm --needed -S mingw-w64-{i686,x86_64}-{crt,winpthreads,gcc,libtre,pkg-config,xz}
+    - C:\msys64\usr\bin\pacman --noconfirm --needed -S mingw-w64-{i686,x86_64}-{crt,winpthreads,gcc,libtre,pkg-config,xz}
 
-    - makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
+    - C:\msys64\usr\bin\makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --rmdeps --cleanbuild
     - pushd r
     - travis-tool.sh install_deps
 
