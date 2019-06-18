@@ -618,6 +618,13 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
   explicit UnionConverter(const std::shared_ptr<DataType>& type) { type_ = type; }
 
   Status Init() override {
+    auto union_type = checked_cast<const UnionType*>(type_.get());
+    type_id_to_child_num_.clear();
+    type_id_to_child_num_.resize(union_type->max_type_code() + 1, -1);
+    int child_i = 0;
+    for (auto type_id : union_type->type_codes()) {
+      type_id_to_child_num_[type_id] = child_i++;
+    }
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
     for (const auto& field : type_->children()) {
       std::shared_ptr<Converter> child_converter;
@@ -625,8 +632,8 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
       child_converters_.push_back(child_converter);
       child_builders.push_back(child_converter->builder());
     }
-    builder_ = std::make_shared<UnionBuilder>(type_, default_memory_pool(),
-                                              std::move(child_builders));
+    builder_ = std::make_shared<DenseUnionBuilder>(default_memory_pool(),
+                                                   std::move(child_builders), type_);
     return Status::OK();
   }
 
@@ -644,45 +651,34 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
     if (json_obj.IsNull()) {
       return AppendNull();
     }
-    if (json_obj.IsArray()) {
-      auto size = json_obj.Size();
-      auto expected_size = static_cast<uint32_t>(type_->num_children());
-      if (size != expected_size) {
-        return Status::Invalid("Expected array of size ", expected_size,
-                               ", got array of size ", size);
-      }
-      for (uint32_t i = 0; i < size; ++i) {
-        RETURN_NOT_OK(child_converters_[i]->AppendValue(json_obj[i]));
-      }
-      return builder_->Append();
+    if (!json_obj.IsArray()) {
+      return JSONTypeError("array", json_obj.GetType());
     }
-    if (json_obj.IsObject()) {
-      auto remaining = json_obj.MemberCount();
-      auto num_children = type_->num_children();
-      for (int32_t i = 0; i < num_children; ++i) {
-        const auto& field = type_->child(i);
-        auto it = json_obj.FindMember(field->name());
-        if (it != json_obj.MemberEnd()) {
-          --remaining;
-          RETURN_NOT_OK(child_converters_[i]->AppendValue(it->value));
-        } else {
-          RETURN_NOT_OK(child_converters_[i]->AppendNull());
-        }
-      }
-      if (remaining > 0) {
-        return Status::Invalid("Unexpected members in JSON object for type ",
-                               type_->ToString());
-      }
-      return builder_->Append();
+    if (json_obj.Size() != 2) {
+      return Status::Invalid("Expected [type_id, value] pair, got array of size ",
+                             json_obj.Size());
     }
-    return JSONTypeError("array or object", json_obj.GetType());
+    const auto& id_obj = json_obj[0];
+    if (!id_obj.IsInt()) {
+      return JSONTypeError("int", id_obj.GetType());
+    }
+
+    auto id = static_cast<int8_t>(id_obj.GetInt());
+    auto child_num = type_id_to_child_num_[id];
+    if (child_num == -1) {
+      return Status::Invalid("type_id ", id, " not found in ", *type_);
+    }
+
+    RETURN_NOT_OK(builder_->Append(id));
+    return child_converters_[child_num]->AppendValue(json_obj[1]);
   }
 
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
 
  private:
-  std::shared_ptr<UnionBuilder> builder_;
+  std::shared_ptr<DenseUnionBuilder> builder_;
   std::vector<std::shared_ptr<Converter>> child_converters_;
+  std::vector<int8_t> type_id_to_child_num_;
 };
 
 // ------------------------------------------------------------------------
@@ -723,6 +719,11 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
+    case Type::UNION:
+      if (checked_cast<const UnionType*>(type.get())->mode() == UnionMode::DENSE) {
+        res = std::make_shared<UnionConverter>(type);
+        break;
+      }
     default: {
       return Status::NotImplemented("JSON conversion to ", type->ToString(),
                                     " not implemented");
