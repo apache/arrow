@@ -105,7 +105,7 @@ class GANDIVA_EXPORT FieldNode : public Node {
   const FieldPtr& field() const { return field_; }
 
   std::string ToString() const override {
-    return "(" + field()->type()->name() + ") " + field()->name();
+    return "(" + field()->type()->ToString() + ") " + field()->name();
   }
 
  private:
@@ -124,7 +124,7 @@ class GANDIVA_EXPORT FunctionNode : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << descriptor()->return_type()->name() << " " << descriptor()->name() << "(";
+    ss << descriptor()->return_type()->ToString() << " " << descriptor()->name() << "(";
     bool skip_comma = true;
     for (auto& child : children()) {
       if (skip_comma) {

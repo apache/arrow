@@ -34,9 +34,9 @@ Status ExprValidator::Validate(const ExpressionPtr& expr) {
   // support validation is not required because root type is already supported.
   ARROW_RETURN_IF(!root.return_type()->Equals(*expr->result()->type()),
                   Status::ExpressionValidationError("Return type of root node ",
-                                                    root.return_type()->name(),
+                                                    root.return_type()->ToString(),
                                                     " does not match that of expression ",
-                                                    expr->result()->type()->name()));
+                                                    expr->result()->type()->ToString()));
 
   return Status::OK();
 }
