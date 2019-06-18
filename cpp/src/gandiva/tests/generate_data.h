@@ -39,8 +39,11 @@ class Random {
   explicit Random(uint32_t seed = 100) : seed_(seed) {}
 
   // This is 3 times faster than random_device
+#ifndef _MSC_VER
   int32_t next() { return rand_r(&seed_); }
-  // int32_t next() { return random_dev_(); }
+#else
+  int32_t next() { return random_dev_(); }
+#endif
 
  private:
   uint32_t seed_;

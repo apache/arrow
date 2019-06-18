@@ -53,6 +53,12 @@ public class GetReadableBuffer {
     BUFFER_INPUT_STREAM = tmpClazz;
   }
 
+  /**
+   * Extracts the ReadableBuffer for the given input stream.
+   *
+   * @param is Must be an instance of io.grpc.internal.ReadableBuffers$BufferInputStream or
+   *     null will be returned.
+   */
   public static ReadableBuffer getReadableBuffer(InputStream is) {
 
     if (BUFFER_INPUT_STREAM == null || !is.getClass().equals(BUFFER_INPUT_STREAM)) {

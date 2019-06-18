@@ -19,18 +19,16 @@
 #include <memory>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/test-common.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
-
-using std::shared_ptr;
-using std::vector;
 
 namespace arrow {
 
@@ -246,7 +244,7 @@ class TestTable : public TestBase {
     auto f1 = field("f1", uint8());
     auto f2 = field("f2", int16());
 
-    vector<shared_ptr<Field>> fields = {f0, f1, f2};
+    std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
     schema_ = std::make_shared<Schema>(fields);
 
     arrays_ = {MakeRandomArray<Int32Array>(length), MakeRandomArray<UInt8Array>(length),
@@ -259,7 +257,7 @@ class TestTable : public TestBase {
 
  protected:
   std::shared_ptr<Table> table_;
-  shared_ptr<Schema> schema_;
+  std::shared_ptr<Schema> schema_;
 
   std::vector<std::shared_ptr<Array>> arrays_;
   std::vector<std::shared_ptr<Column>> columns_;
@@ -343,7 +341,7 @@ TEST_F(TestTable, Equals) {
   auto f0 = field("f3", int32());
   auto f1 = field("f4", uint8());
   auto f2 = field("f5", int16());
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto other_schema = std::make_shared<Schema>(fields);
   auto other = Table::Make(other_schema, columns_);
   ASSERT_FALSE(table_->Equals(*other));
@@ -435,6 +433,23 @@ TEST_F(TestTable, ConcatenateTables) {
   ASSERT_RAISES(Invalid, ConcatenateTables({t1, t3}, &result));
 }
 
+TEST_F(TestTable, Slice) {
+  const int64_t length = 10;
+
+  MakeExample1(length);
+  auto batch = RecordBatch::Make(schema_, length, arrays_);
+
+  std::shared_ptr<Table> half, whole, three;
+  ASSERT_OK(Table::FromRecordBatches({batch}, &half));
+  ASSERT_OK(Table::FromRecordBatches({batch, batch}, &whole));
+  ASSERT_OK(Table::FromRecordBatches({batch, batch, batch}, &three));
+
+  AssertTablesEqual(*whole->Slice(0, length), *half);
+  AssertTablesEqual(*whole->Slice(length), *half);
+  AssertTablesEqual(*whole->Slice(length / 3, 2 * (length - length / 3)),
+                    *three->Slice(length + length / 3, 2 * (length - length / 3)));
+}
+
 TEST_F(TestTable, RemoveColumn) {
   const int64_t length = 10;
   MakeExample1(length);
@@ -482,6 +497,19 @@ TEST_F(TestTable, SetColumn) {
 
   auto expected = Table::Make(ex_schema, ex_columns);
   ASSERT_TRUE(result->Equals(*expected));
+}
+
+TEST_F(TestTable, RenameColumns) {
+  MakeExample1(10);
+  auto table = Table::Make(schema_, columns_);
+  EXPECT_THAT(table->ColumnNames(), testing::ElementsAre("f0", "f1", "f2"));
+
+  std::shared_ptr<Table> renamed;
+  ASSERT_OK(table->RenameColumns({"zero", "one", "two"}, &renamed));
+  EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
+  ASSERT_OK(renamed->Validate());
+
+  ASSERT_RAISES(Invalid, table->RenameColumns({"hello", "world"}, &renamed));
 }
 
 TEST_F(TestTable, RemoveColumnEmpty) {
@@ -567,7 +595,7 @@ TEST_F(TestRecordBatch, Equals) {
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
 
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = ::arrow::schema({f0, f1, f2});
   auto schema2 = ::arrow::schema({f0, f1});
 
@@ -617,7 +645,7 @@ TEST_F(TestRecordBatch, Slice) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
 
-  vector<shared_ptr<Field>> fields = {f0, f1};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1};
   auto schema = ::arrow::schema(fields);
 
   auto a0 = MakeRandomArray<Int32Array>(length);

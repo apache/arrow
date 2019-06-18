@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow cimport CStatus
@@ -51,8 +53,9 @@ cdef class DataType:
         shared_ptr[CDataType] sp_type
         CDataType* type
         bytes pep3118_format
+        object __weakref__
 
-    cdef void init(self, const shared_ptr[CDataType]& type)
+    cdef void init(self, const shared_ptr[CDataType]& type) except *
     cdef Field child(self, int i)
 
 
@@ -67,6 +70,11 @@ cdef class StructType(DataType):
 
     cdef Field field(self, int i)
     cdef Field field_by_name(self, name)
+
+
+cdef class DictionaryMemo:
+    cdef:
+        CDictionaryMemo memo
 
 
 cdef class DictionaryType(DataType):
@@ -97,6 +105,16 @@ cdef class FixedSizeBinaryType(DataType):
 cdef class Decimal128Type(FixedSizeBinaryType):
     cdef:
         const CDecimal128Type* decimal128_type
+
+
+cdef class BaseExtensionType(DataType):
+    cdef:
+        const CExtensionType* ext_type
+
+
+cdef class ExtensionType(BaseExtensionType):
+    cdef:
+        const CPyExtensionType* cpy_ext_type
 
 
 cdef class Field:
@@ -138,6 +156,11 @@ cdef class ArrayValue(Scalar):
 
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array)
 
+cdef class ScalarValue(Scalar):
+    cdef:
+        shared_ptr[CScalar] sp_scalar
+
+    cdef void init(self, const shared_ptr[CScalar]& sp_scalar)
 
 cdef class Int8Value(ArrayValue):
     pass
@@ -187,11 +210,12 @@ cdef class Array(_PandasConvertible):
     cdef:
         shared_ptr[CArray] sp_array
         CArray* ap
+        object __weakref__
 
     cdef readonly:
         DataType type
 
-    cdef void init(self, const shared_ptr[CArray]& sp_array)
+    cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
 
@@ -304,6 +328,10 @@ cdef class DictionaryArray(Array):
         object _indices, _dictionary
 
 
+cdef class ExtensionArray(Array):
+    pass
+
+
 cdef wrap_array_output(PyObject* output)
 cdef object box_scalar(DataType type,
                        const shared_ptr[CArray]& sp_array,
@@ -381,6 +409,16 @@ cdef class NativeFile:
     cdef shared_ptr[RandomAccessFile] get_random_access_file(self) except *
     cdef shared_ptr[InputStream] get_input_stream(self) except *
     cdef shared_ptr[OutputStream] get_output_stream(self) except *
+
+
+cdef class _CRecordBatchWriter:
+    cdef:
+        shared_ptr[CRecordBatchWriter] writer
+
+
+cdef class _CRecordBatchReader:
+    cdef:
+        shared_ptr[CRecordBatchReader] reader
 
 
 cdef get_input_stream(object source, c_bool use_memory_map,

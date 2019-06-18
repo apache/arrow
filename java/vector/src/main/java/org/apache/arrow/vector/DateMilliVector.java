@@ -17,6 +17,10 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
+import java.time.LocalDateTime;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.DateMilliReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -24,8 +28,8 @@ import org.apache.arrow.vector.holders.DateMilliHolder;
 import org.apache.arrow.vector.holders.NullableDateMilliHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.LocalDateTime;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -97,7 +101,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public long get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
     return valueBuffer.getLong(index * TYPE_WIDTH);
@@ -130,9 +134,7 @@ public class DateMilliVector extends BaseFixedWidthVector {
       return null;
     } else {
       final long millis = valueBuffer.getLong(index * TYPE_WIDTH);
-      final LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,
-              org.joda.time.DateTimeZone.UTC);
-      return localDateTime;
+      return DateUtility.getLocalDateTimeFromEpochMilli(millis);
     }
   }
 

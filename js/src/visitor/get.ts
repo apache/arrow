@@ -211,7 +211,7 @@ const getNested = <
     S extends { [key: string]: DataType },
     V extends Vector<Map_<S>> | Vector<Struct<S>>
 >(vector: V, index: number): V['TValue'] => {
-    return vector.rowProxy.bind(vector, index);
+    return vector.rowProxy.bind(index);
 };
 
 /* istanbul ignore next */

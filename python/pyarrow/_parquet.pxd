@@ -18,9 +18,11 @@
 # distutils: language = c++
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
-                                        CTable, CMemoryPool,
+                                        CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
                                         RandomAccessFile, OutputStream,
                                         TimeUnit)
@@ -222,9 +224,17 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         const c_string created_by()
         int num_schema_elements()
 
+        void set_file_path(const c_string& path)
+        void AppendRowGroups(const CFileMetaData& other)
+
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
+        void WriteTo(OutputStream* dst) const
+
+    cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
+        " parquet::FileMetaData::Make"(const void* serialized_metadata,
+                                       uint32_t* metadata_len)
 
     cdef cppclass ReaderProperties:
         pass
@@ -244,13 +254,6 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
 
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
-    cdef cppclass ParquetOutputStream" parquet::OutputStream":
-        pass
-
-    cdef cppclass LocalFileOutputStream(ParquetOutputStream):
-        LocalFileOutputStream(const c_string& path)
-        void Close()
-
     cdef cppclass WriterProperties:
         cppclass Builder:
             Builder* version(ParquetVersion version)
@@ -318,6 +321,8 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         CStatus NewRowGroup(int64_t chunk_size)
         CStatus Close()
 
+        const shared_ptr[CFileMetaData] metadata() const
+
     cdef cppclass ArrowWriterProperties:
         cppclass Builder:
             Builder()
@@ -328,3 +333,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
             Builder* disallow_truncated_timestamps()
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
+
+    CStatus WriteMetaDataFile(
+        const CFileMetaData& file_metadata,
+        const OutputStream* sink)

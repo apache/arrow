@@ -519,21 +519,25 @@ void set_error_for_date(int32 length, const char* input, const char* msg,
 }
 
 date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
-  using arrow::util::date::day;
-  using arrow::util::date::month;
-  using arrow::util::date::sys_days;
-  using arrow::util::date::year;
-  using arrow::util::date::year_month_day;
+  using arrow_vendored::date::day;
+  using arrow_vendored::date::month;
+  using arrow_vendored::date::sys_days;
+  using arrow_vendored::date::year;
+  using arrow_vendored::date::year_month_day;
   using gandiva::TimeFields;
   // format : 0 is year, 1 is month and 2 is day.
   int dateFields[3];
   int dateIndex = 0, index = 0, value = 0;
+  int year_str_len = 0;
   while (dateIndex < 3 && index < length) {
     if (!isdigit(input[index])) {
       dateFields[dateIndex++] = value;
       value = 0;
     } else {
       value = (value * 10) + (input[index] - '0');
+      if (dateIndex == TimeFields::kYear) {
+        year_str_len++;
+      }
     }
     index++;
   }
@@ -553,7 +557,7 @@ date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
    * If range of two digits is between 70 - 99 then year = 1970 - 1999
    * Else if two digits is between 00 - 69 = 2000 - 2069
    */
-  if (dateFields[TimeFields::kYear] < 100) {
+  if (dateFields[TimeFields::kYear] < 100 && year_str_len < 4) {
     if (dateFields[TimeFields::kYear] < 70) {
       dateFields[TimeFields::kYear] += 2000;
     } else {
@@ -579,11 +583,11 @@ date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
  * Format is <year-month-day>[ hours:minutes:seconds][.millis][ displacement|zone]
  */
 timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
-  using arrow::util::date::day;
-  using arrow::util::date::month;
-  using arrow::util::date::sys_days;
-  using arrow::util::date::year;
-  using arrow::util::date::year_month_day;
+  using arrow_vendored::date::day;
+  using arrow_vendored::date::month;
+  using arrow_vendored::date::sys_days;
+  using arrow_vendored::date::year;
+  using arrow_vendored::date::year_month_day;
   using gandiva::TimeFields;
   using std::chrono::hours;
   using std::chrono::milliseconds;
@@ -593,10 +597,14 @@ timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
   int ts_fields[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   boolean add_displacement = true;
   boolean encountered_zone = false;
+  int year_str_len = 0;
   int ts_field_index = TimeFields::kYear, index = 0, value = 0;
   while (ts_field_index < TimeFields::kMax && index < length) {
     if (isdigit(input[index])) {
       value = (value * 10) + (input[index] - '0');
+      if (ts_field_index == TimeFields::kYear) {
+        year_str_len++;
+      }
     } else {
       ts_fields[ts_field_index] = value;
       value = 0;
@@ -634,7 +642,7 @@ timestamp castTIMESTAMP_utf8(int64_t context, const char* input, int32 length) {
   }
 
   // adjust the year
-  if (ts_fields[TimeFields::kYear] < 100) {
+  if (ts_fields[TimeFields::kYear] < 100 && year_str_len < 4) {
     if (ts_fields[TimeFields::kYear] < 70) {
       ts_fields[TimeFields::kYear] += 2000;
     } else {

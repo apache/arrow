@@ -23,6 +23,7 @@ import { RecordBatch } from '../recordbatch';
 import { Vector as VType } from '../interfaces';
 import { rebaseValueOffsets } from '../util/buffer';
 import { packBools, truncateBitmap } from '../util/bit';
+import { selectVectorChildrenArgs } from '../util/args';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message';
 import {
     DataType, Dictionary,
@@ -58,14 +59,10 @@ export class VectorAssembler extends Visitor {
 
     /** @nocollapse */
     public static assemble<T extends Vector | RecordBatch>(...args: (T | T[])[]) {
-
-        const vectors = args.reduce(function flatten(xs: any[], x: any): any[] {
-            if (Array.isArray(x)) { return x.reduce(flatten, xs); }
-            if (!(x instanceof RecordBatch)) { return [...xs, x]; }
-            return [...xs, ...x.schema.fields.map((_, i) => x.getChildAt(i)!)];
-        }, []).filter((x: any): x is Vector => x instanceof Vector);
-
-        return new VectorAssembler().visitMany(vectors)[0];
+        const assembler = new VectorAssembler();
+        const vectorChildren = selectVectorChildrenArgs(RecordBatch, args);
+        const [assembleResult = assembler] = assembler.visitMany(vectorChildren);
+        return assembleResult;
     }
 
     private constructor() { super(); }
@@ -85,7 +82,9 @@ export class VectorAssembler extends Visitor {
         return super.visit(vector);
     }
 
-    public visitNull<T extends Null>(_nullV: VType<T>) { return this; }
+    public visitNull<T extends Null>(_nullV: VType<T>) {
+        return addBuffer.call(this, new Uint8Array(0));
+    }
     public visitDictionary<T extends Dictionary>(vector: VType<T>) {
         // Assemble the indices here, Dictionary assembled separately.
         return this.visit(vector.indices);

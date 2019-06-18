@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { BigIntArray, BigIntArrayConstructor } from '../interfaces';
 import { toArrayBufferView, ArrayBufferViewInput } from './buffer';
+import { BigIntAvailable, BigInt64Array, BigUint64Array } from './compat';
 
 /** @ignore */
 type BigNumArray = IntArray | UintArray;
@@ -26,21 +28,23 @@ type UintArray = Uint8Array | Uint16Array | Uint32Array | Uint8ClampedArray;
 
 /** @ignore */
 const BigNumNMixin = {
-    toJSON(this: BN<BigNumArray>, ) { return `"${bignumToString(this)}"`; },
-    valueOf(this: BN<BigNumArray>, ) { return bignumToNumber(this); },
-    toString(this: BN<BigNumArray>, ) { return bignumToString(this); },
+    toJSON(this: BN<BigNumArray>) { return `"${bignumToString(this)}"`; },
+    valueOf(this: BN<BigNumArray>) { return bignumToNumber(this); },
+    toString(this: BN<BigNumArray>) { return bignumToString(this); },
     [Symbol.toPrimitive]<T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default') {
-        if (hint === 'number') { return bignumToNumber(this); }
-        /** @suppress {missingRequire} */
-        return hint === 'string' || typeof BigInt !== 'function' ?
-            bignumToString(this) : BigInt(bignumToString(this));
+        switch (hint) {
+            case 'number': return bignumToNumber(this);
+            case 'string': return bignumToString(this);
+            case 'default': return bignumToBigInt(this);
+        }
+        return bignumToString(this);
     }
 };
 
 /** @ignore */
-const SignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: true });
+const SignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: true, BigIntArray: BigInt64Array });
 /** @ignore */
-const UnsignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: false });
+const UnsignedBigNumNMixin: any = Object.assign({}, BigNumNMixin, { signed: false, BigIntArray: BigUint64Array });
 
 /** @ignore */
 export class BN<T extends BigNumArray> {
@@ -74,6 +78,7 @@ export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
     new<T extends ArrayBufferViewInput>(buffer: T, signed?: boolean): T;
 
     readonly signed: boolean;
+    readonly BigIntArray: BigIntArrayConstructor<BigIntArray>;
 
     [Symbol.toStringTag]:
         'Int8Array'         |
@@ -108,20 +113,29 @@ function bignumToNumber<T extends BN<BigNumArray>>({ buffer, byteOffset, length 
     let words = new Uint32Array(buffer, byteOffset, length);
     for (let i = 0, n = words.length; i < n;) {
         int64 += words[i++] + (words[i++] * (i ** 32));
-        // int64 += (words[i++] >>> 0) + (words[i++] * (i ** 32));
     }
     return int64;
 }
 
 /** @ignore */
-function bignumToString<T extends BN<BigNumArray>>({ buffer, byteOffset, length }: T) {
+let bignumToString: { <T extends BN<BigNumArray>>(a: T): string; };
+/** @ignore */
+let bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint; };
 
-    let string = '', i = -1;
+if (!BigIntAvailable) {
+    bignumToString = decimalToString;
+    bignumToBigInt = <any> bignumToString;
+} else {
+    bignumToBigInt = (<T extends BN<BigNumArray>>(a: T) => a.length === 2 ? new a.BigIntArray(a.buffer, a.byteOffset, 1)[0] : <any>decimalToString(a));
+    bignumToString = (<T extends BN<BigNumArray>>(a: T) => a.length === 2 ? `${new a.BigIntArray(a.buffer, a.byteOffset, 1)[0]}` : decimalToString(a));
+}
+
+function decimalToString<T extends BN<BigNumArray>>(a: T) {
+    let digits = '';
     let base64 = new Uint32Array(2);
-    let base32 = new Uint16Array(buffer, byteOffset, length * 2);
+    let base32 = new Uint16Array(a.buffer, a.byteOffset, a.length * 2);
     let checks = new Uint32Array((base32 = new Uint16Array(base32).reverse()).buffer);
-    let n = base32.length - 1;
-
+    let i = -1, n = base32.length - 1;
     do {
         for (base64[0] = base32[i = 0]; i < n;) {
             base32[i++] = base64[1] = base64[0] / 10;
@@ -129,10 +143,9 @@ function bignumToString<T extends BN<BigNumArray>>({ buffer, byteOffset, length 
         }
         base32[i] = base64[1] = base64[0] / 10;
         base64[0] = base64[0] - base64[1] * 10;
-        string = `${base64[0]}${string}`;
+        digits = `${base64[0]}${digits}`;
     } while (checks[0] || checks[1] || checks[2] || checks[3]);
-
-    return string ? string : `0`;
+    return digits ? digits : `0`;
 }
 
 /** @ignore */

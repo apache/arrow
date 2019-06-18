@@ -25,3 +25,14 @@
 
 GArrowCastOptions *garrow_cast_options_new_raw(arrow::compute::CastOptions *arrow_cast_options);
 arrow::compute::CastOptions *garrow_cast_options_get_raw(GArrowCastOptions *cast_options);
+
+GArrowCountOptions *
+garrow_count_options_new_raw(arrow::compute::CountOptions *arrow_count_options);
+arrow::compute::CountOptions *
+garrow_count_options_get_raw(GArrowCountOptions *count_options);
+
+arrow::compute::TakeOptions *
+garrow_take_options_get_raw(GArrowTakeOptions *take_options);
+
+arrow::compute::CompareOptions *
+garrow_compare_options_get_raw(GArrowCompareOptions *compare_options);

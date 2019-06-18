@@ -36,7 +36,21 @@ BuildRequires:	pkgconfig
 BuildRequires:	gcc-c++
 BuildRequires:	cmake3
 BuildRequires:	boost-devel
+%if %{_centos_ver} >= 7
+BuildRequires:	double-conversion-devel
+%endif
+BuildRequires:	gflags-devel
 BuildRequires:	git
+%if %{_centos_ver} >= 7
+BuildRequires:	glog-devel
+%endif
+BuildRequires:	libzstd-devel
+BuildRequires:	lz4-devel
+%if %{_centos_ver} >= 7
+BuildRequires:	rapidjson-devel
+%endif
+BuildRequires:	snappy-devel
+BuildRequires:	zlib-devel
 %if %{use_python}
 BuildRequires:	python34-devel
 BuildRequires:	python34-numpy
@@ -44,6 +58,7 @@ BuildRequires:	python34-numpy
 %if %{use_parquet}
 BuildRequires:	bison
 BuildRequires:	flex
+BuildRequires:	thrift-devel
 %endif
 %if %{use_glib}
 BuildRequires:	autoconf-archive
@@ -114,6 +129,17 @@ License:	Apache-2.0
 Requires:	boost-system
 Requires:	boost-filesystem
 Requires:	boost-regex
+%if %{_centos_ver} >= 7
+Requires:	double-conversion
+%endif
+Requires:	gflags
+%if %{_centos_ver} >= 7
+Requires:	glog
+%endif
+Requires:	libzstd
+Requires:	lz4
+Requires:	snappy
+Requires:	zlib
 
 %description libs
 This package contains the libraries for Apache Arrow C++.
@@ -225,6 +251,7 @@ Requires:	boost-system
 Requires:	boost-filesystem
 Requires:	boost-program-options
 Requires:	boost-regex
+Requires:	thrift
 Requires:	%{name}-libs = %{version}-%{release}
 
 %description -n parquet-libs
@@ -397,6 +424,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Thu Mar 28 2019 Kouhei Sutou <kou@clear-code.com> - 0.13.0-1
+- New upstream release.
+
 * Wed Jan 16 2019 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.12.0-1
 - New upstream release.
 

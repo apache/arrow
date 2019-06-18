@@ -34,13 +34,17 @@ namespace arrow {
 using internal::BitmapAnd;
 using internal::BitmapOr;
 using internal::BitmapXor;
-using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::InvertBitmap;
 
 namespace compute {
 
-class InvertKernel : public UnaryKernel {
+class BooleanUnaryKernel : public UnaryKernel {
+ public:
+  std::shared_ptr<DataType> out_type() const override { return boolean(); }
+};
+
+class InvertKernel : public BooleanUnaryKernel {
   Status Call(FunctionContext* ctx, const Datum& input, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, input.kind());
     constexpr int64_t kZeroDestOffset = 0;
@@ -49,19 +53,9 @@ class InvertKernel : public UnaryKernel {
     std::shared_ptr<ArrayData> result = out->array();
     result->type = boolean();
 
-    // Handle validity bitmap
-    result->null_count = in_data.null_count;
-    const std::shared_ptr<Buffer>& validity_bitmap = in_data.buffers[0];
-    if (in_data.offset != 0 && in_data.null_count > 0) {
-      DCHECK_LE(BitUtil::BytesForBits(in_data.length), validity_bitmap->size());
-      CopyBitmap(validity_bitmap->data(), in_data.offset, in_data.length,
-                 result->buffers[0]->mutable_data(), kZeroDestOffset);
-    } else {
-      result->buffers[0] = validity_bitmap;
-    }
-
     // Handle output data buffer
     if (in_data.length > 0) {
+      RETURN_NOT_OK(detail::PropagateNulls(ctx, in_data, result.get()));
       const Buffer& data_buffer = *in_data.buffers[1];
       DCHECK_LE(BitUtil::BytesForBits(in_data.length), data_buffer.size());
       InvertBitmap(data_buffer.data(), in_data.offset, in_data.length,
@@ -72,8 +66,8 @@ class InvertKernel : public UnaryKernel {
 };
 
 Status Invert(FunctionContext* ctx, const Datum& value, Datum* out) {
-  detail::PrimitiveAllocatingUnaryKernel kernel(
-      std::unique_ptr<UnaryKernel>(new InvertKernel()));
+  InvertKernel invert;
+  detail::PrimitiveAllocatingUnaryKernel kernel(&invert);
 
   std::vector<Datum> result;
   RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &kernel, value, &result));
@@ -93,73 +87,65 @@ class BinaryBooleanKernel : public BinaryKernel {
 
     const ArrayData& left_data = *left.array();
     const ArrayData& right_data = *right.array();
+    DCHECK_EQ(left_data.length, right_data.length);
     ArrayData* result;
-    out->value = ArrayData::Make(boolean(), right_data.length);
 
     result = out->array().get();
-
-    // If one of the arrays has a null value, the result will have a null.
-    std::shared_ptr<Buffer> validity_bitmap;
-    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left_data.buffers[0]->data(),
-                            left_data.offset, right_data.buffers[0]->data(),
-                            right_data.offset, right_data.length, 0, &validity_bitmap));
-    result->buffers.push_back(validity_bitmap);
-
-    result->null_count =
-        result->length - CountSetBits(validity_bitmap->data(), 0, result->length);
-
+    RETURN_NOT_OK(detail::AssignNullIntersection(ctx, left_data, right_data, result));
     return Compute(ctx, left_data, right_data, result);
   }
+
+  std::shared_ptr<DataType> out_type() const override { return boolean(); }
 };
 
 class AndKernel : public BinaryBooleanKernel {
   Status Compute(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
                  ArrayData* out) override {
-    std::shared_ptr<Buffer> data_bitmap;
-    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left.buffers[1]->data(), left.offset,
-                            right.buffers[1]->data(), right.offset, right.length, 0,
-                            &data_bitmap));
-    out->buffers.push_back(data_bitmap);
+    if (right.length > 0) {
+      BitmapAnd(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
+                right.offset, right.length, 0, out->buffers[1]->mutable_data());
+    }
     return Status::OK();
   }
 };
 
 Status And(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
-  AndKernel kernel;
+  AndKernel and_kernel;
+  detail::PrimitiveAllocatingBinaryKernel kernel(&and_kernel);
   return detail::InvokeBinaryArrayKernel(ctx, &kernel, left, right, out);
 }
 
 class OrKernel : public BinaryBooleanKernel {
   Status Compute(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
                  ArrayData* out) override {
-    std::shared_ptr<Buffer> data_bitmap;
-    RETURN_NOT_OK(BitmapOr(ctx->memory_pool(), left.buffers[1]->data(), left.offset,
-                           right.buffers[1]->data(), right.offset, right.length, 0,
-                           &data_bitmap));
-    out->buffers.push_back(data_bitmap);
+    if (right.length > 0) {
+      BitmapOr(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
+               right.offset, right.length, 0, out->buffers[1]->mutable_data());
+    }
     return Status::OK();
   }
 };
 
 Status Or(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
-  OrKernel kernel;
+  OrKernel or_kernel;
+  detail::PrimitiveAllocatingBinaryKernel kernel(&or_kernel);
   return detail::InvokeBinaryArrayKernel(ctx, &kernel, left, right, out);
 }
 
 class XorKernel : public BinaryBooleanKernel {
   Status Compute(FunctionContext* ctx, const ArrayData& left, const ArrayData& right,
                  ArrayData* out) override {
-    std::shared_ptr<Buffer> data_bitmap;
-    RETURN_NOT_OK(BitmapXor(ctx->memory_pool(), left.buffers[1]->data(), left.offset,
-                            right.buffers[1]->data(), right.offset, right.length, 0,
-                            &data_bitmap));
-    out->buffers.push_back(data_bitmap);
+    if (right.length > 0) {
+      BitmapXor(left.buffers[1]->data(), left.offset, right.buffers[1]->data(),
+                right.offset, right.length, 0, out->buffers[1]->mutable_data());
+    }
     return Status::OK();
   }
 };
 
 Status Xor(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
-  XorKernel kernel;
+  XorKernel xor_kernel;
+  detail::PrimitiveAllocatingBinaryKernel kernel(&xor_kernel);
   return detail::InvokeBinaryArrayKernel(ctx, &kernel, left, right, out);
 }
 

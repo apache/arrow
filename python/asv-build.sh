@@ -27,7 +27,6 @@ source activate $ASV_ENV_DIR
 echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " =="
 
 # Build Arrow C++ libraries
-export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX
 export PARQUET_HOME=$CONDA_PREFIX
 export ORC_HOME=$CONDA_PREFIX

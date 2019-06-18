@@ -34,9 +34,9 @@ Status ExprValidator::Validate(const ExpressionPtr& expr) {
   // support validation is not required because root type is already supported.
   ARROW_RETURN_IF(!root.return_type()->Equals(*expr->result()->type()),
                   Status::ExpressionValidationError("Return type of root node ",
-                                                    root.return_type()->name(),
+                                                    root.return_type()->ToString(),
                                                     " does not match that of expression ",
-                                                    expr->result()->type()->name()));
+                                                    expr->result()->type()->ToString()));
 
   return Status::OK();
 }
@@ -107,7 +107,7 @@ Status ExprValidator::Visit(const IfNode& node) {
 Status ExprValidator::Visit(const LiteralNode& node) {
   auto llvm_type = types_->IRType(node.return_type()->id());
   ARROW_RETURN_IF(llvm_type == nullptr,
-                  Status::ExpressionValidationError("Value ", node.holder(),
+                  Status::ExpressionValidationError("Value ", ToString(node.holder()),
                                                     " has unsupported data type ",
                                                     node.return_type()->name()));
 

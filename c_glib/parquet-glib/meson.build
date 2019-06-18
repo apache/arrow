@@ -56,12 +56,12 @@ parquet_glib = declare_dependency(link_with: libparquet_glib,
                                   include_directories: base_include_directories,
                                   dependencies: dependencies)
 
-pkgconfig.generate(filebase: project_name,
+pkgconfig.generate(libparquet_glib,
+                   filebase: project_name,
                    name: 'Apache Parquet GLib',
                    description: 'C API for Apache Parquet based on GLib',
                    version: version,
-                   requires: ['parquet', 'arrow-glib'],
-                   libraries: [libparquet_glib])
+                   requires: ['parquet', 'arrow-glib'])
 
 gnome.generate_gir(libparquet_glib,
                    dependencies: declare_dependency(sources: arrow_glib_gir),
@@ -72,10 +72,10 @@ gnome.generate_gir(libparquet_glib,
                    symbol_prefix: 'gparquet',
                    export_packages: 'parquet-glib',
                    includes: [
-		     'Arrow-1.0',
+                     'Arrow-1.0',
                    ],
                    install: true,
                    extra_args: [
-		     '--warn-all',
-		     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                     '--warn-all',
+                     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                    ])

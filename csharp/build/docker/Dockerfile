@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM microsoft/dotnet/2.1-sdk
+FROM mcr.microsoft.com/dotnet/core/sdk:2.1
 
-ADD csharp /arrow/csharp
+COPY csharp /arrow/csharp
 WORKDIR /arrow/csharp
 
-CMD dotnet build
+CMD ["dotnet", "build"]

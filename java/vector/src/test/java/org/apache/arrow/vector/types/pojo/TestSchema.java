@@ -32,6 +32,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.Duration;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -66,13 +67,14 @@ public class TestSchema {
         field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
         field("g", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
         field("h", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("i", new Interval(IntervalUnit.DAY_TIME))
+        field("i", new Interval(IntervalUnit.DAY_TIME)),
+        field("j", new ArrowType.Duration(TimeUnit.SECOND))
     ));
     roundTrip(schema);
     assertEquals(
         "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date(MILLISECOND)>, " +
           "f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND, UTC), h: Timestamp(MICROSECOND, null), " +
-          "i: Interval(DAY_TIME)>",
+          "i: Interval(DAY_TIME), j: Duration(SECOND)>",
         schema.toString());
   }
 
@@ -98,7 +100,9 @@ public class TestSchema {
         field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
         field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
         field("s", new Interval(IntervalUnit.DAY_TIME)),
-        field("t", new FixedSizeBinary(100))
+        field("t", new FixedSizeBinary(100)),
+        field("u", new Duration(TimeUnit.SECOND)),
+        field("v", new Duration(TimeUnit.MICROSECOND))
     ));
     roundTrip(schema);
   }
@@ -169,6 +173,18 @@ public class TestSchema {
   }
 
   @Test
+  public void testRoundTripDurationInterval() throws IOException {
+    Schema schema = new Schema(asList(
+        field("a", new Duration(TimeUnit.SECOND)),
+        field("b", new Duration(TimeUnit.MILLISECOND)),
+        field("c", new Duration(TimeUnit.MICROSECOND)),
+        field("d", new Duration(TimeUnit.NANOSECOND))
+    ));
+    roundTrip(schema);
+    contains(schema, "SECOND", "MILLI", "MICRO", "NANO");
+  }
+
+  @Test
   public void testFP() throws IOException {
     Schema schema = new Schema(asList(
         field("a", new FloatingPoint(FloatingPointPrecision.HALF)),
@@ -207,7 +223,7 @@ public class TestSchema {
     assertEquals(o1 + " == " + o2, o1.hashCode(), o2.hashCode());
   }
 
-  private void contains(Schema schema, String... s) throws IOException {
+  private void contains(Schema schema, String... s) {
     String json = schema.toJson();
     for (String string : s) {
       assertTrue(json + " contains " + string, json.contains(string));

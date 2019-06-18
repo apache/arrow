@@ -56,9 +56,12 @@
 
 use std::any::Any;
 use std::convert::From;
+use std::fmt;
 use std::io::Write;
 use std::mem;
 use std::sync::Arc;
+
+use chrono::prelude::*;
 
 use crate::array_data::{ArrayData, ArrayDataRef};
 use crate::buffer::{Buffer, MutableBuffer};
@@ -66,6 +69,15 @@ use crate::builder::*;
 use crate::datatypes::*;
 use crate::memory;
 use crate::util::bit_util;
+
+/// Number of seconds in a day
+const SECONDS_IN_DAY: i64 = 86_400;
+/// Number of milliseconds in a second
+const MILLISECONDS: i64 = 1_000;
+/// Number of microseconds in a second
+const MICROSECONDS: i64 = 1_000_000;
+/// Number of nanoseconds in a second
+const NANOSECONDS: i64 = 1_000_000_000;
 
 /// Trait for dealing with different types of array at runtime when the type of the
 /// array is not known in advance
@@ -84,6 +96,11 @@ pub trait Array: Send + Sync {
         self.data_ref().data_type()
     }
 
+    /// Returns a zero-copy slice of this array with the indicated offset and length.
+    fn slice(&self, offset: usize, length: usize) -> ArrayRef {
+        make_array(slice_data(self.data(), offset, length))
+    }
+
     /// Returns the length (i.e., number of elements) of this array
     fn len(&self) -> usize {
         self.data().len()
@@ -96,12 +113,12 @@ pub trait Array: Send + Sync {
 
     /// Returns whether the element at index `i` is null
     fn is_null(&self, i: usize) -> bool {
-        self.data().is_null(i)
+        self.data().is_null(self.data().offset() + i)
     }
 
     /// Returns whether the element at index `i` is not null
     fn is_valid(&self, i: usize) -> bool {
-        self.data().is_valid(i)
+        self.data().is_valid(self.data().offset() + i)
     }
 
     /// Returns the total number of nulls in this array
@@ -114,7 +131,7 @@ pub type ArrayRef = Arc<Array>;
 
 /// Constructs an array using the input `data`. Returns a reference-counted `Array`
 /// instance.
-fn make_array(data: ArrayDataRef) -> ArrayRef {
+pub(crate) fn make_array(data: ArrayDataRef) -> ArrayRef {
     // TODO: here data_type() needs to clone the type - maybe add a type tag enum to
     // avoid the cloning.
     match data.data_type().clone() {
@@ -129,11 +146,61 @@ fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::UInt64 => Arc::new(UInt64Array::from(data)) as ArrayRef,
         DataType::Float32 => Arc::new(Float32Array::from(data)) as ArrayRef,
         DataType::Float64 => Arc::new(Float64Array::from(data)) as ArrayRef,
+        DataType::Date32(DateUnit::Day) => Arc::new(Date32Array::from(data)) as ArrayRef,
+        DataType::Date64(DateUnit::Millisecond) => {
+            Arc::new(Date64Array::from(data)) as ArrayRef
+        }
+        DataType::Time32(TimeUnit::Second) => {
+            Arc::new(Time32SecondArray::from(data)) as ArrayRef
+        }
+        DataType::Time32(TimeUnit::Millisecond) => {
+            Arc::new(Time32MillisecondArray::from(data)) as ArrayRef
+        }
+        DataType::Time64(TimeUnit::Microsecond) => {
+            Arc::new(Time64MicrosecondArray::from(data)) as ArrayRef
+        }
+        DataType::Time64(TimeUnit::Nanosecond) => {
+            Arc::new(Time64NanosecondArray::from(data)) as ArrayRef
+        }
+        DataType::Timestamp(TimeUnit::Second) => {
+            Arc::new(TimestampSecondArray::from(data)) as ArrayRef
+        }
+        DataType::Timestamp(TimeUnit::Millisecond) => {
+            Arc::new(TimestampMillisecondArray::from(data)) as ArrayRef
+        }
+        DataType::Timestamp(TimeUnit::Microsecond) => {
+            Arc::new(TimestampMicrosecondArray::from(data)) as ArrayRef
+        }
+        DataType::Timestamp(TimeUnit::Nanosecond) => {
+            Arc::new(TimestampNanosecondArray::from(data)) as ArrayRef
+        }
         DataType::Utf8 => Arc::new(BinaryArray::from(data)) as ArrayRef,
         DataType::List(_) => Arc::new(ListArray::from(data)) as ArrayRef,
         DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
+}
+
+fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
+    assert!((offset + length) <= data.len());
+
+    let mut new_data = data.as_ref().clone();
+    let len = ::std::cmp::min(new_data.len - offset, length);
+
+    offset += data.offset;
+    new_data.len = len;
+    new_data.offset = offset;
+
+    // Calculate the new null count based on the offset
+    new_data.null_count = if let Some(bitmap) = new_data.null_bitmap() {
+        let valid_bits = bitmap.bits.data();
+        len.checked_sub(bit_util::count_set_bits_offset(valid_bits, offset, length))
+            .unwrap()
+    } else {
+        0
+    };
+
+    Arc::new(new_data)
 }
 
 /// ----------------------------------------------------------------------------
@@ -178,6 +245,18 @@ pub type UInt32Array = PrimitiveArray<UInt32Type>;
 pub type UInt64Array = PrimitiveArray<UInt64Type>;
 pub type Float32Array = PrimitiveArray<Float32Type>;
 pub type Float64Array = PrimitiveArray<Float64Type>;
+
+pub type TimestampSecondArray = PrimitiveArray<TimestampSecondType>;
+pub type TimestampMillisecondArray = PrimitiveArray<TimestampMillisecondType>;
+pub type TimestampMicrosecondArray = PrimitiveArray<TimestampMicrosecondType>;
+pub type TimestampNanosecondArray = PrimitiveArray<TimestampNanosecondType>;
+pub type Date32Array = PrimitiveArray<Date32Type>;
+pub type Date64Array = PrimitiveArray<Date64Type>;
+pub type Time32SecondArray = PrimitiveArray<Time32SecondType>;
+pub type Time32MillisecondArray = PrimitiveArray<Time32MillisecondType>;
+pub type Time64MicrosecondArray = PrimitiveArray<Time64MicrosecondType>;
+pub type Time64NanosecondArray = PrimitiveArray<Time64NanosecondType>;
+// TODO add interval
 
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     fn as_any(&self) -> &Any {
@@ -236,13 +315,184 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value_slice(&self, offset: usize, len: usize) -> &[T::Native] {
-        let raw = unsafe { std::slice::from_raw_parts(self.raw_values(), self.len()) };
-        &raw[offset..offset + len]
+        let raw = unsafe {
+            std::slice::from_raw_parts(self.raw_values().offset(offset as isize), len)
+        };
+        &raw[..]
     }
 
     // Returns a new primitive array builder
     pub fn builder(capacity: usize) -> PrimitiveBuilder<T> {
         PrimitiveBuilder::<T>::new(capacity)
+    }
+}
+
+impl<T: ArrowTemporalType + ArrowNumericType> PrimitiveArray<T>
+where
+    i64: std::convert::From<T::Native>,
+{
+    /// Returns value as a chrono `NaiveDateTime`, handling time resolution
+    ///
+    /// If a data type cannot be converted to `NaiveDateTime`, a `None` is returned.
+    /// A valid value is expected, thus the user should first check for validity.
+    /// TODO: extract constants into static variables
+    pub fn value_as_datetime(&self, i: usize) -> Option<NaiveDateTime> {
+        let v = i64::from(self.value(i));
+        match self.data_type() {
+            DataType::Date32(_) => {
+                // convert days into seconds
+                Some(NaiveDateTime::from_timestamp(v as i64 * SECONDS_IN_DAY, 0))
+            }
+            DataType::Date64(_) => Some(NaiveDateTime::from_timestamp(
+                // extract seconds from milliseconds
+                v / MILLISECONDS,
+                // discard extracted seconds and convert milliseconds to nanoseconds
+                (v % MILLISECONDS * MICROSECONDS) as u32,
+            )),
+            DataType::Time32(_) | DataType::Time64(_) => None,
+            DataType::Timestamp(unit) => match unit {
+                TimeUnit::Second => Some(NaiveDateTime::from_timestamp(v, 0)),
+                TimeUnit::Millisecond => Some(NaiveDateTime::from_timestamp(
+                    // extract seconds from milliseconds
+                    v / MILLISECONDS,
+                    // discard extracted seconds and convert milliseconds to nanoseconds
+                    (v % MILLISECONDS * MICROSECONDS) as u32,
+                )),
+                TimeUnit::Microsecond => Some(NaiveDateTime::from_timestamp(
+                    // extract seconds from microseconds
+                    v / MICROSECONDS,
+                    // discard extracted seconds and convert microseconds to nanoseconds
+                    (v % MICROSECONDS * MILLISECONDS) as u32,
+                )),
+                TimeUnit::Nanosecond => Some(NaiveDateTime::from_timestamp(
+                    // extract seconds from nanoseconds
+                    v / NANOSECONDS,
+                    // discard extracted seconds
+                    (v % NANOSECONDS) as u32,
+                )),
+            },
+            // interval is not yet fully documented [ARROW-3097]
+            DataType::Interval(_) => None,
+            _ => None,
+        }
+    }
+
+    /// Returns value as a chrono `NaiveDate` by using `Self::datetime()`
+    ///
+    /// If a data type cannot be converted to `NaiveDate`, a `None` is returned
+    pub fn value_as_date(&self, i: usize) -> Option<NaiveDate> {
+        match self.value_as_datetime(i) {
+            Some(datetime) => Some(datetime.date()),
+            None => None,
+        }
+    }
+
+    /// Returns a value as a chrono `NaiveTime`
+    ///
+    /// `Date32` and `Date64` return UTC midnight as they do not have time resolution
+    pub fn value_as_time(&self, i: usize) -> Option<NaiveTime> {
+        match self.data_type() {
+            DataType::Time32(unit) => {
+                // safe to immediately cast to u32 as `self.value(i)` is positive i32
+                let v = i64::from(self.value(i)) as u32;
+                match unit {
+                    TimeUnit::Second => {
+                        Some(NaiveTime::from_num_seconds_from_midnight(v, 0))
+                    }
+                    TimeUnit::Millisecond => {
+                        Some(NaiveTime::from_num_seconds_from_midnight(
+                            // extract seconds from milliseconds
+                            v / MILLISECONDS as u32,
+                            // discard extracted seconds and convert milliseconds to
+                            // nanoseconds
+                            v % MILLISECONDS as u32 * MICROSECONDS as u32,
+                        ))
+                    }
+                    _ => None,
+                }
+            }
+            DataType::Time64(unit) => {
+                let v = i64::from(self.value(i));
+                match unit {
+                    TimeUnit::Microsecond => {
+                        Some(NaiveTime::from_num_seconds_from_midnight(
+                            // extract seconds from microseconds
+                            (v / MICROSECONDS) as u32,
+                            // discard extracted seconds and convert microseconds to
+                            // nanoseconds
+                            (v % MICROSECONDS * MILLISECONDS) as u32,
+                        ))
+                    }
+                    TimeUnit::Nanosecond => {
+                        Some(NaiveTime::from_num_seconds_from_midnight(
+                            // extract seconds from nanoseconds
+                            (v / NANOSECONDS) as u32,
+                            // discard extracted seconds
+                            (v % NANOSECONDS) as u32,
+                        ))
+                    }
+                    _ => None,
+                }
+            }
+            DataType::Timestamp(_) => match self.value_as_datetime(i) {
+                Some(datetime) => Some(datetime.time()),
+                None => None,
+            },
+            DataType::Date32(_) | DataType::Date64(_) => {
+                Some(NaiveTime::from_hms(0, 0, 0))
+            }
+            DataType::Interval(_) => None,
+            _ => None,
+        }
+    }
+}
+
+impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
+    default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
+        for i in 0..self.len() {
+            if self.is_null(i) {
+                write!(f, "  null,\n")?;
+            } else {
+                write!(f, "  {:?},\n", self.value(i))?;
+            }
+        }
+        write!(f, "]")
+    }
+}
+
+impl<T: ArrowNumericType + ArrowTemporalType> fmt::Debug for PrimitiveArray<T>
+where
+    i64: std::convert::From<T::Native>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
+        for i in 0..self.len() {
+            if self.is_null(i) {
+                write!(f, "  null,\n")?;
+            } else {
+                match T::get_data_type() {
+                    DataType::Date32(_) | DataType::Date64(_) => {
+                        match self.value_as_date(i) {
+                            Some(date) => write!(f, "  {:?},\n", date)?,
+                            None => write!(f, "  null,\n")?,
+                        }
+                    }
+                    DataType::Time32(_) | DataType::Time64(_) => {
+                        match self.value_as_time(i) {
+                            Some(time) => write!(f, "  {:?},\n", time)?,
+                            None => write!(f, "  null,\n")?,
+                        }
+                    }
+                    DataType::Timestamp(_) => match self.value_as_datetime(i) {
+                        Some(datetime) => write!(f, "  {:?},\n", datetime)?,
+                        None => write!(f, "  null,\n")?,
+                    },
+                    _ => write!(f, "  {:?},\n", "null,\n")?,
+                }
+            }
+        }
+        write!(f, "]")
     }
 }
 
@@ -267,8 +517,8 @@ impl PrimitiveArray<BooleanType> {
 
     /// Returns the boolean value at index `i`.
     pub fn value(&self, i: usize) -> bool {
+        assert!(i < self.data.len());
         let offset = i + self.offset();
-        assert!(offset < self.data.len());
         unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset) }
     }
 
@@ -278,11 +528,25 @@ impl PrimitiveArray<BooleanType> {
     }
 }
 
+impl fmt::Debug for PrimitiveArray<BooleanType> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::get_data_type())?;
+        for i in 0..self.len() {
+            if self.is_null(i) {
+                write!(f, "  null,\n")?
+            } else {
+                write!(f, "  {:?},\n", self.value(i))?
+            }
+        }
+        write!(f, "]")
+    }
+}
+
 // TODO: the macro is needed here because we'd get "conflicting implementations" error
 // otherwise with both `From<Vec<T::Native>>` and `From<Vec<Option<T::Native>>>`.
 // We should revisit this in future.
 macro_rules! def_numeric_from_vec {
-    ( $ty:ident, $native_ty:ident, $ty_id:path ) => {
+    ( $ty:ident, $native_ty:ident, $ty_id:expr ) => {
         impl From<Vec<$native_ty>> for PrimitiveArray<$ty> {
             fn from(data: Vec<$native_ty>) -> Self {
                 let array_data = ArrayData::builder($ty_id)
@@ -339,6 +603,46 @@ def_numeric_from_vec!(UInt32Type, u32, DataType::UInt32);
 def_numeric_from_vec!(UInt64Type, u64, DataType::UInt64);
 def_numeric_from_vec!(Float32Type, f32, DataType::Float32);
 def_numeric_from_vec!(Float64Type, f64, DataType::Float64);
+// TODO: add temporal arrays
+
+def_numeric_from_vec!(
+    TimestampSecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Second)
+);
+def_numeric_from_vec!(
+    TimestampMillisecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Millisecond)
+);
+def_numeric_from_vec!(
+    TimestampMicrosecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Microsecond)
+);
+def_numeric_from_vec!(
+    TimestampNanosecondType,
+    i64,
+    DataType::Timestamp(TimeUnit::Nanosecond)
+);
+def_numeric_from_vec!(Date32Type, i32, DataType::Date32(DateUnit::Day));
+def_numeric_from_vec!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
+def_numeric_from_vec!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
+def_numeric_from_vec!(
+    Time32MillisecondType,
+    i32,
+    DataType::Time32(TimeUnit::Millisecond)
+);
+def_numeric_from_vec!(
+    Time64MicrosecondType,
+    i64,
+    DataType::Time64(TimeUnit::Microsecond)
+);
+def_numeric_from_vec!(
+    Time64NanosecondType,
+    i64,
+    DataType::Time64(TimeUnit::Nanosecond)
+);
 
 /// Constructs a boolean array from a vector. Should only be used for testing.
 impl From<Vec<bool>> for BooleanArray {
@@ -475,11 +779,6 @@ impl From<ArrayDataRef> for ListArray {
         let value_offsets = raw_value_offsets as *const i32;
         unsafe {
             assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
-            assert_eq!(
-                *value_offsets.offset(data.len() as isize),
-                values.data().len() as i32,
-                "inconsistent offsets buffer and values array"
-            );
         }
         Self {
             data: data.clone(),
@@ -578,14 +877,34 @@ impl From<ArrayDataRef> for BinaryArray {
 
 impl<'a> From<Vec<&'a str>> for BinaryArray {
     fn from(v: Vec<&'a str>) -> Self {
-        let mut offsets = vec![];
-        let mut values = vec![];
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
         let mut length_so_far = 0;
         offsets.push(length_so_far);
         for s in &v {
             length_so_far += s.len() as i32;
             offsets.push(length_so_far as i32);
             values.extend_from_slice(s.as_bytes());
+        }
+        let array_data = ArrayData::builder(DataType::Utf8)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        BinaryArray::from(array_data)
+    }
+}
+
+impl<'a> From<Vec<&[u8]>> for BinaryArray {
+    fn from(v: Vec<&[u8]>) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut length_so_far = 0;
+        offsets.push(length_so_far);
+        for s in &v {
+            length_so_far += s.len() as i32;
+            offsets.push(length_so_far as i32);
+            values.extend_from_slice(s);
         }
         let array_data = ArrayData::builder(DataType::Utf8)
             .len(v.len())
@@ -644,7 +963,7 @@ impl Array for BinaryArray {
 /// array.
 pub struct StructArray {
     data: ArrayDataRef,
-    boxed_fields: Vec<ArrayRef>,
+    pub(crate) boxed_fields: Vec<ArrayRef>,
 }
 
 impl StructArray {
@@ -658,7 +977,12 @@ impl From<ArrayDataRef> for StructArray {
     fn from(data: ArrayDataRef) -> Self {
         let mut boxed_fields = vec![];
         for cd in data.child_data() {
-            boxed_fields.push(make_array(cd.clone()));
+            let child_data = if data.offset != 0 || data.len != cd.len {
+                slice_data(cd.clone(), data.offset, data.len)
+            } else {
+                cd.clone()
+            };
+            boxed_fields.push(make_array(child_data));
         }
         Self { data, boxed_fields }
     }
@@ -679,7 +1003,7 @@ impl Array for StructArray {
 
     /// Returns the length (i.e., number of elements) of this array
     fn len(&self) -> usize {
-        self.boxed_fields[0].len()
+        self.data().len()
     }
 }
 
@@ -695,10 +1019,16 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
                 field_values[i].len(),
                 "all child arrays of a StructArray must have the same length"
             );
+            assert_eq!(
+                field_types[i].data_type(),
+                field_values[i].data().data_type(),
+                "the field data types must match the array data in a StructArray"
+            )
         }
 
         let data = ArrayData::builder(DataType::Struct(field_types))
             .child_data(field_values.into_iter().map(|a| a.data()).collect())
+            .len(length)
             .build();
         Self::from(data)
     }
@@ -751,6 +1081,196 @@ mod tests {
                 assert!(!arr.is_valid(i));
             }
         }
+    }
+
+    #[test]
+    fn test_date64_array_from_vec_option() {
+        // Test building a primitive array with null values
+        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 conventions
+        // work
+        let arr: PrimitiveArray<Date64Type> =
+            vec![Some(1550902545147), None, Some(1550902545147)].into();
+        assert_eq!(3, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(1, arr.null_count());
+        for i in 0..3 {
+            if i % 2 == 0 {
+                assert!(!arr.is_null(i));
+                assert!(arr.is_valid(i));
+                assert_eq!(1550902545147, arr.value(i));
+                // roundtrip to and from datetime
+                assert_eq!(
+                    1550902545147,
+                    arr.value_as_datetime(i).unwrap().timestamp_millis()
+                );
+            } else {
+                assert!(arr.is_null(i));
+                assert!(!arr.is_valid(i));
+            }
+        }
+    }
+
+    #[test]
+    fn test_time32_millisecond_array_from_vec() {
+        // 1:        00:00:00.001
+        // 37800005: 10:30:00.005
+        // 86399210: 23:59:59.210
+        let arr: PrimitiveArray<Time32MillisecondType> =
+            vec![1, 37_800_005, 86_399_210].into();
+        assert_eq!(3, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        let formatted = vec!["00:00:00.001", "10:30:00.005", "23:59:59.210"];
+        for i in 0..3 {
+            // check that we can't create dates or datetimes from time instances
+            assert_eq!(None, arr.value_as_datetime(i));
+            assert_eq!(None, arr.value_as_date(i));
+            let time = arr.value_as_time(i).unwrap();
+            assert_eq!(formatted[i], time.format("%H:%M:%S%.3f").to_string());
+        }
+    }
+
+    #[test]
+    fn test_time64_nanosecond_array_from_vec() {
+        // Test building a primitive array with null values
+        // we use Int32 and Int64 as a backing array, so all Int32 and Int64 convensions
+        // work
+
+        // 1e6:        00:00:00.001
+        // 37800005e6: 10:30:00.005
+        // 86399210e6: 23:59:59.210
+        let arr: PrimitiveArray<Time64NanosecondType> =
+            vec![1_000_000, 37_800_005_000_000, 86_399_210_000_000].into();
+        assert_eq!(3, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        let formatted = vec!["00:00:00.001", "10:30:00.005", "23:59:59.210"];
+        for i in 0..3 {
+            // check that we can't create dates or datetimes from time instances
+            assert_eq!(None, arr.value_as_datetime(i));
+            assert_eq!(None, arr.value_as_date(i));
+            let time = arr.value_as_time(i).unwrap();
+            dbg!(time);
+            assert_eq!(formatted[i], time.format("%H:%M:%S%.3f").to_string());
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_slice() {
+        let arr = Int32Array::from(vec![
+            Some(0),
+            None,
+            Some(2),
+            None,
+            Some(4),
+            Some(5),
+            Some(6),
+            None,
+            None,
+        ]);
+        assert_eq!(9, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(4, arr.null_count());
+
+        let arr2 = arr.slice(2, 5);
+        assert_eq!(5, arr2.len());
+        assert_eq!(2, arr2.offset());
+        assert_eq!(1, arr2.null_count());
+
+        for i in 0..arr2.len() {
+            assert_eq!(i == 1, arr2.is_null(i));
+            assert_eq!(i != 1, arr2.is_valid(i));
+        }
+
+        let arr3 = arr2.slice(2, 3);
+        assert_eq!(3, arr3.len());
+        assert_eq!(4, arr3.offset());
+        assert_eq!(0, arr3.null_count());
+
+        let int_arr = arr3.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(4, int_arr.value(0));
+        assert_eq!(5, int_arr.value(1));
+        assert_eq!(6, int_arr.value(2));
+    }
+
+    #[test]
+    fn test_value_slice_no_bounds_check() {
+        let arr = Int32Array::from(vec![2, 3, 4]);
+        let _slice = arr.value_slice(0, 4);
+    }
+
+    #[test]
+    fn test_int32_fmt_debug() {
+        let buf = Buffer::from(&[0, 1, 2, 3, 4].to_byte_slice());
+        let arr = Int32Array::new(5, buf, 0, 0);
+        assert_eq!(
+            "PrimitiveArray<Int32>\n[\n  0,\n  1,\n  2,\n  3,\n  4,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_int32_with_null_fmt_debug() {
+        let mut builder = Int32Array::builder(3);
+        builder.append_slice(&[0, 1]).unwrap();
+        builder.append_null().unwrap();
+        builder.append_slice(&[3, 4]).unwrap();
+        let arr = builder.finish();
+        assert_eq!(
+            "PrimitiveArray<Int32>\n[\n  0,\n  1,\n  null,\n  3,\n  4,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_boolean_fmt_debug() {
+        let buf = Buffer::from(&[true, false, false].to_byte_slice());
+        let arr = BooleanArray::new(3, buf, 0, 0);
+        assert_eq!(
+            "PrimitiveArray<Boolean>\n[\n  true,\n  false,\n  false,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_boolean_with_null_fmt_debug() {
+        let mut builder = BooleanArray::builder(3);
+        builder.append_value(true).unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(false).unwrap();
+        let arr = builder.finish();
+        assert_eq!(
+            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  false,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_timestamp_fmt_debug() {
+        let arr: PrimitiveArray<TimestampMillisecondType> =
+            vec![1546214400000, 1546214400000].into();
+        assert_eq!(
+            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_date32_fmt_debug() {
+        let arr: PrimitiveArray<Date32Type> = vec![12356, 13548].into();
+        assert_eq!(
+            "PrimitiveArray<Date32(Day)>\n[\n  2003-10-31,\n  2007-02-04,\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_time32second_fmt_debug() {
+        let arr: PrimitiveArray<Time32SecondType> = vec![7201, 60054].into();
+        assert_eq!(
+            "PrimitiveArray<Time32(Second)>\n[\n  02:00:01,\n  16:40:54,\n]",
+            format!("{:?}", arr)
+        );
     }
 
     #[test]
@@ -913,6 +1433,71 @@ mod tests {
     }
 
     #[test]
+
+    fn test_list_array_slice() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(10)
+            .add_buffer(Buffer::from(
+                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
+            ))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1], null, null, [2, 3], [4, 5], null, [6, 7, 8], null, [9]]
+        let value_offsets =
+            Buffer::from(&[0, 2, 2, 2, 4, 6, 6, 9, 9, 10].to_byte_slice());
+        // 01011001 00000001
+        let mut null_bits: [u8; 2] = [0; 2];
+        bit_util::set_bit(&mut null_bits, 0);
+        bit_util::set_bit(&mut null_bits, 3);
+        bit_util::set_bit(&mut null_bits, 4);
+        bit_util::set_bit(&mut null_bits, 6);
+        bit_util::set_bit(&mut null_bits, 8);
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::List(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(9)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .null_bit_buffer(Buffer::from(null_bits))
+            .build();
+        let list_array = ListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(9, list_array.len());
+        assert_eq!(4, list_array.null_count());
+        assert_eq!(2, list_array.value_offset(3));
+        assert_eq!(2, list_array.value_length(3));
+
+        let sliced_array = list_array.slice(1, 6);
+        assert_eq!(6, sliced_array.len());
+        assert_eq!(1, sliced_array.offset());
+        assert_eq!(3, sliced_array.null_count());
+
+        for i in 0..sliced_array.len() {
+            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+                assert!(sliced_array.is_valid(i));
+            } else {
+                assert!(sliced_array.is_null(i));
+            }
+        }
+
+        // Check offset and length for each non-null value.
+        let sliced_list_array =
+            sliced_array.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(2, sliced_list_array.value_offset(2));
+        assert_eq!(2, sliced_list_array.value_length(2));
+        assert_eq!(4, sliced_list_array.value_offset(3));
+        assert_eq!(2, sliced_list_array.value_length(3));
+        assert_eq!(6, sliced_list_array.value_offset(5));
+        assert_eq!(3, sliced_list_array.value_length(5));
+    }
+
+    #[test]
     #[should_panic(
         expected = "ListArray data should contain a single buffer only (value offsets)"
     )]
@@ -952,25 +1537,6 @@ mod tests {
             .build();
 
         let value_offsets = Buffer::from(&[2, 2, 5, 7].to_byte_slice());
-
-        let list_data_type = DataType::List(Box::new(DataType::Int32));
-        let list_data = ArrayData::builder(list_data_type.clone())
-            .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
-            .build();
-        ListArray::from(list_data);
-    }
-
-    #[test]
-    #[should_panic(expected = "inconsistent offsets buffer and values array")]
-    fn test_list_array_invalid_value_offset_end() {
-        let value_data = ArrayData::builder(DataType::Int32)
-            .len(8)
-            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
-            .build();
-
-        let value_offsets = Buffer::from(&[0, 2, 5, 7].to_byte_slice());
 
         let list_data_type = DataType::List(Box::new(DataType::Int32));
         let list_data = ArrayData::builder(list_data_type.clone())
@@ -1073,6 +1639,36 @@ mod tests {
     }
 
     #[test]
+    fn test_binary_array_from_u8_slice() {
+        let values: Vec<&[u8]> = vec![
+            &[b'h', b'e', b'l', b'l', b'o'],
+            &[],
+            &[b'p', b'a', b'r', b'q', b'u', b'e', b't'],
+        ];
+
+        // Array data: ["hello", "", "parquet"]
+        let binary_array = BinaryArray::from(values);
+
+        assert_eq!(3, binary_array.len());
+        assert_eq!(0, binary_array.null_count());
+        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
+        assert_eq!("hello", binary_array.get_string(0));
+        assert_eq!([] as [u8; 0], binary_array.value(1));
+        assert_eq!("", binary_array.get_string(1));
+        assert_eq!(
+            [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
+            binary_array.value(2)
+        );
+        assert_eq!("parquet", binary_array.get_string(2));
+        assert_eq!(5, binary_array.value_offset(2));
+        assert_eq!(7, binary_array.value_length(2));
+        for i in 0..3 {
+            assert!(binary_array.is_valid(i));
+            assert!(!binary_array.is_null(i));
+        }
+    }
+
+    #[test]
     #[should_panic(
         expected = "BinaryArray can only be created from List<u8> arrays, mismatched \
                     data types."
@@ -1147,6 +1743,7 @@ mod tests {
         field_types.push(Field::new("a", DataType::Boolean, false));
         field_types.push(Field::new("b", DataType::Int64, false));
         let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
+            .len(4)
             .add_child_data(boolean_data.clone())
             .add_child_data(int_data.clone())
             .build();
@@ -1179,6 +1776,113 @@ mod tests {
         ]);
         assert_eq!(boolean_data, struct_array.column(0).data());
         assert_eq!(int_data, struct_array.column(1).data());
+        assert_eq!(4, struct_array.len());
+        assert_eq!(0, struct_array.null_count());
+        assert_eq!(0, struct_array.offset());
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "the field data types must match the array data in a StructArray"
+    )]
+    fn test_struct_array_from_mismatched_types() {
+        StructArray::from(vec![
+            (
+                Field::new("b", DataType::Int16, false),
+                Arc::new(BooleanArray::from(vec![false, false, true, true]))
+                    as Arc<Array>,
+            ),
+            (
+                Field::new("c", DataType::Utf8, false),
+                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_struct_array_slice() {
+        let boolean_data = ArrayData::builder(DataType::Boolean)
+            .len(5)
+            .add_buffer(Buffer::from([0b00010000]))
+            .null_bit_buffer(Buffer::from([0b00010001]))
+            .build();
+        let int_data = ArrayData::builder(DataType::Int32)
+            .len(5)
+            .add_buffer(Buffer::from([0, 28, 42, 0, 0].to_byte_slice()))
+            .null_bit_buffer(Buffer::from([0b00000110]))
+            .build();
+
+        let mut field_types = vec![];
+        field_types.push(Field::new("a", DataType::Boolean, false));
+        field_types.push(Field::new("b", DataType::Int32, false));
+        let struct_array_data = ArrayData::builder(DataType::Struct(field_types))
+            .len(5)
+            .add_child_data(boolean_data.clone())
+            .add_child_data(int_data.clone())
+            .null_bit_buffer(Buffer::from([0b00010111]))
+            .build();
+        let struct_array = StructArray::from(struct_array_data);
+
+        assert_eq!(5, struct_array.len());
+        assert_eq!(1, struct_array.null_count());
+        assert!(struct_array.is_valid(0));
+        assert!(struct_array.is_valid(1));
+        assert!(struct_array.is_valid(2));
+        assert!(struct_array.is_null(3));
+        assert!(struct_array.is_valid(4));
+        assert_eq!(boolean_data, struct_array.column(0).data());
+        assert_eq!(int_data, struct_array.column(1).data());
+
+        let c0 = struct_array.column(0);
+        let c0 = c0.as_any().downcast_ref::<BooleanArray>().unwrap();
+        assert_eq!(5, c0.len());
+        assert_eq!(3, c0.null_count());
+        assert!(c0.is_valid(0));
+        assert_eq!(false, c0.value(0));
+        assert!(c0.is_null(1));
+        assert!(c0.is_null(2));
+        assert!(c0.is_null(3));
+        assert!(c0.is_valid(4));
+        assert_eq!(true, c0.value(4));
+
+        let c1 = struct_array.column(1);
+        let c1 = c1.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(5, c1.len());
+        assert_eq!(3, c1.null_count());
+        assert!(c1.is_null(0));
+        assert!(c1.is_valid(1));
+        assert_eq!(28, c1.value(1));
+        assert!(c1.is_valid(2));
+        assert_eq!(42, c1.value(2));
+        assert!(c1.is_null(3));
+        assert!(c1.is_null(4));
+
+        let sliced_array = struct_array.slice(2, 3);
+        let sliced_array = sliced_array.as_any().downcast_ref::<StructArray>().unwrap();
+        assert_eq!(3, sliced_array.len());
+        assert_eq!(2, sliced_array.offset());
+        assert_eq!(1, sliced_array.null_count());
+        assert!(sliced_array.is_valid(0));
+        assert!(sliced_array.is_null(1));
+        assert!(sliced_array.is_valid(2));
+
+        let sliced_c0 = sliced_array.column(0);
+        let sliced_c0 = sliced_c0.as_any().downcast_ref::<BooleanArray>().unwrap();
+        assert_eq!(3, sliced_c0.len());
+        assert_eq!(2, sliced_c0.offset());
+        assert!(sliced_c0.is_null(0));
+        assert!(sliced_c0.is_null(1));
+        assert!(sliced_c0.is_valid(2));
+        assert_eq!(true, sliced_c0.value(2));
+
+        let sliced_c1 = sliced_array.column(1);
+        let sliced_c1 = sliced_c1.as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(3, sliced_c1.len());
+        assert_eq!(2, sliced_c1.offset());
+        assert!(sliced_c1.is_valid(0));
+        assert_eq!(42, sliced_c1.value(0));
+        assert!(sliced_c1.is_null(1));
+        assert!(sliced_c1.is_null(2));
     }
 
     #[test]
@@ -1201,7 +1905,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_primitive_array_alignment() {
-        let ptr = memory::allocate_aligned(8).unwrap();
+        let ptr = memory::allocate_aligned(8);
         let buf = Buffer::from_raw_parts(ptr, 8);
         let buf2 = buf.slice(1);
         let array_data = ArrayData::builder(DataType::Int32).add_buffer(buf2).build();
@@ -1211,7 +1915,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_list_array_alignment() {
-        let ptr = memory::allocate_aligned(8).unwrap();
+        let ptr = memory::allocate_aligned(8);
         let buf = Buffer::from_raw_parts(ptr, 8);
         let buf2 = buf.slice(1);
 
@@ -1231,7 +1935,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_binary_array_alignment() {
-        let ptr = memory::allocate_aligned(8).unwrap();
+        let ptr = memory::allocate_aligned(8);
         let buf = Buffer::from_raw_parts(ptr, 8);
         let buf2 = buf.slice(1);
 

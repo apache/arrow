@@ -28,7 +28,7 @@
 #include "arrow/builder.h"
 #include "arrow/pretty_print.h"
 #include "arrow/table.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
 namespace arrow {
@@ -71,12 +71,21 @@ void Check(const T& obj, const PrettyPrintOptions& options, const char* expected
 }
 
 template <typename TYPE, typename C_TYPE>
-void CheckPrimitive(const PrettyPrintOptions& options, const std::vector<bool>& is_valid,
+void CheckPrimitive(const std::shared_ptr<DataType>& type,
+                    const PrettyPrintOptions& options, const std::vector<bool>& is_valid,
                     const std::vector<C_TYPE>& values, const char* expected,
                     bool check_operator = true) {
   std::shared_ptr<Array> array;
-  ArrayFromVector<TYPE, C_TYPE>(is_valid, values, &array);
+  ArrayFromVector<TYPE, C_TYPE>(type, is_valid, values, &array);
   CheckArray(*array, options, expected, check_operator);
+}
+
+template <typename TYPE, typename C_TYPE>
+void CheckPrimitive(const PrettyPrintOptions& options, const std::vector<bool>& is_valid,
+                    const std::vector<C_TYPE>& values, const char* expected,
+                    bool check_operator = true) {
+  CheckPrimitive<TYPE, C_TYPE>(TypeTraits<TYPE>::type_singleton(), options, is_valid,
+                               values, expected, check_operator);
 }
 
 TEST_F(TestPrettyPrint, PrimitiveType) {
@@ -156,6 +165,116 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   CheckPrimitive<StringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
 }
 
+TEST_F(TestPrettyPrint, Int8) {
+  static const char* expected = R"expected([
+  0,
+  127,
+  -128
+])expected";
+  CheckPrimitive<Int8Type, int8_t>({0, 10}, {true, true, true}, {0, 127, -128}, expected);
+}
+
+TEST_F(TestPrettyPrint, UInt8) {
+  static const char* expected = R"expected([
+  0,
+  255
+])expected";
+  CheckPrimitive<UInt8Type, uint8_t>({0, 10}, {true, true}, {0, 255}, expected);
+}
+
+TEST_F(TestPrettyPrint, Int64) {
+  static const char* expected = R"expected([
+  0,
+  9223372036854775807,
+  -9223372036854775808
+])expected";
+  CheckPrimitive<Int64Type, int64_t>(
+      {0, 10}, {true, true, true}, {0, 9223372036854775807LL, -9223372036854775807LL - 1},
+      expected);
+}
+
+TEST_F(TestPrettyPrint, UInt64) {
+  static const char* expected = R"expected([
+  0,
+  9223372036854775803,
+  18446744073709551615
+])expected";
+  CheckPrimitive<UInt64Type, uint64_t>(
+      {0, 10}, {true, true, true}, {0, 9223372036854775803ULL, 18446744073709551615ULL},
+      expected);
+}
+
+TEST_F(TestPrettyPrint, DateTimeTypes) {
+  std::vector<bool> is_valid = {true, true, false, true, false};
+
+  {
+    std::vector<int32_t> values = {0, 1, 2, 31, 4};
+    static const char* expected = R"expected([
+  1970-01-01,
+  1970-01-02,
+  null,
+  1970-02-01,
+  null
+])expected";
+    CheckPrimitive<Date32Type, int32_t>({0, 10}, is_valid, values, expected);
+  }
+
+  {
+    constexpr int64_t ms_per_day = 24 * 60 * 60 * 1000;
+    std::vector<int64_t> values = {0 * ms_per_day, 1 * ms_per_day, 2 * ms_per_day,
+                                   31 * ms_per_day, 4 * ms_per_day};
+    static const char* expected = R"expected([
+  1970-01-01,
+  1970-01-02,
+  null,
+  1970-02-01,
+  null
+])expected";
+    CheckPrimitive<Date64Type, int64_t>({0, 10}, is_valid, values, expected);
+  }
+
+  {
+    std::vector<int64_t> values = {
+        0, 1, 2, 678 + 1000000 * (5 + 60 * (4 + 60 * (3 + 24 * int64_t(1)))), 4};
+    static const char* expected = R"expected([
+  1970-01-01 00:00:00.000000,
+  1970-01-01 00:00:00.000001,
+  null,
+  1970-01-02 03:04:05.000678,
+  null
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MICRO, "Transylvania"),
+                                           {0, 10}, is_valid, values, expected);
+  }
+
+  {
+    std::vector<int32_t> values = {1, 62, 2, 3 + 60 * (2 + 60 * 1), 4};
+    static const char* expected = R"expected([
+  00:00:01,
+  00:01:02,
+  null,
+  01:02:03,
+  null
+])expected";
+    CheckPrimitive<Time32Type, int32_t>(time32(TimeUnit::SECOND), {0, 10}, is_valid,
+                                        values, expected);
+  }
+
+  {
+    std::vector<int64_t> values = {
+        0, 1, 2, 678 + int64_t(1000000000) * (5 + 60 * (4 + 60 * 3)), 4};
+    static const char* expected = R"expected([
+  00:00:00.000000000,
+  00:00:00.000000001,
+  null,
+  03:04:05.000000678,
+  null
+])expected";
+    CheckPrimitive<Time64Type, int64_t>(time64(TimeUnit::NANO), {0, 10}, is_valid, values,
+                                        expected);
+  }
+}
+
 TEST_F(TestPrettyPrint, StructTypeBasic) {
   auto simple_1 = field("one", int32());
   auto simple_2 = field("two", int32());
@@ -215,12 +334,12 @@ TEST_F(TestPrettyPrint, StructTypeAdvanced) {
 }
 
 TEST_F(TestPrettyPrint, BinaryType) {
-  std::vector<bool> is_valid = {true, true, false, true, false};
-  std::vector<std::string> values = {"foo", "bar", "", "baz", ""};
-  static const char* ex = "[\n  666F6F,\n  626172,\n  null,\n  62617A,\n  null\n]";
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+  std::vector<std::string> values = {"foo", "bar", "", "baz", "", "\xff"};
+  static const char* ex = "[\n  666F6F,\n  626172,\n  null,\n  62617A,\n  ,\n  FF\n]";
   CheckPrimitive<BinaryType, std::string>({0}, is_valid, values, ex);
   static const char* ex_in2 =
-      "  [\n    666F6F,\n    626172,\n    null,\n    62617A,\n    null\n  ]";
+      "  [\n    666F6F,\n    626172,\n    null,\n    62617A,\n    ,\n    FF\n  ]";
   CheckPrimitive<BinaryType, std::string>({2}, is_valid, values, ex_in2);
 }
 
@@ -275,6 +394,86 @@ TEST_F(TestPrettyPrint, ListType) {
   CheckStream(*array, {0, 1}, ex_3);
 }
 
+TEST_F(TestPrettyPrint, MapType) {
+  auto map_type = map(utf8(), int64());
+  auto array = ArrayFromJSON(map_type, R"([
+    [["joe", 0], ["mark", null]],
+    null,
+    [["cap", 8]],
+    []
+  ])");
+
+  static const char* ex = R"expected([
+  keys:
+  [
+    "joe",
+    "mark"
+  ]
+  values:
+  [
+    0,
+    null
+  ],
+  null,
+  keys:
+  [
+    "cap"
+  ]
+  values:
+  [
+    8
+  ],
+  keys:
+  []
+  values:
+  []
+])expected";
+  CheckArray(*array, {0, 10}, ex);
+}
+
+TEST_F(TestPrettyPrint, FixedSizeListType) {
+  auto list_type = fixed_size_list(int32(), 3);
+  auto array = ArrayFromJSON(list_type,
+                             "[[null, 0, 1], [2, 3, null], null, [4, 6, 7], [8, 9, 5]]");
+
+  CheckArray(*array, {0, 10}, R"expected([
+  [
+    null,
+    0,
+    1
+  ],
+  [
+    2,
+    3,
+    null
+  ],
+  null,
+  [
+    4,
+    6,
+    7
+  ],
+  [
+    8,
+    9,
+    5
+  ]
+])expected");
+  CheckStream(*array, {0, 1}, R"expected([
+  [
+    null,
+    ...
+    1
+  ],
+  ...
+  [
+    8,
+    ...
+    5
+  ]
+])expected");
+}
+
 TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   std::vector<bool> is_valid = {true, true, false, true, false};
 
@@ -304,12 +503,12 @@ TEST_F(TestPrettyPrint, DictionaryType) {
   std::shared_ptr<Array> dict;
   std::vector<std::string> dict_values = {"foo", "bar", "baz"};
   ArrayFromVector<StringType, std::string>(dict_values, &dict);
-  std::shared_ptr<DataType> dict_type = dictionary(int16(), dict);
+  std::shared_ptr<DataType> dict_type = dictionary(int16(), utf8());
 
   std::shared_ptr<Array> indices;
   std::vector<int16_t> indices_values = {1, 2, -1, 0, 2, 0};
   ArrayFromVector<Int16Type, int16_t>(is_valid, indices_values, &indices);
-  auto arr = std::make_shared<DictionaryArray>(dict_type, indices);
+  auto arr = std::make_shared<DictionaryArray>(dict_type, indices, dict);
 
   static const char* expected = R"expected(
 -- dictionary:
@@ -440,38 +639,19 @@ TEST_F(TestPrettyPrint, SchemaWithDictionary) {
   ArrayFromVector<StringType, std::string>(dict_values, &dict);
 
   auto simple = field("one", int32());
-  auto simple_dict = field("two", dictionary(int16(), dict));
+  auto simple_dict = field("two", dictionary(int16(), utf8()));
   auto list_of_dict = field("three", list(simple_dict));
-
   auto struct_with_dict = field("four", struct_({simple, simple_dict}));
 
   auto sch = schema({simple, simple_dict, list_of_dict, struct_with_dict});
 
   static const char* expected = R"expected(one: int32
 two: dictionary<values=string, indices=int16, ordered=0>
-  dictionary:
-    [
-      "foo",
-      "bar",
-      "baz"
-    ]
 three: list<two: dictionary<values=string, indices=int16, ordered=0>>
   child 0, two: dictionary<values=string, indices=int16, ordered=0>
-    dictionary:
-      [
-        "foo",
-        "bar",
-        "baz"
-      ]
 four: struct<one: int32, two: dictionary<values=string, indices=int16, ordered=0>>
   child 0, one: int32
-  child 1, two: dictionary<values=string, indices=int16, ordered=0>
-    dictionary:
-      [
-        "foo",
-        "bar",
-        "baz"
-      ])expected";
+  child 1, two: dictionary<values=string, indices=int16, ordered=0>)expected";
 
   PrettyPrintOptions options{0};
 

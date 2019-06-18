@@ -25,13 +25,12 @@
 #include <gtest/gtest.h>
 
 #include "arrow/memory_pool.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-
-using std::shared_ptr;
-using std::vector;
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
@@ -122,6 +121,26 @@ TEST(TestField, TestFlatten) {
   ASSERT_TRUE(vec[1]->Equals(*expected1));
 }
 
+TEST(TestField, TestReplacement) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto f0 = field("f0", int32(), true, metadata);
+  auto fzero = f0->WithType(utf8());
+  auto f1 = f0->WithName("f1");
+
+  ASSERT_FALSE(f0->Equals(fzero));
+  ASSERT_FALSE(fzero->Equals(f1));
+  ASSERT_FALSE(f1->Equals(f0));
+
+  ASSERT_EQ(fzero->name(), "f0");
+  ASSERT_TRUE(fzero->type()->Equals(utf8()));
+  ASSERT_TRUE(fzero->metadata()->Equals(*metadata));
+
+  ASSERT_EQ(f1->name(), "f1");
+  ASSERT_TRUE(f1->type()->Equals(int32()));
+  ASSERT_TRUE(f1->metadata()->Equals(*metadata));
+}
+
 class TestSchema : public ::testing::Test {
  public:
   void SetUp() {}
@@ -143,7 +162,7 @@ TEST_F(TestSchema, Basics) {
 
   auto schema2 = ::arrow::schema({f0, f1, f2});
 
-  vector<shared_ptr<Field>> fields3 = {f0, f1_optional, f2};
+  std::vector<std::shared_ptr<Field>> fields3 = {f0, f1_optional, f2};
   auto schema3 = std::make_shared<Schema>(fields3);
   ASSERT_TRUE(schema->Equals(*schema2));
   ASSERT_FALSE(schema->Equals(*schema3));
@@ -201,6 +220,41 @@ TEST_F(TestSchema, GetFieldIndex) {
   ASSERT_EQ(-1, schema->GetFieldIndex("not-found"));
 }
 
+TEST_F(TestSchema, GetFieldDuplicates) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto f3 = field("f1", list(int16()));
+
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
+
+  ASSERT_EQ(0, schema->GetFieldIndex(f0->name()));
+  ASSERT_EQ(-1, schema->GetFieldIndex(f1->name()));  // duplicate
+  ASSERT_EQ(2, schema->GetFieldIndex(f2->name()));
+  ASSERT_EQ(-1, schema->GetFieldIndex("not-found"));
+  ASSERT_EQ(std::vector<int>{0}, schema->GetAllFieldIndices(f0->name()));
+  AssertSortedEquals(std::vector<int>{1, 3}, schema->GetAllFieldIndices(f1->name()));
+
+  std::vector<std::shared_ptr<Field>> results;
+
+  results = schema->GetAllFieldsByName(f0->name());
+  ASSERT_EQ(results.size(), 1);
+  ASSERT_TRUE(results[0]->Equals(f0));
+
+  results = schema->GetAllFieldsByName(f1->name());
+  ASSERT_EQ(results.size(), 2);
+  if (results[0]->type()->id() == Type::UINT8) {
+    ASSERT_TRUE(results[0]->Equals(f1));
+    ASSERT_TRUE(results[1]->Equals(f3));
+  } else {
+    ASSERT_TRUE(results[0]->Equals(f3));
+    ASSERT_TRUE(results[1]->Equals(f1));
+  }
+
+  results = schema->GetAllFieldsByName("not-found");
+  ASSERT_EQ(results.size(), 0);
+}
+
 TEST_F(TestSchema, TestMetadataConstruction) {
   auto metadata0 = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
   auto metadata1 = key_value_metadata({{"foo", "baz"}});
@@ -233,7 +287,7 @@ TEST_F(TestSchema, TestAddMetadata) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto metadata = std::shared_ptr<KeyValueMetadata>(
       new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
   auto schema = std::make_shared<Schema>(fields);
@@ -248,7 +302,7 @@ TEST_F(TestSchema, TestRemoveMetadata) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto f2 = field("f2", utf8());
-  vector<shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   KeyValueMetadata metadata({"foo", "bar"}, {"bizz", "buzz"});
   auto schema = std::make_shared<Schema>(fields);
   std::shared_ptr<Schema> new_schema = schema->RemoveMetadata();
@@ -336,6 +390,48 @@ TEST(TestListType, Basics) {
   ASSERT_EQ("list<item: list<item: string>>", lt2.ToString());
 }
 
+TEST(TestMapType, Basics) {
+  std::shared_ptr<DataType> kt = std::make_shared<StringType>();
+  std::shared_ptr<DataType> it = std::make_shared<UInt8Type>();
+
+  MapType map_type(kt, it);
+  ASSERT_EQ(map_type.id(), Type::MAP);
+
+  ASSERT_EQ("map", map_type.name());
+  ASSERT_EQ("map<string, uint8>", map_type.ToString());
+
+  ASSERT_EQ(map_type.key_type()->id(), kt->id());
+  ASSERT_EQ(map_type.item_type()->id(), it->id());
+  ASSERT_EQ(map_type.value_type()->id(), Type::STRUCT);
+
+  std::shared_ptr<DataType> mt = std::make_shared<MapType>(it, kt);
+  ASSERT_EQ("map<uint8, string>", mt->ToString());
+
+  MapType mt2(kt, mt, true);
+  ASSERT_EQ("map<string, map<uint8, string>, keys_sorted>", mt2.ToString());
+}
+
+TEST(TestFixedSizeListType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  FixedSizeListType fixed_size_list_type(vt, 4);
+  ASSERT_EQ(fixed_size_list_type.id(), Type::FIXED_SIZE_LIST);
+
+  ASSERT_EQ(4, fixed_size_list_type.list_size());
+  ASSERT_EQ("fixed_size_list", fixed_size_list_type.name());
+  ASSERT_EQ("fixed_size_list<item: uint8>[4]", fixed_size_list_type.ToString());
+
+  ASSERT_EQ(fixed_size_list_type.value_type()->id(), vt->id());
+  ASSERT_EQ(fixed_size_list_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<FixedSizeListType>(st, 3);
+  ASSERT_EQ("fixed_size_list<item: string>[3]", lt->ToString());
+
+  FixedSizeListType lt2(lt, 7);
+  ASSERT_EQ("fixed_size_list<item: fixed_size_list<item: string>[3]>[7]", lt2.ToString());
+}
+
 TEST(TestDateTypes, Attrs) {
   auto t1 = date32();
   auto t2 = date64();
@@ -377,6 +473,59 @@ TEST(TestTimeType, ToString) {
   ASSERT_EQ("time64[us]", t4->ToString());
 }
 
+TEST(TestMonthIntervalType, Equals) {
+  MonthIntervalType t1;
+  MonthIntervalType t2;
+  DayTimeIntervalType t3;
+
+  ASSERT_TRUE(t1.Equals(t2));
+  ASSERT_FALSE(t1.Equals(t3));
+}
+
+TEST(TestMonthIntervalType, ToString) {
+  auto t1 = month_interval();
+
+  ASSERT_EQ("month_interval", t1->ToString());
+}
+
+TEST(TestDayTimeIntervalType, Equals) {
+  DayTimeIntervalType t1;
+  DayTimeIntervalType t2;
+  MonthIntervalType t3;
+
+  ASSERT_TRUE(t1.Equals(t2));
+  ASSERT_FALSE(t1.Equals(t3));
+}
+
+TEST(TestDayTimeIntervalType, ToString) {
+  auto t1 = day_time_interval();
+
+  ASSERT_EQ("day_time_interval", t1->ToString());
+}
+
+TEST(TestDurationType, Equals) {
+  DurationType t1;
+  DurationType t2;
+  DurationType t3(TimeUnit::NANO);
+  DurationType t4(TimeUnit::NANO);
+
+  ASSERT_TRUE(t1.Equals(t2));
+  ASSERT_FALSE(t1.Equals(t3));
+  ASSERT_TRUE(t3.Equals(t4));
+}
+
+TEST(TestDurationType, ToString) {
+  auto t1 = duration(TimeUnit::MILLI);
+  auto t2 = duration(TimeUnit::NANO);
+  auto t3 = duration(TimeUnit::SECOND);
+  auto t4 = duration(TimeUnit::MICRO);
+
+  ASSERT_EQ("duration[ms]", t1->ToString());
+  ASSERT_EQ("duration[ns]", t2->ToString());
+  ASSERT_EQ("duration[s]", t3->ToString());
+  ASSERT_EQ("duration[us]", t4->ToString());
+}
+
 TEST(TestTimestampType, Equals) {
   TimestampType t1;
   TimestampType t2;
@@ -402,18 +551,18 @@ TEST(TestTimestampType, ToString) {
 
 TEST(TestNestedType, Equals) {
   auto create_struct = [](std::string inner_name,
-                          std::string struct_name) -> shared_ptr<Field> {
+                          std::string struct_name) -> std::shared_ptr<Field> {
     auto f_type = field(inner_name, int32());
-    vector<shared_ptr<Field>> fields = {f_type};
+    std::vector<std::shared_ptr<Field>> fields = {f_type};
     auto s_type = std::make_shared<StructType>(fields);
     return field(struct_name, s_type);
   };
 
   auto create_union = [](std::string inner_name,
-                         std::string union_name) -> shared_ptr<Field> {
+                         std::string union_name) -> std::shared_ptr<Field> {
     auto f_type = field(inner_name, int32());
-    vector<shared_ptr<Field>> fields = {f_type};
-    vector<uint8_t> codes = {Type::INT32};
+    std::vector<std::shared_ptr<Field>> fields = {f_type};
+    std::vector<uint8_t> codes = {Type::INT32};
     auto u_type = std::make_shared<UnionType>(fields, codes, UnionMode::SPARSE);
     return field(union_name, u_type);
   };
@@ -447,7 +596,7 @@ TEST(TestStructType, Basics) {
   auto f2_type = uint8();
   auto f2 = field("f2", f2_type);
 
-  vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
 
   StructType struct_type(fields);
 
@@ -494,7 +643,7 @@ TEST(TestStructType, GetFieldIndex) {
   ASSERT_EQ(-1, struct_type.GetFieldIndex("not-found"));
 }
 
-TEST(TestStructType, GetFieldIndexDuplicates) {
+TEST(TestStructType, GetFieldDuplicates) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int64());
   auto f2 = field("f1", utf8());
@@ -502,40 +651,93 @@ TEST(TestStructType, GetFieldIndexDuplicates) {
 
   ASSERT_EQ(0, struct_type.GetFieldIndex("f0"));
   ASSERT_EQ(-1, struct_type.GetFieldIndex("f1"));
+  ASSERT_EQ(std::vector<int>{0}, struct_type.GetAllFieldIndices(f0->name()));
+  AssertSortedEquals(std::vector<int>{1, 2}, struct_type.GetAllFieldIndices(f1->name()));
+
+  std::vector<std::shared_ptr<Field>> results;
+
+  results = struct_type.GetAllFieldsByName(f0->name());
+  ASSERT_EQ(results.size(), 1);
+  ASSERT_TRUE(results[0]->Equals(f0));
+
+  results = struct_type.GetAllFieldsByName(f1->name());
+  ASSERT_EQ(results.size(), 2);
+  if (results[0]->type()->id() == Type::INT64) {
+    ASSERT_TRUE(results[0]->Equals(f1));
+    ASSERT_TRUE(results[1]->Equals(f2));
+  } else {
+    ASSERT_TRUE(results[0]->Equals(f2));
+    ASSERT_TRUE(results[1]->Equals(f1));
+  }
+
+  results = struct_type.GetAllFieldsByName("not-found");
+  ASSERT_EQ(results.size(), 0);
+}
+
+TEST(TestDictionaryType, Basics) {
+  auto value_type = int32();
+
+  std::shared_ptr<DictionaryType> type1 =
+      std::dynamic_pointer_cast<DictionaryType>(dictionary(int16(), value_type));
+
+  auto type2 = std::dynamic_pointer_cast<DictionaryType>(
+      ::arrow::dictionary(int16(), type1, true));
+
+  ASSERT_TRUE(int16()->Equals(type1->index_type()));
+  ASSERT_TRUE(type1->value_type()->Equals(value_type));
+
+  ASSERT_TRUE(int16()->Equals(type2->index_type()));
+  ASSERT_TRUE(type2->value_type()->Equals(type1));
+
+  ASSERT_EQ("dictionary<values=int32, indices=int16, ordered=0>", type1->ToString());
+  ASSERT_EQ(
+      "dictionary<values="
+      "dictionary<values=int32, indices=int16, ordered=0>, "
+      "indices=int16, ordered=1>",
+      type2->ToString());
 }
 
 TEST(TestDictionaryType, Equals) {
-  auto t1 = dictionary(int8(), ArrayFromJSON(int32(), "[3, 4, 5, 6]"));
-  auto t2 = dictionary(int8(), ArrayFromJSON(int32(), "[3, 4, 5, 6]"));
-  auto t3 = dictionary(int16(), ArrayFromJSON(int32(), "[3, 4, 5, 6]"));
-  auto t4 = dictionary(int8(), ArrayFromJSON(int16(), "[3, 4, 5, 6]"));
-  auto t5 = dictionary(int8(), ArrayFromJSON(int32(), "[3, 4, 7, 6]"));
+  auto t1 = dictionary(int8(), int32());
+  auto t2 = dictionary(int8(), int32());
+  auto t3 = dictionary(int16(), int32());
+  auto t4 = dictionary(int8(), int16());
 
   ASSERT_TRUE(t1->Equals(t2));
   // Different index type
   ASSERT_FALSE(t1->Equals(t3));
   // Different value type
   ASSERT_FALSE(t1->Equals(t4));
-  // Different values
-  ASSERT_FALSE(t1->Equals(t5));
 }
 
 TEST(TestDictionaryType, UnifyNumeric) {
-  auto t1 = dictionary(int8(), ArrayFromJSON(int64(), "[3, 4, 7]"));
-  auto t2 = dictionary(int8(), ArrayFromJSON(int64(), "[1, 7, 4, 8]"));
-  auto t3 = dictionary(int8(), ArrayFromJSON(int64(), "[1, -200]"));
+  auto dict_ty = int64();
 
-  auto expected = dictionary(int8(), ArrayFromJSON(int64(), "[3, 4, 7, 1, 8, -200]"));
+  auto t1 = dictionary(int8(), dict_ty);
+  auto d1 = ArrayFromJSON(dict_ty, "[3, 4, 7]");
 
-  std::shared_ptr<DataType> dict_type;
+  auto t2 = dictionary(int8(), dict_ty);
+  auto d2 = ArrayFromJSON(dict_ty, "[1, 7, 4, 8]");
+
+  auto t3 = dictionary(int8(), dict_ty);
+  auto d3 = ArrayFromJSON(dict_ty, "[1, -200]");
+
+  auto expected = dictionary(int8(), dict_ty);
+  auto expected_dict = ArrayFromJSON(dict_ty, "[3, 4, 7, 1, 8, -200]");
+
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
   ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get(), t3.get()},
-                                  &dict_type));
-  ASSERT_TRUE(dict_type->Equals(expected));
+                                  {d1.get(), d2.get(), d3.get()}, &out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
 
   std::vector<std::vector<int32_t>> transpose_maps;
   ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get(), t3.get()},
-                                  &dict_type, &transpose_maps));
-  ASSERT_TRUE(dict_type->Equals(expected));
+                                  {d1.get(), d2.get(), d3.get()}, &out_type, &out_dict,
+                                  &transpose_maps));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
   ASSERT_EQ(transpose_maps.size(), 3);
   ASSERT_EQ(transpose_maps[0], std::vector<int32_t>({0, 1, 2}));
   ASSERT_EQ(transpose_maps[1], std::vector<int32_t>({3, 2, 1, 4}));
@@ -543,21 +745,30 @@ TEST(TestDictionaryType, UnifyNumeric) {
 }
 
 TEST(TestDictionaryType, UnifyString) {
-  auto t1 = dictionary(int16(), ArrayFromJSON(utf8(), "[\"foo\", \"bar\"]"));
-  auto t2 = dictionary(int32(), ArrayFromJSON(utf8(), "[\"quux\", \"foo\"]"));
+  auto dict_ty = utf8();
 
-  auto expected =
-      dictionary(int8(), ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]"));
+  auto t1 = dictionary(int16(), dict_ty);
+  auto d1 = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\"]");
 
-  std::shared_ptr<DataType> dict_type;
-  ASSERT_OK(
-      DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type));
-  ASSERT_TRUE(dict_type->Equals(expected));
+  auto t2 = dictionary(int32(), dict_ty);
+  auto d2 = ArrayFromJSON(dict_ty, "[\"quux\", \"foo\"]");
+
+  auto expected = dictionary(int8(), dict_ty);
+  auto expected_dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"quux\"]");
+
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
+  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()},
+                                  {d1.get(), d2.get()}, &out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
 
   std::vector<std::vector<int32_t>> transpose_maps;
-  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type,
+  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()},
+                                  {d1.get(), d2.get()}, &out_type, &out_dict,
                                   &transpose_maps));
-  ASSERT_TRUE(dict_type->Equals(expected));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
 
   ASSERT_EQ(transpose_maps.size(), 2);
   ASSERT_EQ(transpose_maps[0], std::vector<int32_t>({0, 1}));
@@ -571,24 +782,28 @@ TEST(TestDictionaryType, UnifyFixedSizeBinary) {
   auto buf = std::make_shared<Buffer>(data);
   // ["foo", "bar"]
   auto dict1 = std::make_shared<FixedSizeBinaryArray>(type, 2, SliceBuffer(buf, 0, 6));
-  auto t1 = dictionary(int16(), dict1);
+  auto t1 = dictionary(int16(), type);
   // ["bar", "baz", "qux"]
   auto dict2 = std::make_shared<FixedSizeBinaryArray>(type, 3, SliceBuffer(buf, 3, 9));
-  auto t2 = dictionary(int16(), dict2);
+  auto t2 = dictionary(int16(), type);
 
   // ["foo", "bar", "baz", "qux"]
   auto expected_dict = std::make_shared<FixedSizeBinaryArray>(type, 4, buf);
-  auto expected = dictionary(int8(), expected_dict);
+  auto expected = dictionary(int8(), type);
 
-  std::shared_ptr<DataType> dict_type;
-  ASSERT_OK(
-      DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type));
-  ASSERT_TRUE(dict_type->Equals(expected));
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
+  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()},
+                                  {dict1.get(), dict2.get()}, &out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
 
   std::vector<std::vector<int32_t>> transpose_maps;
-  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type,
+  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()},
+                                  {dict1.get(), dict2.get()}, &out_type, &out_dict,
                                   &transpose_maps));
-  ASSERT_TRUE(dict_type->Equals(expected));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
   ASSERT_EQ(transpose_maps.size(), 2);
   ASSERT_EQ(transpose_maps[0], std::vector<int32_t>({0, 1}));
   ASSERT_EQ(transpose_maps[1], std::vector<int32_t>({1, 2, 3}));
@@ -605,7 +820,7 @@ TEST(TestDictionaryType, UnifyLarge) {
   }
   ASSERT_OK(builder.Finish(&dict1));
   ASSERT_EQ(dict1->length(), 120);
-  auto t1 = dictionary(int8(), dict1);
+  auto t1 = dictionary(int8(), int32());
 
   ASSERT_OK(builder.Reserve(30));
   for (int32_t i = 110; i < 140; ++i) {
@@ -613,7 +828,7 @@ TEST(TestDictionaryType, UnifyLarge) {
   }
   ASSERT_OK(builder.Finish(&dict2));
   ASSERT_EQ(dict2->length(), 30);
-  auto t2 = dictionary(int8(), dict2);
+  auto t2 = dictionary(int8(), int32());
 
   ASSERT_OK(builder.Reserve(140));
   for (int32_t i = 0; i < 140; ++i) {
@@ -621,13 +836,16 @@ TEST(TestDictionaryType, UnifyLarge) {
   }
   ASSERT_OK(builder.Finish(&expected_dict));
   ASSERT_EQ(expected_dict->length(), 140);
-  // int8 would be too narrow to hold all possible index values
-  auto expected = dictionary(int16(), expected_dict);
 
-  std::shared_ptr<DataType> dict_type;
-  ASSERT_OK(
-      DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()}, &dict_type));
-  ASSERT_TRUE(dict_type->Equals(expected));
+  // int8 would be too narrow to hold all possible index values
+  auto expected = dictionary(int16(), int32());
+
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
+  ASSERT_OK(DictionaryType::Unify(default_memory_pool(), {t1.get(), t2.get()},
+                                  {dict1.get(), dict2.get()}, &out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
 }
 
 TEST(TypesTest, TestDecimal128Small) {

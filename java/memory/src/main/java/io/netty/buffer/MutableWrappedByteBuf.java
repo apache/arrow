@@ -29,9 +29,8 @@ import java.nio.channels.ScatteringByteChannel;
 import io.netty.util.ByteProcessor;
 
 /**
- * This is basically a complete copy of DuplicatedByteBuf. We copy because we want to override
- * some behaviors and make
- * buffer mutable.
+ * This is basically a complete copy of netty's DuplicatedByteBuf. We copy because we want to override
+ * some behaviors and make buffer mutable.
  */
 abstract class MutableWrappedByteBuf extends AbstractByteBuf {
 

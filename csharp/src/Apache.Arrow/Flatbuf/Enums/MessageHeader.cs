@@ -13,7 +13,7 @@ namespace Apache.Arrow.Flatbuf
 /// Arrow implementations do not need to implement all of the message types,
 /// which may include experimental metadata types. For maximum compatibility,
 /// it is best to send data using RecordBatch
-public enum MessageHeader : byte
+internal enum MessageHeader : byte
 {
  NONE = 0,
  Schema = 1,

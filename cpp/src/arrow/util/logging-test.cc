@@ -104,6 +104,32 @@ TEST(LogPerfTest, PerfTest) {
 }
 
 }  // namespace util
+
+TEST(DcheckMacros, DoNotEvaluateReleaseMode) {
+#ifdef NDEBUG
+  int i = 0;
+  auto f1 = [&]() {
+    ++i;
+    return true;
+  };
+  DCHECK(f1());
+  ASSERT_EQ(0, i);
+  auto f2 = [&]() {
+    ++i;
+    return i;
+  };
+  DCHECK_EQ(f2(), 0);
+  DCHECK_NE(f2(), 0);
+  DCHECK_LT(f2(), 0);
+  DCHECK_LE(f2(), 0);
+  DCHECK_GE(f2(), 0);
+  DCHECK_GT(f2(), 0);
+  ASSERT_EQ(0, i);
+  ARROW_UNUSED(f1);
+  ARROW_UNUSED(f2);
+#endif
+}
+
 }  // namespace arrow
 
 int main(int argc, char** argv) {

@@ -23,6 +23,17 @@ set -ex
 export ARROW_TRAVIS_USE_TOOLCHAIN=0
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
+pip install pre_commit
+pre-commit install
+
+# TODO: Move more checks into pre-commit as this gives a nice summary
+# and doesn't abort on the first failed check.
+pre-commit run hadolint -a
+
+# CMake formatting check
+pip install cmake_format==0.5.2
+$TRAVIS_BUILD_DIR/run-cmake-format.py --check
+
 # C++ code linting
 if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
   mkdir $ARROW_CPP_DIR/lint
@@ -30,10 +41,7 @@ if [ "$ARROW_CI_CPP_AFFECTED" != "0" ]; then
 
   cmake .. -DARROW_ONLY_LINT=ON
   make lint
-
-  if [ "$ARROW_TRAVIS_CLANG_FORMAT" == "1" ]; then
-    make check-format
-  fi
+  make check-format
 
   python $ARROW_CPP_DIR/build-support/lint_cpp_cli.py $ARROW_CPP_DIR/src
 
@@ -43,10 +51,10 @@ fi
 # Python style checks
 # (need Python 3 for crossbow)
 FLAKE8="python3 -m flake8"
-python3 -m pip install -q flake8==3.5
+python3 -m pip install -q flake8
 
 if [ "$ARROW_CI_DEV_AFFECTED" != "0" ]; then
-  $FLAKE8 --count $ARROW_CROSSBOW_DIR
+  $FLAKE8 --count $ARROW_DEV_DIR
 fi
 
 if [ "$ARROW_CI_INTEGRATION_AFFECTED" != "0" ]; then

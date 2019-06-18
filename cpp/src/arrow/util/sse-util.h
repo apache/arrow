@@ -18,11 +18,9 @@
 // From Apache Impala as of 2016-01-29. Pared down to a minimal set of
 // functions needed for parquet-cpp
 
-#ifndef ARROW_UTIL_SSE_UTIL_H
-#define ARROW_UTIL_SSE_UTIL_H
+#pragma once
 
-#undef ARROW_HAVE_SSE2
-#undef ARROW_HAVE_SSE4_2
+#include "arrow/util/macros.h"
 
 #ifdef ARROW_USE_SIMD
 
@@ -36,7 +34,7 @@
 
 // gcc/clang (possibly others)
 
-#if defined(__SSE4_2__)
+#if defined(__SSE2__)
 #define ARROW_HAVE_SSE2 1
 #include <emmintrin.h>
 #endif
@@ -46,7 +44,9 @@
 #include <nmmintrin.h>
 #endif
 
-#endif
+#endif  // ARROW_USE_SIMD
+
+// MSVC x86-64
 
 namespace arrow {
 
@@ -110,46 +110,13 @@ static inline uint32_t SSE4_crc32_u32(uint32_t crc, uint32_t v) {
 }
 
 static inline uint32_t SSE4_crc32_u64(uint32_t crc, uint64_t v) {
+#if ARROW_BITNESS == 32
+  return 0;
+#else
   return static_cast<uint32_t>(_mm_crc32_u64(crc, v));
-}
-
-#else  // without SSE 4.2.
-
-// __m128i may not be defined, so deduce it with a template parameter
-template <int MODE, typename __m128i>
-static inline __m128i SSE4_cmpestrm(__m128i str1, int len1, __m128i str2, int len2) {
-  DCHECK(false) << "CPU doesn't support SSE 4.2";
-  return (__m128i){0};  // NOLINT
-}
-
-template <int MODE, typename __m128i>
-static inline int SSE4_cmpestri(__m128i str1, int len1, __m128i str2, int len2) {
-  DCHECK(false) << "CPU doesn't support SSE 4.2";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u8(uint32_t, uint8_t) {
-  DCHECK(false) << "SSE support is not enabled";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u16(uint32_t, uint16_t) {
-  DCHECK(false) << "SSE support is not enabled";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u32(uint32_t, uint32_t) {
-  DCHECK(false) << "SSE support is not enabled";
-  return 0;
-}
-
-static inline uint32_t SSE4_crc32_u64(uint32_t, uint64_t) {
-  DCHECK(false) << "SSE support is not enabled";
-  return 0;
+#endif
 }
 
 #endif  // ARROW_HAVE_SSE4_2
 
 }  // namespace arrow
-
-#endif  //  ARROW_UTIL_SSE_UTIL_H

@@ -46,7 +46,7 @@ class CompressedOutputStream::Impl {
   Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<OutputStream>& raw)
       : pool_(pool), raw_(raw), codec_(codec), is_open_(true), compressed_pos_(0) {}
 
-  ~Impl() { DCHECK(Close().ok()); }
+  ~Impl() { DCHECK_OK(Close()); }
 
   Status Init() {
     RETURN_NOT_OK(codec_->MakeCompressor(&compressor_));
@@ -229,14 +229,19 @@ std::shared_ptr<OutputStream> CompressedOutputStream::raw() const { return impl_
 class CompressedInputStream::Impl {
  public:
   Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<InputStream>& raw)
-      : pool_(pool), raw_(raw), codec_(codec), is_open_(true) {}
+      : pool_(pool),
+        raw_(raw),
+        codec_(codec),
+        is_open_(true),
+        compressed_pos_(0),
+        decompressed_pos_(0) {}
 
   Status Init() {
     RETURN_NOT_OK(codec_->MakeDecompressor(&decompressor_));
     return Status::OK();
   }
 
-  ~Impl() { DCHECK(Close().ok()); }
+  ~Impl() { DCHECK_OK(Close()); }
 
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);

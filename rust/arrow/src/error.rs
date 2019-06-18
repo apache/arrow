@@ -28,7 +28,9 @@ pub enum ArrowError {
     ComputeError(String),
     DivideByZero,
     CsvError(String),
+    JsonError(String),
     IoError(String),
+    InvalidArgumentError(String),
 }
 
 impl From<::std::io::Error> for ArrowError {
@@ -58,6 +60,12 @@ impl From<csv_crate::Error> for ArrowError {
             )),
             _ => ArrowError::CsvError("Error reading CSV file".to_string()),
         }
+    }
+}
+
+impl From<::std::string::FromUtf8Error> for ArrowError {
+    fn from(error: ::std::string::FromUtf8Error) -> Self {
+        ArrowError::ParseError(error.description().to_string())
     }
 }
 

@@ -60,8 +60,8 @@ floating_types = st.sampled_from([
 ])
 decimal_type = st.builds(
     pa.decimal128,
-    precision=st.integers(min_value=0, max_value=38),
-    scale=st.integers(min_value=0, max_value=38)
+    precision=st.integers(min_value=1, max_value=38),
+    scale=st.integers(min_value=1, max_value=38)
 )
 numeric_types = st.one_of(integer_types, floating_types, decimal_type)
 
@@ -174,7 +174,12 @@ def arrays(draw, type, size=None):
     if (pa.types.is_boolean(type) or pa.types.is_integer(type) or
             pa.types.is_floating(type)):
         values = npst.arrays(type.to_pandas_dtype(), shape=(size,))
-        return pa.array(draw(values), type=type)
+        np_arr = draw(values)
+        if pa.types.is_floating(type):
+            # Workaround ARROW-4952: no easy way to assert array equality
+            # in a NaN-tolerant way.
+            np_arr[np.isnan(np_arr)] = -42.0
+        return pa.array(np_arr, type=type)
 
     if pa.types.is_null(type):
         value = st.none()

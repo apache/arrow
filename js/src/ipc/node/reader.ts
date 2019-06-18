@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Duplex, DuplexOptions } from 'stream';
 import { DataType } from '../../type';
+import { Duplex, DuplexOptions } from 'stream';
 import { RecordBatch } from '../../recordbatch';
 import { AsyncByteQueue } from '../../io/stream';
 import { RecordBatchReader } from '../../ipc/reader';
@@ -77,7 +77,7 @@ class RecordBatchReaderDuplex<T extends { [key: string]: DataType } = any> exten
         while (this.readable && !(r = await reader.next()).done) {
             if (!this.push(r.value) || (size != null && --size <= 0)) { break; }
         }
-        if ((r && r.done || !this.readable)) {
+        if (!this.readable || (r && r.done && (reader.autoDestroy || (await reader.reset().open()).closed))) {
             this.push(null);
             await reader.cancel();
         }

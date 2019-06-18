@@ -8,7 +8,7 @@ namespace Apache.Arrow.Flatbuf
 using global::System;
 using global::FlatBuffers;
 
-public struct FloatingPoint : IFlatbufferObject
+internal struct FloatingPoint : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

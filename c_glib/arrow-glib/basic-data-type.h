@@ -61,45 +61,16 @@ GList *garrow_fixed_width_data_type_get_buffer_layout(GArrowFixedWidthDataType *
 
 #define GARROW_TYPE_NULL_DATA_TYPE              \
   (garrow_null_data_type_get_type())
-#define GARROW_NULL_DATA_TYPE(obj)                              \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_NULL_DATA_TYPE,       \
-                              GArrowNullDataType))
-#define GARROW_NULL_DATA_TYPE_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_NULL_DATA_TYPE,  \
-                           GArrowNullDataTypeClass))
-#define GARROW_IS_NULL_DATA_TYPE(obj)                           \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_NULL_DATA_TYPE))
-#define GARROW_IS_NULL_DATA_TYPE_CLASS(klass)           \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_NULL_DATA_TYPE))
-#define GARROW_NULL_DATA_TYPE_GET_CLASS(obj)                    \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_NULL_DATA_TYPE,        \
-                             GArrowNullDataTypeClass))
-
-typedef struct _GArrowNullDataType         GArrowNullDataType;
-typedef struct _GArrowNullDataTypeClass    GArrowNullDataTypeClass;
-
-/**
- * GArrowNullDataType:
- *
- * It wraps `arrow::NullType`.
- */
-struct _GArrowNullDataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+G_DECLARE_DERIVABLE_TYPE(GArrowNullDataType,
+                         garrow_null_data_type,
+                         GARROW,
+                         NULL_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowNullDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType               garrow_null_data_type_get_type (void) G_GNUC_CONST;
 GArrowNullDataType *garrow_null_data_type_new      (void);
 
 
@@ -294,47 +265,17 @@ struct _GArrowDoubleDataTypeClass
 GArrowDoubleDataType *garrow_double_data_type_new      (void);
 
 
-#define GARROW_TYPE_BINARY_DATA_TYPE            \
-  (garrow_binary_data_type_get_type())
-#define GARROW_BINARY_DATA_TYPE(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_BINARY_DATA_TYPE,     \
-                              GArrowBinaryDataType))
-#define GARROW_BINARY_DATA_TYPE_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_BINARY_DATA_TYPE,        \
-                           GArrowBinaryDataTypeClass))
-#define GARROW_IS_BINARY_DATA_TYPE(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_BINARY_DATA_TYPE))
-#define GARROW_IS_BINARY_DATA_TYPE_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_BINARY_DATA_TYPE))
-#define GARROW_BINARY_DATA_TYPE_GET_CLASS(obj)                  \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_BINARY_DATA_TYPE,      \
-                             GArrowBinaryDataTypeClass))
-
-typedef struct _GArrowBinaryDataType         GArrowBinaryDataType;
-typedef struct _GArrowBinaryDataTypeClass    GArrowBinaryDataTypeClass;
-
-/**
- * GArrowBinaryDataType:
- *
- * It wraps `arrow::BinaryType`.
- */
-struct _GArrowBinaryDataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_BINARY_DATA_TYPE (garrow_binary_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowBinaryDataType,
+                         garrow_binary_data_type,
+                         GARROW,
+                         BINARY_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowBinaryDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType                 garrow_binary_data_type_get_type (void) G_GNUC_CONST;
 GArrowBinaryDataType *garrow_binary_data_type_new      (void);
 
 
@@ -357,314 +298,104 @@ gint32
 garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType *data_type);
 
 
-#define GARROW_TYPE_STRING_DATA_TYPE            \
-  (garrow_string_data_type_get_type())
-#define GARROW_STRING_DATA_TYPE(obj)                           \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                           \
-                              GARROW_TYPE_STRING_DATA_TYPE,    \
-                              GArrowStringDataType))
-#define GARROW_STRING_DATA_TYPE_CLASS(klass)                   \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                            \
-                           GARROW_TYPE_STRING_DATA_TYPE,       \
-                           GArrowStringDataTypeClass))
-#define GARROW_IS_STRING_DATA_TYPE(obj)                        \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                           \
-                              GARROW_TYPE_STRING_DATA_TYPE))
-#define GARROW_IS_STRING_DATA_TYPE_CLASS(klass)                \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                            \
-                           GARROW_TYPE_STRING_DATA_TYPE))
-#define GARROW_STRING_DATA_TYPE_GET_CLASS(obj)                 \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                            \
-                             GARROW_TYPE_STRING_DATA_TYPE,     \
-                             GArrowStringDataTypeClass))
-
-typedef struct _GArrowStringDataType         GArrowStringDataType;
-typedef struct _GArrowStringDataTypeClass    GArrowStringDataTypeClass;
-
-/**
- * GArrowStringDataType:
- *
- * It wraps `arrow::StringType`.
- */
-struct _GArrowStringDataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_STRING_DATA_TYPE (garrow_string_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStringDataType,
+                         garrow_string_data_type,
+                         GARROW,
+                         STRING_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowStringDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType                 garrow_string_data_type_get_type (void) G_GNUC_CONST;
 GArrowStringDataType *garrow_string_data_type_new      (void);
 
 
-#define GARROW_TYPE_DATE32_DATA_TYPE           \
-  (garrow_date32_data_type_get_type())
-#define GARROW_DATE32_DATA_TYPE(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_DATE32_DATA_TYPE,     \
-                              GArrowDate32DataType))
-#define GARROW_DATE32_DATA_TYPE_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_DATE32_DATA_TYPE,        \
-                           GArrowDate32DataTypeClass))
-#define GARROW_IS_DATE32_DATA_TYPE(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_DATE32_DATA_TYPE))
-#define GARROW_IS_DATE32_DATA_TYPE_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_DATE32_DATA_TYPE))
-#define GARROW_DATE32_DATA_TYPE_GET_CLASS(obj)                  \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_DATE32_DATA_TYPE,      \
-                             GArrowDate32DataTypeClass))
-
-typedef struct _GArrowDate32DataType         GArrowDate32DataType;
-typedef struct _GArrowDate32DataTypeClass    GArrowDate32DataTypeClass;
-
-/**
- * GArrowDate32DataType:
- *
- * It wraps `arrow::Date32Type`.
- */
-struct _GArrowDate32DataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_DATE32_DATA_TYPE (garrow_date32_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDate32DataType,
+                         garrow_date32_data_type,
+                         GARROW,
+                         DATE32_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowDate32DataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType                 garrow_date32_data_type_get_type (void) G_GNUC_CONST;
 GArrowDate32DataType *garrow_date32_data_type_new      (void);
 
 
-#define GARROW_TYPE_DATE64_DATA_TYPE           \
-  (garrow_date64_data_type_get_type())
-#define GARROW_DATE64_DATA_TYPE(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_DATE64_DATA_TYPE,     \
-                              GArrowDate64DataType))
-#define GARROW_DATE64_DATA_TYPE_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_DATE64_DATA_TYPE,        \
-                           GArrowDate64DataTypeClass))
-#define GARROW_IS_DATE64_DATA_TYPE(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_DATE64_DATA_TYPE))
-#define GARROW_IS_DATE64_DATA_TYPE_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_DATE64_DATA_TYPE))
-#define GARROW_DATE64_DATA_TYPE_GET_CLASS(obj)                  \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_DATE64_DATA_TYPE,      \
-                             GArrowDate64DataTypeClass))
-
-typedef struct _GArrowDate64DataType         GArrowDate64DataType;
-typedef struct _GArrowDate64DataTypeClass    GArrowDate64DataTypeClass;
-
-/**
- * GArrowDate64DataType:
- *
- * It wraps `arrow::Date64Type`.
- */
-struct _GArrowDate64DataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_DATE64_DATA_TYPE (garrow_date64_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDate64DataType,
+                         garrow_date64_data_type,
+                         GARROW,
+                         DATE64_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowDate64DataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType                 garrow_date64_data_type_get_type (void) G_GNUC_CONST;
 GArrowDate64DataType *garrow_date64_data_type_new      (void);
 
 
-#define GARROW_TYPE_TIMESTAMP_DATA_TYPE         \
-  (garrow_timestamp_data_type_get_type())
-#define GARROW_TIMESTAMP_DATA_TYPE(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_TIMESTAMP_DATA_TYPE,  \
-                              GArrowTimestampDataType))
-#define GARROW_TIMESTAMP_DATA_TYPE_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_TIMESTAMP_DATA_TYPE,     \
-                           GArrowTimestampDataTypeClass))
-#define GARROW_IS_TIMESTAMP_DATA_TYPE(obj)                      \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_TIMESTAMP_DATA_TYPE))
-#define GARROW_IS_TIMESTAMP_DATA_TYPE_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_TIMESTAMP_DATA_TYPE))
-#define GARROW_TIMESTAMP_DATA_TYPE_GET_CLASS(obj)               \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_TIMESTAMP_DATA_TYPE,   \
-                             GArrowTimestampDataTypeClass))
-
-typedef struct _GArrowTimestampDataType         GArrowTimestampDataType;
-typedef struct _GArrowTimestampDataTypeClass    GArrowTimestampDataTypeClass;
-
-/**
- * GArrowTimestampDataType:
- *
- * It wraps `arrow::TimestampType`.
- */
-struct _GArrowTimestampDataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_TIMESTAMP_DATA_TYPE (garrow_timestamp_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowTimestampDataType,
+                         garrow_timestamp_data_type,
+                         GARROW,
+                         TIMESTAMP_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowTimestampDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType                 garrow_timestamp_data_type_get_type (void) G_GNUC_CONST;
 GArrowTimestampDataType *garrow_timestamp_data_type_new   (GArrowTimeUnit unit);
 GArrowTimeUnit
 garrow_timestamp_data_type_get_unit (GArrowTimestampDataType *timestamp_data_type);
 
 
-#define GARROW_TYPE_TIME_DATA_TYPE              \
-  (garrow_time_data_type_get_type())
-#define GARROW_TIME_DATA_TYPE(obj)                              \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_TIME_DATA_TYPE,       \
-                              GArrowTimeDataType))
-#define GARROW_TIME_DATA_TYPE_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_TIME_DATA_TYPE,  \
-                           GArrowTimeDataTypeClass))
-#define GARROW_IS_TIME_DATA_TYPE(obj)                           \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_TIME_DATA_TYPE))
-#define GARROW_IS_TIME_DATA_TYPE_CLASS(klass)           \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_TIME_DATA_TYPE))
-#define GARROW_TIME_DATA_TYPE_GET_CLASS(obj)                    \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_TIME_DATA_TYPE,        \
-                             GArrowTimeDataTypeClass))
-
-typedef struct _GArrowTimeDataType         GArrowTimeDataType;
-typedef struct _GArrowTimeDataTypeClass    GArrowTimeDataTypeClass;
-
-/**
- * GArrowTimeDataType:
- *
- * It wraps `arrow::TimeType`.
- */
-struct _GArrowTimeDataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_TIME_DATA_TYPE (garrow_time_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowTimeDataType,
+                         garrow_time_data_type,
+                         GARROW,
+                         TIME_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowTimeDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType          garrow_time_data_type_get_type (void) G_GNUC_CONST;
 GArrowTimeUnit garrow_time_data_type_get_unit (GArrowTimeDataType *time_data_type);
 
 
-#define GARROW_TYPE_TIME32_DATA_TYPE           \
-  (garrow_time32_data_type_get_type())
-#define GARROW_TIME32_DATA_TYPE(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_TIME32_DATA_TYPE,     \
-                              GArrowTime32DataType))
-#define GARROW_TIME32_DATA_TYPE_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_TIME32_DATA_TYPE,        \
-                           GArrowTime32DataTypeClass))
-#define GARROW_IS_TIME32_DATA_TYPE(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_TIME32_DATA_TYPE))
-#define GARROW_IS_TIME32_DATA_TYPE_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_TIME32_DATA_TYPE))
-#define GARROW_TIME32_DATA_TYPE_GET_CLASS(obj)                  \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_TIME32_DATA_TYPE,      \
-                             GArrowTime32DataTypeClass))
-
-typedef struct _GArrowTime32DataType         GArrowTime32DataType;
-typedef struct _GArrowTime32DataTypeClass    GArrowTime32DataTypeClass;
-
-/**
- * GArrowTime32DataType:
- *
- * It wraps `arrow::Time32Type`.
- */
-struct _GArrowTime32DataType
-{
-  /*< private >*/
-  GArrowTimeDataType parent_instance;
-};
-
+#define GARROW_TYPE_TIME32_DATA_TYPE (garrow_time32_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowTime32DataType,
+                         garrow_time32_data_type,
+                         GARROW,
+                         TIME32_DATA_TYPE,
+                         GArrowTimeDataType)
 struct _GArrowTime32DataTypeClass
 {
   GArrowTimeDataTypeClass parent_class;
 };
 
-GType                 garrow_time32_data_type_get_type (void) G_GNUC_CONST;
 GArrowTime32DataType *garrow_time32_data_type_new      (GArrowTimeUnit unit,
                                                         GError **error);
 
 
-#define GARROW_TYPE_TIME64_DATA_TYPE           \
-  (garrow_time64_data_type_get_type())
-#define GARROW_TIME64_DATA_TYPE(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_TIME64_DATA_TYPE,     \
-                              GArrowTime64DataType))
-#define GARROW_TIME64_DATA_TYPE_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_TIME64_DATA_TYPE,        \
-                           GArrowTime64DataTypeClass))
-#define GARROW_IS_TIME64_DATA_TYPE(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_TIME64_DATA_TYPE))
-#define GARROW_IS_TIME64_DATA_TYPE_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_TIME64_DATA_TYPE))
-#define GARROW_TIME64_DATA_TYPE_GET_CLASS(obj)                  \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_TIME64_DATA_TYPE,      \
-                             GArrowTime64DataTypeClass))
-
-typedef struct _GArrowTime64DataType         GArrowTime64DataType;
-typedef struct _GArrowTime64DataTypeClass    GArrowTime64DataTypeClass;
-
-/**
- * GArrowTime64DataType:
- *
- * It wraps `arrow::Time64Type`.
- */
-struct _GArrowTime64DataType
-{
-  /*< private >*/
-  GArrowTimeDataType parent_instance;
-};
-
+#define GARROW_TYPE_TIME64_DATA_TYPE (garrow_time64_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowTime64DataType,
+                         garrow_time64_data_type,
+                         GARROW,
+                         TIME64_DATA_TYPE,
+                         GArrowTimeDataType)
 struct _GArrowTime64DataTypeClass
 {
   GArrowTimeDataTypeClass parent_class;
 };
 
-GType                 garrow_time64_data_type_get_type (void) G_GNUC_CONST;
 GArrowTime64DataType *garrow_time64_data_type_new      (GArrowTimeUnit unit,
                                                         GError **error);
 

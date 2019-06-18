@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl"?>
+<rdf:RDF xml:lang="en"
+         xmlns="http://usefulinc.com/ns/doap#"
+         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:asfext="http://projects.apache.org/ns/asfext#"
+         xmlns:foaf="http://xmlns.com/foaf/0.1/">
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+  <Project rdf:about="https://arrow.apache.org">
+    <created>2016-02-17</created>
+    <license rdf:resource="http://usefulinc.com/doap/licenses/asl20" />
+    <name>Apache arrow</name>
+    <homepage rdf:resource="http://arrow.apache.org/" />
+    <asfext:pmc rdf:resource="http://arrow.apache.org" />
+    <shortdesc>Apache Arrow is a cross-language development platform for in-memory data.</shortdesc>
+    <description>Apache Arrow is a cross-language development platform for in-memory data.</description>
+    <bug-database rdf:resource="https://issues.apache.org/jira/browse/ARROW" />
+    <mailing-list rdf:resource="http://mail-archives.apache.org/mod_mbox/arrow-dev/" />
+    <download-page rdf:resource="http://arrow.apache.org/release/" />
+    <programming-language>C</programming-language>
+    <programming-language>C++</programming-language>
+    <programming-language>C#</programming-language>
+    <programming-language>Go</programming-language>
+    <programming-language>Java</programming-language>
+    <programming-language>JavaScript</programming-language>
+    <programming-language>MATLAB</programming-language>
+    <programming-language>Python</programming-language>
+    <programming-language>R</programming-language>
+    <programming-language>Ruby</programming-language>
+    <programming-language>Rust</programming-language>
+    <category rdf:resource="http://projects.apache.org/category/library" />
+    <category rdf:resource="http://projects.apache.org/category/big-data" />
+    <release>
+      <Version>
+        <name>Apache Arrow</name>
+        <created>2019-01-20</created>
+        <revision>0.12.0</revision>
+      </Version>
+    </release>
+    <repository>
+      <GitRepository>
+        <location rdf:resource="https://github.com/apache/arrow.git"/>
+        <browse rdf:resource="https://github.com/apache/arrow/"/>
+      </GitRepository>
+    </repository>
+  </Project>
+</rdf:RDF>

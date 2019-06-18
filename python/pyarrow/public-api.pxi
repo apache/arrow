@@ -66,7 +66,10 @@ cdef api shared_ptr[CDataType] pyarrow_unwrap_data_type(
 
 cdef api object pyarrow_wrap_data_type(
         const shared_ptr[CDataType]& type):
-    cdef DataType out
+    cdef:
+        const CExtensionType* ext_type
+        const CPyExtensionType* cpy_ext_type
+        DataType out
 
     if type.get() == NULL:
         return None
@@ -85,6 +88,13 @@ cdef api object pyarrow_wrap_data_type(
         out = FixedSizeBinaryType.__new__(FixedSizeBinaryType)
     elif type.get().id() == _Type_DECIMAL:
         out = Decimal128Type.__new__(Decimal128Type)
+    elif type.get().id() == _Type_EXTENSION:
+        ext_type = <const CExtensionType*> type.get()
+        if ext_type.extension_name() == PyExtensionName():
+            cpy_ext_type = <const CPyExtensionType*> ext_type
+            return cpy_ext_type.GetInstance()
+        else:
+            out = BaseExtensionType.__new__(BaseExtensionType)
     else:
         out = DataType.__new__(DataType)
 
@@ -99,7 +109,7 @@ cdef object pyarrow_wrap_metadata(
     if cmeta == nullptr:
         return None
 
-    result = OrderedDict()
+    result = ordered_dict()
     for i in range(cmeta.size()):
         result[cmeta.key(i)] = cmeta.value(i)
 
@@ -200,6 +210,20 @@ cdef api object pyarrow_wrap_chunked_array(
     arr.init(sp_array)
     return arr
 
+cdef api object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar):
+    if sp_scalar.get() == NULL:
+        raise ValueError('Scalar was NULL')
+
+    cdef CDataType* data_type = sp_scalar.get().type.get()
+
+    if data_type == NULL:
+        raise ValueError('Scalar data type was NULL')
+
+    klass = _scalar_classes[data_type.id()]
+
+    cdef ScalarValue scalar = klass.__new__(klass)
+    scalar.init(sp_scalar)
+    return scalar
 
 cdef api bint pyarrow_is_tensor(object tensor):
     return isinstance(tensor, Tensor)
@@ -257,6 +281,8 @@ cdef api shared_ptr[CTable] pyarrow_unwrap_table(object table):
 
 
 cdef api object pyarrow_wrap_table(const shared_ptr[CTable]& ctable):
+    # Ensure that wrapped table is Valid
+    check_status(ctable.get().Validate())
     cdef Table table = Table.__new__(Table)
     table.init(ctable)
     return table

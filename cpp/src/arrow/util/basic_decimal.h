@@ -66,6 +66,9 @@ class ARROW_EXPORT BasicDecimal128 {
   /// \brief Absolute value (in-place)
   BasicDecimal128& Abs();
 
+  /// \brief Absolute value
+  static BasicDecimal128 Abs(const BasicDecimal128& left);
+
   /// \brief Add a number to this one. The result is truncated to 128 bits.
   BasicDecimal128& operator+=(const BasicDecimal128& right);
 
@@ -135,8 +138,14 @@ class ARROW_EXPORT BasicDecimal128 {
   /// - If 'round' is false, the right-most digits are simply dropped.
   BasicDecimal128 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
 
+  // returns 1 for positive and zero decimal values, -1 for negative decimal values.
+  inline int64_t Sign() const { return 1 | (high_bits_ >> 63); }
+
   /// \brief count the number of leading binary zeroes.
   int32_t CountLeadingBinaryZeros() const;
+
+  /// \brief Get the maximum valid unscaled decimal value.
+  static const BasicDecimal128& GetMaxValue();
 
  private:
   uint64_t low_bits_;

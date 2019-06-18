@@ -4,14 +4,14 @@
 \alias{dictionary}
 \title{dictionary type factory}
 \usage{
-dictionary(type, values, ordered = FALSE)
+dictionary(index_type, value_type, ordered = FALSE)
 }
 \arguments{
-\item{type}{indices type, e.g. \code{\link[=int32]{int32()}}}
+\item{index_type}{index type, e.g. \code{\link[=int32]{int32()}}}
 
-\item{values}{values array, typically an arrow array of strings}
+\item{value_type}{value type, probably \code{\link[=utf8]{utf8()}}}
 
-\item{ordered}{Is this an ordered dictionary}
+\item{ordered}{Is this an ordered dictionary ?}
 }
 \value{
 a \link[=arrow__DictionaryType]{arrow::DictionaryType}

@@ -27,7 +27,6 @@ conda activate pyarrow-dev
 
 # Arrow build variables
 export ARROW_BUILD_TYPE=debug
-export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX
 
 # For newer GCC per https://arrow.apache.org/docs/python/development.html#known-issues

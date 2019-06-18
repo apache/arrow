@@ -15,22 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
 
-using namespace Rcpp;
-
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {
   return std::shared_ptr<arrow::MemoryPool>(arrow::default_memory_pool(),
                                             NoDelete<arrow::MemoryPool>());
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool) {
   return pool->bytes_allocated();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool) {
   return pool->max_memory();
 }
+
+#endif

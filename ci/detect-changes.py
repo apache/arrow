@@ -20,16 +20,22 @@ from __future__ import print_function
 import functools
 import os
 import pprint
+import re
 import sys
 import subprocess
 
 
 perr = functools.partial(print, file=sys.stderr)
 
-LANGUAGE_TOPICS = ['c_glib', 'cpp', 'docs', 'go', 'java', 'js', 'python',
-                   'r', 'ruby', 'rust']
 
-ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site', 'dev']
+def dump_env_vars(prefix, pattern=None):
+    if pattern is not None:
+        match = lambda s: re.search(pattern, s)
+    else:
+        match = lambda s: True
+    for name in sorted(os.environ):
+        if name.startswith(prefix) and match(name):
+            perr("- {0}: {1!r}".format(name, os.environ[name]))
 
 
 def run_cmd(cmdline):
@@ -57,6 +63,7 @@ def list_affected_files(commit_range):
     """
     Return a list of files changed by the given git commit range.
     """
+    perr("Getting affected files from", repr(commit_range))
     out = run_cmd(["git", "diff", "--name-only", commit_range])
     return list(filter(None, (s.strip() for s in out.decode().splitlines())))
 
@@ -66,10 +73,20 @@ def get_travis_head_commit():
 
 
 def get_travis_commit_range():
-    cr = os.environ['TRAVIS_COMMIT_RANGE']
-    # See
-    # https://github.com/travis-ci/travis-ci/issues/4596#issuecomment-139811122
-    return cr.replace('...', '..')
+    if os.environ['TRAVIS_EVENT_TYPE'] == 'pull_request':
+        # TRAVIS_COMMIT_RANGE is too pessimistic for PRs, as it may contain
+        # unrelated changes.  Instead, use the same strategy as on AppVeyor
+        # below.
+        run_cmd(["git", "fetch", "-q", "origin",
+                 "+refs/heads/{0}".format(os.environ['TRAVIS_BRANCH'])])
+        merge_base = run_cmd(["git", "merge-base",
+                              "HEAD", "FETCH_HEAD"]).decode().strip()
+        return "{0}..HEAD".format(merge_base)
+    else:
+        cr = os.environ['TRAVIS_COMMIT_RANGE']
+        # See
+        # https://github.com/travis-ci/travis-ci/issues/4596#issuecomment-139811122
+        return cr.replace('...', '..')
 
 
 def get_travis_commit_description():
@@ -112,6 +129,26 @@ def list_appveyor_affected_files():
     return list_affected_files("{0}..HEAD".format(merge_base))
 
 
+LANGUAGE_TOPICS = ['c_glib', 'cpp', 'docs', 'go', 'java', 'js', 'python',
+                   'r', 'ruby', 'rust', 'csharp']
+
+ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site', 'dev']
+
+
+AFFECTED_DEPENDENCIES = {
+    'java': ['integration', 'python'],
+    'js': ['integration'],
+    'ci': ALL_TOPICS,
+    'cpp': ['python', 'c_glib', 'r', 'ruby', 'integration'],
+    'format': LANGUAGE_TOPICS,
+    '.travis.yml': ALL_TOPICS,
+    'c_glib': ['ruby']
+}
+
+COMPONENTS = {'cpp', 'java', 'c_glib', 'r', 'ruby', 'integration', 'js',
+              'rust', 'csharp', 'site', 'go', 'docs', 'python', 'dev'}
+
+
 def get_affected_topics(affected_files):
     """
     Return a dict of topics affected by the given files.
@@ -131,24 +168,22 @@ def get_affected_topics(affected_files):
         fn = parts[-1]
         if fn.startswith('README'):
             continue
-        if p in ('ci', '.travis.yml'):
-            # For these changes, test everything
-            for k in ALL_TOPICS:
-                affected[k] = True
-            break
-        elif p in ('cpp', 'format'):
-            # Test C++ and bindings to the C++ library
-            for k in ('cpp', 'python', 'c_glib', 'r', 'ruby', 'integration'):
-                affected[k] = True
-        elif p in ('java', 'js'):
+
+        if p in COMPONENTS:
             affected[p] = True
-            affected['integration'] = True
-        elif p in ('c_glib'):
-            affected[p] = True
-            affected['ruby'] = True
-        elif p in ('go', 'integration', 'python', 'r', 'ruby', 'rust',
-                   'site', 'dev'):
-            affected[p] = True
+
+        _path_already_affected = {}
+
+        def _affect_dependencies(component):
+            if component in _path_already_affected:
+                # For circular dependencies, terminate
+                return
+            for topic in AFFECTED_DEPENDENCIES.get(component, ()):
+                affected[topic] = True
+                _affect_dependencies(topic)
+                _path_already_affected[topic] = True
+
+        _affect_dependencies(p)
 
     return affected
 
@@ -175,6 +210,8 @@ def get_windows_shell_eval(env):
 
 
 def run_from_travis():
+    perr("Environment variables (excerpt):")
+    dump_env_vars('TRAVIS_', '(BRANCH|COMMIT|PULL)')
     if (os.environ['TRAVIS_REPO_SLUG'] == 'apache/arrow' and
             os.environ['TRAVIS_BRANCH'] == 'master' and
             os.environ['TRAVIS_EVENT_TYPE'] != 'pull_request'):
@@ -201,6 +238,8 @@ def run_from_travis():
 
 
 def run_from_appveyor():
+    perr("Environment variables (excerpt):")
+    dump_env_vars('APPVEYOR_', '(PULL|REPO)')
     if not os.environ.get('APPVEYOR_PULL_REQUEST_HEAD_COMMIT'):
         # Not a PR build, test everything
         affected = dict.fromkeys(ALL_TOPICS, True)
@@ -213,6 +252,44 @@ def run_from_appveyor():
     perr("Affected topics:")
     perr(pprint.pformat(affected))
     return get_windows_shell_eval(make_env_for_topics(affected))
+
+
+def test_get_affected_topics():
+    affected_topics = get_affected_topics(['cpp/CMakeLists.txt'])
+    assert affected_topics == {
+        'c_glib': True,
+        'cpp': True,
+        'docs': False,
+        'go': False,
+        'java': False,
+        'js': False,
+        'python': True,
+        'r': True,
+        'ruby': True,
+        'rust': False,
+        'csharp': False,
+        'integration': True,
+        'site': False,
+        'dev': False
+    }
+
+    affected_topics = get_affected_topics(['format/Schema.fbs'])
+    assert affected_topics == {
+        'c_glib': True,
+        'cpp': True,
+        'docs': True,
+        'go': True,
+        'java': True,
+        'js': True,
+        'python': True,
+        'r': True,
+        'ruby': True,
+        'rust': True,
+        'csharp': True,
+        'integration': True,
+        'site': False,
+        'dev': False
+    }
 
 
 if __name__ == "__main__":

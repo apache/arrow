@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <cstring>
-#include <sstream>
 
 #include <lz4.h>
 #include <lz4frame.h>
@@ -27,6 +26,10 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+
+#ifndef LZ4F_HEADER_SIZE_MAX
+#define LZ4F_HEADER_SIZE_MAX 19
+#endif
 
 namespace arrow {
 namespace util {
@@ -83,7 +86,7 @@ class LZ4Decompressor : public Decompressor {
   bool IsFinished() override { return finished_; }
 
  protected:
-  LZ4F_dctx* ctx_ = nullptr;
+  LZ4F_decompressionContext_t ctx_ = nullptr;
   bool finished_;
 };
 
@@ -123,7 +126,7 @@ class LZ4Compressor : public Compressor {
              bool* should_retry) override;
 
  protected:
-  LZ4F_cctx* ctx_ = nullptr;
+  LZ4F_compressionContext_t ctx_ = nullptr;
   LZ4F_preferences_t prefs_;
   bool first_time_;
 };

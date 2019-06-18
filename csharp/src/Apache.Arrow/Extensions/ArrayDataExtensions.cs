@@ -31,21 +31,13 @@ namespace Apache.Arrow
             }
         }
 
-        public static void EnsureDataType(this ArrayData data, params ArrowTypeId[] ids)
+        public static void EnsureDataType(this ArrayData data, ArrowTypeId id)
         {
-            var valid = true;
-
-            foreach (var id in ids)
-            {
-                if (data.DataType.TypeId != id)
-                    valid = false;
-            }
-
-            if (!valid)
+            if (data.DataType.TypeId != id)
             {
                 // TODO: Use localizable string resource
                 throw new ArgumentException(
-                    $"Specified array type <{data.DataType.TypeId}> does not match expected type(s) <{string.Join(",", ids)}>",
+                    $"Specified array type <{data.DataType.TypeId}> does not match expected type(s) <{id}>",
                     nameof(data.DataType.TypeId));
             }
         }

@@ -36,6 +36,7 @@
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/parsing.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
@@ -47,6 +48,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::StringConverter;
 
 namespace py {
 
@@ -84,8 +86,11 @@ Status DeserializeDict(PyObject* context, const Array& array, int64_t start_idx,
     // The latter two steal references whereas PyDict_SetItem does not. So we need
     // to make sure the reference count is decremented by letting the OwnedRef
     // go out of scope at the end.
-    PyDict_SetItem(result.obj(), PyList_GET_ITEM(keys.obj(), i - start_idx),
-                   PyList_GET_ITEM(vals.obj(), i - start_idx));
+    int ret = PyDict_SetItem(result.obj(), PyList_GET_ITEM(keys.obj(), i - start_idx),
+                             PyList_GET_ITEM(vals.obj(), i - start_idx));
+    if (ret != 0) {
+      return ConvertPyError();
+    }
   }
   static PyObject* py_type = PyUnicode_FromString("_pytype_");
   if (PyDict_Contains(result.obj(), py_type)) {
@@ -101,10 +106,12 @@ Status DeserializeArray(int32_t index, PyObject* base, const SerializedPyObject&
   RETURN_NOT_OK(py::TensorToNdarray(blobs.ndarrays[index], base, out));
   // Mark the array as immutable
   OwnedRef flags(PyObject_GetAttrString(*out, "flags"));
-  DCHECK(flags.obj() != NULL) << "Could not mark Numpy array immutable";
-  Py_INCREF(Py_False);
-  int flag_set = PyObject_SetAttrString(flags.obj(), "writeable", Py_False);
-  DCHECK(flag_set == 0) << "Could not mark Numpy array immutable";
+  if (flags.obj() == NULL) {
+    return ConvertPyError();
+  }
+  if (PyObject_SetAttrString(flags.obj(), "writeable", Py_False) < 0) {
+    return ConvertPyError();
+  }
   return Status::OK();
 }
 
@@ -191,14 +198,20 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
   return Status::OK();
 }
 
-std::vector<int8_t> GetPythonTypes(const UnionArray& data) {
-  std::vector<int8_t> result;
+Status GetPythonTypes(const UnionArray& data, std::vector<int8_t>* result) {
+  ARROW_CHECK(result != nullptr);
   auto type = data.type();
   for (int i = 0; i < type->num_children(); ++i) {
-    // stoi is locale dependent, but should be ok for small integers
-    result.push_back(static_cast<int8_t>(std::stoi(type->child(i)->name())));
+    StringConverter<Int8Type> converter;
+    int8_t tag = 0;
+    const std::string& data = type->child(i)->name();
+    if (!converter(data.c_str(), data.size(), &tag)) {
+      return Status::SerializationError("Cannot convert string: \"",
+                                        type->child(i)->name(), "\" to int8_t");
+    }
+    result->push_back(tag);
   }
-  return result;
+  return Status::OK();
 }
 
 template <typename CreateSequenceFn, typename SetItemFn>
@@ -212,7 +225,8 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
   RETURN_IF_PYERROR();
   const uint8_t* type_ids = data.raw_type_ids();
   const int32_t* value_offsets = data.raw_value_offsets();
-  auto python_types = GetPythonTypes(data);
+  std::vector<int8_t> python_types;
+  RETURN_NOT_OK(GetPythonTypes(data, &python_types));
   for (int64_t i = start_idx; i < stop_idx; ++i) {
     if (data.IsNull(i)) {
       Py_INCREF(Py_None);
@@ -330,7 +344,6 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
                          PyObject** out) {
   PyAcquireGIL lock;
   PyDateTime_IMPORT;
-  import_pyarrow();
   return DeserializeList(context, *obj.batch->column(0), 0, obj.batch->num_rows(), base,
                          obj, out);
 }

@@ -15,20 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' Read parquet file from disk
+#' Read Parquet file from disk
+#'
+#' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
+#' This function enables you to read Parquet files into R.
 #'
 #' @param file a file path
-#' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
-#' @param use_threads Use threads when converting to a tibble, only relevant if `as_tibble` is `TRUE`
-#' @param ... currently ignored
+#' @param as_tibble Should the [arrow::Table][arrow__Table] be converted to a
+#' tibble? Default is `TRUE`.
+#' @param ... Additional arguments, currently ignored
 #'
-#' @return a [arrow::Table][arrow__Table], or a data frame if `as_tibble` is `TRUE`.
+#' @return A [arrow::Table][arrow__Table], or a `tbl_df` if `as_tibble` is
+#' `TRUE`.
+#' @examples
+#'
+#' \dontrun{
+#'   df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
+#' }
 #'
 #' @export
-read_parquet <- function(file, as_tibble = TRUE, use_threads = TRUE, ...) {
-  tab <- shared_ptr(`arrow::Table`, read_parquet_file(f))
+read_parquet <- function(file, as_tibble = TRUE, ...) {
+  tab <- shared_ptr(`arrow::Table`, read_parquet_file(file))
   if (isTRUE(as_tibble)) {
-    tab <- as_tibble(tab, use_threads = use_threads)
+    tab <- as.data.frame(tab)
   }
   tab
 }

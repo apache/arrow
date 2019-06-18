@@ -4,7 +4,7 @@
 \alias{chunked_array}
 \title{create an \link[=arrow__ChunkedArray]{arrow::ChunkedArray} from various R vectors}
 \usage{
-chunked_array(..., type)
+chunked_array(..., type = NULL)
 }
 \arguments{
 \item{\dots}{Vectors to coerce}

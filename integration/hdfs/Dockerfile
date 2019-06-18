@@ -17,10 +17,6 @@
 
 FROM arrow:python-3.6
 
-# installing libhdfs3, it needs to be pinned, see ARROW-1465 and ARROW-1445
-RUN conda install -y -c conda-forge hdfs3 libhdfs3=2.2.31 && \
-    conda clean --all
-
 # installing libhdfs (JNI)
 ARG HADOOP_VERSION=2.6.5
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
@@ -28,12 +24,20 @@ ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     HADOOP_OPTS=-Djava.library.path=/usr/local/hadoop/lib/native \
     PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
 RUN apt-get update -y && \
-    apt-get install -y openjdk-8-jdk && \
+    apt-get install -y --no-install-recommends openjdk-8-jdk && \
     wget -q -O hadoop-$HADOOP_VERSION.tar.gz "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=hadoop/common/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz" && \
     tar -zxf /hadoop-$HADOOP_VERSION.tar.gz && \
     rm /hadoop-$HADOOP_VERSION.tar.gz && \
-    mv /hadoop-$HADOOP_VERSION /usr/local/hadoop
-ADD integration/hdfs/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
+    mv /hadoop-$HADOOP_VERSION /usr/local/hadoop \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+COPY integration/hdfs/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
+
+# installing libhdfs3, it needs to be pinned, see ARROW-1465 and ARROW-1445
+# after the conda-forge migration it's failing with abi incompatibilities, so
+# turning it off for now
+# RUN conda install -y -c conda-forge libhdfs3=2.2.31 && \
+#     conda clean --all
 
 # build cpp with tests
 ENV CC=gcc \
@@ -44,6 +48,6 @@ ENV CC=gcc \
     ARROW_BUILD_TESTS=ON
 
 # build and test
-CMD arrow/ci/docker_build_cpp.sh && \
+CMD ["/bin/bash", "-c", "arrow/ci/docker_build_cpp.sh && \
     arrow/ci/docker_build_python.sh && \
-    arrow/integration/hdfs/runtest.sh
+    arrow/integration/hdfs/runtest.sh"]

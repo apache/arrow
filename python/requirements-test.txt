@@ -1,4 +1,5 @@
 pandas
 pytest
 hypothesis
+pytz
 pathlib2; python_version < "3.4"

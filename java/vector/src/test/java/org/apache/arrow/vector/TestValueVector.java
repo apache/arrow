@@ -259,6 +259,23 @@ public class TestValueVector {
     }
   }
 
+  @Test /* VarCharVector */
+  public void testSizeOfValueBuffer() {
+    try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      int valueCount = 100;
+      int currentSize = 0;
+      vector.setInitialCapacity(valueCount);
+      vector.allocateNew();
+      vector.setValueCount(valueCount);
+      for (int i = 0; i < valueCount; i++) {
+        currentSize += i;
+        vector.setSafe(i, new byte[i]);
+      }
+
+      assertEquals(currentSize, vector.sizeOfValueBuffer());
+    }
+  }
+
   @Test /* Float4Vector */
   public void testFixedType3() {
     try (final Float4Vector floatVector = new Float4Vector(EMPTY_SCHEMA_PATH, allocator)) {
@@ -1391,6 +1408,51 @@ public class TestValueVector {
       vector.setValueCount(initialCapacity);
       assertEquals(bufSizeBefore, vector.getFieldBuffers().get(1).capacity());
       assertEquals(initialCapacity, vector.getValueCapacity());
+    }
+  }
+
+  @Test
+  public void testSetSafeWithArrowBufNoExcessAllocs() {
+    final int numValues = BaseFixedWidthVector.INITIAL_VALUE_ALLOCATION * 2;
+    final byte[] valueBytes = "hello world".getBytes();
+    final int valueBytesLength = valueBytes.length;
+    final int isSet = 1;
+
+    try (
+        final VarCharVector fromVector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH,
+            MinorType.VARCHAR, allocator);
+        final VarCharVector toVector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH,
+            MinorType.VARCHAR, allocator)) {
+      /*
+       * Populate the from vector with 'numValues' with byte-arrays, each of size 'valueBytesLength'.
+       */
+      fromVector.setInitialCapacity(numValues);
+      fromVector.allocateNew();
+      for (int i = 0; i < numValues; ++i) {
+        fromVector.setSafe(i, valueBytes, 0 /*start*/, valueBytesLength);
+      }
+      fromVector.setValueCount(numValues);
+      ArrowBuf fromDataBuffer = fromVector.getDataBuffer();
+      assertTrue(numValues * valueBytesLength <= fromDataBuffer.capacity());
+
+      /*
+       * Copy the entries one-by-one from 'fromVector' to 'toVector', but use the setSafe with
+       * ArrowBuf API (instead of setSafe with byte-array).
+       */
+      toVector.setInitialCapacity(numValues);
+      toVector.allocateNew();
+      for (int i = 0; i < numValues; i++) {
+        int start = fromVector.getStartOffset(i);
+        int end = fromVector.getStartOffset(i + 1);
+        toVector.setSafe(i, isSet, start, end, fromDataBuffer);
+      }
+
+      /*
+       * Since the 'fromVector' and 'toVector' have the same initial capacity, and were populated
+       * with the same varchar elements, the allocations and hence, the final capacity should be
+       * the same.
+       */
+      assertEquals(fromDataBuffer.capacity(), toVector.getDataBuffer().capacity());
     }
   }
 

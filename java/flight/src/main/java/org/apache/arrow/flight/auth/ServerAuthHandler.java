@@ -18,26 +18,48 @@
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
+import java.util.Optional;
 
+/**
+ * Interface for Server side authentication handlers.
+ */
 public interface ServerAuthHandler {
 
-  public boolean isValid(byte[] token);
+  /**
+   * Validate the client token provided on each call.
+   *
+   * @return An empty optional if the client is not authenticated; the peer identity otherwise (may be the empty
+   *     string).
+   */
+  Optional<String> isValid(byte[] token);
 
-  public boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming);
+  /**
+   * Handle the initial handshake with the client.
+   *
+   * @return true if client is authenticated, false otherwise.
+   */
+  boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming);
 
-  public interface ServerAuthSender {
+  /**
+   * Interface for an server implementations to send back authentication messages
+   * back to the client.
+   */
+  interface ServerAuthSender {
 
-    public void send(byte[] payload);
+    void send(byte[] payload);
 
-    public void onError(String message, Throwable cause);
+    void onError(String message, Throwable cause);
 
   }
 
+  /**
+   * An auth handler that does nothing.
+   */
   ServerAuthHandler NO_OP = new ServerAuthHandler() {
 
     @Override
-    public boolean isValid(byte[] token) {
-      return true;
+    public Optional<String> isValid(byte[] token) {
+      return Optional.of("");
     }
 
     @Override

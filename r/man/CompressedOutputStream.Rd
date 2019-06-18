@@ -14,3 +14,6 @@ CompressedOutputStream(stream, codec = compression_codec("GZIP"))
 \description{
 Compressed output stream
 }
+\details{
+This function is not supported in Windows.
+}

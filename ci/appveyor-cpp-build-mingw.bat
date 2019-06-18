@@ -23,29 +23,48 @@ set MESON_BUILD_TYPE=release
 set INSTALL_DIR=%HOMEDRIVE%%HOMEPATH%\install
 set PATH=%INSTALL_DIR%\bin;%PATH%
 set PKG_CONFIG_PATH=%INSTALL_DIR%\lib\pkgconfig
+set GI_TYPELIB_PATH=%INSTALL_DIR%\lib\girepository-1.0
+set ARROW_DLL_PATH=%MINGW_PREFIX%\bin
+set ARROW_DLL_PATH=%INSTALL_DIR%\bin;%ARROW_DLL_PATH%
+set ARROW_PKG_CONFIG_PATH=%PKG_CONFIG_PATH%
+
+for /f "usebackq" %%v in (`python3 -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))"`) do (
+  set PYTHON_VERSION=%%v
+)
+
+git submodule update --init || exit /B
+set ARROW_TEST_DATA=%CD%\testing\data
+set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
 set CPP_BUILD_DIR=cpp\build
 mkdir %CPP_BUILD_DIR%
 pushd %CPP_BUILD_DIR%
 
-set BOOST_ROOT=%MINGW_PREFIX%
-set LZ4_HOME=%MINGW_PREFIX%
-set ZSTD_HOME=%MINGW_PREFIX%
-set SNAPPY_HOME=%MINGW_PREFIX%
-set BROTLI_HOME=%MINGW_PREFIX%
-set FLATBUFFERS_HOME=%MINGW_PREFIX%
 cmake ^
     -G "MSYS Makefiles" ^
-    -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% ^
-    -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
-    -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
-    -DARROW_JEMALLOC=OFF ^
-    -DARROW_USE_GLOG=OFF ^
+    -DARROW_BUILD_STATIC=OFF ^
+    -DARROW_BUILD_TESTS=ON ^
+    -DARROW_PACKAGE_PREFIX=%MINGW_PREFIX% ^
+    -DARROW_PARQUET=ON ^
     -DARROW_PYTHON=ON ^
+    -DARROW_USE_GLOG=OFF ^
+    -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
+    -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% ^
     -DPythonInterp_FIND_VERSION=ON ^
     -DPythonInterp_FIND_VERSION_MAJOR=3 ^
     .. || exit /B
 make -j4 || exit /B
+setlocal
+set PYTHONHOME=%MINGW_PREFIX%\lib\python%PYTHON_VERSION%
+set PYTHONPATH=%PYTHONHOME%
+set PYTHONPATH=%PYTHONPATH%;%MINGW_PREFIX%\lib\python%PYTHON_VERSION%\lib-dynload
+set PYTHONPATH=%PYTHONPATH%;%MINGW_PREFIX%\lib\python%PYTHON_VERSION%\site-packages
+@rem TODO(ARROW-4784): Run all tests
+ctest ^
+  --exclude-regex "arrow-array-test|arrow-thread-pool-test" ^
+  --output-on-failure ^
+  --parallel 2 || exit /B
+endlocal
 make install || exit /B
 popd
 
@@ -59,3 +78,16 @@ meson ^
 sed -i'' -s 's/\r//g' %C_GLIB_BUILD_DIR%/arrow-glib/version.h || exit /B
 ninja -C %C_GLIB_BUILD_DIR% || exit /B
 ninja -C %C_GLIB_BUILD_DIR% install || exit /B
+ruby c_glib\test\run-test.rb || exit /B
+
+pushd ruby\red-arrow
+ruby -S bundle install || exit /B
+pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow" || exit /B
+ruby -rdevkit test\run-test.rb || exit /B
+popd
+
+pushd ruby\red-parquet
+ruby -S bundle install || exit /B
+pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow" || exit /B
+ruby test\run-test.rb || exit /B
+popd

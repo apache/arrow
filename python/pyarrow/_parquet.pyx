@@ -19,24 +19,29 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from __future__ import absolute_import
+
+import io
+import six
+import warnings
+
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (Array, Schema,
+from pyarrow.lib cimport (Buffer, Array, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
-                          Table,
+                          Table, NativeFile,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
                           pyarrow_wrap_table,
+                          pyarrow_wrap_buffer,
                           NativeFile, get_reader, get_writer)
 
 from pyarrow.compat import tobytes, frombytes
-from pyarrow.lib import ArrowException, NativeFile, _stringify_path
+from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
+                         BufferOutputStream)
 from pyarrow.util import indent
-
-import six
-import warnings
 
 
 cdef class RowGroupStatistics:
@@ -65,6 +70,34 @@ cdef class RowGroupStatistics:
                                self.distinct_count,
                                self.num_values,
                                self.physical_type)
+
+    def to_dict(self):
+        d = dict(
+            has_min_max=self.has_min_max,
+            min=self.min,
+            max=self.max,
+            null_count=self.null_count,
+            distinct_count=self.distinct_count,
+            num_values=self.num_values,
+            physical_type=self.physical_type
+        )
+        return d
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, RowGroupStatistics other):
+        # TODO(kszucs): implement native Equals method for RowGroupStatistics
+        return (self.has_min_max == other.has_min_max and
+                self.min == other.min and
+                self.max == other.max and
+                self.null_count == other.null_count and
+                self.distinct_count == other.distinct_count and
+                self.num_values == other.num_values and
+                self.physical_type == other.physical_type)
 
     cdef inline _cast_statistic(self, object value):
         # Input value is bytes
@@ -174,6 +207,48 @@ cdef class ColumnChunkMetaData:
                                           self.total_compressed_size,
                                           self.total_uncompressed_size)
 
+    def to_dict(self):
+        d = dict(
+            file_offset=self.file_offset,
+            file_path=self.file_path,
+            physical_type=self.physical_type,
+            num_values=self.num_values,
+            path_in_schema=self.path_in_schema,
+            is_stats_set=self.is_stats_set,
+            statistics=self.statistics.to_dict(),
+            compression=self.compression,
+            encodings=self.encodings,
+            has_dictionary_page=self.has_dictionary_page,
+            dictionary_page_offset=self.dictionary_page_offset,
+            data_page_offset=self.data_page_offset,
+            total_compressed_size=self.total_compressed_size,
+            total_uncompressed_size=self.total_uncompressed_size
+        )
+        return d
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, ColumnChunkMetaData other):
+        # TODO(kszucs): implement native Equals method for CColumnChunkMetaData
+        return (self.file_offset == other.file_offset and
+                self.file_path == other.file_path and
+                self.physical_type == other.physical_type and
+                self.num_values == other.num_values and
+                self.path_in_schema == other.path_in_schema and
+                self.is_stats_set == other.is_stats_set and
+                self.statistics == other.statistics and
+                self.compression == other.compression and
+                self.encodings == other.encodings and
+                self.has_dictionary_page == other.has_dictionary_page and
+                self.dictionary_page_offset == other.dictionary_page_offset and
+                self.data_page_offset == other.data_page_offset and
+                self.total_compressed_size == other.total_compressed_size and
+                self.total_uncompressed_size == other.total_uncompressed_size)
+
     @property
     def file_offset(self):
         return self.metadata.file_offset()
@@ -249,16 +324,39 @@ cdef class ColumnChunkMetaData:
 
 cdef class RowGroupMetaData:
     cdef:
+        int index  # for pickling support
         unique_ptr[CRowGroupMetaData] up_metadata
         CRowGroupMetaData* metadata
         FileMetaData parent
 
-    def __cinit__(self, FileMetaData parent, int i):
-        if i < 0 or i >= parent.num_row_groups:
-            raise IndexError('{0} out of bounds'.format(i))
-        self.up_metadata = parent._metadata.RowGroup(i)
+    def __cinit__(self, FileMetaData parent, int index):
+        if index < 0 or index >= parent.num_row_groups:
+            raise IndexError('{0} out of bounds'.format(index))
+        self.up_metadata = parent._metadata.RowGroup(index)
         self.metadata = self.up_metadata.get()
         self.parent = parent
+        self.index = index
+
+    def __reduce__(self):
+        return RowGroupMetaData, (self.parent, self.index)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, RowGroupMetaData other):
+        if not (self.num_columns == other.num_columns and
+                self.num_rows == other.num_rows and
+                self.total_byte_size == other.total_byte_size):
+            return False
+
+        for i in range(self.num_columns):
+            if self.column(i) != other.column(i):
+                return False
+
+        return True
 
     def column(self, int i):
         chunk = ColumnChunkMetaData()
@@ -274,6 +372,18 @@ cdef class RowGroupMetaData:
                                  self.num_rows,
                                  self.total_byte_size)
 
+    def to_dict(self):
+        columns = []
+        d = dict(
+            num_columns=self.num_columns,
+            num_rows=self.num_rows,
+            total_byte_size=self.total_byte_size,
+            columns=columns,
+        )
+        for i in range(self.num_columns):
+            columns.append(self.column(i).to_dict())
+        return d
+
     @property
     def num_columns(self):
         return self.metadata.num_columns()
@@ -285,6 +395,17 @@ cdef class RowGroupMetaData:
     @property
     def total_byte_size(self):
         return self.metadata.total_byte_size()
+
+
+def _reconstruct_filemetadata(Buffer serialized):
+    cdef:
+        FileMetaData metadata = FileMetaData.__new__(FileMetaData)
+        CBuffer *buffer = serialized.buffer.get()
+        uint32_t metadata_len = <uint32_t>buffer.size()
+
+    metadata.init(CFileMetaData_Make(buffer.data(), &metadata_len))
+
+    return metadata
 
 
 cdef class FileMetaData:
@@ -300,6 +421,16 @@ cdef class FileMetaData:
         self.sp_metadata = metadata
         self._metadata = metadata.get()
 
+    def __reduce__(self):
+        cdef:
+            NativeFile sink = BufferOutputStream()
+            OutputStream* c_sink = sink.get_output_stream().get()
+        with nogil:
+            self._metadata.WriteTo(c_sink)
+
+        cdef Buffer buffer = sink.getvalue()
+        return _reconstruct_filemetadata, (buffer,)
+
     def __repr__(self):
         return """{0}
   created_by: {1}
@@ -312,6 +443,36 @@ cdef class FileMetaData:
                                  self.num_rows, self.num_row_groups,
                                  self.format_version,
                                  self.serialized_size)
+
+    def to_dict(self):
+        row_groups = []
+        d = dict(
+            created_by=self.created_by,
+            num_columns=self.num_columns,
+            num_rows=self.num_rows,
+            num_row_groups=self.num_row_groups,
+            row_groups=row_groups,
+            format_version=self.format_version,
+            serialized_size=self.serialized_size
+        )
+        for i in range(self.num_row_groups):
+            row_groups.append(self.row_group(i).to_dict())
+        return d
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def equals(self, FileMetaData other):
+        # TODO(kszucs): use native method after ARROW-4970 is implemented
+        for prop in ('schema', 'serialized_size', 'num_columns', 'num_rows',
+                     'num_row_groups', 'format_version', 'created_by',
+                     'metadata'):
+            if getattr(self, prop) != getattr(other, prop):
+                return False
+        return True
 
     @property
     def schema(self):
@@ -366,6 +527,45 @@ cdef class FileMetaData:
     def row_group(self, int i):
         return RowGroupMetaData(self, i)
 
+    def set_file_path(self, path):
+        """
+        Modify the file_path field of each ColumnChunk in the
+        FileMetaData to be a particular value
+        """
+        cdef:
+            c_string c_path = tobytes(path)
+        self._metadata.set_file_path(c_path)
+
+    def append_row_groups(self, FileMetaData other):
+        """
+        Append row groups of other FileMetaData object
+        """
+        cdef shared_ptr[CFileMetaData] c_metadata
+
+        c_metadata = other.sp_metadata
+        self._metadata.AppendRowGroups(deref(c_metadata))
+
+    def write_metadata_file(self, where):
+        """
+        Write the metadata object to a metadata-only file
+        """
+        cdef:
+            shared_ptr[OutputStream] sink
+            c_string c_where
+
+        try:
+            where = _stringify_path(where)
+        except TypeError:
+            get_writer(where, &sink)
+        else:
+            c_where = tobytes(where)
+            with nogil:
+                check_status(FileOutputStream.Open(c_where, &sink))
+
+        with nogil:
+            check_status(
+                WriteMetaDataFile(deref(self._metadata), sink.get()))
+
 
 cdef class ParquetSchema:
     cdef:
@@ -390,6 +590,9 @@ cdef class ParquetSchema:
         return """{0}
 {1}
  """.format(object.__repr__(self), '\n'.join(elements))
+
+    def __reduce__(self):
+        return ParquetSchema, (self.parent,)
 
     def __len__(self):
         return self.schema.num_columns()
@@ -439,18 +642,23 @@ cdef class ParquetSchema:
 
 cdef class ColumnSchema:
     cdef:
+        int index
         ParquetSchema parent
         const ColumnDescriptor* descr
 
-    def __cinit__(self, ParquetSchema schema, int i):
+    def __cinit__(self, ParquetSchema schema, int index):
         self.parent = schema
-        self.descr = schema.schema.Column(i)
+        self.index = index  # for pickling support
+        self.descr = schema.schema.Column(index)
 
     def __eq__(self, other):
         try:
             return self.equals(other)
         except TypeError:
             return NotImplemented
+
+    def __reduce__(self):
+        return ColumnSchema, (self.parent, self.index)
 
     def equals(self, ColumnSchema other):
         """
@@ -923,3 +1131,17 @@ cdef class ParquetWriter:
         with nogil:
             check_status(self.writer.get()
                          .WriteTable(deref(ctable), c_row_group_size))
+
+    @property
+    def metadata(self):
+        cdef:
+            shared_ptr[CFileMetaData] metadata
+            FileMetaData result
+        with nogil:
+            metadata = self.writer.get().metadata()
+        if metadata:
+            result = FileMetaData()
+            result.init(metadata)
+            return result
+        raise RuntimeError(
+            'file metadata is only available after writer close')

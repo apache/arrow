@@ -821,19 +821,13 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalCon
   }
 
   Status AppendItem(PyObject* obj) {
-    if (internal::PyDecimal_Check(obj)) {
-      Decimal128 value;
-      RETURN_NOT_OK(internal::DecimalFromPythonDecimal(obj, *decimal_type_, &value));
-      return typed_builder_->Append(value);
-    } else {
-      // PyObject_IsInstance could error and set an exception
-      RETURN_IF_PYERROR();
-      return internal::InvalidValue(obj, "converting to Decimal128");
-    }
+    Decimal128 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *decimal_type_, &value));
+    return typed_builder_->Append(value);
   }
 
  private:
-  const DecimalType* decimal_type_;
+  const DecimalType* decimal_type_ = nullptr;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                           \
@@ -978,7 +972,7 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   bool strict_conversions = false;
 
   if (options.type == nullptr) {
-    RETURN_NOT_OK(InferArrowType(seq, &real_type));
+    RETURN_NOT_OK(InferArrowType(seq, options.from_pandas, &real_type));
   } else {
     real_type = options.type;
     strict_conversions = true;

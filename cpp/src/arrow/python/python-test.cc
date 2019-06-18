@@ -24,7 +24,7 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/table.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/decimal.h"
 
 #include "arrow/python/arrow_to_pandas.h"
@@ -296,6 +296,11 @@ TEST_F(DecimalTest, FromPythonDecimalRescaleTruncateable) {
   ASSERT_OK(
       internal::DecimalFromPythonDecimal(python_decimal.obj(), decimal_type, &value));
   ASSERT_EQ(100, value.low_bits());
+  ASSERT_EQ(0, value.high_bits());
+
+  ASSERT_OK(internal::DecimalFromPyObject(python_decimal.obj(), decimal_type, &value));
+  ASSERT_EQ(100, value.low_bits());
+  ASSERT_EQ(0, value.high_bits());
 }
 
 TEST_F(DecimalTest, FromPythonNegativeDecimalRescale) {
@@ -306,6 +311,15 @@ TEST_F(DecimalTest, FromPythonNegativeDecimalRescale) {
   ASSERT_OK(
       internal::DecimalFromPythonDecimal(python_decimal.obj(), decimal_type, &value));
   ASSERT_EQ(-1000000000, value);
+}
+
+TEST_F(DecimalTest, FromPythonInteger) {
+  Decimal128 value;
+  OwnedRef python_long(PyLong_FromLong(42));
+  auto type = ::arrow::decimal(10, 2);
+  const auto& decimal_type = checked_cast<const DecimalType&>(*type);
+  ASSERT_OK(internal::DecimalFromPyObject(python_long.obj(), decimal_type, &value));
+  ASSERT_EQ(4200, value);
 }
 
 TEST_F(DecimalTest, TestOverflowFails) {
@@ -426,20 +440,6 @@ TEST_F(DecimalTest, UpdateWithNaN) {
   ASSERT_OK(metadata.Update(nan_value.obj()));
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.precision());
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.scale());
-}
-
-TEST(PythonTest, ConstructStringArrayWithLeadingZeros) {
-  PyAcquireGIL lock;
-
-  OwnedRef list_ref(PyList_New(2));
-  PyObject* list = list_ref.obj();
-  std::string str("str");
-
-  ASSERT_EQ(0, PyList_SetItem(list, 0, PyFloat_FromDouble(NAN)));
-  ASSERT_EQ(0, PyList_SetItem(list, 1, PyUnicode_FromString(str.c_str())));
-
-  std::shared_ptr<ChunkedArray> out;
-  ASSERT_OK(ConvertPySequence(list, {}, &out));
 }
 
 }  // namespace py

@@ -122,12 +122,15 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   /// \return Status
   Status Advance(int64_t nbytes);
 
-  /// \brief Return string_view to any buffered bytes, up to the indicated
-  /// number. View becomes invalid after any operation on file. If the
-  /// InputStream is unbuffered, returns 0-length string_view
+  /// \brief Return zero-copy string_view to upcoming bytes in the
+  /// stream but do not modify stream position. View becomes invalid
+  /// after any operation on file. If the InputStream is unbuffered,
+  /// returns 0-length string_view. May trigger buffering if the
+  /// requested size is larger than the number of buffered bytes
   /// \param[in] nbytes the maximum number of bytes to see
-  /// \return arrow::util::string_view
-  virtual util::string_view Peek(int64_t nbytes) const;
+  /// \param[out] out the returned arrow::util::string_view
+  /// \return Status
+  virtual Status Peek(int64_t nbytes, util::string_view* out);
 
   /// \brief Return true if InputStream is capable of zero copy Buffer reads
   virtual bool supports_zero_copy() const;
@@ -182,15 +185,20 @@ class ARROW_EXPORT WritableFile : public OutputStream, public Seekable {
   WritableFile() = default;
 };
 
-// TODO(wesm): remove this after 0.11
-using WriteableFile = WritableFile;
-
 class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public WritableFile {
  protected:
   ReadWriteFileInterface() { RandomAccessFile::set_mode(FileMode::READWRITE); }
 };
 
+// TODO(kszucs): remove this after 0.13
+#ifndef _MSC_VER
+using WriteableFile ARROW_DEPRECATED("Use WritableFile") = WritableFile;
+using ReadableFileInterface ARROW_DEPRECATED("Use RandomAccessFile") = RandomAccessFile;
+#else
+// MSVC does not like using ARROW_DEPRECATED with using declarations
+using WriteableFile = WritableFile;
 using ReadableFileInterface = RandomAccessFile;
+#endif
 
 }  // namespace io
 }  // namespace arrow

@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <cstring>
 #include <numeric>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -232,8 +231,15 @@ Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
 
 Status FixedSizeBinaryBuilder::AppendNull() {
   RETURN_NOT_OK(Reserve(1));
-  UnsafeAppendToBitmap(false);
-  return byte_builder_.Advance(byte_width_);
+  UnsafeAppendNull();
+  return Status::OK();
+}
+
+Status FixedSizeBinaryBuilder::AppendNulls(int64_t length) {
+  RETURN_NOT_OK(Reserve(length));
+  UnsafeAppendToBitmap(length, false);
+  byte_builder_.UnsafeAdvance(length * byte_width_);
+  return Status::OK();
 }
 
 void FixedSizeBinaryBuilder::Reset() {

@@ -34,6 +34,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
+/**
+ * A collection of Arrow record batches.
+ */
 public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
 
   private final String uuid = UUID.randomUUID().toString();
@@ -41,6 +44,13 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
   private final Schema schema;
   private final long recordCount;
 
+  /**
+   * Create a new instance.
+   *
+   * @param schema The schema for the record batches.
+   * @param batches The data associated with the stream.
+   * @param recordCount The total record count across all batches.
+   */
   public Stream(
       final Schema schema,
       List<ArrowRecordBatch> batches,
@@ -67,6 +77,9 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
     return uuid;
   }
 
+  /**
+   * Sends that data from this object to the given listener.
+   */
   public void sendTo(BufferAllocator allocator, ServerStreamListener listener) {
     try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       listener.start(root);
@@ -81,6 +94,9 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
     }
   }
 
+  /**
+   * Throws an IllegalStateException if the given ticket doesn't correspond to this stream.
+   */
   public void verify(ExampleTicket ticket) {
     if (!uuid.equals(ticket.getUuid())) {
       throw new IllegalStateException("Ticket doesn't match.");
@@ -92,6 +108,9 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
     AutoCloseables.close(batches);
   }
 
+  /**
+   * Provides the functionality to create a new stream by adding batches serially.
+   */
   public static class StreamCreator {
 
     private final Schema schema;
@@ -100,12 +119,22 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
     private final Consumer<Stream> committer;
     private long recordCount = 0;
 
+    /**
+     * Creates a new instance.
+     *
+     * @param schema The schema for batches in the stream.
+     * @param allocator  The allocator used to copy data permanently into the stream.
+     * @param committer A callback for when the the stream is ready to be finalized (no more batches).
+     */
     public StreamCreator(Schema schema, BufferAllocator allocator, Consumer<Stream> committer) {
       this.allocator = allocator;
       this.committer = committer;
       this.schema = schema;
     }
 
+    /**
+     * Abandon creation of the stream.
+     */
     public void drop() {
       try {
         AutoCloseables.close(batches);
@@ -119,6 +148,9 @@ public class Stream implements AutoCloseable, Iterable<ArrowRecordBatch> {
       recordCount += batch.getLength();
     }
 
+    /**
+     * Complete building the stream (no more batches can be added).
+     */
     public void complete() {
       Stream stream = new Stream(schema, batches, recordCount);
       committer.accept(stream);

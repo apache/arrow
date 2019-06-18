@@ -26,11 +26,15 @@ if "%JOB%" == "Static_Crt_Build" (
   @rem the Arrow DLL and the tests end up using a different instance of
   @rem the CRT, which wreaks havoc.
 
+  @rem ARROW-5403(wesm): Since changing to using gtest DLLs we can no
+  @rem longer run the unit tests because gtest.dll and the unit test
+  @rem executables have different static copies of the CRT
+
   mkdir cpp\build-debug
   pushd cpp\build-debug
 
   cmake -G "%GENERATOR%" ^
-        -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+        -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
         -DARROW_USE_STATIC_CRT=ON ^
         -DARROW_BOOST_USE_SHARED=OFF ^
         -DARROW_BUILD_SHARED=OFF ^
@@ -44,6 +48,7 @@ if "%JOB%" == "Static_Crt_Build" (
   cmake --build . --config Debug || exit /B
   ctest --output-on-failure -j2 || exit /B
   popd
+  rmdir /S /Q cpp\build-debug
 
   mkdir cpp\build-release
   pushd cpp\build-release
@@ -95,11 +100,11 @@ if "%JOB%" == "Build_Debug" (
   exit /B 0
 )
 
-set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 thrift-cpp=0.11 boost-cpp
+set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 boost-cpp
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll
-  set CONDA_PACKAGES=%CONDA_PACKAGES% llvmdev=%ARROW_LLVM_VERSION% clangdev=%ARROW_LLVM_VERSION%
+  set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_gandiva.yml
 )
 
 if "%JOB%" == "Toolchain" (
@@ -107,7 +112,7 @@ if "%JOB%" == "Toolchain" (
   set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
 )
 
-conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge
+conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge || exit /B
 
 call activate arrow
 

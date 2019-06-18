@@ -14,7 +14,7 @@ using global::FlatBuffers;
 ///
 /// The Timestamp metadata supports both "time zone naive" and "time zone
 /// aware" timestamps. Read about the timezone attribute for more detail
-public struct Timestamp : IFlatbufferObject
+internal struct Timestamp : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
@@ -45,7 +45,12 @@ public struct Timestamp : IFlatbufferObject
   ///   between time zones is a metadata-only operation and does not change the
   ///   underlying values
   public string Timezone { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetTimezoneBytes() { return __p.__vector_as_span(6); }
+#else
   public ArraySegment<byte>? GetTimezoneBytes() { return __p.__vector_as_arraysegment(6); }
+#endif
+  public byte[] GetTimezoneArray() { return __p.__vector_as_array<byte>(6); }
 
   public static Offset<Timestamp> CreateTimestamp(FlatBufferBuilder builder,
       TimeUnit unit = TimeUnit.SECOND,

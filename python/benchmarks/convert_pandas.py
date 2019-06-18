@@ -90,3 +90,32 @@ class ZeroCopyPandasRead(object):
 
     def time_deserialize_from_components(self):
         pa.deserialize_components(self.as_components)
+
+
+class SerializeDeserializePandas(object):
+
+    def setup(self):
+        # 10 million length
+        n = 10000000
+        self.df = pd.DataFrame({'data': np.random.randn(n)})
+        self.serialized = pa.serialize_pandas(self.df)
+
+    def time_serialize_pandas(self):
+        pa.serialize_pandas(self.df)
+
+    def time_deserialize_pandas(self):
+        pa.deserialize_pandas(self.serialized)
+
+
+class TableFromPandasMicroperformance(object):
+    # ARROW-4629
+
+    def setup(self):
+        ser = pd.Series(range(10000))
+        df = pd.DataFrame({col: ser.copy(deep=True) for col in range(100)})
+        # Simulate a real dataset by converting some columns to strings
+        self.df = df.astype({col: str for col in range(50)})
+
+    def time_Table_from_pandas(self):
+        for _ in range(50):
+            pa.Table.from_pandas(self.df, nthreads=1)

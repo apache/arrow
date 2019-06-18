@@ -79,5 +79,31 @@ void InitializeUTF8() {
   std::call_once(utf8_initialized, internal::InitializeLargeTable);
 }
 
+static const uint8_t kBOM[] = {0xEF, 0xBB, 0xBF};
+
+Status SkipUTF8BOM(const uint8_t* data, int64_t size, const uint8_t** out) {
+  int64_t i;
+  for (i = 0; i < static_cast<int64_t>(sizeof(kBOM)); ++i) {
+    if (size == 0) {
+      if (i == 0) {
+        // Empty string
+        *out = data;
+        return Status::OK();
+      } else {
+        return Status::Invalid("UTF8 string too short (truncated byte order mark?)");
+      }
+    }
+    if (data[i] != kBOM[i]) {
+      // BOM not found
+      *out = data;
+      return Status::OK();
+    }
+    --size;
+  }
+  // BOM found
+  *out = data + i;
+  return Status::OK();
+}
+
 }  // namespace util
 }  // namespace arrow

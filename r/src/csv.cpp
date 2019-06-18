@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
-using namespace Rcpp;
+using Rcpp::CharacterVector;
+using Rcpp::List_;
 
-// [[Rcpp::export]]
+#if defined(ARROW_R_WITH_ARROW)
+
+// [[arrow::export]]
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ options) {
   auto res =
       std::make_shared<arrow::csv::ReadOptions>(arrow::csv::ReadOptions::Defaults());
@@ -30,7 +33,7 @@ std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ opt
 
 inline char get_char(CharacterVector x) { return CHAR(STRING_ELT(x, 0))[0]; }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(List_ options) {
   auto res =
       std::make_shared<arrow::csv::ParseOptions>(arrow::csv::ParseOptions::Defaults());
@@ -45,7 +48,7 @@ std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(List_ o
   return res;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
     List_ options) {
   auto res = std::make_shared<arrow::csv::ConvertOptions>(
@@ -54,7 +57,7 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
   return res;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
@@ -67,10 +70,12 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
   return table_reader;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
   std::shared_ptr<arrow::Table> table;
   STOP_IF_NOT_OK(table_reader->Read(&table));
   return table;
 }
+
+#endif

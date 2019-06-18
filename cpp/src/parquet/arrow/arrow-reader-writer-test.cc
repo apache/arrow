@@ -30,7 +30,8 @@
 #include <vector>
 
 #include "arrow/api.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 
@@ -42,7 +43,7 @@
 #include "parquet/arrow/test-util.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/file_writer.h"
-#include "parquet/util/test-common.h"
+#include "parquet/test-util.h"
 
 using arrow::Array;
 using arrow::ArrayVisitor;
@@ -121,6 +122,7 @@ LogicalType::type get_logical_type(const ::DataType& type) {
           DCHECK(false) << "Only MILLI and MICRO units supported for Arrow timestamps "
                            "with Parquet.";
       }
+      break;
     }
     case ArrowId::TIME32:
       return LogicalType::TIME_MILLIS;
@@ -129,7 +131,7 @@ LogicalType::type get_logical_type(const ::DataType& type) {
     case ArrowId::DICTIONARY: {
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(type);
-      return get_logical_type(*dict_type.dictionary()->type());
+      return get_logical_type(*dict_type.value_type());
     }
     case ArrowId::DECIMAL:
       return LogicalType::DECIMAL;
@@ -178,7 +180,7 @@ ParquetType::type get_physical_type(const ::DataType& type) {
     case ArrowId::DICTIONARY: {
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(type);
-      return get_physical_type(*dict_type.dictionary()->type());
+      return get_physical_type(*dict_type.value_type());
     }
     default:
       break;
@@ -325,12 +327,11 @@ using ParquetWriter = TypedColumnWriter<ParquetDataType<T>>;
 void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_size,
                         const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
                         std::shared_ptr<Buffer>* out) {
-  auto sink = std::make_shared<InMemoryOutputStream>();
-
+  auto sink = CreateOutputStream();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
                                 row_group_size, default_writer_properties(),
                                 arrow_properties));
-  *out = sink->GetBuffer();
+  ASSERT_OK_NO_THROW(sink->Finish(out));
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
@@ -343,22 +344,12 @@ void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       if (!c1->Equals(*c2)) {
-        EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
+        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
+        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
         FAIL() << "Chunk " << i << " Got: " << pp_result.str()
                << "\nExpected: " << pp_expected.str();
       }
     }
-  }
-}
-
-void PrintColumn(const Column& col, std::stringstream* ss) {
-  const ChunkedArray& carr = *col.data();
-  for (int i = 0; i < carr.num_chunks(); ++i) {
-    auto c1 = carr.chunk(i);
-    *ss << "Chunk " << i << std::endl;
-    EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
-    *ss << std::endl;
   }
 }
 
@@ -404,7 +395,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
   switch (type.id()) {
     case ::arrow::Type::DICTIONARY: {
       const auto& dict_type = static_cast<const ::arrow::DictionaryType&>(type);
-      const ::DataType& values_type = *dict_type.dictionary()->type();
+      const ::DataType& values_type = *dict_type.value_type();
       switch (values_type.id()) {
         case ::arrow::Type::FIXED_SIZE_BINARY:
           byte_width =
@@ -447,12 +438,13 @@ class TestParquetIO : public ::testing::Test {
 
   std::unique_ptr<ParquetFileWriter> MakeWriter(
       const std::shared_ptr<GroupNode>& schema) {
-    sink_ = std::make_shared<InMemoryOutputStream>();
+    sink_ = CreateOutputStream();
     return ParquetFileWriter::Open(sink_, schema);
   }
 
   void ReaderFromSink(std::unique_ptr<FileReader>* out) {
-    std::shared_ptr<Buffer> buffer = sink_->GetBuffer();
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_OK_NO_THROW(sink_->Finish(&buffer));
     ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
                                 ::arrow::default_memory_pool(),
                                 ::parquet::default_reader_properties(), nullptr, out));
@@ -548,7 +540,11 @@ class TestParquetIO : public ::testing::Test {
   template <typename ArrayType>
   void WriteColumn(const std::shared_ptr<GroupNode>& schema,
                    const std::shared_ptr<ArrayType>& values) {
-    FileWriter writer(::arrow::default_memory_pool(), MakeWriter(schema));
+    SchemaDescriptor descriptor;
+    ASSERT_NO_THROW(descriptor.Init(schema));
+    std::shared_ptr<::arrow::Schema> arrow_schema;
+    ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, &arrow_schema));
+    FileWriter writer(::arrow::default_memory_pool(), MakeWriter(schema), arrow_schema);
     ASSERT_OK_NO_THROW(writer.NewRowGroup(values->length()));
     ASSERT_OK_NO_THROW(writer.WriteColumnChunk(*values));
     ASSERT_OK_NO_THROW(writer.Close());
@@ -556,7 +552,9 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_OK_NO_THROW(writer.Close());
   }
 
-  std::shared_ptr<InMemoryOutputStream> sink_;
+  void ResetSink() { sink_ = CreateOutputStream(); }
+
+  std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
 };
 
 // We have separate tests for UInt32Type as this is currently the only type
@@ -596,7 +594,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
                                 values->length(), default_writer_properties()));
 
@@ -732,7 +731,11 @@ TYPED_TEST(TestParquetIO, SingleColumnRequiredChunkedWrite) {
 
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*values->type(), Repetition::REQUIRED);
-  FileWriter writer(default_memory_pool(), this->MakeWriter(schema));
+  SchemaDescriptor descriptor;
+  ASSERT_NO_THROW(descriptor.Init(schema));
+  std::shared_ptr<::arrow::Schema> arrow_schema;
+  ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, &arrow_schema));
+  FileWriter writer(default_memory_pool(), this->MakeWriter(schema), arrow_schema);
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
@@ -747,7 +750,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWrite) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NonNullArray<TypeParam>(LARGE_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, default_memory_pool(), this->sink_, 512,
                                 default_writer_properties()));
 
@@ -758,7 +762,8 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredChunkedWriteArrowIO) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NonNullArray<TypeParam>(LARGE_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+
+  this->ResetSink();
   auto buffer = AllocateBuffer();
 
   {
@@ -795,7 +800,12 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalChunkedWrite) {
 
   std::shared_ptr<GroupNode> schema =
       MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
-  FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema));
+  SchemaDescriptor descriptor;
+  ASSERT_NO_THROW(descriptor.Init(schema));
+  std::shared_ptr<::arrow::Schema> arrow_schema;
+  ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, &arrow_schema));
+  FileWriter writer(::arrow::default_memory_pool(), this->MakeWriter(schema),
+                    arrow_schema);
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_NO_THROW(writer.NewRowGroup(chunk_size));
     std::shared_ptr<Array> sliced_array = values->Slice(i * chunk_size, chunk_size);
@@ -812,7 +822,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableOptionalChunkedWrite) {
 
   ASSERT_OK(NullableArray<TypeParam>(LARGE_SIZE, 100, kDefaultSeed, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_, 512,
                                 default_writer_properties()));
 
@@ -823,7 +833,7 @@ TYPED_TEST(TestParquetIO, FileMetaDataWrite) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
                                 values->length(), default_writer_properties()));
 
@@ -833,7 +843,7 @@ TYPED_TEST(TestParquetIO, FileMetaDataWrite) {
   ASSERT_EQ(1, metadata->num_columns());
   ASSERT_EQ(100, metadata->num_rows());
 
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  this->ResetSink();
 
   ASSERT_OK_NO_THROW(::parquet::arrow::WriteFileMetaData(*metadata, this->sink_.get()));
 
@@ -882,7 +892,7 @@ TEST_F(TestInt96ParquetIO, ReadIntoTimestamp) {
 
   // We cannot write this column with Arrow, so we have to use the plain parquet-cpp API
   // to write an Int96 file.
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  this->ResetSink();
   auto writer = ParquetFileWriter::Open(this->sink_, schema);
   RowGroupWriter* rg_writer = writer->AppendRowGroup();
   ColumnWriter* c_writer = rg_writer->NextColumn();
@@ -911,7 +921,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compability) {
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
 
   // Parquet 2.0 roundtrip should yield an uint32_t column again
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  this->ResetSink();
   std::shared_ptr<::parquet::WriterProperties> properties =
       ::parquet::WriterProperties::Builder()
           .version(ParquetVersion::PARQUET_2_0)
@@ -933,7 +943,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compability) {
 
   // Parquet 1.0 returns an int64_t column as there is no way to tell a Parquet 1.0
   // reader that a column is unsigned.
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  this->ResetSink();
   std::shared_ptr<::parquet::WriterProperties> properties =
       ::parquet::WriterProperties::Builder()
           .version(ParquetVersion::PARQUET_1_0)
@@ -989,7 +999,7 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   }
   ASSERT_OK(builder.Finish(&values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, false);
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
                                 values->length(), default_writer_properties()));
 
@@ -1012,7 +1022,7 @@ TEST_F(TestNullParquetIO, NullColumn) {
   for (int32_t num_rows : {0, SMALL_SIZE}) {
     std::shared_ptr<Array> values = std::make_shared<::arrow::NullArray>(num_rows);
     std::shared_ptr<Table> table = MakeSimpleTable(values, true /* nullable */);
-    this->sink_ = std::make_shared<InMemoryOutputStream>();
+    this->ResetSink();
 
     const int64_t chunk_size = std::max(static_cast<int64_t>(1), table->num_rows());
     ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
@@ -1042,7 +1052,7 @@ TEST_F(TestNullParquetIO, NullListColumn) {
                                              default_memory_pool(), &list_array));
 
     std::shared_ptr<Table> table = MakeSimpleTable(list_array, false /* nullable */);
-    this->sink_ = std::make_shared<InMemoryOutputStream>();
+    this->ResetSink();
 
     const int64_t chunk_size = std::max(static_cast<int64_t>(1), table->num_rows());
     ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
@@ -1062,15 +1072,16 @@ TEST_F(TestNullParquetIO, NullListColumn) {
 }
 
 TEST_F(TestNullParquetIO, NullDictionaryColumn) {
-  std::shared_ptr<Array> values = std::make_shared<::arrow::NullArray>(0);
   std::shared_ptr<Array> indices =
       std::make_shared<::arrow::Int8Array>(SMALL_SIZE, nullptr, nullptr, SMALL_SIZE);
   std::shared_ptr<::arrow::DictionaryType> dict_type =
-      std::make_shared<::arrow::DictionaryType>(::arrow::int8(), values);
+      std::make_shared<::arrow::DictionaryType>(::arrow::int8(), ::arrow::null());
+
+  std::shared_ptr<Array> dict = std::make_shared<::arrow::NullArray>(0);
   std::shared_ptr<Array> dict_values =
-      std::make_shared<::arrow::DictionaryArray>(dict_type, indices);
+      std::make_shared<::arrow::DictionaryArray>(dict_type, indices, dict);
   std::shared_ptr<Table> table = MakeSimpleTable(dict_values, true);
-  this->sink_ = std::make_shared<InMemoryOutputStream>();
+  this->ResetSink();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
                                 dict_values->length(), default_writer_properties()));
 
@@ -1412,7 +1423,7 @@ TEST(TestArrowReadWrite, CoerceTimestampsLosePrecision) {
   auto t3 = Table::Make(s3, {c3});
   auto t4 = Table::Make(s4, {c4});
 
-  auto sink = std::make_shared<InMemoryOutputStream>();
+  auto sink = CreateOutputStream();
 
   // OK to write to millis
   auto coerce_millis =
@@ -1795,6 +1806,27 @@ auto GenerateList = [](int length, std::shared_ptr<::DataType>* type,
   MakeListArray(length, 100, type, array);
 };
 
+std::shared_ptr<Table> InvalidTable() {
+  auto type = ::arrow::int8();
+  auto field = ::arrow::field("a", type);
+  auto schema = ::arrow::schema({field, field});
+
+  // Invalid due to array size not matching
+  auto array1 = ArrayFromJSON(type, "[1, 2]");
+  auto array2 = ArrayFromJSON(type, "[1]");
+  return Table::Make(schema, {array1, array2});
+}
+
+TEST(TestArrowReadWrite, InvalidTable) {
+  // ARROW-4774: Shouldn't segfault on writing an invalid table.
+  auto sink = CreateOutputStream();
+  auto invalid_table = InvalidTable();
+
+  ASSERT_RAISES(Invalid, WriteTable(*invalid_table, ::arrow::default_memory_pool(), sink,
+                                    1, default_writer_properties(),
+                                    default_arrow_writer_properties()));
+}
+
 TEST(TestArrowReadWrite, TableWithChunkedColumns) {
   std::vector<ArrayFactory> functions = {GenerateInt32, GenerateList};
 
@@ -1861,7 +1893,9 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   std::shared_ptr<Array> dict_values;
   ArrayFromVector<::arrow::StringType, std::string>(values, &dict_values);
 
-  auto dict_type = ::arrow::dictionary(::arrow::int32(), dict_values);
+  auto value_type = ::arrow::utf8();
+  auto dict_type = ::arrow::dictionary(::arrow::int32(), value_type);
+
   auto f0 = field("dictionary", dict_type);
   std::vector<std::shared_ptr<::arrow::Field>> fields;
   fields.emplace_back(f0);
@@ -1871,21 +1905,21 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   ArrayFromVector<::arrow::Int32Type, int32_t>({0, 1, 0, 2, 1}, &f0_values);
   ArrayFromVector<::arrow::Int32Type, int32_t>({2, 0, 1, 0, 2}, &f1_values);
   ::arrow::ArrayVector dict_arrays = {
-      std::make_shared<::arrow::DictionaryArray>(dict_type, f0_values),
-      std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values)};
+      std::make_shared<::arrow::DictionaryArray>(dict_type, f0_values, dict_values),
+      std::make_shared<::arrow::DictionaryArray>(dict_type, f1_values, dict_values)};
 
   std::vector<std::shared_ptr<::arrow::Column>> columns;
-  auto column = MakeColumn("column", dict_arrays, false);
+  auto column = MakeColumn("dictionary", dict_arrays, true);
   columns.emplace_back(column);
 
   auto table = Table::Make(schema, columns);
 
   std::shared_ptr<Table> result;
-  DoSimpleRoundtrip(table, 1,
-                    // Just need to make sure that we make
-                    // a chunk size that is smaller than the
-                    // total number of values
-                    2, {}, &result);
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, 1,
+                                            // Just need to make sure that we make
+                                            // a chunk size that is smaller than the
+                                            // total number of values
+                                            2, {}, &result));
 
   std::vector<std::string> expected_values = {"first",  "second", "first", "third",
                                               "second", "third",  "first", "second",
@@ -1899,9 +1933,7 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   // field, and it also turns into a nullable column
   columns.emplace_back(MakeColumn("dictionary", expected_array, true));
 
-  fields.clear();
-  fields.emplace_back(::arrow::field("dictionary", ::arrow::utf8()));
-  schema = ::arrow::schema(fields);
+  schema = ::arrow::schema({::arrow::field("dictionary", ::arrow::utf8())});
 
   auto expected_table = Table::Make(schema, columns);
 
@@ -1915,7 +1947,7 @@ TEST(TestArrowWrite, CheckChunkSize) {
   std::shared_ptr<Table> table;
   ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
 
-  auto sink = std::make_shared<InMemoryOutputStream>();
+  auto sink = CreateOutputStream();
 
   ASSERT_RAISES(Invalid,
                 WriteTable(*table, ::arrow::default_memory_pool(), sink, chunk_size));
@@ -1928,14 +1960,15 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
   std::shared_ptr<::arrow::Int32Array> values_array_ = nullptr;
 
   void InitReader() {
-    std::shared_ptr<Buffer> buffer = nested_parquet_->GetBuffer();
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_OK_NO_THROW(nested_parquet_->Finish(&buffer));
     ASSERT_OK_NO_THROW(
         OpenFile(std::make_shared<BufferReader>(buffer), ::arrow::default_memory_pool(),
                  ::parquet::default_reader_properties(), nullptr, &reader_));
   }
 
   void InitNewParquetFile(const std::shared_ptr<GroupNode>& schema, int num_rows) {
-    nested_parquet_ = std::make_shared<InMemoryOutputStream>();
+    nested_parquet_ = CreateOutputStream();
 
     writer_ = parquet::ParquetFileWriter::Open(nested_parquet_, schema,
                                                default_writer_properties());
@@ -2170,7 +2203,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
     std::shared_ptr<::arrow::Int32Array> expected_;
   };
 
-  std::shared_ptr<InMemoryOutputStream> nested_parquet_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> nested_parquet_;
   std::unique_ptr<FileReader> reader_;
   std::unique_ptr<ParquetFileWriter> writer_;
   RowGroupWriter* row_group_writer_;
@@ -2214,6 +2247,15 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
 
   // columns: {group1.leaf1, leaf3}
   ASSERT_OK_NO_THROW(reader_->ReadTable({0, 2}, &table));
+  ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
+  ASSERT_EQ(table->num_columns(), 2);
+  ASSERT_EQ(table->schema()->field(0)->name(), "group1");
+  ASSERT_EQ(table->schema()->field(1)->name(), "leaf3");
+  ASSERT_EQ(table->schema()->field(0)->type()->num_children(), 1);
+  ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
+
+  // columns: {group1.leaf1, leaf3}
+  ASSERT_OK_NO_THROW(reader_->ReadRowGroup(0, {0, 2}, &table));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
@@ -2291,34 +2333,37 @@ TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
   ASSERT_EQ(expected, calculated);
 }
 
-void TryReadDataFile(const std::string& testing_file_path, bool should_succeed = true) {
-  std::string dir_string(test::get_data_dir());
-  std::stringstream ss;
-  ss << dir_string << "/" << testing_file_path;
-  auto path = ss.str();
-
+void TryReadDataFile(const std::string& path,
+                     ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK) {
   auto pool = ::arrow::default_memory_pool();
 
   std::unique_ptr<FileReader> arrow_reader;
-  try {
-    arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false)));
-    std::shared_ptr<::arrow::Table> table;
-    ASSERT_OK(arrow_reader->ReadTable(&table));
-  } catch (const ParquetException& e) {
-    if (should_succeed) {
-      FAIL() << "Exception thrown when reading file: " << e.what();
-    }
-  }
+
+  arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false)));
+  std::shared_ptr<::arrow::Table> table;
+  auto status = arrow_reader->ReadTable(&table);
+
+  ASSERT_TRUE(status.code() == expected_code)
+      << "Expected reading file to return "
+      << arrow::Status(expected_code, "").CodeAsString() << ", but got "
+      << status.ToString();
 }
 
 TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
   // PARQUET-995
-  TryReadDataFile("alltypes_plain.parquet");
+  TryReadDataFile(test::get_data_file("alltypes_plain.parquet"));
 }
 
 TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   // PARQUET-1481
-  TryReadDataFile("bad_data/PARQUET-1481.parquet", false /* should_succeed */);
+  auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
+  TryReadDataFile(path, ::arrow::StatusCode::IOError);
+}
+
+TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
+  // PARQUET-1402: parquet-mr writes files this way which tripped up
+  // some business logic
+  TryReadDataFile(test::get_data_file("dict-page-offset-zero.parquet"));
 }
 
 class TestArrowReaderAdHocSparkAndHvr
@@ -2376,6 +2421,100 @@ INSTANTIATE_TEST_CASE_P(
         std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal(25, 2)),
         std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2)),
         std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal(4, 2))));
+
+// direct-as-possible translation of
+// pyarrow/tests/test_parquet.py::test_validate_schema_write_table
+TEST(TestArrowWriterAdHoc, SchemaMismatch) {
+  auto pool = ::arrow::default_memory_pool();
+  auto writer_schm = ::arrow::schema({field("POS", ::arrow::uint32())});
+  auto table_schm = ::arrow::schema({field("POS", ::arrow::int64())});
+  using ::arrow::io::BufferOutputStream;
+  std::shared_ptr<BufferOutputStream> outs;
+  ASSERT_OK(BufferOutputStream::Create(1 << 10, pool, &outs));
+  auto props = default_writer_properties();
+  std::unique_ptr<arrow::FileWriter> writer;
+  ASSERT_OK(arrow::FileWriter::Open(*writer_schm, pool, outs, props, &writer));
+  std::shared_ptr<::arrow::Array> col;
+  ::arrow::Int64Builder builder;
+  ASSERT_OK(builder.Append(1));
+  ASSERT_OK(builder.Finish(&col));
+  auto tbl = ::arrow::Table::Make(table_schm, {col});
+  ASSERT_RAISES(Invalid, writer->WriteTable(*tbl, 1));
+}
+
+// ----------------------------------------------------------------------
+// Tests for directly reading DictionaryArray
+class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
+ public:
+  void SetUp() override {
+    GenerateData(GetParam());
+    ASSERT_NO_FATAL_FAILURE(
+        WriteTableToBuffer(expected_dense_, expected_dense_->num_rows() / 2,
+                           default_arrow_writer_properties(), &buffer_));
+
+    properties_ = default_arrow_reader_properties();
+  }
+
+  void GenerateData(double null_probability) {
+    constexpr int num_unique = 100;
+    constexpr int repeat = 10;
+    constexpr int64_t min_length = 2;
+    constexpr int64_t max_length = 10;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    auto dense_array = rag.StringWithRepeats(repeat * num_unique, num_unique, min_length,
+                                             max_length, null_probability);
+    expected_dense_ = MakeSimpleTable(dense_array, /*nullable=*/true);
+
+    ::arrow::StringDictionaryBuilder builder(default_memory_pool());
+    const auto& string_array = static_cast<const ::arrow::StringArray&>(*dense_array);
+    ASSERT_OK(builder.AppendArray(string_array));
+
+    std::shared_ptr<::arrow::Array> dict_array;
+    ASSERT_OK(builder.Finish(&dict_array));
+    expected_dict_ = MakeSimpleTable(dict_array, /*nullable=*/true);
+
+    // TODO(hatemhelal): Figure out if we can use the following to init the expected_dict_
+    // Currently fails due to DataType mismatch for indices array.
+    //    Datum out;
+    //    FunctionContext ctx(default_memory_pool());
+    //    ASSERT_OK(DictionaryEncode(&ctx, Datum(dense_array), &out));
+    //    expected_dict_ = MakeSimpleTable(out.make_array(), /*nullable=*/true);
+  }
+
+  void TearDown() override {}
+
+  void CheckReadWholeFile(const Table& expected) {
+    std::unique_ptr<FileReader> reader;
+    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer_),
+                                ::arrow::default_memory_pool(), properties_, &reader));
+
+    std::shared_ptr<Table> actual;
+    ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+    ::arrow::AssertTablesEqual(*actual, expected, /*same_chunk_layout=*/false);
+  }
+
+  static std::vector<double> null_probabilites() { return {0.0, 0.5, 1}; }
+
+ protected:
+  std::shared_ptr<Table> expected_dense_;
+  std::shared_ptr<Table> expected_dict_;
+  std::shared_ptr<Buffer> buffer_;
+  ArrowReaderProperties properties_;
+};
+
+TEST_P(TestArrowReadDictionary, ReadWholeFileDict) {
+  properties_.set_read_dictionary(0, true);
+  CheckReadWholeFile(*expected_dict_);
+}
+
+TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
+  properties_.set_read_dictionary(0, false);
+  CheckReadWholeFile(*expected_dense_);
+}
+
+INSTANTIATE_TEST_CASE_P(
+    ReadDictionary, TestArrowReadDictionary,
+    ::testing::ValuesIn(TestArrowReadDictionary::null_probabilites()));
 
 }  // namespace arrow
 

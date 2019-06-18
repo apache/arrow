@@ -16,18 +16,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import collections
 import datetime
 import hypothesis as h
 import hypothesis.strategies as st
+import itertools
 import pickle
 import pytest
 import struct
 import sys
 
 import numpy as np
-import pandas as pd
-import pandas.util.testing as tm
 try:
     import pickle5
 except ImportError:
@@ -35,7 +33,7 @@ except ImportError:
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
-from pyarrow.pandas_compat import get_logical_type
+from pyarrow import compat
 
 
 def test_total_bytes_allocated():
@@ -94,6 +92,20 @@ def test_long_array_format():
   ...
   98,
   99
+]"""
+    assert result == expected
+
+
+def test_binary_format():
+    arr = pa.array([b'\x00', b'', None, b'\x01foo', b'\x80\xff'])
+    result = arr.format()
+    expected = """\
+[
+  00,
+  ,
+  null,
+  01666F6F,
+  80FF
 ]"""
     assert result == expected
 
@@ -243,7 +255,7 @@ def test_array_iter():
     for i, j in zip(range(10), arr):
         assert i == j
 
-    assert isinstance(arr, collections.Iterable)
+    assert isinstance(arr, compat.Iterable)
 
 
 def test_struct_array_slice():
@@ -298,8 +310,81 @@ def test_array_from_buffers():
     with pytest.raises(TypeError):
         pa.Array.from_buffers(pa.int16(), 3, [u'', u''], offset=1)
 
-    with pytest.raises(NotImplementedError):
-        pa.Array.from_buffers(pa.list_(pa.int16()), 4, [None, values_buf])
+
+def test_string_binary_from_buffers():
+    array = pa.array(["a", None, "b", "c"])
+
+    buffers = array.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(array), buffers[1], buffers[2], buffers[0], array.null_count,
+        array.offset)
+    assert copied.to_pylist() == ["a", None, "b", "c"]
+
+    binary_copy = pa.Array.from_buffers(pa.binary(), len(array),
+                                        array.buffers(), array.null_count,
+                                        array.offset)
+    assert binary_copy.to_pylist() == [b"a", None, b"b", b"c"]
+
+    copied = pa.StringArray.from_buffers(
+        len(array), buffers[1], buffers[2], buffers[0])
+    assert copied.to_pylist() == ["a", None, "b", "c"]
+
+    sliced = array[1:]
+    buffers = sliced.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(sliced), buffers[1], buffers[2], buffers[0], -1, sliced.offset)
+    assert copied.to_pylist() == [None, "b", "c"]
+    assert copied.null_count == 1
+
+    # Slice but exclude all null entries so that we don't need to pass
+    # the null bitmap.
+    sliced = array[2:]
+    buffers = sliced.buffers()
+    copied = pa.StringArray.from_buffers(
+        len(sliced), buffers[1], buffers[2], None, -1, sliced.offset)
+    assert copied.to_pylist() == ["b", "c"]
+    assert copied.null_count == 0
+
+
+def test_list_from_buffers():
+    ty = pa.list_(pa.int16())
+    array = pa.array([[0, 1, 2], None, [], [3, 4, 5]], type=ty)
+
+    buffers = array.buffers()
+
+    with pytest.raises(ValueError):
+        # No children
+        pa.Array.from_buffers(ty, 4, [None, buffers[1]])
+
+    child = pa.Array.from_buffers(pa.int16(), 6, buffers[2:])
+    copied = pa.Array.from_buffers(ty, 4, buffers[:2], children=[child])
+    assert copied.equals(array)
+
+    with pytest.raises(ValueError):
+        # too many children
+        pa.Array.from_buffers(ty, 4, [None, buffers[1]],
+                              children=[child, child])
+
+
+def test_struct_from_buffers():
+    ty = pa.struct([pa.field('a', pa.int16()), pa.field('b', pa.utf8())])
+    array = pa.array([{'a': 0, 'b': 'foo'}, None, {'a': 5, 'b': ''}],
+                     type=ty)
+    buffers = array.buffers()
+
+    with pytest.raises(ValueError):
+        # No children
+        pa.Array.from_buffers(ty, 3, [None, buffers[1]])
+
+    children = [pa.Array.from_buffers(pa.int16(), 3, buffers[1:3]),
+                pa.Array.from_buffers(pa.utf8(), 3, buffers[3:])]
+    copied = pa.Array.from_buffers(ty, 3, buffers[:1], children=children)
+    assert copied.equals(array)
+
+    with pytest.raises(ValueError):
+        # not enough many children
+        pa.Array.from_buffers(ty, 3, [buffers[0]],
+                              children=children[:1])
 
 
 def test_dictionary_from_numpy():
@@ -361,26 +446,6 @@ def test_dictionary_from_arrays_boundscheck():
     pa.DictionaryArray.from_arrays(indices2, dictionary, safe=False)
 
 
-def test_dictionary_with_pandas():
-    indices = np.repeat([0, 1, 2], 2)
-    dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
-    mask = np.array([False, False, True, False, False, False])
-
-    d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
-    d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
-
-    pandas1 = d1.to_pandas()
-    ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
-
-    tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
-
-    pandas2 = d2.to_pandas()
-    ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1, indices),
-                                           categories=dictionary)
-
-    tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
-
-
 def test_list_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
     offsets = pa.array(offsets_arr, type='int32')
@@ -415,9 +480,39 @@ def test_union_from_dense():
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
     value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
 
-    result = pa.UnionArray.from_dense(types, value_offsets, [binary, int64])
+    def check_result(result, expected_field_names, expected_type_codes):
+        assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
+        actual_field_names = [result.type[i].name
+                              for i in range(result.type.num_children)]
+        assert actual_field_names == expected_field_names
+        assert result.type.type_codes == expected_type_codes
 
-    assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
+    # without field names and type codes
+    check_result(pa.UnionArray.from_dense(types, value_offsets,
+                                          [binary, int64]),
+                 expected_field_names=['0', '1'],
+                 expected_type_codes=[0, 1])
+
+    # with field names
+    check_result(pa.UnionArray.from_dense(types, value_offsets,
+                                          [binary, int64],
+                                          ['bin', 'int']),
+                 expected_field_names=['bin', 'int'],
+                 expected_type_codes=[0, 1])
+
+    # with type codes
+    check_result(pa.UnionArray.from_dense(types, value_offsets,
+                                          [binary, int64],
+                                          type_codes=[11, 13]),
+                 expected_field_names=['0', '1'],
+                 expected_type_codes=[11, 13])
+
+    # with field names and type codes
+    check_result(pa.UnionArray.from_dense(types, value_offsets,
+                                          [binary, int64],
+                                          ['bin', 'int'], [11, 13]),
+                 expected_field_names=['bin', 'int'],
+                 expected_type_codes=[11, 13])
 
 
 def test_union_from_sparse():
@@ -426,9 +521,36 @@ def test_union_from_sparse():
     int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
 
-    result = pa.UnionArray.from_sparse(types, [binary, int64])
+    def check_result(result, expected_field_names, expected_type_codes):
+        assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+        actual_field_names = [result.type[i].name
+                              for i in range(result.type.num_children)]
+        assert actual_field_names == expected_field_names
+        assert result.type.type_codes == expected_type_codes
 
-    assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+    # without field names and type codes
+    check_result(pa.UnionArray.from_sparse(types, [binary, int64]),
+                 expected_field_names=['0', '1'],
+                 expected_type_codes=[0, 1])
+
+    # with field names
+    check_result(pa.UnionArray.from_sparse(types, [binary, int64],
+                                           ['bin', 'int']),
+                 expected_field_names=['bin', 'int'],
+                 expected_type_codes=[0, 1])
+
+    # with type codes
+    check_result(pa.UnionArray.from_sparse(types, [binary, int64],
+                                           type_codes=[11, 13]),
+                 expected_field_names=['0', '1'],
+                 expected_type_codes=[11, 13])
+
+    # with field names and type codes
+    check_result(pa.UnionArray.from_sparse(types, [binary, int64],
+                                           ['bin', 'int'],
+                                           [11, 13]),
+                 expected_field_names=['bin', 'int'],
+                 expected_type_codes=[11, 13])
 
 
 def test_union_array_slice():
@@ -450,43 +572,22 @@ def test_union_array_slice():
             assert arr[i:j].to_pylist() == lst[i:j]
 
 
-def test_string_from_buffers():
-    array = pa.array(["a", None, "b", "c"])
-
-    buffers = array.buffers()
-    copied = pa.StringArray.from_buffers(
-        len(array), buffers[1], buffers[2], buffers[0], array.null_count,
-        array.offset)
-    assert copied.to_pylist() == ["a", None, "b", "c"]
-
-    copied = pa.StringArray.from_buffers(
-        len(array), buffers[1], buffers[2], buffers[0])
-    assert copied.to_pylist() == ["a", None, "b", "c"]
-
-    sliced = array[1:]
-    buffers = sliced.buffers()
-    copied = pa.StringArray.from_buffers(
-        len(sliced), buffers[1], buffers[2], buffers[0], -1, sliced.offset)
-    assert copied.to_pylist() == [None, "b", "c"]
-    assert copied.null_count == 1
-
-    # Slice but exclude all null entries so that we don't need to pass
-    # the null bitmap.
-    sliced = array[2:]
-    buffers = sliced.buffers()
-    copied = pa.StringArray.from_buffers(
-        len(sliced), buffers[1], buffers[2], None, -1, sliced.offset)
-    assert copied.to_pylist() == ["b", "c"]
-    assert copied.null_count == 0
-
-
 def _check_cast_case(case, safe=True):
     in_data, in_type, out_data, out_type = case
-    expected = pa.array(out_data, type=out_type)
+    if isinstance(out_data, pa.Array):
+        assert out_data.type == out_type
+        expected = out_data
+    else:
+        expected = pa.array(out_data, type=out_type)
 
     # check casting an already created array
-    in_arr = pa.array(in_data, type=in_type)
+    if isinstance(in_data, pa.Array):
+        assert in_data.type == in_type
+        in_arr = in_data
+    else:
+        in_arr = pa.array(in_data, type=in_type)
     casted = in_arr.cast(out_type, safe=safe)
+    casted.validate()
     assert casted.equals(expected)
 
     # constructing an array with out type which optionally involves casting
@@ -521,6 +622,18 @@ def test_cast_integers_safe():
 
         with pytest.raises(pa.ArrowInvalid):
             in_arr.cast(out_type)
+
+
+def test_cast_none():
+    # ARROW-3735: Ensure that calling cast(None) doesn't segfault.
+    arr = pa.array([1, 2, 3])
+    col = pa.column('foo', [arr])
+
+    with pytest.raises(TypeError):
+        arr.cast(None)
+
+    with pytest.raises(TypeError):
+        col.cast(None)
 
 
 def test_cast_column():
@@ -592,52 +705,6 @@ def test_safe_cast_nan_to_int_raises():
         arr.cast(pa.int64(), safe=True)
 
 
-def test_cast_timestamp_unit():
-    # ARROW-1680
-    val = datetime.datetime.now()
-    s = pd.Series([val])
-    s_nyc = s.dt.tz_localize('tzlocal()').dt.tz_convert('America/New_York')
-
-    us_with_tz = pa.timestamp('us', tz='America/New_York')
-
-    arr = pa.Array.from_pandas(s_nyc, type=us_with_tz)
-
-    # ARROW-1906
-    assert arr.type == us_with_tz
-
-    arr2 = pa.Array.from_pandas(s, type=pa.timestamp('us'))
-
-    assert arr[0].as_py() == s_nyc[0]
-    assert arr2[0].as_py() == s[0]
-
-    # Disallow truncation
-    arr = pa.array([123123], type='int64').cast(pa.timestamp('ms'))
-    expected = pa.array([123], type='int64').cast(pa.timestamp('s'))
-
-    target = pa.timestamp('s')
-    with pytest.raises(ValueError):
-        arr.cast(target)
-
-    result = arr.cast(target, safe=False)
-    assert result.equals(expected)
-
-    # ARROW-1949
-    series = pd.Series([pd.Timestamp(1), pd.Timestamp(10), pd.Timestamp(1000)])
-    expected = pa.array([0, 0, 1], type=pa.timestamp('us'))
-
-    with pytest.raises(ValueError):
-        pa.array(series, type=pa.timestamp('us'))
-
-    with pytest.raises(ValueError):
-        pa.Array.from_pandas(series, type=pa.timestamp('us'))
-
-    result = pa.Array.from_pandas(series, type=pa.timestamp('us'), safe=False)
-    assert result.equals(expected)
-
-    result = pa.array(series, type=pa.timestamp('us'), safe=False)
-    assert result.equals(expected)
-
-
 def test_cast_signed_to_unsigned():
     safe_cases = [
         (np.array([0, 1, 2, 3], dtype='i1'), pa.uint8(),
@@ -650,11 +717,46 @@ def test_cast_signed_to_unsigned():
         _check_cast_case(case)
 
 
+def test_cast_from_null():
+    in_data = [None] * 3
+    in_type = pa.null()
+    out_types = [
+        pa.null(),
+        pa.uint8(),
+        pa.float16(),
+        pa.utf8(),
+        pa.binary(),
+        pa.binary(10),
+        pa.list_(pa.int16()),
+        pa.decimal128(19, 4),
+        pa.timestamp('us'),
+        pa.timestamp('us', tz='UTC'),
+        pa.timestamp('us', tz='Europe/Paris'),
+        pa.struct([pa.field('a', pa.int32()),
+                   pa.field('b', pa.list_(pa.int8())),
+                   pa.field('c', pa.string())]),
+        ]
+    for out_type in out_types:
+        _check_cast_case((in_data, in_type, in_data, out_type))
+
+    out_types = [
+        pa.dictionary(pa.int32(), pa.string()),
+        pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
+        pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
+        ]
+    in_arr = pa.array(in_data, type=pa.null())
+    for out_type in out_types:
+        with pytest.raises(NotImplementedError):
+            in_arr.cast(out_type)
+
+
 def test_unique_simple():
     cases = [
         (pa.array([1, 2, 3, 1, 2, 3]), pa.array([1, 2, 3])),
         (pa.array(['foo', None, 'bar', 'foo']),
-         pa.array(['foo', 'bar']))
+         pa.array(['foo', None, 'bar']))
     ]
     for arr, expected in cases:
         result = arr.unique()
@@ -864,39 +966,6 @@ def test_to_numpy_roundtrip(narr):
     np.testing.assert_array_equal(narr[2:6], arr[2:6].to_numpy())
 
 
-@pytest.mark.parametrize(
-    ('type', 'expected'),
-    [
-        (pa.null(), 'empty'),
-        (pa.bool_(), 'bool'),
-        (pa.int8(), 'int8'),
-        (pa.int16(), 'int16'),
-        (pa.int32(), 'int32'),
-        (pa.int64(), 'int64'),
-        (pa.uint8(), 'uint8'),
-        (pa.uint16(), 'uint16'),
-        (pa.uint32(), 'uint32'),
-        (pa.uint64(), 'uint64'),
-        (pa.float16(), 'float16'),
-        (pa.float32(), 'float32'),
-        (pa.float64(), 'float64'),
-        (pa.date32(), 'date'),
-        (pa.date64(), 'date'),
-        (pa.binary(), 'bytes'),
-        (pa.binary(length=4), 'bytes'),
-        (pa.string(), 'unicode'),
-        (pa.list_(pa.list_(pa.int16())), 'list[list[int16]]'),
-        (pa.decimal128(18, 3), 'decimal'),
-        (pa.timestamp('ms'), 'datetime'),
-        (pa.timestamp('us', 'UTC'), 'datetimetz'),
-        (pa.time32('s'), 'time'),
-        (pa.time64('us'), 'time')
-    ]
-)
-def test_logical_type(type, expected):
-    assert get_logical_type(type) == expected
-
-
 def test_array_uint64_from_py_over_range():
     arr = pa.array([2 ** 63], type=pa.uint64())
     expected = pa.array(np.array([2 ** 63], dtype='u8'))
@@ -986,23 +1055,6 @@ def test_array_from_timestamp_with_generic_unit():
         pa.array([n, x, y])
 
 
-def test_array_from_py_float32():
-    data = [[1.2, 3.4], [9.0, 42.0]]
-
-    t = pa.float32()
-
-    arr1 = pa.array(data[0], type=t)
-    arr2 = pa.array(data, type=pa.list_(t))
-
-    expected1 = np.array(data[0], dtype=np.float32)
-    expected2 = pd.Series([np.array(data[0], dtype=np.float32),
-                           np.array(data[1], dtype=np.float32)])
-
-    assert arr1.type == t
-    assert arr1.equals(pa.array(expected1))
-    assert arr2.equals(pa.array(expected2))
-
-
 def test_array_from_numpy_ascii():
     arr = np.array(['abcde', 'abc', ''], dtype='|S5')
 
@@ -1062,6 +1114,17 @@ def test_array_from_numpy_unicode():
     arrow_arr = pa.array(arr)
     expected = pa.array(['', '', ''], type='utf8')
     assert arrow_arr.equals(expected)
+
+
+def test_array_from_masked():
+    ma = np.ma.array([1, 2, 3, 4], dtype='int64',
+                     mask=[False, False, True, False])
+    result = pa.array(ma)
+    expected = pa.array([1, 2, None, 4], type='int64')
+    assert expected.equals(result)
+
+    with pytest.raises(ValueError, match="Cannot pass a numpy masked array"):
+        pa.array(ma, mask=np.array([True, False, False, False]))
 
 
 def test_buffers_primitive():
@@ -1270,6 +1333,37 @@ def test_struct_array_field():
             a.field(invalid_name)
 
 
+def test_empty_cast():
+    types = [
+        pa.null(),
+        pa.bool_(),
+        pa.int8(),
+        pa.int16(),
+        pa.int32(),
+        pa.int64(),
+        pa.uint8(),
+        pa.uint16(),
+        pa.uint32(),
+        pa.uint64(),
+        pa.float16(),
+        pa.float32(),
+        pa.float64(),
+        pa.date32(),
+        pa.date64(),
+        pa.binary(),
+        pa.binary(length=4),
+        pa.string(),
+    ]
+
+    for (t1, t2) in itertools.product(types, types):
+        try:
+            # ARROW-4766: Ensure that supported types conversion don't segfault
+            # on empty arrays of common types
+            pa.array([], type=t1).cast(t2)
+        except pa.lib.ArrowNotImplementedError:
+            continue
+
+
 def test_nested_dictionary_array():
     dict_arr = pa.DictionaryArray.from_arrays([0, 1, 0], ['a', 'b'])
     list_arr = pa.ListArray.from_arrays([0, 2, 3], dict_arr)
@@ -1334,3 +1428,21 @@ def test_numpy_string_overflow_to_chunked():
         for val in chunk:
             assert val.as_py() == values[value_index]
             value_index += 1
+
+
+def test_array_from_large_pyints():
+    # ARROW-5430
+    with pytest.raises(pa.ArrowInvalid):
+        # too large for int64 so dtype must be explicitly provided
+        pa.array([int(2 ** 63)])
+
+
+def test_concat_array():
+    concatenated = pa.concat_arrays(
+        [pa.array([1, 2]), pa.array([3, 4])])
+    assert concatenated.equals(pa.array([1, 2, 3, 4]))
+
+
+def test_concat_array_different_types():
+    with pytest.raises(pa.ArrowInvalid):
+        pa.concat_arrays([pa.array([1]), pa.array([2.])])

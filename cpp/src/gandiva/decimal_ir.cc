@@ -307,8 +307,258 @@ Status DecimalIR::BuildAdd() {
   return Status::OK();
 }
 
+Status DecimalIR::BuildSubtract() {
+  // Create fn prototype :
+  // int128_t
+  // subtract_decimal128_decimal128(int128_t x_value, int32_t x_precision, int32_t
+  // x_scale,
+  //                           int128_t y_value, int32_t y_precision, int32_t y_scale
+  //                           int32_t out_precision, int32_t out_scale)
+  auto i32 = types()->i32_type();
+  auto i128 = types()->i128_type();
+  auto function = BuildFunction("subtract_decimal128_decimal128", i128,
+                                {
+                                    {"x_value", i128},
+                                    {"x_precision", i32},
+                                    {"x_scale", i32},
+                                    {"y_value", i128},
+                                    {"y_precision", i32},
+                                    {"y_scale", i32},
+                                    {"out_precision", i32},
+                                    {"out_scale", i32},
+                                });
+
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
+  ir_builder()->SetInsertPoint(entry);
+
+  // reuse add function after negating y_value. i.e
+  //   add(x_value, x_precision, x_scale, -y_value, y_precision, y_scale,
+  //       out_precision, out_scale)
+  std::vector<llvm::Value*> args;
+  int i = 0;
+  for (auto& in_arg : function->args()) {
+    if (i == 3) {
+      auto y_neg_value = ir_builder()->CreateNeg(&in_arg);
+      args.push_back(y_neg_value);
+    } else {
+      args.push_back(&in_arg);
+    }
+    ++i;
+  }
+  auto value =
+      ir_builder()->CreateCall(module()->getFunction("add_decimal128_decimal128"), args);
+
+  // store result to out
+  ir_builder()->CreateRet(value);
+  return Status::OK();
+}
+
+Status DecimalIR::BuildMultiply() {
+  // Create fn prototype :
+  // int128_t
+  // multiply_decimal128_decimal128(int128_t x_value, int32_t x_precision, int32_t
+  // x_scale,
+  //                           int128_t y_value, int32_t y_precision, int32_t y_scale
+  //                           int32_t out_precision, int32_t out_scale)
+  auto i32 = types()->i32_type();
+  auto i128 = types()->i128_type();
+  auto function = BuildFunction("multiply_decimal128_decimal128", i128,
+                                {
+                                    {"x_value", i128},
+                                    {"x_precision", i32},
+                                    {"x_scale", i32},
+                                    {"y_value", i128},
+                                    {"y_precision", i32},
+                                    {"y_scale", i32},
+                                    {"out_precision", i32},
+                                    {"out_scale", i32},
+                                });
+
+  auto arg_iter = function->arg_begin();
+  ValueFull x(&arg_iter[0], &arg_iter[1], &arg_iter[2]);
+  ValueFull y(&arg_iter[3], &arg_iter[4], &arg_iter[5]);
+  ValueFull out(nullptr, &arg_iter[6], &arg_iter[7]);
+
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
+  ir_builder()->SetInsertPoint(entry);
+
+  // Make call to pre-compiled IR function.
+  auto block = ir_builder()->GetInsertBlock();
+  auto out_high_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_hi", block);
+  auto out_low_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_low", block);
+  auto x_split = ValueSplit::MakeFromInt128(this, x.value());
+  auto y_split = ValueSplit::MakeFromInt128(this, y.value());
+
+  std::vector<llvm::Value*> args = {
+      x_split.high(),  x_split.low(), x.precision(), x.scale(),
+      y_split.high(),  y_split.low(), y.precision(), y.scale(),
+      out.precision(), out.scale(),   out_high_ptr,  out_low_ptr,
+  };
+  ir_builder()->CreateCall(
+      module()->getFunction("multiply_internal_decimal128_decimal128"), args);
+
+  auto out_high = ir_builder()->CreateLoad(out_high_ptr);
+  auto out_low = ir_builder()->CreateLoad(out_low_ptr);
+  auto result = ValueSplit(out_high, out_low).AsInt128(this);
+  ADD_TRACE_128("Multiply : result", result);
+
+  ir_builder()->CreateRet(result);
+  return Status::OK();
+}
+
+Status DecimalIR::BuildDivideOrMod(const std::string& function_name,
+                                   const std::string& internal_fname) {
+  // Create fn prototype :
+  // int128_t
+  // divide_decimal128_decimal128(int64_t execution_context,
+  //                              int128_t x_value, int32_t x_precision, int32_t x_scale,
+  //                              int128_t y_value, int32_t y_precision, int32_t y_scale
+  //                              int32_t out_precision, int32_t out_scale)
+  auto i32 = types()->i32_type();
+  auto i128 = types()->i128_type();
+  auto function = BuildFunction(function_name, i128,
+                                {
+                                    {"execution_context", types()->i64_type()},
+                                    {"x_value", i128},
+                                    {"x_precision", i32},
+                                    {"x_scale", i32},
+                                    {"y_value", i128},
+                                    {"y_precision", i32},
+                                    {"y_scale", i32},
+                                    {"out_precision", i32},
+                                    {"out_scale", i32},
+                                });
+
+  auto arg_iter = function->arg_begin();
+  auto execution_context = &arg_iter[0];
+  ValueFull x(&arg_iter[1], &arg_iter[2], &arg_iter[3]);
+  ValueFull y(&arg_iter[4], &arg_iter[5], &arg_iter[6]);
+  ValueFull out(nullptr, &arg_iter[7], &arg_iter[8]);
+
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
+  ir_builder()->SetInsertPoint(entry);
+
+  // Make call to pre-compiled IR function.
+  auto block = ir_builder()->GetInsertBlock();
+  auto out_high_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_hi", block);
+  auto out_low_ptr = new llvm::AllocaInst(types()->i64_type(), 0, "out_low", block);
+  auto x_split = ValueSplit::MakeFromInt128(this, x.value());
+  auto y_split = ValueSplit::MakeFromInt128(this, y.value());
+
+  std::vector<llvm::Value*> args = {
+      execution_context, x_split.high(), x_split.low(), x.precision(), x.scale(),
+      y_split.high(),    y_split.low(),  y.precision(), y.scale(),     out.precision(),
+      out.scale(),       out_high_ptr,   out_low_ptr,
+  };
+  ir_builder()->CreateCall(module()->getFunction(internal_fname), args);
+
+  auto out_high = ir_builder()->CreateLoad(out_high_ptr);
+  auto out_low = ir_builder()->CreateLoad(out_low_ptr);
+  auto result = ValueSplit(out_high, out_low).AsInt128(this);
+
+  ir_builder()->CreateRet(result);
+  return Status::OK();
+}
+
+Status DecimalIR::BuildCompare(const std::string& function_name,
+                               llvm::ICmpInst::Predicate cmp_instruction) {
+  // Create fn prototype :
+  // bool
+  // function_name(int128_t x_value, int32_t x_precision, int32_t x_scale,
+  //               int128_t y_value, int32_t y_precision, int32_t y_scale)
+
+  auto i32 = types()->i32_type();
+  auto i128 = types()->i128_type();
+  auto function = BuildFunction(function_name, types()->i1_type(),
+                                {
+                                    {"x_value", i128},
+                                    {"x_precision", i32},
+                                    {"x_scale", i32},
+                                    {"y_value", i128},
+                                    {"y_precision", i32},
+                                    {"y_scale", i32},
+                                });
+
+  auto arg_iter = function->arg_begin();
+  ValueFull x(&arg_iter[0], &arg_iter[1], &arg_iter[2]);
+  ValueFull y(&arg_iter[3], &arg_iter[4], &arg_iter[5]);
+
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
+  ir_builder()->SetInsertPoint(entry);
+
+  // Make call to pre-compiled IR function.
+  auto x_split = ValueSplit::MakeFromInt128(this, x.value());
+  auto y_split = ValueSplit::MakeFromInt128(this, y.value());
+
+  std::vector<llvm::Value*> args = {
+      x_split.high(), x_split.low(), x.precision(), x.scale(),
+      y_split.high(), y_split.low(), y.precision(), y.scale(),
+  };
+  auto cmp_value = ir_builder()->CreateCall(
+      module()->getFunction("compare_internal_decimal128_decimal128"), args);
+  auto result =
+      ir_builder()->CreateICmp(cmp_instruction, cmp_value, types()->i32_constant(0));
+  ir_builder()->CreateRet(result);
+  return Status::OK();
+}
+
+Status DecimalIR::BuildDecimalFunction(const std::string& function_name,
+                                       llvm::Type* return_type,
+                                       std::vector<NamedArg> in_types) {
+  auto i64 = types()->i64_type();
+  auto i128 = types()->i128_type();
+  auto function = BuildFunction(function_name, return_type, in_types);
+
+  auto entry = llvm::BasicBlock::Create(*context(), "entry", function);
+  ir_builder()->SetInsertPoint(entry);
+
+  std::vector<llvm::Value*> args;
+  int arg_idx = 0;
+  auto arg_iter = function->arg_begin();
+  for (auto& type : in_types) {
+    if (type.type == i128) {
+      // split i128 arg into two int64s.
+      auto split = ValueSplit::MakeFromInt128(this, &arg_iter[arg_idx]);
+      args.push_back(split.high());
+      args.push_back(split.low());
+    } else {
+      args.push_back(&arg_iter[arg_idx]);
+    }
+    ++arg_idx;
+  }
+
+  auto internal_name = function_name + "_internal";
+  llvm::Value* result = nullptr;
+  if (return_type == i128) {
+    // for i128 ret, replace with two int64* args, and join them.
+    auto block = ir_builder()->GetInsertBlock();
+    auto out_high_ptr = new llvm::AllocaInst(i64, 0, "out_hi", block);
+    auto out_low_ptr = new llvm::AllocaInst(i64, 0, "out_low", block);
+    args.push_back(out_high_ptr);
+    args.push_back(out_low_ptr);
+
+    // Make call to pre-compiled IR function.
+    ir_builder()->CreateCall(module()->getFunction(internal_name), args);
+
+    auto out_high = ir_builder()->CreateLoad(out_high_ptr);
+    auto out_low = ir_builder()->CreateLoad(out_low_ptr);
+    result = ValueSplit(out_high, out_low).AsInt128(this);
+  } else {
+    DCHECK_NE(return_type, types()->void_type());
+
+    // Make call to pre-compiled IR function.
+    result = ir_builder()->CreateCall(module()->getFunction(internal_name), args);
+  }
+  ir_builder()->CreateRet(result);
+  return Status::OK();
+}
+
 Status DecimalIR::AddFunctions(Engine* engine) {
   auto decimal_ir = std::make_shared<DecimalIR>(engine);
+  auto i128 = decimal_ir->types()->i128_type();
+  auto i32 = decimal_ir->types()->i32_type();
+  auto i64 = decimal_ir->types()->i64_type();
+  auto f64 = decimal_ir->types()->double_type();
 
   // Populate global variables used by decimal operations.
   decimal_ir->AddGlobals(engine);
@@ -316,8 +566,129 @@ Status DecimalIR::AddFunctions(Engine* engine) {
   // Lookup intrinsic functions
   decimal_ir->InitializeIntrinsics();
 
-  // build "add"
-  return decimal_ir->BuildAdd();
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildAdd());
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildSubtract());
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildMultiply());
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDivideOrMod(
+      "divide_decimal128_decimal128", "divide_internal_decimal128_decimal128"));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDivideOrMod("mod_decimal128_decimal128",
+                                                   "mod_internal_decimal128_decimal128"));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildCompare("equal_decimal128_decimal128", llvm::ICmpInst::ICMP_EQ));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare("not_equal_decimal128_decimal128",
+                                               llvm::ICmpInst::ICMP_NE));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare("less_than_decimal128_decimal128",
+                                               llvm::ICmpInst::ICMP_SLT));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare(
+      "less_than_or_equal_to_decimal128_decimal128", llvm::ICmpInst::ICMP_SLE));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare("greater_than_decimal128_decimal128",
+                                               llvm::ICmpInst::ICMP_SGT));
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildCompare(
+      "greater_than_or_equal_to_decimal128_decimal128", llvm::ICmpInst::ICMP_SGE));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("abs_decimal128", i128,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("ceil_decimal128", i128,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("floor_decimal128", i128,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("round_decimal128", i128,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("round_decimal128_int32", i128,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"round_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("truncate_decimal128", i128,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("truncate_decimal128_int32", i128,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"round_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castDECIMAL_int64", i128,
+                                                       {
+                                                           {"value", i64},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castDECIMAL_float64", i128,
+                                                       {
+                                                           {"value", f64},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castDECIMAL_decimal128", i128,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castBIGINT_decimal128", i64,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castFLOAT8_decimal128", f64,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                       }));
+  return Status::OK();
 }
 
 // Do an bitwise-or of all the overflow bits.

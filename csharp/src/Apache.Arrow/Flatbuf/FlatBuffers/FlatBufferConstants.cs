@@ -21,7 +21,7 @@ using System.Text;
 
 namespace FlatBuffers
 {
-    public static class FlatBufferConstants
+    internal static class FlatBufferConstants
     {
         public const int FileIdentifierLength = 4;
         public const int SizePrefixLength = 4;

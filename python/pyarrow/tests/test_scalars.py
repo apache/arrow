@@ -19,7 +19,6 @@
 import pytest
 
 import numpy as np
-import pandas as pd
 
 from pyarrow.compat import unittest, u, unicode_type
 import pyarrow as pa
@@ -159,7 +158,9 @@ class TestScalars(unittest.TestCase):
         v = arr[3]
         assert len(v) == 0
 
+    @pytest.mark.pandas
     def test_timestamp(self):
+        import pandas as pd
         arr = pd.date_range('2000-01-01 12:34:56', periods=10).values
 
         units = ['ns', 'us', 'ms', 's']
@@ -185,7 +186,9 @@ class TestScalars(unittest.TestCase):
             assert arrow_arr[0].as_py() == expected
             assert arrow_arr[0].value * 1000**i == expected.value
 
+    @pytest.mark.pandas
     def test_dictionary(self):
+        import pandas as pd
         colors = ['red', 'green', 'blue']
         colors_dict = {'red': 0, 'green': 1, 'blue': 2}
         values = pd.Series(colors * 4)

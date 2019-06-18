@@ -17,7 +17,10 @@
 
 package org.apache.arrow.vector;
 
+/**
+ * Interface for setting a specific index values as defined/valid on a vector.
+ */
 public interface VectorDefinitionSetter {
 
-  public void setIndexDefined(int index);
+  void setIndexDefined(int index);
 }

@@ -62,6 +62,10 @@ module Arrow
           Arrow::StringArray.new(values)
         end
       end
+
+      def buildable?(args)
+        args.size == method(:build).arity
+      end
     end
 
     def build(values)

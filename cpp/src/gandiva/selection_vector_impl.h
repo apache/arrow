@@ -32,12 +32,20 @@ namespace gandiva {
 
 /// \brief template implementation of selection vector with a specific ctype and arrow
 /// type.
-template <typename C_TYPE, typename A_TYPE>
+template <typename C_TYPE, typename A_TYPE, SelectionVector::Mode mode>
 class SelectionVectorImpl : public SelectionVector {
  public:
   SelectionVectorImpl(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer)
-      : max_slots_(max_slots), num_slots_(0), buffer_(buffer) {
+      : max_slots_(max_slots), num_slots_(0), buffer_(buffer), mode_(mode) {
     raw_data_ = reinterpret_cast<C_TYPE*>(buffer->mutable_data());
+  }
+
+  SelectionVectorImpl(int64_t max_slots, int64_t num_slots,
+                      std::shared_ptr<arrow::Buffer> buffer)
+      : max_slots_(max_slots), num_slots_(num_slots), buffer_(buffer), mode_(mode) {
+    if (buffer) {
+      raw_data_ = const_cast<C_TYPE*>(reinterpret_cast<const C_TYPE*>(buffer->data()));
+    }
   }
 
   uint64_t GetIndex(int64_t index) const override { return raw_data_[index]; }
@@ -61,6 +69,10 @@ class SelectionVectorImpl : public SelectionVector {
     return std::numeric_limits<C_TYPE>::max();
   }
 
+  Mode GetMode() const override { return mode_; }
+
+  arrow::Buffer& GetBuffer() const override { return *buffer_; }
+
   static Status AllocateBuffer(int64_t max_slots, arrow::MemoryPool* pool,
                                std::shared_ptr<arrow::Buffer>* buffer);
 
@@ -75,18 +87,24 @@ class SelectionVectorImpl : public SelectionVector {
 
   std::shared_ptr<arrow::Buffer> buffer_;
   C_TYPE* raw_data_;
+
+  /// SelectionVector mode
+  Mode mode_;
 };
 
-template <typename C_TYPE, typename A_TYPE>
-ArrayPtr SelectionVectorImpl<C_TYPE, A_TYPE>::ToArray() const {
+template <typename C_TYPE, typename A_TYPE, SelectionVector::Mode mode>
+ArrayPtr SelectionVectorImpl<C_TYPE, A_TYPE, mode>::ToArray() const {
   auto data_type = arrow::TypeTraits<A_TYPE>::type_singleton();
   auto array_data = arrow::ArrayData::Make(data_type, num_slots_, {NULLPTR, buffer_});
   return arrow::MakeArray(array_data);
 }
 
-using SelectionVectorInt16 = SelectionVectorImpl<uint16_t, arrow::UInt16Type>;
-using SelectionVectorInt32 = SelectionVectorImpl<uint32_t, arrow::UInt32Type>;
-using SelectionVectorInt64 = SelectionVectorImpl<uint64_t, arrow::UInt64Type>;
+using SelectionVectorInt16 =
+    SelectionVectorImpl<uint16_t, arrow::UInt16Type, SelectionVector::MODE_UINT16>;
+using SelectionVectorInt32 =
+    SelectionVectorImpl<uint32_t, arrow::UInt32Type, SelectionVector::MODE_UINT32>;
+using SelectionVectorInt64 =
+    SelectionVectorImpl<uint64_t, arrow::UInt64Type, SelectionVector::MODE_UINT64>;
 
 }  // namespace gandiva
 

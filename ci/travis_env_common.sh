@@ -35,6 +35,7 @@ export ARROW_C_GLIB_DIR=$TRAVIS_BUILD_DIR/c_glib
 export ARROW_JAVA_DIR=${TRAVIS_BUILD_DIR}/java
 export ARROW_JS_DIR=${TRAVIS_BUILD_DIR}/js
 export ARROW_INTEGRATION_DIR=$TRAVIS_BUILD_DIR/integration
+export ARROW_DEV_DIR=$TRAVIS_BUILD_DIR/dev
 export ARROW_CROSSBOW_DIR=$TRAVIS_BUILD_DIR/dev/tasks
 export ARROW_RUBY_DIR=$TRAVIS_BUILD_DIR/ruby
 export ARROW_RUST_DIR=${TRAVIS_BUILD_DIR}/rust
@@ -62,14 +63,7 @@ export ARROW_BUILD_WARNING_LEVEL=${ARROW_BUILD_WARNING_LEVEL:=Production}
 if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
   # C++ toolchain
   export CPP_TOOLCHAIN=$TRAVIS_BUILD_DIR/cpp-toolchain
-  export ARROW_BUILD_TOOLCHAIN=$CPP_TOOLCHAIN
-  export BOOST_ROOT=$CPP_TOOLCHAIN
 
-  # Protocol buffers used by Apache ORC thirdparty build
-  export PROTOBUF_HOME=$CPP_TOOLCHAIN
-
-  export PATH=$CPP_TOOLCHAIN/bin:$PATH
-  export LD_LIBRARY_PATH=$CPP_TOOLCHAIN/lib:$LD_LIBRARY_PATH
   export TRAVIS_MAKE=ninja
 else
   export TRAVIS_MAKE=make
@@ -79,6 +73,7 @@ if [ $TRAVIS_OS_NAME == "osx" ]; then
   export GOPATH=$TRAVIS_BUILD_DIR/gopath
 fi
 
+export ARROW_TEST_DATA=$TRAVIS_BUILD_DIR/testing/data
 export PARQUET_TEST_DATA=$TRAVIS_BUILD_DIR/cpp/submodules/parquet-testing/data
 
 # e.g. "trusty" or "xenial"

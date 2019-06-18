@@ -28,7 +28,6 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -234,11 +233,8 @@ class NumPyConverter {
 
   Status Visit(const FixedSizeBinaryType& type);
 
-  Status Visit(const Decimal128Type& type) { return TypeNotImplemented(type.ToString()); }
-
-  Status Visit(const DictionaryType& type) { return TypeNotImplemented(type.ToString()); }
-
-  Status Visit(const NestedType& type) { return TypeNotImplemented(type.ToString()); }
+  // Default case
+  Status Visit(const DataType& type) { return TypeNotImplemented(type.ToString()); }
 
  protected:
   Status InitNullBitmap() {
@@ -318,8 +314,18 @@ Status NumPyConverter::Convert() {
     return Status::Invalid("only handle 1-dimensional arrays");
   }
 
-  DCHECK_NE(dtype_->type_num, NPY_OBJECT)
-      << "This class does not handle NPY_OBJECT arrays";
+  if (dtype_->type_num == NPY_OBJECT) {
+    // If an object array, convert it like a normal Python sequence
+    PyConversionOptions py_options;
+    py_options.type = type_;
+    py_options.from_pandas = from_pandas_;
+    std::shared_ptr<ChunkedArray> res;
+    RETURN_NOT_OK(ConvertPySequence(reinterpret_cast<PyObject*>(arr_),
+                                    reinterpret_cast<PyObject*>(mask_), py_options,
+                                    &res));
+    out_arrays_ = res->chunks();
+    return Status::OK();
+  }
 
   if (type_ == nullptr) {
     return Status::Invalid("Must pass data type for non-object arrays");
@@ -414,6 +420,11 @@ Status CopyStridedArray(PyArrayObject* arr, const int64_t length, MemoryPool* po
 
 template <typename ArrowType>
 inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
+  if (PyArray_ISBYTESWAPPED(arr_)) {
+    // TODO
+    return Status::NotImplemented("Byte-swapped arrays not supported");
+  }
+
   if (is_strided()) {
     RETURN_NOT_OK(CopyStridedArray<ArrowType>(arr_, length_, pool_, data));
   } else if (dtype_->type_num == NPY_BOOL) {
@@ -788,15 +799,6 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
                       std::shared_ptr<ChunkedArray>* out) {
   if (!PyArray_Check(ao)) {
     return Status::Invalid("Input object was not a NumPy array");
-  }
-
-  PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(ao);
-
-  if (PyArray_DESCR(arr)->type_num == NPY_OBJECT) {
-    PyConversionOptions py_options;
-    py_options.type = type;
-    py_options.from_pandas = from_pandas;
-    return ConvertPySequence(ao, mo, py_options, out);
   }
 
   NumPyConverter converter(pool, ao, mo, type, from_pandas, cast_options);

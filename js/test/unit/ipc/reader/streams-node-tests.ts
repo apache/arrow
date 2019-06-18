@@ -36,12 +36,12 @@ import { validateRecordBatchAsyncIterator } from '../validate';
     }
 
     /* tslint:disable */
-    const stream = require('stream');
+    const { Readable, PassThrough } = require('stream');
     /* tslint:disable */
     const { parse: bignumJSONParse } = require('json-bignum');
     /* tslint:disable */
     const concatStream = ((multistream) => (...xs: any[]) =>
-        new stream.Readable().wrap(multistream(...xs))
+        new Readable().wrap(multistream(...xs))
     )(require('multistream'));
 
     for (const table of generateRandomTables([10, 20, 30])) {
@@ -113,6 +113,40 @@ import { validateRecordBatchAsyncIterator } from '../validate';
         });
     }
 
+    it('readAll() should pipe to separate NodeJS WritableStreams', async () => {
+
+        expect.hasAssertions();
+
+        const tables = [...generateRandomTables([10, 20, 30])];
+
+        const stream = concatStream(tables.map((table) =>
+            () => RecordBatchStreamWriter.writeAll(table).toNodeStream()
+        )) as NodeJS.ReadableStream;
+
+        let tableIndex = -1;
+        let reader: RecordBatchReader | undefined;
+
+        for await (reader of RecordBatchReader.readAll(stream)) {
+
+            validateStreamState(reader, stream, false);
+
+            const output = reader
+                .pipe(RecordBatchStreamWriter.throughNode())
+                .pipe(new PassThrough());
+
+            validateStreamState(reader, output, false);
+
+            const sourceTable = tables[++tableIndex];
+            const streamTable = await Table.from(output);
+            expect(streamTable).toEqualTable(sourceTable);
+            expect(Boolean(output.readableFlowing)).toBe(false);
+        }
+
+        expect(reader).toBeDefined();
+        validateStreamState(reader!, stream, true);
+        expect(tableIndex).toBe(tables.length - 1);
+    });
+
     it('should not close the underlying NodeJS ReadableStream when reading multiple tables to completion', async () => {
 
         expect.hasAssertions();
@@ -182,7 +216,7 @@ import { validateRecordBatchAsyncIterator } from '../validate';
 
 function validateStreamState(reader: RecordBatchReader, stream: NodeJS.ReadableStream, closed: boolean, readable = !closed) {
     expect(reader.closed).toBe(closed);
-    expect(stream.readable).toBe(readable);
-    expect((stream as any).destroyed).toBe(closed);
-    expect((stream as any).readableFlowing).toBe(false);
+    expect(Boolean(stream.readable)).toBe(readable);
+    expect(Boolean((stream as any).destroyed)).toBe(closed);
+    expect(Boolean((stream as any).readableFlowing)).toBe(false);
 }

@@ -25,6 +25,8 @@ through jpype. Modules that talk to a remote JVM like py4j will not work as the
 memory addresses reported by them are not reachable in the python process.
 """
 
+from __future__ import absolute_import
+
 
 import pyarrow as pa
 
@@ -46,7 +48,7 @@ def jvm_buffer(arrowbuf):
     """
     address = arrowbuf.memoryAddress()
     size = arrowbuf.capacity()
-    return pa.foreign_buffer(address, size, arrowbuf.unwrap())
+    return pa.foreign_buffer(address, size, arrowbuf.asNettyBuffer())
 
 
 def _from_jvm_int_type(jvm_type):

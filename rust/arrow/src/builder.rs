@@ -50,6 +50,17 @@ pub type UInt64BufferBuilder = BufferBuilder<UInt64Type>;
 pub type Float32BufferBuilder = BufferBuilder<Float32Type>;
 pub type Float64BufferBuilder = BufferBuilder<Float64Type>;
 
+pub type TimestampSecondBufferBuilder = BufferBuilder<TimestampSecondType>;
+pub type TimestampMillisecondBufferBuilder = BufferBuilder<TimestampMillisecondType>;
+pub type TimestampMicrosecondBufferBuilder = BufferBuilder<TimestampMicrosecondType>;
+pub type TimestampNanosecondBufferBuilder = BufferBuilder<TimestampNanosecondType>;
+pub type Date32BufferBuilder = BufferBuilder<Date32Type>;
+pub type Date64BufferBuilder = BufferBuilder<Date64Type>;
+pub type Time32SecondBufferBuilder = BufferBuilder<Time32SecondType>;
+pub type Time32MillisecondBufferBuilder = BufferBuilder<Time32MillisecondType>;
+pub type Time64MicrosecondBufferBuilder = BufferBuilder<Time64MicrosecondType>;
+pub type Time64NanosecondBufferBuilder = BufferBuilder<Time64NanosecondType>;
+
 // Trait for buffer builder. This is used mainly to offer separate implementations for
 // numeric types and boolean types, while still be able to call methods on buffer builder
 // with generic primitive type.
@@ -255,6 +266,17 @@ pub type UInt32Builder = PrimitiveBuilder<UInt32Type>;
 pub type UInt64Builder = PrimitiveBuilder<UInt64Type>;
 pub type Float32Builder = PrimitiveBuilder<Float32Type>;
 pub type Float64Builder = PrimitiveBuilder<Float64Type>;
+
+pub type TimestampSecondBuilder = PrimitiveBuilder<TimestampSecondType>;
+pub type TimestampMillisecondBuilder = PrimitiveBuilder<TimestampMillisecondType>;
+pub type TimestampMicrosecondBuilder = PrimitiveBuilder<TimestampMicrosecondType>;
+pub type TimestampNanosecondBuilder = PrimitiveBuilder<TimestampNanosecondType>;
+pub type Date32Builder = PrimitiveBuilder<Date32Type>;
+pub type Date64Builder = PrimitiveBuilder<Date64Type>;
+pub type Time32SecondBuilder = PrimitiveBuilder<Time32SecondType>;
+pub type Time32MillisecondBuilder = PrimitiveBuilder<Time32MillisecondType>;
+pub type Time64MicrosecondBuilder = PrimitiveBuilder<Time64MicrosecondType>;
+pub type Time64NanosecondBuilder = PrimitiveBuilder<Time64NanosecondType>;
 
 impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
     /// Returns the builder as an non-mutable `Any` reference.
@@ -623,6 +645,34 @@ impl StructBuilder {
             DataType::Float32 => Box::new(Float32Builder::new(capacity)),
             DataType::Float64 => Box::new(Float64Builder::new(capacity)),
             DataType::Utf8 => Box::new(BinaryBuilder::new(capacity)),
+            DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
+            DataType::Date64(DateUnit::Millisecond) => {
+                Box::new(Date64Builder::new(capacity))
+            }
+            DataType::Time32(TimeUnit::Second) => {
+                Box::new(Time32SecondBuilder::new(capacity))
+            }
+            DataType::Time32(TimeUnit::Millisecond) => {
+                Box::new(Time32MillisecondBuilder::new(capacity))
+            }
+            DataType::Time64(TimeUnit::Microsecond) => {
+                Box::new(Time64MicrosecondBuilder::new(capacity))
+            }
+            DataType::Time64(TimeUnit::Nanosecond) => {
+                Box::new(Time64NanosecondBuilder::new(capacity))
+            }
+            DataType::Timestamp(TimeUnit::Second) => {
+                Box::new(TimestampSecondBuilder::new(capacity))
+            }
+            DataType::Timestamp(TimeUnit::Millisecond) => {
+                Box::new(TimestampMillisecondBuilder::new(capacity))
+            }
+            DataType::Timestamp(TimeUnit::Microsecond) => {
+                Box::new(TimestampMicrosecondBuilder::new(capacity))
+            }
+            DataType::Timestamp(TimeUnit::Nanosecond) => {
+                Box::new(TimestampNanosecondBuilder::new(capacity))
+            }
             DataType::Struct(fields) => {
                 let schema = Schema::new(fields.clone());
                 Box::new(Self::from_schema(schema, capacity))
@@ -674,6 +724,9 @@ impl StructBuilder {
                 .null_count(null_count)
                 .null_bit_buffer(null_bit_buffer);
         }
+
+        self.len = 0;
+
         StructArray::from(builder.build())
     }
 }
@@ -857,6 +910,40 @@ mod tests {
             assert!(!arr.is_null(i));
             assert!(arr.is_valid(i));
             assert_eq!(i as i32, arr.value(i));
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder_date32() {
+        let mut builder = Date32Array::builder(5);
+        for i in 0..5 {
+            builder.append_value(i).unwrap();
+        }
+        let arr = builder.finish();
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        for i in 0..5 {
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i as i32, arr.value(i));
+        }
+    }
+
+    #[test]
+    fn test_primitive_array_builder_timestamp_second() {
+        let mut builder = TimestampSecondArray::builder(5);
+        for i in 0..5 {
+            builder.append_value(i).unwrap();
+        }
+        let arr = builder.finish();
+        assert_eq!(5, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(0, arr.null_count());
+        for i in 0..5 {
+            assert!(!arr.is_null(i));
+            assert!(arr.is_valid(i));
+            assert_eq!(i as i64, arr.value(i));
         }
     }
 
@@ -1299,7 +1386,15 @@ mod tests {
             ])
             .unwrap();
 
+        // Append slot values - all are valid.
+        for _ in 0..10 {
+            assert!(builder.append(true).is_ok())
+        }
+
+        assert_eq!(10, builder.len());
+
         let arr = builder.finish();
+
         assert_eq!(10, arr.len());
         assert_eq!(0, builder.len());
 
@@ -1314,7 +1409,15 @@ mod tests {
             .append_slice(&[false, true, false, true, false])
             .unwrap();
 
+        // Append slot values - all are valid.
+        for _ in 0..5 {
+            assert!(builder.append(true).is_ok())
+        }
+
+        assert_eq!(5, builder.len());
+
         let arr = builder.finish();
+
         assert_eq!(5, arr.len());
         assert_eq!(0, builder.len());
     }

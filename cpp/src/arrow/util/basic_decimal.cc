@@ -122,6 +122,10 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
+// same as ScaleMultipliers[38] - 1
+static constexpr BasicDecimal128 kMaxValue =
+    BasicDecimal128(5421010862427522170LL, 687399551400673280ULL - 1);
+
 BasicDecimal128::BasicDecimal128(const uint8_t* bytes)
     : BasicDecimal128(
           BitUtil::FromLittleEndian(reinterpret_cast<const int64_t*>(bytes)[1]),
@@ -149,6 +153,11 @@ BasicDecimal128& BasicDecimal128::Negate() {
 }
 
 BasicDecimal128& BasicDecimal128::Abs() { return *this < 0 ? Negate() : *this; }
+
+BasicDecimal128 BasicDecimal128::Abs(const BasicDecimal128& in) {
+  BasicDecimal128 result(in);
+  return result.Abs();
+}
 
 BasicDecimal128& BasicDecimal128::operator+=(const BasicDecimal128& right) {
   const uint64_t sum = low_bits_ + right.low_bits_;
@@ -243,13 +252,13 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
 
   product = L2 * R3;
   sum += product;
+  high_bits_ = static_cast<int64_t>(sum < product ? kCarryBit : 0);
 
   product = L3 * R2;
   sum += product;
 
   low_bits_ += sum << 32;
 
-  high_bits_ = static_cast<int64_t>(sum < product ? kCarryBit : 0);
   if (sum < product) {
     high_bits_ += kCarryBit;
   }
@@ -447,6 +456,7 @@ DecimalStatus BasicDecimal128::Divide(const BasicDecimal128& divisor,
 
   int64_t result_length = dividend_length - divisor_length;
   uint32_t result_array[4];
+  DCHECK_LE(result_length, 4);
 
   // Normalize by shifting both by a multiple of 2 so that
   // the digit guessing is better. The requirement is that
@@ -639,7 +649,8 @@ void BasicDecimal128::GetWholeAndFraction(int scale, BasicDecimal128* whole,
   DCHECK_LE(scale, 38);
 
   BasicDecimal128 multiplier(ScaleMultipliers[scale]);
-  DCHECK_EQ(Divide(multiplier, whole, fraction), DecimalStatus::kSuccess);
+  auto s = Divide(multiplier, whole, fraction);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
 }
 
 const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
@@ -648,6 +659,8 @@ const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
 
   return ScaleMultipliers[scale];
 }
+
+const BasicDecimal128& BasicDecimal128::GetMaxValue() { return kMaxValue; }
 
 BasicDecimal128 BasicDecimal128::IncreaseScaleBy(int32_t increase_by) const {
   DCHECK_GE(increase_by, 0);
@@ -660,10 +673,15 @@ BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) co
   DCHECK_GE(reduce_by, 0);
   DCHECK_LE(reduce_by, 38);
 
+  if (reduce_by == 0) {
+    return *this;
+  }
+
   BasicDecimal128 divisor(ScaleMultipliers[reduce_by]);
   BasicDecimal128 result;
   BasicDecimal128 remainder;
-  DCHECK_EQ(Divide(divisor, &result, &remainder), DecimalStatus::kSuccess);
+  auto s = Divide(divisor, &result, &remainder);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
   if (round) {
     auto divisor_half = ScaleMultipliersHalf[reduce_by];
     if (remainder.Abs() >= divisor_half) {

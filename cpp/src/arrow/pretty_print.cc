@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -32,7 +33,9 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int-util.h"
 #include "arrow/util/string.h"
+#include "arrow/vendored/datetime.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -114,10 +117,9 @@ void PrettyPrinter::Indent() {
 
 class ArrayPrinter : public PrettyPrinter {
  public:
-  ArrayPrinter(const Array& array, int indent, int indent_size, int window,
-               const std::string& null_rep, bool skip_new_lines, std::ostream* sink)
+  ArrayPrinter(int indent, int indent_size, int window, const std::string& null_rep,
+               bool skip_new_lines, std::ostream* sink)
       : PrettyPrinter(indent, indent_size, window, skip_new_lines, sink),
-        array_(array),
         null_rep_(null_rep) {}
 
   template <typename FormatFunction>
@@ -144,10 +146,52 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
-  inline typename std::enable_if<IsInteger<T>::value, Status>::type WriteDataValues(
-      const T& array) {
+  inline typename std::enable_if<IsInteger<T>::value &&
+                                     !is_date<typename T::TypeClass>::value &&
+                                     !is_time<typename T::TypeClass>::value,
+                                 Status>::type
+  WriteDataValues(const T& array) {
     const auto data = array.raw_values();
-    WriteValues(array, [&](int64_t i) { (*sink_) << static_cast<int64_t>(data[i]); });
+    // Need to upcast integers to avoid selecting operator<<(char)
+    WriteValues(array, [&](int64_t i) { (*sink_) << internal::UpcastInt(data[i]); });
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_date<typename T::TypeClass, Status> WriteDataValues(const T& array) {
+    const auto data = array.raw_values();
+    using unit = typename std::conditional<std::is_same<T, Date32Array>::value,
+                                           arrow_vendored::date::days,
+                                           std::chrono::milliseconds>::type;
+    WriteValues(array, [&](int64_t i) { FormatDateTime<unit>("%F", data[i], true); });
+    return Status::OK();
+  }
+
+  Status WriteDataValues(const TimestampArray& array) {
+    const int64_t* data = array.raw_values();
+    const auto type = static_cast<const TimestampType*>(array.type().get());
+    WriteValues(array,
+                [&](int64_t i) { FormatDateTime(type->unit(), "%F %T", data[i], true); });
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_time<typename T::TypeClass, Status> WriteDataValues(const T& array) {
+    const auto data = array.raw_values();
+    const auto type = static_cast<const TimeType*>(array.type().get());
+    WriteValues(array,
+                [&](int64_t i) { FormatDateTime(type->unit(), "%T", data[i], false); });
+    return Status::OK();
+  }
+
+  template <typename T>
+  inline
+      typename std::enable_if<std::is_same<DayTimeIntervalArray, T>::value, Status>::type
+      WriteDataValues(const T& array) {
+    WriteValues(array, [&](int64_t i) {
+      auto day_millis = array.GetValue(i);
+      (*sink_) << day_millis.days << "d" << day_millis.milliseconds << "ms";
+    });
     return Status::OK();
   }
 
@@ -198,7 +242,9 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
-  inline typename std::enable_if<std::is_base_of<ListArray, T>::value, Status>::type
+  inline typename std::enable_if<std::is_base_of<ListArray, T>::value ||
+                                     std::is_base_of<FixedSizeListArray, T>::value,
+                                 Status>::type
   WriteDataValues(const T& array) {
     bool skip_comma = true;
     for (int64_t i = 0; i < array.length(); ++i) {
@@ -225,6 +271,40 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
+  Status WriteDataValues(const MapArray& array) {
+    bool skip_comma = true;
+    for (int64_t i = 0; i < array.length(); ++i) {
+      if (skip_comma) {
+        skip_comma = false;
+      } else {
+        (*sink_) << ",\n";
+      }
+      if ((i >= window_) && (i < (array.length() - window_))) {
+        Indent();
+        (*sink_) << "...\n";
+        i = array.length() - window_ - 1;
+        skip_comma = true;
+      } else if (array.IsNull(i)) {
+        Indent();
+        (*sink_) << null_rep_;
+      } else {
+        Indent();
+        (*sink_) << "keys:\n";
+        auto keys_slice =
+            array.keys()->Slice(array.value_offset(i), array.value_length(i));
+        RETURN_NOT_OK(PrettyPrint(*keys_slice, {indent_, window_}, sink_));
+        (*sink_) << "\n";
+        Indent();
+        (*sink_) << "values:\n";
+        auto values_slice =
+            array.items()->Slice(array.value_offset(i), array.value_length(i));
+        RETURN_NOT_OK(PrettyPrint(*values_slice, {indent_, window_}, sink_));
+      }
+    }
+    (*sink_) << "\n";
+    return Status::OK();
+  }
+
   Status Visit(const NullArray& array) {
     (*sink_) << array.length() << " nulls";
     return Status::OK();
@@ -234,7 +314,9 @@ class ArrayPrinter : public PrettyPrinter {
   typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
                               std::is_base_of<FixedSizeBinaryArray, T>::value ||
                               std::is_base_of<BinaryArray, T>::value ||
-                              std::is_base_of<ListArray, T>::value,
+                              std::is_base_of<ListArray, T>::value ||
+                              std::is_base_of<MapArray, T>::value ||
+                              std::is_base_of<FixedSizeListArray, T>::value,
                           Status>::type
   Visit(const T& array) {
     OpenArray(array);
@@ -245,7 +327,7 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
-  Status Visit(const IntervalArray&) { return Status::NotImplemented("interval"); }
+  Status Visit(const ExtensionArray& array) { return Print(*array.storage()); }
 
   Status WriteValidityBitmap(const Array& array);
 
@@ -312,16 +394,46 @@ class ArrayPrinter : public PrettyPrinter {
     return PrettyPrint(*array.indices(), indent_ + indent_size_, sink_);
   }
 
-  Status Print() {
-    RETURN_NOT_OK(VisitArrayInline(array_, this));
+  Status Print(const Array& array) {
+    RETURN_NOT_OK(VisitArrayInline(array, this));
     Flush();
     return Status::OK();
   }
 
  private:
-  const Array& array_;
+  template <typename Unit>
+  void FormatDateTime(const char* fmt, int64_t value, bool add_epoch) {
+    if (add_epoch) {
+      (*sink_) << arrow_vendored::date::format(fmt, epoch_ + Unit{value});
+    } else {
+      (*sink_) << arrow_vendored::date::format(fmt, Unit{value});
+    }
+  }
+
+  void FormatDateTime(TimeUnit::type unit, const char* fmt, int64_t value,
+                      bool add_epoch) {
+    switch (unit) {
+      case TimeUnit::NANO:
+        FormatDateTime<std::chrono::nanoseconds>(fmt, value, add_epoch);
+        break;
+      case TimeUnit::MICRO:
+        FormatDateTime<std::chrono::microseconds>(fmt, value, add_epoch);
+        break;
+      case TimeUnit::MILLI:
+        FormatDateTime<std::chrono::milliseconds>(fmt, value, add_epoch);
+        break;
+      case TimeUnit::SECOND:
+        FormatDateTime<std::chrono::seconds>(fmt, value, add_epoch);
+        break;
+    }
+  }
+
+  static arrow_vendored::date::sys_days epoch_;
   std::string null_rep_;
 };
+
+arrow_vendored::date::sys_days ArrayPrinter::epoch_ =
+    arrow_vendored::date::sys_days{arrow_vendored::date::jan / 1 / 1970};
 
 Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
   Indent();
@@ -339,15 +451,15 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
 }
 
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
-  ArrayPrinter printer(arr, indent, 2, 10, "null", false, sink);
-  return printer.Print();
+  ArrayPrinter printer(indent, 2, 10, "null", false, sink);
+  return printer.Print(arr);
 }
 
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
                    std::ostream* sink) {
-  ArrayPrinter printer(arr, options.indent, options.indent_size, options.window,
+  ArrayPrinter printer(options.indent, options.indent_size, options.window,
                        options.null_rep, options.skip_new_lines, sink);
-  return printer.Print();
+  return printer.Print(arr);
 }
 
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
@@ -383,10 +495,9 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       i = num_chunks - window - 1;
       skip_comma = true;
     } else {
-      ArrayPrinter printer(*chunked_arr.chunk(i), indent + options.indent_size,
-                           options.indent_size, window, options.null_rep,
-                           options.skip_new_lines, sink);
-      RETURN_NOT_OK(printer.Print());
+      ArrayPrinter printer(indent + options.indent_size, options.indent_size, window,
+                           options.null_rep, options.skip_new_lines, sink);
+      RETURN_NOT_OK(printer.Print(*chunked_arr.chunk(i)));
     }
   }
   (*sink) << "\n";
@@ -479,25 +590,16 @@ class SchemaPrinter : public PrettyPrinter {
 
 Status SchemaPrinter::PrintType(const DataType& type) {
   Write(type.ToString());
-  if (type.id() == Type::DICTIONARY) {
-    indent_ += indent_size_;
+  for (int i = 0; i < type.num_children(); ++i) {
     Newline();
-    Write("dictionary:\n");
-    const auto& dict_type = checked_cast<const DictionaryType&>(type);
-    RETURN_NOT_OK(PrettyPrint(*dict_type.dictionary(), indent_ + indent_size_, sink_));
+
+    std::stringstream ss;
+    ss << "child " << i << ", ";
+
+    indent_ += indent_size_;
+    WriteIndented(ss.str());
+    RETURN_NOT_OK(PrintField(*type.child(i)));
     indent_ -= indent_size_;
-  } else {
-    for (int i = 0; i < type.num_children(); ++i) {
-      Newline();
-
-      std::stringstream ss;
-      ss << "child " << i << ", ";
-
-      indent_ += indent_size_;
-      WriteIndented(ss.str());
-      RETURN_NOT_OK(PrintField(*type.child(i)));
-      indent_ -= indent_size_;
-    }
   }
   return Status::OK();
 }

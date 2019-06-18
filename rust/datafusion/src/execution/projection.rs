@@ -15,7 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Execution of a projection
+//! Defines the projection relation. A projection determines which columns or expressions
+//! are returned from a query. The SQL statement `SELECT a, b, a+b FROM t1` is an example
+//! of a projection on table `t1` where the expressions `a`, `b`, and `a+b` are the
+//! projection expressions.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -25,20 +28,24 @@ use arrow::array::ArrayRef;
 use arrow::datatypes::{Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use super::error::Result;
-use super::expression::RuntimeExpr;
-use super::relation::Relation;
+use crate::error::Result;
+use crate::execution::expression::CompiledExpr;
+use crate::execution::relation::Relation;
 
-pub struct ProjectRelation {
+/// Projection relation
+pub(super) struct ProjectRelation {
+    /// Schema for the result of the projection
     schema: Arc<Schema>,
+    /// The relation that the projection is being applied to
     input: Rc<RefCell<Relation>>,
-    expr: Vec<RuntimeExpr>,
+    /// Projection expressions
+    expr: Vec<CompiledExpr>,
 }
 
 impl ProjectRelation {
     pub fn new(
         input: Rc<RefCell<Relation>>,
-        expr: Vec<RuntimeExpr>,
+        expr: Vec<CompiledExpr>,
         schema: Arc<Schema>,
     ) -> Self {
         ProjectRelation {
@@ -54,17 +61,17 @@ impl Relation for ProjectRelation {
         match self.input.borrow_mut().next()? {
             Some(batch) => {
                 let projected_columns: Result<Vec<ArrayRef>> =
-                    self.expr.iter().map(|e| e.get_func()(&batch)).collect();
+                    self.expr.iter().map(|e| e.invoke(&batch)).collect();
 
                 let schema = Schema::new(
                     self.expr
                         .iter()
-                        .map(|e| Field::new(&e.get_name(), e.get_type(), true))
+                        .map(|e| Field::new(&e.name(), e.data_type().clone(), true))
                         .collect(),
                 );
 
                 let projected_batch: RecordBatch =
-                    RecordBatch::new(Arc::new(schema), projected_columns?);
+                    RecordBatch::try_new(Arc::new(schema), projected_columns?)?;
 
                 Ok(Some(projected_batch))
             }
@@ -79,13 +86,15 @@ impl Relation for ProjectRelation {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::logicalplan::Expr;
-    use super::super::context::ExecutionContext;
-    use super::super::datasource::CsvDataSource;
-    use super::super::expression;
-    use super::super::relation::DataSourceRelation;
     use super::*;
+    use crate::datasource::CsvBatchIterator;
+    use crate::execution::context::ExecutionContext;
+    use crate::execution::expression;
+    use crate::execution::relation::DataSourceRelation;
+    use crate::logicalplan::Expr;
     use arrow::datatypes::{DataType, Field, Schema};
+    use std::env;
+    use std::sync::Mutex;
 
     #[test]
     fn project_first_column() {
@@ -104,13 +113,18 @@ mod tests {
             Field::new("c11", DataType::Float64, false),
             Field::new("c12", DataType::Utf8, false),
         ]));
-        let ds = CsvDataSource::new(
-            "../../testing/data/csv/aggregate_test_100.csv",
+
+        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+
+        let ds = CsvBatchIterator::new(
+            &format!("{}/csv/aggregate_test_100.csv", testdata),
             schema.clone(),
+            true,
+            &None,
             1024,
         );
-        let relation = Rc::new(RefCell::new(DataSourceRelation::new(Rc::new(
-            RefCell::new(ds),
+        let relation = Rc::new(RefCell::new(DataSourceRelation::new(Arc::new(
+            Mutex::new(ds),
         ))));
         let context = ExecutionContext::new();
 

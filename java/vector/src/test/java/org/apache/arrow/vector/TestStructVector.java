@@ -69,4 +69,35 @@ public class TestStructVector {
       assertEquals(0, toChild.getValidityBuffer().capacity());
     }
   }
+
+  @Test
+  public void testAllocateAfterReAlloc() throws Exception {
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("k1", "v1");
+    FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
+    try (StructVector vector = new StructVector("struct", allocator, type, null)) {
+      MinorType childtype = MinorType.INT;
+      vector.addOrGet("intchild", FieldType.nullable(childtype.getType()), IntVector.class);
+
+      /*
+       * Allocate the default size, and then, reAlloc. This should double the allocation.
+       */
+      vector.allocateNewSafe(); // Initial allocation
+      vector.reAlloc(); // Double the allocation size of self, and all children.
+      int savedValidityBufferCapacity = vector.getValidityBuffer().capacity();
+      int savedValueCapacity = vector.getValueCapacity();
+
+      /*
+       * Clear and allocate again.
+       */
+      vector.clear();
+      vector.allocateNewSafe();
+
+      /*
+       * Verify that the buffer sizes haven't changed.
+       */
+      Assert.assertEquals(vector.getValidityBuffer().capacity(), savedValidityBufferCapacity);
+      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+    }
+  }
 }

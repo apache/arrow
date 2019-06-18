@@ -18,12 +18,29 @@
 #ifndef ARROW_UTIL_STL_H
 #define ARROW_UTIL_STL_H
 
+#include <memory>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace internal {
+
+template <typename T, typename... A>
+typename std::enable_if<!std::is_array<T>::value, std::unique_ptr<T>>::type make_unique(
+    A&&... args) {
+  return std::unique_ptr<T>(new T(std::forward<A>(args)...));
+}
+
+template <typename T>
+typename std::enable_if<std::is_array<T>::value && std::extent<T>::value == 0,
+                        std::unique_ptr<T>>::type
+make_unique(std::size_t n) {
+  using value_type = typename std::remove_extent<T>::type;
+  return std::unique_ptr<value_type[]>(new value_type[n]);
+}
 
 template <typename T>
 inline std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {

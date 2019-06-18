@@ -24,6 +24,7 @@ import { Vector as VType } from '../interfaces';
 import { VectorType as BufferType } from '../enum';
 import { UnionMode, DateUnit, TimeUnit } from '../enum';
 import { iterateBits, getBit, getBool } from '../util/bit';
+import { selectColumnChildrenArgs } from '../util/args';
 import {
     DataType,
     Float, Int, Date_, Interval, Time, Timestamp, Union,
@@ -59,15 +60,7 @@ export class JSONVectorAssembler extends Visitor {
 
     /** @nocollapse */
     public static assemble<T extends Column | RecordBatch>(...args: (T | T[])[]) {
-
-        const vectors = args.reduce(function flatten(xs: any[], x: any): any[] {
-            if (Array.isArray(x)) { return x.reduce(flatten, xs); }
-            if (!(x instanceof RecordBatch)) { return [...xs, x]; }
-            return xs.concat(x.schema.fields.map(
-                (f, i) => new Column(f, [x.getChildAt(i)!])));
-        }, []).filter((x: any): x is Column => x instanceof Column);
-
-        return new JSONVectorAssembler().visitMany(vectors);
+        return new JSONVectorAssembler().visitMany(selectColumnChildrenArgs(RecordBatch, args));
     }
 
     public visit<T extends Column>(column: T) {
@@ -84,7 +77,7 @@ export class JSONVectorAssembler extends Visitor {
             ...super.visit(Vector.new(data.clone(type, offset, length, 0, buffers)))
         };
     }
-    public visitNull() { return {}; }
+    public visitNull() { return { 'DATA': [] }; }
     public visitBool<T extends Bool>({ values, offset, length }: VType<T>) {
         return { 'DATA': [...iterateBits(values, offset, length, null, getBool)] };
     }
@@ -176,6 +169,6 @@ function* binaryToString(vector: Vector<Binary> | Vector<FixedSizeBinary>) {
 /** @ignore */
 function* bigNumsToStrings(values: Uint32Array | Int32Array, stride: number) {
     for (let i = -1, n = values.length / stride; ++i < n;) {
-        yield `${BN.new(values.subarray((i + 0) * stride, (i + 1) * stride))}`;
+        yield `${BN.new(values.subarray((i + 0) * stride, (i + 1) * stride), false)}`;
     }
 }

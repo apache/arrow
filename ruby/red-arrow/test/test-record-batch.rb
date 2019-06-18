@@ -108,5 +108,19 @@ class RecordBatchTest < Test::Unit::TestCase
       assert_equal(Arrow::Table.new(@schema, [@counts]),
                    @record_batch.to_table)
     end
+
+    sub_test_case("#==") do
+      test("Arrow::RecordBatch") do
+        assert do
+          @record_batch == @record_batch
+        end
+      end
+
+      test("not Arrow::RecordBatch") do
+        assert do
+          not (@record_batch == 29)
+        end
+      end
+    end
   end
 end

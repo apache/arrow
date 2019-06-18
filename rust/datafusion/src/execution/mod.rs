@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! DataFusion query execution
+
 pub mod aggregate;
 pub mod context;
-pub mod datasource;
-pub mod error;
 pub mod expression;
 pub mod filter;
-pub mod physicalplan;
+pub mod limit;
 pub mod projection;
 pub mod relation;
+pub mod scalar_relation;
+pub mod table_impl;

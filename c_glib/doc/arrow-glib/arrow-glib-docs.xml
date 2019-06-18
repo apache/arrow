@@ -42,14 +42,11 @@
       <title>Array</title>
       <xi:include href="xml/basic-array.xml"/>
       <xi:include href="xml/composite-array.xml"/>
+      <xi:include href="xml/compute.xml"/>
     </chapter>
     <chapter id="array-builder">
       <title>Array builder</title>
       <xi:include href="xml/array-builder.xml"/>
-    </chapter>
-    <chapter id="compute">
-      <title>Compute</title>
-      <xi:include href="xml/compute.xml"/>
     </chapter>
     <chapter id="decimal">
       <title>Decimal</title>
@@ -162,6 +159,10 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-14-0" role="0.14.0">
+    <title>Index of new symbols in 0.14.0</title>
+    <xi:include href="xml/api-index-0.14.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-13-0" role="0.13.0">
     <title>Index of new symbols in 0.13.0</title>

@@ -81,12 +81,12 @@ export abstract class ReadableInterop<T> {
         return this._getDOMStream().pipeThrough(duplex, options);
     }
 
-    private _DOMStream?: ReadableStream<T>;
+    protected _DOMStream?: ReadableStream<T>;
     private _getDOMStream() {
         return this._DOMStream || (this._DOMStream = this.toDOMStream());
     }
 
-    private _nodeStream?: import('stream').Readable;
+    protected _nodeStream?: import('stream').Readable;
     private _getNodeStream() {
         return this._nodeStream || (this._nodeStream = this.toNodeStream());
     }

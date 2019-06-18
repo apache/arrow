@@ -131,9 +131,9 @@ public class UnionReader extends AbstractFieldReader {
     writer.data.copyFrom(idx(), writer.idx(), data);
   }
 
-  <#list ["Object", "Integer", "Long", "Boolean",
-          "Character", "LocalDateTime", "Double", "Float",
-          "Text", "Byte", "Short", "byte[]"] as friendlyType>
+  <#list ["Object", "BigDecimal", "Short", "Integer", "Long", "Boolean",
+          "LocalDateTime", "Duration", "Period", "Double", "Float",
+          "Character", "Text", "Byte", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
 

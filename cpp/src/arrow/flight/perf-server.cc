@@ -29,17 +29,19 @@
 #include "arrow/io/test-common.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
+#include "arrow/util/logging.h"
 
+#include "arrow/flight/api.h"
+#include "arrow/flight/internal.h"
 #include "arrow/flight/perf.pb.h"
-#include "arrow/flight/server.h"
 #include "arrow/flight/test-util.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
 
 namespace perf = arrow::flight::perf;
 namespace proto = arrow::flight::protocol;
-
-using IpcPayload = arrow::ipc::internal::IpcPayload;
 
 namespace arrow {
 namespace flight {
@@ -71,10 +73,15 @@ class PerfDataStream : public FlightDataStream {
 
   std::shared_ptr<Schema> schema() override { return schema_; }
 
-  Status Next(IpcPayload* payload) override {
+  Status GetSchemaPayload(FlightPayload* payload) override {
+    return ipc::internal::GetSchemaPayload(*schema_, &dictionary_memo_,
+                                           &payload->ipc_message);
+  }
+
+  Status Next(FlightPayload* payload) override {
     if (records_sent_ >= total_records_) {
       // Signal that iteration is over
-      payload->metadata = nullptr;
+      payload->ipc_message.metadata = nullptr;
       return Status::OK();
     }
 
@@ -96,7 +103,8 @@ class PerfDataStream : public FlightDataStream {
     } else {
       records_sent_ += batch_length_;
     }
-    return ipc::internal::GetRecordBatchPayload(*batch, default_memory_pool(), payload);
+    return ipc::internal::GetRecordBatchPayload(*batch, default_memory_pool(),
+                                                &payload->ipc_message);
   }
 
  private:
@@ -106,6 +114,7 @@ class PerfDataStream : public FlightDataStream {
   const int64_t total_records_;
   int64_t records_sent_;
   std::shared_ptr<Schema> schema_;
+  ipc::DictionaryMemo dictionary_memo_;
   std::shared_ptr<RecordBatch> batch_;
   ArrayVector arrays_;
 };
@@ -118,8 +127,10 @@ Status GetPerfBatches(const perf::Token& token, const std::shared_ptr<Schema>& s
   const int32_t length = token.definition().records_per_batch();
   const int32_t ncolumns = 4;
   for (int i = 0; i < ncolumns; ++i) {
-    RETURN_NOT_OK(MakeRandomBuffer<int64_t>(length, default_memory_pool(), &buffer));
+    RETURN_NOT_OK(MakeRandomByteBuffer(length * sizeof(int64_t), default_memory_pool(),
+                                       &buffer, static_cast<int32_t>(i) /* seed */));
     arrays.push_back(std::make_shared<Int64Array>(length, buffer));
+    RETURN_NOT_OK(ValidateArray(*arrays.back()));
   }
 
   *data_stream = std::unique_ptr<FlightDataStream>(
@@ -130,12 +141,13 @@ Status GetPerfBatches(const perf::Token& token, const std::shared_ptr<Schema>& s
 
 class FlightPerfServer : public FlightServerBase {
  public:
-  FlightPerfServer() : location_(Location{"localhost", FLAGS_port}) {
+  FlightPerfServer() : location_() {
+    DCHECK_OK(Location::ForGrpcTcp("localhost", FLAGS_port, &location_));
     perf_schema_ = schema({field("a", int64()), field("b", int64()), field("c", int64()),
                            field("d", int64())});
   }
 
-  Status GetFlightInfo(const FlightDescriptor& request,
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override {
     perf::Perf perf_request;
     CHECK_PARSE(perf_request.ParseFromString(request.cmd));
@@ -165,7 +177,7 @@ class FlightPerfServer : public FlightServerBase {
     return Status::OK();
   }
 
-  Status DoGet(const Ticket& request,
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
     perf::Token token;
     CHECK_PARSE(token.ParseFromString(request.ticket));
@@ -191,12 +203,16 @@ void Shutdown(int signal) {
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  // SIGTERM shuts down the server
-  signal(SIGTERM, Shutdown);
-
   g_server.reset(new arrow::flight::FlightPerfServer);
 
-  // TODO(wesm): How can we tell if the server failed to start for some reason?
-  g_server->Run(FLAGS_port);
+  arrow::flight::Location location;
+  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  arrow::flight::FlightServerOptions options(location);
+
+  ARROW_CHECK_OK(g_server->Init(options));
+  // Exit with a clean error code (0) on SIGTERM
+  ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
+  std::cout << "Server port: " << FLAGS_port << std::endl;
+  ARROW_CHECK_OK(g_server->Serve());
   return 0;
 }

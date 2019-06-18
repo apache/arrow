@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.65)
 
-m4_define([arrow_glib_version], 0.13.0-SNAPSHOT)
+m4_define([arrow_glib_version], 0.14.0-SNAPSHOT)
 AC_INIT([arrow-glib],
         arrow_glib_version,
         [https://issues.apache.org/jira/browse/ARROW],
@@ -99,7 +99,10 @@ fi
 AC_SUBST(GARROW_CFLAGS)
 AC_SUBST(GARROW_CXXFLAGS)
 
-AM_PATH_GLIB_2_0([2.32.4], [], [], [gobject gio])
+AM_PATH_GLIB_2_0([2.32.4],
+                 [],
+                 [AC_MSG_ERROR(GLib isn't available)],
+                 [gobject gio])
 
 GOBJECT_INTROSPECTION_REQUIRE([1.32.1])
 GTK_DOC_CHECK([1.18-2])

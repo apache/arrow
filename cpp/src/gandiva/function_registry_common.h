@@ -46,14 +46,13 @@ using arrow::uint32;
 using arrow::uint64;
 using arrow::uint8;
 using arrow::utf8;
-using std::vector;
 
 inline DataTypePtr time32() { return arrow::time32(arrow::TimeUnit::MILLI); }
 
 inline DataTypePtr time64() { return arrow::time64(arrow::TimeUnit::MICRO); }
 
 inline DataTypePtr timestamp() { return arrow::timestamp(arrow::TimeUnit::MILLI); }
-inline DataTypePtr decimal128() { return arrow::decimal(0, 0); }
+inline DataTypePtr decimal128() { return arrow::decimal(38, 0); }
 
 struct KeyHash {
   std::size_t operator()(const FunctionSignature* k) const { return k->Hash(); }

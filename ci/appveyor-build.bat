@@ -17,16 +17,33 @@
 
 @echo on
 
-if "%JOB%" == "Rust" (
-    call ci\rust-build-main.bat
+IF /i "%JOB%" == "C#" goto csharp
+IF /i "%JOB%" == "rust" goto rust
+IF /i "%JOB%" == "go" goto golang
+
+@rem All other builds are C++ builds
+goto cpp
+
+:cpp
+git config core.symlinks true
+git reset --hard
+if "%JOB:~,5%" == "MinGW" (
+    call ci\appveyor-cpp-build-mingw.bat
 ) else (
-    git config core.symlinks true
-    git reset --hard
-    if "%JOB:~,5%" == "MinGW" (
-        call ci\appveyor-cpp-build-mingw.bat
-    ) else if "%JOB%" == "Cmake_Script_Tests" (
-        call ci\appveyor-cpp-test-cmake-script.bat
-    ) else (
-        call ci\appveyor-cpp-build.bat
-    )
+    call ci\appveyor-cpp-build.bat
 )
+goto scriptexit
+
+:csharp
+call ci\appveyor-csharp-build.bat
+goto scriptexit
+
+:rust
+call ci\rust-build-main.bat
+goto scriptexit
+
+:golang
+call ci\go-build-main.bat
+goto scriptexit
+
+:scriptexit

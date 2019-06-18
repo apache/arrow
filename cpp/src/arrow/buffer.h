@@ -18,7 +18,6 @@
 #ifndef ARROW_BUFFER_H
 #define ARROW_BUFFER_H
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -29,6 +28,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -62,14 +62,14 @@ class ARROW_EXPORT Buffer {
         size_(size),
         capacity_(size) {}
 
-  /// \brief Construct from std::string without copying memory
+  /// \brief Construct from string_view without copying memory
   ///
-  /// \param[in] data a std::string object
+  /// \param[in] data a string_view object
   ///
-  /// \note The std::string must stay alive for the lifetime of the Buffer, so
-  /// temporary rvalue strings must be stored in an lvalue somewhere
-  explicit Buffer(const std::string& data)
-      : Buffer(reinterpret_cast<const uint8_t*>(data.c_str()),
+  /// \note The memory viewed by data must not be deallocated in the lifetime of the
+  /// Buffer; temporary rvalue strings must be stored in an lvalue somewhere
+  explicit Buffer(util::string_view data)
+      : Buffer(reinterpret_cast<const uint8_t*>(data.data()),
                static_cast<int64_t>(data.size())) {}
 
   virtual ~Buffer() = default;
@@ -86,7 +86,13 @@ class ARROW_EXPORT Buffer {
     parent_ = parent;
   }
 
+  uint8_t operator[](std::size_t i) const { return data_[i]; }
+
   bool is_mutable() const { return is_mutable_; }
+
+  /// \brief Construct a new std::string with a hexadecimal representation of the buffer.
+  /// \return std::string
+  std::string ToHexString();
 
   /// Return true if both buffers are the same size and contain the same bytes
   /// up to the number of compared bytes
@@ -161,6 +167,12 @@ class ARROW_EXPORT Buffer {
   /// \note Can throw std::bad_alloc if buffer is large
   std::string ToString() const;
 
+  /// \brief View buffer contents as a util::string_view
+  /// \return util::string_view
+  explicit operator util::string_view() const {
+    return util::string_view(reinterpret_cast<const char*>(data_), size_);
+  }
+
   /// \brief Return a pointer to the buffer's data
   const uint8_t* data() const { return data_; }
   /// \brief Return a writable pointer to the buffer's data
@@ -198,6 +210,8 @@ class ARROW_EXPORT Buffer {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 
+using BufferVector = std::vector<std::shared_ptr<Buffer>>;
+
 /// \defgroup buffer-slicing-functions Functions for slicing buffers
 ///
 /// @{
@@ -227,6 +241,16 @@ static inline std::shared_ptr<Buffer> SliceBuffer(const std::shared_ptr<Buffer>&
 ARROW_EXPORT
 std::shared_ptr<Buffer> SliceMutableBuffer(const std::shared_ptr<Buffer>& buffer,
                                            const int64_t offset, const int64_t length);
+
+/// \brief Like SliceBuffer, but construct a mutable buffer slice.
+///
+/// If the parent buffer is not mutable, behavior is undefined (it may abort
+/// in debug builds).
+static inline std::shared_ptr<Buffer> SliceMutableBuffer(
+    const std::shared_ptr<Buffer>& buffer, const int64_t offset) {
+  int64_t length = buffer->size() - offset;
+  return SliceMutableBuffer(buffer, offset, length);
+}
 
 /// @}
 
@@ -401,6 +425,17 @@ Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
 /// \return Status message
 ARROW_EXPORT
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out);
+
+/// \brief Concatenate multiple buffers into a single buffer
+///
+/// \param[in] buffers to be concatenated
+/// \param[in] pool memory pool to allocate the new buffer from
+/// \param[out] out the concatenated buffer
+///
+/// \return Status
+ARROW_EXPORT
+Status ConcatenateBuffers(const BufferVector& buffers, MemoryPool* pool,
+                          std::shared_ptr<Buffer>* out);
 
 /// @}
 

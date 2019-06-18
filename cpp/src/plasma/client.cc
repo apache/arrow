@@ -105,7 +105,7 @@ static std::mutex gpu_mutex;
 // PlasmaBuffer
 
 /// A Buffer class that automatically releases the backing plasma object
-/// when it goes out of scope.
+/// when it goes out of scope. This is returned by Get.
 class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
  public:
   ~PlasmaBuffer();
@@ -121,6 +121,19 @@ class ARROW_NO_EXPORT PlasmaBuffer : public Buffer {
  private:
   std::shared_ptr<PlasmaClient::Impl> client_;
   ObjectID object_id_;
+};
+
+/// A mutable Buffer class that keeps the backing data alive by keeping a
+/// PlasmaClient shared pointer. This is returned by Create. Release will
+/// be called in the associated Seal call.
+class ARROW_NO_EXPORT PlasmaMutableBuffer : public MutableBuffer {
+ public:
+  PlasmaMutableBuffer(std::shared_ptr<PlasmaClient::Impl> client, uint8_t* mutable_data,
+                      int64_t data_size)
+      : MutableBuffer(mutable_data, data_size), client_(client) {}
+
+ private:
+  std::shared_ptr<PlasmaClient::Impl> client_;
 };
 
 // ----------------------------------------------------------------------
@@ -140,13 +153,47 @@ struct ObjectInUseEntry {
   bool is_sealed;
 };
 
-struct ClientMmapTableEntry {
+class ClientMmapTableEntry {
+ public:
+  ClientMmapTableEntry(int fd, int64_t map_size)
+      : fd_(fd), pointer_(nullptr), length_(0) {
+    // We subtract kMmapRegionsGap from the length that was added
+    // in fake_mmap in malloc.h, to make map_size page-aligned again.
+    length_ = map_size - kMmapRegionsGap;
+    pointer_ = reinterpret_cast<uint8_t*>(
+        mmap(NULL, length_, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+    // TODO(pcm): Don't fail here, instead return a Status.
+    if (pointer_ == MAP_FAILED) {
+      ARROW_LOG(FATAL) << "mmap failed";
+    }
+    close(fd);  // Closing this fd has an effect on performance.
+  }
+
+  ~ClientMmapTableEntry() {
+    // At this point it is safe to unmap the memory, as the PlasmaBuffer
+    // keeps the PlasmaClient (and therefore the ClientMmapTableEntry)
+    // alive until it is destroyed.
+    // We don't need to close the associated file, since it has
+    // already been closed in the constructor.
+    int r = munmap(pointer_, length_);
+    if (r != 0) {
+      ARROW_LOG(ERROR) << "munmap returned " << r << ", errno = " << errno;
+    }
+  }
+
+  uint8_t* pointer() { return pointer_; }
+
+  int fd() { return fd_; }
+
+ private:
   /// The associated file descriptor on the client.
-  int fd;
+  int fd_;
   /// The result of mmap for this file descriptor.
-  uint8_t* pointer;
+  uint8_t* pointer_;
   /// The length of the memory-mapped file.
-  size_t length;
+  size_t length_;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ClientMmapTableEntry);
 };
 
 class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Impl> {
@@ -200,6 +247,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   bool IsInUse(const ObjectID& object_id);
 
+  int64_t store_capacity() { return store_capacity_; }
+
  private:
   /// Check if store_fd has already been received from the store. If yes,
   /// return it. Otherwise, receive it from the store (see analogous logic
@@ -242,7 +291,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   /// Table of dlmalloc buffer files that have been memory mapped so far. This
   /// is a hash table mapping a file descriptor to a struct containing the
   /// address of the corresponding memory-mapped file.
-  std::unordered_map<int, ClientMmapTableEntry> mmap_table_;
+  std::unordered_map<int, std::unique_ptr<ClientMmapTableEntry>> mmap_table_;
   /// A hash table of the object IDs that are currently being used by this
   /// client.
   std::unordered_map<ObjectID, std::unique_ptr<ObjectInUseEntry>> objects_in_use_;
@@ -275,23 +324,11 @@ PlasmaClient::Impl::~Impl() {}
 uint8_t* PlasmaClient::Impl::LookupOrMmap(int fd, int store_fd_val, int64_t map_size) {
   auto entry = mmap_table_.find(store_fd_val);
   if (entry != mmap_table_.end()) {
-    return entry->second.pointer;
+    return entry->second->pointer();
   } else {
-    // We subtract kMmapRegionsGap from the length that was added
-    // in fake_mmap in malloc.h, to make map_size page-aligned again.
-    uint8_t* result = reinterpret_cast<uint8_t*>(mmap(
-        NULL, map_size - kMmapRegionsGap, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
-    // TODO(pcm): Don't fail here, instead return a Status.
-    if (result == MAP_FAILED) {
-      ARROW_LOG(FATAL) << "mmap failed";
-    }
-    close(fd);  // Closing this fd has an effect on performance.
-
-    ClientMmapTableEntry& entry = mmap_table_[store_fd_val];
-    entry.fd = fd;
-    entry.pointer = result;
-    entry.length = map_size;
-    return result;
+    mmap_table_[store_fd_val] =
+        std::unique_ptr<ClientMmapTableEntry>(new ClientMmapTableEntry(fd, map_size));
+    return mmap_table_[store_fd_val]->pointer();
   }
 }
 
@@ -300,7 +337,7 @@ uint8_t* PlasmaClient::Impl::LookupOrMmap(int fd, int store_fd_val, int64_t map_
 uint8_t* PlasmaClient::Impl::LookupMmappedFile(int store_fd_val) {
   auto entry = mmap_table_.find(store_fd_val);
   ARROW_CHECK(entry != mmap_table_.end());
-  return entry->second.pointer;
+  return entry->second->pointer();
 }
 
 bool PlasmaClient::Impl::IsInUse(const ObjectID& object_id) {
@@ -315,7 +352,7 @@ int PlasmaClient::Impl::GetStoreFd(int store_fd) {
     ARROW_CHECK(fd >= 0) << "recv not successful";
     return fd;
   } else {
-    return entry->second.fd;
+    return entry->second->fd();
   }
 }
 
@@ -367,8 +404,9 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
     ARROW_CHECK(object.metadata_size == metadata_size);
     // The metadata should come right after the data.
     ARROW_CHECK(object.metadata_offset == object.data_offset + data_size);
-    *data = std::make_shared<MutableBuffer>(
-        LookupOrMmap(fd, store_fd, mmap_size) + object.data_offset, data_size);
+    *data = std::make_shared<PlasmaMutableBuffer>(
+        shared_from_this(), LookupOrMmap(fd, store_fd, mmap_size) + object.data_offset,
+        data_size);
     // If plasma_create is being called from a transfer, then we will not copy the
     // metadata here. The metadata will be written along with the data streamed
     // from the transfer.
@@ -378,12 +416,15 @@ Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
     }
   } else {
 #ifdef PLASMA_CUDA
-    std::lock_guard<std::mutex> lock(gpu_mutex);
     std::shared_ptr<CudaContext> context;
     RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context));
     GpuProcessHandle* handle = new GpuProcessHandle();
+    handle->client_count = 2;
     RETURN_NOT_OK(context->OpenIpcBuffer(*object.ipc_handle, &handle->ptr));
-    gpu_object_map[object_id] = handle;
+    {
+      std::lock_guard<std::mutex> lock(gpu_mutex);
+      gpu_object_map[object_id] = handle;
+    }
     *data = handle->ptr;
     if (metadata != NULL) {
       // Copy the metadata to the buffer.
@@ -462,7 +503,11 @@ Status PlasmaClient::Impl::GetBuffers(
             data + object->data_offset, object->data_size + object->metadata_size);
       } else {
 #ifdef PLASMA_CUDA
-        physical_buf = gpu_object_map.find(object_ids[i])->second->ptr;
+        std::lock_guard<std::mutex> lock(gpu_mutex);
+        auto iter = gpu_object_map.find(object_ids[i]);
+        ARROW_CHECK(iter != gpu_object_map.end());
+        iter->second->client_count++;
+        physical_buf = iter->second->ptr;
 #else
         ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
 #endif
@@ -530,11 +575,12 @@ Status PlasmaClient::Impl::GetBuffers(
           std::shared_ptr<CudaContext> context;
           RETURN_NOT_OK(manager_->GetContext(object->device_num - 1, &context));
           GpuProcessHandle* obj_handle = new GpuProcessHandle();
+          obj_handle->client_count = 1;
           RETURN_NOT_OK(context->OpenIpcBuffer(*object->ipc_handle, &obj_handle->ptr));
           gpu_object_map[object_ids[i]] = obj_handle;
           physical_buf = obj_handle->ptr;
         } else {
-          handle->second->client_count += 1;
+          handle->second->client_count++;
           physical_buf = handle->second->ptr;
         }
 #else
@@ -595,6 +641,19 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
   }
   auto object_entry = objects_in_use_.find(object_id);
   ARROW_CHECK(object_entry != objects_in_use_.end());
+
+#ifdef PLASMA_CUDA
+  if (object_entry->second->object.device_num != 0) {
+    std::lock_guard<std::mutex> lock(gpu_mutex);
+    auto iter = gpu_object_map.find(object_id);
+    ARROW_CHECK(iter != gpu_object_map.end());
+    if (--iter->second->client_count == 0) {
+      delete iter->second;
+      gpu_object_map.erase(iter);
+    }
+  }
+#endif
+
   object_entry->second->count -= 1;
   ARROW_CHECK(object_entry->second->count >= 0);
   // Check if the client is no longer using this object.
@@ -747,6 +806,17 @@ Status PlasmaClient::Impl::Abort(const ObjectID& object_id) {
   if (object_entry->second->count > 1) {
     return Status::Invalid("Plasma client cannot have a reference to the buffer.");
   }
+
+#ifdef PLASMA_CUDA
+  if (object_entry->second->object.device_num != 0) {
+    std::lock_guard<std::mutex> lock(gpu_mutex);
+    auto iter = gpu_object_map.find(object_id);
+    ARROW_CHECK(iter != gpu_object_map.end());
+    ARROW_CHECK(iter->second->client_count == 1);
+    delete iter->second;
+    gpu_object_map.erase(iter);
+  }
+#endif
 
   // Send the abort request.
   RETURN_NOT_OK(SendAbortRequest(store_conn_, object_id));
@@ -967,5 +1037,7 @@ Status PlasmaClient::Disconnect() { return impl_->Disconnect(); }
 bool PlasmaClient::IsInUse(const ObjectID& object_id) {
   return impl_->IsInUse(object_id);
 }
+
+int64_t PlasmaClient::store_capacity() { return impl_->store_capacity(); }
 
 }  // namespace plasma

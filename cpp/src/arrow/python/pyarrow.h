@@ -39,6 +39,7 @@ class Tensor;
 
 namespace py {
 
+// Returns 0 on success, -1 on error.
 ARROW_PYTHON_EXPORT int import_pyarrow();
 
 ARROW_PYTHON_EXPORT bool is_buffer(PyObject* buffer);

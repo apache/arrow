@@ -30,8 +30,8 @@
 #include "parquet/arrow/writer.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"
+#include "parquet/schema-internal.h"
 #include "parquet/types.h"
-#include "parquet/util/schema-util.h"
 
 using arrow::Field;
 using arrow::Status;
@@ -196,6 +196,11 @@ Status FromPrimitive(const PrimitiveNode& primitive, std::shared_ptr<ArrowType>*
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
       RETURN_NOT_OK(FromFLBA(primitive, out));
       break;
+    default: {
+      // PARQUET-1565: This can occur if the file is corrupt
+      return Status::IOError("Invalid physical column type: ",
+                             TypeToString(primitive.physical_type()));
+    }
   }
   return Status::OK();
 }
@@ -250,7 +255,7 @@ Status NodeToList(const GroupNode& group,
       // Special case mentioned in the format spec:
       //   If the name is array or ends in _tuple, this should be a list of struct
       //   even for single child elements.
-      if (list_group.field_count() == 1 && !HasStructListName(list_group)) {
+      if (list_group.field_count() == 1 && !schema::HasStructListName(list_group)) {
         // List of primitive type
         std::shared_ptr<Field> item_field;
         RETURN_NOT_OK(
@@ -609,9 +614,8 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       // the encoding, not the schema level.
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(*field->type());
-      std::shared_ptr<::arrow::Field> unpacked_field =
-          ::arrow::field(field->name(), dict_type.dictionary()->type(), field->nullable(),
-                         field->metadata());
+      std::shared_ptr<::arrow::Field> unpacked_field = ::arrow::field(
+          field->name(), dict_type.value_type(), field->nullable(), field->metadata());
       return FieldToNode(unpacked_field, properties, arrow_properties, out);
     }
     default: {

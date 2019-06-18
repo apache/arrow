@@ -23,6 +23,10 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 
+/**
+ * A dictionary (integer to Value mapping) that is used to facilitate
+ * dictionary encoding compression.
+ */
 public class Dictionary {
 
   private final DictionaryEncoding encoding;

@@ -24,7 +24,6 @@
 
 #include "arrow/buffer.h"
 #include "arrow/util/bit-stream-utils.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
@@ -104,9 +103,10 @@ ReaderProperties default_reader_properties() {
 // and the page metadata.
 class SerializedPageReader : public PageReader {
  public:
-  SerializedPageReader(std::unique_ptr<InputStream> stream, int64_t total_num_rows,
-                       Compression::type codec, ::arrow::MemoryPool* pool)
-      : stream_(std::move(stream)),
+  SerializedPageReader(const std::shared_ptr<ArrowInputStream>& stream,
+                       int64_t total_num_rows, Compression::type codec,
+                       ::arrow::MemoryPool* pool)
+      : stream_(stream),
         decompression_buffer_(AllocateBuffer(pool, 0)),
         seen_num_rows_(0),
         total_num_rows_(total_num_rows) {
@@ -120,7 +120,7 @@ class SerializedPageReader : public PageReader {
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
  private:
-  std::unique_ptr<InputStream> stream_;
+  std::shared_ptr<ArrowInputStream> stream_;
 
   format::PageHeader current_page_header_;
   std::shared_ptr<Page> current_page_;
@@ -143,25 +143,24 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
   while (seen_num_rows_ < total_num_rows_) {
-    int64_t bytes_read = 0;
-    int64_t bytes_available = 0;
     uint32_t header_size = 0;
-    const uint8_t* buffer;
     uint32_t allowed_page_size = kDefaultPageHeaderSize;
 
     // Page headers can be very large because of page statistics
     // We try to deserialize a larger buffer progressively
     // until a maximum allowed header limit
     while (true) {
-      buffer = stream_->Peek(allowed_page_size, &bytes_available);
-      if (bytes_available == 0) {
+      string_view buffer;
+      PARQUET_THROW_NOT_OK(stream_->Peek(allowed_page_size, &buffer));
+      if (buffer.size() == 0) {
         return std::shared_ptr<Page>(nullptr);
       }
 
       // This gets used, then set by DeserializeThriftMsg
-      header_size = static_cast<uint32_t>(bytes_available);
+      header_size = static_cast<uint32_t>(buffer.size());
       try {
-        DeserializeThriftMsg(buffer, &header_size, &current_page_header_);
+        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
+                             &header_size, &current_page_header_);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -175,17 +174,18 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       }
     }
     // Advance the stream offset
-    stream_->Advance(header_size);
+    PARQUET_THROW_NOT_OK(stream_->Advance(header_size));
 
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
 
     // Read the compressed data page.
-    buffer = stream_->Read(compressed_len, &bytes_read);
-    if (bytes_read != compressed_len) {
+    std::shared_ptr<Buffer> page_buffer;
+    PARQUET_THROW_NOT_OK(stream_->Read(compressed_len, &page_buffer));
+    if (page_buffer->size() != compressed_len) {
       std::stringstream ss;
-      ss << "Page was smaller (" << bytes_read << ") than expected (" << compressed_len
-         << ")";
+      ss << "Page was smaller (" << page_buffer->size() << ") than expected ("
+         << compressed_len << ")";
       ParquetException::EofException(ss.str());
     }
 
@@ -196,12 +196,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
       }
       PARQUET_THROW_NOT_OK(
-          decompressor_->Decompress(compressed_len, buffer, uncompressed_len,
+          decompressor_->Decompress(compressed_len, page_buffer->data(), uncompressed_len,
                                     decompression_buffer_->mutable_data()));
-      buffer = decompression_buffer_->data();
+      page_buffer = decompression_buffer_;
     }
-
-    auto page_buffer = std::make_shared<Buffer>(buffer, uncompressed_len);
 
     if (current_page_header_.type == format::PageType::DICTIONARY_PAGE) {
       const format::DictionaryPageHeader& dict_header =
@@ -234,7 +232,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       seen_num_rows_ += header.num_values;
 
-      return std::make_shared<DataPage>(
+      return std::make_shared<DataPageV1>(
           page_buffer, header.num_values, FromThrift(header.encoding),
           FromThrift(header.definition_level_encoding),
           FromThrift(header.repetition_level_encoding), page_statistics);
@@ -257,12 +255,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
-std::unique_ptr<PageReader> PageReader::Open(std::unique_ptr<InputStream> stream,
-                                             int64_t total_num_rows,
-                                             Compression::type codec,
-                                             ::arrow::MemoryPool* pool) {
+std::unique_ptr<PageReader> PageReader::Open(
+    const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
+    Compression::type codec, ::arrow::MemoryPool* pool) {
   return std::unique_ptr<PageReader>(
-      new SerializedPageReader(std::move(stream), total_num_rows, codec, pool));
+      new SerializedPageReader(stream, total_num_rows, codec, pool));
 }
 
 // ----------------------------------------------------------------------
@@ -613,27 +610,27 @@ bool TypedColumnReaderImpl<DType>::ReadNewPage() {
       ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
       continue;
     } else if (current_page_->type() == PageType::DATA_PAGE) {
-      const DataPage* page = static_cast<const DataPage*>(current_page_.get());
+      const DataPageV1& page = static_cast<const DataPageV1&>(*current_page_);
 
       // Read a data page.
-      num_buffered_values_ = page->num_values();
+      num_buffered_values_ = page.num_values();
 
       // Have not decoded any values from the data page yet
       num_decoded_values_ = 0;
 
-      buffer = page->data();
+      buffer = page.data();
 
       // If the data page includes repetition and definition levels, we
       // initialize the level decoder and subtract the encoded level bytes from
       // the page size to determine the number of bytes in the encoded data.
-      int64_t data_size = page->size();
+      int64_t data_size = page.size();
 
       // Data page Layout: Repetition Levels - Definition Levels - encoded values.
       // Levels are encoded as rle or bit-packed.
       // Init repetition levels
       if (descr_->max_repetition_level() > 0) {
         int64_t rep_levels_bytes = repetition_level_decoder_.SetData(
-            page->repetition_level_encoding(), descr_->max_repetition_level(),
+            page.repetition_level_encoding(), descr_->max_repetition_level(),
             static_cast<int>(num_buffered_values_), buffer);
         buffer += rep_levels_bytes;
         data_size -= rep_levels_bytes;
@@ -644,7 +641,7 @@ bool TypedColumnReaderImpl<DType>::ReadNewPage() {
       // Init definition levels
       if (descr_->max_definition_level() > 0) {
         int64_t def_levels_bytes = definition_level_decoder_.SetData(
-            page->definition_level_encoding(), descr_->max_definition_level(),
+            page.definition_level_encoding(), descr_->max_definition_level(),
             static_cast<int>(num_buffered_values_), buffer);
         buffer += def_levels_bytes;
         data_size -= def_levels_bytes;
@@ -652,7 +649,7 @@ bool TypedColumnReaderImpl<DType>::ReadNewPage() {
 
       // Get a decoder object for this page or create a new decoder if this is the
       // first page with this encoding.
-      Encoding::type encoding = page->encoding();
+      Encoding::type encoding = page.encoding();
 
       if (IsDictionaryIndexEncoding(encoding)) {
         encoding = Encoding::RLE_DICTIONARY;

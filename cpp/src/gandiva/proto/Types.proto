@@ -66,8 +66,9 @@ enum TimeUnit {
 }
 
 enum SelectionVectorType {
-  SV_INT16 = 0;
-  SV_INT32 = 1;
+  SV_NONE = 0;
+  SV_INT16 = 1;
+  SV_INT32 = 2;
 }
 
 message ExtGandivaType {

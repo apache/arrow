@@ -17,6 +17,572 @@
   under the License.
 -->
 
+# Apache Arrow 0.13.0 (28 March 2019)
+
+## Bug
+
+* ARROW-2392 - [Python] pyarrow RecordBatchStreamWriter allows writing batches with different schemas
+* ARROW-295 - Create DOAP File
+* ARROW-3086 - [Glib] GISCAN fails due to conda-shipped openblas
+* ARROW-3096 - [Python] Update Python source build instructions given Anaconda/conda-forge toolchain migration
+* ARROW-3133 - [C++] Logical boolean kernels in kernels/boolean.cc cannot write into preallocated memory
+* ARROW-3208 - [C++] Segmentation fault when casting dictionary to numeric with nullptr valid\_bitmap 
+* ARROW-3564 - [Python] writing version 2.0 parquet format with dictionary encoding enabled
+* ARROW-3578 - [Release] Address spurious Apache RAT failures in source release script
+* ARROW-3593 - [R] CI builds failing due to GitHub API rate limits
+* ARROW-3606 - [Python] flake8 fails on Crossbow
+* ARROW-3669 - [Python] Convert big-endian numbers or raise error in pyarrow.array
+* ARROW-3843 - [Python] Writing Parquet file from empty table created with Table.from\_pandas(..., preserve\_index=False) fails
+* ARROW-3923 - [Java] JDBC-to-Arrow Conversion: Unnecessary Calendar Requirement
+* ARROW-4081 - [Go] Sum methods on Mac OS X panic when the array is empty
+* ARROW-4104 - [Java] race in AllocationManager during release
+* ARROW-4117 - [Python] "asv dev" command fails with latest revision
+* ARROW-4181 - [Python] TestConvertStructTypes.test\_from\_numpy\_large failing
+* ARROW-4192 - "./dev/run\_docker\_compose.sh" is out of date
+* ARROW-4213 - [Flight] C++ and Java implementations are incompatible
+* ARROW-4244 - Clarify language around padding/alignment
+* ARROW-4250 - [C++][Gandiva] Use approximate comparisons for floating point numbers in gandiva-projector-test
+* ARROW-4252 - [C++] Status error context strings missing lines of code
+* ARROW-4253 - [GLib] Cannot use non-system Boost specified with $BOOST\_ROOT
+* ARROW-4254 - [C++] Gandiva tests fail to compile with Boost in Ubuntu 14.04 apt
+* ARROW-4255 - [C++] Schema::GetFieldIndex is not thread-safe
+* ARROW-4261 - [C++] CMake paths for IPC, Flight, Thrift, and Plasma don't support using Arrow as a subproject
+* ARROW-4264 - [C++] Document why DCHECKs are used in kernels
+* ARROW-4267 - [Python/C++][Parquet] Segfault when reading rowgroups with duplicated columns
+* ARROW-4274 - [Gandiva] static jni library broken after decimal changes
+* ARROW-4275 - [C++] gandiva-decimal\_single\_test extremely slow
+* ARROW-4280 - [C++][Documentation] It looks like flex and bison are required for parquet
+* ARROW-4282 - [Rust] builder benchmark is broken
+* ARROW-4284 - [C#] File / Stream serialization fails due to type mismatch / missing footer
+* ARROW-4295 - [Plasma] Incorrect log message when evicting objects
+* ARROW-4296 - [Plasma] Starting Plasma store with use\_one\_memory\_mapped\_file enabled crashes due to improper memory alignment
+* ARROW-4312 - [C++] Lint doesn't work anymore ("[Errno 24] Too many open files")
+* ARROW-4319 - plasma/store.h pulls ins flatbuffer dependency
+* ARROW-4322 - [CI] docker nightlies fails after conda-forge compiler migration
+* ARROW-4323 - [Packaging] Fix failing OSX clang conda forge builds
+* ARROW-4326 - [C++] Development instructions in python/development.rst will not work for many Linux distros with new conda-forge toolchain
+* ARROW-4327 - [Python] Add requirements-build.txt file to simplify setting up Python build environment
+* ARROW-4328 - Make R build compatible with DARROW\_TENSORFLOW=ON
+* ARROW-4329 - Python should include the parquet headers
+* ARROW-4342 - [Gandiva][Java] spurious failures in projector cache test
+* ARROW-4347 - [Python] Run Python Travis CI unit tests on Linux when Java codebase changed
+* ARROW-4349 - [C++] Build all benchmarks on Windows without failing
+* ARROW-4351 - [C++] Fail to build with static parquet
+* ARROW-4355 - [C++] test-util functions are no longer part of libarrow
+* ARROW-4360 - [C++] Query homebrew for Thrift
+* ARROW-4364 - [C++] Fix -weverything -wextra compilation errors
+* ARROW-4366 - [Docs] Change extension from format/README.md to format/README.rst
+* ARROW-4367 - [C++] StringDictionaryBuilder segfaults on Finish with only null entries
+* ARROW-4368 - Bintray repository signature verification fails
+* ARROW-4370 - [Python] Table to pandas conversion fails for list of bool
+* ARROW-4374 - [C++] DictionaryBuilder does not correctly report length and null\_count
+* ARROW-4381 - [Docker] docker-compose build lint fails
+* ARROW-4385 - [Python] default\_version of a release should not include SNAPSHOT
+* ARROW-4389 - [R] Installing clang-tools in CI is failing on trusty
+* ARROW-4395 - ts-node throws type error running \`bin/arrow2csv.js\`
+* ARROW-4400 - [CI] install of clang tools failing
+* ARROW-4403 - [Rust] CI fails due to formatting errors
+* ARROW-4404 - [CI] AppVeyor toolchain build does not build anything
+* ARROW-4407 - [C++] ExternalProject\_Add does not capture CC/CXX correctly
+* ARROW-4410 - [C++] Fix InvertKernel edge cases
+* ARROW-4413 - [Python] pyarrow.hdfs.connect() failing
+* ARROW-4414 - [C++] Stop using cmake COMMAND\_EXPAND\_LISTS because it breaks package builds for older distros
+* ARROW-4417 - [C++] Doc build broken
+* ARROW-4420 - [INTEGRATION] Make spark integration test pass and test against spark's master branch
+* ARROW-4421 - [Flight][C++] Handle large Flight data messages
+* ARROW-4434 - [Python] Cannot create empty StructArray via pa.StructArray.from\_arrays
+* ARROW-4440 - [C++] Fix flatbuffers build using msvc
+* ARROW-4457 - [Python] Cannot create Decimal128 array using integers
+* ARROW-4469 - [Python][C++] CI Failing for Python 2.7 and 3.6 with valgrind
+* ARROW-4471 - [C++] Pass AR and RANLIB to all external projects
+* ARROW-4474 - [Flight] FlightInfo should use signed integer types for payload size
+* ARROW-4496 - [CI] CI failing for python Xcode 7.3
+* ARROW-4498 - [Plasma] Plasma fails building with CUDA enabled
+* ARROW-4500 - [C++] librt and pthread hacks can cause linking problems
+* ARROW-4501 - [C++] Unique returns non-unique strings
+* ARROW-4525 - [Rust] [Parquet] Convert ArrowError to ParquetError
+* ARROW-4527 - [Packaging] Update linux packaging tasks to align with the LLVM 7 migration
+* ARROW-4532 - [Java] varchar value buffer much larger than expected
+* ARROW-4533 - [Python] Document how to run hypothesis tests
+* ARROW-4535 - [C++] Fix MakeBuilder to preserve ListType's field name
+* ARROW-4536 - Add data\_type argument in garrow\_list\_array\_new
+* ARROW-4538 - [PYTHON] Remove index column from subschema in write\_to\_dataframe
+* ARROW-4549 - [C++] Can't build benchmark code on CUDA enabled build
+* ARROW-4550 - [JS] Fix AMD pattern
+* ARROW-4559 - [Python] pyarrow can't read/write filenames with special characters
+* ARROW-4563 - [Python] pa.decimal128 should validate inputs
+* ARROW-4571 - [Format] Tensor.fbs file has multiple root\_type declarations
+* ARROW-4576 - [Python] Benchmark failures
+* ARROW-4577 - [C++] Interface link libraries declared on arrow\_shared target that are actually non-interface
+* ARROW-4581 - [C++] gbenchmark\_ep is a dependency of unit tests when ARROW\_BUILD\_BENCHMARKS=ON
+* ARROW-4582 - [C++/Python] Memory corruption on Pandas->Arrow conversion
+* ARROW-4584 - [Python] Add built wheel to manylinux1 dockerignore.
+* ARROW-4585 - [C++] Dependency of Flight C++ sources on generated protobuf is not respected
+* ARROW-4587 - Flight C++ DoPut segfaults
+* ARROW-4597 - [C++] Targets for system Google Mock shared library are missing
+* ARROW-4601 - [Python] Master build is broken due to missing licence for .dockerignore
+* ARROW-4608 - [C++] cmake script assumes that double-conversion installs static libs
+* ARROW-4617 - [C++] Support double-conversion<3.1
+* ARROW-4624 - [C++] Linker errors when building benchmarks
+* ARROW-4629 - [Python] Pandas to arrow conversion slowed down by local imports
+* ARROW-4639 - [CI] Crossbow build failing for Gandiva jars
+* ARROW-4641 - [C++] Flight builds complain of -Wstrict-aliasing 
+* ARROW-4642 - [R] Change \`f\` to \`file\` in \`read\_parquet\_file()\`
+* ARROW-4654 - [C++] Implicit Flight target dependencies cause compilation failure
+* ARROW-4657 - [Release] gbenchmark should not be needed for verification
+* ARROW-4658 - [C++] Shared gflags is also a run-time conda requirement
+* ARROW-4659 - [CI] ubuntu/debian nightlies fail because of missing gandiva files
+* ARROW-4660 - [C++] gflags fails to build due to CMake error
+* ARROW-4664 - [C++] DCHECK macro conditions are evaluated in release builds
+* ARROW-4669 - [Java] No Bounds checking on ArrowBuf.slice
+* ARROW-4672 - [C++] clang-7 matrix entry is build using gcc
+* ARROW-4680 - [CI] [Rust] Travis CI builds fail with latest Rust 1.34.0-nightly (2019-02-25)
+* ARROW-4684 - [Python] CI failures in test\_cython.py
+* ARROW-4687 - [Python] FlightServerBase.run should exit on Ctrl-C
+* ARROW-4688 - [C++][Parquet] 16MB limit on (nested) column chunk prevents tuning row\_group\_size
+* ARROW-4696 - Verify release script is over optimist with CUDA detection
+* ARROW-4699 - [C++] json parser should not rely on null terminated buffers
+* ARROW-4710 - [C++][R] New linting script skip files with "cpp" extension
+* ARROW-4712 - [C++][CI] Clang7 Valgrind complains when not move shared\_ptr
+* ARROW-4721 - [Rust] [DataFusion] Propagate schema in filter
+* ARROW-4728 - [JS] Failing test Table#assign with a zero-length Null column round-trips through serialization
+* ARROW-4737 - [C#] tests are not running in CI
+* ARROW-4744 - [CI][C++] Mingw32 builds failing
+* ARROW-4750 - [C++] RapidJSON triggers Wclass-memaccess on GCC 8+
+* ARROW-4760 - [C++] protobuf 3.7 defines EXPECT\_OK that clashes with Arrow's macro
+* ARROW-4766 - [C++] Casting empty boolean array causes segfault
+* ARROW-4767 - [C#] ArrowStreamReader crashes while reading the end of a stream
+* ARROW-4774 - [C++][Parquet] Call Table::Validate when writing a table
+* ARROW-4775 - [Website] Site navbar cannot be expanded
+* ARROW-4783 - [C++][CI] Mingw32 builds sometimes timeout
+* ARROW-4796 - [Flight][Python] segfault in simple server implementation
+* ARROW-4802 - [Python] Hadoop classpath discovery broken HADOOP\_HOME is a symlink
+* ARROW-4807 - [Rust] Fix csv\_writer benchmark
+* ARROW-4811 - [C++] An incorrect dependency leads "ninja" to re-evaluate steps unnecessarily on subsequent calls
+* ARROW-4820 - [Python] hadoop class path derived not correct
+* ARROW-4822 - [C++/Python] pyarrow.Table.equals segmentation fault on None
+* ARROW-4828 - [Python] manylinux1 docker-compose context should be python/manylinux1
+* ARROW-4850 - [CI] Integration test failures do not fail the Travis CI build
+* ARROW-4853 - [Rust] Array slice doesn't work on ListArray and StructArray
+* ARROW-4857 - [C++/Python/CI] docker-compose in manylinux1 crossbow jobs too old
+* ARROW-4866 - [C++] zstd ExternalProject failing on Windows
+* ARROW-4867 - [Python] Table.from\_pandas() column order not respected
+* ARROW-4869 - [C++] Use of gmock fails in compute/kernels/util-internal-test.cc 
+* ARROW-4870 - [Ruby] gemspec has wrong msys2 dependency listed
+* ARROW-4871 - [Flight][Java] Handle large Flight messages
+* ARROW-4872 - [Python] Keep backward compatibility for ParquetDatasetPiece
+* ARROW-4881 - [Python] bundle\_zlib CMake function still uses ARROW\_BUILD\_TOOLCHAIN
+* ARROW-4900 - mingw-w64 < 5 does not have \_\_cpuidex
+* ARROW-4903 - [C++] Building tests using only static libs not possible
+* ARROW-4906 - [Format] Fix document to describe that SparseMatrixIndexCSR assumes indptr is sorted for each row
+* ARROW-4918 - [C++] Add cmake-format to pre-commit
+* ARROW-4928 - [Python] Hypothesis test failures
+* ARROW-4931 - [C++] CMake fails on gRPC ExternalProject
+* ARROW-4948 - [JS] Nightly test failing with "Cannot assign to read only property"
+* ARROW-4950 - [C++] Thirdparty CMake error get\_target\_property() called with non-existent target LZ4::lz4
+* ARROW-4952 - [C++] Equals / ApproxEquals behaviour undefined on FP NaNs
+* ARROW-4954 - [Python] test failure with Flight enabled
+* ARROW-4958 - [C++] Purely static linking broken
+* ARROW-4961 - [C++][Python] Add GTest\_SOURCE=BUNDLED to relevant build docs that use conda-forge toolchain
+* ARROW-4962 - [C++] Warning level to CHECKIN can't compile on modern GCC
+* ARROW-4976 - [JS] RecordBatchReader should reset its Node/DOM streams
+* ARROW-4984 - [Flight][C++] Flight server segfaults when port is in use
+* ARROW-4986 - [CI] Travis fails to install llvm@7 
+* ARROW-4989 - [C++] Builds fails to find Ubuntu-packaged re2 library
+* ARROW-4991 - [CI] Bump travis node version to 11.12
+* ARROW-4997 - [C#] ArrowStreamReader doesn't consume whole stream and doesn't implement sync read
+* ARROW-5009 - [C++] Cleanup using to std::\* in files
+* ARROW-5010 - [Release] Fix release script with llvm-7
+* ARROW-5012 - [C++] "testing" headers not installed
+* ARROW-5023 - [Release] Default value syntax in shell is wrong
+* ARROW-5024 - [Release] crossbow.py --arrow-version causes missing variable error
+* ARROW-5025 - [Python][Packaging] wheel for Windows are broken
+* ARROW-5026 - [Python][Packaging] conda package on non Windows is broken
+* ARROW-5029 - [C++] Compilation warnings in release mode
+* ARROW-5031 - [Dev] Release verification script does not run CUDA tests in Python
+* ARROW-5042 - [Release] Wrong ARROW\_DEPENDENCY\_SOURCE in verification script
+* ARROW-5043 - [Release][Ruby] red-arrow dependency can't be resolve in verification script
+* ARROW-5044 - [Release][Rust] Format error in verification script
+* ARROW-5046 - [Release][C++] Plasma test is fragile in verification script
+* ARROW-5047 - [Release] Always set up parquet-testing in verification script
+* ARROW-5048 - [Release][Rust] arrow-testing is missing in verification script
+
+## Improvement
+
+* ARROW-1425 - [Python] Document semantic differences between Spark timestamps and Arrow timestamps
+* ARROW-1639 - [Python] More efficient serialization for RangeIndex in serialize\_pandas
+* ARROW-1807 - [JAVA] Reduce Heap Usage (Phase 3): consolidate buffers
+* ARROW-1896 - [C++] Do not allocate memory for primitive outputs in CastKernel::Call implementation
+* ARROW-2015 - [Java] Use Java Time and Date APIs instead of JodaTime
+* ARROW-2022 - [Format] Add custom metadata field specific to a RecordBatch message
+* ARROW-2112 - [C++] Enable cpplint to be run on Windows
+* ARROW-2627 - [Python] Add option (or some equivalent) to toggle memory mapping functionality when using parquet.ParquetFile or other read entry points
+* ARROW-3149 - [C++] Use gRPC (when it exists) from conda-forge for CI builds
+* ARROW-3239 - [C++] Improve random data generation functions
+* ARROW-3292 - [C++] Test Flight RPC in Travis CI
+* ARROW-3297 - [Python] Python bindings for Flight C++ client
+* ARROW-331 - [Python] Timeline for dropping Python 2.7 support
+* ARROW-3361 - [R] Run cpp/build-support/cpplint.py on C++ source files
+* ARROW-3364 - [Doc] Document docker compose setup
+* ARROW-3367 - [INTEGRATION] Port Spark integration test to the docker-compose setup
+* ARROW-3422 - [C++] Add "toolchain" target to ensure that all required toolchain libraries are built
+* ARROW-3532 - [Python] Schema, StructType, StructArray field retrieval by name should raise warning or exception for multiple matches
+* ARROW-3550 - [C++] Use kUnknownNullCount in NumericArray constructor
+* ARROW-3554 - [C++] Reverse traits for C++
+* ARROW-3619 - [R] Expose global thread pool optins
+* ARROW-3653 - [Python/C++] Support data copying between different GPU devices
+* ARROW-3735 - [Python] Proper error handling in \_ensure\_type
+* ARROW-3769 - [C++] Support reading non-dictionary encoded binary Parquet columns directly as DictionaryArray
+* ARROW-3770 - [C++] Validate or add option to validate arrow::Table schema in parquet::arrow::FileWriter::WriteTable
+* ARROW-3824 - [R] Document developer workflow for building project, running unit tests in r/README.md
+* ARROW-3838 - [Rust] Implement CSV Writer
+* ARROW-3846 - [Gandiva] Build on Windows
+* ARROW-3882 - [Rust] PrimitiveArray<T> should support cast operations
+* ARROW-3903 - [Python] Random array generator for Arrow conversion and Parquet testing
+* ARROW-3926 - [Python] Add Gandiva bindings to Python wheels
+* ARROW-3951 - [Go] implement a CSV writer
+* ARROW-3954 - [Rust] Add Slice to Array and ArrayData
+* ARROW-3965 - [Java] JDBC-to-Arrow Conversion: Configuration Object
+* ARROW-3966 - [Java] JDBC-to-Arrow Conversion: JDBC Metadata in Schema Fields
+* ARROW-3972 - [C++] Update to LLVM and Clang bits to 7.0
+* ARROW-3985 - [C++] Pass -C option when compiling with ccache to avoid some warnings
+* ARROW-4012 - [Documentation][C++] Document how to install Apache Arrow on MSYS2
+* ARROW-4014 - [C++] Fix "LIBCMT" warnings on MSVC
+* ARROW-4024 - [Python] Cython compilation error on cython==0.27.3
+* ARROW-4031 - [C++] Refactor ArrayBuilder bitmap logic into TypedBufferBuilder<bool>
+* ARROW-4056 - [C++] Upgrade to boost-cpp 1.69.0 again
+* ARROW-4094 - [Python] Store RangeIndex in Parquet files as metadata rather than a physical data column
+* ARROW-4110 - [C++] Do not generate distinct cast kernels when input and output type are the same
+* ARROW-4123 - [C++] Improve linting workflow and documentation for Windows-based developers
+* ARROW-4124 - [C++] Abstract aggregation kernel API
+* ARROW-4142 - [Java] JDBC-to-Arrow: JDBC Arrays
+* ARROW-4165 - [C++] Port cpp/apidoc/Windows.md and other files to Sphinx / rst
+* ARROW-4180 - [Java] Reduce verbose logging of ArrowBuf creation events?
+* ARROW-4196 - [Rust] Add explicit SIMD vectorization for arithmetic ops in "array\_ops"
+* ARROW-4198 - [Gandiva] Add support to cast timestamp
+* ARROW-4212 - [Python] [CUDA] Creating a CUDA buffer from Numba device array should be easier
+* ARROW-4230 - [C++] Enable building flight against system gRPC
+* ARROW-4234 - [C++] Add memory bandwidth benchmarks to arrow/util/machine-benchmark.cc
+* ARROW-4235 - [GLib] Use "column\_builder" in GArrowRecordBatchBuilder
+* ARROW-4236 - [JAVA] Distinct plasma client create exceptions
+* ARROW-4245 - [Rust] Add Rustdoc header to each source file
+* ARROW-4247 - [Packaging] Update verify script for 0.12.0
+* ARROW-4251 - [C++] Add option to use vendored Boost in verify-release-candidate.sh
+* ARROW-4263 - [Rust] Donate DataFusion
+* ARROW-4268 - [C++] Add C primitive to Arrow:Type compile time in TypeTraits
+* ARROW-4277 - [C++] Add gmock to toolchain
+* ARROW-4285 - [Python] Use proper builder interface for serialization
+* ARROW-4297 - [C++] Fix build for 32-bit MSYS2
+* ARROW-4299 - [Ruby] Depend on the same version as Red Arrow
+* ARROW-4305 - [Rust] Fix parquet version number in README
+* ARROW-4307 - [C++] FIx doxygen warnings, include doxygen warning checks in CI linting
+* ARROW-4310 - [Website] Update install document for 0.12.0
+* ARROW-4315 - [Website] Home page of https://arrow.apache.org/ does not mention Go or Rust
+* ARROW-4330 - [C++] Use FindThreads.cmake to handle -pthread compiler/link options
+* ARROW-4332 - [Website] Instructions and scripts for publishing web site appear to be incorrect
+* ARROW-4335 - [C++] Better document sparse tensor support
+* ARROW-4336 - [C++] Default BUILD\_WARNING\_LEVEL to CHECKIN
+* ARROW-4339 - [C++] rewrite cpp/README shorter, with a separate contribution guide
+* ARROW-4340 - [C++] Update IWYU version in the \`lint\` dockerfile
+* ARROW-4341 - [C++] Use TypedBufferBuilder<bool> in BooleanBuilder
+* ARROW-4344 - [Java] Further cleanup maven output
+* ARROW-4345 - [C++] Add Apache 2.0 license file to the Parquet-testing repository
+* ARROW-4346 - [C++] Fix compiler warnings with gcc 8.2.0
+* ARROW-4353 - [CI] Add jobs for 32-bit and 64-bit MinGW
+* ARROW-4361 - [Website] Update commiters list
+* ARROW-4362 - [Java] Test OpenJDK 11 in CI
+* ARROW-4363 - [C++] Add CMake format checks
+* ARROW-4372 - [C++] Embed precompiled bitcode in the gandiva library
+* ARROW-4373 - [Packaging] Travis fails to deploy conda packages on OSX
+* ARROW-4375 - [CI] Sphinx dependencies were removed from docs conda environment
+* ARROW-4376 - [Rust] Implement from\_buf\_reader for csv::Reader
+* ARROW-4377 - [Rust] Implement std::fmt::Debug for all PrimitiveArrays
+* ARROW-4379 - Register pyarrow serializers for collections.Counter and collections.deque.
+* ARROW-4383 - [C++] Use the CMake's standard find features
+* ARROW-4388 - [Go] add DimNames() method to tensor Interface?
+* ARROW-4393 - [Rust] coding style: apply 90 characters per line limit
+* ARROW-4396 - Update Typedoc to support TypeScript 3.2
+* ARROW-4399 - [C++] Remove usage of "extern template class" from NumericArray<T>
+* ARROW-4401 - [Python] Alpine dockerfile fails to build because pandas requires numpy as build dependency
+* ARROW-4406 - Ignore "\*\_$folder$" files on S3
+* ARROW-4422 - [Plasma] Enforce memory limit in plasma, rather than relying on dlmalloc\_set\_footprint\_limit
+* ARROW-4423 - [C++] Update version of vendored gtest to 1.8.1
+* ARROW-4424 - [Python] Manylinux CI builds failing
+* ARROW-4430 - [C++] add unit test for currently unused append method
+* ARROW-4431 - [C++] Build gRPC as ExternalProject without allowing it to build its vendored dependencies
+* ARROW-4436 - [Documentation] Clarify instructions for building documentation
+* ARROW-4442 - [JS] Overly broad type annotation for Chunked typeId leading to type mismatches in generated typing
+* ARROW-4444 - [Testing] Add DataFusion test files to arrow-testing repo
+* ARROW-4445 - [C++][Gandiva] Run Gandiva-LLVM tests in Appveyor
+* ARROW-4446 - [Python] Run Gandiva tests on Windows and Appveyor
+* ARROW-4448 - [JAVA][Flight] Flaky Flight java test
+* ARROW-4454 - [C++] fix unused parameter warnings
+* ARROW-4455 - [Plasma] g++ 8 reports class-memaccess warnings
+* ARROW-4459 - [Testing] Add git submodule for arrow-testing data files
+* ARROW-4460 - [Website] Write blog post to announce DataFusion donation
+* ARROW-4462 - [C++] Upgrade LZ4 v1.7.5 to v1.8.3 to compile with VS2017
+* ARROW-4464 - [Rust] [DataFusion] Add support for LIMIT
+* ARROW-4466 - [Rust] [DataFusion] Add support for Parquet data sources
+* ARROW-4468 - [Rust] Implement BitAnd/BitOr for &Buffer (with SIMD)
+* ARROW-4475 - [Python] Serializing objects that contain themselves
+* ARROW-4476 - [Rust] [DataFusion] Post donation clean up tasks
+* ARROW-4481 - [Website] Instructions for publishing web site are missing a step
+* ARROW-4483 - [Website] Fix broken link (author) in DataFusion blog post
+* ARROW-4485 - [CI] Determine maintenance approach to pinned conda-forge binutils package
+* ARROW-4486 - [Python][CUDA] pyarrow.cuda.Context.foreign\_buffer should have a \`base=None\` argument
+* ARROW-4488 - [Rust] From AsRef<[u8]> for Buffer does not ensure correct padding
+* ARROW-4489 - [Rust] PrimitiveArray.value\_slice performs bounds checking when it should not
+* ARROW-4490 - [Rust] Add explicit SIMD vectorization for boolean ops in "array\_ops"
+* ARROW-4491 - [Python] Remove usage of std::to\_string and std::stoi
+* ARROW-4499 - [Python][CI] Upgrade to latest flake8 3.7.5 in travis\_lint.sh
+* ARROW-4502 - [C#] Add support for zero-copy reads
+* ARROW-4513 - [Rust] Implement BitAnd/BitOr for &Bitmap
+* ARROW-4528 - [C++] Update lint docker container to LLVM-7
+* ARROW-4529 - [C++] Add test coverage for BitUtils::RoundDown
+* ARROW-4531 - [C++] Handling of non-aligned slices in Sum kernel
+* ARROW-4537 - [CI] Suppress shell warning on travis-ci
+* ARROW-4547 - [Python][Documentation] Update python/development.rst with instructions for CUDA-enabled builds
+* ARROW-4558 - [C++][Flight] Avoid undefined behavior with gRPC memory optimizations
+* ARROW-4560 - [R] array() needs to take single input, not ...
+* ARROW-4562 - [C++][Flight] Create outgoing composite grpc::ByteBuffer instead of allocating contiguous slice and copying IpcPayload into it
+* ARROW-4565 - [R] Reading records with all non-null decimals SEGFAULTs
+* ARROW-4568 - [C++] Add version macros to headers
+* ARROW-4572 - [C++] Remove memory zeroing from PrimitiveAllocatingUnaryKernel
+* ARROW-4583 - [Plasma] There are bugs reported by code scan tool
+* ARROW-4586 - [Rust] Remove arrow/mod.rs as it is not needed
+* ARROW-4590 - [Rust] Add explicit SIMD vectorization for comparison ops in "array\_ops"
+* ARROW-4592 - [GLib] Stop configure immediately when GLib isn't available
+* ARROW-4593 - [Ruby] Arrow::Array#[out\_of\_range] returns nil
+* ARROW-4594 - [Ruby] Arrow::StructArray#[] returns Arrow::Struct instead of Arrow::Array
+* ARROW-4595 - [Rust] [DataFusion] Implement DataFrame style API
+* ARROW-4598 - [CI] Remove needless LLVM\_DIR for macOS
+* ARROW-4602 - [Rust][ [DataFusion] Integrate query optimizer with ExecutionContext
+* ARROW-4605 - [Rust] Move filter and limit code from DataFusion into compute module
+* ARROW-4609 - [C++] Use google benchmark from toolchain
+* ARROW-4610 - [Plasma] Avoid JNI from crashing
+* ARROW-4611 - [C++] Rework CMake third-party logic
+* ARROW-4612 - [Python] Use cython from PyPI for windows wheels build
+* ARROW-4613 - [C++] Alpine build failing as libgtestd.so is not found
+* ARROW-4614 - [C++/CI] Activate flight build in ci/docker\_build\_cpp.sh
+* ARROW-4615 - [C++] Add checked\_pointer\_cast
+* ARROW-4616 - [C++] Log message in BuildUtils as STATUS
+* ARROW-4618 - [Docker] Makefile to build dependent docker images
+* ARROW-4623 - [R] update Rcpp dependency
+* ARROW-4628 - [Rust] [DataFusion] Implement type coercion query optimizer rule
+* ARROW-4634 - [Rust] [Parquet] Reorganize test\_common mod to allow more test util codes.
+* ARROW-4637 - [Python] Avoid importing Pandas unless necessary
+* ARROW-4638 - [R] install instructions using brew
+* ARROW-4640 - [Python] Add docker-compose configuration to build and test the project without pandas installed
+* ARROW-4643 - [C++] Add compiler diagnostic color when using Ninja
+* ARROW-4644 - [C++/Docker] Build Gandiva in the docker containers
+* ARROW-4645 - [C++/Packaging] Ship Gandiva with OSX and Windows wheels
+* ARROW-4646 - [C++/Packaging] Ship gandiva with the conda-forge packages
+* ARROW-4655 - [Packaging] Parallelize binary upload
+* ARROW-4667 - [C++] Suppress unused function warnings with MinGW
+* ARROW-4670 - [Rust] compute::sum performance issue
+* ARROW-4673 - [C++] Implement AssertDatumEquals
+* ARROW-4676 - [C++] Add support for debug build with MinGW
+* ARROW-4678 - [Rust] Minimize unstable feature usage
+* ARROW-4679 - [Rust] [DataFusion] Implement in-memory DataSource
+* ARROW-4681 - [Rust] [DataFusion] Implement parallel query execution using threads
+* ARROW-4686 - Only accept 'y' or 'n' in merge\_arrow\_pr.py prompts
+* ARROW-4689 - [Go] add support for WASM
+* ARROW-4690 - [Python] Building TensorFlow compatible wheels for Arrow
+* ARROW-4697 - [C++] Add URI parsing facility
+* ARROW-4705 - [Rust] CSV reader should show line number and error message when failing to parse a line
+* ARROW-4718 - Add ArrowStreamWriter/Reader ctors that leave open the underlying Stream
+* ARROW-4727 - [Rust] Implement ability to check if two schemas are the same
+* ARROW-4730 - [C++] Add docker-compose entry for testing Fedora build with system packages
+* ARROW-4731 - [C++] Add docker-compose entry for testing Ubuntu Xenial build with system packages
+* ARROW-4732 - [C++] Add docker-compose entry for testing Debian Testing build with system packages
+* ARROW-4733 - [C++] Add CI entry that builds without the conda-forge toolchain but with system packages
+* ARROW-4734 - [Go] Add option to write a header for CSV writer
+* ARROW-4735 - [Go] Benchmark strconv.Format vs. fmt.Sprintf for CSV writer
+* ARROW-4739 - [Rust] [DataFusion] It should be possible to share a logical plan between threads
+* ARROW-4745 - [C++][Documentation] Document process for replicating static\_crt builds on windows
+* ARROW-4749 - [Rust] RecordBatch::new() should return result instead of panicking
+* ARROW-4754 - [CI][Java] Flaky TestAuth Flight test
+* ARROW-4769 - [Rust] Improve array limit function where max records > len
+* ARROW-4776 - [C++] DictionaryBuilder should support bootstrapping from an existing dict type
+* ARROW-4777 - [C++/Python] manylinux1: Update lz4 to 1.8.3
+* ARROW-4789 - [C++] Deprecate and and later remove arrow::io::ReadableFileInterface
+* ARROW-4791 - Unused dependencies in arrow and datafusion
+* ARROW-4794 - [Python] Make pandas an optional test dependency
+* ARROW-4797 - [Plasma] Avoid store crash if not enough memory is available
+* ARROW-4801 - [GLib] Suppress pkgconfig.generate() warnings
+* ARROW-4817 - [Rust] [DataFusion] Small re-org of modules
+* ARROW-4826 - [Go] export Flush method for CSV writer
+* ARROW-4831 - [C++] CMAKE\_AR is not passed to ZSTD thirdparty dependency 
+* ARROW-4833 - [Release] Document how to update the brew formula in the release management guide
+* ARROW-4834 - [R] Feature flag to disable parquet
+* ARROW-4837 - [C++] Support c++filt on a custom path in the run-test.sh script
+* ARROW-4839 - [C#] Add NuGet support
+* ARROW-4846 - [Java] Update Jackson to 2.9.8
+* ARROW-4849 - [C++] Add docker-compose entry for testing Ubuntu Bionic build with system packages
+* ARROW-4854 - [Rust] Use Array Slice for limit kernel
+* ARROW-4855 - [Packaging] Generate default package version based on cpp tags in crossbow.py
+* ARROW-4858 - [Flight][Python] Enable custom FlightDataStream in Python
+* ARROW-4865 - [Rust] Support casting lists and primitives to lists
+* ARROW-4873 - [C++] Clarify documentation about how to use external ARROW\_PACKAGE\_PREFIX while also using CONDA dependency resolution
+* ARROW-4878 - [C++] ARROW\_DEPENDENCY\_SOURCE=CONDA does not work properly with MSVC
+* ARROW-4889 - [C++] Add STATUS messages for Protobuf in CMake
+* ARROW-4891 - [C++] ZLIB include directories not added
+* ARROW-4893 - [C++] conda packages should use $PREFIX inside of conda-build
+* ARROW-4894 - [Rust] [DataFusion] Remove all uses of panic! from aggregate.rs
+* ARROW-4896 - [Rust] [DataFusion] Remove all uses of panic! from tests
+* ARROW-4897 - [Rust] [DataFusion] Improve Rustdoc
+* ARROW-4898 - [C++] Old versions of FindProtobuf.cmake use ALL-CAPS for variables
+* ARROW-4899 - [Rust] [DataFusion] Remove all uses of panic! from expression.rs
+* ARROW-4905 - [C++][Plasma] Remove dlmalloc from client library
+* ARROW-4908 - [Rust] [DataFusion] Add support for parquet date/time in int32/64 encoding
+* ARROW-4910 - [Rust] [DataFusion] Remove all uses of unimplemented!
+* ARROW-4922 - [Packaging] Use system libraris for .deb and .rpm
+* ARROW-4926 - [Rust] [DataFusion] Update README for 0.13.0 release
+* ARROW-4933 - [R] Autodetect Parquet support using pkg-config
+* ARROW-4937 - [R] Clean pkg-config related logic
+* ARROW-4939 - [Python] Add wrapper for "sum" kernel
+* ARROW-4940 - [Rust] Enhance documentation for datafusion
+* ARROW-4944 - [C++] Raise minimal required thrift-cpp to 0.11 in conda environment
+* ARROW-4946 - [C++] Support detection of flatbuffers without FlatbuffersConfig.cmake 
+* ARROW-4947 - [Flight][C++/Python] Remove redundant schema parameter in DoGet
+* ARROW-4964 - [Ruby] Add closed check if available on auto close
+* ARROW-4969 - [C++] Set RPATH in correct order for test executables on OSX
+* ARROW-4977 - [Ruby] Add support for building on Windows
+* ARROW-4978 - [Ruby] Fix wrong internal variable name for table data
+* ARROW-4979 - [GLib] Add missing lock to garrow::GIOInputStream
+* ARROW-4980 - [GLib] Use GInputStream as the parent of GArrowInputStream
+* ARROW-4983 - [Plasma] Unmap memory when the client is destroyed
+* ARROW-4995 - [R] Make sure winbuilder tests pass for package
+* ARROW-4996 - [Plasma] There are many log files in /tmp
+* ARROW-5003 - [R] remove dependency on withr
+* ARROW-5006 - [R] parquet.cpp does not include enough Rcpp
+* ARROW-5011 - [Release] Add support in the source release script for custom hash
+* ARROW-5013 - [Rust] [DataFusion] Refactor runtime expression support
+* ARROW-5014 - [Java] Fix typos in Flight module
+* ARROW-5018 - [Release] Include JavaScript implementation
+* ARROW-5032 - [C++] Headers in vendored/datetime directory aren't installed
+* ARROW-572 - [C++] Apply visitor pattern in IPC metadata
+
+## New Feature
+
+* ARROW-1572 - [C++] Implement "value counts" kernels for tabulating value frequencies
+* ARROW-3107 - [C++] arrow::PrettyPrint for Column instances
+* ARROW-3121 - [C++]  Mean kernel aggregate
+* ARROW-3123 - [C++] Incremental Count, Count Not Null aggregator
+* ARROW-3135 - [C++] Add helper functions for validity bitmap propagation in kernel context
+* ARROW-3162 - [Python] Enable Flight servers to be implemented in pure Python
+* ARROW-3289 - [C++] Implement DoPut command for Flight on client and server side  
+* ARROW-3311 - [R] Functions for deserializing IPC components from arrow::Buffer or from IO interface
+* ARROW-3631 - [C#] Add Appveyor build for C#
+* ARROW-3761 - [R] Bindings for CompressedInputStream, CompressedOutputStream
+* ARROW-3816 - [R] nrow.RecordBatch method
+* ARROW-4262 - [Website] Blog post to give preview into using R and Arrow with Apache Spark
+* ARROW-4265 - [C++] Automatic conversion between Table and std::vector<std::tuple<..>>
+* ARROW-4287 - [C++] Ensure minimal bison version on OSX for Thrift
+* ARROW-4289 - [C++] Forward AR and RANLIB to thirdparty builds
+* ARROW-4290 - [C++/Gandiva] Support detecting correct LLVM version in Homebrew
+* ARROW-4291 - [Dev] Support selecting features in release scripts
+* ARROW-4294 - [Plasma] Add support for evicting objects to external store
+* ARROW-4298 - [Java] Building Flight fails with OpenJDK 11
+* ARROW-4300 - [C++] Restore apache-arrow Homebrew recipe and define process for maintaining and updating for releases
+* ARROW-4313 - Define general benchmark database schema
+* ARROW-4318 - [C++] Add Tensor::CountNonZero
+* ARROW-4352 - [C++] Add support for system Google Test
+* ARROW-4386 - [Rust] Implement Date and Time Arrays
+* ARROW-4397 - [C++] dim\_names in Tensor and SparseTensor
+* ARROW-4449 - [Rust] Convert File to T: Read + Seek for schema inference
+* ARROW-4472 - [Website][Python] Blog post about Python string memory use improvements in 0.12
+* ARROW-4506 - [Ruby] Add Arrow::RecordBatch#raw\_records
+* ARROW-4632 - [Ruby] Add BigDecimal#to\_arrow
+* ARROW-4662 - [Python] Add type\_codes property in UnionType
+* ARROW-4671 - [C++] MakeBuilder doesn't support Type::DICTIONARY
+* ARROW-4692 - [Format][Documentation] Add more details about "sidecar" to flight proto
+* ARROW-47 - [C++] Consider adding a scalar type object model
+* ARROW-4707 - [C++] move BitsetStack to bit-util.h
+* ARROW-4740 - [Java] Upgrade to JUnit 5 
+* ARROW-4782 - [C++] Prototype scalar and array expression types for developing deferred operator algebra
+* ARROW-4835 - [GLib] Add boolean operations
+* ARROW-4859 - [GLib] Add garrow\_numeric\_array\_mean()
+* ARROW-4862 - [GLib] Add GArrowCastOptions::allow-invalid-utf8 property
+* ARROW-4882 - [GLib] Add "Sum" functions
+* ARROW-4887 - [GLib] Add garrow\_array\_count()
+* ARROW-4901 - [Go] Run tests in Appveyor
+* ARROW-4915 - [GLib] Add support for arrow::NullBuilder
+* ARROW-4924 - [Ruby] Add Decimal128#to\_s(scale=nil)
+* ARROW-4929 - [GLib] Add garrow\_array\_count\_values()
+* ARROW-4955 - [GLib] Add garrow\_file\_is\_closed()
+* ARROW-4981 - [Ruby] Add support for CSV data encoding conversion
+* ARROW-5041 - [Release][C++] use bundled gtest and gmock in verify-release-candidate.bat
+* ARROW-549 - [C++] Add function to concatenate like-typed arrays
+* ARROW-585 - [C++] Define public API for user-defined data types
+* ARROW-694 - [C++] Build JSON "scanner" for reading record batches from line-delimited JSON files
+
+## Sub-task
+
+* ARROW-3596 - [Packaging] Build gRPC in conda-forge
+* ARROW-4061 - [Rust] [Parquet] Implement "spaced" version for non-dictionary encoding/decoding
+* ARROW-4461 - [C++] Expose bit-util methods for binary boolean operations that don't allocate
+* ARROW-4540 - [Rust] Add basic JSON reader
+* ARROW-4543 - [C#] Update Flat Buffers code to latest version
+* ARROW-4556 - [Rust] Preserve order of JSON inferred schema
+* ARROW-4599 - [C++] Add support for system GFlags
+* ARROW-4743 - [Java] Fix documentation in arrow memory module
+* ARROW-4772 - Provide new ORC adapter interface that allow user to specify row number
+* ARROW-4892 - [Rust] [DataFusion] Move SQL parser and planner into sql package
+* ARROW-4895 - [Rust] [DataFusion] Move error.rs to top level package
+
+## Task
+
+* ARROW-2409 - [Rust] Test for build warnings, remove current warnings
+* ARROW-3511 - [Gandiva] support input selection vectors for both projector and filter
+* ARROW-4071 - [Rust] Add rustfmt as a pre-commit hook
+* ARROW-4072 - [Rust] Set default value for PARQUET\_TEST\_DATA
+* ARROW-4204 - [Gandiva] implement decimal subtract
+* ARROW-4205 - [Gandiva] Implement decimal multiply
+* ARROW-4206 - [Gandiva] Implement decimal divide
+* ARROW-4271 - [Rust] Move Parquet specific info to Parquet Readme
+* ARROW-4273 - [Release] Fix verification script to use cf201901 conda-forge label
+* ARROW-4281 - [CI] Use Ubuntu Xenial (16.04) VMs on Travis-CI
+* ARROW-4303 - [Gandiva/Python] Build LLVM with RTTI in manylinux1 container
+* ARROW-4321 - [CI] Setup conda-forge channel globally in docker containers
+* ARROW-4334 - [CI] Setup conda-forge channel globally in travis builds
+* ARROW-4358 - [Gandiva][Crossbow] Trusty build broken
+* ARROW-4408 - [CPP/Doc] Remove outdated Parquet documentation
+* ARROW-4425 - Add link to 'Contributing' page in the top-level Arrow README
+* ARROW-4435 - [C#] Add .sln file and minor .csproj fix ups
+* ARROW-4518 - [JS] add jsdelivr to package.json
+* ARROW-4539 - [Java]List vector child value count not set correctly
+* ARROW-4619 - [R]: Fix the autobrew script
+* ARROW-4620 - [C#] Add unit tests for "Types" in arrow/csharp
+* ARROW-4693 - [CI] Build boost library with multi precision  
+* ARROW-4751 - [C++] Add pkg-config to conda\_env\_cpp.yml
+* ARROW-4756 - [CI] document the procedure to update docker image for manylinux1 builds
+* ARROW-4758 - [Flight] Build fails on Mac due to missing Schema\_generated.h
+* ARROW-4778 - [C++/Python] manylinux1: Update Thrift to 0.12.0
+* ARROW-4786 - [C++/Python] Support better parallelisation in manylinux1 base build
+* ARROW-4790 - [Python/Packaging] Update manylinux docker image in crossbow task
+* ARROW-4808 - [Java][Vector] Convenience methods for setting decimal vector
+* ARROW-4907 - [CI] Add docker container to inspect docker context
+* ARROW-4909 - [CI] Use hadolint to lint Dockerfiles
+* ARROW-4932 - [GLib] Use G\_DECLARE\_DERIVABLE\_TYPE macro
+* ARROW-4951 - [C++] Turn off cpp benchmarks in cpp docker images
+* ARROW-4994 - [website] Update Details for ptgoetz
+
+## Test
+
+* ARROW-4320 - [C++] Add tests for non-contiguous tensors
+* ARROW-4704 - [CI][GLib] Plasma test is flaky
+* ARROW-4724 - [C++] Python not being built nor test under MinGW builds
+* ARROW-4768 - [C++][CI] arrow-test-array sometimes gets stuck in MinGW build
+* ARROW-4793 - [Ruby] Suppress unused variable warning
+* ARROW-4813 - [Ruby] Add tests for #== and #!=
+* ARROW-4942 - [Ruby] Remove needless omits
+* ARROW-4982 - [GLib][CI] Run tests on AppVeyor
+
+## Wish
+
+* ARROW-3981 - [C++] Rename json.h
+
 # Apache Arrow 0.12.0 (16 January 2019)
 
 ## Bug
@@ -3223,5 +3789,6 @@
 
 * ARROW-260 - TestValueVector.testFixedVectorReallocation and testVariableVectorReallocation are flaky
 * ARROW-83 - Add basic test infrastructure for DecimalType
+
 
 

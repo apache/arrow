@@ -15,19 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import json
-
-from collections import OrderedDict
-
-try:
-    import pandas as pd
-except ImportError:
-    # The pure-Python based API works without a pandas installation
-    pass
-else:
-    import pyarrow.pandas_compat as pdcompat
-
-
 cdef class ChunkedArray(_PandasConvertible):
     """
     Array backed via one or more memory chunks.
@@ -139,6 +126,9 @@ cdef class ChunkedArray(_PandasConvertible):
             CChunkedArray* this_arr = self.chunked_array
             CChunkedArray* other_arr = other.chunked_array
             c_bool result
+
+        if other is None:
+            return False
 
         with nogil:
             result = this_arr.Equals(deref(other_arr))
@@ -470,7 +460,7 @@ cdef class Column(_PandasConvertible):
 
     def _to_pandas(self, options, **kwargs):
         values = self.data._to_pandas(options)
-        result = pd.Series(values, name=self.name)
+        result = pandas_api.make_series(values, name=self.name)
 
         if isinstance(self.type, TimestampType):
             tz = self.type.tz
@@ -506,6 +496,9 @@ cdef class Column(_PandasConvertible):
             CColumn* this_col = self.column
             CColumn* other_col = other.column
             c_bool result
+
+        if other is None:
+            return False
 
         with nogil:
             result = this_col.Equals(deref(other_col))
@@ -820,18 +813,18 @@ cdef class RecordBatch(_PandasConvertible):
 
     def to_pydict(self):
         """
-        Converted the arrow::RecordBatch to an OrderedDict
+        Convert the RecordBatch to a dict or OrderedDict.
 
         Returns
         -------
-        OrderedDict
+        dict
         """
         entries = []
         for i in range(self.batch.num_columns()):
             name = bytes(self.batch.column_name(i)).decode('utf8')
             column = self[i].to_pylist()
             entries.append((name, column))
-        return OrderedDict(entries)
+        return ordered_dict(entries)
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
@@ -861,7 +854,8 @@ cdef class RecordBatch(_PandasConvertible):
         -------
         pyarrow.RecordBatch
         """
-        names, arrays, metadata = pdcompat.dataframe_to_arrays(
+        from pyarrow.pandas_compat import dataframe_to_arrays
+        names, arrays, metadata = dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
         return cls.from_arrays(arrays, names, metadata)
@@ -1050,6 +1044,9 @@ cdef class Table(_PandasConvertible):
             CTable* other_table = other.table
             c_bool result
 
+        if other is None:
+            return False
+
         with nogil:
             result = this_table.Equals(deref(other_table))
 
@@ -1138,7 +1135,8 @@ cdef class Table(_PandasConvertible):
         >>> pa.Table.from_pandas(df)
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
-        names, arrays, metadata = pdcompat.dataframe_to_arrays(
+        from pyarrow.pandas_compat import dataframe_to_arrays
+        names, arrays, metadata = dataframe_to_arrays(
             df,
             schema=schema,
             preserve_index=preserve_index,
@@ -1162,6 +1160,8 @@ cdef class Table(_PandasConvertible):
             inferred. If Arrays passed, this argument is required
         schema : Schema, default None
             If not passed, will be inferred from the arrays
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
 
         Returns
         -------
@@ -1172,14 +1172,15 @@ cdef class Table(_PandasConvertible):
             vector[shared_ptr[CColumn]] columns
             Schema cy_schema
             shared_ptr[CSchema] c_schema
-            shared_ptr[CTable] table
             int i, K = <int> len(arrays)
 
         if schema is None:
             _schema_from_arrays(arrays, names, metadata, &c_schema)
         elif schema is not None:
             if names is not None:
-                raise ValueError('Cannot pass schema and arrays')
+                raise ValueError('Cannot pass both schema and names')
+            if metadata is not None:
+                raise ValueError('Cannot pass both schema and metadata')
             cy_schema = schema
 
             if len(schema) != len(arrays):
@@ -1216,6 +1217,38 @@ cdef class Table(_PandasConvertible):
                 raise TypeError(type(arrays[i]))
 
         return pyarrow_wrap_table(CTable.Make(c_schema, columns))
+
+    @staticmethod
+    def from_pydict(mapping, schema=None, metadata=None):
+        """
+        Construct a Table from Arrow arrays or columns
+
+        Parameters
+        ----------
+        mapping : dict or Mapping
+            A mapping of strings to Arrays or Python lists.
+        schema : Schema, default None
+            If not passed, will be inferred from the Mapping values
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        pyarrow.Table
+
+        """
+        names = []
+        arrays = []
+        for k, v in mapping.items():
+            names.append(k)
+            if not isinstance(v, (Array, ChunkedArray)):
+                v = array(v)
+            arrays.append(v)
+        if schema is None:
+            return Table.from_arrays(arrays, names, metadata=metadata)
+        else:
+            # Will raise if metadata is not None
+            return Table.from_arrays(arrays, schema=schema, metadata=metadata)
 
     @staticmethod
     def from_batches(batches, Schema schema=None):
@@ -1295,17 +1328,19 @@ cdef class Table(_PandasConvertible):
         return result
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False):
-        mgr = pdcompat.table_to_blockmanager(options, self, categories,
-                                             ignore_metadata=ignore_metadata)
-        return pd.DataFrame(mgr)
+        from pyarrow.pandas_compat import table_to_blockmanager
+        mgr = table_to_blockmanager(
+            options, self, categories,
+            ignore_metadata=ignore_metadata)
+        return pandas_api.data_frame(mgr)
 
     def to_pydict(self):
         """
-        Converted the arrow::Table to an OrderedDict
+        Convert the Table to a dict or OrderedDict.
 
         Returns
         -------
-        OrderedDict
+        dict
         """
         cdef:
             size_t i
@@ -1317,7 +1352,7 @@ cdef class Table(_PandasConvertible):
             column = self.column(i)
             entries.append((column.name, column.to_pylist()))
 
-        return OrderedDict(entries)
+        return ordered_dict(entries)
 
     @property
     def schema(self):
@@ -1476,6 +1511,30 @@ cdef class Table(_PandasConvertible):
 
         with nogil:
             check_status(self.table.SetColumn(i, column.sp_column, &c_table))
+
+        return pyarrow_wrap_table(c_table)
+
+    @property
+    def column_names(self):
+        """
+        Names of the table's columns
+        """
+        names = self.table.ColumnNames()
+        return [frombytes(name) for name in names]
+
+    def rename_columns(self, names):
+        """
+        Create new table with columns renamed to provided names
+        """
+        cdef:
+            shared_ptr[CTable] c_table
+            vector[c_string] c_names
+
+        for name in names:
+            c_names.push_back(tobytes(name))
+
+        with nogil:
+            check_status(self.table.RenameColumns(c_names, &c_table))
 
         return pyarrow_wrap_table(c_table)
 

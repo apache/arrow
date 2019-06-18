@@ -27,7 +27,8 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
@@ -53,7 +54,7 @@ TEST_F(TestBufferOutputStream, DtorCloses) {
 
   const int K = 100;
   for (int i = 0; i < K; ++i) {
-    EXPECT_OK(stream_->Write(data));
+    ARROW_EXPECT_OK(stream_->Write(data));
   }
 
   stream_ = nullptr;
@@ -65,7 +66,7 @@ TEST_F(TestBufferOutputStream, CloseResizes) {
 
   const int K = 100;
   for (int i = 0; i < K; ++i) {
-    EXPECT_OK(stream_->Write(data));
+    ARROW_EXPECT_OK(stream_->Write(data));
   }
 
   ASSERT_OK(stream_->Close());
@@ -184,12 +185,14 @@ TEST(TestBufferReader, Peek) {
 
   BufferReader reader(std::make_shared<Buffer>(data));
 
-  auto view = reader.Peek(4);
+  util::string_view view;
+
+  ASSERT_OK(reader.Peek(4, &view));
 
   ASSERT_EQ(4, view.size());
   ASSERT_EQ(data.substr(0, 4), view.to_string());
 
-  view = reader.Peek(20);
+  ASSERT_OK(reader.Peek(20, &view));
   ASSERT_EQ(data.size(), view.size());
   ASSERT_EQ(data, view.to_string());
 }

@@ -30,22 +30,20 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
-
-using std::string;
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 
 TEST(TestAllocate, Bitmap) {
   std::shared_ptr<Buffer> new_buffer;
-  EXPECT_OK(AllocateBitmap(default_memory_pool(), 100, &new_buffer));
+  ARROW_EXPECT_OK(AllocateBitmap(default_memory_pool(), 100, &new_buffer));
   EXPECT_GE(new_buffer->size(), 13);
   EXPECT_EQ(new_buffer->capacity() % 8, 0);
 }
 
 TEST(TestAllocate, EmptyBitmap) {
   std::shared_ptr<Buffer> new_buffer;
-  EXPECT_OK(AllocateEmptyBitmap(default_memory_pool(), 100, &new_buffer));
+  ARROW_EXPECT_OK(AllocateEmptyBitmap(default_memory_pool(), 100, &new_buffer));
   EXPECT_EQ(new_buffer->size(), 13);
   EXPECT_EQ(new_buffer->capacity() % 8, 0);
   EXPECT_TRUE(std::all_of(new_buffer->data(), new_buffer->data() + new_buffer->capacity(),
@@ -136,6 +134,17 @@ TEST(TestBuffer, Copy) {
   // assert the padding is zeroed
   std::vector<uint8_t> zeros(out->capacity() - out->size());
   ASSERT_EQ(0, memcmp(out->data() + out->size(), zeros.data(), zeros.size()));
+}
+
+TEST(TestBuffer, ToHexString) {
+  const uint8_t data_array[] = "\a0hex string\xa9";
+  std::basic_string<uint8_t> data_str = data_array;
+
+  auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
+
+  Buffer buf(data, data_str.size());
+
+  ASSERT_EQ(buf.ToHexString(), std::string("073068657820737472696E67A9"));
 }
 
 TEST(TestBuffer, SliceBuffer) {
@@ -350,6 +359,8 @@ TEST(TestBufferBuilder, BasicBoolBufferBuilderUsage) {
   for (int i = 0; i != nvalues; ++i) {
     ASSERT_EQ(BitUtil::GetBit(built->data(), i + 1), static_cast<bool>(values[i]));
   }
+
+  ASSERT_EQ(built->size(), BitUtil::BytesForBits(nvalues + 1));
 }
 
 TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
@@ -367,6 +378,8 @@ TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
   for (int i = 0; i != 13 + 17; ++i) {
     EXPECT_EQ(BitUtil::GetBit(built->data(), i), i < 13) << "index = " << i;
   }
+
+  ASSERT_EQ(built->size(), BitUtil::BytesForBits(13 + 17));
 }
 
 template <typename T>

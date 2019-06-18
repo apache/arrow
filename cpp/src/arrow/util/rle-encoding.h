@@ -354,7 +354,7 @@ inline int RleDecoder::GetBatchWithDictSpaced(const T* dictionary, T* values,
   int values_read = 0;
   int remaining_nulls = null_count;
 
-  internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
+  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, batch_size);
 
   while (values_read < batch_size) {
     bool is_valid = bit_reader.IsSet();

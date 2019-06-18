@@ -17,6 +17,8 @@
 
 FROM arrow:cpp-alpine
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # better compatibility for the scripts
 RUN apk add --no-cache coreutils
 
@@ -30,9 +32,9 @@ RUN export PYTHON_MAJOR=${PYTHON_VERSION:0:1} && \
     pip install --upgrade pip setuptools
 
 # install python requirements
-ADD python/requirements.txt \
-    python/requirements-test.txt \
-    /arrow/python/
+COPY python/requirements.txt \
+     python/requirements-test.txt \
+     /arrow/python/
 # pandas requires numpy at build time, so install the requirements separately
 RUN pip install -r /arrow/python/requirements.txt cython && \
     pip install -r /arrow/python/requirements-test.txt
@@ -42,6 +44,4 @@ ENV ARROW_PYTHON=ON \
     PYARROW_WITH_PARQUET=0
 
 # build and test
-CMD arrow/ci/docker_build_cpp.sh && \
-    arrow/ci/docker_build_python.sh && \
-    pytest -v --pyargs pyarrow
+CMD ["arrow/ci/docker_build_and_test_python.sh"]

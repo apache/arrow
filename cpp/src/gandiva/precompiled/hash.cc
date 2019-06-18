@@ -72,6 +72,41 @@ static inline uint64 murmur3_64(uint64 val, int32 seed) {
   return h1;
 }
 
+static inline uint32 murmur3_32(uint64 val, int32 seed) {
+  uint64 c1 = 0xcc9e2d51ull;
+  uint64 c2 = 0x1b873593ull;
+  int length = 8;
+  static uint64 UINT_MASK = 0xffffffffull;
+  uint64 lh1 = seed & UINT_MASK;
+  for (int i = 0; i < 2; i++) {
+    uint64 lk1 = ((val >> i * 32) & UINT_MASK);
+    lk1 *= c1;
+    lk1 &= UINT_MASK;
+
+    lk1 = ((lk1 << 15) & UINT_MASK) | (lk1 >> 17);
+
+    lk1 *= c2;
+    lk1 &= UINT_MASK;
+
+    lh1 ^= lk1;
+    lh1 = ((lh1 << 13) & UINT_MASK) | (lh1 >> 19);
+
+    lh1 = lh1 * 5 + 0xe6546b64L;
+    lh1 = UINT_MASK & lh1;
+  }
+  lh1 ^= length;
+
+  lh1 ^= lh1 >> 16;
+  lh1 *= 0x85ebca6bull;
+  lh1 = UINT_MASK & lh1;
+  lh1 ^= lh1 >> 13;
+  lh1 *= 0xc2b2ae35ull;
+  lh1 = UINT_MASK & lh1;
+  lh1 ^= lh1 >> 16;
+
+  return static_cast<uint32>(lh1);
+}
+
 static inline uint64 double_to_long_bits(double value) {
   uint64 result;
   memcpy(&result, &value, sizeof(result));
@@ -83,7 +118,7 @@ FORCE_INLINE int64 hash64(double val, int64 seed) {
 }
 
 FORCE_INLINE int32 hash32(double val, int32 seed) {
-  return static_cast<int32>(murmur3_64(double_to_long_bits(val), seed));
+  return murmur3_32(double_to_long_bits(val), seed);
 }
 
 // Wrappers for all the numeric/data/time arrow types
@@ -229,12 +264,73 @@ static inline uint64 murmur3_64_buf(const uint8* key, int32 len, int32 seed) {
   return h1;
 }
 
+static uint32 murmur3_32_buf(const uint8* key, int32 len, int32 seed) {
+  static const uint64 c1 = 0xcc9e2d51ull;
+  static const uint64 c2 = 0x1b873593ull;
+  static const uint64 UINT_MASK = 0xffffffffull;
+  uint64 lh1 = seed;
+  const uint32* blocks = reinterpret_cast<const uint32*>(key);
+  int nblocks = len / 4;
+  const uint8* tail = reinterpret_cast<const uint8*>(key + nblocks * 4);
+  for (int i = 0; i < nblocks; i++) {
+    uint64 lk1 = static_cast<uint64>(blocks[i]);
+
+    // k1 *= c1;
+    lk1 *= c1;
+    lk1 &= UINT_MASK;
+
+    lk1 = ((lk1 << 15) & UINT_MASK) | (lk1 >> 17);
+
+    lk1 *= c2;
+    lk1 = lk1 & UINT_MASK;
+    lh1 ^= lk1;
+    lh1 = ((lh1 << 13) & UINT_MASK) | (lh1 >> 19);
+
+    lh1 = lh1 * 5 + 0xe6546b64ull;
+    lh1 = UINT_MASK & lh1;
+  }
+
+  // tail
+  uint64 lk1 = 0;
+
+  switch (len & 3) {
+    case 3:
+      lk1 = (tail[2] & 0xff) << 16;
+    case 2:
+      lk1 |= (tail[1] & 0xff) << 8;
+    case 1:
+      lk1 |= (tail[0] & 0xff);
+      lk1 *= c1;
+      lk1 = UINT_MASK & lk1;
+      lk1 = ((lk1 << 15) & UINT_MASK) | (lk1 >> 17);
+
+      lk1 *= c2;
+      lk1 = lk1 & UINT_MASK;
+
+      lh1 ^= lk1;
+  }
+
+  // finalization
+  lh1 ^= len;
+
+  lh1 ^= lh1 >> 16;
+  lh1 *= 0x85ebca6b;
+  lh1 = UINT_MASK & lh1;
+  lh1 ^= lh1 >> 13;
+
+  lh1 *= 0xc2b2ae35;
+  lh1 = UINT_MASK & lh1;
+  lh1 ^= lh1 >> 16;
+
+  return static_cast<uint32>(lh1 & UINT_MASK);
+}
+
 FORCE_INLINE int64 hash64_buf(const uint8* buf, int len, int64 seed) {
   return murmur3_64_buf(buf, len, static_cast<int32>(seed));
 }
 
 FORCE_INLINE int32 hash32_buf(const uint8* buf, int len, int32 seed) {
-  return static_cast<int32>(murmur3_64_buf(buf, len, seed));
+  return murmur3_32_buf(buf, len, seed);
 }
 
 // Wrappers for the varlen types

@@ -32,18 +32,66 @@ x-ubuntu-volumes:
   - .:/arrow:delegated
   - ubuntu-cache:/build:delegated
 
+x-ubuntu-trusty-volumes:
+  &ubuntu-trusty-volumes
+  - .:/arrow:delegated
+  - ubuntu-trusty-cache:/build:delegated
+
+x-ubuntu-xenial-volumes:
+  &ubuntu-xenial-volumes
+  - .:/arrow:delegated
+  - ubuntu-xenial-cache:/build:delegated
+
+x-ubuntu-bionic-volumes:
+  &ubuntu-bionic-volumes
+  - .:/arrow:delegated
+  - ubuntu-bionic-cache:/build:delegated
+
 x-alpine-volumes:
   &alpine-volumes
   - .:/arrow:delegated
   - alpine-cache:/build:delegated
 
+x-fedora-volumes:
+  &fedora-volumes
+  - .:/arrow:delegated
+  - fedora-cache:/build:delegated
+
+x-debian-testing-volumes:
+  &debian-testing-volumes
+  - .:/arrow:delegated
+  - debian-testing-cache:/build:delegated
+
 volumes:
   ubuntu-cache:
+  ubuntu-trusty-cache:
+  ubuntu-xenial-cache:
+  ubuntu-bionic-cache:
   alpine-cache:
+  fedora-cache:
+  debian-testing-cache:
   maven-cache:
   spark-cache:
 
 services:
+  ######################### Helper Containers #################################
+
+  build-context:
+    # The performance of the docker containers often depends on the size of the
+    # build context. This is a helper container that adds the full build context
+    # into the /context folder.
+    #
+    # One can inspect the folder and add files that should not be in the context
+    # to .dockerignore.
+    #
+    # Usage:
+    #   docker-compose build build-context
+    #   docker-compose run build-context
+    image: arrow:build-context
+    build:
+      context: .
+      dockerfile: dev/Dockerfile.context
+
   ######################### Language Containers ###############################
 
   c_glib:
@@ -67,6 +115,29 @@ services:
       context: .
       dockerfile: cpp/Dockerfile
     environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
+  cpp-static-only:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp-static-only
+    image: arrow:cpp
+    shm_size: 2G
+    environment:
+      ARROW_BUILD_SHARED: "OFF"
+      ARROW_TEST_LINKAGE: "static"
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
+  cpp-shared-only:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp-static-only
+    image: arrow:cpp
+    shm_size: 2G
+    environment:
+      ARROW_BUILD_STATIC: "OFF"
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
@@ -98,6 +169,71 @@ services:
     environment:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *alpine-volumes
+
+  cpp-fedora:
+    # Usage:
+    #   docker-compose build cpp-fedora
+    #   docker-compose run cpp-fedora
+    image: arrow:cpp-fedora
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.fedora
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *fedora-volumes
+
+  cpp-debian-testing:
+    # Usage:
+    #   docker-compose build cpp-debian-testing
+    #   docker-compose run cpp-debian-testing
+    image: arrow:cpp-debian-testing
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.debian-testing
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *debian-testing-volumes
+
+  cpp-ubuntu-trusty:
+    # Usage:
+    #   docker-compose build cpp-ubuntu-trusty
+    #   docker-compose run cpp-ubuntu-trusty
+    image: arrow:cpp-ubuntu-trusty
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-trusty
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-trusty-volumes
+
+  cpp-ubuntu-xenial:
+    # Usage:
+    #   docker-compose build cpp-ubuntu-xenial
+    #   docker-compose run cpp-ubuntu-xenial
+    image: arrow:cpp-ubuntu-xenial
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-xenial
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-xenial-volumes
+
+  cpp-ubuntu-bionic:
+    # Usage:
+    #   docker-compose build cpp-ubuntu-bionic
+    #   docker-compose run cpp-ubuntu-bionic
+    image: arrow:cpp-ubuntu-bionic
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-bionic
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-bionic-volumes
 
   go:
     # Usage:
@@ -157,6 +293,22 @@ services:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
     volumes: *alpine-volumes
 
+  python-nopandas:
+    # Usage:
+    #   export PYTHON_VERSION=2.7|3.6|3.7
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build python-nopandas
+    #   docker-compose run python-nopandas
+    image: arrow:python-${PYTHON_VERSION:-3.6}-nopandas
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: python/Dockerfile.nopandas
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+    volumes: *ubuntu-volumes
+
   rust:
     # Usage:
     #   docker-compose build rust
@@ -207,9 +359,6 @@ services:
     #   docker-compose build lint
     #   docker-compose run iwyu
     image: arrow:lint
-    environment:
-      CC: clang
-      CXX: clang++
     command: arrow/dev/lint/run_iwyu.sh
     volumes: *ubuntu-volumes
 
@@ -223,6 +372,16 @@ services:
     command: arrow/dev/lint/run_clang_format.sh
     volumes: *ubuntu-volumes
 
+  clang-tidy:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build lint
+    #   docker-compose run clang-tidy
+    image: arrow:lint
+    command: arrow/dev/lint/run_clang_tidy.sh
+    volumes: *ubuntu-volumes
+
   docs:
     # Usage:
     #   docker-compose build cpp
@@ -234,6 +393,30 @@ services:
       context: .
       dockerfile: docs/Dockerfile
     volumes: *ubuntu-volumes
+
+  ######################### Package Builder ###################################
+
+  python-manylinux1:
+    # Usage:
+    #   either build:
+    #     $ docker-compose build python-manylinux1
+    #   or pull:
+    #     $ docker-compose pull python-manylinux1
+    #   an then run:
+    #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
+    image: quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
+    build:
+      context: python/manylinux1
+      dockerfile: Dockerfile-x86_64_base
+    shm_size: 2G
+    environment:
+      PYARROW_PARALLEL: 3
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux1:/io:delegated
+    command: /io/build_arrow.sh
 
   ######################### Integration Tests #################################
 
@@ -323,6 +506,19 @@ services:
       dockerfile: integration/dask/Dockerfile
     volumes: *ubuntu-volumes
 
+  turbodbc-integration:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build turbodbc-integration
+    #   docker-compose run turbodbc-integration
+    image: arrow:turbodbc-integration
+    build:
+      context: .
+      dockerfile: integration/turbodbc/Dockerfile
+    volumes: *ubuntu-volumes
+
   spark-integration:
     # Usage:
     #   export PYTHON_VERSION=3.6
@@ -330,9 +526,9 @@ services:
     #   docker-compose build python
     #   docker-compose build spark-integration
     #   docker-compose run spark-integration
-    image: arrow:spark-${SPARK_VERSION:-2.4.0}
+    image: arrow:spark-${SPARK_VERSION:-master}
     environment:
-      - SPARK_VERSION=${SPARK_VERSION:-2.4.0}
+      - SPARK_VERSION=${SPARK_VERSION:-master}
     build:
       context: .
       dockerfile: integration/spark/Dockerfile
@@ -343,3 +539,40 @@ services:
       - spark-cache:/spark:delegated
 
   # TODO(kszucs): hive-integration
+
+  ######################## Verification Containers ############################
+
+  debian-stretch:
+    image: debian:stretch
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-trusty:
+    image: ubuntu:trusty
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-xenial:
+    image: ubuntu:xenial
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-bionic:
+    image: ubuntu:bionic
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-cosmic:
+    image: ubuntu:cosmic
+    volumes:
+      - .:/arrow:delegated
+
+  centos-6:
+    image: centos:6
+    volumes:
+      - .:/arrow:delegated
+
+  centos-7:
+    image: centos:7
+    volumes:
+      - .:/arrow:delegated

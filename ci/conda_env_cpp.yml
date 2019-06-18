@@ -15,24 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# ARROW-4056: The conda-forge boost 1.69.0 seems to break the Parquet unit
-# tests with Xcode 8.3. Root cause not yet determined
-boost-cpp=1.68.0
+benchmark=1.4.1
+boost-cpp>=1.68.0
 brotli
 bzip2
+c-ares
 cmake
 double-conversion
 flatbuffers
 gflags
 glog
-gmock
-gtest
+gmock>=1.8.1
+grpc-cpp
+gtest>=1.8.1
 libprotobuf
 lz4-c
+ninja
+pkg-config
 python
 rapidjson
-re2
 snappy
-thrift-cpp
+thrift-cpp>=0.11.0
 zlib
 zstd

@@ -15,6 +15,8 @@
 
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Apache.Arrow
 {
@@ -97,7 +99,7 @@ namespace Apache.Arrow
         /// </summary>
         /// <param name="n">Integer to round.</param>
         /// <returns>Integer rounded to the nearest multiple of 64.</returns>
-        public static int RoundUpToMultipleOf64(int n) =>
+        public static long RoundUpToMultipleOf64(long n) =>
             RoundUpToMultiplePowerOfTwo(n, 64);
 
         /// <summary>
@@ -109,12 +111,18 @@ namespace Apache.Arrow
         /// <param name="n">Integer to round up.</param>
         /// <param name="factor">Power of two factor to round up to.</param>
         /// <returns>Integer rounded up to the nearest power of two.</returns>
-        public static int RoundUpToMultiplePowerOfTwo(int n, int factor)
+        public static long RoundUpToMultiplePowerOfTwo(long n, int factor)
         {
             // Assert that factor is a power of two.
             Debug.Assert(factor > 0 && (factor & (factor - 1)) == 0);
             return (n + (factor - 1)) & ~(factor - 1);
         }
             
+        internal static int ReadInt32(ReadOnlyMemory<byte> value)
+        {
+            Debug.Assert(value.Length >= sizeof(int));
+
+            return Unsafe.ReadUnaligned<int>(ref MemoryMarshal.GetReference(value.Span));
+        }
     }
 }

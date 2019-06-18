@@ -20,6 +20,8 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from libcpp cimport bool as c_bool, nullptr
 from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
@@ -29,7 +31,6 @@ from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
 
-import collections
 import random
 import socket
 import warnings
@@ -134,6 +135,8 @@ cdef extern from "plasma/client.h" nogil:
         CStatus Disconnect()
 
         CStatus Delete(const c_vector[CUniqueID] object_ids)
+
+        int64_t store_capacity()
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -522,7 +525,7 @@ cdef class PlasmaClient:
             the object_ids and ObjectNotAvailable if the object was not
             available.
         """
-        if isinstance(object_ids, collections.Sequence):
+        if isinstance(object_ids, compat.Sequence):
             results = []
             buffers = self.get_buffers(object_ids, timeout_ms)
             for i in range(len(object_ids)):
@@ -757,6 +760,18 @@ cdef class PlasmaClient:
             }
             inc(it)
         return result
+
+    def store_capacity(self):
+        """
+        Get the memory capacity of the store.
+
+        Returns
+        -------
+
+        int
+            The memory capacity of the store in bytes.
+        """
+        return self.client.get().store_capacity()
 
 
 def connect(store_socket_name, manager_socket_name=None, int release_delay=0,

@@ -62,10 +62,16 @@ public class WriteChannel implements AutoCloseable {
     return write(ByteBuffer.wrap(buffer));
   }
 
+  /**
+   * Writes <zeroCount>zeroCount</zeroCount> zeros the underlying channel.
+   */
   public long writeZeros(int zeroCount) throws IOException {
     return write(new byte[zeroCount]);
   }
 
+  /**
+   * Writes enough bytes to align the channel to an 8-byte bounary.
+   */
   public long align() throws IOException {
     if (currentPosition % 8 != 0) { // align on 8 byte boundaries
       return writeZeros(8 - (int) (currentPosition % 8));
@@ -73,6 +79,9 @@ public class WriteChannel implements AutoCloseable {
     return 0;
   }
 
+  /**
+   * Writes all data from <code>buffer</code> to the underlying channel.
+   */
   public long write(ByteBuffer buffer) throws IOException {
     long length = buffer.remaining();
     LOGGER.debug("Writing buffer with size: {}", length);
@@ -83,17 +92,27 @@ public class WriteChannel implements AutoCloseable {
     return length;
   }
 
+  /**
+   * Writes <code>v</code> in little-endian format to the underlying channel.
+   */
   public long writeIntLittleEndian(int v) throws IOException {
     byte[] outBuffer = new byte[4];
     MessageSerializer.intToBytes(v, outBuffer);
     return write(outBuffer);
   }
 
+  /**
+   * Writes the buffer to the underlying channel.
+   */
   public void write(ArrowBuf buffer) throws IOException {
     ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
     write(nioBuffer);
   }
 
+  /**
+   * Writes the serialized flatbuffer to the underlying channel.  If withSizePrefix
+   * is true then the length in bytes of the buffer will first be written in little endian format.
+   */
   public long write(FBSerializable writer, boolean withSizePrefix) throws IOException {
     ByteBuffer buffer = serialize(writer);
     if (withSizePrefix) {
@@ -102,6 +121,9 @@ public class WriteChannel implements AutoCloseable {
     return write(buffer);
   }
 
+  /**
+   * Serializes writer to a ByteBuffer.
+   */
   public static ByteBuffer serialize(FBSerializable writer) {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int root = writer.writeTo(builder);

@@ -5,7 +5,7 @@
 namespace Apache.Arrow.Flatbuf
 {
 
-public enum Precision : short
+internal enum Precision : short
 {
  HALF = 0,
  SINGLE = 1,

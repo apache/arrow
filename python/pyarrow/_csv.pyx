@@ -20,6 +20,8 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, ensure_type,
@@ -27,9 +29,7 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, ensure_type,
                           pyarrow_wrap_table, pyarrow_wrap_data_type,
                           pyarrow_unwrap_data_type)
 
-from pyarrow.compat import frombytes, tobytes
-
-from collections import Mapping
+from pyarrow.compat import frombytes, tobytes, Mapping
 
 
 cdef unsigned char _single_char(s) except 0:
@@ -255,6 +255,17 @@ cdef class ConvertOptions:
     null_values: list, optional
         A sequence of strings that denote nulls in the data
         (defaults are appropriate in most cases).
+    true_values: list, optional
+        A sequence of strings that denote true booleans in the data
+        (defaults are appropriate in most cases).
+    false_values: list, optional
+        A sequence of strings that denote false booleans in the data
+        (defaults are appropriate in most cases).
+    strings_can_be_null: bool, optional (default False)
+        Whether string / binary columns can have null values.
+        If true, then strings in null_values are considered null for
+        string columns.
+        If false, then all strings are valid string values.
     """
     cdef:
         CCSVConvertOptions options
@@ -262,7 +273,9 @@ cdef class ConvertOptions:
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, check_utf8=None, column_types=None, null_values=None):
+    def __init__(self, check_utf8=None, column_types=None, null_values=None,
+                 true_values=None, false_values=None,
+                 strings_can_be_null=None):
         self.options = CCSVConvertOptions.Defaults()
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
@@ -270,6 +283,12 @@ cdef class ConvertOptions:
             self.column_types = column_types
         if null_values is not None:
             self.null_values = null_values
+        if true_values is not None:
+            self.true_values = true_values
+        if false_values is not None:
+            self.false_values = false_values
+        if strings_can_be_null is not None:
+            self.strings_can_be_null = strings_can_be_null
 
     @property
     def check_utf8(self):
@@ -281,6 +300,17 @@ cdef class ConvertOptions:
     @check_utf8.setter
     def check_utf8(self, value):
         self.options.check_utf8 = value
+
+    @property
+    def strings_can_be_null(self):
+        """
+        Whether string / binary columns can have null values.
+        """
+        return self.options.strings_can_be_null
+
+    @strings_can_be_null.setter
+    def strings_can_be_null(self, value):
+        self.options.strings_can_be_null = value
 
     @property
     def column_types(self):
@@ -322,6 +352,28 @@ cdef class ConvertOptions:
     def null_values(self, value):
         self.options.null_values = [tobytes(x) for x in value]
 
+    @property
+    def true_values(self):
+        """
+        A sequence of strings that denote true booleans in the data.
+        """
+        return [frombytes(x) for x in self.options.true_values]
+
+    @true_values.setter
+    def true_values(self, value):
+        self.options.true_values = [tobytes(x) for x in value]
+
+    @property
+    def false_values(self):
+        """
+        A sequence of strings that denote false booleans in the data.
+        """
+        return [frombytes(x) for x in self.options.false_values]
+
+    @false_values.setter
+    def false_values(self, value):
+        self.options.false_values = [tobytes(x) for x in value]
+
 
 cdef _get_reader(input_file, shared_ptr[InputStream]* out):
     use_memory_map = False
@@ -361,14 +413,15 @@ def read_csv(input_file, read_options=None, parse_options=None,
         The location of CSV data.  If a string or path, and if it ends
         with a recognized compressed file extension (e.g. ".gz" or ".bz2"),
         the data is automatically decompressed when reading.
-    read_options: ReadOptions, optional
-        Options for the CSV reader (see ReadOptions constructor for defaults)
-    parse_options: ParseOptions, optional
+    read_options: pyarrow.csv.ReadOptions, optional
+        Options for the CSV reader (see pyarrow.csv.ReadOptions constructor
+        for defaults)
+    parse_options: pyarrow.csv.ParseOptions, optional
         Options for the CSV parser
-        (see ParseOptions constructor for defaults)
-    convert_options: ConvertOptions, optional
+        (see pyarrow.csv.ParseOptions constructor for defaults)
+    convert_options: pyarrow.csv.ConvertOptions, optional
         Options for converting CSV data
-        (see ConvertOptions constructor for defaults)
+        (see pyarrow.csv.ConvertOptions constructor for defaults)
     memory_pool: MemoryPool, optional
         Pool to allocate Table memory from
 

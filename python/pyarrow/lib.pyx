@@ -19,13 +19,16 @@
 # distutils: language = c++
 # cython: embedsignature = True
 
+from __future__ import absolute_import
+
 import datetime
 import decimal as _pydecimal
-import multiprocessing
+import json
 import numpy as np
 import os
 import six
-from pyarrow.compat import frombytes, tobytes, PandasSeries, Categorical
+
+from pyarrow.compat import frombytes, tobytes, ordered_dict
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
@@ -33,7 +36,11 @@ from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow as libarrow
 cimport cpython as cp
 
+# Initialize NumPy C API
 arrow_init_numpy()
+# Initialize PyArrow C++ API
+# (used from some of our C++ code, see e.g. ARROW-5260)
+import_pyarrow()
 set_numpy_nan(np.nan)
 
 
@@ -89,6 +96,9 @@ Type_MAP = _Type_MAP
 
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
+
+# pandas API shim
+include "pandas-shim.pxi"
 
 # Exception types
 include "error.pxi"

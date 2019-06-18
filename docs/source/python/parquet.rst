@@ -37,7 +37,7 @@ which includes a native, multithreaded C++ adapter to and from in-memory Arrow
 data. PyArrow includes Python bindings to this code, which thus enables reading
 and writing Parquet files with pandas as well.
 
-Obtaining PyArrow with Parquet Support
+Obtaining pyarrow with Parquet Support
 --------------------------------------
 
 If you installed ``pyarrow`` with pip or conda, it should be built with Parquet
@@ -49,8 +49,8 @@ support bundled:
 
 If you are building ``pyarrow`` from source, you must use
 ``-DARROW_PARQUET=ON`` when compiling the C++ libraries and enable the Parquet
-extensions when building ``pyarrow``. See the :ref:`Development <development>`
-page for more details.
+extensions when building ``pyarrow``. See the :ref:`Python Development
+<python-development>` page for more details.
 
 Reading and Writing Single Files
 --------------------------------
@@ -347,16 +347,18 @@ sanitize field characters unsupported by Spark SQL.
 Multithreaded Reads
 -------------------
 
-Each of the reading functions have an ``nthreads`` argument which will read
-columns with the indicated level of parallelism. Depending on the speed of IO
+Each of the reading functions by default use multi-threading for reading
+columns in parallel. Depending on the speed of IO
 and how expensive it is to decode the columns in a particular file
 (particularly with GZIP compression), this can yield significantly higher data
-throughput:
+throughput. 
 
-.. code-block:: python
+This can be disabled by specifying ``use_threads=False``.
 
-   pq.read_table(where, nthreads=4)
-   pq.ParquetDataset(where).read(nthreads=4)
+.. note::
+   The number of threads to use concurrently is automatically inferred by Arrow
+   and can be inspected using the :func:`~pyarrow.cpu_count()` function.
+
 
 Reading a Parquet File from Azure Blob storage
 ----------------------------------------------

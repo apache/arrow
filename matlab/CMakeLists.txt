@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.2)
 set(CMAKE_CXX_STANDARD 11)
 
-set(MLARROW_VERSION "0.13.0-SNAPSHOT")
+set(MLARROW_VERSION "0.14.0-SNAPSHOT")
 string(REGEX MATCH
   "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_VERSION}")
 
@@ -42,5 +42,14 @@ matlab_add_mex(NAME featherreadmex
                SRC src/featherreadmex.cc
                    src/feather_reader.cc
                    src/util/handle_status.cc
+                   src/util/unicode_conversion.cc
                LINK_TO ${ARROW_SHARED_LIB})
 target_include_directories(featherreadmex PRIVATE ${ARROW_INCLUDE_DIR})
+
+# Build featherwrite mex file based on the arrow shared library
+matlab_add_mex(NAME featherwritemex
+               SRC src/featherwritemex.cc
+                   src/feather_writer.cc
+                   src/util/handle_status.cc
+               LINK_TO ${ARROW_SHARED_LIB})
+target_include_directories(featherwritemex PRIVATE ${ARROW_INCLUDE_DIR})

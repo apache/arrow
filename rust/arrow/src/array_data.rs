@@ -28,19 +28,19 @@ use crate::util::bit_util;
 /// An generic representation of Arrow array data which encapsulates common attributes and
 /// operations for Arrow array. Specific operations for different arrays types (e.g.,
 /// primitive, list, struct) are implemented in `Array`.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ArrayData {
     /// The data type for this array data
     data_type: DataType,
 
     /// The number of elements in this array data
-    len: usize,
+    pub(crate) len: usize,
 
     /// The number of null elements in this array data
-    null_count: usize,
+    pub(crate) null_count: usize,
 
     /// The offset into this array data
-    offset: usize,
+    pub(crate) offset: usize,
 
     /// The buffers for this array data. Note that depending on the array types, this
     /// could hold different kinds of buffers (e.g., value buffer, value offset buffer)
@@ -71,8 +71,12 @@ impl ArrayData {
         let null_count = match null_count {
             None => {
                 if let Some(ref buf) = null_bit_buffer {
-                    len.checked_sub(bit_util::count_set_bits_offset(buf.data(), offset))
-                        .unwrap()
+                    len.checked_sub(bit_util::count_set_bits_offset(
+                        buf.data(),
+                        offset,
+                        len,
+                    ))
+                    .unwrap()
                 } else {
                     0
                 }
@@ -294,10 +298,10 @@ mod tests {
         bit_util::set_bit(&mut bit_v, 3);
         bit_util::set_bit(&mut bit_v, 10);
         let arr_data = ArrayData::builder(DataType::Int32)
-            .len(16)
+            .len(12)
             .offset(2)
             .null_bit_buffer(Buffer::from(bit_v))
             .build();
-        assert_eq!(14, arr_data.null_count());
+        assert_eq!(10, arr_data.null_count());
     }
 }

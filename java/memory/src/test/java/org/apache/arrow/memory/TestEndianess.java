@@ -28,7 +28,7 @@ public class TestEndianess {
   @Test
   public void testLittleEndian() {
     final BufferAllocator a = new RootAllocator(10000);
-    final ByteBuf b = a.buffer(4);
+    final ByteBuf b = a.buffer(4).asNettyBuffer();
     b.setInt(0, 35);
     assertEquals(b.getByte(0), 35);
     assertEquals(b.getByte(1), 0);

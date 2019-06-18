@@ -15,20 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <utility>
+
 #include <gtest/gtest.h>
 
-#include <arrow/test-util.h>
+#include "arrow/io/buffered.h"
+#include "arrow/testing/gtest_util.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/properties.h"
-#include "parquet/test-specialization.h"
+#include "parquet/statistics.h"
 #include "parquet/test-util.h"
 #include "parquet/thrift.h"
 #include "parquet/types.h"
-#include "parquet/util/comparison.h"
-#include "parquet/util/memory.h"
 
 namespace parquet {
 
@@ -76,8 +78,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   void BuildReader(int64_t num_rows,
                    Compression::type compression = Compression::UNCOMPRESSED) {
-    auto buffer = sink_->GetBuffer();
-    std::unique_ptr<InMemoryInputStream> source(new InMemoryInputStream(buffer));
+    std::shared_ptr<Buffer> buffer;
+    ASSERT_OK(sink_->Finish(&buffer));
+    auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     std::unique_ptr<PageReader> page_reader =
         PageReader::Open(std::move(source), num_rows, compression);
     reader_ = std::static_pointer_cast<TypedColumnReader<TestType>>(
@@ -88,7 +91,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       int64_t output_size = SMALL_SIZE,
       const ColumnProperties& column_properties = ColumnProperties(),
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0) {
-    sink_.reset(new InMemoryOutputStream());
+    sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version);
     if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
@@ -104,7 +107,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
     std::unique_ptr<PageWriter> pager =
-        PageWriter::Open(sink_.get(), column_properties.compression(), metadata_.get());
+        PageWriter::Open(sink_, column_properties.compression(), metadata_.get());
     std::shared_ptr<ColumnWriter> writer =
         ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
     return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
@@ -215,16 +218,14 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
   void ReadAndCompare(Compression::type compression, int64_t num_rows) {
     this->SetupValuesOut(num_rows);
     this->ReadColumnFully(compression);
-    std::shared_ptr<CompareDefault<TestType>> compare;
-    compare = std::static_pointer_cast<CompareDefault<TestType>>(
-        Comparator::Make(this->descr_));
+    auto comparator = TypedComparator<TestType>::Make(this->descr_);
     for (size_t i = 0; i < this->values_.size(); i++) {
-      if ((*compare)(this->values_[i], this->values_out_[i]) ||
-          (*compare)(this->values_out_[i], this->values_[i])) {
+      if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
+          comparator->Compare(this->values_out_[i], this->values_[i])) {
         std::cout << "Failed at " << i << std::endl;
       }
-      ASSERT_FALSE((*compare)(this->values_[i], this->values_out_[i]));
-      ASSERT_FALSE((*compare)(this->values_out_[i], this->values_[i]));
+      ASSERT_FALSE(comparator->Compare(this->values_[i], this->values_out_[i]));
+      ASSERT_FALSE(comparator->Compare(this->values_out_[i], this->values_[i]));
     }
     ASSERT_EQ(this->values_, this->values_out_);
   }
@@ -246,6 +247,17 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     auto metadata_accessor =
         ColumnChunkMetaData::Make(metadata_->contents(), this->descr_, &app_version);
     return metadata_accessor->is_stats_set();
+  }
+
+  std::pair<bool, bool> metadata_stats_has_min_max() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    ApplicationVersion app_version(this->writer_properties_->created_by());
+    auto metadata_accessor =
+        ColumnChunkMetaData::Make(metadata_->contents(), this->descr_, &app_version);
+    auto encoded_stats = metadata_accessor->statistics()->Encode();
+    return {encoded_stats.has_min, encoded_stats.has_max};
   }
 
   std::vector<Encoding::type> metadata_encodings() {
@@ -270,7 +282,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
  private:
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
-  std::unique_ptr<InMemoryOutputStream> sink_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
   std::vector<std::vector<uint8_t>> data_buffer_;
 };
@@ -297,15 +309,15 @@ void TestPrimitiveWriter<Int96Type>::ReadAndCompare(Compression::type compressio
                                                     int64_t num_rows) {
   this->SetupValuesOut(num_rows);
   this->ReadColumnFully(compression);
-  std::shared_ptr<CompareDefault<Int96Type>> compare;
-  compare = std::make_shared<CompareDefaultInt96>();
+
+  auto comparator = TypedComparator<Int96Type>::Make(Type::INT96, SortOrder::SIGNED);
   for (size_t i = 0; i < this->values_.size(); i++) {
-    if ((*compare)(this->values_[i], this->values_out_[i]) ||
-        (*compare)(this->values_out_[i], this->values_[i])) {
+    if (comparator->Compare(this->values_[i], this->values_out_[i]) ||
+        comparator->Compare(this->values_out_[i], this->values_[i])) {
       std::cout << "Failed at " << i << std::endl;
     }
-    ASSERT_FALSE((*compare)(this->values_[i], this->values_out_[i]));
-    ASSERT_FALSE((*compare)(this->values_out_[i], this->values_[i]));
+    ASSERT_FALSE(comparator->Compare(this->values_[i], this->values_out_[i]));
+    ASSERT_FALSE(comparator->Compare(this->values_out_[i], this->values_[i]));
   }
   ASSERT_EQ(this->values_, this->values_out_);
 }
@@ -580,7 +592,7 @@ TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
 }
 
 // PARQUET-979
-// Prevent writing large stats
+// Prevent writing large MIN, MAX stats
 using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 TEST_F(TestByteArrayValuesWriter, OmitStats) {
   int min_len = 1024 * 4;
@@ -593,7 +605,27 @@ TEST_F(TestByteArrayValuesWriter, OmitStats) {
   writer->WriteBatch(SMALL_SIZE, nullptr, nullptr, this->values_.data());
   writer->Close();
 
-  ASSERT_FALSE(this->metadata_is_stats_set());
+  auto has_min_max = this->metadata_stats_has_min_max();
+  ASSERT_FALSE(has_min_max.first);
+  ASSERT_FALSE(has_min_max.second);
+}
+
+// PARQUET-1405
+// Prevent writing large stats in the DataPageHeader
+TEST_F(TestByteArrayValuesWriter, OmitDataPageStats) {
+  int min_len = static_cast<int>(std::pow(10, 7));
+  int max_len = static_cast<int>(std::pow(10, 7));
+  this->SetUpSchema(Repetition::REQUIRED);
+  ColumnProperties column_properties;
+  column_properties.set_statistics_enabled(false);
+  auto writer = this->BuildWriter(SMALL_SIZE, column_properties);
+
+  values_.resize(1);
+  InitWideByteArrayValues(1, this->values_, this->buffer_, min_len, max_len);
+  writer->WriteBatch(1, nullptr, nullptr, this->values_.data());
+  writer->Close();
+
+  ASSERT_NO_THROW(this->ReadColumn());
 }
 
 TEST_F(TestByteArrayValuesWriter, LimitStats) {
@@ -639,12 +671,12 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   SchemaDescriptor schema;
   schema.Init(root);
 
-  InMemoryOutputStream sink;
+  auto sink = CreateOutputStream();
   auto props = WriterProperties::Builder().build();
 
   auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
   std::unique_ptr<PageWriter> pager =
-      PageWriter::Open(&sink, Compression::UNCOMPRESSED, metadata.get());
+      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
   auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);

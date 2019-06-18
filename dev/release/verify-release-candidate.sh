@@ -26,7 +26,8 @@
 # - nodejs >= 6.0.0 (best way is to use nvm)
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
-# LD_LIBRARY_PATH
+# LD_LIBRARY_PATH. If your system Boost is too old for the C++ libraries, then
+# set $ARROW_BOOST_VENDORED to "ON" or "1"
 
 case $# in
   3) ARTIFACT="$1"
@@ -47,16 +48,25 @@ esac
 set -ex
 set -o pipefail
 
-HERE=$(cd `dirname "${BASH_SOURCE[0]:-$0}"` && pwd)
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+
+ARROW_BOOST_VENDORED=${ARROW_BOOST_VENDORED:=OFF}
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
-: ${ARROW_HAVE_CUDA:=}
-if [ -z "$ARROW_HAVE_CUDA" ]; then
-  if nvidia-smi --list-gpus 2>&1 > /dev/null; then
-    ARROW_HAVE_CUDA=yes
+detect_cuda() {
+  if ! (which nvcc && which nvidia-smi) > /dev/null; then
+    return 1
   fi
+
+  local n_gpus=$(nvidia-smi --list-gpus | wc -l)
+  return $((${n_gpus} < 1))
+}
+
+if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
+  ARROW_CUDA=ON
 fi
+: ${ARROW_CUDA:=OFF}
 
 download_dist_file() {
   curl \
@@ -107,6 +117,7 @@ download_bintray_files() {
 
   local version_name=${VERSION}-rc${RC_NUMBER}
 
+  local file
   bintray \
     GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
       jq -r ".[].path" | \
@@ -116,11 +127,12 @@ download_bintray_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
   done
+  wait
 }
 
-verify_binary_artifacts() {
+test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
   pushd ${download_dir}
@@ -147,6 +159,39 @@ verify_binary_artifacts() {
   done
 
   popd
+}
+
+test_apt() {
+  for target in debian-stretch \
+                ubuntu-trusty \
+                ubuntu-xenial \
+                ubuntu-bionic \
+                ubuntu-cosmic; do
+    if ! "${SOURCE_DIR}/../run_docker_compose.sh" \
+           "${target}" \
+           /arrow/dev/release/verify-apt.sh \
+           "${VERSION}" \
+           "yes" \
+           "${BINTRAY_REPOSITORY}"; then
+      echo "Failed to verify the APT repository for ${target}"
+      exit 1
+    fi
+  done
+}
+
+test_yum() {
+  for target in centos-6 \
+                centos-7; do
+    if ! "${SOURCE_DIR}/../run_docker_compose.sh" \
+           "${target}" \
+           /arrow/dev/release/verify-yum.sh \
+           "${VERSION}" \
+           "yes" \
+           "${BINTRAY_REPOSITORY}"; then
+      echo "Failed to verify the Yum repository for ${target}"
+      exit 1
+    fi
+  done
 }
 
 setup_tempdir() {
@@ -200,22 +245,23 @@ ${ARROW_CMAKE_OPTIONS}
 -DARROW_GANDIVA=ON
 -DARROW_PARQUET=ON
 -DARROW_BOOST_USE_SHARED=ON
+-DARROW_BOOST_VENDORED=$ARROW_BOOST_VENDORED
 -DCMAKE_BUILD_TYPE=release
 -DARROW_BUILD_TESTS=ON
--DARROW_BUILD_BENCHMARKS=ON
+-DARROW_CUDA=${ARROW_CUDA}
+-DARROW_DEPENDENCY_SOURCE=AUTO
 "
-  if [ "$ARROW_HAVE_CUDA" = "yes" ]; then
-    ARROW_CMAKE_OPTIONS="$ARROW_CMAKE_OPTIONS -DARROW_CUDA=ON"
-  fi
   cmake $ARROW_CMAKE_OPTIONS ..
 
   make -j$NPROC
   make install
 
-  git clone https://github.com/apache/parquet-testing.git
-  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
-
-  ctest -VV -L unittest
+  # TODO: ARROW-5036
+  ctest \
+    --exclude-regex "plasma-serialization_tests" \
+    -j$NPROC \
+    --output-on-failure \
+    -L unittest
   popd
 }
 
@@ -226,7 +272,14 @@ test_python() {
 
   pip install -r requirements.txt -r requirements-test.txt
 
-  python setup.py build_ext --inplace --with-parquet --with-plasma
+  export PYARROW_WITH_GANDIVA=1
+  export PYARROW_WITH_PARQUET=1
+  export PYARROW_WITH_PLASMA=1
+  if [ "${ARROW_CUDA}" = "ON" ]; then
+    export PYARROW_WITH_CUDA=1
+  fi
+
+  python setup.py build_ext --inplace
   py.test pyarrow -v --pdb
 
   popd
@@ -236,7 +289,13 @@ test_python() {
 test_glib() {
   pushd c_glib
 
-  ./configure --prefix=$ARROW_HOME
+  if brew --prefix libffi > /dev/null 2>&1; then
+    ./configure --prefix=$ARROW_HOME \
+      PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
+  else
+    ./configure --prefix=$ARROW_HOME
+  fi
+
   make -j$NPROC
   make install
 
@@ -274,7 +333,7 @@ test_ruby() {
   pushd ruby
 
   local modules="red-arrow red-plasma red-gandiva red-parquet"
-  if [ "${ARROW_HAVE_CUDA}" = "yes" ]; then
+  if [ "${ARROW_CUDA}" = "ON" ]; then
     modules="${modules} red-arrow-cuda"
   fi
 
@@ -301,14 +360,14 @@ test_rust() {
   # build and test rust
   pushd rust
 
+  # raises on any formatting errors
+  rustup component add rustfmt --toolchain stable
+  cargo +stable fmt --all -- --check
+
   # we are targeting Rust nightly for releases
   rustup default nightly
 
-  # raises on any formatting errors
-  rustup component add rustfmt-preview
-  cargo fmt --all -- --check
   # raises on any warnings
-
   RUSTFLAGS="-D warnings" cargo build
   cargo test
 
@@ -358,29 +417,38 @@ fi
 
 import_gpg_keys
 
+# By default test all functionalities.
+# To deactivate one test, deactivate the test and all of its dependents
+# To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+: ${TEST_DEFAULT:=1}
+: ${TEST_JAVA:=${TEST_DEFAULT}}
+: ${TEST_CPP:=${TEST_DEFAULT}}
+: ${TEST_GLIB:=${TEST_DEFAULT}}
+: ${TEST_RUBY:=${TEST_DEFAULT}}
+: ${TEST_PYTHON:=${TEST_DEFAULT}}
+: ${TEST_JS:=${TEST_DEFAULT}}
+: ${TEST_INTEGRATION:=${TEST_DEFAULT}}
+: ${TEST_RUST:=${TEST_DEFAULT}}
+: ${TEST_BINARY:=${TEST_DEFAULT}}
+: ${TEST_APT:=${TEST_DEFAULT}}
+: ${TEST_YUM:=${TEST_DEFAULT}}
+
+# Automatically test if its activated by a dependent
+TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
+TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
+TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
+TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
+TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+
 if [ "$ARTIFACT" == "source" ]; then
   TARBALL=apache-arrow-$1.tar.gz
   DIST_NAME="apache-arrow-${VERSION}"
 
-  # By default test all functionalities.
-  # To deactivate one test, deactivate the test and all of its dependents
-  # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
-  : ${TEST_DEFAULT:=1}
-  : ${TEST_JAVA:=${TEST_DEFAULT}}
-  : ${TEST_CPP:=${TEST_DEFAULT}}
-  : ${TEST_GLIB:=${TEST_DEFAULT}}
-  : ${TEST_RUBY:=${TEST_DEFAULT}}
-  : ${TEST_PYTHON:=${TEST_DEFAULT}}
-  : ${TEST_JS:=${TEST_DEFAULT}}
-  : ${TEST_INTEGRATION:=${TEST_DEFAULT}}
-  : ${TEST_RUST:=${TEST_DEFAULT}}
+  git clone https://github.com/apache/arrow-testing.git
+  export ARROW_TEST_DATA=$PWD/arrow-testing/data
 
-  # Automatically test if its activated by a dependent
-  TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
-  TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
-  TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
-  TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
-  TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+  git clone https://github.com/apache/parquet-testing.git
+  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
 
   fetch_archive $DIST_NAME
   tar xvzf ${DIST_NAME}.tar.gz
@@ -414,7 +482,15 @@ if [ "$ARTIFACT" == "source" ]; then
 else
   : ${BINTRAY_REPOSITORY:=apache/arrow}
 
-  verify_binary_artifacts
+  if [ ${TEST_BINARY} -gt 0 ]; then
+    test_binary
+  fi
+  if [ ${TEST_APT} -gt 0 ]; then
+    test_apt
+  fi
+  if [ ${TEST_YUM} -gt 0 ]; then
+    test_yum
+  fi
 fi
 
 echo 'Release candidate looks good!'

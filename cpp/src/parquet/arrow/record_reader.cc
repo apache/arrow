@@ -29,7 +29,6 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/type.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
 
 #include "parquet/column_page.h"
@@ -44,11 +43,9 @@ using arrow::MemoryPool;
 namespace parquet {
 namespace internal {
 
-namespace BitUtil = ::arrow::BitUtil;
-
 // PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
 // encoding.
-static bool IsDictionaryIndexEncoding(const Encoding::type& e) {
+static bool IsDictionaryIndexEncoding(Encoding::type e) {
   return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
 }
 
@@ -86,7 +83,7 @@ class RecordReader::RecordReaderImpl {
 
   virtual ~RecordReaderImpl() = default;
 
-  virtual int64_t ReadRecordData(const int64_t num_records) = 0;
+  virtual int64_t ReadRecordData(int64_t num_records) = 0;
 
   // Returns true if there are still values in this column.
   bool HasNext() {
@@ -449,35 +446,16 @@ class RecordReader::RecordReaderImpl {
 };
 
 template <typename DType>
-struct RecordReaderTraits {
-  using BuilderType = ::arrow::ArrayBuilder;
-};
-
-template <>
-struct RecordReaderTraits<ByteArrayType> {
-  using BuilderType = ::arrow::internal::ChunkedBinaryBuilder;
-};
-
-template <>
-struct RecordReaderTraits<FLBAType> {
-  using BuilderType = ::arrow::FixedSizeBinaryBuilder;
-};
-
-template <typename DType>
 class TypedRecordReader : public RecordReader::RecordReaderImpl {
  public:
   using T = typename DType::c_type;
 
-  using BuilderType = typename RecordReaderTraits<DType>::BuilderType;
-
   TypedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
-      : RecordReader::RecordReaderImpl(descr, pool), current_decoder_(nullptr) {
-    InitializeBuilder();
-  }
+      : RecordReader::RecordReaderImpl(descr, pool), current_decoder_(nullptr) {}
 
   void ResetDecoders() override { decoders_.clear(); }
 
-  inline void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) {
+  virtual void ReadValuesSpaced(int64_t values_with_nulls, int64_t null_count) {
     uint8_t* valid_bits = valid_bits_->mutable_data();
     const int64_t valid_bits_offset = values_written_;
 
@@ -487,14 +465,14 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
     DCHECK_EQ(num_decoded, values_with_nulls);
   }
 
-  inline void ReadValuesDense(int64_t values_to_read) {
+  virtual void ReadValuesDense(int64_t values_to_read) {
     int64_t num_decoded =
         current_decoder_->Decode(ValuesHead<T>(), static_cast<int>(values_to_read));
     DCHECK_EQ(num_decoded, values_to_read);
   }
 
   // Return number of logical records read
-  int64_t ReadRecordData(const int64_t num_records) override {
+  int64_t ReadRecordData(int64_t num_records) override {
     // Conservative upper bound
     const int64_t possible_num_values =
         std::max(num_records, levels_written_ - levels_position_);
@@ -568,24 +546,153 @@ class TypedRecordReader : public RecordReader::RecordReaderImpl {
     throw ParquetException("GetChunks only implemented for binary types");
   }
 
- private:
+ protected:
   using DecoderType = typename EncodingTraits<DType>::Decoder;
 
+  DecoderType* current_decoder_;
+
+ private:
   // Map of encoding type to the respective decoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
   // plain-encoded data.
   std::unordered_map<int, std::unique_ptr<DecoderType>> decoders_;
 
-  std::unique_ptr<BuilderType> builder_;
+  // Initialize repetition and definition level decoders on the next data page.
+  int64_t InitializeLevelDecoders(const DataPage& page,
+                                  Encoding::type repetition_level_encoding,
+                                  Encoding::type definition_level_encoding);
 
-  DecoderType* current_decoder_;
+  void InitializeDataDecoder(const DataPage& page, int64_t levels_bytes);
 
   // Advance to the next data page
   bool ReadNewPage() override;
 
-  void InitializeBuilder() {}
-
   void ConfigureDictionary(const DictionaryPage* page);
+};
+
+class FLBARecordReader : public TypedRecordReader<FLBAType> {
+ public:
+  FLBARecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+      : TypedRecordReader<FLBAType>(descr, pool), builder_(nullptr) {
+    DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
+    int byte_width = descr_->type_length();
+    std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
+    builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, pool_));
+  }
+
+  ::arrow::ArrayVector GetBuilderChunks() override {
+    std::shared_ptr<::arrow::Array> chunk;
+    PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
+    return ::arrow::ArrayVector({chunk});
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    auto values = ValuesHead<FLBA>();
+    int64_t num_decoded =
+        current_decoder_->Decode(values, static_cast<int>(values_to_read));
+    DCHECK_EQ(num_decoded, values_to_read);
+
+    for (int64_t i = 0; i < num_decoded; i++) {
+      PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
+    }
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    uint8_t* valid_bits = valid_bits_->mutable_data();
+    const int64_t valid_bits_offset = values_written_;
+    auto values = ValuesHead<FLBA>();
+
+    int64_t num_decoded = current_decoder_->DecodeSpaced(
+        values, static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits, valid_bits_offset);
+    DCHECK_EQ(num_decoded, values_to_read);
+
+    for (int64_t i = 0; i < num_decoded; i++) {
+      if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
+        PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
+      } else {
+        PARQUET_THROW_NOT_OK(builder_->AppendNull());
+      }
+    }
+    ResetValues();
+  }
+
+ private:
+  std::unique_ptr<::arrow::FixedSizeBinaryBuilder> builder_;
+};
+
+class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType> {
+ public:
+  ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool)
+      : TypedRecordReader<ByteArrayType>(descr, pool), builder_(nullptr) {
+    // ARROW-4688(wesm): Using 2^31 - 1 chunks for now
+    constexpr int32_t kBinaryChunksize = 2147483647;
+    DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
+    if (descr_->logical_type() == LogicalType::UTF8) {
+      builder_.reset(
+          new ::arrow::internal::ChunkedStringBuilder(kBinaryChunksize, pool_));
+    } else {
+      builder_.reset(
+          new ::arrow::internal::ChunkedBinaryBuilder(kBinaryChunksize, pool_));
+    }
+  }
+
+  ::arrow::ArrayVector GetBuilderChunks() override {
+    ::arrow::ArrayVector chunks;
+    PARQUET_THROW_NOT_OK(builder_->Finish(&chunks));
+    return chunks;
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    int64_t num_decoded = current_decoder_->DecodeArrowNonNull(
+        static_cast<int>(values_to_read), builder_.get());
+    DCHECK_EQ(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    int64_t num_decoded = current_decoder_->DecodeArrow(
+        static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits_->mutable_data(), values_written_, builder_.get());
+    DCHECK_EQ(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+ private:
+  std::unique_ptr<::arrow::internal::ChunkedBinaryBuilder> builder_;
+};
+
+template <typename BuilderType>
+class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType> {
+ public:
+  ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr,
+                                  ::arrow::MemoryPool* pool)
+      : TypedRecordReader<ByteArrayType>(descr, pool), builder_(new BuilderType(pool)) {}
+
+  ::arrow::ArrayVector GetBuilderChunks() override {
+    std::shared_ptr<::arrow::Array> chunk;
+    PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
+    return ::arrow::ArrayVector({chunk});
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    int64_t num_decoded = current_decoder_->DecodeArrowNonNull(
+        static_cast<int>(values_to_read), builder_.get());
+    DCHECK_EQ(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    int64_t num_decoded = current_decoder_->DecodeArrow(
+        static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits_->mutable_data(), values_written_, builder_.get());
+    DCHECK_EQ(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+ private:
+  std::unique_ptr<BuilderType> builder_;
 };
 
 // TODO(wesm): Implement these to some satisfaction
@@ -597,89 +704,6 @@ void TypedRecordReader<ByteArrayType>::DebugPrintState() {}
 
 template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
-
-template <>
-void TypedRecordReader<ByteArrayType>::InitializeBuilder() {
-  // Maximum of 16MB chunks
-  constexpr int32_t kBinaryChunksize = 1 << 24;
-  DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-  builder_.reset(new ::arrow::internal::ChunkedBinaryBuilder(kBinaryChunksize, pool_));
-}
-
-template <>
-void TypedRecordReader<FLBAType>::InitializeBuilder() {
-  DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
-  int byte_width = descr_->type_length();
-  std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
-  builder_.reset(new ::arrow::FixedSizeBinaryBuilder(type, pool_));
-}
-
-template <>
-::arrow::ArrayVector TypedRecordReader<ByteArrayType>::GetBuilderChunks() {
-  ::arrow::ArrayVector chunks;
-  PARQUET_THROW_NOT_OK(builder_->Finish(&chunks));
-  return chunks;
-}
-
-template <>
-::arrow::ArrayVector TypedRecordReader<FLBAType>::GetBuilderChunks() {
-  std::shared_ptr<::arrow::Array> chunk;
-  PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
-  return ::arrow::ArrayVector({chunk});
-}
-
-template <>
-inline void TypedRecordReader<ByteArrayType>::ReadValuesDense(int64_t values_to_read) {
-  int64_t num_decoded = current_decoder_->DecodeArrowNonNull(
-      static_cast<int>(values_to_read), builder_.get());
-  DCHECK_EQ(num_decoded, values_to_read);
-  ResetValues();
-}
-
-template <>
-inline void TypedRecordReader<FLBAType>::ReadValuesDense(int64_t values_to_read) {
-  auto values = ValuesHead<FLBA>();
-  int64_t num_decoded =
-      current_decoder_->Decode(values, static_cast<int>(values_to_read));
-  DCHECK_EQ(num_decoded, values_to_read);
-
-  for (int64_t i = 0; i < num_decoded; i++) {
-    PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
-  }
-  ResetValues();
-}
-
-template <>
-inline void TypedRecordReader<ByteArrayType>::ReadValuesSpaced(int64_t values_to_read,
-                                                               int64_t null_count) {
-  int64_t num_decoded = current_decoder_->DecodeArrow(
-      static_cast<int>(values_to_read), static_cast<int>(null_count),
-      valid_bits_->mutable_data(), values_written_, builder_.get());
-  DCHECK_EQ(num_decoded, values_to_read);
-  ResetValues();
-}
-
-template <>
-inline void TypedRecordReader<FLBAType>::ReadValuesSpaced(int64_t values_to_read,
-                                                          int64_t null_count) {
-  uint8_t* valid_bits = valid_bits_->mutable_data();
-  const int64_t valid_bits_offset = values_written_;
-  auto values = ValuesHead<FLBA>();
-
-  int64_t num_decoded = current_decoder_->DecodeSpaced(
-      values, static_cast<int>(values_to_read), static_cast<int>(null_count), valid_bits,
-      valid_bits_offset);
-  DCHECK_EQ(num_decoded, values_to_read);
-
-  for (int64_t i = 0; i < num_decoded; i++) {
-    if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
-      PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
-    } else {
-      PARQUET_THROW_NOT_OK(builder_->AppendNull());
-    }
-  }
-  ResetValues();
-}
 
 template <typename DType>
 inline void TypedRecordReader<DType>::ConfigureDictionary(const DictionaryPage* page) {
@@ -717,11 +741,94 @@ inline void TypedRecordReader<DType>::ConfigureDictionary(const DictionaryPage* 
   DCHECK(current_decoder_);
 }
 
+// If the data page includes repetition and definition levels, we
+// initialize the level decoders and return the number of encoded level bytes.
+// The return value helps determine the number of bytes in the encoded data.
+template <typename DType>
+int64_t TypedRecordReader<DType>::InitializeLevelDecoders(
+    const DataPage& page, Encoding::type repetition_level_encoding,
+    Encoding::type definition_level_encoding) {
+  // Read a data page.
+  num_buffered_values_ = page.num_values();
+
+  // Have not decoded any values from the data page yet
+  num_decoded_values_ = 0;
+
+  const uint8_t* buffer = page.data();
+  int64_t levels_byte_size = 0;
+
+  // Data page Layout: Repetition Levels - Definition Levels - encoded values.
+  // Levels are encoded as rle or bit-packed.
+  // Init repetition levels
+  if (descr_->max_repetition_level() > 0) {
+    int64_t rep_levels_bytes = repetition_level_decoder_.SetData(
+        repetition_level_encoding, descr_->max_repetition_level(),
+        static_cast<int>(num_buffered_values_), buffer);
+    buffer += rep_levels_bytes;
+    levels_byte_size += rep_levels_bytes;
+  }
+  // TODO figure a way to set max_definition_level_ to 0
+  // if the initial value is invalid
+
+  // Init definition levels
+  if (descr_->max_definition_level() > 0) {
+    int64_t def_levels_bytes = definition_level_decoder_.SetData(
+        definition_level_encoding, descr_->max_definition_level(),
+        static_cast<int>(num_buffered_values_), buffer);
+    levels_byte_size += def_levels_bytes;
+  }
+
+  return levels_byte_size;
+}
+
+// Get a decoder object for this page or create a new decoder if this is the
+// first page with this encoding.
+template <typename DType>
+void TypedRecordReader<DType>::InitializeDataDecoder(const DataPage& page,
+                                                     int64_t levels_byte_size) {
+  const uint8_t* buffer = page.data() + levels_byte_size;
+  const int64_t data_size = page.size() - levels_byte_size;
+
+  Encoding::type encoding = page.encoding();
+
+  if (IsDictionaryIndexEncoding(encoding)) {
+    encoding = Encoding::RLE_DICTIONARY;
+  }
+
+  auto it = decoders_.find(static_cast<int>(encoding));
+  if (it != decoders_.end()) {
+    DCHECK(it->second.get() != nullptr);
+    if (encoding == Encoding::RLE_DICTIONARY) {
+      DCHECK(current_decoder_->encoding() == Encoding::RLE_DICTIONARY);
+    }
+    current_decoder_ = it->second.get();
+  } else {
+    switch (encoding) {
+      case Encoding::PLAIN: {
+        auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
+        current_decoder_ = decoder.get();
+        decoders_[static_cast<int>(encoding)] = std::move(decoder);
+        break;
+      }
+      case Encoding::RLE_DICTIONARY:
+        throw ParquetException("Dictionary page must be before data page.");
+
+      case Encoding::DELTA_BINARY_PACKED:
+      case Encoding::DELTA_LENGTH_BYTE_ARRAY:
+      case Encoding::DELTA_BYTE_ARRAY:
+        ParquetException::NYI("Unsupported encoding");
+
+      default:
+        throw ParquetException("Unknown encoding type.");
+    }
+  }
+  current_decoder_->SetData(static_cast<int>(num_buffered_values_), buffer,
+                            static_cast<int>(data_size));
+}
+
 template <typename DType>
 bool TypedRecordReader<DType>::ReadNewPage() {
   // Loop until we find the next data page.
-  const uint8_t* buffer;
-
   while (true) {
     current_page_ = pager_->NextPage();
     if (!current_page_) {
@@ -733,80 +840,18 @@ bool TypedRecordReader<DType>::ReadNewPage() {
       ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
       continue;
     } else if (current_page_->type() == PageType::DATA_PAGE) {
-      const DataPage* page = static_cast<const DataPage*>(current_page_.get());
-
-      // Read a data page.
-      num_buffered_values_ = page->num_values();
-
-      // Have not decoded any values from the data page yet
-      num_decoded_values_ = 0;
-
-      buffer = page->data();
-
-      // If the data page includes repetition and definition levels, we
-      // initialize the level decoder and subtract the encoded level bytes from
-      // the page size to determine the number of bytes in the encoded data.
-      int64_t data_size = page->size();
-
-      // Data page Layout: Repetition Levels - Definition Levels - encoded values.
-      // Levels are encoded as rle or bit-packed.
-      // Init repetition levels
-      if (descr_->max_repetition_level() > 0) {
-        int64_t rep_levels_bytes = repetition_level_decoder_.SetData(
-            page->repetition_level_encoding(), descr_->max_repetition_level(),
-            static_cast<int>(num_buffered_values_), buffer);
-        buffer += rep_levels_bytes;
-        data_size -= rep_levels_bytes;
-      }
-      // TODO figure a way to set max_definition_level_ to 0
-      // if the initial value is invalid
-
-      // Init definition levels
-      if (descr_->max_definition_level() > 0) {
-        int64_t def_levels_bytes = definition_level_decoder_.SetData(
-            page->definition_level_encoding(), descr_->max_definition_level(),
-            static_cast<int>(num_buffered_values_), buffer);
-        buffer += def_levels_bytes;
-        data_size -= def_levels_bytes;
-      }
-
-      // Get a decoder object for this page or create a new decoder if this is the
-      // first page with this encoding.
-      Encoding::type encoding = page->encoding();
-
-      if (IsDictionaryIndexEncoding(encoding)) {
-        encoding = Encoding::RLE_DICTIONARY;
-      }
-
-      auto it = decoders_.find(static_cast<int>(encoding));
-      if (it != decoders_.end()) {
-        DCHECK(it->second.get() != nullptr);
-        if (encoding == Encoding::RLE_DICTIONARY) {
-          DCHECK(current_decoder_->encoding() == Encoding::RLE_DICTIONARY);
-        }
-        current_decoder_ = it->second.get();
-      } else {
-        switch (encoding) {
-          case Encoding::PLAIN: {
-            auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
-            current_decoder_ = decoder.get();
-            decoders_[static_cast<int>(encoding)] = std::move(decoder);
-            break;
-          }
-          case Encoding::RLE_DICTIONARY:
-            throw ParquetException("Dictionary page must be before data page.");
-
-          case Encoding::DELTA_BINARY_PACKED:
-          case Encoding::DELTA_LENGTH_BYTE_ARRAY:
-          case Encoding::DELTA_BYTE_ARRAY:
-            ParquetException::NYI("Unsupported encoding");
-
-          default:
-            throw ParquetException("Unknown encoding type.");
-        }
-      }
-      current_decoder_->SetData(static_cast<int>(num_buffered_values_), buffer,
-                                static_cast<int>(data_size));
+      const auto page = std::static_pointer_cast<DataPageV1>(current_page_);
+      const int64_t levels_byte_size = InitializeLevelDecoders(
+          *page, page->repetition_level_encoding(), page->definition_level_encoding());
+      InitializeDataDecoder(*page, levels_byte_size);
+      return true;
+    } else if (current_page_->type() == PageType::DATA_PAGE_V2) {
+      const auto page = std::static_pointer_cast<DataPageV2>(current_page_);
+      // Repetition and definition levels are always encoded using RLE encoding
+      // in the DataPageV2 format.
+      const int64_t levels_byte_size =
+          InitializeLevelDecoders(*page, Encoding::RLE, Encoding::RLE);
+      InitializeDataDecoder(*page, levels_byte_size);
       return true;
     } else {
       // We don't know what this page type is. We're allowed to skip non-data
@@ -817,8 +862,27 @@ bool TypedRecordReader<DType>::ReadNewPage() {
   return true;
 }
 
+std::shared_ptr<RecordReader> RecordReader::MakeByteArrayRecordReader(
+    const ColumnDescriptor* descr, arrow::MemoryPool* pool, bool read_dictionary) {
+  if (read_dictionary) {
+    if (descr->logical_type() == LogicalType::UTF8) {
+      using Builder = ::arrow::StringDictionaryBuilder;
+      return std::shared_ptr<RecordReader>(
+          new RecordReader(new ByteArrayDictionaryRecordReader<Builder>(descr, pool)));
+    } else {
+      using Builder = ::arrow::BinaryDictionaryBuilder;
+      return std::shared_ptr<RecordReader>(
+          new RecordReader(new ByteArrayDictionaryRecordReader<Builder>(descr, pool)));
+    }
+  } else {
+    return std::shared_ptr<RecordReader>(
+        new RecordReader(new ByteArrayChunkedRecordReader(descr, pool)));
+  }
+}
+
 std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
-                                                 MemoryPool* pool) {
+                                                 MemoryPool* pool,
+                                                 const bool read_dictionary) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::shared_ptr<RecordReader>(
@@ -839,11 +903,10 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
       return std::shared_ptr<RecordReader>(
           new RecordReader(new TypedRecordReader<DoubleType>(descr, pool)));
     case Type::BYTE_ARRAY:
-      return std::shared_ptr<RecordReader>(
-          new RecordReader(new TypedRecordReader<ByteArrayType>(descr, pool)));
+      return RecordReader::MakeByteArrayRecordReader(descr, pool, read_dictionary);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::shared_ptr<RecordReader>(
-          new RecordReader(new TypedRecordReader<FLBAType>(descr, pool)));
+          new RecordReader(new FLBARecordReader(descr, pool)));
     default: {
       // PARQUET-1481: This can occur if the file is corrupt
       std::stringstream ss;

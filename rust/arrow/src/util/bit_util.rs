@@ -17,6 +17,8 @@
 
 //! Utils for working with bits
 
+use packed_simd::u8x64;
+
 static BIT_MASK: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
 
 static POPCOUNT_TABLE: [u8; 256] = [
@@ -85,26 +87,33 @@ pub fn count_set_bits(data: &[u8]) -> usize {
     count
 }
 
-/// Returns the number of 1-bits in `data`, starting from `offset`.
+/// Returns the number of 1-bits in `data`, starting from `offset` with `length` bits
+/// inspected. Note that both `offset` and `length` are measured in bits.
 #[inline]
-pub fn count_set_bits_offset(data: &[u8], offset: usize) -> usize {
-    debug_assert!(offset <= (data.len() << 3));
+pub fn count_set_bits_offset(data: &[u8], offset: usize, length: usize) -> usize {
+    let bit_end = offset + length;
+    assert!(bit_end <= (data.len() << 3));
 
-    let start_byte_pos = offset >> 3;
-    let start_bit_pos = offset & 7;
+    let byte_start = ::std::cmp::min(round_upto_power_of_2(offset, 8), bit_end);
+    let num_bytes = (bit_end - byte_start) >> 3;
 
-    if start_bit_pos == 0 {
-        count_set_bits(&data[start_byte_pos..])
-    } else {
-        let mut result = 0;
-        result += count_set_bits(&data[start_byte_pos + 1..]);
-        for i in start_bit_pos..8 {
-            if get_bit(&data[start_byte_pos..start_byte_pos + 1], i) {
-                result += 1;
-            }
+    let mut result = 0;
+
+    for i in offset..byte_start {
+        if get_bit(data, i) {
+            result += 1;
         }
-        result
     }
+    for i in 0..num_bytes {
+        result += POPCOUNT_TABLE[data[(byte_start >> 3) + i] as usize] as usize;
+    }
+    for i in (byte_start + (num_bytes << 3))..bit_end {
+        if get_bit(data, i) {
+            result += 1;
+        }
+    }
+
+    result
 }
 
 /// Returns the ceil of `value`/`divisor`
@@ -115,6 +124,22 @@ pub fn ceil(value: usize, divisor: usize) -> usize {
         result += 1
     };
     result
+}
+
+/// Performs SIMD bitwise binary operations.
+///
+/// Note that each slice should be 64 bytes and it is the callers responsibility to ensure
+/// that this is the case.  If passed slices larger than 64 bytes the operation will only
+/// be performed on the first 64 bytes.  Slices less than 64 bytes will panic.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub unsafe fn bitwise_bin_op_simd<F>(left: &[u8], right: &[u8], result: &mut [u8], op: F)
+where
+    F: Fn(u8x64, u8x64) -> u8x64,
+{
+    let left_simd = u8x64::from_slice_unaligned_unchecked(left);
+    let right_simd = u8x64::from_slice_unaligned_unchecked(right);
+    let simd_result = op(left_simd, right_simd);
+    simd_result.write_to_slice_unaligned_unchecked(result);
 }
 
 #[cfg(test)]
@@ -246,14 +271,20 @@ mod tests {
 
     #[test]
     fn test_count_bits_offset_slice() {
-        assert_eq!(8, count_set_bits_offset(&[0b11111111], 0));
-        assert_eq!(5, count_set_bits_offset(&[0b11111111], 3));
-        assert_eq!(0, count_set_bits_offset(&[0b11111111], 8));
-        assert_eq!(16, count_set_bits_offset(&[0b11111111, 0b11111111], 0));
-        assert_eq!(13, count_set_bits_offset(&[0b11111111, 0b11111111], 3));
-        assert_eq!(8, count_set_bits_offset(&[0b11111111, 0b11111111], 8));
-        assert_eq!(5, count_set_bits_offset(&[0b11111111, 0b11111111], 11));
-        assert_eq!(0, count_set_bits_offset(&[0b11111111, 0b11111111], 16));
+        assert_eq!(8, count_set_bits_offset(&[0b11111111], 0, 8));
+        assert_eq!(3, count_set_bits_offset(&[0b11111111], 0, 3));
+        assert_eq!(5, count_set_bits_offset(&[0b11111111], 3, 5));
+        assert_eq!(1, count_set_bits_offset(&[0b11111111], 3, 1));
+        assert_eq!(0, count_set_bits_offset(&[0b11111111], 8, 0));
+        assert_eq!(2, count_set_bits_offset(&[0b01010101], 0, 3));
+        assert_eq!(16, count_set_bits_offset(&[0b11111111, 0b11111111], 0, 16));
+        assert_eq!(10, count_set_bits_offset(&[0b11111111, 0b11111111], 0, 10));
+        assert_eq!(10, count_set_bits_offset(&[0b11111111, 0b11111111], 3, 10));
+        assert_eq!(8, count_set_bits_offset(&[0b11111111, 0b11111111], 8, 8));
+        assert_eq!(5, count_set_bits_offset(&[0b11111111, 0b11111111], 11, 5));
+        assert_eq!(0, count_set_bits_offset(&[0b11111111, 0b11111111], 16, 0));
+        assert_eq!(2, count_set_bits_offset(&[0b01101101, 0b10101010], 7, 5));
+        assert_eq!(4, count_set_bits_offset(&[0b01101101, 0b10101010], 7, 9));
     }
 
     #[test]
@@ -269,5 +300,29 @@ mod tests {
         assert_eq!(ceil(10000000000, 10), 1000000000);
         assert_eq!(ceil(10, 10000000000), 1);
         assert_eq!(ceil(10000000000, 1000000000), 10);
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[test]
+    fn test_bitwise_and_simd() {
+        let buf1 = [0b00110011u8; 64];
+        let buf2 = [0b11110000u8; 64];
+        let mut buf3 = [0b00000000; 64];
+        unsafe { bitwise_bin_op_simd(&buf1, &buf2, &mut buf3, |a, b| a & b) };
+        for i in buf3.iter() {
+            assert_eq!(&0b00110000u8, i);
+        }
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[test]
+    fn test_bitwise_or_simd() {
+        let buf1 = [0b00110011u8; 64];
+        let buf2 = [0b11110000u8; 64];
+        let mut buf3 = [0b00000000; 64];
+        unsafe { bitwise_bin_op_simd(&buf1, &buf2, &mut buf3, |a, b| a | b) };
+        for i in buf3.iter() {
+            assert_eq!(&0b11110011u8, i);
+        }
     }
 }

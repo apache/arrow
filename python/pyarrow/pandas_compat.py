@@ -15,27 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 import ast
-import collections
 import json
 import operator
 import re
+import warnings
 
-import pandas.core.internals as _int
 import numpy as np
-import pandas as pd
 
 import six
 
 import pyarrow as pa
-from pyarrow.compat import builtin_pickle, PY2, zip_longest  # noqa
-
-
-def infer_dtype(column):
-    try:
-        return pd.api.types.infer_dtype(column, skipna=False)
-    except AttributeError:
-        return pd.lib.infer_dtype(column)
+from pyarrow.lib import _pandas_api
+from pyarrow.compat import (builtin_pickle, PY2, zip_longest, Sequence)  # noqa
 
 
 _logical_type_map = {}
@@ -84,7 +78,7 @@ def get_logical_type(arrow_type):
             return 'datetimetz' if arrow_type.tz is not None else 'datetime'
         elif isinstance(arrow_type, pa.lib.Decimal128Type):
             return 'decimal'
-        raise NotImplementedError(str(arrow_type))
+        return 'object'
 
 
 _numpy_logical_type_map = {
@@ -114,8 +108,7 @@ def get_logical_type_from_numpy(pandas_collection):
         # See https://github.com/pandas-dev/pandas/issues/24739
         if str(pandas_collection.dtype) == 'datetime64[ns]':
             return 'datetime64[ns]'
-        result = infer_dtype(pandas_collection)
-
+        result = _pandas_api.infer_dtype(pandas_collection)
         if result == 'string':
             return 'bytes' if PY2 else 'unicode'
         return result
@@ -185,7 +178,7 @@ def get_column_metadata(column, name, arrow_type, field_name):
     }
 
 
-def construct_metadata(df, column_names, index_levels, index_column_names,
+def construct_metadata(df, column_names, index_levels, index_descriptors,
                        preserve_index, types):
     """Returns a dictionary containing enough metadata to reconstruct a pandas
     DataFrame as an Arrow Table, including index columns.
@@ -194,70 +187,82 @@ def construct_metadata(df, column_names, index_levels, index_column_names,
     ----------
     df : pandas.DataFrame
     index_levels : List[pd.Index]
-    presere_index : bool
+    index_descriptors : List[Dict]
+    preserve_index : bool
     types : List[pyarrow.DataType]
 
     Returns
     -------
     dict
     """
+    num_serialized_index_levels = len([descr for descr in index_descriptors
+                                       if not isinstance(descr, dict)])
     # Use ntypes instead of Python shorthand notation [:-len(x)] as [:-0]
     # behaves differently to what we want.
     ntypes = len(types)
-    df_types = types[:ntypes - len(index_levels)]
-    index_types = types[ntypes - len(index_levels):]
+    df_types = types[:ntypes - num_serialized_index_levels]
+    index_types = types[ntypes - num_serialized_index_levels:]
 
-    column_metadata = [
-        get_column_metadata(
-            df[col_name],
-            name=sanitized_name,
-            arrow_type=arrow_type,
-            field_name=sanitized_name
-        ) for col_name, sanitized_name, arrow_type in zip(
-            df.columns, column_names, df_types
-        )
-    ]
+    column_metadata = []
+    for col_name, sanitized_name, arrow_type in zip(df.columns, column_names,
+                                                    df_types):
+        metadata = get_column_metadata(df[col_name], name=sanitized_name,
+                                       arrow_type=arrow_type,
+                                       field_name=sanitized_name)
+        column_metadata.append(metadata)
 
+    index_column_metadata = []
     if preserve_index:
-        index_column_metadata = [
-            get_column_metadata(
-                level,
-                name=level.name,
-                arrow_type=arrow_type,
-                field_name=field_name,
-            ) for i, (level, arrow_type, field_name) in enumerate(
-                zip(index_levels, index_types, index_column_names)
-            )
-        ]
+        for level, arrow_type, descriptor in zip(index_levels, index_types,
+                                                 index_descriptors):
+            if isinstance(descriptor, dict):
+                # The index is represented in a non-serialized fashion,
+                # e.g. RangeIndex
+                continue
+            metadata = get_column_metadata(level, name=level.name,
+                                           arrow_type=arrow_type,
+                                           field_name=descriptor)
+            index_column_metadata.append(metadata)
 
         column_indexes = []
 
         for level in getattr(df.columns, 'levels', [df.columns]):
-            string_dtype, extra_metadata = get_extension_dtype_info(level)
-
-            pandas_type = get_logical_type_from_numpy(level)
-            if pandas_type == 'unicode':
-                assert not extra_metadata
-                extra_metadata = {'encoding': 'UTF-8'}
-
-            column_index = {
-                'name': level.name,
-                'field_name': level.name,
-                'pandas_type': pandas_type,
-                'numpy_type': string_dtype,
-                'metadata': extra_metadata,
-            }
-            column_indexes.append(column_index)
+            metadata = _get_simple_index_descriptor(level)
+            column_indexes.append(metadata)
     else:
-        index_column_names = index_column_metadata = column_indexes = []
+        index_descriptors = index_column_metadata = column_indexes = []
 
     return {
         b'pandas': json.dumps({
-            'index_columns': index_column_names,
+            'index_columns': index_descriptors,
             'column_indexes': column_indexes,
             'columns': column_metadata + index_column_metadata,
-            'pandas_version': pd.__version__
+            'creator': {
+                'library': 'pyarrow',
+                'version': pa.__version__
+            },
+            'pandas_version': _pandas_api.version
         }).encode('utf8')
+    }
+
+
+def _get_simple_index_descriptor(level):
+    string_dtype, extra_metadata = get_extension_dtype_info(level)
+    pandas_type = get_logical_type_from_numpy(level)
+    if 'mixed' in pandas_type:
+        warnings.warn(
+            "The DataFrame has column names of mixed type. They will be "
+            "converted to strings and not roundtrip correctly.",
+            UserWarning, stacklevel=4)
+    if pandas_type == 'unicode':
+        assert not extra_metadata
+        extra_metadata = {'encoding': 'UTF-8'}
+    return {
+        'name': level.name,
+        'field_name': level.name,
+        'pandas_type': pandas_type,
+        'numpy_type': string_dtype,
+        'metadata': extra_metadata,
     }
 
 
@@ -293,7 +298,7 @@ def _column_name_to_strings(name):
         return name.decode('utf8')
     elif isinstance(name, tuple):
         return str(tuple(map(_column_name_to_strings, name)))
-    elif isinstance(name, collections.Sequence):
+    elif isinstance(name, Sequence):
         raise TypeError("Unsupported type for MultiIndex level")
     elif name is None:
         return None
@@ -320,26 +325,12 @@ def _index_level_name(index, i, column_names):
 
 
 def _get_columns_to_convert(df, schema, preserve_index, columns):
-    if schema is not None and columns is not None:
-        raise ValueError('Schema and columns arguments are mutually '
-                         'exclusive, pass only one of them')
-    elif schema is not None:
-        columns = schema.names
-    elif columns is not None:
-        # columns is only for filtering, the function must keep the column
-        # ordering of either the dataframe or the passed schema
-        columns = [c for c in df.columns if c in columns]
-    else:
-        columns = df.columns
+    columns = _resolve_columns_of_interest(df, schema, columns)
 
     column_names = []
-    index_columns = []
-    index_column_names = []
     type = None
 
-    if preserve_index:
-        n = len(getattr(df.index, 'levels', [df.index]))
-        index_columns.extend(df.index.get_level_values(i) for i in range(n))
+    index_levels = _get_index_level_values(df.index) if preserve_index else []
 
     columns_to_convert = []
     convert_types = []
@@ -353,6 +344,10 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
         col = df[name]
         name = _column_name_to_strings(name)
 
+        if _pandas_api.is_sparse(col):
+            raise TypeError(
+                "Sparse pandas data (column {}) not supported.".format(name))
+
         if schema is not None:
             field = schema.field_by_name(name)
             type = getattr(field, "type", None)
@@ -361,29 +356,78 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
         convert_types.append(type)
         column_names.append(name)
 
-    for i, column in enumerate(index_columns):
-        columns_to_convert.append(column)
-        convert_types.append(None)
-        name = _index_level_name(column, i, column_names)
-        index_column_names.append(name)
+    index_descriptors = []
+    index_column_names = []
+    for i, index_level in enumerate(index_levels):
+        name = _index_level_name(index_level, i, column_names)
+        if isinstance(index_level, _pandas_api.pd.RangeIndex):
+            descr = _get_range_index_descriptor(index_level)
+        else:
+            columns_to_convert.append(index_level)
+            convert_types.append(None)
+            descr = name
+            index_column_names.append(name)
+        index_descriptors.append(descr)
 
-    names = column_names + index_column_names
+    all_names = column_names + index_column_names
 
-    return (names, column_names, index_columns, index_column_names,
+    # all_names : all of the columns in the resulting table including the data
+    # columns and serialized index columns
+    # column_names : the names of the data columns
+    # index_descriptors : descriptions of each index to be used for
+    # reconstruction
+    # index_levels : the extracted index level values
+    # columns_to_convert : assembled raw data (both data columns and indexes)
+    # to be converted to Arrow format
+    # columns_types : specified column types to use for coercion / casting
+    # during serialization, if a Schema was provided
+    return (all_names, column_names, index_descriptors, index_levels,
             columns_to_convert, convert_types)
 
 
+def _get_range_index_descriptor(level):
+    # public start/stop/step attributes added in pandas 0.25.0
+    return {
+        'kind': 'range',
+        'name': level.name,
+        'start': _pandas_api.get_rangeindex_attribute(level, 'start'),
+        'stop': _pandas_api.get_rangeindex_attribute(level, 'stop'),
+        'step': _pandas_api.get_rangeindex_attribute(level, 'step')
+    }
+
+
+def _get_index_level_values(index):
+    n = len(getattr(index, 'levels', [index]))
+    return [index.get_level_values(i) for i in range(n)]
+
+
+def _resolve_columns_of_interest(df, schema, columns):
+    if schema is not None and columns is not None:
+        raise ValueError('Schema and columns arguments are mutually '
+                         'exclusive, pass only one of them')
+    elif schema is not None:
+        columns = schema.names
+    elif columns is not None:
+        columns = [c for c in columns if c in df.columns]
+    else:
+        columns = df.columns
+
+    return columns
+
+
 def dataframe_to_types(df, preserve_index, columns=None):
-    names, column_names, index_columns, index_column_names, \
-        columns_to_convert, _ = _get_columns_to_convert(
-            df, None, preserve_index, columns
-        )
+    (all_names,
+     column_names,
+     index_descriptors,
+     index_columns,
+     columns_to_convert,
+     _) = _get_columns_to_convert(df, None, preserve_index, columns)
 
     types = []
     # If pandas knows type, skip conversion
     for c in columns_to_convert:
         values = c.values
-        if isinstance(values, pd.Categorical):
+        if _pandas_api.is_categorical(values):
             type_ = pa.array(c, from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
@@ -393,17 +437,20 @@ def dataframe_to_types(df, preserve_index, columns=None):
         types.append(type_)
 
     metadata = construct_metadata(df, column_names, index_columns,
-                                  index_column_names, preserve_index, types)
+                                  index_descriptors, preserve_index, types)
 
-    return names, types, metadata
+    return all_names, types, metadata
 
 
 def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                         safe=True):
-    names, column_names, index_columns, index_column_names, \
-        columns_to_convert, convert_types = _get_columns_to_convert(
-            df, schema, preserve_index, columns
-        )
+    (all_names,
+     column_names,
+     index_descriptors,
+     index_columns,
+     columns_to_convert,
+     convert_types) = _get_columns_to_convert(df, schema, preserve_index,
+                                              columns)
 
     # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
     # using a thread pool is worth it. Currently the heuristic is whether the
@@ -438,21 +485,17 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
 
     types = [x.type for x in arrays]
 
-    metadata = construct_metadata(
-        df, column_names, index_columns, index_column_names, preserve_index,
-        types
-    )
-
-    return names, arrays, metadata
+    metadata = construct_metadata(df, column_names, index_columns,
+                                  index_descriptors, preserve_index,
+                                  types)
+    return all_names, arrays, metadata
 
 
 def get_datetimetz_type(values, dtype, type_):
-    from pyarrow.compat import DatetimeTZDtype
-
     if values.dtype.type != np.datetime64:
         return values, type_
 
-    if isinstance(dtype, DatetimeTZDtype) and type_ is None:
+    if _pandas_api.is_datetimetz(dtype) and type_ is None:
         # If no user type passed, construct a tz-aware timestamp type
         tz = dtype.tz
         unit = dtype.unit
@@ -469,6 +512,7 @@ def get_datetimetz_type(values, dtype, type_):
 
 
 def dataframe_to_serialized_dict(frame):
+    import pandas.core.internals as _int
     block_manager = frame._data
 
     blocks = []
@@ -508,14 +552,16 @@ def dataframe_to_serialized_dict(frame):
 
 
 def serialized_dict_to_dataframe(data):
+    import pandas.core.internals as _int
     reconstructed_blocks = [_reconstruct_block(block)
                             for block in data['blocks']]
 
     block_mgr = _int.BlockManager(reconstructed_blocks, data['axes'])
-    return pd.DataFrame(block_mgr)
+    return _pandas_api.data_frame(block_mgr)
 
 
 def _reconstruct_block(item):
+    import pandas.core.internals as _int
     # Construct the individual blocks converting dictionary types to pandas
     # categorical types and Timestamps-with-timezones types to the proper
     # pandas Blocks
@@ -523,13 +569,13 @@ def _reconstruct_block(item):
     block_arr = item['block']
     placement = item['placement']
     if 'dictionary' in item:
-        cat = pd.Categorical.from_codes(block_arr,
-                                        categories=item['dictionary'],
-                                        ordered=item['ordered'])
+        cat = _pandas_api.categorical_type.from_codes(
+            block_arr, categories=item['dictionary'],
+            ordered=item['ordered'])
         block = _int.make_block(cat, placement=placement,
                                 klass=_int.CategoricalBlock)
     elif 'timezone' in item:
-        dtype = _make_datetimetz(item['timezone'])
+        dtype = make_datetimetz(item['timezone'])
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
@@ -542,10 +588,9 @@ def _reconstruct_block(item):
     return block
 
 
-def _make_datetimetz(tz):
-    from pyarrow.compat import DatetimeTZDtype
+def make_datetimetz(tz):
     tz = pa.lib.string_to_tzinfo(tz)
-    return DatetimeTZDtype('ns', tz=tz)
+    return _pandas_api.datetimetz_type('ns', tz=tz)
 
 
 # ----------------------------------------------------------------------
@@ -554,96 +599,48 @@ def _make_datetimetz(tz):
 
 def table_to_blockmanager(options, table, categories=None,
                           ignore_metadata=False):
-    from pyarrow.compat import DatetimeTZDtype
+    from pandas.core.internals import BlockManager
 
-    index_columns = []
-    columns = []
+    all_columns = []
     column_indexes = []
-    index_arrays = []
-    index_names = []
-    schema = table.schema
-    row_count = table.num_rows
-    metadata = schema.metadata
+    pandas_metadata = table.schema.pandas_metadata
 
-    has_pandas_metadata = (not ignore_metadata and metadata is not None
-                           and b'pandas' in metadata)
-
-    if has_pandas_metadata:
-        pandas_metadata = json.loads(metadata[b'pandas'].decode('utf8'))
-        index_columns = pandas_metadata['index_columns']
-        columns = pandas_metadata['columns']
+    if not ignore_metadata and pandas_metadata is not None:
+        all_columns = pandas_metadata['columns']
         column_indexes = pandas_metadata.get('column_indexes', [])
+        index_descriptors = pandas_metadata['index_columns']
         table = _add_any_metadata(table, pandas_metadata)
+        table, index = _reconstruct_index(table, index_descriptors,
+                                          all_columns)
+    else:
+        index = _pandas_api.pd.RangeIndex(table.num_rows)
 
-    block_table = table
+    _check_data_column_metadata_consistency(all_columns)
+    blocks = _table_to_blocks(options, table, pa.default_memory_pool(),
+                              categories)
+    columns = _deserialize_column_index(table, all_columns, column_indexes)
 
-    index_columns_set = frozenset(index_columns)
+    axes = [columns, index]
+    return BlockManager(blocks, axes)
 
-    # 0. 'field_name' is the name of the column in the arrow Table
-    # 1. 'name' is the user-facing name of the column, that is, it came from
-    #    pandas
-    # 2. 'field_name' and 'name' differ for index columns
-    # 3. We fall back on c['name'] for backwards compatibility
-    logical_index_names = [
-        c['name'] for c in columns
-        if c.get('field_name', c['name']) in index_columns_set
-    ]
 
-    # There must be the same number of field names and physical names
-    # (fields in the arrow Table)
-    assert len(logical_index_names) == len(index_columns_set)
-
+def _check_data_column_metadata_consistency(all_columns):
     # It can never be the case in a released version of pyarrow that
     # c['name'] is None *and* 'field_name' is not a key in the column metadata,
     # because the change to allow c['name'] to be None and the change to add
     # 'field_name' are in the same release (0.8.0)
     assert all(
         (c['name'] is None and 'field_name' in c) or c['name'] is not None
-        for c in columns
+        for c in all_columns
     )
 
-    # Build up a list of index columns and names while removing those columns
-    # from the original table
-    for raw_name, logical_name in zip(index_columns, logical_index_names):
-        i = schema.get_field_index(raw_name)
-        if i != -1:
-            col = table.column(i)
-            col_pandas = col.to_pandas()
-            values = col_pandas.values
-            if hasattr(values, 'flags') and not values.flags.writeable:
-                # ARROW-1054: in pandas 0.19.2, factorize will reject
-                # non-writeable arrays when calling MultiIndex.from_arrays
-                values = values.copy()
 
-            if isinstance(col_pandas.dtype, DatetimeTZDtype):
-                index_array = (pd.Series(values).dt.tz_localize('utc')
-                               .dt.tz_convert(col_pandas.dtype.tz))
-            else:
-                index_array = pd.Series(values, dtype=col_pandas.dtype)
-            index_arrays.append(index_array)
-            index_names.append(
-                _backwards_compatible_index_name(raw_name, logical_name)
-            )
-            block_table = block_table.remove_column(
-                block_table.schema.get_field_index(raw_name)
-            )
-
-    blocks = _table_to_blocks(options, block_table, pa.default_memory_pool(),
-                              categories)
-
-    # Construct the row index
-    if len(index_arrays) > 1:
-        index = pd.MultiIndex.from_arrays(index_arrays, names=index_names)
-    elif len(index_arrays) == 1:
-        index = pd.Index(index_arrays[0], name=index_names[0])
-    else:
-        index = pd.RangeIndex(row_count)
-
+def _deserialize_column_index(block_table, all_columns, column_indexes):
     column_strings = [x.name for x in block_table.itercolumns()]
-    if columns:
+    if all_columns:
         columns_name_dict = {
             c.get('field_name', _column_name_to_strings(c['name'])): c['name']
-            for c in columns
+            for c in all_columns
         }
         columns_values = [
             columns_name_dict.get(name, name) for name in column_strings
@@ -660,22 +657,106 @@ def table_to_blockmanager(options, table, categories=None,
 
     # Construct the base index
     if not columns_values:
-        columns = pd.Index(columns_values)
+        columns = _pandas_api.pd.Index(columns_values)
     else:
-        columns = pd.MultiIndex.from_tuples(
+        columns = _pandas_api.pd.MultiIndex.from_tuples(
             list(map(to_pair, columns_values)),
             names=[col_index['name'] for col_index in column_indexes] or None,
         )
 
     # if we're reconstructing the index
-    if has_pandas_metadata:
+    if len(column_indexes) > 0:
         columns = _reconstruct_columns_from_metadata(columns, column_indexes)
 
     # ARROW-1751: flatten a single level column MultiIndex for pandas 0.21.0
     columns = _flatten_single_level_multiindex(columns)
 
-    axes = [columns, index]
-    return _int.BlockManager(blocks, axes)
+    return columns
+
+
+def _reconstruct_index(table, index_descriptors, all_columns):
+    # 0. 'field_name' is the name of the column in the arrow Table
+    # 1. 'name' is the user-facing name of the column, that is, it came from
+    #    pandas
+    # 2. 'field_name' and 'name' differ for index columns
+    # 3. We fall back on c['name'] for backwards compatibility
+    field_name_to_metadata = {
+        c.get('field_name', c['name']): c
+        for c in all_columns
+    }
+
+    # Build up a list of index columns and names while removing those columns
+    # from the original table
+    index_arrays = []
+    index_names = []
+    result_table = table
+    for descr in index_descriptors:
+        if isinstance(descr, six.string_types):
+            result_table, index_level, index_name = _extract_index_level(
+                table, result_table, descr, field_name_to_metadata)
+            if index_level is None:
+                # ARROW-1883: the serialized index column was not found
+                continue
+        elif descr['kind'] == 'range':
+            index_name = descr['name']
+            index_level = _pandas_api.pd.RangeIndex(descr['start'],
+                                                    descr['stop'],
+                                                    step=descr['step'],
+                                                    name=index_name)
+            if len(index_level) != len(table):
+                # Possibly the result of munged metadata
+                continue
+        else:
+            raise ValueError("Unrecognized index kind: {0}"
+                             .format(descr['kind']))
+        index_arrays.append(index_level)
+        index_names.append(index_name)
+
+    pd = _pandas_api.pd
+
+    # Reconstruct the row index
+    if len(index_arrays) > 1:
+        index = pd.MultiIndex.from_arrays(index_arrays, names=index_names)
+    elif len(index_arrays) == 1:
+        index = index_arrays[0]
+        if not isinstance(index, pd.Index):
+            # Box anything that wasn't boxed above
+            index = pd.Index(index, name=index_names[0])
+    else:
+        index = pd.RangeIndex(table.num_rows)
+
+    return result_table, index
+
+
+def _extract_index_level(table, result_table, field_name,
+                         field_name_to_metadata):
+    logical_name = field_name_to_metadata[field_name]['name']
+    index_name = _backwards_compatible_index_name(field_name, logical_name)
+    i = table.schema.get_field_index(field_name)
+
+    if i == -1:
+        # The serialized index column was removed by the user
+        return table, None, None
+
+    col = table.column(i)
+    col_pandas = col.to_pandas()
+    values = col_pandas.values
+    if hasattr(values, 'flags') and not values.flags.writeable:
+        # ARROW-1054: in pandas 0.19.2, factorize will reject
+        # non-writeable arrays when calling MultiIndex.from_arrays
+        values = values.copy()
+
+    pd = _pandas_api.pd
+
+    if _pandas_api.is_datetimetz(col_pandas.dtype):
+        index_level = (pd.Series(values).dt.tz_localize('utc')
+                       .dt.tz_convert(col_pandas.dtype.tz))
+    else:
+        index_level = pd.Series(values, dtype=col_pandas.dtype)
+    result_table = result_table.remove_column(
+        result_table.schema.get_field_index(field_name)
+    )
+    return result_table, index_level, index_name
 
 
 def _backwards_compatible_index_name(raw_name, logical_name):
@@ -696,11 +777,15 @@ def _backwards_compatible_index_name(raw_name, logical_name):
     * Part of :func:`~pyarrow.pandas_compat.table_to_blockmanager`
     """
     # Part of table_to_blockmanager
-    pattern = r'^__index_level_\d+__$'
-    if raw_name == logical_name and re.match(pattern, raw_name) is not None:
+    if raw_name == logical_name and _is_generated_index_name(raw_name):
         return None
     else:
         return logical_name
+
+
+def _is_generated_index_name(name):
+    pattern = r'^__index_level_\d+__$'
+    return re.match(pattern, name) is not None
 
 
 _pandas_logical_type_map = {
@@ -709,8 +794,6 @@ _pandas_logical_type_map = {
     'bytes': np.bytes_,
     'string': np.str_,
     'empty': np.object_,
-    'mixed': np.object_,
-    'mixed-integer': np.object_
 }
 
 
@@ -730,12 +813,15 @@ def _pandas_type_to_numpy_type(pandas_type):
     try:
         return _pandas_logical_type_map[pandas_type]
     except KeyError:
+        if 'mixed' in pandas_type:
+            # catching 'mixed', 'mixed-integer' and 'mixed-integer-float'
+            return np.object_
         return np.dtype(pandas_type)
 
 
 def _get_multiindex_codes(mi):
     # compat for pandas < 0.24 (MI labels renamed to codes).
-    if isinstance(mi, pd.MultiIndex):
+    if isinstance(mi, _pandas_api.pd.MultiIndex):
         return mi.codes if hasattr(mi, 'codes') else mi.labels
     else:
         return None
@@ -763,7 +849,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     -----
     * Part of :func:`~pyarrow.pandas_compat.table_to_blockmanager`
     """
-
+    pd = _pandas_api.pd
     # Get levels and labels, and provide sane defaults if the index has a
     # single level to avoid if/else spaghetti.
     levels = getattr(columns, 'levels', None) or [columns]
@@ -809,6 +895,7 @@ def _table_to_blocks(options, block_table, memory_pool, categories):
 
 
 def _flatten_single_level_multiindex(index):
+    pd = _pandas_api.pd
     if isinstance(index, pd.MultiIndex) and index.nlevels == 1:
         levels, = index.levels
         labels, = _get_multiindex_codes(index)

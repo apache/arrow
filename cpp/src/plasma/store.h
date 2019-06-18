@@ -212,8 +212,15 @@ class PlasmaStore {
   int RemoveFromClientObjectIds(const ObjectID& object_id, ObjectTableEntry* entry,
                                 Client* client);
 
-  uint8_t* AllocateMemory(int device_num, size_t size, int* fd, int64_t* map_size,
-                          ptrdiff_t* offset);
+  void EraseFromObjectTable(const ObjectID& object_id);
+
+  uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset);
+#ifdef PLASMA_CUDA
+  Status AllocateCudaMemory(int device_num, int64_t size, uint8_t** out_pointer,
+                            std::shared_ptr<CudaIpcMemHandle>* out_ipc_handle);
+
+  Status FreeCudaMemory(int device_num, int64_t size, uint8_t* out_pointer);
+#endif
 
   /// Event loop of the plasma store.
   EventLoop* loop_;

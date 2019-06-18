@@ -31,9 +31,10 @@ using arrow::Decimal128;
 
 namespace gandiva {
 
-#define EXPECT_DECIMAL_SUM_EQUALS(x, y, expected, actual)                  \
-  EXPECT_EQ(expected, actual) << (x).ToString() << " + " << (y).ToString() \
-                              << " expected : " << (expected).ToString()   \
+#define EXPECT_DECIMAL_RESULT(op, x, y, expected, actual)                                \
+  EXPECT_EQ(expected, actual) << op << " (" << (x).ToString() << "),(" << (y).ToString() \
+                              << ")"                                                     \
+                              << " expected : " << (expected).ToString()                 \
                               << " actual : " << (actual).ToString();
 
 DecimalScalar128 decimal_literal(const char* value, int precision, int scale) {
@@ -46,8 +47,34 @@ class TestDecimalOps : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
   ArrayPtr MakeDecimalVector(const DecimalScalar128& in);
+
+  void Verify(DecimalTypeUtil::Op, const std::string& function, const DecimalScalar128& x,
+              const DecimalScalar128& y, const DecimalScalar128& expected);
+
   void AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
-                    const DecimalScalar128& expected);
+                    const DecimalScalar128& expected) {
+    Verify(DecimalTypeUtil::kOpAdd, "add", x, y, expected);
+  }
+
+  void SubtractAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                         const DecimalScalar128& expected) {
+    Verify(DecimalTypeUtil::kOpSubtract, "subtract", x, y, expected);
+  }
+
+  void MultiplyAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                         const DecimalScalar128& expected) {
+    Verify(DecimalTypeUtil::kOpMultiply, "multiply", x, y, expected);
+  }
+
+  void DivideAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                       const DecimalScalar128& expected) {
+    Verify(DecimalTypeUtil::kOpDivide, "divide", x, y, expected);
+  }
+
+  void ModAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
+                    const DecimalScalar128& expected) {
+    Verify(DecimalTypeUtil::kOpMod, "mod", x, y, expected);
+  }
 
  protected:
   arrow::MemoryPool* pool_;
@@ -62,8 +89,9 @@ ArrayPtr TestDecimalOps::MakeDecimalVector(const DecimalScalar128& in) {
   return MakeArrowArrayDecimal(decimal_type, {decimal_value}, {true});
 }
 
-void TestDecimalOps::AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
-                                  const DecimalScalar128& expected) {
+void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
+                            const DecimalScalar128& x, const DecimalScalar128& y,
+                            const DecimalScalar128& expected) {
   auto x_type = std::make_shared<arrow::Decimal128Type>(x.precision(), x.scale());
   auto y_type = std::make_shared<arrow::Decimal128Type>(y.precision(), y.scale());
   auto field_x = field("x", x_type);
@@ -71,20 +99,19 @@ void TestDecimalOps::AddAndVerify(const DecimalScalar128& x, const DecimalScalar
   auto schema = arrow::schema({field_x, field_y});
 
   Decimal128TypePtr output_type;
-  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd, {x_type, y_type},
-                                               &output_type);
-  EXPECT_OK(status);
+  auto status = DecimalTypeUtil::GetResultType(op, {x_type, y_type}, &output_type);
+  ARROW_EXPECT_OK(status);
 
   // output fields
   auto res = field("res", output_type);
 
-  // build expression : x + y
-  auto expr = TreeExprBuilder::MakeExpression("add", {field_x, field_y}, res);
+  // build expression : x op y
+  auto expr = TreeExprBuilder::MakeExpression(function, {field_x, field_y}, res);
 
   // Build a projector for the expression.
   std::shared_ptr<Projector> projector;
   status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
-  EXPECT_OK(status);
+  ARROW_EXPECT_OK(status);
 
   // Create a row-batch with some sample data
   auto array_a = MakeDecimalVector(x);
@@ -96,7 +123,7 @@ void TestDecimalOps::AddAndVerify(const DecimalScalar128& x, const DecimalScalar
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_OK(status);
+  ARROW_EXPECT_OK(status);
 
   // Validate results
   auto out_array = dynamic_cast<arrow::Decimal128Array*>(outputs[0].get());
@@ -106,7 +133,7 @@ void TestDecimalOps::AddAndVerify(const DecimalScalar128& x, const DecimalScalar
   std::string value_string = out_value.ToString(0);
   DecimalScalar128 actual{value_string, dtype->precision(), dtype->scale()};
 
-  EXPECT_DECIMAL_SUM_EQUALS(x, y, expected, actual);
+  EXPECT_DECIMAL_RESULT(function, x, y, expected, actual);
 }
 
 TEST_F(TestDecimalOps, TestAdd) {
@@ -221,4 +248,58 @@ TEST_F(TestDecimalOps, TestAdd) {
                decimal_literal("-10000992", 38, 7),  // y
                decimal_literal("-2001098", 38, 6));
 }
+
+// subtract is a wrapper over add. so, minimal tests are sufficient.
+TEST_F(TestDecimalOps, TestSubtract) {
+  // fast-path
+  SubtractAndVerify(decimal_literal("201", 30, 3),    // x
+                    decimal_literal("301", 30, 3),    // y
+                    decimal_literal("-100", 31, 3));  // expected
+
+  // max precision
+  SubtractAndVerify(
+      decimal_literal("09999999999999999999999999999999000000", 38, 5),  // x
+      decimal_literal("100", 38, 7),                                     // y
+      decimal_literal("99999999999999999999999999999989999990", 38, 6));
+
+  // Mix of +ve and -ve
+  SubtractAndVerify(decimal_literal("-201", 30, 3),    // x
+                    decimal_literal("301", 30, 2),     // y
+                    decimal_literal("-3211", 32, 3));  // expected
+}
+
+// Lots of unit tests for multiply/divide/mod in decimal_ops_test.cc. So, keeping these
+// basic.
+TEST_F(TestDecimalOps, TestMultiply) {
+  // fast-path
+  MultiplyAndVerify(decimal_literal("201", 10, 3),     // x
+                    decimal_literal("301", 10, 2),     // y
+                    decimal_literal("60501", 21, 5));  // expected
+
+  // max precision
+  MultiplyAndVerify(DecimalScalar128(std::string(35, '9'), 38, 20),  // x
+                    DecimalScalar128(std::string(36, '9'), 38, 20),  // x
+                    DecimalScalar128("9999999999999999999999999999999999890", 38, 6));
+}
+
+TEST_F(TestDecimalOps, TestDivide) {
+  DivideAndVerify(decimal_literal("201", 10, 3),              // x
+                  decimal_literal("301", 10, 2),              // y
+                  decimal_literal("6677740863787", 23, 14));  // expected
+
+  DivideAndVerify(DecimalScalar128(std::string(38, '9'), 38, 20),  // x
+                  DecimalScalar128(std::string(35, '9'), 38, 20),  // x
+                  DecimalScalar128("1000000000", 38, 6));
+}
+
+TEST_F(TestDecimalOps, TestMod) {
+  ModAndVerify(decimal_literal("201", 20, 2),   // x
+               decimal_literal("301", 20, 3),   // y
+               decimal_literal("204", 20, 3));  // expected
+
+  ModAndVerify(DecimalScalar128(std::string(38, '9'), 38, 20),  // x
+               DecimalScalar128(std::string(35, '9'), 38, 21),  // x
+               DecimalScalar128("9990", 38, 21));
+}
+
 }  // namespace gandiva

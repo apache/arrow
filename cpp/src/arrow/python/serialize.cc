@@ -90,8 +90,10 @@ class SequenceBuilder {
                          MakeBuilderFn make_builder) {
     if (!*child_builder) {
       child_builder->reset(make_builder());
-      // std::to_string is locale dependent, but should be ok for small integers
-      type_map_[tag] = builder_->AppendChild(*child_builder, std::to_string(tag));
+      std::ostringstream convert;
+      convert.imbue(std::locale::classic());
+      convert << static_cast<int>(tag);
+      type_map_[tag] = builder_->AppendChild(*child_builder, convert.str());
     }
     return Update(child_builder->get(), type_map_[tag]);
   }
@@ -339,7 +341,6 @@ Status CallCustomCallback(PyObject* context, PyObject* method_name, PyObject* el
     *result = PyObject_CallMethodObjArgs(context, method_name, elem, NULL);
     return PassPyError();
   }
-  return Status::OK();
 }
 
 Status CallSerializeCallback(PyObject* context, PyObject* value,
@@ -538,7 +539,6 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {
   PyAcquireGIL lock;
   PyDateTime_IMPORT;
-  import_pyarrow();
   SequenceBuilder builder;
   RETURN_NOT_OK(internal::VisitIterable(
       sequence, [&](PyObject* obj, bool* keep_going /* unused */) {

@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Duplex, DuplexOptions } from 'stream';
 import { DataType } from '../../type';
+import { Duplex, DuplexOptions } from 'stream';
 import { AsyncByteStream } from '../../io/stream';
 import { RecordBatchWriter } from '../../ipc/writer';
 

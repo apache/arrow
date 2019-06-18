@@ -96,10 +96,12 @@ func (b *{{.Name}}Builder) AppendValues(v []{{or .QualifiedType .Type}}, valid [
 		panic("len(v) != len(valid) && len(valid) != 0")
 	}
 
-	b.Reserve(len(v))
-	if len(v) > 0 {
-		arrow.{{.Name}}Traits.Copy(b.rawData[b.length:], v)
+	if len(v) == 0 {
+		return
 	}
+
+	b.Reserve(len(v))
+	arrow.{{.Name}}Traits.Copy(b.rawData[b.length:], v)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 

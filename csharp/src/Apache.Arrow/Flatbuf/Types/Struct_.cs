@@ -11,7 +11,7 @@ using global::FlatBuffers;
 /// A Struct_ in the flatbuffer metadata is the same as an Arrow Struct
 /// (according to the physical memory layout). We used Struct_ here as
 /// Struct is a reserved word in Flatbuffers
-public struct Struct_ : IFlatbufferObject
+internal struct Struct_ : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

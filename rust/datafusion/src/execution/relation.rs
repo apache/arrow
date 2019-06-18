@@ -15,40 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
+//! A relation is a representation of a set of tuples. A database table is a
+//! type of relation. During query execution, each operation on a relation (such as
+//! projection, selection, aggregation) results in a new relation.
+
+use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use super::datasource::DataSource;
-use super::error::Result;
+use crate::datasource::RecordBatchIterator;
+use crate::error::Result;
 
-/// trait for all relations (a relation is essentially just an iterator over rows with
-/// a known schema)
+/// trait for all relations (a relation is essentially just an iterator over batches
+/// of data, with a known schema)
 pub trait Relation {
+    /// Get the next `RecordBatch`, or `None` if the iterator is exhausted
     fn next(&mut self) -> Result<Option<RecordBatch>>;
 
     /// get the schema for this relation
     fn schema(&self) -> &Arc<Schema>;
 }
 
-pub struct DataSourceRelation {
+/// Implementation of a relation that represents a DataFusion data source
+pub(super) struct DataSourceRelation {
     schema: Arc<Schema>,
-    ds: Rc<RefCell<DataSource>>,
+    ds: Arc<Mutex<RecordBatchIterator>>,
 }
 
 impl DataSourceRelation {
-    pub fn new(ds: Rc<RefCell<DataSource>>) -> Self {
-        let schema = ds.borrow().schema().clone();
+    pub fn new(ds: Arc<Mutex<RecordBatchIterator>>) -> Self {
+        let schema = ds.lock().unwrap().schema().clone();
         Self { ds, schema }
     }
 }
 
 impl Relation for DataSourceRelation {
     fn next(&mut self) -> Result<Option<RecordBatch>> {
-        self.ds.borrow_mut().next()
+        self.ds.lock().unwrap().next()
     }
 
     fn schema(&self) -> &Arc<Schema> {

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-cpp_include "parquet/util/windows_compatibility.h"
+cpp_include "parquet/windows_compatibility.h"
 
 /**
  * File format description for the parquet file format
@@ -35,7 +35,7 @@ enum Type {
   BOOLEAN = 0;
   INT32 = 1;
   INT64 = 2;
-  INT96 = 3;
+  INT96 = 3;  // deprecated, only used by legacy implementations.
   FLOAT = 4;
   DOUBLE = 5;
   BYTE_ARRAY = 6;
@@ -259,9 +259,11 @@ struct DecimalType {
 /** Time units for logical types */
 struct MilliSeconds {}
 struct MicroSeconds {}
+struct NanoSeconds {}
 union TimeUnit {
   1: MilliSeconds MILLIS
   2: MicroSeconds MICROS
+  3: NanoSeconds NANOS
 }
 
 /**
@@ -277,7 +279,7 @@ struct TimestampType {
 /**
  * Time logical type annotation
  *
- * Allowed for physical types: INT32 (millis), INT64 (micros)
+ * Allowed for physical types: INT32 (millis), INT64 (micros, nanos)
  */
 struct TimeType {
   1: required bool isAdjustedToUTC
@@ -320,19 +322,27 @@ struct BsonType {
  * following table.
  */
 union LogicalType {
-  1:  StringType STRING       // use ConvertedType UTF8 if encoding is UTF-8
+  1:  StringType STRING       // use ConvertedType UTF8
   2:  MapType MAP             // use ConvertedType MAP
   3:  ListType LIST           // use ConvertedType LIST
   4:  EnumType ENUM           // use ConvertedType ENUM
   5:  DecimalType DECIMAL     // use ConvertedType DECIMAL
   6:  DateType DATE           // use ConvertedType DATE
-  7:  TimeType TIME           // use ConvertedType TIME_MICROS or TIME_MILLIS
-  8:  TimestampType TIMESTAMP // use ConvertedType TIMESTAMP_MICROS or TIMESTAMP_MILLIS
+
+  // use ConvertedType TIME_MICROS for TIME(isAdjustedToUTC = true, unit = MICROS)
+  // use ConvertedType TIME_MILLIS for TIME(isAdjustedToUTC = true, unit = MILLIS)
+  7:  TimeType TIME
+
+  // use ConvertedType TIMESTAMP_MICROS for TIMESTAMP(isAdjustedToUTC = true, unit = MICROS)
+  // use ConvertedType TIMESTAMP_MILLIS for TIMESTAMP(isAdjustedToUTC = true, unit = MILLIS)
+  8:  TimestampType TIMESTAMP
+
   // 9: reserved for INTERVAL
   10: IntType INTEGER         // use ConvertedType INT_* or UINT_*
   11: NullType UNKNOWN        // no compatible ConvertedType
   12: JsonType JSON           // use ConvertedType JSON
   13: BsonType BSON           // use ConvertedType BSON
+  14: UUIDType UUID
 }
 
 /**
@@ -560,7 +570,7 @@ struct PageHeader {
   /** Uncompressed page size in bytes (not including this header) **/
   2: required i32 uncompressed_page_size
 
-  /** Compressed page size in bytes (not including this header) **/
+  /** Compressed (and potentially encrypted) page size in bytes, not including this header **/
   3: required i32 compressed_page_size
 
   /** 32bit crc for the data below. This allows for disabling checksumming in HDFS
@@ -637,7 +647,8 @@ struct ColumnMetaData {
   /** total byte size of all uncompressed pages in this column chunk (including the headers) **/
   6: required i64 total_uncompressed_size
 
-  /** total byte size of all compressed pages in this column chunk (including the headers) **/
+  /** total byte size of all compressed, and potentially encrypted, pages
+   *  in this column chunk (including the headers) **/
   7: required i64 total_compressed_size
 
   /** Optional key/value metadata **/
@@ -668,8 +679,8 @@ struct EncryptionWithColumnKey {
   /** Column path in schema **/
   1: required list<string> path_in_schema
 
-  /** Retrieval metadata of the column-specific key **/
-  2: optional binary column_key_metadata
+  /** Retrieval metadata of column encryption key **/
+  2: optional binary key_metadata
 }
 
 union ColumnCryptoMetaData {
@@ -705,7 +716,10 @@ struct ColumnChunk {
   7: optional i32 column_index_length
 
   /** Crypto metadata of encrypted columns **/
-  8: optional ColumnCryptoMetaData crypto_meta_data
+  8: optional ColumnCryptoMetaData crypto_metadata
+
+  /** Encrypted column metadata for this chunk **/
+  9: optional binary encrypted_column_metadata
 }
 
 struct RowGroup {
@@ -729,8 +743,12 @@ struct RowGroup {
    * in this row group **/
   5: optional i64 file_offset
 
-  /** Total byte size of all compressed column data in this row group **/
+  /** Total byte size of all compressed (and potentially encrypted) column data
+   *  in this row group **/
   6: optional i64 total_compressed_size
+
+  /** Row group ordinal in the file **/
+  7: optional i16 ordinal
 }
 
 /** Empty struct to signal the order defined by the physical or logical type */
@@ -850,6 +868,35 @@ struct ColumnIndex {
   5: optional list<i64> null_counts
 }
 
+struct AesGcmV1 {
+  /** AAD prefix **/
+  1: optional binary aad_prefix
+
+  /** Unique file identifier part of AAD suffix **/
+  2: optional binary aad_file_unique
+
+  /** In files encrypted with AAD prefix without storing it,
+   * readers must supply the prefix **/
+  3: optional bool supply_aad_prefix
+}
+
+struct AesGcmCtrV1 {
+  /** AAD prefix **/
+  1: optional binary aad_prefix
+
+  /** Unique file identifier part of AAD suffix **/
+  2: optional binary aad_file_unique
+
+  /** In files encrypted with AAD prefix without storing it,
+   * readers must supply the prefix **/
+  3: optional bool supply_aad_prefix
+}
+
+union EncryptionAlgorithm {
+  1: AesGcmV1 AES_GCM_V1
+  2: AesGcmCtrV1 AES_GCM_CTR_V1
+}
+
 /**
  * Description for file metadata
  */
@@ -893,43 +940,31 @@ struct FileMetaData {
    * regardless of column_orders.
    */
   7: optional list<ColumnOrder> column_orders;
+
+  /**
+   * Encryption algorithm. This field is set only in encrypted files
+   * with plaintext footer. Files with encrypted footer store algorithm id
+   * in FileCryptoMetaData structure.
+   */
+  8: optional EncryptionAlgorithm encryption_algorithm
+
+  /**
+   * Retrieval metadata of key used for signing the footer.
+   * Used only in encrypted files with plaintext footer.
+   */
+  9: optional binary footer_signing_key_metadata
 }
 
-struct AesGcmV1 {
-  /** Retrieval metadata of AAD used for encryption of pages and structures **/
-  1: optional binary aad_metadata
-
-  /** If file IVs are comprised of a fixed part, and variable parts
-   *  (e.g. counter), keep the fixed part here **/
-  2: optional binary iv_prefix
-}
-
-struct AesGcmCtrV1 {
-  /** Retrieval metadata of AAD used for encryption of structures **/
-  1: optional binary aad_metadata
-
-  /** If file IVs are comprised of a fixed part, and variable parts
-   *  (e.g. counter), keep the fixed part here **/
-  2: optional binary gcm_iv_prefix
-
-  3: optional binary ctr_iv_prefix
-}
-
-union EncryptionAlgorithm {
-  1: AesGcmV1 AES_GCM_V1
-  2: AesGcmCtrV1 AES_GCM_CTR_V1
-}
-
+/** Crypto metadata for files with encrypted footer **/
 struct FileCryptoMetaData {
+  /**
+   * Encryption algorithm. This field is only used for files
+   * with encrypted footer. Files with plaintext footer store algorithm id
+   * inside footer (FileMetaData structure).
+   */
   1: required EncryptionAlgorithm encryption_algorithm
-
-  /** Parquet footer can be encrypted, or left as plaintext **/
-  2: required bool encrypted_footer
 
   /** Retrieval metadata of key used for encryption of footer,
    *  and (possibly) columns **/
-  3: optional binary footer_key_metadata
-
-  /** Offset of Parquet footer (encrypted, or plaintext) **/
-  4: required i64 footer_offset
+  2: optional binary key_metadata
 }

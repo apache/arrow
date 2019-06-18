@@ -21,23 +21,42 @@ project_name = 'gandiva-glib'
 
 sources = files(
   'expression.cpp',
+  'function-registry.cpp',
+  'function-signature.cpp',
   'node.cpp',
+  'native-function.cpp',
   'projector.cpp',
 )
 
 c_headers = files(
   'expression.h',
+  'function-registry.h',
+  'function-signature.h',
   'gandiva-glib.h',
   'node.h',
+  'native-function.h',
   'projector.h',
 )
 
 cpp_headers = files(
   'expression.hpp',
+  'function-signature.hpp',
   'gandiva-glib.hpp',
   'node.hpp',
+  'native-function.hpp',
   'projector.hpp',
 )
+
+enums = gnome.mkenums('enums',
+                      sources: c_headers,
+                      identifier_prefix: 'GGandiva',
+                      symbol_prefix: 'ggandiva',
+                      c_template: 'enums.c.template',
+                      h_template: 'enums.h.template',
+                      install_dir: join_paths(include_dir, meson.project_name()),
+                      install_header: true)
+enums_source = enums[0]
+enums_header = enums[1]
 
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
@@ -58,16 +77,16 @@ gandiva_glib = declare_dependency(link_with: libgandiva_glib,
                                   dependencies: dependencies,
                                   sources: enums_header)
 
-pkgconfig.generate(filebase: project_name,
+pkgconfig.generate(libgandiva_glib,
+                   filebase: project_name,
                    name: 'Apache Arrow Gandiva GLib',
                    description: 'C API for Apache Arrow Gandiva based on GLib',
                    version: version,
-                   requires: ['gandiva', 'arrow-glib'],
-                   libraries: [libgandiva_glib])
+                   requires: ['gandiva', 'arrow-glib'])
 
 gnome.generate_gir(libgandiva_glib,
                    dependencies: declare_dependency(sources: arrow_glib_gir),
-                   sources: sources + c_headers,
+                   sources: sources + c_headers + enums,
                    namespace: 'Gandiva',
                    nsversion: api_version,
                    identifier_prefix: 'GGandiva',

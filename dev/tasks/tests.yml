@@ -31,6 +31,8 @@ groups:
     - docker-python-3.7
     - docker-python-2.7-alpine
     - docker-python-3.6-alpine
+    - docker-python-2.7-nopandas
+    - docker-python-3.6-nopandas
     - docker-java
     - docker-js
     - docker-docs
@@ -41,12 +43,14 @@ groups:
     - docker-dask-integration
     - docker-hdfs-integration
     - docker-spark-integration
+    - docker-turbodbc-integration
 
   integration:
     - docker-pandas-master
     - docker-dask-integration
     - docker-hdfs-integration
     - docker-spark-integration
+    - docker-turbodbc-integration
 
   cpp-python:
     - docker-cpp
@@ -54,8 +58,10 @@ groups:
     - docker-cpp-cmake32
     - docker-python-2.7
     - docker-python-2.7-alpine
+    - docker-python-2.7-nopandas
     - docker-python-3.6
     - docker-python-3.6-alpine
+    - docker-python-3.6-nopandas
     - docker-python-3.7
 
 tasks:
@@ -199,6 +205,30 @@ tasks:
         - docker-compose build python-alpine
         - docker-compose run python-alpine
 
+  docker-python-2.7-nopandas:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 2.7
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build python-nopandas
+        - docker-compose run python-nopandas
+
+  docker-python-3.6-nopandas:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build python-nopandas
+        - docker-compose run python-nopandas
+
   ###################### Documentation building tests #########################
 
   docker-docs:
@@ -288,6 +318,18 @@ tasks:
         - docker-compose build python
         - docker-compose build spark-integration
         - docker-compose run spark-integration
+
+  docker-turbodbc-integration:
+    platform: linux
+    template: docker-tests/travis.linux.yml
+    params:
+      environment:
+        PYTHON_VERSION: 3.6
+      commands:
+        - docker-compose build cpp
+        - docker-compose build python
+        - docker-compose build turbodbc-integration
+        - docker-compose run turbodbc-integration
 
   docker-pandas-master:
     platform: linux

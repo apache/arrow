@@ -15,14 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/api.h>
-#include <arrow/io/api.h>
+#include "./arrow_types.h"
+
+#if defined(ARROW_R_WITH_ARROW)
+
+#ifdef ARROW_R_WITH_PARQUET
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>
+#endif
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> read_parquet_file(std::string filename) {
+#ifdef ARROW_R_WITH_PARQUET
   std::shared_ptr<arrow::io::ReadableFile> infile;
   PARQUET_THROW_NOT_OK(
       arrow::io::ReadableFile::Open(filename, arrow::default_memory_pool(), &infile));
@@ -34,4 +39,12 @@ std::shared_ptr<arrow::Table> read_parquet_file(std::string filename) {
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
 
   return table;
+#else
+  Rcpp::stop("Support for Parquet is not available.");
+
+  std::shared_ptr<arrow::Table> table;
+  return table;
+#endif
 }
+
+#endif

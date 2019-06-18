@@ -30,8 +30,6 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/rle-encoding.h"
 
-using std::vector;
-
 namespace arrow {
 namespace util {
 
@@ -176,8 +174,8 @@ TEST(BitArray, TestMixed) {
 // expected_encoding != NULL, also validates that the encoded buffer is
 // exactly 'expected_encoding'.
 // if expected_len is not -1, it will validate the encoded size is correct.
-void ValidateRle(const vector<int>& values, int bit_width, uint8_t* expected_encoding,
-                 int expected_len) {
+void ValidateRle(const std::vector<int>& values, int bit_width,
+                 uint8_t* expected_encoding, int expected_len) {
   const int len = 64 * 1024;
   uint8_t buffer[len];
   EXPECT_LE(expected_len, len);
@@ -210,7 +208,7 @@ void ValidateRle(const vector<int>& values, int bit_width, uint8_t* expected_enc
   // Verify batch read
   {
     RleDecoder decoder(buffer, len, bit_width);
-    vector<int> values_read(values.size());
+    std::vector<int> values_read(values.size());
     ASSERT_EQ(values.size(),
               decoder.GetBatch(values_read.data(), static_cast<int>(values.size())));
     EXPECT_EQ(values, values_read);
@@ -219,7 +217,7 @@ void ValidateRle(const vector<int>& values, int bit_width, uint8_t* expected_enc
 
 // A version of ValidateRle that round-trips the values and returns false if
 // the returned values are not all the same
-bool CheckRoundTrip(const vector<int>& values, int bit_width) {
+bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   const int len = 64 * 1024;
   uint8_t buffer[len];
   RleEncoder encoder(buffer, len, bit_width);
@@ -245,7 +243,7 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
   // Verify batch read
   {
     RleDecoder decoder(buffer, len, bit_width);
-    vector<int> values_read(values.size());
+    std::vector<int> values_read(values.size());
     if (static_cast<int>(values.size()) !=
         decoder.GetBatch(values_read.data(), static_cast<int>(values.size()))) {
       return false;
@@ -261,7 +259,7 @@ bool CheckRoundTrip(const vector<int>& values, int bit_width) {
 TEST(Rle, SpecificSequences) {
   const int len = 1024;
   uint8_t expected_buffer[len];
-  vector<int> values;
+  std::vector<int> values;
 
   // Test 50 0' followed by 50 1's
   values.resize(100);
@@ -311,7 +309,7 @@ TEST(Rle, SpecificSequences) {
 // is used, otherwise alternating values are used.
 void TestRleValues(int bit_width, int num_vals, int value = -1) {
   const uint64_t mod = (bit_width == 64) ? 1 : 1LL << bit_width;
-  vector<int> values;
+  std::vector<int> values;
   for (int v = 0; v < num_vals; ++v) {
     values.push_back((value != -1) ? value : static_cast<int>(v % mod));
   }
@@ -359,7 +357,7 @@ TEST(Rle, BitWidthZeroLiteral) {
 // Test that writes out a repeated group and then a literal
 // group but flush before finishing.
 TEST(BitRle, Flush) {
-  vector<int> values;
+  std::vector<int> values;
   for (int i = 0; i < 16; ++i) values.push_back(1);
   values.push_back(0);
   ValidateRle(values, 1, NULL, -1);
@@ -376,7 +374,7 @@ TEST(BitRle, Random) {
   int niters = 50;
   int ngroups = 1000;
   int max_group_size = 16;
-  vector<int> values(ngroups + max_group_size);
+  std::vector<int> values(ngroups + max_group_size);
 
   // prng setup
   std::random_device rd;
@@ -409,7 +407,7 @@ TEST(BitRle, Random) {
 // Test a sequence of 1 0's, 2 1's, 3 0's. etc
 // e.g. 011000111100000
 TEST(BitRle, RepeatedPattern) {
-  vector<int> values;
+  std::vector<int> values;
   const int min_run = 1;
   const int max_run = 32;
 

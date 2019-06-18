@@ -64,6 +64,21 @@ garrow_file_close(GArrowFile *file,
 }
 
 /**
+ * garrow_file_is_closed:
+ * @file: A #GArrowFile.
+ *
+ * Returns: %TRUE if the @file is already closed, %FALSE otherwise.
+ *
+ * Since: 0.13.0
+ */
+gboolean
+garrow_file_is_closed(GArrowFile *file)
+{
+  auto arrow_file = garrow_file_get_raw(file);
+  return arrow_file->closed();
+}
+
+/**
  * garrow_file_tell:
  * @file: A #GArrowFile.
  * @error: (nullable): Return location for a #GError or %NULL.

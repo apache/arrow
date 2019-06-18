@@ -48,6 +48,12 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   private final BufferAllocator allocator;
   private final Location location;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param allocator The allocator for creating new Arrow buffers.
+   * @param location The location of the storage.
+   */
   public InMemoryStore(BufferAllocator allocator, Location location) {
     super();
     this.allocator = allocator;
@@ -55,10 +61,14 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void getStream(Ticket ticket, ServerStreamListener listener) {
+  public void getStream(CallContext context, Ticket ticket,
+      ServerStreamListener listener) {
     getStream(ticket).sendTo(allocator, listener);
   }
 
+  /**
+   * Returns the appropriate stream given the ticket (streams are indexed by path and an ordinal).
+   */
   public Stream getStream(Ticket t) {
     ExampleTicket example = ExampleTicket.from(t);
     FlightDescriptor d = FlightDescriptor.path(example.getPath());
@@ -70,6 +80,9 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
     return h.getStream(example);
   }
 
+  /**
+   * Create a new {@link Stream} with the given schema and descriptor.
+   */
   public StreamCreator putStream(final FlightDescriptor descriptor, final Schema schema) {
     final FlightHolder h = holders.computeIfAbsent(
         descriptor,
@@ -79,7 +92,8 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener) {
+  public void listFlights(CallContext context, Criteria criteria,
+      StreamListener<FlightInfo> listener) {
     try {
       for (FlightHolder h : holders.values()) {
         listener.onNext(h.getFlightInfo(location));
@@ -91,7 +105,8 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfo(FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfo(CallContext context,
+      FlightDescriptor descriptor) {
     FlightHolder h = holders.get(descriptor);
     if (h == null) {
       throw new IllegalStateException("Unknown descriptor.");
@@ -101,7 +116,8 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public Callable<PutResult> acceptPut(final FlightStream flightStream) {
+  public Callable<PutResult> acceptPut(CallContext context,
+      final FlightStream flightStream) {
     return () -> {
       StreamCreator creator = null;
       boolean success = false;
@@ -130,20 +146,26 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public Result doAction(Action action) {
+  public void doAction(CallContext context, Action action,
+      StreamListener<Result> listener) {
     switch (action.getType()) {
-      case "drop":
-        return new Result(new byte[0]);
+      case "drop": {
         // not implemented.
-      default:
-        throw new UnsupportedOperationException();
+        listener.onNext(new Result(new byte[0]));
+        listener.onCompleted();
+        break;
+      }
+      default: {
+        listener.onError(new UnsupportedOperationException());
+      }
     }
   }
 
   @Override
-  public void listActions(StreamListener<ActionType> listener) {
+  public void listActions(CallContext context,
+      StreamListener<ActionType> listener) {
     listener.onNext(new ActionType("get", "pull a stream. Action must be done via standard get mechanism"));
-    listener.onNext(new ActionType("put", "push a stream. Action must be done via standard get mechanism"));
+    listener.onNext(new ActionType("put", "push a stream. Action must be done via standard put mechanism"));
     listener.onNext(new ActionType("drop", "delete a flight. Action body is a JSON encoded path."));
     listener.onCompleted();
   }

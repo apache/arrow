@@ -16,6 +16,7 @@
 // under the License.
 
 include "Schema.fbs";
+include "SparseTensor.fbs";
 include "Tensor.fbs";
 
 namespace org.apache.arrow.flatbuf;
@@ -94,6 +95,7 @@ table Message {
   version: org.apache.arrow.flatbuf.MetadataVersion;
   header: MessageHeader;
   bodyLength: long;
+  custom_metadata: [ KeyValue ];
 }
 
 root_type Message;

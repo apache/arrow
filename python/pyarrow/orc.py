@@ -15,12 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 from itertools import count
 from numbers import Integral
 
-from pyarrow import _orc
 from pyarrow import types
 from pyarrow.lib import Schema
+import pyarrow._orc as _orc
 
 
 def _is_map(typ):

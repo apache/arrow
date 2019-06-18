@@ -33,9 +33,7 @@ gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Gandi
 
 ## Install
 
-Install Gandiva GLib before install Red Gandiva. Use [packages.red-data-tools.org](https://github.com/red-data-tools/packages.red-data-tools.org) for installing Gandiva GLib.
-
-Note that the Gandiva GLib packages are "unofficial". "Official" packages will be released in the future.
+Install Gandiva GLib before install Red Gandiva. See [Apache Arrow install document](https://arrow.apache.org/install/) for details.
 
 Install Red Gandiva after you install Gandiva GLib:
 

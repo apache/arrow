@@ -22,6 +22,8 @@ import pytest
 import collections
 import datetime
 import os
+import pickle
+import subprocess
 import string
 import sys
 
@@ -41,6 +43,10 @@ except ImportError:
 
 def assert_equal(obj1, obj2):
     if torch is not None and torch.is_tensor(obj1) and torch.is_tensor(obj2):
+        if obj1.is_sparse:
+            obj1 = obj1.to_dense()
+        if obj2.is_sparse:
+            obj2 = obj2.to_dense()
         assert torch.equal(obj1, obj2)
         return
     module_numpy = (type(obj1).__module__ == np.__name__ or
@@ -388,6 +394,9 @@ def test_torch_serialization(large_buffer):
 
     serialization_context = pa.default_serialization_context()
     pa.register_torch_serialization_handlers(serialization_context)
+
+    # Dense tensors:
+
     # These are the only types that are supported for the
     # PyTorch to NumPy conversion
     for t in ["float32", "float64",
@@ -399,6 +408,18 @@ def test_torch_serialization(large_buffer):
     tensor_requiring_grad = torch.randn(10, 10, requires_grad=True)
     serialization_roundtrip(tensor_requiring_grad, large_buffer,
                             context=serialization_context)
+
+    # Sparse tensors:
+
+    # These are the only types that are supported for the
+    # PyTorch to NumPy conversion
+    for t in ["float32", "float64",
+              "uint8", "int16", "int32", "int64"]:
+        i = torch.LongTensor([[0, 2], [1, 0], [1, 2]])
+        v = torch.from_numpy(np.array([3, 4, 5]).astype(t))
+        obj = torch.sparse_coo_tensor(i.t(), v, torch.Size([2, 3]))
+        serialization_roundtrip(obj, large_buffer,
+                                context=serialization_context)
 
 
 @pytest.mark.skipif(not torch or not torch.cuda.is_available(),
@@ -487,6 +508,29 @@ def test_numpy_subclass_serialization():
     new_x = pa.deserialize(serialized, context=context)
     assert type(new_x) == CustomNDArray
     assert np.alltrue(new_x.view(np.ndarray) == np.zeros(3))
+
+
+def test_numpy_matrix_serialization(tmpdir):
+    class CustomType(object):
+        def __init__(self, val):
+            self.val = val
+
+    path = os.path.join(str(tmpdir), 'pyarrow_npmatrix_serialization_test.bin')
+    array = np.random.randint(low=-1, high=1, size=(2, 2))
+
+    for data_type in [str, int, float, CustomType]:
+        matrix = np.matrix(array.astype(data_type))
+
+        with open(path, 'wb') as f:
+            f.write(pa.serialize(matrix).to_buffer())
+
+        serialized = pa.read_serialized(pa.OSFile(path))
+        result = serialized.deserialize()
+        assert_equal(result, matrix)
+        assert_equal(result.dtype, matrix.dtype)
+        serialized = None
+        assert_equal(result, matrix)
+        assert result.base is not None
 
 
 def test_pyarrow_objects_serialization(large_buffer):
@@ -683,6 +727,29 @@ def test_serialize_to_components_invalid_cases():
         pa.deserialize_components(components)
 
 
+def test_deserialize_components_in_different_process():
+    arr = pa.array([1, 2, 5, 6], type=pa.int8())
+    ser = pa.serialize(arr)
+    data = pickle.dumps(ser.to_components(), protocol=-1)
+
+    code = """if 1:
+        import pickle
+
+        import pyarrow as pa
+
+        data = {0!r}
+        components = pickle.loads(data)
+        arr = pa.deserialize_components(components)
+
+        assert arr.to_pylist() == [1, 2, 5, 6], arr
+        """.format(data)
+
+    subprocess_env = test_util.get_modified_env_with_pythonpath()
+    print("** sys.path =", sys.path)
+    print("** setting PYTHONPATH to:", subprocess_env['PYTHONPATH'])
+    subprocess.check_call(["python", "-c", code], env=subprocess_env)
+
+
 def test_serialize_read_concatenated_records():
     # ARROW-1996 -- see stream alignment work in ARROW-2840, ARROW-3212
     f = pa.BufferOutputStream()
@@ -721,7 +788,6 @@ def test_deserialize_in_different_process():
 
 def test_deserialize_buffer_in_different_process():
     import tempfile
-    import subprocess
 
     f = tempfile.NamedTemporaryFile(delete=False)
     b = pa.serialize(pa.py_buffer(b'hello')).to_buffer()

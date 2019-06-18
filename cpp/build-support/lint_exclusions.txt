@@ -1,3 +1,4 @@
+*codegen*
 *_generated*
 *windows_compatibility.h
 *pyarrow_api.h
@@ -7,3 +8,4 @@
 *thirdparty/ae/*
 *vendored/*
 *RcppExports.cpp*
+*arrowExports.cpp*

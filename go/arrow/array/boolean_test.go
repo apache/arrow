@@ -17,7 +17,9 @@
 package array_test
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/array"
@@ -256,5 +258,31 @@ func TestBooleanSliceOutOfBounds(t *testing.T) {
 
 			val = slice.Value(tc.index)
 		})
+	}
+}
+
+func TestBooleanStringer(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		values = []bool{true, false, true, false, true, false, true, false, true, false}
+		valids = []bool{true, true, false, true, true, true, false, true, true, true}
+	)
+
+	b := array.NewBooleanBuilder(pool)
+	defer b.Release()
+
+	b.AppendValues(values, valids)
+
+	arr := b.NewArray().(*array.Boolean)
+	defer arr.Release()
+
+	out := new(strings.Builder)
+	fmt.Fprintf(out, "%v", arr)
+
+	const want = "[true false (null) false true false (null) false true false]"
+	if got := out.String(); got != want {
+		t.Fatalf("invalid stringer:\ngot= %q\nwant=%q", got, want)
 	}
 }

@@ -26,47 +26,17 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_LIST_DATA_TYPE              \
-  (garrow_list_data_type_get_type())
-#define GARROW_LIST_DATA_TYPE(obj)                              \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_LIST_DATA_TYPE,       \
-                              GArrowListDataType))
-#define GARROW_LIST_DATA_TYPE_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_LIST_DATA_TYPE,  \
-                           GArrowListDataTypeClass))
-#define GARROW_IS_LIST_DATA_TYPE(obj)                           \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_LIST_DATA_TYPE))
-#define GARROW_IS_LIST_DATA_TYPE_CLASS(klass)           \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_LIST_DATA_TYPE))
-#define GARROW_LIST_DATA_TYPE_GET_CLASS(obj)                    \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_LIST_DATA_TYPE,        \
-                             GArrowListDataTypeClass))
-
-typedef struct _GArrowListDataType         GArrowListDataType;
-typedef struct _GArrowListDataTypeClass    GArrowListDataTypeClass;
-
-/**
- * GArrowListDataType:
- *
- * It wraps `arrow::ListType`.
- */
-struct _GArrowListDataType
-{
-  /*< private >*/
-  GArrowDataType parent_instance;
-};
-
+#define GARROW_TYPE_LIST_DATA_TYPE (garrow_list_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowListDataType,
+                         garrow_list_data_type,
+                         GARROW,
+                         LIST_DATA_TYPE,
+                         GArrowDataType)
 struct _GArrowListDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GType               garrow_list_data_type_get_type (void) G_GNUC_CONST;
 GArrowListDataType *garrow_list_data_type_new      (GArrowField *field);
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_0_13_FOR(garrow_list_data_type_get_field)
@@ -175,12 +145,13 @@ struct _GArrowDictionaryDataTypeClass
 
 GArrowDictionaryDataType *
 garrow_dictionary_data_type_new(GArrowDataType *index_data_type,
-                                GArrowArray *dictionary,
+                                GArrowDataType *value_data_type,
                                 gboolean ordered);
 GArrowDataType *
 garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *dictionary_data_type);
-GArrowArray *
-garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *dictionary_data_type);
+GARROW_AVAILABLE_IN_0_14
+GArrowDataType *
+garrow_dictionary_data_type_get_value_data_type(GArrowDictionaryDataType *dictionary_data_type);
 gboolean
 garrow_dictionary_data_type_is_ordered(GArrowDictionaryDataType *dictionary_data_type);
 

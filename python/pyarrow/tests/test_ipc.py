@@ -23,11 +23,20 @@ import threading
 
 import numpy as np
 
-from pandas.util.testing import (assert_frame_equal,
-                                 assert_series_equal)
-import pandas as pd
-
 import pyarrow as pa
+
+
+try:
+    from pandas.util.testing import (assert_frame_equal,
+                                     assert_series_equal)
+    import pandas as pd
+except ImportError:
+    pass
+
+
+# TODO(wesm): The IPC tests depend a lot on pandas currently, so all excluded
+# when it is not installed
+pytestmark = pytest.mark.pandas
 
 
 class IpcFixture(object):
@@ -173,7 +182,7 @@ def test_file_read_pandas(file_fixture):
     reader = pa.ipc.open_file(file_contents)
     result = reader.read_pandas()
 
-    expected = pd.concat(frames)
+    expected = pd.concat(frames).reset_index(drop=True)
     assert_frame_equal(result, expected)
 
 
@@ -210,7 +219,7 @@ def test_stream_categorical_roundtrip(stream_fixture):
     })
     batch = pa.RecordBatch.from_pandas(df)
     writer = stream_fixture._get_writer(stream_fixture.sink, batch.schema)
-    writer.write_batch(pa.RecordBatch.from_pandas(df))
+    writer.write_batch(batch)
     writer.close()
 
     table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
@@ -314,7 +323,7 @@ def test_stream_read_pandas(stream_fixture):
     reader = pa.ipc.open_stream(file_contents)
     result = reader.read_pandas()
 
-    expected = pd.concat(frames)
+    expected = pd.concat(frames).reset_index(drop=True)
     assert_frame_equal(result, expected)
 
 
@@ -465,6 +474,23 @@ def test_socket_read_all(socket_fixture):
 
 # ----------------------------------------------------------------------
 # Miscellaneous IPC tests
+
+def test_ipc_file_stream_has_eos():
+    # ARROW-5395
+
+    df = pd.DataFrame({'foo': [1.5]})
+    batch = pa.RecordBatch.from_pandas(df)
+    sink = pa.BufferOutputStream()
+    write_file(batch, sink)
+    buffer = sink.getvalue()
+
+    # skip the file magic
+    reader = pa.ipc.open_stream(buffer[8:])
+
+    # will fail if encounters footer data instead of eos
+    rdf = reader.read_pandas()
+
+    assert_frame_equal(df, rdf)
 
 
 def test_ipc_zero_copy_numpy():

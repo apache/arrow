@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 
 extern crate arrow;
@@ -26,9 +24,9 @@ use arrow::array::{BinaryArray, Float64Array};
 use arrow::datatypes::{DataType, Field, Schema};
 
 use datafusion::execution::context::ExecutionContext;
-use datafusion::execution::datasource::CsvDataSource;
 
-/// This example demonstrates executing a simple query against an Arrow data source and fetching results
+/// This example demonstrates executing a simple query against an Arrow data source and
+/// fetching results
 fn main() {
     // create local execution context
     let mut ctx = ExecutionContext::new();
@@ -50,19 +48,22 @@ fn main() {
         Field::new("c13", DataType::Utf8, false),
     ]));
 
+    let testdata =
+        ::std::env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+
     // register csv file with the execution context
-    let csv_datasource = CsvDataSource::new(
-        "../../testing/data/csv/aggregate_test_100.csv",
-        schema.clone(),
-        1024,
+    ctx.register_csv(
+        "aggregate_test_100",
+        &format!("{}/csv/aggregate_test_100.csv", testdata),
+        &schema,
+        true,
     );
-    ctx.register_datasource("aggregate_test_100", Rc::new(RefCell::new(csv_datasource)));
 
     // simple projection and selection
     let sql = "SELECT c1, MIN(c12), MAX(c12) FROM aggregate_test_100 WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1";
 
     // execute the query
-    let relation = ctx.sql(&sql).unwrap();
+    let relation = ctx.sql(&sql, 1024 * 1024).unwrap();
 
     // display the relation
     let mut results = relation.borrow_mut();

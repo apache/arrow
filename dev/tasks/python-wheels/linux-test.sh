@@ -17,14 +17,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set -e
+
 # Install built wheel
-pip install /arrow/python/manylinux1/dist/*.whl
+pip install -q /arrow/python/manylinux1/dist/*.whl
 
 # Runs tests on installed distribution from an empty directory
 python --version
 
 # Test optional dependencies
-command="
+python -c "
 import sys
 import pyarrow
 import pyarrow.orc
@@ -34,8 +36,7 @@ import pyarrow.plasma
 if sys.version_info.major > 2:
     import pyarrow.gandiva
 "
-python -c "$command"
 
 # Run pyarrow tests
-pip install -r /arrow/python/requirements-test.txt
-pytest --pyargs pyarrow
+pip install -q -r /arrow/python/requirements-test.txt
+pytest -v --pyargs pyarrow

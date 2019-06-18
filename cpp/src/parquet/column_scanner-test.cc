@@ -27,14 +27,8 @@
 #include "parquet/column_page.h"
 #include "parquet/column_scanner.h"
 #include "parquet/schema.h"
-#include "parquet/test-specialization.h"
 #include "parquet/test-util.h"
 #include "parquet/types.h"
-#include "parquet/util/test-common.h"
-
-using std::shared_ptr;
-using std::string;
-using std::vector;
 
 namespace parquet {
 
@@ -43,8 +37,8 @@ using schema::NodePtr;
 namespace test {
 
 template <>
-void InitDictValues<bool>(int num_values, int dict_per_page, vector<bool>& values,
-                          vector<uint8_t>& buffer) {
+void InitDictValues<bool>(int num_values, int dict_per_page, std::vector<bool>& values,
+                          std::vector<uint8_t>& buffer) {
   // No op for bool
 }
 
@@ -132,12 +126,12 @@ class TestFlatScanner : public ::testing::Test {
  protected:
   int num_levels_;
   int num_values_;
-  vector<shared_ptr<Page>> pages_;
+  std::vector<std::shared_ptr<Page>> pages_;
   std::shared_ptr<Scanner> scanner_;
-  vector<T> values_;
-  vector<int16_t> def_levels_;
-  vector<int16_t> rep_levels_;
-  vector<uint8_t> data_buffer_;  // For BA and FLBA
+  std::vector<T> values_;
+  std::vector<int16_t> def_levels_;
+  std::vector<int16_t> rep_levels_;
+  std::vector<uint8_t> data_buffer_;  // For BA and FLBA
 };
 
 static int num_levels_per_page = 100;

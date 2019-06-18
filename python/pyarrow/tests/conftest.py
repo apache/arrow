@@ -34,7 +34,7 @@ h.settings.register_profile('debug', max_examples=10,
 # load default hypothesis profile, either set HYPOTHESIS_PROFILE environment
 # variable or pass --hypothesis-profile option to pytest, to see the generated
 # examples try: pytest pyarrow -sv --only-hypothesis --hypothesis-profile=debug
-h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'default'))
+h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 
 
 groups = [
@@ -43,6 +43,7 @@ groups = [
     'hdfs',
     'large_memory',
     'orc',
+    'pandas',
     'parquet',
     'plasma',
     's3',
@@ -56,6 +57,7 @@ defaults = {
     'hdfs': False,
     'large_memory': False,
     'orc': False,
+    'pandas': False,
     'parquet': False,
     'plasma': False,
     's3': False,
@@ -73,6 +75,14 @@ try:
     defaults['orc'] = True
 except ImportError:
     pass
+
+
+try:
+    import pandas  # noqa
+    defaults['pandas'] = True
+except ImportError:
+    pass
+
 
 try:
     import pyarrow.parquet  # noqa
@@ -95,7 +105,10 @@ except ImportError:
 
 
 def pytest_configure(config):
-    pass
+    for mark in groups:
+        config.addinivalue_line(
+            "markers", mark,
+        )
 
 
 def pytest_addoption(parser):

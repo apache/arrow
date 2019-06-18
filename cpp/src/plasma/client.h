@@ -250,8 +250,14 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Disconnect();
 
+  /// Get the memory capacity of the store.
+  ///
+  /// \return Memory capacity of the store in bytes.
+  int64_t store_capacity();
+
  private:
   friend class PlasmaBuffer;
+  friend class PlasmaMutableBuffer;
   FRIEND_TEST(TestPlasmaStore, GetTest);
   FRIEND_TEST(TestPlasmaStore, LegacyGetTest);
   FRIEND_TEST(TestPlasmaStore, AbortTest);

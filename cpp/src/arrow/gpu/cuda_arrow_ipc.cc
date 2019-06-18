@@ -24,6 +24,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/ipc/Message_generated.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -102,7 +103,8 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
   }
 
   // Zero-copy read on device memory
-  return ipc::ReadRecordBatch(*message, schema, out);
+  ipc::DictionaryMemo unused_memo;
+  return ipc::ReadRecordBatch(*message, schema, &unused_memo, out);
 }
 
 }  // namespace cuda

@@ -42,7 +42,8 @@ groups:
     - wheel-win-cp37m
   linux:
     - debian-stretch
-    - ubuntu-trusty
+    # We can't finish this on Travis CI for now.
+    # - debian-stretch-arm64
     - ubuntu-xenial
     - ubuntu-bionic
     - ubuntu-cosmic
@@ -68,7 +69,7 @@ tasks:
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
-      config: linux_c_compilergcccxx_compilergxxpython2.7
+      config: linux_python2.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
@@ -77,7 +78,7 @@ tasks:
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
-      config: linux_c_compilergcccxx_compilergxxpython3.6
+      config: linux_python3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
@@ -86,7 +87,7 @@ tasks:
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
-      config: linux_c_compilergcccxx_compilergxxpython3.7
+      config: linux_python3.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
@@ -97,7 +98,7 @@ tasks:
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
-      config: osx_c_compilerclangcxx_compilerclangxxpython2.7
+      config: osx_python2.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
@@ -106,7 +107,7 @@ tasks:
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
-      config: osx_c_compilerclangcxx_compilerclangxxpython3.6
+      config: osx_python3.6
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
@@ -115,7 +116,7 @@ tasks:
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
-      config: osx_c_compilerclangcxx_compilerclangxxpython3.7
+      config: osx_python3.7
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
@@ -126,7 +127,7 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.6
+      config: win_c_compilervs2015cxx_compilervs2015python3.6vc14
     artifacts:
       - arrow-cpp-{no_rc_version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
@@ -135,7 +136,7 @@ tasks:
     platform: win
     template: conda-recipes/appveyor.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.7
+      config: win_c_compilervs2015cxx_compilervs2015python3.7vc14
     artifacts:
       - arrow-cpp-{no_rc_version}-py37_vc14(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
@@ -280,73 +281,83 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow-python13_{no_rc_version}-1_amd64.deb
-      - libarrow13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-python14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libgandiva-glib13_{no_rc_version}-1_amd64.deb
-      - libgandiva13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libgandiva13_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13-dbgsym_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
+      - plasma-store-server_{no_rc_version}-1_amd64.deb
 
-  ubuntu-trusty:
+  # Don't use this for now. We can't complete this task in 50min on Travis CI.
+  debian-stretch-arm64:
     platform: linux
-    template: linux-packages/travis.linux.yml
+    template: linux-packages/travis.linux.arm64.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-trusty
+      build_command: rake apt:build APT_TARGETS=debian-stretch-arm64
       upload_extensions:
         - .deb
         - .dsc
-        - .debian.tar.gz
+        - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
-      - apache-arrow_{no_rc_version}-1.debian.tar.gz
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
-      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-python-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-python14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
-      - libplasma-dev_{no_rc_version}-1_amd64.deb
-      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
-      - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
 
   ubuntu-xenial:
     platform: linux
@@ -370,29 +381,31 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python13_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib13_{no_rc_version}-1_amd64.deb
-      - libgandiva13_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
+      - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-bionic:
     platform: linux
@@ -416,35 +429,40 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python13_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib13_{no_rc_version}-1_amd64.deb
-      - libgandiva13_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
+      - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-cosmic:
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
-      build_command: rake apt:build APT_TARGETS=ubuntu-bionic
+      build_command: rake apt:build APT_TARGETS=ubuntu-cosmic
       upload_extensions:
         - .deb
         - .dsc
@@ -462,29 +480,34 @@ tasks:
       - libarrow-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-glib-doc_{no_rc_version}-1_all.deb
-      - libarrow-glib13_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda-glib13_{no_rc_version}-1_amd64.deb
-      - libarrow-cuda13_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
-      - libarrow-python13_{no_rc_version}-1_amd64.deb
-      - libarrow13_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
       - libgandiva-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
       - libgandiva-glib-doc_{no_rc_version}-1_all.deb
-      - libgandiva-glib13_{no_rc_version}-1_amd64.deb
-      - libgandiva13_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
       - libparquet-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
       - libparquet-glib-doc_{no_rc_version}-1_all.deb
-      - libparquet-glib13_{no_rc_version}-1_amd64.deb
-      - libparquet13_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
       - libplasma-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
       - libplasma-glib-doc_{no_rc_version}-1_all.deb
-      - libplasma-glib13_{no_rc_version}-1_amd64.deb
-      - libplasma13_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
+      - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   centos-6:
     platform: linux

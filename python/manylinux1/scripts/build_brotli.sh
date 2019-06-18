@@ -27,9 +27,9 @@ cmake -DCMAKE_BUILD_TYPE=release \
     "-DCMAKE_C_FLAGS=-fPIC" \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DBUILD_SHARED_LIBS=OFF \
+    -GNinja \
     ..
-make -j5
-make install
+ninja install
 popd
 popd
 rm -rf brotli-${BROTLI_VERSION}.tar.gz brotli-${BROTLI_VERSION}

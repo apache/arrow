@@ -37,6 +37,7 @@ TEST(TestTypeToString, PhysicalTypes) {
 TEST(TestLogicalTypeToString, LogicalTypes) {
   ASSERT_STREQ("NONE", LogicalTypeToString(LogicalType::NONE).c_str());
   ASSERT_STREQ("UTF8", LogicalTypeToString(LogicalType::UTF8).c_str());
+  ASSERT_STREQ("MAP", LogicalTypeToString(LogicalType::MAP).c_str());
   ASSERT_STREQ("MAP_KEY_VALUE", LogicalTypeToString(LogicalType::MAP_KEY_VALUE).c_str());
   ASSERT_STREQ("LIST", LogicalTypeToString(LogicalType::LIST).c_str());
   ASSERT_STREQ("ENUM", LogicalTypeToString(LogicalType::ENUM).c_str());
@@ -71,10 +72,10 @@ TEST(TestCompressionToString, Compression) {
   ASSERT_STREQ("ZSTD", CompressionToString(Compression::ZSTD).c_str());
 }
 
-#if !(defined(_WIN32) || defined(__CYGWIN__))
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#elif _MSC_VER
+#elif defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable : 4996)
 #endif

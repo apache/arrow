@@ -11,7 +11,7 @@
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>0.13.0-SNAPSHOT</version>
+    <version>0.14.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>arrow-flight</artifactId>
@@ -56,6 +56,11 @@
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
+      <artifactId>grpc-context</artifactId>
+      <version>${dep.grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
       <version>${dep.grpc.version}</version>
     </dependency>
@@ -67,6 +72,16 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-buffer</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-handler</artifactId>
+      <version>${dep.netty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-transport</artifactId>
+      <version>${dep.netty.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -130,6 +145,7 @@
         <version>3.1.1</version>
         <executions>
           <execution>
+            <id>shade-main</id>
             <phase>package</phase>
             <goals>
               <goal>shade</goal>
@@ -147,6 +163,40 @@
                 <relocation>
                   <pattern>com.google.protobuf</pattern>
                   <shadedPattern>arrow.flight.com.google.protobuf</shadedPattern>
+                </relocation>
+              </relocations>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+              </transformers>
+            </configuration>
+          </execution>
+          <execution>
+            <id>shade-ext</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>shaded-ext</shadedClassifierName>
+              <artifactSet>
+                <includes>
+                  <include>io.grpc:*</include>
+                  <include>com.google.protobuf:*</include>
+                  <include>com.google.guava:*</include>
+                </includes>
+                <excludes>
+                  <exclude>com.google.flatbuffers:*</exclude>
+                </excludes>
+              </artifactSet>
+              <relocations>
+                <relocation>
+                  <pattern>com.google.protobuf</pattern>
+                  <shadedPattern>arrow.flight.com.google.protobuf</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.google.common</pattern>
+                  <shadedPattern>arrow.flight.com.google.common</shadedPattern>
                 </relocation>
               </relocations>
               <transformers>
@@ -265,4 +315,50 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>linux-netty-native</id>
+      <activation>
+        <os>
+          <family>linux</family>
+        </os>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-transport-native-unix-common</artifactId>
+          <version>${dep.netty.version}</version>
+          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
+        </dependency>
+        <dependency>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-transport-native-epoll</artifactId>
+          <version>${dep.netty.version}</version>
+          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>mac-netty-native</id>
+      <activation>
+        <os>
+          <family>mac</family>
+        </os>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-transport-native-unix-common</artifactId>
+          <version>${dep.netty.version}</version>
+          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
+        </dependency>
+        <dependency>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-transport-native-kqueue</artifactId>
+          <version>${dep.netty.version}</version>
+          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
 </project>

@@ -22,12 +22,18 @@ set ARROW_HOME=%CONDA_PREFIX%\Library
 set CMAKE_ARGS=-DARROW_VERBOSE_THIRDPARTY_BUILD=OFF
 
 if "%JOB%" == "Toolchain" (
-  set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_WITH_BZ2=ON
-  set ARROW_BUILD_TOOLCHAIN=%CONDA_PREFIX%\Library
+  set CMAKE_ARGS=^
+      %CMAKE_ARGS% ^
+      -DARROW_WITH_BZ2=ON ^
+      -DARROW_DEPENDENCY_SOURCE=CONDA
+) else (
+  @rem We're in a conda enviroment but don't want to use it for the dependencies
+  set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_DEPENDENCY_SOURCE=AUTO
 )
 
 @rem Retrieve git submodules, configure env var for Parquet unit tests
 git submodule update --init || exit /B
+set ARROW_TEST_DATA=%CD%\testing\data
 set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
 @rem Enable warnings-as-errors
@@ -52,10 +58,10 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
       -DARROW_BUILD_EXAMPLES=ON ^
-      -DARROW_BUILD_EXAMPLES=ON ^
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DARROW_CXXFLAGS="%ARROW_CXXFLAGS%" ^
       -DCMAKE_CXX_FLAGS_RELEASE="/MD %CMAKE_CXX_FLAGS_RELEASE%" ^
+      -DARROW_FLIGHT=%ARROW_BUILD_FLIGHT% ^
       -DARROW_GANDIVA=%ARROW_BUILD_GANDIVA% ^
       -DARROW_PARQUET=ON ^
       -DPARQUET_BUILD_EXECUTABLES=ON ^
@@ -82,27 +88,33 @@ pip install -r requirements.txt pickle5
 
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
-set PYARROW_BUNDLE_ARROW_CPP=ON
+if "%ARROW_BUILD_FLIGHT%" == "ON" (
+  @rem ARROW-5441: bundling Arrow Flight libraries not implemented
+  set PYARROW_BUNDLE_ARROW_CPP=OFF
+) else (
+  set PYARROW_BUNDLE_ARROW_CPP=ON
+)
 set PYARROW_BUNDLE_BOOST=OFF
 set PYARROW_WITH_STATIC_BOOST=ON
 set PYARROW_WITH_PARQUET=ON
+set PYARROW_WITH_FLIGHT=%ARROW_BUILD_FLIGHT%
 set PYARROW_WITH_GANDIVA=%ARROW_BUILD_GANDIVA%
 set PYARROW_PARALLEL=2
 
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
-python setup.py build_ext ^
-    install -q --single-version-externally-managed --record=record.text ^
-    bdist_wheel -q || exit /B
+python setup.py develop -q || exit /B
+
+py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
+
+@rem
+@rem Build wheel
+@rem
+
+python setup.py bdist_wheel -q || exit /B
 
 for /F %%i in ('dir /B /S dist\*.whl') do set WHEEL_PATH=%%i
-
-@rem Test directly from installed location
-@rem (needed for test_cython)
-
-set PYARROW_PATH=%CONDA_PREFIX%\Lib\site-packages\pyarrow
-py.test -r sxX --durations=15 %PYARROW_PATH% || exit /B
 
 popd
 

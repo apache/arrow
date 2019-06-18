@@ -42,10 +42,16 @@ from distutils import sysconfig
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.27':
-    raise Exception('Please upgrade to Cython 0.27 or newer')
+if Cython.__version__ < '0.29':
+    raise Exception('Please upgrade to Cython 0.29 or newer')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
+
+
+ext_suffix = sysconfig.get_config_var('EXT_SUFFIX')
+if ext_suffix is None:
+    # https://bugs.python.org/issue19555
+    ext_suffix = sysconfig.get_config_var('SO')
 
 
 @contextlib.contextmanager
@@ -99,6 +105,7 @@ class build_ext(_build_ext):
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
                      ('with-cuda', None, 'build the Cuda extension'),
+                     ('with-flight', None, 'build the Flight extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
@@ -136,6 +143,8 @@ class build_ext(_build_ext):
 
         self.with_cuda = strtobool(
             os.environ.get('PYARROW_WITH_CUDA', '0'))
+        self.with_flight = strtobool(
+            os.environ.get('PYARROW_WITH_FLIGHT', '0'))
         self.with_parquet = strtobool(
             os.environ.get('PYARROW_WITH_PARQUET', '0'))
         self.with_static_parquet = strtobool(
@@ -160,13 +169,20 @@ class build_ext(_build_ext):
     CYTHON_MODULE_NAMES = [
         'lib',
         '_csv',
+        '_json',
         '_cuda',
+        '_flight',
         '_parquet',
         '_orc',
         '_plasma',
         'gandiva']
 
     def _run_cmake(self):
+        # check if build_type is correctly passed / set
+        if self.build_type.lower() not in ('release', 'debug'):
+            raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
+                             "be 'release' or 'debug'")
+
         # The directory containing this setup.py
         source = osp.dirname(osp.abspath(__file__))
 
@@ -200,6 +216,8 @@ class build_ext(_build_ext):
                 cmake_options += ['-G', self.cmake_generator]
             if self.with_cuda:
                 cmake_options.append('-DPYARROW_BUILD_CUDA=on')
+            if self.with_flight:
+                cmake_options.append('-DPYARROW_BUILD_FLIGHT=on')
             if self.with_parquet:
                 cmake_options.append('-DPYARROW_BUILD_PARQUET=on')
             if self.with_static_parquet:
@@ -343,7 +361,9 @@ class build_ext(_build_ext):
                 move_shared_libs(build_prefix, build_lib, "arrow")
                 move_shared_libs(build_prefix, build_lib, "arrow_python")
                 if self.with_cuda:
-                    move_shared_libs(build_prefix, build_lib, "arrow_gpu")
+                    move_shared_libs(build_prefix, build_lib, "arrow_cuda")
+                if self.with_flight:
+                    move_shared_libs(build_prefix, build_lib, "arrow_flight")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_gandiva:
@@ -384,6 +404,8 @@ class build_ext(_build_ext):
             return True
         if name == '_orc' and not self.with_orc:
             return True
+        if name == '_flight' and not self.with_flight:
+            return True
         if name == '_cuda' and not self.with_cuda:
             return True
         if name == 'gandiva' and not self.with_gandiva:
@@ -397,10 +419,7 @@ class build_ext(_build_ext):
 
     def _get_cmake_ext_path(self, name):
         # This is the name of the arrow C-extension
-        suffix = sysconfig.get_config_var('EXT_SUFFIX')
-        if suffix is None:
-            suffix = sysconfig.get_config_var('SO')
-        filename = name + suffix
+        filename = name + ext_suffix
         return pjoin(self._get_build_dir(), filename)
 
     def get_ext_generated_cpp_source(self, name):
@@ -420,16 +439,14 @@ class build_ext(_build_ext):
     def get_ext_built(self, name):
         if sys.platform == 'win32':
             head, tail = os.path.split(name)
-            suffix = sysconfig.get_config_var('SO')
             # Visual Studio seems to differ from other generators in
             # where it places output files.
             if self.cmake_generator.startswith('Visual Studio'):
-                return pjoin(head, self.build_type, tail + suffix)
+                return pjoin(head, self.build_type, tail + ext_suffix)
             else:
-                return pjoin(head, tail + suffix)
+                return pjoin(head, tail + ext_suffix)
         else:
-            suffix = sysconfig.get_config_var('SO')
-            return pjoin(self.build_type, name + suffix)
+            return pjoin(self.build_type, name + ext_suffix)
 
     def get_names(self):
         return self._found_names
@@ -491,7 +508,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '0.12.0-SNAPSHOT'
+default_version = '0.14.0-SNAPSHOT'
 if (not os.path.exists('../.git')
         and not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):
@@ -530,7 +547,8 @@ class BinaryDistribution(Distribution):
 install_requires = (
     'numpy >= 1.14',
     'six >= 1.0.0',
-    'futures; python_version < "3.2"'
+    'futures; python_version < "3.2"',
+    'enum34 >= 1.1.6; python_version < "3.4"',
 )
 
 
@@ -565,7 +583,7 @@ setup(
         'write_to': os.path.join(scm_version_write_to_prefix,
                                  'pyarrow/_generated_version.py')
     },
-    setup_requires=['setuptools_scm', 'cython >= 0.27'] + setup_requires,
+    setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis',
                    'pathlib2; python_version < "3.4"'],

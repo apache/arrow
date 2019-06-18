@@ -17,11 +17,11 @@
 
 # ARROW-3229: this is a meta-package to prevent conflicts in the future
 
-{% set version = "1.5.0" %}
+{% set parquet_version = "1.5.1" %}
 
 package:
   name: parquet-cpp
-  version: {{ version }}
+  version: {{ parquet_version }}
 
 build:
   number: 0
@@ -30,10 +30,9 @@ build:
 
 requirements:
   host:
-    - arrow-cpp {{ ARROW_VERSION }}
-
+    - arrow-cpp >={{ ARROW_VERSION }}
   run:
-    - arrow-cpp {{ ARROW_VERSION }}
+    - arrow-cpp >={{ ARROW_VERSION }}
 
 test:
   commands:

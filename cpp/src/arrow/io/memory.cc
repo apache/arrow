@@ -65,7 +65,7 @@ Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
 BufferOutputStream::~BufferOutputStream() {
   // This can fail, better to explicitly call close
   if (buffer_) {
-    DCHECK(Close().ok());
+    DCHECK_OK(Close());
   }
 }
 
@@ -100,9 +100,11 @@ Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
     return Status::IOError("OutputStream is closed");
   }
   DCHECK(buffer_);
-  RETURN_NOT_OK(Reserve(nbytes));
-  memcpy(mutable_data_ + position_, data, nbytes);
-  position_ += nbytes;
+  if (ARROW_PREDICT_TRUE(nbytes > 0)) {
+    RETURN_NOT_OK(Reserve(nbytes));
+    memcpy(mutable_data_ + position_, data, nbytes);
+    position_ += nbytes;
+  }
   return Status::OK();
 }
 
@@ -275,6 +277,10 @@ BufferReader::BufferReader(const uint8_t* data, int64_t size)
 BufferReader::BufferReader(const Buffer& buffer)
     : BufferReader(buffer.data(), buffer.size()) {}
 
+BufferReader::BufferReader(const util::string_view& data)
+    : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
+                   static_cast<int64_t>(data.size())) {}
+
 Status BufferReader::Close() {
   is_open_ = false;
   return Status::OK();
@@ -282,21 +288,34 @@ Status BufferReader::Close() {
 
 bool BufferReader::closed() const { return !is_open_; }
 
+Status BufferReader::CheckClosed() const {
+  if (!is_open_) {
+    return Status::Invalid("Operation forbidden on closed BufferReader");
+  }
+  return Status::OK();
+}
+
 Status BufferReader::Tell(int64_t* position) const {
+  RETURN_NOT_OK(CheckClosed());
   *position = position_;
   return Status::OK();
 }
 
-util::string_view BufferReader::Peek(int64_t nbytes) const {
+Status BufferReader::Peek(int64_t nbytes, util::string_view* out) {
+  RETURN_NOT_OK(CheckClosed());
+
   const int64_t bytes_available = std::min(nbytes, size_ - position_);
-  return util::string_view(reinterpret_cast<const char*>(data_) + position_,
+  *out = util::string_view(reinterpret_cast<const char*>(data_) + position_,
                            static_cast<size_t>(bytes_available));
+  return Status::OK();
 }
 
 bool BufferReader::supports_zero_copy() const { return true; }
 
 Status BufferReader::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                             void* buffer) {
+  RETURN_NOT_OK(CheckClosed());
+
   if (nbytes < 0) {
     return Status::IOError("Cannot read a negative number of bytes from BufferReader.");
   }
@@ -309,6 +328,8 @@ Status BufferReader::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_rea
 
 Status BufferReader::ReadAt(int64_t position, int64_t nbytes,
                             std::shared_ptr<Buffer>* out) {
+  RETURN_NOT_OK(CheckClosed());
+
   if (nbytes < 0) {
     return Status::IOError("Cannot read a negative number of bytes from BufferReader.");
   }
@@ -323,23 +344,28 @@ Status BufferReader::ReadAt(int64_t position, int64_t nbytes,
 }
 
 Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
+  RETURN_NOT_OK(CheckClosed());
   RETURN_NOT_OK(ReadAt(position_, nbytes, bytes_read, buffer));
   position_ += *bytes_read;
   return Status::OK();
 }
 
 Status BufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  RETURN_NOT_OK(CheckClosed());
   RETURN_NOT_OK(ReadAt(position_, nbytes, out));
   position_ += (*out)->size();
   return Status::OK();
 }
 
 Status BufferReader::GetSize(int64_t* size) {
+  RETURN_NOT_OK(CheckClosed());
   *size = size_;
   return Status::OK();
 }
 
 Status BufferReader::Seek(int64_t position) {
+  RETURN_NOT_OK(CheckClosed());
+
   if (position < 0 || position > size_) {
     return Status::IOError("Seek out of bounds");
   }

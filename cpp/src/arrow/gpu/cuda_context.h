@@ -133,6 +133,12 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// memory is page-locked (using cudaHostRegister).
   Status GetDeviceAddress(uint8_t* addr, uint8_t** devaddr);
 
+  /// \brief Release CUDA memory on GPU device for this context
+  /// \param[in] device_ptr the buffer address
+  /// \param[in] nbytes number of bytes
+  /// \return Status
+  Status Free(void* device_ptr, int64_t nbytes);
+
  private:
   CudaContext();
 
@@ -141,7 +147,8 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   Status CopyHostToDevice(void* dst, const void* src, int64_t nbytes);
   Status CopyDeviceToHost(void* dst, const void* src, int64_t nbytes);
   Status CopyDeviceToDevice(void* dst, const void* src, int64_t nbytes);
-  Status Free(void* device_ptr, int64_t nbytes);
+  Status CopyDeviceToAnotherDevice(const std::shared_ptr<CudaContext>& dst_ctx, void* dst,
+                                   const void* src, int64_t nbytes);
 
   class CudaContextImpl;
   std::unique_ptr<CudaContextImpl> impl_;

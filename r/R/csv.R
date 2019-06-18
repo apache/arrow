@@ -29,14 +29,13 @@
 
 #' read options for the csv reader
 #'
-#' @param use_threads Whether to use the global CPU thread pool
 #' @param block_size Block size we request from the IO layer; also determines the size of chunks when use_threads is `TRUE`
 #'
 #' @export
-csv_read_options <- function(use_threads = TRUE, block_size = 1048576L) {
+csv_read_options <- function(block_size = 1048576L) {
   shared_ptr(`arrow::csv::ReadOptions`, csv___ReadOptions__initialize(
     list(
-      use_threads = use_threads,
+      use_threads = option_use_threads(),
       block_size = block_size
     )
   ))
@@ -50,8 +49,8 @@ csv_read_options <- function(use_threads = TRUE, block_size = 1048576L) {
 #' @param double_quote Whether a quote inside a value is double-quoted
 #' @param escaping Whether escaping is used
 #' @param escape_char Escaping character (if `escaping` is `TRUE`)
-#' @param newlines_in_values Whether values are allowed to contain CR (`0x0d``) and LF (`0x0a``) characters
-#' @param ignore_empty_lines Whether empty lines are ignored.  If false, an empty line represents
+#' @param newlines_in_values Whether values are allowed to contain CR (`0x0d`) and LF (`0x0a`) characters
+#' @param ignore_empty_lines Whether empty lines are ignored.  If `FALSE`, an empty line represents
 #' @param header_rows Number of header rows to skip (including the first row containing column names)
 #'
 #' @export
@@ -107,7 +106,6 @@ csv_table_reader <- function(file,
   UseMethod("csv_table_reader")
 }
 
-#' @importFrom rlang abort
 #' @export
 csv_table_reader.default <- function(file,
   read_options = csv_read_options(),
@@ -179,4 +177,3 @@ csv_table_reader.default <- function(file,
 read_csv_arrow <- function(...) {
   csv_table_reader(...)$Read()
 }
-

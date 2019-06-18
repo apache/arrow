@@ -17,6 +17,10 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
+import java.time.Duration;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.IntervalDayReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -25,7 +29,6 @@ import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.Period;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -36,7 +39,7 @@ import io.netty.buffer.ArrowBuf;
  * vector are null.
  */
 public class IntervalDayVector extends BaseFixedWidthVector {
-  private static final byte TYPE_WIDTH = 8;
+  public static final byte TYPE_WIDTH = 8;
   private static final byte MILLISECOND_OFFSET = 4;
   private final FieldReader reader;
 
@@ -92,6 +95,33 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    |                                                                |
    *----------------------------------------------------------------*/
 
+  /**
+   * Given a data buffer, get the number of days stored at a particular position
+   * in the vector.
+   *
+   * <p>This method should not be used externally.
+   *
+   * @param buffer data buffer
+   * @param index  position of the element.
+   * @return day value stored at the index.
+   */
+  public static int getDays(final ArrowBuf buffer, final int index) {
+    return buffer.getInt(index * TYPE_WIDTH);
+  }
+
+  /**
+   * Given a data buffer, get the get the number of milliseconds stored at a particular position
+   * in the vector.
+   *
+   * <p>This method should not be used externally.
+   *
+   * @param buffer data buffer
+   * @param index  position of the element.
+   * @return milliseconds value stored at the index.
+   */
+  public static int getMilliseconds(final ArrowBuf buffer, final int index) {
+    return buffer.getInt((index * TYPE_WIDTH) + MILLISECOND_OFFSET);
+  }
 
   /**
    * Get the element at the given index from the vector.
@@ -100,7 +130,7 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public ArrowBuf get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
     }
     return valueBuffer.slice(index * TYPE_WIDTH, TYPE_WIDTH);
@@ -130,15 +160,14 @@ public class IntervalDayVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @return element at given index
    */
-  public Period getObject(int index) {
+  public Duration getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     } else {
       final int startIndex = index * TYPE_WIDTH;
       final int days = valueBuffer.getInt(startIndex);
       final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
-      final Period p = new Period();
-      return p.plusDays(days).plusMillis(milliseconds);
+      return Duration.ofDays(days).plusMillis(milliseconds);
     }
   }
 

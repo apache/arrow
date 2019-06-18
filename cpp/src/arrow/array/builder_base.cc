@@ -21,7 +21,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -60,6 +59,12 @@ Status ArrayBuilder::AppendToBitmap(bool is_valid) {
 Status ArrayBuilder::AppendToBitmap(const uint8_t* valid_bytes, int64_t length) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(valid_bytes, length);
+  return Status::OK();
+}
+
+Status ArrayBuilder::AppendToBitmap(int64_t num_bits, bool value) {
+  RETURN_NOT_OK(Reserve(num_bits));
+  UnsafeAppendToBitmap(num_bits, value);
   return Status::OK();
 }
 
@@ -104,6 +109,12 @@ void ArrayBuilder::UnsafeAppendToBitmap(const std::vector<bool>& is_valid) {
 void ArrayBuilder::UnsafeSetNotNull(int64_t length) {
   length_ += length;
   null_bitmap_builder_.UnsafeAppend(length, true);
+}
+
+void ArrayBuilder::UnsafeSetNull(int64_t length) {
+  length_ += length;
+  null_count_ += length;
+  null_bitmap_builder_.UnsafeAppend(length, false);
 }
 
 }  // namespace arrow

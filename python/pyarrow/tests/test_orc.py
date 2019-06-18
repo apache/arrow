@@ -19,14 +19,18 @@ import pytest
 import decimal
 import datetime
 
-import pandas as pd
 import pyarrow as pa
-
-from pandas.util.testing import assert_frame_equal
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not orc'
 pytestmark = pytest.mark.orc
+
+
+try:
+    from pandas.util.testing import assert_frame_equal
+    import pandas as pd
+except ImportError:
+    pass
 
 
 @pytest.fixture(scope='module')
@@ -110,6 +114,7 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     assert json_pos == orc_file.nrows
 
 
+@pytest.mark.pandas
 @pytest.mark.parametrize('filename', [
     'TestOrcFile.test1.orc',
     'TestOrcFile.testDate1900.orc',

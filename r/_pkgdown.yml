@@ -1,0 +1,125 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+url: https://arrow.apache.org/docs/r/
+title: Arrow R Package
+template:
+  params:
+    bootswatch: cosmo
+    ganalytics: UA-107500873-1
+navbar:
+  structure:
+    left:
+    - home
+    - intro
+    - reference
+    - articles
+    - tutorials
+    - news
+    right: github
+  components:
+    home:
+      icon: fa-home fa-lg
+      href: index.html
+    reference:
+      text: Reference
+      href: reference/index.html
+reference:
+- title: Reading and writing files
+  contents:
+  - read_csv_arrow
+  - read_feather
+  - read_parquet
+  - write_arrow
+  - write_feather
+  - csv_convert_options
+  - csv_parse_options
+  - csv_read_options
+  - csv_table_reader
+- title: Arrow data containers
+  contents:
+  - buffer
+  - array
+  - chunked_array
+  - record_batch
+  - schema
+  - table
+  - type
+  - dictionary
+  - field
+  - read_message
+  - read_record_batch
+  - read_schema
+  - read_table
+- title: R6 classes
+  contents:
+  - arrow__Array
+  - arrow__ArrayData
+  - arrow__Buffer
+  - arrow__ChunkedArray
+  - arrow__Column
+  - arrow__DataType
+  - arrow__DictionaryType
+  - arrow__Field
+  - arrow__FixedWidthType
+  - arrow__RecordBatch
+  - arrow__RecordBatchReader
+  - arrow__Schema
+  - arrow__Table
+  - arrow__MemoryPool
+  - arrow__io__BufferOutputStream
+  - arrow__io__BufferReader
+  - arrow__io__FileOutputStream
+  - arrow__io__FixedSizeBufferWriter
+  - arrow__io__InputStream
+  - arrow__io__MemoryMappedFile
+  - arrow__io__MockOutputStream
+  - arrow__io__OutputStream
+  - arrow__io__RandomAccessFile
+  - arrow__io__Readable
+  - arrow__io__ReadableFile
+  - arrow__ipc__Message
+  - arrow__ipc__MessageReader
+  - arrow__ipc__RecordBatchFileReader
+  - arrow__ipc__RecordBatchFileWriter
+  - arrow__ipc__RecordBatchStreamReader
+  - arrow__ipc__RecordBatchStreamWriter
+  - arrow__ipc__RecordBatchWriter
+- title: Other functions
+  contents:
+  - BufferOutputStream
+  - BufferReader
+  - CompressedInputStream
+  - CompressedOutputStream
+  - TimeUnit
+  - FeatherTableReader
+  - FeatherTableWriter
+  - FileOutputStream
+  - FixedSizeBufferWriter
+  - MessageReader
+  - MockOutputStream
+  - ReadableFile
+  - RecordBatchFileReader
+  - RecordBatchFileWriter
+  - RecordBatchStreamReader
+  - RecordBatchStreamWriter
+  - threadpool
+  - cast_options
+  - compression_codec
+  - default_memory_pool
+  - mmap_create
+  - mmap_open

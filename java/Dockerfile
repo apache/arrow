@@ -19,8 +19,11 @@ FROM maven:3.5.2-jdk-8-slim
 
 # rsync is required to prevent the contamination of arrow directory
 # (mounted from the host)
-RUN apt-get update -y && apt-get install -y rsync
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends rsync \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-CMD arrow/ci/docker_build_java.sh && \
+CMD ["/bin/bash", "-c", "arrow/ci/docker_build_java.sh && \
     cd /build/java/arrow/java && \
-    mvn test
+    mvn test"]

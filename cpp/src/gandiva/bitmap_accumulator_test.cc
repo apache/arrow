@@ -22,7 +22,8 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 #include "gandiva/dex.h"
 
@@ -72,11 +73,6 @@ TEST_F(TestBitMapAccumulator, TestIntersectBitMaps) {
     ByteWiseIntersectBitMaps(expected_bitmap, src_bitmap_ptrs, nrecords);
     EXPECT_EQ(memcmp(dst_bitmap, expected_bitmap, length), 0);
   }
-}
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
 }
 
 }  // namespace gandiva

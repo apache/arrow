@@ -22,9 +22,10 @@ extern crate arrow;
 
 use arrow::array::*;
 use arrow::datatypes::*;
+use arrow::error::Result;
 use arrow::record_batch::*;
 
-fn main() {
+fn main() -> Result<()> {
     // define schema
     let schema = Schema::new(vec![
         Field::new("id", DataType::Int32, false),
@@ -58,9 +59,10 @@ fn main() {
     ]);
 
     // build a record batch
-    let batch = RecordBatch::new(Arc::new(schema), vec![Arc::new(id), Arc::new(nested)]);
+    let batch =
+        RecordBatch::try_new(Arc::new(schema), vec![Arc::new(id), Arc::new(nested)])?;
 
-    process(&batch);
+    Ok(process(&batch))
 }
 
 /// Create a new batch by performing a projection of id, nested.c
@@ -88,7 +90,7 @@ fn process(batch: &RecordBatch) {
         Field::new("sum", DataType::Float64, false),
     ]);
 
-    let _ = RecordBatch::new(
+    let _ = RecordBatch::try_new(
         Arc::new(projected_schema),
         vec![
             id.clone(), // NOTE: this is cloning the Arc not the array data

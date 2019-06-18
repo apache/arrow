@@ -25,13 +25,23 @@ import pytest
 from numpy.testing import assert_array_equal
 import numpy as np
 
-from pandas.util.testing import assert_frame_equal
-import pandas as pd
-
 import pyarrow as pa
 from pyarrow.feather import (read_feather, write_feather,
                              read_table, FeatherReader, FeatherDataset)
 from pyarrow.lib import FeatherWriter
+
+
+try:
+    from pandas.util.testing import assert_frame_equal
+    import pandas as pd
+except ImportError:
+    pass
+
+
+# TODO(wesm): The Feather tests currently are tangled with pandas
+# dependency. We should isolate the pandas-depending parts and mark those with
+# pytest.mark.pandas
+pytestmark = pytest.mark.pandas
 
 
 def random_path(prefix='feather_'):

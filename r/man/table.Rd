@@ -4,10 +4,15 @@
 \alias{table}
 \title{Create an arrow::Table from a data frame}
 \usage{
-table(.data)
+table(..., schema = NULL)
 }
 \arguments{
-\item{.data}{a data frame}
+\item{...}{arrays, chunked arrays, or R vectors}
+
+\item{schema}{a schema. The default (\code{NULL}) infers the schema from the \code{...}}
+}
+\value{
+an arrow::Table
 }
 \description{
 Create an arrow::Table from a data frame

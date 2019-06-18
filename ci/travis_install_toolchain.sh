@@ -23,32 +23,17 @@ source $TRAVIS_BUILD_DIR/ci/travis_install_conda.sh
 
 if [ ! -e $CPP_TOOLCHAIN ]; then
     CONDA_PACKAGES=""
-    CONDA_LABEL=""
 
-    if [ $ARROW_TRAVIS_GANDIVA == "1" ] && [ $TRAVIS_OS_NAME == "osx" ]; then
-        CONDA_PACKAGES="$CONDA_PACKAGES llvmdev=$CONDA_LLVM_VERSION"
-    fi
-
-    if [ $TRAVIS_OS_NAME == "linux" ]; then
-        if [ "$DISTRO_CODENAME" == "trusty" ]; then
-            CONDA_LABEL=" -c conda-forge/label/cf201901"
-        else
-            # Use newer binutils when linking against conda-provided libraries
-            CONDA_PACKAGES="$CONDA_PACKAGES binutils=$CONDA_BINUTILS_VERSION"
-        fi
-    fi
-
-    if [ $ARROW_TRAVIS_VALGRIND == "1" ]; then
-        # Use newer Valgrind
-        CONDA_PACKAGES="$CONDA_PACKAGES valgrind"
+    if [ "$ARROW_TRAVIS_GANDIVA" == "1" ]; then
+        CONDA_PACKAGES="$CONDA_PACKAGES --file=$TRAVIS_BUILD_DIR/ci/conda_env_gandiva.yml"
     fi
 
     # Set up C++ toolchain from conda-forge packages for faster builds
-    conda create -y -q -p $CPP_TOOLCHAIN $CONDA_LABEL \
+    time conda create -y -q -p $CPP_TOOLCHAIN \
         --file=$TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
+        --file=$TRAVIS_BUILD_DIR/ci/conda_env_unix.yml \
         $CONDA_PACKAGES \
-        ccache \
-        ninja \
+        compilers \
         nomkl \
         python=3.6
 fi

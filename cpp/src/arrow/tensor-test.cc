@@ -26,7 +26,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/tensor.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
 namespace arrow {

@@ -30,7 +30,7 @@
 
 #include "arrow/array.h"
 #include "arrow/ipc/json-simple.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
@@ -47,6 +47,7 @@ namespace internal {
 namespace json {
 
 using ::arrow::internal::checked_cast;
+using ::arrow::internal::checked_pointer_cast;
 
 // Avoid undefined behaviour on signed overflow
 template <typename Signed>
@@ -66,19 +67,19 @@ void JSONArrayInternal(std::ostream* ss, uint8_t value) {
 }
 
 template <typename Value>
-void JSONArrayInternal(std::ostream* ss, const Value& value) {
+void JSONArrayInternal(std::ostream* ss, Value&& value) {
   *ss << value;
 }
 
 template <typename Value, typename... Tail>
-void JSONArrayInternal(std::ostream* ss, const Value& value, Tail... tail) {
-  JSONArrayInternal(ss, value);
+void JSONArrayInternal(std::ostream* ss, Value&& value, Tail&&... tail) {
+  JSONArrayInternal(ss, std::forward<Value>(value));
   *ss << ", ";
   JSONArrayInternal(ss, std::forward<Tail>(tail)...);
 }
 
 template <typename... Args>
-std::string JSONArray(Args... args) {
+std::string JSONArray(Args&&... args) {
   std::stringstream ss;
   ss << "[";
   JSONArrayInternal(&ss, std::forward<Args>(args)...);
@@ -232,13 +233,17 @@ TEST(TestBoolean, Basics) {
   AssertJSONArray<BooleanType, bool>(type, "[false, true, false]", {false, true, false});
   AssertJSONArray<BooleanType, bool>(type, "[false, true, null]", {true, true, false},
                                      {false, true, false});
+  // Supports integer literal casting
+  AssertJSONArray<BooleanType, bool>(type, "[0, 1, 0]", {false, true, false});
+  AssertJSONArray<BooleanType, bool>(type, "[0, 1, null]", {true, true, false},
+                                     {false, true, false});
 }
 
 TEST(TestBoolean, Errors) {
   std::shared_ptr<DataType> type = boolean();
   std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0.0]", &array));
   ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"true\"]", &array));
 }
 
@@ -315,6 +320,19 @@ TEST(TestString, Basics) {
   s = '\x00';
   s += "\x1f";
   AssertJSONArray<BinaryType, std::string>(type, "[\"\\u0000\\u001f\"]", {s});
+}
+
+TEST(TestTimestamp, Basics) {
+  // Timestamp type
+  auto type = timestamp(TimeUnit::SECOND);
+  AssertJSONArray<TimestampType, int64_t>(
+      type, R"(["1970-01-01","2000-02-29","3989-07-14","1900-02-28"])",
+      {0, 951782400, 63730281600LL, -2203977600LL});
+
+  type = timestamp(TimeUnit::NANO);
+  AssertJSONArray<TimestampType, int64_t>(
+      type, R"(["1970-01-01","2000-02-29","1900-02-28"])",
+      {0, 951782400000000000LL, -2203977600000000000LL});
 }
 
 TEST(TestString, Errors) {
@@ -516,6 +534,264 @@ TEST(TestList, IntegerListList) {
     ASSERT_OK(child_builder.Append());
     ASSERT_OK(list_builder.Finish(&expected));
   }
+}
+
+TEST(TestMap, IntegerToInteger) {
+  auto type = map(int16(), int16());
+  std::shared_ptr<Array> expected, actual;
+
+  const char* input = R"(
+[
+    [[0, 1], [1, 1], [2, 2], [3, 3], [4, 5], [5, 8]],
+    null,
+    [[0, null], [1, null], [2, 0], [3, 1], [4, null], [5, 2]],
+    []
+  ]
+)";
+  ASSERT_OK(ArrayFromJSON(type, input, &actual));
+
+  std::unique_ptr<ArrayBuilder> builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder));
+  auto& map_builder = checked_cast<MapBuilder&>(*builder);
+  auto& key_builder = checked_cast<Int16Builder&>(*map_builder.key_builder());
+  auto& item_builder = checked_cast<Int16Builder&>(*map_builder.item_builder());
+
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder.AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder.AppendValues({1, 1, 2, 3, 5, 8}));
+  ASSERT_OK(map_builder.AppendNull());
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder.AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder.AppendValues({-1, -1, 0, 1, -1, 2}, {0, 0, 1, 1, 0, 1}));
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(map_builder.Finish(&expected));
+
+  ASSERT_ARRAYS_EQUAL(*actual, *expected);
+}
+
+TEST(TestMap, StringToInteger) {
+  auto type = map(utf8(), int32());
+  const char* input = R"(
+[
+    [["joe", 0], ["mark", null]],
+    null,
+    [["cap", 8]],
+    []
+  ]
+)";
+  auto actual = ArrayFromJSON(type, input);
+  std::vector<int32_t> offsets = {0, 2, 2, 3, 3};
+  auto expected_keys = ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])");
+  auto expected_values = ArrayFromJSON(int32(), "[0, null, 8]");
+  std::shared_ptr<Buffer> expected_null_bitmap;
+  ASSERT_OK(
+      BitUtil::BytesToBits({1, 0, 1, 1}, default_memory_pool(), &expected_null_bitmap));
+  auto expected =
+      std::make_shared<MapArray>(type, 4, Buffer::Wrap(offsets), expected_keys,
+                                 expected_values, expected_null_bitmap, 1);
+  ASSERT_ARRAYS_EQUAL(*actual, *expected);
+}
+
+TEST(TestMap, Errors) {
+  auto type = map(int16(), int16());
+  std::shared_ptr<Array> array;
+
+  // list of pairs isn't an array
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
+  // pair isn't an array
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[null]]", &array));
+  // pair with length != 2
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[0]]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[0, 1, 2]]]", &array));
+  // null key
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[null, 0]]]", &array));
+  // key or value fails to convert
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[0.0, 0]]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[[0, 0.0]]]", &array));
+}
+
+TEST(TestMap, IntegerMapToStringList) {
+  auto type = map(map(int16(), int16()), list(utf8()));
+  std::shared_ptr<Array> expected, actual;
+
+  const char* input = R"(
+[
+    [
+      [
+        [],
+        [null, "empty"]
+      ],
+      [
+        [[0, 1]],
+        null
+      ],
+      [
+        [[0, 0], [1, 1]],
+        ["bootstrapping tautology?", "lispy", null, "i can see eternity"]
+      ]
+    ],
+    null
+  ]
+)";
+  ASSERT_OK(ArrayFromJSON(type, input, &actual));
+
+  std::unique_ptr<ArrayBuilder> builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder));
+  auto& map_builder = checked_cast<MapBuilder&>(*builder);
+  auto& key_builder = checked_cast<MapBuilder&>(*map_builder.key_builder());
+  auto& key_key_builder = checked_cast<Int16Builder&>(*key_builder.key_builder());
+  auto& key_item_builder = checked_cast<Int16Builder&>(*key_builder.item_builder());
+  auto& item_builder = checked_cast<ListBuilder&>(*map_builder.item_builder());
+  auto& item_value_builder = checked_cast<StringBuilder&>(*item_builder.value_builder());
+
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder.Append());
+  ASSERT_OK(item_builder.Append());
+  ASSERT_OK(item_value_builder.AppendNull());
+  ASSERT_OK(item_value_builder.Append("empty"));
+
+  ASSERT_OK(key_builder.Append());
+  ASSERT_OK(item_builder.AppendNull());
+  ASSERT_OK(key_key_builder.AppendValues({0}));
+  ASSERT_OK(key_item_builder.AppendValues({1}));
+
+  ASSERT_OK(key_builder.Append());
+  ASSERT_OK(item_builder.Append());
+  ASSERT_OK(key_key_builder.AppendValues({0, 1}));
+  ASSERT_OK(key_item_builder.AppendValues({0, 1}));
+  ASSERT_OK(item_value_builder.Append("bootstrapping tautology?"));
+  ASSERT_OK(item_value_builder.Append("lispy"));
+  ASSERT_OK(item_value_builder.AppendNull());
+  ASSERT_OK(item_value_builder.Append("i can see eternity"));
+
+  ASSERT_OK(map_builder.AppendNull());
+
+  ASSERT_OK(map_builder.Finish(&expected));
+  ASSERT_ARRAYS_EQUAL(*actual, *expected);
+}
+
+TEST(TestFixedSizeList, IntegerList) {
+  auto pool = default_memory_pool();
+  auto type = fixed_size_list(int64(), 2);
+  std::shared_ptr<Array> values, expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  ArrayFromVector<Int64Type>({}, &values);
+  expected = std::make_shared<FixedSizeListArray>(type, 0, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[4, 5], [0, 0], [6, 7]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  ArrayFromVector<Int64Type>({4, 5, 0, 0, 6, 7}, &values);
+  expected = std::make_shared<FixedSizeListArray>(type, 3, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[null, null], [0, null], [6, null]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  auto is_valid = std::vector<bool>{false, false, true, false, true, false};
+  ArrayFromVector<Int64Type>(is_valid, {0, 0, 0, 0, 6, 0}, &values);
+  expected = std::make_shared<FixedSizeListArray>(type, 3, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[null, [null, null], null]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  {
+    std::unique_ptr<ArrayBuilder> builder;
+    ASSERT_OK(MakeBuilder(pool, type, &builder));
+    auto& list_builder = checked_cast<FixedSizeListBuilder&>(*builder);
+    auto value_builder = checked_cast<Int64Builder*>(list_builder.value_builder());
+    ASSERT_OK(list_builder.AppendNull());
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(value_builder->AppendNull());
+    ASSERT_OK(value_builder->AppendNull());
+    ASSERT_OK(list_builder.AppendNull());
+    ASSERT_OK(list_builder.Finish(&expected));
+  }
+  AssertArraysEqual(*expected, *actual);
+}
+
+TEST(TestFixedSizeList, IntegerListErrors) {
+  std::shared_ptr<DataType> type = fixed_size_list(int64(), 2);
+  std::shared_ptr<Array> array;
+
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0.0, 1.0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0]]", &array));
+  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[9223372036854775808, 0]]", &array));
+}
+
+TEST(TestFixedSizeList, NullList) {
+  auto pool = default_memory_pool();
+  std::shared_ptr<DataType> type = fixed_size_list(null(), 2);
+  std::shared_ptr<Array> values, expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  values = std::make_shared<NullArray>(0);
+  expected = std::make_shared<FixedSizeListArray>(type, 0, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[null, null], [null, null], [null, null]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  values = std::make_shared<NullArray>(6);
+  expected = std::make_shared<FixedSizeListArray>(type, 3, values);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[null, [null, null], null]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  {
+    std::unique_ptr<ArrayBuilder> builder;
+    ASSERT_OK(MakeBuilder(pool, type, &builder));
+    auto& list_builder = checked_cast<FixedSizeListBuilder&>(*builder);
+    auto value_builder = checked_cast<NullBuilder*>(list_builder.value_builder());
+    ASSERT_OK(list_builder.AppendNull());
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(value_builder->AppendNull());
+    ASSERT_OK(value_builder->AppendNull());
+    ASSERT_OK(list_builder.AppendNull());
+    ASSERT_OK(list_builder.Finish(&expected));
+  }
+  AssertArraysEqual(*expected, *actual);
+}
+
+TEST(TestFixedSizeList, IntegerListList) {
+  auto pool = default_memory_pool();
+  auto nested_type = fixed_size_list(uint8(), 2);
+  std::shared_ptr<DataType> type = fixed_size_list(nested_type, 1);
+  std::shared_ptr<Array> values, nested, expected, actual;
+
+  ASSERT_OK(ArrayFromJSON(type, "[[[1, 4]], [[2, 5]], [[3, 6]]]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  ArrayFromVector<UInt8Type>({1, 4, 2, 5, 3, 6}, &values);
+  nested = std::make_shared<FixedSizeListArray>(nested_type, 3, values);
+  expected = std::make_shared<FixedSizeListArray>(type, 3, nested);
+  AssertArraysEqual(*expected, *actual);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[[1, null]], [null], null]", &actual));
+  ASSERT_OK(ValidateArray(*actual));
+  {
+    std::unique_ptr<ArrayBuilder> builder;
+    ASSERT_OK(MakeBuilder(pool, type, &builder));
+    auto& list_builder = checked_cast<FixedSizeListBuilder&>(*builder);
+    auto nested_builder =
+        checked_cast<FixedSizeListBuilder*>(list_builder.value_builder());
+    auto value_builder = checked_cast<UInt8Builder*>(nested_builder->value_builder());
+
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(nested_builder->Append());
+    ASSERT_OK(value_builder->Append(1));
+    ASSERT_OK(value_builder->AppendNull());
+
+    ASSERT_OK(list_builder.Append());
+    ASSERT_OK(nested_builder->AppendNull());
+
+    ASSERT_OK(list_builder.AppendNull());
+
+    ASSERT_OK(list_builder.Finish(&expected));
+  }
+  AssertArraysEqual(*expected, *actual);
 }
 
 TEST(TestStruct, SimpleStruct) {

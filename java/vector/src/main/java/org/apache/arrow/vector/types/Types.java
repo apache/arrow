@@ -27,6 +27,7 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -58,6 +59,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
@@ -65,6 +67,7 @@ import org.apache.arrow.vector.complex.impl.BitWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateMilliWriterImpl;
 import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
+import org.apache.arrow.vector.complex.impl.DurationWriterImpl;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
 import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
@@ -101,12 +104,14 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.Duration;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
+import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
@@ -116,8 +121,12 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 
+/** An enumeration of all logical types supported by this library. */
 public class Types {
 
+  /**
+   * The actual enumeration of types.
+   */
   public enum MinorType {
     NULL(Null.INSTANCE) {
       @Override
@@ -378,6 +387,23 @@ public class Types {
         return new IntervalDayWriterImpl((IntervalDayVector) vector);
       }
     },
+    DURATION(null) {
+      @Override
+      public FieldVector getNewVector(
+              String name,
+              FieldType fieldType,
+              BufferAllocator allocator,
+              CallBack schemaChangeCallback) {
+        return new DurationVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new DurationWriterImpl((DurationVector) vector);
+      }
+    },
+
+
     INTERVALYEAR(new Interval(IntervalUnit.YEAR_MONTH)) {
       @Override
       public FieldVector getNewVector(
@@ -610,6 +636,21 @@ public class Types {
         return new UnionWriter((UnionVector) vector);
       }
     },
+    MAP(null) {
+      @Override
+      public FieldVector getNewVector(
+          String name,
+          FieldType fieldType,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        return new MapVector(name, allocator, fieldType, schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new UnionListWriter((MapVector) vector);
+      }
+    },
     TIMESTAMPSECTZ(null) {
       @Override
       public FieldVector getNewVector(
@@ -677,6 +718,9 @@ public class Types {
       this.type = type;
     }
 
+    /**
+     * Returns the {@link ArrowType} equivalent of this type.
+     */
     public final ArrowType getType() {
       if (type == null) {
         throw new UnsupportedOperationException("Cannot get simple type for type " + name());
@@ -684,6 +728,7 @@ public class Types {
       return type;
     }
 
+    /** Constructs a new vector for the given type. */
     public abstract FieldVector getNewVector(
         String name,
         FieldType fieldType,
@@ -693,6 +738,9 @@ public class Types {
     public abstract FieldWriter getNewFieldWriter(ValueVector vector);
   }
 
+  /**
+   * Maps the ArrowType to the java implementations MinorType.
+   */
   public static MinorType getMinorTypeForArrowType(ArrowType arrowType) {
     return arrowType.accept(new ArrowTypeVisitor<MinorType>() {
       @Override
@@ -718,6 +766,11 @@ public class Types {
       @Override
       public MinorType visit(Union type) {
         return MinorType.UNION;
+      }
+
+      @Override
+      public MinorType visit(Map type) {
+        return MinorType.MAP;
       }
 
       @Override
@@ -830,6 +883,11 @@ public class Types {
           default:
             throw new IllegalArgumentException("unknown unit: " + type);
         }
+      }
+
+      @Override
+      public MinorType visit(Duration type) {
+        return MinorType.DURATION;
       }
     });
   }

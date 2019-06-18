@@ -15,20 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if (PARQUET_BUILD_EXECUTABLES)
-  set(PARQUET_TOOLS
-    parquet-dump-schema
-    parquet-reader
-    parquet-scan)
+if(PARQUET_BUILD_EXECUTABLES)
+  set(PARQUET_TOOLS parquet-dump-schema parquet-reader parquet-scan)
 
   foreach(TOOL ${PARQUET_TOOLS})
     add_executable(${TOOL} "${TOOL}.cc")
     target_link_libraries(${TOOL} parquet_static)
     # Avoid unsetting RPATH when installing
     set_target_properties(${TOOL} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-    install(TARGETS ${TOOL}
-      ${INSTALL_IS_OPTIONAL}
-      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(TARGETS ${TOOL} ${INSTALL_IS_OPTIONAL}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endforeach(TOOL)
 
   add_dependencies(parquet ${PARQUET_TOOLS})

@@ -194,13 +194,12 @@ class IntegerType(PrimitiveType):
         self.max_value = max_value
 
     def _get_generated_data_bounds(self):
-        signed_iinfo = np.iinfo('int' + str(self.bit_width))
         if self.is_signed:
+            signed_iinfo = np.iinfo('int' + str(self.bit_width))
             min_value, max_value = signed_iinfo.min, signed_iinfo.max
         else:
-            # ARROW-1837 Remove this hack and restore full unsigned integer
-            # range
-            min_value, max_value = 0, signed_iinfo.max
+            unsigned_iinfo = np.iinfo('uint' + str(self.bit_width))
+            min_value, max_value = 0, unsigned_iinfo.max
 
         lower_bound = max(min_value, self.min_value)
         upper_bound = min(max_value, self.max_value)
@@ -326,6 +325,68 @@ class TimestampType(IntegerType):
             fields.append(('timezone', self.tz))
 
         return OrderedDict(fields)
+
+
+class DurationIntervalType(IntegerType):
+    def __init__(self, name, unit='s', nullable=True):
+        min_val, max_val = np.iinfo('int64').min, np.iinfo('int64').max,
+        super(DurationIntervalType, self).__init__(
+                name, True, 64, nullable=nullable,
+                min_value=min_val,
+                max_value=max_val)
+        self.unit = unit
+
+    def _get_type(self):
+        fields = [
+            ('name', 'duration'),
+            ('unit', TIMEUNIT_NAMES[self.unit])
+        ]
+
+        return OrderedDict(fields)
+
+
+class YearMonthIntervalType(IntegerType):
+    def __init__(self, name, nullable=True):
+        min_val, max_val = [-10000*12, 10000*12]  # +/- 10000 years.
+        super(YearMonthIntervalType, self).__init__(
+                name, True, 32, nullable=nullable,
+                min_value=min_val,
+                max_value=max_val)
+
+    def _get_type(self):
+        fields = [
+            ('name', 'interval'),
+            ('unit', 'YEAR_MONTH'),
+        ]
+
+        return OrderedDict(fields)
+
+
+class DayTimeIntervalType(PrimitiveType):
+    def __init__(self, name, nullable=True):
+        super(DayTimeIntervalType, self).__init__(name, nullable=True)
+
+    @property
+    def numpy_type(self):
+        return object
+
+    def _get_type(self):
+
+        return OrderedDict([
+            ('name', 'interval'),
+            ('unit', 'DAY_TIME'),
+        ])
+
+    def generate_column(self, size, name=None):
+        min_day_value, max_day_value = -10000*366, 10000*366
+        values = [{'days': random.randint(min_day_value, max_day_value),
+                   'milliseconds': random.randint(-86400000, +86400000)}
+                  for _ in range(size)]
+
+        is_valid = self._make_is_valid(size)
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
 
 
 class FloatingPointType(PrimitiveType):
@@ -644,6 +705,107 @@ class ListColumn(Column):
         return [self.values.get_json()]
 
 
+class MapType(DataType):
+
+    def __init__(self, name, key_type, item_type, nullable=True,
+                 keysSorted=False):
+        super(MapType, self).__init__(name, nullable=nullable)
+
+        assert not key_type.nullable
+        self.key_type = key_type
+        self.item_type = item_type
+        self.pair_type = StructType('item', [key_type, item_type], False)
+        self.keysSorted = keysSorted
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'map'),
+            ('keysSorted', self.keysSorted)
+        ])
+
+    def _get_children(self):
+        return [self.pair_type.get_json()]
+
+    def generate_column(self, size, name=None):
+        MAX_MAP_SIZE = 4
+
+        is_valid = self._make_is_valid(size)
+        map_sizes = np.random.randint(0, MAX_MAP_SIZE + 1, size=size)
+        offsets = [0]
+
+        offset = 0
+        for i in range(size):
+            if is_valid[i]:
+                offset += int(map_sizes[i])
+            offsets.append(offset)
+
+        # The offset now is the total number of elements in the child array
+        pairs = self.pair_type.generate_column(offset)
+        if name is None:
+            name = self.name
+
+        return MapColumn(name, size, is_valid, offsets, pairs)
+
+
+class MapColumn(Column):
+
+    def __init__(self, name, count, is_valid, offsets, pairs):
+        super(MapColumn, self).__init__(name, count)
+        self.is_valid = is_valid
+        self.offsets = offsets
+        self.pairs = pairs
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('OFFSET', list(self.offsets))
+        ]
+
+    def _get_children(self):
+        return [self.pairs.get_json()]
+
+
+class FixedSizeListType(DataType):
+
+    def __init__(self, name, value_type, list_size, nullable=True):
+        super(FixedSizeListType, self).__init__(name, nullable=nullable)
+        self.value_type = value_type
+        self.list_size = list_size
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'fixedsizelist'),
+            ('listSize', self.list_size)
+        ])
+
+    def _get_children(self):
+        return [self.value_type.get_json()]
+
+    def generate_column(self, size, name=None):
+        is_valid = self._make_is_valid(size)
+        values = self.value_type.generate_column(size * self.list_size)
+
+        if name is None:
+            name = self.name
+        return FixedSizeListColumn(name, size, is_valid, values)
+
+
+class FixedSizeListColumn(Column):
+
+    def __init__(self, name, count, is_valid, values):
+        super(FixedSizeListColumn, self).__init__(name, count)
+        self.is_valid = is_valid
+        self.values = values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid])
+        ]
+
+    def _get_children(self):
+        return [self.values.get_json()]
+
+
 class StructType(DataType):
 
     def __init__(self, name, field_types, nullable=True):
@@ -747,13 +909,23 @@ class JsonRecordBatch(object):
         ])
 
 
+# SKIP categories
+SKIP_ARROW = 'arrow'
+SKIP_FLIGHT = 'flight'
+
+
 class JsonFile(object):
 
-    def __init__(self, name, schema, batches, dictionaries=None):
+    def __init__(self, name, schema, batches, dictionaries=None,
+                 skip=None, path=None):
         self.name = name
         self.schema = schema
         self.dictionaries = dictionaries or []
         self.batches = batches
+        self.skip = set()
+        self.path = path
+        if skip:
+            self.skip.update(skip)
 
     def get_json(self):
         entries = [
@@ -772,6 +944,15 @@ class JsonFile(object):
     def write(self, path):
         with open(path, 'wb') as f:
             f.write(json.dumps(self.get_json(), indent=2).encode('utf-8'))
+        self.path = path
+
+    def skip_category(self, category):
+        """Skip this test for the given category.
+
+        Category should be SKIP_ARROW or SKIP_FLIGHT.
+        """
+        self.skip.add(category)
+        return self
 
 
 def get_field(name, type_, nullable=True):
@@ -799,7 +980,7 @@ def get_field(name, type_, nullable=True):
         raise TypeError(dtype)
 
 
-def _generate_file(name, fields, batch_sizes, dictionaries=None):
+def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None):
     schema = JsonSchema(fields)
     batches = []
     for size in batch_sizes:
@@ -810,7 +991,7 @@ def _generate_file(name, fields, batch_sizes, dictionaries=None):
 
         batches.append(JsonRecordBatch(size, columns))
 
-    return JsonFile(name, schema, batches, dictionaries)
+    return JsonFile(name, schema, batches, dictionaries, skip=skip)
 
 
 def generate_primitive_case(batch_sizes, name='primitive'):
@@ -856,16 +1037,44 @@ def generate_datetime_case():
         TimestampType('f11', 's', tz='UTC'),
         TimestampType('f12', 'ms', tz='US/Eastern'),
         TimestampType('f13', 'us', tz='Europe/Paris'),
-        TimestampType('f14', 'ns', tz='US/Pacific')
+        TimestampType('f14', 'ns', tz='US/Pacific'),
     ]
 
     batch_sizes = [7, 10]
     return _generate_file("datetime", fields, batch_sizes)
 
 
+def generate_interval_case():
+    fields = [
+        DurationIntervalType('f1', 's'),
+        DurationIntervalType('f2', 'ms'),
+        DurationIntervalType('f3', 'us'),
+        DurationIntervalType('f4', 'ns'),
+        YearMonthIntervalType('f5'),
+        DayTimeIntervalType('f6'),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("interval", fields, batch_sizes)
+
+
+def generate_map_case():
+    # TODO(bkietz): separated from nested_case so it can be
+    # independently skipped, consolidate after Java supports map
+    fields = [
+        MapType('map_nullable', get_field('key', 'utf8', False),
+                get_field('item', 'int32')),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("map", fields, batch_sizes)
+
+
 def generate_nested_case():
     fields = [
         ListType('list_nullable', get_field('item', 'int32')),
+        FixedSizeListType('fixedsizelist_nullable',
+                          get_field('item', 'int32'), 4),
         StructType('struct_nullable', [get_field('f1', 'int32'),
                                        get_field('f2', 'utf8')]),
 
@@ -878,45 +1087,86 @@ def generate_nested_case():
 
 
 def generate_dictionary_case():
+    dict_type0 = StringType('dictionary1')
     dict_type1 = StringType('dictionary1')
     dict_type2 = get_field('dictionary2', 'int64')
 
-    dict1 = Dictionary(0, dict_type1,
-                       dict_type1.generate_column(10, name='DICT0'))
-    dict2 = Dictionary(1, dict_type2,
-                       dict_type2.generate_column(50, name='DICT1'))
+    dict0 = Dictionary(0, dict_type0,
+                       dict_type0.generate_column(10, name='DICT0'))
+    dict1 = Dictionary(1, dict_type1,
+                       dict_type1.generate_column(5, name='DICT1'))
+    dict2 = Dictionary(2, dict_type2,
+                       dict_type2.generate_column(50, name='DICT2'))
 
     fields = [
-        DictionaryType('dict1_0', get_field('', 'int8'), dict1),
-        DictionaryType('dict1_1', get_field('', 'int32'), dict1),
-        DictionaryType('dict2_0', get_field('', 'int16'), dict2)
+        DictionaryType('dict0', get_field('', 'int8'), dict0),
+        DictionaryType('dict1', get_field('', 'int32'), dict1),
+        DictionaryType('dict2', get_field('', 'int16'), dict2)
     ]
     batch_sizes = [7, 10]
     return _generate_file("dictionary", fields, batch_sizes,
-                          dictionaries=[dict1, dict2])
+                          dictionaries=[dict0, dict1, dict2])
 
 
-def get_generated_json_files(tempdir=None):
+def generate_nested_dictionary_case():
+    str_type = StringType('str')
+    dict0 = Dictionary(0, str_type, str_type.generate_column(10, name='DICT0'))
+
+    list_type = ListType(
+        'list',
+        DictionaryType('str_dict', get_field('', 'int8'), dict0))
+    dict1 = Dictionary(1,
+                       list_type,
+                       list_type.generate_column(30, name='DICT1'))
+
+    struct_type = StructType('struct', [
+            DictionaryType('str_dict_a', get_field('', 'int8'), dict0),
+            DictionaryType('str_dict_b', get_field('', 'int8'), dict0)
+        ])
+    dict2 = Dictionary(2,
+                       struct_type,
+                       struct_type.generate_column(30, name='DICT2'))
+
+    fields = [
+        DictionaryType('list_dict', get_field('', 'int8'), dict1),
+        DictionaryType('struct_dict', get_field('', 'int8'), dict2)
+    ]
+
+    batch_sizes = [10, 13]
+    return _generate_file("nested_dictionary", fields, batch_sizes,
+                          dictionaries=[dict0, dict1, dict2])
+
+
+def get_generated_json_files(tempdir=None, flight=False):
     tempdir = tempdir or tempfile.mkdtemp()
 
     def _temp_path():
         return
 
     file_objs = [
+        generate_primitive_case([], name='primitive_no_batches'),
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
         generate_decimal_case(),
         generate_datetime_case(),
+        generate_interval_case(),
+        generate_map_case(),
         generate_nested_case(),
-        generate_dictionary_case()
+        generate_dictionary_case().skip_category(SKIP_FLIGHT),
+        generate_nested_dictionary_case().skip_category(SKIP_ARROW)
+                                         .skip_category(SKIP_FLIGHT),
     ]
+
+    if flight:
+        file_objs.append(generate_primitive_case([24 * 1024],
+                                                 name='large_batch'))
 
     generated_paths = []
     for file_obj in file_objs:
         out_path = os.path.join(tempdir, 'generated_' +
                                 file_obj.name + '.json')
         file_obj.write(out_path)
-        generated_paths.append(out_path)
+        generated_paths.append(file_obj)
 
     return generated_paths
 
@@ -938,11 +1188,8 @@ class IntegrationRunner(object):
         for producer, consumer in itertools.product(
                 filter(lambda t: t.PRODUCER, self.testers),
                 filter(lambda t: t.CONSUMER, self.testers)):
-            try:
-                self._compare_implementations(producer, consumer)
-            except Exception:
-                traceback.print_exc()
-                failures.append((producer, consumer, sys.exc_info()))
+            for failure in self._compare_implementations(producer, consumer):
+                failures.append(failure)
         return failures
 
     def run_flight(self):
@@ -951,11 +1198,9 @@ class IntegrationRunner(object):
         clients = filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER),
                          self.testers)
         for server, client in itertools.product(servers, clients):
-            try:
-                self._compare_flight_implementations(server, client)
-            except Exception:
-                traceback.print_exc()
-                failures.append((server, client, sys.exc_info()))
+            for failure in self._compare_flight_implementations(server,
+                                                                client):
+                failures.append(failure)
         return failures
 
     def _compare_implementations(self, producer, consumer):
@@ -965,7 +1210,8 @@ class IntegrationRunner(object):
         )
         print('##########################################################')
 
-        for json_path in self.json_files:
+        for test_case in self.json_files:
+            json_path = test_case.path
             print('==========================================================')
             print('Testing file {0}'.format(json_path))
             print('==========================================================')
@@ -974,28 +1220,62 @@ class IntegrationRunner(object):
 
             file_id = guid()[:8]
 
+            if (('JS' in (producer.name, consumer.name) or
+                    'Java' in (producer.name, consumer.name)) and
+                    "map" in test_case.name):
+                print('TODO(ARROW-1279): Enable map tests ' +
+                      ' for Java and JS once Java supports them and JS\'' +
+                      ' are unbroken')
+                continue
+
+            if ('JS' in (producer.name, consumer.name) and
+                    "interval" in test_case.name):
+                print('TODO(ARROW-5239): Enable interval tests ' +
+                      ' for JS once JS supports them')
+                continue
+
             # Make the random access file
-            print('-- Creating binary inputs')
             producer_file_path = os.path.join(self.temp_dir, file_id + '_' +
                                               name + '.json_as_file')
-            producer.json_to_file(json_path, producer_file_path)
-
-            # Validate the file
-            print('-- Validating file')
-            consumer.validate(json_path, producer_file_path)
-
-            print('-- Validating stream')
             producer_stream_path = os.path.join(self.temp_dir, file_id + '_' +
                                                 name +
                                                 '.producer_file_as_stream')
             consumer_file_path = os.path.join(self.temp_dir, file_id + '_' +
                                               name +
                                               '.consumer_stream_as_file')
-            producer.file_to_stream(producer_file_path,
-                                    producer_stream_path)
-            consumer.stream_to_file(producer_stream_path,
-                                    consumer_file_path)
-            consumer.validate(json_path, consumer_file_path)
+
+            if producer.name in test_case.skip:
+                print('-- Skipping test because producer {0} does '
+                      'not support'.format(producer.name))
+                continue
+
+            if consumer.name in test_case.skip:
+                print('-- Skipping test because consumer {0} does '
+                      'not support'.format(consumer.name))
+                continue
+
+            if SKIP_ARROW in test_case.skip:
+                print('-- Skipping test')
+                continue
+
+            try:
+                print('-- Creating binary inputs')
+                producer.json_to_file(json_path, producer_file_path)
+
+                # Validate the file
+                print('-- Validating file')
+                consumer.validate(json_path, producer_file_path)
+
+                print('-- Validating stream')
+                producer.file_to_stream(producer_file_path,
+                                        producer_stream_path)
+                consumer.stream_to_file(producer_stream_path,
+                                        consumer_file_path)
+                consumer.validate(json_path, consumer_file_path)
+            except Exception:
+                traceback.print_exc()
+                yield (test_case, producer, consumer, sys.exc_info())
+                continue
 
     def _compare_flight_implementations(self, producer, consumer):
         print('##########################################################')
@@ -1004,15 +1284,32 @@ class IntegrationRunner(object):
         )
         print('##########################################################')
 
-        with producer.flight_server():
-            for json_path in self.json_files:
-                print('=' * 58)
-                print('Testing file {0}'.format(json_path))
-                print('=' * 58)
+        for test_case in self.json_files:
+            json_path = test_case.path
+            print('=' * 58)
+            print('Testing file {0}'.format(json_path))
+            print('=' * 58)
 
-                # Have the client upload the file, then download and
-                # compare
-                consumer.flight_request(producer.FLIGHT_PORT, json_path)
+            if ('Java' in (producer.name, consumer.name) and
+               "map" in test_case.name):
+                print('TODO(ARROW-1279): Enable map tests ' +
+                      ' for Java and JS once Java supports them and JS\'' +
+                      ' are unbroken')
+                continue
+
+            if SKIP_FLIGHT in test_case.skip:
+                print('-- Skipping test')
+                continue
+
+            try:
+                with producer.flight_server():
+                    # Have the client upload the file, then download and
+                    # compare
+                    consumer.flight_request(producer.FLIGHT_PORT, json_path)
+            except Exception:
+                traceback.print_exc()
+                yield (test_case, producer, consumer, sys.exc_info())
+                continue
 
 
 class Tester(object):
@@ -1022,8 +1319,9 @@ class Tester(object):
     FLIGHT_CLIENT = False
     FLIGHT_PORT = 31337
 
-    def __init__(self, debug=False):
-        self.debug = debug
+    def __init__(self, args):
+        self.args = args
+        self.debug = args.debug
 
     def json_to_file(self, json_path, arrow_path):
         raise NotImplementedError
@@ -1052,6 +1350,8 @@ class JavaTester(Tester):
 
     FLIGHT_PORT = 31338
 
+    JAVA_OPTS = ['-Dio.netty.tryReflectionSetAccessible=true']
+
     _arrow_version = load_version_from_pom()
     ARROW_TOOLS_JAR = os.environ.get(
         'ARROW_JAVA_INTEGRATION_JAR',
@@ -1071,8 +1371,8 @@ class JavaTester(Tester):
     name = 'Java'
 
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.Integration']
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR, 'org.apache.arrow.tools.Integration']
 
         if arrow_path is not None:
             cmd.extend(['-a', arrow_path])
@@ -1094,35 +1394,34 @@ class JavaTester(Tester):
         return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.StreamToFile',
-               stream_path, file_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR,
+             'org.apache.arrow.tools.StreamToFile', stream_path, file_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = ['java', '-cp', self.ARROW_TOOLS_JAR,
-               'org.apache.arrow.tools.FileToStream',
-               file_path, stream_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_TOOLS_JAR,
+             'org.apache.arrow.tools.FileToStream', file_path, stream_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     def flight_request(self, port, json_path):
-        cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               self.ARROW_FLIGHT_CLIENT,
-               '-port', str(port),
-               '-j', json_path]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_CLIENT,
+             '-port', str(port), '-j', json_path]
         if self.debug:
             print(' '.join(cmd))
         run_cmd(cmd)
 
     @contextlib.contextmanager
     def flight_server(self):
-        cmd = ['java', '-cp', self.ARROW_FLIGHT_JAR,
-               self.ARROW_FLIGHT_SERVER,
-               '-port', str(self.FLIGHT_PORT)]
+        cmd = ['java'] + self.JAVA_OPTS + \
+            ['-cp', self.ARROW_FLIGHT_JAR, self.ARROW_FLIGHT_SERVER,
+             '-port', str(self.FLIGHT_PORT)]
         if self.debug:
             print(' '.join(cmd))
         server = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -1134,7 +1433,7 @@ class JavaTester(Tester):
                     output)
             yield
         finally:
-            server.terminate()
+            server.kill()
             server.wait(5)
 
 
@@ -1213,7 +1512,7 @@ class CPPTester(Tester):
                     output)
             yield
         finally:
-            server.terminate()
+            server.kill()
             server.wait(5)
 
     def flight_request(self, port, json_path):
@@ -1289,43 +1588,61 @@ class JSTester(Tester):
 
 def get_static_json_files():
     glob_pattern = os.path.join(ARROW_HOME, 'integration', 'data', '*.json')
-    return glob.glob(glob_pattern)
+    return [JsonFile(name=os.path.basename(p), path=p, skip=set(),
+                     schema=None, batches=None)
+            for p in glob.glob(glob_pattern)]
 
 
-def run_all_tests(run_flight=False, debug=False, tempdir=None):
-    testers = [CPPTester(debug=debug),
-               JavaTester(debug=debug),
-               JSTester(debug=debug)]
+def run_all_tests(args):
+    testers = []
+
+    if args.enable_cpp:
+        testers.append(CPPTester(args))
+
+    if args.enable_java:
+        testers.append(JavaTester(args))
+
+    if args.enable_js:
+        testers.append(JSTester(args))
+
     static_json_files = get_static_json_files()
-    generated_json_files = get_generated_json_files(tempdir=tempdir)
+    generated_json_files = get_generated_json_files(tempdir=args.tempdir,
+                                                    flight=args.run_flight)
     json_files = static_json_files + generated_json_files
 
     runner = IntegrationRunner(json_files, testers,
-                               tempdir=tempdir, debug=debug)
+                               tempdir=args.tempdir, debug=args.debug)
     failures = []
     failures.extend(runner.run())
-    if run_flight:
+    if args.run_flight:
         failures.extend(runner.run_flight())
 
-    print()
-    print('##########################################################')
-    if not failures:
-        print('-- All tests passed!')
-    else:
-        print('-- Tests completed, failures:')
-    for producer, consumer, exc_info in failures:
-        print("FAILED TEST:", producer.name, "producing, ",
-              consumer.name, "consuming")
-        traceback.print_exception(*exc_info)
-        print()
+    fail_count = 0
+    if failures:
+        print("################# FAILURES #################")
+        for test_case, producer, consumer, exc_info in failures:
+            fail_count += 1
+            print("FAILED TEST:", end=" ")
+            print(test_case.name, producer.name, "producing, ",
+                  consumer.name, "consuming")
+            if exc_info:
+                traceback.print_exception(*exc_info)
+            print()
+
+    print(fail_count, "failures")
+    if fail_count > 0:
+        sys.exit(1)
 
 
 def write_js_test_json(directory):
+    generate_map_case().write(os.path.join(directory, 'map.json'))
     generate_nested_case().write(os.path.join(directory, 'nested.json'))
     generate_decimal_case().write(os.path.join(directory, 'decimal.json'))
     generate_datetime_case().write(os.path.join(directory, 'datetime.json'))
     (generate_dictionary_case()
      .write(os.path.join(directory, 'dictionary.json')))
+    (generate_primitive_case([])
+     .write(os.path.join(directory, 'primitive_no_batches.json')))
     (generate_primitive_case([7, 10])
      .write(os.path.join(directory, 'primitive.json')))
     (generate_primitive_case([0, 0, 0])
@@ -1334,6 +1651,17 @@ def write_js_test_json(directory):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arrow integration test CLI')
+
+    parser.add_argument('--enable-c++', dest='enable_cpp',
+                        action='store', type=int, default=1,
+                        help='Include C++ in integration tests')
+    parser.add_argument('--enable-java', dest='enable_java',
+                        action='store', type=int, default=1,
+                        help='Include Java in integration tests')
+    parser.add_argument('--enable-js', dest='enable_js',
+                        action='store', type=int, default=1,
+                        help='Include JavaScript in integration tests')
+
     parser.add_argument('--write_generated_json', dest='generated_json_path',
                         action='store', default=False,
                         help='Generate test JSON')
@@ -1356,5 +1684,4 @@ if __name__ == '__main__':
                 raise
         write_js_test_json(args.generated_json_path)
     else:
-        run_all_tests(run_flight=args.run_flight,
-                      debug=args.debug, tempdir=args.tempdir)
+        run_all_tests(args)

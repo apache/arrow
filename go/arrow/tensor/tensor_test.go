@@ -67,6 +67,10 @@ func TestTensor(t *testing.T) {
 		t.Fatalf("invalid dims: got=%d, want=%d", got, want)
 	}
 
+	if got, want := f64.DimNames(), names; !reflect.DeepEqual(got, want) {
+		t.Fatalf("invalid dim-names: got=%v, want=%v", got, want)
+	}
+
 	for i, name := range names {
 		if got, want := f64.DimName(i), name; got != want {
 			t.Fatalf("invalid dim-name[%d]: got=%q, want=%q", i, got, want)

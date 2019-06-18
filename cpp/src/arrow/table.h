@@ -203,7 +203,7 @@ class ARROW_EXPORT Table {
  public:
   virtual ~Table() = default;
 
-  /// \brief Construct Table from schema and columns
+  /// \brief Construct a Table from schema and columns
   /// If columns is zero-length, the table's number of rows is zero
   /// \param schema The table schema (column types)
   /// \param columns The table's columns
@@ -212,7 +212,14 @@ class ARROW_EXPORT Table {
                                      const std::vector<std::shared_ptr<Column>>& columns,
                                      int64_t num_rows = -1);
 
-  /// \brief Construct Table from schema and arrays
+  /// \brief Construct a Table from columns, schema is assembled from column fields
+  /// If columns is zero-length, the table's number of rows is zero
+  /// \param columns The table's columns
+  /// \param num_rows number of rows in table, -1 (default) to infer from columns
+  static std::shared_ptr<Table> Make(const std::vector<std::shared_ptr<Column>>& columns,
+                                     int64_t num_rows = -1);
+
+  /// \brief Construct a Table from schema and arrays
   /// \param schema The table schema (column types)
   /// \param arrays The table's columns as arrays
   /// \param num_rows number of rows in table, -1 (default) to infer from columns
@@ -220,7 +227,7 @@ class ARROW_EXPORT Table {
                                      const std::vector<std::shared_ptr<Array>>& arrays,
                                      int64_t num_rows = -1);
 
-  /// \brief Construct table from RecordBatches, using schema supplied by the first
+  /// \brief Construct a Table from RecordBatches, using schema supplied by the first
   /// RecordBatch.
   ///
   /// \param[in] batches a std::vector of record batches
@@ -230,7 +237,7 @@ class ARROW_EXPORT Table {
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
       std::shared_ptr<Table>* table);
 
-  /// Construct table from RecordBatches, using supplied schema. There may be
+  /// \brief Construct a Table from RecordBatches, using supplied schema. There may be
   /// zero record batches
   ///
   /// \param[in] schema the arrow::Schema for each batch
@@ -242,11 +249,42 @@ class ARROW_EXPORT Table {
       const std::vector<std::shared_ptr<RecordBatch>>& batches,
       std::shared_ptr<Table>* table);
 
+  /// \brief Construct a Table from a chunked StructArray. One column will be produced
+  /// for each field of the StructArray.
+  ///
+  /// \param[in] array a chunked StructArray
+  /// \param[out] table the returned table
+  /// \return Status
+  static Status FromChunkedStructArray(const std::shared_ptr<ChunkedArray>& array,
+                                       std::shared_ptr<Table>* table);
+
   /// Return the table schema
   std::shared_ptr<Schema> schema() const { return schema_; }
 
   /// Return a column by index
   virtual std::shared_ptr<Column> column(int i) const = 0;
+
+  /// \brief Construct a zero-copy slice of the table with the
+  /// indicated offset and length
+  ///
+  /// \param[in] offset the index of the first row in the constructed
+  /// slice
+  /// \param[in] length the number of rows of the slice. If there are not enough
+  /// rows in the table, the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<Table>
+  virtual std::shared_ptr<Table> Slice(int64_t offset, int64_t length) const = 0;
+
+  /// \brief Slice from first row at offset until end of the table
+  std::shared_ptr<Table> Slice(int64_t offset) const { return Slice(offset, num_rows_); }
+
+  /// \brief Return a column by name
+  /// \param[in] name field name
+  /// \return an Array or null if no field was found
+  std::shared_ptr<Column> GetColumnByName(const std::string& name) const {
+    auto i = schema_->GetFieldIndex(name);
+    return i == -1 ? NULLPTR : column(i);
+  }
 
   /// \brief Remove column from the table, producing a new Table
   virtual Status RemoveColumn(int i, std::shared_ptr<Table>* out) const = 0;
@@ -258,6 +296,13 @@ class ARROW_EXPORT Table {
   /// \brief Replace a column in the table, producing a new Table
   virtual Status SetColumn(int i, const std::shared_ptr<Column>& column,
                            std::shared_ptr<Table>* out) const = 0;
+
+  /// \brief Return names of all columns
+  std::vector<std::string> ColumnNames() const;
+
+  /// \brief Rename columns with provided names
+  Status RenameColumns(const std::vector<std::string>& names,
+                       std::shared_ptr<Table>* out) const;
 
   /// \brief Replace schema key-value metadata with new metadata (EXPERIMENTAL)
   /// \since 0.5.0

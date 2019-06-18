@@ -17,6 +17,10 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
+import java.math.BigInteger;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt8ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -25,6 +29,8 @@ import org.apache.arrow.vector.holders.UInt8Holder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * UInt8Vector implements a fixed width vector (8 bytes) of
@@ -60,6 +66,25 @@ public class UInt8Vector extends BaseFixedWidthVector {
    |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
+  private static final BigInteger SAFE_CONVERSION_MASK = new BigInteger("ffffffffffffffff", 16);
+
+  /**
+   * Given a data buffer, get the value stored at a particular position
+   * in the vector.
+   *
+   * <p>To avoid overflow, the returned type is one step up from the signed
+   * type.
+   *
+   * <p>This method is mainly meant for integration tests.
+   *
+   * @param buffer data buffer
+   * @param index position of the element.
+   * @return value stored at the index.
+   */
+  public static BigInteger getNoOverflow(final ArrowBuf buffer, final int index) {
+    BigInteger l =  BigInteger.valueOf(buffer.getLong(index * TYPE_WIDTH));
+    return SAFE_CONVERSION_MASK.and(l);
+  }
 
 
   /**
@@ -69,7 +94,7 @@ public class UInt8Vector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public long get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
     return valueBuffer.getLong(index * TYPE_WIDTH);
@@ -105,12 +130,34 @@ public class UInt8Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Returns the value stored at index without the potential for overflow.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public BigInteger getObjectNoOverflow(int index) {
+    if (isSet(index) == 0) {
+      return null;
+    } else {
+      return getNoOverflow(valueBuffer, index);
+    }
+  }
+
+  /**
+   * Copy a value and validity setting from fromIndex in <code>from</code> to this
+   * Vector at thisIndex.
+   */
   public void copyFrom(int fromIndex, int thisIndex, UInt8Vector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final long value = from.valueBuffer.getLong(fromIndex * TYPE_WIDTH);
     valueBuffer.setLong(thisIndex * TYPE_WIDTH, value);
   }
 
+  /**
+   * Same as {@link #copyFrom(int, int, UInt8Vector)} but reallocates if thisIndex is
+   * larger then current capacity.
+   */
   public void copyFromSafe(int fromIndex, int thisIndex, UInt8Vector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
@@ -220,6 +267,7 @@ public class UInt8Vector extends BaseFixedWidthVector {
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
+  /** Sets value at index is isSet is positive otherwise sets the index to invalid/null. */
   public void set(int index, int isSet, long value) {
     if (isSet > 0) {
       set(index, value);
@@ -228,6 +276,9 @@ public class UInt8Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Same as {@link #set(int, int, long)} but will reallocate if index is greater than current capacity.
+   */
   public void setSafe(int index, int isSet, long value) {
     handleSafe(index);
     set(index, isSet, value);

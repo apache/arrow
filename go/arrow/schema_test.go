@@ -91,6 +91,34 @@ func TestMetadata(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("find-key", func(t *testing.T) {
+		md := NewMetadata([]string{"k1", "k11"}, []string{"v1", "v11"})
+
+		if got, want := md.FindKey("k1"), 0; got != want {
+			t.Fatalf("got=%d, want=%d", got, want)
+		}
+
+		if got, want := md.FindKey(""), -1; got != want {
+			t.Fatalf("got=%d, want=%d", got, want)
+		}
+
+		if got, want := md.FindKey("k"), -1; got != want {
+			t.Fatalf("got=%d, want=%d", got, want)
+		}
+
+		if got, want := md.FindKey(" "), -1; got != want {
+			t.Fatalf("got=%d, want=%d", got, want)
+		}
+
+		if got, want := md.FindKey("k11"), 1; got != want {
+			t.Fatalf("got=%d, want=%d", got, want)
+		}
+
+		if got, want := md.FindKey("k11 "), -1; got != want {
+			t.Fatalf("got=%d, want=%d", got, want)
+		}
+	})
 }
 
 func TestSchema(t *testing.T) {

@@ -18,6 +18,8 @@
 #ifndef ARROW_UTIL_STRING_VIEW_H
 #define ARROW_UTIL_STRING_VIEW_H
 
+#define nssv_CONFIG_SELECT_STRING_VIEW nssv_STRING_VIEW_NONSTD
+
 #include "arrow/vendored/string_view.hpp"  // IWYU pragma: export
 
 namespace arrow {

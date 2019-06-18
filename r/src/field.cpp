@@ -15,39 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
-using namespace Rcpp;
+#if defined(ARROW_R_WITH_ARROW)
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Field> Field__initialize(
     const std::string& name, const std::shared_ptr<arrow::DataType>& field,
     bool nullable = true) {
   return arrow::field(name, field, nullable);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string Field__ToString(const std::shared_ptr<arrow::Field>& field) {
   return field->ToString();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::string Field__name(const std::shared_ptr<arrow::Field>& field) {
   return field->name();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool Field__Equals(const std::shared_ptr<arrow::Field>& field,
                    const std::shared_ptr<arrow::Field>& other) {
   return field->Equals(other);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool Field__nullable(const std::shared_ptr<arrow::Field>& field) {
   return field->nullable();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field) {
   return field->type();
 }
+
+#endif

@@ -15,14 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM golang
+FROM golang:1.12
 
-ADD go/arrow/Gopkg.lock \
-    go/arrow/Gopkg.toml \
-    /arrow/go/arrow/
+COPY go/arrow/Gopkg.lock \
+     go/arrow/Gopkg.toml \
+     /arrow/go/arrow/
 WORKDIR /arrow/go/arrow
 
 RUN go get -d -t -v ./...
 
-CMD go install -v ./... && \
-    for d in $(go list ./... | grep -v vendor); do go test $d; done
+CMD ["/bin/bash", "-c", "go install -v ./... && for d in $(go list ./... | grep -v vendor); do go test $d; done"]

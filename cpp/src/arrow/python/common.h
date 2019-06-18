@@ -19,8 +19,6 @@
 #define ARROW_PYTHON_COMMON_H
 
 #include <memory>
-#include <sstream>
-#include <string>
 #include <utility>
 
 #include "arrow/python/config.h"
@@ -54,6 +52,7 @@ ARROW_PYTHON_EXPORT Status PassPyError();
 
 #define PY_RETURN_IF_ERROR(CODE) ARROW_RETURN_NOT_OK(CheckPyError(CODE));
 
+// A RAII-style helper that ensures the GIL is acquired inside a lexical block.
 class ARROW_PYTHON_EXPORT PyAcquireGIL {
  public:
   PyAcquireGIL() : acquired_gil_(false) { acquire(); }
@@ -80,6 +79,24 @@ class ARROW_PYTHON_EXPORT PyAcquireGIL {
   PyGILState_STATE state_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(PyAcquireGIL);
 };
+
+// A helper to call safely into the Python interpreter from arbitrary C++ code.
+// The GIL is acquired, and the current thread's error status is preserved.
+template <typename Function>
+Status SafeCallIntoPython(Function&& func) {
+  PyAcquireGIL lock;
+  PyObject* exc_type;
+  PyObject* exc_value;
+  PyObject* exc_traceback;
+  PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+  Status st = std::forward<Function>(func)();
+  // If the return Status is a "Python error", the current Python error status
+  // describes the error and shouldn't be clobbered.
+  if (!st.IsPythonError() && exc_type != NULLPTR) {
+    PyErr_Restore(exc_type, exc_value, exc_traceback);
+  }
+  return st;
+}
 
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION <= 2
 
@@ -241,6 +258,17 @@ class ARROW_PYTHON_EXPORT PyBuffer : public Buffer {
 
   Py_buffer py_buf_;
 };
+
+// This is annoying: because C++11 does not allow implicit conversion of string
+// literals to non-const char*, we need to go through some gymnastics to use
+// PyObject_CallMethod without a lot of pain (its arguments are non-const
+// char*)
+template <typename... ArgTypes>
+static inline PyObject* cpp_PyObject_CallMethod(PyObject* obj, const char* method_name,
+                                                const char* argspec, ArgTypes... args) {
+  return PyObject_CallMethod(obj, const_cast<char*>(method_name),
+                             const_cast<char*>(argspec), args...);
+}
 
 }  // namespace py
 }  // namespace arrow

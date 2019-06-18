@@ -24,7 +24,7 @@ test_that("RecordBatch", {
     chr = letters[1:10],
     fct = factor(letters[1:10])
   )
-  batch <- record_batch(tbl)
+  batch <- record_batch(!!!tbl)
 
   expect_true(batch == batch)
   expect_equal(
@@ -75,13 +75,13 @@ test_that("RecordBatch", {
     schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int32(), array(letters[1:10])))
   )
   expect_equal(batch2$column(0), batch$column(1))
-  expect_identical(as_tibble(batch2), tbl[,-1])
+  expect_identical(as.data.frame(batch2), tbl[,-1])
 
   batch3 <- batch$Slice(5)
-  expect_identical(as_tibble(batch3), tbl[6:10,])
+  expect_identical(as.data.frame(batch3), tbl[6:10,])
 
   batch4 <- batch$Slice(5, 2)
-  expect_identical(as_tibble(batch4), tbl[6:7,])
+  expect_identical(as.data.frame(batch4), tbl[6:7,])
 })
 
 test_that("RecordBatch with 0 rows are supported", {
@@ -93,7 +93,7 @@ test_that("RecordBatch with 0 rows are supported", {
     fct = factor(character(), levels = c("a", "b"))
   )
 
-  batch <- record_batch(tbl)
+  batch <- record_batch(!!!tbl)
   expect_equal(batch$num_columns, 5L)
   expect_equal(batch$num_rows, 0L)
   expect_equal(
@@ -109,7 +109,7 @@ test_that("RecordBatch with 0 rows are supported", {
 })
 
 test_that("RecordBatch cast (ARROW-3741)", {
-  batch <- table(tibble::tibble(x = 1:10, y  = 1:10))
+  batch <- record_batch(x = 1:10, y = 1:10)
 
   expect_error(batch$cast(schema(x = int32())))
   expect_error(batch$cast(schema(x = int32(), z = int32())))
@@ -119,4 +119,34 @@ test_that("RecordBatch cast (ARROW-3741)", {
   expect_equal(batch2$schema, s2)
   expect_equal(batch2$column(0L)$type, int16())
   expect_equal(batch2$column(1L)$type, int64())
+})
+
+test_that("record_batch() handles schema= argument", {
+  s <- schema(x = int32(), y = int32())
+  batch <- record_batch(x = 1:10, y = 1:10, schema = s)
+  expect_equal(s, batch$schema)
+
+  s <- schema(x = int32(), y = float64())
+  batch <- record_batch(x = 1:10, y = 1:10, schema = s)
+  expect_equal(s, batch$schema)
+
+  s <- schema(x = int32(), y = utf8())
+  expect_error(record_batch(x = 1:10, y = 1:10, schema = s))
+})
+
+test_that("record_batch(schema=) does some basic consistency checking of the schema", {
+  s <- schema(x = int32())
+  expect_error(record_batch(x = 1:10, y = 1:10, schema = s))
+  expect_error(record_batch(z = 1:10, schema = s))
+})
+
+test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
+  batch <- record_batch(x = 1:10, y  = 1:10)
+  expect_equal(dim(batch), c(10L, 2L))
+  expect_equal(nrow(batch), 10L)
+})
+
+test_that("record_batch() handles arrow::Array", {
+  batch <- record_batch(x = 1:10, y = arrow::array(1:10))
+  expect_equal(batch$schema, schema(x = int32(), y = int32()))
 })

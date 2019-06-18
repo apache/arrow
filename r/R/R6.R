@@ -16,12 +16,6 @@
 # under the License.
 
 #' @include enums.R
-#' @importFrom R6 R6Class
-#' @importFrom glue glue
-#' @importFrom purrr map map_int map2
-#' @importFrom rlang dots_n
-#' @importFrom assertthat assert_that
-
 `arrow::Object` <- R6Class("arrow::Object",
   public = list(
     initialize = function(xp) self$set_pointer(xp),
@@ -32,7 +26,7 @@
       self$`.:xp:.` <- xp
     },
     print = function(...){
-      cat(crayon::silver(glue::glue("{cl}", cl = class(self)[[1]])), "\n")
+      cat(class(self)[[1]], "\n")
       if(!is.null(self$ToString)){
         cat(self$ToString(), "\n")
       }
@@ -129,6 +123,31 @@ unique_ptr <- function(class, xp) {
 `arrow::DataType`$dispatch <- function(xp){
   shared_ptr(`arrow::DataType`, xp)$..dispatch()
 }
+
+#' infer the arrow Array type from an R vector
+#'
+#' @param x an R vector
+#'
+#' @return an arrow logical type
+#' @export
+type <- function(x) {
+  UseMethod("type")
+}
+
+#' @export
+type.default <- function(x) {
+  `arrow::DataType`$dispatch(Array__infer_type(x))
+}
+
+#' @export
+`type.arrow::Array` <- function(x) x$type
+
+#' @export
+`type.arrow::ChunkedArray` <- function(x) x$type
+
+#' @export
+`type.arrow::Column` <- function(x) x$type
+
 
 #----- metadata
 

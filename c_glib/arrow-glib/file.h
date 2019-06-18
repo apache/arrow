@@ -20,30 +20,22 @@
 #pragma once
 
 #include <arrow-glib/file-mode.h>
+#include <arrow-glib/gobject-type.h>
+#include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_FILE                     \
-  (garrow_file_get_type())
-#define GARROW_FILE(obj)                             \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_FILE,      \
-                              GArrowFile))
-#define GARROW_IS_FILE(obj)                          \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
-                              GARROW_TYPE_FILE))
-#define GARROW_FILE_GET_IFACE(obj)                           \
-  (G_TYPE_INSTANCE_GET_INTERFACE((obj),                         \
-                                 GARROW_TYPE_FILE,           \
-                                 GArrowFileInterface))
-
-typedef struct _GArrowFile          GArrowFile;
-typedef struct _GArrowFileInterface GArrowFileInterface;
-
-GType garrow_file_get_type(void) G_GNUC_CONST;
+#define GARROW_TYPE_FILE (garrow_file_get_type())
+G_DECLARE_INTERFACE(GArrowFile,
+                    garrow_file,
+                    GARROW,
+                    FILE,
+                    GObject)
 
 gboolean garrow_file_close(GArrowFile *file,
-                              GError **error);
+                           GError **error);
+GARROW_AVAILABLE_IN_0_13
+gboolean garrow_file_is_closed(GArrowFile *file);
 gint64 garrow_file_tell(GArrowFile *file,
                            GError **error);
 GArrowFileMode garrow_file_get_mode(GArrowFile *file);

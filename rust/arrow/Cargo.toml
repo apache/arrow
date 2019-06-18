@@ -17,7 +17,7 @@
 
 [package]
 name = "arrow"
-version = "0.13.0-SNAPSHOT"
+version = "0.14.0-SNAPSHOT"
 description = "Rust implementation of Apache Arrow"
 homepage = "https://github.com/apache/arrow"
 repository = "https://github.com/apache/arrow"
@@ -35,16 +35,19 @@ name = "arrow"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "0.4"
 libc = "0.2"
-serde = { version = "1.0.80", features = ["alloc", "rc"] }
+serde = { version = "1.0.80", features = ["rc"] }
 serde_derive = "1.0.80"
-serde_json = "1.0.13"
-rand = "0.5"
-csv = "1.0.0"
+serde_json = { version = "1.0.13", features = ["preserve_order"] }
+indexmap = "1.0"
+rand = "0.6"
+csv = "1.0"
 num = "0.2"
 regex = "1.1"
 lazy_static = "1.2"
+packed_simd = "0.3.1"
+chrono = "0.4"
+flatbuffers = "0.5.0"
 
 [dev-dependencies]
 criterion = "0.2"
@@ -56,4 +59,24 @@ harness = false
 
 [[bench]]
 name = "builder"
+harness = false
+
+[[bench]]
+name = "boolean_kernels"
+harness = false
+
+[[bench]]
+name = "arithmetic_kernels"
+harness = false
+
+[[bench]]
+name = "cast_kernels"
+harness = false
+
+[[bench]]
+name = "comparison_kernels"
+harness = false
+
+[[bench]]
+name = "csv_writer"
 harness = false

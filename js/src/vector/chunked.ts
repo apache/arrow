@@ -17,11 +17,12 @@
 
 import { Data } from '../data';
 import { Field } from '../schema';
-import { Vector } from '../vector';
 import { clampRange } from '../util/vector';
 import { DataType, Dictionary } from '../type';
-import { Clonable, Sliceable, Applicative } from '../vector';
 import { DictionaryVector } from './dictionary';
+import { AbstractVector, Vector } from '../vector';
+import { selectChunkArgs } from '../util/args';
+import { Clonable, Sliceable, Applicative } from '../vector';
 
 /** @ignore */
 type ChunkedDict<T extends DataType> = T extends Dictionary ? T['dictionaryVector'] : null | never;
@@ -33,21 +34,20 @@ export type SearchContinuation<T extends Chunked> = (column: T, chunkIndex: numb
 
 /** @ignore */
 export class Chunked<T extends DataType = any>
-    extends Vector<T>
+    extends AbstractVector<T>
     implements Clonable<Chunked<T>>,
                Sliceable<Chunked<T>>,
                Applicative<T, Chunked<T>> {
 
     /** @nocollapse */
-    public static flatten<T extends DataType>(...vectors: Vector<T>[]) {
-        return vectors.reduce(function flatten(xs: any[], x: any): any[] {
-            return x instanceof Chunked ? x.chunks.reduce(flatten, xs) : [...xs, x];
-        }, []).filter((x: any): x is Vector<T> => x instanceof Vector);
+    public static flatten<T extends DataType>(...vectors: (Vector<T> | Vector<T>[])[]) {
+        return selectChunkArgs<Vector<T>>(Vector, vectors);
     }
 
     /** @nocollapse */
-    public static concat<T extends DataType>(...chunks: Vector<T>[]): Chunked<T> {
-        return new Chunked(chunks[0].type, Chunked.flatten(...chunks));
+    public static concat<T extends DataType>(...vectors: (Vector<T> | Vector<T>[])[]) {
+        const chunks = Chunked.flatten<T>(...vectors);
+        return new Chunked<T>(chunks[0].type, chunks);
     }
 
     protected _type: T;
@@ -238,7 +238,7 @@ export class Chunked<T extends DataType = any>
             }
             // If the child overlaps one of the slice boundaries, include that slice
             const from = Math.max(0, begin - chunkOffset);
-            const to = from + Math.min(chunkLength - from, end - chunkOffset);
+            const to = Math.min(end - chunkOffset, chunkLength);
             slices.push(chunk.slice(from, to) as Vector<T>);
         }
         return self.clone(slices);

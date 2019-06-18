@@ -109,15 +109,20 @@ namespace Apache.Arrow
                 return this;
             }
 
-            public ArrowBuffer Build(MemoryPool pool = default)
+            public ArrowBuffer Build(MemoryAllocator allocator = default)
             {
-                var length = BitUtility.RoundUpToMultipleOf64(_buffer.Length);
-                var memoryPool = pool ?? MemoryPool.Default.Value;
-                var memory = memoryPool.Allocate(length);
+                int currentBytesLength = Length * _size;
+                int bufferLength = checked((int)BitUtility.RoundUpToMultipleOf64(currentBytesLength));
 
-                Memory.CopyTo(memory);
+                var memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
+                var memoryOwner = memoryAllocator.Allocate(bufferLength);
 
-                return new ArrowBuffer(memory);
+                if (memoryOwner != null)
+                {
+                    Memory.Slice(0, currentBytesLength).CopyTo(memoryOwner.Memory);
+                }
+
+                return new ArrowBuffer(memoryOwner);
             }
 
             private Span<T> EnsureCapacity(int len)

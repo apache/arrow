@@ -107,19 +107,15 @@ PyObject* DecimalFromString(PyObject* decimal_constructor,
                                string_size);
 }
 
-Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
-                                Decimal128* out) {
-  DCHECK_NE(python_decimal, NULLPTR);
-  DCHECK_NE(out, NULLPTR);
+namespace {
 
-  std::string string;
-  RETURN_NOT_OK(PythonDecimalToString(python_decimal, &string));
-
+Status DecimalFromStdString(const std::string& decimal_string,
+                            const DecimalType& arrow_type, Decimal128* out) {
   int32_t inferred_precision;
   int32_t inferred_scale;
 
   RETURN_NOT_OK(
-      Decimal128::FromString(string, out, &inferred_precision, &inferred_scale));
+      Decimal128::FromString(decimal_string, out, &inferred_precision, &inferred_scale));
 
   const int32_t precision = arrow_type.precision();
   const int32_t scale = arrow_type.scale();
@@ -135,6 +131,36 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
     RETURN_NOT_OK(out->Rescale(inferred_scale, scale, out));
   }
   return Status::OK();
+}
+
+}  // namespace
+
+Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
+                                Decimal128* out) {
+  DCHECK_NE(python_decimal, NULLPTR);
+  DCHECK_NE(out, NULLPTR);
+
+  std::string string;
+  RETURN_NOT_OK(PythonDecimalToString(python_decimal, &string));
+  return DecimalFromStdString(string, arrow_type, out);
+}
+
+Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
+                           Decimal128* out) {
+  DCHECK_NE(obj, NULLPTR);
+  DCHECK_NE(out, NULLPTR);
+
+  if (IsPyInteger(obj)) {
+    // TODO: add a fast path for small-ish ints
+    std::string string;
+    RETURN_NOT_OK(PyObject_StdStringStr(obj, &string));
+    return DecimalFromStdString(string, arrow_type, out);
+  } else if (PyDecimal_Check(obj)) {
+    return DecimalFromPythonDecimal(obj, arrow_type, out);
+  } else {
+    return Status::TypeError("int or Decimal object expected, got ",
+                             Py_TYPE(obj)->tp_name);
+  }
 }
 
 bool PyDecimal_Check(PyObject* obj) {

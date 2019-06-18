@@ -15,14 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM alpine
+FROM alpine:3.9
 
-# install dependencies
+# Install basic build dependencies
+# grpc requires libnsl-dev to be present, this cannot be installed via a bundle.
 RUN apk add --no-cache -q \
         autoconf \
         bash \
         bison \
         boost-dev \
+        ccache \
         cmake \
         flex \
         g++ \
@@ -30,18 +32,24 @@ RUN apk add --no-cache -q \
         git \
         gzip \
         make \
+        libnsl-dev \
         musl-dev \
         ninja \
+        openssl-dev \
         wget \
         zlib-dev
 
+# Ganidva is deactivated as we don't support building LLVM via ExternalProject
+# and Alpine only has LLVM 6 in its repositories yet.
+# ARROW-4917: ORC fails with compiler problems
 ENV CC=gcc \
     CXX=g++ \
+    ARROW_FLIGHT=OFF \
+    ARROW_GANDIVA=OFF \
     ARROW_ORC=OFF \
-    ARROW_PARQUET=OFF \
+    ARROW_PARQUET=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_HOME=/usr/local
 
 # build and test
-CMD arrow/ci/docker_build_cpp.sh && \
-    cd /build/cpp && ctest -j2 --output-on-failure -L unittest
+CMD ["arrow/ci/docker_build_and_test_cpp.sh"]

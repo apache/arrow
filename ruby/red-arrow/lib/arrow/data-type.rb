@@ -114,14 +114,18 @@ module Arrow
 
       private
       def resolve_class(data_type)
-        data_type_name = data_type.to_s.capitalize.gsub(/\AUint/, "UInt")
+        components = data_type.to_s.split("_").collect(&:capitalize)
+        data_type_name = components.join.gsub(/\AUint/, "UInt")
         data_type_class_name = "#{data_type_name}DataType"
         unless Arrow.const_defined?(data_type_class_name)
           available_types = []
           Arrow.constants.each do |name|
-            if name.to_s.end_with?("DataType")
-              available_types << name.to_s.gsub(/DataType\z/, "").downcase.to_sym
-            end
+            name = name.to_s
+            next if name == "DataType"
+            next unless name.end_with?("DataType")
+            name = name.gsub(/DataType\z/, "")
+            components = name.scan(/(UInt[0-9]+|[A-Z][a-z\d]+)/).flatten
+            available_types << components.collect(&:downcase).join("_").to_sym
           end
           message =
             "unknown type: #{data_type.inspect}: " +

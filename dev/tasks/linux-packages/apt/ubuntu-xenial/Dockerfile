@@ -17,7 +17,9 @@
 
 FROM ubuntu:16.04
 
-ENV DEBIAN_FRONTEND noninteractive
+RUN \
+  echo "debconf debconf/frontend select Noninteractive" | \
+    debconf-set-selections
 
 ARG DEBUG
 
@@ -25,10 +27,17 @@ RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
+    gnupg \
+    wget && \
+  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+  echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" > \
+    /etc/apt/sources.list.d/llvm.list && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
     autoconf-archive \
     bison \
     build-essential \
-    clang-6.0 \
+    clang-7 \
     cmake \
     debhelper\
     devscripts \
@@ -39,10 +48,18 @@ RUN \
     libboost-filesystem-dev \
     libboost-regex-dev \
     libboost-system-dev \
+    libbrotli-dev \
+    libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
+    libgoogle-glog-dev \
+    liblz4-dev \
     libprotobuf-dev \
     libprotoc-dev \
+    libre2-dev \
+    libsnappy-dev \
+    libssl-dev \
+    libzstd-dev \
     lsb-release \
     nvidia-cuda-toolkit \
     pkg-config \

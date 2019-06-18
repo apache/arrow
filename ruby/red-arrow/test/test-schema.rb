@@ -100,5 +100,19 @@ class SchemaTest < Test::Unit::TestCase
         end
       end
     end
+
+    sub_test_case("#==") do
+      test("Arrow::Schema") do
+        assert do
+          @schema == @schema
+        end
+      end
+
+      test("not Arrow::Schema") do
+        assert do
+          not (@schema == 29)
+        end
+      end
+    end
   end
 end

@@ -18,7 +18,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
 
 #include "gandiva/execution_context.h"
 #include "gandiva/to_date_holder.h"
@@ -132,11 +132,6 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeMakeError) {
   // reject time stamps for now.
   auto status = ToDateHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0, &to_date_holder);
   EXPECT_EQ(status.IsInvalid(), true) << status.message();
-}
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
 }
 
 }  // namespace gandiva

@@ -35,6 +35,7 @@
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/lvalue.h"
+#include "gandiva/selection_vector.h"
 #include "gandiva/value_validity_pair.h"
 #include "gandiva/visibility.h"
 
@@ -49,12 +50,19 @@ class GANDIVA_EXPORT LLVMGenerator {
   static Status Make(std::shared_ptr<Configuration> config,
                      std::unique_ptr<LLVMGenerator>* llvm_generator);
 
-  /// \brief Build the code for the expression trees. Each element in the vector
-  /// represents an expression tree
+  /// \brief Build the code for the expression trees for default mode. Each
+  /// element in the vector represents an expression tree
   Status Build(const ExpressionVector& exprs);
 
-  /// \brief Execute the built expression against the provided arguments.
+  /// \brief Execute the built expression against the provided arguments for
+  /// default mode.
   Status Execute(const arrow::RecordBatch& record_batch,
+                 const ArrayDataVector& output_vector);
+
+  /// \brief Execute the built expression against the provided arguments for
+  /// all modes. Only works on the records specified in the selection_vector.
+  Status Execute(const arrow::RecordBatch& record_batch,
+                 const SelectionVector* selection_vector,
                  const ArrayDataVector& output_vector);
 
   LLVMTypes* types() { return engine_->types(); }
@@ -148,8 +156,8 @@ class GANDIVA_EXPORT LLVMGenerator {
     bool has_arena_allocs_;
   };
 
-  // Generate the code for one expression, with the output of the expression going to
-  // 'output'.
+  // Generate the code for one expression for default mode, with the output of
+  // the expression going to 'output'.
   Status Add(const ExpressionPtr expr, const FieldDescriptorPtr output);
 
   /// Generate code to load the vector at specified index in the 'arg_addrs' array.
@@ -167,7 +175,8 @@ class GANDIVA_EXPORT LLVMGenerator {
 
   /// Generate code for the value array of one expression.
   Status CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr output, int suffix_idx,
-                          llvm::Function** fn);
+                          llvm::Function** fn,
+                          SelectionVector::Mode selection_vector_mode);
 
   /// Generate code to load the local bitmap specified index and cast it as bitmap.
   llvm::Value* GetLocalBitMapReference(llvm::Value* arg_bitmaps, int idx);
@@ -200,8 +209,10 @@ class GANDIVA_EXPORT LLVMGenerator {
   /// \param[in] compiled_expr the compiled expression (includes the bitmap indices to be
   ///            used for computing the validity bitmap of the result).
   /// \param[in] eval_batch (includes input/output buffer addresses)
+  /// \param[in] selection_vector the list of selected positions
   void ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
-                             const EvalBatch& eval_batch);
+                             const EvalBatch& eval_batch,
+                             const SelectionVector* selection_vector);
 
   /// Replace the %T in the trace msg with the correct type corresponding to 'type'
   /// eg. %d for int32, %ld for int64, ..

@@ -19,8 +19,16 @@ package org.apache.arrow.vector;
 
 import org.apache.arrow.util.Preconditions;
 
+/**
+ * Metadata class that captures the "type" of an Arrow buffer.
+ * (e.g. data buffers, offset buffers for variable width types and validity
+ * buffers).
+ */
 public class BufferLayout {
 
+  /**
+   * Enumeration of the different logical types a buffer can have.
+   */
   public enum BufferType {
     DATA("DATA"),
     OFFSET("OFFSET"),
@@ -56,6 +64,10 @@ public class BufferLayout {
     return OFFSET_BUFFER;
   }
 
+  /**
+   * Returns a databuffer for the given bitwidth.  Only supports powers of two between 8 and 128
+   * inclusive.
+   */
   public static BufferLayout dataBuffer(int typeBitWidth) {
     switch (typeBitWidth) {
       case 8:

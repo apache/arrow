@@ -1,0 +1,3 @@
+-r requirements.txt
+-r requirements-test.txt
+cython

@@ -15,32 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
-using namespace Rcpp;
+using Rcpp::List;
+using Rcpp::wrap;
 
-// [[Rcpp::export]]
+#if defined(ARROW_R_WITH_ARROW)
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> ArrayData__get_type(
     const std::shared_ptr<arrow::ArrayData>& x) {
   return x->type;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x) {
   return x->length;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x) {
   return x->null_count;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x) {
   return x->offset;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 List ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x) {
   return wrap(x->buffers);
 }
+
+#endif

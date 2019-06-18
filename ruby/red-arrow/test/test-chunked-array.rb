@@ -62,4 +62,26 @@ class ChunkedArrayTest < Test::Unit::TestCase
                    ])
     end
   end
+
+  sub_test_case("#==") do
+    def setup
+      arrays = [
+        Arrow::BooleanArray.new([true]),
+        Arrow::BooleanArray.new([false, true]),
+      ]
+      @chunked_array = Arrow::ChunkedArray.new(arrays)
+    end
+
+    test("Arrow::ChunkedArray") do
+      assert do
+        @chunked_array == @chunked_array
+      end
+    end
+
+    test("not Arrow::ChunkedArray") do
+      assert do
+        not (@chunked_array == 29)
+      end
+    end
+  end
 end

@@ -17,6 +17,7 @@
 
 #include "arrow/buffer.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <utility>
 
@@ -24,6 +25,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit-util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 
@@ -45,6 +47,10 @@ Status Buffer::Copy(const int64_t start, const int64_t nbytes, MemoryPool* pool,
 Status Buffer::Copy(const int64_t start, const int64_t nbytes,
                     std::shared_ptr<Buffer>* out) const {
   return Copy(start, nbytes, default_memory_pool(), out);
+}
+
+std::string Buffer::ToHexString() {
+  return HexEncode(data(), static_cast<size_t>(size()));
 }
 
 bool Buffer::Equals(const Buffer& other, const int64_t nbytes) const {
@@ -225,6 +231,21 @@ Status AllocateEmptyBitmap(MemoryPool* pool, int64_t length,
 
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {
   return AllocateEmptyBitmap(default_memory_pool(), length, out);
+}
+
+Status ConcatenateBuffers(const std::vector<std::shared_ptr<Buffer>>& buffers,
+                          MemoryPool* pool, std::shared_ptr<Buffer>* out) {
+  int64_t out_length = 0;
+  for (const auto& buffer : buffers) {
+    out_length += buffer->size();
+  }
+  RETURN_NOT_OK(AllocateBuffer(pool, out_length, out));
+  auto out_data = (*out)->mutable_data();
+  for (const auto& buffer : buffers) {
+    std::memcpy(out_data, buffer->data(), buffer->size());
+    out_data += buffer->size();
+  }
+  return Status::OK();
 }
 
 }  // namespace arrow

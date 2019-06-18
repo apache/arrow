@@ -43,5 +43,30 @@ class DataTypeTest < Test::Unit::TestCase
       assert_equal(Arrow::ListDataType.new(field),
                    Arrow::DataType.resolve(type: :list, field: field))
     end
+
+    test("_") do
+      assert_equal(Arrow::FixedSizeBinaryDataType.new(10),
+                   Arrow::DataType.resolve([:fixed_size_binary, 10]))
+    end
+  end
+
+  sub_test_case("instance methods") do
+    def setup
+      @data_type = Arrow::StringDataType.new
+    end
+
+    sub_test_case("#==") do
+      test("Arrow::DataType") do
+        assert do
+          @data_type == @data_type
+        end
+      end
+
+      test("not Arrow::DataType") do
+        assert do
+          not (@data_type == 29)
+        end
+      end
+    end
   end
 end

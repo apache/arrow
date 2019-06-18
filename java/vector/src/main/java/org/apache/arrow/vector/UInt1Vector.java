@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt1ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -25,6 +27,8 @@ import org.apache.arrow.vector.holders.UInt1Holder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * UInt1Vector implements a fixed width (1 bytes) vector of
@@ -60,6 +64,23 @@ public class UInt1Vector extends BaseFixedWidthVector {
    |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
+  /**
+   * Given a data buffer, get the value stored at a particular position
+   * in the vector.
+   *
+   * <p>To avoid overflow, the returned type is one step up from the signed
+   * type.
+   *
+   * <p>This method is mainly meant for integration tests.
+   *
+   * @param buffer data buffer
+   * @param index position of the element.
+   * @return value stored at the index.
+   */
+  public static short getNoOverflow(final ArrowBuf buffer, final int index) {
+    byte b =  buffer.getByte(index * TYPE_WIDTH);
+    return (short)(0xFF & b);
+  }
 
 
   /**
@@ -69,7 +90,7 @@ public class UInt1Vector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public byte get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
     return valueBuffer.getByte(index * TYPE_WIDTH);
@@ -105,12 +126,33 @@ public class UInt1Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Returns the value stored at index without the potential for overflow.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public Short getObjectNoOverflow(int index) {
+    if (isSet(index) == 0) {
+      return null;
+    } else {
+      return getNoOverflow(valueBuffer, index);
+    }
+  }
+
+  /**
+   * Copies the value at fromIndex to thisIndex (including validity).
+   */
   public void copyFrom(int fromIndex, int thisIndex, UInt1Vector from) {
     BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
     final byte value = from.valueBuffer.getByte(fromIndex * TYPE_WIDTH);
     valueBuffer.setByte(thisIndex * TYPE_WIDTH, value);
   }
 
+  /**
+   * Identical to {@link #copyFrom()} but reallocates buffer if index is larger
+   * than capacity.
+   */
   public void copyFromSafe(int fromIndex, int thisIndex, UInt1Vector from) {
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
@@ -248,6 +290,10 @@ public class UInt1Vector extends BaseFixedWidthVector {
     BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
+  /**
+   * Sets the value at index to value isSet > 0, otherwise sets the index position
+   * to invalid/null.
+   */
   public void set(int index, int isSet, byte value) {
     if (isSet > 0) {
       set(index, value);
@@ -256,6 +302,10 @@ public class UInt1Vector extends BaseFixedWidthVector {
     }
   }
 
+  /**
+   * Same as {@link #set(int, int, byte)} but will reallocate the buffer if index
+   * is larger than current capacity.
+   */
   public void setSafe(int index, int isSet, byte value) {
     handleSafe(index);
     set(index, isSet, value);

@@ -19,11 +19,80 @@
 
 # DataFusion
 
-DataFusion is an in-memory query engine that uses Apache Arrow as the memory model
+DataFusion is an in-memory query engine that uses Apache Arrow as the memory model. It supports executing SQL queries against CSV and Parquet files as well as querying directly against in-memory data.
+
+## Usage
+
+
+#### Use as a lib
+Add this to your Cargo.toml:
+
+```toml
+[dependencies]
+datafusion = "0.14.0-SNAPSHOT"
+```
+
+#### Use as a bin
+##### Build your own bin(requires rust toolchains)
+```sh
+git clone https://github/apache/arrow
+cd arrow/rust/datafusion
+cargo run --bin datafusion-cli
+```
+##### Use Dockerfile
+```sh
+git clone https://github/apache/arrow
+cd arrow
+docker build -f rust/datafusion/Dockerfile . --tag datafusion-cli
+docker run -it -v $(your_data_location):/data datafusion-cli
+```
+
+```
+USAGE:
+    datafusion-cli [OPTIONS]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -c, --batch-size <batch-size>    The batch size of each query, default value is 1048576
+    -p, --data-path <data-path>      Path to your data, default to current directory
+```
+
 
 # Status
 
-The current code supports single-threaded execution of limited SQL queries (projection, selection, and aggregates) against CSV files. Parquet files will be supported shortly.
+## General
+
+- [x] SQL Parser
+- [x] SQL Query Planner
+- [x] Query Optimizer
+- [x] Projection push down
+- [ ] Predicate push down
+- [x] Type coercion
+- [ ] Parallel query execution
+
+## SQL Support
+
+- [x] Projection
+- [x] Selection
+- [x] Aggregate
+- [ ] Sorting
+- [x] Limit
+- [ ] Nested types and dot notation
+- [ ] Lists
+- [ ] UDFs
+- [ ] Subqueries
+- [ ] Joins
+
+## Data Sources
+
+- [x] CSV
+- [x] Parquet primitive types
+- [ ] Parquet nested types
+
+# Example
 
 Here is a brief example for running a SQL query against a CSV file. See the [examples](examples) directory for full examples.
 
@@ -96,4 +165,3 @@ fn main() {
     }
 }
 ```
-

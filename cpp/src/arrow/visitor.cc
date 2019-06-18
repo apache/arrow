@@ -20,6 +20,8 @@
 #include <memory>
 
 #include "arrow/array.h"
+#include "arrow/extension_type.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 
@@ -51,12 +53,17 @@ ARRAY_VISITOR_DEFAULT(Date64Array)
 ARRAY_VISITOR_DEFAULT(Time32Array)
 ARRAY_VISITOR_DEFAULT(Time64Array)
 ARRAY_VISITOR_DEFAULT(TimestampArray)
-ARRAY_VISITOR_DEFAULT(IntervalArray)
+ARRAY_VISITOR_DEFAULT(DayTimeIntervalArray)
+ARRAY_VISITOR_DEFAULT(MonthIntervalArray)
+ARRAY_VISITOR_DEFAULT(DurationArray)
 ARRAY_VISITOR_DEFAULT(ListArray)
+ARRAY_VISITOR_DEFAULT(MapArray)
+ARRAY_VISITOR_DEFAULT(FixedSizeListArray)
 ARRAY_VISITOR_DEFAULT(StructArray)
 ARRAY_VISITOR_DEFAULT(UnionArray)
 ARRAY_VISITOR_DEFAULT(DictionaryArray)
 ARRAY_VISITOR_DEFAULT(Decimal128Array)
+ARRAY_VISITOR_DEFAULT(ExtensionArray)
 
 #undef ARRAY_VISITOR_DEFAULT
 
@@ -89,13 +96,60 @@ TYPE_VISITOR_DEFAULT(Date32Type)
 TYPE_VISITOR_DEFAULT(Time32Type)
 TYPE_VISITOR_DEFAULT(Time64Type)
 TYPE_VISITOR_DEFAULT(TimestampType)
-TYPE_VISITOR_DEFAULT(IntervalType)
+TYPE_VISITOR_DEFAULT(DayTimeIntervalType)
+TYPE_VISITOR_DEFAULT(MonthIntervalType)
+TYPE_VISITOR_DEFAULT(DurationType)
 TYPE_VISITOR_DEFAULT(Decimal128Type)
 TYPE_VISITOR_DEFAULT(ListType)
+TYPE_VISITOR_DEFAULT(MapType)
+TYPE_VISITOR_DEFAULT(FixedSizeListType)
 TYPE_VISITOR_DEFAULT(StructType)
 TYPE_VISITOR_DEFAULT(UnionType)
 TYPE_VISITOR_DEFAULT(DictionaryType)
+TYPE_VISITOR_DEFAULT(ExtensionType)
 
 #undef TYPE_VISITOR_DEFAULT
+
+// ----------------------------------------------------------------------
+// Default implementations of ScalarVisitor methods
+
+#define SCALAR_VISITOR_DEFAULT(SCALAR_CLASS)                                 \
+  Status ScalarVisitor::Visit(const SCALAR_CLASS& scalar) {                  \
+    return Status::NotImplemented(                                           \
+        "ScalarVisitor not implemented for " ARROW_STRINGIFY(SCALAR_CLASS)); \
+  }
+
+SCALAR_VISITOR_DEFAULT(NullScalar)
+SCALAR_VISITOR_DEFAULT(BooleanScalar)
+SCALAR_VISITOR_DEFAULT(Int8Scalar)
+SCALAR_VISITOR_DEFAULT(Int16Scalar)
+SCALAR_VISITOR_DEFAULT(Int32Scalar)
+SCALAR_VISITOR_DEFAULT(Int64Scalar)
+SCALAR_VISITOR_DEFAULT(UInt8Scalar)
+SCALAR_VISITOR_DEFAULT(UInt16Scalar)
+SCALAR_VISITOR_DEFAULT(UInt32Scalar)
+SCALAR_VISITOR_DEFAULT(UInt64Scalar)
+SCALAR_VISITOR_DEFAULT(HalfFloatScalar)
+SCALAR_VISITOR_DEFAULT(FloatScalar)
+SCALAR_VISITOR_DEFAULT(DoubleScalar)
+SCALAR_VISITOR_DEFAULT(StringScalar)
+SCALAR_VISITOR_DEFAULT(BinaryScalar)
+SCALAR_VISITOR_DEFAULT(FixedSizeBinaryScalar)
+SCALAR_VISITOR_DEFAULT(Date64Scalar)
+SCALAR_VISITOR_DEFAULT(Date32Scalar)
+SCALAR_VISITOR_DEFAULT(Time32Scalar)
+SCALAR_VISITOR_DEFAULT(Time64Scalar)
+SCALAR_VISITOR_DEFAULT(TimestampScalar)
+SCALAR_VISITOR_DEFAULT(DayTimeIntervalScalar)
+SCALAR_VISITOR_DEFAULT(MonthIntervalScalar)
+SCALAR_VISITOR_DEFAULT(DurationScalar)
+SCALAR_VISITOR_DEFAULT(Decimal128Scalar)
+SCALAR_VISITOR_DEFAULT(ListScalar)
+SCALAR_VISITOR_DEFAULT(MapScalar)
+SCALAR_VISITOR_DEFAULT(FixedSizeListScalar)
+SCALAR_VISITOR_DEFAULT(StructScalar)
+SCALAR_VISITOR_DEFAULT(DictionaryScalar)
+
+#undef SCALAR_VISITOR_DEFAULT
 
 }  // namespace arrow

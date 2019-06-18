@@ -41,6 +41,7 @@ namespace Apache.Arrow.Ipc
         }
 
         class TypeVisitor : 
+            IArrowTypeVisitor<BooleanType>,
             IArrowTypeVisitor<Int8Type>,
             IArrowTypeVisitor<Int16Type>,
             IArrowTypeVisitor<Int32Type>,

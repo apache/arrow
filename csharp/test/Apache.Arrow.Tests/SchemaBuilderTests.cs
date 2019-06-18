@@ -16,6 +16,7 @@
 using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -55,6 +56,77 @@ namespace Apache.Arrow.Tests
                         .Field(f => f.DataType(Int32Type.Default))
                         .Build();
                 });
+            }
+
+            [Fact]
+            public void GetFieldIndex()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Field(f => f.Name("f1").DataType(Int8Type.Default))
+                    .Build();
+                Assert.True(schema.GetFieldIndex("f0") == 0 && schema.GetFieldIndex("f1") == 1);
+            }
+
+
+            [Fact]
+            public void GetFieldByName()
+            {
+                Field f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                Field f1 = new Field.Builder().Name("f1").DataType(Int8Type.Default).Build();
+
+                var schema = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f1)
+                    .Build();
+                Assert.True(schema.GetFieldByName("f0") == f0 && schema.GetFieldByName("f1") == f1);
+            }
+
+            [Fact]
+            public void MetadataConstruction()
+            {
+
+                var metadata0 = new Dictionary<string, string> { { "foo", "bar" }, { "bizz", "buzz" } };
+                var metadata1 = new Dictionary<string, string> { { "foo", "bar" } };
+                var metadata0Copy = new Dictionary<string, string>(metadata0);
+                var metadata1Copy = new Dictionary<string, string>(metadata1);
+                Field f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                Field f1 = new Field.Builder().Name("f1").DataType(UInt8Type.Default).Nullable(false).Build();
+                Field f2 = new Field.Builder().Name("f2").DataType(StringType.Default).Build();
+                Field f3 = new Field.Builder().Name("f2").DataType(StringType.Default).Metadata(metadata1Copy).Build();
+
+                var schema0 = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f1)
+                    .Field(f2)
+                    .Metadata(metadata0)
+                    .Build();
+                var schema1 = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f1)
+                    .Field(f2)
+                    .Metadata(metadata1)
+                    .Build();
+                var schema2 = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f1)
+                    .Field(f2)
+                    .Metadata(metadata0Copy)
+                    .Build();
+                var schema3 = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f1)
+                    .Field(f3)
+                    .Metadata(metadata0Copy)
+                    .Build();
+
+                Assert.True(metadata0.Keys.SequenceEqual(schema0.Metadata.Keys) && metadata0.Values.SequenceEqual(schema0.Metadata.Values));
+                Assert.True(metadata1.Keys.SequenceEqual(schema1.Metadata.Keys) && metadata1.Values.SequenceEqual(schema1.Metadata.Values));
+                Assert.True(metadata0.Keys.SequenceEqual(schema2.Metadata.Keys) && metadata0.Values.SequenceEqual(schema2.Metadata.Values));
+                Assert.True(SchemaComparer.Equals(schema0, schema2));
+                Assert.False(SchemaComparer.Equals(schema0, schema1));
+                Assert.False(SchemaComparer.Equals(schema2, schema1));
+                Assert.False(SchemaComparer.Equals(schema2, schema3));
             }
 
             [Theory]

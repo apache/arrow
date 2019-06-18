@@ -362,7 +362,7 @@ macro_rules! make_type {
     };
 }
 
-/// Generate struct definitions for all physical types
+// Generate struct definitions for all physical types
 
 make_type!(BoolType, Type::BOOLEAN, bool, 1);
 make_type!(Int32Type, Type::INT32, i32, 4);

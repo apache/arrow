@@ -25,6 +25,9 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
+/**
+ * Concrete implementation of {@link ComplexWriter}.
+ */
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
 
   private NullableStructWriter structRoot;
@@ -38,6 +41,14 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
   private enum Mode { INIT, STRUCT, LIST }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param name The name of the writer (for tracking).
+   * @param container A container for the data field to be written.
+   * @param unionEnabled Unused.
+   * @param caseSensitive Whether field names are case sensitive (if false field names will be lowercased.
+   */
   public ComplexWriterImpl(
       String name,
       NonNullableStructVector container,
@@ -130,7 +141,10 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     }
   }
 
-
+  /**
+   * Returns a StructWriter, initializing it necessary from the constructor this instance
+   * was constructed with.
+   */
   public StructWriter directStruct() {
     Preconditions.checkArgument(name == null);
 

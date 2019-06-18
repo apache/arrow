@@ -75,6 +75,7 @@ garrow_list_array_class_init(GArrowListArrayClass *klass)
 
 /**
  * garrow_list_array_new:
+ * @data_type: The data type of the list.
  * @length: The number of elements.
  * @value_offsets: The offsets of @values in Arrow format.
  * @values: The values as #GArrowArray.
@@ -90,16 +91,17 @@ garrow_list_array_class_init(GArrowListArrayClass *klass)
  * Since: 0.4.0
  */
 GArrowListArray *
-garrow_list_array_new(gint64 length,
+garrow_list_array_new(GArrowDataType *data_type,
+                      gint64 length,
                       GArrowBuffer *value_offsets,
                       GArrowArray *values,
                       GArrowBuffer *null_bitmap,
                       gint64 n_nulls)
 {
+  const auto arrow_data_type = garrow_data_type_get_raw(data_type);
   const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
   const auto arrow_values = garrow_array_get_raw(values);
   const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_data_type = arrow::list(arrow_values->type());
   auto arrow_list_array =
     std::make_shared<arrow::ListArray>(arrow_data_type,
                                        length,
@@ -364,6 +366,53 @@ garrow_sparse_union_array_new(GArrowInt8Array *type_ids,
   }
 }
 
+/**
+ * garrow_sparse_union_array_new_data_type:
+ * @data_type: The data type for the sparse array.
+ * @type_ids: The field type IDs for each value as #GArrowInt8Array.
+ * @fields: (element-type GArrowArray): The arrays for each field
+ *   as #GList of #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowSparseUnionArray
+ *   or %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowSparseUnionArray *
+garrow_sparse_union_array_new_data_type(GArrowSparseUnionDataType *data_type,
+                                        GArrowInt8Array *type_ids,
+                                        GList *fields,
+                                        GError **error)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_union_data_type =
+    std::static_pointer_cast<arrow::UnionType>(arrow_data_type);
+  std::vector<std::string> arrow_field_names;
+  for (const auto &arrow_field : arrow_union_data_type->children()) {
+    arrow_field_names.push_back(arrow_field->name());
+  }
+  auto arrow_type_ids = garrow_array_get_raw(GARROW_ARRAY(type_ids));
+  std::vector<std::shared_ptr<arrow::Array>> arrow_fields;
+  for (auto node = fields; node; node = node->next) {
+    auto *field = GARROW_ARRAY(node->data);
+    arrow_fields.push_back(garrow_array_get_raw(field));
+  }
+  std::shared_ptr<arrow::Array> arrow_union_array;
+  auto status = arrow::UnionArray::MakeSparse(*arrow_type_ids,
+                                              arrow_fields,
+                                              arrow_field_names,
+                                              arrow_union_data_type->type_codes(),
+                                              &arrow_union_array);
+  if (garrow_error_check(error,
+                         status,
+                         "[sparse-union-array][new][data-type]")) {
+    return GARROW_SPARSE_UNION_ARRAY(garrow_array_new_raw(&arrow_union_array));
+  } else {
+    return NULL;
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowDenseUnionArray,
               garrow_dense_union_array,
@@ -418,6 +467,56 @@ garrow_dense_union_array_new(GArrowInt8Array *type_ids,
   }
 }
 
+/**
+ * garrow_dense_union_array_new_data_type:
+ * @data_type: The data type for the dense array.
+ * @type_ids: The field type IDs for each value as #GArrowInt8Array.
+ * @value_offsets: The value offsets for each value as #GArrowInt32Array.
+ *   Each offset is counted for each type.
+ * @fields: (element-type GArrowArray): The arrays for each field
+ *   as #GList of #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowSparseUnionArray
+ *   or %NULL on error.
+ *
+ * Since: 0.14.0
+ */
+GArrowDenseUnionArray *
+garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
+                                       GArrowInt8Array *type_ids,
+                                       GArrowInt32Array *value_offsets,
+                                       GList *fields,
+                                       GError **error)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_union_data_type =
+    std::static_pointer_cast<arrow::UnionType>(arrow_data_type);
+  std::vector<std::string> arrow_field_names;
+  for (const auto &arrow_field : arrow_union_data_type->children()) {
+    arrow_field_names.push_back(arrow_field->name());
+  }
+  auto arrow_type_ids = garrow_array_get_raw(GARROW_ARRAY(type_ids));
+  auto arrow_value_offsets = garrow_array_get_raw(GARROW_ARRAY(value_offsets));
+  std::vector<std::shared_ptr<arrow::Array>> arrow_fields;
+  for (auto node = fields; node; node = node->next) {
+    auto *field = GARROW_ARRAY(node->data);
+    arrow_fields.push_back(garrow_array_get_raw(field));
+  }
+  std::shared_ptr<arrow::Array> arrow_union_array;
+  auto status = arrow::UnionArray::MakeDense(*arrow_type_ids,
+                                             *arrow_value_offsets,
+                                             arrow_fields,
+                                             arrow_field_names,
+                                             arrow_union_data_type->type_codes(),
+                                             &arrow_union_array);
+  if (garrow_error_check(error, status, "[dense-union-array][new][data-type]")) {
+    return GARROW_DENSE_UNION_ARRAY(garrow_array_new_raw(&arrow_union_array));
+  } else {
+    return NULL;
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowDictionaryArray,
               garrow_dictionary_array,
@@ -435,25 +534,37 @@ garrow_dictionary_array_class_init(GArrowDictionaryArrayClass *klass)
 
 /**
  * garrow_dictionary_array_new:
- * @data_type: The data type of dictionary.
+ * @data_type: The data type of the dictionary array.
  * @indices: The indices of values in dictionary.
+ * @dictionary: The dictionary of the dictionary array.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GArrowDictionaryArray.
+ * Returns: (nullable): A newly created #GArrowDictionaryArray
+ *   or %NULL on error.
  *
  * Since: 0.8.0
  */
 GArrowDictionaryArray *
 garrow_dictionary_array_new(GArrowDataType *data_type,
-                            GArrowArray *indices)
+                            GArrowArray *indices,
+                            GArrowArray *dictionary,
+                            GError **error)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
   const auto arrow_indices = garrow_array_get_raw(indices);
-  auto arrow_dictionary_array =
-    std::make_shared<arrow::DictionaryArray>(arrow_data_type,
-                                             arrow_indices);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_dictionary_array);
-  return GARROW_DICTIONARY_ARRAY(garrow_array_new_raw(&arrow_array));
+  const auto arrow_dictionary = garrow_array_get_raw(dictionary);
+  std::shared_ptr<arrow::Array> arrow_dictionary_array;
+  auto status = arrow::DictionaryArray::FromArrays(arrow_data_type,
+                                                   arrow_indices,
+                                                   arrow_dictionary,
+                                                   &arrow_dictionary_array);
+  if (garrow_error_check(error, status, "[dictionary-array][new]")) {
+    auto arrow_array =
+      std::static_pointer_cast<arrow::Array>(arrow_dictionary_array);
+    return GARROW_DICTIONARY_ARRAY(garrow_array_new_raw(&arrow_array));
+  } else {
+    return NULL;
+  }
 }
 
 /**

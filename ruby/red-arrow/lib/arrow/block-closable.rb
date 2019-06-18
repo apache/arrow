@@ -24,7 +24,11 @@ module Arrow
       begin
         yield(io)
       ensure
-        io.close
+        if io.respond_to?(:closed?)
+          io.close unless io.closed?
+        else
+          io.close
+        end
       end
     end
   end

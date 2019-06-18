@@ -15,8 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from __future__ import absolute_import
+
 from collections import defaultdict
 from concurrent import futures
+from functools import partial
 
 from six.moves.urllib.parse import urlparse
 import json
@@ -24,6 +27,7 @@ import numpy as np
 import os
 import re
 import six
+import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -113,9 +117,9 @@ class ParquetFile(object):
     source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
         Readable source. For passing bytes or buffer-like file containing a
         Parquet file, use pyarorw.BufferReader
-    metadata : ParquetFileMetadata, default None
+    metadata : FileMetaData, default None
         Use existing metadata object, rather than reading from file.
-    common_metadata : ParquetFileMetadata, default None
+    common_metadata : FileMetaData, default None
         Will be used in reads for pandas schema metadata if not found in the
         main file's metadata, no other uses at the moment
     memory_map : boolean, default True
@@ -256,7 +260,9 @@ class ParquetFile(object):
                 index_columns = []
 
             if indices is not None and index_columns:
-                indices += map(self.reader.column_name_idx, index_columns)
+                indices += [self.reader.column_name_idx(descr)
+                            for descr in index_columns
+                            if not isinstance(descr, dict)]
 
         return indices
 
@@ -336,6 +342,11 @@ Parameters
 where : path or file-like object
 schema : arrow Schema
 {0}
+**options : dict
+    If options contains a key `metadata_collector` then the
+    corresponding value is assumed to be a list (or any object with
+    `.append` method) that will be filled with file metadata instances
+    of dataset pieces.
 """.format(_parquet_writer_arg_docs)
 
     def __init__(self, where, schema, filesystem=None,
@@ -369,7 +380,7 @@ schema : arrow Schema
             sink = self.file_handle = filesystem.open(path, 'wb')
         else:
             sink = where
-
+        self._metadata_collector = options.pop('metadata_collector', None)
         self.writer = _parquet.ParquetWriter(
             sink, schema,
             version=version,
@@ -408,6 +419,8 @@ schema : arrow Schema
         if self.is_open:
             self.writer.close()
             self.is_open = False
+            if self._metadata_collector is not None:
+                self._metadata_collector.append(self.writer.metadata)
         if self.file_handle is not None:
             self.file_handle.close()
 
@@ -432,14 +445,17 @@ class ParquetDatasetPiece(object):
     ----------
     path : str or pathlib.Path
         Path to file in the file system where this piece is located
+    open_file_func : callable
+        Function to use for obtaining file handle to dataset piece
     partition_keys : list of tuples
       [(column name, ordinal index)]
     row_group : int, default None
         Row group to load. By default, reads all row groups
     """
-
-    def __init__(self, path, row_group=None, partition_keys=None):
+    def __init__(self, path, open_file_func=partial(open, mode='rb'),
+                 row_group=None, partition_keys=None):
         self.path = _stringify_path(path)
+        self.open_file_func = open_file_func
         self.row_group = row_group
         self.partition_keys = partition_keys or []
 
@@ -476,16 +492,41 @@ class ParquetDatasetPiece(object):
 
     def get_metadata(self, open_file_func=None):
         """
-        Given a function that can create an open ParquetFile object, return the
-        file's metadata
-        """
-        return self._open(open_file_func).metadata
+        Returns the file's metadata
 
-    def _open(self, open_file_func=None):
+        Parameters
+        ----------
+        open_file_func : function, deprecated
+            Function to use for obtaining file handle to dataset piece.
+            Deprecated in version 0.13.0. Use ``open_file_func`` parameter of
+            the constructor instead.
+
+        Returns
+        -------
+        metadata : FileMetaData
+        """
+        if open_file_func is not None:
+            f = self._open(open_file_func)
+        else:
+            f = self.open()
+        return f.metadata
+
+    def _open(self, open_file_func):
         """
         Returns instance of ParquetFile
         """
+        warnings.warn('open_file_func argument is deprecated, please pass '
+                      'it to ParquetDatasetPiece instead', DeprecationWarning)
         reader = open_file_func(self.path)
+        if not isinstance(reader, ParquetFile):
+            reader = ParquetFile(reader)
+        return reader
+
+    def open(self):
+        """
+        Returns instance of ParquetFile
+        """
+        reader = self.open_file_func(self.path)
         if not isinstance(reader, ParquetFile):
             reader = ParquetFile(reader)
         return reader
@@ -501,9 +542,10 @@ class ParquetDatasetPiece(object):
         use_threads : boolean, default True
             Perform multi-threaded column reads
         partitions : ParquetPartitions, default None
-        open_file_func : function, default None
-            A function that knows how to construct a ParquetFile object given
-            the file path in this piece
+        open_file_func : function, deprecated
+            Function to use for obtaining file handle to dataset piece.
+            Deprecated in version 0.13.0. Use ``open_file_func`` parameter of
+            the constructor instead.
         file : file-like object
             passed to ParquetFile
 
@@ -513,6 +555,8 @@ class ParquetDatasetPiece(object):
         """
         if open_file_func is not None:
             reader = self._open(open_file_func)
+        elif self.open_file_func is not None:
+            reader = self.open()
         elif file is not None:
             reader = ParquetFile(file)
         else:
@@ -628,6 +672,23 @@ class ParquetPartitions(object):
     def __getitem__(self, i):
         return self.levels[i]
 
+    def equals(self, other):
+        if not isinstance(other, ParquetPartitions):
+            raise TypeError('`other` must be an instance of ParquetPartitions')
+
+        return (self.levels == other.levels and
+                self.partition_names == other.partition_names)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def __ne__(self, other):
+        # required for python 2, cython implements it by default
+        return not (self == other)
+
     def get_index(self, level, name, key):
         """
         Record a partition value at a particular level, returning the distinct
@@ -706,10 +767,11 @@ class ParquetManifest(object):
     """
 
     """
-    def __init__(self, dirpath, filesystem=None, pathsep='/',
-                 partition_scheme='hive', metadata_nthreads=1):
+    def __init__(self, dirpath, open_file_func=None, filesystem=None,
+                 pathsep='/', partition_scheme='hive', metadata_nthreads=1):
         filesystem, dirpath = _get_filesystem_and_path(filesystem, dirpath)
         self.filesystem = filesystem
+        self.open_file_func = open_file_func
         self.pathsep = pathsep
         self.dirpath = _stringify_path(dirpath)
         self.partition_scheme = partition_scheme
@@ -770,7 +832,8 @@ class ParquetManifest(object):
     def _should_silently_exclude(self, file_name):
         return (file_name.endswith('.crc') or  # Checksums
                 file_name.endswith('_$folder$') or  # HDFS directories in S3
-                file_name.startswith('.') or  # Hidden files
+                file_name.startswith('.') or  # Hidden files starting with .
+                file_name.startswith('_') or  # Hidden files starting with _
                 file_name in EXCLUDED_PARQUET_PATHS)
 
     def _visit_directories(self, level, directories, part_keys):
@@ -803,7 +866,8 @@ class ParquetManifest(object):
 
     def _push_pieces(self, files, part_keys):
         self.pieces.extend([
-            ParquetDatasetPiece(path, partition_keys=part_keys)
+            ParquetDatasetPiece(path, partition_keys=part_keys,
+                                open_file_func=self.open_file_func)
             for path in files
         ])
 
@@ -828,6 +892,16 @@ def _path_split(path, sep):
 
 
 EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
+
+
+def _open_dataset_file(dataset, path, meta=None):
+    if dataset.fs is None or isinstance(dataset.fs, LocalFileSystem):
+        return ParquetFile(path, metadata=meta, memory_map=dataset.memory_map,
+                           common_metadata=dataset.common_metadata)
+    else:
+        return ParquetFile(dataset.fs.open(path, mode='rb'), metadata=meta,
+                           memory_map=dataset.memory_map,
+                           common_metadata=dataset.common_metadata)
 
 
 class ParquetDataset(object):
@@ -870,10 +944,13 @@ class ParquetDataset(object):
         How many threads to allow the thread pool which is used to read the
         dataset metadata. Increasing this is helpful to read partitioned
         datasets.
+    memory_map : boolean, default True
+        If the source is a file path, use a memory map to read each file in the
+        dataset if possible, which can improve performance in some environments
     """
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
-                 filters=None, metadata_nthreads=1):
+                 filters=None, metadata_nthreads=1, memory_map=True):
         a_path = path_or_paths
         if isinstance(a_path, list):
             a_path = a_path[0]
@@ -884,21 +961,25 @@ class ParquetDataset(object):
         else:
             self.paths = _parse_uri(path_or_paths)
 
+        self.memory_map = memory_map
+
         (self.pieces,
          self.partitions,
          self.common_metadata_path,
          self.metadata_path) = _make_manifest(
-            path_or_paths, self.fs, metadata_nthreads=metadata_nthreads)
+             path_or_paths, self.fs, metadata_nthreads=metadata_nthreads,
+             open_file_func=partial(_open_dataset_file, self))
 
         if self.common_metadata_path is not None:
             with self.fs.open(self.common_metadata_path) as f:
-                self.common_metadata = ParquetFile(f).metadata
+                self.common_metadata = (ParquetFile(f, memory_map=memory_map)
+                                        .metadata)
         else:
             self.common_metadata = None
 
         if metadata is None and self.metadata_path is not None:
             with self.fs.open(self.metadata_path) as f:
-                self.metadata = ParquetFile(f).metadata
+                self.metadata = ParquetFile(f, memory_map=memory_map).metadata
         else:
             self.metadata = metadata
 
@@ -916,14 +997,37 @@ class ParquetDataset(object):
         if validate_schema:
             self.validate_schemas()
 
-    def validate_schemas(self):
-        open_file = self._get_open_file_func()
+    def equals(self, other):
+        if not isinstance(other, ParquetDataset):
+            raise TypeError('`other` must be an instance of ParquetDataset')
 
+        if self.fs.__class__ != other.fs.__class__:
+            return False
+        for prop in ('paths', 'memory_map', 'pieces', 'partitions',
+                     'common_metadata_path', 'metadata_path',
+                     'common_metadata', 'metadata', 'schema',
+                     'split_row_groups'):
+            if getattr(self, prop) != getattr(other, prop):
+                return False
+
+        return True
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def __ne__(self, other):
+        # required for python 2, cython implements it by default
+        return not (self == other)
+
+    def validate_schemas(self):
         if self.metadata is None and self.schema is None:
             if self.common_metadata is not None:
                 self.schema = self.common_metadata.schema
             else:
-                self.schema = self.pieces[0].get_metadata(open_file).schema
+                self.schema = self.pieces[0].get_metadata().schema
         elif self.schema is None:
             self.schema = self.metadata.schema
 
@@ -938,7 +1042,7 @@ class ParquetDataset(object):
                     dataset_schema = dataset_schema.remove(field_idx)
 
         for piece in self.pieces:
-            file_metadata = piece.get_metadata(open_file)
+            file_metadata = piece.get_metadata()
             file_schema = file_metadata.schema.to_arrow_schema()
             if not dataset_schema.equals(file_schema, check_metadata=False):
                 raise ValueError('Schema in {0!s} was different. \n'
@@ -964,13 +1068,10 @@ class ParquetDataset(object):
         pyarrow.Table
             Content of the file as a table (of columns)
         """
-        open_file = self._get_open_file_func()
-
         tables = []
         for piece in self.pieces:
             table = piece.read(columns=columns, use_threads=use_threads,
                                partitions=self.partitions,
-                               open_file_func=open_file,
                                use_pandas_metadata=use_pandas_metadata)
             tables.append(table)
 
@@ -1008,18 +1109,6 @@ class ParquetDataset(object):
         keyvalues = self.common_metadata.metadata
         return keyvalues.get(b'pandas', None)
 
-    def _get_open_file_func(self):
-        if self.fs is None or isinstance(self.fs, LocalFileSystem):
-            def open_file(path, meta=None):
-                return ParquetFile(path, metadata=meta,
-                                   common_metadata=self.common_metadata)
-        else:
-            def open_file(path, meta=None):
-                return ParquetFile(self.fs.open(path, mode='rb'),
-                                   metadata=meta,
-                                   common_metadata=self.common_metadata)
-        return open_file
-
     def _filter(self, filters):
         accepts_filter = self.partitions.filter_accepts_partition
 
@@ -1034,7 +1123,8 @@ class ParquetDataset(object):
         self.pieces = [p for p in self.pieces if all_filters_accept(p)]
 
 
-def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
+def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
+                   open_file_func=None):
     partitions = None
     common_metadata_path = None
     metadata_path = None
@@ -1045,6 +1135,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
 
     if _is_path_like(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
+                                   open_file_func=open_file_func,
                                    pathsep=fs.pathsep,
                                    metadata_nthreads=metadata_nthreads)
         common_metadata_path = manifest.common_metadata_path
@@ -1064,7 +1155,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1):
             if not fs.isfile(path):
                 raise IOError('Passed non-file path: {0}'
                               .format(path))
-            piece = ParquetDatasetPiece(path)
+            piece = ParquetDatasetPiece(path, open_file_func=open_file_func)
             pieces.append(piece)
 
     return pieces, partitions, common_metadata_path, metadata_path
@@ -1091,6 +1182,11 @@ memory_map : boolean, default True
     If the source is a file path, use a memory map to read file, which can
     improve performance in some environments
 {1}
+filters : List[Tuple] or List[List[Tuple]] or None (default)
+    List of filters to apply, like ``[[('x', '=', 0), ...], ...]``. This
+    implements partition-level (hive) filtering only, i.e., to prevent the
+    loading of some files of the dataset if `source` is a directory.
+    See the docstring of ParquetDataset for more details.
 
 Returns
 -------
@@ -1100,14 +1196,12 @@ Returns
 
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=True,
-               filesystem=None):
+               filesystem=None, filters=None):
     if _is_path_like(source):
-        fs, path = _get_filesystem_and_path(filesystem, source)
-        return fs.read_parquet(path, columns=columns,
-                               use_threads=use_threads, metadata=metadata,
-                               use_pandas_metadata=use_pandas_metadata)
-
-    pf = ParquetFile(source, metadata=metadata)
+        pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
+                            filesystem=filesystem, filters=filters)
+    else:
+        pf = ParquetFile(source, metadata=metadata, memory_map=memory_map)
     return pf.read(columns=columns, use_threads=use_threads,
                    use_pandas_metadata=use_pandas_metadata)
 
@@ -1122,10 +1216,11 @@ read_table.__doc__ = _read_table_docstring.format(
 
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=True,
-                metadata=None):
+                metadata=None, filters=None):
     return read_table(source, columns=columns,
                       use_threads=use_threads,
                       metadata=metadata, memory_map=True,
+                      filters=filters,
                       use_pandas_metadata=True)
 
 
@@ -1187,10 +1282,9 @@ def _mkdir_if_not_exists(fs, path):
             assert fs.exists(path)
 
 
-def write_to_dataset(table, root_path, partition_cols=None,
-                     filesystem=None, preserve_index=True, **kwargs):
-    """
-    Wrapper around parquet.write_table for writing a Table to
+def write_to_dataset(table, root_path, partition_cols=None, filesystem=None,
+                     preserve_index=None, **kwargs):
+    """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
     a subdirectories are created in the following
@@ -1219,16 +1313,22 @@ def write_to_dataset(table, root_path, partition_cols=None,
     partition_cols : list,
         Column names by which to partition the dataset
         Columns are partitioned in the order they are given
-    preserve_index : bool,
-        Parameter for instantiating Table; preserve pandas index or not.
-    **kwargs : dict, kwargs for write_table function.
+    **kwargs : dict,
+        kwargs for write_table function. Using `metadata_collector` in
+        kwargs allows one to collect the file metadata instances of
+        dataset pieces. See `ParquetWriter.__doc__` for more
+        information.
     """
+    if preserve_index is not None:
+        warnings.warn('preserve_index argument is deprecated as of 0.13.0 and '
+                      'has no effect', DeprecationWarning)
+
     fs, root_path = _get_filesystem_and_path(filesystem, root_path)
 
     _mkdir_if_not_exists(fs, root_path)
 
     if partition_cols is not None and len(partition_cols) > 0:
-        df = table.to_pandas()
+        df = table.to_pandas(ignore_metadata=True)
         partition_keys = [df[col] for col in partition_cols]
         data_df = df.drop(partition_cols, axis='columns')
         data_cols = df.columns.drop(partition_cols)
@@ -1236,10 +1336,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
             raise ValueError('No data left to save outside partition columns')
 
         subschema = table.schema
+
         # ARROW-2891: Ensure the output_schema is preserved when writing a
         # partitioned dataset
         for col in table.schema.names:
-            if (col.startswith('__index_level_') or col in partition_cols):
+            if col in partition_cols:
                 subschema = subschema.remove(subschema.get_field_index(col))
 
         for keys, subgroup in data_df.groupby(partition_keys):
@@ -1248,10 +1349,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
             subdir = '/'.join(
                 ['{colname}={value}'.format(colname=name, value=val)
                  for name, val in zip(partition_cols, keys)])
-            subtable = pa.Table.from_pandas(subgroup,
-                                            preserve_index=preserve_index,
-                                            schema=subschema,
-                                            safe=False)
+            subtable = pa.Table.from_pandas(subgroup, preserve_index=False,
+                                            schema=subschema, safe=False)
             prefix = '/'.join([root_path, subdir])
             _mkdir_if_not_exists(fs, prefix)
             outfile = guid() + '.parquet'

@@ -26,8 +26,14 @@ import platform
 from functools import partial
 
 
+# NOTE(wesm):
+#
+# * readability/casting is disabled as it aggressively warns about functions
+#   with names like "int32", so "int32(x)", where int32 is a function name,
+#   warns with
 _filters = '''
 -whitespace/comments
+-readability/casting
 -readability/todo
 -build/header_guard
 -build/c++11
@@ -110,8 +116,8 @@ if __name__ == "__main__":
         # distill a list of problematic files
         for problem_files, stdout in pool.imap(checker, chunks):
             if problem_files:
-                msg = "{} had cpplint issues"
-                print("\n".join(map(msg.format, problem_files)))
+                if isinstance(stdout, bytes):
+                    stdout = stdout.decode('utf8')
                 print(stdout, file=sys.stderr)
                 error = True
     except Exception:

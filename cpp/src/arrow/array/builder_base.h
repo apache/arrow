@@ -18,25 +18,19 @@
 #pragma once
 
 #include <algorithm>  // IWYU pragma: keep
-#include <array>
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <iterator>
 #include <limits>
 #include <memory>
-#include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/buffer-builder.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
@@ -44,6 +38,7 @@ namespace arrow {
 
 class Array;
 struct ArrayData;
+class MemoryPool;
 
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1;
@@ -85,22 +80,26 @@ class ARROW_EXPORT ArrayBuilder {
   virtual Status Resize(int64_t capacity);
 
   /// \brief Ensure that there is enough space allocated to add the indicated
-  /// number of elements without any further calls to Resize. The memory
-  /// allocated is rounded up to the next highest power of 2 similar to memory
-  /// allocations in STL containers like std::vector
+  /// number of elements without any further calls to Resize. Overallocation is
+  /// used in order to minimize the impact of incremental Reserve() calls.
+  ///
   /// \param[in] additional_capacity the number of additional array values
   /// \return Status
   Status Reserve(int64_t additional_capacity) {
+    auto current_capacity = capacity();
     auto min_capacity = length() + additional_capacity;
-    if (min_capacity <= capacity()) return Status::OK();
+    if (min_capacity <= current_capacity) return Status::OK();
 
     // leave growth factor up to BufferBuilder
-    auto new_capacity = BufferBuilder::GrowByFactor(min_capacity);
+    auto new_capacity = BufferBuilder::GrowByFactor(current_capacity, min_capacity);
     return Resize(new_capacity);
   }
 
   /// Reset the builder.
   virtual void Reset();
+
+  virtual Status AppendNull() = 0;
+  virtual Status AppendNulls(int64_t length) = 0;
 
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use
@@ -132,6 +131,9 @@ class ARROW_EXPORT ArrayBuilder {
   /// assume all of length bits are valid.
   Status AppendToBitmap(const uint8_t* valid_bytes, int64_t length);
 
+  /// Uniform append.  Append N times the same validity bit.
+  Status AppendToBitmap(int64_t num_bits, bool value);
+
   /// Set the next length bits to not null (i.e. valid).
   Status SetNotNull(int64_t length);
 
@@ -157,20 +159,43 @@ class ARROW_EXPORT ArrayBuilder {
     null_count_ = null_bitmap_builder_.false_count();
   }
 
+  // Append the same validity value a given number of times.
+  void UnsafeAppendToBitmap(const int64_t num_bits, bool value) {
+    if (value) {
+      UnsafeSetNotNull(num_bits);
+    } else {
+      UnsafeSetNull(num_bits);
+    }
+  }
+
   void UnsafeAppendToBitmap(const std::vector<bool>& is_valid);
 
-  // Set the next length bits to not null (i.e. valid).
+  // Set the next validity bits to not null (i.e. valid).
   void UnsafeSetNotNull(int64_t length);
 
+  // Set the next validity bits to null (i.e. invalid).
+  void UnsafeSetNull(int64_t length);
+
   static Status TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer);
+
+  /// \brief Finish to an array of the specified ArrayType
+  template <typename ArrayType>
+  Status FinishTyped(std::shared_ptr<ArrayType>* out) {
+    std::shared_ptr<Array> out_untyped;
+    ARROW_RETURN_NOT_OK(Finish(&out_untyped));
+    *out = std::static_pointer_cast<ArrayType>(std::move(out_untyped));
+    return Status::OK();
+  }
 
   static Status CheckCapacity(int64_t new_capacity, int64_t old_capacity) {
     if (new_capacity < 0) {
       return Status::Invalid("Resize capacity must be positive");
     }
+
     if (new_capacity < old_capacity) {
       return Status::Invalid("Resize cannot downsize");
     }
+
     return Status::OK();
   }
 

@@ -20,19 +20,10 @@
 #ifndef ARROW_GPU_CUDA_COMMON_H
 #define ARROW_GPU_CUDA_COMMON_H
 
-#include <sstream>
-
 #include <cuda.h>
 
 namespace arrow {
 namespace cuda {
-
-#define CUDA_DCHECK(STMT) \
-  do {                    \
-    int ret = (STMT);     \
-    DCHECK_EQ(0, ret);    \
-    (void)ret;            \
-  } while (0)
 
 #define CU_RETURN_NOT_OK(STMT)                                                  \
   do {                                                                          \

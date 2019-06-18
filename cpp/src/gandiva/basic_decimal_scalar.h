@@ -27,14 +27,15 @@ using arrow::BasicDecimal128;
 /// Represents a 128-bit decimal value along with its precision and scale.
 class BasicDecimalScalar128 {
  public:
-  BasicDecimalScalar128(int64_t high_bits, uint64_t low_bits, int32_t precision,
-                        int32_t scale)
+  constexpr BasicDecimalScalar128(int64_t high_bits, uint64_t low_bits, int32_t precision,
+                                  int32_t scale)
       : value_(high_bits, low_bits), precision_(precision), scale_(scale) {}
 
-  BasicDecimalScalar128(const BasicDecimal128& value, int32_t precision, int32_t scale)
+  constexpr BasicDecimalScalar128(const BasicDecimal128& value, int32_t precision,
+                                  int32_t scale)
       : value_(value), precision_(precision), scale_(scale) {}
 
-  BasicDecimalScalar128(int32_t precision, int32_t scale)
+  constexpr BasicDecimalScalar128(int32_t precision, int32_t scale)
       : precision_(precision), scale_(scale) {}
 
   int32_t scale() const { return scale_; }
@@ -53,6 +54,10 @@ inline bool operator==(const BasicDecimalScalar128& left,
                        const BasicDecimalScalar128& right) {
   return left.value() == right.value() && left.precision() == right.precision() &&
          left.scale() == right.scale();
+}
+
+inline BasicDecimalScalar128 operator-(const BasicDecimalScalar128& operand) {
+  return BasicDecimalScalar128{-operand.value(), operand.precision(), operand.scale()};
 }
 
 }  // namespace gandiva

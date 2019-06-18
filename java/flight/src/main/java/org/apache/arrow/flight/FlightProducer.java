@@ -23,23 +23,32 @@ import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 /**
- * API to Implement an Arrow Flight server.
+ * API to Implement an Arrow Flight producer.
  */
 public interface FlightProducer {
 
-  public void getStream(Ticket ticket, ServerStreamListener listener);
+  void getStream(CallContext context, Ticket ticket,
+      ServerStreamListener listener);
 
-  public void listFlights(Criteria criteria, StreamListener<FlightInfo> listener);
+  void listFlights(CallContext context, Criteria criteria,
+      StreamListener<FlightInfo> listener);
 
-  public FlightInfo getFlightInfo(FlightDescriptor descriptor);
+  FlightInfo getFlightInfo(CallContext context,
+      FlightDescriptor descriptor);
 
-  public Callable<PutResult> acceptPut(FlightStream flightStream);
+  Callable<PutResult> acceptPut(CallContext context,
+      FlightStream flightStream);
 
-  public Result doAction(Action action);
+  void doAction(CallContext context, Action action,
+      StreamListener<Result> listener);
 
-  public void listActions(StreamListener<ActionType> listener);
+  void listActions(CallContext context,
+      StreamListener<ActionType> listener);
 
-  public interface ServerStreamListener {
+  /**
+   * Listener for creating a stream on the server side.
+   */
+  interface ServerStreamListener {
 
     boolean isCancelled();
 
@@ -55,7 +64,12 @@ public interface FlightProducer {
 
   }
 
-  public interface StreamListener<T> {
+  /**
+   * Callbacks for pushing objects to a receiver.
+   *
+   * @param <T> Type of the values in the stream.
+   */
+  interface StreamListener<T> {
 
     void onNext(T val);
 
@@ -65,5 +79,14 @@ public interface FlightProducer {
 
   }
 
+  /**
+   * Call-specific context.
+   */
+  interface CallContext {
+    /** The identity of the authenticated peer. May be the empty string if unknown. */
+    String peerIdentity();
 
+    /** Whether the call has been cancelled by the client. */
+    boolean isCancelled();
+  }
 }

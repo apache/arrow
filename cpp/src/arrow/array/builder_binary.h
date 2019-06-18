@@ -19,7 +19,6 @@
 
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -29,7 +28,7 @@
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string_view.h"  // IWYU pragma: export
 
 namespace arrow {
 
@@ -49,13 +48,29 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   Status Append(const uint8_t* value, int32_t length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     ARROW_RETURN_NOT_OK(AppendNextOffset());
-    ARROW_RETURN_NOT_OK(value_data_builder_.Append(value, length));
+    // Safety check for UBSAN.
+    if (ARROW_PREDICT_TRUE(length > 0)) {
+      ARROW_RETURN_NOT_OK(value_data_builder_.Append(value, length));
+    }
 
     UnsafeAppendToBitmap(true);
     return Status::OK();
   }
 
-  Status AppendNull() {
+  Status AppendNulls(int64_t length) final {
+    const int64_t num_bytes = value_data_builder_.length();
+    if (ARROW_PREDICT_FALSE(num_bytes > kBinaryMemoryLimit)) {
+      return AppendOverflow(num_bytes);
+    }
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    for (int64_t i = 0; i < length; ++i) {
+      offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
+    }
+    UnsafeAppendToBitmap(length, false);
+    return Status::OK();
+  }
+
+  Status AppendNull() final {
     ARROW_RETURN_NOT_OK(AppendNextOffset());
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(false);
@@ -88,6 +103,10 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
     UnsafeAppend(value.c_str(), static_cast<int32_t>(value.size()));
   }
 
+  void UnsafeAppend(util::string_view value) {
+    UnsafeAppend(value.data(), static_cast<int32_t>(value.size()));
+  }
+
   void UnsafeAppendNull() {
     const int64_t num_bytes = value_data_builder_.length();
     offsets_builder_.UnsafeAppend(static_cast<int32_t>(num_bytes));
@@ -102,6 +121,12 @@ class ARROW_EXPORT BinaryBuilder : public ArrayBuilder {
   Status ReserveData(int64_t elements);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<BinaryArray>* out) { return FinishTyped(out); }
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return value_data_builder_.length(); }
@@ -169,6 +194,12 @@ class ARROW_EXPORT StringBuilder : public BinaryBuilder {
   /// \return Status
   Status AppendValues(const char** values, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<StringArray>* out) { return FinishTyped(out); }
 };
 
 // ----------------------------------------------------------------------
@@ -181,8 +212,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   Status Append(const uint8_t* value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(true);
-    return byte_builder_.Append(value, byte_width_);
+    UnsafeAppend(value);
+    return Status::OK();
   }
 
   Status Append(const char* value) {
@@ -190,33 +221,60 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   }
 
   Status Append(const util::string_view& view) {
-#ifndef NDEBUG
-    CheckValueSize(static_cast<int64_t>(view.size()));
-#endif
-    return Append(reinterpret_cast<const uint8_t*>(view.data()));
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppend(view);
+    return Status::OK();
   }
 
   Status Append(const std::string& s) {
-#ifndef NDEBUG
-    CheckValueSize(static_cast<int64_t>(s.size()));
-#endif
-    return Append(reinterpret_cast<const uint8_t*>(s.data()));
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppend(s);
+    return Status::OK();
   }
 
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendToBitmap(true);
-    return byte_builder_.Append(value);
+    UnsafeAppend(
+        util::string_view(reinterpret_cast<const char*>(value.data()), value.size()));
+    return Status::OK();
   }
 
   Status AppendValues(const uint8_t* data, int64_t length,
                       const uint8_t* valid_bytes = NULLPTR);
-  Status AppendNull();
+
+  Status AppendNull() final;
+
+  Status AppendNulls(int64_t length) final;
+
+  void UnsafeAppend(const uint8_t* value) {
+    UnsafeAppendToBitmap(true);
+    if (ARROW_PREDICT_TRUE(byte_width_ > 0)) {
+      byte_builder_.UnsafeAppend(value, byte_width_);
+    }
+  }
+
+  void UnsafeAppend(util::string_view value) {
+#ifndef NDEBUG
+    CheckValueSize(static_cast<size_t>(value.size()));
+#endif
+    UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
+  }
+
+  void UnsafeAppendNull() {
+    UnsafeAppendToBitmap(false);
+    byte_builder_.UnsafeAdvance(byte_width_);
+  }
 
   void Reset() override;
   Status Resize(int64_t capacity) override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<FixedSizeBinaryArray>* out) { return FinishTyped(out); }
 
   /// \return size of values buffer so far
   int64_t value_data_length() const { return byte_builder_.length(); }
@@ -288,8 +346,8 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
  protected:
   Status NextChunk();
 
-  int32_t max_chunk_size_;
-  int32_t chunk_data_size_;
+  int64_t max_chunk_size_;
+  int64_t chunk_data_size_;
 
   std::unique_ptr<BinaryBuilder> builder_;
   std::vector<std::shared_ptr<Array>> chunks_;

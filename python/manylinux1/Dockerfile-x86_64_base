@@ -85,3 +85,15 @@ RUN /build_llvm.sh
 
 ADD scripts/build_clang.sh /
 RUN /build_clang.sh
+
+ADD scripts/build_double_conversion.sh /
+RUN /build_double_conversion.sh
+
+ADD scripts/build_rapidjson.sh /
+RUN /build_rapidjson.sh
+
+ADD scripts/build_re2.sh /
+RUN /build_re2.sh
+
+ADD scripts/build_gflags.sh /
+RUN /build_gflags.sh

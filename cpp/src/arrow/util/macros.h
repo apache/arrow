@@ -18,6 +18,8 @@
 #ifndef ARROW_UTIL_MACROS_H
 #define ARROW_UTIL_MACROS_H
 
+#include <cstdint>
+
 #define ARROW_STRINGIFY(x) #x
 #define ARROW_CONCAT(x, y) x##y
 
@@ -79,7 +81,11 @@
 // clang-format off
 // [[deprecated]] is only available in C++14, use this for the time being
 // This macro takes an optional deprecation message
-#if __cplusplus <= 201103L
+#ifdef __COVERITY__
+#  define ARROW_DEPRECATED(...)
+#elif __cplusplus > 201103L
+#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
+#else
 # ifdef __GNUC__
 #  define ARROW_DEPRECATED(...) __attribute__((deprecated(__VA_ARGS__)))
 # elif defined(_MSC_VER)
@@ -87,8 +93,6 @@
 # else
 #  define ARROW_DEPRECATED(...)
 # endif
-#else
-#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
 #endif
 
 // ----------------------------------------------------------------------
@@ -121,6 +125,17 @@
 #define ARROW_DISABLE_UBSAN(feature) __attribute__((no_sanitize(feature)))
 #else
 #define ARROW_DISABLE_UBSAN(feature)
+#endif
+
+// ----------------------------------------------------------------------
+// Machine information
+
+#if INTPTR_MAX == INT64_MAX
+#define ARROW_BITNESS 64
+#elif INTPTR_MAX == INT32_MAX
+#define ARROW_BITNESS 32
+#else
+#error Unexpected INTPTR_MAX
 #endif
 
 // ----------------------------------------------------------------------

@@ -16,11 +16,15 @@
 # under the License.
 
 class TestMemoryMappedInputStream < Test::Unit::TestCase
+  def setup
+    @data = "Hello World"
+    @tempfile = Tempfile.open("arrow-memory-mapped-input-stream")
+    @tempfile.write(@data)
+    @tempfile.close
+  end
+
   def test_new
-    tempfile = Tempfile.open("arrow-memory-mapped-input-stream")
-    tempfile.write("Hello")
-    tempfile.close
-    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
+    input = Arrow::MemoryMappedInputStream.new(@tempfile.path)
     begin
       buffer = input.read(5)
       assert_equal("Hello", buffer.data.to_s)
@@ -29,23 +33,28 @@ class TestMemoryMappedInputStream < Test::Unit::TestCase
     end
   end
 
+  def test_close
+    input = Arrow::MemoryMappedInputStream.new(@tempfile.path)
+    assert do
+      not input.closed?
+    end
+    input.close
+    assert do
+      input.closed?
+    end
+  end
+
   def test_size
-    tempfile = Tempfile.open("arrow-memory-mapped-input-stream")
-    tempfile.write("Hello")
-    tempfile.close
-    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
+    input = Arrow::MemoryMappedInputStream.new(@tempfile.path)
     begin
-      assert_equal(5, input.size)
+      assert_equal(@data.bytesize, input.size)
     ensure
       input.close
     end
   end
 
   def test_read
-    tempfile = Tempfile.open("arrow-memory-mapped-input-stream")
-    tempfile.write("Hello World")
-    tempfile.close
-    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
+    input = Arrow::MemoryMappedInputStream.new(@tempfile.path)
     begin
       buffer = input.read(5)
       assert_equal("Hello", buffer.data.to_s)
@@ -55,10 +64,7 @@ class TestMemoryMappedInputStream < Test::Unit::TestCase
   end
 
   def test_read_at
-    tempfile = Tempfile.open("arrow-memory-mapped-input-stream")
-    tempfile.write("Hello World")
-    tempfile.close
-    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
+    input = Arrow::MemoryMappedInputStream.new(@tempfile.path)
     begin
       buffer = input.read_at(6, 5)
       assert_equal("World", buffer.data.to_s)
@@ -68,10 +74,7 @@ class TestMemoryMappedInputStream < Test::Unit::TestCase
   end
 
   def test_mode
-    tempfile = Tempfile.open("arrow-memory-mapped-input-stream")
-    tempfile.write("Hello World")
-    tempfile.close
-    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
+    input = Arrow::MemoryMappedInputStream.new(@tempfile.path)
     begin
       assert_equal(Arrow::FileMode::READWRITE, input.mode)
     ensure

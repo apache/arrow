@@ -26,22 +26,40 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import io.netty.buffer.ArrowBuf;
 
+/**
+ * Helper class that handles converting a {@link VectorSchemaRoot}
+ * to a {@link ArrowRecordBatch}.
+ */
 public class VectorUnloader {
 
   private final VectorSchemaRoot root;
   private final boolean includeNullCount;
   private final boolean alignBuffers;
 
+  /**
+   * Constructs a new instance of the given set of vectors.
+   */
   public VectorUnloader(VectorSchemaRoot root) {
     this(root, true, true);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param root  The set of vectors to serialize to an {@link ArrowRecordBatch}.
+   * @param includeNullCount Controls whether null count is copied to the {@link ArrowRecordBatch}
+   * @param alignBuffers Controls if buffers get aligned to 8-byte boundaries.
+   */
   public VectorUnloader(VectorSchemaRoot root, boolean includeNullCount, boolean alignBuffers) {
     this.root = root;
     this.includeNullCount = includeNullCount;
     this.alignBuffers = alignBuffers;
   }
 
+  /**
+   * Performs the depth first traversal of the Vectors to create an {@link ArrowRecordBatch} suitable
+   * for serialization.
+   */
   public ArrowRecordBatch getRecordBatch() {
     List<ArrowFieldNode> nodes = new ArrayList<>();
     List<ArrowBuf> buffers = new ArrayList<>();

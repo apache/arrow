@@ -148,26 +148,14 @@ cdef class MessageReader:
 # ----------------------------------------------------------------------
 # File and stream readers and writers
 
-cdef class _RecordBatchWriter:
-    cdef:
-        shared_ptr[CRecordBatchWriter] writer
-        shared_ptr[OutputStream] sink
-        bint closed
+cdef class _CRecordBatchWriter:
+    """The base RecordBatchWriter wrapper.
 
-    def __cinit__(self):
-        pass
+    Provides common implementations of convenience methods. Should not
+    be instantiated directly by user code.
+    """
 
-    def __dealloc__(self):
-        pass
-
-    def _open(self, sink, Schema schema):
-        get_writer(sink, &self.sink)
-
-        with nogil:
-            check_status(
-                CRecordBatchStreamWriter.Open(self.sink.get(),
-                                              schema.sp_schema,
-                                              &self.writer))
+    # cdef block is in lib.pxd
 
     def write(self, table_or_batch):
         """
@@ -222,6 +210,33 @@ cdef class _RecordBatchWriter:
         with nogil:
             check_status(self.writer.get().Close())
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
+cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
+    cdef:
+        shared_ptr[OutputStream] sink
+        bint closed
+
+    def __cinit__(self):
+        pass
+
+    def __dealloc__(self):
+        pass
+
+    def _open(self, sink, Schema schema):
+        get_writer(sink, &self.sink)
+
+        with nogil:
+            check_status(
+                CRecordBatchStreamWriter.Open(self.sink.get(),
+                                              schema.sp_schema,
+                                              &self.writer))
+
 
 cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
     cdef:
@@ -237,24 +252,14 @@ cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
     out[0] = <shared_ptr[InputStream]> file_handle
 
 
-cdef class _RecordBatchReader:
-    cdef:
-        shared_ptr[CRecordBatchReader] reader
-        shared_ptr[InputStream] in_stream
+cdef class _CRecordBatchReader:
+    """The base RecordBatchReader wrapper.
 
-    cdef readonly:
-        Schema schema
+    Provides common implementations of convenience methods. Should not
+    be instantiated directly by user code.
+    """
 
-    def __cinit__(self):
-        pass
-
-    def _open(self, source):
-        _get_input_stream(source, &self.in_stream)
-        with nogil:
-            check_status(CRecordBatchStreamReader.Open(
-                self.in_stream.get(), &self.reader))
-
-        self.schema = pyarrow_wrap_schema(self.reader.get().schema())
+    # cdef block is in lib.pxd
 
     def __iter__(self):
         while True:
@@ -291,7 +296,26 @@ cdef class _RecordBatchReader:
         return pyarrow_wrap_table(table)
 
 
-cdef class _RecordBatchFileWriter(_RecordBatchWriter):
+cdef class _RecordBatchStreamReader(_CRecordBatchReader):
+    cdef:
+        shared_ptr[InputStream] in_stream
+
+    cdef readonly:
+        Schema schema
+
+    def __cinit__(self):
+        pass
+
+    def _open(self, source):
+        _get_input_stream(source, &self.in_stream)
+        with nogil:
+            check_status(CRecordBatchStreamReader.Open(
+                self.in_stream.get(), &self.reader))
+
+        self.schema = pyarrow_wrap_schema(self.reader.get().schema())
+
+
+cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
     def _open(self, sink, Schema schema):
         get_writer(sink, &self.sink)
@@ -485,13 +509,16 @@ def read_message(source):
     return result
 
 
-def read_schema(obj):
+def read_schema(obj, DictionaryMemo dictionary_memo=None):
     """
     Read Schema from message or buffer
 
     Parameters
     ----------
     obj : buffer or Message
+    dictionary_memo : DictionaryMemo, optional
+        Needed to be able to reconstruct dictionary-encoded fields
+        with read_record_batch
 
     Returns
     -------
@@ -500,19 +527,27 @@ def read_schema(obj):
     cdef:
         shared_ptr[CSchema] result
         shared_ptr[RandomAccessFile] cpp_file
+        CDictionaryMemo temp_memo
+        CDictionaryMemo* arg_dict_memo
 
     if isinstance(obj, Message):
         raise NotImplementedError(type(obj))
 
     get_reader(obj, True, &cpp_file)
 
+    if dictionary_memo is not None:
+        arg_dict_memo = &dictionary_memo.memo
+    else:
+        arg_dict_memo = &temp_memo
+
     with nogil:
-        check_status(ReadSchema(cpp_file.get(), &result))
+        check_status(ReadSchema(cpp_file.get(), arg_dict_memo, &result))
 
     return pyarrow_wrap_schema(result)
 
 
-def read_record_batch(obj, Schema schema):
+def read_record_batch(obj, Schema schema,
+                      DictionaryMemo dictionary_memo=None):
     """
     Read RecordBatch from message, given a known schema
 
@@ -520,6 +555,9 @@ def read_record_batch(obj, Schema schema):
     ----------
     obj : Message or Buffer-like
     schema : Schema
+    dictionary_memo : DictionaryMemo, optional
+        If message contains dictionaries, must pass a populated
+        DictionaryMemo
 
     Returns
     -------
@@ -528,14 +566,22 @@ def read_record_batch(obj, Schema schema):
     cdef:
         shared_ptr[CRecordBatch] result
         Message message
+        CDictionaryMemo temp_memo
+        CDictionaryMemo* arg_dict_memo
 
     if isinstance(obj, Message):
         message = obj
     else:
         message = read_message(obj)
 
+    if dictionary_memo is not None:
+        arg_dict_memo = &dictionary_memo.memo
+    else:
+        arg_dict_memo = &temp_memo
+
     with nogil:
         check_status(ReadRecordBatch(deref(message.message.get()),
-                                     schema.sp_schema, &result))
+                                     schema.sp_schema,
+                                     arg_dict_memo, &result))
 
     return pyarrow_wrap_batch(result)

@@ -1,0 +1,3 @@
+{
+  "query": "{allEnvironmentViews(orderBy: [BENCHMARK_LANGUAGE_ASC, LANGUAGE_IMPLEMENTATION_VERSION_ASC, DEPENDENCIES_ASC]) {edges {node {environmentId, benchmarkLanguage, languageImplementationVersion, dependencies}}}}"
+}

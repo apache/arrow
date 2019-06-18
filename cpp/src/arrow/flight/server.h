@@ -22,87 +22,125 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include "arrow/util/visibility.h"
-
-#include "arrow/flight/types.h"
+#include "arrow/flight/server_auth.h"
+#include "arrow/flight/types.h"       // IWYU pragma: keep
+#include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 
 namespace arrow {
 
 class MemoryPool;
-class RecordBatchReader;
+class Schema;
 class Status;
-
-namespace ipc {
-namespace internal {
-
-struct IpcPayload;
-
-}  // namespace internal
-}  // namespace ipc
-
-namespace io {
-
-class OutputStream;
-
-}  // namespace io
 
 namespace flight {
 
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
-class ARROW_EXPORT FlightDataStream {
+class ARROW_FLIGHT_EXPORT FlightDataStream {
  public:
-  virtual ~FlightDataStream() = default;
+  virtual ~FlightDataStream();
 
-  // When the stream starts, send the schema.
   virtual std::shared_ptr<Schema> schema() = 0;
+
+  /// \brief Compute FlightPayload containing serialized RecordBatch schema
+  virtual Status GetSchemaPayload(FlightPayload* payload) = 0;
 
   // When the stream is completed, the last payload written will have null
   // metadata
-  virtual Status Next(ipc::internal::IpcPayload* payload) = 0;
+  virtual Status Next(FlightPayload* payload) = 0;
 };
 
 /// \brief A basic implementation of FlightDataStream that will provide
 /// a sequence of FlightData messages to be written to a gRPC stream
-class ARROW_EXPORT RecordBatchStream : public FlightDataStream {
+class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches
-  explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader);
+  /// \param[in,out] pool a MemoryPool to use for allocations
+  explicit RecordBatchStream(const std::shared_ptr<RecordBatchReader>& reader,
+                             MemoryPool* pool = default_memory_pool());
+  ~RecordBatchStream() override;
 
   std::shared_ptr<Schema> schema() override;
-  Status Next(ipc::internal::IpcPayload* payload) override;
+  Status GetSchemaPayload(FlightPayload* payload) override;
+  Status Next(FlightPayload* payload) override;
 
  private:
-  MemoryPool* pool_;
-  std::shared_ptr<RecordBatchReader> reader_;
+  class RecordBatchStreamImpl;
+  std::unique_ptr<RecordBatchStreamImpl> impl_;
 };
 
+// Silence warning
+// "non dll-interface class RecordBatchReader used as base for dll-interface class"
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4275)
+#endif
+
 /// \brief A reader for IPC payloads uploaded by a client
-class ARROW_EXPORT FlightMessageReader : public RecordBatchReader {
+class ARROW_FLIGHT_EXPORT FlightMessageReader : public RecordBatchReader {
  public:
   /// \brief Get the descriptor for this upload.
   virtual const FlightDescriptor& descriptor() const = 0;
 };
 
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
+/// \brief Call state/contextual data.
+class ARROW_FLIGHT_EXPORT ServerCallContext {
+ public:
+  virtual ~ServerCallContext() = default;
+  /// \brief The name of the authenticated peer (may be the empty string)
+  virtual const std::string& peer_identity() const = 0;
+};
+
+class ARROW_FLIGHT_EXPORT FlightServerOptions {
+ public:
+  explicit FlightServerOptions(const Location& location_);
+
+  Location location;
+  std::unique_ptr<ServerAuthHandler> auth_handler;
+  std::vector<CertKeyPair> tls_certificates;
+};
+
 /// \brief Skeleton RPC server implementation which can be used to create
 /// custom servers by implementing its abstract methods
-class ARROW_EXPORT FlightServerBase {
+class ARROW_FLIGHT_EXPORT FlightServerBase {
  public:
   FlightServerBase();
   virtual ~FlightServerBase();
 
-  /// \brief Run an insecure server on localhost at the indicated port. Block
-  /// until server is shut down or otherwise terminates
-  /// \param[in] port the port to bind to
-  void Run(int port);
+  // Lifecycle methods.
+
+  /// \brief Initialize a Flight server listening at the given location.
+  /// This method must be called before any other method.
+  /// \param[in] options The configuration for this server.
+  Status Init(FlightServerOptions& options);
+
+  /// \brief Set the server to stop when receiving any of the given signal
+  /// numbers.
+  /// This method must be called before Serve().
+  Status SetShutdownOnSignals(const std::vector<int> sigs);
+
+  /// \brief Start serving.
+  /// This method blocks until either Shutdown() is called or one of the signals
+  /// registered in SetShutdownOnSignals() is received.
+  Status Serve();
+
+  /// \brief Query whether Serve() was interrupted by a signal.
+  /// This method must be called after Serve() has returned.
+  ///
+  /// \return int the signal number that interrupted Serve(), if any, otherwise 0
+  int GotSignal() const;
 
   /// \brief Shut down the server. Can be called from signal handler or another
-  /// thread while Run blocks
+  /// thread while Serve() blocks.
   ///
   /// TODO(wesm): Shutdown with deadline
   void Shutdown();
@@ -112,45 +150,56 @@ class ARROW_EXPORT FlightServerBase {
 
   /// \brief Retrieve a list of available fields given an optional opaque
   /// criteria
+  /// \param[in] context The call context.
   /// \param[in] criteria may be null
   /// \param[out] listings the returned listings iterator
   /// \return Status
-  virtual Status ListFlights(const Criteria* criteria,
+  virtual Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
                              std::unique_ptr<FlightListing>* listings);
 
   /// \brief Retrieve the schema and an access plan for the indicated
   /// descriptor
+  /// \param[in] context The call context.
   /// \param[in] request may be null
   /// \param[out] info the returned flight info provider
   /// \return Status
-  virtual Status GetFlightInfo(const FlightDescriptor& request,
+  virtual Status GetFlightInfo(const ServerCallContext& context,
+                               const FlightDescriptor& request,
                                std::unique_ptr<FlightInfo>* info);
 
   /// \brief Get a stream of IPC payloads to put on the wire
+  /// \param[in] context The call context.
   /// \param[in] request an opaque ticket
   /// \param[out] stream the returned stream provider
   /// \return Status
-  virtual Status DoGet(const Ticket& request, std::unique_ptr<FlightDataStream>* stream);
+  virtual Status DoGet(const ServerCallContext& context, const Ticket& request,
+                       std::unique_ptr<FlightDataStream>* stream);
 
   /// \brief Process a stream of IPC payloads sent from a client
+  /// \param[in] context The call context.
   /// \param[in] reader a sequence of uploaded record batches
   /// \return Status
-  virtual Status DoPut(std::unique_ptr<FlightMessageReader> reader);
+  virtual Status DoPut(const ServerCallContext& context,
+                       std::unique_ptr<FlightMessageReader> reader);
 
   /// \brief Execute an action, return stream of zero or more results
+  /// \param[in] context The call context.
   /// \param[in] action the action to execute, with type and body
   /// \param[out] result the result iterator
   /// \return Status
-  virtual Status DoAction(const Action& action, std::unique_ptr<ResultStream>* result);
+  virtual Status DoAction(const ServerCallContext& context, const Action& action,
+                          std::unique_ptr<ResultStream>* result);
 
   /// \brief Retrieve the list of available actions
+  /// \param[in] context The call context.
   /// \param[out] actions a vector of available action types
   /// \return Status
-  virtual Status ListActions(std::vector<ActionType>* actions);
+  virtual Status ListActions(const ServerCallContext& context,
+                             std::vector<ActionType>* actions);
 
  private:
-  struct FlightServerBaseImpl;
-  std::unique_ptr<FlightServerBaseImpl> impl_;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace flight

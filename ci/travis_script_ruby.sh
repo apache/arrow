@@ -23,11 +23,16 @@ source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
 arrow_ruby_run_test()
 {
-  local arrow_c_glib_lib_dir=$1
+  local arrow_c_glib_lib_dir="$1"
 
-  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$arrow_c_glib_lib_dir
-  export GI_TYPELIB_PATH=$arrow_c_glib_lib_dir/girepository-1.0
+  local ld_library_path_keep="$LD_LIBRARY_PATH"
+  local pkg_config_path_keep="$PKG_COFNIG_PATH"
+  LD_LIBRARY_PATH="${arrow_c_glib_lib_dir}:${LD_LIBRARY_PATH}"
+  PKG_CONFIG_PATH="${arrow_c_glib_lib_dir}/pkgconfig:${PKG_CONFIG_PATH}"
+  export GI_TYPELIB_PATH="${arrow_c_glib_lib_dir}/girepository-1.0"
   test/run-test.rb
+  LD_LIBRARY_PATH="$ld_library_path_keep"
+  PKG_CONFIG_PATH="$pkg_config_path_keep"
 }
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib

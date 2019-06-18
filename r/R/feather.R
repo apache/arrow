@@ -72,7 +72,12 @@ write_feather.default <- function(data, stream) {
 
 #' @export
 write_feather.data.frame <- function(data, stream) {
-  write_feather(record_batch(data), stream)
+  # splice the columns in the record_batch() call
+  # e.g. if we had data <- data.frame(x = <...>, y = <...>)
+  # then record_batch(!!!data) is the same as
+  # record_batch(x = data$x, y = data$y)
+  # see ?rlang::list2()
+  write_feather(record_batch(!!!data), stream)
 }
 
 #' @method write_feather arrow::RecordBatch
@@ -102,7 +107,8 @@ write_feather_RecordBatch <- function(data, stream) {
 #' @export
 #' @method write_feather_RecordBatch fs_path
 `write_feather_RecordBatch.fs_path` <- function(data, stream) {
-  file_stream <- close_on_exit(FileOutputStream(stream))
+  file_stream <- FileOutputStream(stream)
+  on.exit(file_stream$close())
   `write_feather_RecordBatch.arrow::io::OutputStream`(data, file_stream)
 }
 
@@ -154,16 +160,15 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
 #' @param file a arrow::ipc::feather::TableReader or whatever the [FeatherTableReader()] function can handle
 #' @param columns names if the columns to read. The default `NULL` means all columns
 #' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
-#' @param use_threads Use threads when converting to a tibble.
 #' @param ... additional parameters
 #'
 #' @return a data frame if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
 #'
 #' @export
-read_feather <- function(file, columns = NULL, as_tibble = TRUE, use_threads = TRUE, ...){
+read_feather <- function(file, columns = NULL, as_tibble = TRUE, ...){
   out <- FeatherTableReader(file, ...)$Read(columns)
   if (isTRUE(as_tibble)) {
-    out <- as_tibble(out, use_threads = use_threads)
+    out <- as.data.frame(out)
   }
   out
 }

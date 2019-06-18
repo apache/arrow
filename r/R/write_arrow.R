@@ -21,7 +21,10 @@ to_arrow <- function(x) {
 
 `to_arrow.arrow::RecordBatch` <- function(x) x
 `to_arrow.arrow::Table` <- function(x) x
-`to_arrow.data.frame` <- function(x) table(x)
+
+# splice the data frame as arguments of table()
+# see ?rlang::list2()
+`to_arrow.data.frame` <- function(x) table(!!!x)
 
 #' serialize an [arrow::Table][arrow__Table], an [arrow::RecordBatch][arrow__RecordBatch], or a
 #'   data frame to either the streaming format or the binary file format
@@ -66,8 +69,10 @@ write_arrow <- function(x, stream, ...) {
 `write_arrow.fs_path` <- function(x, stream, ...) {
   assert_that(length(stream) == 1L)
   x <- to_arrow(x)
-  file_stream <- close_on_exit(FileOutputStream(stream))
-  file_writer <- close_on_exit(RecordBatchFileWriter(file_stream, x$schema))
+  file_stream <- FileOutputStream(stream)
+  on.exit(file_stream$close())
+  file_writer <- RecordBatchFileWriter(file_stream, x$schema)
+  on.exit(file_writer$close(), add = TRUE, after = FALSE)
   write_arrow(x, file_writer, ...)
 }
 

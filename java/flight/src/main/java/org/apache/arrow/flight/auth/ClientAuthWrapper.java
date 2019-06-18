@@ -30,21 +30,22 @@ import com.google.protobuf.ByteString;
 
 import io.grpc.stub.StreamObserver;
 
+/**
+ * Utility class for performing authorization over using a GRPC stub.
+ */
 public class ClientAuthWrapper {
 
   /**
-   * Do client auth for a client.
+   * Do client auth for a client.  The stub will be authenticated after this method returns.
+   *
    * @param authHandler The handler to use.
    * @param stub The service stub.
-   * @return The token if auth was successful.
    */
-  public static byte[] doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub) {
-
+  public static void doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub) {
     AuthObserver observer = new AuthObserver();
     observer.responseObserver = stub.handshake(observer);
-    byte[] bytes = authHandler.authenticate(observer.sender, observer.iter);
+    authHandler.authenticate(observer.sender, observer.iter);
     observer.responseObserver.onCompleted();
-    return bytes;
   }
 
   private static class AuthObserver implements StreamObserver<HandshakeResponse> {

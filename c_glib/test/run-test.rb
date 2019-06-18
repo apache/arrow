@@ -20,6 +20,10 @@
 require "pathname"
 require "test-unit"
 
+(ENV["ARROW_DLL_PATH"] || "").split(File::PATH_SEPARATOR).each do |path|
+  RubyInstaller::Runtime.add_dll_directory(path)
+end
+
 base_dir = Pathname(__dir__).parent
 test_dir = base_dir + "test"
 
@@ -62,6 +66,7 @@ require "rbconfig"
 require "tempfile"
 require "zlib"
 require_relative "helper/buildable"
+require_relative "helper/data-type"
 require_relative "helper/fixture"
 require_relative "helper/omittable"
 require_relative "helper/plasma-store"

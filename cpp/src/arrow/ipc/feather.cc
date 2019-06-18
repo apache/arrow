@@ -313,7 +313,8 @@ class TableReader::TableReaderImpl {
   }
 
   Status GetDataType(const fbs::PrimitiveArray* values, fbs::TypeMetadata metadata_type,
-                     const void* metadata, std::shared_ptr<DataType>* out) {
+                     const void* metadata, std::shared_ptr<DataType>* out,
+                     std::shared_ptr<Array>* out_dictionary = nullptr) {
 #define PRIMITIVE_CASE(CAP_TYPE, FACTORY_FUNC) \
   case fbs::Type_##CAP_TYPE:                   \
     *out = FACTORY_FUNC();                     \
@@ -326,11 +327,10 @@ class TableReader::TableReaderImpl {
         std::shared_ptr<DataType> index_type;
         RETURN_NOT_OK(GetDataType(values, fbs::TypeMetadata_NONE, nullptr, &index_type));
 
-        std::shared_ptr<Array> levels;
         RETURN_NOT_OK(
-            LoadValues(meta->levels(), fbs::TypeMetadata_NONE, nullptr, &levels));
+            LoadValues(meta->levels(), fbs::TypeMetadata_NONE, nullptr, out_dictionary));
 
-        *out = std::make_shared<DictionaryType>(index_type, levels, meta->ordered());
+        *out = dictionary(index_type, (*out_dictionary)->type(), meta->ordered());
         break;
       }
       case fbs::TypeMetadata_TimestampMetadata: {
@@ -385,7 +385,8 @@ class TableReader::TableReaderImpl {
   Status LoadValues(const fbs::PrimitiveArray* meta, fbs::TypeMetadata metadata_type,
                     const void* metadata, std::shared_ptr<Array>* out) {
     std::shared_ptr<DataType> type;
-    RETURN_NOT_OK(GetDataType(meta, metadata_type, metadata, &type));
+    std::shared_ptr<Array> dictionary;
+    RETURN_NOT_OK(GetDataType(meta, metadata_type, metadata, &type, &dictionary));
 
     std::vector<std::shared_ptr<Buffer>> buffers;
 
@@ -415,6 +416,7 @@ class TableReader::TableReaderImpl {
 
     auto arr_data =
         ArrayData::Make(type, meta->length(), std::move(buffers), meta->null_count());
+    arr_data->dictionary = dictionary;
     *out = MakeArray(arr_data);
     return Status::OK();
   }
@@ -772,8 +774,7 @@ class TableWriter::TableWriterImpl : public ArrayVisitor {
 
     ArrayMetadata levels_meta;
     std::shared_ptr<Array> sanitized_dictionary;
-    RETURN_NOT_OK(
-        SanitizeUnsupportedTypes(*dict_type.dictionary(), &sanitized_dictionary));
+    RETURN_NOT_OK(SanitizeUnsupportedTypes(*values.dictionary(), &sanitized_dictionary));
     RETURN_NOT_OK(WriteArray(*sanitized_dictionary, &levels_meta));
     current_column_->SetCategory(levels_meta, dict_type.ordered());
     return Status::OK();

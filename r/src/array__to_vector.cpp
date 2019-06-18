@@ -15,19 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "./arrow_types.h"
+#if defined(ARROW_R_WITH_ARROW)
+
 #include <arrow/util/parallel.h>
 #include <arrow/util/task-group.h>
-#include "arrow_types.h"
-
-using namespace Rcpp;
-using namespace arrow;
 
 namespace arrow {
 namespace r {
 
+using Rcpp::default_value;
+using Rcpp::IntegerVector;
+using Rcpp::LogicalVector_;
+using Rcpp::no_init;
+using Rcpp::Shield;
+using Rcpp::StringVector_;
+
 class Converter {
  public:
-  Converter(const ArrayVector& arrays) : arrays_(arrays) {}
+  explicit Converter(const ArrayVector& arrays) : arrays_(arrays) {}
 
   virtual ~Converter() {}
 
@@ -90,7 +96,7 @@ class Converter {
 template <int RTYPE>
 Status AllNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n) {
   auto p_data = Rcpp::internal::r_vector_start<RTYPE>(data) + start;
-  std::fill_n(p_data, n, default_value<RTYPE>());
+  std::fill_n(p_data, n, Rcpp::default_value<RTYPE>());
   return Status::OK();
 }
 
@@ -109,7 +115,7 @@ Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
   if (array->null_count()) {
     arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
                                                 array->offset(), n);
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data, ++p_values) {
+    for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data, ++p_values) {
       *p_data = bitmap_reader.IsSet() ? lambda(*p_values) : default_value<RTYPE>();
     }
   } else {
@@ -133,7 +139,7 @@ class Converter_SimpleArray : public Converter {
   using value_type = typename Vector::stored_type;
 
  public:
-  Converter_SimpleArray(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_SimpleArray(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const { return Vector(no_init(n)); }
 
@@ -151,7 +157,8 @@ class Converter_SimpleArray : public Converter {
 
 class Converter_Date32 : public Converter_SimpleArray<INTSXP> {
  public:
-  Converter_Date32(const ArrayVector& arrays) : Converter_SimpleArray<INTSXP>(arrays) {}
+  explicit Converter_Date32(const ArrayVector& arrays)
+      : Converter_SimpleArray<INTSXP>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
     IntegerVector data(no_init(n));
@@ -162,7 +169,7 @@ class Converter_Date32 : public Converter_SimpleArray<INTSXP> {
 
 struct Converter_String : public Converter {
  public:
-  Converter_String(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_String(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const { return StringVector_(no_init(n)); }
 
@@ -225,7 +232,7 @@ struct Converter_String : public Converter {
 
 class Converter_Boolean : public Converter {
  public:
-  Converter_Boolean(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Boolean(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const { return LogicalVector_(no_init(n)); }
 
@@ -246,11 +253,11 @@ class Converter_Boolean : public Converter {
       arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
                                                 array->offset(), n);
 
-      for (size_t i = 0; i < n; i++, data_reader.Next(), null_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, data_reader.Next(), null_reader.Next(), ++p_data) {
         *p_data = null_reader.IsSet() ? data_reader.IsSet() : NA_LOGICAL;
       }
     } else {
-      for (size_t i = 0; i < n; i++, data_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, data_reader.Next(), ++p_data) {
         *p_data = data_reader.IsSet();
       }
     }
@@ -261,7 +268,7 @@ class Converter_Boolean : public Converter {
 
 class Converter_Dictionary : public Converter {
  public:
-  Converter_Dictionary(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Dictionary(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
     IntegerVector data(no_init(n));
@@ -276,19 +283,19 @@ class Converter_Dictionary : public Converter {
       case Type::INT32:
         break;
       default:
-        stop("Cannot convert Dictionary Array of type `%s` to R",
-             dict_array->type()->ToString());
+        Rcpp::stop("Cannot convert Dictionary Array of type `%s` to R",
+                   dict_array->type()->ToString());
     }
 
     if (dict->type_id() != Type::STRING) {
-      stop("Cannot convert Dictionary Array of type `%s` to R",
-           dict_array->type()->ToString());
+      Rcpp::stop("Cannot convert Dictionary Array of type `%s` to R",
+                 dict_array->type()->ToString());
     }
     bool ordered = dict_array->dict_type()->ordered();
 
     data.attr("levels") = ArrayVector__as_vector(dict->length(), {dict});
     if (ordered) {
-      data.attr("class") = CharacterVector::create("ordered", "factor");
+      data.attr("class") = Rcpp::CharacterVector::create("ordered", "factor");
     } else {
       data.attr("class") = "factor";
     }
@@ -342,11 +349,11 @@ double ms_to_seconds(int64_t ms) { return static_cast<double>(ms / 1000); }
 
 class Converter_Date64 : public Converter {
  public:
-  Converter_Date64(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Date64(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    NumericVector data(no_init(n));
-    data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
+    Rcpp::NumericVector data(no_init(n));
+    data.attr("class") = Rcpp::CharacterVector::create("POSIXct", "POSIXt");
     return data;
   }
 
@@ -368,10 +375,10 @@ class Converter_Promotion : public Converter {
   using value_type = typename TypeTraits<Type>::ArrayType::value_type;
 
  public:
-  Converter_Promotion(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Promotion(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    return Rcpp::Vector<RTYPE, NoProtectStorage>(no_init(n));
+    return Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>(no_init(n));
   }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
@@ -394,12 +401,12 @@ class Converter_Promotion : public Converter {
 template <typename value_type>
 class Converter_Time : public Converter {
  public:
-  Converter_Time(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Time(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    NumericVector data(no_init(n));
-    data.attr("class") = CharacterVector::create("hms", "difftime");
-    data.attr("units") = CharacterVector::create("secs");
+    Rcpp::NumericVector data(no_init(n));
+    data.attr("class") = Rcpp::CharacterVector::create("hms", "difftime");
+    data.attr("units") = Rcpp::CharacterVector::create("secs");
     return data;
   }
 
@@ -428,6 +435,8 @@ class Converter_Time : public Converter {
         return 1000000;
       case TimeUnit::NANO:
         return 1000000000;
+      default:
+        return 0;
     }
   }
 };
@@ -435,20 +444,21 @@ class Converter_Time : public Converter {
 template <typename value_type>
 class Converter_Timestamp : public Converter_Time<value_type> {
  public:
-  Converter_Timestamp(const ArrayVector& arrays) : Converter_Time<value_type>(arrays) {}
+  explicit Converter_Timestamp(const ArrayVector& arrays)
+      : Converter_Time<value_type>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    NumericVector data(no_init(n));
-    data.attr("class") = CharacterVector::create("POSIXct", "POSIXt");
+    Rcpp::NumericVector data(no_init(n));
+    data.attr("class") = Rcpp::CharacterVector::create("POSIXct", "POSIXt");
     return data;
   }
 };
 
 class Converter_Decimal : public Converter {
  public:
-  Converter_Decimal(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Decimal(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return NumericVector_(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const { return Rcpp::NumericVector_(no_init(n)); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     return AllNull_Ingest<REALSXP>(data, start, n);
@@ -460,12 +470,18 @@ class Converter_Decimal : public Converter {
     const auto& decimals_arr =
         internal::checked_cast<const arrow::Decimal128Array&>(*array);
 
-    internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                         n);
+    if (array->null_count()) {
+      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
+                                           n);
 
-    for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
-      *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
-                                      : NA_REAL;
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
+        *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
+                                        : NA_REAL;
+      }
+    } else {
+      for (R_xlen_t i = 0; i < n; i++, ++p_data) {
+        *p_data = std::stod(decimals_arr.FormatValue(i).c_str());
+      }
     }
 
     return Status::OK();
@@ -474,10 +490,10 @@ class Converter_Decimal : public Converter {
 
 class Converter_Int64 : public Converter {
  public:
-  Converter_Int64(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Int64(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    NumericVector data(no_init(n));
+    Rcpp::NumericVector data(no_init(n));
     data.attr("class") = "integer64";
     return data;
   }
@@ -500,7 +516,7 @@ class Converter_Int64 : public Converter {
     if (array->null_count()) {
       internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
                                            n);
-      for (size_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
+      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
         *p_data = bitmap_reader.IsSet() ? p_values[i] : NA_INT64;
       }
     } else {
@@ -512,97 +528,104 @@ class Converter_Int64 : public Converter {
 };
 
 std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
-  using namespace arrow::r;
-
   switch (arrays[0]->type_id()) {
     // direct support
-    case Type::INT8:
-      return std::make_shared<Converter_SimpleArray<RAWSXP>>(arrays);
-
     case Type::INT32:
-      return std::make_shared<Converter_SimpleArray<INTSXP>>(arrays);
+      return std::make_shared<arrow::r::Converter_SimpleArray<INTSXP>>(arrays);
 
     case Type::DOUBLE:
-      return std::make_shared<Converter_SimpleArray<REALSXP>>(arrays);
+      return std::make_shared<arrow::r::Converter_SimpleArray<REALSXP>>(arrays);
 
       // need to handle 1-bit case
     case Type::BOOL:
-      return std::make_shared<Converter_Boolean>(arrays);
+      return std::make_shared<arrow::r::Converter_Boolean>(arrays);
 
       // handle memory dense strings
     case Type::STRING:
-      return std::make_shared<Converter_String>(arrays);
+      return std::make_shared<arrow::r::Converter_String>(arrays);
 
     case Type::DICTIONARY:
-      return std::make_shared<Converter_Dictionary>(arrays);
+      return std::make_shared<arrow::r::Converter_Dictionary>(arrays);
 
     case Type::DATE32:
-      return std::make_shared<Converter_Date32>(arrays);
+      return std::make_shared<arrow::r::Converter_Date32>(arrays);
 
     case Type::DATE64:
-      return std::make_shared<Converter_Date64>(arrays);
+      return std::make_shared<arrow::r::Converter_Date64>(arrays);
 
       // promotions to integer vector
+    case Type::INT8:
+      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int8Type>>(
+          arrays);
+
     case Type::UINT8:
-      return std::make_shared<Converter_Promotion<INTSXP, arrow::UInt8Type>>(arrays);
+      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt8Type>>(
+          arrays);
 
     case Type::INT16:
-      return std::make_shared<Converter_Promotion<INTSXP, arrow::Int16Type>>(arrays);
+      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int16Type>>(
+          arrays);
 
     case Type::UINT16:
-      return std::make_shared<Converter_Promotion<INTSXP, arrow::UInt16Type>>(arrays);
+      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt16Type>>(
+          arrays);
 
       // promotions to numeric vector
     case Type::UINT32:
-      return std::make_shared<Converter_Promotion<REALSXP, arrow::UInt32Type>>(arrays);
+      return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::UInt32Type>>(
+          arrays);
 
     case Type::HALF_FLOAT:
-      return std::make_shared<Converter_Promotion<REALSXP, arrow::HalfFloatType>>(arrays);
+      return std::make_shared<
+          arrow::r::Converter_Promotion<REALSXP, arrow::HalfFloatType>>(arrays);
 
     case Type::FLOAT:
-      return std::make_shared<Converter_Promotion<REALSXP, arrow::FloatType>>(arrays);
+      return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::FloatType>>(
+          arrays);
 
       // time32 ane time64
     case Type::TIME32:
-      return std::make_shared<Converter_Time<int32_t>>(arrays);
+      return std::make_shared<arrow::r::Converter_Time<int32_t>>(arrays);
 
     case Type::TIME64:
-      return std::make_shared<Converter_Time<int64_t>>(arrays);
+      return std::make_shared<arrow::r::Converter_Time<int64_t>>(arrays);
 
     case Type::TIMESTAMP:
-      return std::make_shared<Converter_Timestamp<int64_t>>(arrays);
+      return std::make_shared<arrow::r::Converter_Timestamp<int64_t>>(arrays);
 
     case Type::INT64:
-      return std::make_shared<Converter_Int64>(arrays);
+      return std::make_shared<arrow::r::Converter_Int64>(arrays);
 
     case Type::DECIMAL:
-      return std::make_shared<Converter_Decimal>(arrays);
+      return std::make_shared<arrow::r::Converter_Decimal>(arrays);
 
     default:
       break;
   }
 
-  stop(tfm::format("cannot handle Array of type %s", arrays[0]->type()->name()));
+  Rcpp::stop(tfm::format("cannot handle Array of type %s", arrays[0]->type()->name()));
   return nullptr;
 }
 
-List to_dataframe_serial(int64_t nr, int64_t nc, const CharacterVector& names,
-                         const std::vector<std::shared_ptr<Converter>>& converters) {
-  List tbl(nc);
+Rcpp::List to_dataframe_serial(
+    int64_t nr, int64_t nc, const Rcpp::CharacterVector& names,
+    const std::vector<std::shared_ptr<Converter>>& converters) {
+  Rcpp::List tbl(nc);
 
   for (int i = 0; i < nc; i++) {
     SEXP column = tbl[i] = converters[i]->Allocate(nr);
     STOP_IF_NOT_OK(converters[i]->IngestSerial(column));
   }
   tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+  tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
+  tbl.attr("row.names") = Rcpp::IntegerVector::create(NA_INTEGER, -nr);
   return tbl;
 }
 
-List to_dataframe_parallel(int64_t nr, int64_t nc, const CharacterVector& names,
-                           const std::vector<std::shared_ptr<Converter>>& converters) {
-  List tbl(nc);
+Rcpp::List to_dataframe_parallel(
+    int64_t nr, int64_t nc, const Rcpp::CharacterVector& names,
+    const std::vector<std::shared_ptr<Converter>>& converters) {
+  Rcpp::List tbl(nc);
 
   // task group to ingest data in parallel
   auto tg = arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
@@ -635,7 +658,7 @@ List to_dataframe_parallel(int64_t nr, int64_t nc, const CharacterVector& names,
   STOP_IF_NOT_OK(status);
 
   tbl.attr("names") = names;
-  tbl.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
+  tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
   tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
 
   return tbl;
@@ -644,24 +667,24 @@ List to_dataframe_parallel(int64_t nr, int64_t nc, const CharacterVector& names,
 }  // namespace r
 }  // namespace arrow
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   return arrow::r::ArrayVector__as_vector(array->length(), {array});
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return arrow::r::ArrayVector__as_vector(chunked_array->length(),
                                           chunked_array->chunks());
 }
 
-// [[Rcpp::export]]
-List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
-                               bool use_threads) {
+// [[arrow::export]]
+Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
+                                     bool use_threads) {
   int64_t nc = batch->num_columns();
   int64_t nr = batch->num_rows();
-  CharacterVector names(nc);
-  std::vector<ArrayVector> arrays(nc);
+  Rcpp::CharacterVector names(nc);
+  std::vector<arrow::ArrayVector> arrays(nc);
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
   for (int64_t i = 0; i < nc; i++) {
@@ -677,11 +700,12 @@ List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
   }
 }
 
-// [[Rcpp::export]]
-List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads) {
+// [[arrow::export]]
+Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
+                               bool use_threads) {
   int64_t nc = table->num_columns();
   int64_t nr = table->num_rows();
-  CharacterVector names(nc);
+  Rcpp::CharacterVector names(nc);
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
   for (int64_t i = 0; i < nc; i++) {
@@ -695,3 +719,5 @@ List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_th
     return arrow::r::to_dataframe_serial(nr, nc, names, converters);
   }
 }
+
+#endif

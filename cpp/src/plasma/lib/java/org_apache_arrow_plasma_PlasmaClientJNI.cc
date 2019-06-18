@@ -42,6 +42,14 @@ inline void object_id_to_jbyteArray(JNIEnv* env, jbyteArray a, plasma::ObjectID*
   env->SetByteArrayRegion(a, 0, OBJECT_ID_SIZE, reinterpret_cast<jbyte*>(oid));
 }
 
+inline void throw_exception_if_not_OK(JNIEnv* env, const arrow::Status& status) {
+  if (!status.ok()) {
+    jclass Exception =
+        env->FindClass("org/apache/arrow/plasma/exceptions/PlasmaClientException");
+    env->ThrowNew(Exception, status.message().c_str());
+  }
+}
+
 class JByteArrayGetter {
  private:
   JNIEnv* _env;
@@ -67,7 +75,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_connect(
   const char* m_name = env->GetStringUTFChars(manager_socket_name, nullptr);
 
   plasma::PlasmaClient* client = new plasma::PlasmaClient();
-  ARROW_CHECK_OK(client->Connect(s_name, m_name, release_delay));
+  throw_exception_if_not_OK(env, client->Connect(s_name, m_name, release_delay));
 
   env->ReleaseStringUTFChars(store_socket_name, s_name);
   env->ReleaseStringUTFChars(manager_socket_name, m_name);
@@ -78,7 +86,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_disconnect(
     JNIEnv* env, jclass cls, jlong conn) {
   plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
 
-  ARROW_CHECK_OK(client->Disconnect());
+  throw_exception_if_not_OK(env, client->Disconnect());
   delete client;
   return;
 }
@@ -115,7 +123,7 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_create(
     env->ThrowNew(exceptionClass, "");
     return nullptr;
   }
-  ARROW_CHECK(s.ok());
+  throw_exception_if_not_OK(env, s);
 
   return env->NewDirectByteBuffer(data->mutable_data(), size);
 }
@@ -145,7 +153,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_seal(
   plasma::ObjectID oid;
   jbyteArray_to_object_id(env, object_id, &oid);
 
-  ARROW_CHECK_OK(client->Seal(oid));
+  throw_exception_if_not_OK(env, client->Seal(oid));
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_release(
@@ -154,7 +162,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_release(
   plasma::ObjectID oid;
   jbyteArray_to_object_id(env, object_id, &oid);
 
-  ARROW_CHECK_OK(client->Release(oid));
+  throw_exception_if_not_OK(env, client->Release(oid));
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_delete(
@@ -163,7 +171,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_delete(
   plasma::ObjectID oid;
   jbyteArray_to_object_id(env, object_id, &oid);
 
-  ARROW_CHECK_OK(client->Delete(oid));
+  throw_exception_if_not_OK(env, client->Delete(oid));
 }
 
 JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
@@ -179,7 +187,8 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
         &oids[i]);
   }
   // TODO: may be blocked. consider to add the thread support
-  ARROW_CHECK_OK(client->Get(oids.data(), num_oids, timeout_ms, obufs.data()));
+  throw_exception_if_not_OK(env,
+                            client->Get(oids.data(), num_oids, timeout_ms, obufs.data()));
 
   jclass clsByteBuffer = env->FindClass("java/nio/ByteBuffer");
   jclass clsByteBufferArray = env->FindClass("[Ljava/nio/ByteBuffer;");
@@ -217,7 +226,7 @@ JNIEXPORT jboolean JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_contains
   jbyteArray_to_object_id(env, object_id, &oid);
 
   bool has_object;
-  ARROW_CHECK_OK(client->Contains(oid, &has_object));
+  throw_exception_if_not_OK(env, client->Contains(oid, &has_object));
 
   return has_object;
 }
@@ -227,7 +236,8 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_evict(
   plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
 
   int64_t evicted_bytes;
-  ARROW_CHECK_OK(client->Evict(static_cast<int64_t>(num_bytes), evicted_bytes));
+  throw_exception_if_not_OK(
+      env, client->Evict(static_cast<int64_t>(num_bytes), evicted_bytes));
 
   return static_cast<jlong>(evicted_bytes);
 }

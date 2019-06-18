@@ -29,30 +29,25 @@
 #include "parquet/column_scanner.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/printer.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/test-common.h"
-
-using std::string;
+#include "parquet/test-util.h"
 
 namespace parquet {
 
 using ReadableFile = ::arrow::io::ReadableFile;
 
-std::string alltypes_plain() {
+std::string data_file(const char* file) {
   std::string dir_string(test::get_data_dir());
   std::stringstream ss;
-  ss << dir_string << "/"
-     << "alltypes_plain.parquet";
+  ss << dir_string << "/" << file;
   return ss.str();
 }
 
+std::string alltypes_plain() { return data_file("alltypes_plain.parquet"); }
+
 std::string nation_dict_truncated_data_page() {
-  std::string dir_string(test::get_data_dir());
-  std::stringstream ss;
-  ss << dir_string << "/"
-     << "nation.dict-malformed.parquet";
-  return ss.str();
+  return data_file("nation.dict-malformed.parquet");
 }
 
 class TestAllTypesPlain : public ::testing::Test {
@@ -188,29 +183,6 @@ class TestLocalFile : public ::testing::Test {
   std::shared_ptr<::arrow::io::ReadableFile> handle;
 };
 
-class HelperFileClosed : public ArrowInputFile {
- public:
-  explicit HelperFileClosed(
-      const std::shared_ptr<::arrow::io::ReadableFileInterface>& file, bool* close_called)
-      : ArrowInputFile(file), close_called_(close_called) {}
-
-  void Close() override { *close_called_ = true; }
-
- private:
-  bool* close_called_;
-};
-
-TEST_F(TestLocalFile, FileClosedOnDestruction) {
-  bool close_called = false;
-  {
-    auto contents = ParquetFileReader::Contents::Open(
-        std::unique_ptr<RandomAccessSource>(new HelperFileClosed(handle, &close_called)));
-    std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
-    result->Open(std::move(contents));
-  }
-  ASSERT_TRUE(close_called);
-}
-
 TEST_F(TestLocalFile, OpenWithMetadata) {
   // PARQUET-808
   std::stringstream ss;
@@ -257,8 +229,96 @@ TEST(TestFileReaderAdHoc, NationDictTruncatedDataPage) {
   ASSERT_EQ(ss2.str(), ss.str());
 }
 
+TEST(TestDumpWithLocalFile, DumpOutput) {
+  std::string header_output = R"###(File Name: nested_lists.snappy.parquet
+Version: 1.0
+Created By: parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)
+Total rows: 3
+Number of RowGroups: 1
+Number of Real Columns: 2
+Number of Columns: 2
+Number of Selected Columns: 2
+Column 0: a.list.element.list.element.list.element (BYTE_ARRAY/UTF8)
+Column 1: b (INT32)
+--- Row Group: 0 ---
+--- Total Bytes: 155 ---
+--- Rows: 3 ---
+Column 0
+  Values: 18  Statistics Not Set
+  Compression: SNAPPY, Encodings: RLE PLAIN_DICTIONARY
+  Uncompressed Size: 103, Compressed Size: 104
+Column 1
+  Values: 3, Null Values: 0, Distinct Values: 0
+  Max: 1, Min: 1
+  Compression: SNAPPY, Encodings: BIT_PACKED PLAIN_DICTIONARY
+  Uncompressed Size: 52, Compressed Size: 56
+)###";
+  std::string values_output = R"###(--- Values ---
+element                       |b                             |
+a                             |1                             |
+b                             |1                             |
+c                             |1                             |
+NULL                          |
+d                             |
+a                             |
+b                             |
+c                             |
+d                             |
+NULL                          |
+e                             |
+a                             |
+b                             |
+c                             |
+d                             |
+e                             |
+NULL                          |
+f                             |
+
+)###";
+  std::string dump_output = R"###(--- Values ---
+Column 0
+  D:7 R:0 V:a
+  D:7 R:3 V:b
+  D:7 R:2 V:c
+  D:4 R:1 NULL
+  D:7 R:2 V:d
+  D:7 R:0 V:a
+  D:7 R:3 V:b
+  D:7 R:2 V:c
+  D:7 R:3 V:d
+  D:4 R:1 NULL
+  D:7 R:2 V:e
+  D:7 R:0 V:a
+  D:7 R:3 V:b
+  D:7 R:2 V:c
+  D:7 R:3 V:d
+  D:7 R:2 V:e
+  D:4 R:1 NULL
+  D:7 R:2 V:f
+Column 1
+  D:0 R:0 V:1
+  D:0 R:0 V:1
+  D:0 R:0 V:1
+)###";
+
+  // empty list means print all
+  std::list<int> columns;
+
+  std::stringstream ss_values, ss_dump;
+  const char* file = "nested_lists.snappy.parquet";
+  auto reader_props = default_reader_properties();
+  auto reader = ParquetFileReader::OpenFile(data_file(file), false, reader_props);
+  ParquetFilePrinter printer(reader.get());
+
+  printer.DebugPrint(ss_values, columns, true, false, false, file);
+  printer.DebugPrint(ss_dump, columns, true, true, false, file);
+
+  ASSERT_EQ(header_output + values_output, ss_values.str());
+  ASSERT_EQ(header_output + dump_output, ss_dump.str());
+}
+
 TEST(TestJSONWithLocalFile, JSONOutput) {
-  std::string jsonOutput = R"###({
+  std::string json_output = R"###({
   "FileName": "alltypes_plain.parquet",
   "Version": "0",
   "CreatedBy": "impala version 1.3.0-INTERNAL (build 8a48ddb1eff84592b3fc06bc6f51ec120e1fffc9)",
@@ -267,17 +327,17 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
   "NumberOfRealColumns": "11",
   "NumberOfColumns": "11",
   "Columns": [
-     { "Id": "0", "Name": "id", "PhysicalType": "INT32", "LogicalType": "NONE" },
-     { "Id": "1", "Name": "bool_col", "PhysicalType": "BOOLEAN", "LogicalType": "NONE" },
-     { "Id": "2", "Name": "tinyint_col", "PhysicalType": "INT32", "LogicalType": "NONE" },
-     { "Id": "3", "Name": "smallint_col", "PhysicalType": "INT32", "LogicalType": "NONE" },
-     { "Id": "4", "Name": "int_col", "PhysicalType": "INT32", "LogicalType": "NONE" },
-     { "Id": "5", "Name": "bigint_col", "PhysicalType": "INT64", "LogicalType": "NONE" },
-     { "Id": "6", "Name": "float_col", "PhysicalType": "FLOAT", "LogicalType": "NONE" },
-     { "Id": "7", "Name": "double_col", "PhysicalType": "DOUBLE", "LogicalType": "NONE" },
-     { "Id": "8", "Name": "date_string_col", "PhysicalType": "BYTE_ARRAY", "LogicalType": "NONE" },
-     { "Id": "9", "Name": "string_col", "PhysicalType": "BYTE_ARRAY", "LogicalType": "NONE" },
-     { "Id": "10", "Name": "timestamp_col", "PhysicalType": "INT96", "LogicalType": "NONE" }
+     { "Id": "0", "Name": "id", "PhysicalType": "INT32", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "1", "Name": "bool_col", "PhysicalType": "BOOLEAN", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "2", "Name": "tinyint_col", "PhysicalType": "INT32", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "3", "Name": "smallint_col", "PhysicalType": "INT32", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "4", "Name": "int_col", "PhysicalType": "INT32", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "5", "Name": "bigint_col", "PhysicalType": "INT64", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "6", "Name": "float_col", "PhysicalType": "FLOAT", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "7", "Name": "double_col", "PhysicalType": "DOUBLE", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "8", "Name": "date_string_col", "PhysicalType": "BYTE_ARRAY", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "9", "Name": "string_col", "PhysicalType": "BYTE_ARRAY", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
+     { "Id": "10", "Name": "timestamp_col", "PhysicalType": "INT96", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} }
   ],
   "RowGroups": [
      {
@@ -320,7 +380,7 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
   ParquetFilePrinter printer(reader.get());
   printer.JSONPrint(ss, columns, "alltypes_plain.parquet");
 
-  ASSERT_EQ(jsonOutput, ss.str());
+  ASSERT_EQ(json_output, ss.str());
 }
 
 }  // namespace parquet

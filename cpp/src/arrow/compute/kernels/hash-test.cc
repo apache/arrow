@@ -31,8 +31,8 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/test-common.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
@@ -43,8 +43,7 @@
 #include "arrow/compute/kernels/util-internal.h"
 #include "arrow/compute/test-util.h"
 
-using std::shared_ptr;
-using std::vector;
+#include "arrow/ipc/json-simple.h"
 
 namespace arrow {
 namespace compute {
@@ -53,32 +52,76 @@ namespace compute {
 // Dictionary tests
 
 template <typename Type, typename T>
-void CheckUnique(FunctionContext* ctx, const shared_ptr<DataType>& type,
-                 const vector<T>& in_values, const vector<bool>& in_is_valid,
-                 const vector<T>& out_values, const vector<bool>& out_is_valid) {
-  shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
-  shared_ptr<Array> expected = _MakeArray<Type, T>(type, out_values, out_is_valid);
+void CheckUnique(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
+                 const std::vector<T>& in_values, const std::vector<bool>& in_is_valid,
+                 const std::vector<T>& out_values,
+                 const std::vector<bool>& out_is_valid) {
+  std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
+  std::shared_ptr<Array> expected = _MakeArray<Type, T>(type, out_values, out_is_valid);
 
-  shared_ptr<Array> result;
+  std::shared_ptr<Array> result;
   ASSERT_OK(Unique(ctx, input, &result));
+  // TODO: We probably shouldn't rely on array ordering.
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
 
 template <typename Type, typename T>
-void CheckDictEncode(FunctionContext* ctx, const shared_ptr<DataType>& type,
-                     const vector<T>& in_values, const vector<bool>& in_is_valid,
-                     const vector<T>& out_values, const vector<bool>& out_is_valid,
-                     const vector<int32_t>& out_indices) {
-  shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
-  shared_ptr<Array> ex_dict = _MakeArray<Type, T>(type, out_values, out_is_valid);
-  shared_ptr<Array> ex_indices =
+void CheckValueCountsNull(FunctionContext* ctx, const std::shared_ptr<DataType>& type) {
+  std::vector<std::shared_ptr<Buffer>> data_buffers(2);
+  Datum input;
+  input.value =
+      ArrayData::Make(type, 0 /* length */, std::move(data_buffers), 0 /* null_count */);
+
+  std::shared_ptr<Array> ex_values = ArrayFromJSON(type, "[]");
+  std::shared_ptr<Array> ex_counts = ArrayFromJSON(int64(), "[]");
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(ValueCounts(ctx, input, &result));
+  auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
+  ASSERT_NE(result_struct->GetFieldByName(kValuesFieldName), nullptr);
+  // TODO: We probably shouldn't rely on value ordering.
+  ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName(kValuesFieldName));
+  ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->GetFieldByName(kCountsFieldName));
+}
+
+template <typename Type, typename T>
+void CheckValueCounts(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
+                      const std::vector<T>& in_values,
+                      const std::vector<bool>& in_is_valid,
+                      const std::vector<T>& out_values,
+                      const std::vector<bool>& out_is_valid,
+                      const std::vector<int64_t>& out_counts) {
+  std::vector<bool> all_valids(out_is_valid.size(), true);
+  std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
+  std::shared_ptr<Array> ex_values = _MakeArray<Type, T>(type, out_values, out_is_valid);
+  std::shared_ptr<Array> ex_counts =
+      _MakeArray<Int64Type, int64_t>(int64(), out_counts, all_valids);
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(ValueCounts(ctx, input, &result));
+  auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
+  // TODO: We probably shouldn't rely on value ordering.
+  ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->field(kValuesFieldIndex));
+  ASSERT_ARRAYS_EQUAL(*ex_counts, *result_struct->field(kCountsFieldIndex));
+}
+
+template <typename Type, typename T>
+void CheckDictEncode(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
+                     const std::vector<T>& in_values,
+                     const std::vector<bool>& in_is_valid,
+                     const std::vector<T>& out_values,
+                     const std::vector<bool>& out_is_valid,
+                     const std::vector<int32_t>& out_indices) {
+  std::shared_ptr<Array> input = _MakeArray<Type, T>(type, in_values, in_is_valid);
+  std::shared_ptr<Array> ex_dict = _MakeArray<Type, T>(type, out_values, out_is_valid);
+  std::shared_ptr<Array> ex_indices =
       _MakeArray<Int32Type, int32_t>(int32(), out_indices, in_is_valid);
 
-  DictionaryArray expected(dictionary(int32(), ex_dict), ex_indices);
+  DictionaryArray expected(dictionary(int32(), type), ex_indices, ex_dict);
 
   Datum datum_out;
   ASSERT_OK(DictionaryEncode(ctx, input, &datum_out));
-  shared_ptr<Array> result = MakeArray(datum_out.array());
+  std::shared_ptr<Array> result = MakeArray(datum_out.array());
 
   ASSERT_ARRAYS_EQUAL(expected, *result);
 }
@@ -99,66 +142,90 @@ TYPED_TEST(TestHashKernelPrimitive, Unique) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckUnique<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1}, {true, false, true, true},
-                            {2, 1}, {});
+                            {2, 0, 1}, {1, 0, 1});
   CheckUnique<TypeParam, T>(&this->ctx_, type, {2, 1, 3, 1}, {false, false, true, true},
-                            {3, 1}, {});
+                            {0, 3, 1}, {0, 1, 1});
+}
+
+TYPED_TEST(TestHashKernelPrimitive, ValueCounts) {
+  using T = typename TypeParam::c_type;
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  CheckValueCounts<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3, 4},
+                                 {true, false, true, true, true, true, false},
+                                 {2, 0, 1, 3}, {1, 0, 1, 1}, {3, 2, 1, 1});
+  CheckValueCounts<TypeParam, T>(&this->ctx_, type, {}, {}, {}, {}, {});
+  CheckValueCountsNull<TypeParam, T>(&this->ctx_, type);
 }
 
 TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckDictEncode<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3},
-                                {true, false, true, true, true, true}, {2, 1, 3}, {},
-                                {0, 0, 0, 1, 0, 2});
+                                {true, false, true, true, true, true}, {2, 1, 3},
+                                {1, 1, 1}, {0, 0, 0, 1, 0, 2});
 }
 
 TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
   using T = typename TypeParam::c_type;
-  // Skip this test for (u)int8
-  if (sizeof(Scalar) == 1) {
-    return;
-  }
 
-  const int64_t kTotalValues = 1000000;
+  const int64_t kTotalValues = std::min<int64_t>(INT16_MAX, 1UL << sizeof(T) / 2);
   const int64_t kRepeats = 5;
 
-  vector<T> values;
-  vector<T> uniques;
-  vector<int32_t> indices;
+  std::vector<T> values;
+  std::vector<T> uniques;
+  std::vector<int32_t> indices;
+  std::vector<int64_t> counts;
   for (int64_t i = 0; i < kTotalValues * kRepeats; i++) {
     const auto val = static_cast<T>(i % kTotalValues);
     values.push_back(val);
 
     if (i < kTotalValues) {
       uniques.push_back(val);
+      counts.push_back(kRepeats);
     }
     indices.push_back(static_cast<int32_t>(i % kTotalValues));
   }
 
   auto type = TypeTraits<TypeParam>::type_singleton();
   CheckUnique<TypeParam, T>(&this->ctx_, type, values, {}, uniques, {});
-
+  CheckValueCounts<TypeParam, T>(&this->ctx_, type, values, {}, uniques, {}, counts);
   CheckDictEncode<TypeParam, T>(&this->ctx_, type, values, {}, uniques, {}, indices);
 }
 
 TEST_F(TestHashKernel, UniqueTimeTimestamp) {
   CheckUnique<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {2, 1, 2, 1},
-                                   {true, false, true, true}, {2, 1}, {});
+                                   {true, false, true, true}, {2, 0, 1}, {1, 0, 1});
 
   CheckUnique<Time64Type, int64_t>(&this->ctx_, time64(TimeUnit::NANO), {2, 1, 2, 1},
-                                   {true, false, true, true}, {2, 1}, {});
+                                   {true, false, true, true}, {2, 0, 1}, {1, 0, 1});
 
   CheckUnique<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO),
-                                      {2, 1, 2, 1}, {true, false, true, true}, {2, 1},
-                                      {});
+                                      {2, 1, 2, 1}, {true, false, true, true}, {2, 0, 1},
+                                      {1, 0, 1});
+}
+
+TEST_F(TestHashKernel, ValueCountsTimeTimestamp) {
+  CheckValueCounts<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND),
+                                        {2, 1, 2, 1}, {true, false, true, true},
+                                        {2, 0, 1}, {1, 0, 1}, {2, 1, 1});
+
+  CheckValueCounts<Time64Type, int64_t>(&this->ctx_, time64(TimeUnit::NANO), {2, 1, 2, 1},
+                                        {true, false, true, true}, {2, 0, 1}, {1, 0, 1},
+                                        {2, 1, 1});
+
+  CheckValueCounts<TimestampType, int64_t>(&this->ctx_, timestamp(TimeUnit::NANO),
+                                           {2, 1, 2, 1}, {true, false, true, true},
+                                           {2, 0, 1}, {1, 0, 1}, {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, UniqueBoolean) {
   CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true},
-                                 {true, false, true, true}, {true, false}, {});
+                                 {true, false, true, true}, {true, false, false},
+                                 {1, 0, 1});
 
   CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
-                                 {true, false, true, true}, {false, true}, {});
+                                 {true, false, true, true}, {false, false, true},
+                                 {1, 0, 1});
 
   // No nulls
   CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true}, {},
@@ -166,6 +233,23 @@ TEST_F(TestHashKernel, UniqueBoolean) {
 
   CheckUnique<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true}, {},
                                  {false, true}, {});
+}
+
+TEST_F(TestHashKernel, ValueCountsBoolean) {
+  CheckValueCounts<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true},
+                                      {true, false, true, true}, {true, false, false},
+                                      {1, 0, 1}, {2, 1, 1});
+
+  CheckValueCounts<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
+                                      {true, false, true, true}, {false, false, true},
+                                      {1, 0, 1}, {2, 1, 1});
+
+  // No nulls
+  CheckValueCounts<BooleanType, bool>(&this->ctx_, boolean(), {true, true, false, true},
+                                      {}, {true, false}, {}, {3, 1});
+
+  CheckValueCounts<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
+                                      {}, {false, true}, {}, {2, 2});
 }
 
 TEST_F(TestHashKernel, DictEncodeBoolean) {
@@ -188,12 +272,23 @@ TEST_F(TestHashKernel, DictEncodeBoolean) {
 }
 
 TEST_F(TestHashKernel, UniqueBinary) {
-  CheckUnique<BinaryType, std::string>(&this->ctx_, binary(),
-                                       {"test", "", "test2", "test"},
-                                       {true, false, true, true}, {"test", "test2"}, {});
+  CheckUnique<BinaryType, std::string>(
+      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "", "test2"}, {1, 0, 1});
 
   CheckUnique<StringType, std::string>(&this->ctx_, utf8(), {"test", "", "test2", "test"},
-                                       {true, false, true, true}, {"test", "test2"}, {});
+                                       {true, false, true, true}, {"test", "", "test2"},
+                                       {1, 0, 1});
+}
+
+TEST_F(TestHashKernel, ValueCountsBinary) {
+  CheckValueCounts<BinaryType, std::string>(
+      &this->ctx_, binary(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
+
+  CheckValueCounts<StringType, std::string>(
+      &this->ctx_, utf8(), {"test", "", "test2", "test"}, {true, false, true, true},
+      {"test", "", "test2"}, {1, 0, 1}, {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, DictEncodeBinary) {
@@ -215,9 +310,10 @@ TEST_F(TestHashKernel, BinaryResizeTable) {
   const int32_t kRepeats = 3;
 #endif
 
-  vector<std::string> values;
-  vector<std::string> uniques;
-  vector<int32_t> indices;
+  std::vector<std::string> values;
+  std::vector<std::string> uniques;
+  std::vector<int32_t> indices;
+  std::vector<int64_t> counts;
   char buf[20] = "test";
 
   for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
@@ -228,15 +324,21 @@ TEST_F(TestHashKernel, BinaryResizeTable) {
 
     if (i < kTotalValues) {
       uniques.push_back(values.back());
+      counts.push_back(kRepeats);
     }
     indices.push_back(index);
   }
 
   CheckUnique<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {});
+  CheckValueCounts<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques,
+                                            {}, counts);
+
   CheckDictEncode<BinaryType, std::string>(&this->ctx_, binary(), values, {}, uniques, {},
                                            indices);
 
   CheckUnique<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {});
+  CheckValueCounts<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {},
+                                            counts);
   CheckDictEncode<StringType, std::string>(&this->ctx_, utf8(), values, {}, uniques, {},
                                            indices);
 }
@@ -244,7 +346,7 @@ TEST_F(TestHashKernel, BinaryResizeTable) {
 TEST_F(TestHashKernel, UniqueFixedSizeBinary) {
   CheckUnique<FixedSizeBinaryType, std::string>(
       &this->ctx_, fixed_size_binary(5), {"aaaaa", "", "bbbbb", "aaaaa"},
-      {true, false, true, true}, {"aaaaa", "bbbbb"}, {});
+      {true, false, true, true}, {"aaaaa", "", "bbbbb"}, {1, 0, 1});
 }
 
 TEST_F(TestHashKernel, DictEncodeFixedSizeBinary) {
@@ -262,9 +364,9 @@ TEST_F(TestHashKernel, FixedSizeBinaryResizeTable) {
   const int32_t kRepeats = 3;
 #endif
 
-  vector<std::string> values;
-  vector<std::string> uniques;
-  vector<int32_t> indices;
+  std::vector<std::string> values;
+  std::vector<std::string> uniques;
+  std::vector<int32_t> indices;
   char buf[7] = "test..";
 
   for (int32_t i = 0; i < kTotalValues * kRepeats; i++) {
@@ -288,51 +390,85 @@ TEST_F(TestHashKernel, FixedSizeBinaryResizeTable) {
 }
 
 TEST_F(TestHashKernel, UniqueDecimal) {
-  vector<Decimal128> values{12, 12, 11, 12};
-  vector<Decimal128> expected{12, 11};
+  std::vector<Decimal128> values{12, 12, 11, 12};
+  std::vector<Decimal128> expected{12, 0, 11};
 
   CheckUnique<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
-                                          {true, false, true, true}, expected, {});
+                                          {true, false, true, true}, expected, {1, 0, 1});
+}
+
+TEST_F(TestHashKernel, ValueCountsDecimal) {
+  std::vector<Decimal128> values{12, 12, 11, 12};
+  std::vector<Decimal128> expected{12, 0, 11};
+
+  CheckValueCounts<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
+                                               {true, false, true, true}, expected,
+                                               {1, 0, 1}, {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, DictEncodeDecimal) {
-  vector<Decimal128> values{12, 12, 11, 12, 13};
-  vector<Decimal128> expected{12, 11, 13};
+  std::vector<Decimal128> values{12, 12, 11, 12, 13};
+  std::vector<Decimal128> expected{12, 11, 13};
 
   CheckDictEncode<Decimal128Type, Decimal128>(&this->ctx_, decimal(2, 0), values,
                                               {true, false, true, true, true}, expected,
                                               {}, {0, 0, 1, 0, 2});
 }
 
+/* TODO(ARROW-4124): Determine if we wan to do something that is reproducable with floats.
+TEST_F(TestHashKernel, ValueCountsFloat) {
+
+    // No nulls
+  CheckValueCounts<FloatType, float>(&this->ctx_, float32(), {1.0f, 0.0f, -0.0f,
+std::nan("1"), std::nan("2")  },
+                                      {}, {0.0f, 1.0f, std::nan("1")}, {}, {});
+
+  CheckValueCounts<DoubleType, double>(&this->ctx_, float64(), {1.0f, 0.0f, -0.0f,
+std::nan("1"), std::nan("2")  },
+                                      {}, {0.0f, 1.0f, std::nan("1")}, {}, {});
+}
+*/
+
 TEST_F(TestHashKernel, ChunkedArrayInvoke) {
-  vector<std::string> values1 = {"foo", "bar", "foo"};
-  vector<std::string> values2 = {"bar", "baz", "quuux", "foo"};
+  std::vector<std::string> values1 = {"foo", "bar", "foo"};
+  std::vector<std::string> values2 = {"bar", "baz", "quuux", "foo"};
 
   auto type = utf8();
   auto a1 = _MakeArray<StringType, std::string>(type, values1, {});
   auto a2 = _MakeArray<StringType, std::string>(type, values2, {});
 
-  vector<std::string> dict_values = {"foo", "bar", "baz", "quuux"};
+  std::vector<std::string> dict_values = {"foo", "bar", "baz", "quuux"};
   auto ex_dict = _MakeArray<StringType, std::string>(type, dict_values, {});
+
+  std::vector<int64_t> counts = {3, 2, 1, 1};
+  auto ex_counts = _MakeArray<Int64Type, int64_t>(int64(), counts, {});
 
   ArrayVector arrays = {a1, a2};
   auto carr = std::make_shared<ChunkedArray>(arrays);
 
   // Unique
-  shared_ptr<Array> result;
+  std::shared_ptr<Array> result;
   ASSERT_OK(Unique(&this->ctx_, carr, &result));
   ASSERT_ARRAYS_EQUAL(*ex_dict, *result);
 
   // Dictionary encode
-  auto dict_type = dictionary(int32(), ex_dict);
+  auto dict_type = dictionary(int32(), type);
 
   auto i1 = _MakeArray<Int32Type, int32_t>(int32(), {0, 1, 0}, {});
   auto i2 = _MakeArray<Int32Type, int32_t>(int32(), {1, 2, 3, 0}, {});
 
-  ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, i1),
-                             std::make_shared<DictionaryArray>(dict_type, i2)};
+  ArrayVector dict_arrays = {std::make_shared<DictionaryArray>(dict_type, i1, ex_dict),
+                             std::make_shared<DictionaryArray>(dict_type, i2, ex_dict)};
   auto dict_carr = std::make_shared<ChunkedArray>(dict_arrays);
 
+  // Unique counts
+  std::shared_ptr<Array> counts_array;
+  ASSERT_OK(ValueCounts(&this->ctx_, carr, &counts_array));
+  auto counts_struct = std::dynamic_pointer_cast<StructArray>(counts_array);
+  ASSERT_ARRAYS_EQUAL(*ex_dict, *counts_struct->field(0));
+  ASSERT_ARRAYS_EQUAL(*ex_counts, *counts_struct->field(1));
+
+  // Dictionary encode
   Datum encoded_out;
   ASSERT_OK(DictionaryEncode(&this->ctx_, carr, &encoded_out));
   ASSERT_EQ(Datum::CHUNKED_ARRAY, encoded_out.kind());

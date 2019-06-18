@@ -18,14 +18,11 @@
 
 set -e
 
-export ARROW_BUILD_TOOLCHAIN=$CONDA_PREFIX
 export ARROW_HOME=$CONDA_PREFIX
 
 # Build arrow
 pushd /arrow/r
 
-rm src/RcppExports*
-Rscript -e "Rcpp::compileAttributes()"
 R CMD build --keep-empty-dirs .
 R CMD INSTALL $(ls | grep arrow_*.tar.gz)
 

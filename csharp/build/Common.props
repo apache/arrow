@@ -1,5 +1,0 @@
-<Project>
-    <PropertyGroup>
-        <BaseOutputPath>../../artifacts/$(AssemblyName)</BaseOutputPath>
-    </PropertyGroup>
-</Project>

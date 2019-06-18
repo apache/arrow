@@ -24,7 +24,7 @@ module Arrow
         builder_class_name = "#{name}Builder"
         if const_defined?(builder_class_name)
           builder_class = const_get(builder_class_name)
-          if args.size == builder_class.method(:build).arity
+          if builder_class.buildable?(args)
             builder_class.build(*args)
           else
             super
@@ -35,8 +35,18 @@ module Arrow
       end
     end
 
+    # @param i [Integer]
+    #   The index of the value to be gotten.
+    #
+    #   You can specify negative index like for `::Array#[]`.
+    #
+    # @return [Object, nil]
+    #   The `i`-th value.
+    #
+    #   `nil` for NULL value or out of range `i`.
     def [](i)
       i += length if i < 0
+      return nil if i < 0 or i >= length
       if null?(i)
         nil
       else

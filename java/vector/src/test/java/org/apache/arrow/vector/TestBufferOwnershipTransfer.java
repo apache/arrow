@@ -22,6 +22,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -97,7 +98,16 @@ public class TestBufferOwnershipTransfer {
         FieldType.nullable(ArrowType.Null.INSTANCE),
         newTriggerCallback(trigger2));
 
-    v1.makeTransferPair(v2).transfer();
+    try {
+      // since we are working with empty vectors, their internal
+      // buffers will be allocator.EMPTY which use
+      // ReferenceManager.NO_OP instance and transfer() is not
+      // supported
+      v1.makeTransferPair(v2).transfer();
+    } catch (Exception e) {
+      assertTrue(e instanceof UnsupportedOperationException);
+      assertTrue(e.getMessage().contains(ReferenceManager.NO_OP_ERROR_MESSAGE));
+    }
 
     assertFalse(trigger1.value);
     assertFalse(trigger2.value);

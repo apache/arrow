@@ -24,7 +24,6 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -99,6 +98,7 @@ struct WrapBytes<FixedSizeBinaryType> {
 
 static inline bool ListTypeSupported(const DataType& type) {
   switch (type.id()) {
+    case Type::BOOL:
     case Type::UINT8:
     case Type::INT8:
     case Type::UINT16:
@@ -173,19 +173,11 @@ inline void set_numpy_metadata(int type, DataType* datatype, PyArray_Descr* out)
   }
 }
 
-static inline PyArray_Descr* GetSafeNumPyDtype(int type) {
-  if (type == NPY_DATETIME) {
-    // It is not safe to mutate the result of DescrFromType
-    return PyArray_DescrNewFromType(type);
-  } else {
-    return PyArray_DescrFromType(type);
-  }
-}
 static inline PyObject* NewArray1DFromType(DataType* arrow_type, int type, int64_t length,
                                            void* data) {
   npy_intp dims[1] = {length};
 
-  PyArray_Descr* descr = GetSafeNumPyDtype(type);
+  PyArray_Descr* descr = internal::GetSafeNumPyDtype(type);
   if (descr == nullptr) {
     // Error occurred, trust error state is set
     return nullptr;
@@ -244,7 +236,7 @@ class PandasBlock {
   Status AllocateNDArray(int npy_type, int ndim = 2) {
     PyAcquireGIL lock;
 
-    PyArray_Descr* descr = GetSafeNumPyDtype(npy_type);
+    PyArray_Descr* descr = internal::GetSafeNumPyDtype(npy_type);
 
     PyObject* block_arr;
     if (ndim == 2) {
@@ -774,6 +766,7 @@ class ObjectBlock : public PandasBlock {
     } else if (type == Type::LIST) {
       auto list_type = std::static_pointer_cast<ListType>(col->type());
       switch (list_type->value_type()->id()) {
+        CONVERTLISTSLIKE_CASE(BooleanType, BOOL)
         CONVERTLISTSLIKE_CASE(UInt8Type, UINT8)
         CONVERTLISTSLIKE_CASE(Int8Type, INT8)
         CONVERTLISTSLIKE_CASE(UInt16Type, UINT16)
@@ -1176,9 +1169,13 @@ class CategoricalBlock : public PandasBlock {
       }
     }
 
+    // TODO(wesm): variable dictionaries
+    auto arr = converted_col->data()->chunk(0);
+    const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
+
     placement_data_[rel_placement] = abs_placement;
     PyObject* dict;
-    RETURN_NOT_OK(ConvertArrayToPandas(options_, dict_type.dictionary(), nullptr, &dict));
+    RETURN_NOT_OK(ConvertArrayToPandas(options_, dict_arr.dictionary(), nullptr, &dict));
     dictionary_.reset(dict);
     ordered_ = dict_type.ordered();
 
@@ -1215,7 +1212,7 @@ class CategoricalBlock : public PandasBlock {
 
     PyAcquireGIL lock;
 
-    PyArray_Descr* descr = GetSafeNumPyDtype(npy_type);
+    PyArray_Descr* descr = internal::GetSafeNumPyDtype(npy_type);
     if (descr == nullptr) {
       // Error occurred, trust error state is set
       return Status::OK();
@@ -1334,21 +1331,21 @@ static Status GetPandasBlockType(const Column& col, const PandasOptions& options
     case Type::DOUBLE:
       *output_type = PandasBlock::DOUBLE;
       break;
-    case Type::STRING:
+    case Type::STRING:  // fall through
     case Type::BINARY:
       if (options.strings_to_categorical) {
         *output_type = PandasBlock::CATEGORICAL;
         break;
-      }
-    case Type::NA:
-    case Type::FIXED_SIZE_BINARY:
-    case Type::STRUCT:
-    case Type::TIME32:
-    case Type::TIME64:
-    case Type::DECIMAL:
+      }                            // fall through
+    case Type::NA:                 // fall through
+    case Type::FIXED_SIZE_BINARY:  // fall through
+    case Type::STRUCT:             // fall through
+    case Type::TIME32:             // fall through
+    case Type::TIME64:             // fall through
+    case Type::DECIMAL:            // fall through
       *output_type = PandasBlock::OBJECT;
       break;
-    case Type::DATE32:
+    case Type::DATE32:  // fall through
     case Type::DATE64:
       *output_type = options.date_as_object ? PandasBlock::OBJECT : PandasBlock::DATETIME;
       break;
@@ -1657,8 +1654,8 @@ class ArrowDeserializer {
   // types
 
   template <typename Type>
-  typename std::enable_if<std::is_base_of<FloatingPoint, Type>::value, Status>::type
-  Visit(const Type& type) {
+  typename std::enable_if<is_floating_type<Type>::value, Status>::type Visit(
+      const Type& type) {
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;
 
@@ -1750,7 +1747,7 @@ class ArrowDeserializer {
 
   // Integer specialization
   template <typename Type>
-  typename std::enable_if<std::is_base_of<Integer, Type>::value, Status>::type Visit(
+  typename std::enable_if<is_integer_type<Type>::value, Status>::type Visit(
       const Type& type) {
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;
@@ -1887,7 +1884,8 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
-  Status Visit(const UnionType& type) { return Status::NotImplemented("union type"); }
+  // Default case
+  Status Visit(const DataType& type) { return Status::NotImplemented(type.name()); }
 
   Status Convert(PyObject** out) {
     RETURN_NOT_OK(VisitTypeInline(*col_->type(), this));

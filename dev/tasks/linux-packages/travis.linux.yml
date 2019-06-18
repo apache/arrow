@@ -16,22 +16,24 @@
 # under the License.
 
 os: linux
-dist: trusty
-sudo: required
+dist: xenial
 language: ruby
+
+services:
+  - docker
 
 # don't build twice
 if: tag IS blank
 
 env:
   global:
-    - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
     - BUILD_REF={{ arrow.head }}
     - ARROW_VERSION={{ arrow.version }}
 
 before_script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout {{ arrow.head }}
 
 script:

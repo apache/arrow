@@ -50,4 +50,16 @@ class TestInt8Array < Test::Unit::TestCase
     array = builder.finish
     assert_equal([-1, 2, -4], array.values)
   end
+
+  sub_test_case("#sum") do
+    def test_with_null
+      array = build_int8_array([2, -4, nil])
+      assert_equal(-2, array.sum)
+    end
+
+    def test_empty
+      array = build_int8_array([])
+      assert_equal(0, array.sum)
+    end
+  end
 end

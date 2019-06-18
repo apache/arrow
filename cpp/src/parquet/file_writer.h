@@ -22,13 +22,11 @@
 #include <memory>
 #include <ostream>
 
-#include "arrow/util/macros.h"
-
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
-#include "parquet/util/visibility.h"
 
 namespace arrow {
 
@@ -107,8 +105,17 @@ class PARQUET_EXPORT RowGroupWriter {
   std::unique_ptr<Contents> contents_;
 };
 
+ARROW_DEPRECATED("Use version with arrow::io::OutputStream*")
 PARQUET_EXPORT
 void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
+
+PARQUET_EXPORT
+void WriteFileMetaData(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
+
+PARQUET_EXPORT
+void WriteMetaDataFile(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:
@@ -148,6 +155,9 @@ class PARQUET_EXPORT ParquetFileWriter {
 
     /// This should be the only place this is stored. Everything else is a const reference
     std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
+
+    const std::shared_ptr<FileMetaData> metadata() const { return file_metadata_; }
+    std::shared_ptr<FileMetaData> file_metadata_;
   };
 
   ParquetFileWriter();
@@ -159,6 +169,7 @@ class PARQUET_EXPORT ParquetFileWriter {
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
 
+  ARROW_DEPRECATED("Use version with arrow::io::OutputStream")
   static std::unique_ptr<ParquetFileWriter> Open(
       const std::shared_ptr<OutputStream>& sink,
       const std::shared_ptr<schema::GroupNode>& schema,
@@ -216,9 +227,13 @@ class PARQUET_EXPORT ParquetFileWriter {
   /// Returns the file custom metadata
   const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const;
 
+  /// Returns the file metadata, only available after calling Close().
+  const std::shared_ptr<FileMetaData> metadata() const;
+
  private:
   // Holds a pointer to an instance of Contents implementation
   std::unique_ptr<Contents> contents_;
+  std::shared_ptr<FileMetaData> file_metadata_;
 };
 
 }  // namespace parquet

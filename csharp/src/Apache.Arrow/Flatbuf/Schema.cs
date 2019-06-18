@@ -10,7 +10,7 @@ using global::FlatBuffers;
 
 /// ----------------------------------------------------------------------
 /// A Schema describes the columns in a row batch
-public struct Schema : IFlatbufferObject
+internal struct Schema : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
@@ -43,9 +43,11 @@ public struct Schema : IFlatbufferObject
   public static void AddEndianness(FlatBufferBuilder builder, Endianness endianness) { builder.AddShort(0, (short)endianness, 0); }
   public static void AddFields(FlatBufferBuilder builder, VectorOffset fieldsOffset) { builder.AddOffset(1, fieldsOffset.Value, 0); }
   public static VectorOffset CreateFieldsVector(FlatBufferBuilder builder, Offset<Field>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateFieldsVectorBlock(FlatBufferBuilder builder, Offset<Field>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static void StartFieldsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddCustomMetadata(FlatBufferBuilder builder, VectorOffset customMetadataOffset) { builder.AddOffset(2, customMetadataOffset.Value, 0); }
   public static VectorOffset CreateCustomMetadataVector(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateCustomMetadataVectorBlock(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static void StartCustomMetadataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static Offset<Schema> EndSchema(FlatBufferBuilder builder) {
     int o = builder.EndObject();

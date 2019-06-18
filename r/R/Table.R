@@ -53,14 +53,24 @@
 
 #' Create an arrow::Table from a data frame
 #'
-#' @param .data a data frame
+#' @param ... arrays, chunked arrays, or R vectors
+#' @param schema a schema. The default (`NULL`) infers the schema from the `...`
+#'
+#' @return an arrow::Table
 #'
 #' @export
-table <- function(.data){
-  shared_ptr(`arrow::Table`, Table__from_dataframe(.data))
+table <- function(..., schema = NULL){
+  dots <- list2(...)
+  stopifnot(length(dots) > 0)
+  shared_ptr(`arrow::Table`, Table__from_dots(dots, schema))
 }
 
 #' @export
-`as_tibble.arrow::Table` <- function(x, use_threads = TRUE, ...){
-  Table__to_dataframe(x, use_threads = use_threads)
+`as.data.frame.arrow::Table` <- function(x, row.names = NULL, optional = FALSE, use_threads = TRUE, ...){
+  Table__to_dataframe(x, use_threads = option_use_threads())
+}
+
+#' @export
+`dim.arrow::Table` <- function(x) {
+  c(x$num_rows, x$num_columns)
 }

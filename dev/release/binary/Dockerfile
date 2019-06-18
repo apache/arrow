@@ -29,7 +29,6 @@ RUN \
     createrepo \
     devscripts \
     gpg \
-    jq \
     openssh-server \
     rpm \
     sudo && \
@@ -53,3 +52,5 @@ COPY id_rsa.pub /home/arrow/.ssh/authorized_keys
 RUN \
   chown -R arrow: /home/arrow/.ssh && \
   chmod -R og-rwx /home/arrow/.ssh
+
+EXPOSE 22

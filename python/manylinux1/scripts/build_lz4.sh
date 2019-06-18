@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export LZ4_VERSION="1.7.5"
+export LZ4_VERSION="1.8.3"
 export PREFIX="/usr"
 export CFLAGS="${CFLAGS} -O3 -fPIC"
 export LDFLAGS="${LDFLAGS} -Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
@@ -28,3 +28,5 @@ make -j5 PREFIX=${PREFIX}
 make install PREFIX=$PREFIX
 popd
 rm -rf lz4-${LZ4_VERSION}.tar.gz lz4-${LZ4_VERSION}
+# We don't want to link against shared libs
+rm -rf /usr/lib/liblz4.so*

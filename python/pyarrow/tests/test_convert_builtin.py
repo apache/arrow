@@ -19,6 +19,7 @@
 import pytest
 
 from pyarrow.compat import unittest, u  # noqa
+from pyarrow.pandas_compat import _pandas_api  # noqa
 import pyarrow as pa
 
 import collections
@@ -289,17 +290,21 @@ def test_sequence_numpy_integer(seq, np_scalar_pa_type):
 def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     np_scalar, pa_type = np_scalar_pa_type
     expected = [np_scalar(1), None, np_scalar(3), None]
-    if np_scalar != np.uint64:
-        expected += [np_scalar(np.iinfo(np_scalar).min),
-                     np_scalar(np.iinfo(np_scalar).max)]
-    else:
-        # max(uint64) is too large for the inferred int64 type
-        expected += [0, np.iinfo(np.int64).max]
+    expected += [np_scalar(np.iinfo(np_scalar).min),
+                 np_scalar(np.iinfo(np_scalar).max)]
     arr = pa.array(seq(expected))
     assert len(arr) == 6
     assert arr.null_count == 2
     assert arr.type == pa_type
     assert arr.to_pylist() == expected
+
+
+def test_numpy_scalars_mixed_type():
+    # ARROW-4324
+    data = [np.int32(10), np.float32(0.5)]
+    arr = pa.array(data)
+    expected = pa.array([10, 0.5], type='float64')
+    assert arr.equals(expected)
 
 
 @pytest.mark.xfail(reason="Type inference for uint64 not implemented",
@@ -434,9 +439,13 @@ def test_mixed_sequence_errors():
 
 
 @parametrize_with_iterable_types
-@pytest.mark.parametrize("np_scalar", [np.float16, np.float32, np.float64])
+@pytest.mark.parametrize("np_scalar,pa_type", [
+    (np.float16, pa.float16()),
+    (np.float32, pa.float32()),
+    (np.float64, pa.float64())
+])
 @pytest.mark.parametrize("from_pandas", [True, False])
-def test_sequence_numpy_double(seq, np_scalar, from_pandas):
+def test_sequence_numpy_double(seq, np_scalar, pa_type, from_pandas):
     data = [np_scalar(1.5), np_scalar(1), None, np_scalar(2.5), None, np.nan]
     arr = pa.array(seq(data), from_pandas=from_pandas)
     assert len(arr) == 6
@@ -444,7 +453,12 @@ def test_sequence_numpy_double(seq, np_scalar, from_pandas):
         assert arr.null_count == 3
     else:
         assert arr.null_count == 2
-    assert arr.type == pa.float64()
+    if from_pandas:
+        # The NaN is skipped in type inference, otherwise it forces a
+        # float64 promotion
+        assert arr.type == pa_type
+    else:
+        assert arr.type == pa.float64()
 
     assert arr.to_pylist()[:4] == data[:4]
     if from_pandas:
@@ -472,6 +486,17 @@ def test_ndarray_nested_numpy_double(from_pandas, inner_seq):
     else:
         np.testing.assert_equal(arr.to_pylist(),
                                 [[1., 2.], [1., 2., 3.], [np.nan], None])
+
+
+def test_array_ignore_nan_from_pandas():
+    # See ARROW-4324, this reverts logic that was introduced in
+    # ARROW-2240
+    with pytest.raises(ValueError):
+        pa.array([np.nan, 'str'])
+
+    arr = pa.array([np.nan, 'str'], from_pandas=True)
+    expected = pa.array([None, 'str'])
+    assert arr.equals(expected)
 
 
 def test_nested_ndarray_different_dtypes():
@@ -643,7 +668,6 @@ def test_sequence_timestamp_with_unit():
     s = pa.timestamp('s')
     ms = pa.timestamp('ms')
     us = pa.timestamp('us')
-    ns = pa.timestamp('ns')
 
     arr_s = pa.array(data, type=s)
     assert len(arr_s) == 1
@@ -663,16 +687,16 @@ def test_sequence_timestamp_with_unit():
     assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
                                                   23, 34, 123456)
 
-    arr_ns = pa.array(data, type=ns)
-    assert len(arr_ns) == 1
-    assert arr_ns.type == ns
-    assert arr_ns[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123456)
+
+class MyDate(datetime.date):
+    pass
+
+
+class MyDatetime(datetime.datetime):
+    pass
 
 
 def test_datetime_subclassing():
-    class MyDate(datetime.date):
-        pass
     data = [
         MyDate(2007, 7, 13),
     ]
@@ -682,9 +706,6 @@ def test_datetime_subclassing():
     assert arr_date.type == date_type
     assert arr_date[0].as_py() == datetime.date(2007, 7, 13)
 
-    class MyDatetime(datetime.datetime):
-        pass
-
     data = [
         MyDatetime(2007, 7, 13, 1, 23, 34, 123456),
     ]
@@ -692,7 +713,6 @@ def test_datetime_subclassing():
     s = pa.timestamp('s')
     ms = pa.timestamp('ms')
     us = pa.timestamp('us')
-    ns = pa.timestamp('ns')
 
     arr_s = pa.array(data, type=s)
     assert len(arr_s) == 1
@@ -712,14 +732,29 @@ def test_datetime_subclassing():
     assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
                                                   23, 34, 123456)
 
-    arr_ns = pa.array(data, type=ns)
-    assert len(arr_ns) == 1
-    assert arr_ns.type == ns
-    assert arr_ns[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123456)
+
+@pytest.mark.xfail(not _pandas_api.have_pandas,
+                   reason="pandas required for nanosecond conversion")
+def test_sequence_timestamp_nanoseconds():
+    inputs = [
+        [datetime.datetime(2007, 7, 13, 1, 23, 34, 123456)],
+        [MyDatetime(2007, 7, 13, 1, 23, 34, 123456)]
+    ]
+
+    for data in inputs:
+        ns = pa.timestamp('ns')
+        arr_ns = pa.array(data, type=ns)
+        assert len(arr_ns) == 1
+        assert arr_ns.type == ns
+        assert arr_ns[0].as_py() == datetime.datetime(2007, 7, 13, 1,
+                                                      23, 34, 123456)
 
 
+@pytest.mark.pandas
 def test_sequence_timestamp_from_int_with_unit():
+    # TODO(wesm): This test might be rewritten to assert the actual behavior
+    # when pandas is not installed
+
     data = [1]
 
     s = pa.timestamp('s')
@@ -852,6 +887,14 @@ def test_sequence_decimal_large_integer():
     assert arr.to_pylist() == data
 
 
+def test_sequence_decimal_from_integers():
+    data = [0, 1, -39402950693754869342983]
+    expected = [decimal.Decimal(x) for x in data]
+    type = pa.decimal128(precision=28, scale=5)
+    arr = pa.array(data, type=type)
+    assert arr.to_pylist() == expected
+
+
 def test_range_types():
     arr1 = pa.array(range(3))
     arr2 = pa.array((0, 1, 2))
@@ -867,6 +910,11 @@ def test_empty_range():
 
 
 def test_structarray():
+    arr = pa.StructArray.from_arrays([], names=[])
+    assert arr.type == pa.struct([])
+    assert len(arr) == 0
+    assert arr.to_pylist() == []
+
     ints = pa.array([None, 2, 3], type=pa.int64())
     strs = pa.array([u'a', None, u'c'], type=pa.string())
     bools = pa.array([True, False, None], type=pa.bool_())
@@ -882,6 +930,10 @@ def test_structarray():
 
     pylist = arr.to_pylist()
     assert pylist == expected, (pylist, expected)
+
+    # len(names) != len(arrays)
+    with pytest.raises(ValueError):
+        pa.StructArray.from_arrays([ints], ['ints', 'strs'])
 
 
 def test_struct_from_dicts():

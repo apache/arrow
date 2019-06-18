@@ -25,27 +25,25 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/compression.h"
-
-using std::string;
-using std::vector;
 
 namespace arrow {
 namespace util {
 
-vector<uint8_t> MakeRandomData(int data_size) {
-  vector<uint8_t> data(data_size);
+std::vector<uint8_t> MakeRandomData(int data_size) {
+  std::vector<uint8_t> data(data_size);
   random_bytes(data_size, 1234, data.data());
   return data;
 }
 
-vector<uint8_t> MakeCompressibleData(int data_size) {
+std::vector<uint8_t> MakeCompressibleData(int data_size) {
   std::string base_data =
       "Apache Arrow is a cross-language development platform for in-memory data";
   int nrepeats = static_cast<int>(1 + data_size / base_data.size());
 
-  vector<uint8_t> data(base_data.size() * nrepeats);
+  std::vector<uint8_t> data(base_data.size() * nrepeats);
   for (int i = 0; i < nrepeats; ++i) {
     std::memcpy(data.data() + i * base_data.size(), base_data.data(), base_data.size());
   }
@@ -55,7 +53,7 @@ vector<uint8_t> MakeCompressibleData(int data_size) {
 
 // Check roundtrip of one-shot compression and decompression functions.
 
-void CheckCodecRoundtrip(Compression::type ctype, const vector<uint8_t>& data) {
+void CheckCodecRoundtrip(Compression::type ctype, const std::vector<uint8_t>& data) {
   // create multiple compressors to try to break them
   std::unique_ptr<Codec> c1, c2;
 
@@ -88,10 +86,16 @@ void CheckCodecRoundtrip(Compression::type ctype, const vector<uint8_t>& data) {
   ASSERT_EQ(data.size(), actual_decompressed_size);
 
   // compress with c2
+  ASSERT_EQ(max_compressed_len,
+            static_cast<int>(c2->MaxCompressedLen(data.size(), data.data())));
+  // Resize to prevent ASAN from detecting container overflow.
+  compressed.resize(max_compressed_len);
+
   int64_t actual_size2;
   ASSERT_OK(c2->Compress(data.size(), data.data(), max_compressed_len, compressed.data(),
                          &actual_size2));
   ASSERT_EQ(actual_size2, actual_size);
+  compressed.resize(actual_size2);
 
   // decompress with c1
   ASSERT_OK(c1->Decompress(compressed.size(), compressed.data(), decompressed.size(),
@@ -110,7 +114,7 @@ void CheckCodecRoundtrip(Compression::type ctype, const vector<uint8_t>& data) {
 
 // Check the streaming compressor against one-shot decompression
 
-void CheckStreamingCompressor(Codec* codec, const vector<uint8_t>& data) {
+void CheckStreamingCompressor(Codec* codec, const std::vector<uint8_t>& data) {
   std::shared_ptr<Compressor> compressor;
   ASSERT_OK(codec->MakeCompressor(&compressor));
 
@@ -179,7 +183,7 @@ void CheckStreamingCompressor(Codec* codec, const vector<uint8_t>& data) {
 
 // Check the streaming decompressor against one-shot compression
 
-void CheckStreamingDecompressor(Codec* codec, const vector<uint8_t>& data) {
+void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) {
   // Create compressed data
   int64_t max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
   std::vector<uint8_t> compressed(max_compressed_len);
@@ -229,7 +233,7 @@ void CheckStreamingDecompressor(Codec* codec, const vector<uint8_t>& data) {
 
 // Check the streaming compressor and decompressor together
 
-void CheckStreamingRoundtrip(Codec* codec, const vector<uint8_t>& data) {
+void CheckStreamingRoundtrip(Codec* codec, const std::vector<uint8_t>& data) {
   std::shared_ptr<Compressor> compressor;
   std::shared_ptr<Decompressor> decompressor;
   ASSERT_OK(codec->MakeCompressor(&compressor));
@@ -337,7 +341,7 @@ TEST_P(CodecTest, CodecRoundtrip) {
 
   int sizes[] = {0, 10000, 100000};
   for (int data_size : sizes) {
-    vector<uint8_t> data = MakeRandomData(data_size);
+    std::vector<uint8_t> data = MakeRandomData(data_size);
     CheckCodecRoundtrip(GetCompression(), data);
 
     data = MakeCompressibleData(data_size);
@@ -354,7 +358,7 @@ TEST_P(CodecTest, OutputBufferIsSmall) {
   std::unique_ptr<Codec> codec;
   ASSERT_OK(Codec::Create(type, &codec));
 
-  vector<uint8_t> data = MakeRandomData(10);
+  std::vector<uint8_t> data = MakeRandomData(10);
   auto max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
   std::vector<uint8_t> compressed(max_compressed_len);
   std::vector<uint8_t> decompressed(data.size() - 1);
@@ -393,7 +397,7 @@ TEST_P(CodecTest, StreamingCompressor) {
   for (int data_size : sizes) {
     auto codec = MakeCodec();
 
-    vector<uint8_t> data = MakeRandomData(data_size);
+    std::vector<uint8_t> data = MakeRandomData(data_size);
     CheckStreamingCompressor(codec.get(), data);
 
     data = MakeCompressibleData(data_size);
@@ -420,7 +424,7 @@ TEST_P(CodecTest, StreamingDecompressor) {
   for (int data_size : sizes) {
     auto codec = MakeCodec();
 
-    vector<uint8_t> data = MakeRandomData(data_size);
+    std::vector<uint8_t> data = MakeRandomData(data_size);
     CheckStreamingDecompressor(codec.get(), data);
 
     data = MakeCompressibleData(data_size);
@@ -438,7 +442,7 @@ TEST_P(CodecTest, StreamingRoundtrip) {
   for (int data_size : sizes) {
     auto codec = MakeCodec();
 
-    vector<uint8_t> data = MakeRandomData(data_size);
+    std::vector<uint8_t> data = MakeRandomData(data_size);
     CheckStreamingRoundtrip(codec.get(), data);
 
     data = MakeCompressibleData(data_size);

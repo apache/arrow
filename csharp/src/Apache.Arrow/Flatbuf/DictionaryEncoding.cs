@@ -10,7 +10,7 @@ using global::FlatBuffers;
 
 /// ----------------------------------------------------------------------
 /// Dictionary encoding metadata
-public struct DictionaryEncoding : IFlatbufferObject
+internal struct DictionaryEncoding : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

@@ -23,7 +23,7 @@ Exposing Apache Arrow data on the wire.
 
 [Protocol Description Slides](https://www.slideshare.net/JacquesNadeau5/apache-arrow-flight-overview)
 
-[GRPC Protocol Definition](https://github.com/jacques-n/arrow/blob/flight/java/flight/src/main/protobuf/flight.proto)
+[GRPC Protocol Definition](https://github.com/apache/arrow/blob/master/format/Flight.proto)
 
 ## Example usage
 

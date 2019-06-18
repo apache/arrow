@@ -22,7 +22,6 @@ import pytest
 import hypothesis as h
 import hypothesis.strategies as st
 
-import pandas as pd
 import numpy as np
 import pyarrow as pa
 import pyarrow.types as types
@@ -63,7 +62,7 @@ def get_many_types():
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
         pa.union([pa.field('a', pa.binary(10), nullable=False),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-        pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
+        pa.dictionary(pa.int32(), pa.string())
     )
 
 
@@ -114,9 +113,7 @@ def test_is_list():
 
 
 def test_is_dictionary():
-    assert types.is_dictionary(
-        pa.dictionary(pa.int32(),
-                      pa.array(['a', 'b', 'c'])))
+    assert types.is_dictionary(pa.dictionary(pa.int32(), pa.string()))
     assert not types.is_dictionary(pa.int32())
 
 
@@ -249,8 +246,9 @@ def test_struct_type():
     assert ty['b'] == ty[2]
 
     # Duplicate
-    with pytest.raises(KeyError):
-        ty['a']
+    with pytest.warns(UserWarning):
+        with pytest.raises(KeyError):
+            ty['a']
 
     # Not found
     with pytest.raises(KeyError):
@@ -296,27 +294,33 @@ def test_union_type():
         ty = pa.union(fields, mode=mode)
         assert ty.mode == 'sparse'
         check_fields(ty, fields)
+        assert ty.type_codes == [0, 1]
     for mode in ('dense', pa.lib.UnionMode_DENSE):
         ty = pa.union(fields, mode=mode)
         assert ty.mode == 'dense'
         check_fields(ty, fields)
+        assert ty.type_codes == [0, 1]
     for mode in ('unknown', 2):
         with pytest.raises(ValueError, match='Invalid union mode'):
             pa.union(fields, mode=mode)
 
 
 def test_dictionary_type():
-    ty0 = pa.dictionary(pa.int32(), pa.array(['a', 'b', 'c']))
+    ty0 = pa.dictionary(pa.int32(), pa.string())
     assert ty0.index_type == pa.int32()
-    assert isinstance(ty0.dictionary, pa.Array)
-    assert ty0.dictionary.to_pylist() == ['a', 'b', 'c']
+    assert ty0.value_type == pa.string()
     assert ty0.ordered is False
 
-    ty1 = pa.dictionary(pa.int8(), pa.array([1.0, 2.0]), ordered=True)
+    ty1 = pa.dictionary(pa.int8(), pa.float64(), ordered=True)
     assert ty1.index_type == pa.int8()
-    assert isinstance(ty0.dictionary, pa.Array)
-    assert ty1.dictionary.to_pylist() == [1.0, 2.0]
+    assert ty1.value_type == pa.float64()
     assert ty1.ordered is True
+
+    # construct from non-arrow objects
+    ty2 = pa.dictionary('int8', 'string')
+    assert ty2.index_type == pa.int8()
+    assert ty2.value_type == pa.string()
+    assert ty2.ordered is False
 
 
 def test_types_hashable():
@@ -400,6 +404,14 @@ def test_decimal_properties():
     assert ty.byte_width == 16
     assert ty.precision == 19
     assert ty.scale == 4
+
+
+def test_decimal_overflow():
+    pa.decimal128(1, 0)
+    pa.decimal128(38, 0)
+    for i in (0, -1, 39):
+        with pytest.raises(ValueError):
+            pa.decimal128(39, 0)
 
 
 def test_type_equality_operators():
@@ -511,16 +523,6 @@ def test_field_add_remove_metadata():
     assert f5.equals(f6)
 
 
-def test_empty_table():
-    schema = pa.schema([
-        pa.field('oneField', pa.int64())
-    ])
-    table = schema.empty_table()
-    assert isinstance(table, pa.Table)
-    assert table.num_rows == 0
-    assert table.schema == schema
-
-
 def test_is_integer_value():
     assert pa.types.is_integer_value(1)
     assert pa.types.is_integer_value(np.int64(1))
@@ -540,23 +542,6 @@ def test_is_boolean_value():
     assert pa.types.is_boolean_value(False)
     assert pa.types.is_boolean_value(np.bool_(True))
     assert pa.types.is_boolean_value(np.bool_(False))
-
-
-@pytest.mark.parametrize('data', [
-    list(range(10)),
-    pd.Categorical(list(range(10))),
-    ['foo', 'bar', None, 'baz', 'qux'],
-    np.array([
-        '2007-07-13T01:23:34.123456789',
-        '2006-01-13T12:34:56.432539784',
-        '2010-08-13T05:46:57.437699912'
-    ], dtype='datetime64[ns]')
-])
-def test_schema_from_pandas(data):
-    df = pd.DataFrame({'a': data})
-    schema = pa.Schema.from_pandas(df)
-    expected = pa.Table.from_pandas(df).schema
-    assert schema == expected
 
 
 @h.given(

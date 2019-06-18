@@ -21,7 +21,6 @@
 #ifndef ARROW_PYTHON_PLATFORM_H
 #define ARROW_PYTHON_PLATFORM_H
 
-#include <iostream>
 #include <Python.h> // IWYU pragma: export
 #include <datetime.h>
 

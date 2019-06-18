@@ -16,15 +16,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export ZSTD_VERSION="1.2.0"
-export CFLAGS="${CFLAGS} -O3 -fPIC"
-export PREFIX="/usr"
-export LDFLAGS="${LDFLAGS} -Wl,-rpath,${PREFIX}/lib"
+export ZSTD_VERSION="1.3.8"
+
 curl -sL "https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz" -o zstd-${ZSTD_VERSION}.tar.gz
 tar xf zstd-${ZSTD_VERSION}.tar.gz
 pushd zstd-${ZSTD_VERSION}
+mkdir build_cmake
+pushd build_cmake
 
-make -j5
-make install PREFIX=$PREFIX
+cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ../build/cmake -DZSTD_BUILD_STATIC=ON -DZSTD_BUILD_SHARED=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=1
+ninja install
+
+popd
 popd
 rm -rf zstd-${ZSTD_VERSION}.tar.gz zstd-${ZSTD_VERSION}

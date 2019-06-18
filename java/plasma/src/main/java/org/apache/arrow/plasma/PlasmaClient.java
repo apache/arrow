@@ -99,7 +99,7 @@ public class PlasmaClient implements ObjectStoreLink {
         } else {
           meta = null;
         }
-        ret.add(new ObjectStoreData(data, meta));
+        ret.add(new ObjectStoreData(meta, data));
       }
     }
     return ret;

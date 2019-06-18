@@ -19,18 +19,18 @@ package org.apache.arrow.flight;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.BooleanSupplier;
 
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
+import org.apache.arrow.flight.auth.AuthConstants;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthWrapper;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.ActionType;
 import org.apache.arrow.flight.impl.Flight.Empty;
-import org.apache.arrow.flight.impl.Flight.FlightGetInfo;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.Flight.PutResult;
-import org.apache.arrow.flight.impl.Flight.Result;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -43,6 +43,9 @@ import com.google.common.base.Preconditions;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 
+/**
+ * GRPC service implementation for a flight server.
+ */
 class FlightService extends FlightServiceImplBase {
 
   private static final Logger logger = LoggerFactory.getLogger(FlightService.class);
@@ -65,27 +68,34 @@ class FlightService extends FlightServiceImplBase {
   }
 
   @Override
-  public void listFlights(Flight.Criteria criteria, StreamObserver<FlightGetInfo> responseObserver) {
+  public void listFlights(Flight.Criteria criteria, StreamObserver<Flight.FlightInfo> responseObserver) {
     try {
-      producer.listFlights(new Criteria(criteria), StreamPipe.wrap(responseObserver, t -> t.toProtocol()));
+      producer.listFlights(makeContext((ServerCallStreamObserver<?>) responseObserver), new Criteria(criteria),
+          StreamPipe.wrap(responseObserver, FlightInfo::toProtocol));
     } catch (Exception ex) {
       responseObserver.onError(ex);
     }
   }
 
+  private CallContext makeContext(ServerCallStreamObserver<?> responseObserver) {
+    return new CallContext(AuthConstants.PEER_IDENTITY_KEY.get(),
+        responseObserver::isCancelled);
+  }
+
   public void doGetCustom(Flight.Ticket ticket, StreamObserver<ArrowMessage> responseObserver) {
     try {
-      producer.getStream(new Ticket(ticket), new GetListener(responseObserver));
+      producer.getStream(makeContext((ServerCallStreamObserver<?>) responseObserver), new Ticket(ticket),
+          new GetListener(responseObserver));
     } catch (Exception ex) {
       responseObserver.onError(ex);
     }
   }
 
   @Override
-  public void doAction(Flight.Action request, StreamObserver<Result> responseObserver) {
+  public void doAction(Flight.Action request, StreamObserver<Flight.Result> responseObserver) {
     try {
-      responseObserver.onNext(producer.doAction(new Action(request)).toProtocol());
-      responseObserver.onCompleted();
+      producer.doAction(makeContext((ServerCallStreamObserver<?>) responseObserver), new Action(request),
+          StreamPipe.wrap(responseObserver, Result::toProtocol));
     } catch (Exception ex) {
       responseObserver.onError(ex);
     }
@@ -94,7 +104,8 @@ class FlightService extends FlightServiceImplBase {
   @Override
   public void listActions(Empty request, StreamObserver<ActionType> responseObserver) {
     try {
-      producer.listActions(StreamPipe.wrap(responseObserver, t -> t.toProtocol()));
+      producer.listActions(makeContext((ServerCallStreamObserver<?>) responseObserver),
+          StreamPipe.wrap(responseObserver, t -> t.toProtocol()));
     } catch (Exception ex) {
       responseObserver.onError(ex);
     }
@@ -158,7 +169,7 @@ class FlightService extends FlightServiceImplBase {
     FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, null, (count) -> responseObserver.request(count));
     executors.submit(() -> {
       try {
-        responseObserver.onNext(producer.acceptPut(fs).call());
+        responseObserver.onNext(producer.acceptPut(makeContext(responseObserver), fs).call());
         responseObserver.onCompleted();
       } catch (Exception ex) {
         responseObserver.onError(ex);
@@ -169,9 +180,10 @@ class FlightService extends FlightServiceImplBase {
   }
 
   @Override
-  public void getFlightInfo(Flight.FlightDescriptor request, StreamObserver<FlightGetInfo> responseObserver) {
+  public void getFlightInfo(Flight.FlightDescriptor request, StreamObserver<Flight.FlightInfo> responseObserver) {
     try {
-      FlightInfo info = producer.getFlightInfo(new FlightDescriptor(request));
+      FlightInfo info = producer
+          .getFlightInfo(makeContext((ServerCallStreamObserver<?>) responseObserver), new FlightDescriptor(request));
       responseObserver.onNext(info.toProtocol());
       responseObserver.onCompleted();
     } catch (Exception ex) {
@@ -179,4 +191,27 @@ class FlightService extends FlightServiceImplBase {
     }
   }
 
+  /**
+   * Call context for the service.
+   */
+  static class CallContext implements FlightProducer.CallContext {
+
+    private final String peerIdentity;
+    private final BooleanSupplier isCancelled;
+
+    CallContext(final String peerIdentity, BooleanSupplier isCancelled) {
+      this.peerIdentity = peerIdentity;
+      this.isCancelled = isCancelled;
+    }
+
+    @Override
+    public String peerIdentity() {
+      return peerIdentity;
+    }
+
+    @Override
+    public boolean isCancelled() {
+      return this.isCancelled.getAsBoolean();
+    }
+  }
 }

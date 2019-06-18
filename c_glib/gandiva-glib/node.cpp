@@ -28,12 +28,12 @@
 #include <gandiva-glib/node.hpp>
 
 template <typename Type>
-Type
+const Type &
 ggandiva_literal_node_get(GGandivaLiteralNode *node)
 {
   auto gandiva_literal_node =
     std::static_pointer_cast<gandiva::LiteralNode>(ggandiva_node_get_raw(GGANDIVA_NODE(node)));
-  return gandiva_literal_node->holder().get<Type>();
+  return arrow::util::get<Type>(gandiva_literal_node->holder());
 }
 
 G_BEGIN_DECLS
@@ -1178,7 +1178,7 @@ ggandiva_string_literal_node_new(const gchar *value)
 const gchar *
 ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node)
 {
-  auto value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
+  auto &value = ggandiva_literal_node_get<std::string>(GGANDIVA_LITERAL_NODE(node));
   return value.c_str();
 }
 
@@ -1323,7 +1323,7 @@ ggandiva_if_node_class_init(GGandivaIfNodeClass *klass)
  * @return_type: A #GArrowDataType.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable): A newly created #GGandivaIfNode or %NULl on error.
+ * Returns: (nullable): A newly created #GGandivaIfNode or %NULL on error.
  *
  * Since: 0.12.0
  */

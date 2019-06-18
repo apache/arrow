@@ -16,16 +16,25 @@
 // under the License.
 
 #include "arrow/flight/internal.h"
+#include "arrow/flight/platform.h"
+#include "arrow/flight/protocol-internal.h"
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
 
+#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
+#else
+#include <grpc++/grpc++.h>
+#endif
 
+#include "arrow/buffer.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -110,14 +119,11 @@ Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria) {
 // Location
 
 Status FromProto(const pb::Location& pb_location, Location* location) {
-  location->host = pb_location.host();
-  location->port = pb_location.port();
-  return Status::OK();
+  return Location::Parse(pb_location.uri(), location);
 }
 
 void ToProto(const Location& location, pb::Location* pb_location) {
-  pb_location->set_host(location.host);
-  pb_location->set_port(location.port);
+  pb_location->set_uri(location.ToString());
 }
 
 // Ticket
@@ -197,9 +203,9 @@ Status ToProto(const FlightDescriptor& descriptor, pb::FlightDescriptor* pb_desc
   return Status::OK();
 }
 
-// FlightGetInfo
+// FlightInfo
 
-Status FromProto(const pb::FlightGetInfo& pb_info, FlightInfo::Data* info) {
+Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
   RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info->descriptor));
 
   info->schema = pb_info.schema();
@@ -217,13 +223,15 @@ Status FromProto(const pb::FlightGetInfo& pb_info, FlightInfo::Data* info) {
 Status SchemaToString(const Schema& schema, std::string* out) {
   // TODO(wesm): Do we care about better memory efficiency here?
   std::shared_ptr<Buffer> serialized_schema;
-  RETURN_NOT_OK(ipc::SerializeSchema(schema, default_memory_pool(), &serialized_schema));
+  ipc::DictionaryMemo unused_dict_memo;
+  RETURN_NOT_OK(ipc::SerializeSchema(schema, &unused_dict_memo, default_memory_pool(),
+                                     &serialized_schema));
   *out = std::string(reinterpret_cast<const char*>(serialized_schema->data()),
                      static_cast<size_t>(serialized_schema->size()));
   return Status::OK();
 }
 
-Status ToProto(const FlightInfo& info, pb::FlightGetInfo* pb_info) {
+Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
   // clear any repeated fields
   pb_info->clear_endpoint();
 

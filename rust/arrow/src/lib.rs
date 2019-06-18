@@ -21,22 +21,22 @@
 //! Currently the project is developed and tested against nightly Rust. To learn more
 //! about the status of Arrow in Rust, see `README.md`.
 
-#![feature(type_ascription)]
-#![feature(rustc_private)]
 #![feature(specialization)]
-#![feature(try_from)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
+#![allow(bare_trait_objects)]
 
 pub mod array;
 pub mod array_data;
-pub mod array_ops;
 pub mod bitmap;
 pub mod buffer;
 pub mod builder;
+pub mod compute;
 pub mod csv;
 pub mod datatypes;
 pub mod error;
+pub mod ipc;
+pub mod json;
 pub mod memory;
 pub mod record_batch;
 pub mod tensor;

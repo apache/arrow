@@ -20,17 +20,18 @@ context("Feather")
 test_that("feather read/write round trip", {
   tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
-  tf1 <- local_tempfile()
+  tf1 <- tempfile()
   write_feather(tib, tf1)
   expect_true(fs::file_exists(tf1))
 
-  tf2 <- fs::path_abs(local_tempfile())
+  tf2 <- fs::path_abs(tempfile())
   write_feather(tib, tf2)
   expect_true(fs::file_exists(tf2))
 
-  tf3 <- local_tempfile()
-  stream <- close_on_exit(FileOutputStream(tf3))
+  tf3 <- tempfile()
+  stream <- FileOutputStream(tf3)
   write_feather(tib, stream)
+  stream$close()
   expect_true(fs::file_exists(tf3))
 
   tab1 <- read_feather(tf1)
@@ -55,45 +56,55 @@ test_that("feather read/write round trip", {
   expect_equal(tib, tab3)
   expect_equal(tib, tab4)
   expect_equal(tib, tab5)
+
+  unlink(tf1)
+  unlink(tf2)
+  unlink(tf3)
 })
 
 test_that("feather handles columns = <names>", {
   tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
-  tf1 <- local_tempfile()
+  tf1 <- tempfile()
   write_feather(tib, tf1)
   expect_true(fs::file_exists(tf1))
 
   tab1 <- read_feather(tf1, columns = c("x", "y"))
   expect_is(tab1, "data.frame")
 
-  expect_equal(tib[, c("x", "y")], as_tibble(tab1))
+  expect_equal(tib$x, tab1$x)
+  expect_equal(tib$y, tab1$y)
+
+  unlink(tf1)
 })
 
 test_that("feather handles columns = <integer>", {
   tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
-  tf1 <- local_tempfile()
+  tf1 <- tempfile()
   write_feather(tib, tf1)
   expect_true(fs::file_exists(tf1))
 
   tab1 <- read_feather(tf1, columns = 1:2)
   expect_is(tab1, "data.frame")
 
-  expect_equal(tib[, c("x", "y")], as_tibble(tab1))
+  expect_equal(tib$x, tab1$x)
+  expect_equal(tib$y, tab1$y)
+  unlink(tf1)
 })
 
 test_that("feather read/write round trip", {
   tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
-  tf1 <- local_tempfile()
+  tf1 <- tempfile()
   write_feather(tib, tf1)
   expect_true(fs::file_exists(tf1))
 
   tab1 <- read_feather(tf1, as_tibble = FALSE)
   expect_is(tab1, "arrow::Table")
 
-  expect_equal(tib, as_tibble(tab1))
+  expect_equal(tib, as.data.frame(tab1))
+  unlink(tf1)
 })
 
 

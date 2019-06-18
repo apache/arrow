@@ -5,7 +5,7 @@
 namespace Apache.Arrow.Flatbuf
 {
 
-public enum MetadataVersion : short
+internal enum MetadataVersion : short
 {
   /// 0.1.0
  V1 = 0,

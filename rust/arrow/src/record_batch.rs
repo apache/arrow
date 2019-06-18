@@ -25,46 +25,91 @@ use std::sync::Arc;
 
 use crate::array::*;
 use crate::datatypes::*;
+use crate::error::{ArrowError, Result};
 
 /// A batch of column-oriented data
+#[derive(Clone)]
 pub struct RecordBatch {
     schema: Arc<Schema>,
     columns: Vec<Arc<Array>>,
 }
 
 impl RecordBatch {
-    pub fn new(schema: Arc<Schema>, columns: Vec<ArrayRef>) -> Self {
-        // assert that there are some columns
-        assert!(
-            columns.len() > 0,
-            "at least one column must be defined to create a record batch"
-        );
-        // assert that all columns have the same row count
-        let len = columns[0].data().len();
-        for i in 1..columns.len() {
-            assert_eq!(
-                len,
-                columns[i].len(),
-                "all columns in a record batch must have the same length"
-            );
+    /// Creates a `RecordBatch` from a schema and columns
+    ///
+    /// Expects the following:
+    ///  * the vec of columns to not be empty
+    ///  * the schema and column data types to have equal lengths and match
+    ///  * each array in columns to have the same length
+    pub fn try_new(schema: Arc<Schema>, columns: Vec<ArrayRef>) -> Result<Self> {
+        // check that there are some columns
+        if columns.is_empty() {
+            return Err(ArrowError::InvalidArgumentError(
+                "at least one column must be defined to create a record batch"
+                    .to_string(),
+            ));
         }
-        RecordBatch { schema, columns }
+        // check that number of fields in schema match column length
+        if schema.fields().len() != columns.len() {
+            return Err(ArrowError::InvalidArgumentError(
+                "number of columns must match number of fields in schema".to_string(),
+            ));
+        }
+        // check that all columns have the same row count, and match the schema
+        let len = columns[0].data().len();
+        for i in 0..columns.len() {
+            if columns[i].len() != len {
+                return Err(ArrowError::InvalidArgumentError(
+                    "all columns in a record batch must have the same length".to_string(),
+                ));
+            }
+            if columns[i].data_type() != schema.field(i).data_type() {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "column types must match schema types, expected {:?} but found {:?} at column index {}", 
+                    schema.field(i).data_type(),
+                    columns[i].data_type(),
+                    i)));
+            }
+        }
+        Ok(RecordBatch { schema, columns })
     }
 
+    /// Returns the schema of the record batch
     pub fn schema(&self) -> &Arc<Schema> {
         &self.schema
     }
 
+    /// Number of columns in the record batch
     pub fn num_columns(&self) -> usize {
         self.columns.len()
     }
 
+    /// Number of rows in each column
     pub fn num_rows(&self) -> usize {
         self.columns[0].data().len()
     }
 
+    /// Get a reference to a column's array by index
     pub fn column(&self, i: usize) -> &ArrayRef {
         &self.columns[i]
+    }
+}
+
+impl From<&StructArray> for RecordBatch {
+    /// Create a record batch from struct array.
+    ///
+    /// This currently does not flatten and nested struct types
+    fn from(struct_array: &StructArray) -> Self {
+        if let DataType::Struct(fields) = struct_array.data_type() {
+            let schema = Schema::new(fields.clone());
+            let columns = struct_array.boxed_fields.clone();
+            RecordBatch {
+                schema: Arc::new(schema),
+                columns,
+            }
+        } else {
+            unreachable!("unable to get datatype as struct")
+        }
     }
 }
 
@@ -102,7 +147,8 @@ mod tests {
         let b = BinaryArray::from(array_data);
 
         let record_batch =
-            RecordBatch::new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)]);
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])
+                .unwrap();
 
         assert_eq!(5, record_batch.num_rows());
         assert_eq!(2, record_batch.num_columns());
@@ -110,5 +156,60 @@ mod tests {
         assert_eq!(&DataType::Utf8, record_batch.schema().field(1).data_type());
         assert_eq!(5, record_batch.column(0).data().len());
         assert_eq!(5, record_batch.column(1).data().len());
+    }
+
+    #[test]
+    fn create_record_batch_schema_mismatch() {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int64Array::from(vec![1, 2, 3, 4, 5]);
+
+        let batch = RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a)]);
+        assert!(!batch.is_ok());
+    }
+
+    #[test]
+    fn create_record_batch_record_mismatch() {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Int32Array::from(vec![1, 2, 3, 4, 5]);
+
+        let batch =
+            RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)]);
+        assert!(!batch.is_ok());
+    }
+
+    #[test]
+    fn create_record_batch_from_struct_array() {
+        let boolean_data = ArrayData::builder(DataType::Boolean)
+            .len(4)
+            .add_buffer(Buffer::from([12_u8]))
+            .build();
+        let int_data = ArrayData::builder(DataType::Int32)
+            .len(4)
+            .add_buffer(Buffer::from([42, 28, 19, 31].to_byte_slice()))
+            .build();
+        let struct_array = StructArray::from(vec![
+            (
+                Field::new("b", DataType::Boolean, false),
+                Arc::new(BooleanArray::from(vec![false, false, true, true]))
+                    as Arc<Array>,
+            ),
+            (
+                Field::new("c", DataType::Int32, false),
+                Arc::new(Int32Array::from(vec![42, 28, 19, 31])),
+            ),
+        ]);
+
+        let batch = RecordBatch::from(&struct_array);
+        assert_eq!(2, batch.num_columns());
+        assert_eq!(4, batch.num_rows());
+        assert_eq!(
+            struct_array.data_type(),
+            &DataType::Struct(batch.schema().fields().to_vec())
+        );
+        assert_eq!(batch.column(0).data(), boolean_data);
+        assert_eq!(batch.column(1).data(), int_data);
     }
 }

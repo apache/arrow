@@ -16,7 +16,7 @@
 // under the License.
 
 import { Data } from '../data';
-import { Vector } from '../vector';
+import { AbstractVector, Vector } from '../vector';
 import { DataType } from '../type';
 import { Chunked } from './chunked';
 import { clampRange } from '../util/vector';
@@ -29,7 +29,7 @@ export interface BaseVector<T extends DataType = any> extends Clonable<VType<T>>
     clone<R extends DataType = T>(data: Data<R>, children?: Vector<R>[]): VType<R>;
 }
 
-export abstract class BaseVector<T extends DataType = any> extends Vector<T>
+export abstract class BaseVector<T extends DataType = any> extends AbstractVector<T>
     implements Clonable<VType<T>>, Sliceable<VType<T>>, Applicative<T, Chunked<T>> {
 
     protected _children?: Vector[];

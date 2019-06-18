@@ -17,20 +17,31 @@
 
 package org.apache.arrow.memory;
 
+import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
+import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.util.VisibleForTesting;
 
 /**
- * The root allocator for using direct memory inside a Drillbit. Supports creating a
- * tree of descendant child allocators.
+ * A root allocator for using direct memory for Arrow Vectors/Arrays. Supports creating a
+ * tree of descendant child allocators to facilitate better instrumentation of memory
+ * allocations.
  */
 public class RootAllocator extends BaseAllocator {
+
+  public RootAllocator() {
+    this(AllocationListener.NOOP, Long.MAX_VALUE);
+  }
 
   public RootAllocator(final long limit) {
     this(AllocationListener.NOOP, limit);
   }
 
   public RootAllocator(final AllocationListener listener, final long limit) {
-    super(null, listener, "ROOT", 0, limit);
+    this(listener, limit, DefaultRoundingPolicy.INSTANCE);
+  }
+
+  public RootAllocator(final AllocationListener listener, final long limit, RoundingPolicy roundingPolicy) {
+    super(null, listener, "ROOT", 0, limit, roundingPolicy);
   }
 
   /**

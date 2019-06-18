@@ -24,8 +24,8 @@
 #include "arrow/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
-#include "arrow/test-random.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 
 namespace arrow {
 
@@ -47,7 +47,7 @@ std::shared_ptr<RecordBatch> MakeRecordBatch(int64_t total_size, int64_t num_fie
   return RecordBatch::Make(schema, length, arrays);
 }
 
-static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
+static void WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
 
@@ -68,7 +68,7 @@ static void BM_WriteRecordBatch(benchmark::State& state) {  // NOLINT non-const 
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
-static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
+static void ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const reference
   // 1MB
   constexpr int64_t kTotalSize = 1 << 20;
 
@@ -86,27 +86,20 @@ static void BM_ReadRecordBatch(benchmark::State& state) {  // NOLINT non-const r
     state.SkipWithError("Failed to write!");
   }
 
+  ipc::DictionaryMemo empty_memo;
   while (state.KeepRunning()) {
     std::shared_ptr<RecordBatch> result;
     io::BufferReader reader(buffer);
 
-    if (!ipc::ReadRecordBatch(record_batch->schema(), &reader, &result).ok()) {
+    if (!ipc::ReadRecordBatch(record_batch->schema(), &empty_memo, &reader, &result)
+             .ok()) {
       state.SkipWithError("Failed to read!");
     }
   }
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
-BENCHMARK(BM_WriteRecordBatch)
-    ->RangeMultiplier(4)
-    ->Range(1, 1 << 13)
-    ->MinTime(1.0)
-    ->UseRealTime();
-
-BENCHMARK(BM_ReadRecordBatch)
-    ->RangeMultiplier(4)
-    ->Range(1, 1 << 13)
-    ->MinTime(1.0)
-    ->UseRealTime();
+BENCHMARK(WriteRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
+BENCHMARK(ReadRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 
 }  // namespace arrow

@@ -17,10 +17,9 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
+#include <iosfwd>
 #include <limits>
-#include <sstream>
 #include <string>
 #include <type_traits>
 
@@ -122,6 +121,9 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     *out = static_cast<T>(low_bits());
     return Status::OK();
   }
+
+  friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
+                                               const Decimal128& decimal);
 
  private:
   /// Converts internal error code to Status

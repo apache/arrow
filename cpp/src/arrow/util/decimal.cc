@@ -23,6 +23,7 @@
 #include <cstring>
 #include <iomanip>
 #include <limits>
+#include <ostream>
 #include <sstream>
 #include <string>
 
@@ -39,8 +40,8 @@ using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
 
 Decimal128::Decimal128(const std::string& str) : Decimal128() {
-  Status status(Decimal128::FromString(str, this));
-  DCHECK(status.ok()) << status.message();
+  Status status = Decimal128::FromString(str, this);
+  DCHECK_OK(status);
 }
 
 static const Decimal128 kTenTo36(static_cast<int64_t>(0xC097CE7BC90715),
@@ -432,6 +433,11 @@ Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
       break;
   }
   return status;
+}
+
+std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
+  os << decimal.ToIntegerString();
+  return os;
 }
 
 }  // namespace arrow

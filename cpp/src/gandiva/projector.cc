@@ -92,53 +92,71 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch,
                            const ArrayDataVector& output_data_vecs) {
+  return Evaluate(batch, nullptr, output_data_vecs);
+}
+
+Status Projector::Evaluate(const arrow::RecordBatch& batch,
+                           const SelectionVector* selection_vector,
+                           const ArrayDataVector& output_data_vecs) {
   ARROW_RETURN_NOT_OK(ValidateEvaluateArgsCommon(batch));
-  ARROW_RETURN_IF(
-      output_data_vecs.size() != output_fields_.size(),
-      Status::Invalid("Number of output buffers must match number of fields"));
+
+  if (output_data_vecs.size() != output_fields_.size()) {
+    std::stringstream ss;
+    ss << "number of buffers for output_data_vecs is " << output_data_vecs.size()
+       << ", expected " << output_fields_.size();
+    return Status::Invalid(ss.str());
+  }
 
   int idx = 0;
   for (auto& array_data : output_data_vecs) {
-    const auto output_field = output_fields_[idx];
     if (array_data == nullptr) {
-      return Status::Invalid("Output array for field ", output_field->name(),
-                             " should not be null");
+      std::stringstream ss;
+      ss << "array for output field " << output_fields_[idx]->name() << "is null.";
+      return Status::Invalid(ss.str());
     }
 
+    auto num_rows =
+        selection_vector == nullptr ? batch.num_rows() : selection_vector->GetNumSlots();
+
     ARROW_RETURN_NOT_OK(
-        ValidateArrayDataCapacity(*array_data, *output_field, batch.num_rows()));
+        ValidateArrayDataCapacity(*array_data, *(output_fields_[idx]), num_rows));
     ++idx;
   }
-
-  return llvm_generator_->Execute(batch, output_data_vecs);
+  return llvm_generator_->Execute(batch, selection_vector, output_data_vecs);
 }
 
 Status Projector::Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
                            arrow::ArrayVector* output) {
+  return Evaluate(batch, nullptr, pool, output);
+}
+
+Status Projector::Evaluate(const arrow::RecordBatch& batch,
+                           const SelectionVector* selection_vector,
+                           arrow::MemoryPool* pool, arrow::ArrayVector* output) {
   ARROW_RETURN_NOT_OK(ValidateEvaluateArgsCommon(batch));
   ARROW_RETURN_IF(output == nullptr, Status::Invalid("Output must be non-null."));
   ARROW_RETURN_IF(pool == nullptr, Status::Invalid("Memory pool must be non-null."));
 
+  auto num_rows =
+      selection_vector == nullptr ? batch.num_rows() : selection_vector->GetNumSlots();
   // Allocate the output data vecs.
   ArrayDataVector output_data_vecs;
-  output_data_vecs.reserve(output_fields_.size());
   for (auto& field : output_fields_) {
     ArrayDataPtr output_data;
 
-    ARROW_RETURN_NOT_OK(
-        AllocArrayData(field->type(), batch.num_rows(), pool, &output_data));
+    ARROW_RETURN_NOT_OK(AllocArrayData(field->type(), num_rows, pool, &output_data));
     output_data_vecs.push_back(output_data);
   }
 
   // Execute the expression(s).
-  ARROW_RETURN_NOT_OK(llvm_generator_->Execute(batch, output_data_vecs));
+  ARROW_RETURN_NOT_OK(
+      llvm_generator_->Execute(batch, selection_vector, output_data_vecs));
 
   // Create and return array arrays.
   output->clear();
   for (auto& array_data : output_data_vecs) {
     output->push_back(arrow::MakeArray(array_data));
   }
-
   return Status::OK();
 }
 

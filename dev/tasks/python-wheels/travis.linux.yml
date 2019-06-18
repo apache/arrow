@@ -15,11 +15,15 @@
 # limitations under the License.
 
 os: linux
-dist: trusty
-sudo: required
-language: cpp
+
 services:
   - docker
+
+# Update docker to support newer docker-compose versions
+addons:
+  apt:
+    packages:
+      - docker-ce
 
 # don't build twice
 if: tag IS blank
@@ -30,21 +34,24 @@ env:
     - TRAVIS_TAG={{ task.tag }}
 
 before_script:
-  - docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
+  - sudo pip install -U docker-compose
 
 script:
-  - git clone -b {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout {{ arrow.head }}
   - mkdir -p dist
 
   # build wheel
-  - pushd arrow/python/manylinux1
-  - docker run --shm-size=2g
+  - pushd arrow
+  # don't attempt to build it, because the base image by pypa is updated
+  # regularly and would cause undeterministic builds
+  - docker-compose pull python-manylinux1
+  - docker-compose run
       -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }}
-      -e PYTHON_VERSIONS="{{ python_version }},{{ unicode_width }}"
-      -v $PWD:/io
-      -v $PWD/../../:/arrow
-      quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
+      -e PYTHON_VERSION="{{ python_version }}"
+      -e UNICODE_WIDTH="{{ unicode_width }}"
+      python-manylinux1
   - popd
 
   # test on multiple distributions

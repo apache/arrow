@@ -41,12 +41,12 @@ files into Arrow structures.
    plasma
    numpy
    pandas
+   timestamps
    csv
+   json
    parquet
    cuda
    extending
    api
-   development
    getting_involved
    benchmarks
-   timestamps

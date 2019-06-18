@@ -47,6 +47,7 @@ cpp/thirdparty
 # python
 python/build
 python/dist
+python/manylinux1/dist
 python/*.egg-info
 python/*.egg
 python/*.pyc
@@ -85,8 +86,11 @@ js/.lock-wscript
 js/build/Release
 js/dist
 js/targets
-js/test/data
-js/test/__snapshots__
+js/test/data/**/*.json
+js/test/data/**/*.arrow
 
 # Rust
 rust/target
+
+# site
+site/

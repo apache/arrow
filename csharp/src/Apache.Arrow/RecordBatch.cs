@@ -14,18 +14,21 @@
 // limitations under the License.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Apache.Arrow
 {
-    public class RecordBatch
+    public class RecordBatch : IDisposable
     {
         public Schema Schema { get; }
         public int ColumnCount => _arrays.Count;
         public IEnumerable<IArrowArray> Arrays => _arrays;
         public int Length { get; }
 
+        private readonly IMemoryOwner<byte> _memoryOwner;
         private readonly IList<IArrowArray> _arrays;
 
         public IArrowArray Column(int i)
@@ -39,6 +42,24 @@ namespace Apache.Arrow
             return _arrays[fieldIndex];
         }
 
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _memoryOwner?.Dispose();
+
+                foreach (IArrowArray array in _arrays)
+                {
+                    array.Dispose();
+                }
+            }
+        }
+
         public RecordBatch(Schema schema, IEnumerable<IArrowArray> data, int length)
         {
             if (length < 0)
@@ -49,6 +70,18 @@ namespace Apache.Arrow
             _arrays = data?.ToList() ?? throw new ArgumentNullException(nameof(data));
 
             Schema = schema ?? throw new ArgumentNullException(nameof(schema));
+            Length = length;
+        }
+
+        internal RecordBatch(Schema schema, IMemoryOwner<byte> memoryOwner, List<IArrowArray> arrays, int length)
+        {
+            Debug.Assert(schema != null);
+            Debug.Assert(arrays != null);
+            Debug.Assert(length >= 0);
+
+            _memoryOwner = memoryOwner;
+            _arrays = arrays;
+            Schema = schema;
             Length = length;
         }
     }

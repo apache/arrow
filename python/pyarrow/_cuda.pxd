@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from __future__ import absolute_import
+
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -41,8 +43,11 @@ cdef class IpcMemHandle:
 cdef class CudaBuffer(Buffer):
     cdef:
         shared_ptr[CCudaBuffer] cuda_buffer
+        object base
 
-    cdef void init_cuda(self, const shared_ptr[CCudaBuffer]& buffer)
+    cdef void init_cuda(self,
+                        const shared_ptr[CCudaBuffer]& buffer,
+                        object base)
 
 
 cdef class HostBuffer(Buffer):

@@ -11,7 +11,7 @@ using global::FlatBuffers;
 /// A data header describing the shared memory layout of a "record" or "row"
 /// batch. Some systems call this a "row batch" internally and others a "record
 /// batch".
-public struct RecordBatch : IFlatbufferObject
+internal struct RecordBatch : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

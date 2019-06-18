@@ -25,8 +25,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <memory>
-#include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <thread>
 #include <vector>
@@ -39,7 +39,8 @@
 #include "arrow/io/test-common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/test-util.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/io-util.h"
 
 namespace arrow {
@@ -95,7 +96,7 @@ class TestFileOutputStream : public FileTestFixture {
 #if defined(_MSC_VER)
 TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
   std::shared_ptr<FileOutputStream> file;
-  // Form literal string with non-ASCII symbol(127 + 1)
+  // Invalid utf-8 filename
   std::string file_name = "\x80";
   ASSERT_RAISES(Invalid, FileOutputStream::Open(file_name, &file));
 
@@ -105,6 +106,8 @@ TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
   std::shared_ptr<ReadableFile> rd_file;
   ASSERT_RAISES(Invalid, ReadableFile::Open(file_name, &rd_file));
 }
+
+// TODO add a test with a valid utf-8 filename
 #endif
 
 TEST_F(TestFileOutputStream, DestructorClosesFile) {
@@ -142,6 +145,7 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(file_->Close());
   ASSERT_TRUE(file_->closed());
   ASSERT_TRUE(FileIsClosed(fd));
+  ASSERT_RAISES(Invalid, file_->Write(data, strlen(data)));
 
   // Idempotent
   ASSERT_OK(file_->Close());
@@ -155,6 +159,7 @@ TEST_F(TestFileOutputStream, Close) {
   ASSERT_OK(stream_->Close());
   ASSERT_TRUE(stream_->closed());
   ASSERT_TRUE(FileIsClosed(fd));
+  ASSERT_RAISES(Invalid, stream_->Write(data, strlen(data)));
 
   // Idempotent
   ASSERT_OK(stream_->Close());
@@ -350,8 +355,8 @@ TEST_F(TestReadableFile, Peek) {
   OpenFile();
 
   // Cannot peek
-  auto view = file_->Peek(4);
-  ASSERT_EQ(0, view.size());
+  util::string_view peek;
+  ASSERT_RAISES(NotImplemented, file_->Peek(4, &peek));
 }
 
 TEST_F(TestReadableFile, SeekTellSize) {
@@ -406,6 +411,9 @@ TEST_F(TestReadableFile, Read) {
   ASSERT_OK(file_->Seek(1));
   ASSERT_OK(file_->Read(size, &buf));
   ASSERT_EQ(size - 1, buf->size());
+
+  ASSERT_OK(file_->Close());
+  ASSERT_RAISES(Invalid, file_->Read(1, &buf));
 }
 
 TEST_F(TestReadableFile, ReadAt) {
@@ -433,6 +441,24 @@ TEST_F(TestReadableFile, ReadAt) {
 
   Buffer expected(reinterpret_cast<const uint8_t*>(test_data + 2), 5);
   ASSERT_TRUE(buffer2->Equals(expected));
+
+  ASSERT_OK(file_->Close());
+  ASSERT_RAISES(Invalid, file_->ReadAt(0, 1, &buffer2));
+}
+
+TEST_F(TestReadableFile, SeekingRequired) {
+  std::shared_ptr<Buffer> buffer;
+
+  MakeTestFile();
+  OpenFile();
+
+  ASSERT_OK(file_->ReadAt(0, 4, &buffer));
+  AssertBufferEqual(*buffer, "test");
+
+  ASSERT_RAISES(Invalid, file_->Read(4, &buffer));
+  ASSERT_OK(file_->Seek(0));
+  ASSERT_OK(file_->Read(4, &buffer));
+  AssertBufferEqual(*buffer, "test");
 }
 
 TEST_F(TestReadableFile, NonExistentFile) {

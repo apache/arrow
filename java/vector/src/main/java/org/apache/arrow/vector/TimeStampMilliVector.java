@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import java.time.LocalDateTime;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampMilliReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -24,8 +26,8 @@ import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
 import org.apache.arrow.vector.holders.TimeStampMilliHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.LocalDateTime;
 
 /**
  * TimeStampMilliVector implements a fixed width vector (8 bytes) of
@@ -115,9 +117,7 @@ public class TimeStampMilliVector extends TimeStampVector {
       return null;
     } else {
       final long millis = valueBuffer.getLong(index * TYPE_WIDTH);
-      final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,
-              org.joda.time.DateTimeZone.UTC);
-      return localDateTime;
+      return DateUtility.getLocalDateTimeFromEpochMilli(millis);
     }
   }
 

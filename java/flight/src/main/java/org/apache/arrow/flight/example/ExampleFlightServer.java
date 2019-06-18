@@ -21,7 +21,6 @@ import java.io.IOException;
 
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -38,11 +37,15 @@ public class ExampleFlightServer implements AutoCloseable {
   private final BufferAllocator allocator;
   private final InMemoryStore mem;
 
+  /**
+   * Constructs a new instance using Allocator for allocating buffer storage that binds
+   * to the given location.
+   */
   public ExampleFlightServer(BufferAllocator allocator, Location location) {
     this.allocator = allocator.newChildAllocator("flight-server", 0, Long.MAX_VALUE);
     this.location = location;
     this.mem = new InMemoryStore(this.allocator, location);
-    this.flightServer = new FlightServer(allocator, location.getPort(), mem, ServerAuthHandler.NO_OP);
+    this.flightServer = FlightServer.builder(allocator, location, mem).build();
   }
 
   public Location getLocation() {
@@ -51,6 +54,10 @@ public class ExampleFlightServer implements AutoCloseable {
 
   public void start() throws IOException {
     flightServer.start();
+  }
+
+  public void awaitTermination() throws InterruptedException {
+    flightServer.awaitTermination();
   }
 
   public InMemoryStore getStore() {
@@ -62,9 +69,12 @@ public class ExampleFlightServer implements AutoCloseable {
     AutoCloseables.close(mem, flightServer, allocator);
   }
 
+  /**
+   *  Main method starts the server listening to localhost:12233.
+   */
   public static void main(String[] args) throws Exception {
     final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-    final ExampleFlightServer efs = new ExampleFlightServer(a, new Location("localhost", 12233));
+    final ExampleFlightServer efs = new ExampleFlightServer(a, Location.forGrpcInsecure("localhost", 12233));
     efs.start();
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       try {
@@ -74,8 +84,6 @@ public class ExampleFlightServer implements AutoCloseable {
         e.printStackTrace();
       }
     }));
-    while (true) {
-      Thread.sleep(30000);
-    }
+    efs.awaitTermination();
   }
 }

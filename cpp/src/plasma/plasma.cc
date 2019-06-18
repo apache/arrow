@@ -23,7 +23,6 @@
 
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
-#include "plasma/plasma_allocator.h"
 #include "plasma/protocol.h"
 
 namespace fb = plasma::flatbuf;
@@ -32,10 +31,7 @@ namespace plasma {
 
 ObjectTableEntry::ObjectTableEntry() : pointer(nullptr), ref_count(0) {}
 
-ObjectTableEntry::~ObjectTableEntry() {
-  PlasmaAllocator::Free(pointer, data_size + metadata_size);
-  pointer = nullptr;
-}
+ObjectTableEntry::~ObjectTableEntry() { pointer = nullptr; }
 
 int WarnIfSigpipe(int status, int client_sock) {
   if (status >= 0) {
