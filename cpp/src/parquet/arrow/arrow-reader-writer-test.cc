@@ -375,7 +375,7 @@ void DoConfiguredRoundtrip(
     const std::shared_ptr<Table>& table, int64_t row_group_size,
     std::shared_ptr<Table>* out,
     const std::shared_ptr<::parquet::WriterProperties>& parquet_properties =
-        default_writer_properties(),
+        ::parquet::default_writer_properties(),
     const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
         default_arrow_writer_properties()) {
   std::shared_ptr<Buffer> buffer;
@@ -396,7 +396,7 @@ void CheckConfiguredRoundtrip(
     const std::shared_ptr<Table>& input_table,
     const std::shared_ptr<Table>& expected_table = nullptr,
     const std::shared_ptr<::parquet::WriterProperties>& parquet_properties =
-        default_writer_properties(),
+        ::parquet::default_writer_properties(),
     const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
         default_arrow_writer_properties()) {
   std::shared_ptr<Table> actual_table;
@@ -1586,24 +1586,22 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
   auto t_us = ::arrow::timestamp(TimeUnit::MICRO);
   auto t_ns = ::arrow::timestamp(TimeUnit::NANO);
 
-  const int N = 10;
+  const int N = 24;
   int64_t instant = INT64_C(1262304000);  // 2010-01-01T00:00:00 seconds offset
-  std::vector<bool> mask;
   std::vector<int64_t> d_s, d_ms, d_us, d_ns;
   for (int i = 0; i < N; ++i) {
-    mask.push_back(i % 3 == 1);
     d_s.push_back(instant);
     d_ms.push_back(instant * INT64_C(1000));
     d_us.push_back(instant * INT64_C(1000000));
     d_ns.push_back(instant * INT64_C(1000000000));
-    instant += 1;
+    instant += 3600;
   }
 
   std::shared_ptr<Array> a_s, a_ms, a_us, a_ns;
-  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, mask, d_s, &a_s);
-  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ms, mask, d_ms, &a_ms);
-  ArrayFromVector<::arrow::TimestampType, int64_t>(t_us, mask, d_us, &a_us);
-  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ns, mask, d_ns, &a_ns);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, d_s, &a_s);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ms, d_ms, &a_ms);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_us, d_us, &a_us);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ns, d_ns, &a_ns);
 
   auto c_s = std::make_shared<Column>("ts:s", a_s);
   auto c_ms = std::make_shared<Column>("ts:ms", a_ms);
@@ -1614,7 +1612,7 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                               field("ts:us", t_us), field("ts:ns", t_ns)});
   auto input_table = Table::Make(input_schema, {c_s, c_ms, c_us, c_ns});
 
-  auto parquet_version_1_properties = default_writer_properties();
+  auto parquet_version_1_properties = ::parquet::default_writer_properties();
   auto parquet_version_2_properties = ::parquet::WriterProperties::Builder()
                                           .version(ParquetVersion::PARQUET_2_0)
                                           ->build();
@@ -1650,12 +1648,14 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
     // Neither Parquet version 1.0 nor 2.0 allow coercing to seconds
     auto sink = CreateOutputStream();
     std::shared_ptr<Table> actual_table;
-    ASSERT_RAISES(NotImplemented, WriteTable(*input_table, ::arrow::default_memory_pool(),
-                                             sink, N, parquet_version_1_properties,
-                                             arrow_coerce_to_seconds_properties));
-    ASSERT_RAISES(NotImplemented, WriteTable(*input_table, ::arrow::default_memory_pool(),
-                                             sink, N, parquet_version_2_properties,
-                                             arrow_coerce_to_seconds_properties));
+    ASSERT_RAISES(NotImplemented,
+                  WriteTable(*input_table, ::arrow::default_memory_pool(), sink,
+                             input_table->num_rows(), parquet_version_1_properties,
+                             arrow_coerce_to_seconds_properties));
+    ASSERT_RAISES(NotImplemented,
+                  WriteTable(*input_table, ::arrow::default_memory_pool(), sink,
+                             input_table->num_rows(), parquet_version_2_properties,
+                             arrow_coerce_to_seconds_properties));
   }
   {
     // Using Parquet version 1.0, coercing to milliseconds or microseconds is allowed
@@ -1693,9 +1693,10 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
     // Using Parquet version 1.0, coercing to (int64) nanoseconds is not allowed
     auto sink = CreateOutputStream();
     std::shared_ptr<Table> actual_table;
-    ASSERT_RAISES(NotImplemented, WriteTable(*input_table, ::arrow::default_memory_pool(),
-                                             sink, N, parquet_version_1_properties,
-                                             arrow_coerce_to_nanos_properties));
+    ASSERT_RAISES(NotImplemented,
+                  WriteTable(*input_table, ::arrow::default_memory_pool(), sink,
+                             input_table->num_rows(), parquet_version_1_properties,
+                             arrow_coerce_to_nanos_properties));
   }
   {
     // Using Parquet version 2.0, coercing to (int64) nanoseconds is allowed
