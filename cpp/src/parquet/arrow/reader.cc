@@ -1143,15 +1143,29 @@ struct TransferFunctor<::arrow::TimestampType, Int96Type> {
     RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(int64_t), &data));
 
     auto data_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
-    for (int64_t i = 0; i < length; i++) {
-      *data_ptr++ = Int96GetNanoSeconds(values[i]);
-    }
 
     if (reader->nullable_values()) {
       std::shared_ptr<ResizableBuffer> is_valid = reader->ReleaseIsValid();
+      const uint8_t* is_valid_bits = is_valid->data();
+      ::arrow::internal::BitmapReader valid_bits_reader(is_valid_bits, 0,
+                                                        length);  // FIXME: bits offset?
+      int64_t null_count = 0;
+      for (int64_t i = 0; i < length; i++) {
+        if (valid_bits_reader.IsSet()) {
+          *data_ptr++ = Int96GetNanoSeconds(values[i]);
+        } else {
+          *data_ptr++ = 0;
+          null_count += 1;
+        }
+        valid_bits_reader.Next();
+      }
+      DCHECK_EQ(reader->null_count(), null_count);
       *out = std::make_shared<TimestampArray>(type, length, data, is_valid,
                                               reader->null_count());
     } else {
+      for (int64_t i = 0; i < length; i++) {
+        *data_ptr++ = Int96GetNanoSeconds(values[i]);
+      }
       *out = std::make_shared<TimestampArray>(type, length, data);
     }
 
