@@ -20,5 +20,9 @@ set -e
 
 /arrow/ci/docker_build_cpp.sh
 pushd /build/cpp
+
+export ARROW_TEST_DATA=/arrow/testing/data
+export PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
+
 ninja unittest
 popd

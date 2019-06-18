@@ -19,6 +19,7 @@
 #include <memory>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -496,6 +497,19 @@ TEST_F(TestTable, SetColumn) {
 
   auto expected = Table::Make(ex_schema, ex_columns);
   ASSERT_TRUE(result->Equals(*expected));
+}
+
+TEST_F(TestTable, RenameColumns) {
+  MakeExample1(10);
+  auto table = Table::Make(schema_, columns_);
+  EXPECT_THAT(table->ColumnNames(), testing::ElementsAre("f0", "f1", "f2"));
+
+  std::shared_ptr<Table> renamed;
+  ASSERT_OK(table->RenameColumns({"zero", "one", "two"}, &renamed));
+  EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
+  ASSERT_OK(renamed->Validate());
+
+  ASSERT_RAISES(Invalid, table->RenameColumns({"hello", "world"}, &renamed));
 }
 
 TEST_F(TestTable, RemoveColumnEmpty) {

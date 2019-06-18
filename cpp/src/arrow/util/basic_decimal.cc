@@ -456,6 +456,7 @@ DecimalStatus BasicDecimal128::Divide(const BasicDecimal128& divisor,
 
   int64_t result_length = dividend_length - divisor_length;
   uint32_t result_array[4];
+  DCHECK_LE(result_length, 4);
 
   // Normalize by shifting both by a multiple of 2 so that
   // the digit guessing is better. The requirement is that

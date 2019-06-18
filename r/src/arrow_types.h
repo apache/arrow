@@ -31,6 +31,7 @@ struct symbols {
   static SEXP xp;
   static SEXP dot_Internal;
   static SEXP inspect;
+  static SEXP row_names;
 };
 }  // namespace r
 }  // namespace arrow
@@ -172,9 +173,9 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/ipc/feather.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
+#include <arrow/json/reader.h>
 #include <arrow/type.h>
 #include <arrow/util/compression.h>
-#include <arrow/json/reader.h>
 
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)

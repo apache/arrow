@@ -121,6 +121,26 @@ TEST(TestField, TestFlatten) {
   ASSERT_TRUE(vec[1]->Equals(*expected1));
 }
 
+TEST(TestField, TestReplacement) {
+  auto metadata = std::shared_ptr<KeyValueMetadata>(
+      new KeyValueMetadata({"foo", "bar"}, {"bizz", "buzz"}));
+  auto f0 = field("f0", int32(), true, metadata);
+  auto fzero = f0->WithType(utf8());
+  auto f1 = f0->WithName("f1");
+
+  ASSERT_FALSE(f0->Equals(fzero));
+  ASSERT_FALSE(fzero->Equals(f1));
+  ASSERT_FALSE(f1->Equals(f0));
+
+  ASSERT_EQ(fzero->name(), "f0");
+  ASSERT_TRUE(fzero->type()->Equals(utf8()));
+  ASSERT_TRUE(fzero->metadata()->Equals(*metadata));
+
+  ASSERT_EQ(f1->name(), "f1");
+  ASSERT_TRUE(f1->type()->Equals(int32()));
+  ASSERT_TRUE(f1->metadata()->Equals(*metadata));
+}
+
 class TestSchema : public ::testing::Test {
  public:
   void SetUp() {}

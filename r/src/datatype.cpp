@@ -269,4 +269,16 @@ bool DictionaryType__ordered(const std::shared_ptr<arrow::DictionaryType>& type)
   return type->ordered();
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> StructType__GetFieldByName(
+    const std::shared_ptr<arrow::StructType>& type, const std::string& name) {
+  return type->GetFieldByName(name);
+}
+
+// [[arrow::export]]
+int StructType__GetFieldIndex(const std::shared_ptr<arrow::StructType>& type,
+                              const std::string& name) {
+  return type->GetFieldIndex(name);
+}
+
 #endif

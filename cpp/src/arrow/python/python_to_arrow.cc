@@ -827,7 +827,7 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, DecimalCon
   }
 
  private:
-  const DecimalType* decimal_type_;
+  const DecimalType* decimal_type_ = nullptr;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                           \

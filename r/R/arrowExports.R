@@ -68,6 +68,18 @@ DictionaryArray__dictionary <- function(array){
     .Call(`_arrow_DictionaryArray__dictionary` , array)
 }
 
+StructArray__field <- function(array, i){
+    .Call(`_arrow_StructArray__field` , array, i)
+}
+
+StructArray__GetFieldByName <- function(array, name){
+    .Call(`_arrow_StructArray__GetFieldByName` , array, name)
+}
+
+StructArray__Flatten <- function(array){
+    .Call(`_arrow_StructArray__Flatten` , array)
+}
+
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector` , array)
 }
@@ -436,6 +448,14 @@ DictionaryType__ordered <- function(type){
     .Call(`_arrow_DictionaryType__ordered` , type)
 }
 
+StructType__GetFieldByName <- function(type, name){
+    .Call(`_arrow_StructType__GetFieldByName` , type, name)
+}
+
+StructType__GetFieldIndex <- function(type, name){
+    .Call(`_arrow_StructType__GetFieldIndex` , type, name)
+}
+
 ipc___feather___TableWriter__SetDescription <- function(writer, description){
     invisible(.Call(`_arrow_ipc___feather___TableWriter__SetDescription` , writer, description))
 }
@@ -686,6 +706,10 @@ ipc___ReadMessage <- function(stream){
 
 read_parquet_file <- function(filename){
     .Call(`_arrow_read_parquet_file` , filename)
+}
+
+write_parquet_file <- function(table, filename){
+    invisible(.Call(`_arrow_write_parquet_file` , table, filename))
 }
 
 RecordBatch__num_columns <- function(x){

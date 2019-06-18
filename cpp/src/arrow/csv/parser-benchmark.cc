@@ -33,11 +33,11 @@ namespace csv {
 const char* one_row = "abc,\"d,f\",12.34,\n";
 const char* one_row_escaped = "abc,d\\,f,12.34,\n";
 
-size_t num_rows = (1024 * 64) / strlen(one_row);
+const auto num_rows = static_cast<int32_t>((1024 * 64) / strlen(one_row));
 
-static std::string BuildCSVData(const std::string& row, size_t repeat) {
+static std::string BuildCSVData(const std::string& row, int32_t repeat) {
   std::stringstream ss;
-  for (size_t i = 0; i < repeat; ++i) {
+  for (int32_t i = 0; i < repeat; ++i) {
     ss << row;
   }
   return ss.str();

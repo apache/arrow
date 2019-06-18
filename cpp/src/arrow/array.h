@@ -529,13 +529,14 @@ class ARROW_EXPORT ListArray : public Array {
   }
 
  protected:
-  // this constructor defers SetData to a derived array class
+  // This constructor defers SetData to a derived array class
   ListArray() = default;
   void SetData(const std::shared_ptr<ArrayData>& data);
-  const int32_t* raw_value_offsets_;
+
+  const int32_t* raw_value_offsets_ = NULLPTR;
 
  private:
-  const ListType* list_type_;
+  const ListType* list_type_ = NULLPTR;
   std::shared_ptr<Array> values_;
 };
 

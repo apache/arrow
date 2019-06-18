@@ -345,6 +345,65 @@ class Converter_Dictionary : public Converter {
   }
 };
 
+class Converter_Struct : public Converter {
+ public:
+  explicit Converter_Struct(const ArrayVector& arrays) : Converter(arrays), converters() {
+    auto first_array =
+        internal::checked_cast<arrow::StructArray*>(Converter::arrays_[0].get());
+    int nf = first_array->num_fields();
+    for (int i = 0; i < nf; i++) {
+      converters.push_back(Converter::Make({first_array->field(i)}));
+    }
+  }
+
+  SEXP Allocate(R_xlen_t n) const {
+    // allocate a data frame column to host each array
+    auto first_array =
+        internal::checked_cast<arrow::StructArray*>(Converter::arrays_[0].get());
+    auto type = first_array->struct_type();
+    int nf = first_array->num_fields();
+    Rcpp::List out(nf);
+    Rcpp::CharacterVector colnames(nf);
+    for (int i = 0; i < nf; i++) {
+      out[i] = converters[i]->Allocate(n);
+      colnames[i] = type->child(i)->name();
+    }
+    IntegerVector rn(2);
+    rn[0] = NA_INTEGER;
+    rn[1] = -n;
+    Rf_setAttrib(out, symbols::row_names, rn);
+    Rf_setAttrib(out, R_NamesSymbol, colnames);
+    Rf_setAttrib(out, R_ClassSymbol, Rf_mkString("data.frame"));
+    return out;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    int nf = converters.size();
+    for (int i = 0; i < nf; i++) {
+      STOP_IF_NOT_OK(converters[i]->Ingest_all_nulls(VECTOR_ELT(data, i), start, n));
+    }
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n) const {
+    auto struct_array = internal::checked_cast<arrow::StructArray*>(array.get());
+    int nf = converters.size();
+    // Flatten() deals with merging of nulls
+    ArrayVector arrays(nf);
+    STOP_IF_NOT_OK(struct_array->Flatten(default_memory_pool(), &arrays));
+    for (int i = 0; i < nf; i++) {
+      STOP_IF_NOT_OK(
+          converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start, n));
+    }
+
+    return Status::OK();
+  }
+
+ private:
+  std::vector<std::shared_ptr<Converter>> converters;
+};
+
 double ms_to_seconds(int64_t ms) { return static_cast<double>(ms / 1000); }
 
 class Converter_Date64 : public Converter {
@@ -598,6 +657,9 @@ std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
 
     case Type::DECIMAL:
       return std::make_shared<arrow::r::Converter_Decimal>(arrays);
+
+    case Type::STRUCT:
+      return std::make_shared<arrow::r::Converter_Struct>(arrays);
 
     default:
       break;

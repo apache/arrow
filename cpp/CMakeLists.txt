@@ -561,18 +561,18 @@ if(ARROW_WITH_URIPARSER)
 endif()
 
 if(ARROW_USE_OPENSSL)
-  list(APPEND ARROW_LINK_LIBS OpenSSL::Crypto)
-  list(APPEND ARROW_STATIC_LINK_LIBS OpenSSL::Crypto)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS OpenSSL::Crypto)
+  set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
+  list(APPEND ARROW_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
 endif()
 
 if(ARROW_WITH_BROTLI)
   # Order is important for static linking
-  list(APPEND ARROW_LINK_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
-  list(APPEND ARROW_STATIC_LINK_LIBS Brotli::brotlienc Brotli::brotlidec
-              Brotli::brotlicommon)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Brotli::brotlienc Brotli::brotlidec
-              Brotli::brotlicommon)
+  set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
+  list(APPEND ARROW_LINK_LIBS ${ARROW_BROTLI_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_BROTLI_LIBS})
 endif()
 
 if(ARROW_WITH_BZ2)
@@ -697,6 +697,9 @@ if(ARROW_BUILD_BENCHMARKS)
 
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main benchmark::benchmark
                                 ${ARROW_TEST_LINK_LIBS})
+  if(WIN32)
+    set(ARROW_BENCHMARK_LINK_LIBS Shlwapi.dll ${ARROW_BENCHMARK_LINK_LIBS})
+  endif()
 endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)

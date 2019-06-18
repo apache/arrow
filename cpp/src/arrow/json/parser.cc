@@ -214,7 +214,7 @@ class RawArrayBuilder<Kind::kBoolean> {
 class ScalarBuilder {
  public:
   explicit ScalarBuilder(MemoryPool* pool)
-      : data_builder_(pool), null_bitmap_builder_(pool) {}
+      : values_length_(0), data_builder_(pool), null_bitmap_builder_(pool) {}
 
   Status Append(int32_t index, int32_t value_length) {
     RETURN_NOT_OK(data_builder_.Append(index));
@@ -567,7 +567,10 @@ class HandlerBase : public BlockParser,
                     public rj::BaseReaderHandler<rj::UTF8<>, HandlerBase> {
  public:
   explicit HandlerBase(MemoryPool* pool)
-      : BlockParser(pool), builder_set_(pool), scalar_values_builder_(pool) {}
+      : BlockParser(pool),
+        builder_set_(pool),
+        field_index_(-1),
+        scalar_values_builder_(pool) {}
 
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>

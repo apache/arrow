@@ -124,6 +124,30 @@ static void BenchmarkBitmapReader(benchmark::State& state, int64_t nbytes) {
   state.SetBytesProcessed(2LL * state.iterations() * nbytes);
 }
 
+template <typename VisitBitsFunctorType>
+static void BenchmarkVisitBits(benchmark::State& state, int64_t nbytes) {
+  std::shared_ptr<Buffer> buffer = CreateRandomBuffer(nbytes);
+
+  const int64_t num_bits = nbytes * 8;
+  const uint8_t* bitmap = buffer->data();
+
+  for (auto _ : state) {
+    {
+      int64_t total = 0;
+      const auto visit = [&total](bool value) -> void { total += value; };
+      VisitBitsFunctorType()(bitmap, 0, num_bits, visit);
+      benchmark::DoNotOptimize(total);
+    }
+    {
+      int64_t total = 0;
+      const auto visit = [&total](bool value) -> void { total += value; };
+      VisitBitsFunctorType()(bitmap, 0, num_bits, visit);
+      benchmark::DoNotOptimize(total);
+    }
+  }
+  state.SetBytesProcessed(2LL * state.iterations() * nbytes);
+}
+
 constexpr bool pattern[] = {false, false, false, true, true, true};
 static_assert(
     (sizeof(pattern) / sizeof(pattern[0])) % 8 != 0,
@@ -204,12 +228,36 @@ struct GenerateBitsUnrolledFunctor {
   }
 };
 
+struct VisitBitsFunctor {
+  template <class Visitor>
+  void operator()(const uint8_t* bitmap, int64_t start_offset, int64_t length,
+                  Visitor&& g) {
+    return internal::VisitBits(bitmap, start_offset, length, g);
+  }
+};
+
+struct VisitBitsUnrolledFunctor {
+  template <class Visitor>
+  void operator()(const uint8_t* bitmap, int64_t start_offset, int64_t length,
+                  Visitor&& g) {
+    return internal::VisitBitsUnrolled(bitmap, start_offset, length, g);
+  }
+};
+
 static void GenerateBits(benchmark::State& state) {
   BenchmarkGenerateBits<GenerateBitsFunctor>(state, state.range(0));
 }
 
 static void GenerateBitsUnrolled(benchmark::State& state) {
   BenchmarkGenerateBits<GenerateBitsUnrolledFunctor>(state, state.range(0));
+}
+
+static void VisitBits(benchmark::State& state) {
+  BenchmarkVisitBits<VisitBitsFunctor>(state, state.range(0));
+}
+
+static void VisitBitsUnrolled(benchmark::State& state) {
+  BenchmarkVisitBits<VisitBitsUnrolledFunctor>(state, state.range(0));
 }
 
 constexpr int64_t kBufferSize = 1024 * 8;
@@ -246,29 +294,32 @@ static void CopyBitmapWithOffset(benchmark::State& state) {  // NOLINT non-const
 }
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
-
 static void ReferenceNaiveBitmapReader(benchmark::State& state) {
   BenchmarkBitmapReader<NaiveBitmapReader>(state, state.range(0));
 }
 
+BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
+#endif
+
+BENCHMARK(BitmapReader)->Arg(kBufferSize);
+BENCHMARK(VisitBits)->Arg(kBufferSize);
+BENCHMARK(VisitBitsUnrolled)->Arg(kBufferSize);
+
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 static void ReferenceNaiveBitmapWriter(benchmark::State& state) {
   BenchmarkBitmapWriter<NaiveBitmapWriter>(state, state.range(0));
 }
 
 BENCHMARK(ReferenceNaiveBitmapWriter)->Arg(kBufferSize);
-BENCHMARK(ReferenceNaiveBitmapReader)->Arg(kBufferSize);
-
 #endif
 
-BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
-BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
-
-BENCHMARK(BitmapReader)->Arg(kBufferSize);
 BENCHMARK(BitmapWriter)->Arg(kBufferSize);
-
 BENCHMARK(FirstTimeBitmapWriter)->Arg(kBufferSize);
 BENCHMARK(GenerateBits)->Arg(kBufferSize);
 BENCHMARK(GenerateBitsUnrolled)->Arg(kBufferSize);
+
+BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
+BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
 
 }  // namespace BitUtil
 }  // namespace arrow
