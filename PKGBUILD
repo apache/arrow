@@ -16,7 +16,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-boost"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
-source=("${_realname}"::"git+https://github.com/apache/arrow")
+source=("${_realname}"::"git+https://github.com/apache/arrow#commit=54b1b2f688e5e84b4c664b1e12a95f93b94ab2f3")
 sha256sums=("SKIP")
 
 cmake_build_type=release
