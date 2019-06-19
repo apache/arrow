@@ -25,7 +25,11 @@ RUN apt-get update && \
       clang-tidy-7 \
       clang-tools-7
 
-RUN conda install flake8 && \
+COPY ci/conda_env_gandiva.yml \
+     /arrow/ci/
+
+RUN conda install -q -c conda-forge \
+    --file arrow/ci/conda_env_gandiva.yml flake8 && \
     conda clean --all -y
 
 ENV PATH=/opt/iwyu/bin:$PATH
