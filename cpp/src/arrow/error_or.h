@@ -28,7 +28,9 @@
 namespace arrow {
 
 namespace internal {
-void DieWithMessage(const std::string& msg);
+
+ARROW_EXPORT void DieWithMessage(const std::string& msg);
+
 }  // namespace internal
 
 // A class for representing either a usable value, or an error.
@@ -84,7 +86,7 @@ void DieWithMessage(const std::string& msg);
 ///   arrow::ErrorOr<int> CalculateFoo();
 /// ```
 template <class T>
-class ARROW_EXPORT ErrorOr {
+class ErrorOr {
   template <typename U>
   friend class ErrorOr;
   using VariantType = arrow::util::variant<T, Status, const char*>;

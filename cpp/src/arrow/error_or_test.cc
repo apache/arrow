@@ -27,7 +27,7 @@
 
 namespace arrow {
 
-namespace testing {
+namespace {
 
 using ::testing::Eq;
 
@@ -39,7 +39,7 @@ constexpr char kStringElement[] =
     "The Answer to the Ultimate Question of Life, the Universe, and Everything";
 
 // A data type without a default constructor.
-struct ARROW_EXPORT Foo {
+struct Foo {
   int bar;
   std::string baz;
 
@@ -47,7 +47,7 @@ struct ARROW_EXPORT Foo {
 };
 
 // A data type with only copy constructors.
-struct ARROW_EXPORT CopyOnlyDataType {
+struct CopyOnlyDataType {
   explicit CopyOnlyDataType(int x) : data(x) {}
 
   CopyOnlyDataType(const CopyOnlyDataType& other) = default;
@@ -56,7 +56,7 @@ struct ARROW_EXPORT CopyOnlyDataType {
   int data;
 };
 
-struct ARROW_EXPORT ImplicitlyCopyConvertible {
+struct ImplicitlyCopyConvertible {
   ImplicitlyCopyConvertible(const CopyOnlyDataType& co)  // NOLINT(runtime/explicit)
       : copy_only(co) {}
 
@@ -64,7 +64,7 @@ struct ARROW_EXPORT ImplicitlyCopyConvertible {
 };
 
 // A data type with only move constructors.
-struct ARROW_EXPORT MoveOnlyDataType {
+struct MoveOnlyDataType {
   explicit MoveOnlyDataType(int x) : data(new int(x)) {}
 
   MoveOnlyDataType(MoveOnlyDataType&& other) : data(other.data) { other.data = nullptr; }
@@ -80,7 +80,7 @@ struct ARROW_EXPORT MoveOnlyDataType {
   int* data;
 };
 
-struct ARROW_EXPORT ImplicitlyMoveConvertible {
+struct ImplicitlyMoveConvertible {
   ImplicitlyMoveConvertible(MoveOnlyDataType&& mo)  // NOLINT(runtime/explicit)
       : move_only(std::move(mo)) {}
 
@@ -88,7 +88,7 @@ struct ARROW_EXPORT ImplicitlyMoveConvertible {
 };
 
 // A data type with dynamically-allocated data.
-struct ARROW_EXPORT HeapAllocatedObject {
+struct HeapAllocatedObject {
   int* value;
 
   HeapAllocatedObject() {
@@ -114,6 +114,41 @@ struct ARROW_EXPORT HeapAllocatedObject {
   ~HeapAllocatedObject() { delete value; }
 };
 
+// Constructs a Foo.
+struct FooCtor {
+  using value_type = Foo;
+
+  Foo operator()() { return Foo(kIntElement); }
+};
+
+// Constructs a HeapAllocatedObject.
+struct HeapAllocatedObjectCtor {
+  using value_type = HeapAllocatedObject;
+
+  HeapAllocatedObject operator()() { return HeapAllocatedObject(); }
+};
+
+// Constructs an integer.
+struct IntCtor {
+  using value_type = int;
+
+  int operator()() { return kIntElement; }
+};
+
+// Constructs a string.
+struct StringCtor {
+  using value_type = std::string;
+
+  std::string operator()() { return std::string(kStringElement); }
+};
+
+// Constructs a vector of strings.
+struct StringVectorCtor {
+  using value_type = std::vector<std::string>;
+
+  std::vector<std::string> operator()() { return {kStringElement, kErrorMessage}; }
+};
+
 bool operator==(const Foo& lhs, const Foo& rhs) {
   return (lhs.bar == rhs.bar) && (lhs.baz == rhs.baz);
 }
@@ -121,64 +156,6 @@ bool operator==(const Foo& lhs, const Foo& rhs) {
 bool operator==(const HeapAllocatedObject& lhs, const HeapAllocatedObject& rhs) {
   return *lhs.value == *rhs.value;
 }
-
-} // namespace testing
-
-template class ARROW_EXPORT ErrorOr<testing::Foo>;
-template class ARROW_EXPORT ErrorOr<testing::CopyOnlyDataType>;
-template class ARROW_EXPORT ErrorOr<testing::HeapAllocatedObject>;
-template class ARROW_EXPORT ErrorOr<testing::MoveOnlyDataType>;
-template class ARROW_EXPORT ErrorOr<int>;
-template class ARROW_EXPORT ErrorOr<std::string>;
-
-namespace {
-
-using testing::Foo;
-using testing::CopyOnlyDataType;
-using testing::HeapAllocatedObject;
-using testing::MoveOnlyDataType;
-using testing::ImplicitlyCopyConvertible;
-using testing::ImplicitlyMoveConvertible;
-using testing::kErrorMessage;
-using testing::kErrorCode;
-using testing::kErrorMessage;
-using testing::kIntElement;
-using testing::kStringElement;
-
-// Constructs a Foo.
-struct ARROW_EXPORT FooCtor {
-  using value_type = Foo;
-
-  Foo operator()() { return Foo(kIntElement); }
-};
-
-// Constructs a HeapAllocatedObject.
-struct ARROW_EXPORT HeapAllocatedObjectCtor {
-  using value_type = HeapAllocatedObject;
-
-  HeapAllocatedObject operator()() { return HeapAllocatedObject(); }
-};
-
-// Constructs an integer.
-struct ARROW_EXPORT IntCtor {
-  using value_type = int;
-
-  int operator()() { return kIntElement; }
-};
-
-// Constructs a string.
-struct ARROW_EXPORT StringCtor {
-  using value_type = std::string;
-
-  std::string operator()() { return std::string(kStringElement); }
-};
-
-// Constructs a vector of strings.
-struct ARROW_EXPORT StringVectorCtor {
-  using value_type = std::vector<std::string>;
-
-  std::vector<std::string> operator()() { return {kStringElement, kErrorMessage}; }
-};
 
 // Returns an rvalue reference to the ErrorOr<T> object pointed to by
 // |statusor|.
