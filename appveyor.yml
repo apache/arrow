@@ -155,6 +155,9 @@ for:
     NOT_CRAN: true
 
   artifacts:
+    - path: *.pkg.tar.xz
+      name: binaries
+    
     - path: 'r\*.Rcheck\**\*.log'
       name: Logs
 
