@@ -36,6 +36,7 @@ RUN apt-get update -y -q && \
         g++ \
         gcc \
         git \
+        libboost-all-dev \
         libbrotli-dev \
         libbz2-dev \
         libdouble-conversion-dev \
@@ -61,7 +62,7 @@ RUN apt-get update -y -q && \
 # - c-ares in Xenial isn't recognized by gRPC build system
 # - libprotobuf-dev / libprotoc-dev in Xenial too old for gRPC
 # - libboost-all-dev does not include Boost.Process, needed for Flight
-#   unit tests
+#   unit tests, so doing vendored build by default
 # - liburiparser-dev is too old (< 0.9.0)
 ENV CC=gcc \
      CXX=g++ \
@@ -80,6 +81,7 @@ ENV CC=gcc \
 -Dgflags_SOURCE=BUNDLED \
 -DgRPC_SOURCE=BUNDLED \
 -DGTest_SOURCE=BUNDLED \
+-DORC_SOURCE=BUNDLED \
 -DProtobuf_SOURCE=BUNDLED \
 -DRapidJSON_SOURCE=BUNDLED"
 

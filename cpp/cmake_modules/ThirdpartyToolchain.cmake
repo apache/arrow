@@ -478,6 +478,12 @@ find_package(Threads REQUIRED)
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
 
+if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
+  set(ARROW_BOOST_REQUIRED_VERSION "1.64")
+else()
+  set(ARROW_BOOST_REQUIRED_VERSION "1.58")
+endif()
+
 set(Boost_USE_MULTITHREADED ON)
 if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
@@ -590,9 +596,11 @@ else()
     endif()
 
     if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost REQUIRED)
+      find_package(Boost ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
     else()
-      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
+      find_package(Boost ${ARROW_BOOST_REQUIRED_VERSION}
+                   COMPONENTS regex system filesystem
+                   REQUIRED)
       set(BOOST_SYSTEM_LIBRARY Boost::system)
       set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
       set(BOOST_REGEX_LIBRARY Boost::regex)
@@ -605,9 +613,11 @@ else()
     # TODO Differentiate here between release and debug builds
     set(Boost_USE_STATIC_LIBS ON)
     if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost REQUIRED)
+      find_package(Boost ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
     else()
-      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
+      find_package(Boost ${ARROW_BOOST_REQUIRED_VERSION}
+                   COMPONENTS regex system filesystem
+                   REQUIRED)
       set(BOOST_SYSTEM_LIBRARY Boost::system)
       set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
       set(BOOST_REGEX_LIBRARY Boost::regex)
