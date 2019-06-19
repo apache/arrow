@@ -21,9 +21,7 @@ add_custom_target(arrow_dataset)
 arrow_install_all_headers("arrow/dataset")
 
 # pkg-config support
-configure_file(arrow-dataset.pc.in "${CMAKE_CURRENT_BINARY_DIR}/arrow-dataset.pc" @ONLY)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/arrow-dataset.pc"
-        DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+arrow_add_pkg_config("arrow-dataset")
 
 set(ARROW_DATASET_SRCS scanner.cc)
 
