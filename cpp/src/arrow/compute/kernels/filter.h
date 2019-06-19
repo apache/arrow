@@ -77,6 +77,7 @@ class ARROW_EXPORT FilterKernel : public BinaryKernel {
   ///
   /// \param[in] value_type constructed FilterKernel will support filtering
   ///            values of this type
+  /// \param[out] out created kernel
   static Status Make(const std::shared_ptr<DataType>& value_type,
                      std::unique_ptr<FilterKernel>* out);
 
