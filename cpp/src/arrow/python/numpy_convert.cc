@@ -315,17 +315,25 @@ Status SparseTensorCOOToNdarray(const std::shared_ptr<SparseTensorCOO>& sparse_t
     array_flags |= NPY_ARRAY_WRITEABLE;
   }
 
-  PyObject* data =
+  PyObject* result_data =
       PyArray_NewFromDescr(&PyArray_Type, dtype_data, 1, npy_shape_data.data(), nullptr,
                            mutable_data, array_flags, nullptr);
-  PyObject* coords =
+  PyObject* result_coords =
       PyArray_NewFromDescr(&PyArray_Type, dtype_coords, 2, npy_shape_coords.data(),
                            nullptr, mutable_coords, array_flags, nullptr);
 
   RETURN_IF_PYERROR()
 
-  *out_data = data;
-  *out_coords = coords;
+  if (base == Py_None || base == nullptr) {
+    base = py::wrap_sparse_tensor_coo(sparse_tensor);
+  } else {
+    Py_XINCREF(base);
+  }
+  PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_data), base);
+  PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_coords), base);
+
+  *out_data = result_data;
+  *out_coords = result_coords;
   return Status::OK();
 }
 
@@ -393,6 +401,15 @@ Status SparseTensorCSRToNdarray(const std::shared_ptr<SparseTensorCSR>& sparse_t
       PyArray_NewFromDescr(&PyArray_Type, dtype_indices, 1, npy_shape_indices.data(),
                            nullptr, mutable_indices, array_flags, nullptr);
   RETURN_IF_PYERROR()
+
+  if (base == Py_None || base == nullptr) {
+    base = py::wrap_sparse_tensor_csr(sparse_tensor);
+  } else {
+    Py_XINCREF(base);
+  }
+  PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_data), base);
+  PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_indptr), base);
+  PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_indices), base);
 
   *out_data = result_data;
   *out_indptr = result_indptr;

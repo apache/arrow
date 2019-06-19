@@ -16,6 +16,7 @@
 # under the License.
 
 import pytest
+import sys
 
 import numpy as np
 import pyarrow as pa
@@ -42,6 +43,20 @@ def test_sparse_tensor_attrs(sparse_tensor_type):
     assert sparse_tensor.dim_name(0) == b''
     assert sparse_tensor.dim_names == []
     assert sparse_tensor.non_zero_length == 4
+
+
+def test_sparse_tensor_coo_base_object():
+    sparse_tensor = pa.SparseTensorCOO.from_dense_numpy(np.random.randn(10, 4))
+    n = sys.getrefcount(sparse_tensor)
+    data, coords = sparse_tensor.to_numpy()  # noqa
+    assert sys.getrefcount(sparse_tensor) == n + 1
+
+
+def test_sparse_tensor_csr_base_object():
+    sparse_tensor = pa.SparseTensorCSR.from_dense_numpy(np.random.randn(10, 4))
+    n = sys.getrefcount(sparse_tensor)
+    data, indptr, indices = sparse_tensor.to_numpy()  # noqa
+    assert sys.getrefcount(sparse_tensor) == n + 1
 
 
 @pytest.mark.parametrize('dtype_str,arrow_type', [
@@ -126,7 +141,6 @@ def test_sparse_tensor_csr_from_dense(dtype_str, arrow_type):
     assert (indices == result_indices).all()
 
 
-@pytest.mark.skip
 @pytest.mark.parametrize('dtype_str,arrow_type', [
     ('i1', pa.int8()),
     ('i2', pa.int16()),
@@ -142,8 +156,8 @@ def test_sparse_tensor_csr_from_dense(dtype_str, arrow_type):
 ])
 def test_sparse_tensor_coo_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
-    coords = np.array([[0, 0], [3, 3], [1, 1], [0, 2]]).astype('i8')
     data = np.array([4, 5, 7, 9]).astype(dtype)
+    coords = np.array([[0, 0], [3, 3], [1, 1], [0, 2]]).astype('i8')
     shape = (4, 4)
     dim_names = ["x", "y"]
 
