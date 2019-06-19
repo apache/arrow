@@ -64,6 +64,12 @@ export class Data<T extends DataType = DataType> {
     public readonly offset: number;
     public readonly stride: number;
     public readonly childData: Data[];
+
+    /**
+     * The dictionary for this Vector, if any. Only used for Dictionary type.
+     */
+    public dictionary?: Vector;
+
     public readonly values: Buffers<T>[BufferType.DATA];
     // @ts-ignore
     public readonly typeIds: Buffers<T>[BufferType.TYPE];
@@ -98,8 +104,9 @@ export class Data<T extends DataType = DataType> {
         return nullCount;
     }
 
-    constructor(type: T, offset: number, length: number, nullCount?: number, buffers?: Partial<Buffers<T>> | Data<T>, childData?: (Data | Vector)[]) {
+    constructor(type: T, offset: number, length: number, nullCount?: number, buffers?: Partial<Buffers<T>> | Data<T>, childData?: (Data | Vector)[], dictionary?: Vector) {
         this.type = type;
+        this.dictionary = dictionary;
         this.offset = Math.floor(Math.max(offset || 0, 0));
         this.length = Math.floor(Math.max(length || 0, 0));
         this._nullCount = Math.floor(Math.max(nullCount || 0, -1));
@@ -123,7 +130,7 @@ export class Data<T extends DataType = DataType> {
     }
 
     public clone<R extends DataType>(type: R, offset = this.offset, length = this.length, nullCount = this._nullCount, buffers: Buffers<R> = <any> this, childData: (Data | Vector)[] = this.childData) {
-        return new Data(type, offset, length, nullCount, buffers, childData);
+        return new Data(type, offset, length, nullCount, buffers, childData, this.dictionary);
     }
 
     public slice(offset: number, length: number): Data<T> {
@@ -173,12 +180,12 @@ export class Data<T extends DataType = DataType> {
     // Convenience methods for creating Data instances for each of the Arrow Vector types
     //
     /** @nocollapse */
-    public static new<T extends DataType>(type: T, offset: number, length: number, nullCount?: number, buffers?: Partial<Buffers<T>> | Data<T>, childData?: (Data | Vector)[]): Data<T> {
+    public static new<T extends DataType>(type: T, offset: number, length: number, nullCount?: number, buffers?: Partial<Buffers<T>> | Data<T>, childData?: (Data | Vector)[], dictionary?: Vector): Data<T> {
         if (buffers instanceof Data) { buffers = buffers.buffers; } else if (!buffers) { buffers = [] as Partial<Buffers<T>>; }
         switch (type.typeId) {
             case Type.Null:            return <unknown> Data.Null(            <unknown> type as Null,            offset, length, nullCount || 0, buffers[BufferType.VALIDITY]) as Data<T>;
             case Type.Int:             return <unknown> Data.Int(             <unknown> type as Int,             offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
-            case Type.Dictionary:      return <unknown> Data.Dictionary(      <unknown> type as Dictionary,      offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
+            case Type.Dictionary:      return <unknown> Data.Dictionary(      <unknown> type as Dictionary,      offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || [], dictionary!) as Data<T>;
             case Type.Float:           return <unknown> Data.Float(           <unknown> type as Float,           offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
             case Type.Bool:            return <unknown> Data.Bool(            <unknown> type as Bool,            offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
             case Type.Decimal:         return <unknown> Data.Decimal(         <unknown> type as Decimal,         offset, length, nullCount || 0, buffers[BufferType.VALIDITY], buffers[BufferType.DATA] || []) as Data<T>;
@@ -207,8 +214,8 @@ export class Data<T extends DataType = DataType> {
         return new Data(type, offset, length, nullCount, [undefined, toArrayBufferView(type.ArrayType, data), toUint8Array(nullBitmap)]);
     }
     /** @nocollapse */
-    public static Dictionary<T extends Dictionary>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer, data: DataBuffer<T>) {
-        return new Data(type, offset, length, nullCount, [undefined, toArrayBufferView<T['TArray']>(type.indices.ArrayType, data), toUint8Array(nullBitmap)]);
+    public static Dictionary<T extends Dictionary>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer, data: DataBuffer<T>, dictionary: Vector<T['dictionary']>) {
+        return new Data(type, offset, length, nullCount, [undefined, toArrayBufferView<T['TArray']>(type.indices.ArrayType, data), toUint8Array(nullBitmap)], [], dictionary);
     }
     /** @nocollapse */
     public static Float<T extends Float>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer, data: DataBuffer<T>) {

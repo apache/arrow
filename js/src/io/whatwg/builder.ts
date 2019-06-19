@@ -82,22 +82,6 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
             'highWaterMark': writableHighWaterMark,
             'size': (value: T['TValue'] | TNull) => this._writeValueAndReturnChunkSize(value),
         });
-
-        if (DataType.isDictionary(builderOptions.type)) {
-            let chunks: any[] = [];
-            this._enqueue = (controller: ReadableStreamDefaultController<V<T>>, chunk: V<T> | null) => {
-                this._bufferedSize = 0;
-                if (chunk !== null) {
-                    chunks.push(chunk);
-                } else {
-                    const chunks_ = chunks;
-                    chunks = [];
-                    chunks_.forEach((x) => controller.enqueue(x));
-                    controller.close();
-                    this._controller = null;
-                }
-            };
-        }
     }
 
     private _writeValueAndReturnChunkSize(value: T['TValue'] | TNull) {

@@ -123,7 +123,7 @@ describe(`Table`, () => {
             let i32 = Column.new('i32', Data.Int(new Int32(), 0, i32s.length, 0, null, i32s));
             expect(i32.name).toBe('i32');
             expect(i32.length).toBe(i32s.length);
-            expect(i32.nullable).toBe(false);
+            expect(i32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
 
             const table = Table.new(i32);
@@ -131,7 +131,7 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32');
             expect(i32.length).toBe(i32s.length);
-            expect(i32.nullable).toBe(false);
+            expect(i32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
 
             expect(i32).toEqualVector(Int32Vector.from(i32s));
@@ -148,8 +148,8 @@ describe(`Table`, () => {
             expect(f32.name).toBe('f32');
             expect(i32.length).toBe(i32s.length);
             expect(f32.length).toBe(f32s.length);
-            expect(i32.nullable).toBe(false);
-            expect(f32.nullable).toBe(false);
+            expect(i32.nullable).toBe(true);
+            expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -161,8 +161,8 @@ describe(`Table`, () => {
             expect(f32.name).toBe('f32');
             expect(i32.length).toBe(i32s.length);
             expect(f32.length).toBe(f32s.length);
-            expect(i32.nullable).toBe(false);
-            expect(f32.nullable).toBe(false);
+            expect(i32.nullable).toBe(true);
+            expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -182,8 +182,8 @@ describe(`Table`, () => {
             expect(f32.name).toBe('f32');
             expect(i32.length).toBe(i32s.length);
             expect(f32.length).toBe(f32s.length);
-            expect(i32.nullable).toBe(false);
-            expect(f32.nullable).toBe(false);
+            expect(i32.nullable).toBe(true);
+            expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -195,7 +195,7 @@ describe(`Table`, () => {
             expect(f32.name).toBe('f32');
             expect(i32.length).toBe(i32s.length);
             expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
-            expect(i32.nullable).toBe(false);
+            expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true); // true, with 12 additional nulls
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(i32s.length - f32s.length);
@@ -221,8 +221,8 @@ describe(`Table`, () => {
             expect(f32.name).toBe('f32');
             expect(i32.length).toBe(i32s.length);
             expect(f32.length).toBe(f32s.length);
-            expect(i32.nullable).toBe(false);
-            expect(f32.nullable).toBe(false);
+            expect(i32.nullable).toBe(true);
+            expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -234,7 +234,7 @@ describe(`Table`, () => {
             expect(f32.name).toBe('f32Renamed');
             expect(i32.length).toBe(i32s.length);
             expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
-            expect(i32.nullable).toBe(false);
+            expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true); // true, with 4 additional nulls
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(i32s.length - f32s.length);

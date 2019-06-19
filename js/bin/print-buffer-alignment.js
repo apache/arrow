@@ -73,9 +73,9 @@ const { VectorLoader } = require(`../targets/apache-arrow/visitor/vectorloader`)
 })().catch((e) => { console.error(e); process.exit(1); });
 
 function loadRecordBatch(schema, header, body) {
-    return new RecordBatch(schema, header.length, new VectorLoader(body, header.nodes, header.buffers).visitMany(schema.fields));
+    return new RecordBatch(schema, header.length, new VectorLoader(body, header.nodes, header.buffers, new Map()).visitMany(schema.fields));
 }
 
 function loadDictionaryBatch(header, body, dictionaryType) {
-    return RecordBatch.new(new VectorLoader(body, header.nodes, header.buffers).visitMany([dictionaryType]));
+    return RecordBatch.new(new VectorLoader(body, header.nodes, header.buffers, new Map()).visitMany([dictionaryType]));
 }

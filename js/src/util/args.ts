@@ -132,14 +132,14 @@ function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], re
     while (++idx < len) {
         val = vals[idx];
         if (val instanceof Column && (values[++valueIndex] = val)) {
-            fields[++fieldIndex] = val.field.clone(keys[idx], val.type, val.nullCount > 0);
+            fields[++fieldIndex] = val.field.clone(keys[idx], val.type, true);
         } else {
             ({ [idx]: field = idx } = keys);
             if (val instanceof DataType && (values[++valueIndex] = val)) {
-                fields[++fieldIndex] = Field.new(field, val as DataType) as Field<T[keyof T]>;
+                fields[++fieldIndex] = Field.new(field, val as DataType, true) as Field<T[keyof T]>;
             } else if (val && val.type && (values[++valueIndex] = val)) {
                 val instanceof Data && (values[valueIndex] = val = Vector.new(val) as Vector);
-                fields[++fieldIndex] = Field.new(field, val.type, val.nullCount > 0) as Field<T[keyof T]>;
+                fields[++fieldIndex] = Field.new(field, val.type, true) as Field<T[keyof T]>;
             }
         }
     }

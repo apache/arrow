@@ -17,8 +17,8 @@
 
 import { Data } from './data';
 import { Vector } from './vector';
+import { DataType } from './type';
 import { selectArgs } from './util/args';
-import { DataType, Dictionary } from './type';
 import { selectFieldArgs } from './util/args';
 import { instance as comparer } from './visitor/typecomparator';
 
@@ -47,21 +47,16 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     public readonly fields: Field<T[keyof T]>[];
     public readonly metadata: Map<string, string>;
     public readonly dictionaries: Map<number, DataType>;
-    public readonly dictionaryFields: Map<number, Field<Dictionary>[]>;
 
     constructor(fields: Field[] = [],
                 metadata?: Map<string, string> | null,
-                dictionaries?: Map<number, DataType> | null,
-                dictionaryFields?: Map<number, Field<Dictionary>[]> | null) {
+                dictionaries?: Map<number, DataType> | null) {
         this.fields = (fields || []) as Field<T[keyof T]>[];
         this.metadata = metadata || new Map();
-        if (!dictionaries || !dictionaryFields) {
-            ({ dictionaries, dictionaryFields } = generateDictionaryMap(
-                fields, dictionaries || new Map(), dictionaryFields || new Map()
-            ));
+        if (!dictionaries) {
+            dictionaries = generateDictionaryMap(fields);
         }
         this.dictionaries = dictionaries;
-        this.dictionaryFields = dictionaryFields;
     }
     public get [Symbol.toStringTag]() { return 'Schema'; }
     public toString() {
@@ -88,7 +83,6 @@ export class Schema<T extends { [key: string]: DataType } = any> {
             : new Schema<R>(selectArgs<Field<R[keyof R]>>(Field, args));
 
         const curFields = [...this.fields] as Field[];
-        const curDictionaryFields = this.dictionaryFields;
         const metadata = mergeMaps(mergeMaps(new Map(), this.metadata), other.metadata);
         const newFields = other.fields.filter((f2) => {
             const i = curFields.findIndex((f) => f.name === f2.name);
@@ -97,17 +91,11 @@ export class Schema<T extends { [key: string]: DataType } = any> {
             })) && false : true;
         }) as Field[];
 
-        const { dictionaries: newDictionaries, dictionaryFields } = generateDictionaryMap(newFields, new Map(), new Map());
-        const newDictionaryFields = [...dictionaryFields].map(([id, newDictFields]) => {
-            return [id, [...(curDictionaryFields.get(id) || []), ...newDictFields.map((f) => {
-                return newFields[newFields.findIndex((f2) => f.name === f2.name)] = f.clone();
-            })]] as [number, Field<Dictionary>[]];
-        });
+        const newDictionaries = generateDictionaryMap(newFields, new Map());
 
         return new Schema<T & R>(
             [...curFields, ...newFields], metadata,
-            new Map([...this.dictionaries, ...newDictionaries]),
-            new Map([...curDictionaryFields, ...newDictionaryFields])
+            new Map([...this.dictionaries, ...newDictionaries])
         );
     }
 }
@@ -163,28 +151,24 @@ function mergeMaps<TKey, TVal>(m1?: Map<TKey, TVal> | null, m2?: Map<TKey, TVal>
 }
 
 /** @ignore */
-function generateDictionaryMap(fields: Field[], dictionaries: Map<number, DataType>, dictionaryFields: Map<number, Field<Dictionary>[]>) {
+function generateDictionaryMap(fields: Field[], dictionaries = new Map<number, DataType>()): Map<number, DataType> {
 
     for (let i = -1, n = fields.length; ++i < n;) {
         const field = fields[i];
         const type = field.type;
         if (DataType.isDictionary(type)) {
-            if (!dictionaryFields.get(type.id)) {
-                dictionaryFields.set(type.id, []);
-            }
             if (!dictionaries.has(type.id)) {
                 dictionaries.set(type.id, type.dictionary);
-                dictionaryFields.get(type.id)!.push(field as any);
             } else if (dictionaries.get(type.id) !== type.dictionary) {
                 throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
             }
         }
-        if (type.children) {
-            generateDictionaryMap(type.children, dictionaries, dictionaryFields);
+        if (type.children && type.children.length > 0) {
+            generateDictionaryMap(type.children, dictionaries);
         }
     }
 
-    return { dictionaries, dictionaryFields };
+    return dictionaries;
 }
 
 // Add these here so they're picked up by the externs creator
@@ -192,7 +176,6 @@ function generateDictionaryMap(fields: Field[], dictionaries: Map<number, DataTy
 (Schema.prototype as any).fields = null;
 (Schema.prototype as any).metadata = null;
 (Schema.prototype as any).dictionaries = null;
-(Schema.prototype as any).dictionaryFields = null;
 
 (Field.prototype as any).type = null;
 (Field.prototype as any).name = null;
