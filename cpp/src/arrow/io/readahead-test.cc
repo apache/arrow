@@ -193,8 +193,12 @@ TEST(ReadaheadSpooler, Close) {
 
   AssertEventualPosition(*data_reader, 2 * 2);
   ASSERT_OK(spooler.Close());
+
   // Idempotency
   ASSERT_OK(spooler.Close());
+
+  // ARROW-4823: does not close raw
+  ASSERT_FALSE(data_reader->closed());
 }
 
 TEST(ReadaheadSpooler, Paddings) {
