@@ -16,7 +16,10 @@
 
 package arrow
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 type BooleanType struct{}
 
@@ -113,6 +116,19 @@ func (t *Float16Type) String() string { return "float16" }
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (t *Float16Type) BitWidth() int { return 16 }
+
+// Decimal128Type represents a fixed-size 128-bit decimal type.
+type Decimal128Type struct {
+	Precision int32
+	Scale     int32
+}
+
+func (*Decimal128Type) ID() Type      { return DECIMAL }
+func (*Decimal128Type) Name() string  { return "decimal" }
+func (*Decimal128Type) BitWidth() int { return 16 }
+func (t *Decimal128Type) String() string {
+	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
+}
 
 // MonthInterval represents a number of months.
 type MonthInterval int32
