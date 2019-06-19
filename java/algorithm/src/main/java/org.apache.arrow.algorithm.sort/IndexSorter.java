@@ -39,12 +39,6 @@ public class IndexSorter<V extends ValueVector> {
   private IntVector indices;
 
   /**
-   * The buffer to store the pivot which is used in quick sort.
-   * This vector always have a length of 1.
-   */
-  private IntVector pivotBuffer;
-
-  /**
    * Sorts indices, by quick-sort. Suppose the vector is denoted by v.
    * After calling this method, the following relations hold:
    * v(indices[0]) <= v(indices[1]) <= ...
@@ -57,17 +51,11 @@ public class IndexSorter<V extends ValueVector> {
 
     this.indices = indices;
 
-    this.pivotBuffer = new IntVector("", vector.getAllocator());
-    pivotBuffer.allocateNew(1);
-    pivotBuffer.setValueCount(1);
-
     IntStream.range(0, vector.getValueCount()).forEach(i -> indices.set(i, i));
 
     this.comparator = comparator;
 
     quickSort(0, indices.getValueCount() - 1);
-
-    pivotBuffer.close();
   }
 
   private void quickSort(int low, int high) {
@@ -79,21 +67,21 @@ public class IndexSorter<V extends ValueVector> {
   }
 
   private int partition(int low, int high) {
-    copyIntElement(indices, low, pivotBuffer, 0);
+    int pivotIndex = indices.get(low);
 
     while (low < high) {
-      while (low < high && comparator.compare(indices.get(high), pivotBuffer.get(0)) >= 0) {
+      while (low < high && comparator.compare(indices.get(high), pivotIndex) >= 0) {
         high -= 1;
       }
       copyIntElement(indices, high, indices, low);
 
-      while (low < high && comparator.compare(indices.get(low), pivotBuffer.get(0)) <= 0) {
+      while (low < high && comparator.compare(indices.get(low), pivotIndex) <= 0) {
         low += 1;
       }
       copyIntElement(indices, low, indices, high);
     }
 
-    copyIntElement(pivotBuffer, 0, indices, low);
+    indices.set(low, pivotIndex);
     return low;
   }
 
