@@ -17,13 +17,12 @@
 package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-stream-to-file"
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -40,7 +39,17 @@ func TestStreamToFile(t *testing.T) {
 			defer f.Close()
 			defer os.Remove(f.Name())
 
-			writeStream(t, f, mem, recs)
+			arrdata.WriteStream(t, f, mem, recs[0].Schema(), recs)
+
+			err = f.Sync()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = f.Seek(0, io.SeekStart)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			o, err := ioutil.TempFile("", "arrow-ipc-")
 			if err != nil {
@@ -52,25 +61,18 @@ func TestStreamToFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			err = o.Sync()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = o.Seek(0, io.SeekStart)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			arrdata.CheckArrowFile(t, o, mem, recs[0].Schema(), recs)
 		})
-	}
-}
-
-func writeStream(t *testing.T, f *os.File, mem memory.Allocator, recs []array.Record) {
-	t.Helper()
-
-	w := ipc.NewWriter(f, ipc.WithSchema(recs[0].Schema()), ipc.WithAllocator(mem))
-	defer w.Close()
-
-	for i, rec := range recs {
-		err := w.Write(rec)
-		if err != nil {
-			t.Fatalf("could not write record[%d]: %v", i, err)
-		}
-	}
-
-	err := w.Close()
-	if err != nil {
-		t.Fatal(err)
 	}
 }

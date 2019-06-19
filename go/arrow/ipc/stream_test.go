@@ -39,7 +39,7 @@ func TestStream(t *testing.T) {
 			defer f.Close()
 			defer os.Remove(f.Name())
 
-			writeStream(t, f, mem, recs[0].Schema(), recs)
+			arrdata.WriteStream(t, f, mem, recs[0].Schema(), recs)
 
 			err = f.Sync()
 			if err != nil {
@@ -51,7 +51,7 @@ func TestStream(t *testing.T) {
 				t.Fatalf("could not seek to start: %v", err)
 			}
 
-			checkArrowStream(t, f, mem, recs[0].Schema(), recs)
+			arrdata.CheckArrowStream(t, f, mem, recs[0].Schema(), recs)
 		})
 	}
 }

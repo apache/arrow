@@ -31,127 +31,6 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
-func checkArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
-	t.Helper()
-
-	err := f.Sync()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = f.Seek(0, io.SeekStart)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	r, err := ipc.NewFileReader(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer r.Close()
-
-	for i := 0; i < r.NumRecords(); i++ {
-		rec, err := r.Record(i)
-		if err != nil {
-			t.Fatalf("could not read record %d: %v", i, err)
-		}
-		if !array.RecordEqual(rec, recs[i]) {
-			t.Fatalf("records[%d] differ", i)
-		}
-	}
-
-	err = r.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-}
-
-func checkArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
-	t.Helper()
-
-	err := f.Sync()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = f.Seek(0, io.SeekStart)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	r, err := ipc.NewReader(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer r.Release()
-
-	n := 0
-	for r.Next() {
-		rec := r.Record()
-		if !array.RecordEqual(rec, recs[n]) {
-			t.Fatalf("records[%d] differ", n)
-		}
-		n++
-	}
-
-	if len(recs) != n {
-		t.Fatalf("invalid number of records. got=%d, want=%d", n, len(recs))
-
-	}
-}
-
-func writeFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
-	t.Helper()
-
-	w, err := ipc.NewFileWriter(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer w.Close()
-
-	for i, rec := range recs {
-		err = w.Write(rec)
-		if err != nil {
-			t.Fatalf("could not write record[%d]: %v", i, err)
-		}
-	}
-
-	err = w.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = f.Sync()
-	if err != nil {
-		t.Fatalf("could not sync data to disk: %v", err)
-	}
-
-	_, err = f.Seek(0, io.SeekStart)
-	if err != nil {
-		t.Fatalf("could not seek to start: %v", err)
-	}
-}
-
-func writeStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
-	t.Helper()
-
-	w := ipc.NewWriter(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
-	defer w.Close()
-
-	for i, rec := range recs {
-		err := w.Write(rec)
-		if err != nil {
-			t.Fatalf("could not write record[%d]: %v", i, err)
-		}
-	}
-
-	err := w.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 type copyKind int
 
 const (
@@ -164,9 +43,9 @@ func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *
 
 	switch k {
 	case fileKind:
-		writeFile(t, f, mem, schema, recs)
+		arrdata.WriteFile(t, f, mem, schema, recs)
 	case streamKind:
-		writeStream(t, f, mem, schema, recs)
+		arrdata.WriteStream(t, f, mem, schema, recs)
 	default:
 		panic("invalid copyKind")
 	}
@@ -177,9 +56,9 @@ func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *
 
 	switch k {
 	case fileKind:
-		checkArrowFile(t, f, mem, schema, recs)
+		arrdata.CheckArrowFile(t, f, mem, schema, recs)
 	case streamKind:
-		checkArrowStream(t, f, mem, schema, recs)
+		arrdata.CheckArrowStream(t, f, mem, schema, recs)
 	default:
 		panic("invalid copyKind")
 	}

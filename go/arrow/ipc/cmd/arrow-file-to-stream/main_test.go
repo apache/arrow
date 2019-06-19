@@ -22,9 +22,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -41,7 +39,7 @@ func TestFileToStream(t *testing.T) {
 			defer f.Close()
 			defer os.Remove(f.Name())
 
-			writeFile(t, f, mem, recs)
+			arrdata.WriteFile(t, f, mem, recs[0].Schema(), recs)
 
 			o, err := ioutil.TempFile("", "arrow-ipc-")
 			if err != nil {
@@ -53,38 +51,18 @@ func TestFileToStream(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			err = o.Sync()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = o.Seek(0, io.SeekStart)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			arrdata.CheckArrowStream(t, o, mem, recs[0].Schema(), recs)
 		})
-	}
-}
-
-func writeFile(t *testing.T, f *os.File, mem memory.Allocator, recs []array.Record) {
-	t.Helper()
-
-	w, err := ipc.NewFileWriter(f, ipc.WithSchema(recs[0].Schema()), ipc.WithAllocator(mem))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer w.Close()
-
-	for i, rec := range recs {
-		err = w.Write(rec)
-		if err != nil {
-			t.Fatalf("could not write record[%d]: %v", i, err)
-		}
-	}
-
-	err = w.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = f.Sync()
-	if err != nil {
-		t.Fatalf("could not sync data to disk: %v", err)
-	}
-
-	_, err = f.Seek(0, io.SeekStart)
-	if err != nil {
-		t.Fatalf("could not seek to start: %v", err)
 	}
 }

@@ -38,8 +38,8 @@ func TestFile(t *testing.T) {
 			defer f.Close()
 			defer os.Remove(f.Name())
 
-			writeFile(t, f, mem, recs[0].Schema(), recs)
-			checkArrowFile(t, f, mem, recs[0].Schema(), recs)
+			arrdata.WriteFile(t, f, mem, recs[0].Schema(), recs)
+			arrdata.CheckArrowFile(t, f, mem, recs[0].Schema(), recs)
 		})
 	}
 }

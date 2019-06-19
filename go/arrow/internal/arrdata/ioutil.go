@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc_test
+package arrdata // import "github.com/apache/arrow/go/arrow/internal/arrdata"
 
 import (
 	"io"
@@ -27,7 +27,8 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
-func checkArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+// CheckArrowFile checks whether a given ARROW file contains the expected list of records.
+func CheckArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
 	t.Helper()
 
 	err := f.Sync()
@@ -63,7 +64,8 @@ func checkArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arro
 
 }
 
-func checkArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+// CheckArrowStream checks whether a given ARROW stream contains the expected list of records.
+func CheckArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
 	t.Helper()
 
 	err := f.Sync()
@@ -97,7 +99,8 @@ func checkArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *ar
 	}
 }
 
-func writeFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+// WriteFile writes a list of records to the given file descriptor, as an ARROW file.
+func WriteFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
 	t.Helper()
 
 	w, err := ipc.NewFileWriter(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
@@ -129,7 +132,8 @@ func writeFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Sch
 	}
 }
 
-func writeStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+// WriteStream writes a list of records to the given file descriptor, as an ARROW stream.
+func WriteStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
 	t.Helper()
 
 	w := ipc.NewWriter(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
