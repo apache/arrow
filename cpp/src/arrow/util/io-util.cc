@@ -49,13 +49,6 @@
 #define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
 #endif
 
-// For filename conversion
-#if defined(_WIN32)
-#include <codecvt>
-#include <locale>
-#include <stdexcept>
-#endif
-
 #include <boost/filesystem.hpp>
 
 // ----------------------------------------------------------------------
@@ -93,6 +86,11 @@
 #include "arrow/buffer.h"
 #include "arrow/util/io-util.h"
 #include "arrow/util/logging.h"
+
+// For filename conversion
+#if defined(_WIN32)
+#include "arrow/util/utf8.h"
+#endif
 
 namespace arrow {
 namespace io {
@@ -184,17 +182,11 @@ namespace bfs = ::boost::filesystem;
 
 namespace {
 
-#if _WIN32
-using NativePathCodeCvt = std::codecvt_utf8_utf16<wchar_t>;
-#endif
-
 Status StringToNative(const std::string& s, NativePathString* out) {
 #if _WIN32
-  try {
-    *out = std::wstring_convert<NativePathCodeCvt>{}.from_bytes(s);
-  } catch (std::range_error& e) {
-    return Status::Invalid(e.what());
-  }
+  std::wstring ws;
+  RETURN_NOT_OK(::arrow::util::UTF8ToWideString(s, &ws));
+  *out = std::move(ws);
 #else
   *out = s;
 #endif
@@ -291,7 +283,15 @@ const NativePathString& PlatformFilename::ToNative() const {
 
 std::string PlatformFilename::ToString() const {
 #if _WIN32
-  return impl_->path.generic_string(NativePathCodeCvt());
+  std::wstring ws = impl_->path.generic_wstring();
+  std::string s;
+  Status st = ::arrow::util::WideStringToUTF8(ws, &s);
+  if (!st.ok()) {
+    std::stringstream ss;
+    ss << "<Unrepresentable filename: " << st.ToString() << ">";
+    return ss.str();
+  }
+  return s;
 #else
   return impl_->path.generic_string();
 #endif
