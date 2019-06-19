@@ -250,11 +250,11 @@ ${ARROW_CMAKE_OPTIONS}
 "
   cmake $ARROW_CMAKE_OPTIONS ..
 
-  make -j$NPROC
-  make install
+  make -j$NPROC install
 
-  # TODO: ARROW-5036
-  ctest \
+  # TODO: ARROW-5036: plasma-serialization_tests broken
+  # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
+  LD_LIBRARY_PATH=`pwd`/release:$LD_LIBRARY_PATH ctest \
     --exclude-regex "plasma-serialization_tests" \
     -j$NPROC \
     --output-on-failure \
@@ -395,7 +395,13 @@ test_integration() {
 
   pushd integration
 
-  python integration_test.py
+  INTEGRATION_TEST_ARGS=
+
+  if [ "${ARROW_FLIGHT}" = "ON" ]; then
+    INTEGRATION_TEST_ARGS=--run_flight
+  fi
+
+  python integration_test.py $INTEGRATION_TEST_ARGS
 
   popd
 }
