@@ -26,7 +26,9 @@ import com.google.flatbuffers.FlatBufferBuilder;
 import java.util.Objects;
 
 import org.apache.arrow.flatbuf.Type;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.*;
+import org.apache.arrow.vector.FieldVector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -108,6 +110,9 @@ public abstract class ArrowType {
   <#list arrowTypes.types as type>
     T visit(${type.name?remove_ending("_")} type);
   </#list>
+    default T visit(ExtensionType type) {
+      return type.storageType().accept(this);
+    }
   }
 
   /**
@@ -245,6 +250,61 @@ public abstract class ArrowType {
     }
   }
   </#list>
+
+  /**
+   * A user-defined data type that wraps an underlying storage type.
+   */
+  public abstract static class ExtensionType extends ComplexType {
+    /** The on-wire type for this user-defined type. */
+    public abstract ArrowType storageType();
+    /** The name of this user-defined type. Used to identify the type during serialization. */
+    public abstract String extensionName();
+    /** Check equality of this type to another user-defined type. */
+    public abstract boolean extensionEquals(ExtensionType other);
+    /** Save any metadata for this type. */
+    public abstract String serialize();
+    /** Given saved metadata and the underlying storage type, construct a new instance of the user type. */
+    public abstract ArrowType deserialize(ArrowType storageType, String serializedData);
+    /** Construct a vector for the user type. */
+    public abstract FieldVector getNewVector(String name, FieldType fieldType, BufferAllocator allocator);
+
+    /** The field metadata key storing the name of the extension type. */
+    public static final String EXTENSION_METADATA_KEY_NAME = "ARROW:extension:name";
+    /** The field metadata key storing metadata for the extension type. */
+    public static final String EXTENSION_METADATA_KEY_METADATA = "ARROW:extension:metadata";
+
+    @Override
+    public ArrowTypeID getTypeID() {
+      return storageType().getTypeID();
+    }
+
+    @Override
+    public int getType(FlatBufferBuilder builder) {
+      return storageType().getType(builder);
+    }
+
+    public String toString() {
+      return "ExtensionType(" + extensionName() + ", " + storageType().toString() + ")";
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Arrays.deepHashCode(new Object[] {storageType(), extensionName()});
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof ExtensionType)) {
+        return false;
+      }
+      return this.extensionEquals((ExtensionType) obj);
+    }
+
+    @Override
+    public <T> T accept(ArrowTypeVisitor<T> visitor) {
+      return visitor.visit(this);
+    }
+  }
 
   public static org.apache.arrow.vector.types.pojo.ArrowType getTypeForField(org.apache.arrow.flatbuf.Field field) {
     switch(field.typeType()) {
