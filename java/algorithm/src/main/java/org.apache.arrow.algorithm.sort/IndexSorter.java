@@ -26,7 +26,7 @@ import org.apache.arrow.vector.ValueVector;
  * Sorter for the indices of a vector.
  * @param <V> vector type.
  */
-public class IndexSorter<V extends ValueVector> implements AutoCloseable {
+public class IndexSorter<V extends ValueVector> {
 
   /**
    * Comparator for vector indices.
@@ -49,18 +49,13 @@ public class IndexSorter<V extends ValueVector> implements AutoCloseable {
    * After calling this method, the following relations hold:
    * v(indices[0]) <= v(indices[1]) <= ...
    * @param vector the vector whose indices need to be sorted.
+   * @param indices the vector for storing the sorted indices.
    * @param comparator the comparator to sort indices.
    */
-  public void sort(V vector, VectorValueComparator<V> comparator) {
+  public void sort(V vector, IntVector indices, VectorValueComparator<V> comparator) {
     comparator.attachVector(vector);
 
-    // clear the vectors for the previous sort, if any
-    if (this.indices != null) {
-      close();
-    }
-    this.indices = new IntVector("", vector.getAllocator());
-    indices.allocateNew(vector.getValueCount());
-    indices.setValueCount(vector.getValueCount());
+    this.indices = indices;
 
     this.pivotBuffer = new IntVector("", vector.getAllocator());
     pivotBuffer.allocateNew(1);
@@ -71,6 +66,8 @@ public class IndexSorter<V extends ValueVector> implements AutoCloseable {
     this.comparator = comparator;
 
     quickSort(0, indices.getValueCount() - 1);
+
+    pivotBuffer.close();
   }
 
   private void quickSort(int low, int high) {
@@ -105,23 +102,6 @@ public class IndexSorter<V extends ValueVector> implements AutoCloseable {
       dstVector.setNull(dstIndex);
     } else {
       dstVector.set(dstIndex, 1, srcVector.get(srcIndex));
-    }
-  }
-
-  public IntVector getSortedIndices() {
-    return indices;
-  }
-
-  @Override
-  public void close() {
-    if (indices != null) {
-      indices.close();
-      indices = null;
-    }
-
-    if (pivotBuffer != null) {
-      pivotBuffer.close();
-      pivotBuffer = null;
     }
   }
 }

@@ -17,7 +17,6 @@
 
 package org.apache.arrow.algorithm.sort;
 
-import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
@@ -32,14 +31,22 @@ import io.netty.util.internal.PlatformDependent;
  */
 public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> implements OutOfPlaceVectorSorter<V> {
 
+  protected IndexSorter<V> indexSorter = new IndexSorter<>();
+
   @Override
   public V sort(V srcVector, VectorValueComparator<V> comparator) {
+    V dstVector = (V) srcVector.getField().getFieldType().createNewSingleVector("", srcVector.getAllocator(), null);
+    dstVector.allocateNew(srcVector.getValueCount());
+    dstVector.setValueCount(srcVector.getValueCount());
+    sortOutOfPlace(srcVector, dstVector, comparator);
+    return dstVector;
+  }
+
+  @Override
+  public void sortOutOfPlace(V srcVector, V dstVector, VectorValueComparator<V> comparator) {
     comparator.attachVector(srcVector);
 
     int valueWidth = comparator.getValueWidth();
-
-    // create output vector
-    V dstVector = createOutputVector(srcVector.getAllocator(), srcVector);
 
     // buffers referenced in the sort
     ArrowBuf srcValueBuffer = srcVector.getDataBuffer();
@@ -47,33 +54,24 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> im
     ArrowBuf dstValueBuffer = dstVector.getDataBuffer();
 
     // sort value indices
-    try (IndexSorter<V> indexSorter = new IndexSorter<>()) {
-      indexSorter.sort(srcVector, comparator);
-      IntVector sortedIndices = indexSorter.getSortedIndices();
+    IntVector sortedIndices = new IntVector("", srcVector.getAllocator());
+    sortedIndices.allocateNew(srcVector.getValueCount());
+    sortedIndices.setValueCount(srcVector.getValueCount());
+    indexSorter.sort(srcVector, sortedIndices, comparator);
 
-      // copy sorted values to the output vector
-      for (int dstIndex = 0; dstIndex < sortedIndices.getValueCount(); dstIndex++) {
-        int srcIndex = sortedIndices.get(dstIndex);
-        if (srcVector.isNull(srcIndex)) {
-          BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 0);
-        } else {
-          BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 1);
-          PlatformDependent.copyMemory(
-                  srcValueBuffer.memoryAddress() + srcIndex * valueWidth,
-                  dstValueBuffer.memoryAddress() + dstIndex * valueWidth,
-                  valueWidth);
-        }
+    // copy sorted values to the output vector
+    for (int dstIndex = 0; dstIndex < sortedIndices.getValueCount(); dstIndex++) {
+      int srcIndex = sortedIndices.get(dstIndex);
+      if (srcVector.isNull(srcIndex)) {
+        BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 0);
+      } else {
+        BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 1);
+        PlatformDependent.copyMemory(
+                srcValueBuffer.memoryAddress() + srcIndex * valueWidth,
+                dstValueBuffer.memoryAddress() + dstIndex * valueWidth,
+                valueWidth);
       }
     }
-
-    dstVector.setValueCount(srcVector.getValueCount());
-    return dstVector;
-  }
-
-  @Override
-  public V createOutputVector(BufferAllocator allocator, V inputVector) {
-    V outVec = (V) inputVector.getField().getFieldType().createNewSingleVector("", allocator, null);
-    outVec.allocateNew(inputVector.getValueCount());
-    return outVec;
+    sortedIndices.close();
   }
 }

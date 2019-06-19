@@ -17,8 +17,6 @@
 
 package org.apache.arrow.algorithm.sort;
 
-
-import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ValueVector;
 
 /**
@@ -30,10 +28,10 @@ import org.apache.arrow.vector.ValueVector;
 public interface OutOfPlaceVectorSorter<V extends ValueVector> extends VectorSorter<V> {
 
   /**
-   * Create the output vector based on the input vector.
-   * @param allocator the allocator for creating the new vector.
-   * @param inputVector the input vector.
-   * @return the output vector.
+   * Sort a vector out-of-place.
+   * @param inVec the input vector.
+   * @param outVec the output vector, which has the same size as the input vector.
+   * @param comparator the criteria for sort.
    */
-  V createOutputVector(BufferAllocator allocator, V inputVector);
+  void sortOutOfPlace(V inVec, V outVec, VectorValueComparator<V> comparator);
 }
