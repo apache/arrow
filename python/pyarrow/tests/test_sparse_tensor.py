@@ -59,6 +59,32 @@ def test_sparse_tensor_csr_base_object():
     assert sys.getrefcount(sparse_tensor) == n + 1
 
 
+@pytest.mark.skip
+@pytest.mark.parametrize('sparse_tensor_type', [
+    pa.SparseTensorCSR,
+    pa.SparseTensorCOO,
+])
+def test_sparse_tensor_equals(sparse_tensor_type):
+    def eq(a, b):
+        assert a.equals(b)
+        assert a == b
+        assert not (a != b)
+
+    def ne(a, b):
+        assert not a.equals(b)
+        assert not (a == b)
+        assert a != b
+
+    data = np.random.randn(10, 6)[::, ::2]
+    sparse_tensor1 = sparse_tensor_type.from_dense_numpy(data)
+    sparse_tensor2 = sparse_tensor_type.from_dense_numpy(np.ascontiguousarray(data))
+    eq(sparse_tensor1, sparse_tensor2)
+    data = data.copy()
+    data[9, 0] = 1.0
+    sparse_tensor2 = sparse_tensor_type.from_dense_numpy(np.ascontiguousarray(data))
+    ne(sparse_tensor1, sparse_tensor2)
+
+
 @pytest.mark.parametrize('dtype_str,arrow_type', [
     ('i1', pa.int8()),
     ('i2', pa.int16()),
@@ -141,6 +167,7 @@ def test_sparse_tensor_csr_from_dense(dtype_str, arrow_type):
     assert (indices == result_indices).all()
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize('dtype_str,arrow_type', [
     ('i1', pa.int8()),
     ('i2', pa.int16()),

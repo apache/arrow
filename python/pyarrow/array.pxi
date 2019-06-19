@@ -936,6 +936,18 @@ shape: {0.shape}""".format(self)
                                                   &out_data, &out_coords))
         return PyObject_to_object(out_data), PyObject_to_object(out_coords)
 
+    def equals(self, SparseTensorCOO other):
+        """
+        Return true if sparse tensors contains exactly equal data
+        """
+        return self.stp.Equals(deref(other.stp))
+
+    def __eq__(self, other):
+        if isinstance(other, SparseTensorCOO):
+            return self.equals(other)
+        else:
+            return NotImplemented
+
     @property
     def is_mutable(self):
         return self.stp.is_mutable()
@@ -1033,6 +1045,18 @@ shape: {0.shape}""".format(self)
                          &out_data, &out_indptr, &out_indices))
         return (PyObject_to_object(out_data), PyObject_to_object(out_indptr),
                 PyObject_to_object(out_indices))
+
+    def equals(self, SparseTensorCSR other):
+        """
+        Return true if sparse tensors contains exactly equal data
+        """
+        return self.stp.Equals(deref(other.stp))
+
+    def __eq__(self, other):
+        if isinstance(other, SparseTensorCSR):
+            return self.equals(other)
+        else:
+            return NotImplemented
 
     @property
     def is_mutable(self):
