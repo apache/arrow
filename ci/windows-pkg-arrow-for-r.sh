@@ -36,18 +36,18 @@ mv mingw32/lib/*.a $DST_DIR/lib-4.9.3/i686
 
 mkdir deps && cd deps
 # Get these from "backports" so they were compiled with gcc 4.9
-wget https://dl.bintray.com/rtools/backports/:mingw-w64-i686-boost-1.67.0-8000-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/:mingw-w64-x86_64-boost-1.67.0-8000-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw32/:mingw-w64-i686-boost-1.67.0-9002-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw64/:mingw-w64-x86_64-boost-1.67.0-9002-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/:mingw-w64-i686-thrift-0.12.0-8000-any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/backports/:mingw-w64-x86_64-thrift-0.12.0-8000-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw32/:mingw-w64-i686-thrift-0.12.0-1-any.pkg.tar.xz
-# wget https://dl.bintray.com/rtools/mingw64/:mingw-w64-x86_64-thrift-0.12.0-1-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-boost-1.67.0-8000-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-boost-1.67.0-8000-any.pkg.tar.xz
+# wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-boost-1.67.0-9002-any.pkg.tar.xz
+# wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-boost-1.67.0-9002-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-thrift-0.12.0-8000-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-thrift-0.12.0-8000-any.pkg.tar.xz
+# wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-thrift-0.12.0-1-any.pkg.tar.xz
+# wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-thrift-0.12.0-1-any.pkg.tar.xz
 
 # double-conversion is only available in the Rtools4.0 builds, but apparently that's ok
-wget https://dl.bintray.com/rtools/mingw64/:mingw-w64-x86_64-double-conversion-3.1.2-1-wget any.pkg.tar.xz
-wget https://dl.bintray.com/rtools/mingw32/:mingw-w64-i686-double-conversion-3.1.2-1-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-double-conversion-3.1.2-1-wget any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-double-conversion-3.1.2-1-any.pkg.tar.xz
 ls | xargs -n 1 tar -xJf
 cd ..
 
