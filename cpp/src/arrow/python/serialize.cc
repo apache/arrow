@@ -71,7 +71,7 @@ class SequenceBuilder {
         types_(::arrow::int8(), pool),
         offsets_(::arrow::int32(), pool),
         type_map_(PythonType::NUM_PYTHON_TYPES, -1) {
-    builder_.reset(new DenseUnionBuilder(pool, {}, nullptr));
+    builder_.reset(new DenseUnionBuilder(pool));
   }
 
   // Appending a none to the sequence

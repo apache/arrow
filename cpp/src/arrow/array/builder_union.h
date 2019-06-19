@@ -29,24 +29,18 @@ namespace arrow {
 
 /// \class DenseUnionBuilder
 ///
-/// You need to call AppendChild for each of the children builders you want
-/// to use. The function will return an int8_t, which is the type tag
-/// associated with that child. You can then call Append with that tag
-/// (followed by an append on the child builder) to add elements to
-/// the union array.
-///
-/// You can either specify the type when the UnionBuilder is constructed
-/// or let the UnionBuilder infer the type at runtime (by omitting the
-/// type argument from the constructor).
-///
 /// This API is EXPERIMENTAL.
 class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
  public:
-  /// Use this constructor to incrementally build the union array along
-  /// with types, offsets, and null bitmap.
-  explicit DenseUnionBuilder(MemoryPool* pool,
-                             std::vector<std::shared_ptr<ArrayBuilder>> children,
-                             const std::shared_ptr<DataType>& type);
+  /// Use this constructor to initialize the UnionBuilder with no child builders,
+  /// allowing type to be inferred. You will need to call AppendChild for each of the
+  /// children builders you want to use.
+  explicit DenseUnionBuilder(MemoryPool* pool);
+
+  /// Use this constructor to specify the type explicitly.
+  /// You can still add child builders to the union after using this constructor
+  DenseUnionBuilder(MemoryPool* pool, std::vector<std::shared_ptr<ArrayBuilder>> children,
+                    const std::shared_ptr<DataType>& type);
 
   Status AppendNull() final {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));
@@ -63,12 +57,14 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
   /// \brief Append an element to the UnionArray. This must be followed
   ///        by an append to the appropriate child builder.
   ///
-  /// \param[in] type index of the child the value will be appended
-  /// The corresponding child builder must be appended to independently
-  /// after this method is called.
-  Status Append(int8_t type) {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(type));
-    auto offset = static_cast<int32_t>(children_[type_id_to_child_num_[type]]->length());
+  /// \param[in] next_type type_id of the child to which the next value will be appended.
+  ///
+  /// The corresponding child builder must be appended to independently after this method
+  /// is called.
+  Status Append(int8_t next_type) {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(next_type));
+    auto offset =
+        static_cast<int32_t>(children_[type_id_to_child_num_[next_type]]->length());
     ARROW_RETURN_NOT_OK(offsets_builder_.Append(offset));
     return AppendToBitmap(true);
   }
@@ -111,7 +107,6 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
   }
 
  private:
-  const UnionType* union_type_;
   TypedBufferBuilder<int8_t> types_builder_;
   TypedBufferBuilder<int32_t> offsets_builder_;
   std::vector<std::string> field_names_;
@@ -120,24 +115,19 @@ class ARROW_EXPORT DenseUnionBuilder : public ArrayBuilder {
 
 /// \class SparseUnionBuilder
 ///
-/// You need to call AppendChild for each of the children builders you want
-/// to use. The function will return an int8_t, which is the type tag
-/// associated with that child. You can then call Append with that tag
-/// (followed by an append on the child builder) to add elements to
-/// the union array.
-///
-/// You can either specify the type when the UnionBuilder is constructed
-/// or let the UnionBuilder infer the type at runtime (by omitting the
-/// type argument from the constructor).
-///
 /// This API is EXPERIMENTAL.
 class ARROW_EXPORT SparseUnionBuilder : public ArrayBuilder {
  public:
-  /// Use this constructor to incrementally build the union array along
-  /// with types, offsets, and null bitmap.
-  explicit SparseUnionBuilder(MemoryPool* pool,
-                              std::vector<std::shared_ptr<ArrayBuilder>> children,
-                              const std::shared_ptr<DataType>& type);
+  /// Use this constructor to initialize the UnionBuilder with no child builders,
+  /// allowing type to be inferred. You will need to call AppendChild for each of the
+  /// children builders you want to use.
+  explicit SparseUnionBuilder(MemoryPool* pool);
+
+  /// Use this constructor to specify the type explicitly.
+  /// You can still add child builders to the union after using this constructor
+  SparseUnionBuilder(MemoryPool* pool,
+                     std::vector<std::shared_ptr<ArrayBuilder>> children,
+                     const std::shared_ptr<DataType>& type);
 
   Status AppendNull() final {
     ARROW_RETURN_NOT_OK(types_builder_.Append(0));
@@ -152,11 +142,12 @@ class ARROW_EXPORT SparseUnionBuilder : public ArrayBuilder {
   /// \brief Append an element to the UnionArray. This must be followed
   ///        by an append to the appropriate child builder.
   ///
-  /// \param[in] type index of the child the value will be appended
-  /// The corresponding child builder must be appended to independently
-  /// after this method is called.
-  Status Append(int8_t type) {
-    ARROW_RETURN_NOT_OK(types_builder_.Append(type));
+  /// \param[in] next_type type_id of the child to which the next value will be appended.
+  ///
+  /// The corresponding child builder must be appended to independently after this method
+  /// is called, and all other child builders must have null appended
+  Status Append(int8_t next_type) {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(next_type));
     return AppendToBitmap(true);
   }
 
@@ -177,28 +168,9 @@ class ARROW_EXPORT SparseUnionBuilder : public ArrayBuilder {
   /// to be passed to the "Append" method to add a new element to
   /// the union array.
   int8_t AppendChild(const std::shared_ptr<ArrayBuilder>& child,
-                     const std::string& field_name = "") {
-    // force type inferrence in Finish
-    type_ = NULLPTR;
-
-    children_.push_back(child);
-    field_names_.push_back(field_name);
-    auto child_num = static_cast<int8_t>(children_.size() - 1);
-    // search for an available type_id
-    // FIXME(bkietz) far from optimal
-    auto max_type = static_cast<int8_t>(type_id_to_child_num_.size());
-    for (int8_t type = 0; type < max_type; ++type) {
-      if (type_id_to_child_num_[type] == -1) {
-        type_id_to_child_num_[type] = child_num;
-        return type;
-      }
-    }
-    type_id_to_child_num_.push_back(child_num);
-    return max_type;
-  }
+                     const std::string& field_name = "");
 
  private:
-  const UnionType* union_type_;
   TypedBufferBuilder<int8_t> types_builder_;
   std::vector<std::string> field_names_;
   std::vector<int8_t> type_id_to_child_num_;

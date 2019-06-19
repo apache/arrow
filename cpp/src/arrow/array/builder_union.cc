@@ -26,20 +26,20 @@ namespace arrow {
 
 using internal::checked_cast;
 
+DenseUnionBuilder::DenseUnionBuilder(MemoryPool* pool)
+    : ArrayBuilder(nullptr, pool), types_builder_(pool), offsets_builder_(pool) {}
+
 DenseUnionBuilder::DenseUnionBuilder(MemoryPool* pool,
                                      std::vector<std::shared_ptr<ArrayBuilder>> children,
                                      const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(type, pool),
-      union_type_(checked_cast<const UnionType*>(type.get())),
-      types_builder_(pool),
-      offsets_builder_(pool),
-      type_id_to_child_num_(union_type_ ? union_type_->max_type_code() + 1 : 0, -1) {
-  if (union_type_) {
-    DCHECK_EQ(union_type_->mode(), UnionMode::DENSE);
-    int child_i = 0;
-    for (auto type_id : union_type_->type_codes()) {
-      type_id_to_child_num_[type_id] = child_i++;
-    }
+    : ArrayBuilder(type, pool), types_builder_(pool), offsets_builder_(pool) {
+  auto union_type = checked_cast<const UnionType*>(type.get());
+  DCHECK_NE(union_type, nullptr);
+  type_id_to_child_num_.resize(union_type->max_type_code() + 1, -1);
+  DCHECK_EQ(union_type->mode(), UnionMode::DENSE);
+  int child_i = 0;
+  for (auto type_id : union_type->type_codes()) {
+    type_id_to_child_num_[type_id] = child_i++;
   }
   children_ = std::move(children);
 }
@@ -73,21 +73,25 @@ Status DenseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
+SparseUnionBuilder::SparseUnionBuilder(MemoryPool* pool)
+    : ArrayBuilder(nullptr, pool), types_builder_(pool) {}
+
 SparseUnionBuilder::SparseUnionBuilder(
     MemoryPool* pool, std::vector<std::shared_ptr<ArrayBuilder>> children,
     const std::shared_ptr<DataType>& type)
-    : ArrayBuilder(type, pool),
-      union_type_(checked_cast<const UnionType*>(type.get())),
-      types_builder_(pool),
-      type_id_to_child_num_(union_type_ ? union_type_->max_type_code() + 1 : 0, -1) {
-  if (union_type_) {
-    DCHECK_EQ(union_type_->mode(), UnionMode::SPARSE);
-    int child_i = 0;
-    for (auto type_id : union_type_->type_codes()) {
-      type_id_to_child_num_[type_id] = child_i++;
-    }
+    : ArrayBuilder(type, pool), types_builder_(pool) {
+  auto union_type = checked_cast<const UnionType*>(type.get());
+  DCHECK_NE(union_type, nullptr);
+  type_id_to_child_num_.resize(union_type->max_type_code() + 1, -1);
+  DCHECK_EQ(union_type->mode(), UnionMode::SPARSE);
+  int child_i = 0;
+  for (auto type_id : union_type->type_codes()) {
+    type_id_to_child_num_[type_id] = child_i++;
   }
   children_ = std::move(children);
+  for (auto&& child : children_) {
+    DCHECK_EQ(child->length(), 0);
+  }
 }
 
 Status SparseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
@@ -116,6 +120,28 @@ Status SparseUnionBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   *out = ArrayData::Make(type_, length(), {null_bitmap, types, offsets}, null_count_);
   (*out)->child_data = std::move(child_data);
   return Status::OK();
+}
+
+int8_t SparseUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& child,
+                                       const std::string& field_name) {
+  // force type inferrence in Finish
+  type_ = NULLPTR;
+  DCHECK_EQ(child->length(), length_);
+
+  children_.push_back(child);
+  field_names_.push_back(field_name);
+  auto child_num = static_cast<int8_t>(children_.size() - 1);
+  // search for an available type_id
+  // FIXME(bkietz) far from optimal
+  auto max_type = static_cast<int8_t>(type_id_to_child_num_.size());
+  for (int8_t type = 0; type < max_type; ++type) {
+    if (type_id_to_child_num_[type] == -1) {
+      type_id_to_child_num_[type] = child_num;
+      return type;
+    }
+  }
+  type_id_to_child_num_.push_back(child_num);
+  return max_type;
 }
 
 }  // namespace arrow
