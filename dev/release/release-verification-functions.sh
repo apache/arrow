@@ -18,6 +18,29 @@
 # under the License.
 #
 
+# By default test all functionalities.
+# To deactivate one test, deactivate the test and all of its dependents
+# To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+: ${TEST_DEFAULT:=1}
+: ${TEST_JAVA:=${TEST_DEFAULT}}
+: ${TEST_CPP:=${TEST_DEFAULT}}
+: ${TEST_GLIB:=${TEST_DEFAULT}}
+: ${TEST_RUBY:=${TEST_DEFAULT}}
+: ${TEST_PYTHON:=${TEST_DEFAULT}}
+: ${TEST_JS:=${TEST_DEFAULT}}
+: ${TEST_INTEGRATION:=${TEST_DEFAULT}}
+: ${TEST_RUST:=${TEST_DEFAULT}}
+: ${TEST_BINARY:=${TEST_DEFAULT}}
+: ${TEST_APT:=${TEST_DEFAULT}}
+: ${TEST_YUM:=${TEST_DEFAULT}}
+
+# Automatically test if its activated by a dependent
+TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
+TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
+TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
+TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
+TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+
 detect_cuda() {
   if ! (which nvcc && which nvidia-smi) > /dev/null; then
     return 1
@@ -26,6 +49,16 @@ detect_cuda() {
   local n_gpus=$(nvidia-smi --list-gpus | wc -l)
   return $((${n_gpus} < 1))
 }
+
+# Build options for the C++ library
+
+ARROW_BOOST_VENDORED=${ARROW_BOOST_VENDORED:=OFF}
+
+if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
+  ARROW_CUDA=ON
+fi
+: ${ARROW_CUDA:=OFF}
+: ${ARROW_FLIGHT:=ON}
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
@@ -158,7 +191,9 @@ test_yum() {
 
 setup_tempdir() {
   cleanup() {
-    rm -fr "$TMPDIR"
+    if [ -z "${NO_REMOVE_TEMPDIR}" ]; then
+      rm -fr "$TMPDIR"
+    fi
   }
   trap cleanup EXIT
   TMPDIR=$(mktemp -d -t "$1.XXXXX")
@@ -239,6 +274,9 @@ test_python() {
   export PYARROW_WITH_PLASMA=1
   if [ "${ARROW_CUDA}" = "ON" ]; then
     export PYARROW_WITH_CUDA=1
+  fi
+  if [ "${ARROW_FLIGHT}" = "ON" ]; then
+    export PYARROW_WITH_FLIGHT=1
   fi
 
   python setup.py build_ext --inplace
