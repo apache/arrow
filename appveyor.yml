@@ -159,6 +159,9 @@ for:
     - path: '*.pkg.tar.xz'
       name: binaries
 
+    - path: 'build\*.zip'
+      name: binaries
+
     - path: 'r\*.Rcheck\**\*.log'
       name: Logs
 

@@ -44,4 +44,4 @@ makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --
 mkdir build
 cp *.xz build
 cd build
-source ci/windows-pkg-arrow-for-r.sh
+source ../ci/windows-pkg-arrow-for-r.sh
