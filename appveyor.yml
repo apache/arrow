@@ -103,8 +103,9 @@ environment:
     #   GO111MODULE: on
     #   GOTOOLDIR: '%GOROOT%\pkg\tool\windows_amd64'
     #   PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
-    - JOB: "R without libarrow"
+    - JOB: "R with libarrow"
       USE_CLCACHE: false
+      TEST_R_WITH_ARROW: "TRUE"
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
@@ -126,7 +127,7 @@ for:
 -
   matrix:
     only:
-      - JOB: "R without libarrow"
+      - JOB: "R with libarrow"
   init:
     ps: |
           $ErrorActionPreference = "Stop"

@@ -1,4 +1,20 @@
-# Maintainer: Jeroen Ooms
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
 _realname=arrow
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
@@ -9,23 +25,18 @@ arch=("any")
 url="https://arrow.apache.org/"
 license=("Apache-2.0")
 depends=("${MINGW_PACKAGE_PREFIX}-boost"
-         "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-double-conversion"
          "${MINGW_PACKAGE_PREFIX}-thrift"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
-source=("${_realname}"::"git+https://github.com/apache/arrow#commit=54b1b2f688e5e84b4c664b1e12a95f93b94ab2f3")
+source_dir=apache-${_realname}-${pkgver}
+source=("${source_dir}"::"git+https://github.com/apache/arrow")
 sha256sums=("SKIP")
 
 cmake_build_type=release
-
-#source_dir=${_realname}-${pkgver}
-#source_dir=apache-${_realname}-${pkgver}
-source_dir=arrow
 cpp_build_dir=build-${CARCH}-cpp
-c_glib_build_dir=build-${CARCH}-c-glib
 
 pkgver() {
   cd "$source_dir"
@@ -89,10 +100,6 @@ build() {
 check() {
   # TODO
   # make -C ${cpp_build_dir} test
-
-  # PATH=$(pwd)/${c_glib_build_dir}/arrow-glib:$(pwd)/${cpp_build_dir}/${cmake_build_type}:$PATH \
-  #   ninja -C ${c_glib_build_dir} test
-
   :
 }
 
