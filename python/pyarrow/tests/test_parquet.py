@@ -73,17 +73,18 @@ def _read_table(*args, **kwargs):
 
 
 def _roundtrip_table(table, read_table_kwargs=None,
-                     **params):
+                     write_table_kwargs=None):
     read_table_kwargs = read_table_kwargs or {}
+    write_table_kwargs = write_table_kwargs or {}
 
     buf = io.BytesIO()
-    _write_table(table, buf, **params)
+    _write_table(table, buf, **write_table_kwargs)
     buf.seek(0)
     return _read_table(buf, **read_table_kwargs)
 
 
 def _check_roundtrip(table, expected=None, read_table_kwargs=None,
-                     **params):
+                     **write_table_kwargs):
     if expected is None:
         expected = table
 
@@ -91,10 +92,10 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
 
     # intentionally check twice
     result = _roundtrip_table(table, read_table_kwargs=read_table_kwargs,
-                              **params)
+                              write_table_kwargs=write_table_kwargs)
     assert result.equals(expected)
     result = _roundtrip_table(result, read_table_kwargs=read_table_kwargs,
-                              **params)
+                              write_table_kwargs=write_table_kwargs)
     assert result.equals(expected)
 
 
@@ -172,6 +173,16 @@ def test_pandas_parquet_2_0_rountrip(tempdir, chunk_size):
 
     df_read = table_read.to_pandas(categories=['str_category'])
     tm.assert_frame_equal(df, df_read, check_categorical=False)
+
+
+def test_set_data_page_size():
+    arr = pa.array([1, 2, 3] * 1000000)
+    t = pa.Table.from_arrays([arr], names=['f0'])
+
+    # 128K, 256K, 512K
+    page_sizes = [2 << 16, 2 << 17, 2 << 18]
+    for target_page_size in page_sizes:
+        _check_roundtrip(t, data_page_size=target_page_size)
 
 
 @pytest.mark.pandas
@@ -1047,7 +1058,7 @@ def test_sanitized_spark_field_names():
     name = 'prohib; ,\t{}'
     table = pa.Table.from_arrays([a0], [name])
 
-    result = _roundtrip_table(table, flavor='spark')
+    result = _roundtrip_table(table, write_table_kwargs={'flavor': 'spark'})
 
     expected_name = 'prohib______'
     assert result.schema[0].name == expected_name
@@ -2794,3 +2805,24 @@ def test_multi_dataset_metadata(tempdir):
     assert _md['num_row_groups'] == 2
     assert _md['serialized_size'] == 0
     assert md['serialized_size'] > 0
+
+
+def test_filter_before_validate_schema(tempdir):
+    # ARROW-4076 apply filter before schema validation
+    # to avoid checking unneeded schemas
+
+    # create partitioned dataset with mismatching schemas which would
+    # otherwise raise if first validation all schemas
+    dir1 = tempdir / 'A=0'
+    dir1.mkdir()
+    table1 = pa.Table.from_pandas(pd.DataFrame({'B': [1, 2, 3]}))
+    pq.write_table(table1, dir1 / 'data.parquet')
+
+    dir2 = tempdir / 'A=1'
+    dir2.mkdir()
+    table2 = pa.Table.from_pandas(pd.DataFrame({'B': ['a', 'b', 'c']}))
+    pq.write_table(table2, dir2 / 'data.parquet')
+
+    # read single file using filter
+    table = pq.read_table(tempdir, filters=[[('A', '==', 0)]])
+    assert table.column('B').equals(pa.column('B', pa.array([1, 2, 3])))

@@ -926,6 +926,9 @@ cdef class Schema:
         """
         Append a field at the end of the schema.
 
+        In contrast to Python's ``list.append()`` it does return a new
+        object, leaving the original Schema unmodified.
+
         Parameters
         ----------
         field: Field
@@ -933,6 +936,7 @@ cdef class Schema:
         Returns
         -------
         schema: Schema
+            New object with appended field.
         """
         return self.insert(self.schema.num_fields(), field)
 

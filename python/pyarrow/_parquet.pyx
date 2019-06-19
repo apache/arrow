@@ -1008,6 +1008,7 @@ cdef class ParquetWriter:
         object version
         object write_statistics
         int row_group_size
+        int64_t data_page_size
 
     def __cinit__(self, where, Schema schema, use_dictionary=None,
                   compression=None, version=None,
@@ -1015,6 +1016,7 @@ cdef class ParquetWriter:
                   MemoryPool memory_pool=None,
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
+                  data_page_size=None,
                   allow_truncated_timestamps=False):
         cdef:
             shared_ptr[WriterProperties] properties
@@ -1046,12 +1048,17 @@ cdef class ParquetWriter:
         self._set_compression_props(&properties_builder)
         self._set_dictionary_props(&properties_builder)
         self._set_statistics_props(&properties_builder)
+
+        if data_page_size is not None:
+            properties_builder.data_pagesize(data_page_size)
+
         properties = properties_builder.build()
 
         cdef ArrowWriterProperties.Builder arrow_properties_builder
         self._set_int96_support(&arrow_properties_builder)
         self._set_coerce_timestamps(&arrow_properties_builder)
         self._set_allow_truncated_timestamps(&arrow_properties_builder)
+
         arrow_properties = arrow_properties_builder.build()
 
         pool = maybe_unbox_memory_pool(memory_pool)

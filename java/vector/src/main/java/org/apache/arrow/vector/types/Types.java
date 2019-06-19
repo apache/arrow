@@ -28,6 +28,7 @@ import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -105,6 +106,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
 import org.apache.arrow.vector.types.pojo.ArrowType.Duration;
+import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
@@ -710,7 +712,23 @@ public class Types {
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new TimeStampNanoTZWriterImpl((TimeStampNanoTZVector) vector);
       }
-    };
+    },
+    EXTENSIONTYPE(null) {
+      @Override
+      public FieldVector getNewVector(
+          String name,
+          FieldType fieldType,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        return ((ExtensionType) fieldType.getType()).getNewVector(name, fieldType, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return ((ExtensionTypeVector) vector).getUnderlyingVector().getMinorType().getNewFieldWriter(vector);
+      }
+    },
+    ;
 
     private final ArrowType type;
 
@@ -888,6 +906,11 @@ public class Types {
       @Override
       public MinorType visit(Duration type) {
         return MinorType.DURATION;
+      }
+
+      @Override
+      public MinorType visit(ExtensionType type) {
+        return MinorType.EXTENSIONTYPE;
       }
     });
   }
