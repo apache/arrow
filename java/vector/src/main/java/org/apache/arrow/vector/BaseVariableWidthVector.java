@@ -27,7 +27,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
@@ -58,22 +57,25 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   /**
    * Constructs a new instance.
    *
-   * @param name A name for the vector
+   * @param field The field materialized by this vector.
    * @param allocator The allocator to use for creating/resizing buffers
-   * @param fieldType The type of this vector.
    */
-  public BaseVariableWidthVector(final String name, final BufferAllocator allocator,
-                                         FieldType fieldType) {
-    super(name, allocator);
+  public BaseVariableWidthVector(Field field, final BufferAllocator allocator) {
+    super(allocator);
+    this.field = field;
     lastValueAllocationSizeInBytes = INITIAL_BYTE_COUNT;
     // -1 because we require one extra slot for the offset array.
     lastValueCapacity = INITIAL_VALUE_ALLOCATION - 1;
-    field = new Field(name, fieldType, null);
     valueCount = 0;
     lastSet = -1;
     offsetBuffer = allocator.getEmpty();
     validityBuffer = allocator.getEmpty();
     valueBuffer = allocator.getEmpty();
+  }
+
+  @Override
+  public String getName() {
+    return field.getName();
   }
 
   /* TODO:
@@ -656,7 +658,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return getTransferPair(name, allocator);
+    return getTransferPair(getName(), allocator);
   }
 
   /**

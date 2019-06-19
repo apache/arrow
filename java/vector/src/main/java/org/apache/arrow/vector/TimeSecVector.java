@@ -25,6 +25,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableTimeSecHolder;
 import org.apache.arrow.vector.holders.TimeSecHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -59,7 +60,18 @@ public class TimeSecVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public TimeSecVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  /**
+   * Instantiate a TimeSecVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field Field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public TimeSecVector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
     reader = new TimeSecReaderImpl(TimeSecVector.this);
   }
 

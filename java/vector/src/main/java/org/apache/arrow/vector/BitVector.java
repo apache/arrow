@@ -25,6 +25,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.BitHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
@@ -59,7 +60,18 @@ public class BitVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public BitVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, 0);
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  /**
+   * Instantiate a BitVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field the Field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public BitVector(Field field, BufferAllocator allocator) {
+    super(field, allocator,0);
     reader = new BitReaderImpl(BitVector.this);
   }
 

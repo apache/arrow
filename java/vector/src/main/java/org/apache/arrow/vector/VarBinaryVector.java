@@ -25,6 +25,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
 import org.apache.arrow.vector.holders.VarBinaryHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -56,7 +57,18 @@ public class VarBinaryVector extends BaseVariableWidthVector {
    * @param allocator allocator for memory management.
    */
   public VarBinaryVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType);
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  /**
+   * Instantiate a VarBinaryVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public VarBinaryVector(Field field, BufferAllocator allocator) {
+    super(field, allocator);
     reader = new VarBinaryReaderImpl(VarBinaryVector.this);
   }
 

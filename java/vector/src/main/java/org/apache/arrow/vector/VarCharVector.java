@@ -25,6 +25,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.holders.VarCharHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
@@ -55,7 +56,18 @@ public class VarCharVector extends BaseVariableWidthVector {
    * @param allocator allocator for memory management.
    */
   public VarCharVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType);
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  /**
+   * Instantiate a VarCharVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public VarCharVector(Field field, BufferAllocator allocator) {
+    super(field, allocator);
     reader = new VarCharReaderImpl(VarCharVector.this);
   }
 

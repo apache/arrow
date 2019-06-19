@@ -26,6 +26,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
 import org.apache.arrow.vector.holders.TinyIntHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -60,7 +61,18 @@ public class TinyIntVector extends BaseFixedWidthVector implements BaseIntVector
    * @param allocator allocator for memory management.
    */
   public TinyIntVector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  /**
+   * Instantiate a TinyIntVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public TinyIntVector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
     reader = new TinyIntReaderImpl(TinyIntVector.this);
   }
 

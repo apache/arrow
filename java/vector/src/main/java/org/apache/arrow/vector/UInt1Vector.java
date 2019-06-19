@@ -26,6 +26,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableUInt1Holder;
 import org.apache.arrow.vector.holders.UInt1Holder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -45,7 +46,11 @@ public class UInt1Vector extends BaseFixedWidthVector implements BaseIntVector {
   }
 
   public UInt1Vector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  public UInt1Vector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
     reader = new UInt1ReaderImpl(UInt1Vector.this);
   }
 
