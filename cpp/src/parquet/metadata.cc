@@ -918,7 +918,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     // in the spec yet.
     // We always default to `TYPE_DEFINED_ORDER`. We can expose it in
     // the API once we have user defined sort orders in the Parquet format.
-    // TypeDefinedOrder implies choose SortOrder based on LogicalType/PhysicalType
+    // TypeDefinedOrder implies choose SortOrder based on ConvertedType/PhysicalType
     format::TypeDefinedOrder type_defined_order;
     format::ColumnOrder column_order;
     column_order.__set_TYPE_ORDER(type_defined_order);

@@ -36,7 +36,6 @@ using ::arrow::internal::checked_cast;
 
 namespace parquet {
 
-using format::ConvertedType;
 using format::FieldRepetitionType;
 using format::SchemaElement;
 
@@ -106,7 +105,7 @@ class TestPrimitiveNode : public ::testing::Test {
 TEST_F(TestPrimitiveNode, Attrs) {
   PrimitiveNode node1("foo", Repetition::REPEATED, Type::INT32);
 
-  PrimitiveNode node2("bar", Repetition::OPTIONAL, Type::BYTE_ARRAY, LogicalType::UTF8);
+  PrimitiveNode node2("bar", Repetition::OPTIONAL, Type::BYTE_ARRAY, ConvertedType::UTF8);
 
   ASSERT_EQ("foo", node1.name());
 
@@ -122,8 +121,8 @@ TEST_F(TestPrimitiveNode, Attrs) {
   ASSERT_EQ(Type::BYTE_ARRAY, node2.physical_type());
 
   // logical types
-  ASSERT_EQ(LogicalType::NONE, node1.logical_type());
-  ASSERT_EQ(LogicalType::UTF8, node2.logical_type());
+  ASSERT_EQ(ConvertedType::NONE, node1.converted_type());
+  ASSERT_EQ(ConvertedType::UTF8, node2.converted_type());
 
   // repetition
   PrimitiveNode node3("foo", Repetition::REPEATED, Type::INT32);
@@ -146,16 +145,16 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(id_, prim_node_->id());
   ASSERT_EQ(Repetition::OPTIONAL, prim_node_->repetition());
   ASSERT_EQ(Type::INT32, prim_node_->physical_type());
-  ASSERT_EQ(LogicalType::NONE, prim_node_->logical_type());
+  ASSERT_EQ(ConvertedType::NONE, prim_node_->converted_type());
 
   // Test a logical type
   elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, Type::BYTE_ARRAY, 0);
-  elt.__set_converted_type(ConvertedType::UTF8);
+  elt.__set_converted_type(format::ConvertedType::UTF8);
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(Repetition::REQUIRED, prim_node_->repetition());
   ASSERT_EQ(Type::BYTE_ARRAY, prim_node_->physical_type());
-  ASSERT_EQ(LogicalType::UTF8, prim_node_->logical_type());
+  ASSERT_EQ(ConvertedType::UTF8, prim_node_->converted_type());
 
   // FIXED_LEN_BYTE_ARRAY
   elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY, 0);
@@ -168,16 +167,16 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, prim_node_->physical_type());
   ASSERT_EQ(16, prim_node_->type_length());
 
-  // ConvertedType::Decimal
+  // format::ConvertedType::Decimal
   elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY, 0);
-  elt.__set_converted_type(ConvertedType::DECIMAL);
+  elt.__set_converted_type(format::ConvertedType::DECIMAL);
   elt.__set_type_length(6);
   elt.__set_scale(2);
   elt.__set_precision(12);
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, prim_node_->physical_type());
-  ASSERT_EQ(LogicalType::DECIMAL, prim_node_->logical_type());
+  ASSERT_EQ(ConvertedType::DECIMAL, prim_node_->converted_type());
   ASSERT_EQ(6, prim_node_->type_length());
   ASSERT_EQ(2, prim_node_->decimal_metadata().scale);
   ASSERT_EQ(12, prim_node_->decimal_metadata().precision);
@@ -197,21 +196,21 @@ TEST_F(TestPrimitiveNode, Equals) {
   ASSERT_TRUE(node1.Equals(&node5));
 
   PrimitiveNode flba1("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                      LogicalType::DECIMAL, 12, 4, 2);
+                      ConvertedType::DECIMAL, 12, 4, 2);
 
   PrimitiveNode flba2("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                      LogicalType::DECIMAL, 1, 4, 2);
+                      ConvertedType::DECIMAL, 1, 4, 2);
   flba2.SetTypeLength(12);
 
   PrimitiveNode flba3("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                      LogicalType::DECIMAL, 1, 4, 2);
+                      ConvertedType::DECIMAL, 1, 4, 2);
   flba3.SetTypeLength(16);
 
   PrimitiveNode flba4("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                      LogicalType::DECIMAL, 12, 4, 0);
+                      ConvertedType::DECIMAL, 12, 4, 0);
 
   PrimitiveNode flba5("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                      LogicalType::NONE, 12, 4, 0);
+                      ConvertedType::NONE, 12, 4, 0);
 
   ASSERT_TRUE(flba1.Equals(&flba2));
   ASSERT_FALSE(flba1.Equals(&flba3));
@@ -221,59 +220,59 @@ TEST_F(TestPrimitiveNode, Equals) {
 
 TEST_F(TestPrimitiveNode, PhysicalLogicalMapping) {
   ASSERT_NO_THROW(
-      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, LogicalType::INT_32));
+      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, ConvertedType::INT_32));
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
-                                      LogicalType::JSON));
+                                      ConvertedType::JSON));
   ASSERT_THROW(
-      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, LogicalType::JSON),
+      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, ConvertedType::JSON),
       ParquetException);
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT64,
-                                      LogicalType::TIMESTAMP_MILLIS));
+                                      ConvertedType::TIMESTAMP_MILLIS));
   ASSERT_THROW(
-      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, LogicalType::INT_64),
+      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, ConvertedType::INT_64),
       ParquetException);
   ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
-                                   LogicalType::INT_8),
+                                   ConvertedType::INT_8),
                ParquetException);
   ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
-                                   LogicalType::INTERVAL),
+                                   ConvertedType::INTERVAL),
                ParquetException);
   ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::ENUM),
+                                   Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::ENUM),
                ParquetException);
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
-                                      LogicalType::ENUM));
+                                      ConvertedType::ENUM));
   ASSERT_THROW(
       PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                          LogicalType::DECIMAL, 0, 2, 4),
+                          ConvertedType::DECIMAL, 0, 2, 4),
       ParquetException);
   ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FLOAT,
-                                   LogicalType::DECIMAL, 0, 2, 4),
+                                   ConvertedType::DECIMAL, 0, 2, 4),
                ParquetException);
   ASSERT_THROW(
       PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                          LogicalType::DECIMAL, 0, 4, 0),
+                          ConvertedType::DECIMAL, 0, 4, 0),
       ParquetException);
   ASSERT_THROW(
       PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                          LogicalType::DECIMAL, 10, 0, 4),
+                          ConvertedType::DECIMAL, 10, 0, 4),
       ParquetException);
   ASSERT_THROW(
       PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                          LogicalType::DECIMAL, 10, 4, -1),
+                          ConvertedType::DECIMAL, 10, 4, -1),
       ParquetException);
   ASSERT_THROW(
       PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
-                          LogicalType::DECIMAL, 10, 2, 4),
+                          ConvertedType::DECIMAL, 10, 2, 4),
       ParquetException);
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                                      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::DECIMAL,
+                                      Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::DECIMAL,
                                       10, 6, 4));
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                                      Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL,
+                                      Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::INTERVAL,
                                       12));
   ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                                   Type::FIXED_LEN_BYTE_ARRAY, LogicalType::INTERVAL, 10),
+                                   Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::INTERVAL, 10),
                ParquetException);
 }
 
@@ -308,7 +307,7 @@ TEST_F(TestGroupNode, Attrs) {
   NodeVector fields = Fields1();
 
   GroupNode node1("foo", Repetition::REPEATED, fields);
-  GroupNode node2("bar", Repetition::OPTIONAL, fields, LogicalType::LIST);
+  GroupNode node2("bar", Repetition::OPTIONAL, fields, ConvertedType::LIST);
 
   ASSERT_EQ("foo", node1.name());
 
@@ -326,8 +325,8 @@ TEST_F(TestGroupNode, Attrs) {
   ASSERT_EQ(Node::GROUP, node1.node_type());
 
   // logical types
-  ASSERT_EQ(LogicalType::NONE, node1.logical_type());
-  ASSERT_EQ(LogicalType::LIST, node2.logical_type());
+  ASSERT_EQ(ConvertedType::NONE, node1.converted_type());
+  ASSERT_EQ(ConvertedType::LIST, node2.converted_type());
 }
 
 TEST_F(TestGroupNode, Equals) {
@@ -425,7 +424,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
 
   // 3-level list encoding, by hand
   elt = NewGroup("b", FieldRepetitionType::REPEATED, 1, 3);
-  elt.__set_converted_type(ConvertedType::LIST);
+  elt.__set_converted_type(format::ConvertedType::LIST);
   elements.push_back(elt);
   elements.push_back(NewPrimitive("item", FieldRepetitionType::OPTIONAL, Type::INT64, 4));
 
@@ -437,7 +436,7 @@ TEST_F(TestSchemaConverter, NestedExample) {
 
   // 3-level list encoding
   NodePtr item = Int64("item");
-  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, LogicalType::LIST));
+  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   fields.push_back(bag);
 
@@ -505,9 +504,9 @@ class TestSchemaFlatten : public ::testing::Test {
 TEST_F(TestSchemaFlatten, DecimalMetadata) {
   // Checks that DecimalMetadata is only set for DecimalTypes
   NodePtr node = PrimitiveNode::Make("decimal", Repetition::REQUIRED, Type::INT64,
-                                     LogicalType::DECIMAL, -1, 8, 4);
+                                     ConvertedType::DECIMAL, -1, 8, 4);
   NodePtr group =
-      GroupNode::Make("group", Repetition::REPEATED, {node}, LogicalType::LIST);
+      GroupNode::Make("group", Repetition::REPEATED, {node}, ConvertedType::LIST);
   Flatten(reinterpret_cast<GroupNode*>(group.get()));
   ASSERT_EQ("decimal", elements_[1].name);
   ASSERT_TRUE(elements_[1].__isset.precision);
@@ -526,7 +525,7 @@ TEST_F(TestSchemaFlatten, DecimalMetadata) {
   elements_.clear();
   // Not for integers with no logical type
   group =
-      GroupNode::Make("group", Repetition::REPEATED, {Int64("int64")}, LogicalType::LIST);
+      GroupNode::Make("group", Repetition::REPEATED, {Int64("int64")}, ConvertedType::LIST);
   Flatten(reinterpret_cast<GroupNode*>(group.get()));
   ASSERT_EQ("int64", elements_[1].name);
   ASSERT_FALSE(elements_[0].__isset.precision);
@@ -546,7 +545,7 @@ TEST_F(TestSchemaFlatten, NestedExample) {
 
   // 3-level list encoding, by hand
   elt = NewGroup("b", FieldRepetitionType::REPEATED, 1, 3);
-  elt.__set_converted_type(ConvertedType::LIST);
+  elt.__set_converted_type(format::ConvertedType::LIST);
   format::ListType ls;
   format::LogicalType lt;
   lt.__set_LIST(ls);
@@ -560,7 +559,7 @@ TEST_F(TestSchemaFlatten, NestedExample) {
 
   // 3-level list encoding
   NodePtr item = Int64("item");
-  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, LogicalType::LIST));
+  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   fields.push_back(bag);
 
@@ -575,7 +574,7 @@ TEST_F(TestSchemaFlatten, NestedExample) {
 
 TEST(TestColumnDescriptor, TestAttrs) {
   NodePtr node = PrimitiveNode::Make("name", Repetition::OPTIONAL, Type::BYTE_ARRAY,
-                                     LogicalType::UTF8);
+                                     ConvertedType::UTF8);
   ColumnDescriptor descr(node, 4, 1);
 
   ASSERT_EQ("name", descr.name());
@@ -589,7 +588,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
   name: name,
   path: ,
   physical_type: BYTE_ARRAY,
-  logical_type: UTF8,
+  converted_type: UTF8,
   logical_annotation: String,
   max_definition_level: 4,
   max_repetition_level: 1,
@@ -598,7 +597,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
 
   // Test FIXED_LEN_BYTE_ARRAY
   node = PrimitiveNode::Make("name", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
-                             LogicalType::DECIMAL, 12, 10, 4);
+                             ConvertedType::DECIMAL, 12, 10, 4);
   descr = ColumnDescriptor(node, 4, 1);
 
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, descr.physical_type());
@@ -608,7 +607,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
   name: name,
   path: ,
   physical_type: FIXED_LEN_BYTE_ARRAY,
-  logical_type: DECIMAL,
+  converted_type: DECIMAL,
   logical_annotation: Decimal(precision=10, scale=4),
   max_definition_level: 4,
   max_repetition_level: 1,
@@ -645,7 +644,7 @@ TEST_F(TestSchemaDescriptor, Equals) {
   NodePtr item2 = Boolean("item2", Repetition::OPTIONAL);
   NodePtr item3 = Int32("item3", Repetition::REPEATED);
   NodePtr list(GroupNode::Make("records", Repetition::REPEATED, {item1, item2, item3},
-                               LogicalType::LIST));
+                               ConvertedType::LIST));
 
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   NodePtr bag2(GroupNode::Make("bag", Repetition::REQUIRED, {list}));
@@ -697,7 +696,7 @@ TEST_F(TestSchemaDescriptor, BuildTree) {
   NodePtr item2 = Boolean("item2", Repetition::OPTIONAL);
   NodePtr item3 = Int32("item3", Repetition::REPEATED);
   NodePtr list(GroupNode::Make("records", Repetition::REPEATED, {item1, item2, item3},
-                               LogicalType::LIST));
+                               ConvertedType::LIST));
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   fields.push_back(bag);
 
@@ -773,12 +772,12 @@ TEST(TestSchemaPrinter, Examples) {
   NodePtr item1 = Int64("item1");
   NodePtr item2 = Boolean("item2", Repetition::REQUIRED);
   NodePtr list(
-      GroupNode::Make("b", Repetition::REPEATED, {item1, item2}, LogicalType::LIST));
+      GroupNode::Make("b", Repetition::REPEATED, {item1, item2}, ConvertedType::LIST));
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));
   fields.push_back(bag);
 
   fields.push_back(PrimitiveNode::Make("c", Repetition::REQUIRED, Type::INT32,
-                                       LogicalType::DECIMAL, -1, 3, 2));
+                                       ConvertedType::DECIMAL, -1, 3, 2));
 
   fields.push_back(PrimitiveNode::Make("d", Repetition::REQUIRED,
                                        DecimalAnnotation::Make(10, 5), Type::INT64, -1));
@@ -802,7 +801,7 @@ TEST(TestSchemaPrinter, Examples) {
 }
 
 static void ConfirmFactoryEquivalence(
-    LogicalType::type converted_type,
+    ConvertedType::type converted_type,
     const std::shared_ptr<const LogicalAnnotation>& from_make,
     std::function<bool(const std::shared_ptr<const LogicalAnnotation>&)> check_is_type) {
   std::shared_ptr<const LogicalAnnotation> from_converted_type =
@@ -827,7 +826,7 @@ TEST(TestLogicalAnnotationConstruction, FactoryEquivalence) {
   // base class) and that these annotation objects are equivalent
 
   struct ConfirmFactoryEquivalenceArguments {
-    LogicalType::type converted_type;
+    ConvertedType::type converted_type;
     std::shared_ptr<const LogicalAnnotation> annotation;
     std::function<bool(const std::shared_ptr<const LogicalAnnotation>&)> check_is_type;
   };
@@ -872,46 +871,46 @@ TEST(TestLogicalAnnotationConstruction, FactoryEquivalence) {
   };
 
   std::vector<ConfirmFactoryEquivalenceArguments> cases = {
-      {LogicalType::UTF8, LogicalAnnotation::String(), check_is_string},
-      {LogicalType::MAP, LogicalAnnotation::Map(), check_is_map},
-      {LogicalType::MAP_KEY_VALUE, LogicalAnnotation::Map(), check_is_map},
-      {LogicalType::LIST, LogicalAnnotation::List(), check_is_list},
-      {LogicalType::ENUM, LogicalAnnotation::Enum(), check_is_enum},
-      {LogicalType::DATE, LogicalAnnotation::Date(), check_is_date},
-      {LogicalType::TIME_MILLIS,
+      {ConvertedType::UTF8, LogicalAnnotation::String(), check_is_string},
+      {ConvertedType::MAP, LogicalAnnotation::Map(), check_is_map},
+      {ConvertedType::MAP_KEY_VALUE, LogicalAnnotation::Map(), check_is_map},
+      {ConvertedType::LIST, LogicalAnnotation::List(), check_is_list},
+      {ConvertedType::ENUM, LogicalAnnotation::Enum(), check_is_enum},
+      {ConvertedType::DATE, LogicalAnnotation::Date(), check_is_date},
+      {ConvertedType::TIME_MILLIS,
        LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS), check_is_time},
-      {LogicalType::TIME_MICROS,
+      {ConvertedType::TIME_MICROS,
        LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS), check_is_time},
-      {LogicalType::TIMESTAMP_MILLIS,
+      {ConvertedType::TIMESTAMP_MILLIS,
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
        check_is_timestamp},
-      {LogicalType::TIMESTAMP_MICROS,
+      {ConvertedType::TIMESTAMP_MICROS,
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
        check_is_timestamp},
-      {LogicalType::UINT_8, LogicalAnnotation::Int(8, false), check_is_int},
-      {LogicalType::UINT_16, LogicalAnnotation::Int(16, false), check_is_int},
-      {LogicalType::UINT_32, LogicalAnnotation::Int(32, false), check_is_int},
-      {LogicalType::UINT_64, LogicalAnnotation::Int(64, false), check_is_int},
-      {LogicalType::INT_8, LogicalAnnotation::Int(8, true), check_is_int},
-      {LogicalType::INT_16, LogicalAnnotation::Int(16, true), check_is_int},
-      {LogicalType::INT_32, LogicalAnnotation::Int(32, true), check_is_int},
-      {LogicalType::INT_64, LogicalAnnotation::Int(64, true), check_is_int},
-      {LogicalType::JSON, LogicalAnnotation::JSON(), check_is_JSON},
-      {LogicalType::BSON, LogicalAnnotation::BSON(), check_is_BSON},
-      {LogicalType::INTERVAL, LogicalAnnotation::Interval(), check_is_interval},
-      {LogicalType::NONE, LogicalAnnotation::None(), check_is_none}};
+      {ConvertedType::UINT_8, LogicalAnnotation::Int(8, false), check_is_int},
+      {ConvertedType::UINT_16, LogicalAnnotation::Int(16, false), check_is_int},
+      {ConvertedType::UINT_32, LogicalAnnotation::Int(32, false), check_is_int},
+      {ConvertedType::UINT_64, LogicalAnnotation::Int(64, false), check_is_int},
+      {ConvertedType::INT_8, LogicalAnnotation::Int(8, true), check_is_int},
+      {ConvertedType::INT_16, LogicalAnnotation::Int(16, true), check_is_int},
+      {ConvertedType::INT_32, LogicalAnnotation::Int(32, true), check_is_int},
+      {ConvertedType::INT_64, LogicalAnnotation::Int(64, true), check_is_int},
+      {ConvertedType::JSON, LogicalAnnotation::JSON(), check_is_JSON},
+      {ConvertedType::BSON, LogicalAnnotation::BSON(), check_is_BSON},
+      {ConvertedType::INTERVAL, LogicalAnnotation::Interval(), check_is_interval},
+      {ConvertedType::NONE, LogicalAnnotation::None(), check_is_none}};
 
   for (const ConfirmFactoryEquivalenceArguments& c : cases) {
     ConfirmFactoryEquivalence(c.converted_type, c.annotation, c.check_is_type);
   }
 
-  // LogicalType::DECIMAL, LogicalAnnotation::Decimal, is_decimal
+  // ConvertedType::DECIMAL, LogicalAnnotation::Decimal, is_decimal
   schema::DecimalMetadata converted_decimal_metadata;
   converted_decimal_metadata.isset = true;
   converted_decimal_metadata.precision = 10;
   converted_decimal_metadata.scale = 4;
   std::shared_ptr<const LogicalAnnotation> from_converted_type =
-      LogicalAnnotation::FromConvertedType(LogicalType::DECIMAL,
+      LogicalAnnotation::FromConvertedType(ConvertedType::DECIMAL,
                                            converted_decimal_metadata);
   std::shared_ptr<const LogicalAnnotation> from_make = LogicalAnnotation::Decimal(10, 4);
   ASSERT_EQ(from_converted_type->type(), from_make->type());
@@ -923,11 +922,11 @@ TEST(TestLogicalAnnotationConstruction, FactoryEquivalence) {
 
 static void ConfirmConvertedTypeCompatibility(
     const std::shared_ptr<const LogicalAnnotation>& original,
-    LogicalType::type expected_converted_type) {
+    ConvertedType::type expected_converted_type) {
   ASSERT_TRUE(original->is_valid())
       << original->ToString() << " annotation unexpectedly is not valid";
   schema::DecimalMetadata converted_decimal_metadata;
-  LogicalType::type converted_type =
+  ConvertedType::type converted_type =
       original->ToConvertedType(&converted_decimal_metadata);
   ASSERT_EQ(converted_type, expected_converted_type)
       << original->ToString()
@@ -964,35 +963,35 @@ TEST(TestLogicalAnnotationConstruction, ConvertedTypeCompatibility) {
 
   struct ExpectedConvertedType {
     std::shared_ptr<const LogicalAnnotation> annotation;
-    LogicalType::type converted_type;
+    ConvertedType::type converted_type;
   };
 
   std::vector<ExpectedConvertedType> cases = {
-      {LogicalAnnotation::String(), LogicalType::UTF8},
-      {LogicalAnnotation::Map(), LogicalType::MAP},
-      {LogicalAnnotation::List(), LogicalType::LIST},
-      {LogicalAnnotation::Enum(), LogicalType::ENUM},
-      {LogicalAnnotation::Date(), LogicalType::DATE},
+      {LogicalAnnotation::String(), ConvertedType::UTF8},
+      {LogicalAnnotation::Map(), ConvertedType::MAP},
+      {LogicalAnnotation::List(), ConvertedType::LIST},
+      {LogicalAnnotation::Enum(), ConvertedType::ENUM},
+      {LogicalAnnotation::Date(), ConvertedType::DATE},
       {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS),
-       LogicalType::TIME_MILLIS},
+       ConvertedType::TIME_MILLIS},
       {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS),
-       LogicalType::TIME_MICROS},
+       ConvertedType::TIME_MICROS},
       {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
-       LogicalType::TIMESTAMP_MILLIS},
+       ConvertedType::TIMESTAMP_MILLIS},
       {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
-       LogicalType::TIMESTAMP_MICROS},
-      {LogicalAnnotation::Int(8, false), LogicalType::UINT_8},
-      {LogicalAnnotation::Int(16, false), LogicalType::UINT_16},
-      {LogicalAnnotation::Int(32, false), LogicalType::UINT_32},
-      {LogicalAnnotation::Int(64, false), LogicalType::UINT_64},
-      {LogicalAnnotation::Int(8, true), LogicalType::INT_8},
-      {LogicalAnnotation::Int(16, true), LogicalType::INT_16},
-      {LogicalAnnotation::Int(32, true), LogicalType::INT_32},
-      {LogicalAnnotation::Int(64, true), LogicalType::INT_64},
-      {LogicalAnnotation::JSON(), LogicalType::JSON},
-      {LogicalAnnotation::BSON(), LogicalType::BSON},
-      {LogicalAnnotation::Interval(), LogicalType::INTERVAL},
-      {LogicalAnnotation::None(), LogicalType::NONE}};
+       ConvertedType::TIMESTAMP_MICROS},
+      {LogicalAnnotation::Int(8, false), ConvertedType::UINT_8},
+      {LogicalAnnotation::Int(16, false), ConvertedType::UINT_16},
+      {LogicalAnnotation::Int(32, false), ConvertedType::UINT_32},
+      {LogicalAnnotation::Int(64, false), ConvertedType::UINT_64},
+      {LogicalAnnotation::Int(8, true), ConvertedType::INT_8},
+      {LogicalAnnotation::Int(16, true), ConvertedType::INT_16},
+      {LogicalAnnotation::Int(32, true), ConvertedType::INT_32},
+      {LogicalAnnotation::Int(64, true), ConvertedType::INT_64},
+      {LogicalAnnotation::JSON(), ConvertedType::JSON},
+      {LogicalAnnotation::BSON(), ConvertedType::BSON},
+      {LogicalAnnotation::Interval(), ConvertedType::INTERVAL},
+      {LogicalAnnotation::None(), ConvertedType::NONE}};
 
   for (const ExpectedConvertedType& c : cases) {
     ConfirmConvertedTypeCompatibility(c.annotation, c.converted_type);
@@ -1001,7 +1000,7 @@ TEST(TestLogicalAnnotationConstruction, ConvertedTypeCompatibility) {
   // Special cases ...
 
   std::shared_ptr<const LogicalAnnotation> original;
-  LogicalType::type converted_type;
+  ConvertedType::type converted_type;
   schema::DecimalMetadata converted_decimal_metadata;
   std::shared_ptr<const LogicalAnnotation> reconstructed;
 
@@ -1010,7 +1009,7 @@ TEST(TestLogicalAnnotationConstruction, ConvertedTypeCompatibility) {
   original = LogicalAnnotation::Decimal(6, 2);
   ASSERT_TRUE(original->is_valid());
   converted_type = original->ToConvertedType(&converted_decimal_metadata);
-  ASSERT_EQ(converted_type, LogicalType::DECIMAL);
+  ASSERT_EQ(converted_type, ConvertedType::DECIMAL);
   ASSERT_TRUE(converted_decimal_metadata.isset);
   ASSERT_EQ(converted_decimal_metadata.precision, 6);
   ASSERT_EQ(converted_decimal_metadata.scale, 2);
@@ -1025,7 +1024,7 @@ TEST(TestLogicalAnnotationConstruction, ConvertedTypeCompatibility) {
   ASSERT_TRUE(original->is_invalid());
   ASSERT_FALSE(original->is_valid());
   converted_type = original->ToConvertedType(&converted_decimal_metadata);
-  ASSERT_EQ(converted_type, LogicalType::NA);
+  ASSERT_EQ(converted_type, ConvertedType::NA);
   ASSERT_FALSE(converted_decimal_metadata.isset);
   ASSERT_TRUE(original->is_compatible(converted_type, converted_decimal_metadata));
   ASSERT_TRUE(original->is_compatible(converted_type));
@@ -1043,9 +1042,9 @@ static void ConfirmNewTypeIncompatibility(
   ASSERT_TRUE(check_is_type(annotation))
       << annotation->ToString() << " annotation is not expected annotation type";
   schema::DecimalMetadata converted_decimal_metadata;
-  LogicalType::type converted_type =
+  ConvertedType::type converted_type =
       annotation->ToConvertedType(&converted_decimal_metadata);
-  ASSERT_EQ(converted_type, LogicalType::NONE)
+  ASSERT_EQ(converted_type, ConvertedType::NONE)
       << annotation->ToString() << " annotation converted type unexpectedly is not NONE";
   ASSERT_FALSE(converted_decimal_metadata.isset)
       << annotation->ToString()
@@ -1521,7 +1520,7 @@ TEST(TestLogicalAnnotationOperation, AnnotationSortOrder) {
 
 static void ConfirmPrimitiveNodeFactoryEquivalence(
     const std::shared_ptr<const LogicalAnnotation>& logical_annotation,
-    LogicalType::type converted_type, Type::type physical_type, int physical_length,
+    ConvertedType::type converted_type, Type::type physical_type, int physical_length,
     int precision, int scale) {
   std::string name = "something";
   Repetition::type repetition = Repetition::REQUIRED;
@@ -1531,7 +1530,7 @@ static void ConfirmPrimitiveNodeFactoryEquivalence(
       name, repetition, logical_annotation, physical_type, physical_length);
   ASSERT_TRUE(from_converted_type->Equals(from_logical_annotation.get()))
       << "Primitive node constructed with converted type "
-      << LogicalTypeToString(converted_type)
+      << ConvertedTypeToString(converted_type)
       << " unexpectedly not equivalent to primitive node constructed with logical "
          "annotation "
       << logical_annotation->ToString();
@@ -1540,14 +1539,14 @@ static void ConfirmPrimitiveNodeFactoryEquivalence(
 
 static void ConfirmGroupNodeFactoryEquivalence(
     std::string name, const std::shared_ptr<const LogicalAnnotation>& logical_annotation,
-    LogicalType::type converted_type) {
+    ConvertedType::type converted_type) {
   Repetition::type repetition = Repetition::OPTIONAL;
   NodePtr from_converted_type = GroupNode::Make(name, repetition, {}, converted_type);
   NodePtr from_logical_annotation =
       GroupNode::Make(name, repetition, {}, logical_annotation);
   ASSERT_TRUE(from_converted_type->Equals(from_logical_annotation.get()))
       << "Group node constructed with converted type "
-      << LogicalTypeToString(converted_type)
+      << ConvertedTypeToString(converted_type)
       << " unexpectedly not equivalent to group node constructed with logical annotation "
       << logical_annotation->ToString();
   return;
@@ -1561,7 +1560,7 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
 
   struct PrimitiveNodeFactoryArguments {
     std::shared_ptr<const LogicalAnnotation> annotation;
-    LogicalType::type converted_type;
+    ConvertedType::type converted_type;
     Type::type physical_type;
     int physical_length;
     int precision;
@@ -1569,31 +1568,31 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   };
 
   std::vector<PrimitiveNodeFactoryArguments> cases = {
-      {LogicalAnnotation::String(), LogicalType::UTF8, Type::BYTE_ARRAY, -1, -1, -1},
-      {LogicalAnnotation::Enum(), LogicalType::ENUM, Type::BYTE_ARRAY, -1, -1, -1},
-      {LogicalAnnotation::Decimal(16, 6), LogicalType::DECIMAL, Type::INT64, -1, 16, 6},
-      {LogicalAnnotation::Date(), LogicalType::DATE, Type::INT32, -1, -1, -1},
+      {LogicalAnnotation::String(), ConvertedType::UTF8, Type::BYTE_ARRAY, -1, -1, -1},
+      {LogicalAnnotation::Enum(), ConvertedType::ENUM, Type::BYTE_ARRAY, -1, -1, -1},
+      {LogicalAnnotation::Decimal(16, 6), ConvertedType::DECIMAL, Type::INT64, -1, 16, 6},
+      {LogicalAnnotation::Date(), ConvertedType::DATE, Type::INT32, -1, -1, -1},
       {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS),
-       LogicalType::TIME_MILLIS, Type::INT32, -1, -1, -1},
+       ConvertedType::TIME_MILLIS, Type::INT32, -1, -1, -1},
       {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS),
-       LogicalType::TIME_MICROS, Type::INT64, -1, -1, -1},
+       ConvertedType::TIME_MICROS, Type::INT64, -1, -1, -1},
       {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
-       LogicalType::TIMESTAMP_MILLIS, Type::INT64, -1, -1, -1},
+       ConvertedType::TIMESTAMP_MILLIS, Type::INT64, -1, -1, -1},
       {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
-       LogicalType::TIMESTAMP_MICROS, Type::INT64, -1, -1, -1},
-      {LogicalAnnotation::Interval(), LogicalType::INTERVAL, Type::FIXED_LEN_BYTE_ARRAY,
+       ConvertedType::TIMESTAMP_MICROS, Type::INT64, -1, -1, -1},
+      {LogicalAnnotation::Interval(), ConvertedType::INTERVAL, Type::FIXED_LEN_BYTE_ARRAY,
        12, -1, -1},
-      {LogicalAnnotation::Int(8, false), LogicalType::UINT_8, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(8, true), LogicalType::INT_8, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(16, false), LogicalType::UINT_16, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(16, true), LogicalType::INT_16, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(32, false), LogicalType::UINT_32, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(32, true), LogicalType::INT_32, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(64, false), LogicalType::UINT_64, Type::INT64, -1, -1, -1},
-      {LogicalAnnotation::Int(64, true), LogicalType::INT_64, Type::INT64, -1, -1, -1},
-      {LogicalAnnotation::JSON(), LogicalType::JSON, Type::BYTE_ARRAY, -1, -1, -1},
-      {LogicalAnnotation::BSON(), LogicalType::BSON, Type::BYTE_ARRAY, -1, -1, -1},
-      {LogicalAnnotation::None(), LogicalType::NONE, Type::INT64, -1, -1, -1}};
+      {LogicalAnnotation::Int(8, false), ConvertedType::UINT_8, Type::INT32, -1, -1, -1},
+      {LogicalAnnotation::Int(8, true), ConvertedType::INT_8, Type::INT32, -1, -1, -1},
+      {LogicalAnnotation::Int(16, false), ConvertedType::UINT_16, Type::INT32, -1, -1, -1},
+      {LogicalAnnotation::Int(16, true), ConvertedType::INT_16, Type::INT32, -1, -1, -1},
+      {LogicalAnnotation::Int(32, false), ConvertedType::UINT_32, Type::INT32, -1, -1, -1},
+      {LogicalAnnotation::Int(32, true), ConvertedType::INT_32, Type::INT32, -1, -1, -1},
+      {LogicalAnnotation::Int(64, false), ConvertedType::UINT_64, Type::INT64, -1, -1, -1},
+      {LogicalAnnotation::Int(64, true), ConvertedType::INT_64, Type::INT64, -1, -1, -1},
+      {LogicalAnnotation::JSON(), ConvertedType::JSON, Type::BYTE_ARRAY, -1, -1, -1},
+      {LogicalAnnotation::BSON(), ConvertedType::BSON, Type::BYTE_ARRAY, -1, -1, -1},
+      {LogicalAnnotation::None(), ConvertedType::NONE, Type::INT64, -1, -1, -1}};
 
   for (const PrimitiveNodeFactoryArguments& c : cases) {
     ConfirmPrimitiveNodeFactoryEquivalence(c.annotation, c.converted_type,
@@ -1602,9 +1601,9 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   }
 
   // Group nodes ...
-  ConfirmGroupNodeFactoryEquivalence("map", LogicalAnnotation::Map(), LogicalType::MAP);
+  ConfirmGroupNodeFactoryEquivalence("map", LogicalAnnotation::Map(), ConvertedType::MAP);
   ConfirmGroupNodeFactoryEquivalence("list", LogicalAnnotation::List(),
-                                     LogicalType::LIST);
+                                     ConvertedType::LIST);
 }
 
 TEST(TestSchemaNodeCreation, FactoryExceptions) {
@@ -1640,18 +1639,18 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_ANY_THROW(
       GroupNode::Make("list", Repetition::REPEATED, {}, JSONAnnotation::Make()));
 
-  // nullptr annotation arguments convert to NoAnnotation/LogicalType::NONE
+  // nullptr annotation arguments convert to NoAnnotation/ConvertedType::NONE
   std::shared_ptr<const LogicalAnnotation> empty;
   NodePtr node;
   ASSERT_NO_THROW(
       node = PrimitiveNode::Make("value", Repetition::REQUIRED, empty, Type::DOUBLE));
   ASSERT_TRUE(node->logical_annotation()->is_none());
-  ASSERT_EQ(node->logical_type(), LogicalType::NONE);
+  ASSERT_EQ(node->converted_type(), ConvertedType::NONE);
   ASSERT_NO_THROW(node = GroupNode::Make("items", Repetition::REPEATED, {}, empty));
   ASSERT_TRUE(node->logical_annotation()->is_none());
-  ASSERT_EQ(node->logical_type(), LogicalType::NONE);
+  ASSERT_EQ(node->converted_type(), ConvertedType::NONE);
 
-  // Invalid LogicalType in deserialized element ...
+  // Invalid ConvertedType in deserialized element ...
   node = PrimitiveNode::Make("string", Repetition::REQUIRED, StringAnnotation::Make(),
                              Type::BYTE_ARRAY);
   ASSERT_EQ(node->logical_annotation()->type(), LogicalAnnotation::Type::STRING);
@@ -1690,7 +1689,7 @@ struct SchemaElementConstructionArguments {
   Type::type physical_type;
   int physical_length;
   bool expect_converted_type;
-  LogicalType::type converted_type;
+  ConvertedType::type converted_type;
   bool expect_logicalType;
   std::function<bool()> check_logicalType;
 };
@@ -1753,7 +1752,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
   std::unique_ptr<format::SchemaElement> element_;
   std::string name_;
   bool expect_converted_type_;
-  LogicalType::type converted_type_;  // expected converted type in Thrift object
+  ConvertedType::type converted_type_;  // expected converted type in Thrift object
   bool expect_logicalType_;
   std::function<bool()> check_logicalType_;  // specialized (by annotation type)
                                              // logicalType check for Thrift object
@@ -1773,25 +1772,25 @@ TEST_F(TestSchemaElementConstruction, SimpleCases) {
 
   std::vector<SchemaElementConstructionArguments> cases = {
       {"string", LogicalAnnotation::String(), Type::BYTE_ARRAY, -1, true,
-       LogicalType::UTF8, true,
+       ConvertedType::UTF8, true,
        [this]() { return element_->logicalType.__isset.STRING; }},
-      {"enum", LogicalAnnotation::Enum(), Type::BYTE_ARRAY, -1, true, LogicalType::ENUM,
+      {"enum", LogicalAnnotation::Enum(), Type::BYTE_ARRAY, -1, true, ConvertedType::ENUM,
        true, [this]() { return element_->logicalType.__isset.ENUM; }},
-      {"date", LogicalAnnotation::Date(), Type::INT32, -1, true, LogicalType::DATE, true,
+      {"date", LogicalAnnotation::Date(), Type::INT32, -1, true, ConvertedType::DATE, true,
        [this]() { return element_->logicalType.__isset.DATE; }},
       {"interval", LogicalAnnotation::Interval(), Type::FIXED_LEN_BYTE_ARRAY, 12, true,
-       LogicalType::INTERVAL, false, check_nothing},
-      {"null", LogicalAnnotation::Null(), Type::DOUBLE, -1, false, LogicalType::NA, true,
+       ConvertedType::INTERVAL, false, check_nothing},
+      {"null", LogicalAnnotation::Null(), Type::DOUBLE, -1, false, ConvertedType::NA, true,
        [this]() { return element_->logicalType.__isset.UNKNOWN; }},
-      {"json", LogicalAnnotation::JSON(), Type::BYTE_ARRAY, -1, true, LogicalType::JSON,
+      {"json", LogicalAnnotation::JSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::JSON,
        true, [this]() { return element_->logicalType.__isset.JSON; }},
-      {"bson", LogicalAnnotation::BSON(), Type::BYTE_ARRAY, -1, true, LogicalType::BSON,
+      {"bson", LogicalAnnotation::BSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::BSON,
        true, [this]() { return element_->logicalType.__isset.BSON; }},
       {"uuid", LogicalAnnotation::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16, false,
-       LogicalType::NA, true, [this]() { return element_->logicalType.__isset.UUID; }},
-      {"none", LogicalAnnotation::None(), Type::INT64, -1, false, LogicalType::NA, false,
+       ConvertedType::NA, true, [this]() { return element_->logicalType.__isset.UUID; }},
+      {"none", LogicalAnnotation::None(), Type::INT64, -1, false, ConvertedType::NA, false,
        check_nothing},
-      {"unknown", LogicalAnnotation::Unknown(), Type::INT64, -1, true, LogicalType::NA,
+      {"unknown", LogicalAnnotation::Unknown(), Type::INT64, -1, true, ConvertedType::NA,
        false, check_nothing}};
 
   for (const SchemaElementConstructionArguments& c : cases) {
@@ -1830,13 +1829,13 @@ TEST_F(TestDecimalSchemaElementConstruction, DecimalCases) {
 
   std::vector<SchemaElementConstructionArguments> cases = {
       {"decimal", LogicalAnnotation::Decimal(16, 6), Type::INT64, -1, true,
-       LogicalType::DECIMAL, true, check_DECIMAL},
+       ConvertedType::DECIMAL, true, check_DECIMAL},
       {"decimal", LogicalAnnotation::Decimal(1, 0), Type::INT32, -1, true,
-       LogicalType::DECIMAL, true, check_DECIMAL},
+       ConvertedType::DECIMAL, true, check_DECIMAL},
       {"decimal", LogicalAnnotation::Decimal(10), Type::INT64, -1, true,
-       LogicalType::DECIMAL, true, check_DECIMAL},
+       ConvertedType::DECIMAL, true, check_DECIMAL},
       {"decimal", LogicalAnnotation::Decimal(11, 11), Type::INT64, -1, true,
-       LogicalType::DECIMAL, true, check_DECIMAL},
+       ConvertedType::DECIMAL, true, check_DECIMAL},
   };
 
   for (const SchemaElementConstructionArguments& c : cases) {
@@ -1914,17 +1913,17 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
 
   std::vector<SchemaElementConstructionArguments> time_cases = {
       {"time_T_ms", LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS),
-       Type::INT32, -1, true, LogicalType::TIME_MILLIS, true, check_TIME},
+       Type::INT32, -1, true, ConvertedType::TIME_MILLIS, true, check_TIME},
       {"time_F_ms", LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MILLIS),
-       Type::INT32, -1, false, LogicalType::NA, true, check_TIME},
+       Type::INT32, -1, false, ConvertedType::NA, true, check_TIME},
       {"time_T_us", LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS),
-       Type::INT64, -1, true, LogicalType::TIME_MICROS, true, check_TIME},
+       Type::INT64, -1, true, ConvertedType::TIME_MICROS, true, check_TIME},
       {"time_F_us", LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MICROS),
-       Type::INT64, -1, false, LogicalType::NA, true, check_TIME},
+       Type::INT64, -1, false, ConvertedType::NA, true, check_TIME},
       {"time_T_ns", LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::NANOS),
-       Type::INT64, -1, false, LogicalType::NA, true, check_TIME},
+       Type::INT64, -1, false, ConvertedType::NA, true, check_TIME},
       {"time_F_ns", LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::NANOS),
-       Type::INT64, -1, false, LogicalType::NA, true, check_TIME},
+       Type::INT64, -1, false, ConvertedType::NA, true, check_TIME},
   };
 
   for (const SchemaElementConstructionArguments& c : time_cases) {
@@ -1936,22 +1935,22 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
   std::vector<SchemaElementConstructionArguments> timestamp_cases = {
       {"timestamp_T_ms",
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
-       Type::INT64, -1, true, LogicalType::TIMESTAMP_MILLIS, true, check_TIMESTAMP},
+       Type::INT64, -1, true, ConvertedType::TIMESTAMP_MILLIS, true, check_TIMESTAMP},
       {"timestamp_F_ms",
        LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MILLIS),
-       Type::INT64, -1, false, LogicalType::NA, true, check_TIMESTAMP},
+       Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
       {"timestamp_T_us",
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
-       Type::INT64, -1, true, LogicalType::TIMESTAMP_MICROS, true, check_TIMESTAMP},
+       Type::INT64, -1, true, ConvertedType::TIMESTAMP_MICROS, true, check_TIMESTAMP},
       {"timestamp_F_us",
        LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MICROS),
-       Type::INT64, -1, false, LogicalType::NA, true, check_TIMESTAMP},
+       Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
       {"timestamp_T_ns",
        LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
-       Type::INT64, -1, false, LogicalType::NA, true, check_TIMESTAMP},
+       Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
       {"timestamp_F_ns",
        LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::NANOS),
-       Type::INT64, -1, false, LogicalType::NA, true, check_TIMESTAMP},
+       Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
   };
 
   for (const SchemaElementConstructionArguments& c : timestamp_cases) {
@@ -1987,21 +1986,21 @@ TEST_F(TestIntegerSchemaElementConstruction, IntegerCases) {
 
   std::vector<SchemaElementConstructionArguments> cases = {
       {"uint8", LogicalAnnotation::Int(8, false), Type::INT32, -1, true,
-       LogicalType::UINT_8, true, check_INTEGER},
+       ConvertedType::UINT_8, true, check_INTEGER},
       {"uint16", LogicalAnnotation::Int(16, false), Type::INT32, -1, true,
-       LogicalType::UINT_16, true, check_INTEGER},
+       ConvertedType::UINT_16, true, check_INTEGER},
       {"uint32", LogicalAnnotation::Int(32, false), Type::INT32, -1, true,
-       LogicalType::UINT_32, true, check_INTEGER},
+       ConvertedType::UINT_32, true, check_INTEGER},
       {"uint64", LogicalAnnotation::Int(64, false), Type::INT64, -1, true,
-       LogicalType::UINT_64, true, check_INTEGER},
-      {"int8", LogicalAnnotation::Int(8, true), Type::INT32, -1, true, LogicalType::INT_8,
+       ConvertedType::UINT_64, true, check_INTEGER},
+      {"int8", LogicalAnnotation::Int(8, true), Type::INT32, -1, true, ConvertedType::INT_8,
        true, check_INTEGER},
       {"int16", LogicalAnnotation::Int(16, true), Type::INT32, -1, true,
-       LogicalType::INT_16, true, check_INTEGER},
+       ConvertedType::INT_16, true, check_INTEGER},
       {"int32", LogicalAnnotation::Int(32, true), Type::INT32, -1, true,
-       LogicalType::INT_32, true, check_INTEGER},
+       ConvertedType::INT_32, true, check_INTEGER},
       {"int64", LogicalAnnotation::Int(64, true), Type::INT64, -1, true,
-       LogicalType::INT_64, true, check_INTEGER},
+       ConvertedType::INT_64, true, check_INTEGER},
   };
 
   for (const SchemaElementConstructionArguments& c : cases) {
@@ -2011,7 +2010,7 @@ TEST_F(TestIntegerSchemaElementConstruction, IntegerCases) {
 
 TEST(TestLogicalAnnotationSerialization, SchemaElementNestedCases) {
   // Confirm that the intermediate Thrift objects created during node serialization
-  // contain correct ConvertedType and LogicalType information
+  // contain correct ConvertedType and ConvertedType information
 
   NodePtr string_node = PrimitiveNode::Make("string", Repetition::REQUIRED,
                                             StringAnnotation::Make(), Type::BYTE_ARRAY);
@@ -2039,7 +2038,7 @@ TEST(TestLogicalAnnotationSerialization, SchemaElementNestedCases) {
   ASSERT_EQ(list_elements[0].name, "list");
   ASSERT_TRUE(list_elements[0].__isset.converted_type);
   ASSERT_TRUE(list_elements[0].__isset.logicalType);
-  ASSERT_EQ(list_elements[0].converted_type, ToThrift(LogicalType::LIST));
+  ASSERT_EQ(list_elements[0].converted_type, ToThrift(ConvertedType::LIST));
   ASSERT_TRUE(list_elements[0].logicalType.__isset.LIST);
   ASSERT_TRUE(list_elements[1].logicalType.__isset.STRING);
   ASSERT_TRUE(list_elements[2].logicalType.__isset.DATE);
@@ -2056,7 +2055,7 @@ TEST(TestLogicalAnnotationSerialization, SchemaElementNestedCases) {
   ASSERT_EQ(map_elements[0].name, "map");
   ASSERT_TRUE(map_elements[0].__isset.converted_type);
   ASSERT_TRUE(map_elements[0].__isset.logicalType);
-  ASSERT_EQ(map_elements[0].converted_type, ToThrift(LogicalType::MAP));
+  ASSERT_EQ(map_elements[0].converted_type, ToThrift(ConvertedType::MAP));
   ASSERT_TRUE(map_elements[0].logicalType.__isset.MAP);
 }
 

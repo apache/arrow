@@ -68,7 +68,7 @@ struct Type {
 };
 
 // Mirrors parquet::ConvertedType
-struct LogicalType {
+struct ConvertedType {
   enum type {
     NONE,
     UTF8,
@@ -99,6 +99,7 @@ struct LogicalType {
   };
 };
 
+// forward declaration
 namespace format {
 
 class LogicalType;
@@ -133,7 +134,7 @@ struct DecimalMetadata {
 
 }  // namespace schema
 
-/// \brief Implementation of parquet.thrift LogicalType annotations.
+/// \brief Implementation of parquet.thrift ConvertedType annotations.
 class PARQUET_EXPORT LogicalAnnotation {
  public:
   struct Type {
@@ -164,7 +165,7 @@ class PARQUET_EXPORT LogicalAnnotation {
   /// \brief If possible, return an annotation equivalent to the given legacy converted
   /// type (and decimal metadata if applicable).
   static std::shared_ptr<const LogicalAnnotation> FromConvertedType(
-      const parquet::LogicalType::type converted_type,
+      const parquet::ConvertedType::type converted_type,
       const parquet::schema::DecimalMetadata converted_decimal_metadata = {false, -1,
                                                                            -1});
 
@@ -200,13 +201,13 @@ class PARQUET_EXPORT LogicalAnnotation {
 
   /// \brief Return true if this annotation is equivalent to the given legacy converted
   /// type (and decimal metadata if applicable).
-  bool is_compatible(parquet::LogicalType::type converted_type,
+  bool is_compatible(parquet::ConvertedType::type converted_type,
                      parquet::schema::DecimalMetadata converted_decimal_metadata = {
                          false, -1, -1}) const;
 
   /// \brief If possible, return the legacy converted type (and decimal metadata if
   /// applicable) equivalent to this annotation.
-  parquet::LogicalType::type ToConvertedType(
+  parquet::ConvertedType::type ToConvertedType(
       parquet::schema::DecimalMetadata* out_decimal_metadata) const;
 
   /// \brief Return a printable representation of this annotation.
@@ -636,7 +637,7 @@ PARQUET_EXPORT std::string CompressionToString(Compression::type t);
 
 PARQUET_EXPORT std::string EncodingToString(Encoding::type t);
 
-PARQUET_EXPORT std::string LogicalTypeToString(LogicalType::type t);
+PARQUET_EXPORT std::string ConvertedTypeToString(ConvertedType::type t);
 
 PARQUET_EXPORT std::string TypeToString(Type::type t);
 
@@ -651,7 +652,7 @@ PARQUET_EXPORT int GetTypeByteSize(Type::type t);
 
 PARQUET_EXPORT SortOrder::type DefaultSortOrder(Type::type primitive);
 
-PARQUET_EXPORT SortOrder::type GetSortOrder(LogicalType::type converted,
+PARQUET_EXPORT SortOrder::type GetSortOrder(ConvertedType::type converted,
                                             Type::type primitive);
 
 PARQUET_EXPORT SortOrder::type GetSortOrder(

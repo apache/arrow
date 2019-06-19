@@ -50,7 +50,7 @@ using parquet::schema::PrimitiveNode;
 
 using ParquetType = parquet::Type;
 using parquet::LogicalAnnotation;
-using parquet::LogicalType;
+using parquet::ConvertedType;
 
 namespace parquet {
 

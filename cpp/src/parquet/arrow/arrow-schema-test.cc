@@ -34,7 +34,7 @@ using arrow::TimeUnit;
 
 using ParquetType = parquet::Type;
 using parquet::LogicalAnnotation;
-using parquet::LogicalType;
+using parquet::ConvertedType;
 using parquet::Repetition;
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
@@ -115,27 +115,27 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
 
   parquet_fields.push_back(PrimitiveNode::Make("timestamp", Repetition::REQUIRED,
                                                ParquetType::INT64,
-                                               LogicalType::TIMESTAMP_MILLIS));
+                                               ConvertedType::TIMESTAMP_MILLIS));
   arrow_fields.push_back(std::make_shared<Field>(
       "timestamp", ::arrow::timestamp(TimeUnit::MILLI, "UTC"), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("timestamp[us]", Repetition::REQUIRED,
                                                ParquetType::INT64,
-                                               LogicalType::TIMESTAMP_MICROS));
+                                               ConvertedType::TIMESTAMP_MICROS));
   arrow_fields.push_back(std::make_shared<Field>(
       "timestamp[us]", ::arrow::timestamp(TimeUnit::MICRO, "UTC"), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("date", Repetition::REQUIRED,
-                                               ParquetType::INT32, LogicalType::DATE));
+                                               ParquetType::INT32, ConvertedType::DATE));
   arrow_fields.push_back(std::make_shared<Field>("date", ::arrow::date32(), false));
 
   parquet_fields.push_back(PrimitiveNode::Make(
-      "time32", Repetition::REQUIRED, ParquetType::INT32, LogicalType::TIME_MILLIS));
+      "time32", Repetition::REQUIRED, ParquetType::INT32, ConvertedType::TIME_MILLIS));
   arrow_fields.push_back(
       std::make_shared<Field>("time32", ::arrow::time32(TimeUnit::MILLI), false));
 
   parquet_fields.push_back(PrimitiveNode::Make(
-      "time64", Repetition::REQUIRED, ParquetType::INT64, LogicalType::TIME_MICROS));
+      "time64", Repetition::REQUIRED, ParquetType::INT64, ConvertedType::TIME_MICROS));
   arrow_fields.push_back(
       std::make_shared<Field>("time64", ::arrow::time64(TimeUnit::MICRO), false));
 
@@ -156,12 +156,12 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
   arrow_fields.push_back(std::make_shared<Field>("binary", BINARY));
 
   parquet_fields.push_back(PrimitiveNode::Make(
-      "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8));
+      "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::UTF8));
   arrow_fields.push_back(std::make_shared<Field>("string", UTF8));
 
   parquet_fields.push_back(PrimitiveNode::Make("flba-binary", Repetition::OPTIONAL,
                                                ParquetType::FIXED_LEN_BYTE_ARRAY,
-                                               LogicalType::NONE, 12));
+                                               ConvertedType::NONE, 12));
   arrow_fields.push_back(
       std::make_shared<Field>("flba-binary", ::arrow::fixed_size_binary(12)));
 
@@ -341,21 +341,21 @@ TEST_F(TestConvertParquetSchema, ParquetFlatDecimals) {
 
   parquet_fields.push_back(PrimitiveNode::Make("flba-decimal", Repetition::OPTIONAL,
                                                ParquetType::FIXED_LEN_BYTE_ARRAY,
-                                               LogicalType::DECIMAL, 4, 8, 4));
+                                               ConvertedType::DECIMAL, 4, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("flba-decimal", DECIMAL_8_4));
 
   parquet_fields.push_back(PrimitiveNode::Make("binary-decimal", Repetition::OPTIONAL,
                                                ParquetType::BYTE_ARRAY,
-                                               LogicalType::DECIMAL, -1, 8, 4));
+                                               ConvertedType::DECIMAL, -1, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("binary-decimal", DECIMAL_8_4));
 
   parquet_fields.push_back(PrimitiveNode::Make("int32-decimal", Repetition::OPTIONAL,
-                                               ParquetType::INT32, LogicalType::DECIMAL,
+                                               ParquetType::INT32, ConvertedType::DECIMAL,
                                                -1, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("int32-decimal", DECIMAL_8_4));
 
   parquet_fields.push_back(PrimitiveNode::Make("int64-decimal", Repetition::OPTIONAL,
-                                               ParquetType::INT64, LogicalType::DECIMAL,
+                                               ParquetType::INT64, ConvertedType::DECIMAL,
                                                -1, 8, 4));
   arrow_fields.push_back(std::make_shared<Field>("int64-decimal", DECIMAL_8_4));
 
@@ -369,7 +369,7 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
 
-  // LIST encoding example taken from parquet-format/LogicalTypes.md
+  // LIST encoding example taken from parquet-format/ConvertedTypes.md
 
   // // List<String> (list non-null, elements nullable)
   // required group my_list (LIST) {
@@ -379,10 +379,10 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   // }
   {
     auto element = PrimitiveNode::Make("string", Repetition::OPTIONAL,
-                                       ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, LogicalType::LIST));
+        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
     auto arrow_element = std::make_shared<Field>("string", UTF8, true);
     auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
     arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, false));
@@ -396,10 +396,10 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   // }
   {
     auto element = PrimitiveNode::Make("string", Repetition::REQUIRED,
-                                       ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, LogicalType::LIST));
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, ConvertedType::LIST));
     auto arrow_element = std::make_shared<Field>("string", UTF8, false);
     auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
     arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
@@ -422,10 +422,10 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
         PrimitiveNode::Make("int32", Repetition::REQUIRED, ParquetType::INT32);
     auto inner_list = GroupNode::Make("list", Repetition::REPEATED, {inner_element});
     auto element =
-        GroupNode::Make("element", Repetition::REQUIRED, {inner_list}, LogicalType::LIST);
+        GroupNode::Make("element", Repetition::REQUIRED, {inner_list}, ConvertedType::LIST);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(GroupNode::Make("array_of_arrays", Repetition::OPTIONAL,
-                                             {list}, LogicalType::LIST));
+                                             {list}, ConvertedType::LIST));
     auto arrow_inner_element = std::make_shared<Field>("int32", INT32, false);
     auto arrow_inner_list = std::make_shared<::arrow::ListType>(arrow_inner_element);
     auto arrow_element = std::make_shared<Field>("element", arrow_inner_list, false);
@@ -441,10 +441,10 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   // }
   {
     auto element = PrimitiveNode::Make("str", Repetition::REQUIRED,
-                                       ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("element", Repetition::REPEATED, {element});
     parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, LogicalType::LIST));
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, ConvertedType::LIST));
     auto arrow_element = std::make_shared<Field>("str", UTF8, false);
     auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
     arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
@@ -458,7 +458,7 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
     auto element =
         PrimitiveNode::Make("element", Repetition::REPEATED, ParquetType::INT32);
     parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::OPTIONAL, {element}, LogicalType::LIST));
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {element}, ConvertedType::LIST));
     auto arrow_element = std::make_shared<Field>("element", INT32, false);
     auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
     arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));
@@ -473,13 +473,13 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   // }
   {
     auto str_element = PrimitiveNode::Make("str", Repetition::REQUIRED,
-                                           ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+                                           ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto num_element =
         PrimitiveNode::Make("num", Repetition::REQUIRED, ParquetType::INT32);
     auto element =
         GroupNode::Make("element", Repetition::REPEATED, {str_element, num_element});
     parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::OPTIONAL, {element}, LogicalType::LIST));
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {element}, ConvertedType::LIST));
     auto arrow_str = std::make_shared<Field>("str", UTF8, false);
     auto arrow_num = std::make_shared<Field>("num", INT32, false);
     std::vector<std::shared_ptr<Field>> fields({arrow_str, arrow_num});
@@ -498,10 +498,10 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   // Special case: group is named array
   {
     auto element = PrimitiveNode::Make("str", Repetition::REQUIRED,
-                                       ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto array = GroupNode::Make("array", Repetition::REPEATED, {element});
     parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, LogicalType::LIST));
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, ConvertedType::LIST));
     auto arrow_str = std::make_shared<Field>("str", UTF8, false);
     std::vector<std::shared_ptr<Field>> fields({arrow_str});
     auto arrow_struct = std::make_shared<::arrow::StructType>(fields);
@@ -519,10 +519,10 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   // Special case: group named ends in _tuple
   {
     auto element = PrimitiveNode::Make("str", Repetition::REQUIRED,
-                                       ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto array = GroupNode::Make("my_list_tuple", Repetition::REPEATED, {element});
     parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, LogicalType::LIST));
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, ConvertedType::LIST));
     auto arrow_str = std::make_shared<Field>("str", UTF8, false);
     std::vector<std::shared_ptr<Field>> fields({arrow_str});
     auto arrow_struct = std::make_shared<::arrow::StructType>(fields);
@@ -777,22 +777,22 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
   arrow_fields.push_back(std::make_shared<Field>("int64", INT64, false));
 
   parquet_fields.push_back(PrimitiveNode::Make("date", Repetition::REQUIRED,
-                                               ParquetType::INT32, LogicalType::DATE));
+                                               ParquetType::INT32, ConvertedType::DATE));
   arrow_fields.push_back(std::make_shared<Field>("date", ::arrow::date32(), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("date64", Repetition::REQUIRED,
-                                               ParquetType::INT32, LogicalType::DATE));
+                                               ParquetType::INT32, ConvertedType::DATE));
   arrow_fields.push_back(std::make_shared<Field>("date64", ::arrow::date64(), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("timestamp", Repetition::REQUIRED,
                                                ParquetType::INT64,
-                                               LogicalType::TIMESTAMP_MILLIS));
+                                               ConvertedType::TIMESTAMP_MILLIS));
   arrow_fields.push_back(std::make_shared<Field>(
       "timestamp", ::arrow::timestamp(TimeUnit::MILLI, "UTC"), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("timestamp[us]", Repetition::REQUIRED,
                                                ParquetType::INT64,
-                                               LogicalType::TIMESTAMP_MICROS));
+                                               ConvertedType::TIMESTAMP_MICROS));
   arrow_fields.push_back(std::make_shared<Field>(
       "timestamp[us]", ::arrow::timestamp(TimeUnit::MICRO, "UTC"), false));
 
@@ -805,11 +805,11 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitives) {
   arrow_fields.push_back(std::make_shared<Field>("double", DOUBLE));
 
   parquet_fields.push_back(PrimitiveNode::Make(
-      "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8));
+      "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::UTF8));
   arrow_fields.push_back(std::make_shared<Field>("string", UTF8));
 
   parquet_fields.push_back(PrimitiveNode::Make(
-      "binary", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::NONE));
+      "binary", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::NONE));
   arrow_fields.push_back(std::make_shared<Field>("binary", BINARY));
 
   ASSERT_OK(ConvertSchema(arrow_fields));
@@ -940,12 +940,12 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitivesAsDictionaries) {
       "int64", ::arrow::dictionary(::arrow::int8(), ::arrow::int64()), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("date", Repetition::REQUIRED,
-                                               ParquetType::INT32, LogicalType::DATE));
+                                               ParquetType::INT32, ConvertedType::DATE));
   arrow_fields.push_back(std::make_shared<Field>(
       "date", ::arrow::dictionary(::arrow::int8(), ::arrow::date32()), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("date64", Repetition::REQUIRED,
-                                               ParquetType::INT32, LogicalType::DATE));
+                                               ParquetType::INT32, ConvertedType::DATE));
   arrow_fields.push_back(std::make_shared<Field>(
       "date64", ::arrow::dictionary(::arrow::int8(), ::arrow::date64()), false));
 
@@ -960,12 +960,12 @@ TEST_F(TestConvertArrowSchema, ParquetFlatPrimitivesAsDictionaries) {
       "double", ::arrow::dictionary(::arrow::int8(), ::arrow::float64())));
 
   parquet_fields.push_back(PrimitiveNode::Make(
-      "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::UTF8));
+      "string", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::UTF8));
   arrow_fields.push_back(std::make_shared<Field>(
       "string", ::arrow::dictionary(::arrow::int8(), ::arrow::utf8())));
 
   parquet_fields.push_back(PrimitiveNode::Make(
-      "binary", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, LogicalType::NONE));
+      "binary", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::NONE));
   arrow_fields.push_back(std::make_shared<Field>(
       "binary", ::arrow::dictionary(::arrow::int8(), ::arrow::binary())));
 
@@ -988,10 +988,10 @@ TEST_F(TestConvertArrowSchema, ParquetLists) {
   // }
   {
     auto element = PrimitiveNode::Make("string", Repetition::OPTIONAL,
-                                       ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, LogicalType::LIST));
+        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
     auto arrow_element = std::make_shared<Field>("string", UTF8, true);
     auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
     arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, false));
@@ -1005,10 +1005,10 @@ TEST_F(TestConvertArrowSchema, ParquetLists) {
   // }
   {
     auto element = PrimitiveNode::Make("string", Repetition::REQUIRED,
-                                       ParquetType::BYTE_ARRAY, LogicalType::UTF8);
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, LogicalType::LIST));
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, ConvertedType::LIST));
     auto arrow_element = std::make_shared<Field>("string", UTF8, false);
     auto arrow_list = std::make_shared<::arrow::ListType>(arrow_element);
     arrow_fields.push_back(std::make_shared<Field>("my_list", arrow_list, true));

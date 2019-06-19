@@ -64,9 +64,9 @@ static inline Type::type FromThrift(format::Type::type type) {
   return static_cast<Type::type>(type);
 }
 
-static inline LogicalType::type FromThrift(format::ConvertedType::type type) {
+static inline ConvertedType::type FromThrift(format::ConvertedType::type type) {
   // item 0 is NONE
-  return static_cast<LogicalType::type>(static_cast<int>(type) + 1);
+  return static_cast<ConvertedType::type>(static_cast<int>(type) + 1);
 }
 
 static inline Repetition::type FromThrift(format::FieldRepetitionType::type type) {
@@ -85,9 +85,9 @@ static inline format::Type::type ToThrift(Type::type type) {
   return static_cast<format::Type::type>(type);
 }
 
-static inline format::ConvertedType::type ToThrift(LogicalType::type type) {
+static inline format::ConvertedType::type ToThrift(ConvertedType::type type) {
   // item 0 is NONE
-  DCHECK_NE(type, LogicalType::NONE);
+  DCHECK_NE(type, ConvertedType::NONE);
   return static_cast<format::ConvertedType::type>(static_cast<int>(type) - 1);
 }
 

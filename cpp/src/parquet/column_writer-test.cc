@@ -663,7 +663,7 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
 
   // Create schema
   NodePtr item = schema::Int32("item");  // optional item
-  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, LogicalType::LIST));
+  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));  // optional list
   std::vector<NodePtr> fields = {bag};
   NodePtr root = GroupNode::Make("schema", Repetition::REPEATED, fields);
