@@ -34,8 +34,8 @@ expect(typeof boolVector.get(0) === 'boolean').toBe(true);
 expect(typeof boolColumn.get(0) === 'boolean').toBe(true);
 
 type NamedSchema = {
-    a: Int8,
-    b: Utf8,
+    a: Int8;
+    b: Utf8;
     c: Dictionary<List<Bool>>;
 };
 
@@ -61,8 +61,8 @@ console.log(a1, b1, c1);
 console.log(a2, b2, c2);
 
 type IndexSchema = {
-    0: Int8,
-    1: Utf8,
+    0: Int8;
+    1: Utf8;
     2: Dictionary<List<Bool>>;
 };
 

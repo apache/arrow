@@ -87,6 +87,8 @@ export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableItera
             this.source = new AsyncByteStreamSource(streamAdapters.fromAsyncIterable(source));
         } else if (isReadableNodeStream(source)) {
             this.source = new AsyncByteStreamSource(streamAdapters.fromNodeStream(source));
+        } else if (isReadableDOMStream<ArrayBufferViewInput>(source)) {
+            this.source = new AsyncByteStreamSource(streamAdapters.fromDOMStream(source));
         } else if (isFetchResponse(source)) {
             this.source = new AsyncByteStreamSource(streamAdapters.fromDOMStream(source.body!));
         } else if (isIterable<ArrayBufferViewInput>(source)) {
@@ -95,8 +97,6 @@ export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableItera
             this.source = new AsyncByteStreamSource(streamAdapters.fromAsyncIterable(source));
         } else if (isAsyncIterable<ArrayBufferViewInput>(source)) {
             this.source = new AsyncByteStreamSource(streamAdapters.fromAsyncIterable(source));
-        } else if (isReadableDOMStream<ArrayBufferViewInput>(source)) {
-            this.source = new AsyncByteStreamSource(streamAdapters.fromDOMStream(source));
         }
     }
     [Symbol.asyncIterator]() { return this; }

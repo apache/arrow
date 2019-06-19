@@ -12,6 +12,7 @@
     "declaration": true,
     "noEmitOnError": true,
     "removeComments": false,
+    "noErrorTruncation": true,
     "downlevelIteration": true,
 
     /* Create inline sourcemaps with sources */

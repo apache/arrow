@@ -28,6 +28,7 @@ import { StructVector } from '../vector/struct';
 /** @ignore */ const rowLengthDescriptor = { writable: false, enumerable: false, configurable: false, value: -1 };
 /** @ignore */ const rowParentDescriptor = { writable: false, enumerable: false, configurable: false, value: null as any };
 
+/** @ignore */
 export class Row<T extends { [key: string]: DataType }> implements Iterable<T[keyof T]['TValue']> {
     [key: string]: T[keyof T]['TValue'];
     // @ts-ignore
@@ -41,19 +42,26 @@ export class Row<T extends { [key: string]: DataType }> implements Iterable<T[ke
             yield this[i];
         }
     }
-    public get<K extends keyof T>(key: K) { return (this as any)[key] as T[K]['TValue']; }
+    public get<K extends keyof T>(key: K) {
+        return (this as any)[key] as T[K]['TValue'];
+    }
     public toJSON(): any {
         return DataType.isStruct(this[kParent].type) ? [...this] :
-            Object.getOwnPropertyNames(this).reduce((props: any, prop: string) => {
-                return (props[prop] = (this as any)[prop]) && props || props;
+            this[kParent].type.children.reduce((props: any, { name }: Field<T[keyof T]>) => {
+                return (props[name] = (this as any)[name]) && props || props;
             }, {});
     }
+    public inspect() { return this.toString(); }
+    public [Symbol.for('nodejs.util.inspect.custom')]() { return this.toString(); }
     public toString() {
         return DataType.isStruct(this[kParent].type) ?
-            [...this].map((x) => valueToString(x)).join(', ') :
-            Object.getOwnPropertyNames(this).reduce((props: any, prop: string) => {
-                return (props[prop] = valueToString((this as any)[prop])) && props || props;
-            }, {});
+            `[ ${[...this].map((x) => valueToString(x)).join(', ')} ]` :
+            `{ ${
+                this[kParent].type.children.reduce((xs: string[], { name }: Field<T[keyof T]>) => {
+                    return [...xs, `"${name}": ${valueToString((this as any)[name])}`];
+                }, []).join(', ')
+            } }`
+                ;
     }
 }
 
@@ -105,7 +113,7 @@ export class RowProxyGenerator<T extends { [key: string]: DataType }> {
         };
     }
     public bind(rowIndex: number) {
-        const bound = Object.create(this.rowPrototype);
+        const bound: Row<T> = Object.create(this.rowPrototype);
         bound[kRowIndex] = rowIndex;
         return bound;
     }

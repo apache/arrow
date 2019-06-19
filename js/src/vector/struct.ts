@@ -21,6 +21,7 @@ import { BaseVector } from './base';
 import { RowProxyGenerator } from './row';
 import { DataType, Map_, Struct } from '../type';
 
+/** @ignore */
 export class StructVector<T extends { [key: string]: DataType } = any> extends BaseVector<Struct<T>> {
     public asMap(keysSorted: boolean = false) {
         return Vector.new(this.data.clone(new Map_<T>(this.type.children as Field<T[keyof T]>[], keysSorted)));

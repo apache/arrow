@@ -274,29 +274,37 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
 
 /** @ignore */
 export class RecordBatchStreamWriter<T extends { [key: string]: DataType } = any> extends RecordBatchWriter<T> {
-
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: Table<T> | Iterable<RecordBatch<T>>, options?: { autoDestroy: true }): RecordBatchStreamWriter<T>;
-    // @ts-ignore
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: AsyncIterable<RecordBatch<T>>, options?: { autoDestroy: true }): Promise<RecordBatchStreamWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: PromiseLike<AsyncIterable<RecordBatch<T>>>, options?: { autoDestroy: true }): Promise<RecordBatchStreamWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>, options?: { autoDestroy: true }): Promise<RecordBatchStreamWriter<T>>;
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: Table<T> | Iterable<RecordBatch<T>>, options?: { autoDestroy: true }): RecordBatchStreamWriter<T>;
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: AsyncIterable<RecordBatch<T>>, options?: { autoDestroy: true }): Promise<RecordBatchStreamWriter<T>>;
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: PromiseLike<AsyncIterable<RecordBatch<T>>>, options?: { autoDestroy: true }): Promise<RecordBatchStreamWriter<T>>;
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>, options?: { autoDestroy: true }): Promise<RecordBatchStreamWriter<T>>;
     /** @nocollapse */
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: any, options?: { autoDestroy: true }) {
-        return new RecordBatchStreamWriter<T>(options).writeAll(input);
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: any, options?: { autoDestroy: true }) {
+        const writer = new RecordBatchStreamWriter<T>(options);
+        if (isPromise<any>(input)) {
+            return input.then((x) => writer.writeAll(x));
+        } else if (isAsyncIterable<RecordBatch<T>>(input)) {
+            return writeAllAsync(writer, input);
+        }
+        return writeAll(writer, input);
     }
 }
 
 /** @ignore */
 export class RecordBatchFileWriter<T extends { [key: string]: DataType } = any> extends RecordBatchWriter<T> {
-
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: Table<T> | Iterable<RecordBatch<T>>): RecordBatchFileWriter<T>;
-    // @ts-ignore
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: AsyncIterable<RecordBatch<T>>): Promise<RecordBatchFileWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: PromiseLike<AsyncIterable<RecordBatch<T>>>): Promise<RecordBatchFileWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>): Promise<RecordBatchFileWriter<T>>;
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: Table<T> | Iterable<RecordBatch<T>>): RecordBatchFileWriter<T>;
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: AsyncIterable<RecordBatch<T>>): Promise<RecordBatchFileWriter<T>>;
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: PromiseLike<AsyncIterable<RecordBatch<T>>>): Promise<RecordBatchFileWriter<T>>;
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>): Promise<RecordBatchFileWriter<T>>;
     /** @nocollapse */
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: any) {
-        return new RecordBatchFileWriter<T>().writeAll(input);
+    public static writeAll<T extends { [key: string]: DataType } = any>(input: any) {
+        const writer = new RecordBatchFileWriter<T>();
+        if (isPromise<any>(input)) {
+            return input.then((x) => writer.writeAll(x));
+        } else if (isAsyncIterable<RecordBatch<T>>(input)) {
+            return writeAllAsync(writer, input);
+        }
+        return writeAll(writer, input);
     }
 
     constructor() {
