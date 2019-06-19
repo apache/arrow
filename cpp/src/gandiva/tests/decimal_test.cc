@@ -480,4 +480,108 @@ TEST_F(TestDecimal, TestCastFunctions) {
   EXPECT_ARROW_ARRAY_EQUALS(array_float64, outputs[4]);
 }
 
+TEST_F(TestDecimal, TestHashFunctions) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 2;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field_dec = field("dec", decimal_type);
+  auto literal_seed32 = TreeExprBuilder::MakeLiteral((int32_t)10);
+  auto literal_seed64 = TreeExprBuilder::MakeLiteral((int64_t)10);
+  auto schema = arrow::schema({field_dec});
+
+  auto funcWithLiteralParam = [](const std::string& funcName, gandiva::FieldPtr field,
+                                 gandiva::NodePtr literal,
+                                 DataTypePtr return_type) -> gandiva::NodePtr {
+    return TreeExprBuilder::MakeFunction(
+        funcName, {TreeExprBuilder::MakeField(field), literal}, return_type);
+  };
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("hash", {field_dec},
+                                      field("hash_of_dec", arrow::int32())),
+
+      TreeExprBuilder::MakeExpression("hash64", {field_dec},
+                                      field("hash64_of_dec", arrow::int64())),
+
+      TreeExprBuilder::MakeExpression(
+          funcWithLiteralParam("hash32WithSeed", field_dec, literal_seed32,
+                               arrow::int32()),
+          field("hash32_with_seed", arrow::int32())),
+
+      TreeExprBuilder::MakeExpression(
+          funcWithLiteralParam("hash64WithSeed", field_dec, literal_seed64,
+                               arrow::int64()),
+          field("hash64_with_seed", arrow::int64())),
+
+      TreeExprBuilder::MakeExpression("hash32AsDouble", {field_dec},
+                                      field("hash32_as_double", arrow::int32())),
+
+      TreeExprBuilder::MakeExpression("hash64AsDouble", {field_dec},
+                                      field("hash64_as_double", arrow::int64())),
+
+      TreeExprBuilder::MakeExpression(
+          funcWithLiteralParam("hash32AsDoubleWithSeed", field_dec, literal_seed32,
+                               arrow::int32()),
+          field("hash32_as_double_with_seed", arrow::int32())),
+
+      TreeExprBuilder::MakeExpression(
+          funcWithLiteralParam("hash64AsDoubleWithSeed", field_dec, literal_seed64,
+                               arrow::int64()),
+          field("hash64_as_double_with_seed", arrow::int64()))};
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto validity = {false, true, true, true, true};
+
+  auto array_dec = MakeArrowArrayDecimal(
+      decimal_type, MakeDecimalVector({"1.51", "1.23", "1.23", "-1.23", "-1.24"}, scale),
+      validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_dec});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+  auto int32_arr = std::dynamic_pointer_cast<arrow::Int32Array>(outputs.at(0));
+  EXPECT_EQ(int32_arr->null_count(), 0);
+  EXPECT_EQ(int32_arr->Value(0), 0);
+  EXPECT_EQ(int32_arr->Value(1), int32_arr->Value(2));
+  EXPECT_NE(int32_arr->Value(2), int32_arr->Value(3));
+  EXPECT_NE(int32_arr->Value(3), int32_arr->Value(4));
+
+  auto int64_arr = std::dynamic_pointer_cast<arrow::Int64Array>(outputs.at(1));
+  EXPECT_EQ(int64_arr->null_count(), 0);
+  EXPECT_EQ(int64_arr->Value(0), 0);
+  EXPECT_EQ(int64_arr->Value(1), int64_arr->Value(2));
+  EXPECT_NE(int64_arr->Value(2), int64_arr->Value(3));
+  EXPECT_NE(int64_arr->Value(3), int64_arr->Value(4));
+
+  auto int32WS_arr = std::dynamic_pointer_cast<arrow::Int32Array>(outputs.at(2));
+  EXPECT_EQ(int32WS_arr->null_count(), 0);
+  EXPECT_EQ(int32WS_arr->Value(0), 0);
+  EXPECT_EQ(int32WS_arr->Value(1), int32WS_arr->Value(2));
+  EXPECT_NE(int32WS_arr->Value(2), int32WS_arr->Value(3));
+  EXPECT_NE(int32WS_arr->Value(3), int32WS_arr->Value(4));
+
+  auto int64WS_arr = std::dynamic_pointer_cast<arrow::Int64Array>(outputs.at(3));
+  EXPECT_EQ(int64WS_arr->null_count(), 0);
+  EXPECT_EQ(int64WS_arr->Value(0), 0);
+  EXPECT_EQ(int64WS_arr->Value(1), int64WS_arr->Value(2));
+  EXPECT_NE(int64WS_arr->Value(2), int64WS_arr->Value(3));
+  EXPECT_NE(int64WS_arr->Value(3), int64WS_arr->Value(4));
+
+  EXPECT_NE(int64_arr->Value(1), int64WS_arr->Value(1));
+  EXPECT_NE(int32_arr->Value(1), int32WS_arr->Value(41));
+}
+
 }  // namespace gandiva
