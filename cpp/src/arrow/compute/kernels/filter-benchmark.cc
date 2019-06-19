@@ -27,11 +27,13 @@
 namespace arrow {
 namespace compute {
 
+constexpr auto kSeed = 0x0ff1ce;
+
 static void FilterInt64(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
-  auto rand = random::RandomArrayGenerator(0x94378165);
+  auto rand = random::RandomArrayGenerator(kSeed);
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
       rand.Int64(array_size, -100, 100, args.null_proportion));
   auto filter = std::static_pointer_cast<BooleanArray>(
@@ -49,7 +51,7 @@ static void FilterFixedSizeList1Int64(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
-  auto rand = random::RandomArrayGenerator(0x94378165);
+  auto rand = random::RandomArrayGenerator(kSeed);
   auto int_array = std::static_pointer_cast<NumericArray<Int64Type>>(
       rand.Int64(array_size, -100, 100, args.null_proportion));
   auto array = std::make_shared<FixedSizeListArray>(

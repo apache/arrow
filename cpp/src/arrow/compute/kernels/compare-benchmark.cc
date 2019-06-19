@@ -29,11 +29,13 @@
 namespace arrow {
 namespace compute {
 
+constexpr auto kSeed = 0x94378165;
+
 static void CompareArrayScalarKernel(benchmark::State& state) {
-  const int64_t memory_size = state.range(0) / 4;
+  const int64_t memory_size = state.range(0);
   const int64_t array_size = memory_size / sizeof(int64_t);
   const double null_percent = static_cast<double>(state.range(1)) / 100.0;
-  auto rand = random::RandomArrayGenerator(0x94378165);
+  auto rand = random::RandomArrayGenerator(kSeed);
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
       rand.Int64(array_size, -100, 100, null_percent));
 
@@ -52,10 +54,10 @@ static void CompareArrayScalarKernel(benchmark::State& state) {
 }
 
 static void CompareArrayArrayKernel(benchmark::State& state) {
-  const int64_t memory_size = state.range(0) / 4;
+  const int64_t memory_size = state.range(0);
   const int64_t array_size = memory_size / sizeof(int64_t);
   const double null_percent = static_cast<double>(state.range(1)) / 100.0;
-  auto rand = random::RandomArrayGenerator(0x94378165);
+  auto rand = random::RandomArrayGenerator(kSeed);
   auto lhs = std::static_pointer_cast<NumericArray<Int64Type>>(
       rand.Int64(array_size, -100, 100, null_percent));
   auto rhs = std::static_pointer_cast<NumericArray<Int64Type>>(

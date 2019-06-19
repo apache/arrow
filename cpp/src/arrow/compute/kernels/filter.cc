@@ -35,27 +35,6 @@ namespace compute {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-/// \brief BinaryKernel implementing Filter operation
-class ARROW_EXPORT FilterKernel : public BinaryKernel {
- public:
-  explicit FilterKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
-
-  Status Call(FunctionContext* ctx, const Datum& values, const Datum& filter,
-              Datum* out) override;
-
-  std::shared_ptr<DataType> out_type() const override { return type_; }
-
-  virtual Status Filter(FunctionContext* ctx, const Array& values,
-                        const BooleanArray& filter, int64_t length,
-                        std::shared_ptr<Array>* out) = 0;
-
-  static Status Make(const std::shared_ptr<DataType>& value_type,
-                     std::unique_ptr<FilterKernel>* out);
-
- protected:
-  std::shared_ptr<DataType> type_;
-};
-
 template <typename Builder>
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                    std::unique_ptr<Builder>* out) {

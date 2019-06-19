@@ -42,7 +42,7 @@ class FunctionContext;
 /// = ["b", "c", null, "f"]
 ///
 /// \param[in] context the FunctionContext
-/// \param[in] values array from which to take
+/// \param[in] values array to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting array
 ARROW_EXPORT
@@ -52,12 +52,42 @@ Status Filter(FunctionContext* context, const Array& values, const Array& filter
 /// \brief Filter an array with a boolean selection filter
 ///
 /// \param[in] context the FunctionContext
-/// \param[in] values datum from which to take
+/// \param[in] values datum to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting datum
 ARROW_EXPORT
 Status Filter(FunctionContext* context, const Datum& values, const Datum& filter,
               Datum* out);
+
+/// \brief BinaryKernel implementing Filter operation
+class ARROW_EXPORT FilterKernel : public BinaryKernel {
+ public:
+  explicit FilterKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
+
+  /// \brief BinaryKernel interface
+  ///
+  /// delegates to subclasses via Filter()
+  Status Call(FunctionContext* ctx, const Datum& values, const Datum& filter,
+              Datum* out) override;
+
+  /// \brief output type of this kernel (identical to type of values filtered)
+  std::shared_ptr<DataType> out_type() const override { return type_; }
+
+  /// \brief factory for FilterKernels
+  ///
+  /// \param[in] value_type constructed FilterKernel will support filtering
+  ///            values of this type
+  static Status Make(const std::shared_ptr<DataType>& value_type,
+                     std::unique_ptr<FilterKernel>* out);
+
+  /// \brief single-array implementation
+  virtual Status Filter(FunctionContext* ctx, const Array& values,
+                        const BooleanArray& filter, int64_t length,
+                        std::shared_ptr<Array>* out) = 0;
+
+ protected:
+  std::shared_ptr<DataType> type_;
+};
 
 }  // namespace compute
 }  // namespace arrow
