@@ -582,6 +582,13 @@ def test_pandas_parquet_configuration_options(tempdir):
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
+    for write_statistics in [True, False]:
+        _write_table(arrow_table, filename, version='2.0',
+                     write_statistics=write_statistics)
+        table_read = _read_table(filename)
+        df_read = table_read.to_pandas()
+        tm.assert_frame_equal(df, df_read)
+
     for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4', 'ZSTD']:
         _write_table(arrow_table, filename, version='2.0',
                      compression=compression)
@@ -749,6 +756,33 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
     # method, missing distinct_count is represented as zero instead of None
     assert stat.distinct_count == distinct_count
     assert stat.physical_type == physical_type
+
+
+def test_parquet_write_disable_statistics(tempdir):
+    table = pa.Table.from_pydict(
+        {'a': pa.array([1, 2, 3]), 'b': pa.array(['a', 'b', 'c'])})
+    _write_table(table, tempdir / 'data.parquet')
+    meta = pq.read_metadata(tempdir / 'data.parquet')
+    for col in [0, 1]:
+        cc = meta.row_group(0).column(col)
+        assert cc.is_stats_set is True
+        assert cc.statistics is not None
+
+    _write_table(table, tempdir / 'data2.parquet', write_statistics=False)
+    meta = pq.read_metadata(tempdir / 'data2.parquet')
+    for col in [0, 1]:
+        cc = meta.row_group(0).column(col)
+        assert cc.is_stats_set is False
+        assert cc.statistics is None
+
+    _write_table(table, tempdir / 'data3.parquet', write_statistics=['a'])
+    meta = pq.read_metadata(tempdir / 'data3.parquet')
+    cc_a = meta.row_group(0).column(0)
+    assert cc_a.is_stats_set is True
+    assert cc_a.statistics is not None
+    cc_b = meta.row_group(0).column(1)
+    assert cc_b.is_stats_set is False
+    assert cc_b.statistics is None
 
 
 @pytest.mark.pandas

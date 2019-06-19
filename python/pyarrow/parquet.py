@@ -329,6 +329,9 @@ allow_truncated_timestamps : boolean, default False
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4', 'ZSTD'}
+write_statistics : bool or list
+    Specify if we should write statistics in general (default is True) or only
+    for some columns.
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options to work with
     various target systems
@@ -359,6 +362,7 @@ schema : arrow Schema
                  version='1.0',
                  use_dictionary=True,
                  compression='snappy',
+                 write_statistics=True,
                  use_deprecated_int96_timestamps=None, **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -391,6 +395,7 @@ schema : arrow Schema
             version=version,
             compression=compression,
             use_dictionary=use_dictionary,
+            write_statistics=write_statistics,
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             **options)
         self.is_open = True
@@ -1240,6 +1245,7 @@ read_pandas.__doc__ = _read_table_docstring.format(
 
 def write_table(table, where, row_group_size=None, version='1.0',
                 use_dictionary=True, compression='snappy',
+                write_statistics=True,
                 use_deprecated_int96_timestamps=None,
                 coerce_timestamps=None,
                 allow_truncated_timestamps=False,
@@ -1254,6 +1260,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 version=version,
                 flavor=flavor,
                 use_dictionary=use_dictionary,
+                write_statistics=write_statistics,
                 coerce_timestamps=coerce_timestamps,
                 data_page_size=data_page_size,
                 allow_truncated_timestamps=allow_truncated_timestamps,
