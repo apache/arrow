@@ -688,6 +688,76 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
                                                        }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash_decimal128", i32,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32_decimal128", i32,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64_decimal128", i64,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32WithSeed_decimal128", i32,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"seed", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64WithSeed_decimal128", i64,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"seed", i64},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32AsDouble_decimal128", i32,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64AsDouble_decimal128", i64,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildDecimalFunction("hash32AsDoubleWithSeed_decimal128", i32,
+                                       {
+                                           {"x_value", i128},
+                                           {"x_precision", i32},
+                                           {"x_scale", i32},
+                                           {"seed", i32},
+                                       }));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildDecimalFunction("hash64AsDoubleWithSeed_decimal128", i64,
+                                       {
+                                           {"x_value", i128},
+                                           {"x_precision", i32},
+                                           {"x_scale", i32},
+                                           {"seed", i64},
+                                       }));
+
   return Status::OK();
 }
 
