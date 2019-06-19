@@ -293,8 +293,14 @@ Status SparseTensorCOOToNdarray(const std::shared_ptr<SparseTensorCOO>& sparse_t
   PyArray_Descr* dtype_coords = PyArray_DescrNewFromType(type_num_coords);
   RETURN_IF_PYERROR();
 
+  const int ndim_coords = sparse_tensor->ndim();
+  std::vector<npy_intp> npy_shape_coords(ndim_coords);
+
+  for (int i = 0; i < ndim_coords; ++i) {
+    npy_shape_coords[i] = sparse_index_coords->shape()[i];
+  }
+
   std::vector<npy_intp> npy_shape_data({sparse_index.non_zero_length(), 1});
-  std::vector<npy_intp> npy_shape_coords({sparse_index_coords->shape()[0], 2});
 
   const void* immutable_data = nullptr;
   if (sparse_tensor->data()) {
@@ -355,8 +361,20 @@ Status SparseTensorCSRToNdarray(const std::shared_ptr<SparseTensorCSR>& sparse_t
       sparse_index.indices();
 
   std::vector<npy_intp> npy_shape_data({sparse_index.non_zero_length(), 1});
-  std::vector<npy_intp> npy_shape_indptr({sparse_index_indptr->shape()[0], 1});
-  std::vector<npy_intp> npy_shape_indices({sparse_index_indices->shape()[0], 1});
+
+  const int ndim_indptr = sparse_index_indptr->ndim();
+  std::vector<npy_intp> npy_shape_indptr(ndim_indptr);
+
+  for (int i = 0; i < ndim_indptr; ++i) {
+    npy_shape_indptr[i] = sparse_index_indptr->shape()[i];
+  }
+
+  const int ndim_indices = sparse_index_indices->ndim();
+  std::vector<npy_intp> npy_shape_indices(ndim_indices);
+
+  for (int i = 0; i < ndim_indices; ++i) {
+    npy_shape_indices[i] = sparse_index_indices->shape()[i];
+  }
 
   const void* immutable_data = nullptr;
   if (sparse_tensor->data()) {
