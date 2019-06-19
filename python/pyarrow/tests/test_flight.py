@@ -288,6 +288,8 @@ def flight_server(server_base, *args, **kwargs):
     auth_handler = kwargs.pop('auth_handler', None)
     tls_certificates = kwargs.pop('tls_certificates', None)
     location = kwargs.pop('location', None)
+    try_connect = kwargs.pop('try_connect', True)
+    connect_args = kwargs.pop('connect_args', {})
 
     if location is None:
         # Find a free port
@@ -317,20 +319,26 @@ def flight_server(server_base, *args, **kwargs):
     thread.start()
 
     # Wait for server to start
-    client = flight.FlightClient.connect(location)
-    while True:
-        try:
-            list(client.list_flights())
-        except Exception as e:
-            if 'Connect Failed' in str(e):
-                time.sleep(0.025)
-                continue
+    if try_connect:
+        deadline = time.time() + 5.0
+        client = flight.FlightClient.connect(location, **connect_args)
+        while True:
+            try:
+                list(client.list_flights())
+            except Exception as e:
+                if 'Connect Failed' in str(e):
+                    if time.time() < deadline:
+                        time.sleep(0.025)
+                        continue
+                    else:
+                        raise
             break
 
-    yield location
-
-    server_instance.shutdown()
-    thread.join()
+    try:
+        yield location
+    finally:
+        server_instance.shutdown()
+        thread.join()
 
 
 def test_flight_do_get_ints():
@@ -539,7 +547,8 @@ def test_tls_fails():
     certs = example_tls_certs()
 
     with flight_server(
-            ConstantFlightServer, tls_certificates=certs["certificates"]
+            ConstantFlightServer, tls_certificates=certs["certificates"],
+            connect_args=dict(tls_root_certs=certs["root_cert"]),
     ) as server_location:
         # Ensure client doesn't connect when certificate verification
         # fails (this is a slow test since gRPC does retry a few times)
@@ -554,7 +563,8 @@ def test_tls_do_get():
     certs = example_tls_certs()
 
     with flight_server(
-            ConstantFlightServer, tls_certificates=certs["certificates"]
+            ConstantFlightServer, tls_certificates=certs["certificates"],
+            connect_args=dict(tls_root_certs=certs["root_cert"]),
     ) as server_location:
         client = flight.FlightClient.connect(
             server_location, tls_root_certs=certs["root_cert"])

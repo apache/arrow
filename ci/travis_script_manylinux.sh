@@ -17,7 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 set -ex
 
 # Testing for https://issues.apache.org/jira/browse/ARROW-2657
@@ -37,6 +36,7 @@ import pyarrow.parquet
 import pyarrow.plasma
 
 if sys.version_info.major > 2:
+    import pyarrow.flight
     import pyarrow.gandiva
 EOF
 

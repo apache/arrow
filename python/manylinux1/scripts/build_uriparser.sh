@@ -16,13 +16,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-PROTOBUF_VERSION="3.7.1"
+export URIPARSER_VERSION="0.9.2"
+export CFLAGS="-fPIC"
+export PREFIX="/usr"
+curl -sL "https://github.com/uriparser/uriparser/archive/uriparser-${URIPARSER_VERSION}.tar.gz" -o uriparser-${URIPARSER_VERSION}.tar.gz
+tar xf uriparser-${URIPARSER_VERSION}.tar.gz
+pushd uriparser-uriparser-${URIPARSER_VERSION}
 
-curl -sL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-all-${PROTOBUF_VERSION}.tar.gz" -o protobuf-${PROTOBUF_VERSION}.tar.gz
-tar xf protobuf-${PROTOBUF_VERSION}.tar.gz
-pushd protobuf-${PROTOBUF_VERSION}
-./configure --disable-shared --prefix=/usr "CXXFLAGS=-O2 -fPIC"
-make -j10
-make install
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DURIPARSER_BUILD_DOCS=off \
+      -DURIPARSER_BUILD_TESTS=off \
+      -DURIPARSER_BUILD_TOOLS=off \
+      -DURIPARSER_BUILD_WCHAR_T=off \
+      -DBUILD_SHARED_LIBS=off \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=on \
+      -GNinja .
+ninja install
 popd
-rm -rf protobuf-${PROTOBUF_VERSION}.tar.gz protobuf-${PROTOBUF_VERSION}
+rm -rf uriparser-${URIPARSER_VERSION}.tar.gz uriparser-uriparser-${URIPARSER_VERSION}

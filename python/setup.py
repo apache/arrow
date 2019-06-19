@@ -388,6 +388,13 @@ class build_ext(_build_ext):
                     zlib_lib_name = 'zlib'
                     move_shared_libs(build_prefix, build_lib, zlib_lib_name,
                                      implib_required=False)
+                    if self.with_flight:
+                        # DLL dependencies for gRPC / Flight
+                        for lib_name in ['cares', 'libprotobuf',
+                                         'libcrypto-1_1-x64',
+                                         'libssl-1_1-x64']:
+                            move_shared_libs(build_prefix, build_lib, lib_name,
+                                             implib_required=False)
 
             if self.with_plasma:
                 # Move the plasma store

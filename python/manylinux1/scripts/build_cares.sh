@@ -16,13 +16,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-PROTOBUF_VERSION="3.7.1"
+export CARES_VERSION="1.15.0"
+export CFLAGS="-fPIC"
+export PREFIX="/usr"
+curl -sL "https://c-ares.haxx.se/download/c-ares-$CARES_VERSION.tar.gz" -o c-ares-${CARES_VERSION}.tar.gz
+tar xf c-ares-${CARES_VERSION}.tar.gz
+pushd c-ares-${CARES_VERSION}
 
-curl -sL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-all-${PROTOBUF_VERSION}.tar.gz" -o protobuf-${PROTOBUF_VERSION}.tar.gz
-tar xf protobuf-${PROTOBUF_VERSION}.tar.gz
-pushd protobuf-${PROTOBUF_VERSION}
-./configure --disable-shared --prefix=/usr "CXXFLAGS=-O2 -fPIC"
-make -j10
-make install
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DCARES_STATIC=ON \
+      -DCARES_SHARED=OFF \
+      -DCMAKE_C_FLAGS=${CFLAGS} \
+      -GNinja .
+ninja install
 popd
-rm -rf protobuf-${PROTOBUF_VERSION}.tar.gz protobuf-${PROTOBUF_VERSION}
+rm -rf c-ares-${CARES_VERSION}.tar.gz c-ares-${CARES_VERSION}

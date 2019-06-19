@@ -22,7 +22,7 @@ NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 wget --no-check-certificate https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz -O openssl-${OPENSSL_VERSION}.tar.gz
 tar xf openssl-${OPENSSL_VERSION}.tar.gz
 pushd openssl-${OPENSSL_VERSION}
-./config -fpic shared --prefix=/usr
+./config -fpic shared --prefix=/usr/local
 make -j${NCORES}
 make install
 popd

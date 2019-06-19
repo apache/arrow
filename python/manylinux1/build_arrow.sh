@@ -29,7 +29,7 @@ source /multibuild/manylinux_utils.sh
 set -e
 
 # Print commands for debugging
-set -x
+# set -x
 
 cd /arrow/python
 
@@ -58,10 +58,14 @@ PATH="${PATH}:${CPYTHON_PATH}"
 
 if [ "${PYTHON_VERSION}" != "2.7" ]; then
   # Gandiva is not supported on Python 2.7
+  export PYARROW_WITH_FLIGHT=1
   export PYARROW_WITH_GANDIVA=1
+  export BUILD_ARROW_FLIGHT=ON
   export BUILD_ARROW_GANDIVA=ON
 else
+  export PYARROW_WITH_FLIGHT=0
   export PYARROW_WITH_GANDIVA=0
+  export BUILD_ARROW_FLIGHT=OFF
   export BUILD_ARROW_GANDIVA=OFF
 fi
 
@@ -89,10 +93,12 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_PLASMA=ON \
     -DARROW_TENSORFLOW=ON \
     -DARROW_ORC=ON \
+    -DARROW_FLIGHT=${BUILD_ARROW_FLIGHT} \
     -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
     -DARROW_GANDIVA_JAVA=OFF \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
+    -DOPENSSL_USE_STATIC_LIBS=ON \
     -DORC_SOURCE=BUNDLED \
     -GNinja /arrow/cpp
 ninja install
@@ -104,16 +110,14 @@ popd
 echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
 $PIP install -r requirements-wheel.txt
 
-# Clear output directory
+# Clear output directories and leftovers
 rm -rf dist/
-echo "=== (${PYTHON_VERSION}) Building wheel ==="
-# Remove build directory to ensure CMake gets a clean run
 rm -rf build/
-PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext \
-    --inplace \
-    --bundle-arrow-cpp \
-    --bundle-boost \
-    --boost-namespace=arrow_boost
+rm -rf repaired_wheels/
+find -name "*.so" -delete
+
+echo "=== (${PYTHON_VERSION}) Building wheel ==="
+PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace
 PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 # Source distribution is used for debian pyarrow packages.
 PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
@@ -124,7 +128,7 @@ if [ -n "$UBUNTU_WHEELS" ]; then
 else
   echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux1 ==="
   mkdir -p repaired_wheels/
-  auditwheel -v repair -L . dist/pyarrow-*.whl -w repaired_wheels/
+  auditwheel repair -L . dist/pyarrow-*.whl -w repaired_wheels/
 
   # Install the built wheels
   $PIP install repaired_wheels/*.whl
@@ -138,6 +142,7 @@ import pyarrow.parquet
 import pyarrow.plasma
 
 if sys.version_info.major > 2:
+    import pyarrow.flight
     import pyarrow.gandiva
   "
 

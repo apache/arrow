@@ -16,13 +16,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-PROTOBUF_VERSION="3.7.1"
+export GRPC_VERSION="1.20.0"
+export CFLAGS="-fPIC -DGPR_MANYLINUX1=1"
+export PREFIX="/usr"
 
-curl -sL "https://github.com/google/protobuf/releases/download/v${PROTOBUF_VERSION}/protobuf-all-${PROTOBUF_VERSION}.tar.gz" -o protobuf-${PROTOBUF_VERSION}.tar.gz
-tar xf protobuf-${PROTOBUF_VERSION}.tar.gz
-pushd protobuf-${PROTOBUF_VERSION}
-./configure --disable-shared --prefix=/usr "CXXFLAGS=-O2 -fPIC"
-make -j10
-make install
+curl -sL "https://github.com/grpc/grpc/archive/v${GRPC_VERSION}.tar.gz" -o grpc-${GRPC_VERSION}.tar.gz
+tar xf grpc-${GRPC_VERSION}.tar.gz
+pushd grpc-${GRPC_VERSION}
+
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DBUILD_SHARED_LIBS=OFF \
+      -DCMAKE_C_FLAGS="${CFLAGS}" \
+      -DCMAKE_CXX_FLAGS="${CFLAGS}" \
+      -DgRPC_CARES_PROVIDER=package \
+      -DgRPC_GFLAGS_PROVIDER=package \
+      -DgRPC_PROTOBUF_PROVIDER=package \
+      -DgRPC_SSL_PROVIDER=package \
+      -DgRPC_ZLIB_PROVIDER=package \
+      -DOPENSSL_USE_STATIC_LIBS=ON \
+      -GNinja .
+ninja install
 popd
-rm -rf protobuf-${PROTOBUF_VERSION}.tar.gz protobuf-${PROTOBUF_VERSION}
+rm -rf grpc-${GRPC_VERSION}.tar.gz grpc-${GRPC_VERSION}

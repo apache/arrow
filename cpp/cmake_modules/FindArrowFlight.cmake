@@ -69,10 +69,13 @@ find_library(ARROW_FLIGHT_LIB_PATH
 get_filename_component(ARROW_FLIGHT_LIBS ${ARROW_FLIGHT_LIB_PATH} DIRECTORY)
 
 if(MSVC)
+  # Prioritize "/bin" over LIB_PATH_SUFFIXES - DLL files are installed
+  # in "/bin" and static objects are in "/lib", so we want to search
+  # "/bin" first
   find_library(ARROW_FLIGHT_SHARED_LIBRARIES
                NAMES arrow_flight
                PATHS ${ARROW_HOME}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES "bin" ${LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   get_filename_component(ARROW_FLIGHT_SHARED_LIBS ${ARROW_FLIGHT_SHARED_LIBRARIES} DIRECTORY)
 endif()
