@@ -26,8 +26,7 @@
 # - nodejs >= 6.0.0 (best way is to use nvm)
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
-# LD_LIBRARY_PATH. If your system Boost is too old for the C++ libraries, then
-# set $ARROW_BOOST_VENDORED to "ON" or "1"
+# LD_LIBRARY_PATH.
 
 case $# in
   3) ARTIFACT="$1"
@@ -49,8 +48,6 @@ set -ex
 set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-
-ARROW_BOOST_VENDORED=${ARROW_BOOST_VENDORED:=OFF}
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
@@ -245,7 +242,6 @@ ${ARROW_CMAKE_OPTIONS}
 -DARROW_GANDIVA=ON
 -DARROW_PARQUET=ON
 -DARROW_BOOST_USE_SHARED=ON
--DARROW_BOOST_VENDORED=$ARROW_BOOST_VENDORED
 -DCMAKE_BUILD_TYPE=release
 -DARROW_BUILD_TESTS=ON
 -DARROW_CUDA=${ARROW_CUDA}

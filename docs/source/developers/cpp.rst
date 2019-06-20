@@ -41,8 +41,7 @@ Building requires:
   sufficient. For Windows, at least Visual Studio 2015 is required.
 * CMake 3.2 or higher
 * Boost 1.58 or higher, though some unit tests require 1.64 or
-  newer. Use ``-DARROW_BOOST_VENDORED=ON`` when invoking CMake to have
-  the Arrow build system automatically build a recent version of Boost.
+  newer.
 * ``bison`` and ``flex`` (for building Apache Thrift from source only, an
   Apache Parquet dependency.)
 
@@ -291,12 +290,6 @@ build system will find it automatically. If you have Boost installed in a
 non-standard location, you can specify it by passing
 ``-DBOOST_ROOT=$MY_BOOST_ROOT`` or setting the ``BOOST_ROOT`` environment
 variable.
-
-Unlike most of the other dependencies, if Boost is not found by the build
-system it will not be built automatically from source. To opt-in to a vendored
-Boost build, pass ``-DARROW_BOOST_VENDORED=ON``. This automatically sets the
-option ``-DARROW_BOOST_USE_SHARED=OFF`` to statically-link Boost into the
-produced libraries and executables.
 
 Offline Builds
 ~~~~~~~~~~~~~~

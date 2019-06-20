@@ -235,7 +235,7 @@ services:
       dockerfile: cpp/Dockerfile.ubuntu-xenial
     environment:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-      ARROW_BOOST_VENDORED: "OFF"
+      ARROW_BOOST_SOURCE: "SYSTEM"
       ARROW_FLIGHT: "OFF"
     volumes: *ubuntu-xenial-volumes
 

@@ -215,7 +215,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant" ON)
 
   define_option(ARROW_BOOST_VENDORED "Use vendored Boost instead of existing Boost. \
-Note that this requires linking Boost statically" OFF)
+Note that this requires linking Boost statically. \
+Deprecated. Use BOOST_SOURCE=BUNDLED instead." OFF)
 
   define_option(ARROW_PROTOBUF_USE_SHARED
                 "Rely on Protocol Buffers shared libraries where relevant" ON)

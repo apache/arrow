@@ -44,10 +44,6 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
   endif()
 
   if(ARG_STATIC_LIB AND ARG_SHARED_LIB)
-    if(NOT ARG_STATIC_LIB)
-      message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
-    endif()
-
     set(AUG_LIB_NAME "${LIB_NAME}_static")
     add_library(${AUG_LIB_NAME} STATIC IMPORTED)
     set_target_properties(${AUG_LIB_NAME}

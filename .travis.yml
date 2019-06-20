@@ -268,7 +268,6 @@ matrix:
     env:
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_USE_VENDORED_BOOST=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PLASMA=1
     before_script:

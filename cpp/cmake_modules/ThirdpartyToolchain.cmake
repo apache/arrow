@@ -114,6 +114,12 @@ if(ARROW_PACKAGE_PREFIX)
   endif()
 endif()
 
+if(ARROW_BOOST_VENDORED AND "${BOOST_SOURCE}" STREQUAL "")
+  message(
+    DEPRECATION "ARROW_BOOST_VENDORED is deprecated. Use BOOST_SOURCE=BUNDLED instead.")
+  set(BOOST_SOURCE "BUNDLED")
+endif()
+
 # For each dependency, set dependency source to global default, if unset
 foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
   if("${${DEPENDENCY}_SOURCE}" STREQUAL "")
@@ -478,6 +484,65 @@ find_package(Threads REQUIRED)
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
 
+macro(build_boost)
+  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+
+  # This is needed by the thrift_ep build
+  set(BOOST_ROOT ${BOOST_PREFIX})
+
+  if(ARROW_BOOST_HEADER_ONLY)
+    set(BOOST_BUILD_PRODUCTS)
+    set(BOOST_CONFIGURE_COMMAND "")
+    set(BOOST_BUILD_COMMAND "")
+  else()
+    set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
+    set(BOOST_BUILD_LINK "static")
+    set(
+      BOOST_STATIC_SYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    set(
+      BOOST_STATIC_FILESYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    set(
+      BOOST_STATIC_REGEX_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    set(BOOST_SYSTEM_LIBRARY boost_system_static)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+    set(BOOST_REGEX_LIBRARY boost_regex_static)
+    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
+                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
+                             ${BOOST_STATIC_REGEX_LIBRARY})
+    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
+                                "--with-libraries=filesystem,regex,system")
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      set(BOOST_BUILD_VARIANT "debug")
+    else()
+      set(BOOST_BUILD_VARIANT "release")
+    endif()
+    set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
+                            "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
+
+    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
+  endif()
+  externalproject_add(boost_ep
+                      URL ${BOOST_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
+                      BUILD_IN_SOURCE 1
+                      CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
+                      BUILD_COMMAND ${BOOST_BUILD_COMMAND}
+                      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
+  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
+  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+  add_dependencies(toolchain boost_ep)
+endmacro()
+
 if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
   set(ARROW_BOOST_REQUIRED_VERSION "1.64")
 else()
@@ -512,118 +577,30 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
-if(ARROW_BOOST_VENDORED)
-  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
-
-  # This is needed by the thrift_ep build
-  set(BOOST_ROOT ${BOOST_PREFIX})
-
-  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-  set(BOOST_BUILD_LINK "static")
-  set(
-    BOOST_STATIC_SYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_FILESYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_REGEX_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(BOOST_SYSTEM_LIBRARY boost_system_static)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-  set(BOOST_REGEX_LIBRARY boost_regex_static)
-
-  if(ARROW_BOOST_HEADER_ONLY)
-    set(BOOST_BUILD_PRODUCTS)
-    set(BOOST_CONFIGURE_COMMAND "")
-    set(BOOST_BUILD_COMMAND "")
-  else()
-    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
-                             ${BOOST_STATIC_REGEX_LIBRARY})
-    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
-                                "--with-libraries=filesystem,regex,system")
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_BUILD_VARIANT "debug")
-    else()
-      set(BOOST_BUILD_VARIANT "release")
-    endif()
-    set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
-                            "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
-
-    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
-
-    set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+if(BOOST_SOURCE STREQUAL "AUTO")
+  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION})
+  if(NOT BoostAlt_FOUND)
+    build_boost()
   endif()
-  externalproject_add(boost_ep
-                      URL ${BOOST_SOURCE_URL}
-                      BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
-                      BUILD_IN_SOURCE 1
-                      CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
-                      BUILD_COMMAND ${BOOST_BUILD_COMMAND}
-                      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
-  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
-  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
-  add_dependencies(toolchain boost_ep)
+elseif(BOOST_SOURCE STREQUAL "BUNDLED")
+  build_boost()
+elseif(BOOST_SOURCE STREQUAL "SYSTEM")
+  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
+endif()
+
+if(ARROW_BOOST_HEADER_ONLY)
+  set(ARROW_BOOST_LIBS)
 else()
-  if(MSVC)
-    # disable autolinking in boost
-    add_definitions(-DBOOST_ALL_NO_LIB)
-  endif()
-
-  if(DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
-    # In older versions of CMake (such as 3.2), the system paths for Boost will
-    # be looked in first even if we set $BOOST_ROOT or pass -DBOOST_ROOT
-    set(Boost_NO_SYSTEM_PATHS ON)
-  endif()
-
-  if(ARROW_BOOST_USE_SHARED)
-    # Find shared Boost libraries.
-    set(Boost_USE_STATIC_LIBS OFF)
-    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS ON)
-
-    if(MSVC)
-      # force all boost libraries to dynamic link
-      add_definitions(-DBOOST_ALL_DYN_LINK)
-    endif()
-
-    if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
-    else()
-      find_package(Boost ${ARROW_BOOST_REQUIRED_VERSION}
-                   COMPONENTS regex system filesystem
-                   REQUIRED)
-      set(BOOST_SYSTEM_LIBRARY Boost::system)
-      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-      set(BOOST_REGEX_LIBRARY Boost::regex)
-      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-    endif()
-    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
-    unset(BUILD_SHARED_LIBS_KEEP)
+  if(TARGET Boost::system)
+    set(BOOST_SYSTEM_LIBRARY Boost::system)
+    set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+    set(BOOST_REGEX_LIBRARY Boost::regex)
   else()
-    # Find static boost headers and libs
-    # TODO Differentiate here between release and debug builds
-    set(Boost_USE_STATIC_LIBS ON)
-    if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
-    else()
-      find_package(Boost ${ARROW_BOOST_REQUIRED_VERSION}
-                   COMPONENTS regex system filesystem
-                   REQUIRED)
-      set(BOOST_SYSTEM_LIBRARY Boost::system)
-      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-      set(BOOST_REGEX_LIBRARY Boost::regex)
-      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-    endif()
+    set(BOOST_SYSTEM_LIBRARY boost_system_static)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+    set(BOOST_REGEX_LIBRARY boost_regex_static)
   endif()
+  set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
 endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
