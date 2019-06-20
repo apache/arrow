@@ -18,7 +18,6 @@
 package org.apache.arrow.flight;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.BooleanSupplier;
 
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
@@ -57,12 +56,14 @@ class FlightService extends FlightServiceImplBase {
   private final BufferAllocator allocator;
   private final FlightProducer producer;
   private final ServerAuthHandler authHandler;
-  private final ExecutorService executors = Executors.newCachedThreadPool();
+  private final ExecutorService executors;
 
-  public FlightService(BufferAllocator allocator, FlightProducer producer, ServerAuthHandler authHandler) {
+  FlightService(BufferAllocator allocator, FlightProducer producer, ServerAuthHandler authHandler,
+      ExecutorService executors) {
     this.allocator = allocator;
     this.producer = producer;
     this.authHandler = authHandler;
+    this.executors = executors;
   }
 
   @Override
