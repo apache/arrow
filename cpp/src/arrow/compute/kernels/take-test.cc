@@ -122,6 +122,7 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
   this->AssertTake("[7, 8, 9]", "[0, 1, 0]", options, "[7, 8, 7]");
   this->AssertTake("[null, 8, 9]", "[0, 1, 0]", options, "[null, 8, null]");
   this->AssertTake("[7, 8, 9]", "[null, 1, 0]", options, "[null, 8, 7]");
+  this->AssertTake("[null, 8, 9]", "[]", options, "[]");
 
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError, this->Take(this->type_singleton(), "[7, 8, 9]", int8(),
