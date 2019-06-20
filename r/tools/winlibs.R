@@ -19,18 +19,14 @@ args <- commandArgs(TRUE)
 VERSION <- args[1]
 if(!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))){
   if(length(args) > 1){
-    print("Found RWINLIB_LOCAL")
+    cat(sprintf("*** Using RWINLIB_LOCAL %s\n", args[2]))
     # Arg 2 would be the path/to/lib.zip
     file.copy(args[2], "lib.zip")
-    } else if(!file.exists("lib.zip")){
-      # Temporary hack to check for lib.zip in place
-      # Download static arrow from rwinlib
-      if(getRversion() < "3.3.0") setInternet2()
-      download.file(sprintf("https://github.com/rwinlib/arrow/archive/v%s.zip", VERSION), "lib.zip", quiet = TRUE)
-    } else {
-      # Acknowledge the hack
-      print("Using hacky lib.zip")
-    }
+  } else {
+    # Download static arrow from rwinlib
+    if(getRversion() < "3.3.0") setInternet2()
+    download.file(sprintf("https://github.com/rwinlib/arrow/archive/v%s.zip", VERSION), "lib.zip", quiet = TRUE)
+  }
   dir.create("windows", showWarnings = FALSE)
   unzip("lib.zip", exdir = "windows")
   unlink("lib.zip")

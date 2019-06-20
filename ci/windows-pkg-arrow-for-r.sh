@@ -55,7 +55,9 @@ mkdir -p $DST_DIR/lib/i686
 mv deps/mingw64/lib/*.a $DST_DIR/lib/x64
 mv deps/mingw32/lib/*.a $DST_DIR/lib/i686
 
+# Create build artifact
 zip -r ${DST_DIR}.zip $DST_DIR
 
-# Temporary hack fallback in case that isn't getting picked up
-cp ${DST_DIR}.zip ../r/lib.zip
+# Copy that to a file name/path that does not vary by version number so we
+# can easily find it in the R package tests on Appveyor
+cp ${DST_DIR}.zip ../libarrow.zip
