@@ -22,7 +22,9 @@ set -e
 # overrides multibuild's default build_wheel
 function build_wheel {
     pip install -U pip
-    pip install setuptools_scm
+
+    # ARROW-5670: Python 3.5 can fail with HTTPS error in CMake build
+    pip install setuptools_scm requests
 
     # Include brew installed versions of flex and bison.
     # We need them to build Thrift. The ones that come with Xcode are too old.
@@ -129,6 +131,9 @@ function build_wheel {
           -DARROW_ORC=ON \
           -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
+          -DARROW_FLIGHT=ON \
+          -DgRPC_SOURCE=BUNDLED \
+          -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl \
           -DMAKE=make \
           ..
     make -j5
@@ -143,6 +148,7 @@ function build_wheel {
     unset ARROW_HOME
     unset PARQUET_HOME
 
+    export PYARROW_WITH_FLIGHT=1
     export PYARROW_WITH_PLASMA=1
     export PYARROW_WITH_PARQUET=1
     export PYARROW_WITH_ORC=1
