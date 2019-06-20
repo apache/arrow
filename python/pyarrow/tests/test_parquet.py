@@ -2301,6 +2301,64 @@ def test_write_to_dataset_no_partitions(tempdir):
     _test_write_to_dataset_no_partitions(str(tempdir))
 
 
+@pytest.mark.pandas
+def test_write_to_dataset_with_partitions_and_custom_filenames(tempdir):
+    # ARROW-1400
+    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
+                              'group2': list('eefeffgeee'),
+                              'num': list(range(10)),
+                              'nan': [pd.np.nan] * 10,
+                              'date': np.arange('2017-01-01', '2017-01-11',
+                                                dtype='datetime64[D]')})
+    cols = output_df.columns.tolist()
+    partition_by = ['group1', 'group2']
+    filename_separator = '-'
+    output_table = pa.Table.from_pandas(output_df)
+    path = str(tempdir)
+
+    def partition_filename_callback(keys):
+        return "{0}{sep}{1}".format(*keys, sep=filename_separator)
+
+    pq.write_to_dataset(output_table, path,
+                        partition_by, partition_filename_callback)
+
+    metadata_path = os.path.join(path, '_common_metadata')
+    pq.write_metadata(output_table.schema, metadata_path)
+
+    # ARROW-2891: Ensure the output_schema is preserved when writing a
+    # partitioned dataset
+    dataset = pq.ParquetDataset(path,
+                                validate_schema=True)
+
+    # ARROW-2209: Ensure the dataset schema also includes the partition columns
+    dataset_cols = set(dataset.schema.to_arrow_schema().names)
+    assert dataset_cols == set(output_table.schema.names)
+
+    input_table = dataset.read()
+    input_df = input_table.to_pandas()
+
+    # Read data back in and compare with original DataFrame
+    # Partitioned columns added to the end of the DataFrame when read
+    input_df_cols = input_df.columns.tolist()
+    assert partition_by == input_df_cols[-1 * len(partition_by):]
+
+    # Partitioned columns become 'categorical' dtypes
+    input_df = input_df[cols]
+    for col in partition_by:
+        output_df[col] = output_df[col].astype('category')
+    assert output_df.equals(input_df)
+
+    # ARROW-3538: Ensure partition filenames match the given pattern
+    # defined in the local function partition_filename_callback
+    df_partition_keys = set(tuple(key)
+                            for key in output_df[partition_by].values)
+    file_partition_keys = set(
+        tuple(os.path.basename(p.path).split(filename_separator))
+        for p in dataset.pieces)
+
+    assert df_partition_keys == file_partition_keys
+
+
 @pytest.mark.large_memory
 def test_large_table_int32_overflow():
     size = np.iinfo('int32').max + 1
