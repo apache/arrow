@@ -772,6 +772,56 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                            {"seed_validity", i1},
                                        }));
 
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("isnull_decimal128", i1,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_validity", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("isnotnull_decimal128", i1,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_validity", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("isnumeric_decimal128", i1,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_validity", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildDecimalFunction("is_distinct_from_decimal128_decimal128", i1,
+                                       {
+                                           {"x_value", i128},
+                                           {"x_precision", i32},
+                                           {"x_scale", i32},
+                                           {"x_validity", i1},
+                                           {"y_value", i128},
+                                           {"y_precision", i32},
+                                           {"y_scale", i32},
+                                           {"y_validity", i1},
+                                       }));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildDecimalFunction("is_not_distinct_from_decimal128_decimal128", i1,
+                                       {
+                                           {"x_value", i128},
+                                           {"x_precision", i32},
+                                           {"x_scale", i32},
+                                           {"x_validity", i1},
+                                           {"y_value", i128},
+                                           {"y_precision", i32},
+                                           {"y_scale", i32},
+                                           {"y_validity", i1},
+                                       }));
+
   return Status::OK();
 }
 

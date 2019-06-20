@@ -315,4 +315,46 @@ int64_t hash64AsDoubleWithSeed_decimal128_internal(int64_t x_high, uint64_t x_lo
              : 0;
 }
 
+FORCE_INLINE
+boolean isnull_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                   int32_t x_scale, boolean x_validity) {
+  return !x_validity;
+}
+
+FORCE_INLINE
+boolean isnotnull_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                      int32_t x_scale, boolean x_validity) {
+  return x_validity;
+}
+
+FORCE_INLINE
+boolean isnumeric_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                      int32_t x_scale, boolean x_validity) {
+  return true;
+}
+
+FORCE_INLINE
+boolean is_not_distinct_from_decimal128_decimal128_internal(
+    int64_t x_high, uint64_t x_low, int32_t x_precision, int32_t x_scale,
+    boolean x_validity, int64_t y_high, uint64_t y_low, int32_t y_precision,
+    int32_t y_scale, boolean y_validity) {
+  if (x_validity != y_validity) {
+    return false;
+  }
+  if (!x_validity) {
+    return true;
+  }
+  return x_high == y_high && x_low == y_low;
+}
+
+FORCE_INLINE
+boolean is_distinct_from_decimal128_decimal128_internal(
+    int64_t x_high, uint64_t x_low, int32_t x_precision, int32_t x_scale,
+    boolean x_validity, int64_t y_high, uint64_t y_low, int32_t y_precision,
+    int32_t y_scale, boolean y_validity) {
+  return !is_not_distinct_from_decimal128_decimal128_internal(
+      x_high, x_low, x_precision, x_scale, x_validity, y_high, y_low, y_precision,
+      y_scale, y_validity);
+}
+
 }  // extern "C"
