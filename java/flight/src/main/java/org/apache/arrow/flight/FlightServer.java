@@ -23,7 +23,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,6 +34,8 @@ import java.util.function.Consumer;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthInterceptor;
+import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
+import org.apache.arrow.flight.grpc.ServerInterceptorAdapter.KeyFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 
@@ -152,9 +156,11 @@ public class FlightServer implements AutoCloseable {
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
     private InputStream certChain;
     private InputStream key;
+    private final List<KeyFactory<?>> interceptors;
 
     Builder() {
       builderOptions = new HashMap<>();
+      interceptors = new ArrayList<>();
     }
 
     Builder(BufferAllocator allocator, Location location, FlightProducer producer) {
@@ -162,6 +168,7 @@ public class FlightServer implements AutoCloseable {
       this.location = Preconditions.checkNotNull(location);
       this.producer = Preconditions.checkNotNull(producer);
       builderOptions = new HashMap<>();
+      interceptors = new ArrayList<>();
     }
 
     /** Create the server for this builder. */
@@ -247,6 +254,9 @@ public class FlightServer implements AutoCloseable {
         return null;
       });
 
+      if (!interceptors.isEmpty()) {
+        builder.intercept(new ServerInterceptorAdapter(interceptors));
+      }
       return new FlightServer(location, builder.build());
     }
 
@@ -301,6 +311,20 @@ public class FlightServer implements AutoCloseable {
      */
     public Builder transportHint(final String key, Object option) {
       builderOptions.put(key, option);
+      return this;
+    }
+
+    /**
+     * Add a Flight middleware to inspect and modify requests to this service.
+     *
+     * @param key An identifier for this middleware. Service implementations can retrieve the middleware instance for
+     *     the current call using {@link org.apache.arrow.flight.FlightProducer.CallContext}.
+     * @param factory A factory for the middleware.
+     * @param <T> The middleware type.
+     */
+    public <T extends FlightServerMiddleware> Builder middleware(final FlightServerMiddleware.Key<T> key,
+        final FlightServerMiddleware.Factory<T> factory) {
+      interceptors.add(new KeyFactory<T>(key, factory));
       return this;
     }
 

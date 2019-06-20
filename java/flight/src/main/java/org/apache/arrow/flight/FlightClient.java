@@ -19,7 +19,9 @@ package org.apache.arrow.flight;
 
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLException;
@@ -29,6 +31,7 @@ import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthInterceptor;
 import org.apache.arrow.flight.auth.ClientAuthWrapper;
+import org.apache.arrow.flight.grpc.ClientInterceptorAdapter;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.Empty;
@@ -44,6 +47,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvid
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
 import io.grpc.StatusRuntimeException;
@@ -77,11 +81,21 @@ public class FlightClient implements AutoCloseable {
   /**
    * Create a Flight client from an allocator and a gRPC channel.
    */
-  FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
+  FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel,
+      List<FlightClientMiddleware.Factory> middleware) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
-    blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);
-    asyncStub = FlightServiceGrpc.newStub(channel).withInterceptors(authInterceptor);
+    final ClientInterceptor[] interceptors;
+
+    if (middleware.isEmpty()) {
+      interceptors = new ClientInterceptor[]{authInterceptor};
+    } else {
+      interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
+    }
+
+    blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(interceptors);
+    asyncStub = FlightServiceGrpc.newStub(channel).withInterceptors(interceptors);
+    // TODO: doGet/doPut need to run all interceptors
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
     doPutDescriptor = FlightBindingService.getDoPutDescriptor(allocator);
   }
@@ -443,6 +457,7 @@ public class FlightClient implements AutoCloseable {
     private InputStream clientCertificate = null;
     private InputStream clientKey = null;
     private String overrideHostname = null;
+    private List<FlightClientMiddleware.Factory> middleware = new ArrayList<>();
 
     private Builder() {
     }
@@ -494,6 +509,11 @@ public class FlightClient implements AutoCloseable {
 
     public Builder location(Location location) {
       this.location = Preconditions.checkNotNull(location);
+      return this;
+    }
+
+    public Builder intercept(FlightClientMiddleware.Factory factory) {
+      middleware.add(factory);
       return this;
     }
 
@@ -567,7 +587,7 @@ public class FlightClient implements AutoCloseable {
       builder
           .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
           .maxInboundMessageSize(maxInboundMessageSize);
-      return new FlightClient(allocator, builder.build());
+      return new FlightClient(allocator, builder.build(), middleware);
     }
   }
 }
