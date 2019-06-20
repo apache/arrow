@@ -710,7 +710,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_scale", i32},
                                                        }));
 
-  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32WithSeed_decimal128", i32,
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32WithSeed_decimal128_int32", i32,
                                                        {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
@@ -718,7 +718,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"seed", i32},
                                                        }));
 
-  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64WithSeed_decimal128", i64,
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64WithSeed_decimal128_int64", i64,
                                                        {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
@@ -741,7 +741,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                        }));
 
   ARROW_RETURN_NOT_OK(
-      decimal_ir->BuildDecimalFunction("hash32AsDoubleWithSeed_decimal128", i32,
+      decimal_ir->BuildDecimalFunction("hash32AsDoubleWithSeed_decimal128_int32", i32,
                                        {
                                            {"x_value", i128},
                                            {"x_precision", i32},
@@ -750,7 +750,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                        }));
 
   ARROW_RETURN_NOT_OK(
-      decimal_ir->BuildDecimalFunction("hash64AsDoubleWithSeed_decimal128", i64,
+      decimal_ir->BuildDecimalFunction("hash64AsDoubleWithSeed_decimal128_int64", i64,
                                        {
                                            {"x_value", i128},
                                            {"x_precision", i32},
