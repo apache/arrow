@@ -56,8 +56,6 @@ RUN curl ${CMAKE_URL} -Lo cmake-${CMAKE_VERSION}.tar.gz && \
   mkdir /opt/cmake && tar -zxvf cmake-${CMAKE_VERSION}.tar.gz -C /opt/cmake
 ENV PATH=/opt/cmake/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
 
-RUN which cmake && cmake --version
-
 ENV CC=gcc \
     CXX=g++ \
     ARROW_GANDIVA=OFF \
