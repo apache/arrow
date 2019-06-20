@@ -2875,16 +2875,31 @@ RcppExport SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> read_parquet_file(std::string filename);
-RcppExport SEXP _arrow_read_parquet_file(SEXP filename_sexp){
+std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___ParquetFileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file);
+RcppExport SEXP _arrow_parquet___arrow___ParquetFileReader__OpenFile(SEXP file_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<std::string>::type filename(filename_sexp);
-	return Rcpp::wrap(read_parquet_file(filename));
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);
+	return Rcpp::wrap(parquet___arrow___ParquetFileReader__OpenFile(file));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_read_parquet_file(SEXP filename_sexp){
-	Rf_error("Cannot call read_parquet_file(). Please use arrow::install_arrow() to install required runtime libraries. ");
+RcppExport SEXP _arrow_parquet___arrow___ParquetFileReader__OpenFile(SEXP file_sexp){
+	Rf_error("Cannot call parquet___arrow___ParquetFileReader__OpenFile(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> parquet___arrow___ParquetFileReader__Read(const std::unique_ptr<parquet::arrow::FileReader>& reader);
+RcppExport SEXP _arrow_parquet___arrow___ParquetFileReader__Read(SEXP reader_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	return Rcpp::wrap(parquet___arrow___ParquetFileReader__Read(reader));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___arrow___ParquetFileReader__Read(SEXP reader_sexp){
+	Rf_error("Cannot call parquet___arrow___ParquetFileReader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -3755,7 +3770,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1}, 
 		{ "_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1}, 
 		{ "_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1}, 
-		{ "_arrow_read_parquet_file", (DL_FUNC) &_arrow_read_parquet_file, 1}, 
+		{ "_arrow_parquet___arrow___ParquetFileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___ParquetFileReader__OpenFile, 1}, 
+		{ "_arrow_parquet___arrow___ParquetFileReader__Read", (DL_FUNC) &_arrow_parquet___arrow___ParquetFileReader__Read, 1}, 
 		{ "_arrow_write_parquet_file", (DL_FUNC) &_arrow_write_parquet_file, 2}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 

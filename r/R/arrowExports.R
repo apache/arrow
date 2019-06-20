@@ -748,8 +748,12 @@ ipc___ReadMessage <- function(stream){
     .Call(`_arrow_ipc___ReadMessage` , stream)
 }
 
-read_parquet_file <- function(filename){
-    .Call(`_arrow_read_parquet_file` , filename)
+parquet___arrow___ParquetFileReader__OpenFile <- function(file){
+    .Call(`_arrow_parquet___arrow___ParquetFileReader__OpenFile` , file)
+}
+
+parquet___arrow___ParquetFileReader__Read <- function(reader){
+    .Call(`_arrow_parquet___arrow___ParquetFileReader__Read` , reader)
 }
 
 write_parquet_file <- function(table, filename){

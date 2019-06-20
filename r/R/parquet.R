@@ -15,6 +15,39 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' @include R6.R
+
+`parquet::arrow::ParquetFileReader` <- R6Class("parquet::ParquetFileReader",
+  inherit = `arrow::Object`,
+  public = list(
+    Read = function() shared_ptr(`arrow::Table`, parquet___arrow___ParquetFileReader__Read(self))
+  )
+)
+
+#' @export
+parquet_file_reader <- function(file, ...) {
+  UseMethod("parquet_file_reader")
+}
+
+#' @export
+`parquet_file_reader.arrow::io::RandomAccessFile` <- function(file, ...) {
+  unique_ptr(`parquet::arrow::ParquetFileReader`, parquet___arrow___ParquetFileReader__OpenFile(file))
+}
+
+#' @export
+parquet_file_reader.fs_path <- function(file, memory_map = TRUE, ...) {
+  if (isTRUE(memory_map)) {
+    parquet_file_reader(mmap_open(file), ...)
+  } else {
+    parquet_file_reader(ReadableFile(file), ...)
+  }
+}
+
+#' @export
+parquet_file_reader.character <- function(file, memory_map = TRUE, ...) {
+  parquet_file_reader(fs::path_abs(file), memory_map = memory_map, ...)
+}
+
 #' Read Parquet file from disk
 #'
 #' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
@@ -35,8 +68,10 @@
 #'
 #' @export
 read_parquet <- function(file, as_tibble = TRUE, ...) {
-  tab <- shared_ptr(`arrow::Table`, read_parquet_file(file))
-  if (isTRUE(as_tibble)) {
+  reader <- parquet_file_reader(file, ...)
+  tab <- reader$Read()
+
+  if (as_tibble) {
     tab <- as.data.frame(tab)
   }
   tab
