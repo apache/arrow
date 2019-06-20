@@ -33,8 +33,10 @@
 #include "arrow/util/stl.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace {
-using ::arrow::internal::checked_cast;
 
 // If a column contains multiple chunks, concatenates those chunks into one and
 // makes a new column out of it. Otherwise makes `compacted` point to the same
@@ -591,7 +593,7 @@ bool Table::Equals(const Table& other) const {
   return true;
 }
 
-Status Table::Compact(MemoryPool* pool, std::shared_ptr<Table>* out) const {
+Status Table::CombineChunks(MemoryPool* pool, std::shared_ptr<Table>* out) const {
   const int ncolumns = num_columns();
   std::vector<std::shared_ptr<Column>> compacted_columns(ncolumns);
   for (int i = 0; i < ncolumns; ++i) {
