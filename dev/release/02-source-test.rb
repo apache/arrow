@@ -26,32 +26,34 @@ class SourceTest < Test::Unit::TestCase
     @original_git_repository = top_dir + ".git"
     cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
     @current_version = cpp_cmake_lists.read[/ARROW_VERSION "(.+?)"/, 1]
+    @release_version = @current_version.gsub(/-SNAPSHOT\z/, "")
     @tag_name = "apache-arrow-#{@current_version}"
 
     Dir.mktmpdir do |dir|
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
       Dir.chdir(@test_git_repository) do
-        sh("git archive #{@current_commit} --prefix #{@tag_name} | tar xf -")
         yield
       end
     end
   end
 
-  def package_csharp
-    sh("dev/release/create-dummy-git.sh #{@tag_name} #{@current_commit}")
-    Dir.chdir("#{@tag_name}/csharp") do
-      sh("dotnet pack -c Release")
-    end
+  def prepare
+    env = {}
+    env["PREPARE_DEFAULT"] = "0"
+    sh(env, "dev/release/02-source.sh", @current_version, "0")
   end
 
   def test_git_commit_information
-    package_csharp
+    prepare
+    Dir.chdir("#{@tag_name}/csharp") do
+      sh("dotnet", "pack", "-c", "Release")
+    end
     Dir.chdir("#{@tag_name}/csharp/artifacts/Apache.Arrow/Release") do
-      sh("unzip Apache.Arrow.#{@current_version}.nupkg")
-      sh("chmod 400 Apache.Arrow.nuspec")
+      sh("unzip", "Apache.Arrow.#{@current_version}.nupkg")
+      sh("chmod", "400", "Apache.Arrow.nuspec")
       nuspec = REXML::Document.new(open("Apache.Arrow.nuspec").read)
-      nuspec_attributes = nuspec.elements["package/metadata/repository"].attributes
+      nuspec_repository = nuspec.elements["package/metadata/repository"].attributes
 
       assert_equal([
                     "git",
@@ -59,27 +61,29 @@ class SourceTest < Test::Unit::TestCase
                     "#{@current_commit}"
                    ],
                    [
-                     nuspec_attributes["type"],
-                     nuspec_attributes["url"],
-                     nuspec_attributes["commit"]
+                     nuspec_repository["type"],
+                     nuspec_repository["url"],
+                     nuspec_repository["commit"]
                    ])
     end
   end
 
-  # def test_source_link_information
-  #   package_csharp
-  #   Dir.chdir("#{@tag_name}/csharp") do
-  #     sh("~/.dotnet/tools/sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb")
-  #   end
-  # end
+  def test_source_link_information
+    prepare
+    Dir.chdir("#{@tag_name}/csharp") do
+      sh("dotnet", "pack", "-c", "Release")
+    end
+    Dir.chdir("#{@tag_name}/csharp") do
+      sh("~/.dotnet/tools/sourcelink", "test", "artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb")
+    end
+  end
 
   def test_python_setup
-    package_csharp
-    @release_version = @current_version.gsub(/-SNAPSHOT\z/, "")
+    prepare
     Dir.chdir("#{@tag_name}/python") do
-      sh("python3 setup.py sdist")
+      sh("python3", "setup.py", "sdist")
       assert_equal("pyarrow-#{@release_version}a0.tar.gz",
-                   sh("ls dist").chomp)
+                   sh("ls", "dist").chomp)
     end
   end
 end
