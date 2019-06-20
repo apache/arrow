@@ -88,6 +88,10 @@ submission. The tasks are defined in `tasks.yml`
 
    - TravisCI: `https://travis-ci.org/<ghuser>/<ghrepo>/settings`
    - Appveyor: `https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment`
+   - CircleCI: `https://circleci.com/gh/<ghuser>/<ghrepo>/edit#env-vars`
+
+   On Appveyor check the `skip branches without appveyor.yml` checkbox on the
+   web UI under crossbow repository's settings.
 
 7. Install Python 3.6:
 
