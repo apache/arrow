@@ -96,7 +96,7 @@ const std::shared_ptr<ColumnPath> Node::path() const {
 bool Node::EqualsInternal(const Node* other) const {
   return type_ == other->type_ && name_ == other->name_ &&
          repetition_ == other->repetition_ && converted_type_ == other->converted_type_ &&
-         logical_annotation_->Equals(*(other->logical_annotation()));
+         logical_type_->Equals(*(other->logical_type()));
 }
 
 void Node::SetParent(const Node* parent) { parent_ = parent; }
@@ -202,10 +202,10 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       throw ParquetException(ss.str());
   }
   // For forward compatibility, create an equivalent logical annotation
-  logical_annotation_ =
+  logical_type_ =
       LogicalType::FromConvertedType(converted_type_, decimal_metadata_);
-  DCHECK(logical_annotation_ && !logical_annotation_->is_nested() &&
-         logical_annotation_->is_compatible(converted_type_, decimal_metadata_));
+  DCHECK(logical_type_ && !logical_type_->is_nested() &&
+         logical_type_->is_compatible(converted_type_, decimal_metadata_));
 
   if (type == Type::FIXED_LEN_BYTE_ARRAY) {
     if (length <= 0) {
@@ -217,38 +217,38 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
 }
 
 PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetition,
-                             std::shared_ptr<const LogicalType> logical_annotation,
+                             std::shared_ptr<const LogicalType> logical_type,
                              Type::type physical_type, int physical_length, int id)
-    : Node(Node::PRIMITIVE, name, repetition, logical_annotation, id),
+    : Node(Node::PRIMITIVE, name, repetition, logical_type, id),
       physical_type_(physical_type),
       type_length_(physical_length) {
   std::stringstream error;
-  if (logical_annotation_) {
+  if (logical_type_) {
     // Check for annotation type <=> node type consistency
-    if (!logical_annotation_->is_nested()) {
+    if (!logical_type_->is_nested()) {
       // Check for annotation type <=> physical type consistency
-      if (logical_annotation_->is_applicable(physical_type, physical_length)) {
+      if (logical_type_->is_applicable(physical_type, physical_length)) {
         // For backward compatibility, assign equivalent legacy
         // converted type (if possible)
-        converted_type_ = logical_annotation_->ToConvertedType(&decimal_metadata_);
+        converted_type_ = logical_type_->ToConvertedType(&decimal_metadata_);
       } else {
-        error << logical_annotation_->ToString();
+        error << logical_type_->ToString();
         error << " can not be applied to primitive type ";
         error << TypeToString(physical_type);
         throw ParquetException(error.str());
       }
     } else {
       error << "Nested annotation type ";
-      error << logical_annotation_->ToString();
+      error << logical_type_->ToString();
       error << " can not be applied to non-group node";
       throw ParquetException(error.str());
     }
   } else {
-    logical_annotation_ = NoAnnotation::Make();
-    converted_type_ = logical_annotation_->ToConvertedType(&decimal_metadata_);
+    logical_type_ = NoAnnotation::Make();
+    converted_type_ = logical_type_->ToConvertedType(&decimal_metadata_);
   }
-  DCHECK(logical_annotation_ && !logical_annotation_->is_nested() &&
-         logical_annotation_->is_compatible(converted_type_, decimal_metadata_));
+  DCHECK(logical_type_ && !logical_type_->is_nested() &&
+         logical_type_->is_compatible(converted_type_, decimal_metadata_));
 
   if (physical_type == Type::FIXED_LEN_BYTE_ARRAY) {
     if (physical_length <= 0) {
@@ -293,10 +293,10 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
                      const NodeVector& fields, ConvertedType::type converted_type, int id)
     : Node(Node::GROUP, name, repetition, converted_type, id), fields_(fields) {
   // For forward compatibility, create an equivalent logical annotation
-  logical_annotation_ = LogicalType::FromConvertedType(converted_type_);
-  DCHECK(logical_annotation_ &&
-         (logical_annotation_->is_nested() || logical_annotation_->is_none()) &&
-         logical_annotation_->is_compatible(converted_type_));
+  logical_type_ = LogicalType::FromConvertedType(converted_type_);
+  DCHECK(logical_type_ &&
+         (logical_type_->is_nested() || logical_type_->is_none()) &&
+         logical_type_->is_compatible(converted_type_));
 
   field_name_to_idx_.clear();
   auto field_idx = 0;
@@ -308,27 +308,27 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
 
 GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
                      const NodeVector& fields,
-                     std::shared_ptr<const LogicalType> logical_annotation, int id)
-    : Node(Node::GROUP, name, repetition, logical_annotation, id), fields_(fields) {
-  if (logical_annotation_) {
+                     std::shared_ptr<const LogicalType> logical_type, int id)
+    : Node(Node::GROUP, name, repetition, logical_type, id), fields_(fields) {
+  if (logical_type_) {
     // Check for annotation type <=> node type consistency
-    if (logical_annotation_->is_nested()) {
+    if (logical_type_->is_nested()) {
       // For backward compatibility, assign equivalent legacy converted type (if possible)
-      converted_type_ = logical_annotation_->ToConvertedType(nullptr);
+      converted_type_ = logical_type_->ToConvertedType(nullptr);
     } else {
       std::stringstream error;
       error << "Annotation type ";
-      error << logical_annotation_->ToString();
+      error << logical_type_->ToString();
       error << " can not be applied to group node";
       throw ParquetException(error.str());
     }
   } else {
-    logical_annotation_ = NoAnnotation::Make();
-    converted_type_ = logical_annotation_->ToConvertedType(nullptr);
+    logical_type_ = NoAnnotation::Make();
+    converted_type_ = logical_type_->ToConvertedType(nullptr);
   }
-  DCHECK(logical_annotation_ &&
-         (logical_annotation_->is_nested() || logical_annotation_->is_none()) &&
-         logical_annotation_->is_compatible(converted_type_));
+  DCHECK(logical_type_ &&
+         (logical_type_->is_nested() || logical_type_->is_none()) &&
+         logical_type_->is_compatible(converted_type_));
 
   field_name_to_idx_.clear();
   auto field_idx = 0;
@@ -500,8 +500,8 @@ void GroupNode::ToParquet(void* opaque_element) const {
   if (converted_type_ != ConvertedType::NONE) {
     element->__set_converted_type(ToThrift(converted_type_));
   }
-  if (logical_annotation_ && logical_annotation_->is_serialized()) {
-    element->__set_logicalType(logical_annotation_->ToThrift());
+  if (logical_type_ && logical_type_->is_serialized()) {
+    element->__set_logicalType(logical_type_->ToThrift());
   }
   return;
 }
@@ -513,11 +513,11 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
   if (converted_type_ != ConvertedType::NONE) {
     element->__set_converted_type(ToThrift(converted_type_));
   }
-  if (logical_annotation_ && logical_annotation_->is_serialized() &&
+  if (logical_type_ && logical_type_->is_serialized() &&
       // TODO(tpboudreau): remove the following conjunct to enable serialization
       // of IntervalTypes after parquet.thrift recognizes them
-      !logical_annotation_->is_interval()) {
-    element->__set_logicalType(logical_annotation_->ToThrift());
+      !logical_type_->is_interval()) {
+    element->__set_logicalType(logical_type_->ToThrift());
   }
   element->__set_type(ToThrift(physical_type_));
   if (physical_type_ == Type::FIXED_LEN_BYTE_ARRAY) {
@@ -699,7 +699,7 @@ static void PrintType(const PrimitiveNode* node, std::ostream& stream) {
 
 static void PrintConvertedType(const PrimitiveNode* node, std::ostream& stream) {
   auto lt = node->converted_type();
-  auto la = node->logical_annotation();
+  auto la = node->logical_type();
   if (la && la->is_valid() && !la->is_none()) {
     stream << " (" << la->ToString() << ")";
   } else if (lt == ConvertedType::DECIMAL) {
@@ -726,7 +726,7 @@ void SchemaPrinter::Visit(const GroupNode* node) {
     PrintRepLevel(node->repetition(), stream_);
     stream_ << " group " << node->name();
     auto lt = node->converted_type();
-    auto la = node->logical_annotation();
+    auto la = node->logical_type();
     if (la && la->is_valid() && !la->is_none()) {
       stream_ << " (" << la->ToString() << ")";
     } else if (lt != ConvertedType::NONE) {
@@ -925,7 +925,7 @@ std::string ColumnDescriptor::ToString() const {
      << "  path: " << path()->ToDotString() << "," << std::endl
      << "  physical_type: " << TypeToString(physical_type()) << "," << std::endl
      << "  converted_type: " << ConvertedTypeToString(converted_type()) << "," << std::endl
-     << "  logical_annotation: " << logical_annotation()->ToString() << "," << std::endl
+     << "  logical_type: " << logical_type()->ToString() << "," << std::endl
      << "  max_definition_level: " << max_definition_level() << "," << std::endl
      << "  max_repetition_level: " << max_repetition_level() << "," << std::endl;
 

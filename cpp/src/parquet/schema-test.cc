@@ -589,7 +589,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
   path: ,
   physical_type: BYTE_ARRAY,
   converted_type: UTF8,
-  logical_annotation: String,
+  logical_type: String,
   max_definition_level: 4,
   max_repetition_level: 1,
 })";
@@ -608,7 +608,7 @@ TEST(TestColumnDescriptor, TestAttrs) {
   path: ,
   physical_type: FIXED_LEN_BYTE_ARRAY,
   converted_type: DECIMAL,
-  logical_annotation: Decimal(precision=10, scale=4),
+  logical_type: Decimal(precision=10, scale=4),
   max_definition_level: 4,
   max_repetition_level: 1,
   length: 12,
@@ -1519,36 +1519,36 @@ TEST(TestLogicalTypeOperation, AnnotationSortOrder) {
 }
 
 static void ConfirmPrimitiveNodeFactoryEquivalence(
-    const std::shared_ptr<const LogicalType>& logical_annotation,
+    const std::shared_ptr<const LogicalType>& logical_type,
     ConvertedType::type converted_type, Type::type physical_type, int physical_length,
     int precision, int scale) {
   std::string name = "something";
   Repetition::type repetition = Repetition::REQUIRED;
   NodePtr from_converted_type = PrimitiveNode::Make(
       name, repetition, physical_type, converted_type, physical_length, precision, scale);
-  NodePtr from_logical_annotation = PrimitiveNode::Make(
-      name, repetition, logical_annotation, physical_type, physical_length);
-  ASSERT_TRUE(from_converted_type->Equals(from_logical_annotation.get()))
+  NodePtr from_logical_type = PrimitiveNode::Make(
+      name, repetition, logical_type, physical_type, physical_length);
+  ASSERT_TRUE(from_converted_type->Equals(from_logical_type.get()))
       << "Primitive node constructed with converted type "
       << ConvertedTypeToString(converted_type)
       << " unexpectedly not equivalent to primitive node constructed with logical "
          "annotation "
-      << logical_annotation->ToString();
+      << logical_type->ToString();
   return;
 }
 
 static void ConfirmGroupNodeFactoryEquivalence(
-    std::string name, const std::shared_ptr<const LogicalType>& logical_annotation,
+    std::string name, const std::shared_ptr<const LogicalType>& logical_type,
     ConvertedType::type converted_type) {
   Repetition::type repetition = Repetition::OPTIONAL;
   NodePtr from_converted_type = GroupNode::Make(name, repetition, {}, converted_type);
-  NodePtr from_logical_annotation =
-      GroupNode::Make(name, repetition, {}, logical_annotation);
-  ASSERT_TRUE(from_converted_type->Equals(from_logical_annotation.get()))
+  NodePtr from_logical_type =
+      GroupNode::Make(name, repetition, {}, logical_type);
+  ASSERT_TRUE(from_converted_type->Equals(from_logical_type.get()))
       << "Group node constructed with converted type "
       << ConvertedTypeToString(converted_type)
       << " unexpectedly not equivalent to group node constructed with logical annotation "
-      << logical_annotation->ToString();
+      << logical_type->ToString();
   return;
 }
 
@@ -1644,18 +1644,18 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   NodePtr node;
   ASSERT_NO_THROW(
       node = PrimitiveNode::Make("value", Repetition::REQUIRED, empty, Type::DOUBLE));
-  ASSERT_TRUE(node->logical_annotation()->is_none());
+  ASSERT_TRUE(node->logical_type()->is_none());
   ASSERT_EQ(node->converted_type(), ConvertedType::NONE);
   ASSERT_NO_THROW(node = GroupNode::Make("items", Repetition::REPEATED, {}, empty));
-  ASSERT_TRUE(node->logical_annotation()->is_none());
+  ASSERT_TRUE(node->logical_type()->is_none());
   ASSERT_EQ(node->converted_type(), ConvertedType::NONE);
 
   // Invalid ConvertedType in deserialized element ...
   node = PrimitiveNode::Make("string", Repetition::REQUIRED, StringAnnotation::Make(),
                              Type::BYTE_ARRAY);
-  ASSERT_EQ(node->logical_annotation()->type(), LogicalType::Type::STRING);
-  ASSERT_TRUE(node->logical_annotation()->is_valid());
-  ASSERT_TRUE(node->logical_annotation()->is_serialized());
+  ASSERT_EQ(node->logical_type()->type(), LogicalType::Type::STRING);
+  ASSERT_TRUE(node->logical_type()->is_valid());
+  ASSERT_TRUE(node->logical_type()->is_serialized());
   format::SchemaElement string_intermediary;
   node->ToParquet(&string_intermediary);
   // ... corrupt the Thrift intermediary ....
@@ -1717,30 +1717,30 @@ class TestSchemaElementConstruction : public ::testing::Test {
     ASSERT_EQ(element_->name, name_);
     if (expect_converted_type_) {
       ASSERT_TRUE(element_->__isset.converted_type)
-          << node_->logical_annotation()->ToString()
+          << node_->logical_type()->ToString()
           << " annotation unexpectedly failed to generate a converted type in the Thrift "
              "intermediate object";
       ASSERT_EQ(element_->converted_type, ToThrift(converted_type_))
-          << node_->logical_annotation()->ToString()
+          << node_->logical_type()->ToString()
           << " annotation unexpectedly failed to generate correct converted type in the "
              "Thrift intermediate object";
     } else {
       ASSERT_FALSE(element_->__isset.converted_type)
-          << node_->logical_annotation()->ToString()
+          << node_->logical_type()->ToString()
           << " annotation unexpectedly generated a converted type in the Thrift "
              "intermediate object";
     }
     if (expect_logicalType_) {
       ASSERT_TRUE(element_->__isset.logicalType)
-          << node_->logical_annotation()->ToString()
+          << node_->logical_type()->ToString()
           << " annotation unexpectedly failed to genverate a logicalType in the Thrift "
              "intermediate object";
-      ASSERT_TRUE(check_logicalType_()) << node_->logical_annotation()->ToString()
+      ASSERT_TRUE(check_logicalType_()) << node_->logical_type()->ToString()
                                         << " annotation generated incorrect logicalType "
                                            "settings in the Thrift intermediate object";
     } else {
       ASSERT_FALSE(element_->__isset.logicalType)
-          << node_->logical_annotation()->ToString()
+          << node_->logical_type()->ToString()
           << " annotation unexpectedly generated a logicalType in the Thrift "
              "intermediate object";
     }

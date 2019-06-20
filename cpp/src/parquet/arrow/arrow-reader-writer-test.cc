@@ -87,7 +87,7 @@ static constexpr int LARGE_SIZE = 10000;
 
 static constexpr uint32_t kDefaultSeed = 0;
 
-std::shared_ptr<const LogicalType> get_logical_annotation(const ::DataType& type) {
+std::shared_ptr<const LogicalType> get_logical_type(const ::DataType& type) {
   switch (type.id()) {
     case ArrowId::UINT8:
       return LogicalType::Int(8, false);
@@ -147,7 +147,7 @@ std::shared_ptr<const LogicalType> get_logical_annotation(const ::DataType& type
     case ArrowId::DICTIONARY: {
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(type);
-      return get_logical_annotation(*dict_type.value_type());
+      return get_logical_type(*dict_type.value_type());
     }
     case ArrowId::DECIMAL: {
       const auto& dec_type = static_cast<const ::arrow::Decimal128Type&>(type);
@@ -481,7 +481,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
     default:
       break;
   }
-  auto pnode = PrimitiveNode::Make("column1", repetition, get_logical_annotation(type),
+  auto pnode = PrimitiveNode::Make("column1", repetition, get_logical_type(type),
                                    get_physical_type(type), byte_width);
   NodePtr node_ =
       GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));

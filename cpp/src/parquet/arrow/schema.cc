@@ -253,7 +253,7 @@ static Status FromInt64(const LogicalType& annotation,
 
 Status FromPrimitive(const PrimitiveNode& primitive, std::shared_ptr<ArrowType>* out) {
   const std::shared_ptr<const LogicalType>& annotation =
-      primitive.logical_annotation();
+      primitive.logical_type();
   if (annotation->is_invalid() || annotation->is_null()) {
     *out = ::arrow::null();
     return Status::OK();
@@ -409,7 +409,7 @@ Status NodeToFieldInternal(const Node& node,
     }
   } else if (node.is_group()) {
     const auto& group = static_cast<const GroupNode&>(node);
-    if (node.logical_annotation()->is_list()) {
+    if (node.logical_type()->is_list()) {
       RETURN_NOT_OK(NodeToList(group, included_leaf_nodes, &type));
     } else {
       RETURN_NOT_OK(StructFromGroup(group, included_leaf_nodes, &type));
