@@ -17,8 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-printenv
-VERSION="0.13.0.9000"
+VERSION=$(grep Version ../r/DESCRIPTION | cut -d " " -f 2)
 DST_DIR="arrow-$VERSION"
 
 # Untar the two builds we made
@@ -58,7 +57,5 @@ mv deps/mingw32/lib/*.a $DST_DIR/lib/i686
 
 zip -r ${DST_DIR}.zip $DST_DIR
 
-# Tell the R package build that follows (on Appveyor) where to find the zip file
-export RWINLIB_LOCAL="${DST_DIR}.zip"
 # Temporary hack fallback in case that isn't getting picked up
 cp ${DST_DIR}.zip ../r/lib.zip
