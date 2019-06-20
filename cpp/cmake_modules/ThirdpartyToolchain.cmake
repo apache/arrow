@@ -922,6 +922,14 @@ if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
+if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
+  execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
+                  OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(OPENSSL_BREW_PREFIX)
+    set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+  endif()
+endif()
 if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT)
   # This must work
   find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
@@ -1195,7 +1203,6 @@ macro(build_thrift)
       # In the case where we cannot find a system-wide installation, look for
       # homebrew and ask for its bison installation.
       if(NOT BISON_FOUND)
-        find_program(BREW_BIN brew)
         if(BREW_BIN)
           execute_process(COMMAND ${BREW_BIN} --prefix bison
                           OUTPUT_VARIABLE BISON_PREFIX
