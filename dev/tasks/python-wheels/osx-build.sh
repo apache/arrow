@@ -113,6 +113,9 @@ function build_wheel {
       export BUILD_ARROW_GANDIVA=OFF
     fi
 
+    git submodule init --update
+    export ARROW_TEST_DATA=`pwd`/testing/data
+
     pushd cpp
     mkdir build
     pushd build
@@ -132,8 +135,7 @@ function build_wheel {
           -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
           -DARROW_FLIGHT=ON \
-          -DgRPC_SOURCE=BREW \
-          -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl \
+          -DgRPC_SOURCE=SYSTEM \
           -DMAKE=make \
           ..
     make -j5

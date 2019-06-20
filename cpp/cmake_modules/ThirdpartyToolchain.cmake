@@ -2215,6 +2215,14 @@ if(ARROW_WITH_GRPC)
   elseif(gRPC_SOURCE STREQUAL "BUNDLED")
     build_grpc()
   elseif(gRPC_SOURCE STREQUAL "SYSTEM")
+    if(BREW_BIN AND NOT gRPC_ROOT)
+      execute_process(COMMAND ${BREW_BIN} --prefix "grpc"
+        OUTPUT_VARIABLE gRPC_BREW_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(gRPC_BREW_PREFIX)
+        set(gRPC_ROOT ${gRPC_BREW_PREFIX})
+      endif()
+    endif()
     find_package(gRPC QUIET)
     if(NOT gRPC_FOUND)
       # Ubuntu doesn't package the CMake config
