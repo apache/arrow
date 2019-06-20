@@ -19,7 +19,7 @@ package org.apache.arrow.vector.ipc.message;
 
 import org.apache.arrow.flatbuf.Block;
 
-import com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.arrow.shaded.com.google.flatbuffers.FlatBufferBuilder;
 
 /** Metadata for an arrow message in a channel. */
 public class ArrowBlock implements FBSerializable {

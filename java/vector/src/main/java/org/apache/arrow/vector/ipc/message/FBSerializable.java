@@ -17,7 +17,7 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-import com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.arrow.shaded.com.google.flatbuffers.FlatBufferBuilder;
 
 /**
  * Interface for serializing to FlatBuffers.

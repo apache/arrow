@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.KeyValue;
+import org.apache.arrow.shaded.com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.util.Preconditions;
 
@@ -43,7 +44,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import com.google.flatbuffers.FlatBufferBuilder;
+
 
 /**
  * An Arrow Schema.

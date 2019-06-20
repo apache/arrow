@@ -19,7 +19,7 @@ package org.apache.arrow.vector.ipc.message;
 
 import org.apache.arrow.flatbuf.Buffer;
 
-import com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.arrow.shaded.com.google.flatbuffers.FlatBufferBuilder;
 
 /** Metadata for a buffer written to a channel. */
 public class ArrowBuffer implements FBSerializable {

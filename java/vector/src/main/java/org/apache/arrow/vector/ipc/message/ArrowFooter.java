@@ -24,9 +24,8 @@ import java.util.List;
 
 import org.apache.arrow.flatbuf.Block;
 import org.apache.arrow.flatbuf.Footer;
+import org.apache.arrow.shaded.com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.vector.types.pojo.Schema;
-
-import com.google.flatbuffers.FlatBufferBuilder;
 
 /** Footer metadata for the arrow file format. */
 public class ArrowFooter implements FBSerializable {

@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.flatbuf.Footer;
+import org.apache.arrow.shaded.com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowFooter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -33,8 +34,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
-
-import com.google.flatbuffers.FlatBufferBuilder;
 
 public class TestArrowFooter {
 

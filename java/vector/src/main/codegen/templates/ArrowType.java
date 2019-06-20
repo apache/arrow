@@ -21,7 +21,7 @@
 
 package org.apache.arrow.vector.types.pojo;
 
-import com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.arrow.shaded.com.google.flatbuffers.FlatBufferBuilder;
 
 import java.util.Objects;
 
