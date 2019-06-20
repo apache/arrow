@@ -14,3 +14,4 @@ clang_format.sh
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
+^Makefile$
