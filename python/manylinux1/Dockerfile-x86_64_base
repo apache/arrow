@@ -106,3 +106,6 @@ RUN /build_re2.sh
 
 ADD scripts/build_uriparser.sh /
 RUN /build_uriparser.sh
+
+ADD scripts/build_bz2.sh /
+RUN /build_bz2.sh
