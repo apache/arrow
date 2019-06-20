@@ -17,8 +17,6 @@
 
 package org.apache.arrow.flight.auth;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
@@ -27,6 +25,7 @@ import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.NoOpFlightProducer;
@@ -46,10 +45,7 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
 
-import io.grpc.StatusRuntimeException;
-
 public class TestBasicAuth {
-  final String PERMISSION_DENIED = "PERMISSION_DENIED";
 
   private static final String USERNAME = "flight";
   private static final String PASSWORD = "woohoo";
@@ -79,20 +75,20 @@ public class TestBasicAuth {
 
   @Test
   public void invalidAuth() {
-    assertThrows(StatusRuntimeException.class, () -> {
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
       client.authenticateBasic(USERNAME, "WRONG");
-    }, PERMISSION_DENIED);
+    });
 
-    assertThrows(StatusRuntimeException.class, () -> {
-      client.listFlights(Criteria.ALL);
-    }, PERMISSION_DENIED);
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
+      client.listFlights(Criteria.ALL).forEach(action -> Assert.fail());
+    });
   }
 
   @Test
   public void didntAuth() {
-    assertThrows(StatusRuntimeException.class, () -> {
-      client.listFlights(Criteria.ALL);
-    }, PERMISSION_DENIED);
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
+      client.listFlights(Criteria.ALL).forEach(action -> Assert.fail());
+    });
   }
 
   @Before

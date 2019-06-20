@@ -45,7 +45,7 @@ public class ServerAuthInterceptor implements ServerInterceptor {
     if (!call.getMethodDescriptor().getFullMethodName().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
       final Optional<String> peerIdentity = isValid(headers);
       if (!peerIdentity.isPresent()) {
-        call.close(Status.PERMISSION_DENIED, new Metadata());
+        call.close(Status.UNAUTHENTICATED, new Metadata());
         // TODO: we should actually terminate here instead of causing an exception below.
         return new NoopServerCallListener<>();
       }

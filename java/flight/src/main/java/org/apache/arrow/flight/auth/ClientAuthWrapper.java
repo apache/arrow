@@ -18,12 +18,12 @@
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.arrow.flight.auth.ClientAuthHandler.ClientAuthSender;
+import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
@@ -46,18 +46,24 @@ public class ClientAuthWrapper {
    */
   public static void doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub) {
     AuthObserver observer = new AuthObserver();
-    observer.responseObserver = stub.handshake(observer);
-    authHandler.authenticate(observer.sender, observer.iter);
-    if (!observer.sender.errored) {
-      observer.responseObserver.onCompleted();
+    try {
+      observer.responseObserver = stub.handshake(observer);
+      authHandler.authenticate(observer.sender, observer.iter);
+      if (!observer.sender.errored) {
+        observer.responseObserver.onCompleted();
+      }
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
     }
     try {
       if (!observer.completed.get()) {
         // TODO: ARROW-5681
         throw new RuntimeException("Unauthenticated");
       }
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException e) {
       throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      throw StatusUtils.fromThrowable(e.getCause());
     }
   }
 
@@ -130,16 +136,19 @@ public class ClientAuthWrapper {
 
       @Override
       public void send(byte[] payload) {
-        responseObserver.onNext(HandshakeRequest.newBuilder()
-            .setPayload(ByteString.copyFrom(payload))
-            .build());
+        try {
+          responseObserver.onNext(HandshakeRequest.newBuilder()
+              .setPayload(ByteString.copyFrom(payload))
+              .build());
+        } catch (StatusRuntimeException sre) {
+          throw StatusUtils.fromGrpcRuntimeException(sre);
+        }
       }
 
       @Override
-      public void onError(String message, Throwable cause) {
+      public void onError(Throwable cause) {
         this.errored = true;
-        Objects.requireNonNull(cause);
-        responseObserver.onError(cause);
+        responseObserver.onError(StatusUtils.toGrpcException(cause));
       }
 
     }

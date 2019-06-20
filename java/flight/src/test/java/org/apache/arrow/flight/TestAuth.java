@@ -66,7 +66,7 @@ public class TestAuth {
           outgoing.send(new byte[0]);
           // Ensure the server-side runs
           incoming.next();
-          outgoing.onError("test", new RuntimeException("test"));
+          outgoing.onError(new RuntimeException("test"));
         }
 
         @Override
