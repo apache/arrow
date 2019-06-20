@@ -191,7 +191,7 @@ read_csv_arrow <- function(file,
     parse_options = parse_options,
     convert_options = convert_options)
 
-  tab <- reader$Read()$select(col_select)
+  tab <- reader$Read()$select(!!enquo(col_select))
 
   if (isTRUE(as_tibble)) {
     tab <- as.data.frame(tab)
