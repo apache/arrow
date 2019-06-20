@@ -904,6 +904,14 @@ Table__columns <- function(table){
     .Call(`_arrow_Table__columns` , table)
 }
 
+Table__column_names <- function(table){
+    .Call(`_arrow_Table__column_names` , table)
+}
+
+Table__select <- function(table, indices){
+    .Call(`_arrow_Table__select` , table, indices)
+}
+
 Table__from_dots <- function(lst, schema_sxp){
     .Call(`_arrow_Table__from_dots` , lst, schema_sxp)
 }
