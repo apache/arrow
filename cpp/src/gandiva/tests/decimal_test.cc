@@ -490,12 +490,6 @@ TEST_F(TestDecimal, TestHashFunctions) {
   auto literal_seed64 = TreeExprBuilder::MakeLiteral((int64_t)10);
   auto schema = arrow::schema({field_dec});
 
-  auto funcWithLiteralParam = [](const std::string& funcName, gandiva::FieldPtr field,
-                                 gandiva::NodePtr literal,
-                                 DataTypePtr return_type) -> gandiva::NodePtr {
-    return TreeExprBuilder::MakeFunction(
-        funcName, {TreeExprBuilder::MakeField(field), literal}, return_type);
-  };
   // build expressions
   auto exprs = std::vector<ExpressionPtr>{
       TreeExprBuilder::MakeExpression("hash", {field_dec},
@@ -506,14 +500,14 @@ TEST_F(TestDecimal, TestHashFunctions) {
 
       TreeExprBuilder::MakeExpression(
           TreeExprBuilder::MakeFunction(
-              "hash32WithSeed", {TreeExprBuilder::MakeField(field_dec), literal_seed32},
+              "hash32", {TreeExprBuilder::MakeField(field_dec), literal_seed32},
               arrow::int32()),
           field("hash32_with_seed", arrow::int32())),
 
       TreeExprBuilder::MakeExpression(
           TreeExprBuilder::MakeFunction(
-              "hash64WithSeed", {TreeExprBuilder::MakeField(field_dec), literal_seed64},
-              arrow::int32()),
+              "hash64", {TreeExprBuilder::MakeField(field_dec), literal_seed64},
+              arrow::int64()),
           field("hash64_with_seed", arrow::int64())),
 
       TreeExprBuilder::MakeExpression("hash32AsDouble", {field_dec},
@@ -524,14 +518,14 @@ TEST_F(TestDecimal, TestHashFunctions) {
 
       TreeExprBuilder::MakeExpression(
           TreeExprBuilder::MakeFunction(
-              "hash32AsDoubleWithSeed",
-              {TreeExprBuilder::MakeField(field_dec), literal_seed32}, arrow::int32()),
+              "hash32AsDouble", {TreeExprBuilder::MakeField(field_dec), literal_seed32},
+              arrow::int32()),
           field("hash32_as_double_with_seed", arrow::int32())),
 
       TreeExprBuilder::MakeExpression(
           TreeExprBuilder::MakeFunction(
-              "hash64AsDoubleWithSeed",
-              {TreeExprBuilder::MakeField(field_dec), literal_seed64}, arrow::int64()),
+              "hash64AsDouble", {TreeExprBuilder::MakeField(field_dec), literal_seed64},
+              arrow::int64()),
           field("hash64_as_double_with_seed", arrow::int64()))};
 
   // Build a projector for the expression.

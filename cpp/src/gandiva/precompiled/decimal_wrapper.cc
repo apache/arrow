@@ -233,68 +233,86 @@ void castDECIMAL_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_p
 
 FORCE_INLINE
 int32_t hash32_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                                   int32_t x_scale) {
-  gandiva::BasicDecimal128 x(x_high, x_low);
-  return hash32_buf(x.ToBytes().data(), 16, 0);
+                                   int32_t x_scale, boolean x_validity) {
+  return x_validity
+             ? hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
+             : 0;
 }
 
 FORCE_INLINE
 int32_t hash_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                                 int32_t x_scale) {
-  return hash32_decimal128_internal(x_high, x_low, x_precision, x_scale);
+                                 int32_t x_scale, boolean x_validity) {
+  return hash32_decimal128_internal(x_high, x_low, x_precision, x_scale, x_validity);
 }
 
 FORCE_INLINE
 int64_t hash64_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
-                                   int32_t x_scale) {
-  gandiva::BasicDecimal128 x(x_high, x_low);
-  return hash64_buf(x.ToBytes().data(), 16, 0);
+                                   int32_t x_scale, boolean x_validity) {
+  return x_validity
+             ? hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
+             : 0;
 }
 
 FORCE_INLINE
 int32_t hash32WithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                            int32_t x_precision, int32_t x_scale,
-                                           int32_t seed) {
-  gandiva::BasicDecimal128 x(x_high, x_low);
-  return hash32_buf(x.ToBytes().data(), 16, seed);
+                                           boolean x_validity, int32_t seed,
+                                           boolean seed_validity) {
+  return x_validity && seed_validity
+             ? hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16,
+                          seed)
+             : 0;
 }
 
 FORCE_INLINE
 int64_t hash64WithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                            int32_t x_precision, int32_t x_scale,
-                                           int64_t seed) {
-  gandiva::BasicDecimal128 x(x_high, x_low);
-  return hash64_buf(x.ToBytes().data(), 16, seed);
+                                           boolean x_validity, int64_t seed,
+                                           boolean seed_validity) {
+  return x_validity && seed_validity
+             ? hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16,
+                          seed)
+             : 0;
 }
 
 FORCE_INLINE
 int32_t hash32AsDouble_decimal128_internal(int64_t x_high, uint64_t x_low,
-                                           int32_t x_precision, int32_t x_scale) {
-  gandiva::BasicDecimal128 x(x_high, x_low);
-  return hash32_buf(x.ToBytes().data(), 16, 0);
+                                           int32_t x_precision, int32_t x_scale,
+                                           boolean x_validity) {
+  return x_validity
+             ? hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
+             : 0;
 }
 
 FORCE_INLINE
 int64_t hash64AsDouble_decimal128_internal(int64_t x_high, uint64_t x_low,
-                                           int32_t x_precision, int32_t x_scale) {
-  gandiva::BasicDecimal128 x(x_high, x_low);
-  return hash64_buf(x.ToBytes().data(), 16, 0);
+                                           int32_t x_precision, int32_t x_scale,
+                                           boolean x_validity) {
+  return x_validity
+             ? hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
+             : 0;
 }
 
 FORCE_INLINE
 int32_t hash32AsDoubleWithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                                    int32_t x_precision, int32_t x_scale,
-                                                   int32_t seed) {
-  gandiva::BasicDecimal128 x(x_high, x_low);
-  return hash32_buf(x.ToBytes().data(), 16, seed);
+                                                   boolean x_validity, int32_t seed,
+                                                   boolean seed_validity) {
+  return x_validity && seed_validity
+             ? hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16,
+                          seed)
+             : 0;
 }
 
 FORCE_INLINE
 int64_t hash64AsDoubleWithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                                    int32_t x_precision, int32_t x_scale,
-                                                   int64_t seed) {
-  gandiva::BasicDecimal128 x(x_high, x_low);
-  return hash64_buf(x.ToBytes().data(), 16, seed);
+                                                   boolean x_validity, int64_t seed,
+                                                   boolean seed_validity) {
+  return x_validity && seed_validity
+             ? hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16,
+                          seed)
+             : 0;
 }
 
 }  // extern "C"
