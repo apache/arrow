@@ -74,13 +74,14 @@ Rcpp::CharacterVector Table__column_names(const std::shared_ptr<arrow::Table>& t
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>& table, const Rcpp::IntegerVector& indices) {
+std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>& table,
+                                            const Rcpp::IntegerVector& indices) {
   R_xlen_t n = indices.size();
 
   std::vector<std::shared_ptr<arrow::Field>> fields(n);
   std::vector<std::shared_ptr<arrow::Column>> columns(n);
 
-  for (R_xlen_t i = 0; i < n; i++){
+  for (R_xlen_t i = 0; i < n; i++) {
     int pos = indices[i] - 1;
     fields[i] = table->schema()->field(pos);
     columns[i] = table->column(pos);

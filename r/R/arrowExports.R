@@ -748,6 +748,26 @@ ipc___ReadMessage <- function(stream){
     .Call(`_arrow_ipc___ReadMessage` , stream)
 }
 
+parquet___arrow___ArrowReaderProperties__Make <- function(use_threads){
+    .Call(`_arrow_parquet___arrow___ArrowReaderProperties__Make` , use_threads)
+}
+
+parquet___arrow___ArrowReaderProperties__set_use_threads <- function(properties, use_threads){
+    invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads` , properties, use_threads))
+}
+
+parquet___arrow___ArrowReaderProperties__get_use_threads <- function(properties, use_threads){
+    .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads` , properties, use_threads)
+}
+
+parquet___arrow___ArrowReaderProperties__get_read_dictionary <- function(properties, column_index){
+    .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary` , properties, column_index)
+}
+
+parquet___arrow___ArrowReaderProperties__set_read_dictionary <- function(properties, column_index, read_dict){
+    invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary` , properties, column_index, read_dict))
+}
+
 parquet___arrow___ParquetFileReader__OpenFile <- function(file){
     .Call(`_arrow_parquet___arrow___ParquetFileReader__OpenFile` , file)
 }

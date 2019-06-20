@@ -17,35 +17,72 @@
 
 #' @include R6.R
 
-`parquet::arrow::ParquetFileReader` <- R6Class("parquet::ParquetFileReader",
+`parquet::arrow::ParquetFileReader` <- R6Class("parquet::arrow::ParquetFileReader",
   inherit = `arrow::Object`,
   public = list(
     Read = function() shared_ptr(`arrow::Table`, parquet___arrow___ParquetFileReader__Read(self))
   )
 )
 
+`parquet::arrow::ArrowReaderProperties` <- R6Class("parquet::arrow::ArrowReaderProperties",
+  inherit = `arrow::Object`,
+  public = list(
+    read_dictionary = function(column_index) {
+      parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index)
+    },
+    set_read_dictionary = function(column_index, read_dict) {
+      parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index, read_dict)
+    }
+  ),
+  active = list(
+    use_threads = function(use_threads) {
+      if(missing(use_threads)) {
+        parquet___arrow___ArrowReaderProperties__get_use_threads(self)
+      } else {
+        parquet___arrow___ArrowReaderProperties__set_use_threads(self, use_threads)
+      }
+    }
+  )
+)
+
+#' Create a new ArrowReaderProperties instance
+#'
+#' @param use_threads use threads ?
+#'
 #' @export
-parquet_file_reader <- function(file, ...) {
+parquet_arrow_reader_properties <- function(use_threads = TRUE) {
+  shared_ptr(`parquet::arrow::ArrowReaderProperties`, parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads)))
+}
+
+#' Create a ParquetFileReader instance
+#'
+#' @param file file
+#' @param props reader file properties, as created by [parquet_arrow_reader_properties()]
+#'
+#' @param ... additional parameters
+#'
+#' @export
+parquet_file_reader <- function(file, props = parquet_arrow_reader_properties(), ...) {
   UseMethod("parquet_file_reader")
 }
 
 #' @export
-`parquet_file_reader.arrow::io::RandomAccessFile` <- function(file, ...) {
-  unique_ptr(`parquet::arrow::ParquetFileReader`, parquet___arrow___ParquetFileReader__OpenFile(file))
+`parquet_file_reader.arrow::io::RandomAccessFile` <- function(file, props = parquet_arrow_reader_properties(), ...) {
+  unique_ptr(`parquet::arrow::ParquetFileReader`, parquet___arrow___ParquetFileReader__OpenFile(file, props))
 }
 
 #' @export
-parquet_file_reader.fs_path <- function(file, memory_map = TRUE, ...) {
+parquet_file_reader.fs_path <- function(file, props = parquet_arrow_reader_properties(), memory_map = TRUE, ...) {
   if (isTRUE(memory_map)) {
-    parquet_file_reader(mmap_open(file), ...)
+    parquet_file_reader(mmap_open(file), props = props, ...)
   } else {
-    parquet_file_reader(ReadableFile(file), ...)
+    parquet_file_reader(ReadableFile(file), props = props, ...)
   }
 }
 
 #' @export
-parquet_file_reader.character <- function(file, memory_map = TRUE, ...) {
-  parquet_file_reader(fs::path_abs(file), memory_map = memory_map, ...)
+parquet_file_reader.character <- function(file, props = parquet_arrow_reader_properties(), memory_map = TRUE, ...) {
+  parquet_file_reader(fs::path_abs(file), props = parquet_arrow_reader_properties(), memory_map = memory_map, ...)
 }
 
 #' Read Parquet file from disk
@@ -53,10 +90,9 @@ parquet_file_reader.character <- function(file, memory_map = TRUE, ...) {
 #' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
 #' This function enables you to read Parquet files into R.
 #'
-#' @param file a file path
+#' @inheritParams parquet_file_reader
 #' @param as_tibble Should the [arrow::Table][arrow__Table] be converted to a
 #' tibble? Default is `TRUE`.
-#' @param ... Additional arguments, currently ignored
 #'
 #' @return A [arrow::Table][arrow__Table], or a `tbl_df` if `as_tibble` is
 #' `TRUE`.
@@ -67,8 +103,8 @@ parquet_file_reader.character <- function(file, memory_map = TRUE, ...) {
 #' }
 #'
 #' @export
-read_parquet <- function(file, as_tibble = TRUE, ...) {
-  reader <- parquet_file_reader(file, ...)
+read_parquet <- function(file, props = parquet_arrow_reader_properties(), as_tibble = TRUE, ...) {
+  reader <- parquet_file_reader(file, props = props, ...)
   tab <- reader$Read()
 
   if (as_tibble) {

@@ -24,15 +24,51 @@
 #include <parquet/exception.h>
 
 // [[arrow::export]]
-std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___ParquetFileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
+std::shared_ptr<parquet::arrow::ArrowReaderProperties>
+parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
+  return std::make_shared<parquet::arrow::ArrowReaderProperties>(use_threads);
+}
+
+// [[arrow::export]]
+void parquet___arrow___ArrowReaderProperties__set_use_threads(
+    const std::shared_ptr<parquet::arrow::ArrowReaderProperties>& properties,
+    bool use_threads) {
+  properties->set_use_threads(use_threads);
+}
+
+// [[arrow::export]]
+bool parquet___arrow___ArrowReaderProperties__get_use_threads(
+    const std::shared_ptr<parquet::arrow::ArrowReaderProperties>& properties,
+    bool use_threads) {
+  return properties->use_threads();
+}
+
+// [[arrow::export]]
+bool parquet___arrow___ArrowReaderProperties__get_read_dictionary(
+    const std::shared_ptr<parquet::arrow::ArrowReaderProperties>& properties,
+    int column_index) {
+  return properties->read_dictionary(column_index);
+}
+
+// [[arrow::export]]
+void parquet___arrow___ArrowReaderProperties__set_read_dictionary(
+    const std::shared_ptr<parquet::arrow::ArrowReaderProperties>& properties,
+    int column_index, bool read_dict) {
+  properties->set_read_dictionary(column_index, read_dict);
+}
+
+// [[arrow::export]]
+std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___ParquetFileReader__OpenFile(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
-    parquet::arrow::OpenFile(file, arrow::default_memory_pool(), &reader));
+      parquet::arrow::OpenFile(file, arrow::default_memory_pool(), &reader));
   return reader;
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> parquet___arrow___ParquetFileReader__Read(const std::unique_ptr<parquet::arrow::FileReader>& reader) {
+std::shared_ptr<arrow::Table> parquet___arrow___ParquetFileReader__Read(
+    const std::unique_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
 

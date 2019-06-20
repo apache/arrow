@@ -4,15 +4,18 @@
 \alias{read_parquet}
 \title{Read Parquet file from disk}
 \usage{
-read_parquet(file, as_tibble = TRUE, ...)
+read_parquet(file, props = parquet_arrow_reader_properties(),
+  as_tibble = TRUE, ...)
 }
 \arguments{
-\item{file}{a file path}
+\item{file}{file}
+
+\item{props}{reader file properties, as created by \code{\link[=parquet_arrow_reader_properties]{parquet_arrow_reader_properties()}}}
 
 \item{as_tibble}{Should the \link[=arrow__Table]{arrow::Table} be converted to a
 tibble? Default is \code{TRUE}.}
 
-\item{...}{Additional arguments, currently ignored}
+\item{...}{additional parameters}
 }
 \value{
 A \link[=arrow__Table]{arrow::Table}, or a \code{tbl_df} if \code{as_tibble} is
