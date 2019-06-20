@@ -859,7 +859,7 @@ License: Zope Public License (ZPL) Version 2.1.
 
 This project include code from Google's Asylo project.
 
-* cpp/src/arrow/error_or*.h is based on status_or.h
+* cpp/src/arrow/result.h is based on status_or.h
 
 Copyright (c)  Copyright 2017 Asylo authors
 Homepage: https://asylo.dev/ 
@@ -869,7 +869,7 @@ License: Apache 2.0
 
 This project includes code from Google's protobuf project
 
-* cpp/src/arrow/error_or ASSIGN_OR_RAISE is based off ASSIGN_OR_RETURN
+* cpp/src/arrow/result.h ARROW_ASSIGN_OR_RAISE is based off ASSIGN_OR_RETURN
 
 Copyright 2008 Google Inc.  All rights reserved.
 Homepage: https://developers.google.com/protocol-buffers/ 

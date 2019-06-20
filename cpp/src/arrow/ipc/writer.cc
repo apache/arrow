@@ -27,7 +27,6 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/error_or_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
@@ -37,6 +36,7 @@
 #include "arrow/ipc/util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/result_internal.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -1164,7 +1164,7 @@ Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
   return Status::OK();
 }
 
-ErrorOr<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
   // ctor is private
   auto result = std::shared_ptr<RecordBatchStreamWriter>(new RecordBatchStreamWriter());
@@ -1185,7 +1185,7 @@ Status RecordBatchFileWriter::Open(io::OutputStream* sink,
   return Status::OK();
 }
 
-ErrorOr<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
   // ctor is private
   auto result = std::shared_ptr<RecordBatchFileWriter>(new RecordBatchFileWriter());
@@ -1209,7 +1209,7 @@ Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
   return Status::OK();
 }
 
-ErrorOr<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
+Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
     std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema) {
   // XXX should we call Start()?
   return std::unique_ptr<RecordBatchWriter>(

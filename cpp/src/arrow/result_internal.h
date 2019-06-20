@@ -15,7 +15,7 @@
 //
 #pragma once
 
-#include "arrow/error_or.h"
+#include "arrow/result.h"
 
 #ifndef ASSIGN_OR_RAISE
 #define ASSIGN_OR_RAISE(lhs, rhs) ARROW_ASSIGN_OR_RAISE(lhs, rhs)

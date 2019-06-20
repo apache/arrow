@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/error_or.h"
+#include "arrow/result.h"
 
 #include <string>
 

@@ -24,8 +24,8 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/error_or.h"
 #include "arrow/ipc/message.h"
+#include "arrow/result.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -109,8 +109,8 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   ///
   /// \param[in] sink output stream to write to
   /// \param[in] schema the schema of the record batches to be written
-  /// \return ErrorOr<std::shared_ptr<RecordBatchWriter>>
-  static ErrorOr<std::shared_ptr<RecordBatchWriter>> Open(
+  /// \return Result<std::shared_ptr<RecordBatchWriter>>
+  static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
   /// \brief Write a record batch to the stream
@@ -155,7 +155,7 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \param[in] sink output stream to write to
   /// \param[in] schema the schema of the record batches to be written
   /// \return Status
-  static ErrorOr<std::shared_ptr<RecordBatchWriter>> Open(
+  static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
 
   /// \brief Write a record batch to the file
@@ -354,9 +354,9 @@ Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
 ///
 /// \param[in] sink the IpcPayloadWriter to write to
 /// \param[in] schema the schema of the record batches to be written
-/// \return ErrorOr<std::unique_ptr<RecordBatchWriter>>
+/// \return Result<std::unique_ptr<RecordBatchWriter>>
 ARROW_EXPORT
-ErrorOr<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
+Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
     std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema);
 
 /// \brief Compute IpcPayload for the given schema
