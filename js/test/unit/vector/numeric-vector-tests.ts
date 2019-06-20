@@ -25,7 +25,7 @@ import {
     Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
 } from '../../Arrow';
 
-import { Vector as V } from '../../../src/interfaces';
+import { VectorType as V } from '../../../src/interfaces';
 import { TypedArray, TypedArrayConstructor } from '../../../src/interfaces';
 import { BigIntArray, BigIntArrayConstructor } from '../../../src/interfaces';
 
@@ -183,6 +183,7 @@ describe(`IntVector`, () => {
             const values = valuesArray(Int32Array);
             const vector = Int64Vector.from(values);
             testAndValidateVector(vector, valuesTyped(Int32Array), values);
+            testAndValidateVector(vector, valuesTyped(Int32Array), bigIntValuesArray(BigInt64Array));
             test(`return type is correct`, () => checkType(Int64Vector, vector));
         });
     });
@@ -220,6 +221,7 @@ describe(`IntVector`, () => {
             const values = valuesArray(Uint32Array);
             const vector = Uint64Vector.from(values);
             testAndValidateVector(vector, valuesTyped(Uint32Array), values);
+            testAndValidateVector(vector, valuesTyped(Uint32Array), bigIntValuesArray(BigUint64Array));
             test(`return type is correct`, () => checkType(Uint64Vector, vector));
         });
     });
@@ -306,7 +308,7 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
     });
 }
 
-function testAndValidateVector<T extends Int | Float>(vector: V<T>, typed: T['TArray'], values = [...typed]) {
+function testAndValidateVector<T extends Int | Float>(vector: Vector<T>, typed: T['TArray'], values: any[] = [...typed]) {
     gets_expected_values(vector, typed, values);
     iterates_expected_values(vector, typed, values);
     indexof_returns_expected_values(vector, typed, values);
@@ -318,7 +320,7 @@ function testAndValidateVector<T extends Int | Float>(vector: V<T>, typed: T['TA
     slices_the_array_from_0_to_length_plus_20(vector, typed);
 }
 
-function gets_expected_values<T extends Int | Float>(vector: V<T>, typed: T['TArray'], values = [...typed]) {
+function gets_expected_values<T extends Int | Float>(vector: Vector<T>, typed: T['TArray'], values: any[] = [...typed]) {
     test(`gets expected values`, () => {
         expect.hasAssertions();
         let i = -1, n = vector.length;
@@ -338,14 +340,14 @@ function gets_expected_values<T extends Int | Float>(vector: V<T>, typed: T['TAr
                 const ArrayType = (vector as Vector<Int64 | Uint64>).ArrayType;
                 const i64 = () => new ArrayType(values.slice(stride * i, stride * (i + 1)));
                 while (++i < n) {
-                    expect(vector64.get(i)!.subarray(0, stride)).toEqual(i64());
+                    expect((vector64.get(i) as any).subarray(0, stride)).toEqual(i64());
                 }
             }
         } catch (e) { throw new Error(`${i}: ${e}`); }
     });
 }
 
-function iterates_expected_values<T extends Int | Float>(vector: V<T>, typed: T['TArray'], values = [...typed]) {
+function iterates_expected_values<T extends Int | Float>(vector: Vector<T>, typed: T['TArray'], values: any[] = [...typed]) {
     test(`iterates expected values`, () => {
         expect.hasAssertions();
         let i = -1, n = vector.length;
@@ -369,14 +371,14 @@ function iterates_expected_values<T extends Int | Float>(vector: V<T>, typed: T[
                 const i64 = () => new ArrayType(values.slice(stride * i, stride * (i + 1)));
                 for (let v of vector64) {
                     expect(++i).toBeLessThan(n);
-                    expect(v!.subarray(0, stride)).toEqual(i64());
+                    expect((v as any).subarray(0, stride)).toEqual(i64());
                 }
             }
         } catch (e) { throw new Error(`${i}: ${e}`); }
     });
 }
 
-function indexof_returns_expected_values<T extends Int | Float>(vector: V<T>, typed: T['TArray'], values: any = [...typed]) {
+function indexof_returns_expected_values<T extends Int | Float>(vector: Vector<T>, typed: T['TArray'], values: any = [...typed]) {
     test(`indexOf returns expected values`, () => {
 
         expect.hasAssertions();
@@ -406,65 +408,79 @@ function indexof_returns_expected_values<T extends Int | Float>(vector: V<T>, ty
                 (_, i) => missing.slice(stride * i, stride * (i + 1)));
         }
 
+        const original = values.slice();
         // Combine with the expected values and shuffle the order
         const shuffled = shuffle(values.concat([...missing]));
-
-        let i = -1, n = shuffled.length;
+        let i = -1, j: number, k: number, n = shuffled.length;
 
         try {
             if (!isBigInt) {
-                while (++i < n) { expect(vector.indexOf(shuffled[i])) .toEqual(values.indexOf(shuffled[i])); }
+                while (++i < n) {
+                    const search = shuffled[i];
+                    if (typeof search !== 'number' || !isNaN(search)) {
+                        expect(vector.indexOf(search)).toEqual(original.indexOf(search));
+                    } else {
+                        for (j = -1, k = original.length; ++j < k;) {
+                            if (isNaN(original[j])) { break; }
+                        }
+                        expect(vector.indexOf(search)).toEqual(j < k ? j : -1);
+                    }
+                }
             } else {
                 // Distinguish the bigint comparisons to ensure the indexOf type signature accepts bigints
                 let shuffled64 = shuffled as bigint[];
                 if (isInt64) {
-                    let vector64 = vector as Int64Vector;
-                    while (++i < n) { expect(vector64.indexOf(shuffled64[i])).toEqual(values.indexOf(shuffled64[i])); }
+                    let vector64 = (<unknown> vector) as Int64Vector;
+                    while (++i < n) {
+                        expect(vector64.indexOf(shuffled64[i])).toEqual(original.indexOf(shuffled64[i]));
+                    }
                 } else {
-                    let vector64 = vector as Uint64Vector;
-                    while (++i < n) { expect(vector64.indexOf(shuffled64[i])).toEqual(values.indexOf(shuffled64[i])); }
+                    let vector64 = (<unknown> vector) as Uint64Vector;
+                    while (++i < n) {
+                        expect(vector64.indexOf(shuffled64[i])).toEqual(original.indexOf(shuffled64[i]));
+                    }
                 }
             }
-        } catch (e) { throw new Error(`${i}: ${e}`); }
+        } catch (e) { throw new Error(`${i} (${shuffled[i]}): ${e}`); }
     });
 }
 
-function slice_returns_a_typedarray<T extends Int | Float>(vector: V<T>) {
+function slice_returns_a_typedarray<T extends Int | Float>(vector: Vector<T>) {
     test(`slice returns a TypedArray`, () => {
         expect.hasAssertions();
         expect(vector.slice().toArray()).toBeInstanceOf(vector.ArrayType);
     });
 }
 
-function slices_the_entire_array<T extends Int | Float>(vector: V<T>, values: T['TArray']) {
+function slices_the_entire_array<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices the entire array`, () => {
         expect.hasAssertions();
         expect(vector.slice().toArray()).toEqual(values);
     });
 }
 
-function slices_from_minus_20_to_length<T extends Int | Float>(vector: V<T>, values: T['TArray']) {
+function slices_from_minus_20_to_length<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices from -20 to length`, () => {
         expect.hasAssertions();
         expect(vector.slice(-20).toArray()).toEqual(values.slice(-(20 * vector.stride)));
     });
 }
 
-function slices_from_0_to_minus_20<T extends Int | Float>(vector: V<T>, values: T['TArray']) {
+function slices_from_0_to_minus_20<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices from 0 to -20`, () => {
         expect.hasAssertions();
         expect(vector.slice(0, -20).toArray()).toEqual(values.slice(0, -(20 * vector.stride)));
     });
 }
 
-function slices_the_array_from_0_to_length_minus_20 <T extends Int | Float>(vector: V<T>, values: T['TArray']) {
+function slices_the_array_from_0_to_length_minus_20 <T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices the array from 0 to length - 20`, () => {
         expect.hasAssertions();
         expect(vector.slice(0, vector.length - 20).toArray()).toEqual(values.slice(0, values.length - (20 * vector.stride)));
     });
 }
 
-function slices_the_array_from_0_to_length_plus_20<T extends Int | Float>(vector: V<T>, values: T['TArray']) {
+function slices_the_array_from_0_to_length_plus_20<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices the array from 0 to length + 20`, () => {
         expect.hasAssertions();
         expect(vector.slice(0, vector.length + 20).toArray()).toEqual(values.slice(0, values.length + (20 * vector.stride)));

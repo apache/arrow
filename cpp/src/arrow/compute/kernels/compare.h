@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/compute/kernel.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -31,8 +32,67 @@ class Status;
 namespace compute {
 
 struct Datum;
-class FilterFunction;
 class FunctionContext;
+
+/// CompareFunction is an interface for Comparisons
+///
+/// Comparisons take an array and emits a selection vector. The selection vector
+/// is given in the form of a bitmask as a BooleanArray result.
+class ARROW_EXPORT CompareFunction {
+ public:
+  /// Compare an array with a scalar argument.
+  virtual Status Compare(const ArrayData& array, const Scalar& scalar,
+                         ArrayData* output) const = 0;
+
+  Status Compare(const ArrayData& array, const Scalar& scalar,
+                 std::shared_ptr<ArrayData>* output) {
+    return Compare(array, scalar, output->get());
+  }
+
+  virtual Status Compare(const Scalar& scalar, const ArrayData& array,
+                         ArrayData* output) const = 0;
+
+  Status Compare(const Scalar& scalar, const ArrayData& array,
+                 std::shared_ptr<ArrayData>* output) {
+    return Compare(scalar, array, output->get());
+  }
+
+  /// Compare an array with an array argument.
+  virtual Status Compare(const ArrayData& lhs, const ArrayData& rhs,
+                         ArrayData* output) const = 0;
+
+  Status Compare(const ArrayData& lhs, const ArrayData& rhs,
+                 std::shared_ptr<ArrayData>* output) {
+    return Compare(lhs, rhs, output->get());
+  }
+
+  /// By default, CompareFunction emits a result bitmap.
+  virtual std::shared_ptr<DataType> out_type() const { return boolean(); }
+
+  virtual ~CompareFunction() {}
+};
+
+/// \brief BinaryKernel bound to a select function
+class ARROW_EXPORT CompareBinaryKernel : public BinaryKernel {
+ public:
+  explicit CompareBinaryKernel(std::shared_ptr<CompareFunction>& select)
+      : compare_function_(select) {}
+
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out) override;
+
+  static int64_t out_length(const Datum& left, const Datum& right) {
+    if (left.kind() == Datum::ARRAY) return left.length();
+    if (right.kind() == Datum::ARRAY) return right.length();
+
+    return 0;
+  }
+
+  std::shared_ptr<DataType> out_type() const override;
+
+ private:
+  std::shared_ptr<CompareFunction> compare_function_;
+};
 
 enum CompareOperator {
   EQUAL,
@@ -82,7 +142,7 @@ struct CompareOptions {
   enum CompareOperator op;
 };
 
-/// \brief Return a Compare FilterFunction
+/// \brief Return a Compare CompareFunction
 ///
 /// \param[in] context FunctionContext passing context information
 /// \param[in] type required to specialize the kernel
@@ -91,9 +151,9 @@ struct CompareOptions {
 /// \since 0.14.0
 /// \note API not yet finalized
 ARROW_EXPORT
-std::shared_ptr<FilterFunction> MakeCompareFilterFunction(FunctionContext* context,
-                                                          const DataType& type,
-                                                          struct CompareOptions options);
+std::shared_ptr<CompareFunction> MakeCompareFunction(FunctionContext* context,
+                                                     const DataType& type,
+                                                     struct CompareOptions options);
 
 /// \brief Compare a numeric array with a scalar.
 ///

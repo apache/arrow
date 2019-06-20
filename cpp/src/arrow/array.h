@@ -220,6 +220,14 @@ struct ARROW_EXPORT ArrayData {
 ARROW_EXPORT
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 
+/// \brief Create a strongly-typed Array instance with all elements null
+/// \param[in] type the array type
+/// \param[in] length the array length
+/// \param[out] out resulting Array instance
+ARROW_EXPORT
+Status MakeArrayOfNull(const std::shared_ptr<DataType>& type, int64_t length,
+                       std::shared_ptr<Array>* out);
+
 // ----------------------------------------------------------------------
 // User array accessor types
 
@@ -521,11 +529,14 @@ class ARROW_EXPORT ListArray : public Array {
   /// Return pointer to raw value offsets accounting for any slice offset
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
 
-  // Neither of these functions will perform boundschecking
+  // The following functions will not perform boundschecking
   int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
   int32_t value_length(int64_t i) const {
     i += data_->offset;
     return raw_value_offsets_[i + 1] - raw_value_offsets_[i];
+  }
+  std::shared_ptr<Array> value_slice(int64_t i) const {
+    return values_->Slice(value_offset(i), value_length(i));
   }
 
  protected:
@@ -596,12 +607,15 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
 
   std::shared_ptr<DataType> value_type() const;
 
-  // Neither of these functions will perform boundschecking
+  // The following functions will not perform boundschecking
   int32_t value_offset(int64_t i) const {
     i += data_->offset;
     return static_cast<int32_t>(list_size_ * i);
   }
   int32_t value_length(int64_t i = 0) const { return list_size_; }
+  std::shared_ptr<Array> value_slice(int64_t i) const {
+    return values_->Slice(value_offset(i), value_length(i));
+  }
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export { ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, VectorType } from './enum';
+export { ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType } from './enum';
 export { Data } from './data';
 export {
     DataType,
@@ -41,8 +41,8 @@ export {
 
 export { Table } from './table';
 export { Column } from './column';
-export { Schema, Field } from './schema';
 export { Visitor } from './visitor';
+export { Schema, Field } from './schema';
 export {
     Row,
     Vector,
@@ -68,6 +68,28 @@ export {
     Utf8Vector,
 } from './vector/index';
 
+export {
+    Builder,
+    BinaryBuilder,
+    BoolBuilder,
+    DateBuilder, DateDayBuilder, DateMillisecondBuilder,
+    DecimalBuilder,
+    DictionaryBuilder,
+    FixedSizeBinaryBuilder,
+    FixedSizeListBuilder,
+    FloatBuilder, Float16Builder, Float32Builder, Float64Builder,
+    IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder,
+    IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder,
+    ListBuilder,
+    MapBuilder,
+    NullBuilder,
+    StructBuilder,
+    TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder,
+    TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
+    UnionBuilder, DenseUnionBuilder, SparseUnionBuilder,
+    Utf8Builder,
+} from './builder/index';
+
 export { ByteStream, AsyncByteStream, AsyncByteQueue, ReadableSource, WritableSink } from './io/stream';
 export { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader } from './ipc/reader';
 export { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter } from './ipc/writer';
@@ -77,6 +99,7 @@ export { RecordBatch } from './recordbatch';
 export { ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions } from './io/interfaces';
 export { DataFrame, FilteredDataFrame, CountByResult, BindFunc, NextFunc } from './compute/dataframe';
 
+import * as util_bn_ from './util/bn';
 import * as util_int_ from './util/int';
 import * as util_bit_ from './util/bit';
 import * as util_buffer_ from './util/buffer';
@@ -86,6 +109,7 @@ import * as predicate from './compute/predicate';
 export { predicate };
 /** @ignore */
 export const util = {
+    ...util_bn_,
     ...util_int_,
     ...util_bit_,
     ...util_buffer_,

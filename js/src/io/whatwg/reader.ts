@@ -35,7 +35,7 @@ export function recordBatchReaderThroughDOMStream<T extends { [key: string]: Dat
     return { writable: new WritableStream(queue, { 'highWaterMark': 2 ** 14, ...writableStrategy }), readable };
 
     async function open() {
-        return await (await RecordBatchReader.from(queue)).open(readableStrategy);
+        return await (await RecordBatchReader.from<T>(queue)).open(readableStrategy);
     }
 
     async function next(controller: ReadableStreamDefaultController<RecordBatch<T>>, reader: RecordBatchReader<T>) {

@@ -20,76 +20,74 @@
 #include <memory>
 
 #include "arrow/compute/kernel.h"
+#include "arrow/status.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class Array;
-struct Scalar;
-class Status;
 
 namespace compute {
 
 class FunctionContext;
-struct Datum;
 
-/// FilterFunction is an interface for Filters
+/// \brief Filter an array with a boolean selection filter
 ///
-/// Filters takes an array and emits a selection vector. The selection vector
-/// is given in the form of a bitmask as a BooleanArray result.
-class ARROW_EXPORT FilterFunction {
+/// The output array will be populated with values from the input at positions
+/// where the selection filter is not 0. Nulls in the filter will result in nulls
+/// in the output.
+///
+/// For example given values = ["a", "b", "c", null, "e", "f"] and
+/// filter = [0, 1, 1, 0, null, 1], the output will be
+/// = ["b", "c", null, "f"]
+///
+/// \param[in] context the FunctionContext
+/// \param[in] values array to filter
+/// \param[in] filter indicates which values should be filtered out
+/// \param[out] out resulting array
+ARROW_EXPORT
+Status Filter(FunctionContext* context, const Array& values, const Array& filter,
+              std::shared_ptr<Array>* out);
+
+/// \brief Filter an array with a boolean selection filter
+///
+/// \param[in] context the FunctionContext
+/// \param[in] values datum to filter
+/// \param[in] filter indicates which values should be filtered out
+/// \param[out] out resulting datum
+ARROW_EXPORT
+Status Filter(FunctionContext* context, const Datum& values, const Datum& filter,
+              Datum* out);
+
+/// \brief BinaryKernel implementing Filter operation
+class ARROW_EXPORT FilterKernel : public BinaryKernel {
  public:
-  /// Filter an array with a scalar argument.
-  virtual Status Filter(const ArrayData& array, const Scalar& scalar,
-                        ArrayData* output) const = 0;
+  explicit FilterKernel(const std::shared_ptr<DataType>& type) : type_(type) {}
 
-  Status Filter(const ArrayData& array, const Scalar& scalar,
-                std::shared_ptr<ArrayData>* output) {
-    return Filter(array, scalar, output->get());
-  }
-
-  virtual Status Filter(const Scalar& scalar, const ArrayData& array,
-                        ArrayData* output) const = 0;
-
-  Status Filter(const Scalar& scalar, const ArrayData& array,
-                std::shared_ptr<ArrayData>* output) {
-    return Filter(scalar, array, output->get());
-  }
-
-  /// Filter an array with an array argument.
-  virtual Status Filter(const ArrayData& lhs, const ArrayData& rhs,
-                        ArrayData* output) const = 0;
-
-  Status Filter(const ArrayData& lhs, const ArrayData& rhs,
-                std::shared_ptr<ArrayData>* output) {
-    return Filter(lhs, rhs, output->get());
-  }
-
-  /// By default, FilterFunction emits a result bitmap.
-  virtual std::shared_ptr<DataType> out_type() const { return boolean(); }
-
-  virtual ~FilterFunction() {}
-};
-
-/// \brief BinaryKernel bound to a filter function
-class ARROW_EXPORT FilterBinaryKernel : public BinaryKernel {
- public:
-  explicit FilterBinaryKernel(std::shared_ptr<FilterFunction>& filter)
-      : filter_function_(filter) {}
-
-  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+  /// \brief BinaryKernel interface
+  ///
+  /// delegates to subclasses via Filter()
+  Status Call(FunctionContext* ctx, const Datum& values, const Datum& filter,
               Datum* out) override;
 
-  static int64_t out_length(const Datum& left, const Datum& right) {
-    if (left.kind() == Datum::ARRAY) return left.length();
-    if (right.kind() == Datum::ARRAY) return right.length();
+  /// \brief output type of this kernel (identical to type of values filtered)
+  std::shared_ptr<DataType> out_type() const override { return type_; }
 
-    return 0;
-  }
+  /// \brief factory for FilterKernels
+  ///
+  /// \param[in] value_type constructed FilterKernel will support filtering
+  ///            values of this type
+  /// \param[out] out created kernel
+  static Status Make(const std::shared_ptr<DataType>& value_type,
+                     std::unique_ptr<FilterKernel>* out);
 
-  std::shared_ptr<DataType> out_type() const override;
+  /// \brief single-array implementation
+  virtual Status Filter(FunctionContext* ctx, const Array& values,
+                        const BooleanArray& filter, int64_t length,
+                        std::shared_ptr<Array>* out) = 0;
 
- private:
-  std::shared_ptr<FilterFunction> filter_function_;
+ protected:
+  std::shared_ptr<DataType> type_;
 };
 
 }  // namespace compute

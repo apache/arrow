@@ -93,6 +93,10 @@ class ARROW_EXPORT ExtensionArray : public Array {
   ExtensionArray(const std::shared_ptr<DataType>& type,
                  const std::shared_ptr<Array>& storage);
 
+  const ExtensionType* extension_type() const {
+    return internal::checked_cast<const ExtensionType*>(data_->type.get());
+  }
+
   /// \brief The physical storage for the extension array
   std::shared_ptr<Array> storage() const { return storage_; }
 

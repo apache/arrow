@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+
+# generate code
+if [ "$ARROW_R_DEV" == "TRUE" ]; then
+  echo "*** Generating code with data-raw/codegen.R"
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R
+fi
+
+VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
+# Try to find/download a C++ Arrow binary
+"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION
+# If binary not found, script exits nonzero
+if [ $? -ne 0 ]; then
+  # We'll have to install without libarrow. Note to the user how to rectify.
+  echo "------------------------- NOTE ---------------------------"
+  echo "After installation, please run arrow::install_arrow() to install"
+  echo "required runtime libraries"
+  echo "---------------------------------------------------------"
+else
+  # Set the right flags to point to and enable arrow/parquet
+  RWINLIB="../windows/arrow-${VERSION}"
+  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_R_WITH_PARQUET -DARROW_R_WITH_ARROW"
+  PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lz -lws2_32"
+fi
+
+echo "*** Writing Makevars.win"
+sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars.win
+# Success
+exit 0

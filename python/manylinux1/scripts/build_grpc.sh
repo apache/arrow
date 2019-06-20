@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,24 +16,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-VERSION = 0.13.0.9000
-RWINLIB = ../windows/arrow-$(VERSION)
-PKG_CPPFLAGS = -I$(RWINLIB)/include -DARROW_STATIC -DPARQUET_STATIC \
-	-DARROW_R_WITH_PARQUET
-CXX_STD = CXX11
+export GRPC_VERSION="1.20.0"
+export CFLAGS="-fPIC -DGPR_MANYLINUX1=1"
+export PREFIX="/usr"
 
-PKG_LIBS = \
-	-L$(RWINLIB)/lib$(subst gcc,,$(COMPILED_BY))$(R_ARCH) \
-	-L$(RWINLIB)/lib$(R_ARCH) \
-	-lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lz -lws2_32
+curl -sL "https://github.com/grpc/grpc/archive/v${GRPC_VERSION}.tar.gz" -o grpc-${GRPC_VERSION}.tar.gz
+tar xf grpc-${GRPC_VERSION}.tar.gz
+pushd grpc-${GRPC_VERSION}
 
-#all: clean
-all: $(SHLIB)
-
-$(OBJECTS): winlibs
-
-winlibs:
-	"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "../tools/winlibs.R" $(VERSION)
-
-clean:
-	rm -f $(SHLIB) $(OBJECTS)
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DBUILD_SHARED_LIBS=OFF \
+      -DCMAKE_C_FLAGS="${CFLAGS}" \
+      -DCMAKE_CXX_FLAGS="${CFLAGS}" \
+      -DgRPC_CARES_PROVIDER=package \
+      -DgRPC_GFLAGS_PROVIDER=package \
+      -DgRPC_PROTOBUF_PROVIDER=package \
+      -DgRPC_SSL_PROVIDER=package \
+      -DgRPC_ZLIB_PROVIDER=package \
+      -DOPENSSL_USE_STATIC_LIBS=ON \
+      -GNinja .
+ninja install
+popd
+rm -rf grpc-${GRPC_VERSION}.tar.gz grpc-${GRPC_VERSION}

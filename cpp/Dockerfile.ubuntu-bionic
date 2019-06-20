@@ -82,7 +82,13 @@ ENV CC=gcc \
      ARROW_PARQUET=ON \
      ARROW_HOME=/usr \
      ARROW_WITH_ZSTD=ON \
-     CMAKE_ARGS="-DThrift_SOURCE=BUNDLED -DFlatbuffers_SOURCE=BUNDLED -DGTest_SOURCE=BUNDLED -DgRPC_SOURCE=BUNDLED -Dc-ares_SOURCE=BUNDLED -DProtobuf_SOURCE=BUNDLED"
+     CMAKE_ARGS="-DThrift_SOURCE=BUNDLED \
+-DFlatbuffers_SOURCE=BUNDLED \
+-DGTest_SOURCE=BUNDLED \
+-DgRPC_SOURCE=BUNDLED \
+-Dc-ares_SOURCE=BUNDLED \
+-DORC_SOURCE=BUNDLED \
+-DProtobuf_SOURCE=BUNDLED"
 
 # build and test
 CMD ["arrow/ci/docker_build_and_test_cpp.sh"]

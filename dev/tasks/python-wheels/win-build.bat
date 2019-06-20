@@ -20,17 +20,15 @@
 @rem create conda environment for compiling
 conda update --yes --quiet conda
 
-conda create -n arrow -q -y python=%PYTHON_VERSION% ^
-      six pytest setuptools numpy=%NUMPY_VERSION% pandas
+call conda create -n wheel-build -q -y -c conda-forge ^
+    --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
+    --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
+    --file=%ARROW_SRC%\ci\conda_env_python.yml ^
+    python=%PYTHON_VERSION% ^
+    numpy=%NUMPY_VERSION% ^
+    || exit /B
 
-conda install -n arrow -q -y -c conda-forge ^
-      git flatbuffers rapidjson ^
-      cmake ^
-      boost-cpp thrift-cpp ^
-      gflags snappy zlib zstd lz4-c double-conversion ^
-      llvmdev=7 libprotobuf
-
-call activate arrow
+call activate wheel-build
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
@@ -45,44 +43,47 @@ cmake -G "%GENERATOR%" ^
       -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_TESTS=OFF ^
       -DCMAKE_BUILD_TYPE=Release ^
-      -DBrotli_SOURCE=BUNDLED ^
-      -DRE2_SOURCE=BUNDLED ^
+      -DARROW_DEPENDENCY_SOURCE=CONDA ^
+      -DOPENSSL_ROOT_DIR=%CONDA_PREFIX%/Library ^
       -DARROW_CXXFLAGS="/MP" ^
+      -DARROW_FLIGHT=ON ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
-      ..  || exit /B
-cmake --build . --target INSTALL --config Release  || exit /B
+      .. || exit /B
+cmake --build . --target install --config Release || exit /B
 popd
 
-pushd %ARROW_SRC%\python
 set PYARROW_BUILD_TYPE=Release
-@rem Gandiva is not supported on Python 2.7, but We don't build 2.7 wheel for windows
+set PYARROW_PARALLEL=8
+@rem Flight and Gandiva are not supported on Python 2.7,
+@rem but we don't build 2.7 wheels for Windows.
+set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_GANDIVA=1
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_STATIC_BOOST=1
 set PYARROW_BUNDLE_ARROW_CPP=1
 set SETUPTOOLS_SCM_PRETEND_VERSION=%PYARROW_VERSION%
 
-@rem Newer Cython versions are not available on conda-forge
-pip install -U pip
-pip install "Cython>=0.29"
-
-python setup.py build_ext bdist_wheel || exit /B
+pushd %ARROW_SRC%\python
+python setup.py bdist_wheel || exit /B
 popd
 
 call deactivate
 
+set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
+
 @rem test the wheel
-conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
-      numpy=%NUMPY_VERSION% pandas pytest hypothesis
+@rem TODO For maximum reliability, we should test in a plain virtualenv instead.
+call conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
+      numpy=%NUMPY_VERSION% pandas pytest hypothesis || exit /B
 call activate wheel-test
 
 @rem install the built wheel
-pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow
+pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
 
 @rem test the imports
-python -c "import pyarrow; import pyarrow.parquet; import pyarrow.gandiva;" || exit /B
+python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.gandiva;" || exit /B
 
 @rem run the python tests
 pytest --pyargs pyarrow || exit /B

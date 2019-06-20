@@ -47,4 +47,16 @@ std::shared_ptr<arrow::Table> read_parquet_file(std::string filename) {
 #endif
 }
 
+// [[arrow::export]]
+void write_parquet_file(const std::shared_ptr<arrow::Table>& table,
+                        std::string filename) {
+#ifdef ARROW_R_WITH_PARQUET
+  std::shared_ptr<arrow::io::OutputStream> sink;
+  PARQUET_THROW_NOT_OK(arrow::io::FileOutputStream::Open(filename, &sink));
+  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, arrow::default_memory_pool(),
+                                                  sink, table->num_rows()));
+#else
+  Rcpp::stop("Support for Parquet is not available.");
+#endif
+}
 #endif

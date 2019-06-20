@@ -222,6 +222,23 @@ services:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-xenial-volumes
 
+  cpp-minimum-boost-version:
+    # Ubuntu Xenial 16.04 has Boost 1.58, our minimum version
+    #
+    # Usage:
+    #   docker-compose build cpp-minimum-boost-version
+    #   docker-compose run cpp-minimum-boost-version
+    image: arrow:cpp-ubuntu-xenial
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile.ubuntu-xenial
+    environment:
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+      ARROW_BOOST_VENDORED: "OFF"
+      ARROW_FLIGHT: "OFF"
+    volumes: *ubuntu-xenial-volumes
+
   cpp-ubuntu-bionic:
     # Usage:
     #   docker-compose build cpp-ubuntu-bionic
@@ -404,7 +421,7 @@ services:
     #     $ docker-compose pull python-manylinux1
     #   an then run:
     #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
-    image: quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
+    image: quay.io/ursa-labs/arrow_manylinux1_x86_64_base:latest
     build:
       context: python/manylinux1
       dockerfile: Dockerfile-x86_64_base

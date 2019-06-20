@@ -25,12 +25,25 @@ RUN /build_zlib.sh
 ADD scripts/build_openssl.sh /
 RUN /build_openssl.sh
 
-ADD scripts/build_boost.sh /
-RUN /build_boost.sh
-
 # Install cmake manylinux1 package
 ADD scripts/install_cmake.sh /
 RUN /install_cmake.sh
+
+ADD scripts/build_gflags.sh /
+RUN /build_gflags.sh
+
+ADD scripts/build_protobuf.sh /
+RUN /build_protobuf.sh
+ENV PROTOBUF_HOME /usr
+
+ADD scripts/build_cares.sh /
+RUN /build_cares.sh
+
+ADD scripts/build_grpc.sh /
+RUN /build_grpc.sh
+
+ADD scripts/build_boost.sh /
+RUN /build_boost.sh
 
 ADD scripts/build_gtest.sh /
 RUN /build_gtest.sh
@@ -66,10 +79,6 @@ ENV ZSTD_HOME /usr
 ADD scripts/build_ccache.sh /
 RUN /build_ccache.sh
 
-ADD scripts/build_protobuf.sh /
-RUN /build_protobuf.sh
-ENV PROTOBUF_HOME /usr
-
 ADD scripts/build_glog.sh /
 RUN /build_glog.sh
 ENV GLOG_HOME /usr
@@ -95,5 +104,5 @@ RUN /build_rapidjson.sh
 ADD scripts/build_re2.sh /
 RUN /build_re2.sh
 
-ADD scripts/build_gflags.sh /
-RUN /build_gflags.sh
+ADD scripts/build_uriparser.sh /
+RUN /build_uriparser.sh

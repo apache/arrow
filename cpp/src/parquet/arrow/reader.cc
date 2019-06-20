@@ -1613,7 +1613,11 @@ Status PrimitiveImpl::NextBatch(int64_t records_to_read,
           TRANSFER_DATA(::arrow::TimestampType, Int64Type);
         } break;
         case ::arrow::TimeUnit::NANO: {
-          TRANSFER_DATA(::arrow::TimestampType, Int96Type);
+          if (descr_->physical_type() == ::parquet::Type::INT96) {
+            TRANSFER_DATA(::arrow::TimestampType, Int96Type);
+          } else {
+            TRANSFER_DATA(::arrow::TimestampType, Int64Type);
+          }
         } break;
         default:
           return Status::NotImplemented("TimeUnit not supported");

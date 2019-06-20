@@ -16,21 +16,23 @@
 // under the License.
 
 import { Data } from '../data';
-import { AbstractVector, Vector } from '../vector';
+import { Type } from '../enum';
 import { DataType } from '../type';
 import { Chunked } from './chunked';
 import { clampRange } from '../util/vector';
-import { Vector as VType } from '../interfaces';
-import { Clonable, Sliceable, Applicative } from '../vector';
+import { VectorType as V } from '../interfaces';
+import { AbstractVector, Vector, Clonable, Sliceable, Applicative } from '../vector';
 
-export interface BaseVector<T extends DataType = any> extends Clonable<VType<T>>, Sliceable<VType<T>>, Applicative<T, Chunked<T>> {
-    slice(begin?: number, end?: number): VType<T>;
+/** @ignore */
+export interface BaseVector<T extends DataType = any> extends Clonable<V<T>>, Sliceable<V<T>>, Applicative<T, Chunked<T>> {
+    slice(begin?: number, end?: number): V<T>;
     concat(...others: Vector<T>[]): Chunked<T>;
-    clone<R extends DataType = T>(data: Data<R>, children?: Vector<R>[]): VType<R>;
+    clone<R extends DataType = T>(data: Data<R>, children?: Vector<R>[]): V<R>;
 }
 
+/** @ignore */
 export abstract class BaseVector<T extends DataType = any> extends AbstractVector<T>
-    implements Clonable<VType<T>>, Sliceable<VType<T>>, Applicative<T, Chunked<T>> {
+    implements Clonable<V<T>>, Sliceable<V<T>>, Applicative<T, Chunked<T>> {
 
     protected _children?: Vector[];
 
@@ -50,9 +52,10 @@ export abstract class BaseVector<T extends DataType = any> extends AbstractVecto
     public get offset() { return this.data.offset; }
     public get stride() { return this.data.stride; }
     public get nullCount() { return this.data.nullCount; }
-    public get VectorName() { return this.constructor.name; }
+    public get byteLength() { return this.data.byteLength; }
+    public get VectorName() { return `${Type[this.typeId]}Vector`; }
 
-    public get ArrayType(): T['ArrayType'] { return this.data.ArrayType; }
+    public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }
 
     public get values() { return this.data.values; }
     public get typeIds() { return this.data.typeIds; }
@@ -93,7 +96,6 @@ export abstract class BaseVector<T extends DataType = any> extends AbstractVecto
         ) as Vector<R>;
     }
 
-    // @ts-ignore
     public toJSON(): any { return [...this]; }
 
     protected _sliceInternal(self: this, begin: number, end: number) {

@@ -95,14 +95,16 @@ export function toArrayBufferView(ArrayBufferViewCtor: any, input: ArrayBufferVi
 
     let value: any = isIteratorResult(input) ? input.value : input;
 
-    if (!value) { return new ArrayBufferViewCtor(0); }
-    if (typeof value === 'string') { value = encodeUtf8(value); }
     if (value instanceof ArrayBufferViewCtor) {
-        return value.constructor === ArrayBufferViewCtor ? value :
+        if (ArrayBufferViewCtor === Uint8Array) {
             // Node's `Buffer` class passes the `instanceof Uint8Array` check, but we need
             // a real Uint8Array, since Buffer#slice isn't the same as Uint8Array#slice :/
-            new ArrayBufferViewCtor(value.buffer, value.byteOffset, value.byteLength / ArrayBufferViewCtor.BYTES_PER_ELEMENT);
+            return new ArrayBufferViewCtor(value.buffer, value.byteOffset, value.byteLength);
+        }
+        return value;
     }
+    if (!value) { return new ArrayBufferViewCtor(0); }
+    if (typeof value === 'string') { value = encodeUtf8(value); }
     if (value instanceof ArrayBuffer) { return new ArrayBufferViewCtor(value); }
     if (value instanceof SharedArrayBuf) { return new ArrayBufferViewCtor(value); }
     if (value instanceof ByteBuffer) { return toArrayBufferView(ArrayBufferViewCtor, value.bytes()); }

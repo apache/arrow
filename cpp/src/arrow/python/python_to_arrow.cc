@@ -222,10 +222,9 @@ class TypedConverter : public SeqConverter {
     RETURN_NOT_OK(this->typed_builder_->Reserve(size));
     // Iterate over the items adding each one
     auto self = checked_cast<Derived*>(this);
-    return internal::VisitSequence(obj,
-                                   [self](PyObject* item, bool* keep_going /* unused */) {
-                                     return self->AppendSingle(item);
-                                   });
+    return internal::VisitSequence(obj, [self](PyObject* item, bool* /* unused */) {
+      return self->AppendSingle(item);
+    });
   }
 
   Status AppendMultipleMasked(PyObject* obj, PyObject* mask, int64_t size) override {
@@ -234,7 +233,7 @@ class TypedConverter : public SeqConverter {
     // Iterate over the items adding each one
     auto self = checked_cast<Derived*>(this);
     return internal::VisitSequenceMasked(
-        obj, mask, [self](PyObject* item, bool is_masked, bool* keep_going /* unused */) {
+        obj, mask, [self](PyObject* item, bool is_masked, bool* /* unused */) {
           if (is_masked) {
             return self->AppendNull();
           } else {
@@ -699,7 +698,14 @@ Status ListConverter::AppendNdarrayItem(PyObject* obj) {
     LIST_SLOW_CASE(FIXED_SIZE_BINARY)
     LIST_SLOW_CASE(STRING)
     case Type::LIST: {
-      return value_converter_->AppendSingleVirtual(obj);
+      if (PyArray_DESCR(arr)->type_num != NPY_OBJECT) {
+        return Status::Invalid(
+            "Can only convert list types from NumPy object "
+            "array input");
+      }
+      return internal::VisitSequence(obj, [this](PyObject* item, bool*) {
+        return value_converter_->AppendSingleVirtual(item);
+      });
     }
     default: {
       return Status::TypeError("Unknown list item type: ", value_type_->ToString());

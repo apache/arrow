@@ -18,7 +18,7 @@
 import { Data } from '../data';
 import { Vector } from '../vector';
 import { BaseVector } from './base';
-import { Vector as V } from '../interfaces';
+import { VectorType as V } from '../interfaces';
 import { Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64 } from '../type';
 import {
     toInt8Array, toInt16Array, toInt32Array,
@@ -26,6 +26,7 @@ import {
     toBigInt64Array, toBigUint64Array
 } from '../util/buffer';
 
+/** @ignore */
 export class IntVector<T extends Int = Int> extends BaseVector<T> {
 
     public static from(this: typeof IntVector, data: Int8Array): Int8Vector;
@@ -83,28 +84,38 @@ export class IntVector<T extends Int = Int> extends BaseVector<T> {
     }
 }
 
+/** @ignore */
 export class Int8Vector extends IntVector<Int8> {}
+/** @ignore */
 export class Int16Vector extends IntVector<Int16> {}
+/** @ignore */
 export class Int32Vector extends IntVector<Int32> {}
+/** @ignore */
 export class Int64Vector extends IntVector<Int64> {
     public toBigInt64Array() {
         return toBigInt64Array(this.values);
     }
+    // @ts-ignore
+    private _values64: BigInt64Array;
+    public get values64(): BigInt64Array {
+        return this._values64 || (this._values64 = this.toBigInt64Array());
+    }
 }
 
+/** @ignore */
 export class Uint8Vector extends IntVector<Uint8> {}
+/** @ignore */
 export class Uint16Vector extends IntVector<Uint16> {}
+/** @ignore */
 export class Uint32Vector extends IntVector<Uint32> {}
+/** @ignore */
 export class Uint64Vector extends IntVector<Uint64> {
     public toBigUint64Array() {
         return toBigUint64Array(this.values);
     }
-}
-
-export interface Int64Vector extends IntVector<Int64> {
-    indexOf(value: Int64['TValue'] | bigint | null, fromIndex?: number): number;
-}
-
-export interface Uint64Vector extends IntVector<Uint64> {
-    indexOf(value: Uint64['TValue'] | bigint | null, fromIndex?: number): number;
+    // @ts-ignore
+    private _values64: BigUint64Array;
+    public get values64(): BigUint64Array {
+        return this._values64 || (this._values64 = this.toBigUint64Array());
+    }
 }

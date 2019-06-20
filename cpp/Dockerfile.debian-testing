@@ -70,7 +70,10 @@ ENV CC=gcc \
      ARROW_GANDIVA_JAVA=ON \
      ARROW_HOME=/usr \
      JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 \
-     CMAKE_ARGS="-DFlatbuffers_SOURCE=BUNDLED -Dc-ares_SOURCE=BUNDLED -DgRPC_SOURCE=BUNDLED"
+     CMAKE_ARGS="-DFlatbuffers_SOURCE=BUNDLED \
+-Dc-ares_SOURCE=BUNDLED \
+-DgRPC_SOURCE=BUNDLED \
+-DORC_SOURCE=BUNDLED"
 
 # build and test
 CMD ["arrow/ci/docker_build_and_test_cpp.sh"]
