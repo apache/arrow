@@ -49,6 +49,8 @@ before_install:
   - source multibuild/travis_osx_steps.sh
 
   - before_install
+  # Fix SSL TLS issue for Python 3.5 on macOS
+  - pip install requests[security]
 
 install:
   - mkdir -p dist
