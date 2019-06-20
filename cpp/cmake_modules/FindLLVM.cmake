@@ -20,23 +20,10 @@
 #  find_package(LLVM)
 #
 
-if(APPLE)
-  # Also look in homebrew for a matching llvm version
-  find_program(BREW_BIN brew)
-  if(BREW_BIN)
-    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@7"
-                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  endif()
+set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
+if(LLVM_BREW_PREFIX)
+  list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
 endif()
-
-set(LLVM_HINTS
-    ${LLVM_ROOT}
-    ${LLVM_DIR}
-    /usr/lib
-    /usr/local/opt/llvm
-    /usr/share
-    ${LLVM_BREW_PREFIX})
 if(DEFINED ARROW_LLVM_VERSION_FALLBACK)
   find_package(LLVM
                ${ARROW_LLVM_VERSION}
