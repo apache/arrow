@@ -24,8 +24,7 @@
 #include <parquet/exception.h>
 
 // [[arrow::export]]
-std::shared_ptr<parquet::arrow::ArrowReaderProperties>
-parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
+std::shared_ptr<parquet::arrow::ArrowReaderProperties> parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
   return std::make_shared<parquet::arrow::ArrowReaderProperties>(use_threads);
 }
 
@@ -58,7 +57,7 @@ void parquet___arrow___ArrowReaderProperties__set_read_dictionary(
 }
 
 // [[arrow::export]]
-std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___ParquetFileReader__OpenFile(
+std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
@@ -67,7 +66,7 @@ std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___ParquetFileReader_
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> parquet___arrow___ParquetFileReader__Read(
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__Read(
     const std::unique_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));

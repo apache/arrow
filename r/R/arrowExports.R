@@ -768,12 +768,12 @@ parquet___arrow___ArrowReaderProperties__set_read_dictionary <- function(propert
     invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary` , properties, column_index, read_dict))
 }
 
-parquet___arrow___ParquetFileReader__OpenFile <- function(file){
-    .Call(`_arrow_parquet___arrow___ParquetFileReader__OpenFile` , file)
+parquet___arrow___FileReader__OpenFile <- function(file){
+    .Call(`_arrow_parquet___arrow___FileReader__OpenFile` , file)
 }
 
-parquet___arrow___ParquetFileReader__Read <- function(reader){
-    .Call(`_arrow_parquet___arrow___ParquetFileReader__Read` , reader)
+parquet___arrow___FileReader__Read <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__Read` , reader)
 }
 
 write_parquet_file <- function(table, filename){

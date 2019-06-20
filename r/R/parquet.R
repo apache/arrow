@@ -17,10 +17,10 @@
 
 #' @include R6.R
 
-`parquet::arrow::ParquetFileReader` <- R6Class("parquet::arrow::ParquetFileReader",
+`parquet::arrow::FileReader` <- R6Class("parquet::arrow::FileReader",
   inherit = `arrow::Object`,
   public = list(
-    Read = function() shared_ptr(`arrow::Table`, parquet___arrow___ParquetFileReader__Read(self))
+    Read = function() shared_ptr(`arrow::Table`, parquet___arrow___FileReader__Read(self))
   )
 )
 
@@ -54,7 +54,7 @@ parquet_arrow_reader_properties <- function(use_threads = TRUE) {
   shared_ptr(`parquet::arrow::ArrowReaderProperties`, parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads)))
 }
 
-#' Create a ParquetFileReader instance
+#' Create a FileReader instance
 #'
 #' @param file file
 #' @param props reader file properties, as created by [parquet_arrow_reader_properties()]
@@ -68,7 +68,7 @@ parquet_file_reader <- function(file, props = parquet_arrow_reader_properties(),
 
 #' @export
 `parquet_file_reader.arrow::io::RandomAccessFile` <- function(file, props = parquet_arrow_reader_properties(), ...) {
-  unique_ptr(`parquet::arrow::ParquetFileReader`, parquet___arrow___ParquetFileReader__OpenFile(file, props))
+  unique_ptr(`parquet::arrow::ParquetFileReader`, parquet___arrow___FileReader__OpenFile(file, props))
 }
 
 #' @export
