@@ -58,8 +58,10 @@ submission. The tasks are defined in `tasks.yml`
 
 1. [Create the queue
    repository](https://help.github.com/articles/creating-a-new-repository)
-2. Enable [TravisCI](https://travis-ci.org/getting_started) and
-   [Appveyor](https://www.appveyor.com/docs/) integrations on it
+2. Enable [TravisCI](https://travis-ci.org/getting_started),
+   [Appveyor](https://www.appveyor.com/docs/) and
+   [CircleCI](https://circleci.com/docs/2.0/getting-started/)
+   integrations on it
 
    - turn off Travis' [auto cancellation](https://docs.travis-ci.com/user/customizing-the-build/#Building-only-the-latest-commit) feature on branches
 

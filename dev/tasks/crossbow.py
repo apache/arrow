@@ -78,7 +78,7 @@ _default_travis_yml = """
 branches:
   only:
     - master
-    - /.*-travis/
+    - /.*-travis-.*/
 
 os: linux
 dist: trusty
@@ -100,7 +100,7 @@ workflows:
           filters:
             branches:
               only:
-                - /.*-circle/
+                - /.*-circle-.*/
 """
 
 _default_tree = {
@@ -418,7 +418,7 @@ class Queue(Repo):
         for task_name, task in job.tasks.items():
             # adding CI's name to the end of the branch in order to use skip
             # patterns on travis and circleci
-            task.branch = '{}-{}-{}'.format(job.branch, task_name, task.ci)
+            task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
             files = task.render_files(job=job, arrow=job.target)
             branch = self.create_branch(task.branch, files=files)
             self.create_tag(task.tag, branch.target)

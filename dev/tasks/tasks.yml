@@ -552,6 +552,7 @@ tasks:
       - plasma-libs-{no_rc_version}-1.el6.x86_64.rpm
 
   centos-7:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
