@@ -34,7 +34,7 @@ set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 echo %ARROW_HOME%
 
-@rem Build and test Arrow C++ libraries
+@rem Build Arrow C++ libraries
 mkdir %ARROW_SRC%\cpp\build
 pushd %ARROW_SRC%\cpp\build
 

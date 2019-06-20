@@ -141,10 +141,6 @@ if [ "$ARROW_TRAVIS_VERBOSE" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_VERBOSE_THIRDPARTY_BUILD=ON"
 fi
 
-if [ "$ARROW_TRAVIS_VENDORED_BOOST" == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BOOST_VENDORED=ON"
-fi
-
 if [ "$ARROW_TRAVIS_STATIC_BOOST" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BOOST_USE_SHARED=OFF"
 fi
@@ -173,11 +169,6 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
           -DARROW_CXXFLAGS="$ARROW_CXXFLAGS" \
           $ARROW_CPP_DIR
 else
-    if [ "$using_homebrew" = "yes" ]; then
-	# build against homebrew's boost if we're using it
-	export BOOST_ROOT=$(brew --prefix boost)
-	export THRIFT_HOME=$(brew --prefix thrift)
-    fi
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_OSX_FLAGS \
           -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \
