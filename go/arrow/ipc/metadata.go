@@ -257,6 +257,13 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 		fv.dtype = flatbuf.TypeFloatingPoint
 		fv.offset = floatToFB(fv.b, int32(dt.BitWidth()))
 
+	case *arrow.Decimal128Type:
+		fv.dtype = flatbuf.TypeDecimal
+		flatbuf.DecimalStart(fv.b)
+		flatbuf.DecimalAddPrecision(fv.b, dt.Precision)
+		flatbuf.DecimalAddScale(fv.b, dt.Scale)
+		fv.offset = flatbuf.DecimalEnd(fv.b)
+
 	case *arrow.FixedSizeBinaryType:
 		fv.dtype = flatbuf.TypeFixedSizeBinary
 		flatbuf.FixedSizeBinaryStart(fv.b)
@@ -510,6 +517,11 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		dt.Init(data.Bytes, data.Pos)
 		return floatFromFB(dt)
 
+	case flatbuf.TypeDecimal:
+		var dt flatbuf.Decimal
+		dt.Init(data.Bytes, data.Pos)
+		return decimalFromFB(dt)
+
 	case flatbuf.TypeBinary:
 		return arrow.BinaryTypes.Binary, nil
 
@@ -649,6 +661,10 @@ func floatToFB(b *flatbuffers.Builder, bw int32) flatbuffers.UOffsetT {
 	default:
 		panic(errors.Errorf("arrow/ipc: invalid floating point precision %d-bits", bw))
 	}
+}
+
+func decimalFromFB(data flatbuf.Decimal) (arrow.DataType, error) {
+	return &arrow.Decimal128Type{Precision: data.Precision(), Scale: data.Scale()}, nil
 }
 
 func timeFromFB(data flatbuf.Time) (arrow.DataType, error) {

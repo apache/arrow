@@ -250,10 +250,9 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 			data = array.NewSliceData(data, offset, offset+len)
 			defer data.Release()
 			values = data.Buffers()[1]
-		default:
-			if values != nil {
-				values.Retain()
-			}
+		}
+		if values != nil {
+			values.Retain()
 		}
 		p.body = append(p.body, values)
 

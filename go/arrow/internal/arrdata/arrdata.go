@@ -23,6 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -42,6 +43,7 @@ func init() {
 	Records["fixed_size_binaries"] = makeFixedSizeBinariesRecords()
 	Records["intervals"] = makeIntervalsRecords()
 	Records["durations"] = makeDurationsRecords()
+	Records["decimal128"] = makeDecimal128sRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -575,6 +577,55 @@ func makeDurationsRecords() []array.Record {
 	return recs
 }
 
+var (
+	decimal128Type = &arrow.Decimal128Type{Precision: 10, Scale: 1}
+)
+
+func makeDecimal128sRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "dec128s", Type: decimal128Type, Nullable: true},
+		}, nil,
+	)
+
+	dec128s := func(vs []int64) []decimal128.Num {
+		o := make([]decimal128.Num, len(vs))
+		for i, v := range vs {
+			o[i] = decimal128.New(v, uint64(v))
+		}
+		return o
+	}
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			arrayOf(mem, dec128s([]int64{31, 32, 33, 34, 35}), mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, dec128s([]int64{41, 42, 43, 44, 45}), mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, dec128s([]int64{51, 52, 53, 54, 55}), mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
@@ -664,6 +715,14 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 
 		bldr.AppendValues(a, valids)
 		return bldr.NewFloat64Array()
+
+	case []decimal128.Num:
+		bldr := array.NewDecimal128Builder(mem, decimal128Type)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		aa := bldr.NewDecimal128Array()
+		return aa
 
 	case []string:
 		bldr := array.NewStringBuilder(mem)
