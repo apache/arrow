@@ -132,7 +132,7 @@ function build_wheel {
           -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
           -DARROW_FLIGHT=ON \
-          -DgRPC_SOURCE=BUNDLED \
+          -DgRPC_SOURCE=BREW \
           -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl \
           -DMAKE=make \
           ..
