@@ -293,6 +293,7 @@ endif()
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   # that depend on gtest
   add_arrow_lib(arrow_testing
+                SKIP_INSTALL
                 SOURCES
                 io/test-common.cc
                 ipc/test-common.cc

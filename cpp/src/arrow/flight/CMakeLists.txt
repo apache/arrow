@@ -111,6 +111,7 @@ endforeach()
 # Define arrow_flight_testing library
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   add_arrow_lib(arrow_flight_testing
+                SKIP_INSTALL
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES

@@ -24,5 +24,9 @@ pushd /build/cpp
 export ARROW_TEST_DATA=/arrow/testing/data
 export PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
 
+# ARROW-5653
+if [[ ! -z "${CONDA_PREFIX}" ]]; then
+  export LD_LIBRARY_PATH=${CONDA_PREFIX}/lib
+fi
 ninja unittest
 popd

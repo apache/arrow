@@ -124,7 +124,7 @@ endfunction()
 
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
-  set(options BUILD_SHARED BUILD_STATIC)
+  set(options BUILD_SHARED BUILD_STATIC SKIP_INSTALL)
   set(one_value_args SHARED_LINK_FLAGS)
   set(multi_value_args
       SOURCES
@@ -279,12 +279,14 @@ function(ADD_ARROW_LIB LIB_NAME)
                                        "${_lib_install_name}")
     endif()
 
-    install(TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
-            EXPORT ${PROJECT_NAME}-targets
-            RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    if(NOT ARG_SKIP_INSTALL)
+      install(TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
+              EXPORT ${PROJECT_NAME}-targets
+              RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
+              LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+              ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+              INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    endif()
   endif()
 
   if(BUILD_STATIC)
@@ -329,12 +331,14 @@ function(ADD_ARROW_LIB LIB_NAME)
                           "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>"
                           "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>")
 
-    install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
-            EXPORT ${PROJECT_NAME}-targets
-            RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    if(NOT ARG_SKIP_INSTALL)
+      install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
+              EXPORT ${PROJECT_NAME}-targets
+              RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
+              LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+              ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+              INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    endif()
   endif()
 
   # Modify variable in calling scope
