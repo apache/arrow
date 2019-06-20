@@ -802,10 +802,10 @@ TEST(TestSchemaPrinter, Examples) {
 
 static void ConfirmFactoryEquivalence(
     ConvertedType::type converted_type,
-    const std::shared_ptr<const LogicalAnnotation>& from_make,
-    std::function<bool(const std::shared_ptr<const LogicalAnnotation>&)> check_is_type) {
-  std::shared_ptr<const LogicalAnnotation> from_converted_type =
-      LogicalAnnotation::FromConvertedType(converted_type);
+    const std::shared_ptr<const LogicalType>& from_make,
+    std::function<bool(const std::shared_ptr<const LogicalType>&)> check_is_type) {
+  std::shared_ptr<const LogicalType> from_converted_type =
+      LogicalType::FromConvertedType(converted_type);
   ASSERT_EQ(from_converted_type->type(), from_make->type())
       << from_make->ToString() << " annotations unexpectedly do not match on type";
   ASSERT_TRUE(from_converted_type->Equals(*from_make))
@@ -819,7 +819,7 @@ static void ConfirmFactoryEquivalence(
   return;
 }
 
-TEST(TestLogicalAnnotationConstruction, FactoryEquivalence) {
+TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
   // For each legacy converted type, ensure that the equivalent annotation object
   // can be obtained from either the base class's FromConvertedType() factory method or
   // the annotation type class's Make() method (accessed via convenience methods on the
@@ -827,101 +827,101 @@ TEST(TestLogicalAnnotationConstruction, FactoryEquivalence) {
 
   struct ConfirmFactoryEquivalenceArguments {
     ConvertedType::type converted_type;
-    std::shared_ptr<const LogicalAnnotation> annotation;
-    std::function<bool(const std::shared_ptr<const LogicalAnnotation>&)> check_is_type;
+    std::shared_ptr<const LogicalType> annotation;
+    std::function<bool(const std::shared_ptr<const LogicalType>&)> check_is_type;
   };
 
-  auto check_is_string = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_string = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_string();
   };
-  auto check_is_map = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_map = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_map();
   };
-  auto check_is_list = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_list = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_list();
   };
-  auto check_is_enum = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_enum = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_enum();
   };
-  auto check_is_date = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_date = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_date();
   };
-  auto check_is_time = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_time = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_time();
   };
   auto check_is_timestamp =
-      [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+      [](const std::shared_ptr<const LogicalType>& annotation) {
         return annotation->is_timestamp();
       };
-  auto check_is_int = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_int = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_int();
   };
-  auto check_is_JSON = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_JSON = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_JSON();
   };
-  auto check_is_BSON = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_BSON = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_BSON();
   };
   auto check_is_interval =
-      [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+      [](const std::shared_ptr<const LogicalType>& annotation) {
         return annotation->is_interval();
       };
-  auto check_is_none = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_none = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_none();
   };
 
   std::vector<ConfirmFactoryEquivalenceArguments> cases = {
-      {ConvertedType::UTF8, LogicalAnnotation::String(), check_is_string},
-      {ConvertedType::MAP, LogicalAnnotation::Map(), check_is_map},
-      {ConvertedType::MAP_KEY_VALUE, LogicalAnnotation::Map(), check_is_map},
-      {ConvertedType::LIST, LogicalAnnotation::List(), check_is_list},
-      {ConvertedType::ENUM, LogicalAnnotation::Enum(), check_is_enum},
-      {ConvertedType::DATE, LogicalAnnotation::Date(), check_is_date},
+      {ConvertedType::UTF8, LogicalType::String(), check_is_string},
+      {ConvertedType::MAP, LogicalType::Map(), check_is_map},
+      {ConvertedType::MAP_KEY_VALUE, LogicalType::Map(), check_is_map},
+      {ConvertedType::LIST, LogicalType::List(), check_is_list},
+      {ConvertedType::ENUM, LogicalType::Enum(), check_is_enum},
+      {ConvertedType::DATE, LogicalType::Date(), check_is_date},
       {ConvertedType::TIME_MILLIS,
-       LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS), check_is_time},
+       LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), check_is_time},
       {ConvertedType::TIME_MICROS,
-       LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS), check_is_time},
+       LogicalType::Time(true, LogicalType::TimeUnit::MICROS), check_is_time},
       {ConvertedType::TIMESTAMP_MILLIS,
-       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        check_is_timestamp},
       {ConvertedType::TIMESTAMP_MICROS,
-       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        check_is_timestamp},
-      {ConvertedType::UINT_8, LogicalAnnotation::Int(8, false), check_is_int},
-      {ConvertedType::UINT_16, LogicalAnnotation::Int(16, false), check_is_int},
-      {ConvertedType::UINT_32, LogicalAnnotation::Int(32, false), check_is_int},
-      {ConvertedType::UINT_64, LogicalAnnotation::Int(64, false), check_is_int},
-      {ConvertedType::INT_8, LogicalAnnotation::Int(8, true), check_is_int},
-      {ConvertedType::INT_16, LogicalAnnotation::Int(16, true), check_is_int},
-      {ConvertedType::INT_32, LogicalAnnotation::Int(32, true), check_is_int},
-      {ConvertedType::INT_64, LogicalAnnotation::Int(64, true), check_is_int},
-      {ConvertedType::JSON, LogicalAnnotation::JSON(), check_is_JSON},
-      {ConvertedType::BSON, LogicalAnnotation::BSON(), check_is_BSON},
-      {ConvertedType::INTERVAL, LogicalAnnotation::Interval(), check_is_interval},
-      {ConvertedType::NONE, LogicalAnnotation::None(), check_is_none}};
+      {ConvertedType::UINT_8, LogicalType::Int(8, false), check_is_int},
+      {ConvertedType::UINT_16, LogicalType::Int(16, false), check_is_int},
+      {ConvertedType::UINT_32, LogicalType::Int(32, false), check_is_int},
+      {ConvertedType::UINT_64, LogicalType::Int(64, false), check_is_int},
+      {ConvertedType::INT_8, LogicalType::Int(8, true), check_is_int},
+      {ConvertedType::INT_16, LogicalType::Int(16, true), check_is_int},
+      {ConvertedType::INT_32, LogicalType::Int(32, true), check_is_int},
+      {ConvertedType::INT_64, LogicalType::Int(64, true), check_is_int},
+      {ConvertedType::JSON, LogicalType::JSON(), check_is_JSON},
+      {ConvertedType::BSON, LogicalType::BSON(), check_is_BSON},
+      {ConvertedType::INTERVAL, LogicalType::Interval(), check_is_interval},
+      {ConvertedType::NONE, LogicalType::None(), check_is_none}};
 
   for (const ConfirmFactoryEquivalenceArguments& c : cases) {
     ConfirmFactoryEquivalence(c.converted_type, c.annotation, c.check_is_type);
   }
 
-  // ConvertedType::DECIMAL, LogicalAnnotation::Decimal, is_decimal
+  // ConvertedType::DECIMAL, LogicalType::Decimal, is_decimal
   schema::DecimalMetadata converted_decimal_metadata;
   converted_decimal_metadata.isset = true;
   converted_decimal_metadata.precision = 10;
   converted_decimal_metadata.scale = 4;
-  std::shared_ptr<const LogicalAnnotation> from_converted_type =
-      LogicalAnnotation::FromConvertedType(ConvertedType::DECIMAL,
+  std::shared_ptr<const LogicalType> from_converted_type =
+      LogicalType::FromConvertedType(ConvertedType::DECIMAL,
                                            converted_decimal_metadata);
-  std::shared_ptr<const LogicalAnnotation> from_make = LogicalAnnotation::Decimal(10, 4);
+  std::shared_ptr<const LogicalType> from_make = LogicalType::Decimal(10, 4);
   ASSERT_EQ(from_converted_type->type(), from_make->type());
   ASSERT_TRUE(from_converted_type->Equals(*from_make));
   ASSERT_TRUE(from_converted_type->is_decimal());
   ASSERT_TRUE(from_make->is_decimal());
-  ASSERT_TRUE(LogicalAnnotation::Decimal(16)->Equals(*LogicalAnnotation::Decimal(16, 0)));
+  ASSERT_TRUE(LogicalType::Decimal(16)->Equals(*LogicalType::Decimal(16, 0)));
 }
 
 static void ConfirmConvertedTypeCompatibility(
-    const std::shared_ptr<const LogicalAnnotation>& original,
+    const std::shared_ptr<const LogicalType>& original,
     ConvertedType::type expected_converted_type) {
   ASSERT_TRUE(original->is_valid())
       << original->ToString() << " annotation unexpectedly is not valid";
@@ -945,8 +945,8 @@ static void ConfirmConvertedTypeCompatibility(
   ASSERT_TRUE(original->is_compatible(converted_type))
       << original->ToString()
       << " annotation unexpectedly is incompatible with converted type it returned";
-  std::shared_ptr<const LogicalAnnotation> reconstructed =
-      LogicalAnnotation::FromConvertedType(converted_type, converted_decimal_metadata);
+  std::shared_ptr<const LogicalType> reconstructed =
+      LogicalType::FromConvertedType(converted_type, converted_decimal_metadata);
   ASSERT_TRUE(reconstructed->is_valid()) << "Reconstructed " << reconstructed->ToString()
                                          << " annotation unexpectedly is not valid";
   ASSERT_TRUE(reconstructed->Equals(*original))
@@ -956,42 +956,42 @@ static void ConfirmConvertedTypeCompatibility(
   return;
 }
 
-TEST(TestLogicalAnnotationConstruction, ConvertedTypeCompatibility) {
+TEST(TestLogicalTypeConstruction, ConvertedTypeCompatibility) {
   // For each legacy converted type, ensure that the equivalent logical annotation
   // emits correct, compatible converted type information and that the emitted
   // information can be used to reconstruct another equivalent logical annotation.
 
   struct ExpectedConvertedType {
-    std::shared_ptr<const LogicalAnnotation> annotation;
+    std::shared_ptr<const LogicalType> annotation;
     ConvertedType::type converted_type;
   };
 
   std::vector<ExpectedConvertedType> cases = {
-      {LogicalAnnotation::String(), ConvertedType::UTF8},
-      {LogicalAnnotation::Map(), ConvertedType::MAP},
-      {LogicalAnnotation::List(), ConvertedType::LIST},
-      {LogicalAnnotation::Enum(), ConvertedType::ENUM},
-      {LogicalAnnotation::Date(), ConvertedType::DATE},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::String(), ConvertedType::UTF8},
+      {LogicalType::Map(), ConvertedType::MAP},
+      {LogicalType::List(), ConvertedType::LIST},
+      {LogicalType::Enum(), ConvertedType::ENUM},
+      {LogicalType::Date(), ConvertedType::DATE},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
        ConvertedType::TIME_MILLIS},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
        ConvertedType::TIME_MICROS},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        ConvertedType::TIMESTAMP_MILLIS},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        ConvertedType::TIMESTAMP_MICROS},
-      {LogicalAnnotation::Int(8, false), ConvertedType::UINT_8},
-      {LogicalAnnotation::Int(16, false), ConvertedType::UINT_16},
-      {LogicalAnnotation::Int(32, false), ConvertedType::UINT_32},
-      {LogicalAnnotation::Int(64, false), ConvertedType::UINT_64},
-      {LogicalAnnotation::Int(8, true), ConvertedType::INT_8},
-      {LogicalAnnotation::Int(16, true), ConvertedType::INT_16},
-      {LogicalAnnotation::Int(32, true), ConvertedType::INT_32},
-      {LogicalAnnotation::Int(64, true), ConvertedType::INT_64},
-      {LogicalAnnotation::JSON(), ConvertedType::JSON},
-      {LogicalAnnotation::BSON(), ConvertedType::BSON},
-      {LogicalAnnotation::Interval(), ConvertedType::INTERVAL},
-      {LogicalAnnotation::None(), ConvertedType::NONE}};
+      {LogicalType::Int(8, false), ConvertedType::UINT_8},
+      {LogicalType::Int(16, false), ConvertedType::UINT_16},
+      {LogicalType::Int(32, false), ConvertedType::UINT_32},
+      {LogicalType::Int(64, false), ConvertedType::UINT_64},
+      {LogicalType::Int(8, true), ConvertedType::INT_8},
+      {LogicalType::Int(16, true), ConvertedType::INT_16},
+      {LogicalType::Int(32, true), ConvertedType::INT_32},
+      {LogicalType::Int(64, true), ConvertedType::INT_64},
+      {LogicalType::JSON(), ConvertedType::JSON},
+      {LogicalType::BSON(), ConvertedType::BSON},
+      {LogicalType::Interval(), ConvertedType::INTERVAL},
+      {LogicalType::None(), ConvertedType::NONE}};
 
   for (const ExpectedConvertedType& c : cases) {
     ConfirmConvertedTypeCompatibility(c.annotation, c.converted_type);
@@ -999,14 +999,14 @@ TEST(TestLogicalAnnotationConstruction, ConvertedTypeCompatibility) {
 
   // Special cases ...
 
-  std::shared_ptr<const LogicalAnnotation> original;
+  std::shared_ptr<const LogicalType> original;
   ConvertedType::type converted_type;
   schema::DecimalMetadata converted_decimal_metadata;
-  std::shared_ptr<const LogicalAnnotation> reconstructed;
+  std::shared_ptr<const LogicalType> reconstructed;
 
   // DECIMAL
   std::memset(&converted_decimal_metadata, 0x00, sizeof(converted_decimal_metadata));
-  original = LogicalAnnotation::Decimal(6, 2);
+  original = LogicalType::Decimal(6, 2);
   ASSERT_TRUE(original->is_valid());
   converted_type = original->ToConvertedType(&converted_decimal_metadata);
   ASSERT_EQ(converted_type, ConvertedType::DECIMAL);
@@ -1015,12 +1015,12 @@ TEST(TestLogicalAnnotationConstruction, ConvertedTypeCompatibility) {
   ASSERT_EQ(converted_decimal_metadata.scale, 2);
   ASSERT_TRUE(original->is_compatible(converted_type, converted_decimal_metadata));
   reconstructed =
-      LogicalAnnotation::FromConvertedType(converted_type, converted_decimal_metadata);
+      LogicalType::FromConvertedType(converted_type, converted_decimal_metadata);
   ASSERT_TRUE(reconstructed->is_valid());
   ASSERT_TRUE(reconstructed->Equals(*original));
 
   // Unknown
-  original = LogicalAnnotation::Unknown();
+  original = LogicalType::Unknown();
   ASSERT_TRUE(original->is_invalid());
   ASSERT_FALSE(original->is_valid());
   converted_type = original->ToConvertedType(&converted_decimal_metadata);
@@ -1029,14 +1029,14 @@ TEST(TestLogicalAnnotationConstruction, ConvertedTypeCompatibility) {
   ASSERT_TRUE(original->is_compatible(converted_type, converted_decimal_metadata));
   ASSERT_TRUE(original->is_compatible(converted_type));
   reconstructed =
-      LogicalAnnotation::FromConvertedType(converted_type, converted_decimal_metadata);
+      LogicalType::FromConvertedType(converted_type, converted_decimal_metadata);
   ASSERT_TRUE(reconstructed->is_invalid());
   ASSERT_TRUE(reconstructed->Equals(*original));
 }
 
 static void ConfirmNewTypeIncompatibility(
-    const std::shared_ptr<const LogicalAnnotation>& annotation,
-    std::function<bool(const std::shared_ptr<const LogicalAnnotation>&)> check_is_type) {
+    const std::shared_ptr<const LogicalType>& annotation,
+    std::function<bool(const std::shared_ptr<const LogicalType>&)> check_is_type) {
   ASSERT_TRUE(annotation->is_valid())
       << annotation->ToString() << " annotation unexpectedly is not valid";
   ASSERT_TRUE(check_is_type(annotation))
@@ -1052,45 +1052,45 @@ static void ConfirmNewTypeIncompatibility(
   return;
 }
 
-TEST(TestLogicalAnnotationConstruction, NewTypeIncompatibility) {
+TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   // For each new logical annotation type, ensure that the logical annotation
   // correctly reports that it has no legacy equivalent
 
   struct ConfirmNewTypeIncompatibilityArguments {
-    std::shared_ptr<const LogicalAnnotation> annotation;
-    std::function<bool(const std::shared_ptr<const LogicalAnnotation>&)> check_is_type;
+    std::shared_ptr<const LogicalType> annotation;
+    std::function<bool(const std::shared_ptr<const LogicalType>&)> check_is_type;
   };
 
-  auto check_is_UUID = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_UUID = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_UUID();
   };
-  auto check_is_null = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_null = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_null();
   };
-  auto check_is_time = [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+  auto check_is_time = [](const std::shared_ptr<const LogicalType>& annotation) {
     return annotation->is_time();
   };
   auto check_is_timestamp =
-      [](const std::shared_ptr<const LogicalAnnotation>& annotation) {
+      [](const std::shared_ptr<const LogicalType>& annotation) {
         return annotation->is_timestamp();
       };
 
   std::vector<ConfirmNewTypeIncompatibilityArguments> cases = {
-      {LogicalAnnotation::UUID(), check_is_UUID},
-      {LogicalAnnotation::Null(), check_is_null},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::UUID(), check_is_UUID},
+      {LogicalType::Null(), check_is_null},
+      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS),
        check_is_time},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
        check_is_time},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::NANOS), check_is_time},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::NANOS), check_is_time},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Time(false, LogicalType::TimeUnit::NANOS), check_is_time},
+      {LogicalType::Time(true, LogicalType::TimeUnit::NANOS), check_is_time},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
        check_is_timestamp},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
        check_is_timestamp},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
        check_is_timestamp},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        check_is_timestamp},
   };
 
@@ -1099,15 +1099,15 @@ TEST(TestLogicalAnnotationConstruction, NewTypeIncompatibility) {
   }
 }
 
-TEST(TestLogicalAnnotationConstruction, FactoryExceptions) {
+TEST(TestLogicalTypeConstruction, FactoryExceptions) {
   // Ensure that annotation construction catches invalid arguments
 
   std::vector<std::function<void()>> cases = {
       []() {
-        TimeAnnotation::Make(true, LogicalAnnotation::TimeUnit::UNKNOWN);
+        TimeAnnotation::Make(true, LogicalType::TimeUnit::UNKNOWN);
       },  // Invalid TimeUnit
       []() {
-        TimestampAnnotation::Make(true, LogicalAnnotation::TimeUnit::UNKNOWN);
+        TimestampAnnotation::Make(true, LogicalType::TimeUnit::UNKNOWN);
       },                                          // Invalid TimeUnit
       []() { IntAnnotation::Make(-1, false); },   // Invalid bit width
       []() { IntAnnotation::Make(0, false); },    // Invalid bit width
@@ -1126,7 +1126,7 @@ TEST(TestLogicalAnnotationConstruction, FactoryExceptions) {
 }
 
 static void ConfirmAnnotationProperties(
-    const std::shared_ptr<const LogicalAnnotation>& annotation, bool nested,
+    const std::shared_ptr<const LogicalType>& annotation, bool nested,
     bool serialized, bool valid) {
   ASSERT_TRUE(annotation->is_nested() == nested)
       << annotation->ToString() << " annotation has incorrect nested() property";
@@ -1141,11 +1141,11 @@ static void ConfirmAnnotationProperties(
   return;
 }
 
-TEST(TestLogicalAnnotationOperation, AnnotationProperties) {
+TEST(TestLogicalTypeOperation, AnnotationProperties) {
   // For each annotation type, ensure that the correct general properties are reported
 
   struct ExpectedProperties {
-    std::shared_ptr<const LogicalAnnotation> annotation;
+    std::shared_ptr<const LogicalType> annotation;
     bool nested;
     bool serialized;
     bool valid;
@@ -1158,9 +1158,9 @@ TEST(TestLogicalAnnotationOperation, AnnotationProperties) {
       {EnumAnnotation::Make(), false, true, true},
       {DecimalAnnotation::Make(16, 6), false, true, true},
       {DateAnnotation::Make(), false, true, true},
-      {TimeAnnotation::Make(true, LogicalAnnotation::TimeUnit::MICROS), false, true,
+      {TimeAnnotation::Make(true, LogicalType::TimeUnit::MICROS), false, true,
        true},
-      {TimestampAnnotation::Make(true, LogicalAnnotation::TimeUnit::MICROS), false, true,
+      {TimestampAnnotation::Make(true, LogicalType::TimeUnit::MICROS), false, true,
        true},
       {IntervalAnnotation::Make(), false, true, true},
       {IntAnnotation::Make(8, false), false, true, true},
@@ -1185,7 +1185,7 @@ static Type::type physical_type[PHYSICAL_TYPE_COUNT] = {
     Type::FLOAT,   Type::DOUBLE, Type::BYTE_ARRAY, Type::FIXED_LEN_BYTE_ARRAY};
 
 static void ConfirmSinglePrimitiveTypeApplicability(
-    const std::shared_ptr<const LogicalAnnotation>& annotation,
+    const std::shared_ptr<const LogicalType>& annotation,
     Type::type applicable_type) {
   for (int i = 0; i < PHYSICAL_TYPE_COUNT; ++i) {
     if (physical_type[i] == applicable_type) {
@@ -1204,7 +1204,7 @@ static void ConfirmSinglePrimitiveTypeApplicability(
 }
 
 static void ConfirmAnyPrimitiveTypeApplicability(
-    const std::shared_ptr<const LogicalAnnotation>& annotation) {
+    const std::shared_ptr<const LogicalType>& annotation) {
   for (int i = 0; i < PHYSICAL_TYPE_COUNT; ++i) {
     ASSERT_TRUE(annotation->is_applicable(physical_type[i]))
         << annotation->ToString()
@@ -1215,7 +1215,7 @@ static void ConfirmAnyPrimitiveTypeApplicability(
 }
 
 static void ConfirmNoPrimitiveTypeApplicability(
-    const std::shared_ptr<const LogicalAnnotation>& annotation) {
+    const std::shared_ptr<const LogicalType>& annotation) {
   for (int i = 0; i < PHYSICAL_TYPE_COUNT; ++i) {
     ASSERT_FALSE(annotation->is_applicable(physical_type[i]))
         << annotation->ToString()
@@ -1225,52 +1225,52 @@ static void ConfirmNoPrimitiveTypeApplicability(
   return;
 }
 
-TEST(TestLogicalAnnotationOperation, AnnotationApplicability) {
+TEST(TestLogicalTypeOperation, AnnotationApplicability) {
   // Check that each logical annotation type correctly reports which
   // underlying primitive type(s) it can be applied to
 
   struct ExpectedApplicability {
-    std::shared_ptr<const LogicalAnnotation> annotation;
+    std::shared_ptr<const LogicalType> annotation;
     Type::type applicable_type;
   };
 
   std::vector<ExpectedApplicability> single_type_cases = {
-      {LogicalAnnotation::String(), Type::BYTE_ARRAY},
-      {LogicalAnnotation::Enum(), Type::BYTE_ARRAY},
-      {LogicalAnnotation::Date(), Type::INT32},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS), Type::INT32},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS), Type::INT64},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::NANOS), Type::INT64},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::String(), Type::BYTE_ARRAY},
+      {LogicalType::Enum(), Type::BYTE_ARRAY},
+      {LogicalType::Date(), Type::INT32},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), Type::INT32},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS), Type::INT64},
+      {LogicalType::Time(true, LogicalType::TimeUnit::NANOS), Type::INT64},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        Type::INT64},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        Type::INT64},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        Type::INT64},
-      {LogicalAnnotation::Int(8, false), Type::INT32},
-      {LogicalAnnotation::Int(16, false), Type::INT32},
-      {LogicalAnnotation::Int(32, false), Type::INT32},
-      {LogicalAnnotation::Int(64, false), Type::INT64},
-      {LogicalAnnotation::Int(8, true), Type::INT32},
-      {LogicalAnnotation::Int(16, true), Type::INT32},
-      {LogicalAnnotation::Int(32, true), Type::INT32},
-      {LogicalAnnotation::Int(64, true), Type::INT64},
-      {LogicalAnnotation::JSON(), Type::BYTE_ARRAY},
-      {LogicalAnnotation::BSON(), Type::BYTE_ARRAY}};
+      {LogicalType::Int(8, false), Type::INT32},
+      {LogicalType::Int(16, false), Type::INT32},
+      {LogicalType::Int(32, false), Type::INT32},
+      {LogicalType::Int(64, false), Type::INT64},
+      {LogicalType::Int(8, true), Type::INT32},
+      {LogicalType::Int(16, true), Type::INT32},
+      {LogicalType::Int(32, true), Type::INT32},
+      {LogicalType::Int(64, true), Type::INT64},
+      {LogicalType::JSON(), Type::BYTE_ARRAY},
+      {LogicalType::BSON(), Type::BYTE_ARRAY}};
 
   for (const ExpectedApplicability& c : single_type_cases) {
     ConfirmSinglePrimitiveTypeApplicability(c.annotation, c.applicable_type);
   }
 
-  std::vector<std::shared_ptr<const LogicalAnnotation>> no_type_cases = {
-      LogicalAnnotation::Map(), LogicalAnnotation::List()};
+  std::vector<std::shared_ptr<const LogicalType>> no_type_cases = {
+      LogicalType::Map(), LogicalType::List()};
 
   for (auto c : no_type_cases) {
     ConfirmNoPrimitiveTypeApplicability(c);
   }
 
-  std::vector<std::shared_ptr<const LogicalAnnotation>> any_type_cases = {
-      LogicalAnnotation::Null(), LogicalAnnotation::None(), LogicalAnnotation::Unknown()};
+  std::vector<std::shared_ptr<const LogicalType>> any_type_cases = {
+      LogicalType::Null(), LogicalType::None(), LogicalType::Unknown()};
 
   for (auto c : any_type_cases) {
     ConfirmAnyPrimitiveTypeApplicability(c);
@@ -1293,26 +1293,26 @@ TEST(TestLogicalAnnotationOperation, AnnotationApplicability) {
                                                       {Type::DOUBLE, -1},
                                                       {Type::BYTE_ARRAY, -1}};
 
-  std::shared_ptr<const LogicalAnnotation> annotation;
+  std::shared_ptr<const LogicalType> annotation;
 
-  annotation = LogicalAnnotation::Interval();
+  annotation = LogicalType::Interval();
   ASSERT_TRUE(annotation->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 12));
   for (const InapplicableType& t : inapplicable_types) {
     ASSERT_FALSE(annotation->is_applicable(t.physical_type, t.physical_length));
   }
 
-  annotation = LogicalAnnotation::UUID();
+  annotation = LogicalType::UUID();
   ASSERT_TRUE(annotation->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 16));
   for (const InapplicableType& t : inapplicable_types) {
     ASSERT_FALSE(annotation->is_applicable(t.physical_type, t.physical_length));
   }
 }
 
-TEST(TestLogicalAnnotationOperation, DecimalAnnotationApplicability) {
+TEST(TestLogicalTypeOperation, DecimalAnnotationApplicability) {
   // Check that the decimal logical annotation type correctly reports which
   // underlying primitive type(s) it can be applied to
 
-  std::shared_ptr<const LogicalAnnotation> annotation;
+  std::shared_ptr<const LogicalType> annotation;
 
   for (int32_t precision = 1; precision <= 9; ++precision) {
     annotation = DecimalAnnotation::Make(precision, 0);
@@ -1370,85 +1370,85 @@ TEST(TestLogicalAnnotationOperation, DecimalAnnotationApplicability) {
   ASSERT_FALSE((DecimalAnnotation::Make(16, 6))->is_applicable(Type::DOUBLE));
 }
 
-TEST(TestLogicalAnnotationOperation, AnnotationRepresentation) {
+TEST(TestLogicalTypeOperation, AnnotationRepresentation) {
   // Ensure that each logical annotation type prints a correct string and
   // JSON representation
 
   struct ExpectedRepresentation {
-    std::shared_ptr<const LogicalAnnotation> annotation;
+    std::shared_ptr<const LogicalType> annotation;
     const char* string_representation;
     const char* JSON_representation;
   };
 
   std::vector<ExpectedRepresentation> cases = {
-      {LogicalAnnotation::Unknown(), "Unknown", R"({"Type": "Unknown"})"},
-      {LogicalAnnotation::String(), "String", R"({"Type": "String"})"},
-      {LogicalAnnotation::Map(), "Map", R"({"Type": "Map"})"},
-      {LogicalAnnotation::List(), "List", R"({"Type": "List"})"},
-      {LogicalAnnotation::Enum(), "Enum", R"({"Type": "Enum"})"},
-      {LogicalAnnotation::Decimal(10, 4), "Decimal(precision=10, scale=4)",
+      {LogicalType::Unknown(), "Unknown", R"({"Type": "Unknown"})"},
+      {LogicalType::String(), "String", R"({"Type": "String"})"},
+      {LogicalType::Map(), "Map", R"({"Type": "Map"})"},
+      {LogicalType::List(), "List", R"({"Type": "List"})"},
+      {LogicalType::Enum(), "Enum", R"({"Type": "Enum"})"},
+      {LogicalType::Decimal(10, 4), "Decimal(precision=10, scale=4)",
        R"({"Type": "Decimal", "precision": 10, "scale": 4})"},
-      {LogicalAnnotation::Decimal(10), "Decimal(precision=10, scale=0)",
+      {LogicalType::Decimal(10), "Decimal(precision=10, scale=0)",
        R"({"Type": "Decimal", "precision": 10, "scale": 0})"},
-      {LogicalAnnotation::Date(), "Date", R"({"Type": "Date"})"},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Date(), "Date", R"({"Type": "Date"})"},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
        "Time(isAdjustedToUTC=true, timeUnit=milliseconds)",
        R"({"Type": "Time", "isAdjustedToUTC": true, "timeUnit": "milliseconds"})"},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
        "Time(isAdjustedToUTC=true, timeUnit=microseconds)",
        R"({"Type": "Time", "isAdjustedToUTC": true, "timeUnit": "microseconds"})"},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Time(true, LogicalType::TimeUnit::NANOS),
        "Time(isAdjustedToUTC=true, timeUnit=nanoseconds)",
        R"({"Type": "Time", "isAdjustedToUTC": true, "timeUnit": "nanoseconds"})"},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS),
        "Time(isAdjustedToUTC=false, timeUnit=milliseconds)",
        R"({"Type": "Time", "isAdjustedToUTC": false, "timeUnit": "milliseconds"})"},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
        "Time(isAdjustedToUTC=false, timeUnit=microseconds)",
        R"({"Type": "Time", "isAdjustedToUTC": false, "timeUnit": "microseconds"})"},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Time(false, LogicalType::TimeUnit::NANOS),
        "Time(isAdjustedToUTC=false, timeUnit=nanoseconds)",
        R"({"Type": "Time", "isAdjustedToUTC": false, "timeUnit": "nanoseconds"})"},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        "Timestamp(isAdjustedToUTC=true, timeUnit=milliseconds)",
        R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "milliseconds"})"},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        "Timestamp(isAdjustedToUTC=true, timeUnit=microseconds)",
        R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "microseconds"})"},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        "Timestamp(isAdjustedToUTC=true, timeUnit=nanoseconds)",
        R"({"Type": "Timestamp", "isAdjustedToUTC": true, "timeUnit": "nanoseconds"})"},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
        "Timestamp(isAdjustedToUTC=false, timeUnit=milliseconds)",
        R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "milliseconds"})"},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
        "Timestamp(isAdjustedToUTC=false, timeUnit=microseconds)",
        R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "microseconds"})"},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
        "Timestamp(isAdjustedToUTC=false, timeUnit=nanoseconds)",
        R"({"Type": "Timestamp", "isAdjustedToUTC": false, "timeUnit": "nanoseconds"})"},
-      {LogicalAnnotation::Interval(), "Interval", R"({"Type": "Interval"})"},
-      {LogicalAnnotation::Int(8, false), "Int(bitWidth=8, isSigned=false)",
+      {LogicalType::Interval(), "Interval", R"({"Type": "Interval"})"},
+      {LogicalType::Int(8, false), "Int(bitWidth=8, isSigned=false)",
        R"({"Type": "Int", "bitWidth": 8, "isSigned": false})"},
-      {LogicalAnnotation::Int(16, false), "Int(bitWidth=16, isSigned=false)",
+      {LogicalType::Int(16, false), "Int(bitWidth=16, isSigned=false)",
        R"({"Type": "Int", "bitWidth": 16, "isSigned": false})"},
-      {LogicalAnnotation::Int(32, false), "Int(bitWidth=32, isSigned=false)",
+      {LogicalType::Int(32, false), "Int(bitWidth=32, isSigned=false)",
        R"({"Type": "Int", "bitWidth": 32, "isSigned": false})"},
-      {LogicalAnnotation::Int(64, false), "Int(bitWidth=64, isSigned=false)",
+      {LogicalType::Int(64, false), "Int(bitWidth=64, isSigned=false)",
        R"({"Type": "Int", "bitWidth": 64, "isSigned": false})"},
-      {LogicalAnnotation::Int(8, true), "Int(bitWidth=8, isSigned=true)",
+      {LogicalType::Int(8, true), "Int(bitWidth=8, isSigned=true)",
        R"({"Type": "Int", "bitWidth": 8, "isSigned": true})"},
-      {LogicalAnnotation::Int(16, true), "Int(bitWidth=16, isSigned=true)",
+      {LogicalType::Int(16, true), "Int(bitWidth=16, isSigned=true)",
        R"({"Type": "Int", "bitWidth": 16, "isSigned": true})"},
-      {LogicalAnnotation::Int(32, true), "Int(bitWidth=32, isSigned=true)",
+      {LogicalType::Int(32, true), "Int(bitWidth=32, isSigned=true)",
        R"({"Type": "Int", "bitWidth": 32, "isSigned": true})"},
-      {LogicalAnnotation::Int(64, true), "Int(bitWidth=64, isSigned=true)",
+      {LogicalType::Int(64, true), "Int(bitWidth=64, isSigned=true)",
        R"({"Type": "Int", "bitWidth": 64, "isSigned": true})"},
-      {LogicalAnnotation::Null(), "Null", R"({"Type": "Null"})"},
-      {LogicalAnnotation::JSON(), "JSON", R"({"Type": "JSON"})"},
-      {LogicalAnnotation::BSON(), "BSON", R"({"Type": "BSON"})"},
-      {LogicalAnnotation::UUID(), "UUID", R"({"Type": "UUID"})"},
-      {LogicalAnnotation::None(), "None", R"({"Type": "None"})"},
+      {LogicalType::Null(), "Null", R"({"Type": "Null"})"},
+      {LogicalType::JSON(), "JSON", R"({"Type": "JSON"})"},
+      {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
+      {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
+      {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
 
   for (const ExpectedRepresentation& c : cases) {
@@ -1457,60 +1457,60 @@ TEST(TestLogicalAnnotationOperation, AnnotationRepresentation) {
   }
 }
 
-TEST(TestLogicalAnnotationOperation, AnnotationSortOrder) {
+TEST(TestLogicalTypeOperation, AnnotationSortOrder) {
   // Ensure that each logical annotation type reports the correct sort order
 
   struct ExpectedSortOrder {
-    std::shared_ptr<const LogicalAnnotation> annotation;
+    std::shared_ptr<const LogicalType> annotation;
     SortOrder::type sort_order;
   };
 
   std::vector<ExpectedSortOrder> cases = {
-      {LogicalAnnotation::Unknown(), SortOrder::UNKNOWN},
-      {LogicalAnnotation::String(), SortOrder::UNSIGNED},
-      {LogicalAnnotation::Map(), SortOrder::UNKNOWN},
-      {LogicalAnnotation::List(), SortOrder::UNKNOWN},
-      {LogicalAnnotation::Enum(), SortOrder::UNSIGNED},
-      {LogicalAnnotation::Decimal(8, 2), SortOrder::SIGNED},
-      {LogicalAnnotation::Date(), SortOrder::SIGNED},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Unknown(), SortOrder::UNKNOWN},
+      {LogicalType::String(), SortOrder::UNSIGNED},
+      {LogicalType::Map(), SortOrder::UNKNOWN},
+      {LogicalType::List(), SortOrder::UNKNOWN},
+      {LogicalType::Enum(), SortOrder::UNSIGNED},
+      {LogicalType::Decimal(8, 2), SortOrder::SIGNED},
+      {LogicalType::Date(), SortOrder::SIGNED},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Time(true, LogicalType::TimeUnit::NANOS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Time(false, LogicalType::TimeUnit::NANOS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
        SortOrder::SIGNED},
-      {LogicalAnnotation::Interval(), SortOrder::UNKNOWN},
-      {LogicalAnnotation::Int(8, false), SortOrder::UNSIGNED},
-      {LogicalAnnotation::Int(16, false), SortOrder::UNSIGNED},
-      {LogicalAnnotation::Int(32, false), SortOrder::UNSIGNED},
-      {LogicalAnnotation::Int(64, false), SortOrder::UNSIGNED},
-      {LogicalAnnotation::Int(8, true), SortOrder::SIGNED},
-      {LogicalAnnotation::Int(16, true), SortOrder::SIGNED},
-      {LogicalAnnotation::Int(32, true), SortOrder::SIGNED},
-      {LogicalAnnotation::Int(64, true), SortOrder::SIGNED},
-      {LogicalAnnotation::Null(), SortOrder::UNKNOWN},
-      {LogicalAnnotation::JSON(), SortOrder::UNSIGNED},
-      {LogicalAnnotation::BSON(), SortOrder::UNSIGNED},
-      {LogicalAnnotation::UUID(), SortOrder::UNSIGNED},
-      {LogicalAnnotation::None(), SortOrder::UNKNOWN}};
+      {LogicalType::Interval(), SortOrder::UNKNOWN},
+      {LogicalType::Int(8, false), SortOrder::UNSIGNED},
+      {LogicalType::Int(16, false), SortOrder::UNSIGNED},
+      {LogicalType::Int(32, false), SortOrder::UNSIGNED},
+      {LogicalType::Int(64, false), SortOrder::UNSIGNED},
+      {LogicalType::Int(8, true), SortOrder::SIGNED},
+      {LogicalType::Int(16, true), SortOrder::SIGNED},
+      {LogicalType::Int(32, true), SortOrder::SIGNED},
+      {LogicalType::Int(64, true), SortOrder::SIGNED},
+      {LogicalType::Null(), SortOrder::UNKNOWN},
+      {LogicalType::JSON(), SortOrder::UNSIGNED},
+      {LogicalType::BSON(), SortOrder::UNSIGNED},
+      {LogicalType::UUID(), SortOrder::UNSIGNED},
+      {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {
     ASSERT_EQ(c.annotation->sort_order(), c.sort_order)
@@ -1519,7 +1519,7 @@ TEST(TestLogicalAnnotationOperation, AnnotationSortOrder) {
 }
 
 static void ConfirmPrimitiveNodeFactoryEquivalence(
-    const std::shared_ptr<const LogicalAnnotation>& logical_annotation,
+    const std::shared_ptr<const LogicalType>& logical_annotation,
     ConvertedType::type converted_type, Type::type physical_type, int physical_length,
     int precision, int scale) {
   std::string name = "something";
@@ -1538,7 +1538,7 @@ static void ConfirmPrimitiveNodeFactoryEquivalence(
 }
 
 static void ConfirmGroupNodeFactoryEquivalence(
-    std::string name, const std::shared_ptr<const LogicalAnnotation>& logical_annotation,
+    std::string name, const std::shared_ptr<const LogicalType>& logical_annotation,
     ConvertedType::type converted_type) {
   Repetition::type repetition = Repetition::OPTIONAL;
   NodePtr from_converted_type = GroupNode::Make(name, repetition, {}, converted_type);
@@ -1559,7 +1559,7 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   // Primitive nodes ...
 
   struct PrimitiveNodeFactoryArguments {
-    std::shared_ptr<const LogicalAnnotation> annotation;
+    std::shared_ptr<const LogicalType> annotation;
     ConvertedType::type converted_type;
     Type::type physical_type;
     int physical_length;
@@ -1568,31 +1568,31 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   };
 
   std::vector<PrimitiveNodeFactoryArguments> cases = {
-      {LogicalAnnotation::String(), ConvertedType::UTF8, Type::BYTE_ARRAY, -1, -1, -1},
-      {LogicalAnnotation::Enum(), ConvertedType::ENUM, Type::BYTE_ARRAY, -1, -1, -1},
-      {LogicalAnnotation::Decimal(16, 6), ConvertedType::DECIMAL, Type::INT64, -1, 16, 6},
-      {LogicalAnnotation::Date(), ConvertedType::DATE, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::String(), ConvertedType::UTF8, Type::BYTE_ARRAY, -1, -1, -1},
+      {LogicalType::Enum(), ConvertedType::ENUM, Type::BYTE_ARRAY, -1, -1, -1},
+      {LogicalType::Decimal(16, 6), ConvertedType::DECIMAL, Type::INT64, -1, 16, 6},
+      {LogicalType::Date(), ConvertedType::DATE, Type::INT32, -1, -1, -1},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
        ConvertedType::TIME_MILLIS, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
        ConvertedType::TIME_MICROS, Type::INT64, -1, -1, -1},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        ConvertedType::TIMESTAMP_MILLIS, Type::INT64, -1, -1, -1},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        ConvertedType::TIMESTAMP_MICROS, Type::INT64, -1, -1, -1},
-      {LogicalAnnotation::Interval(), ConvertedType::INTERVAL, Type::FIXED_LEN_BYTE_ARRAY,
+      {LogicalType::Interval(), ConvertedType::INTERVAL, Type::FIXED_LEN_BYTE_ARRAY,
        12, -1, -1},
-      {LogicalAnnotation::Int(8, false), ConvertedType::UINT_8, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(8, true), ConvertedType::INT_8, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(16, false), ConvertedType::UINT_16, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(16, true), ConvertedType::INT_16, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(32, false), ConvertedType::UINT_32, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(32, true), ConvertedType::INT_32, Type::INT32, -1, -1, -1},
-      {LogicalAnnotation::Int(64, false), ConvertedType::UINT_64, Type::INT64, -1, -1, -1},
-      {LogicalAnnotation::Int(64, true), ConvertedType::INT_64, Type::INT64, -1, -1, -1},
-      {LogicalAnnotation::JSON(), ConvertedType::JSON, Type::BYTE_ARRAY, -1, -1, -1},
-      {LogicalAnnotation::BSON(), ConvertedType::BSON, Type::BYTE_ARRAY, -1, -1, -1},
-      {LogicalAnnotation::None(), ConvertedType::NONE, Type::INT64, -1, -1, -1}};
+      {LogicalType::Int(8, false), ConvertedType::UINT_8, Type::INT32, -1, -1, -1},
+      {LogicalType::Int(8, true), ConvertedType::INT_8, Type::INT32, -1, -1, -1},
+      {LogicalType::Int(16, false), ConvertedType::UINT_16, Type::INT32, -1, -1, -1},
+      {LogicalType::Int(16, true), ConvertedType::INT_16, Type::INT32, -1, -1, -1},
+      {LogicalType::Int(32, false), ConvertedType::UINT_32, Type::INT32, -1, -1, -1},
+      {LogicalType::Int(32, true), ConvertedType::INT_32, Type::INT32, -1, -1, -1},
+      {LogicalType::Int(64, false), ConvertedType::UINT_64, Type::INT64, -1, -1, -1},
+      {LogicalType::Int(64, true), ConvertedType::INT_64, Type::INT64, -1, -1, -1},
+      {LogicalType::JSON(), ConvertedType::JSON, Type::BYTE_ARRAY, -1, -1, -1},
+      {LogicalType::BSON(), ConvertedType::BSON, Type::BYTE_ARRAY, -1, -1, -1},
+      {LogicalType::None(), ConvertedType::NONE, Type::INT64, -1, -1, -1}};
 
   for (const PrimitiveNodeFactoryArguments& c : cases) {
     ConfirmPrimitiveNodeFactoryEquivalence(c.annotation, c.converted_type,
@@ -1601,8 +1601,8 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   }
 
   // Group nodes ...
-  ConfirmGroupNodeFactoryEquivalence("map", LogicalAnnotation::Map(), ConvertedType::MAP);
-  ConfirmGroupNodeFactoryEquivalence("list", LogicalAnnotation::List(),
+  ConfirmGroupNodeFactoryEquivalence("map", LogicalType::Map(), ConvertedType::MAP);
+  ConfirmGroupNodeFactoryEquivalence("list", LogicalType::List(),
                                      ConvertedType::LIST);
 }
 
@@ -1640,7 +1640,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
       GroupNode::Make("list", Repetition::REPEATED, {}, JSONAnnotation::Make()));
 
   // nullptr annotation arguments convert to NoAnnotation/ConvertedType::NONE
-  std::shared_ptr<const LogicalAnnotation> empty;
+  std::shared_ptr<const LogicalType> empty;
   NodePtr node;
   ASSERT_NO_THROW(
       node = PrimitiveNode::Make("value", Repetition::REQUIRED, empty, Type::DOUBLE));
@@ -1653,7 +1653,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   // Invalid ConvertedType in deserialized element ...
   node = PrimitiveNode::Make("string", Repetition::REQUIRED, StringAnnotation::Make(),
                              Type::BYTE_ARRAY);
-  ASSERT_EQ(node->logical_annotation()->type(), LogicalAnnotation::Type::STRING);
+  ASSERT_EQ(node->logical_annotation()->type(), LogicalType::Type::STRING);
   ASSERT_TRUE(node->logical_annotation()->is_valid());
   ASSERT_TRUE(node->logical_annotation()->is_serialized());
   format::SchemaElement string_intermediary;
@@ -1665,7 +1665,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   // Invalid TimeUnit in deserialized TimeAnnotation ...
   node = PrimitiveNode::Make(
       "time", Repetition::REQUIRED,
-      TimeAnnotation::Make(true, LogicalAnnotation::TimeUnit::NANOS), Type::INT64);
+      TimeAnnotation::Make(true, LogicalType::TimeUnit::NANOS), Type::INT64);
   format::SchemaElement time_intermediary;
   node->ToParquet(&time_intermediary);
   // ... corrupt the Thrift intermediary ....
@@ -1675,7 +1675,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   // Invalid TimeUnit in deserialized TimestampAnnotation ...
   node = PrimitiveNode::Make(
       "timestamp", Repetition::REQUIRED,
-      TimestampAnnotation::Make(true, LogicalAnnotation::TimeUnit::NANOS), Type::INT64);
+      TimestampAnnotation::Make(true, LogicalType::TimeUnit::NANOS), Type::INT64);
   format::SchemaElement timestamp_intermediary;
   node->ToParquet(&timestamp_intermediary);
   // ... corrupt the Thrift intermediary ....
@@ -1685,7 +1685,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
 
 struct SchemaElementConstructionArguments {
   std::string name;
-  std::shared_ptr<const LogicalAnnotation> annotation;
+  std::shared_ptr<const LogicalType> annotation;
   Type::type physical_type;
   int physical_length;
   bool expect_converted_type;
@@ -1771,26 +1771,26 @@ TEST_F(TestSchemaElementConstruction, SimpleCases) {
   };  // used for annotations that don't expect a logicalType to be set
 
   std::vector<SchemaElementConstructionArguments> cases = {
-      {"string", LogicalAnnotation::String(), Type::BYTE_ARRAY, -1, true,
+      {"string", LogicalType::String(), Type::BYTE_ARRAY, -1, true,
        ConvertedType::UTF8, true,
        [this]() { return element_->logicalType.__isset.STRING; }},
-      {"enum", LogicalAnnotation::Enum(), Type::BYTE_ARRAY, -1, true, ConvertedType::ENUM,
+      {"enum", LogicalType::Enum(), Type::BYTE_ARRAY, -1, true, ConvertedType::ENUM,
        true, [this]() { return element_->logicalType.__isset.ENUM; }},
-      {"date", LogicalAnnotation::Date(), Type::INT32, -1, true, ConvertedType::DATE, true,
+      {"date", LogicalType::Date(), Type::INT32, -1, true, ConvertedType::DATE, true,
        [this]() { return element_->logicalType.__isset.DATE; }},
-      {"interval", LogicalAnnotation::Interval(), Type::FIXED_LEN_BYTE_ARRAY, 12, true,
+      {"interval", LogicalType::Interval(), Type::FIXED_LEN_BYTE_ARRAY, 12, true,
        ConvertedType::INTERVAL, false, check_nothing},
-      {"null", LogicalAnnotation::Null(), Type::DOUBLE, -1, false, ConvertedType::NA, true,
+      {"null", LogicalType::Null(), Type::DOUBLE, -1, false, ConvertedType::NA, true,
        [this]() { return element_->logicalType.__isset.UNKNOWN; }},
-      {"json", LogicalAnnotation::JSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::JSON,
+      {"json", LogicalType::JSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::JSON,
        true, [this]() { return element_->logicalType.__isset.JSON; }},
-      {"bson", LogicalAnnotation::BSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::BSON,
+      {"bson", LogicalType::BSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::BSON,
        true, [this]() { return element_->logicalType.__isset.BSON; }},
-      {"uuid", LogicalAnnotation::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16, false,
+      {"uuid", LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16, false,
        ConvertedType::NA, true, [this]() { return element_->logicalType.__isset.UUID; }},
-      {"none", LogicalAnnotation::None(), Type::INT64, -1, false, ConvertedType::NA, false,
+      {"none", LogicalType::None(), Type::INT64, -1, false, ConvertedType::NA, false,
        check_nothing},
-      {"unknown", LogicalAnnotation::Unknown(), Type::INT64, -1, true, ConvertedType::NA,
+      {"unknown", LogicalType::Unknown(), Type::INT64, -1, true, ConvertedType::NA,
        false, check_nothing}};
 
   for (const SchemaElementConstructionArguments& c : cases) {
@@ -1828,13 +1828,13 @@ TEST_F(TestDecimalSchemaElementConstruction, DecimalCases) {
   auto check_DECIMAL = [this]() { return element_->logicalType.__isset.DECIMAL; };
 
   std::vector<SchemaElementConstructionArguments> cases = {
-      {"decimal", LogicalAnnotation::Decimal(16, 6), Type::INT64, -1, true,
+      {"decimal", LogicalType::Decimal(16, 6), Type::INT64, -1, true,
        ConvertedType::DECIMAL, true, check_DECIMAL},
-      {"decimal", LogicalAnnotation::Decimal(1, 0), Type::INT32, -1, true,
+      {"decimal", LogicalType::Decimal(1, 0), Type::INT32, -1, true,
        ConvertedType::DECIMAL, true, check_DECIMAL},
-      {"decimal", LogicalAnnotation::Decimal(10), Type::INT64, -1, true,
+      {"decimal", LogicalType::Decimal(10), Type::INT64, -1, true,
        ConvertedType::DECIMAL, true, check_DECIMAL},
-      {"decimal", LogicalAnnotation::Decimal(11, 11), Type::INT64, -1, true,
+      {"decimal", LogicalType::Decimal(11, 11), Type::INT64, -1, true,
        ConvertedType::DECIMAL, true, check_DECIMAL},
   };
 
@@ -1863,7 +1863,7 @@ class TestTemporalSchemaElementConstruction : public TestSchemaElementConstructi
 
  protected:
   bool adjusted_;
-  LogicalAnnotation::TimeUnit::unit unit_;
+  LogicalType::TimeUnit::unit unit_;
 };
 
 template <>
@@ -1871,16 +1871,16 @@ void TestTemporalSchemaElementConstruction::Inspect<format::TimeType>() {
   TestSchemaElementConstruction::Inspect();
   ASSERT_EQ(element_->logicalType.TIME.isAdjustedToUTC, adjusted_);
   switch (unit_) {
-    case LogicalAnnotation::TimeUnit::MILLIS:
+    case LogicalType::TimeUnit::MILLIS:
       ASSERT_TRUE(element_->logicalType.TIME.unit.__isset.MILLIS);
       break;
-    case LogicalAnnotation::TimeUnit::MICROS:
+    case LogicalType::TimeUnit::MICROS:
       ASSERT_TRUE(element_->logicalType.TIME.unit.__isset.MICROS);
       break;
-    case LogicalAnnotation::TimeUnit::NANOS:
+    case LogicalType::TimeUnit::NANOS:
       ASSERT_TRUE(element_->logicalType.TIME.unit.__isset.NANOS);
       break;
-    case LogicalAnnotation::TimeUnit::UNKNOWN:
+    case LogicalType::TimeUnit::UNKNOWN:
     default:
       FAIL() << "Invalid time unit in test case";
   }
@@ -1892,16 +1892,16 @@ void TestTemporalSchemaElementConstruction::Inspect<format::TimestampType>() {
   TestSchemaElementConstruction::Inspect();
   ASSERT_EQ(element_->logicalType.TIMESTAMP.isAdjustedToUTC, adjusted_);
   switch (unit_) {
-    case LogicalAnnotation::TimeUnit::MILLIS:
+    case LogicalType::TimeUnit::MILLIS:
       ASSERT_TRUE(element_->logicalType.TIMESTAMP.unit.__isset.MILLIS);
       break;
-    case LogicalAnnotation::TimeUnit::MICROS:
+    case LogicalType::TimeUnit::MICROS:
       ASSERT_TRUE(element_->logicalType.TIMESTAMP.unit.__isset.MICROS);
       break;
-    case LogicalAnnotation::TimeUnit::NANOS:
+    case LogicalType::TimeUnit::NANOS:
       ASSERT_TRUE(element_->logicalType.TIMESTAMP.unit.__isset.NANOS);
       break;
-    case LogicalAnnotation::TimeUnit::UNKNOWN:
+    case LogicalType::TimeUnit::UNKNOWN:
     default:
       FAIL() << "Invalid time unit in test case";
   }
@@ -1912,17 +1912,17 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
   auto check_TIME = [this]() { return element_->logicalType.__isset.TIME; };
 
   std::vector<SchemaElementConstructionArguments> time_cases = {
-      {"time_T_ms", LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {"time_T_ms", LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
        Type::INT32, -1, true, ConvertedType::TIME_MILLIS, true, check_TIME},
-      {"time_F_ms", LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MILLIS),
+      {"time_F_ms", LogicalType::Time(false, LogicalType::TimeUnit::MILLIS),
        Type::INT32, -1, false, ConvertedType::NA, true, check_TIME},
-      {"time_T_us", LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS),
+      {"time_T_us", LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
        Type::INT64, -1, true, ConvertedType::TIME_MICROS, true, check_TIME},
-      {"time_F_us", LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MICROS),
+      {"time_F_us", LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIME},
-      {"time_T_ns", LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::NANOS),
+      {"time_T_ns", LogicalType::Time(true, LogicalType::TimeUnit::NANOS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIME},
-      {"time_F_ns", LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::NANOS),
+      {"time_F_ns", LogicalType::Time(false, LogicalType::TimeUnit::NANOS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIME},
   };
 
@@ -1934,22 +1934,22 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
 
   std::vector<SchemaElementConstructionArguments> timestamp_cases = {
       {"timestamp_T_ms",
-       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        Type::INT64, -1, true, ConvertedType::TIMESTAMP_MILLIS, true, check_TIMESTAMP},
       {"timestamp_F_ms",
-       LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MILLIS),
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
       {"timestamp_T_us",
-       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        Type::INT64, -1, true, ConvertedType::TIMESTAMP_MICROS, true, check_TIMESTAMP},
       {"timestamp_F_us",
-       LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MICROS),
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
       {"timestamp_T_ns",
-       LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
       {"timestamp_F_ns",
-       LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::NANOS),
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
   };
 
@@ -1985,21 +1985,21 @@ TEST_F(TestIntegerSchemaElementConstruction, IntegerCases) {
   auto check_INTEGER = [this]() { return element_->logicalType.__isset.INTEGER; };
 
   std::vector<SchemaElementConstructionArguments> cases = {
-      {"uint8", LogicalAnnotation::Int(8, false), Type::INT32, -1, true,
+      {"uint8", LogicalType::Int(8, false), Type::INT32, -1, true,
        ConvertedType::UINT_8, true, check_INTEGER},
-      {"uint16", LogicalAnnotation::Int(16, false), Type::INT32, -1, true,
+      {"uint16", LogicalType::Int(16, false), Type::INT32, -1, true,
        ConvertedType::UINT_16, true, check_INTEGER},
-      {"uint32", LogicalAnnotation::Int(32, false), Type::INT32, -1, true,
+      {"uint32", LogicalType::Int(32, false), Type::INT32, -1, true,
        ConvertedType::UINT_32, true, check_INTEGER},
-      {"uint64", LogicalAnnotation::Int(64, false), Type::INT64, -1, true,
+      {"uint64", LogicalType::Int(64, false), Type::INT64, -1, true,
        ConvertedType::UINT_64, true, check_INTEGER},
-      {"int8", LogicalAnnotation::Int(8, true), Type::INT32, -1, true, ConvertedType::INT_8,
+      {"int8", LogicalType::Int(8, true), Type::INT32, -1, true, ConvertedType::INT_8,
        true, check_INTEGER},
-      {"int16", LogicalAnnotation::Int(16, true), Type::INT32, -1, true,
+      {"int16", LogicalType::Int(16, true), Type::INT32, -1, true,
        ConvertedType::INT_16, true, check_INTEGER},
-      {"int32", LogicalAnnotation::Int(32, true), Type::INT32, -1, true,
+      {"int32", LogicalType::Int(32, true), Type::INT32, -1, true,
        ConvertedType::INT_32, true, check_INTEGER},
-      {"int64", LogicalAnnotation::Int(64, true), Type::INT64, -1, true,
+      {"int64", LogicalType::Int(64, true), Type::INT64, -1, true,
        ConvertedType::INT_64, true, check_INTEGER},
   };
 
@@ -2008,7 +2008,7 @@ TEST_F(TestIntegerSchemaElementConstruction, IntegerCases) {
   }
 }
 
-TEST(TestLogicalAnnotationSerialization, SchemaElementNestedCases) {
+TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
   // Confirm that the intermediate Thrift objects created during node serialization
   // contain correct ConvertedType and ConvertedType information
 
@@ -2023,7 +2023,7 @@ TEST(TestLogicalAnnotationSerialization, SchemaElementNestedCases) {
                           Type::FIXED_LEN_BYTE_ARRAY, 16);
   NodePtr timestamp_node = PrimitiveNode::Make(
       "timestamp", Repetition::REQUIRED,
-      TimestampAnnotation::Make(false, LogicalAnnotation::TimeUnit::NANOS), Type::INT64);
+      TimestampAnnotation::Make(false, LogicalType::TimeUnit::NANOS), Type::INT64);
   NodePtr int_node = PrimitiveNode::Make("int", Repetition::REQUIRED,
                                          IntAnnotation::Make(64, false), Type::INT64);
   NodePtr decimal_node = PrimitiveNode::Make("decimal", Repetition::REQUIRED,
@@ -2060,7 +2060,7 @@ TEST(TestLogicalAnnotationSerialization, SchemaElementNestedCases) {
 }
 
 static void ConfirmPrimitiveNodeRoundtrip(
-    const std::shared_ptr<const LogicalAnnotation>& annotation, Type::type physical_type,
+    const std::shared_ptr<const LogicalType>& annotation, Type::type physical_type,
     int physical_length) {
   std::shared_ptr<Node> original = PrimitiveNode::Make(
       "something", Repetition::REQUIRED, annotation, physical_type, physical_length);
@@ -2075,7 +2075,7 @@ static void ConfirmPrimitiveNodeRoundtrip(
 }
 
 static void ConfirmGroupNodeRoundtrip(
-    std::string name, const std::shared_ptr<const LogicalAnnotation>& annotation) {
+    std::string name, const std::shared_ptr<const LogicalType>& annotation) {
   NodeVector node_vector;
   std::shared_ptr<Node> original =
       GroupNode::Make(name, Repetition::REQUIRED, node_vector, annotation);
@@ -2090,68 +2090,68 @@ static void ConfirmGroupNodeRoundtrip(
   return;
 }
 
-TEST(TestLogicalAnnotationSerialization, Roundtrips) {
+TEST(TestLogicalTypeSerialization, Roundtrips) {
   // Confirm that Thrift serialization-deserialization of nodes with logical
   // annotations produces equivalent reconstituted nodes
 
   // Primitive nodes ...
   struct AnnotatedPrimitiveNodeFactoryArguments {
-    std::shared_ptr<const LogicalAnnotation> annotation;
+    std::shared_ptr<const LogicalType> annotation;
     Type::type physical_type;
     int physical_length;
   };
 
   std::vector<AnnotatedPrimitiveNodeFactoryArguments> cases = {
-      {LogicalAnnotation::String(), Type::BYTE_ARRAY, -1},
-      {LogicalAnnotation::Enum(), Type::BYTE_ARRAY, -1},
-      {LogicalAnnotation::Decimal(16, 6), Type::INT64, -1},
-      {LogicalAnnotation::Date(), Type::INT32, -1},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MILLIS), Type::INT32,
+      {LogicalType::String(), Type::BYTE_ARRAY, -1},
+      {LogicalType::Enum(), Type::BYTE_ARRAY, -1},
+      {LogicalType::Decimal(16, 6), Type::INT64, -1},
+      {LogicalType::Date(), Type::INT32, -1},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), Type::INT32,
        -1},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::MICROS), Type::INT64,
+      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS), Type::INT64,
        -1},
-      {LogicalAnnotation::Time(true, LogicalAnnotation::TimeUnit::NANOS), Type::INT64,
+      {LogicalType::Time(true, LogicalType::TimeUnit::NANOS), Type::INT64,
        -1},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MILLIS), Type::INT32,
+      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), Type::INT32,
        -1},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MICROS), Type::INT64,
+      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), Type::INT64,
        -1},
-      {LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::NANOS), Type::INT64,
+      {LogicalType::Time(false, LogicalType::TimeUnit::NANOS), Type::INT64,
        -1},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        Type::INT64, -1},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        Type::INT64, -1},
-      {LogicalAnnotation::Timestamp(true, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        Type::INT64, -1},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MILLIS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
        Type::INT64, -1},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::MICROS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
        Type::INT64, -1},
-      {LogicalAnnotation::Timestamp(false, LogicalAnnotation::TimeUnit::NANOS),
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
        Type::INT64, -1},
-      {LogicalAnnotation::Interval(), Type::FIXED_LEN_BYTE_ARRAY, 12},
-      {LogicalAnnotation::Int(8, false), Type::INT32, -1},
-      {LogicalAnnotation::Int(16, false), Type::INT32, -1},
-      {LogicalAnnotation::Int(32, false), Type::INT32, -1},
-      {LogicalAnnotation::Int(64, false), Type::INT64, -1},
-      {LogicalAnnotation::Int(8, true), Type::INT32, -1},
-      {LogicalAnnotation::Int(16, true), Type::INT32, -1},
-      {LogicalAnnotation::Int(32, true), Type::INT32, -1},
-      {LogicalAnnotation::Int(64, true), Type::INT64, -1},
-      {LogicalAnnotation::Null(), Type::BOOLEAN, -1},
-      {LogicalAnnotation::JSON(), Type::BYTE_ARRAY, -1},
-      {LogicalAnnotation::BSON(), Type::BYTE_ARRAY, -1},
-      {LogicalAnnotation::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16},
-      {LogicalAnnotation::None(), Type::BOOLEAN, -1}};
+      {LogicalType::Interval(), Type::FIXED_LEN_BYTE_ARRAY, 12},
+      {LogicalType::Int(8, false), Type::INT32, -1},
+      {LogicalType::Int(16, false), Type::INT32, -1},
+      {LogicalType::Int(32, false), Type::INT32, -1},
+      {LogicalType::Int(64, false), Type::INT64, -1},
+      {LogicalType::Int(8, true), Type::INT32, -1},
+      {LogicalType::Int(16, true), Type::INT32, -1},
+      {LogicalType::Int(32, true), Type::INT32, -1},
+      {LogicalType::Int(64, true), Type::INT64, -1},
+      {LogicalType::Null(), Type::BOOLEAN, -1},
+      {LogicalType::JSON(), Type::BYTE_ARRAY, -1},
+      {LogicalType::BSON(), Type::BYTE_ARRAY, -1},
+      {LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16},
+      {LogicalType::None(), Type::BOOLEAN, -1}};
 
   for (const AnnotatedPrimitiveNodeFactoryArguments& c : cases) {
     ConfirmPrimitiveNodeRoundtrip(c.annotation, c.physical_type, c.physical_length);
   }
 
   // Group nodes ...
-  ConfirmGroupNodeRoundtrip("map", LogicalAnnotation::Map());
-  ConfirmGroupNodeRoundtrip("list", LogicalAnnotation::List());
+  ConfirmGroupNodeRoundtrip("map", LogicalType::Map());
+  ConfirmGroupNodeRoundtrip("list", LogicalType::List());
 }
 
 }  // namespace schema

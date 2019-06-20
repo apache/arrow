@@ -203,7 +203,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
   }
   // For forward compatibility, create an equivalent logical annotation
   logical_annotation_ =
-      LogicalAnnotation::FromConvertedType(converted_type_, decimal_metadata_);
+      LogicalType::FromConvertedType(converted_type_, decimal_metadata_);
   DCHECK(logical_annotation_ && !logical_annotation_->is_nested() &&
          logical_annotation_->is_compatible(converted_type_, decimal_metadata_));
 
@@ -217,7 +217,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
 }
 
 PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetition,
-                             std::shared_ptr<const LogicalAnnotation> logical_annotation,
+                             std::shared_ptr<const LogicalType> logical_annotation,
                              Type::type physical_type, int physical_length, int id)
     : Node(Node::PRIMITIVE, name, repetition, logical_annotation, id),
       physical_type_(physical_type),
@@ -293,7 +293,7 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
                      const NodeVector& fields, ConvertedType::type converted_type, int id)
     : Node(Node::GROUP, name, repetition, converted_type, id), fields_(fields) {
   // For forward compatibility, create an equivalent logical annotation
-  logical_annotation_ = LogicalAnnotation::FromConvertedType(converted_type_);
+  logical_annotation_ = LogicalType::FromConvertedType(converted_type_);
   DCHECK(logical_annotation_ &&
          (logical_annotation_->is_nested() || logical_annotation_->is_none()) &&
          logical_annotation_->is_compatible(converted_type_));
@@ -308,7 +308,7 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
 
 GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
                      const NodeVector& fields,
-                     std::shared_ptr<const LogicalAnnotation> logical_annotation, int id)
+                     std::shared_ptr<const LogicalType> logical_annotation, int id)
     : Node(Node::GROUP, name, repetition, logical_annotation, id), fields_(fields) {
   if (logical_annotation_) {
     // Check for annotation type <=> node type consistency
@@ -397,7 +397,7 @@ std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element, int nod
     // updated writer with logical type present
     group_node = std::unique_ptr<GroupNode>(
         new GroupNode(element->name, FromThrift(element->repetition_type), fields,
-                      LogicalAnnotation::FromThrift(element->logicalType), node_id));
+                      LogicalType::FromThrift(element->logicalType), node_id));
   } else {
     group_node = std::unique_ptr<GroupNode>(new GroupNode(
         element->name, FromThrift(element->repetition_type), fields,
@@ -471,7 +471,7 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
     // updated writer with logical type present
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
         element->name, SafeLoader<Repetition>::Load(&(element->repetition_type)),
-        LogicalAnnotation::FromThrift(element->logicalType),
+        LogicalType::FromThrift(element->logicalType),
         SafeLoader<Type>::Load(&(element->type)), element->type_length, node_id));
   } else if (element->__isset.converted_type) {
     // legacy writer with logical type present
