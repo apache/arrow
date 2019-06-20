@@ -24,7 +24,7 @@ namespace Apache.Arrow
     {
         public static readonly Encoding DefaultEncoding = Encoding.UTF8;
 
-        public new class Builder : AbstractBuilder<StringArray, Builder>
+        public new class Builder : BuilderBase<StringArray, Builder>
         {
             public Builder() : base(StringType.Default) { }
 

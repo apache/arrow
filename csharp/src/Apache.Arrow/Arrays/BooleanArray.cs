@@ -81,12 +81,22 @@ namespace Apache.Arrow
 
             public Builder Reserve(int capacity)
             {
+                if (capacity < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(capacity));
+                }
+
                 ValueBuffer.Reserve(BitUtility.ByteCount(capacity));
                 return this;
             }
 
             public Builder Resize(int length)
             {
+                if (length < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(length));
+                }
+
                 ValueBuffer.Resize(BitUtility.ByteCount(length));
                 Length = length;
                 return this;

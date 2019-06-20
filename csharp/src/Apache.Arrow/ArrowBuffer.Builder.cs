@@ -119,7 +119,7 @@ namespace Apache.Arrow
 
             private void EnsureCapacity(int n)
             {
-                var length = Length + n;
+                var length = checked(Length + n);
 
                 if (length > Capacity)
                 {

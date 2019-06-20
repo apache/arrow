@@ -29,11 +29,11 @@ namespace FluentBuilderExample
         {
             // Use a specific memory pool from which arrays will be allocated (optional)
 
-            var memoryPool = new NativeMemoryPool(alignment: 64);
+            var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
 
             // Build a record batch using the Fluent API
 
-            var recordBatch = new RecordBatch.Builder(memoryPool)
+            var recordBatch = new RecordBatch.Builder(memoryAllocator)
                 .Append("Column A", false, col => col.Int32(array => array.AppendRange(Enumerable.Range(0, 10))))
                 .Append("Column B", false, col => col.Float(array => array.AppendRange(Enumerable.Range(0, 10).Select(x => Convert.ToSingle(x * 2)))))
                 .Append("Column C", false, col => col.String(array => array.AppendRange(Enumerable.Range(0, 10).Select(x => $"Item {x+1}"))))
@@ -42,8 +42,8 @@ namespace FluentBuilderExample
 
             // Print memory allocation statistics
 
-            Console.WriteLine("Allocations: {0}", memoryPool.Statistics.Allocations);
-            Console.WriteLine("Allocated: {0} byte(s)", memoryPool.Statistics.BytesAllocated);
+            Console.WriteLine("Allocations: {0}", memoryAllocator.Statistics.Allocations);
+            Console.WriteLine("Allocated: {0} byte(s)", memoryAllocator.Statistics.BytesAllocated);
 
             // Write record batch to a file
 

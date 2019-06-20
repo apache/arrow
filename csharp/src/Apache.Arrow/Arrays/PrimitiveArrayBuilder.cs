@@ -43,6 +43,7 @@ namespace Apache.Arrow
 
         public TBuilder Append(ReadOnlySpan<TFrom> span)
         {
+            ArrayBuilder.Reserve(span.Length);
             foreach (var value in span)
             {
                 Append(value);

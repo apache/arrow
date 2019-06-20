@@ -67,28 +67,34 @@ namespace Apache.Arrow
         public class Builder
         {
             private readonly MemoryAllocator _allocator;
-            private readonly Schema.Builder _schema;
-            private readonly LinkedList<IArrowArray> _arrays;
+            private readonly ArrayBuilder _arrayBuilder;
+            private readonly Schema.Builder _schemaBuilder;
+            private readonly List<IArrowArray> _arrays;
 
             public Builder(MemoryAllocator allocator = default)
             {
                 _allocator = allocator ?? MemoryAllocator.Default.Value;
-                _schema = new Schema.Builder();
-                _arrays = new LinkedList<IArrowArray>();
+                _arrayBuilder = new ArrayBuilder(_allocator);
+                _schemaBuilder = new Schema.Builder();
+                _arrays = new List<IArrowArray>();
             }
 
             public RecordBatch Build()
             {
-                var schema = _schema.Build();
+                var schema = _schemaBuilder.Build();
                 var length = _arrays.Max(x => x.Length);
-                var batch = new RecordBatch(schema, _arrays, length);
+
+                // each array has its own memoryOwner, so the RecordBatch itself doesn't
+                // have a memoryOwner
+                IMemoryOwner<byte> memoryOwner = null;
+                var batch = new RecordBatch(schema, memoryOwner, _arrays, length);
 
                 return batch;
             }
 
             public Builder Clear()
             {
-                _schema.Clear();
+                _schemaBuilder.Clear();
                 _arrays.Clear();
                 return this;
             }
@@ -97,12 +103,12 @@ namespace Apache.Arrow
             {
                 foreach (var field in batch.Schema.Fields)
                 {
-                    _schema.Field(field.Value);
+                    _schemaBuilder.Field(field.Value);
                 }
 
                 foreach (var array in batch.Arrays)
                 {
-                    _arrays.AddLast(array);
+                    _arrays.Add(array);
                 }
 
                 return this;
@@ -122,9 +128,9 @@ namespace Apache.Arrow
                 if (string.IsNullOrWhiteSpace(name)) throw new ArgumentNullException(nameof(name));
                 if (array == null) return this;
 
-                _arrays.AddLast(array);
+                _arrays.Add(array);
 
-                _schema.Field(f => f
+                _schemaBuilder.Field(f => f
                     .Name(name)
                     .Nullable(nullable)
                     .DataType(array.Data.DataType));
@@ -137,8 +143,7 @@ namespace Apache.Arrow
             {
                 if (action == null) return this;
 
-                var arrayBuilder = new ArrayBuilder(_allocator);
-                var array = action(arrayBuilder);
+                var array = action(_arrayBuilder);
 
                 Append(name, nullable, array);
 

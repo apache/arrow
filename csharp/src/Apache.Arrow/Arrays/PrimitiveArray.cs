@@ -19,7 +19,7 @@ using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow
 {
-    public abstract partial class PrimitiveArray<T> : Array
+    public abstract class PrimitiveArray<T> : Array
         where T : struct
     {
         protected PrimitiveArray(ArrayData data)

@@ -88,7 +88,7 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
             }
-            public void Visit(Date64Array array) {} //CreateBuffers(null);
+            public void Visit(Date64Array array) => throw new NotSupportedException();
 
             public void Visit(ListArray array)
             {

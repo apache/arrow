@@ -23,7 +23,7 @@ namespace Apache.Arrow
 {
     public class BinaryArray: Array
     {
-        public class Builder : AbstractBuilder<BinaryArray, Builder>
+        public class Builder : BuilderBase<BinaryArray, Builder>
         {
             public Builder() : base(BinaryType.Default) { }
             public Builder(IArrowType dataType) : base(dataType) { }
@@ -48,7 +48,7 @@ namespace Apache.Arrow
             data.EnsureBufferCount(3);
         }
 
-        public abstract class AbstractBuilder<TArray, TBuilder>: IArrowArrayBuilder<byte, TArray, TBuilder>
+        public abstract class BuilderBase<TArray, TBuilder>: IArrowArrayBuilder<byte, TArray, TBuilder>
             where TArray: IArrowArray
             where TBuilder: class, IArrowArrayBuilder<byte, TArray, TBuilder>
         {
@@ -58,7 +58,7 @@ namespace Apache.Arrow
             protected ArrowBuffer.Builder<byte> ValueBuffer { get; }
             protected int Offset { get; set; }
 
-            protected AbstractBuilder(IArrowType dataType)
+            protected BuilderBase(IArrowType dataType)
             {
                 DataType = dataType;
                 ValueOffsets = new ArrowBuffer.Builder<int>();
