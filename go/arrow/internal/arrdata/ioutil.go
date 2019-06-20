@@ -31,12 +31,7 @@ import (
 func CheckArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
 	t.Helper()
 
-	err := f.Sync()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = f.Seek(0, io.SeekStart)
+	_, err := f.Seek(0, io.SeekStart)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,12 +63,7 @@ func CheckArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arro
 func CheckArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
 	t.Helper()
 
-	err := f.Sync()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = f.Seek(0, io.SeekStart)
+	_, err := f.Seek(0, io.SeekStart)
 	if err != nil {
 		t.Fatal(err)
 	}
