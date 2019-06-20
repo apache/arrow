@@ -25,8 +25,9 @@ if [ "$ARROW_R_DEV" == "TRUE" ]; then
 fi
 
 VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
-# Try to find/download a C++ Arrow binary
-"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION
+# Try to find/download a C++ Arrow binary,
+# including possibly a local .zip file if RWINLIB_LOCAL is set
+"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION $RWINLIB_LOCAL
 # If binary not found, script exits nonzero
 if [ $? -ne 0 ]; then
   # We'll have to install without libarrow. Note to the user how to rectify.

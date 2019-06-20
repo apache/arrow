@@ -58,5 +58,7 @@ mv deps/mingw32/lib/*.a $DST_DIR/lib/i686
 
 zip -r ${DST_DIR}.zip $DST_DIR
 
-# Temporary hack to test this setup
+# Tell the R package build that follows (on Appveyor) where to find the zip file
+export RWINLIB_LOCAL="${DST_DIR}.zip"
+# Temporary hack fallback in case that isn't getting picked up
 cp ${DST_DIR}.zip ../r/lib.zip

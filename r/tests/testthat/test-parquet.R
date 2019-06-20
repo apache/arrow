@@ -20,6 +20,7 @@ context("Parquet file reading/writing")
 pq_file <- system.file("v0.7.1.parquet", package="arrow")
 
 test_that("reading a known Parquet file to tibble", {
+  skip_on_os("windows") # TODO: enable snappy in windows build
   df <- read_parquet(pq_file)
   expect_true(tibble::is_tibble(df))
   expect_identical(dim(df), c(10L, 11L))
