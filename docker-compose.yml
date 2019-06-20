@@ -421,7 +421,7 @@ services:
     #     $ docker-compose pull python-manylinux1
     #   an then run:
     #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
-    image: quay.io/xhochy/arrow_manylinux1_x86_64_base:latest
+    image: quay.io/ursa-labs/arrow_manylinux1_x86_64_base:latest
     build:
       context: python/manylinux1
       dockerfile: Dockerfile-x86_64_base

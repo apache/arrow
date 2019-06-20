@@ -38,7 +38,7 @@ use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`):
 
 ```bash
 # Build the python packages
-docker run --env PYTHON_VERSION="2.7" --env UNICODE_WIDTH=16 --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
+docker run --env PYTHON_VERSION="2.7" --env UNICODE_WIDTH=16 --shm-size=2g --rm -t -i -v $PWD:/io -v $PWD/../../:/arrow quay.io/ursa-labs/arrow_manylinux1_x86_64_base:latest /io/build_arrow.sh
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```
