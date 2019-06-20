@@ -25,10 +25,7 @@ if(!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))){
     if(!file.exists(localfile)){
       cat(sprintf("*** %s does not exist; build will fail\n", localfile))
     }
-    copied <- file.copy(localfile, "lib.zip")
-    if(!copied){
-      cat("*** failed to copy RWINLIB_LOCAL to lib.zip")
-    }
+    file.copy(localfile, "lib.zip")
   } else {
     # Download static arrow from rwinlib
     if(getRversion() < "3.3.0") setInternet2()
