@@ -172,8 +172,7 @@ if [ ${PREPARE_RELEASE_TAG} -gt 1 ]; then
   [7]: https://bintray.com/apache/arrow/ubuntu-rc/${version}-rc${rc}
   [8]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
   [9]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
-  MAIL
-  echo "---------------------------------------------------------"
 MAIL
+  echo "---------------------------------------------------------"
 
 fi
