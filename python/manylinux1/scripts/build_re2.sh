@@ -16,7 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export RE2_VERSION="2019-01-01"
+export RE2_VERSION="2019-04-01"
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
 curl -sL "http://github.com/google/re2/archive/${RE2_VERSION}.tar.gz" -o re2-${RE2_VERSION}.tar.gz
 tar xf re2-${RE2_VERSION}.tar.gz
@@ -26,7 +27,7 @@ export CXXFLAGS="-fPIC ${CXXFLAGS}"
 export CFLAGS="-fPIC ${CFLAGS}"
 
 # Build shared libraries
-make prefix=/usr -j8 install
+make prefix=/usr -j${NCORES} install
 
 popd
 rm -rf re2-${RE2_VERSION}.tar.gz re2-${RE2_VERSION} /usr/lib/libre2.so*

@@ -16,14 +16,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-curl -sL https://www.samba.org/ftp/ccache/ccache-3.3.4.tar.bz2 -o ccache-3.3.4.tar.bz2
-tar xf ccache-3.3.4.tar.bz2
-pushd ccache-3.3.4
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
+CCACHE_VERSION=3.6
+
+curl -sLO https://www.samba.org/ftp/ccache/ccache-${CCACHE_VERSION}.tar.bz2
+tar xf ccache-${CCACHE_VERSION}.tar.bz2
+pushd ccache-${CCACHE_VERSION}
 ./configure --prefix=/usr
-make -j5
+make -j$NCORES
 make install
 popd
-rm -rf ccache-3.3.4.tar.bz2 ccache-3.3.4
+rm -rf ccache-${CCACHE_VERSION}.tar.bz2 ccache-${CCACHE_VERSION}
 
 # Initialize the config directory, otherwise the build sometimes fails.
 mkdir /root/.ccache

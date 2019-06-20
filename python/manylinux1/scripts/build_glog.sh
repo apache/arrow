@@ -32,5 +32,5 @@ cmake -DCMAKE_BUILD_TYPE=Release \
       -GNinja .
 ninja install
 popd
-rm -rf glog-${GLOG_VERSION}.tar.gz.tar.gz glog-${GLOG_VERSION}
+rm -rf glog-${GLOG_VERSION}.tar.gz glog-${GLOG_VERSION}
 
