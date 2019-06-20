@@ -106,7 +106,7 @@ environment:
     - JOB: "R with libarrow"
       USE_CLCACHE: false
       TEST_R_WITH_ARROW: "TRUE"
-      RWINLIB_LOCAL: "../libarrow.zip"
+      RWINLIB_LOCAL: '%APPVEYOR_BUILD_FOLDER%\libarrow.zip'
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
