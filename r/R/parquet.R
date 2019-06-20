@@ -20,7 +20,10 @@
 `parquet::arrow::FileReader` <- R6Class("parquet::arrow::FileReader",
   inherit = `arrow::Object`,
   public = list(
-    Read = function() shared_ptr(`arrow::Table`, parquet___arrow___FileReader__Read(self))
+    ReadTable = function() shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable(self)),
+    GetSchema = function(indices) {
+      shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema(self, indices))
+    }
   )
 )
 
@@ -105,7 +108,7 @@ parquet_file_reader.character <- function(file, props = parquet_arrow_reader_pro
 #' @export
 read_parquet <- function(file, props = parquet_arrow_reader_properties(), as_tibble = TRUE, ...) {
   reader <- parquet_file_reader(file, props = props, ...)
-  tab <- reader$Read()
+  tab <- reader$ReadTable()
 
   if (as_tibble) {
     tab <- as.data.frame(tab)

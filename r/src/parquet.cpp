@@ -24,7 +24,8 @@
 #include <parquet/exception.h>
 
 // [[arrow::export]]
-std::shared_ptr<parquet::arrow::ArrowReaderProperties> parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
+std::shared_ptr<parquet::arrow::ArrowReaderProperties>
+parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
   return std::make_shared<parquet::arrow::ArrowReaderProperties>(use_threads);
 }
 
@@ -66,7 +67,7 @@ std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFi
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> parquet___arrow___FileReader__Read(
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable(
     const std::unique_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
@@ -77,13 +78,18 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__Read(
 // [[arrow::export]]
 void write_parquet_file(const std::shared_ptr<arrow::Table>& table,
                         std::string filename) {
-#ifdef ARROW_R_WITH_PARQUET
   std::shared_ptr<arrow::io::OutputStream> sink;
   PARQUET_THROW_NOT_OK(arrow::io::FileOutputStream::Open(filename, &sink));
   PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, arrow::default_memory_pool(),
-                                                  sink, table->num_rows()));
-#else
-  Rcpp::stop("Support for Parquet is not available.");
-#endif
 }
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema(
+    const std::unique_ptr<parquet::arrow::FileReader>& reader,
+    const std::vector<int>& indices) {
+  std::shared_ptr<arrow::Schema> schema;
+  STOP_IF_NOT_OK(reader->GetSchema(indices, &schema));
+  return schema;
+}
+
 #endif

@@ -772,12 +772,16 @@ parquet___arrow___FileReader__OpenFile <- function(file){
     .Call(`_arrow_parquet___arrow___FileReader__OpenFile` , file)
 }
 
-parquet___arrow___FileReader__Read <- function(reader){
-    .Call(`_arrow_parquet___arrow___FileReader__Read` , reader)
+parquet___arrow___FileReader__ReadTable <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadTable` , reader)
 }
 
 write_parquet_file <- function(table, filename){
     invisible(.Call(`_arrow_write_parquet_file` , table, filename))
+}
+
+parquet___arrow___FileReader__GetSchema <- function(reader, indices){
+    .Call(`_arrow_parquet___arrow___FileReader__GetSchema` , reader, indices)
 }
 
 RecordBatch__num_columns <- function(x){
