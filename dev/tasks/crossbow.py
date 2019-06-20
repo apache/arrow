@@ -338,6 +338,8 @@ class Repo:
     def create_branch(self, branch_name, files, parents=[], message='',
                       signature=None):
         # 1. create tree
+        files = toolz.keymap(lambda path: tuple(path.split('/')), files)
+        files = unflatten(files)
         tree_id = self.create_tree(files)
 
         # 2. create commit with the tree created above
@@ -394,17 +396,6 @@ class Queue(Repo):
         else:
             latest = 0
         return '{}-{}'.format(prefix, latest + 1)
-
-    def create_branch(self, branch_name, files, parents=[], message='',
-                      signature=None):
-        # add default files for the tree, required to skip branches on
-        # particular CI systems
-        files = toolz.merge(_default_tree, files)
-        files = toolz.keymap(lambda path: tuple(path.split('/')), files)
-        files = unflatten(files)
-        return super().create_branch(branch_name=branch_name, files=files,
-                                     parents=parents, message=message,
-                                     signature=signature)
 
     def get(self, job_name):
         branch_name = 'origin/{}'.format(job_name)
@@ -559,7 +550,7 @@ class Task:
         params = toolz.merge(self.params, extra_params)
         template = Template(path.read_text(), undefined=StrictUndefined)
         rendered = template.render(task=self, **params)
-        return {self.filename: rendered}
+        return toolz.merge(_default_tree, {self.filename: rendered})
 
     @property
     def tag(self):
@@ -593,7 +584,7 @@ class Job:
         with StringIO() as buf:
             yaml.dump(self, buf)
             content = buf.getvalue()
-        return {'job.yml': content}
+        return toolz.merge(_default_tree, {'job.yml': content})
 
     @property
     def email(self):
