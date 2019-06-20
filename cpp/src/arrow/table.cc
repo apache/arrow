@@ -176,6 +176,23 @@ Status ChunkedArray::Flatten(MemoryPool* pool,
   return Status::OK();
 }
 
+Status ChunkedArray::Validate() const {
+  if (chunks_.size() == 0) {
+    return Status::OK();
+  }
+
+  const auto& type = *chunks_[0]->type();
+  for (size_t i = 1; i < chunks_.size(); ++i) {
+    if (!chunks_[i]->type()->Equals(type)) {
+      return Status::Invalid("In chunk ", i, " expected type ", type.ToString(),
+                             " but saw ", chunks_[i]->type()->ToString());
+    }
+  }
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
+
 Column::Column(const std::shared_ptr<Field>& field, const ArrayVector& chunks)
     : field_(field) {
   data_ = std::make_shared<ChunkedArray>(chunks, field->type());
