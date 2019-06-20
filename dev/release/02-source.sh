@@ -174,5 +174,4 @@ if [ ${PREPARE_RELEASE_TAG} -gt 1 ]; then
   [9]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
 MAIL
   echo "---------------------------------------------------------"
-
 fi
