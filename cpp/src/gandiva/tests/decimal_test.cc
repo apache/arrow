@@ -505,13 +505,15 @@ TEST_F(TestDecimal, TestHashFunctions) {
                                       field("hash64_of_dec", arrow::int64())),
 
       TreeExprBuilder::MakeExpression(
-          funcWithLiteralParam("hash32WithSeed", field_dec, literal_seed32,
-                               arrow::int32()),
+          TreeExprBuilder::MakeFunction(
+              "hash32WithSeed", {TreeExprBuilder::MakeField(field_dec), literal_seed32},
+              arrow::int32()),
           field("hash32_with_seed", arrow::int32())),
 
       TreeExprBuilder::MakeExpression(
-          funcWithLiteralParam("hash64WithSeed", field_dec, literal_seed64,
-                               arrow::int64()),
+          TreeExprBuilder::MakeFunction(
+              "hash64WithSeed", {TreeExprBuilder::MakeField(field_dec), literal_seed64},
+              arrow::int32()),
           field("hash64_with_seed", arrow::int64())),
 
       TreeExprBuilder::MakeExpression("hash32AsDouble", {field_dec},
@@ -521,13 +523,15 @@ TEST_F(TestDecimal, TestHashFunctions) {
                                       field("hash64_as_double", arrow::int64())),
 
       TreeExprBuilder::MakeExpression(
-          funcWithLiteralParam("hash32AsDoubleWithSeed", field_dec, literal_seed32,
-                               arrow::int32()),
+          TreeExprBuilder::MakeFunction(
+              "hash32AsDoubleWithSeed",
+              {TreeExprBuilder::MakeField(field_dec), literal_seed32}, arrow::int32()),
           field("hash32_as_double_with_seed", arrow::int32())),
 
       TreeExprBuilder::MakeExpression(
-          funcWithLiteralParam("hash64AsDoubleWithSeed", field_dec, literal_seed64,
-                               arrow::int64()),
+          TreeExprBuilder::MakeFunction(
+              "hash64AsDoubleWithSeed",
+              {TreeExprBuilder::MakeField(field_dec), literal_seed64}, arrow::int64()),
           field("hash64_as_double_with_seed", arrow::int64()))};
 
   // Build a projector for the expression.
@@ -566,6 +570,7 @@ TEST_F(TestDecimal, TestHashFunctions) {
   EXPECT_NE(int64_arr->Value(2), int64_arr->Value(3));
   EXPECT_NE(int64_arr->Value(3), int64_arr->Value(4));
 
+  // with seed
   auto int32WS_arr = std::dynamic_pointer_cast<arrow::Int32Array>(outputs.at(2));
   EXPECT_EQ(int32WS_arr->null_count(), 0);
   EXPECT_EQ(int32WS_arr->Value(0), 0);
@@ -581,7 +586,7 @@ TEST_F(TestDecimal, TestHashFunctions) {
   EXPECT_NE(int64WS_arr->Value(3), int64WS_arr->Value(4));
 
   EXPECT_NE(int64_arr->Value(1), int64WS_arr->Value(1));
-  EXPECT_NE(int32_arr->Value(1), int32WS_arr->Value(41));
+  EXPECT_NE(int32_arr->Value(1), int32WS_arr->Value(1));
 }
 
 }  // namespace gandiva

@@ -252,7 +252,7 @@ int64_t hash64_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_pre
 }
 
 FORCE_INLINE
-int32_t hash32WithSeed_decimal128_int32_internal(int64_t x_high, uint64_t x_low,
+int32_t hash32WithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                            int32_t x_precision, int32_t x_scale,
                                            int32_t seed) {
   gandiva::BasicDecimal128 x(x_high, x_low);
@@ -260,7 +260,7 @@ int32_t hash32WithSeed_decimal128_int32_internal(int64_t x_high, uint64_t x_low,
 }
 
 FORCE_INLINE
-int64_t hash64WithSeed_decimal128_int64_internal(int64_t x_high, uint64_t x_low,
+int64_t hash64WithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                            int32_t x_precision, int32_t x_scale,
                                            int64_t seed) {
   gandiva::BasicDecimal128 x(x_high, x_low);
@@ -282,7 +282,7 @@ int64_t hash64AsDouble_decimal128_internal(int64_t x_high, uint64_t x_low,
 }
 
 FORCE_INLINE
-int32_t hash32AsDoubleWithSeed_decimal128_int32_internal(int64_t x_high, uint64_t x_low,
+int32_t hash32AsDoubleWithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                                    int32_t x_precision, int32_t x_scale,
                                                    int32_t seed) {
   gandiva::BasicDecimal128 x(x_high, x_low);
@@ -290,7 +290,7 @@ int32_t hash32AsDoubleWithSeed_decimal128_int32_internal(int64_t x_high, uint64_
 }
 
 FORCE_INLINE
-int64_t hash64AsDoubleWithSeed_decimal128_int64_internal(int64_t x_high, uint64_t x_low,
+int64_t hash64AsDoubleWithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                                    int32_t x_precision, int32_t x_scale,
                                                    int64_t seed) {
   gandiva::BasicDecimal128 x(x_high, x_low);
