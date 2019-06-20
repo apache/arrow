@@ -71,9 +71,7 @@ class SourceTest < Test::Unit::TestCase
     prepare
     Dir.chdir("#{@tag_name}/csharp") do
       sh("dotnet", "pack", "-c", "Release")
-    end
-    Dir.chdir("#{@tag_name}/csharp") do
-      sh("~/.dotnet/tools/sourcelink", "test", "artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb")
+      sh("~/.dotnet/tools/sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb")
     end
   end
 
