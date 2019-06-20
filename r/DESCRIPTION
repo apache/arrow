@@ -23,6 +23,7 @@ SystemRequirements: C++11
 LinkingTo:
     Rcpp (>= 1.0.1)
 Imports:
+    utils,
     Rcpp (>= 1.0.1),
     rlang,
     purrr,
