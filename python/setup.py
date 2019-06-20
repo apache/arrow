@@ -388,6 +388,13 @@ class build_ext(_build_ext):
                     zlib_lib_name = 'zlib'
                     move_shared_libs(build_prefix, build_lib, zlib_lib_name,
                                      implib_required=False)
+                    if self.with_flight:
+                        # DLL dependencies for gRPC / Flight
+                        for lib_name in ['cares', 'libprotobuf',
+                                         'libcrypto-1_1-x64',
+                                         'libssl-1_1-x64']:
+                            move_shared_libs(build_prefix, build_lib, lib_name,
+                                             implib_required=False)
 
             if self.with_plasma:
                 # Move the plasma store
@@ -499,11 +506,6 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
     lib_filename = os.path.basename(libs[0])
     shutil.move(pjoin(build_prefix, lib_filename),
                 pjoin(build_lib, 'pyarrow', lib_filename))
-    for lib in libs[1:]:
-        filename = os.path.basename(lib)
-        link_name = pjoin(build_lib, 'pyarrow', filename)
-        if not os.path.exists(link_name):
-            os.symlink(lib_filename, link_name)
 
 
 # If the event of not running from a git clone (e.g. from a git archive

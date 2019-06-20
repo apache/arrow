@@ -71,6 +71,7 @@ export class Chunked<T extends DataType = any>
     public get length() { return this._length; }
     public get chunks() { return this._chunks; }
     public get typeId(): T['TType'] { return this._type.typeId; }
+    public get VectorName() { return `Chunked<${this._type}>`; }
     public get data(): Data<T> {
         return this._chunks[0] ? this._chunks[0].data : <any> null;
     }
@@ -78,6 +79,9 @@ export class Chunked<T extends DataType = any>
     public get ArrayType() { return this._type.ArrayType; }
     public get numChildren() { return this._numChildren; }
     public get stride() { return this._chunks[0] ? this._chunks[0].stride : 1; }
+    public get byteLength(): number {
+        return this._chunks.reduce((byteLength, chunk) => byteLength + chunk.byteLength, 0);
+    }
     public get nullCount() {
         let nullCount = this._nullCount;
         if (nullCount < 0) {
@@ -187,7 +191,7 @@ export class Chunked<T extends DataType = any>
     public toArray(): T['TArray'] {
         const { chunks } = this;
         const n = chunks.length;
-        let { ArrayType } = this._type;
+        let ArrayType: any = this._type.ArrayType;
         if (n <= 0) { return new ArrayType(0); }
         if (n <= 1) { return chunks[0].toArray(); }
         let len = 0, src = new Array(n);
@@ -197,7 +201,7 @@ export class Chunked<T extends DataType = any>
         if (ArrayType !== src[0].constructor) {
             ArrayType = src[0].constructor;
         }
-        let dst = new (ArrayType as any)(len);
+        let dst = new ArrayType(len);
         let set: any = ArrayType === Array ? arraySet : typedSet;
         for (let i = -1, idx = 0; ++i < n;) {
             idx = set(src[i], dst, idx);

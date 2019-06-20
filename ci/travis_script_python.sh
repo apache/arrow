@@ -51,6 +51,7 @@ fi
 
 conda create -y -q -p $CONDA_ENV_DIR \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_cpp.yml \
+      --file $TRAVIS_BUILD_DIR/ci/conda_env_unix.yml \
       --file $TRAVIS_BUILD_DIR/ci/conda_env_python.yml \
       ${CONDA_FILES} \
       nomkl \

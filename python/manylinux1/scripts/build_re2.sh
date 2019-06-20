@@ -26,7 +26,7 @@ export CXXFLAGS="-fPIC ${CXXFLAGS}"
 export CFLAGS="-fPIC ${CFLAGS}"
 
 # Build shared libraries
-make prefix=/usr install
+make prefix=/usr -j8 install
 
 popd
 rm -rf re2-${RE2_VERSION}.tar.gz re2-${RE2_VERSION} /usr/lib/libre2.so*

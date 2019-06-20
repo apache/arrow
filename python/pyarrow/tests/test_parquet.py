@@ -73,17 +73,18 @@ def _read_table(*args, **kwargs):
 
 
 def _roundtrip_table(table, read_table_kwargs=None,
-                     **params):
+                     write_table_kwargs=None):
     read_table_kwargs = read_table_kwargs or {}
+    write_table_kwargs = write_table_kwargs or {}
 
     buf = io.BytesIO()
-    _write_table(table, buf, **params)
+    _write_table(table, buf, **write_table_kwargs)
     buf.seek(0)
     return _read_table(buf, **read_table_kwargs)
 
 
 def _check_roundtrip(table, expected=None, read_table_kwargs=None,
-                     **params):
+                     **write_table_kwargs):
     if expected is None:
         expected = table
 
@@ -91,10 +92,10 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
 
     # intentionally check twice
     result = _roundtrip_table(table, read_table_kwargs=read_table_kwargs,
-                              **params)
+                              write_table_kwargs=write_table_kwargs)
     assert result.equals(expected)
     result = _roundtrip_table(result, read_table_kwargs=read_table_kwargs,
-                              **params)
+                              write_table_kwargs=write_table_kwargs)
     assert result.equals(expected)
 
 
@@ -174,13 +175,20 @@ def test_pandas_parquet_2_0_rountrip(tempdir, chunk_size):
     tm.assert_frame_equal(df, df_read, check_categorical=False)
 
 
+def test_set_data_page_size():
+    arr = pa.array([1, 2, 3] * 1000000)
+    t = pa.Table.from_arrays([arr], names=['f0'])
+
+    # 128K, 256K, 512K
+    page_sizes = [2 << 16, 2 << 17, 2 << 18]
+    for target_page_size in page_sizes:
+        _check_roundtrip(t, data_page_size=target_page_size)
+
+
 @pytest.mark.pandas
 def test_chunked_table_write():
     # ARROW-232
     df = alltypes_sample(size=10)
-
-    # The nanosecond->ms conversion is a nuisance, so we just avoid it here
-    del df['datetime']
 
     batch = pa.RecordBatch.from_pandas(df)
     table = pa.Table.from_batches([batch] * 3)
@@ -195,8 +203,6 @@ def test_chunked_table_write():
 @pytest.mark.pandas
 def test_no_memory_map(tempdir):
     df = alltypes_sample(size=10)
-    # The nanosecond->us conversion is a nuisance, so we just avoid it here
-    del df['datetime']
 
     table = pa.Table.from_pandas(df)
     _check_roundtrip(table, read_table_kwargs={'memory_map': False},
@@ -223,8 +229,6 @@ def test_special_chars_filename(tempdir):
 @pytest.mark.pandas
 def test_empty_table_roundtrip():
     df = alltypes_sample(size=10)
-    # The nanosecond->us conversion is a nuisance, so we just avoid it here
-    del df['datetime']
 
     # Create a non-empty table to infer the types correctly, then slice to 0
     table = pa.Table.from_pandas(df)
@@ -571,6 +575,13 @@ def test_pandas_parquet_configuration_options(tempdir):
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
+    for write_statistics in [True, False]:
+        _write_table(arrow_table, filename, version='2.0',
+                     write_statistics=write_statistics)
+        table_read = _read_table(filename)
+        df_read = table_read.to_pandas()
+        tm.assert_frame_equal(df, df_read)
+
     for compression in ['NONE', 'SNAPPY', 'GZIP', 'LZ4', 'ZSTD']:
         _write_table(arrow_table, filename, version='2.0',
                      compression=compression)
@@ -740,6 +751,33 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
     assert stat.physical_type == physical_type
 
 
+def test_parquet_write_disable_statistics(tempdir):
+    table = pa.Table.from_pydict(
+        {'a': pa.array([1, 2, 3]), 'b': pa.array(['a', 'b', 'c'])})
+    _write_table(table, tempdir / 'data.parquet')
+    meta = pq.read_metadata(tempdir / 'data.parquet')
+    for col in [0, 1]:
+        cc = meta.row_group(0).column(col)
+        assert cc.is_stats_set is True
+        assert cc.statistics is not None
+
+    _write_table(table, tempdir / 'data2.parquet', write_statistics=False)
+    meta = pq.read_metadata(tempdir / 'data2.parquet')
+    for col in [0, 1]:
+        cc = meta.row_group(0).column(col)
+        assert cc.is_stats_set is False
+        assert cc.statistics is None
+
+    _write_table(table, tempdir / 'data3.parquet', write_statistics=['a'])
+    meta = pq.read_metadata(tempdir / 'data3.parquet')
+    cc_a = meta.row_group(0).column(0)
+    assert cc_a.is_stats_set is True
+    assert cc_a.statistics is not None
+    cc_b = meta.row_group(0).column(1)
+    assert cc_b.is_stats_set is False
+    assert cc_b.statistics is None
+
+
 @pytest.mark.pandas
 def test_compare_schemas():
     df = alltypes_sample(size=10000)
@@ -896,7 +934,7 @@ def test_column_of_lists(tempdir):
 
 
 @pytest.mark.pandas
-def test_date_time_types():
+def test_date_time_types(tempdir):
     t1 = pa.date32()
     data1 = np.array([17259, 17260, 17261], dtype='int32')
     a1 = pa.array(data1, type=t1)
@@ -929,12 +967,6 @@ def test_date_time_types():
                      dtype='int64')
     a7 = pa.array(data7, type=t7)
 
-    t7_us = pa.timestamp('us')
-    start = pd.Timestamp('2001-01-01').value
-    data7_us = np.array([start, start + 1000, start + 2000],
-                        dtype='int64') // 1000
-    a7_us = pa.array(data7_us, type=t7_us)
-
     table = pa.Table.from_arrays([a1, a2, a3, a4, a5, a6, a7],
                                  ['date32', 'date64', 'timestamp[us]',
                                   'time32[s]', 'time64[us]',
@@ -943,8 +975,7 @@ def test_date_time_types():
 
     # date64 as date32
     # time32[s] to time32[ms]
-    # 'timestamp[ns]' to 'timestamp[us]'
-    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6, a7_us],
+    expected = pa.Table.from_arrays([a1, a1, a3, a4, a5, ex_a6, a7],
                                     ['date32', 'date64', 'timestamp[us]',
                                      'time32[s]', 'time64[us]',
                                      'time32_from64[s]',
@@ -952,35 +983,62 @@ def test_date_time_types():
 
     _check_roundtrip(table, expected=expected, version='2.0')
 
-    # date64 as date32
-    # time32[s] to time32[ms]
-    # 'timestamp[ms]' is saved as INT96 timestamp
-    # 'timestamp[ns]' is saved as INT96 timestamp
-    expected = pa.Table.from_arrays([a1, a1, a7, a4, a5, ex_a6, a7],
-                                    ['date32', 'date64', 'timestamp[us]',
-                                     'time32[s]', 'time64[us]',
-                                     'time32_from64[s]',
-                                     'timestamp[ns]'])
+    t0 = pa.timestamp('ms')
+    data0 = np.arange(4, dtype='int64')
+    a0 = pa.array(data0, type=t0)
 
-    _check_roundtrip(table, expected=expected, version='2.0',
-                     use_deprecated_int96_timestamps=True)
+    t1 = pa.timestamp('us')
+    data1 = np.arange(4, dtype='int64')
+    a1 = pa.array(data1, type=t1)
 
-    # Check that setting flavor to 'spark' uses int96 timestamps
-    _check_roundtrip(table, expected=expected, version='2.0',
-                     flavor='spark')
+    t2 = pa.timestamp('ns')
+    data2 = np.arange(4, dtype='int64')
+    a2 = pa.array(data2, type=t2)
 
-    # Unsupported stuff
-    def _assert_unsupported(array):
-        table = pa.Table.from_arrays([array], ['unsupported'])
-        buf = io.BytesIO()
+    table = pa.Table.from_arrays([a0, a1, a2],
+                                 ['ts[ms]', 'ts[us]', 'ts[ns]'])
+    expected = pa.Table.from_arrays([a0, a1, a2],
+                                    ['ts[ms]', 'ts[us]', 'ts[ns]'])
 
-        with pytest.raises(NotImplementedError):
-            _write_table(table, buf, version="2.0")
+    # int64 for all timestamps supported by default
+    filename = tempdir / 'int64_timestamps.parquet'
+    _write_table(table, filename, version='2.0')
+    parquet_schema = pq.ParquetFile(filename).schema
+    for i in range(3):
+        assert parquet_schema.column(i).physical_type == 'INT64'
+    read_table = _read_table(filename)
+    assert read_table.equals(expected)
 
-    t7 = pa.time64('ns')
-    a7 = pa.array(data4.astype('int64'), type=t7)
+    t0_ns = pa.timestamp('ns')
+    data0_ns = np.array(data0 * 1000000, dtype='int64')
+    a0_ns = pa.array(data0_ns, type=t0_ns)
 
-    _assert_unsupported(a7)
+    t1_ns = pa.timestamp('ns')
+    data1_ns = np.array(data1 * 1000, dtype='int64')
+    a1_ns = pa.array(data1_ns, type=t1_ns)
+
+    expected = pa.Table.from_arrays([a0_ns, a1_ns, a2],
+                                    ['ts[ms]', 'ts[us]', 'ts[ns]'])
+
+    # int96 nanosecond timestamps produced upon request
+    filename = tempdir / 'explicit_int96_timestamps.parquet'
+    _write_table(table, filename, version='2.0',
+                 use_deprecated_int96_timestamps=True)
+    parquet_schema = pq.ParquetFile(filename).schema
+    for i in range(3):
+        assert parquet_schema.column(i).physical_type == 'INT96'
+    read_table = _read_table(filename)
+    assert read_table.equals(expected)
+
+    # int96 nanosecond timestamps implied by flavor 'spark'
+    filename = tempdir / 'spark_int96_timestamps.parquet'
+    _write_table(table, filename, version='2.0',
+                 flavor='spark')
+    parquet_schema = pq.ParquetFile(filename).schema
+    for i in range(3):
+        assert parquet_schema.column(i).physical_type == 'INT96'
+    read_table = _read_table(filename)
+    assert read_table.equals(expected)
 
 
 @pytest.mark.pandas
@@ -990,6 +1048,64 @@ def test_list_of_datetime_time_roundtrip():
                             '11:30', '12:00'])
     df = pd.DataFrame({'time': [times.time]})
     _roundtrip_pandas_dataframe(df, write_kwargs={})
+
+
+@pytest.mark.pandas
+def test_parquet_version_timestamp_differences():
+    i_s = pd.Timestamp('2010-01-01').value / 1000000000  # := 1262304000
+
+    d_s = np.arange(i_s, i_s + 10, 1, dtype='int64')
+    d_ms = d_s * 1000
+    d_us = d_ms * 1000
+    d_ns = d_us * 1000
+
+    a_s = pa.array(d_s, type=pa.timestamp('s'))
+    a_ms = pa.array(d_ms, type=pa.timestamp('ms'))
+    a_us = pa.array(d_us, type=pa.timestamp('us'))
+    a_ns = pa.array(d_ns, type=pa.timestamp('ns'))
+
+    names = ['ts:s', 'ts:ms', 'ts:us', 'ts:ns']
+    table = pa.Table.from_arrays([a_s, a_ms, a_us, a_ns], names)
+
+    # Using Parquet version 1.0, seconds should be coerced to milliseconds
+    # and nanoseconds should be coerced to microseconds by default
+    expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_us], names)
+    _check_roundtrip(table, expected)
+
+    # Using Parquet version 2.0, seconds should be coerced to milliseconds
+    # and nanoseconds should be retained by default
+    expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_ns], names)
+    _check_roundtrip(table, expected, version='2.0')
+
+    # Using Parquet version 1.0, coercing to milliseconds or microseconds
+    # is allowed
+    expected = pa.Table.from_arrays([a_ms, a_ms, a_ms, a_ms], names)
+    _check_roundtrip(table, expected, coerce_timestamps='ms')
+
+    # Using Parquet version 2.0, coercing to milliseconds or microseconds
+    # is allowed
+    expected = pa.Table.from_arrays([a_us, a_us, a_us, a_us], names)
+    _check_roundtrip(table, expected, version='2.0', coerce_timestamps='us')
+
+    # TODO: after pyarrow allows coerce_timestamps='ns', tests like the
+    # following should pass ...
+
+    # Using Parquet version 1.0, coercing to nanoseconds is not allowed
+    # expected = None
+    # with pytest.raises(NotImplementedError):
+    #     _roundtrip_table(table, coerce_timestamps='ns')
+
+    # Using Parquet version 2.0, coercing to nanoseconds is allowed
+    # expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
+    # _check_roundtrip(table, expected, version='2.0', coerce_timestamps='ns')
+
+    # For either Parquet version, coercing to nanoseconds is allowed
+    # if Int96 storage is used
+    expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
+    _check_roundtrip(table, expected,
+                     use_deprecated_int96_timestamps=True)
+    _check_roundtrip(table, expected, version='2.0',
+                     use_deprecated_int96_timestamps=True)
 
 
 def test_large_list_records():
@@ -1013,7 +1129,7 @@ def test_sanitized_spark_field_names():
     name = 'prohib; ,\t{}'
     table = pa.Table.from_arrays([a0], [name])
 
-    result = _roundtrip_table(table, flavor='spark')
+    result = _roundtrip_table(table, write_table_kwargs={'flavor': 'spark'})
 
     expected_name = 'prohib______'
     assert result.schema[0].name == expected_name
@@ -2035,6 +2151,33 @@ def test_write_error_deletes_incomplete_file(tempdir):
     assert not filename.exists()
 
 
+@pytest.mark.pandas
+def test_noncoerced_nanoseconds_written_without_exception(tempdir):
+    # ARROW-1957: the Parquet version 2.0 writer preserves Arrow
+    # nanosecond timestamps by default
+    n = 9
+    df = pd.DataFrame({'x': range(n)},
+                      index=pd.DatetimeIndex(start='2017-01-01',
+                      freq='1n',
+                      periods=n))
+    tb = pa.Table.from_pandas(df)
+
+    filename = tempdir / 'written.parquet'
+    try:
+        pq.write_table(tb, filename, version='2.0')
+    except Exception:
+        pass
+    assert filename.exists()
+
+    recovered_table = pq.read_table(filename)
+    assert tb.equals(recovered_table)
+
+    # Loss of data thru coercion (without explicit override) still an error
+    filename = tempdir / 'not_written.parquet'
+    with pytest.raises(ValueError):
+        pq.write_table(tb, filename, coerce_timestamps='ms', version='2.0')
+
+
 def test_read_non_existent_file(tempdir):
     path = 'non-existent-file.parquet'
     try:
@@ -2760,3 +2903,24 @@ def test_multi_dataset_metadata(tempdir):
     assert _md['num_row_groups'] == 2
     assert _md['serialized_size'] == 0
     assert md['serialized_size'] > 0
+
+
+def test_filter_before_validate_schema(tempdir):
+    # ARROW-4076 apply filter before schema validation
+    # to avoid checking unneeded schemas
+
+    # create partitioned dataset with mismatching schemas which would
+    # otherwise raise if first validation all schemas
+    dir1 = tempdir / 'A=0'
+    dir1.mkdir()
+    table1 = pa.Table.from_pandas(pd.DataFrame({'B': [1, 2, 3]}))
+    pq.write_table(table1, dir1 / 'data.parquet')
+
+    dir2 = tempdir / 'A=1'
+    dir2.mkdir()
+    table2 = pa.Table.from_pandas(pd.DataFrame({'B': ['a', 'b', 'c']}))
+    pq.write_table(table2, dir2 / 'data.parquet')
+
+    # read single file using filter
+    table = pq.read_table(tempdir, filters=[[('A', '==', 0)]])
+    assert table.column('B').equals(pa.column('B', pa.array([1, 2, 3])))

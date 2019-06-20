@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <string>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
@@ -30,6 +31,13 @@
 
 namespace arrow {
 namespace util {
+
+// Convert a UTF8 string to a wstring (either UTF16 or UTF32, depending
+// on the wchar_t width).
+ARROW_EXPORT Status UTF8ToWideString(const std::string& source, std::wstring* out);
+
+// Similarly, convert a wstring to a UTF8 string.
+ARROW_EXPORT Status WideStringToUTF8(const std::wstring& source, std::string* out);
 
 namespace internal {
 

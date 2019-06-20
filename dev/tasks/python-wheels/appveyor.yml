@@ -20,15 +20,14 @@ os: Visual Studio 2015
 environment:
   ARCH: "64"
   GENERATOR: Visual Studio 14 2015 Win64
-  NUMPY_VERSION: "1.14.5"
+  NUMPY_VERSION: "1.14"
   PYTHON_VERSION: "{{ python_version }}"
-  MSVC_DEFAULT_OPTIONS: ON
   ARROW_SRC: C:\apache-arrow
   PYARROW_VERSION: {{ arrow.no_rc_version }}
   PYARROW_REF: {{ arrow.head }}
 
 init:
-  - set MINICONDA=C:\Miniconda35-x64
+  - set MINICONDA=C:\Miniconda3-x64
   - set PATH=%MINICONDA%;%MINICONDA%/Scripts;%MINICONDA%/Library/bin;%PATH%
 
 build_script:
@@ -38,12 +37,25 @@ build_script:
   - git clone --no-checkout {{ arrow.remote }} %ARROW_SRC% || exit /B
   - git -C %ARROW_SRC% fetch -t {{ arrow.remote }} {{ arrow.branch }} || exit /B
   - git -C %ARROW_SRC% checkout {{ arrow.head }} || exit /B
+  - git -C %ARROW_SRC% submodule update --init || exit /B
+
+  # Avoid picking up AppVeyor-installed OpenSSL (linker errors with gRPC)
+  # XXX Perhaps there is a smarter way of solving this issue?
+  - rd /s /q C:\OpenSSL-Win32
+  - rd /s /q C:\OpenSSL-Win64
+  - rd /s /q C:\OpenSSL-v11-Win32
+  - rd /s /q C:\OpenSSL-v11-Win64
+  - rd /s /q C:\OpenSSL-v111-Win32
+  - rd /s /q C:\OpenSSL-v111-Win64
 
   - call %ARROW_SRC%\dev\tasks\python-wheels\win-build.bat
 
 after_build:
   # the artifacts must be uploaded from a directory relative to the build root
   - xcopy %ARROW_SRC%\python\dist\* wheels\
+
+#on_finish:
+  #- ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 artifacts:
   - path: 'wheels\*.whl'

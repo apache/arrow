@@ -18,7 +18,11 @@
 #' @include R6.R
 
 `arrow::ListType` <- R6Class("arrow::ListType",
-  inherit = `arrow::NestedType`
+  inherit = `arrow::NestedType`,
+  active = list(
+    value_field = function() shared_ptr(`arrow::Field`, ListType__value_field(self)),
+    value_type = function() `arrow::DataType`$dispatch(ListType__value_type(self))
+  )
 )
 
 #' @rdname DataType

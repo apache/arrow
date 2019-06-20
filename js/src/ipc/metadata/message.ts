@@ -49,7 +49,10 @@ import {
     Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys,
 } from '../../type';
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class Message<T extends MessageHeader = any> {
 
     /** @nocollapse */
@@ -129,7 +132,10 @@ export class Message<T extends MessageHeader = any> {
     }
 }
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class RecordBatch {
     protected _length: number;
     protected _nodes: FieldNode[];
@@ -144,7 +150,10 @@ export class RecordBatch {
     }
 }
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class DictionaryBatch {
 
     protected _id: number;
@@ -164,7 +173,10 @@ export class DictionaryBatch {
     }
 }
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class BufferRegion {
     public offset: number;
     public length: number;
@@ -174,7 +186,10 @@ export class BufferRegion {
     }
 }
 
-/** @ignore */
+/**
+ * @ignore
+ * @private
+ **/
 export class FieldNode {
     public length: number;
     public nullCount: number;
@@ -404,7 +419,7 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
     const typeId = f.typeType();
 
     switch (typeId) {
-        case Type.NONE:    return new DataType();
+        case Type.NONE:    return new Null();
         case Type.Null:    return new Null();
         case Type.Binary:  return new Binary();
         case Type.Utf8:    return new Utf8();
