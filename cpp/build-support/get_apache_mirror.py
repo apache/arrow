@@ -21,11 +21,20 @@
 
 import json
 try:
-    from urllib2 import urlopen
-except ImportError:
-    # py3
-    from urllib.request import urlopen
+    import requests
 
-suggested_mirror = urlopen('https://www.apache.org/dyn/'
-                           'closer.cgi?as_json=1').read()
+    def get_url(url):
+        return requests.get(url).content
+except ImportError:
+    try:
+        from urllib2 import urlopen
+    except ImportError:
+        # py3
+        from urllib.request import urlopen
+
+    def get_url(url):
+        return urlopen(url).read()
+
+suggested_mirror = get_url('https://www.apache.org/dyn/'
+                           'closer.cgi?as_json=1')
 print(json.loads(suggested_mirror.decode('utf-8'))['preferred'])
