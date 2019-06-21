@@ -71,7 +71,9 @@ class SourceTest < Test::Unit::TestCase
     prepare
     Dir.chdir("#{@tag_name}/csharp") do
       sh("dotnet", "pack", "-c", "Release")
-      sh("~/.dotnet/tools/sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb")
+      assert(sh("~/.dotnet/tools/sourcelink \
+                test \
+                artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb"))
     end
   end
 
@@ -79,8 +81,8 @@ class SourceTest < Test::Unit::TestCase
     prepare
     Dir.chdir("#{@tag_name}/python") do
       sh("python3", "setup.py", "sdist")
-      assert_equal("pyarrow-#{@release_version}a0.tar.gz",
-                   sh("ls", "dist").chomp)
+      assert_equal(true,
+                   File.exist?("dist/pyarrow-#{@release_version}a0.tar.gz"))
     end
   end
 end
