@@ -46,7 +46,8 @@ script:
   - pushd arrow
 
   # Pull testing resources
-  - git submodule init --update
+  - git submodule init
+  - git submodule update
 
   # don't attempt to build it, because the base image by pypa is updated
   # regularly and would cause undeterministic builds
