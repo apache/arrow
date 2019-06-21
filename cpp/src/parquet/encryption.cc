@@ -17,10 +17,11 @@
 
 #include "parquet/encryption.h"
 
-#include <openssl/rand.h>
 #include <string.h>
 #include <map>
 #include <utility>
+
+#include <openssl/rand.h>
 
 #include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
@@ -29,7 +30,7 @@ namespace parquet {
 
 // integer key retriever
 void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
-  key_map_.insert(std::make_pair(key_id, key));
+  key_map_.insert({key_id, key});
 }
 
 const std::string& IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
@@ -41,7 +42,7 @@ const std::string& IntegerKeyIdRetriever::GetKey(const std::string& key_metadata
 
 // string key retriever
 void StringKeyIdRetriever::PutKey(const std::string& key_id, const std::string& key) {
-  key_map_.insert(std::make_pair(key_id, key));
+  key_map_.insert({key_id, key});
 }
 
 const std::string& StringKeyIdRetriever::GetKey(const std::string& key_id) {
@@ -80,17 +81,13 @@ ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key_id
 }
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_properties(
-    const std::map<std::shared_ptr<schema::ColumnPath>,
-                   std::shared_ptr<ColumnDecryptionProperties>,
-                   schema::ColumnPath::CmpColumnPath>& column_properties) {
+    const ColumnPathToDecryptionPropertiesMap& column_properties) {
   if (column_properties.size() == 0) return this;
 
   if (column_properties_.size() != 0)
     throw ParquetException("Column properties already set");
 
-  for (std::pair<std::shared_ptr<schema::ColumnPath>,
-                 std::shared_ptr<ColumnDecryptionProperties>>
-           element : column_properties) {
+  for (const auto& element : column_properties) {
     if (element.second->is_utilized()) {
       throw ParquetException("Column properties utilized in another file");
     }
@@ -101,14 +98,11 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::column_pro
   return this;
 }
 
-void FileDecryptionProperties::wipeout_decryption_keys() {
-  if (!footer_key_.empty())
-    std::memset((char*)(const_cast<char*>(footer_key_.c_str())), 0, footer_key_.size());
+void FileDecryptionProperties::WipeOutDecryptionKeys() {
+  footer_key_.clear();
 
-  for (std::pair<std::shared_ptr<schema::ColumnPath>,
-                 std::shared_ptr<ColumnDecryptionProperties>>
-           element : column_properties_) {
-    element.second->wipeout_decryption_key();
+  for (const auto& element : column_properties_) {
+    element.second->WipeOutDecryptionKey();
   }
 }
 
@@ -122,17 +116,11 @@ bool FileDecryptionProperties::is_utilized() {
 std::shared_ptr<FileDecryptionProperties> FileDecryptionProperties::DeepClone(
     std::string new_aad_prefix) {
   std::string footer_key_copy = footer_key_;
-  std::map<std::shared_ptr<schema::ColumnPath>,
-           std::shared_ptr<ColumnDecryptionProperties>, schema::ColumnPath::CmpColumnPath>
-      column_properties_map_copy;
+  ColumnPathToDecryptionPropertiesMap column_properties_map_copy;
 
-  for (std::pair<std::shared_ptr<schema::ColumnPath>,
-                 std::shared_ptr<ColumnDecryptionProperties>>
-           element : column_properties_) {
+  for (const auto& element : column_properties_) {
     column_properties_map_copy.insert(
-        std::pair<std::shared_ptr<schema::ColumnPath>,
-                  std::shared_ptr<ColumnDecryptionProperties>>(
-            element.second->column_path(), element.second->DeepClone()));
+        {element.second->column_path(), element.second->DeepClone()});
   }
 
   if (new_aad_prefix.empty()) new_aad_prefix = aad_prefix_;
@@ -193,11 +181,7 @@ std::shared_ptr<ColumnDecryptionProperties> ColumnDecryptionProperties::Builder:
       new ColumnDecryptionProperties(column_path_, key_));
 }
 
-void ColumnDecryptionProperties::wipeout_decryption_key() {
-  if (!key_.empty()) {
-    std::memset((char*)(const_cast<char*>(key_.c_str())), 0, key_.size());
-  }
-}
+void ColumnDecryptionProperties::WipeOutDecryptionKey() { key_.clear(); }
 
 std::shared_ptr<ColumnDecryptionProperties> ColumnDecryptionProperties::DeepClone() {
   std::string key_copy = key_;
@@ -215,17 +199,13 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
 }
 
 FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::column_properties(
-    const std::map<std::shared_ptr<schema::ColumnPath>,
-                   std::shared_ptr<ColumnEncryptionProperties>,
-                   schema::ColumnPath::CmpColumnPath>& column_properties) {
+    const ColumnPathToEncryptionPropertiesMap& column_properties) {
   if (column_properties.size() == 0) return this;
 
   if (column_properties_.size() != 0)
     throw ParquetException("Column properties already set");
 
-  for (std::pair<std::shared_ptr<schema::ColumnPath>,
-                 std::shared_ptr<ColumnEncryptionProperties>>
-           element : column_properties) {
+  for (const auto& element : column_properties) {
     if (element.second->is_utilized()) {
       throw ParquetException("Column properties utilized in another file");
     }
@@ -235,29 +215,21 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::column_pro
   return this;
 }
 
-void FileEncryptionProperties::wipeout_encryption_keys() {
-  std::memset((char*)(const_cast<char*>(footer_key_.c_str())), 0, footer_key_.size());
-  for (std::pair<std::shared_ptr<schema::ColumnPath>,
-                 std::shared_ptr<ColumnEncryptionProperties>>
-           element : column_properties_) {
-    element.second->wipeout_encryption_key();
+void FileEncryptionProperties::WipeOutEncryptionKeys() {
+  footer_key_.clear();
+  for (const auto& element : column_properties_) {
+    element.second->WipeOutEncryptionKey();
   }
 }
 
 std::shared_ptr<FileEncryptionProperties> FileEncryptionProperties::DeepClone(
     std::string new_aad_prefix) {
   std::string footer_key_copy = footer_key_;
-  std::map<std::shared_ptr<schema::ColumnPath>,
-           std::shared_ptr<ColumnEncryptionProperties>, schema::ColumnPath::CmpColumnPath>
-      column_properties_map_copy;
+  ColumnPathToEncryptionPropertiesMap column_properties_map_copy;
 
-  for (std::pair<std::shared_ptr<schema::ColumnPath>,
-                 std::shared_ptr<ColumnEncryptionProperties>>
-           element : column_properties_) {
+  for (const auto& element : column_properties_) {
     column_properties_map_copy.insert(
-        std::pair<std::shared_ptr<schema::ColumnPath>,
-                  std::shared_ptr<ColumnEncryptionProperties>>(
-            element.second->column_path(), element.second->DeepClone()));
+        {element.second->column_path(), element.second->DeepClone()});
   }
 
   if (new_aad_prefix.empty()) new_aad_prefix = aad_prefix_;
@@ -342,9 +314,7 @@ FileDecryptionProperties::FileDecryptionProperties(
     const std::shared_ptr<DecryptionKeyRetriever>& key_retriever,
     bool check_plaintext_footer_integrity, const std::string& aad_prefix,
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
-    const std::map<std::shared_ptr<schema::ColumnPath>,
-                   std::shared_ptr<ColumnDecryptionProperties>,
-                   schema::ColumnPath::CmpColumnPath>& column_properties,
+    const ColumnPathToDecryptionPropertiesMap& column_properties,
     bool plaintext_files_allowed) {
   DCHECK(!footer_key.empty() || NULLPTR != key_retriever ||
          0 != column_properties.size());
@@ -393,16 +363,14 @@ std::shared_ptr<ColumnEncryptionProperties> FileEncryptionProperties::column_pro
     return column_properties_[column_path];
   }
 
-  return NULLPTR;
+  return nullptr;
 }
 
 FileEncryptionProperties::FileEncryptionProperties(
     ParquetCipher::type cipher, const std::string& footer_key,
     const std::string& footer_key_metadata, bool encrypted_footer,
     const std::string& aad_prefix, bool store_aad_prefix_in_file,
-    const std::map<std::shared_ptr<schema::ColumnPath>,
-                   std::shared_ptr<ColumnEncryptionProperties>,
-                   schema::ColumnPath::CmpColumnPath>& column_properties)
+    const ColumnPathToEncryptionPropertiesMap& column_properties)
     : footer_key_(footer_key),
       footer_key_metadata_(footer_key_metadata),
       encrypted_footer_(encrypted_footer),

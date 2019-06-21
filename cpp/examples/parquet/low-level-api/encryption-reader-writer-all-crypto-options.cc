@@ -27,7 +27,10 @@
 
 /*
  * This file contains samples for writing and reading encrypted Parquet files in different
- * encryption and decryption configurations. The samples have the following goals:
+ * encryption and decryption configurations.
+ * Each sample section is dedicated to an independent configuration and shows its creation
+ * from beginning to end.
+ * The samples have the following goals:
  * 1) Demonstrate usage of different options for data encryption and decryption.
  * 2) Produce encrypted files for interoperability tests with other (eg parquet-mr)
  *    readers that support encryption.
@@ -36,7 +39,7 @@
  * 4) Perform interoperability tests with other (eg parquet-mr) writers, by reading
  *    encrypted files produced by these writers.
  *
- * The write sample produces number of parquet files, each encrypted with a different
+ * Each write sample produces new independent parquet file, encrypted with a different
  * encryption configuration as described below.
  * The name of each file is in the form of:
  * tester<encryption config number>.parquet.encrypted.
@@ -113,7 +116,7 @@ std::vector<std::string> GetDirectoryFiles(const std::string& path) {
   return files;
 }
 
-void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
+void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
   /**********************************************************************************
                          Creating a number of Encryption configurations
    **********************************************************************************/
@@ -260,7 +263,7 @@ void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
       using FileClass = ::arrow::io::FileOutputStream;
       std::shared_ptr<FileClass> out_file;
       std::string file =
-          rootPath + fileName + std::string(test_number_string) + ".parquet.encrypted";
+          root_path + fileName + std::string(test_number_string) + ".parquet.encrypted";
       std::cout << "Write " << file << std::endl;
       PARQUET_THROW_NOT_OK(FileClass::Open(file, &out_file));
 
@@ -326,8 +329,8 @@ void InteropTestWriteEncryptedParquetFiles(std::string rootPath) {
   }
 }
 
-void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
-  std::vector<std::string> files_in_directory = GetDirectoryFiles(rootPath);
+void InteropTestReadEncryptedParquetFiles(std::string root_path) {
+  std::vector<std::string> files_in_directory = GetDirectoryFiles(root_path);
 
   /**********************************************************************************
                        Creating a number of Decryption configurations
@@ -414,7 +417,7 @@ void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
 
         // Create a ParquetReader instance
         std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
-            parquet::ParquetFileReader::OpenFile(rootPath + file, false,
+            parquet::ParquetFileReader::OpenFile(root_path + file, false,
                                                  reader_properties);
 
         // Get the File MetaData
@@ -611,7 +614,7 @@ bool FileNameEndsWith(std::string file_name, std::string suffix) {
 
 int main(int argc, char** argv) {
   enum Operation { write, read };
-  std::string rootPath;
+  std::string root_path;
   Operation operation = write;
   if (argc < 3) {
     std::cout << "Usage: encryption-reader-writer-all-crypto-options <read/write> "
@@ -619,18 +622,18 @@ int main(int argc, char** argv) {
               << std::endl;
     exit(1);
   }
-  rootPath = argv[1];
-  if (rootPath.compare("read") == 0) {
+  root_path = argv[1];
+  if (root_path.compare("read") == 0) {
     operation = read;
   }
 
-  rootPath = argv[2];
-  std::cout << "Root path is: " << rootPath << std::endl;
+  root_path = argv[2];
+  std::cout << "Root path is: " << root_path << std::endl;
 
   if (operation == write) {
-    InteropTestWriteEncryptedParquetFiles(rootPath);
+    InteropTestWriteEncryptedParquetFiles(root_path);
   } else
-    InteropTestReadEncryptedParquetFiles(rootPath);
+    InteropTestReadEncryptedParquetFiles(root_path);
 
   return 0;
 }

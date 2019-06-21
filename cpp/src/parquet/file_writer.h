@@ -111,16 +111,24 @@ class PARQUET_EXPORT RowGroupWriter {
 
 ARROW_DEPRECATED("Use version with arrow::io::OutputStream*")
 PARQUET_EXPORT
-void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink,
-                       const std::shared_ptr<Encryptor>& encryptor = NULLPTR,
-                       bool encrypt_footer = false);
+void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
+PARQUET_EXPORT
+void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
+                                ArrowOutputStream* sink,
+                                const std::shared_ptr<Encryptor>& encryptor,
+                                bool encrypt_footer);
+
 void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
                              OutputStream* sink);
 
 PARQUET_EXPORT
-void WriteFileMetaData(const FileMetaData& file_metadata, ::arrow::io::OutputStream* sink,
-                       const std::shared_ptr<Encryptor>& encryptor = NULLPTR,
-                       bool encrypt_footer = false);
+void WriteFileMetaData(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
+PARQUET_EXPORT
+void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
+                                ::arrow::io::OutputStream* sink,
+                                const std::shared_ptr<Encryptor>& encryptor = NULLPTR,
+                                bool encrypt_footer = false);
 PARQUET_EXPORT
 void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
                              ::arrow::io::OutputStream* sink);

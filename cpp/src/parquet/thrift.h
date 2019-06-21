@@ -164,12 +164,9 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
 static inline format::AesGcmV1 ToAesGcmV1Thrift(AadMetadata aad) {
   format::AesGcmV1 aesGcmV1;
   // aad_file_unique is always set
-  aesGcmV1.__isset.aad_file_unique = true;
   aesGcmV1.__set_aad_file_unique(aad.aad_file_unique);
-  aesGcmV1.__isset.supply_aad_prefix = true;
   aesGcmV1.__set_supply_aad_prefix(aad.supply_aad_prefix);
   if (!aad.aad_prefix.empty()) {
-    aesGcmV1.__isset.aad_prefix = true;
     aesGcmV1.__set_aad_prefix(aad.aad_prefix);
   }
   return aesGcmV1;
@@ -178,12 +175,9 @@ static inline format::AesGcmV1 ToAesGcmV1Thrift(AadMetadata aad) {
 static inline format::AesGcmCtrV1 ToAesGcmCtrV1Thrift(AadMetadata aad) {
   format::AesGcmCtrV1 aesGcmCtrV1;
   // aad_file_unique is always set
-  aesGcmCtrV1.__isset.aad_file_unique = true;
   aesGcmCtrV1.__set_aad_file_unique(aad.aad_file_unique);
-  aesGcmCtrV1.__isset.supply_aad_prefix = true;
   aesGcmCtrV1.__set_supply_aad_prefix(aad.supply_aad_prefix);
   if (!aad.aad_prefix.empty()) {
-    aesGcmCtrV1.__isset.aad_prefix = true;
     aesGcmCtrV1.__set_aad_prefix(aad.aad_prefix);
   }
   return aesGcmCtrV1;
@@ -192,11 +186,9 @@ static inline format::AesGcmCtrV1 ToAesGcmCtrV1Thrift(AadMetadata aad) {
 static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryption) {
   format::EncryptionAlgorithm encryption_algorithm;
   if (encryption.algorithm == ParquetCipher::AES_GCM_V1) {
-    encryption_algorithm.__isset.AES_GCM_V1 = true;
-    encryption_algorithm.AES_GCM_V1 = ToAesGcmV1Thrift(encryption.aad);
+    encryption_algorithm.__set_AES_GCM_V1(ToAesGcmV1Thrift(encryption.aad));
   } else {
-    encryption_algorithm.__isset.AES_GCM_CTR_V1 = true;
-    encryption_algorithm.AES_GCM_CTR_V1 = ToAesGcmCtrV1Thrift(encryption.aad);
+    encryption_algorithm.__set_AES_GCM_CTR_V1(ToAesGcmCtrV1Thrift(encryption.aad));
   }
   return encryption_algorithm;
 }
@@ -206,50 +198,51 @@ static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryptio
 
 using ThriftBuffer = apache::thrift::transport::TMemoryBuffer;
 
+template <class T>
+inline void DeserializeThriftUnencryptedMsg(const uint8_t* buf, uint32_t* len,
+                                            T* deserialized_msg) {
+  // Deserialize msg bytes into c++ thrift msg using memory transport.
+  shared_ptr<ThriftBuffer> tmem_transport(
+      new ThriftBuffer(const_cast<uint8_t*>(buf), *len));
+  apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
+  shared_ptr<apache::thrift::protocol::TProtocol> tproto =  //
+      tproto_factory.getProtocol(tmem_transport);
+  try {
+    deserialized_msg->read(tproto.get());
+  } catch (std::exception& e) {
+    std::stringstream ss;
+    ss << "Couldn't deserialize thrift: " << e.what() << "\n";
+    throw ParquetException(ss.str());
+  }
+  uint32_t bytes_left = tmem_transport->available_read();
+  *len = *len - bytes_left;
+}
+
 // Deserialize a thrift message from buf/len.  buf/len must at least contain
 // all the bytes needed to store the thrift message.  On return, len will be
 // set to the actual length of the header.
 template <class T>
 inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg,
-                                 const std::shared_ptr<Decryptor>& decryptor = NULLPTR,
-                                 bool shouldReadLength = false) {
+                                 const std::shared_ptr<Decryptor>& decryptor = NULLPTR) {
   // thrift message is not encrypted
   if (decryptor == NULLPTR) {
-    // Deserialize msg bytes into c++ thrift msg using memory transport.
-    shared_ptr<ThriftBuffer> tmem_transport(
-        new ThriftBuffer(const_cast<uint8_t*>(buf), *len));
-    apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
-    shared_ptr<apache::thrift::protocol::TProtocol> tproto =  //
-        tproto_factory.getProtocol(tmem_transport);
-    try {
-      deserialized_msg->read(tproto.get());
-    } catch (std::exception& e) {
-      std::stringstream ss;
-      ss << "Couldn't deserialize thrift: " << e.what() << "\n";
-      throw ParquetException(ss.str());
-    }
-    uint32_t bytes_left = tmem_transport->available_read();
-    *len = *len - bytes_left;
+    DeserializeThriftUnencryptedMsg(buf, len, deserialized_msg);
   } else {  // thrift message is encrypted
     uint32_t clen;
-    if (shouldReadLength) {
-      // first 4 bytes for length
-      uint8_t clenBytes[4];
-      memcpy(clenBytes, buf, 4);
-      clen = *(reinterpret_cast<uint32_t*>(clenBytes));
-    } else {
-      clen = *len;
-    }
+    clen = *len;
     // decrypt
-    const uint8_t* cipherBuf = shouldReadLength ? &buf[4] : buf;
-    std::vector<uint8_t> decrypted_buffer(clen - decryptor->CiphertextSizeDelta());
+    std::shared_ptr<ResizableBuffer> decrypted_buffer =
+        std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
+            ::arrow::default_memory_pool(),
+            static_cast<int64_t>(clen - decryptor->CiphertextSizeDelta())));
+    const uint8_t* cipher_buf = buf;
     uint32_t decrypted_buffer_len =
-        decryptor->Decrypt(cipherBuf, 0, decrypted_buffer.data());
+        decryptor->Decrypt(cipher_buf, 0, decrypted_buffer->mutable_data());
     if (decrypted_buffer_len <= 0) {
       throw ParquetException("Couldn't decrypt buffer\n");
     }
     *len = decrypted_buffer_len + decryptor->CiphertextSizeDelta();
-    DeserializeThriftMsg(decrypted_buffer.data(), &decrypted_buffer_len,
+    DeserializeThriftMsg(decrypted_buffer->data(), &decrypted_buffer_len,
                          deserialized_msg);
   }
 }
@@ -283,8 +276,7 @@ class ThriftSerializer {
 
   template <class T>
   int64_t Serialize(const T* obj, ArrowOutputStream* out,
-                    const std::shared_ptr<Encryptor>& encryptor = NULLPTR,
-                    bool shouldWriteLength = false) {
+                    const std::shared_ptr<Encryptor>& encryptor = NULLPTR) {
     uint8_t* out_buffer;
     uint32_t out_length;
     SerializeToBuffer(obj, &out_length, &out_buffer);
@@ -294,26 +286,7 @@ class ThriftSerializer {
       PARQUET_THROW_NOT_OK(out->Write(out_buffer, out_length));
       return static_cast<int64_t>(out_length);
     } else {  // obj is encrypted
-      std::vector<uint8_t> cipher_buffer(encryptor->CiphertextSizeDelta() + out_length);
-      int cipher_buffer_len =
-          encryptor->Encrypt(out_buffer, out_length, cipher_buffer.data());
-
-      if (cipher_buffer_len > static_cast<int>(cipher_buffer.size())) {
-        std::stringstream ss;
-        ss << "cipher length is greater than cipher buffer capacity: "
-           << cipher_buffer_len << cipher_buffer.size() << "\n";
-        throw ParquetException(ss.str());
-      }
-
-      if (shouldWriteLength) {
-        PARQUET_THROW_NOT_OK(
-            out->Write(reinterpret_cast<uint8_t*>(&cipher_buffer_len), 4));
-        PARQUET_THROW_NOT_OK(out->Write(cipher_buffer.data(), cipher_buffer_len));
-        return static_cast<int64_t>(cipher_buffer_len + 4);
-      } else {
-        PARQUET_THROW_NOT_OK(out->Write(cipher_buffer.data(), cipher_buffer_len));
-        return static_cast<int64_t>(cipher_buffer_len);
-      }
+      return SerializeEncryptedObj(out, out_buffer, out_length, encryptor);
     }
   }
 
@@ -328,6 +301,20 @@ class ThriftSerializer {
       ss << "Couldn't serialize thrift: " << e.what() << "\n";
       throw ParquetException(ss.str());
     }
+  }
+
+  int64_t SerializeEncryptedObj(ArrowOutputStream* out, uint8_t* out_buffer,
+                                uint32_t out_length,
+                                const std::shared_ptr<Encryptor>& encryptor) {
+    std::shared_ptr<ResizableBuffer> cipher_buffer =
+        std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
+            ::arrow::default_memory_pool(),
+            static_cast<int64_t>(encryptor->CiphertextSizeDelta() + out_length)));
+    int cipher_buffer_len =
+        encryptor->Encrypt(out_buffer, out_length, cipher_buffer->mutable_data());
+
+    PARQUET_THROW_NOT_OK(out->Write(cipher_buffer->data(), cipher_buffer_len));
+    return static_cast<int64_t>(cipher_buffer_len);
   }
 
   shared_ptr<ThriftBuffer> mem_buffer_;
