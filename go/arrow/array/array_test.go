@@ -43,9 +43,6 @@ func TestMakeFromData(t *testing.T) {
 		expPanic bool
 		expError string
 	}{
-		// unsupported types
-		{name: "map", d: &testDataType{arrow.MAP}, expPanic: true, expError: "unsupported data type: MAP"},
-
 		// supported types
 		{name: "null", d: &testDataType{arrow.NULL}},
 		{name: "bool", d: &testDataType{arrow.BOOL}},
@@ -59,11 +56,17 @@ func TestMakeFromData(t *testing.T) {
 		{name: "int64", d: &testDataType{arrow.INT64}},
 		{name: "float32", d: &testDataType{arrow.FLOAT32}},
 		{name: "float64", d: &testDataType{arrow.FLOAT64}},
+		{name: "string", d: &testDataType{arrow.STRING}, size: 3},
 		{name: "binary", d: &testDataType{arrow.BINARY}, size: 3},
+		{name: "fixed_size_binary", d: &testDataType{arrow.FIXED_SIZE_BINARY}},
+		{name: "date32", d: &testDataType{arrow.DATE32}},
+		{name: "date64", d: &testDataType{arrow.DATE64}},
 		{name: "timestamp", d: &testDataType{arrow.TIMESTAMP}},
 		{name: "time32", d: &testDataType{arrow.TIME32}},
 		{name: "time64", d: &testDataType{arrow.TIME64}},
-		{name: "fixed_size_binary", d: &testDataType{arrow.FIXED_SIZE_BINARY}},
+		{name: "month_interval", d: arrow.FixedWidthTypes.MonthInterval},
+		{name: "day_time_interval", d: arrow.FixedWidthTypes.DayTimeInterval},
+		{name: "decimal", d: &testDataType{arrow.DECIMAL}},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []*array.Data{
 			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),

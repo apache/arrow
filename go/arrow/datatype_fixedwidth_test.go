@@ -40,3 +40,30 @@ func TestTimeUnit_String(t *testing.T) {
 		})
 	}
 }
+
+func TestDecimal128Type(t *testing.T) {
+	for _, tc := range []struct {
+		precision int32
+		scale     int32
+		want      string
+	}{
+		{1, 10, "decimal(1, 10)"},
+		{10, 10, "decimal(10, 10)"},
+		{10, 1, "decimal(10, 1)"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			dt := arrow.Decimal128Type{Precision: tc.precision, Scale: tc.scale}
+			if got, want := dt.BitWidth(), 16; got != want {
+				t.Fatalf("invalid bitwidth: got=%d, want=%d", got, want)
+			}
+
+			if got, want := dt.ID(), arrow.DECIMAL; got != want {
+				t.Fatalf("invalid type ID: got=%v, want=%v", got, want)
+			}
+
+			if got, want := dt.String(), tc.want; got != want {
+				t.Fatalf("invalid stringer: got=%q, want=%q", got, want)
+			}
+		})
+	}
+}
