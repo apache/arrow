@@ -53,6 +53,62 @@ def md(template, *args, **kwargs):
     return template.format(*map(escape, args), **toolz.valmap(escape, kwargs))
 
 
+def unflatten(mapping):
+    result = {}
+    for path, value in mapping.items():
+        parents, leaf = path[:-1], path[-1]
+        # create the hierarchy until we reach the leaf value
+        temp = result
+        for parent in parents:
+            temp.setdefault(parent, {})
+            temp = temp[parent]
+        # set the leaf value
+        temp[leaf] = value
+
+    return result
+
+
+# configurations for setting up branch skipping
+# - appveyor has a feature to skip builds without an appveyor.yml
+# - travis reads from the master branch and applies the rules
+# - circle requires the configuration to be present on all branch, even ones
+#   that are configured to be skipped
+
+_default_travis_yml = """
+branches:
+  only:
+    - master
+    - /.*-travis-.*/
+
+os: linux
+dist: trusty
+language: generic
+"""
+
+_default_circle_yml = """
+version: 2
+
+jobs:
+  build:
+    machine: true
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only:
+                - /.*-circle-.*/
+"""
+
+_default_tree = {
+    '.travis.yml': _default_travis_yml,
+    '.circleci/config.yml': _default_circle_yml
+}
+
+
 class JiraChangelog:
 
     def __init__(self, version, username, password,
@@ -263,17 +319,28 @@ class Repo:
         return pygit2.Signature(self.user_name, self.user_email,
                                 int(time.time()))
 
-    def create_branch(self, branch_name, files, parents=[], message='',
-                      signature=None):
-        # 1. create tree
+    def create_tree(self, files):
         builder = self.repo.TreeBuilder()
 
         for filename, content in files.items():
-            # insert the file and creating the new filetree
-            blob_id = self.repo.create_blob(content)
-            builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
+            if isinstance(content, dict):
+                # create a subtree
+                tree_id = self.create_tree(content)
+                builder.insert(filename, tree_id, pygit2.GIT_FILEMODE_TREE)
+            else:
+                # create a file
+                blob_id = self.repo.create_blob(content)
+                builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
 
         tree_id = builder.write()
+        return tree_id
+
+    def create_branch(self, branch_name, files, parents=[], message='',
+                      signature=None):
+        # 1. create tree
+        files = toolz.keymap(lambda path: tuple(path.split('/')), files)
+        files = unflatten(files)
+        tree_id = self.create_tree(files)
 
         # 2. create commit with the tree created above
         # TODO(kszucs): pass signature explicitly
@@ -349,7 +416,9 @@ class Queue(Repo):
 
         # create tasks' branches
         for task_name, task in job.tasks.items():
-            task.branch = '{}-{}'.format(job.branch, task_name)
+            # adding CI's name to the end of the branch in order to use skip
+            # patterns on travis and circleci
+            task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
             files = task.render_files(job=job, arrow=job.target)
             branch = self.create_branch(task.branch, files=files)
             self.create_tag(task.tag, branch.target)
@@ -465,8 +534,10 @@ class Task:
     submitting the job to a queue.
     """
 
-    def __init__(self, platform, template, artifacts=None, params=None):
+    def __init__(self, platform, ci, template, artifacts=None, params=None):
         assert platform in {'win', 'osx', 'linux'}
+        assert ci in {'circle', 'travis', 'appveyor'}
+        self.ci = ci
         self.platform = platform
         self.template = template
         self.artifacts = artifacts or []
@@ -479,25 +550,20 @@ class Task:
         params = toolz.merge(self.params, extra_params)
         template = Template(path.read_text(), undefined=StrictUndefined)
         rendered = template.render(task=self, **params)
-        return {self.filename: rendered}
+        return toolz.merge(_default_tree, {self.filename: rendered})
 
     @property
     def tag(self):
         return self.branch
 
     @property
-    def ci(self):
-        if self.platform == 'win':
-            return 'appveyor'
-        else:
-            return 'travis'
-
-    @property
     def filename(self):
-        if self.ci == 'appveyor':
-            return 'appveyor.yml'
-        else:
-            return '.travis.yml'
+        config_files = {
+            'circle': '.circleci/config.yml',
+            'travis': '.travis.yml',
+            'appveyor': 'appveyor.yml'
+        }
+        return config_files[self.ci]
 
 
 class Job:
@@ -518,7 +584,7 @@ class Job:
         with StringIO() as buf:
             yaml.dump(self, buf)
             content = buf.getvalue()
-        return {'job.yml': content}
+        return toolz.merge(_default_tree, {'job.yml': content})
 
     @property
     def email(self):
