@@ -193,6 +193,20 @@ class TestConvertMetadata(object):
         assert _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
         assert result2.index.name is None
 
+    def test_range_index_force_serialization(self):
+        # ARROW-5427: preserve_index=True will force the RangeIndex to
+        # be serialized as a column rather than tracked more
+        # efficiently as metadata
+        df = pd.DataFrame({'a': [1, 2, 3, 4]},
+                          index=pd.RangeIndex(0, 8, step=2, name='foo'))
+
+        table = pa.Table.from_pandas(df, preserve_index=True)
+        assert table.num_columns == 2
+        assert 'foo' in table.column_names
+
+        restored = table.to_pandas()
+        tm.assert_frame_equal(restored, df)
+
     def test_rangeindex_doesnt_warn(self):
         # ARROW-5606: pandas 0.25 deprecated private _start/stop/step
         # attributes -> can be removed if support < pd 0.25 is dropped
@@ -507,7 +521,7 @@ class TestConvertMetadata(object):
         # First roundtrip changes schema, because pandas cannot preserve the
         # type of empty lists
         df = tbl.to_pandas()
-        tbl2 = pa.Table.from_pandas(df, preserve_index=True)
+        tbl2 = pa.Table.from_pandas(df)
         md2 = tbl2.schema.pandas_metadata
 
         # Second roundtrip

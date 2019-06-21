@@ -2037,7 +2037,7 @@ def test_dataset_no_memory_map(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.parametrize('preserve_index', [True, False])
+@pytest.mark.parametrize('preserve_index', [True, False, None])
 def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
     # ARROW-1103
     nfiles = 5
@@ -2076,7 +2076,8 @@ def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
     columns = ['uint8', 'strings']
     result = dataset.read_pandas(columns=columns).to_pandas()
     expected = pd.concat([x[columns] for x in frames])
-    expected.index.name = df.index.name if preserve_index else None
+    expected.index.name = (
+        df.index.name if preserve_index is not False else None)
     tm.assert_frame_equal(result, expected)
 
 
