@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set -eu
+
 VERSION=$(grep Version ../r/DESCRIPTION | cut -d " " -f 2)
 DST_DIR="arrow-$VERSION"
 
