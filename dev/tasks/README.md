@@ -70,6 +70,10 @@ submission. The tasks are defined in `tasks.yml`
    git clone https://github.com/<user>/crossbow crossbow
    ```
 
+   **Important note:** Crossbow currently requires HTTPS repository
+   URLs. It will fail with an unintuitive error if you clone from a
+   `git@` SSH URL. See ARROW-3572.
+
 4. [Create a Personal Access
    Token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
 5. Locally export the token as an environment variable:
