@@ -53,7 +53,9 @@ class ColumnReader;
 class RowGroupReader;
 
 static constexpr bool DEFAULT_USE_THREADS = false;
-static constexpr int64_t DEFAULT_BATCH_SIZE = 64 * 1024 * 1024;
+
+// Default number of rows to read when using ::arrow::RecordBatchReader
+static constexpr int64_t DEFAULT_BATCH_SIZE = 64 * 1024;
 
 /// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
