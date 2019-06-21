@@ -38,17 +38,24 @@ before_install:
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout {{ arrow.head }}
 
+  # ARROW-3976 Old versions of git can cause failures when Homebrew prints a
+  # donation solicitation. Attempt to update git
+  - git --version
+  - brew upgrade git
+
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal
   - brew update
   - brew upgrade cmake
-  - brew install bison flex llvm@7
+  - brew install bison flex grpc openssl llvm@7
 
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
   - source multibuild/common_utils.sh
   - source multibuild/travis_osx_steps.sh
 
   - before_install
+  # Fix SSL TLS issue for Python 3.5 on macOS
+  - pip install requests[security]
 
 install:
   - mkdir -p dist

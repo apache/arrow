@@ -261,7 +261,7 @@ function(bundle_boost_lib library_path)
   if(APPLE)
     configure_file(
       ${${library_path}}
-      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}.${Boost_SO_VERSION}${CMAKE_SHARED_LIBRARY_SUFFIX}
+      ${BUILD_OUTPUT_ROOT_DIRECTORY}/${LIBRARY_NAME_WE}${CMAKE_SHARED_LIBRARY_SUFFIX}
       COPYONLY)
   else()
     configure_file(
