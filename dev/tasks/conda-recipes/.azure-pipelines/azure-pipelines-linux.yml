@@ -1,0 +1,31 @@
+# This file was generated automatically from conda-smithy. To update this configuration,
+# update the conda-forge.yml and/or the recipe/meta.yaml.
+# -*- mode: yaml -*-
+
+jobs:
+- job: linux
+  pool:
+    vmImage: ubuntu-16.04
+  timeoutInMinutes: 360
+  ############ instead of strategy ###############
+  variables:
+    UPLOAD_PACKAGES: False
+    DOCKER_IMAGE: condaforge/linux-anvil-comp7
+  steps:
+  ############### clone arrow and change directory #################
+  - template: azure-template-clone-arrow.yml
+
+  # configure qemu binfmt-misc running.  This allows us to run docker containers
+  # embedded qemu-static
+  - script: |
+      docker run --rm --privileged multiarch/qemu-user-static:register --reset --credential yes
+      ls /proc/sys/fs/binfmt_misc/
+    condition: not(startsWith(variables['CONFIG'], 'linux_64'))
+    displayName: Configure binfmt_misc
+
+  - script: |
+        export CI=azure
+        .azure-pipelines/run_docker_build.sh
+    displayName: Run docker build
+    env:
+      BINSTAR_TOKEN: $(BINSTAR_TOKEN)

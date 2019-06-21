@@ -106,6 +106,7 @@ workflows:
 _default_tree = {
     '.travis.yml': _default_travis_yml,
     '.circleci/config.yml': _default_circle_yml
+    # azure-pipelines.yml' TODO?
 }
 
 
@@ -548,7 +549,7 @@ class Task:
 
     def __init__(self, platform, ci, template, artifacts=None, params=None):
         assert platform in {'win', 'osx', 'linux'}
-        assert ci in {'circle', 'travis', 'appveyor'}
+        assert ci in {'circle', 'travis', 'appveyor', 'azure'}
         self.ci = ci
         self.platform = platform
         self.template = template
@@ -573,7 +574,8 @@ class Task:
         config_files = {
             'circle': '.circleci/config.yml',
             'travis': '.travis.yml',
-            'appveyor': 'appveyor.yml'
+            'appveyor': 'appveyor.yml',
+            'azure': 'azure-pipelines.yml'
         }
         return config_files[self.ci]
 
