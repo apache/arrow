@@ -29,8 +29,10 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 import com.google.common.base.Charsets;
 import com.google.protobuf.ByteString;
@@ -125,6 +127,14 @@ public class TestBasicOperation {
     });
   }
 
+  @Test
+  public void propagateErrors() throws Exception {
+    test(client -> {
+      final FlightRuntimeException ex = Assertions.assertThrows(FlightRuntimeException.class,
+          () -> client.doAction(new Action("invalid-action")).forEachRemaining(action -> Assert.fail()));
+      Assert.assertEquals(FlightStatusCode.UNIMPLEMENTED, ex.status().code());
+    });
+  }
 
   @Test
   public void getStream() throws Exception {
@@ -274,7 +284,8 @@ public class TestBasicOperation {
           break;
         }
         default:
-          listener.onError(new UnsupportedOperationException());
+          listener.onError(CallStatus.UNIMPLEMENTED.withDescription("Action not implemented: " + action.getType())
+              .toRuntimeException());
       }
     }
 

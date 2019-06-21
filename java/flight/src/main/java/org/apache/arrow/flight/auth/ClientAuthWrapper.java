@@ -29,6 +29,7 @@ import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
 import com.google.common.base.Throwables;
 import com.google.protobuf.ByteString;
 
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 
 /**
@@ -43,10 +44,14 @@ public class ClientAuthWrapper {
    * @param stub The service stub.
    */
   public static void doClientAuth(ClientAuthHandler authHandler, FlightServiceStub stub) {
-    AuthObserver observer = new AuthObserver();
-    observer.responseObserver = stub.handshake(observer);
-    authHandler.authenticate(observer.sender, observer.iter);
-    observer.responseObserver.onCompleted();
+    try {
+      AuthObserver observer = new AuthObserver();
+      observer.responseObserver = stub.handshake(observer);
+      authHandler.authenticate(observer.sender, observer.iter);
+      observer.responseObserver.onCompleted();
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
   }
 
   private static class AuthObserver implements StreamObserver<HandshakeResponse> {
@@ -98,16 +103,20 @@ public class ClientAuthWrapper {
 
     @Override
     public void onError(Throwable t) {
-      ex = t;
+      ex = StatusUtils.fromThrowable(t);
     }
 
     private class AuthSender implements ClientAuthSender {
 
       @Override
       public void send(byte[] payload) {
-        responseObserver.onNext(HandshakeRequest.newBuilder()
-            .setPayload(ByteString.copyFrom(payload))
-            .build());
+        try {
+          responseObserver.onNext(HandshakeRequest.newBuilder()
+              .setPayload(ByteString.copyFrom(payload))
+              .build());
+        } catch (StatusRuntimeException sre) {
+          throw StatusUtils.fromGrpcRuntimeException(sre);
+        }
       }
 
       @Override

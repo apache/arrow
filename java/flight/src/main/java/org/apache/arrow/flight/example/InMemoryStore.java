@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
@@ -143,7 +144,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
         break;
       }
       default: {
-        listener.onError(new UnsupportedOperationException());
+        listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
       }
     }
   }

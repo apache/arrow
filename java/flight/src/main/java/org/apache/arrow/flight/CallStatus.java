@@ -73,6 +73,20 @@ public class CallStatus {
   }
 
   /**
+   * Return a copy of this status with an error message.
+   */
+  public CallStatus withDescription(String message) {
+    return new CallStatus(code, cause, message);
+  }
+
+  /**
+   * Return a copy of this status with the given exception as the cause. This will not be sent over the wire.
+   */
+  public CallStatus withCause(Throwable t) {
+    return new CallStatus(code, t, description);
+  }
+
+  /**
    * Convert the status to an equivalent exception.
    */
   public FlightRuntimeException toRuntimeException() {

@@ -21,7 +21,6 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import javax.net.ssl.SSLException;
 
@@ -44,8 +43,6 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvid
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 
 import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;
@@ -105,18 +102,15 @@ public class FlightClient implements AutoCloseable {
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
     }
-    return ImmutableList.copyOf(flights)
-        .stream()
-        .map(t -> {
-          try {
-            return new FlightInfo(t);
-          } catch (URISyntaxException e) {
-            // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
-            // itself wouldn't be able to construct an invalid Location.
-            throw new RuntimeException(e);
-          }
-        })
-        .collect(Collectors.toList());
+    return () -> StatusUtils.wrapIterator(flights, t -> {
+      try {
+        return new FlightInfo(t);
+      } catch (URISyntaxException e) {
+        // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+        // itself wouldn't be able to construct an invalid Location.
+        throw new RuntimeException(e);
+      }
+    });
   }
 
   /**
@@ -132,10 +126,7 @@ public class FlightClient implements AutoCloseable {
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
     }
-    return ImmutableList.copyOf(actions)
-        .stream()
-        .map(ActionType::new)
-        .collect(Collectors.toList());
+    return () -> StatusUtils.wrapIterator(actions, ActionType::new);
   }
 
   /**
@@ -146,9 +137,8 @@ public class FlightClient implements AutoCloseable {
    * @return An iterator of results.
    */
   public Iterator<Result> doAction(Action action, CallOption... options) {
-    // TODO: need to wrap all methods to catch exceptions
-    return Iterators
-        .transform(CallOptions.wrapStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
+    return StatusUtils
+        .wrapIterator(CallOptions.wrapStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
   }
 
   /**
@@ -199,16 +189,20 @@ public class FlightClient implements AutoCloseable {
     Preconditions.checkNotNull(descriptor);
     Preconditions.checkNotNull(root);
 
-    SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
-    ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
-        ClientCalls.asyncBidiStreamingCall(
-            authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
-    // send the schema to start.
-    DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, provider, observer::onNext);
-    return new PutObserver(new VectorUnloader(
-        root, true /* include # of nulls in vectors */, true /* must align buffers to be C++-compatible */),
-        observer, metadataListener);
+    try {
+      SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
+      final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
+      ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
+          ClientCalls.asyncBidiStreamingCall(
+              authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
+      // send the schema to start.
+      DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, provider, observer::onNext);
+      return new PutObserver(new VectorUnloader(
+          root, true /* include # of nulls in vectors */, true /* must align buffers to be C++-compatible */),
+          observer, metadataListener);
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
   }
 
   /**
@@ -223,6 +217,8 @@ public class FlightClient implements AutoCloseable {
       // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
       // itself wouldn't be able to construct an invalid Location.
       throw new RuntimeException(e);
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
     }
   }
 
@@ -290,7 +286,7 @@ public class FlightClient implements AutoCloseable {
 
     @Override
     public void onError(Throwable t) {
-      listener.onError(t);
+      listener.onError(StatusUtils.fromThrowable(t));
     }
 
     @Override
@@ -323,8 +319,12 @@ public class FlightClient implements AutoCloseable {
       while (!observer.isReady()) {
         /* busy wait */
       }
-      // Takes ownership of appMetadata
-      observer.onNext(new ArrowMessage(batch, appMetadata));
+      try {
+        // Takes ownership of appMetadata
+        observer.onNext(new ArrowMessage(batch, appMetadata));
+      } catch (StatusRuntimeException sre) {
+        throw StatusUtils.fromGrpcRuntimeException(sre);
+      }
     }
 
     @Override

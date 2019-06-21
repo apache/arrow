@@ -17,6 +17,10 @@
 
 package org.apache.arrow.flight.grpc;
 
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.function.Function;
+
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
@@ -121,8 +125,21 @@ public class StatusUtils {
     return toGrpcStatusCode(status.code()).toStatus().withDescription(status.description()).withCause(status.cause());
   }
 
+  /** Convert from a gRPC exception to a Flight exception. */
   public static FlightRuntimeException fromGrpcRuntimeException(StatusRuntimeException sre) {
     return fromGrpcStatus(sre.getStatus()).toRuntimeException();
+  }
+
+  /**
+   * Convert arbitrary exceptions to a {@link FlightRuntimeException}.
+   */
+  public static FlightRuntimeException fromThrowable(Throwable t) {
+    if (t instanceof StatusRuntimeException) {
+      return fromGrpcRuntimeException((StatusRuntimeException) t);
+    } else if (t instanceof FlightRuntimeException) {
+      return (FlightRuntimeException) t;
+    }
+    return CallStatus.UNKNOWN.withCause(t).withDescription(t.getMessage()).toRuntimeException();
   }
 
   /**
@@ -142,5 +159,34 @@ public class StatusUtils {
     }
     return Status.INTERNAL.withCause(ex).withDescription("There was an error servicing your request.")
         .asRuntimeException();
+  }
+
+  /**
+   * Maps a transformation function to the elements of an iterator, while wrapping exceptions in {@link
+   * FlightRuntimeException}.
+   */
+  public static <FROM, TO> Iterator<TO> wrapIterator(Iterator<FROM> fromIterator,
+      Function<? super FROM, ? extends TO> transformer) {
+    Objects.requireNonNull(fromIterator);
+    Objects.requireNonNull(transformer);
+    return new Iterator<TO>() {
+      @Override
+      public boolean hasNext() {
+        try {
+          return fromIterator.hasNext();
+        } catch (StatusRuntimeException e) {
+          throw fromGrpcRuntimeException(e);
+        }
+      }
+
+      @Override
+      public TO next() {
+        try {
+          return transformer.apply(fromIterator.next());
+        } catch (StatusRuntimeException e) {
+          throw fromGrpcRuntimeException(e);
+        }
+      }
+    };
   }
 }

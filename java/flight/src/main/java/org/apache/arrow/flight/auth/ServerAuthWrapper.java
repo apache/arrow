@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.auth.ServerAuthHandler.ServerAuthSender;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
@@ -29,7 +30,6 @@ import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 
 import com.google.protobuf.ByteString;
 
-import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 
 /**
@@ -57,7 +57,7 @@ public class ServerAuthWrapper {
           return;
         }
 
-        responseObserver.onError(Status.PERMISSION_DENIED.asException());
+        responseObserver.onError(StatusUtils.toGrpcException(CallStatus.UNAUTHENTICATED.toRuntimeException()));
       } catch (Exception ex) {
         responseObserver.onError(StatusUtils.toGrpcException(ex));
       }

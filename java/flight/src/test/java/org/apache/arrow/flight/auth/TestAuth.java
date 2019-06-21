@@ -26,7 +26,9 @@ import java.util.Optional;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.NoOpFlightProducer;
@@ -46,11 +48,7 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
 
-import io.grpc.StatusRuntimeException;
-
 public class TestAuth {
-  final String PERMISSION_DENIED = "PERMISSION_DENIED";
-
   private static final String USERNAME = "flight";
   private static final String PASSWORD = "woohoo";
   private static final byte[] VALID_TOKEN = "my_token".getBytes();
@@ -79,20 +77,23 @@ public class TestAuth {
 
   @Test
   public void invalidAuth() {
-    assertThrows(StatusRuntimeException.class, () -> {
+    FlightRuntimeException ex = assertThrows(FlightRuntimeException.class, () -> {
       client.authenticateBasic(USERNAME, "WRONG");
-    }, PERMISSION_DENIED);
+    });
+    Assert.assertEquals(FlightStatusCode.UNAUTHENTICATED, ex.status().code());
 
-    assertThrows(StatusRuntimeException.class, () -> {
-      client.listFlights(Criteria.ALL);
-    }, PERMISSION_DENIED);
+    ex = assertThrows(FlightRuntimeException.class, () -> {
+      client.listFlights(Criteria.ALL).forEach(action -> Assert.fail());
+    });
+    Assert.assertEquals(FlightStatusCode.UNAUTHENTICATED, ex.status().code());
   }
 
   @Test
   public void didntAuth() {
-    assertThrows(StatusRuntimeException.class, () -> {
-      client.listFlights(Criteria.ALL);
-    }, PERMISSION_DENIED);
+    FlightRuntimeException ex = assertThrows(FlightRuntimeException.class, () -> {
+      client.listFlights(Criteria.ALL).forEach(action -> Assert.fail());
+    });
+    Assert.assertEquals(FlightStatusCode.UNAUTHENTICATED, ex.status().code());
   }
 
   @Before
