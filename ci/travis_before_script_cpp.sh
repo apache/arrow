@@ -84,6 +84,12 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
     # Make sure the toolchain linker (from binutils package) is picked up by clang
     ARROW_CXXFLAGS="$ARROW_CXXFLAGS -B$CPP_TOOLCHAIN/bin"
   fi
+  export TRAVIS_MAKE=ninja
+elif [ "$using_homebrew" = "yes" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -GNinja"
+  export TRAVIS_MAKE=ninja
+else
+  export TRAVIS_MAKE=make
 fi
 
 if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
@@ -104,6 +110,14 @@ fi
 
 if [ "$ARROW_TRAVIS_ORC" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_ORC=ON"
+fi
+
+if [ "$ARROW_TRAVIS_PYTHON" == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_PYTHON=ON"
+  if [ "$using_homebrew" == "yes" ]; then
+    CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS \
+-DPYTHON_EXECUTABLE=$(brew --prefix python)/bin/python3"
+  fi
 fi
 
 if [ "$ARROW_TRAVIS_PARQUET" == "1" ]; then
