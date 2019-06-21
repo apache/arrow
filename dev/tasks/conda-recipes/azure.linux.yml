@@ -5,6 +5,7 @@ jobs:
   timeoutInMinutes: 360
 
   variables:
+    CONFIG: {{ config }}
     UPLOAD_PACKAGES: False
     DOCKER_IMAGE: condaforge/linux-anvil-comp7
 
@@ -22,6 +23,6 @@ jobs:
       git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
       git -C arrow checkout {{ arrow.head }}
 
-  - script: export CI=azure ./run_docker_build.sh
+  - script: CI=azure ./run_docker_build.sh
     displayName: Run docker build
     workingDirectory: arrow/dev/tasks/conda-recipes
