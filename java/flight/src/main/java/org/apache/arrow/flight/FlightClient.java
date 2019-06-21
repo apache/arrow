@@ -194,7 +194,7 @@ public class FlightClient implements AutoCloseable {
     DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, provider, observer::onNext);
     return new PutObserver(new VectorUnloader(
         root, true /* include # of nulls in vectors */, true /* must align buffers to be C++-compatible */),
-        observer, resultObserver.getFuture());
+        observer, resultObserver);
   }
 
   /**
@@ -257,17 +257,14 @@ public class FlightClient implements AutoCloseable {
     return stream;
   }
 
-  private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
-
-    private final CompletableFuture<Void> result;
+  private static class SetStreamObserver extends CompletableFuture<Void> implements StreamObserver<Flight.PutResult> {
     private final BufferAllocator allocator;
     private final StreamListener<PutResult> listener;
 
-    SetStreamObserver(BufferAllocator allocator,
-        StreamListener<PutResult> listener) {
+    SetStreamObserver(BufferAllocator allocator, StreamListener<PutResult> listener) {
+      super();
       this.allocator = allocator;
       this.listener = listener == null ? NoOpStreamListener.getInstance() : listener;
-      result = new CompletableFuture<>();
     }
 
     @Override
@@ -279,18 +276,14 @@ public class FlightClient implements AutoCloseable {
 
     @Override
     public void onError(Throwable t) {
-      result.completeExceptionally(t);
       listener.onError(t);
+      completeExceptionally(t);
     }
 
     @Override
     public void onCompleted() {
       listener.onCompleted();
-      result.complete(null);
-    }
-
-    public CompletableFuture<Void> getFuture() {
-      return result;
+      complete(null);
     }
   }
 

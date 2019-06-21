@@ -19,6 +19,7 @@ package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReferenceManager;
 
 import com.google.protobuf.ByteString;
 
@@ -37,7 +38,11 @@ public class PutResult implements AutoCloseable {
     applicationMetadata = metadata;
   }
 
-  /** Create a PutResult with application-specific metadata. */
+  /**
+   * Create a PutResult with application-specific metadata.
+   *
+   * <p>This method assumes ownership of the {@link ArrowBuf}.
+   */
   public static PutResult metadata(ArrowBuf metadata) {
     if (metadata == null) {
       return empty();
@@ -50,7 +55,12 @@ public class PutResult implements AutoCloseable {
     return new PutResult(null);
   }
 
-  /** Get the metadata in this message. May be null. */
+  /**
+   * Get the metadata in this message. May be null.
+   *
+   * <p>Ownership of the {@link ArrowBuf} is retained by this object. Call {@link ReferenceManager#retain()} to preserve
+   * a reference.
+   */
   public ArrowBuf getApplicationMetadata() {
     return applicationMetadata;
   }

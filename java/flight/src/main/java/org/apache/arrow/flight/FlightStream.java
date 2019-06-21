@@ -117,10 +117,10 @@ public class FlightStream implements AutoCloseable {
         .map(t -> ((AutoCloseable) t))
         .collect(Collectors.toList());
 
-    AutoCloseables.close(Iterables.concat(closeables, ImmutableList.of(root.get())));
-    if (applicationMetadata != null) {
-      applicationMetadata.close();
-    }
+    // Must check for null since ImmutableList doesn't accept nulls
+    AutoCloseables.close(Iterables.concat(closeables,
+        applicationMetadata != null ? ImmutableList.of(root.get(), applicationMetadata)
+            : ImmutableList.of(root.get())));
   }
 
   /**

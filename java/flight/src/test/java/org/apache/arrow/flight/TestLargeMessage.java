@@ -44,8 +44,8 @@ public class TestLargeMessage {
              FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build())) {
 
       try (FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
-        FlightStream stream = client.getStream(new Ticket(new byte[]{}));
-        try (VectorSchemaRoot root = stream.getRoot()) {
+        try (FlightStream stream = client.getStream(new Ticket(new byte[]{}));
+            VectorSchemaRoot root = stream.getRoot()) {
           while (stream.next()) {
             for (final Field field : root.getSchema().getFields()) {
               int value = 0;
@@ -57,7 +57,6 @@ public class TestLargeMessage {
             }
           }
         }
-        stream.close();
       }
     }
   }
