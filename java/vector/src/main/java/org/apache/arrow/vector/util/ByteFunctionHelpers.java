@@ -49,7 +49,7 @@ public class ByteFunctionHelpers {
     return memEqual(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static final int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
+  private static int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
                                     final int rEnd) {
 
     int n = lEnd - lStart;
@@ -109,7 +109,7 @@ public class ByteFunctionHelpers {
     return memcmp(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static final int memcmp(
+  private static int memcmp(
       final long laddr,
       int lStart,
       int lEnd,
@@ -190,7 +190,7 @@ public class ByteFunctionHelpers {
   }
 
 
-  private static final int memcmp(
+  private static int memcmp(
       final long laddr,
       int lStart,
       int lEnd,

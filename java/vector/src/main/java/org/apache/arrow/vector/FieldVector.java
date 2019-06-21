@@ -73,19 +73,19 @@ public interface FieldVector extends ValueVector {
    *
    * @return buffer address
    */
-  public long getValidityBufferAddress();
+  long getValidityBufferAddress();
 
   /**
    * Gets the starting address of the underlying buffer associated with data vector.
    *
    * @return buffer address
    */
-  public long getDataBufferAddress();
+  long getDataBufferAddress();
 
   /**
    * Gets the starting address of the underlying buffer associated with offset vector.
    *
    * @return buffer address
    */
-  public long getOffsetBufferAddress();
+  long getOffsetBufferAddress();
 }

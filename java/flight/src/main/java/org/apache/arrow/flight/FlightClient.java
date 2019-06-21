@@ -310,13 +310,13 @@ public class FlightClient implements AutoCloseable {
    */
   public interface ClientStreamListener {
 
-    public void putNext();
+    void putNext();
 
-    public void error(Throwable ex);
+    void error(Throwable ex);
 
-    public void completed();
+    void completed();
 
-    public PutResult getResult();
+    PutResult getResult();
 
   }
 
