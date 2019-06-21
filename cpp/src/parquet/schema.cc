@@ -201,7 +201,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       ss << " can not be applied to a primitive type";
       throw ParquetException(ss.str());
   }
-  // For forward compatibility, create an equivalent logical logical_type
+  // For forward compatibility, create an equivalent logical type
   logical_type_ =
       LogicalType::FromConvertedType(converted_type_, decimal_metadata_);
   DCHECK(logical_type_ && !logical_type_->is_nested() &&
@@ -224,9 +224,9 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       type_length_(physical_length) {
   std::stringstream error;
   if (logical_type_) {
-    // Check for logical_type type <=> node type consistency
+    // Check for logical type <=> node type consistency
     if (!logical_type_->is_nested()) {
-      // Check for logical_type type <=> physical type consistency
+      // Check for logical type <=> physical type consistency
       if (logical_type_->is_applicable(physical_type, physical_length)) {
         // For backward compatibility, assign equivalent legacy
         // converted type (if possible)
@@ -238,7 +238,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
         throw ParquetException(error.str());
       }
     } else {
-      error << "Nested logical_type type ";
+      error << "Nested logical type ";
       error << logical_type_->ToString();
       error << " can not be applied to non-group node";
       throw ParquetException(error.str());
@@ -292,7 +292,7 @@ void PrimitiveNode::VisitConst(Node::ConstVisitor* visitor) const {
 GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
                      const NodeVector& fields, ConvertedType::type converted_type, int id)
     : Node(Node::GROUP, name, repetition, converted_type, id), fields_(fields) {
-  // For forward compatibility, create an equivalent logical logical_type
+  // For forward compatibility, create an equivalent logical type
   logical_type_ = LogicalType::FromConvertedType(converted_type_);
   DCHECK(logical_type_ &&
          (logical_type_->is_nested() || logical_type_->is_none()) &&
@@ -311,13 +311,13 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
                      std::shared_ptr<const LogicalType> logical_type, int id)
     : Node(Node::GROUP, name, repetition, logical_type, id), fields_(fields) {
   if (logical_type_) {
-    // Check for logical_type type <=> node type consistency
+    // Check for logical type <=> node type consistency
     if (logical_type_->is_nested()) {
       // For backward compatibility, assign equivalent legacy converted type (if possible)
       converted_type_ = logical_type_->ToConvertedType(nullptr);
     } else {
       std::stringstream error;
-      error << "LogicalType type ";
+      error << "Logical type ";
       error << logical_type_->ToString();
       error << " can not be applied to group node";
       throw ParquetException(error.str());

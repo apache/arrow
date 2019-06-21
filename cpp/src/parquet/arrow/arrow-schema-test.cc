@@ -33,8 +33,8 @@ using arrow::Field;
 using arrow::TimeUnit;
 
 using ParquetType = parquet::Type;
-using parquet::LogicalType;
 using parquet::ConvertedType;
+using parquet::LogicalType;
 using parquet::Repetition;
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
@@ -369,7 +369,7 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
 
-  // LIST encoding example taken from parquet-format/ConvertedTypes.md
+  // LIST encoding example taken from parquet-format/LogicalTypes.md
 
   // // List<String> (list non-null, elements nullable)
   // required group my_list (LIST) {

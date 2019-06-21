@@ -452,7 +452,7 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     }
     return TimestampLogicalType::Make(type.TIMESTAMP.isAdjustedToUTC, unit);
     // TODO(tpboudreau): activate the commented code after parquet.thrift
-    // recognizes IntervalType as a ConvertedType
+    // recognizes IntervalType as a LogicalType
     //} else if (type.__isset.INTERVAL) {
     //  return IntervalLogicalType::Make();
   } else if (type.__isset.INTEGER) {
@@ -467,7 +467,7 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
   } else if (type.__isset.UUID) {
     return UUIDLogicalType::Make();
   } else {
-    throw ParquetException("Metadata contains Thrift ConvertedType that is not recognized");
+    throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
   }
 }
 
@@ -543,13 +543,13 @@ std::shared_ptr<const LogicalType> LogicalType::Unknown() {
 }
 
 /*
- * The logical_type implementation classes are built in four layers: (1) the base
+ * The logical type implementation classes are built in four layers: (1) the base
  * layer, which establishes the interface and provides generally reusable implementations
  * for the ToJSON() and Equals() methods; (2) an intermediate derived layer for the
  * "compatibility" methods, which provides implementations for is_compatible() and
  * ToConvertedType(); (3) another intermediate layer for the "applicability" methods
  * that provides several implementations for the is_applicable() method; and (4) the
- * final derived classes, one for each logical_type type, which supply implementations
+ * final derived classes, one for each logical type, which supply implementations
  * for those methods that remain virtual (usually just ToString() and ToThrift()) or
  * otherwise need to be overridden.
  */
@@ -577,9 +577,9 @@ class LogicalType::Impl {
   }
 
   virtual format::LogicalType ToThrift() const {
-    // logical_type types inheriting this method should never be serialized
+    // logical types inheriting this method should never be serialized
     std::stringstream ss;
-    ss << "LogicalType type " << ToString() << " should not be serialized";
+    ss << "Logical type " << ToString() << " should not be serialized";
     throw ParquetException(ss.str());
   }
 
@@ -748,7 +748,7 @@ class LogicalType::Impl::Compatible : public virtual LogicalType::Impl {
 #define reset_decimal_metadata(m___) \
   { set_decimal_metadata(m___, false, -1, -1); }
 
-// For logical logical_type types that always translate to the same converted type
+// For logical types that always translate to the same converted type
 class LogicalType::Impl::SimpleCompatible
     : public virtual LogicalType::Impl::Compatible {
  public:
@@ -770,7 +770,7 @@ class LogicalType::Impl::SimpleCompatible
   ConvertedType::type converted_type_ = ConvertedType::NA;
 };
 
-// For logical logical_types that have no corresponding converted type
+// For logical types that have no corresponding converted type
 class LogicalType::Impl::Incompatible : public virtual LogicalType::Impl {
  public:
   bool is_compatible(ConvertedType::type converted_type,
@@ -796,7 +796,7 @@ class LogicalType::Impl::Applicable : public virtual LogicalType::Impl {
   Applicable() = default;
 };
 
-// For logical logical_types that can apply only to a single
+// For logical types that can apply only to a single
 // physical type
 class LogicalType::Impl::SimpleApplicable
     : public virtual LogicalType::Impl::Applicable {
@@ -813,7 +813,7 @@ class LogicalType::Impl::SimpleApplicable
   parquet::Type::type type_;
 };
 
-// For logical logical_types that can apply only to a particular
+// For logical types that can apply only to a particular
 // physical type and physical length combination
 class LogicalType::Impl::TypeLengthApplicable
     : public virtual LogicalType::Impl::Applicable {
@@ -831,7 +831,7 @@ class LogicalType::Impl::TypeLengthApplicable
   int32_t length_;
 };
 
-// For logical logical_types that can apply to any physical type
+// For logical types that can apply to any physical type
 class LogicalType::Impl::UniversalApplicable
     : public virtual LogicalType::Impl::Applicable {
  public:
@@ -844,7 +844,7 @@ class LogicalType::Impl::UniversalApplicable
   UniversalApplicable() = default;
 };
 
-// For logical logical_types that can never apply to any primitive
+// For logical types that can never apply to any primitive
 // physical type
 class LogicalType::Impl::Inapplicable : public virtual LogicalType::Impl {
  public:
@@ -886,8 +886,8 @@ class LogicalType::Impl::String final
         LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
 };
 
-// Each public logical_type class's Make() creation method instantiates a corresponding
-// LogicalType::Impl::* object and installs that implementation in the logical_type
+// Each public logical type class's Make() creation method instantiates a corresponding
+// LogicalType::Impl::* object and installs that implementation in the logical type
 // it returns.
 
 #define GENERATE_MAKE(a___)                                           \
@@ -958,7 +958,7 @@ class LogicalType::Impl::Enum final
 
 GENERATE_MAKE(Enum)
 
-// The parameterized logical_type types (currently Decimal, Time, Timestamp, and Int)
+// The parameterized logical types (currently Decimal, Time, Timestamp, and Int)
 // generally can't reuse the simple method implementations available in the base and
 // intermediate classes and must (re)implement them all
 
@@ -1065,12 +1065,12 @@ std::shared_ptr<const LogicalType> DecimalLogicalType::Make(int32_t precision,
                                                                  int32_t scale) {
   if (precision < 1) {
     throw ParquetException(
-        "Precision must be greater than or equal to 1 for Decimal logical_type");
+        "Precision must be greater than or equal to 1 for Decimal logical type");
   }
   if (scale < 0 || scale > precision) {
     throw ParquetException(
         "Scale must be a non-negative integer that does not exceed precision for "
-        "Decimal logical_type");
+        "Decimal logical type");
   }
   auto* logical_type = new DecimalLogicalType();
   logical_type->impl_.reset(new LogicalType::Impl::Decimal(precision, scale));
@@ -1231,7 +1231,7 @@ std::shared_ptr<const LogicalType> TimeLogicalType::Make(
     return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
-        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Time logical_type");
+        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Time logical type");
   }
 }
 
@@ -1355,7 +1355,7 @@ std::shared_ptr<const LogicalType> TimestampLogicalType::Make(
     return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
-        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Timestamp logical_type");
+        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Timestamp logical type");
   }
 }
 
@@ -1519,7 +1519,7 @@ std::shared_ptr<const LogicalType> IntLogicalType::Make(int bit_width,
     return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
-        "Bit width must be exactly 8, 16, 32, or 64 for Int logical_type");
+        "Bit width must be exactly 8, 16, 32, or 64 for Int logical type");
   }
 }
 

@@ -49,8 +49,8 @@ using parquet::schema::NodePtr;
 using parquet::schema::PrimitiveNode;
 
 using ParquetType = parquet::Type;
-using parquet::LogicalType;
 using parquet::ConvertedType;
+using parquet::LogicalType;
 
 namespace parquet {
 

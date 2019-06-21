@@ -513,7 +513,7 @@ TEST_F(TestSchemaFlatten, DecimalMetadata) {
   ASSERT_TRUE(elements_[1].__isset.scale);
 
   elements_.clear();
-  // ... including those created with new logical logical_types
+  // ... including those created with new logical types
   node = PrimitiveNode::Make("decimal", Repetition::REQUIRED,
                              DecimalLogicalType::Make(10, 5), Type::INT64, -1);
   group = GroupNode::Make("group", Repetition::REPEATED, {node}, ListLogicalType::Make());
@@ -807,23 +807,23 @@ static void ConfirmFactoryEquivalence(
   std::shared_ptr<const LogicalType> from_converted_type =
       LogicalType::FromConvertedType(converted_type);
   ASSERT_EQ(from_converted_type->type(), from_make->type())
-      << from_make->ToString() << " logical_types unexpectedly do not match on type";
+      << from_make->ToString() << " logical types unexpectedly do not match on type";
   ASSERT_TRUE(from_converted_type->Equals(*from_make))
-      << from_make->ToString() << " logical_types unexpectedly not equivalent";
+      << from_make->ToString() << " logical types unexpectedly not equivalent";
   ASSERT_TRUE(check_is_type(from_converted_type))
       << from_converted_type->ToString()
-      << " logical_type (from converted type) does not have expected type property";
+      << " logical type (from converted type) does not have expected type property";
   ASSERT_TRUE(check_is_type(from_make))
       << from_make->ToString()
-      << " logical_type (from Make()) does not have expected type property";
+      << " logical type (from Make()) does not have expected type property";
   return;
 }
 
 TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
-  // For each legacy converted type, ensure that the equivalent logical_type object
+  // For each legacy converted type, ensure that the equivalent logical type object
   // can be obtained from either the base class's FromConvertedType() factory method or
-  // the logical_type type class's Make() method (accessed via convenience methods on the
-  // base class) and that these logical_type objects are equivalent
+  // the logical type type class's Make() method (accessed via convenience methods on the
+  // base class) and that these logical type objects are equivalent
 
   struct ConfirmFactoryEquivalenceArguments {
     ConvertedType::type converted_type;
@@ -924,42 +924,42 @@ static void ConfirmConvertedTypeCompatibility(
     const std::shared_ptr<const LogicalType>& original,
     ConvertedType::type expected_converted_type) {
   ASSERT_TRUE(original->is_valid())
-      << original->ToString() << " logical_type unexpectedly is not valid";
+      << original->ToString() << " logical type unexpectedly is not valid";
   schema::DecimalMetadata converted_decimal_metadata;
   ConvertedType::type converted_type =
       original->ToConvertedType(&converted_decimal_metadata);
   ASSERT_EQ(converted_type, expected_converted_type)
       << original->ToString()
-      << " logical_type unexpectedly returns incorrect converted type";
+      << " logical type unexpectedly returns incorrect converted type";
   ASSERT_FALSE(converted_decimal_metadata.isset)
       << original->ToString()
-      << " logical_type unexpectedly returns converted decimal metatdata that is set";
+      << " logical type unexpectedly returns converted decimal metatdata that is set";
   ASSERT_TRUE(original->is_compatible(converted_type, converted_decimal_metadata))
       << original->ToString()
-      << " logical_type unexpectedly is incompatible with converted type and decimal "
+      << " logical type unexpectedly is incompatible with converted type and decimal "
          "metadata it returned";
   ASSERT_FALSE(original->is_compatible(converted_type, {true, 1, 1}))
       << original->ToString()
-      << " logical_type unexpectedly is compatible with converted decimal metadata that is "
+      << " logical type unexpectedly is compatible with converted decimal metadata that is "
          "set";
   ASSERT_TRUE(original->is_compatible(converted_type))
       << original->ToString()
-      << " logical_type unexpectedly is incompatible with converted type it returned";
+      << " logical type unexpectedly is incompatible with converted type it returned";
   std::shared_ptr<const LogicalType> reconstructed =
       LogicalType::FromConvertedType(converted_type, converted_decimal_metadata);
   ASSERT_TRUE(reconstructed->is_valid()) << "Reconstructed " << reconstructed->ToString()
-                                         << " logical_type unexpectedly is not valid";
+                                         << " logical type unexpectedly is not valid";
   ASSERT_TRUE(reconstructed->Equals(*original))
-      << "Reconstructed logical_type (" << reconstructed->ToString()
-      << ") unexpectedly not equivalent to original logical_type (" << original->ToString()
+      << "Reconstructed logical type (" << reconstructed->ToString()
+      << ") unexpectedly not equivalent to original logical type (" << original->ToString()
       << ")";
   return;
 }
 
 TEST(TestLogicalTypeConstruction, ConvertedTypeCompatibility) {
-  // For each legacy converted type, ensure that the equivalent logical logical_type
+  // For each legacy converted type, ensure that the equivalent logical type
   // emits correct, compatible converted type information and that the emitted
-  // information can be used to reconstruct another equivalent logical logical_type.
+  // information can be used to reconstruct another equivalent logical type.
 
   struct ExpectedConvertedType {
     std::shared_ptr<const LogicalType> logical_type;
@@ -1038,22 +1038,22 @@ static void ConfirmNewTypeIncompatibility(
     const std::shared_ptr<const LogicalType>& logical_type,
     std::function<bool(const std::shared_ptr<const LogicalType>&)> check_is_type) {
   ASSERT_TRUE(logical_type->is_valid())
-      << logical_type->ToString() << " logical_type unexpectedly is not valid";
+      << logical_type->ToString() << " logical type unexpectedly is not valid";
   ASSERT_TRUE(check_is_type(logical_type))
-      << logical_type->ToString() << " logical_type is not expected logical_type type";
+      << logical_type->ToString() << " logical type is not expected logical type";
   schema::DecimalMetadata converted_decimal_metadata;
   ConvertedType::type converted_type =
       logical_type->ToConvertedType(&converted_decimal_metadata);
   ASSERT_EQ(converted_type, ConvertedType::NONE)
-      << logical_type->ToString() << " logical_type converted type unexpectedly is not NONE";
+      << logical_type->ToString() << " logical type converted type unexpectedly is not NONE";
   ASSERT_FALSE(converted_decimal_metadata.isset)
       << logical_type->ToString()
-      << " logical_type converted decimal metadata unexpectedly is set";
+      << " logical type converted decimal metadata unexpectedly is set";
   return;
 }
 
 TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
-  // For each new logical logical_type type, ensure that the logical logical_type
+  // For each new logical type, ensure that the type
   // correctly reports that it has no legacy equivalent
 
   struct ConfirmNewTypeIncompatibilityArguments {
@@ -1100,7 +1100,7 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
 }
 
 TEST(TestLogicalTypeConstruction, FactoryExceptions) {
-  // Ensure that logical_type construction catches invalid arguments
+  // Ensure that logical type construction catches invalid arguments
 
   std::vector<std::function<void()>> cases = {
       []() {
@@ -1129,20 +1129,20 @@ static void ConfirmLogicalTypeProperties(
     const std::shared_ptr<const LogicalType>& logical_type, bool nested,
     bool serialized, bool valid) {
   ASSERT_TRUE(logical_type->is_nested() == nested)
-      << logical_type->ToString() << " logical_type has incorrect nested() property";
+      << logical_type->ToString() << " logical type has incorrect nested() property";
   ASSERT_TRUE(logical_type->is_serialized() == serialized)
-      << logical_type->ToString() << " logical_type has incorrect serialized() property";
+      << logical_type->ToString() << " logical type has incorrect serialized() property";
   ASSERT_TRUE(logical_type->is_valid() == valid)
-      << logical_type->ToString() << " logical_type has incorrect valid() property";
+      << logical_type->ToString() << " logical type has incorrect valid() property";
   ASSERT_TRUE(logical_type->is_nonnested() != nested)
-      << logical_type->ToString() << " logical_type has incorrect nonnested() property";
+      << logical_type->ToString() << " logical type has incorrect nonnested() property";
   ASSERT_TRUE(logical_type->is_invalid() != valid)
-      << logical_type->ToString() << " logical_type has incorrect invalid() property";
+      << logical_type->ToString() << " logical type has incorrect invalid() property";
   return;
 }
 
 TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
-  // For each logical_type type, ensure that the correct general properties are reported
+  // For each logical type, ensure that the correct general properties are reported
 
   struct ExpectedProperties {
     std::shared_ptr<const LogicalType> logical_type;
@@ -1191,12 +1191,12 @@ static void ConfirmSinglePrimitiveTypeApplicability(
     if (physical_type[i] == applicable_type) {
       ASSERT_TRUE(logical_type->is_applicable(physical_type[i]))
           << logical_type->ToString()
-          << " logical_type unexpectedly inapplicable to physical type "
+          << " logical type unexpectedly inapplicable to physical type "
           << TypeToString(physical_type[i]);
     } else {
       ASSERT_FALSE(logical_type->is_applicable(physical_type[i]))
           << logical_type->ToString()
-          << " logical_type unexpectedly applicable to physical type "
+          << " logical type unexpectedly applicable to physical type "
           << TypeToString(physical_type[i]);
     }
   }
@@ -1208,7 +1208,7 @@ static void ConfirmAnyPrimitiveTypeApplicability(
   for (int i = 0; i < PHYSICAL_TYPE_COUNT; ++i) {
     ASSERT_TRUE(logical_type->is_applicable(physical_type[i]))
         << logical_type->ToString()
-        << " logical_type unexpectedly inapplicable to physical type "
+        << " logical type unexpectedly inapplicable to physical type "
         << TypeToString(physical_type[i]);
   }
   return;
@@ -1219,14 +1219,14 @@ static void ConfirmNoPrimitiveTypeApplicability(
   for (int i = 0; i < PHYSICAL_TYPE_COUNT; ++i) {
     ASSERT_FALSE(logical_type->is_applicable(physical_type[i]))
         << logical_type->ToString()
-        << " logical_type unexpectedly applicable to physical type "
+        << " logical type unexpectedly applicable to physical type "
         << TypeToString(physical_type[i]);
   }
   return;
 }
 
 TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
-  // Check that each logical logical_type type correctly reports which
+  // Check that each logical type correctly reports which
   // underlying primitive type(s) it can be applied to
 
   struct ExpectedApplicability {
@@ -1309,7 +1309,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
 }
 
 TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {
-  // Check that the decimal logical logical_type type correctly reports which
+  // Check that the decimal logical type correctly reports which
   // underlying primitive type(s) it can be applied to
 
   std::shared_ptr<const LogicalType> logical_type;
@@ -1371,7 +1371,7 @@ TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {
 }
 
 TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
-  // Ensure that each logical logical_type type prints a correct string and
+  // Ensure that each logical type prints a correct string and
   // JSON representation
 
   struct ExpectedRepresentation {
@@ -1458,7 +1458,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
 }
 
 TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
-  // Ensure that each logical logical_type type reports the correct sort order
+  // Ensure that each logical type reports the correct sort order
 
   struct ExpectedSortOrder {
     std::shared_ptr<const LogicalType> logical_type;
@@ -1514,7 +1514,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
 
   for (const ExpectedSortOrder& c : cases) {
     ASSERT_EQ(c.logical_type->sort_order(), c.sort_order)
-        << c.logical_type->ToString() << " logical_type has incorrect sort order";
+        << c.logical_type->ToString() << " logical type has incorrect sort order";
   }
 }
 
@@ -1532,7 +1532,7 @@ static void ConfirmPrimitiveNodeFactoryEquivalence(
       << "Primitive node constructed with converted type "
       << ConvertedTypeToString(converted_type)
       << " unexpectedly not equivalent to primitive node constructed with logical "
-         "logical_type "
+         "type "
       << logical_type->ToString();
   return;
 }
@@ -1547,14 +1547,14 @@ static void ConfirmGroupNodeFactoryEquivalence(
   ASSERT_TRUE(from_converted_type->Equals(from_logical_type.get()))
       << "Group node constructed with converted type "
       << ConvertedTypeToString(converted_type)
-      << " unexpectedly not equivalent to group node constructed with logical logical_type "
+      << " unexpectedly not equivalent to group node constructed with logical type "
       << logical_type->ToString();
   return;
 }
 
 TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   // Ensure that the Node factory methods produce equivalent results regardless
-  // of whether they are given a converted type or a logical logical_type.
+  // of whether they are given a converted type or a logical type.
 
   // Primitive nodes ...
 
@@ -1607,10 +1607,10 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
 }
 
 TEST(TestSchemaNodeCreation, FactoryExceptions) {
-  // Ensure that the Node factory method that accepts an logical_type refuses to create
+  // Ensure that the Node factory method that accepts a logical type refuses to create
   // an object if compatibility conditions are not met
 
-  // Nested logical_type on non-group node ...
+  // Nested logical type on non-group node ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("map", Repetition::REQUIRED, MapLogicalType::Make(),
                                        Type::INT64));
   // Incompatible primitive type ...
@@ -1635,11 +1635,11 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_ANY_THROW(PrimitiveNode::Make("zero_length", Repetition::REQUIRED,
                                        NoLogicalType::Make(), Type::FIXED_LEN_BYTE_ARRAY,
                                        0));
-  // Non-nested logical_type on group node ...
+  // Non-nested logical type on group node ...
   ASSERT_ANY_THROW(
       GroupNode::Make("list", Repetition::REPEATED, {}, JSONLogicalType::Make()));
 
-  // nullptr logical_type arguments convert to NoLogicalType/ConvertedType::NONE
+  // nullptr logical type arguments convert to NoLogicalType/ConvertedType::NONE
   std::shared_ptr<const LogicalType> empty;
   NodePtr node;
   ASSERT_NO_THROW(
@@ -1718,30 +1718,30 @@ class TestSchemaElementConstruction : public ::testing::Test {
     if (expect_converted_type_) {
       ASSERT_TRUE(element_->__isset.converted_type)
           << node_->logical_type()->ToString()
-          << " logical_type unexpectedly failed to generate a converted type in the Thrift "
+          << " logical type unexpectedly failed to generate a converted type in the Thrift "
              "intermediate object";
       ASSERT_EQ(element_->converted_type, ToThrift(converted_type_))
           << node_->logical_type()->ToString()
-          << " logical_type unexpectedly failed to generate correct converted type in the "
+          << " logical type unexpectedly failed to generate correct converted type in the "
              "Thrift intermediate object";
     } else {
       ASSERT_FALSE(element_->__isset.converted_type)
           << node_->logical_type()->ToString()
-          << " logical_type unexpectedly generated a converted type in the Thrift "
+          << " logical type unexpectedly generated a converted type in the Thrift "
              "intermediate object";
     }
     if (expect_logicalType_) {
       ASSERT_TRUE(element_->__isset.logicalType)
           << node_->logical_type()->ToString()
-          << " logical_type unexpectedly failed to genverate a logicalType in the Thrift "
+          << " logical type unexpectedly failed to genverate a logicalType in the Thrift "
              "intermediate object";
       ASSERT_TRUE(check_logicalType_()) << node_->logical_type()->ToString()
-                                        << " logical_type generated incorrect logicalType "
+                                        << " logical type generated incorrect logicalType "
                                            "settings in the Thrift intermediate object";
     } else {
       ASSERT_FALSE(element_->__isset.logicalType)
           << node_->logical_type()->ToString()
-          << " logical_type unexpectedly generated a logicalType in the Thrift "
+          << " logical type unexpectedly generated a logicalType in the Thrift "
              "intermediate object";
     }
     return;
@@ -1754,7 +1754,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
   bool expect_converted_type_;
   ConvertedType::type converted_type_;  // expected converted type in Thrift object
   bool expect_logicalType_;
-  std::function<bool()> check_logicalType_;  // specialized (by logical_type type)
+  std::function<bool()> check_logicalType_;  // specialized (by logical type)
                                              // logicalType check for Thrift object
 };
 
@@ -1768,7 +1768,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
 TEST_F(TestSchemaElementConstruction, SimpleCases) {
   auto check_nothing = []() {
     return true;
-  };  // used for logical_types that don't expect a logicalType to be set
+  };  // used for logical types that don't expect a logicalType to be set
 
   std::vector<SchemaElementConstructionArguments> cases = {
       {"string", LogicalType::String(), Type::BYTE_ARRAY, -1, true,
@@ -2069,7 +2069,7 @@ static void ConfirmPrimitiveNodeRoundtrip(
   std::unique_ptr<Node> recovered = PrimitiveNode::FromParquet(&intermediary, 1);
   ASSERT_TRUE(original->Equals(recovered.get()))
       << "Recovered primitive node unexpectedly not equivalent to original primitive "
-         "node constructed with logical logical_type "
+         "node constructed with logical type "
       << logical_type->ToString();
   return;
 }
@@ -2085,14 +2085,14 @@ static void ConfirmGroupNodeRoundtrip(
       GroupNode::FromParquet(&(elements[0]), 1, node_vector);
   ASSERT_TRUE(original->Equals(recovered.get()))
       << "Recovered group node unexpectedly not equivalent to original group node "
-         "constructed with logical logical_type "
+         "constructed with logical type "
       << logical_type->ToString();
   return;
 }
 
 TEST(TestLogicalTypeSerialization, Roundtrips) {
   // Confirm that Thrift serialization-deserialization of nodes with logical
-  // logical_types produces equivalent reconstituted nodes
+  // types produces equivalent reconstituted nodes
 
   // Primitive nodes ...
   struct AnnotatedPrimitiveNodeFactoryArguments {
