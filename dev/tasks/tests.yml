@@ -130,7 +130,7 @@ tasks:
       commands:
         - docker-compose build cpp
         - docker-compose build c_glib
-        - docker-compose run cpp
+        - docker-compose run c_glib
 
   docker-go:
     ci: circle
