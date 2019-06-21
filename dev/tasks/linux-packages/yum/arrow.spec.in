@@ -19,7 +19,8 @@
 
 %define _centos_ver %{?centos_ver:%{centos_ver}}%{!?centos_ver:7}
 
-%define use_python %{_centos_ver} >= 6
+%define boost_version 169
+%define python_version %(if [ "%{_centos_ver}" = 6 ]; then echo 34; else echo 36; fi)
 %define use_parquet %{_centos_ver} >= 7
 %define use_glib %{_centos_ver} >= 7
 
@@ -32,13 +33,16 @@ License:	Apache-2.0
 URL:		https://arrow.apache.org/
 Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{version}/apache-@PACKAGE@-%{version}.tar.gz
 
-BuildRequires:	pkgconfig
-BuildRequires:	gcc-c++
+BuildRequires:	bison
+%if %{_centos_ver} >= 7
+BuildRequires:	boost%{boost_version}-devel
+BuildRequires:	brotli-devel
+%endif
 BuildRequires:	cmake3
-BuildRequires:	boost-devel
 %if %{_centos_ver} >= 7
 BuildRequires:	double-conversion-devel
 %endif
+BuildRequires:	gcc-c++
 BuildRequires:	gflags-devel
 BuildRequires:	git
 %if %{_centos_ver} >= 7
@@ -46,20 +50,21 @@ BuildRequires:	glog-devel
 %endif
 BuildRequires:	libzstd-devel
 BuildRequires:	lz4-devel
+BuildRequires:	pkgconfig
+BuildRequires:	python%{python_version}-devel
+BuildRequires:	python%{python_version}-numpy
 %if %{_centos_ver} >= 7
 BuildRequires:	rapidjson-devel
 %endif
 BuildRequires:	snappy-devel
 BuildRequires:	zlib-devel
-%if %{use_python}
-BuildRequires:	python34-devel
-BuildRequires:	python34-numpy
-%endif
+
 %if %{use_parquet}
 BuildRequires:	bison
 BuildRequires:	flex
 BuildRequires:	thrift-devel
 %endif
+
 %if %{use_glib}
 BuildRequires:	autoconf-archive
 BuildRequires:	gtk-doc
@@ -77,20 +82,16 @@ build_type=release
 mkdir cpp/build
 cd cpp/build
 %cmake3 .. \
-  -DCMAKE_BUILD_TYPE=$build_type \
-%if %{use_python}
-  -DARROW_PYTHON=ON \
-  -DPythonInterp_FIND_VERSION=ON \
-  -DPythonInterp_FIND_VERSION_MAJOR=3 \
-%endif
-%if %{_centos_ver} == 6
-  -DARROW_BOOST_VENDORED=ON \
-%endif
   -DARROW_ORC=ON \
 %if %{use_parquet}
   -DARROW_PARQUET=ON \
 %endif
-  -DARROW_PLASMA=ON
+  -DARROW_PLASMA=ON \
+  -DARROW_PYTHON=ON \
+  -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
+  -DCMAKE_BUILD_TYPE=$build_type \
+  -DPythonInterp_FIND_VERSION=ON \
+  -DPythonInterp_FIND_VERSION_MAJOR=3
 make %{?_smp_mflags}
 cd -
 
@@ -126,10 +127,11 @@ cd -
 %package libs
 Summary:	Runtime libraries for Apache Arrow C++
 License:	Apache-2.0
-Requires:	boost-system
-Requires:	boost-filesystem
-Requires:	boost-regex
 %if %{_centos_ver} >= 7
+Requires:	boost%{boost_version}-system
+Requires:	boost%{boost_version}-filesystem
+Requires:	boost%{boost_version}-regex
+Requires:	brotli
 Requires:	double-conversion
 %endif
 Requires:	gflags
@@ -168,12 +170,39 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/pkgconfig/arrow-orc.pc
 %{_libdir}/cmake/arrow/
 
-%if %{use_python}
+%package dataset-libs
+Summary:	C++ library to read and write semantic datasets stored in different locations and formats
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+
+%description dataset-libs
+This package contains the libraries for Apache Arrow Datasets.
+
+%files dataset-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_dataset.so.*
+
+%package dataset-devel
+Summary:	Libraries and header files for Apache Arrow Datasets.
+License:	Apache-2.0
+Requires:	%{name}-dataset-libs = %{version}-%{release}
+
+%description dataset-devel
+Libraries and header files for Apache Arrow Datasets.
+
+%files dataset-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_dataset.a
+%{_libdir}/libarrow_dataset.so
+%{_libdir}/pkgconfig/arrow-dataset.pc
+
 %package python-libs
 Summary:	Apache Arrow CPython extensions
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	python34-numpy
+Requires:	python%{python_version}-numpy
 
 %description python-libs
 This package contains the Apache Arrow CPython extensions.
@@ -188,7 +217,7 @@ Summary:	Libraries and header files for Apache Arrow CPython extensions
 License:	Apache-2.0
 Requires:	%{name}-devel = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	python34-devel
+Requires:	python%{python_version}-devel
 
 %description python-devel
 Libraries and header files for Apache Arrow CPython extensions.
@@ -199,7 +228,6 @@ Libraries and header files for Apache Arrow CPython extensions.
 %{_libdir}/libarrow_python.a
 %{_libdir}/libarrow_python.so
 %{_libdir}/pkgconfig/arrow-python.pc
-%endif
 
 %package -n plasma-libs
 Summary:	Runtime libraries for Plasma in-memory object store
@@ -247,10 +275,7 @@ Libraries and header files for Plasma in-memory object store.
 %package -n parquet-libs
 Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
-Requires:	boost-system
-Requires:	boost-filesystem
-Requires:	boost-program-options
-Requires:	boost-regex
+Requires:	boost%{boost_version}-program-options
 Requires:	thrift
 Requires:	%{name}-libs = %{version}-%{release}
 
