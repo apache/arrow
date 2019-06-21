@@ -646,6 +646,7 @@
   </reporting>
 
   <modules>
+    <module>format</module>
     <module>memory</module>
     <module>vector</module>
     <module>tools</module>
