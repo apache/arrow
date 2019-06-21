@@ -19,3 +19,4 @@ ignored:
   - DL3008
   - DL3013
   - DL3018
+  - DL3015  # Avoid additional packages by specifying `--no-install-recommends`
