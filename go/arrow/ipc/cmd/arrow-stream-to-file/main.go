@@ -22,7 +22,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
@@ -69,9 +68,4 @@ func processStream(w *os.File, r io.Reader) error {
 	}
 
 	return nil
-}
-
-func write(w *ipc.FileWriter, rec array.Record) error {
-	defer rec.Release()
-	return w.Write(rec)
 }
