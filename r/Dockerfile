@@ -27,27 +27,29 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
-RUN apt update && \
-    apt install -y \
+RUN apt-get update -y && \
+    apt-get install -y \
         apt-transport-https \
         software-properties-common && \
     apt-key adv \
         --keyserver keyserver.ubuntu.com \
         --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/' && \
-    apt install -y r-base && \
+    apt-get install -y r-base && \
     # system libs needed by core R packages
-    apt install -y \
-        libgit2-dev \
-        libssl-dev && \
+    apt-get install -y \
+            libgit2-dev \
+            libssl-dev && \
     # install clang to mirror what was done on Travis
-    apt install -y \
-        clang \
-        clang-format \
-        clang-tidy && \
+    apt-get install -y \
+            clang \
+            clang-format \
+            clang-tidy && \
     # R CMD CHECK --as-cran needs pdflatex to build the package manual
-    apt install -y \
-        texlive-latex-base && \
+    apt-get install -y \
+            texlive-latex-base && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
     Rscript -e "install.packages('devtools', repos = 'http://cran.rstudio.com')" && \
     Rscript -e "devtools::install_github('romainfrancois/decor')" && \
     Rscript -e "install.packages(c( \
