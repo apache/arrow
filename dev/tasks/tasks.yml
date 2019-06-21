@@ -309,6 +309,9 @@ tasks:
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
       - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-flight14_{no_rc_version}-1_amd64.deb
@@ -360,6 +363,9 @@ tasks:
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
       - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-flight14_{no_rc_version}-1_amd64.deb
@@ -408,6 +414,9 @@ tasks:
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python14_{no_rc_version}-1_amd64.deb
       - libarrow14_{no_rc_version}-1_amd64.deb
@@ -457,6 +466,9 @@ tasks:
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
       - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-flight14_{no_rc_version}-1_amd64.deb
@@ -509,6 +521,9 @@ tasks:
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
       - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-flight14_{no_rc_version}-1_amd64.deb
@@ -546,6 +561,8 @@ tasks:
       - arrow-debuginfo-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-devel-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-libs-{no_rc_version}-1.el6.x86_64.rpm
+      - arrow-dataset-devel-{no_rc_version}-1.el6.x86_64.rpm
+      - arrow-dataset-libs-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-python-devel-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-python-libs-{no_rc_version}-1.el6.x86_64.rpm
       - plasma-devel-{no_rc_version}-1.el6.x86_64.rpm
@@ -567,6 +584,8 @@ tasks:
       - arrow-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
       - arrow-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
       - arrow-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-dataset-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-dataset-libs-{no_rc_version}-1.el7.x86_64.rpm
       - arrow-python-devel-{no_rc_version}-1.el7.x86_64.rpm
       - arrow-python-libs-{no_rc_version}-1.el7.x86_64.rpm
       - parquet-devel-{no_rc_version}-1.el7.x86_64.rpm
