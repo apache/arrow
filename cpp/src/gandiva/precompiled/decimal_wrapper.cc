@@ -344,7 +344,8 @@ boolean is_not_distinct_from_decimal128_decimal128_internal(
   if (!x_validity) {
     return true;
   }
-  return x_high == y_high && x_low == y_low;
+  return 0 == compare_internal_decimal128_decimal128(x_high, x_low, x_precision, x_scale,
+                                                     y_high, y_low, y_precision, y_scale);
 }
 
 FORCE_INLINE
