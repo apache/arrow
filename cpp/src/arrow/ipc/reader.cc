@@ -378,22 +378,25 @@ static inline Status ReadRecordBatch(const flatbuf::RecordBatch* metadata,
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo, int max_recursion_depth,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
-  auto message = flatbuf::GetMessage(metadata.data());
-  if (message->header_type() != flatbuf::MessageHeader_RecordBatch) {
-    DCHECK_EQ(message->header_type(), flatbuf::MessageHeader_RecordBatch);
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+  auto batch = message->header_as_RecordBatch();
+  if (batch == nullptr) {
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not RecordBatch.");
   }
-  if (message->header() == nullptr) {
-    return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
-  }
-  auto batch = reinterpret_cast<const flatbuf::RecordBatch*>(message->header());
   return ReadRecordBatch(batch, schema, dictionary_memo, max_recursion_depth, file, out);
 }
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
                       io::RandomAccessFile* file) {
-  auto message = flatbuf::GetMessage(metadata.data());
-  auto dictionary_batch =
-      reinterpret_cast<const flatbuf::DictionaryBatch*>(message->header());
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+  auto dictionary_batch = message->header_as_DictionaryBatch();
+  if (dictionary_batch == nullptr) {
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not DictionaryBatch.");
+  }
 
   int64_t id = dictionary_batch->id();
 
@@ -406,8 +409,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
 
   // The dictionary is embedded in a record batch with a single column
   std::shared_ptr<RecordBatch> batch;
-  auto batch_meta =
-      reinterpret_cast<const flatbuf::RecordBatch*>(dictionary_batch->data());
+  auto batch_meta = dictionary_batch->data();
   RETURN_NOT_OK(ReadRecordBatch(batch_meta, ::arrow::schema({value_field}),
                                 dictionary_memo, kMaxNestingDepth, file, &batch));
   if (batch->num_columns() != 1) {
@@ -606,8 +608,12 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     RETURN_NOT_OK(file_->ReadAt(footer_offset_ - footer_length - file_end_size,
                                 footer_length, &footer_buffer_));
 
-    // TODO(wesm): Verify the footer
-    footer_ = flatbuf::GetFooter(footer_buffer_->data());
+    auto data = footer_buffer_->data();
+    flatbuffers::Verifier verifier(data, footer_buffer_->size(), 128);
+    if (!flatbuf::VerifyFooterBuffer(verifier)) {
+      return Status::IOError("Verification of flatbuffer-encoded Footer failed.");
+    }
+    footer_ = flatbuf::GetFooter(data);
 
     return Status::OK();
   }
@@ -879,8 +885,13 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
   RETURN_NOT_OK(internal::GetSparseTensorMetadata(
       metadata, &type, &shape, &dim_names, &non_zero_length, &sparse_tensor_format_id));
 
-  auto message = flatbuf::GetMessage(metadata.data());
-  auto sparse_tensor = reinterpret_cast<const flatbuf::SparseTensor*>(message->header());
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+  auto sparse_tensor = message->header_as_SparseTensor();
+  if (sparse_tensor == nullptr) {
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not SparseTensor.");
+  }
   const flatbuf::Buffer* buffer = sparse_tensor->data();
   DCHECK(BitUtil::IsMultipleOf8(buffer->offset()))
       << "Buffer of sparse index data "
