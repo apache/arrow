@@ -330,7 +330,7 @@ boolean isnotnull_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_
 FORCE_INLINE
 boolean isnumeric_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
                                       int32_t x_scale, boolean x_validity) {
-  return true;
+  return x_validity;
 }
 
 FORCE_INLINE
