@@ -1941,7 +1941,7 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) {
                                              default_arrow_writer_properties(), &buffer));
 
   ArrowReaderProperties properties = default_arrow_reader_properties();
-  properties.set_batch_size(500);
+  properties.set_batch_size(100);
 
   std::unique_ptr<FileReader> reader;
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
@@ -1952,13 +1952,11 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) {
 
   std::shared_ptr<::arrow::RecordBatch> batch;
 
-  ASSERT_OK(rb_reader->ReadNext(&batch));
-  ASSERT_EQ(500, batch->num_rows());
-  ASSERT_EQ(20, batch->num_columns());
-
-  ASSERT_OK(rb_reader->ReadNext(&batch));
-  ASSERT_EQ(500, batch->num_rows());
-  ASSERT_EQ(20, batch->num_columns());
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_OK(rb_reader->ReadNext(&batch));
+    ASSERT_EQ(100, batch->num_rows());
+    ASSERT_EQ(20, batch->num_columns());
+  }
 
   ASSERT_OK(rb_reader->ReadNext(&batch));
   ASSERT_EQ(nullptr, batch);
