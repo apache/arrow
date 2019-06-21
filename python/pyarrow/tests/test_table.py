@@ -44,6 +44,11 @@ def test_chunked_array_basics():
     assert len(data.chunks) == 3
 
 
+def test_chunked_array_mismatch_types():
+    with pytest.raises(pa.ArrowInvalid):
+        pa.chunked_array([pa.array([1, 2]), pa.array(['foo', 'bar'])])
+
+
 def test_chunked_array_str():
     data = [
         pa.array([1, 2, 3]),
@@ -955,7 +960,7 @@ def test_table_from_pydict():
 
     # With chunked arrays as values
     data = OrderedDict([('strs', pa.chunked_array([[u''], [u'foo', u'bar']])),
-                        ('floats', pa.chunked_array([[4.5], [5, None]]))])
+                        ('floats', pa.chunked_array([[4.5], [5., None]]))])
     table = pa.Table.from_pydict(data)
     assert table.num_columns == 2
     assert table.num_rows == 3

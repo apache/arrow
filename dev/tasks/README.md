@@ -58,8 +58,10 @@ submission. The tasks are defined in `tasks.yml`
 
 1. [Create the queue
    repository](https://help.github.com/articles/creating-a-new-repository)
-2. Enable [TravisCI](https://travis-ci.org/getting_started) and
-   [Appveyor](https://www.appveyor.com/docs/) integrations on it
+2. Enable [TravisCI](https://travis-ci.org/getting_started),
+   [Appveyor](https://www.appveyor.com/docs/) and
+   [CircleCI](https://circleci.com/docs/2.0/getting-started/)
+   integrations on it
 
    - turn off Travis' [auto cancellation](https://docs.travis-ci.com/user/customizing-the-build/#Building-only-the-latest-commit) feature on branches
 
@@ -69,6 +71,10 @@ submission. The tasks are defined in `tasks.yml`
    ```bash
    git clone https://github.com/<user>/crossbow crossbow
    ```
+
+   **Important note:** Crossbow currently requires HTTPS repository
+   URLs. It will fail with an unintuitive error if you clone from a
+   `git@` SSH URL. See ARROW-3572.
 
 4. [Create a Personal Access
    Token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
@@ -88,6 +94,10 @@ submission. The tasks are defined in `tasks.yml`
 
    - TravisCI: `https://travis-ci.org/<ghuser>/<ghrepo>/settings`
    - Appveyor: `https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment`
+   - CircleCI: `https://circleci.com/gh/<ghuser>/<ghrepo>/edit#env-vars`
+
+   On Appveyor check the `skip branches without appveyor.yml` checkbox on the
+   web UI under crossbow repository's settings.
 
 7. Install Python 3.6:
 

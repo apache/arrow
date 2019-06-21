@@ -15,39 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:7
+version: 2
+jobs:
+  build:
+    machine:
+      image: circleci/classic:201808-01
+    steps:
+      - run: docker -v
+      - run: docker-compose -v
+      - run: git clone --no-checkout {{ arrow.remote }} arrow
+      - run: git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      - run: git -C arrow checkout {{ arrow.head }}
+      - run: git -C arrow submodule update --init --recursive
+      - run: |
+          pushd arrow
+          {%- for command in commands %}
+            {{ command }}
+          {%- endfor %}
+          popd
 
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  yum update -y ${quiet} && \
-  yum install -y ${quiet} epel-release && \
-  yum groupinstall -y ${quiet} "Development Tools" && \
-  yum install -y ${quiet} \
-    autoconf-archive \
-    bison \
-    boost169-devel \
-    brotli-devel \
-    cmake3 \
-    double-conversion-devel \
-    flex \
-    gflags-devel \
-    git \
-    glog-devel \
-    gobject-introspection-devel \
-    gtk-doc \
-    libzstd-devel \
-    lz4-devel \
-    pkg-config \
-    python36 \
-    python36-devel \
-    python36-numpy \
-    rapidjson-devel \
-    rpm-build \
-    rpmdevtools \
-    snappy-devel \
-    tar \
-    thrift-devel \
-    zlib-devel && \
-  yum clean ${quiet} all
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build

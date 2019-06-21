@@ -20,6 +20,9 @@ add_custom_target(arrow_dataset)
 # Headers: top level
 arrow_install_all_headers("arrow/dataset")
 
+# pkg-config support
+arrow_add_pkg_config("arrow-dataset")
+
 set(ARROW_DATASET_SRCS scanner.cc)
 
 add_arrow_lib(arrow_dataset

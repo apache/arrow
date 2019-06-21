@@ -98,6 +98,9 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Determine if two chunked arrays are equal.
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
 
+  /// \brief Check that all chunks have the same data type
+  Status Validate() const;
+
  protected:
   ArrayVector chunks_;
   int64_t length_;

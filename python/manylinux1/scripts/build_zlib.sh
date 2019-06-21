@@ -20,7 +20,7 @@ curl -sL https://zlib.net/zlib-1.2.11.tar.gz -o /zlib-1.2.11.tar.gz
 tar xf zlib-1.2.11.tar.gz
 pushd zlib-1.2.11
 ./configure
-make -j4
+make -j8
 make install
 popd
 rm -rf zlib-1.2.11.tar.gz zlib-1.2.11

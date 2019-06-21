@@ -41,8 +41,7 @@ Building requires:
   sufficient. For Windows, at least Visual Studio 2015 is required.
 * CMake 3.2 or higher
 * Boost 1.58 or higher, though some unit tests require 1.64 or
-  newer. Use ``-DARROW_BOOST_VENDORED=ON`` when invoking CMake to have
-  the Arrow build system automatically build a recent version of Boost.
+  newer.
 * ``bison`` and ``flex`` (for building Apache Thrift from source only, an
   Apache Parquet dependency.)
 
@@ -291,12 +290,6 @@ build system will find it automatically. If you have Boost installed in a
 non-standard location, you can specify it by passing
 ``-DBOOST_ROOT=$MY_BOOST_ROOT`` or setting the ``BOOST_ROOT`` environment
 variable.
-
-Unlike most of the other dependencies, if Boost is not found by the build
-system it will not be built automatically from source. To opt-in to a vendored
-Boost build, pass ``-DARROW_BOOST_VENDORED=ON``. This automatically sets the
-option ``-DARROW_BOOST_USE_SHARED=OFF`` to statically-link Boost into the
-produced libraries and executables.
 
 Offline Builds
 ~~~~~~~~~~~~~~
@@ -644,6 +637,26 @@ generated, you can build a comparision report using
 The report is then generated in ``compat_reports/libarrow`` as a HTML.
 
 .. _developers-cpp-windows:
+
+Debugging with Xcode on macOS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Xcode is the IDE provided with macOS and can be use to develop and debug Arrow 
+by generating an Xcode project:
+
+.. code-block:: shell
+
+   cd cpp
+   mkdir xcode-build
+   cd xcode-build
+   cmake .. -G Xcode -DARROW_BUILD_TESTS=ON
+   open arrow.xcodeproj
+
+This will generate a project and open it in the Xcode app. As an alternative, 
+the command ``xcodebuild`` will perform a command-line build using the
+generated project. It is recommended to use the "Automatically Create Schemes"
+option when first launching the project.  Selecting an auto-generated scheme 
+will allow you to build and run a unittest with breakpoints enabled.
 
 Developing on Windows
 =====================

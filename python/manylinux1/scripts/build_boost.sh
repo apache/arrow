@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-BOOST_VERSION=1.66.0
+BOOST_VERSION=1.68.0
 BOOST_VERSION_UNDERSCORE=${BOOST_VERSION//\./_}
 NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
@@ -26,7 +26,7 @@ mkdir /arrow_boost
 pushd /boost_${BOOST_VERSION_UNDERSCORE}
 ./bootstrap.sh
 ./b2 -j${NCORES} tools/bcp
-./dist/bin/bcp --namespace=arrow_boost --namespace-alias filesystem date_time system regex build algorithm locale format variant multiprecision/cpp_int /arrow_boost
+./dist/bin/bcp --namespace=arrow_boost --namespace-alias filesystem date_time system regex build predef algorithm locale format variant multiprecision/cpp_int /arrow_boost
 popd
 
 pushd /arrow_boost

@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,39 +16,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:7
+export BZ2_VERSION="1.0.6"
+export CFLAGS="-Wall -Winline -O2 -fPIC -D_FILE_OFFSET_BITS=64"
 
-ARG DEBUG
+curl -sL "https://www.sourceware.org/pub/bzip2/bzip2-${BZ2_VERSION}.tar.gz" -o bzip2-${BZ2_VERSION}.tar.gz
+tar xf bzip2-${BZ2_VERSION}.tar.gz
 
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  yum update -y ${quiet} && \
-  yum install -y ${quiet} epel-release && \
-  yum groupinstall -y ${quiet} "Development Tools" && \
-  yum install -y ${quiet} \
-    autoconf-archive \
-    bison \
-    boost169-devel \
-    brotli-devel \
-    cmake3 \
-    double-conversion-devel \
-    flex \
-    gflags-devel \
-    git \
-    glog-devel \
-    gobject-introspection-devel \
-    gtk-doc \
-    libzstd-devel \
-    lz4-devel \
-    pkg-config \
-    python36 \
-    python36-devel \
-    python36-numpy \
-    rapidjson-devel \
-    rpm-build \
-    rpmdevtools \
-    snappy-devel \
-    tar \
-    thrift-devel \
-    zlib-devel && \
-  yum clean ${quiet} all
+pushd bzip2-${BZ2_VERSION}
+make PREFIX=/usr CFLAGS="$CFLAGS" install -j8
+popd
+
+rm -rf bzip2-${BZ2_VERSION}.tar.gz bzip2-${BZ2_VERSION}

@@ -15,39 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:7
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  yum update -y ${quiet} && \
-  yum install -y ${quiet} epel-release && \
-  yum groupinstall -y ${quiet} "Development Tools" && \
-  yum install -y ${quiet} \
-    autoconf-archive \
-    bison \
-    boost169-devel \
-    brotli-devel \
-    cmake3 \
-    double-conversion-devel \
-    flex \
-    gflags-devel \
-    git \
-    glog-devel \
-    gobject-introspection-devel \
-    gtk-doc \
-    libzstd-devel \
-    lz4-devel \
-    pkg-config \
-    python36 \
-    python36-devel \
-    python36-numpy \
-    rapidjson-devel \
-    rpm-build \
-    rpmdevtools \
-    snappy-devel \
-    tar \
-    thrift-devel \
-    zlib-devel && \
-  yum clean ${quiet} all
+Name: Apache Arrow Datasets
+Description: Apache Arrow Datasets provides an API to read and write semantic datasets stored in different locations and formats.
+Version: @ARROW_VERSION@
+Requires: arrow
