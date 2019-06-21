@@ -38,6 +38,11 @@ before_install:
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout {{ arrow.head }}
 
+  # ARROW-3976 Old versions of git can cause failures when Homebrew prints a
+  # donation solicitation. Attempt to update git
+  - git --version
+  - brew upgrade git
+
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal
   - brew update
