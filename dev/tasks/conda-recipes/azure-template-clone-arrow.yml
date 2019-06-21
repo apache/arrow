@@ -17,7 +17,7 @@
 
 steps:
   - script: |
-      git clone --no-checkout ${{ parameters.arrow_remote }} arrow
-      git -C arrow fetch -t ${{ parameters.arrow_remote }} ${{ parameters.arrow_branch }}
-      git -C arrow checkout ${{ parameters.arrow_head }}
-      pushd arrow/dev/tasks/conda-recipes
+      git clone --no-checkout ${{ variables.arrow_remote }} arrow
+      git -C arrow fetch -t ${{ variables.arrow_remote }} ${{ variables.arrow_branch }}
+      git -C arrow checkout ${{ variables.arrow_head }}
+      cd arrow/dev/tasks/conda-recipes

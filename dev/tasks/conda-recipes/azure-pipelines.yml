@@ -15,15 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-parameters:
-  # these parameters are used by the azure-template-*.yml files
+variables:
+  # vairables are used by .azure-pipelines/azure-pipelines-[linux|osx|win].yml
+  # and azure-template-*.yml files
+  CONFIG: {{ config }}
   arrow_remote: {{ arrow.remote }}
   arrow_branch: {{ arrow.branch }}
   arrow_head: {{ arrow.head }}
 
-variables:
-  # vairables are used by .azure-pipelines/azure-pipelines-[linux|osx|win].yml
-  CONFIG: {{ config }}
-
 jobs:
-  - template: ./.azure-pipelines/azure-pipelines-{{ platform }}.yml
+  - template: ./.azure-pipelines/azure-pipelines-{{ task.platform }}.yml
