@@ -513,7 +513,7 @@ TEST_F(TestSchemaFlatten, DecimalMetadata) {
   ASSERT_TRUE(elements_[1].__isset.scale);
 
   elements_.clear();
-  // ... including those created with new logical annotations
+  // ... including those created with new logical logical_types
   node = PrimitiveNode::Make("decimal", Repetition::REQUIRED,
                              DecimalLogicalType::Make(10, 5), Type::INT64, -1);
   group = GroupNode::Make("group", Repetition::REPEATED, {node}, ListLogicalType::Make());
@@ -807,67 +807,67 @@ static void ConfirmFactoryEquivalence(
   std::shared_ptr<const LogicalType> from_converted_type =
       LogicalType::FromConvertedType(converted_type);
   ASSERT_EQ(from_converted_type->type(), from_make->type())
-      << from_make->ToString() << " annotations unexpectedly do not match on type";
+      << from_make->ToString() << " logical_types unexpectedly do not match on type";
   ASSERT_TRUE(from_converted_type->Equals(*from_make))
-      << from_make->ToString() << " annotations unexpectedly not equivalent";
+      << from_make->ToString() << " logical_types unexpectedly not equivalent";
   ASSERT_TRUE(check_is_type(from_converted_type))
       << from_converted_type->ToString()
-      << " annotation (from converted type) does not have expected type property";
+      << " logical_type (from converted type) does not have expected type property";
   ASSERT_TRUE(check_is_type(from_make))
       << from_make->ToString()
-      << " annotation (from Make()) does not have expected type property";
+      << " logical_type (from Make()) does not have expected type property";
   return;
 }
 
 TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
-  // For each legacy converted type, ensure that the equivalent annotation object
+  // For each legacy converted type, ensure that the equivalent logical_type object
   // can be obtained from either the base class's FromConvertedType() factory method or
-  // the annotation type class's Make() method (accessed via convenience methods on the
-  // base class) and that these annotation objects are equivalent
+  // the logical_type type class's Make() method (accessed via convenience methods on the
+  // base class) and that these logical_type objects are equivalent
 
   struct ConfirmFactoryEquivalenceArguments {
     ConvertedType::type converted_type;
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     std::function<bool(const std::shared_ptr<const LogicalType>&)> check_is_type;
   };
 
-  auto check_is_string = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_string();
+  auto check_is_string = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_string();
   };
-  auto check_is_map = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_map();
+  auto check_is_map = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_map();
   };
-  auto check_is_list = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_list();
+  auto check_is_list = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_list();
   };
-  auto check_is_enum = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_enum();
+  auto check_is_enum = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_enum();
   };
-  auto check_is_date = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_date();
+  auto check_is_date = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_date();
   };
-  auto check_is_time = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_time();
+  auto check_is_time = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_time();
   };
   auto check_is_timestamp =
-      [](const std::shared_ptr<const LogicalType>& annotation) {
-        return annotation->is_timestamp();
+      [](const std::shared_ptr<const LogicalType>& logical_type) {
+        return logical_type->is_timestamp();
       };
-  auto check_is_int = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_int();
+  auto check_is_int = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_int();
   };
-  auto check_is_JSON = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_JSON();
+  auto check_is_JSON = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_JSON();
   };
-  auto check_is_BSON = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_BSON();
+  auto check_is_BSON = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_BSON();
   };
   auto check_is_interval =
-      [](const std::shared_ptr<const LogicalType>& annotation) {
-        return annotation->is_interval();
+      [](const std::shared_ptr<const LogicalType>& logical_type) {
+        return logical_type->is_interval();
       };
-  auto check_is_none = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_none();
+  auto check_is_none = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_none();
   };
 
   std::vector<ConfirmFactoryEquivalenceArguments> cases = {
@@ -901,7 +901,7 @@ TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
       {ConvertedType::NONE, LogicalType::None(), check_is_none}};
 
   for (const ConfirmFactoryEquivalenceArguments& c : cases) {
-    ConfirmFactoryEquivalence(c.converted_type, c.annotation, c.check_is_type);
+    ConfirmFactoryEquivalence(c.converted_type, c.logical_type, c.check_is_type);
   }
 
   // ConvertedType::DECIMAL, LogicalType::Decimal, is_decimal
@@ -924,45 +924,45 @@ static void ConfirmConvertedTypeCompatibility(
     const std::shared_ptr<const LogicalType>& original,
     ConvertedType::type expected_converted_type) {
   ASSERT_TRUE(original->is_valid())
-      << original->ToString() << " annotation unexpectedly is not valid";
+      << original->ToString() << " logical_type unexpectedly is not valid";
   schema::DecimalMetadata converted_decimal_metadata;
   ConvertedType::type converted_type =
       original->ToConvertedType(&converted_decimal_metadata);
   ASSERT_EQ(converted_type, expected_converted_type)
       << original->ToString()
-      << " annotation unexpectedly returns incorrect converted type";
+      << " logical_type unexpectedly returns incorrect converted type";
   ASSERT_FALSE(converted_decimal_metadata.isset)
       << original->ToString()
-      << " annotation unexpectedly returns converted decimal metatdata that is set";
+      << " logical_type unexpectedly returns converted decimal metatdata that is set";
   ASSERT_TRUE(original->is_compatible(converted_type, converted_decimal_metadata))
       << original->ToString()
-      << " annotation unexpectedly is incompatible with converted type and decimal "
+      << " logical_type unexpectedly is incompatible with converted type and decimal "
          "metadata it returned";
   ASSERT_FALSE(original->is_compatible(converted_type, {true, 1, 1}))
       << original->ToString()
-      << " annotation unexpectedly is compatible with converted decimal metadata that is "
+      << " logical_type unexpectedly is compatible with converted decimal metadata that is "
          "set";
   ASSERT_TRUE(original->is_compatible(converted_type))
       << original->ToString()
-      << " annotation unexpectedly is incompatible with converted type it returned";
+      << " logical_type unexpectedly is incompatible with converted type it returned";
   std::shared_ptr<const LogicalType> reconstructed =
       LogicalType::FromConvertedType(converted_type, converted_decimal_metadata);
   ASSERT_TRUE(reconstructed->is_valid()) << "Reconstructed " << reconstructed->ToString()
-                                         << " annotation unexpectedly is not valid";
+                                         << " logical_type unexpectedly is not valid";
   ASSERT_TRUE(reconstructed->Equals(*original))
-      << "Reconstructed annotation (" << reconstructed->ToString()
-      << ") unexpectedly not equivalent to original annotation (" << original->ToString()
+      << "Reconstructed logical_type (" << reconstructed->ToString()
+      << ") unexpectedly not equivalent to original logical_type (" << original->ToString()
       << ")";
   return;
 }
 
 TEST(TestLogicalTypeConstruction, ConvertedTypeCompatibility) {
-  // For each legacy converted type, ensure that the equivalent logical annotation
+  // For each legacy converted type, ensure that the equivalent logical logical_type
   // emits correct, compatible converted type information and that the emitted
-  // information can be used to reconstruct another equivalent logical annotation.
+  // information can be used to reconstruct another equivalent logical logical_type.
 
   struct ExpectedConvertedType {
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     ConvertedType::type converted_type;
   };
 
@@ -994,7 +994,7 @@ TEST(TestLogicalTypeConstruction, ConvertedTypeCompatibility) {
       {LogicalType::None(), ConvertedType::NONE}};
 
   for (const ExpectedConvertedType& c : cases) {
-    ConfirmConvertedTypeCompatibility(c.annotation, c.converted_type);
+    ConfirmConvertedTypeCompatibility(c.logical_type, c.converted_type);
   }
 
   // Special cases ...
@@ -1035,44 +1035,44 @@ TEST(TestLogicalTypeConstruction, ConvertedTypeCompatibility) {
 }
 
 static void ConfirmNewTypeIncompatibility(
-    const std::shared_ptr<const LogicalType>& annotation,
+    const std::shared_ptr<const LogicalType>& logical_type,
     std::function<bool(const std::shared_ptr<const LogicalType>&)> check_is_type) {
-  ASSERT_TRUE(annotation->is_valid())
-      << annotation->ToString() << " annotation unexpectedly is not valid";
-  ASSERT_TRUE(check_is_type(annotation))
-      << annotation->ToString() << " annotation is not expected annotation type";
+  ASSERT_TRUE(logical_type->is_valid())
+      << logical_type->ToString() << " logical_type unexpectedly is not valid";
+  ASSERT_TRUE(check_is_type(logical_type))
+      << logical_type->ToString() << " logical_type is not expected logical_type type";
   schema::DecimalMetadata converted_decimal_metadata;
   ConvertedType::type converted_type =
-      annotation->ToConvertedType(&converted_decimal_metadata);
+      logical_type->ToConvertedType(&converted_decimal_metadata);
   ASSERT_EQ(converted_type, ConvertedType::NONE)
-      << annotation->ToString() << " annotation converted type unexpectedly is not NONE";
+      << logical_type->ToString() << " logical_type converted type unexpectedly is not NONE";
   ASSERT_FALSE(converted_decimal_metadata.isset)
-      << annotation->ToString()
-      << " annotation converted decimal metadata unexpectedly is set";
+      << logical_type->ToString()
+      << " logical_type converted decimal metadata unexpectedly is set";
   return;
 }
 
 TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
-  // For each new logical annotation type, ensure that the logical annotation
+  // For each new logical logical_type type, ensure that the logical logical_type
   // correctly reports that it has no legacy equivalent
 
   struct ConfirmNewTypeIncompatibilityArguments {
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     std::function<bool(const std::shared_ptr<const LogicalType>&)> check_is_type;
   };
 
-  auto check_is_UUID = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_UUID();
+  auto check_is_UUID = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_UUID();
   };
-  auto check_is_null = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_null();
+  auto check_is_null = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_null();
   };
-  auto check_is_time = [](const std::shared_ptr<const LogicalType>& annotation) {
-    return annotation->is_time();
+  auto check_is_time = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_time();
   };
   auto check_is_timestamp =
-      [](const std::shared_ptr<const LogicalType>& annotation) {
-        return annotation->is_timestamp();
+      [](const std::shared_ptr<const LogicalType>& logical_type) {
+        return logical_type->is_timestamp();
       };
 
   std::vector<ConfirmNewTypeIncompatibilityArguments> cases = {
@@ -1095,12 +1095,12 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   };
 
   for (const ConfirmNewTypeIncompatibilityArguments& c : cases) {
-    ConfirmNewTypeIncompatibility(c.annotation, c.check_is_type);
+    ConfirmNewTypeIncompatibility(c.logical_type, c.check_is_type);
   }
 }
 
 TEST(TestLogicalTypeConstruction, FactoryExceptions) {
-  // Ensure that annotation construction catches invalid arguments
+  // Ensure that logical_type construction catches invalid arguments
 
   std::vector<std::function<void()>> cases = {
       []() {
@@ -1126,26 +1126,26 @@ TEST(TestLogicalTypeConstruction, FactoryExceptions) {
 }
 
 static void ConfirmLogicalTypeProperties(
-    const std::shared_ptr<const LogicalType>& annotation, bool nested,
+    const std::shared_ptr<const LogicalType>& logical_type, bool nested,
     bool serialized, bool valid) {
-  ASSERT_TRUE(annotation->is_nested() == nested)
-      << annotation->ToString() << " annotation has incorrect nested() property";
-  ASSERT_TRUE(annotation->is_serialized() == serialized)
-      << annotation->ToString() << " annotation has incorrect serialized() property";
-  ASSERT_TRUE(annotation->is_valid() == valid)
-      << annotation->ToString() << " annotation has incorrect valid() property";
-  ASSERT_TRUE(annotation->is_nonnested() != nested)
-      << annotation->ToString() << " annotation has incorrect nonnested() property";
-  ASSERT_TRUE(annotation->is_invalid() != valid)
-      << annotation->ToString() << " annotation has incorrect invalid() property";
+  ASSERT_TRUE(logical_type->is_nested() == nested)
+      << logical_type->ToString() << " logical_type has incorrect nested() property";
+  ASSERT_TRUE(logical_type->is_serialized() == serialized)
+      << logical_type->ToString() << " logical_type has incorrect serialized() property";
+  ASSERT_TRUE(logical_type->is_valid() == valid)
+      << logical_type->ToString() << " logical_type has incorrect valid() property";
+  ASSERT_TRUE(logical_type->is_nonnested() != nested)
+      << logical_type->ToString() << " logical_type has incorrect nonnested() property";
+  ASSERT_TRUE(logical_type->is_invalid() != valid)
+      << logical_type->ToString() << " logical_type has incorrect invalid() property";
   return;
 }
 
 TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
-  // For each annotation type, ensure that the correct general properties are reported
+  // For each logical_type type, ensure that the correct general properties are reported
 
   struct ExpectedProperties {
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     bool nested;
     bool serialized;
     bool valid;
@@ -1174,7 +1174,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
   };
 
   for (const ExpectedProperties& c : cases) {
-    ConfirmLogicalTypeProperties(c.annotation, c.nested, c.serialized, c.valid);
+    ConfirmLogicalTypeProperties(c.logical_type, c.nested, c.serialized, c.valid);
   }
 }
 
@@ -1185,18 +1185,18 @@ static Type::type physical_type[PHYSICAL_TYPE_COUNT] = {
     Type::FLOAT,   Type::DOUBLE, Type::BYTE_ARRAY, Type::FIXED_LEN_BYTE_ARRAY};
 
 static void ConfirmSinglePrimitiveTypeApplicability(
-    const std::shared_ptr<const LogicalType>& annotation,
+    const std::shared_ptr<const LogicalType>& logical_type,
     Type::type applicable_type) {
   for (int i = 0; i < PHYSICAL_TYPE_COUNT; ++i) {
     if (physical_type[i] == applicable_type) {
-      ASSERT_TRUE(annotation->is_applicable(physical_type[i]))
-          << annotation->ToString()
-          << " annotation unexpectedly inapplicable to physical type "
+      ASSERT_TRUE(logical_type->is_applicable(physical_type[i]))
+          << logical_type->ToString()
+          << " logical_type unexpectedly inapplicable to physical type "
           << TypeToString(physical_type[i]);
     } else {
-      ASSERT_FALSE(annotation->is_applicable(physical_type[i]))
-          << annotation->ToString()
-          << " annotation unexpectedly applicable to physical type "
+      ASSERT_FALSE(logical_type->is_applicable(physical_type[i]))
+          << logical_type->ToString()
+          << " logical_type unexpectedly applicable to physical type "
           << TypeToString(physical_type[i]);
     }
   }
@@ -1204,33 +1204,33 @@ static void ConfirmSinglePrimitiveTypeApplicability(
 }
 
 static void ConfirmAnyPrimitiveTypeApplicability(
-    const std::shared_ptr<const LogicalType>& annotation) {
+    const std::shared_ptr<const LogicalType>& logical_type) {
   for (int i = 0; i < PHYSICAL_TYPE_COUNT; ++i) {
-    ASSERT_TRUE(annotation->is_applicable(physical_type[i]))
-        << annotation->ToString()
-        << " annotation unexpectedly inapplicable to physical type "
+    ASSERT_TRUE(logical_type->is_applicable(physical_type[i]))
+        << logical_type->ToString()
+        << " logical_type unexpectedly inapplicable to physical type "
         << TypeToString(physical_type[i]);
   }
   return;
 }
 
 static void ConfirmNoPrimitiveTypeApplicability(
-    const std::shared_ptr<const LogicalType>& annotation) {
+    const std::shared_ptr<const LogicalType>& logical_type) {
   for (int i = 0; i < PHYSICAL_TYPE_COUNT; ++i) {
-    ASSERT_FALSE(annotation->is_applicable(physical_type[i]))
-        << annotation->ToString()
-        << " annotation unexpectedly applicable to physical type "
+    ASSERT_FALSE(logical_type->is_applicable(physical_type[i]))
+        << logical_type->ToString()
+        << " logical_type unexpectedly applicable to physical type "
         << TypeToString(physical_type[i]);
   }
   return;
 }
 
 TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
-  // Check that each logical annotation type correctly reports which
+  // Check that each logical logical_type type correctly reports which
   // underlying primitive type(s) it can be applied to
 
   struct ExpectedApplicability {
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     Type::type applicable_type;
   };
 
@@ -1259,7 +1259,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
       {LogicalType::BSON(), Type::BYTE_ARRAY}};
 
   for (const ExpectedApplicability& c : single_type_cases) {
-    ConfirmSinglePrimitiveTypeApplicability(c.annotation, c.applicable_type);
+    ConfirmSinglePrimitiveTypeApplicability(c.logical_type, c.applicable_type);
   }
 
   std::vector<std::shared_ptr<const LogicalType>> no_type_cases = {
@@ -1293,49 +1293,49 @@ TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
                                                       {Type::DOUBLE, -1},
                                                       {Type::BYTE_ARRAY, -1}};
 
-  std::shared_ptr<const LogicalType> annotation;
+  std::shared_ptr<const LogicalType> logical_type;
 
-  annotation = LogicalType::Interval();
-  ASSERT_TRUE(annotation->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 12));
+  logical_type = LogicalType::Interval();
+  ASSERT_TRUE(logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 12));
   for (const InapplicableType& t : inapplicable_types) {
-    ASSERT_FALSE(annotation->is_applicable(t.physical_type, t.physical_length));
+    ASSERT_FALSE(logical_type->is_applicable(t.physical_type, t.physical_length));
   }
 
-  annotation = LogicalType::UUID();
-  ASSERT_TRUE(annotation->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 16));
+  logical_type = LogicalType::UUID();
+  ASSERT_TRUE(logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, 16));
   for (const InapplicableType& t : inapplicable_types) {
-    ASSERT_FALSE(annotation->is_applicable(t.physical_type, t.physical_length));
+    ASSERT_FALSE(logical_type->is_applicable(t.physical_type, t.physical_length));
   }
 }
 
 TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {
-  // Check that the decimal logical annotation type correctly reports which
+  // Check that the decimal logical logical_type type correctly reports which
   // underlying primitive type(s) it can be applied to
 
-  std::shared_ptr<const LogicalType> annotation;
+  std::shared_ptr<const LogicalType> logical_type;
 
   for (int32_t precision = 1; precision <= 9; ++precision) {
-    annotation = DecimalLogicalType::Make(precision, 0);
-    ASSERT_TRUE(annotation->is_applicable(Type::INT32))
-        << annotation->ToString() << " unexpectedly inapplicable to physical type INT32";
+    logical_type = DecimalLogicalType::Make(precision, 0);
+    ASSERT_TRUE(logical_type->is_applicable(Type::INT32))
+        << logical_type->ToString() << " unexpectedly inapplicable to physical type INT32";
   }
-  annotation = DecimalLogicalType::Make(10, 0);
-  ASSERT_FALSE(annotation->is_applicable(Type::INT32))
-      << annotation->ToString() << " unexpectedly applicable to physical type INT32";
+  logical_type = DecimalLogicalType::Make(10, 0);
+  ASSERT_FALSE(logical_type->is_applicable(Type::INT32))
+      << logical_type->ToString() << " unexpectedly applicable to physical type INT32";
 
   for (int32_t precision = 1; precision <= 18; ++precision) {
-    annotation = DecimalLogicalType::Make(precision, 0);
-    ASSERT_TRUE(annotation->is_applicable(Type::INT64))
-        << annotation->ToString() << " unexpectedly inapplicable to physical type INT64";
+    logical_type = DecimalLogicalType::Make(precision, 0);
+    ASSERT_TRUE(logical_type->is_applicable(Type::INT64))
+        << logical_type->ToString() << " unexpectedly inapplicable to physical type INT64";
   }
-  annotation = DecimalLogicalType::Make(19, 0);
-  ASSERT_FALSE(annotation->is_applicable(Type::INT64))
-      << annotation->ToString() << " unexpectedly applicable to physical type INT64";
+  logical_type = DecimalLogicalType::Make(19, 0);
+  ASSERT_FALSE(logical_type->is_applicable(Type::INT64))
+      << logical_type->ToString() << " unexpectedly applicable to physical type INT64";
 
   for (int32_t precision = 1; precision <= 36; ++precision) {
-    annotation = DecimalLogicalType::Make(precision, 0);
-    ASSERT_TRUE(annotation->is_applicable(Type::BYTE_ARRAY))
-        << annotation->ToString()
+    logical_type = DecimalLogicalType::Make(precision, 0);
+    ASSERT_TRUE(logical_type->is_applicable(Type::BYTE_ARRAY))
+        << logical_type->ToString()
         << " unexpectedly inapplicable to physical type BYTE_ARRAY";
   }
 
@@ -1350,17 +1350,17 @@ TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {
   for (const PrecisionLimits& c : cases) {
     int32_t precision;
     for (precision = 1; precision <= c.precision_limit; ++precision) {
-      annotation = DecimalLogicalType::Make(precision, 0);
+      logical_type = DecimalLogicalType::Make(precision, 0);
       ASSERT_TRUE(
-          annotation->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, c.physical_length))
-          << annotation->ToString()
+          logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, c.physical_length))
+          << logical_type->ToString()
           << " unexpectedly inapplicable to physical type FIXED_LEN_BYTE_ARRAY with "
              "length "
           << c.physical_length;
     }
-    annotation = DecimalLogicalType::Make(precision, 0);
-    ASSERT_FALSE(annotation->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, c.physical_length))
-        << annotation->ToString()
+    logical_type = DecimalLogicalType::Make(precision, 0);
+    ASSERT_FALSE(logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, c.physical_length))
+        << logical_type->ToString()
         << " unexpectedly applicable to physical type FIXED_LEN_BYTE_ARRAY with length "
         << c.physical_length;
   }
@@ -1371,11 +1371,11 @@ TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {
 }
 
 TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
-  // Ensure that each logical annotation type prints a correct string and
+  // Ensure that each logical logical_type type prints a correct string and
   // JSON representation
 
   struct ExpectedRepresentation {
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     const char* string_representation;
     const char* JSON_representation;
   };
@@ -1452,16 +1452,16 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
   };
 
   for (const ExpectedRepresentation& c : cases) {
-    ASSERT_STREQ(c.annotation->ToString().c_str(), c.string_representation);
-    ASSERT_STREQ(c.annotation->ToJSON().c_str(), c.JSON_representation);
+    ASSERT_STREQ(c.logical_type->ToString().c_str(), c.string_representation);
+    ASSERT_STREQ(c.logical_type->ToJSON().c_str(), c.JSON_representation);
   }
 }
 
 TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
-  // Ensure that each logical annotation type reports the correct sort order
+  // Ensure that each logical logical_type type reports the correct sort order
 
   struct ExpectedSortOrder {
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     SortOrder::type sort_order;
   };
 
@@ -1513,8 +1513,8 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {
-    ASSERT_EQ(c.annotation->sort_order(), c.sort_order)
-        << c.annotation->ToString() << " annotation has incorrect sort order";
+    ASSERT_EQ(c.logical_type->sort_order(), c.sort_order)
+        << c.logical_type->ToString() << " logical_type has incorrect sort order";
   }
 }
 
@@ -1532,7 +1532,7 @@ static void ConfirmPrimitiveNodeFactoryEquivalence(
       << "Primitive node constructed with converted type "
       << ConvertedTypeToString(converted_type)
       << " unexpectedly not equivalent to primitive node constructed with logical "
-         "annotation "
+         "logical_type "
       << logical_type->ToString();
   return;
 }
@@ -1547,19 +1547,19 @@ static void ConfirmGroupNodeFactoryEquivalence(
   ASSERT_TRUE(from_converted_type->Equals(from_logical_type.get()))
       << "Group node constructed with converted type "
       << ConvertedTypeToString(converted_type)
-      << " unexpectedly not equivalent to group node constructed with logical annotation "
+      << " unexpectedly not equivalent to group node constructed with logical logical_type "
       << logical_type->ToString();
   return;
 }
 
 TEST(TestSchemaNodeCreation, FactoryEquivalence) {
   // Ensure that the Node factory methods produce equivalent results regardless
-  // of whether they are given a converted type or a logical annotation.
+  // of whether they are given a converted type or a logical logical_type.
 
   // Primitive nodes ...
 
   struct PrimitiveNodeFactoryArguments {
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     ConvertedType::type converted_type;
     Type::type physical_type;
     int physical_length;
@@ -1595,7 +1595,7 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
       {LogicalType::None(), ConvertedType::NONE, Type::INT64, -1, -1, -1}};
 
   for (const PrimitiveNodeFactoryArguments& c : cases) {
-    ConfirmPrimitiveNodeFactoryEquivalence(c.annotation, c.converted_type,
+    ConfirmPrimitiveNodeFactoryEquivalence(c.logical_type, c.converted_type,
                                            c.physical_type, c.physical_length,
                                            c.precision, c.scale);
   }
@@ -1607,10 +1607,10 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
 }
 
 TEST(TestSchemaNodeCreation, FactoryExceptions) {
-  // Ensure that the Node factory method that accepts an annotation refuses to create
+  // Ensure that the Node factory method that accepts an logical_type refuses to create
   // an object if compatibility conditions are not met
 
-  // Nested annotation on non-group node ...
+  // Nested logical_type on non-group node ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("map", Repetition::REQUIRED, MapLogicalType::Make(),
                                        Type::INT64));
   // Incompatible primitive type ...
@@ -1635,11 +1635,11 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_ANY_THROW(PrimitiveNode::Make("zero_length", Repetition::REQUIRED,
                                        NoLogicalType::Make(), Type::FIXED_LEN_BYTE_ARRAY,
                                        0));
-  // Non-nested annotation on group node ...
+  // Non-nested logical_type on group node ...
   ASSERT_ANY_THROW(
       GroupNode::Make("list", Repetition::REPEATED, {}, JSONLogicalType::Make()));
 
-  // nullptr annotation arguments convert to NoLogicalType/ConvertedType::NONE
+  // nullptr logical_type arguments convert to NoLogicalType/ConvertedType::NONE
   std::shared_ptr<const LogicalType> empty;
   NodePtr node;
   ASSERT_NO_THROW(
@@ -1685,7 +1685,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
 
 struct SchemaElementConstructionArguments {
   std::string name;
-  std::shared_ptr<const LogicalType> annotation;
+  std::shared_ptr<const LogicalType> logical_type;
   Type::type physical_type;
   int physical_length;
   bool expect_converted_type;
@@ -1699,7 +1699,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
   TestSchemaElementConstruction* Reconstruct(
       const SchemaElementConstructionArguments& c) {
     // Make node, create serializable Thrift object from it ...
-    node_ = PrimitiveNode::Make(c.name, Repetition::REQUIRED, c.annotation,
+    node_ = PrimitiveNode::Make(c.name, Repetition::REQUIRED, c.logical_type,
                                 c.physical_type, c.physical_length);
     element_.reset(new format::SchemaElement);
     node_->ToParquet(element_.get());
@@ -1718,30 +1718,30 @@ class TestSchemaElementConstruction : public ::testing::Test {
     if (expect_converted_type_) {
       ASSERT_TRUE(element_->__isset.converted_type)
           << node_->logical_type()->ToString()
-          << " annotation unexpectedly failed to generate a converted type in the Thrift "
+          << " logical_type unexpectedly failed to generate a converted type in the Thrift "
              "intermediate object";
       ASSERT_EQ(element_->converted_type, ToThrift(converted_type_))
           << node_->logical_type()->ToString()
-          << " annotation unexpectedly failed to generate correct converted type in the "
+          << " logical_type unexpectedly failed to generate correct converted type in the "
              "Thrift intermediate object";
     } else {
       ASSERT_FALSE(element_->__isset.converted_type)
           << node_->logical_type()->ToString()
-          << " annotation unexpectedly generated a converted type in the Thrift "
+          << " logical_type unexpectedly generated a converted type in the Thrift "
              "intermediate object";
     }
     if (expect_logicalType_) {
       ASSERT_TRUE(element_->__isset.logicalType)
           << node_->logical_type()->ToString()
-          << " annotation unexpectedly failed to genverate a logicalType in the Thrift "
+          << " logical_type unexpectedly failed to genverate a logicalType in the Thrift "
              "intermediate object";
       ASSERT_TRUE(check_logicalType_()) << node_->logical_type()->ToString()
-                                        << " annotation generated incorrect logicalType "
+                                        << " logical_type generated incorrect logicalType "
                                            "settings in the Thrift intermediate object";
     } else {
       ASSERT_FALSE(element_->__isset.logicalType)
           << node_->logical_type()->ToString()
-          << " annotation unexpectedly generated a logicalType in the Thrift "
+          << " logical_type unexpectedly generated a logicalType in the Thrift "
              "intermediate object";
     }
     return;
@@ -1754,7 +1754,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
   bool expect_converted_type_;
   ConvertedType::type converted_type_;  // expected converted type in Thrift object
   bool expect_logicalType_;
-  std::function<bool()> check_logicalType_;  // specialized (by annotation type)
+  std::function<bool()> check_logicalType_;  // specialized (by logical_type type)
                                              // logicalType check for Thrift object
 };
 
@@ -1768,7 +1768,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
 TEST_F(TestSchemaElementConstruction, SimpleCases) {
   auto check_nothing = []() {
     return true;
-  };  // used for annotations that don't expect a logicalType to be set
+  };  // used for logical_types that don't expect a logicalType to be set
 
   std::vector<SchemaElementConstructionArguments> cases = {
       {"string", LogicalType::String(), Type::BYTE_ARRAY, -1, true,
@@ -1803,10 +1803,10 @@ class TestDecimalSchemaElementConstruction : public TestSchemaElementConstructio
   TestDecimalSchemaElementConstruction* Reconstruct(
       const SchemaElementConstructionArguments& c) {
     TestSchemaElementConstruction::Reconstruct(c);
-    const auto& decimal_annotation =
-        checked_cast<const DecimalLogicalType&>(*c.annotation);
-    precision_ = decimal_annotation.precision();
-    scale_ = decimal_annotation.scale();
+    const auto& decimal_logical_type =
+        checked_cast<const DecimalLogicalType&>(*c.logical_type);
+    precision_ = decimal_logical_type.precision();
+    scale_ = decimal_logical_type.scale();
     return this;
   }
 
@@ -1849,7 +1849,7 @@ class TestTemporalSchemaElementConstruction : public TestSchemaElementConstructi
   TestTemporalSchemaElementConstruction* Reconstruct(
       const SchemaElementConstructionArguments& c) {
     TestSchemaElementConstruction::Reconstruct(c);
-    const auto& t = checked_cast<const T&>(*c.annotation);
+    const auto& t = checked_cast<const T&>(*c.logical_type);
     adjusted_ = t.is_adjusted_to_utc();
     unit_ = t.time_unit();
     return this;
@@ -1963,9 +1963,9 @@ class TestIntegerSchemaElementConstruction : public TestSchemaElementConstructio
   TestIntegerSchemaElementConstruction* Reconstruct(
       const SchemaElementConstructionArguments& c) {
     TestSchemaElementConstruction::Reconstruct(c);
-    const auto& int_annotation = checked_cast<const IntLogicalType&>(*c.annotation);
-    width_ = int_annotation.bit_width();
-    signed_ = int_annotation.is_signed();
+    const auto& int_logical_type = checked_cast<const IntLogicalType&>(*c.logical_type);
+    width_ = int_logical_type.bit_width();
+    signed_ = int_logical_type.is_signed();
     return this;
   }
 
@@ -2060,43 +2060,43 @@ TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
 }
 
 static void ConfirmPrimitiveNodeRoundtrip(
-    const std::shared_ptr<const LogicalType>& annotation, Type::type physical_type,
+    const std::shared_ptr<const LogicalType>& logical_type, Type::type physical_type,
     int physical_length) {
   std::shared_ptr<Node> original = PrimitiveNode::Make(
-      "something", Repetition::REQUIRED, annotation, physical_type, physical_length);
+      "something", Repetition::REQUIRED, logical_type, physical_type, physical_length);
   format::SchemaElement intermediary;
   original->ToParquet(&intermediary);
   std::unique_ptr<Node> recovered = PrimitiveNode::FromParquet(&intermediary, 1);
   ASSERT_TRUE(original->Equals(recovered.get()))
       << "Recovered primitive node unexpectedly not equivalent to original primitive "
-         "node constructed with logical annotation "
-      << annotation->ToString();
+         "node constructed with logical logical_type "
+      << logical_type->ToString();
   return;
 }
 
 static void ConfirmGroupNodeRoundtrip(
-    std::string name, const std::shared_ptr<const LogicalType>& annotation) {
+    std::string name, const std::shared_ptr<const LogicalType>& logical_type) {
   NodeVector node_vector;
   std::shared_ptr<Node> original =
-      GroupNode::Make(name, Repetition::REQUIRED, node_vector, annotation);
+      GroupNode::Make(name, Repetition::REQUIRED, node_vector, logical_type);
   std::vector<format::SchemaElement> elements;
   ToParquet(reinterpret_cast<GroupNode*>(original.get()), &elements);
   std::unique_ptr<Node> recovered =
       GroupNode::FromParquet(&(elements[0]), 1, node_vector);
   ASSERT_TRUE(original->Equals(recovered.get()))
       << "Recovered group node unexpectedly not equivalent to original group node "
-         "constructed with logical annotation "
-      << annotation->ToString();
+         "constructed with logical logical_type "
+      << logical_type->ToString();
   return;
 }
 
 TEST(TestLogicalTypeSerialization, Roundtrips) {
   // Confirm that Thrift serialization-deserialization of nodes with logical
-  // annotations produces equivalent reconstituted nodes
+  // logical_types produces equivalent reconstituted nodes
 
   // Primitive nodes ...
   struct AnnotatedPrimitiveNodeFactoryArguments {
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     Type::type physical_type;
     int physical_length;
   };
@@ -2146,7 +2146,7 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
       {LogicalType::None(), Type::BOOLEAN, -1}};
 
   for (const AnnotatedPrimitiveNodeFactoryArguments& c : cases) {
-    ConfirmPrimitiveNodeRoundtrip(c.annotation, c.physical_type, c.physical_length);
+    ConfirmPrimitiveNodeRoundtrip(c.logical_type, c.physical_type, c.physical_length);
   }
 
   // Group nodes ...

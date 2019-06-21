@@ -342,11 +342,11 @@ SortOrder::type GetSortOrder(ConvertedType::type converted, Type::type primitive
   return SortOrder::UNKNOWN;
 }
 
-SortOrder::type GetSortOrder(const std::shared_ptr<const LogicalType>& annotation,
+SortOrder::type GetSortOrder(const std::shared_ptr<const LogicalType>& logical_type,
                              Type::type primitive) {
   SortOrder::type o = SortOrder::UNKNOWN;
-  if (annotation && annotation->is_valid()) {
-    o = (annotation->is_none() ? DefaultSortOrder(primitive) : annotation->sort_order());
+  if (logical_type && logical_type->is_valid()) {
+    o = (logical_type->is_none() ? DefaultSortOrder(primitive) : logical_type->sort_order());
   }
   return o;
 }
@@ -543,13 +543,13 @@ std::shared_ptr<const LogicalType> LogicalType::Unknown() {
 }
 
 /*
- * The annotation implementation classes are built in four layers: (1) the base
+ * The logical_type implementation classes are built in four layers: (1) the base
  * layer, which establishes the interface and provides generally reusable implementations
  * for the ToJSON() and Equals() methods; (2) an intermediate derived layer for the
  * "compatibility" methods, which provides implementations for is_compatible() and
  * ToConvertedType(); (3) another intermediate layer for the "applicability" methods
  * that provides several implementations for the is_applicable() method; and (4) the
- * final derived classes, one for each annotation type, which supply implementations
+ * final derived classes, one for each logical_type type, which supply implementations
  * for those methods that remain virtual (usually just ToString() and ToThrift()) or
  * otherwise need to be overridden.
  */
@@ -577,7 +577,7 @@ class LogicalType::Impl {
   }
 
   virtual format::LogicalType ToThrift() const {
-    // annotation types inheriting this method should never be serialized
+    // logical_type types inheriting this method should never be serialized
     std::stringstream ss;
     ss << "LogicalType type " << ToString() << " should not be serialized";
     throw ParquetException(ss.str());
@@ -748,7 +748,7 @@ class LogicalType::Impl::Compatible : public virtual LogicalType::Impl {
 #define reset_decimal_metadata(m___) \
   { set_decimal_metadata(m___, false, -1, -1); }
 
-// For logical annotation types that always translate to the same converted type
+// For logical logical_type types that always translate to the same converted type
 class LogicalType::Impl::SimpleCompatible
     : public virtual LogicalType::Impl::Compatible {
  public:
@@ -770,7 +770,7 @@ class LogicalType::Impl::SimpleCompatible
   ConvertedType::type converted_type_ = ConvertedType::NA;
 };
 
-// For logical annotations that have no corresponding converted type
+// For logical logical_types that have no corresponding converted type
 class LogicalType::Impl::Incompatible : public virtual LogicalType::Impl {
  public:
   bool is_compatible(ConvertedType::type converted_type,
@@ -796,7 +796,7 @@ class LogicalType::Impl::Applicable : public virtual LogicalType::Impl {
   Applicable() = default;
 };
 
-// For logical annotations that can apply only to a single
+// For logical logical_types that can apply only to a single
 // physical type
 class LogicalType::Impl::SimpleApplicable
     : public virtual LogicalType::Impl::Applicable {
@@ -813,7 +813,7 @@ class LogicalType::Impl::SimpleApplicable
   parquet::Type::type type_;
 };
 
-// For logical annotations that can apply only to a particular
+// For logical logical_types that can apply only to a particular
 // physical type and physical length combination
 class LogicalType::Impl::TypeLengthApplicable
     : public virtual LogicalType::Impl::Applicable {
@@ -831,7 +831,7 @@ class LogicalType::Impl::TypeLengthApplicable
   int32_t length_;
 };
 
-// For logical annotations that can apply to any physical type
+// For logical logical_types that can apply to any physical type
 class LogicalType::Impl::UniversalApplicable
     : public virtual LogicalType::Impl::Applicable {
  public:
@@ -844,7 +844,7 @@ class LogicalType::Impl::UniversalApplicable
   UniversalApplicable() = default;
 };
 
-// For logical annotations that can never apply to any primitive
+// For logical logical_types that can never apply to any primitive
 // physical type
 class LogicalType::Impl::Inapplicable : public virtual LogicalType::Impl {
  public:
@@ -886,15 +886,15 @@ class LogicalType::Impl::String final
         LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
 };
 
-// Each public annotation class's Make() creation method instantiates a corresponding
-// LogicalType::Impl::* object and installs that implementation in the annotation
+// Each public logical_type class's Make() creation method instantiates a corresponding
+// LogicalType::Impl::* object and installs that implementation in the logical_type
 // it returns.
 
 #define GENERATE_MAKE(a___)                                           \
   std::shared_ptr<const LogicalType> a___##LogicalType::Make() { \
-    auto* annotation = new a___##LogicalType();                        \
-    annotation->impl_.reset(new LogicalType::Impl::a___());     \
-    return std::shared_ptr<const LogicalType>(annotation);      \
+    auto* logical_type = new a___##LogicalType();                        \
+    logical_type->impl_.reset(new LogicalType::Impl::a___());     \
+    return std::shared_ptr<const LogicalType>(logical_type);      \
   }
 
 GENERATE_MAKE(String)
@@ -958,7 +958,7 @@ class LogicalType::Impl::Enum final
 
 GENERATE_MAKE(Enum)
 
-// The parameterized annotation types (currently Decimal, Time, Timestamp, and Int)
+// The parameterized logical_type types (currently Decimal, Time, Timestamp, and Int)
 // generally can't reuse the simple method implementations available in the base and
 // intermediate classes and must (re)implement them all
 
@@ -1065,16 +1065,16 @@ std::shared_ptr<const LogicalType> DecimalLogicalType::Make(int32_t precision,
                                                                  int32_t scale) {
   if (precision < 1) {
     throw ParquetException(
-        "Precision must be greater than or equal to 1 for Decimal annotation");
+        "Precision must be greater than or equal to 1 for Decimal logical_type");
   }
   if (scale < 0 || scale > precision) {
     throw ParquetException(
         "Scale must be a non-negative integer that does not exceed precision for "
-        "Decimal annotation");
+        "Decimal logical_type");
   }
-  auto* annotation = new DecimalLogicalType();
-  annotation->impl_.reset(new LogicalType::Impl::Decimal(precision, scale));
-  return std::shared_ptr<const LogicalType>(annotation);
+  auto* logical_type = new DecimalLogicalType();
+  logical_type->impl_.reset(new LogicalType::Impl::Decimal(precision, scale));
+  return std::shared_ptr<const LogicalType>(logical_type);
 }
 
 int32_t DecimalLogicalType::precision() const {
@@ -1225,13 +1225,13 @@ std::shared_ptr<const LogicalType> TimeLogicalType::Make(
   if (time_unit == LogicalType::TimeUnit::MILLIS ||
       time_unit == LogicalType::TimeUnit::MICROS ||
       time_unit == LogicalType::TimeUnit::NANOS) {
-    auto* annotation = new TimeLogicalType();
-    annotation->impl_.reset(
+    auto* logical_type = new TimeLogicalType();
+    logical_type->impl_.reset(
         new LogicalType::Impl::Time(is_adjusted_to_utc, time_unit));
-    return std::shared_ptr<const LogicalType>(annotation);
+    return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
-        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Time annotation");
+        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Time logical_type");
   }
 }
 
@@ -1349,13 +1349,13 @@ std::shared_ptr<const LogicalType> TimestampLogicalType::Make(
   if (time_unit == LogicalType::TimeUnit::MILLIS ||
       time_unit == LogicalType::TimeUnit::MICROS ||
       time_unit == LogicalType::TimeUnit::NANOS) {
-    auto* annotation = new TimestampLogicalType();
-    annotation->impl_.reset(
+    auto* logical_type = new TimestampLogicalType();
+    logical_type->impl_.reset(
         new LogicalType::Impl::Timestamp(is_adjusted_to_utc, time_unit));
-    return std::shared_ptr<const LogicalType>(annotation);
+    return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
-        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Timestamp annotation");
+        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Timestamp logical_type");
   }
 }
 
@@ -1514,12 +1514,12 @@ bool LogicalType::Impl::Int::Equals(const LogicalType& other) const {
 std::shared_ptr<const LogicalType> IntLogicalType::Make(int bit_width,
                                                              bool is_signed) {
   if (bit_width == 8 || bit_width == 16 || bit_width == 32 || bit_width == 64) {
-    auto* annotation = new IntLogicalType();
-    annotation->impl_.reset(new LogicalType::Impl::Int(bit_width, is_signed));
-    return std::shared_ptr<const LogicalType>(annotation);
+    auto* logical_type = new IntLogicalType();
+    logical_type->impl_.reset(new LogicalType::Impl::Int(bit_width, is_signed));
+    return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
-        "Bit width must be exactly 8, 16, 32, or 64 for Int annotation");
+        "Bit width must be exactly 8, 16, 32, or 64 for Int logical_type");
   }
 }
 

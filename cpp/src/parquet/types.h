@@ -134,7 +134,7 @@ struct DecimalMetadata {
 
 }  // namespace schema
 
-/// \brief Implementation of parquet.thrift ConvertedType annotations.
+/// \brief Implementation of parquet.thrift ConvertedType logical_types.
 class PARQUET_EXPORT LogicalType {
  public:
   struct Type {
@@ -162,18 +162,18 @@ class PARQUET_EXPORT LogicalType {
     enum unit { UNKNOWN = 0, MILLIS = 1, MICROS, NANOS };
   };
 
-  /// \brief If possible, return an annotation equivalent to the given legacy converted
+  /// \brief If possible, return an logical_type equivalent to the given legacy converted
   /// type (and decimal metadata if applicable).
   static std::shared_ptr<const LogicalType> FromConvertedType(
       const parquet::ConvertedType::type converted_type,
       const parquet::schema::DecimalMetadata converted_decimal_metadata = {false, -1,
                                                                            -1});
 
-  /// \brief Return the annotation represented by the Thrift intermediary object.
+  /// \brief Return the logical_type represented by the Thrift intermediary object.
   static std::shared_ptr<const LogicalType> FromThrift(
       const parquet::format::LogicalType& thrift_logical_type);
 
-  /// \brief Return the explicitly requested annotation type.
+  /// \brief Return the explicitly requested logical_type type.
   static std::shared_ptr<const LogicalType> String();
   static std::shared_ptr<const LogicalType> Map();
   static std::shared_ptr<const LogicalType> List();
@@ -194,38 +194,38 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> None();
   static std::shared_ptr<const LogicalType> Unknown();
 
-  /// \brief Return true if this annotation is consistent with the given underlying
+  /// \brief Return true if this logical_type is consistent with the given underlying
   /// physical type.
   bool is_applicable(parquet::Type::type primitive_type,
                      int32_t primitive_length = -1) const;
 
-  /// \brief Return true if this annotation is equivalent to the given legacy converted
+  /// \brief Return true if this logical_type is equivalent to the given legacy converted
   /// type (and decimal metadata if applicable).
   bool is_compatible(parquet::ConvertedType::type converted_type,
                      parquet::schema::DecimalMetadata converted_decimal_metadata = {
                          false, -1, -1}) const;
 
   /// \brief If possible, return the legacy converted type (and decimal metadata if
-  /// applicable) equivalent to this annotation.
+  /// applicable) equivalent to this logical_type.
   parquet::ConvertedType::type ToConvertedType(
       parquet::schema::DecimalMetadata* out_decimal_metadata) const;
 
-  /// \brief Return a printable representation of this annotation.
+  /// \brief Return a printable representation of this logical_type.
   std::string ToString() const;
 
-  /// \brief Return a JSON representation of this annotation.
+  /// \brief Return a JSON representation of this logical_type.
   std::string ToJSON() const;
 
-  /// \brief Return a serializable Thrift object for this annotation.
+  /// \brief Return a serializable Thrift object for this logical_type.
   parquet::format::LogicalType ToThrift() const;
 
-  /// \brief Return true if the given annotation is equivalent to this annotation.
+  /// \brief Return true if the given logical_type is equivalent to this logical_type.
   bool Equals(const LogicalType& other) const;
 
-  /// \brief Return the enumerated type of this annotation.
+  /// \brief Return the enumerated type of this logical_type.
   LogicalType::Type::type type() const;
 
-  /// \brief Return the appropriate sort order for this annotation.
+  /// \brief Return the appropriate sort order for this logical_type.
   SortOrder::type sort_order() const;
 
   // Type checks ...
@@ -244,13 +244,13 @@ class PARQUET_EXPORT LogicalType {
   bool is_BSON() const;
   bool is_UUID() const;
   bool is_none() const;
-  /// \brief Return true if this annotation is of a known type.
+  /// \brief Return true if this logical_type is of a known type.
   bool is_valid() const;
   bool is_invalid() const;
-  /// \brief Return true if this annotation is suitable for a schema GroupNode.
+  /// \brief Return true if this logical_type is suitable for a schema GroupNode.
   bool is_nested() const;
   bool is_nonnested() const;
-  /// \brief Return true if this annotation is included in the Thrift output for its node.
+  /// \brief Return true if this logical_type is included in the Thrift output for its node.
   bool is_serialized() const;
 
   LogicalType(const LogicalType&) = delete;
@@ -656,7 +656,7 @@ PARQUET_EXPORT SortOrder::type GetSortOrder(ConvertedType::type converted,
                                             Type::type primitive);
 
 PARQUET_EXPORT SortOrder::type GetSortOrder(
-    const std::shared_ptr<const LogicalType>& annotation, Type::type primitive);
+    const std::shared_ptr<const LogicalType>& logical_type, Type::type primitive);
 
 }  // namespace parquet
 

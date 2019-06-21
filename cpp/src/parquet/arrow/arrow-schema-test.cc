@@ -174,7 +174,7 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
 TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
   struct FieldConstructionArguments {
     std::string name;
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     parquet::Type::type physical_type;
     int physical_length;
     std::shared_ptr<::arrow::DataType> datatype;
@@ -259,7 +259,7 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
 
   for (const FieldConstructionArguments& c : cases) {
     parquet_fields.push_back(PrimitiveNode::Make(
-        c.name, Repetition::OPTIONAL, c.annotation, c.physical_type, c.physical_length));
+        c.name, Repetition::OPTIONAL, c.logical_type, c.physical_type, c.physical_length));
     arrow_fields.push_back(std::make_shared<Field>(c.name, c.datatype));
   }
 
@@ -821,7 +821,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
   struct FieldConstructionArguments {
     std::string name;
     std::shared_ptr<::arrow::DataType> datatype;
-    std::shared_ptr<const LogicalType> annotation;
+    std::shared_ptr<const LogicalType> logical_type;
     parquet::Type::type physical_type;
     int physical_length;
   };
@@ -901,7 +901,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
   for (const FieldConstructionArguments& c : cases) {
     arrow_fields.push_back(std::make_shared<Field>(c.name, c.datatype, false));
     parquet_fields.push_back(PrimitiveNode::Make(
-        c.name, Repetition::REQUIRED, c.annotation, c.physical_type, c.physical_length));
+        c.name, Repetition::REQUIRED, c.logical_type, c.physical_type, c.physical_length));
   }
 
   ASSERT_OK(ConvertSchema(arrow_fields));
