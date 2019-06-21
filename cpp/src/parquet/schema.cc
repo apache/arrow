@@ -244,7 +244,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       throw ParquetException(error.str());
     }
   } else {
-    logical_type_ = NoAnnotation::Make();
+    logical_type_ = NoLogicalType::Make();
     converted_type_ = logical_type_->ToConvertedType(&decimal_metadata_);
   }
   DCHECK(logical_type_ && !logical_type_->is_nested() &&
@@ -317,13 +317,13 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
       converted_type_ = logical_type_->ToConvertedType(nullptr);
     } else {
       std::stringstream error;
-      error << "Annotation type ";
+      error << "LogicalType type ";
       error << logical_type_->ToString();
       error << " can not be applied to group node";
       throw ParquetException(error.str());
     }
   } else {
-    logical_type_ = NoAnnotation::Make();
+    logical_type_ = NoLogicalType::Make();
     converted_type_ = logical_type_->ToConvertedType(nullptr);
   }
   DCHECK(logical_type_ &&
@@ -484,7 +484,7 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
     // logical type not present
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
         element->name, SafeLoader<Repetition>::Load(&(element->repetition_type)),
-        NoAnnotation::Make(), SafeLoader<Type>::Load(&(element->type)),
+        NoLogicalType::Make(), SafeLoader<Type>::Load(&(element->type)),
         element->type_length, node_id));
   }
 

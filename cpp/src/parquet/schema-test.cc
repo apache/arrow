@@ -515,8 +515,8 @@ TEST_F(TestSchemaFlatten, DecimalMetadata) {
   elements_.clear();
   // ... including those created with new logical annotations
   node = PrimitiveNode::Make("decimal", Repetition::REQUIRED,
-                             DecimalAnnotation::Make(10, 5), Type::INT64, -1);
-  group = GroupNode::Make("group", Repetition::REPEATED, {node}, ListAnnotation::Make());
+                             DecimalLogicalType::Make(10, 5), Type::INT64, -1);
+  group = GroupNode::Make("group", Repetition::REPEATED, {node}, ListLogicalType::Make());
   Flatten(reinterpret_cast<GroupNode*>(group.get()));
   ASSERT_EQ("decimal", elements_[1].name);
   ASSERT_TRUE(elements_[1].__isset.precision);
@@ -780,7 +780,7 @@ TEST(TestSchemaPrinter, Examples) {
                                        ConvertedType::DECIMAL, -1, 3, 2));
 
   fields.push_back(PrimitiveNode::Make("d", Repetition::REQUIRED,
-                                       DecimalAnnotation::Make(10, 5), Type::INT64, -1));
+                                       DecimalLogicalType::Make(10, 5), Type::INT64, -1));
 
   NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, fields);
 
@@ -1104,20 +1104,20 @@ TEST(TestLogicalTypeConstruction, FactoryExceptions) {
 
   std::vector<std::function<void()>> cases = {
       []() {
-        TimeAnnotation::Make(true, LogicalType::TimeUnit::UNKNOWN);
+        TimeLogicalType::Make(true, LogicalType::TimeUnit::UNKNOWN);
       },  // Invalid TimeUnit
       []() {
-        TimestampAnnotation::Make(true, LogicalType::TimeUnit::UNKNOWN);
+        TimestampLogicalType::Make(true, LogicalType::TimeUnit::UNKNOWN);
       },                                          // Invalid TimeUnit
-      []() { IntAnnotation::Make(-1, false); },   // Invalid bit width
-      []() { IntAnnotation::Make(0, false); },    // Invalid bit width
-      []() { IntAnnotation::Make(1, false); },    // Invalid bit width
-      []() { IntAnnotation::Make(65, false); },   // Invalid bit width
-      []() { DecimalAnnotation::Make(-1); },      // Invalid precision
-      []() { DecimalAnnotation::Make(0); },       // Invalid precision
-      []() { DecimalAnnotation::Make(0, 0); },    // Invalid precision
-      []() { DecimalAnnotation::Make(10, -1); },  // Invalid scale
-      []() { DecimalAnnotation::Make(10, 11); }   // Invalid scale
+      []() { IntLogicalType::Make(-1, false); },   // Invalid bit width
+      []() { IntLogicalType::Make(0, false); },    // Invalid bit width
+      []() { IntLogicalType::Make(1, false); },    // Invalid bit width
+      []() { IntLogicalType::Make(65, false); },   // Invalid bit width
+      []() { DecimalLogicalType::Make(-1); },      // Invalid precision
+      []() { DecimalLogicalType::Make(0); },       // Invalid precision
+      []() { DecimalLogicalType::Make(0, 0); },    // Invalid precision
+      []() { DecimalLogicalType::Make(10, -1); },  // Invalid scale
+      []() { DecimalLogicalType::Make(10, 11); }   // Invalid scale
   };
 
   for (auto f : cases) {
@@ -1125,7 +1125,7 @@ TEST(TestLogicalTypeConstruction, FactoryExceptions) {
   }
 }
 
-static void ConfirmAnnotationProperties(
+static void ConfirmLogicalTypeProperties(
     const std::shared_ptr<const LogicalType>& annotation, bool nested,
     bool serialized, bool valid) {
   ASSERT_TRUE(annotation->is_nested() == nested)
@@ -1141,7 +1141,7 @@ static void ConfirmAnnotationProperties(
   return;
 }
 
-TEST(TestLogicalTypeOperation, AnnotationProperties) {
+TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
   // For each annotation type, ensure that the correct general properties are reported
 
   struct ExpectedProperties {
@@ -1152,29 +1152,29 @@ TEST(TestLogicalTypeOperation, AnnotationProperties) {
   };
 
   std::vector<ExpectedProperties> cases = {
-      {StringAnnotation::Make(), false, true, true},
-      {MapAnnotation::Make(), true, true, true},
-      {ListAnnotation::Make(), true, true, true},
-      {EnumAnnotation::Make(), false, true, true},
-      {DecimalAnnotation::Make(16, 6), false, true, true},
-      {DateAnnotation::Make(), false, true, true},
-      {TimeAnnotation::Make(true, LogicalType::TimeUnit::MICROS), false, true,
+      {StringLogicalType::Make(), false, true, true},
+      {MapLogicalType::Make(), true, true, true},
+      {ListLogicalType::Make(), true, true, true},
+      {EnumLogicalType::Make(), false, true, true},
+      {DecimalLogicalType::Make(16, 6), false, true, true},
+      {DateLogicalType::Make(), false, true, true},
+      {TimeLogicalType::Make(true, LogicalType::TimeUnit::MICROS), false, true,
        true},
-      {TimestampAnnotation::Make(true, LogicalType::TimeUnit::MICROS), false, true,
+      {TimestampLogicalType::Make(true, LogicalType::TimeUnit::MICROS), false, true,
        true},
-      {IntervalAnnotation::Make(), false, true, true},
-      {IntAnnotation::Make(8, false), false, true, true},
-      {IntAnnotation::Make(64, true), false, true, true},
-      {NullAnnotation::Make(), false, true, true},
-      {JSONAnnotation::Make(), false, true, true},
-      {BSONAnnotation::Make(), false, true, true},
-      {UUIDAnnotation::Make(), false, true, true},
-      {NoAnnotation::Make(), false, false, true},
-      {UnknownAnnotation::Make(), false, false, false},
+      {IntervalLogicalType::Make(), false, true, true},
+      {IntLogicalType::Make(8, false), false, true, true},
+      {IntLogicalType::Make(64, true), false, true, true},
+      {NullLogicalType::Make(), false, true, true},
+      {JSONLogicalType::Make(), false, true, true},
+      {BSONLogicalType::Make(), false, true, true},
+      {UUIDLogicalType::Make(), false, true, true},
+      {NoLogicalType::Make(), false, false, true},
+      {UnknownLogicalType::Make(), false, false, false},
   };
 
   for (const ExpectedProperties& c : cases) {
-    ConfirmAnnotationProperties(c.annotation, c.nested, c.serialized, c.valid);
+    ConfirmLogicalTypeProperties(c.annotation, c.nested, c.serialized, c.valid);
   }
 }
 
@@ -1225,7 +1225,7 @@ static void ConfirmNoPrimitiveTypeApplicability(
   return;
 }
 
-TEST(TestLogicalTypeOperation, AnnotationApplicability) {
+TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
   // Check that each logical annotation type correctly reports which
   // underlying primitive type(s) it can be applied to
 
@@ -1308,32 +1308,32 @@ TEST(TestLogicalTypeOperation, AnnotationApplicability) {
   }
 }
 
-TEST(TestLogicalTypeOperation, DecimalAnnotationApplicability) {
+TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {
   // Check that the decimal logical annotation type correctly reports which
   // underlying primitive type(s) it can be applied to
 
   std::shared_ptr<const LogicalType> annotation;
 
   for (int32_t precision = 1; precision <= 9; ++precision) {
-    annotation = DecimalAnnotation::Make(precision, 0);
+    annotation = DecimalLogicalType::Make(precision, 0);
     ASSERT_TRUE(annotation->is_applicable(Type::INT32))
         << annotation->ToString() << " unexpectedly inapplicable to physical type INT32";
   }
-  annotation = DecimalAnnotation::Make(10, 0);
+  annotation = DecimalLogicalType::Make(10, 0);
   ASSERT_FALSE(annotation->is_applicable(Type::INT32))
       << annotation->ToString() << " unexpectedly applicable to physical type INT32";
 
   for (int32_t precision = 1; precision <= 18; ++precision) {
-    annotation = DecimalAnnotation::Make(precision, 0);
+    annotation = DecimalLogicalType::Make(precision, 0);
     ASSERT_TRUE(annotation->is_applicable(Type::INT64))
         << annotation->ToString() << " unexpectedly inapplicable to physical type INT64";
   }
-  annotation = DecimalAnnotation::Make(19, 0);
+  annotation = DecimalLogicalType::Make(19, 0);
   ASSERT_FALSE(annotation->is_applicable(Type::INT64))
       << annotation->ToString() << " unexpectedly applicable to physical type INT64";
 
   for (int32_t precision = 1; precision <= 36; ++precision) {
-    annotation = DecimalAnnotation::Make(precision, 0);
+    annotation = DecimalLogicalType::Make(precision, 0);
     ASSERT_TRUE(annotation->is_applicable(Type::BYTE_ARRAY))
         << annotation->ToString()
         << " unexpectedly inapplicable to physical type BYTE_ARRAY";
@@ -1350,7 +1350,7 @@ TEST(TestLogicalTypeOperation, DecimalAnnotationApplicability) {
   for (const PrecisionLimits& c : cases) {
     int32_t precision;
     for (precision = 1; precision <= c.precision_limit; ++precision) {
-      annotation = DecimalAnnotation::Make(precision, 0);
+      annotation = DecimalLogicalType::Make(precision, 0);
       ASSERT_TRUE(
           annotation->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, c.physical_length))
           << annotation->ToString()
@@ -1358,19 +1358,19 @@ TEST(TestLogicalTypeOperation, DecimalAnnotationApplicability) {
              "length "
           << c.physical_length;
     }
-    annotation = DecimalAnnotation::Make(precision, 0);
+    annotation = DecimalLogicalType::Make(precision, 0);
     ASSERT_FALSE(annotation->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, c.physical_length))
         << annotation->ToString()
         << " unexpectedly applicable to physical type FIXED_LEN_BYTE_ARRAY with length "
         << c.physical_length;
   }
 
-  ASSERT_FALSE((DecimalAnnotation::Make(16, 6))->is_applicable(Type::BOOLEAN));
-  ASSERT_FALSE((DecimalAnnotation::Make(16, 6))->is_applicable(Type::FLOAT));
-  ASSERT_FALSE((DecimalAnnotation::Make(16, 6))->is_applicable(Type::DOUBLE));
+  ASSERT_FALSE((DecimalLogicalType::Make(16, 6))->is_applicable(Type::BOOLEAN));
+  ASSERT_FALSE((DecimalLogicalType::Make(16, 6))->is_applicable(Type::FLOAT));
+  ASSERT_FALSE((DecimalLogicalType::Make(16, 6))->is_applicable(Type::DOUBLE));
 }
 
-TEST(TestLogicalTypeOperation, AnnotationRepresentation) {
+TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
   // Ensure that each logical annotation type prints a correct string and
   // JSON representation
 
@@ -1457,7 +1457,7 @@ TEST(TestLogicalTypeOperation, AnnotationRepresentation) {
   }
 }
 
-TEST(TestLogicalTypeOperation, AnnotationSortOrder) {
+TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
   // Ensure that each logical annotation type reports the correct sort order
 
   struct ExpectedSortOrder {
@@ -1611,35 +1611,35 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   // an object if compatibility conditions are not met
 
   // Nested annotation on non-group node ...
-  ASSERT_ANY_THROW(PrimitiveNode::Make("map", Repetition::REQUIRED, MapAnnotation::Make(),
+  ASSERT_ANY_THROW(PrimitiveNode::Make("map", Repetition::REQUIRED, MapLogicalType::Make(),
                                        Type::INT64));
   // Incompatible primitive type ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("string", Repetition::REQUIRED,
-                                       StringAnnotation::Make(), Type::BOOLEAN));
+                                       StringLogicalType::Make(), Type::BOOLEAN));
   // Incompatible primitive length ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("interval", Repetition::REQUIRED,
-                                       IntervalAnnotation::Make(),
+                                       IntervalLogicalType::Make(),
                                        Type::FIXED_LEN_BYTE_ARRAY, 11));
   // Primitive too small for given precision ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("decimal", Repetition::REQUIRED,
-                                       DecimalAnnotation::Make(16, 6), Type::INT32));
+                                       DecimalLogicalType::Make(16, 6), Type::INT32));
   // Incompatible primitive length ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("uuid", Repetition::REQUIRED,
-                                       UUIDAnnotation::Make(), Type::FIXED_LEN_BYTE_ARRAY,
+                                       UUIDLogicalType::Make(), Type::FIXED_LEN_BYTE_ARRAY,
                                        64));
   // Non-positive length argument for fixed length binary ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("negative_length", Repetition::REQUIRED,
-                                       NoAnnotation::Make(), Type::FIXED_LEN_BYTE_ARRAY,
+                                       NoLogicalType::Make(), Type::FIXED_LEN_BYTE_ARRAY,
                                        -16));
   // Non-positive length argument for fixed length binary ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("zero_length", Repetition::REQUIRED,
-                                       NoAnnotation::Make(), Type::FIXED_LEN_BYTE_ARRAY,
+                                       NoLogicalType::Make(), Type::FIXED_LEN_BYTE_ARRAY,
                                        0));
   // Non-nested annotation on group node ...
   ASSERT_ANY_THROW(
-      GroupNode::Make("list", Repetition::REPEATED, {}, JSONAnnotation::Make()));
+      GroupNode::Make("list", Repetition::REPEATED, {}, JSONLogicalType::Make()));
 
-  // nullptr annotation arguments convert to NoAnnotation/ConvertedType::NONE
+  // nullptr annotation arguments convert to NoLogicalType/ConvertedType::NONE
   std::shared_ptr<const LogicalType> empty;
   NodePtr node;
   ASSERT_NO_THROW(
@@ -1651,7 +1651,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_EQ(node->converted_type(), ConvertedType::NONE);
 
   // Invalid ConvertedType in deserialized element ...
-  node = PrimitiveNode::Make("string", Repetition::REQUIRED, StringAnnotation::Make(),
+  node = PrimitiveNode::Make("string", Repetition::REQUIRED, StringLogicalType::Make(),
                              Type::BYTE_ARRAY);
   ASSERT_EQ(node->logical_type()->type(), LogicalType::Type::STRING);
   ASSERT_TRUE(node->logical_type()->is_valid());
@@ -1662,20 +1662,20 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   string_intermediary.logicalType.__isset.STRING = false;
   ASSERT_ANY_THROW(node = PrimitiveNode::FromParquet(&string_intermediary, 1));
 
-  // Invalid TimeUnit in deserialized TimeAnnotation ...
+  // Invalid TimeUnit in deserialized TimeLogicalType ...
   node = PrimitiveNode::Make(
       "time", Repetition::REQUIRED,
-      TimeAnnotation::Make(true, LogicalType::TimeUnit::NANOS), Type::INT64);
+      TimeLogicalType::Make(true, LogicalType::TimeUnit::NANOS), Type::INT64);
   format::SchemaElement time_intermediary;
   node->ToParquet(&time_intermediary);
   // ... corrupt the Thrift intermediary ....
   time_intermediary.logicalType.TIME.unit.__isset.NANOS = false;
   ASSERT_ANY_THROW(PrimitiveNode::FromParquet(&time_intermediary, 1));
 
-  // Invalid TimeUnit in deserialized TimestampAnnotation ...
+  // Invalid TimeUnit in deserialized TimestampLogicalType ...
   node = PrimitiveNode::Make(
       "timestamp", Repetition::REQUIRED,
-      TimestampAnnotation::Make(true, LogicalType::TimeUnit::NANOS), Type::INT64);
+      TimestampLogicalType::Make(true, LogicalType::TimeUnit::NANOS), Type::INT64);
   format::SchemaElement timestamp_intermediary;
   node->ToParquet(&timestamp_intermediary);
   // ... corrupt the Thrift intermediary ....
@@ -1804,7 +1804,7 @@ class TestDecimalSchemaElementConstruction : public TestSchemaElementConstructio
       const SchemaElementConstructionArguments& c) {
     TestSchemaElementConstruction::Reconstruct(c);
     const auto& decimal_annotation =
-        checked_cast<const DecimalAnnotation&>(*c.annotation);
+        checked_cast<const DecimalLogicalType&>(*c.annotation);
     precision_ = decimal_annotation.precision();
     scale_ = decimal_annotation.scale();
     return this;
@@ -1927,7 +1927,7 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
   };
 
   for (const SchemaElementConstructionArguments& c : time_cases) {
-    this->Reconstruct<TimeAnnotation>(c)->Inspect<format::TimeType>();
+    this->Reconstruct<TimeLogicalType>(c)->Inspect<format::TimeType>();
   }
 
   auto check_TIMESTAMP = [this]() { return element_->logicalType.__isset.TIMESTAMP; };
@@ -1954,7 +1954,7 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
   };
 
   for (const SchemaElementConstructionArguments& c : timestamp_cases) {
-    this->Reconstruct<TimestampAnnotation>(c)->Inspect<format::TimestampType>();
+    this->Reconstruct<TimestampLogicalType>(c)->Inspect<format::TimestampType>();
   }
 }
 
@@ -1963,7 +1963,7 @@ class TestIntegerSchemaElementConstruction : public TestSchemaElementConstructio
   TestIntegerSchemaElementConstruction* Reconstruct(
       const SchemaElementConstructionArguments& c) {
     TestSchemaElementConstruction::Reconstruct(c);
-    const auto& int_annotation = checked_cast<const IntAnnotation&>(*c.annotation);
+    const auto& int_annotation = checked_cast<const IntLogicalType&>(*c.annotation);
     width_ = int_annotation.bit_width();
     signed_ = int_annotation.is_signed();
     return this;
@@ -2013,26 +2013,26 @@ TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
   // contain correct ConvertedType and ConvertedType information
 
   NodePtr string_node = PrimitiveNode::Make("string", Repetition::REQUIRED,
-                                            StringAnnotation::Make(), Type::BYTE_ARRAY);
+                                            StringLogicalType::Make(), Type::BYTE_ARRAY);
   NodePtr date_node = PrimitiveNode::Make("date", Repetition::REQUIRED,
-                                          DateAnnotation::Make(), Type::INT32);
+                                          DateLogicalType::Make(), Type::INT32);
   NodePtr json_node = PrimitiveNode::Make("json", Repetition::REQUIRED,
-                                          JSONAnnotation::Make(), Type::BYTE_ARRAY);
+                                          JSONLogicalType::Make(), Type::BYTE_ARRAY);
   NodePtr uuid_node =
-      PrimitiveNode::Make("uuid", Repetition::REQUIRED, UUIDAnnotation::Make(),
+      PrimitiveNode::Make("uuid", Repetition::REQUIRED, UUIDLogicalType::Make(),
                           Type::FIXED_LEN_BYTE_ARRAY, 16);
   NodePtr timestamp_node = PrimitiveNode::Make(
       "timestamp", Repetition::REQUIRED,
-      TimestampAnnotation::Make(false, LogicalType::TimeUnit::NANOS), Type::INT64);
+      TimestampLogicalType::Make(false, LogicalType::TimeUnit::NANOS), Type::INT64);
   NodePtr int_node = PrimitiveNode::Make("int", Repetition::REQUIRED,
-                                         IntAnnotation::Make(64, false), Type::INT64);
+                                         IntLogicalType::Make(64, false), Type::INT64);
   NodePtr decimal_node = PrimitiveNode::Make("decimal", Repetition::REQUIRED,
-                                             DecimalAnnotation::Make(16, 6), Type::INT64);
+                                             DecimalLogicalType::Make(16, 6), Type::INT64);
 
   NodePtr list_node = GroupNode::Make("list", Repetition::REPEATED,
                                       {string_node, date_node, json_node, uuid_node,
                                        timestamp_node, int_node, decimal_node},
-                                      ListAnnotation::Make());
+                                      ListLogicalType::Make());
   std::vector<format::SchemaElement> list_elements;
   ToParquet(reinterpret_cast<GroupNode*>(list_node.get()), &list_elements);
   ASSERT_EQ(list_elements[0].name, "list");
@@ -2049,7 +2049,7 @@ TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
   ASSERT_TRUE(list_elements[7].logicalType.__isset.DECIMAL);
 
   NodePtr map_node =
-      GroupNode::Make("map", Repetition::REQUIRED, {}, MapAnnotation::Make());
+      GroupNode::Make("map", Repetition::REQUIRED, {}, MapLogicalType::Make());
   std::vector<format::SchemaElement> map_elements;
   ToParquet(reinterpret_cast<GroupNode*>(map_node.get()), &map_elements);
   ASSERT_EQ(map_elements[0].name, "map");

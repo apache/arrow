@@ -62,14 +62,14 @@ const auto TIMESTAMP_NS = ::arrow::timestamp(::arrow::TimeUnit::NANO);
 
 static Status MakeArrowDecimal(const LogicalType& annotation,
                                std::shared_ptr<ArrowType>* out) {
-  const auto& decimal = checked_cast<const DecimalAnnotation&>(annotation);
+  const auto& decimal = checked_cast<const DecimalLogicalType&>(annotation);
   *out = ::arrow::decimal(decimal.precision(), decimal.scale());
   return Status::OK();
 }
 
 static Status MakeArrowInt(const LogicalType& annotation,
                            std::shared_ptr<ArrowType>* out) {
-  const auto& integer = checked_cast<const IntAnnotation&>(annotation);
+  const auto& integer = checked_cast<const IntLogicalType&>(annotation);
   switch (integer.bit_width()) {
     case 8:
       *out = integer.is_signed() ? ::arrow::int8() : ::arrow::uint8();
@@ -89,7 +89,7 @@ static Status MakeArrowInt(const LogicalType& annotation,
 
 static Status MakeArrowInt64(const LogicalType& annotation,
                              std::shared_ptr<ArrowType>* out) {
-  const auto& integer = checked_cast<const IntAnnotation&>(annotation);
+  const auto& integer = checked_cast<const IntLogicalType&>(annotation);
   switch (integer.bit_width()) {
     case 64:
       *out = integer.is_signed() ? ::arrow::int64() : ::arrow::uint64();
@@ -103,7 +103,7 @@ static Status MakeArrowInt64(const LogicalType& annotation,
 
 static Status MakeArrowTime32(const LogicalType& annotation,
                               std::shared_ptr<ArrowType>* out) {
-  const auto& time = checked_cast<const TimeAnnotation&>(annotation);
+  const auto& time = checked_cast<const TimeLogicalType&>(annotation);
   switch (time.time_unit()) {
     case LogicalType::TimeUnit::MILLIS:
       *out = ::arrow::time32(::arrow::TimeUnit::MILLI);
@@ -117,7 +117,7 @@ static Status MakeArrowTime32(const LogicalType& annotation,
 
 static Status MakeArrowTime64(const LogicalType& annotation,
                               std::shared_ptr<ArrowType>* out) {
-  const auto& time = checked_cast<const TimeAnnotation&>(annotation);
+  const auto& time = checked_cast<const TimeLogicalType&>(annotation);
   switch (time.time_unit()) {
     case LogicalType::TimeUnit::MICROS:
       *out = ::arrow::time64(::arrow::TimeUnit::MICRO);
@@ -135,7 +135,7 @@ static Status MakeArrowTime64(const LogicalType& annotation,
 static Status MakeArrowTimestamp(const LogicalType& annotation,
                                  std::shared_ptr<ArrowType>* out) {
   static const char* utc = "UTC";
-  const auto& timestamp = checked_cast<const TimestampAnnotation&>(annotation);
+  const auto& timestamp = checked_cast<const TimestampLogicalType&>(annotation);
   switch (timestamp.time_unit()) {
     case LogicalType::TimeUnit::MILLIS:
       *out = (timestamp.is_adjusted_to_utc()
@@ -519,7 +519,7 @@ Status StructToNode(const std::shared_ptr<::arrow::StructType>& type,
   return Status::OK();
 }
 
-static std::shared_ptr<const LogicalType> TimestampAnnotationFromArrowTimestamp(
+static std::shared_ptr<const LogicalType> TimestampLogicalTypeFromArrowTimestamp(
     const ::arrow::TimestampType& timestamp_type, ::arrow::TimeUnit::type time_unit) {
   const bool utc = !(timestamp_type.timezone().empty());
   switch (time_unit) {
@@ -553,7 +553,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   }
 
   *physical_type = ParquetType::INT64;
-  *annotation = TimestampAnnotationFromArrowTimestamp(type, target_unit);
+  *annotation = TimestampLogicalTypeFromArrowTimestamp(type, target_unit);
 
   // The user is explicitly asking for timestamp data to be converted to the
   // specified units (target_unit).
@@ -590,7 +590,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   // must be coerced to microseconds.
   if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0 &&
       type.unit() == ::arrow::TimeUnit::NANO) {
-    *annotation = TimestampAnnotationFromArrowTimestamp(type, ::arrow::TimeUnit::MICRO);
+    *annotation = TimestampLogicalTypeFromArrowTimestamp(type, ::arrow::TimeUnit::MICRO);
     return Status::OK();
   }
 
@@ -598,7 +598,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   // however the Arrow seconds time unit can not be represented (annotated) in
   // any version of Parquet and so must be coerced to milliseconds.
   if (type.unit() == ::arrow::TimeUnit::SECOND) {
-    *annotation = TimestampAnnotationFromArrowTimestamp(type, ::arrow::TimeUnit::MILLI);
+    *annotation = TimestampLogicalTypeFromArrowTimestamp(type, ::arrow::TimeUnit::MILLI);
     return Status::OK();
   }
 

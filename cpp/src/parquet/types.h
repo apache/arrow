@@ -265,44 +265,44 @@ class PARQUET_EXPORT LogicalType {
 };
 
 /// \brief Allowed for physical type BYTE_ARRAY, must be encoded as UTF-8.
-class PARQUET_EXPORT StringAnnotation : public LogicalType {
+class PARQUET_EXPORT StringLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  StringAnnotation() = default;
+  StringLogicalType() = default;
 };
 
 /// \brief Allowed for group nodes only.
-class PARQUET_EXPORT MapAnnotation : public LogicalType {
+class PARQUET_EXPORT MapLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  MapAnnotation() = default;
+  MapLogicalType() = default;
 };
 
 /// \brief Allowed for group nodes only.
-class PARQUET_EXPORT ListAnnotation : public LogicalType {
+class PARQUET_EXPORT ListLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  ListAnnotation() = default;
+  ListLogicalType() = default;
 };
 
 /// \brief Allowed for physical type BYTE_ARRAY, must be encoded as UTF-8.
-class PARQUET_EXPORT EnumAnnotation : public LogicalType {
+class PARQUET_EXPORT EnumLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  EnumAnnotation() = default;
+  EnumLogicalType() = default;
 };
 
 /// \brief Allowed for physical type INT32, INT64, FIXED_LEN_BYTE_ARRAY, or BYTE_ARRAY,
 /// depending on the precision.
-class PARQUET_EXPORT DecimalAnnotation : public LogicalType {
+class PARQUET_EXPORT DecimalLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make(int32_t precision,
                                                        int32_t scale = 0);
@@ -310,20 +310,20 @@ class PARQUET_EXPORT DecimalAnnotation : public LogicalType {
   int32_t scale() const;
 
  private:
-  DecimalAnnotation() = default;
+  DecimalLogicalType() = default;
 };
 
 /// \brief Allowed for physical type INT32.
-class PARQUET_EXPORT DateAnnotation : public LogicalType {
+class PARQUET_EXPORT DateLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  DateAnnotation() = default;
+  DateLogicalType() = default;
 };
 
 /// \brief Allowed for physical type INT32 (for MILLIS) or INT64 (for MICROS and NANOS).
-class PARQUET_EXPORT TimeAnnotation : public LogicalType {
+class PARQUET_EXPORT TimeLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make(
       bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit);
@@ -331,11 +331,11 @@ class PARQUET_EXPORT TimeAnnotation : public LogicalType {
   LogicalType::TimeUnit::unit time_unit() const;
 
  private:
-  TimeAnnotation() = default;
+  TimeLogicalType() = default;
 };
 
 /// \brief Allowed for physical type INT64.
-class PARQUET_EXPORT TimestampAnnotation : public LogicalType {
+class PARQUET_EXPORT TimestampLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make(
       bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit);
@@ -343,83 +343,83 @@ class PARQUET_EXPORT TimestampAnnotation : public LogicalType {
   LogicalType::TimeUnit::unit time_unit() const;
 
  private:
-  TimestampAnnotation() = default;
+  TimestampLogicalType() = default;
 };
 
 /// \brief Allowed for physical type FIXED_LEN_BYTE_ARRAY with length 12
-class PARQUET_EXPORT IntervalAnnotation : public LogicalType {
+class PARQUET_EXPORT IntervalLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  IntervalAnnotation() = default;
+  IntervalLogicalType() = default;
 };
 
 /// \brief Allowed for physical type INT32 (for bit widths 8, 16, and 32) and INT64
 /// (for bit width 64).
-class PARQUET_EXPORT IntAnnotation : public LogicalType {
+class PARQUET_EXPORT IntLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make(int bit_width, bool is_signed);
   int bit_width() const;
   bool is_signed() const;
 
  private:
-  IntAnnotation() = default;
+  IntLogicalType() = default;
 };
 
 /// \brief Allowed for any physical type.
-class PARQUET_EXPORT NullAnnotation : public LogicalType {
+class PARQUET_EXPORT NullLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  NullAnnotation() = default;
+  NullLogicalType() = default;
 };
 
 /// \brief Allowed for physical type BYTE_ARRAY.
-class PARQUET_EXPORT JSONAnnotation : public LogicalType {
+class PARQUET_EXPORT JSONLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  JSONAnnotation() = default;
+  JSONLogicalType() = default;
 };
 
 /// \brief Allowed for physical type BYTE_ARRAY.
-class PARQUET_EXPORT BSONAnnotation : public LogicalType {
+class PARQUET_EXPORT BSONLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  BSONAnnotation() = default;
+  BSONLogicalType() = default;
 };
 
 /// \brief Allowed for physical type FIXED_LEN_BYTE_ARRAY with length 16,
 /// must encode raw UUID bytes.
-class PARQUET_EXPORT UUIDAnnotation : public LogicalType {
+class PARQUET_EXPORT UUIDLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  UUIDAnnotation() = default;
+  UUIDLogicalType() = default;
 };
 
 /// \brief Allowed for any physical type.
-class PARQUET_EXPORT NoAnnotation : public LogicalType {
+class PARQUET_EXPORT NoLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  NoAnnotation() = default;
+  NoLogicalType() = default;
 };
 
 /// \brief Allowed for any type.
-class PARQUET_EXPORT UnknownAnnotation : public LogicalType {
+class PARQUET_EXPORT UnknownLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  UnknownAnnotation() = default;
+  UnknownLogicalType() = default;
 };
 
 // Data encodings. Mirrors parquet::Encoding
