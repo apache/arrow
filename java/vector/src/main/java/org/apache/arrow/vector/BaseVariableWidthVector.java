@@ -211,7 +211,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   private int getOffsetBufferValueCapacity() {
-    return (int) ((offsetBuffer.capacity() * 1.0) / OFFSET_WIDTH);
+    return offsetBuffer.capacity() / OFFSET_WIDTH;
   }
 
   /**

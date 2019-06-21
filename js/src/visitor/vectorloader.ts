@@ -27,11 +27,13 @@ import { UnionMode, DateUnit } from '../enum';
 import { toArrayBufferView } from '../util/buffer';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message';
 
+/** @ignore */
 export interface VectorLoader extends Visitor {
     visit<T extends DataType>(node: Field<T> | T): Data<T>;
     visitMany<T extends DataType>(nodes: (Field<T> | T)[]): Data<T>[];
 }
 
+/** @ignore */
 export class VectorLoader extends Visitor {
     private bytes: Uint8Array;
     private nodes: FieldNode[];
@@ -82,6 +84,7 @@ export class VectorLoader extends Visitor {
     }
 }
 
+/** @ignore */
 export class JSONVectorLoader extends VectorLoader {
     private sources: any[][];
     constructor(sources: any[][], nodes: FieldNode[], buffers: BufferRegion[]) {

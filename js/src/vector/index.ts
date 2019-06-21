@@ -38,13 +38,17 @@ export { TimeVector, TimeSecondVector, TimeMillisecondVector, TimeMicrosecondVec
 export { UnionVector, DenseUnionVector, SparseUnionVector } from './union';
 export { Utf8Vector } from './utf8';
 
+import * as fn from '../util/fn';
 import { Data } from '../data';
 import { Type } from '../enum';
 import { Vector } from '../vector';
 import { DataType } from '../type';
+import { Chunked } from './chunked';
 import { BaseVector } from './base';
 import { setBool } from '../util/bit';
-import { Vector as V, VectorCtorArgs } from '../interfaces';
+import { isIterable, isAsyncIterable } from '../util/compat';
+import { Builder, IterableBuilderOptions } from '../builder';
+import { VectorType as V, VectorCtorArgs } from '../interfaces';
 import { instance as getVisitor } from '../visitor/get';
 import { instance as setVisitor } from '../visitor/set';
 import { instance as indexOfVisitor } from '../visitor/indexof';
@@ -56,10 +60,14 @@ import { instance as getVectorConstructor } from '../visitor/vectorctor';
 declare module '../vector' {
     namespace Vector {
         export { newVector as new };
+        export { vectorFrom as from };
     }
 }
 
 declare module './base' {
+    namespace BaseVector {
+        export { vectorFrom as from };
+    }
     interface BaseVector<T extends DataType> {
         get(index: number): T['TValue'] | null;
         set(index: number, value: T['TValue'] | null): void;
@@ -73,9 +81,52 @@ declare module './base' {
 /** @nocollapse */
 Vector.new = newVector;
 
+/** @nocollapse */
+Vector.from = vectorFrom;
+
 /** @ignore */
 function newVector<T extends DataType>(data: Data<T>, ...args: VectorCtorArgs<V<T>>): V<T> {
-    return new (getVectorConstructor.getVisitFn(data.type)())(data, ...args) as V<T>;
+    return new (getVectorConstructor.getVisitFn<T>(data)())(data, ...args) as V<T>;
+}
+
+/** @ignore */
+export interface VectorBuilderOptions<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: Iterable<T['TValue'] | TNull>; }
+/** @ignore */
+export interface VectorBuilderOptionsAsync<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: AsyncIterable<T['TValue'] | TNull>; }
+
+/** @ignore */
+export function vectorFromValuesWithType<T extends DataType, TNull = any>(newDataType: () => T, input: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull> | VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>) {
+    if (isIterable(input)) {
+        return Vector.from({ 'nullValues': [null, undefined], type: newDataType(), 'values': input }) as V<T>;
+    } else if (isAsyncIterable(input)) {
+        return Vector.from({ 'nullValues': [null, undefined], type: newDataType(), 'values': input }) as Promise<V<T>>;
+    }
+    const {
+        'values': values = [],
+        'type': type = newDataType(),
+        'nullValues': nullValues = [null, undefined],
+    } = { ...input };
+    return isIterable(values)
+        ? Vector.from({ nullValues, ...input, type } as VectorBuilderOptions<T, TNull>)
+        : Vector.from({ nullValues, ...input, type } as VectorBuilderOptionsAsync<T, TNull>);
+}
+
+/** @ignore */
+function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull>): Vector<T>;
+function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptionsAsync<T, TNull>): Promise<Vector<T>>;
+function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>) {
+    const { 'values': values = [], ...options } = { 'nullValues': [null, undefined], ...input } as VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>;
+    if (isIterable<T['TValue'] | TNull>(values)) {
+        const chunks = [...Builder.throughIterable(options)(values)];
+        return chunks.length === 1 ? chunks[0] : Chunked.concat<T>(chunks);
+    }
+    return (async (chunks: V<T>[]) => {
+        const transform = Builder.throughAsyncIterable(options);
+        for await (const chunk of transform(values)) {
+            chunks.push(chunk);
+        }
+        return chunks.length === 1 ? chunks[0] : Chunked.concat<T>(chunks);
+    })([]);
 }
 
 //
@@ -114,49 +165,22 @@ BaseVector.prototype[Symbol.iterator] = function baseVectorSymbolIterator<T exte
 
 // Perf: bind and assign the operator Visitor methods to each of the Vector subclasses for each Type
 (Object.keys(Type) as any[])
-    .filter((typeId) => typeId !== Type.NONE && typeId !== Type[Type.NONE])
-    .map((T: any) => Type[T] as any).filter((T: any): T is Type => typeof T === 'number')
+    .map((T: any) => Type[T] as any)
+    .filter((T: any): T is Type => typeof T === 'number')
+    .filter((typeId) => typeId !== Type.NONE)
     .forEach((typeId) => {
-        let typeIds: Type[];
-        switch (typeId) {
-            case Type.Int:       typeIds = [Type.Int8, Type.Int16, Type.Int32, Type.Int64, Type.Uint8, Type.Uint16, Type.Uint32, Type.Uint64]; break;
-            case Type.Float:     typeIds = [Type.Float16, Type.Float32, Type.Float64]; break;
-            case Type.Date:      typeIds = [Type.DateDay, Type.DateMillisecond]; break;
-            case Type.Time:      typeIds = [Type.TimeSecond, Type.TimeMillisecond, Type.TimeMicrosecond, Type.TimeNanosecond]; break;
-            case Type.Timestamp: typeIds = [Type.TimestampSecond, Type.TimestampMillisecond, Type.TimestampMicrosecond, Type.TimestampNanosecond]; break;
-            case Type.Interval:  typeIds = [Type.IntervalDayTime, Type.IntervalYearMonth]; break;
-            case Type.Union:     typeIds = [Type.DenseUnion, Type.SparseUnion]; break;
-            default:                typeIds = [typeId]; break;
-        }
-        typeIds.forEach((typeId) => {
-            const VectorCtor = getVectorConstructor.visit(typeId);
-            VectorCtor.prototype['get'] = partial1(getVisitor.getVisitFn(typeId));
-            VectorCtor.prototype['set'] = partial2(setVisitor.getVisitFn(typeId));
-            VectorCtor.prototype['indexOf'] = partial2(indexOfVisitor.getVisitFn(typeId));
-            VectorCtor.prototype['toArray'] = partial0(toArrayVisitor.getVisitFn(typeId));
-            VectorCtor.prototype['getByteWidth'] = partialType0(byteWidthVisitor.getVisitFn(typeId));
-            VectorCtor.prototype[Symbol.iterator] = partial0(iteratorVisitor.getVisitFn(typeId));
-        });
+        const VectorCtor = getVectorConstructor.visit(typeId);
+        VectorCtor.prototype['get'] = fn.partial1(getVisitor.getVisitFn(typeId));
+        VectorCtor.prototype['set'] = fn.partial2(setVisitor.getVisitFn(typeId));
+        VectorCtor.prototype['indexOf'] = fn.partial2(indexOfVisitor.getVisitFn(typeId));
+        VectorCtor.prototype['toArray'] = fn.partial0(toArrayVisitor.getVisitFn(typeId));
+        VectorCtor.prototype['getByteWidth'] = partialType0(byteWidthVisitor.getVisitFn(typeId));
+        VectorCtor.prototype[Symbol.iterator] = fn.partial0(iteratorVisitor.getVisitFn(typeId));
     });
-
-/** @ignore */
-function partial0<T>(visit: (node: T) => any) {
-    return function(this: T) { return visit(this); };
-}
 
 /** @ignore */
 function partialType0<T extends Vector>(visit: (node: T['type']) => any) {
     return function(this: T) { return visit(this.type); };
-}
-
-/** @ignore */
-function partial1<T>(visit: (node: T, a: any) => any) {
-    return function(this: T, a: any) { return visit(this, a); };
-}
-
-/** @ignore */
-function partial2<T>(visit: (node: T, a: any, b: any) => any) {
-    return function(this: T, a: any, b: any) { return visit(this, a, b); };
 }
 
 /** @ignore */

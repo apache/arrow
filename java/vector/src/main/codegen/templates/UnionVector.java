@@ -615,6 +615,6 @@ public class UnionVector implements FieldVector {
     }
 
     private int getTypeBufferValueCapacity() {
-      return (int) ((typeBuffer.capacity() * 1.0) / TYPE_WIDTH);
+      return typeBuffer.capacity() / TYPE_WIDTH;
     }
 }

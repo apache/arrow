@@ -222,7 +222,7 @@ class AdaptiveByteReader<T extends ArrayBufferViewInput> {
 
     async cancel(reason?: any): Promise<void> {
         const { reader, source } = this;
-        reader && (await reader['cancel'](reason));
+        reader && (await reader['cancel'](reason).catch(() => {}));
         source && (source['locked'] && this.releaseLock());
     }
 

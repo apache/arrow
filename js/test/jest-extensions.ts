@@ -36,17 +36,17 @@ expect.extend({
     toEqualRecordBatch
 });
 
-function format(jest: jest.MatcherUtils, x: any, y: any, msg= ' ') {
+function format(jest: jest.MatcherUtils, actual: any, expected: any, msg= ' ') {
     return `${
-        jest.utils.printExpected(x)
+        jest.utils.printReceived(actual)
         }${msg}${
-        jest.utils.printReceived(y)
+        jest.utils.printExpected(expected)
     }`;
 }
 
 function toArrowCompare(this: jest.MatcherUtils, actual: any, expected: any) {
     if (!util.createElementComparator(expected)(actual)) {
-        return { pass: false, message: () => format(this, expected, actual, ' != ') };
+        return { pass: false, message: () => format(this, actual, expected, ' should equal ') };
     }
     return { pass: true, message: () => '' };
 }

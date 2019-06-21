@@ -28,6 +28,8 @@
 namespace arrow {
 namespace compute {
 
+using internal::checked_cast;
+
 Status Take(FunctionContext* context, const Array& values, const Array& indices,
             const TakeOptions& options, std::shared_ptr<Array>* out) {
   Datum out_datum;
@@ -119,20 +121,20 @@ struct UnpackValues {
   Status Visit(const ValueType&) {
     using ValueArrayRef = const typename TypeTraits<ValueType>::ArrayType&;
     using OutBuilder = typename TypeTraits<ValueType>::BuilderType;
-    IndexArrayRef indices = static_cast<IndexArrayRef>(*params_.indices);
-    ValueArrayRef values = static_cast<ValueArrayRef>(*params_.values);
+    IndexArrayRef indices = checked_cast<IndexArrayRef>(*params_.indices);
+    ValueArrayRef values = checked_cast<ValueArrayRef>(*params_.values);
     std::unique_ptr<ArrayBuilder> builder;
     RETURN_NOT_OK(MakeBuilder(params_.context->memory_pool(), values.type(), &builder));
     RETURN_NOT_OK(builder->Reserve(indices.length()));
     RETURN_NOT_OK(UnpackValuesNullCount(params_.context, values, indices,
-                                        static_cast<OutBuilder*>(builder.get())));
+                                        checked_cast<OutBuilder*>(builder.get())));
     return builder->Finish(params_.out);
   }
 
   Status Visit(const NullType& t) {
     auto indices_length = params_.indices->length();
     if (indices_length != 0) {
-      auto indices = static_cast<IndexArrayRef>(*params_.indices).raw_values();
+      auto indices = checked_cast<IndexArrayRef>(*params_.indices).raw_values();
       auto minmax = std::minmax_element(indices, indices + indices_length);
       auto min = static_cast<int64_t>(*minmax.first);
       auto max = static_cast<int64_t>(*minmax.second);

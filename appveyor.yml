@@ -19,7 +19,7 @@
 os: Visual Studio 2015
 
 only_commits:
-  # Skip commits not related to Python, C++, C#, Go, Ruby or Rust
+  # Skip commits not related to Python, C++, C#, Go, R, Ruby, or Rust
   files:
     - appveyor.yml
     - c_glib/
@@ -29,6 +29,7 @@ only_commits:
     - format/
     - go/
     - python/
+    - r/
     - ruby/
     - rust/
 
@@ -102,6 +103,8 @@ environment:
       GO111MODULE: on
       GOTOOLDIR: '%GOROOT%\pkg\tool\windows_amd64'
       PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
+    - JOB: "R without libarrow"
+      USE_CLCACHE: false
 
   MSVC_DEFAULT_OPTIONS: ON
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
@@ -118,6 +121,57 @@ before_build:
 
 build_script:
   - call ci\appveyor-build.bat
+
+for:
+-
+  matrix:
+    only:
+      - JOB: "R without libarrow"
+  init:
+    ps: |
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest http://raw.githubusercontent.com/krlmlr/r-appveyor/master/scripts/appveyor-tool.ps1 -OutFile "..\appveyor-tool.ps1"
+          Import-Module '..\appveyor-tool.ps1'
+
+  before_build:
+    - cd r
+    - ps: Bootstrap
+    - cd %APPVEYOR_BUILD_FOLDER%
+
+  build_script:
+    # TODO: for the version of the R tests that builds, probably can't use this
+    # ci script because we need to build with the Rtools toolchain
+    # - call ci\appveyor-build.bat
+    - pushd r
+    - travis-tool.sh install_deps
+
+  test_script:
+    - travis-tool.sh run_tests
+
+  on_failure:
+    - travis-tool.sh dump_logs
+
+  environment:
+    NOT_CRAN: true
+
+  artifacts:
+    - path: 'r\*.Rcheck\**\*.log'
+      name: Logs
+
+    - path: 'r\*.Rcheck\**\*.out'
+      name: Logs
+
+    - path: 'r\*.Rcheck\**\*.fail'
+      name: Logs
+
+    - path: 'r\*.Rcheck\**\*.Rout'
+      name: Logs
+
+    - path: 'r\*_*.tar.gz'
+      name: Bits
+
+    - path: 'r\*_*.zip'
+      name: Bits
 
 # Disable test discovery
 test: off

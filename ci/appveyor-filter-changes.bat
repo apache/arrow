@@ -43,6 +43,13 @@ if "%JOB%" == "Rust" (
         echo ===
         appveyor exit
     )
+) else if "%JOB:~,2%" == "R " (
+    if "%ARROW_CI_R_AFFECTED%" == "0" (
+        echo ===
+        echo === No C++ or R changes, exiting job
+        echo ===
+        appveyor exit
+    )
 ) else (
     if "%ARROW_CI_PYTHON_AFFECTED%" == "0" (
         echo ===

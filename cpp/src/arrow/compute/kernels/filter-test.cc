@@ -15,376 +15,358 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
 #include <memory>
-#include <string>
-#include <type_traits>
-#include <utility>
+#include <vector>
 
-#include <gtest/gtest.h>
-
-#include "arrow/array.h"
-#include "arrow/compute/kernel.h"
+#include "arrow/compute/context.h"
+#include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/compute/kernels/filter.h"
 #include "arrow/compute/test-util.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
-
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
 
 namespace arrow {
 namespace compute {
 
-TEST(TestComparatorOperator, BasicOperator) {
-  using T = int32_t;
-  std::vector<T> vals{0, 1, 2, 3, 4, 5, 6};
+using internal::checked_pointer_cast;
+using util::string_view;
 
-  for (int32_t i : vals) {
-    for (int32_t j : vals) {
-      EXPECT_EQ((Comparator<T, EQUAL>::Compare(i, j)), i == j);
-      EXPECT_EQ((Comparator<T, NOT_EQUAL>::Compare(i, j)), i != j);
-      EXPECT_EQ((Comparator<T, GREATER>::Compare(i, j)), i > j);
-      EXPECT_EQ((Comparator<T, GREATER_EQUAL>::Compare(i, j)), i >= j);
-      EXPECT_EQ((Comparator<T, LESS>::Compare(i, j)), i < j);
-      EXPECT_EQ((Comparator<T, LESS_EQUAL>::Compare(i, j)), i <= j);
+template <typename ArrowType>
+class TestFilterKernel : public ComputeFixture, public TestBase {
+ protected:
+  void AssertFilterArrays(const std::shared_ptr<Array>& values,
+                          const std::shared_ptr<Array>& filter,
+                          const std::shared_ptr<Array>& expected) {
+    std::shared_ptr<Array> actual;
+    ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter, &actual));
+    AssertArraysEqual(*expected, *actual);
+  }
+  void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
+                    const std::string& filter, const std::string& expected) {
+    std::shared_ptr<Array> actual;
+    ASSERT_OK(this->Filter(type, values, filter, &actual));
+    AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
+  }
+  Status Filter(const std::shared_ptr<DataType>& type, const std::string& values,
+                const std::string& filter, std::shared_ptr<Array>* out) {
+    return arrow::compute::Filter(&this->ctx_, *ArrayFromJSON(type, values),
+                                  *ArrayFromJSON(boolean(), filter), out);
+  }
+  void ValidateFilter(const std::shared_ptr<Array>& values,
+                      const std::shared_ptr<Array>& filter_boxed) {
+    std::shared_ptr<Array> filtered;
+    ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter_boxed, &filtered));
+
+    auto filter = checked_pointer_cast<BooleanArray>(filter_boxed);
+    int64_t values_i = 0, filtered_i = 0;
+    for (; values_i < values->length(); ++values_i, ++filtered_i) {
+      if (filter->IsNull(values_i)) {
+        ASSERT_LT(filtered_i, filtered->length());
+        ASSERT_TRUE(filtered->IsNull(filtered_i));
+        continue;
+      }
+      if (!filter->Value(values_i)) {
+        // this element was filtered out; don't examine filtered
+        --filtered_i;
+        continue;
+      }
+      ASSERT_LT(filtered_i, filtered->length());
+      ASSERT_TRUE(values->RangeEquals(values_i, values_i + 1, filtered_i, filtered));
+    }
+    ASSERT_EQ(filtered_i, filtered->length());
+  }
+};
+
+class TestFilterKernelWithNull : public TestFilterKernel<NullType> {
+ protected:
+  void AssertFilter(const std::string& values, const std::string& filter,
+                    const std::string& expected) {
+    TestFilterKernel<NullType>::AssertFilter(utf8(), values, filter, expected);
+  }
+};
+
+TEST_F(TestFilterKernelWithNull, FilterNull) {
+  this->AssertFilter("[null, null, null]", "[0, 1, 0]", "[null]");
+  this->AssertFilter("[null, null, null]", "[1, 1, 0]", "[null, null]");
+}
+
+class TestFilterKernelWithBoolean : public TestFilterKernel<BooleanType> {
+ protected:
+  void AssertFilter(const std::string& values, const std::string& filter,
+                    const std::string& expected) {
+    TestFilterKernel<BooleanType>::AssertFilter(boolean(), values, filter, expected);
+  }
+};
+
+TEST_F(TestFilterKernelWithBoolean, FilterBoolean) {
+  this->AssertFilter("[true, false, true]", "[0, 1, 0]", "[false]");
+  this->AssertFilter("[null, false, true]", "[0, 1, 0]", "[false]");
+  this->AssertFilter("[true, false, true]", "[null, 1, 0]", "[null, false]");
+}
+
+template <typename ArrowType>
+class TestFilterKernelWithNumeric : public TestFilterKernel<ArrowType> {
+ protected:
+  void AssertFilter(const std::string& values, const std::string& filter,
+                    const std::string& expected) {
+    TestFilterKernel<ArrowType>::AssertFilter(type_singleton(), values, filter, expected);
+  }
+  std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
+  }
+};
+
+TYPED_TEST_CASE(TestFilterKernelWithNumeric, NumericArrowTypes);
+TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
+  this->AssertFilter("[]", "[]", "[]");
+
+  this->AssertFilter("[9]", "[0]", "[]");
+  this->AssertFilter("[9]", "[1]", "[9]");
+  this->AssertFilter("[9]", "[null]", "[null]");
+  this->AssertFilter("[null]", "[0]", "[]");
+  this->AssertFilter("[null]", "[1]", "[null]");
+  this->AssertFilter("[null]", "[null]", "[null]");
+
+  this->AssertFilter("[7, 8, 9]", "[0, 1, 0]", "[8]");
+  this->AssertFilter("[7, 8, 9]", "[1, 0, 1]", "[7, 9]");
+  this->AssertFilter("[null, 8, 9]", "[0, 1, 0]", "[8]");
+  this->AssertFilter("[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
+  this->AssertFilter("[7, 8, 9]", "[1, null, 1]", "[7, null, 9]");
+}
+
+TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
+  auto rand = random::RandomArrayGenerator(0x5416447);
+  for (size_t i = 3; i < 13; i++) {
+    const int64_t length = static_cast<int64_t>(1ULL << i);
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto filter_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+        auto values = rand.Numeric<TypeParam>(length, 0, 127, null_probability);
+        auto filter = rand.Boolean(length, filter_probability, null_probability);
+        this->ValidateFilter(values, filter);
+      }
     }
   }
 }
 
-template <typename ArrowType>
-static void ValidateCompare(FunctionContext* ctx, CompareOptions options,
-                            const Datum& lhs, const Datum& rhs, const Datum& expected) {
-  Datum result;
-
-  ASSERT_OK(Compare(ctx, lhs, rhs, options, &result));
-  AssertArraysEqual(*expected.make_array(), *result.make_array());
-}
-
-template <typename ArrowType>
-static void ValidateCompare(FunctionContext* ctx, CompareOptions options,
-                            const char* lhs_str, const Datum& rhs,
-                            const char* expected_str) {
-  auto lhs = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), lhs_str);
-  auto expected = ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), expected_str);
-  ValidateCompare<ArrowType>(ctx, options, lhs, rhs, expected);
-}
-
-template <typename ArrowType>
-static void ValidateCompare(FunctionContext* ctx, CompareOptions options,
-                            const Datum& lhs, const char* rhs_str,
-                            const char* expected_str) {
-  auto rhs = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), rhs_str);
-  auto expected = ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), expected_str);
-  ValidateCompare<ArrowType>(ctx, options, lhs, rhs, expected);
-}
-
-template <typename ArrowType>
-static void ValidateCompare(FunctionContext* ctx, CompareOptions options,
-                            const char* lhs_str, const char* rhs_str,
-                            const char* expected_str) {
-  auto lhs = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), lhs_str);
-  auto rhs = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), rhs_str);
-  auto expected = ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), expected_str);
-  ValidateCompare<ArrowType>(ctx, options, lhs, rhs, expected);
-}
-
-template <typename T>
-static inline bool SlowCompare(CompareOperator op, const T& lhs, const T& rhs) {
-  switch (op) {
-    case EQUAL:
-      return lhs == rhs;
-    case NOT_EQUAL:
-      return lhs != rhs;
-    case GREATER:
-      return lhs > rhs;
-    case GREATER_EQUAL:
-      return lhs >= rhs;
-    case LESS:
-      return lhs < rhs;
-    case LESS_EQUAL:
-      return lhs <= rhs;
-    default:
-      return false;
-  }
-}
-
-template <typename ArrowType>
-static Datum SimpleScalarArrayCompare(CompareOptions options, const Datum& lhs,
-                                      const Datum& rhs) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
-  using T = typename TypeTraits<ArrowType>::CType;
-
-  bool swap = lhs.is_array();
-  auto array = std::static_pointer_cast<ArrayType>((swap ? lhs : rhs).make_array());
-  T value = std::static_pointer_cast<ScalarType>((swap ? rhs : lhs).scalar())->value;
-
-  std::vector<bool> bitmap(array->length());
-  for (int64_t i = 0; i < array->length(); i++) {
-    bitmap[i] = swap ? SlowCompare<T>(options.op, array->Value(i), value)
-                     : SlowCompare<T>(options.op, value, array->Value(i));
-  }
-
-  std::shared_ptr<Array> result;
-
-  if (array->null_count() == 0) {
-    ArrayFromVector<BooleanType>(bitmap, &result);
-  } else {
-    std::vector<bool> null_bitmap(array->length());
-    auto reader = internal::BitmapReader(array->null_bitmap_data(), array->offset(),
-                                         array->length());
-    for (int64_t i = 0; i < array->length(); i++, reader.Next()) {
-      null_bitmap[i] = reader.IsSet();
-    }
-    ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
-  }
-
-  return Datum(result);
-}
-
-template <typename ArrowType,
-          typename ArrayType = typename TypeTraits<ArrowType>::ArrayType>
-static std::vector<bool> NullBitmapFromArrays(const ArrayType& lhs,
-                                              const ArrayType& rhs) {
-  auto left_lambda = [&lhs](int64_t i) {
-    return lhs.null_count() == 0 ? true : lhs.IsValid(i);
+template <typename CType>
+decltype(Comparator<CType, EQUAL>::Compare)* GetComparator(CompareOperator op) {
+  using cmp_t = decltype(Comparator<CType, EQUAL>::Compare);
+  static cmp_t* cmp[] = {
+      Comparator<CType, EQUAL>::Compare,   Comparator<CType, NOT_EQUAL>::Compare,
+      Comparator<CType, GREATER>::Compare, Comparator<CType, GREATER_EQUAL>::Compare,
+      Comparator<CType, LESS>::Compare,    Comparator<CType, LESS_EQUAL>::Compare,
   };
-
-  auto right_lambda = [&rhs](int64_t i) {
-    return rhs.null_count() == 0 ? true : rhs.IsValid(i);
-  };
-
-  const int64_t length = lhs.length();
-  std::vector<bool> null_bitmap(length);
-
-  for (int64_t i = 0; i < length; i++) {
-    null_bitmap[i] = left_lambda(i) && right_lambda(i);
-  }
-
-  return null_bitmap;
+  return cmp[op];
 }
 
-template <typename ArrowType>
-static Datum SimpleArrayArrayCompare(CompareOptions options, const Datum& lhs,
-                                     const Datum& rhs) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using T = typename TypeTraits<ArrowType>::CType;
-
-  auto l_array = std::static_pointer_cast<ArrayType>(lhs.make_array());
-  auto r_array = std::static_pointer_cast<ArrayType>(rhs.make_array());
-  const int64_t length = l_array->length();
-
-  std::vector<bool> bitmap(length);
-  for (int64_t i = 0; i < length; i++) {
-    bitmap[i] = SlowCompare<T>(options.op, l_array->Value(i), r_array->Value(i));
-  }
-
-  std::shared_ptr<Array> result;
-
-  if (l_array->null_count() == 0 && r_array->null_count() == 0) {
-    ArrayFromVector<BooleanType>(bitmap, &result);
-  } else {
-    std::vector<bool> null_bitmap = NullBitmapFromArrays<ArrowType>(*l_array, *r_array);
-    ArrayFromVector<BooleanType>(null_bitmap, bitmap, &result);
-  }
-
-  return Datum(result);
+template <typename T, typename Fn, typename CType = typename TypeTraits<T>::CType>
+std::shared_ptr<Array> CompareAndFilter(const CType* data, int64_t length, Fn&& fn) {
+  std::vector<CType> filtered;
+  filtered.reserve(length);
+  std::copy_if(data, data + length, std::back_inserter(filtered), std::forward<Fn>(fn));
+  std::shared_ptr<Array> filtered_array;
+  ArrayFromVector<T, CType>(filtered, &filtered_array);
+  return filtered_array;
 }
 
-template <typename ArrowType>
-static void ValidateCompare(FunctionContext* ctx, CompareOptions options,
-                            const Datum& lhs, const Datum& rhs) {
-  Datum result;
-
-  bool has_scalar = lhs.is_scalar() || rhs.is_scalar();
-  Datum expected = has_scalar ? SimpleScalarArrayCompare<ArrowType>(options, lhs, rhs)
-                              : SimpleArrayArrayCompare<ArrowType>(options, lhs, rhs);
-
-  ValidateCompare<ArrowType>(ctx, options, lhs, rhs, expected);
+template <typename T, typename CType = typename TypeTraits<T>::CType>
+std::shared_ptr<Array> CompareAndFilter(const CType* data, int64_t length, CType val,
+                                        CompareOperator op) {
+  auto cmp = GetComparator<CType>(op);
+  return CompareAndFilter<T>(data, length, [&](CType e) { return cmp(e, val); });
 }
 
-template <typename ArrowType>
-class TestNumericCompareKernel : public ComputeFixture, public TestBase {};
+template <typename T, typename CType = typename TypeTraits<T>::CType>
+std::shared_ptr<Array> CompareAndFilter(const CType* data, int64_t length,
+                                        const CType* other, CompareOperator op) {
+  auto cmp = GetComparator<CType>(op);
+  return CompareAndFilter<T>(data, length, [&](CType e) { return cmp(e, *other++); });
+}
 
-TYPED_TEST_CASE(TestNumericCompareKernel, NumericArrowTypes);
-TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
+TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
-  using CType = typename TypeTraits<TypeParam>::CType;
-
-  Datum one(std::make_shared<ScalarType>(CType(1)));
-
-  CompareOptions eq(CompareOperator::EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[]", one, "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[null]", one, "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[0,0,1,1,2,2]", one, "[0,0,1,1,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[0,1,2,3,4,5]", one, "[0,1,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[5,4,3,2,1,0]", one, "[0,0,0,0,1,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[null,0,1,1]", one, "[null,0,1,1]");
-
-  CompareOptions neq(CompareOperator::NOT_EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, neq, "[]", one, "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, "[null]", one, "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, "[0,0,1,1,2,2]", one, "[1,1,0,0,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, "[0,1,2,3,4,5]", one, "[1,0,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, "[5,4,3,2,1,0]", one, "[1,1,1,1,0,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, "[null,0,1,1]", one, "[null,1,0,0]");
-
-  CompareOptions gt(CompareOperator::GREATER);
-  ValidateCompare<TypeParam>(&this->ctx_, gt, "[]", one, "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, "[null]", one, "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, "[0,0,1,1,2,2]", one, "[0,0,0,0,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, "[0,1,2,3,4,5]", one, "[0,0,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, "[4,5,6,7,8,9]", one, "[1,1,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, "[null,0,1,1]", one, "[null,0,0,0]");
-
-  CompareOptions gte(CompareOperator::GREATER_EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, gte, "[]", one, "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, "[null]", one, "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, "[0,0,1,1,2,2]", one, "[0,0,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, "[0,1,2,3,4,5]", one, "[0,1,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, "[4,5,6,7,8,9]", one, "[1,1,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, "[null,0,1,1]", one, "[null,0,1,1]");
-
-  CompareOptions lt(CompareOperator::LESS);
-  ValidateCompare<TypeParam>(&this->ctx_, lt, "[]", one, "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, "[null]", one, "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, "[0,0,1,1,2,2]", one, "[1,1,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, "[0,1,2,3,4,5]", one, "[1,0,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, "[4,5,6,7,8,9]", one, "[0,0,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, "[null,0,1,1]", one, "[null,1,0,0]");
-
-  CompareOptions lte(CompareOperator::LESS_EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, lte, "[]", one, "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, "[null]", one, "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, "[0,0,1,1,2,2]", one, "[1,1,1,1,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, "[0,1,2,3,4,5]", one, "[1,1,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, "[4,5,6,7,8,9]", one, "[0,0,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, "[null,0,1,1]", one, "[null,1,1,1]");
-}
-
-TYPED_TEST(TestNumericCompareKernel, SimpleCompareScalarArray) {
-  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
-  using CType = typename TypeTraits<TypeParam>::CType;
-
-  Datum one(std::make_shared<ScalarType>(CType(1)));
-
-  CompareOptions eq(CompareOperator::EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, eq, one, "[]", "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, one, "[null]", "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, one, "[0,0,1,1,2,2]", "[0,0,1,1,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, one, "[0,1,2,3,4,5]", "[0,1,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, one, "[5,4,3,2,1,0]", "[0,0,0,0,1,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, one, "[null,0,1,1]", "[null,0,1,1]");
-
-  CompareOptions neq(CompareOperator::NOT_EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, neq, one, "[]", "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, one, "[null]", "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, one, "[0,0,1,1,2,2]", "[1,1,0,0,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, one, "[0,1,2,3,4,5]", "[1,0,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, one, "[5,4,3,2,1,0]", "[1,1,1,1,0,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, neq, one, "[null,0,1,1]", "[null,1,0,0]");
-
-  CompareOptions gt(CompareOperator::GREATER);
-  ValidateCompare<TypeParam>(&this->ctx_, gt, one, "[]", "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, one, "[null]", "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, one, "[0,0,1,1,2,2]", "[1,1,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, one, "[0,1,2,3,4,5]", "[1,0,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, one, "[4,5,6,7,8,9]", "[0,0,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, gt, one, "[null,0,1,1]", "[null,1,0,0]");
-
-  CompareOptions gte(CompareOperator::GREATER_EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, gte, one, "[]", "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, one, "[null]", "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, one, "[0,0,1,1,2,2]", "[1,1,1,1,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, one, "[0,1,2,3,4,5]", "[1,1,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, one, "[4,5,6,7,8,9]", "[0,0,0,0,0,0]");
-  ValidateCompare<TypeParam>(&this->ctx_, gte, one, "[null,0,1,1]", "[null,1,1,1]");
-
-  CompareOptions lt(CompareOperator::LESS);
-  ValidateCompare<TypeParam>(&this->ctx_, lt, one, "[]", "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, one, "[null]", "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, one, "[0,0,1,1,2,2]", "[0,0,0,0,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, one, "[0,1,2,3,4,5]", "[0,0,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, one, "[4,5,6,7,8,9]", "[1,1,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, lt, one, "[null,0,1,1]", "[null,0,0,0]");
-
-  CompareOptions lte(CompareOperator::LESS_EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, lte, one, "[]", "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, one, "[null]", "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, one, "[0,0,1,1,2,2]", "[0,0,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, one, "[0,1,2,3,4,5]", "[0,1,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, one, "[4,5,6,7,8,9]", "[1,1,1,1,1,1]");
-  ValidateCompare<TypeParam>(&this->ctx_, lte, one, "[null,0,1,1]", "[null,0,1,1]");
-}
-
-TYPED_TEST(TestNumericCompareKernel, TestNullScalar) {
-  /* Ensure that null scalar broadcast to all null results. */
-  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
-  using CType = typename TypeTraits<TypeParam>::CType;
-
-  Datum null(std::make_shared<ScalarType>(CType(0), false));
-  EXPECT_FALSE(null.scalar()->is_valid);
-
-  CompareOptions eq(CompareOperator::EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[]", null, "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, null, "[]", "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[null]", null, "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, null, "[null]", "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, null, "[1,2,3]", "[null, null, null]");
-}
-
-TYPED_TEST_CASE(TestNumericCompareKernel, NumericArrowTypes);
-TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayScalar) {
-  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using CType = typename TypeTraits<TypeParam>::CType;
 
   auto rand = random::RandomArrayGenerator(0x5416447);
   for (size_t i = 3; i < 13; i++) {
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        const int64_t length = static_cast<int64_t>(1ULL << i);
-        auto array = Datum(rand.Numeric<TypeParam>(length, 0, 100, null_probability));
-        auto fifty = Datum(std::make_shared<ScalarType>(CType(50)));
-        auto options = CompareOptions(op);
-        ValidateCompare<TypeParam>(&this->ctx_, options, array, fifty);
-        ValidateCompare<TypeParam>(&this->ctx_, options, fifty, array);
-      }
+    const int64_t length = static_cast<int64_t>(1ULL << i);
+    // TODO(bkietz) rewrite with some nulls
+    auto array =
+        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    CType c_fifty = 50;
+    auto fifty = std::make_shared<ScalarType>(c_fifty);
+    for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+      auto options = CompareOptions(op);
+      Datum selection, filtered;
+      ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(fifty), options,
+                                        &selection));
+      ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
+      auto filtered_array = filtered.make_array();
+      auto expected =
+          CompareAndFilter<TypeParam>(array->raw_values(), array->length(), c_fifty, op);
+      ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
     }
   }
 }
 
-TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayArray) {
-  /* Ensure that null scalar broadcast to all null results. */
-  CompareOptions eq(CompareOperator::EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[]", "[]", "[]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[null]", "[null]", "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[1]", "[1]", "[1]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[1]", "[2]", "[0]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[null]", "[1]", "[null]");
-  ValidateCompare<TypeParam>(&this->ctx_, eq, "[1]", "[null]", "[null]");
+TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
 
-  CompareOptions lte(CompareOperator::LESS_EQUAL);
-  ValidateCompare<TypeParam>(&this->ctx_, lte, "[1,2,3,4,5]", "[2,3,4,5,6]",
-                             "[1,1,1,1,1]");
-}
-
-TYPED_TEST(TestNumericCompareKernel, RandomCompareArrayArray) {
   auto rand = random::RandomArrayGenerator(0x5416447);
-  for (size_t i = 3; i < 5; i++) {
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-      for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        const int64_t length = static_cast<int64_t>(1ULL << i);
-        auto lhs = Datum(rand.Numeric<TypeParam>(length << i, 0, 100, null_probability));
-        auto rhs = Datum(rand.Numeric<TypeParam>(length << i, 0, 100, null_probability));
-        auto options = CompareOptions(op);
-        ValidateCompare<TypeParam>(&this->ctx_, options, lhs, rhs);
-      }
+  for (size_t i = 3; i < 13; i++) {
+    const int64_t length = static_cast<int64_t>(1ULL << i);
+    auto lhs =
+        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    auto rhs =
+        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
+      auto options = CompareOptions(op);
+      Datum selection, filtered;
+      ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(lhs), Datum(rhs), options,
+                                        &selection));
+      ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(lhs), selection, &filtered));
+      auto filtered_array = filtered.make_array();
+      auto expected = CompareAndFilter<TypeParam>(lhs->raw_values(), lhs->length(),
+                                                  rhs->raw_values(), op);
+      ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
     }
   }
+}
+
+TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+
+  auto rand = random::RandomArrayGenerator(0x5416447);
+  for (size_t i = 3; i < 13; i++) {
+    const int64_t length = static_cast<int64_t>(1ULL << i);
+    auto array =
+        checked_pointer_cast<ArrayType>(rand.Numeric<TypeParam>(length, 0, 100, 0));
+    CType c_fifty = 50, c_hundred = 100;
+    auto fifty = std::make_shared<ScalarType>(c_fifty);
+    auto hundred = std::make_shared<ScalarType>(c_hundred);
+    Datum greater_than_fifty, less_than_hundred, selection, filtered;
+    ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(fifty),
+                                      CompareOptions(GREATER), &greater_than_fifty));
+    ASSERT_OK(arrow::compute::Compare(&this->ctx_, Datum(array), Datum(hundred),
+                                      CompareOptions(LESS), &less_than_hundred));
+    ASSERT_OK(arrow::compute::And(&this->ctx_, greater_than_fifty, less_than_hundred,
+                                  &selection));
+    ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
+    auto filtered_array = filtered.make_array();
+    auto expected = CompareAndFilter<TypeParam>(
+        array->raw_values(), array->length(),
+        [&](CType e) { return (e > c_fifty) && (e < c_hundred); });
+    ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
+  }
+}
+
+class TestFilterKernelWithString : public TestFilterKernel<StringType> {
+ protected:
+  void AssertFilter(const std::string& values, const std::string& filter,
+                    const std::string& expected) {
+    TestFilterKernel<StringType>::AssertFilter(utf8(), values, filter, expected);
+  }
+  void AssertFilterDictionary(const std::string& dictionary_values,
+                              const std::string& dictionary_filter,
+                              const std::string& filter,
+                              const std::string& expected_filter) {
+    auto dict = ArrayFromJSON(utf8(), dictionary_values);
+    auto type = dictionary(int8(), utf8());
+    std::shared_ptr<Array> values, actual, expected;
+    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_filter),
+                                          dict, &values));
+    ASSERT_OK(DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_filter),
+                                          dict, &expected));
+    auto take_filter = ArrayFromJSON(boolean(), filter);
+    this->AssertFilterArrays(values, take_filter, expected);
+  }
+};
+
+TEST_F(TestFilterKernelWithString, FilterString) {
+  this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
+  this->AssertFilter(R"([null, "b", "c"])", "[0, 1, 0]", R"(["b"])");
+  this->AssertFilter(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b"])");
+}
+
+TEST_F(TestFilterKernelWithString, FilterDictionary) {
+  auto dict = R"(["a", "b", "c", "d", "e"])";
+  this->AssertFilterDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[4]");
+  this->AssertFilterDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[4]");
+  this->AssertFilterDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4]");
+}
+
+class TestFilterKernelWithList : public TestFilterKernel<ListType> {};
+
+TEST_F(TestFilterKernelWithList, FilterListInt32) {
+  std::string list_json = "[[], [1,2], null, [3]]";
+  this->AssertFilter(list(int32()), list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(list(int32()), list_json, "[0, 1, 1, null]", "[[1,2], null, null]");
+  this->AssertFilter(list(int32()), list_json, "[0, 0, 1, null]", "[null, null]");
+  this->AssertFilter(list(int32()), list_json, "[1, 0, 0, 1]", "[[], [3]]");
+  this->AssertFilter(list(int32()), list_json, "[1, 1, 1, 1]", list_json);
+  this->AssertFilter(list(int32()), list_json, "[0, 1, 0, 1]", "[[1,2], [3]]");
+}
+
+class TestFilterKernelWithFixedSizeList : public TestFilterKernel<FixedSizeListType> {};
+
+TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
+  std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 1, 1, null]",
+                     "[[1, null, 3], [4, 5, 6], null]");
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 0, 1, null]",
+                     "[[4, 5, 6], null]");
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[1, 1, 1, 1]", list_json);
+  this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 1, 0, 1]",
+                     "[[1, null, 3], [7, 8, null]]");
+}
+
+class TestFilterKernelWithMap : public TestFilterKernel<MapType> {};
+
+TEST_F(TestFilterKernelWithMap, FilterMapStringToInt32) {
+  std::string map_json = R"([
+    [["joe", 0], ["mark", null]],
+    null,
+    [["cap", 8]],
+    []
+  ])";
+  this->AssertFilter(map(utf8(), int32()), map_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(map(utf8(), int32()), map_json, "[0, 1, 1, null]", R"([
+    null,
+    [["cap", 8]],
+    null
+  ])");
+  this->AssertFilter(map(utf8(), int32()), map_json, "[1, 1, 1, 1]", map_json);
+  this->AssertFilter(map(utf8(), int32()), map_json, "[0, 1, 0, 1]", "[null, []]");
+}
+
+class TestFilterKernelWithStruct : public TestFilterKernel<StructType> {};
+
+TEST_F(TestFilterKernelWithStruct, FilterStruct) {
+  auto struct_type = struct_({field("a", int32()), field("b", utf8())});
+  auto struct_json = R"([
+    null,
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
+  this->AssertFilter(struct_type, struct_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(struct_type, struct_json, "[0, 1, 1, null]", R"([
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    null
+  ])");
+  this->AssertFilter(struct_type, struct_json, "[1, 1, 1, 1]", struct_json);
+  this->AssertFilter(struct_type, struct_json, "[1, 0, 1, 0]", R"([
+    null,
+    {"a": 2, "b": "hello"}
+  ])");
 }
 
 }  // namespace compute

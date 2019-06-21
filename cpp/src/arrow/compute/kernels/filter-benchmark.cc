@@ -17,11 +17,9 @@
 
 #include "benchmark/benchmark.h"
 
-#include <vector>
+#include "arrow/compute/kernels/filter.h"
 
 #include "arrow/compute/benchmark-util.h"
-#include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/compare.h"
 #include "arrow/compute/test-util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -29,54 +27,60 @@
 namespace arrow {
 namespace compute {
 
-static void CompareArrayScalarKernel(benchmark::State& state) {
-  const int64_t memory_size = state.range(0) / 4;
-  const int64_t array_size = memory_size / sizeof(int64_t);
-  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
-  auto rand = random::RandomArrayGenerator(0x94378165);
+constexpr auto kSeed = 0x0ff1ce;
+
+static void FilterInt64(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  auto rand = random::RandomArrayGenerator(kSeed);
   auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, null_percent));
-
-  CompareOptions ge{GREATER_EQUAL};
-
-  FunctionContext ctx;
-  for (auto _ : state) {
-    Datum out;
-    ABORT_NOT_OK(Compare(&ctx, Datum(array), Datum(int64_t(0)), ge, &out));
-    benchmark::DoNotOptimize(out);
-  }
-
-  state.counters["size"] = static_cast<double>(memory_size);
-  state.counters["null_percent"] = static_cast<double>(state.range(1));
-  state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t));
-}
-
-static void CompareArrayArrayKernel(benchmark::State& state) {
-  const int64_t memory_size = state.range(0) / 4;
-  const int64_t array_size = memory_size / sizeof(int64_t);
-  const double null_percent = static_cast<double>(state.range(1)) / 100.0;
-  auto rand = random::RandomArrayGenerator(0x94378165);
-  auto lhs = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, null_percent));
-  auto rhs = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, null_percent));
-
-  CompareOptions ge(GREATER_EQUAL);
+      rand.Int64(array_size, -100, 100, args.null_proportion));
+  auto filter = std::static_pointer_cast<BooleanArray>(
+      rand.Boolean(array_size, 0.75, args.null_proportion));
 
   FunctionContext ctx;
   for (auto _ : state) {
     Datum out;
-    ABORT_NOT_OK(Compare(&ctx, Datum(lhs), Datum(rhs), ge, &out));
+    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
     benchmark::DoNotOptimize(out);
   }
-
-  state.counters["size"] = static_cast<double>(memory_size);
-  state.counters["null_percent"] = static_cast<double>(state.range(1));
-  state.SetBytesProcessed(state.iterations() * array_size * sizeof(int64_t) * 2);
 }
 
-BENCHMARK(CompareArrayScalarKernel)->Apply(RegressionSetArgs);
-BENCHMARK(CompareArrayArrayKernel)->Apply(RegressionSetArgs);
+static void FilterFixedSizeList1Int64(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto int_array = std::static_pointer_cast<NumericArray<Int64Type>>(
+      rand.Int64(array_size, -100, 100, args.null_proportion));
+  auto array = std::make_shared<FixedSizeListArray>(
+      fixed_size_list(int64(), 1), array_size, int_array, int_array->null_bitmap(),
+      int_array->null_count());
+  auto filter = std::static_pointer_cast<BooleanArray>(
+      rand.Boolean(array_size, 0.75, args.null_proportion));
+
+  FunctionContext ctx;
+  for (auto _ : state) {
+    Datum out;
+    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
+    benchmark::DoNotOptimize(out);
+  }
+}
+
+BENCHMARK(FilterInt64)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 1})
+    ->Args({1 << 23, 1})
+    ->MinTime(1.0)
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
+BENCHMARK(FilterFixedSizeList1Int64)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 1})
+    ->Args({1 << 23, 1})
+    ->MinTime(1.0)
+    ->Unit(benchmark::TimeUnit::kNanosecond);
 
 }  // namespace compute
 }  // namespace arrow

@@ -39,6 +39,7 @@ const kPowersOfTen = [1,
                       10000000,
                       100000000];
 
+/** @ignore */
 export class BaseInt64 {
     constructor (protected buffer: Uint32Array) {}
 
@@ -111,6 +112,7 @@ export class BaseInt64 {
     }
 }
 
+/** @ignore */
 export class Uint64 extends BaseInt64 {
     public times(other: Uint64): Uint64 {
         this._times(other);
@@ -183,6 +185,7 @@ export class Uint64 extends BaseInt64 {
     }
 }
 
+/** @ignore */
 export class Int64 extends BaseInt64 {
     public negate(): Int64 {
         this.buffer[0] = ~this.buffer[0] + 1;
@@ -272,6 +275,7 @@ export class Int64 extends BaseInt64 {
     }
 }
 
+/** @ignore */
 export class Int128 {
     constructor (private buffer: Uint32Array) {
         // buffer[3] MSB (high)

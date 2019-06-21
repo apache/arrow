@@ -25,6 +25,7 @@ module.exports = {
     tsconfig: 'tsconfig.json',
     excludePrivate: true,
     excludeProtected: true,
+    excludeExternals: true,
     excludeNotExported: true,
     includeDefinitions: true,
     ignoreCompilerErrors: true,

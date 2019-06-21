@@ -87,6 +87,21 @@ string(
 string(
   REGEX
   REPLACE "^[0-9]+\\.([0-9]+)" "\\1" ARROW_LLVM_MINOR_VERSION "${ARROW_LLVM_VERSION}")
+
+if(APPLE)
+  find_program(BREW_BIN brew)
+  if(BREW_BIN)
+    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_LLVM_MAJOR_VERSION}"
+                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT LLVM_BREW_PREFIX)
+      execute_process(COMMAND ${BREW_BIN} --prefix llvm
+                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
+  endif()
+endif()
+
 find_package(ClangTools)
 if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
@@ -601,9 +616,9 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc_static)
-  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc)
+  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc::liborc)
 endif()
 
 if(ARROW_USE_GLOG)

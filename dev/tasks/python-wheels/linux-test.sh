@@ -37,6 +37,8 @@ if sys.version_info.major > 2:
     import pyarrow.gandiva
 "
 
+export ARROW_TEST_DATA=/arrow/testing/data
+
 # Run pyarrow tests
 pip install -q -r /arrow/python/requirements-test.txt
 pytest -v --pyargs pyarrow

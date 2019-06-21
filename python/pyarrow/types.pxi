@@ -926,6 +926,9 @@ cdef class Schema:
         """
         Append a field at the end of the schema.
 
+        In contrast to Python's ``list.append()`` it does return a new
+        object, leaving the original Schema unmodified.
+
         Parameters
         ----------
         field: Field
@@ -933,6 +936,7 @@ cdef class Schema:
         Returns
         -------
         schema: Schema
+            New object with appended field.
         """
         return self.insert(self.schema.num_fields(), field)
 
@@ -1562,17 +1566,18 @@ cpdef ListType list_(value_type):
     """
     cdef:
         DataType data_type
-        Field field
+        Field _field
         shared_ptr[CDataType] list_type
         ListType out = ListType.__new__(ListType)
 
     if isinstance(value_type, DataType):
-        list_type.reset(new CListType((<DataType> value_type).sp_type))
+        _field = field('item', value_type)
     elif isinstance(value_type, Field):
-        list_type.reset(new CListType((<Field> value_type).sp_field))
+        _field = value_type
     else:
         raise TypeError('List requires DataType or Field')
 
+    list_type.reset(new CListType(_field.sp_field))
     out.init(list_type)
     return out
 

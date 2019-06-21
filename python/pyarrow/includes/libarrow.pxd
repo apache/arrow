@@ -1149,6 +1149,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                  CDatum* out)
 
 
+cdef extern from "arrow/python/api.h" namespace "arrow::py":
+    # Requires GIL
+    CStatus InferArrowType(object obj, c_bool pandas_null_sentinels,
+                           shared_ptr[CDataType]* out_type)
+
+
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
@@ -1233,8 +1239,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool date_as_object
         c_bool use_threads
         c_bool deduplicate_objects
-
-cdef extern from "arrow/python/api.h" namespace 'arrow::py' nogil:
 
     cdef cppclass CSerializedPyObject" arrow::py::SerializedPyObject":
         shared_ptr[CRecordBatch] batch

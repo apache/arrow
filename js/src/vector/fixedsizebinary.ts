@@ -18,5 +18,5 @@
 import { BaseVector } from './base';
 import { FixedSizeBinary } from '../type';
 
-export class FixedSizeBinaryVector extends BaseVector<FixedSizeBinary> {
-}
+/** @ignore */
+export class FixedSizeBinaryVector extends BaseVector<FixedSizeBinary> {}

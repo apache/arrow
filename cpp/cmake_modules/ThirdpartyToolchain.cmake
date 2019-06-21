@@ -65,6 +65,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     GTest
     LLVM
     Lz4
+    ORC
     RE2
     Protobuf
     RapidJSON
@@ -113,6 +114,12 @@ if(ARROW_PACKAGE_PREFIX)
   endif()
 endif()
 
+if(ARROW_BOOST_VENDORED AND "${BOOST_SOURCE}" STREQUAL "")
+  message(
+    DEPRECATION "ARROW_BOOST_VENDORED is deprecated. Use BOOST_SOURCE=BUNDLED instead.")
+  set(BOOST_SOURCE "BUNDLED")
+endif()
+
 # For each dependency, set dependency source to global default, if unset
 foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
   if("${${DEPENDENCY}_SOURCE}" STREQUAL "")
@@ -145,6 +152,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gtest()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
     build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
+    build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
   elseif("${DEPENDENCY_NAME}" STREQUAL "RE2")
@@ -179,10 +188,6 @@ endmacro()
 # Thirdparty versions, environment variables, source URLs
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
-
-if(DEFINED ENV{ORC_HOME})
-  set(ORC_HOME "$ENV{ORC_HOME}")
-endif()
 
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
@@ -314,8 +319,10 @@ endif()
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
   set(JEMALLOC_SOURCE_URL "$ENV{ARROW_JEMALLOC_URL}")
 else()
-  set(JEMALLOC_SOURCE_URL
-      "https://github.com/jemalloc/jemalloc/archive/${JEMALLOC_VERSION}.tar.gz")
+  set(
+    JEMALLOC_SOURCE_URL
+    "https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_LZ4_URL})
@@ -479,6 +486,71 @@ find_package(Threads REQUIRED)
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
 
+macro(build_boost)
+  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+
+  # This is needed by the thrift_ep build
+  set(BOOST_ROOT ${BOOST_PREFIX})
+
+  if(ARROW_BOOST_HEADER_ONLY)
+    set(BOOST_BUILD_PRODUCTS)
+    set(BOOST_CONFIGURE_COMMAND "")
+    set(BOOST_BUILD_COMMAND "")
+  else()
+    set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
+    set(BOOST_BUILD_LINK "static")
+    set(
+      BOOST_STATIC_SYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    set(
+      BOOST_STATIC_FILESYSTEM_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    set(
+      BOOST_STATIC_REGEX_LIBRARY
+      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    set(BOOST_SYSTEM_LIBRARY boost_system_static)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+    set(BOOST_REGEX_LIBRARY boost_regex_static)
+    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
+                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
+                             ${BOOST_STATIC_REGEX_LIBRARY})
+    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
+                                "--with-libraries=filesystem,regex,system")
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+      set(BOOST_BUILD_VARIANT "debug")
+    else()
+      set(BOOST_BUILD_VARIANT "release")
+    endif()
+    set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
+                            "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
+
+    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+
+    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
+  endif()
+  externalproject_add(boost_ep
+                      URL ${BOOST_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
+                      BUILD_IN_SOURCE 1
+                      CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
+                      BUILD_COMMAND ${BOOST_BUILD_COMMAND}
+                      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
+  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
+  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+  add_dependencies(toolchain boost_ep)
+endmacro()
+
+if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
+  set(ARROW_BOOST_REQUIRED_VERSION "1.64")
+else()
+  set(ARROW_BOOST_REQUIRED_VERSION "1.58")
+endif()
+
 set(Boost_USE_MULTITHREADED ON)
 if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
@@ -507,114 +579,30 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
-if(ARROW_BOOST_VENDORED)
-  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
-
-  # This is needed by the thrift_ep build
-  set(BOOST_ROOT ${BOOST_PREFIX})
-
-  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-  set(BOOST_BUILD_LINK "static")
-  set(
-    BOOST_STATIC_SYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_FILESYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(
-    BOOST_STATIC_REGEX_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(BOOST_SYSTEM_LIBRARY boost_system_static)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-  set(BOOST_REGEX_LIBRARY boost_regex_static)
-
-  if(ARROW_BOOST_HEADER_ONLY)
-    set(BOOST_BUILD_PRODUCTS)
-    set(BOOST_CONFIGURE_COMMAND "")
-    set(BOOST_BUILD_COMMAND "")
-  else()
-    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
-                             ${BOOST_STATIC_REGEX_LIBRARY})
-    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
-                                "--with-libraries=filesystem,regex,system")
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_BUILD_VARIANT "debug")
-    else()
-      set(BOOST_BUILD_VARIANT "release")
-    endif()
-    set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
-                            "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
-
-    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
-
-    set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+if(BOOST_SOURCE STREQUAL "AUTO")
+  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION})
+  if(NOT BoostAlt_FOUND)
+    build_boost()
   endif()
-  externalproject_add(boost_ep
-                      URL ${BOOST_SOURCE_URL}
-                      BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
-                      BUILD_IN_SOURCE 1
-                      CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
-                      BUILD_COMMAND ${BOOST_BUILD_COMMAND}
-                      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
-  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
-  set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
-  add_dependencies(toolchain boost_ep)
+elseif(BOOST_SOURCE STREQUAL "BUNDLED")
+  build_boost()
+elseif(BOOST_SOURCE STREQUAL "SYSTEM")
+  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
+endif()
+
+if(ARROW_BOOST_HEADER_ONLY)
+  set(ARROW_BOOST_LIBS)
 else()
-  if(MSVC)
-    # disable autolinking in boost
-    add_definitions(-DBOOST_ALL_NO_LIB)
-  endif()
-
-  if(DEFINED ENV{BOOST_ROOT} OR DEFINED BOOST_ROOT)
-    # In older versions of CMake (such as 3.2), the system paths for Boost will
-    # be looked in first even if we set $BOOST_ROOT or pass -DBOOST_ROOT
-    set(Boost_NO_SYSTEM_PATHS ON)
-  endif()
-
-  if(ARROW_BOOST_USE_SHARED)
-    # Find shared Boost libraries.
-    set(Boost_USE_STATIC_LIBS OFF)
-    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS ON)
-
-    if(MSVC)
-      # force all boost libraries to dynamic link
-      add_definitions(-DBOOST_ALL_DYN_LINK)
-    endif()
-
-    if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost REQUIRED)
-    else()
-      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
-      set(BOOST_SYSTEM_LIBRARY Boost::system)
-      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-      set(BOOST_REGEX_LIBRARY Boost::regex)
-      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-    endif()
-    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
-    unset(BUILD_SHARED_LIBS_KEEP)
+  if(TARGET Boost::system)
+    set(BOOST_SYSTEM_LIBRARY Boost::system)
+    set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+    set(BOOST_REGEX_LIBRARY Boost::regex)
   else()
-    # Find static boost headers and libs
-    # TODO Differentiate here between release and debug builds
-    set(Boost_USE_STATIC_LIBS ON)
-    if(ARROW_BOOST_HEADER_ONLY)
-      find_package(Boost REQUIRED)
-    else()
-      find_package(Boost COMPONENTS regex system filesystem REQUIRED)
-      set(BOOST_SYSTEM_LIBRARY Boost::system)
-      set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-      set(BOOST_REGEX_LIBRARY Boost::regex)
-      set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
-    endif()
+    set(BOOST_SYSTEM_LIBRARY boost_system_static)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+    set(BOOST_REGEX_LIBRARY boost_regex_static)
   endif()
+  set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
 endif()
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
@@ -913,6 +901,14 @@ if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
+if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
+  execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
+                  OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(OPENSSL_BREW_PREFIX)
+    set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+  endif()
+endif()
 if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT)
   # This must work
   find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
@@ -1186,7 +1182,6 @@ macro(build_thrift)
       # In the case where we cannot find a system-wide installation, look for
       # homebrew and ask for its bison installation.
       if(NOT BISON_FOUND)
-        find_program(BREW_BIN brew)
         if(BREW_BIN)
           execute_process(COMMAND ${BREW_BIN} --prefix bison
                           OUTPUT_VARIABLE BISON_PREFIX
@@ -1367,7 +1362,7 @@ if(ARROW_JEMALLOC)
     jemalloc_ep
     URL ${JEMALLOC_SOURCE_URL}
     PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-    CONFIGURE_COMMAND ./autogen.sh
+    CONFIGURE_COMMAND ./configure
                       "AR=${CMAKE_AR}"
                       "CC=${CMAKE_C_COMPILER}"
                       "--prefix=${JEMALLOC_PREFIX}"
@@ -2281,93 +2276,91 @@ include_directories(SYSTEM "${HADOOP_HOME}/include")
 # ----------------------------------------------------------------------
 # Apache ORC
 
-if(ARROW_ORC)
-  # orc
-  if("${ORC_HOME}" STREQUAL "")
-    set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
-    set(ORC_HOME "${ORC_PREFIX}")
-    set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
-    set(
-      ORC_STATIC_LIB
+macro(build_orc)
+  message("Building Apache ORC from source")
+  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+  set(ORC_HOME "${ORC_PREFIX}")
+  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+  set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-    if("${COMPILER_FAMILY}" STREQUAL "clang")
-      if("${COMPILER_VERSION}" VERSION_EQUAL "4.0")
-        # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
-        # disabling the following errors
-        set(ORC_CMAKE_CXX_FLAGS " -Wno-error=weak-vtables -Wno-error=undef ")
-      endif()
-      if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
-        set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
-  -Wno-inconsistent-missing-destructor-override ")
-      endif()
+  if("${COMPILER_FAMILY}" STREQUAL "clang")
+    if("${COMPILER_VERSION}" VERSION_EQUAL "4.0")
+      # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
+      # disabling the following errors
+      set(ORC_CMAKE_CXX_FLAGS " -Wno-error=weak-vtables -Wno-error=undef ")
     endif()
-
-    set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
-
-    get_target_property(ORC_PROTOBUF_INCLUDE_DIR protobuf::libprotobuf
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-    get_target_property(ORC_PROTOBUF_LIBRARY protobuf::libprotobuf IMPORTED_LOCATION)
-
-    get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
-
-    get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
-
-    # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
-    # the protoc library.
-    set(ORC_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
-        -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
-        -DBUILD_LIBHDFSPP=OFF
-        -DBUILD_JAVA=OFF
-        -DBUILD_TOOLS=OFF
-        -DBUILD_CPP_TESTS=OFF
-        -DINSTALL_VENDORED_LIBS=OFF
-        "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
-        "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
-        "-DPROTOBUF_HOME=${ORC_PB_ROOT}"
-        "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
-        "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-        "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
-        "-DLZ4_HOME=${LZ4_HOME}")
-    if(ZLIB_ROOT)
-      set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
+    if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
+      set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
+-Wno-inconsistent-missing-destructor-override ")
     endif()
-
-    externalproject_add(orc_ep
-                        URL ${ORC_SOURCE_URL}
-                        BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-                        CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
-
-    add_dependencies(toolchain orc_ep)
-
-    set(ORC_VENDORED 1)
-    add_dependencies(orc_ep ZLIB::ZLIB)
-    add_dependencies(orc_ep LZ4::lz4)
-    add_dependencies(orc_ep Snappy::snappy)
-    add_dependencies(orc_ep protobuf::libprotobuf)
-  else()
-    set(ORC_INCLUDE_DIR "${ORC_HOME}/include")
-    set(ORC_STATIC_LIB
-        "${ORC_HOME}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    set(ORC_VENDORED 0)
   endif()
 
+  set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
+
+  get_target_property(ORC_PROTOBUF_INCLUDE_DIR protobuf::libprotobuf
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+  get_target_property(ORC_PROTOBUF_LIBRARY protobuf::libprotobuf IMPORTED_LOCATION)
+
+  get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
+
+  get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
+
+  # Weirdly passing in PROTOBUF_LIBRARY for PROTOC_LIBRARY still results in ORC finding
+  # the protoc library.
+  set(ORC_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
+      -DCMAKE_CXX_FLAGS=${ORC_CMAKE_CXX_FLAGS}
+      -DBUILD_LIBHDFSPP=OFF
+      -DBUILD_JAVA=OFF
+      -DBUILD_TOOLS=OFF
+      -DBUILD_CPP_TESTS=OFF
+      -DINSTALL_VENDORED_LIBS=OFF
+      "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
+      "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
+      "-DPROTOBUF_HOME=${ORC_PB_ROOT}"
+      "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
+      "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
+      "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
+      "-DLZ4_HOME=${LZ4_HOME}")
+  if(ZLIB_ROOT)
+    set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
+  endif()
+
+  # Work around CMake bug
+  file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
+
+  externalproject_add(orc_ep
+                      URL ${ORC_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+
+  add_dependencies(toolchain orc_ep)
+
+  set(ORC_VENDORED 1)
+  add_dependencies(orc_ep ZLIB::ZLIB)
+  add_dependencies(orc_ep LZ4::lz4)
+  add_dependencies(orc_ep Snappy::snappy)
+  add_dependencies(orc_ep protobuf::libprotobuf)
+
+  add_library(orc::liborc STATIC IMPORTED)
+  set_target_properties(orc::liborc
+                        PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+
+  add_dependencies(toolchain orc_ep)
+  add_dependencies(orc::liborc orc_ep)
+endmacro()
+
+if(ARROW_ORC)
+  resolve_dependency(ORC)
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
-  add_thirdparty_lib(orc
-                     STATIC_LIB
-                     ${ORC_STATIC_LIB}
-                     DEPS
-                     protobuf::libprotobuf)
-
-  if(ORC_VENDORED)
-    add_dependencies(orc_static orc_ep)
-  endif()
+  message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
+  message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
 
 # Write out the package configurations.

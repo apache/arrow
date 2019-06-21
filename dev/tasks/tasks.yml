@@ -66,6 +66,7 @@ tasks:
   ############################## Conda Linux ##################################
 
   conda-linux-gcc-py27:
+    ci: travis
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
@@ -75,6 +76,7 @@ tasks:
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-gcc-py36:
+    ci: travis
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
@@ -84,6 +86,7 @@ tasks:
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-gcc-py37:
+    ci: travis
     platform: linux
     template: conda-recipes/travis.linux.yml
     params:
@@ -95,6 +98,7 @@ tasks:
   ############################## Conda OSX ####################################
 
   conda-osx-clang-py27:
+    ci: travis
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
@@ -104,6 +108,7 @@ tasks:
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-clang-py36:
+    ci: travis
     platform: osx
     template: conda-recipes/travis.osx.yml
     params:
@@ -124,6 +129,7 @@ tasks:
   ############################## Conda Windows ################################
 
   conda-win-vs2015-py36:
+    ci: appveyor
     platform: win
     template: conda-recipes/appveyor.yml
     params:
@@ -133,6 +139,7 @@ tasks:
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-win-vs2015-py37:
+    ci: appveyor
     platform: win
     template: conda-recipes/appveyor.yml
     params:
@@ -144,6 +151,7 @@ tasks:
   ############################## Wheel Linux ##################################
 
   wheel-linux-cp27m:
+    ci: travis
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
@@ -154,6 +162,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
 
   wheel-linux-cp27mu:
+    ci: travis
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
@@ -165,6 +174,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux1_x86_64.whl
 
   wheel-linux-cp35m:
+    ci: travis
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
@@ -176,6 +186,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux1_x86_64.whl
 
   wheel-linux-cp36m:
+    ci: travis
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
@@ -187,6 +198,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
 
   wheel-linux-cp37m:
+    ci: travis
     platform: linux
     template: python-wheels/travis.linux.yml
     params:
@@ -200,6 +212,7 @@ tasks:
   ############################## Wheel OSX ####################################
 
   wheel-osx-cp27m:
+    ci: travis
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
@@ -208,6 +221,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27m-macosx_10_6_intel.whl
 
   wheel-osx-cp35m:
+    ci: travis
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
@@ -216,6 +230,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp35-cp35m-macosx_10_6_intel.whl
 
   wheel-osx-cp36m:
+    ci: travis
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
@@ -224,6 +239,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_6_intel.whl
 
   wheel-osx-cp37m:
+    ci: travis
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
@@ -234,6 +250,7 @@ tasks:
   ############################## Wheel Windows ################################
 
   wheel-win-cp35m:
+    ci: appveyor
     platform: win
     template: python-wheels/appveyor.yml
     params:
@@ -242,6 +259,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp35-cp35m-win_amd64.whl
 
   wheel-win-cp36m:
+    ci: appveyor
     platform: win
     template: python-wheels/appveyor.yml
     params:
@@ -250,6 +268,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-win_amd64.whl
 
   wheel-win-cp37m:
+    ci: appveyor
     platform: win
     template: python-wheels/appveyor.yml
     params:
@@ -260,6 +279,7 @@ tasks:
   ############################## Linux PKGS ####################################
 
   debian-stretch:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -323,6 +343,7 @@ tasks:
 
   # Don't use this for now. We can't complete this task in 50min on Travis CI.
   debian-stretch-arm64:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
@@ -360,6 +381,7 @@ tasks:
       - libparquet14_{no_rc_version}-1_amd64.deb
 
   ubuntu-xenial:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -408,6 +430,7 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-bionic:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -459,6 +482,7 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-cosmic:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -510,6 +534,7 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   centos-6:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -527,6 +552,7 @@ tasks:
       - plasma-libs-{no_rc_version}-1.el6.x86_64.rpm
 
   centos-7:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -557,12 +583,14 @@ tasks:
   ############################## Gandiva Tasks ################################
 
   gandiva-jar-trusty:
+    ci: travis
     platform: linux
     template: gandiva-jars/travis.linux.yml
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
 
   gandiva-jar-osx:
+    ci: travis
     platform: osx
     template: gandiva-jars/travis.osx.yml
     artifacts:

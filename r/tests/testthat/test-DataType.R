@@ -297,6 +297,8 @@ test_that("list type works as expected", {
     x$children(),
     list(field("item", int32()))
   )
+  expect_equal(x$value_type, int32())
+  expect_equal(x$value_field, field("item", int32()))
 })
 
 test_that("struct type works as expected", {

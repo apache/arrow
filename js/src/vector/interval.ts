@@ -18,6 +18,9 @@
 import { BaseVector } from './base';
 import { Interval, IntervalDayTime, IntervalYearMonth } from '../type';
 
+/** @ignore */
 export class IntervalVector<T extends Interval = Interval> extends BaseVector<T> {}
+/** @ignore */
 export class IntervalDayTimeVector extends IntervalVector<IntervalDayTime> {}
+/** @ignore */
 export class IntervalYearMonthVector extends IntervalVector<IntervalYearMonth> {}

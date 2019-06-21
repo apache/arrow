@@ -25,3 +25,13 @@ test_that("reading a known Parquet file to tibble", {
   expect_identical(dim(df), c(10L, 11L))
   # TODO: assert more about the contents
 })
+
+test_that("simple int column roundtrip", {
+  df <- tibble::tibble(x = 1:5)
+  pq_tmp_file <- tempfile() # You can specify the .parquet here but that's probably not necessary
+  on.exit(unlink(pq_tmp_file))
+
+  write_parquet(df, pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file)
+  expect_identical(df, df_read)
+})
