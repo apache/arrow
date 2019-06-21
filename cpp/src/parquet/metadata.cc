@@ -199,7 +199,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
           uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
           DeserializeThriftMsg(
               reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
-              &len, &decrypted_metadata_, decryptor, false);
+              &len, &decrypted_metadata_, decryptor);
           is_metadata_set_ = true;
         }
       } else {
@@ -479,7 +479,7 @@ class FileMetaData::FileMetaDataImpl {
       : metadata_len_(0) {
     metadata_.reset(new format::FileMetaData);
     DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(metadata), metadata_len,
-                         metadata_.get(), decryptor, false);
+                         metadata_.get(), decryptor);
     metadata_len_ = *metadata_len;
 
     if (metadata_->__isset.created_by) {
@@ -564,7 +564,7 @@ class FileMetaData::FileMetaDataImpl {
                      encryption::kGcmTagLength));
     } else {  // either plaintext file (when encryptor is null)
       // or encrypted file with encrypted footer
-      serializer.Serialize(metadata_.get(), dst, encryptor, false);
+      serializer.Serialize(metadata_.get(), dst, encryptor);
     }
   }
 

@@ -56,7 +56,7 @@ class Decryptor {
             const std::string& file_aad, const std::string& aad);
 
   const std::string& file_aad() const { return file_aad_; }
-  void update_aad(const std::string& aad) { aad_ = aad; }
+  void UpdateAad(const std::string& aad) { aad_ = aad; }
 
   int CiphertextSizeDelta();
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* plaintext);
@@ -85,7 +85,7 @@ class InternalFileDecryptor {
 
   FileDecryptionProperties* properties() { return properties_; }
 
-  void wipeout_decryption_keys();
+  void WipeOutDecryptionKeys();
 
   std::shared_ptr<Decryptor> GetFooterDecryptor();
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnMeta(const std::string& aad = "");
@@ -101,13 +101,11 @@ class InternalFileDecryptor {
   FileDecryptionProperties* properties_;
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
-  std::shared_ptr<
-      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
-               parquet::schema::ColumnPath::CmpColumnPath>>
+  std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
+           parquet::schema::ColumnPath::CmpColumnPath>
       column_data_map_;
-  std::shared_ptr<
-      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
-               parquet::schema::ColumnPath::CmpColumnPath>>
+  std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
+           parquet::schema::ColumnPath::CmpColumnPath>
       column_metadata_map_;
 
   std::shared_ptr<Decryptor> footer_metadata_decryptor_;
@@ -115,14 +113,12 @@ class InternalFileDecryptor {
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
   std::shared_ptr<FooterSigningEncryptor> footer_signing_encryptor_;
-  std::shared_ptr<std::vector<encryption::AesDecryptor*>> all_decryptors_;
+  std::vector<encryption::AesDecryptor*> all_decryptors_;
 
-  std::unique_ptr<encryption::AesDecryptor> meta_decryptor_128_;
-  std::unique_ptr<encryption::AesDecryptor> meta_decryptor_196_;
-  std::unique_ptr<encryption::AesDecryptor> meta_decryptor_256_;
-  std::unique_ptr<encryption::AesDecryptor> data_decryptor_128_;
-  std::unique_ptr<encryption::AesDecryptor> data_decryptor_196_;
-  std::unique_ptr<encryption::AesDecryptor> data_decryptor_256_;
+  /// Key must be 16, 24 or 32 bytes in length. Thus there could be up to three
+  // types of meta_decryptors and data_decryptors.
+  std::unique_ptr<encryption::AesDecryptor> meta_decryptor_[3];
+  std::unique_ptr<encryption::AesDecryptor> data_decryptor_[3];
 
   std::shared_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
   std::shared_ptr<Decryptor> GetColumnDecryptor(
@@ -132,6 +128,8 @@ class InternalFileDecryptor {
 
   encryption::AesDecryptor* GetMetaAesDecryptor(size_t key_size);
   encryption::AesDecryptor* GetDataAesDecryptor(size_t key_size);
+
+  int MapKeyLenToDecryptorArrayIndex(int key_len);
 };
 
 }  // namespace parquet

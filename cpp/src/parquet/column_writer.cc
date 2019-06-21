@@ -157,16 +157,8 @@ class SerializedPageWriter : public PageWriter {
         column_ordinal_(column_chunk_ordinal),
         meta_encryptor_(meta_encryptor),
         data_encryptor_(data_encryptor) {
-    if (data_encryptor_ != NULLPTR) {
-      // prepare the add for quick update later
-      data_pageAAD_ =
-          encryption::CreateModuleAad(data_encryptor_->file_aad(), encryption::kDataPage,
-                                      row_group_ordinal_, column_ordinal_, (int16_t)-1);
-    }
-    if (meta_encryptor_ != NULLPTR) {
-      data_page_headerAAD_ = encryption::CreateModuleAad(
-          meta_encryptor_->file_aad(), encryption::kDataPageHeader, row_group_ordinal_,
-          column_ordinal_, (int16_t)-1);
+    if (data_encryptor_ != NULLPTR || meta_encryptor_ != NULLPTR) {
+      InitEncryption();
     }
     compressor_ = GetCodecFromArrow(codec);
     thrift_serializer_.reset(new ThriftSerializer);
@@ -194,9 +186,7 @@ class SerializedPageWriter : public PageWriter {
 
     std::shared_ptr<Buffer> encrypted_data_buffer = nullptr;
     if (data_encryptor_.get()) {
-      data_encryptor_->update_aad(encryption::CreateModuleAad(
-          data_encryptor_->file_aad(), encryption::kDictionaryPage, row_group_ordinal_,
-          column_ordinal_, (int16_t)-1));
+      UpdateEncryption(encryption::kDictionaryPage);
       encrypted_data_buffer = std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
           pool_, data_encryptor_->CiphertextSizeDelta() + output_data_len));
       output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
@@ -218,9 +208,7 @@ class SerializedPageWriter : public PageWriter {
     }
 
     if (meta_encryptor_) {
-      meta_encryptor_->update_aad(encryption::CreateModuleAad(
-          meta_encryptor_->file_aad(), encryption::kDictionaryPageHeader,
-          row_group_ordinal_, column_ordinal_, (int16_t)-1));
+      UpdateEncryption(encryption::kDictionaryPageHeader);
     }
     int64_t header_size =
         thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
@@ -236,10 +224,9 @@ class SerializedPageWriter : public PageWriter {
 
   void Close(bool has_dictionary, bool fallback) override {
     if (meta_encryptor_ != nullptr) {
-      meta_encryptor_->update_aad(encryption::CreateModuleAad(
-          meta_encryptor_->file_aad(), encryption::kColumnMetaData, row_group_ordinal_,
-          column_ordinal_, (int16_t)-1));
+      UpdateEncryption(encryption::kColumnMetaData);
     }
+
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
@@ -286,8 +273,7 @@ class SerializedPageWriter : public PageWriter {
 
     std::shared_ptr<ResizableBuffer> encrypted_data_buffer = AllocateBuffer(pool_, 0);
     if (data_encryptor_.get()) {
-      encryption::QuickUpdatePageAad(data_pageAAD_, page_ordinal_);
-      data_encryptor_->update_aad(data_pageAAD_);
+      UpdateEncryption(encryption::kDataPage);
       PARQUET_THROW_NOT_OK(encrypted_data_buffer->Resize(
           data_encryptor_->CiphertextSizeDelta() + output_data_len));
       output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
@@ -309,8 +295,7 @@ class SerializedPageWriter : public PageWriter {
     }
 
     if (meta_encryptor_) {
-      encryption::QuickUpdatePageAad(data_page_headerAAD_, page_ordinal_);
-      meta_encryptor_->update_aad(data_page_headerAAD_);
+      UpdateEncryption(encryption::kDataPageHeader);
     }
     int64_t header_size =
         thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
@@ -339,6 +324,55 @@ class SerializedPageWriter : public PageWriter {
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
  private:
+  void InitEncryption() {
+    // Prepare the AAD for quick update later.
+    if (data_encryptor_ != NULLPTR) {
+      data_pageAAD_ = encryption::CreateModuleAad(
+          data_encryptor_->file_aad(), encryption::kDataPage, row_group_ordinal_,
+          column_ordinal_, static_cast<int16_t>(-1));
+    }
+    if (meta_encryptor_ != NULLPTR) {
+      data_page_headerAAD_ = encryption::CreateModuleAad(
+          meta_encryptor_->file_aad(), encryption::kDataPageHeader, row_group_ordinal_,
+          column_ordinal_, static_cast<int16_t>(-1));
+    }
+  }
+
+  void UpdateEncryption(int8_t module_type) {
+    switch (module_type) {
+      case encryption::kColumnMetaData: {
+        meta_encryptor_->UpdateAad(encryption::CreateModuleAad(
+            meta_encryptor_->file_aad(), module_type, row_group_ordinal_, column_ordinal_,
+            static_cast<int16_t>(-1)));
+        break;
+      }
+      case encryption::kDataPage: {
+        encryption::QuickUpdatePageAad(data_pageAAD_, page_ordinal_);
+        data_encryptor_->UpdateAad(data_pageAAD_);
+        break;
+      }
+      case encryption::kDataPageHeader: {
+        encryption::QuickUpdatePageAad(data_page_headerAAD_, page_ordinal_);
+        meta_encryptor_->UpdateAad(data_page_headerAAD_);
+        break;
+      }
+      case encryption::kDictionaryPageHeader: {
+        meta_encryptor_->UpdateAad(encryption::CreateModuleAad(
+            meta_encryptor_->file_aad(), module_type, row_group_ordinal_, column_ordinal_,
+            static_cast<int16_t>(-1)));
+        break;
+      }
+      case encryption::kDictionaryPage: {
+        data_encryptor_->UpdateAad(encryption::CreateModuleAad(
+            data_encryptor_->file_aad(), module_type, row_group_ordinal_, column_ordinal_,
+            static_cast<int16_t>(-1)));
+        break;
+      }
+      default:
+        throw ParquetException("Unknown module type in UpdateEncryption");
+    }
+  }
+
   std::shared_ptr<ArrowOutputStream> sink_;
   ColumnChunkMetaDataBuilder* metadata_;
   MemoryPool* pool_;

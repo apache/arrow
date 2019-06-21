@@ -40,12 +40,12 @@ class Encryptor {
   Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
             const std::string& file_aad, const std::string& aad);
   const std::string& file_aad() { return file_aad_; }
-  void update_aad(const std::string& aad) { aad_ = aad; }
+  void UpdateAad(const std::string& aad) { aad_ = aad; }
 
   int CiphertextSizeDelta();
   int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* ciphertext);
 
-  bool encryptColumnMetaData(
+  bool EncryptColumnMetaData(
       bool encrypted_footer,
       const std::shared_ptr<ColumnEncryptionProperties>& column_encryption_properties) {
     // if column is not encrypted then do not encrypt the column metadata
@@ -74,31 +74,27 @@ class InternalFileEncryptor {
       const std::shared_ptr<schema::ColumnPath>& column_path);
   std::shared_ptr<Encryptor> GetColumnDataEncryptor(
       const std::shared_ptr<schema::ColumnPath>& column_path);
-  void wipeout_encryption_keys();
+  void WipeOutEncryptionKeys();
 
  private:
   FileEncryptionProperties* properties_;
 
-  std::shared_ptr<
-      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
-               parquet::schema::ColumnPath::CmpColumnPath>>
+  std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
+           parquet::schema::ColumnPath::CmpColumnPath>
       column_data_map_;
-  std::shared_ptr<
-      std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
-               parquet::schema::ColumnPath::CmpColumnPath>>
+  std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
+           parquet::schema::ColumnPath::CmpColumnPath>
       column_metadata_map_;
 
   std::shared_ptr<Encryptor> footer_signing_encryptor_;
   std::shared_ptr<Encryptor> footer_encryptor_;
 
-  std::shared_ptr<std::vector<encryption::AesEncryptor*>> all_encryptors_;
+  std::vector<encryption::AesEncryptor*> all_encryptors_;
 
-  std::unique_ptr<encryption::AesEncryptor> meta_encryptor_128_;
-  std::unique_ptr<encryption::AesEncryptor> meta_encryptor_196_;
-  std::unique_ptr<encryption::AesEncryptor> meta_encryptor_256_;
-  std::unique_ptr<encryption::AesEncryptor> data_encryptor_128_;
-  std::unique_ptr<encryption::AesEncryptor> data_encryptor_196_;
-  std::unique_ptr<encryption::AesEncryptor> data_encryptor_256_;
+  // Key must be 16, 24 or 32 bytes in length. Thus there could be up to three
+  // types of meta_encryptors and data_encryptors.
+  std::unique_ptr<encryption::AesEncryptor> meta_encryptor_[3];
+  std::unique_ptr<encryption::AesEncryptor> data_encryptor_[3];
 
   std::shared_ptr<Encryptor> GetColumnEncryptor(
       const std::shared_ptr<schema::ColumnPath>& column_path, bool metadata);
@@ -107,6 +103,8 @@ class InternalFileEncryptor {
                                                 size_t key_len);
   encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
                                                 size_t key_len);
+
+  int MapKeyLenToEncryptorArrayIndex(int key_len);
 };
 
 }  // namespace parquet

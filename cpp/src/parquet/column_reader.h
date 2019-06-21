@@ -73,6 +73,14 @@ class PARQUET_EXPORT LevelDecoder {
   std::unique_ptr<::arrow::BitUtil::BitReader> bit_packed_decoder_;
 };
 
+struct PageReaderContext {
+  bool column_has_dictionary;
+  int16_t row_group_ordinal;
+  int16_t column_ordinal;
+  std::shared_ptr<Decryptor> meta_decryptor;
+  std::shared_ptr<Decryptor> data_decryptor;
+};
+
 // Abstract page iterator interface. This way, we can feed column pages to the
 // ColumnReader through whatever mechanism we choose
 class PARQUET_EXPORT PageReader {
@@ -82,9 +90,7 @@ class PARQUET_EXPORT PageReader {
   static std::unique_ptr<PageReader> Open(
       const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
       Compression::type codec, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      bool column_has_dictionary = false, int16_t row_group_ordinal = -1,
-      int16_t column_ordinal = -1, std::shared_ptr<Decryptor> meta_decryptor = NULLPTR,
-      std::shared_ptr<Decryptor> data_decryptor = NULLPTR);
+      struct PageReaderContext* ctx = NULLPTR);
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise

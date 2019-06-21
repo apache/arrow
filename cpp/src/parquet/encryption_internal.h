@@ -47,7 +47,7 @@ constexpr int8_t kOffsetIndex = 7;
 class AesEncryptor {
  public:
   static AesEncryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                            std::shared_ptr<std::vector<AesEncryptor*>> all_encryptors);
+                            std::vector<AesEncryptor*> *all_encryptors);
 
   ~AesEncryptor();
 
@@ -78,7 +78,7 @@ class AesEncryptor {
 class AesDecryptor {
  public:
   static AesDecryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                            std::shared_ptr<std::vector<AesDecryptor*>> all_decryptors);
+                            std::vector<AesDecryptor*> *all_decryptors);
 
   ~AesDecryptor();
   void WipeOut();
