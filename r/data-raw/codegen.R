@@ -43,6 +43,10 @@ suppressPackageStartupMessages({
   library(glue)
 })
 
+if (packageVersion("decor") < '0.0.0.9001') {
+  stop("more recent version of `decor` needed, please install with `pak::pkg_install('romainfrancois/decor')`")
+}
+
 decorations <- cpp_decorations() %>%
   filter(decoration == "arrow::export") %>%
   # the three lines below can be expressed with rap()

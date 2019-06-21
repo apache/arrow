@@ -2,7 +2,7 @@
 % Please edit documentation in R/parquet.R
 \name{parquet_file_reader}
 \alias{parquet_file_reader}
-\title{Create a ParquetFileReader instance}
+\title{Create a FileReader instance}
 \usage{
 parquet_file_reader(file, props = parquet_arrow_reader_properties(), ...)
 }
@@ -14,5 +14,5 @@ parquet_file_reader(file, props = parquet_arrow_reader_properties(), ...)
 \item{...}{additional parameters}
 }
 \description{
-Create a ParquetFileReader instance
+Create a FileReader instance
 }

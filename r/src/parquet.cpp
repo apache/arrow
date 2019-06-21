@@ -59,19 +59,28 @@ void parquet___arrow___ArrowReaderProperties__set_read_dictionary(
 
 // [[arrow::export]]
 std::unique_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(
-    const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
+    const std::shared_ptr<arrow::io::RandomAccessFile>& file,
+    const std::shared_ptr<parquet::arrow::ArrowReaderProperties>& props) {
   std::unique_ptr<parquet::arrow::FileReader> reader;
   PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(file, arrow::default_memory_pool(), &reader));
+      parquet::arrow::OpenFile(file, arrow::default_memory_pool(), *props, &reader));
   return reader;
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable(
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable1(
     const std::unique_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
+  return table;
+}
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
+    const std::unique_ptr<parquet::arrow::FileReader>& reader,
+    const std::vector<int>& column_indices) {
+  std::shared_ptr<arrow::Table> table;
+  PARQUET_THROW_NOT_OK(reader->ReadTable(column_indices, &table));
   return table;
 }
 
@@ -84,12 +93,26 @@ void write_parquet_file(const std::shared_ptr<arrow::Table>& table,
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema(
+std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema2(
     const std::unique_ptr<parquet::arrow::FileReader>& reader,
     const std::vector<int>& indices) {
   std::shared_ptr<arrow::Schema> schema;
   STOP_IF_NOT_OK(reader->GetSchema(indices, &schema));
   return schema;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema1(
+    const std::unique_ptr<parquet::arrow::FileReader>& reader) {
+  // FileReader does not have this exposed
+  // std::shared_ptr<arrow::Schema> schema;
+  // STOP_IF_NOT_OK(reader->GetSchema(&schema));
+
+  // so going indirectly about it
+  std::shared_ptr<arrow::RecordBatchReader> record_batch_reader;
+  STOP_IF_NOT_OK(reader->GetRecordBatchReader({}, &record_batch_reader));
+
+  return record_batch_reader->schema();
 }
 
 #endif

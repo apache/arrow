@@ -5,7 +5,7 @@
 \title{Read Parquet file from disk}
 \usage{
 read_parquet(file, props = parquet_arrow_reader_properties(),
-  as_tibble = TRUE, ...)
+  as_tibble = TRUE, col_select = NULL, ...)
 }
 \arguments{
 \item{file}{file}
@@ -14,6 +14,8 @@ read_parquet(file, props = parquet_arrow_reader_properties(),
 
 \item{as_tibble}{Should the \link[=arrow__Table]{arrow::Table} be converted to a
 tibble? Default is \code{TRUE}.}
+
+\item{col_select}{\link[tidyselect:vars_select]{tidy selection} of columns to read}
 
 \item{...}{additional parameters}
 }
