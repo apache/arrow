@@ -20,8 +20,8 @@
 #include <algorithm>
 #include <climits>
 #include <cstring>
+#include <deque>
 #include <future>
-#include <list>
 #include <numeric>
 #include <type_traits>
 #include <utility>
@@ -156,7 +156,7 @@ class FileColumnIterator {
   int column_index_;
   ParquetFileReader* reader_;
   const SchemaDescriptor* schema_;
-  std::list<int> row_groups_;
+  std::deque<int> row_groups_;
 };
 
 class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
