@@ -23,7 +23,7 @@ ENV CC=gcc \
 
 # r-base includes tzdata. Get around interactive stop in that package
 ENV DEBIAN_FRONTEND=noninteractive
-# workaround for install_github Github API rate limit
+# workaround for install_github GitHub API rate limit
 ENV CI=true
 
 # Build R
