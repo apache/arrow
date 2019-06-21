@@ -74,7 +74,7 @@ tasks:
   conda-linux-gcc-py27:
     ci: azure
     platform: linux
-    template: conda-recipes/azure-pipelines.yml
+    template: conda-recipes/azure.linux.yml
     params:
       config: linux_python2.7
     artifacts:
@@ -84,7 +84,7 @@ tasks:
   conda-linux-gcc-py36:
     ci: azure
     platform: linux
-    template: conda-recipes/azure-pipelines.yml
+    template: conda-recipes/azure.linux.yml
     params:
       config: linux_python3.6
     artifacts:
@@ -94,7 +94,7 @@ tasks:
   conda-linux-gcc-py37:
     ci: azure
     platform: linux
-    template: conda-recipes/azure-pipelines.yml
+    template: conda-recipes/azure.linux.yml
     params:
       config: linux_python3.7
     artifacts:
@@ -106,7 +106,7 @@ tasks:
   conda-osx-clang-py27:
     ci: azure
     platform: osx
-    template: conda-recipes/azure-pipelines.yml
+    template: conda-recipes/azure.osx.yml
     params:
       config: osx_python2.7
     artifacts:
@@ -116,7 +116,7 @@ tasks:
   conda-osx-clang-py36:
     ci: azure
     platform: osx
-    template: conda-recipes/azure-pipelines.yml
+    template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.6
     artifacts:
@@ -126,7 +126,7 @@ tasks:
   conda-osx-clang-py37:
     ci: azure
     platform: osx
-    template: conda-recipes/azure-pipelines.yml
+    template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.7
     artifacts:
@@ -138,7 +138,7 @@ tasks:
   conda-win-vs2015-py36:
     ci: azure
     platform: win
-    template: conda-recipes/azure-pipelines.yml
+    template: conda-recipes/azure.win.yml
     params:
       config: win_c_compilervs2015cxx_compilervs2015python3.6
     artifacts:
@@ -148,7 +148,7 @@ tasks:
   conda-win-vs2015-py37:
     ci: azure
     platform: win
-    template: conda-recipes/azure-pipelines.yml
+    template: conda-recipes/azure.win.yml
     params:
       config: win_c_compilervs2015cxx_compilervs2015python3.7
     artifacts:
