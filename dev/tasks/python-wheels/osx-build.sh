@@ -113,7 +113,7 @@ function build_wheel {
       export BUILD_ARROW_GANDIVA=OFF
     fi
 
-    git submodule init --update
+    git submodule update --init
     export ARROW_TEST_DATA=`pwd`/testing/data
 
     pushd cpp
