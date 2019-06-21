@@ -695,7 +695,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32_decimal128", i32,
@@ -703,7 +703,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64_decimal128", i64,
@@ -711,7 +711,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32WithSeed_decimal128", i32,
@@ -719,9 +719,9 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                            {"seed", i32},
-                                                           {"seed_validity", i1},
+                                                           {"seed_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64WithSeed_decimal128", i64,
@@ -729,9 +729,9 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                            {"seed", i64},
-                                                           {"seed_validity", i1},
+                                                           {"seed_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32AsDouble_decimal128", i32,
@@ -739,7 +739,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64AsDouble_decimal128", i64,
@@ -747,7 +747,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(
@@ -756,9 +756,9 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                            {"x_value", i128},
                                            {"x_precision", i32},
                                            {"x_scale", i32},
-                                           {"x_validity", i1},
+                                           {"x_isvalid", i1},
                                            {"seed", i32},
-                                           {"seed_validity", i1},
+                                           {"seed_isvalid", i1},
                                        }));
 
   ARROW_RETURN_NOT_OK(
@@ -767,9 +767,9 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                            {"x_value", i128},
                                            {"x_precision", i32},
                                            {"x_scale", i32},
-                                           {"x_validity", i1},
+                                           {"x_isvalid", i1},
                                            {"seed", i64},
-                                           {"seed_validity", i1},
+                                           {"seed_isvalid", i1},
                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("isnull_decimal128", i1,
@@ -777,7 +777,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("isnotnull_decimal128", i1,
@@ -785,7 +785,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("isnumeric_decimal128", i1,
@@ -793,7 +793,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"x_validity", i1},
+                                                           {"x_isvalid", i1},
                                                        }));
 
   ARROW_RETURN_NOT_OK(
@@ -802,11 +802,11 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                            {"x_value", i128},
                                            {"x_precision", i32},
                                            {"x_scale", i32},
-                                           {"x_validity", i1},
+                                           {"x_isvalid", i1},
                                            {"y_value", i128},
                                            {"y_precision", i32},
                                            {"y_scale", i32},
-                                           {"y_validity", i1},
+                                           {"y_isvalid", i1},
                                        }));
 
   ARROW_RETURN_NOT_OK(
@@ -815,11 +815,11 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                            {"x_value", i128},
                                            {"x_precision", i32},
                                            {"x_scale", i32},
-                                           {"x_validity", i1},
+                                           {"x_isvalid", i1},
                                            {"y_value", i128},
                                            {"y_precision", i32},
                                            {"y_scale", i32},
-                                           {"y_validity", i1},
+                                           {"y_isvalid", i1},
                                        }));
 
   return Status::OK();

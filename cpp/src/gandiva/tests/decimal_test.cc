@@ -567,14 +567,14 @@ TEST_F(TestDecimal, TestHashFunctions) {
   // with seed
   auto int32WS_arr = std::dynamic_pointer_cast<arrow::Int32Array>(outputs.at(2));
   EXPECT_EQ(int32WS_arr->null_count(), 0);
-  EXPECT_EQ(int32WS_arr->Value(0), 0);
+  EXPECT_EQ(int32WS_arr->Value(0), 10);
   EXPECT_EQ(int32WS_arr->Value(1), int32WS_arr->Value(2));
   EXPECT_NE(int32WS_arr->Value(2), int32WS_arr->Value(3));
   EXPECT_NE(int32WS_arr->Value(3), int32WS_arr->Value(4));
 
   auto int64WS_arr = std::dynamic_pointer_cast<arrow::Int64Array>(outputs.at(3));
   EXPECT_EQ(int64WS_arr->null_count(), 0);
-  EXPECT_EQ(int64WS_arr->Value(0), 0);
+  EXPECT_EQ(int64WS_arr->Value(0), 10);
   EXPECT_EQ(int64WS_arr->Value(1), int64WS_arr->Value(2));
   EXPECT_NE(int64WS_arr->Value(2), int64WS_arr->Value(3));
   EXPECT_NE(int64WS_arr->Value(3), int64WS_arr->Value(4));
