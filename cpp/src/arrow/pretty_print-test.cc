@@ -659,7 +659,6 @@ four: struct<one: int32, two: dictionary<values=string, indices=int16, ordered=0
 }
 
 TEST_F(TestPrettyPrint, SchemaWithNotNull) {
-
   auto simple = field("one", int32());
   auto non_null = field("two", int32(), false);
   auto list_simple = field("three", list(int32()));
