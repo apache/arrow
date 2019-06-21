@@ -24,5 +24,11 @@ pushd /build/cpp
 export ARROW_TEST_DATA=/arrow/testing/data
 export PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
 
+# ARROW-5653 after install target, RPATH is modified on linux. Add this such
+# that libraries are found with conda.
+if [[ ! -z "${CONDA_PREFIX}" ]]; then
+  export LD_LIBRARY_PATH=${CONDA_PREFIX}/lib
+fi
+
 ninja unittest
 popd
