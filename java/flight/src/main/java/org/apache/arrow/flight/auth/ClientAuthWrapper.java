@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.arrow.flight.auth.ClientAuthHandler.ClientAuthSender;
+import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
@@ -110,8 +111,8 @@ public class ClientAuthWrapper {
       }
 
       @Override
-      public void onError(String message, Throwable cause) {
-        responseObserver.onError(cause);
+      public void onError(Throwable cause) {
+        responseObserver.onError(StatusUtils.toGrpcException(cause));
       }
 
     }

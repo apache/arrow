@@ -24,6 +24,7 @@ import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.auth.AuthConstants;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthWrapper;
+import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.ActionType;
 import org.apache.arrow.flight.impl.Flight.Empty;
@@ -77,7 +78,7 @@ class FlightService extends FlightServiceImplBase {
       producer.listFlights(makeContext((ServerCallStreamObserver<?>) responseObserver), new Criteria(criteria),
           StreamPipe.wrap(responseObserver, FlightInfo::toProtocol));
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 
@@ -91,7 +92,7 @@ class FlightService extends FlightServiceImplBase {
       producer.getStream(makeContext((ServerCallStreamObserver<?>) responseObserver), new Ticket(ticket),
           new GetListener(responseObserver));
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 
@@ -101,7 +102,7 @@ class FlightService extends FlightServiceImplBase {
       producer.doAction(makeContext((ServerCallStreamObserver<?>) responseObserver), new Action(request),
           StreamPipe.wrap(responseObserver, Result::toProtocol));
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 
@@ -111,7 +112,7 @@ class FlightService extends FlightServiceImplBase {
       producer.listActions(makeContext((ServerCallStreamObserver<?>) responseObserver),
           StreamPipe.wrap(responseObserver, t -> t.toProtocol()));
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 
@@ -165,7 +166,7 @@ class FlightService extends FlightServiceImplBase {
 
     @Override
     public void error(Throwable ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
 
     @Override
@@ -192,7 +193,7 @@ class FlightService extends FlightServiceImplBase {
             StreamPipe.wrap(responseObserver, PutResult::toProtocol)).run();
         responseObserver.onCompleted();
       } catch (Exception ex) {
-        responseObserver.onError(ex);
+        responseObserver.onError(StatusUtils.toGrpcException(ex));
         // The client may have terminated, so the exception here is effectively swallowed.
         // Log the error as well so -something- makes it to the developer.
         logger.error("Exception handling DoPut", ex);
@@ -216,7 +217,7 @@ class FlightService extends FlightServiceImplBase {
       responseObserver.onNext(info.toProtocol());
       responseObserver.onCompleted();
     } catch (Exception ex) {
-      responseObserver.onError(ex);
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
     }
   }
 

@@ -30,6 +30,7 @@ import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthInterceptor;
 import org.apache.arrow.flight.auth.ClientAuthWrapper;
+import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.Empty;
 import org.apache.arrow.flight.impl.FlightServiceGrpc;
@@ -49,6 +50,7 @@ import com.google.common.collect.Iterators;
 import io.grpc.ClientCall;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
+import io.grpc.StatusRuntimeException;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.ClientCallStreamObserver;
@@ -96,7 +98,14 @@ public class FlightClient implements AutoCloseable {
    * @return FlightInfo Iterable
    */
   public Iterable<FlightInfo> listFlights(Criteria criteria, CallOption... options) {
-    return ImmutableList.copyOf(CallOptions.wrapStub(blockingStub, options).listFlights(criteria.asCriteria()))
+    final Iterator<Flight.FlightInfo> flights;
+    try {
+      flights = CallOptions.wrapStub(blockingStub, options)
+          .listFlights(criteria.asCriteria());
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
+    return ImmutableList.copyOf(flights)
         .stream()
         .map(t -> {
           try {
@@ -116,8 +125,14 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for the call.
    */
   public Iterable<ActionType> listActions(CallOption... options) {
-    return ImmutableList.copyOf(CallOptions.wrapStub(blockingStub, options)
-        .listActions(Empty.getDefaultInstance()))
+    final Iterator<Flight.ActionType> actions;
+    try {
+      actions = CallOptions.wrapStub(blockingStub, options)
+          .listActions(Empty.getDefaultInstance());
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
+    return ImmutableList.copyOf(actions)
         .stream()
         .map(ActionType::new)
         .collect(Collectors.toList());
@@ -131,6 +146,7 @@ public class FlightClient implements AutoCloseable {
    * @return An iterator of results.
    */
   public Iterator<Result> doAction(Action action, CallOption... options) {
+    // TODO: need to wrap all methods to catch exceptions
     return Iterators
         .transform(CallOptions.wrapStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
   }
@@ -241,7 +257,7 @@ public class FlightClient implements AutoCloseable {
 
           @Override
           public void onError(Throwable t) {
-            delegate.onError(t);
+            delegate.onError(StatusUtils.toGrpcException(t));
           }
 
           @Override
@@ -313,7 +329,7 @@ public class FlightClient implements AutoCloseable {
 
     @Override
     public void error(Throwable ex) {
-      observer.onError(ex);
+      observer.onError(StatusUtils.toGrpcException(ex));
     }
 
     @Override

@@ -18,10 +18,13 @@
 package org.apache.arrow.flight.grpc;
 
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
 
 import io.grpc.Status;
 import io.grpc.Status.Code;
+import io.grpc.StatusException;
+import io.grpc.StatusRuntimeException;
 
 /**
  * Utilities to adapt gRPC and Flight status objects.
@@ -116,5 +119,28 @@ public class StatusUtils {
   /** Convert from a Flight status to a gRPC status. */
   public static Status toGrpcStatus(CallStatus status) {
     return toGrpcStatusCode(status.code()).toStatus().withDescription(status.description()).withCause(status.cause());
+  }
+
+  public static FlightRuntimeException fromGrpcRuntimeException(StatusRuntimeException sre) {
+    return fromGrpcStatus(sre.getStatus()).toRuntimeException();
+  }
+
+  /**
+   * Convert arbitrary exceptions to a {@link StatusRuntimeException} or {@link StatusException}.
+   *
+   * <p>Such exceptions can be passed to {@link io.grpc.stub.StreamObserver#onError(Throwable)} and will give the client
+   * a reasonable error message.
+   */
+  public static Throwable toGrpcException(Throwable ex) {
+    if (ex instanceof StatusRuntimeException) {
+      return ex;
+    } else if (ex instanceof StatusException) {
+      return ex;
+    } else if (ex instanceof FlightRuntimeException) {
+      final FlightRuntimeException fre = (FlightRuntimeException) ex;
+      return toGrpcStatus(fre.status()).asRuntimeException();
+    }
+    return Status.INTERNAL.withCause(ex).withDescription("There was an error servicing your request.")
+        .asRuntimeException();
   }
 }

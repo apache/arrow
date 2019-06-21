@@ -23,6 +23,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler.ServerAuthSender;
+import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 
@@ -58,7 +59,7 @@ public class ServerAuthWrapper {
 
         responseObserver.onError(Status.PERMISSION_DENIED.asException());
       } catch (Exception ex) {
-        responseObserver.onError(ex);
+        responseObserver.onError(StatusUtils.toGrpcException(ex));
       }
     };
     observer.future = executors.submit(r);
@@ -128,8 +129,8 @@ public class ServerAuthWrapper {
       }
 
       @Override
-      public void onError(String message, Throwable cause) {
-        responseObserver.onError(cause);
+      public void onError(Throwable cause) {
+        responseObserver.onError(StatusUtils.toGrpcException(cause));
       }
 
     }
