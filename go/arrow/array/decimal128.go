@@ -57,7 +57,7 @@ func (a *Decimal128) String() string {
 		case a.IsNull(i):
 			o.WriteString("(null)")
 		default:
-			fmt.Fprintf(o, "%v", a.values[i])
+			fmt.Fprintf(o, "%v", a.Value(i))
 		}
 	}
 	o.WriteString("]")
