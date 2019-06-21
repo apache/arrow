@@ -47,6 +47,12 @@ func TestFromU64(t *testing.T) {
 			if got, want := v.Sign(), ref.Sign(); got != want {
 				t.Fatalf("invalid sign for %+0#x: got=%v, want=%v", v, got, want)
 			}
+			if got, want := v.LowBits(), tc.want.lo; got != want {
+				t.Fatalf("invalid low-bits: got=%+0#x, want=%+0#x", got, want)
+			}
+			if got, want := v.HighBits(), tc.want.hi; got != want {
+				t.Fatalf("invalid high-bits: got=%+0#x, want=%+0#x", got, want)
+			}
 		})
 	}
 }
@@ -74,6 +80,12 @@ func TestFromI64(t *testing.T) {
 			}
 			if got, want := v.Sign(), ref.Sign(); got != want {
 				t.Fatalf("invalid sign for %+0#x: got=%v, want=%v", v, got, want)
+			}
+			if got, want := v.LowBits(), tc.want.lo; got != want {
+				t.Fatalf("invalid low-bits: got=%+0#x, want=%+0#x", got, want)
+			}
+			if got, want := v.HighBits(), tc.want.hi; got != want {
+				t.Fatalf("invalid high-bits: got=%+0#x, want=%+0#x", got, want)
 			}
 		})
 	}
