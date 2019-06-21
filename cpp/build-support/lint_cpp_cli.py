@@ -30,7 +30,7 @@ arguments = parser.parse_args()
 _STRIP_COMMENT_REGEX = re.compile('(.+)?(?=//)')
 _NULLPTR_REGEX = re.compile(r'.*\bnullptr\b.*')
 _RETURN_NOT_OK_REGEX = re.compile(r'.*\sRETURN_NOT_OK.*')
-_RETURN_NOT_OK_REGEX = re.compile(r'.*\sASSIGN_OR_RAISE.*')
+_ASSIGN_OR_RAISE_REGEX = re.compile(r'.*\sASSIGN_OR_RAISE.*')
 
 
 def _paths(paths):
@@ -56,12 +56,11 @@ def lint_file(path):
          test
          arrow/util/hash.h
          arrow/python/util''')),
-        (lambda x: re.match(_ASSIGN_OR_RAISE, x),
+        (lambda x: re.match(_ASSIGN_OR_RAISE_REGEX, x),
          'Use ARROW_ASSIGN_OR_RAISE in header files', _paths('''\
-         arrow/status.h
+         arrow/result_internal.h
          test
-         arrow/util/hash.h
-         arrow/python/util'''))
+         '''))
 
     ]
 
