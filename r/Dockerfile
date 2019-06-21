@@ -23,6 +23,8 @@ ENV CC=gcc \
 
 # r-base includes tzdata. Get around interactive stop in that package
 ENV DEBIAN_FRONTEND=noninteractive
+# workaround for install_github GitHub API rate limit
+ENV CI=true
 
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
@@ -50,7 +52,15 @@ RUN apt-get update -y && \
             texlive-latex-base && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    Rscript -e "install.packages('devtools', repos = 'http://cran.rstudio.com')" && \
+
+# So that arrowExports.* files are generated
+ENV ARROW_R_DEV=TRUE
+
+# Tell R where it can find the source code for arrow
+ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow:/opt/conda/lib/pkgconfig
+ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
+
+RUN Rscript -e "install.packages('devtools', repos = 'http://cran.rstudio.com')" && \
     Rscript -e "devtools::install_github('romainfrancois/decor')" && \
     Rscript -e "install.packages(c( \
         'Rcpp', 'dplyr', 'stringr', 'glue', 'vctrs', \
@@ -65,12 +75,6 @@ RUN apt-get update -y && \
         'lubridate'), \
         repos = 'https://cran.rstudio.com')"
 
-# So that arrowExports.* files are generated
-ENV ARROW_R_DEV=TRUE
-
-# Tell R where it can find the source code for arrow
-ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow:/opt/conda/lib/pkgconfig
-ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
 
 # build, install, test R package
 CMD ["/bin/bash", "-c", "/arrow/ci/docker_build_cpp.sh && \

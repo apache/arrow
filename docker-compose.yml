@@ -149,11 +149,15 @@ services:
     shm_size: 2G
     build:
       context: .
-      dockerfile: cpp/Dockerfile
+      dockerfile: cpp/Dockerfile.cmake
       args:
-        EXTRA_CONDA_PKGS: cmake=3.2
+        CMAKE_VERSION: 3.2.3
     environment:
+      # Vendor boost to avoid dealing with stale FindBoost.
+      ARROW_BOOST_SOURCE: "BUNDLED"
       ARROW_ORC: "OFF"
+      # uriparser requires cmake 3.3
+      ARROW_FLIGHT: "OFF"
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
