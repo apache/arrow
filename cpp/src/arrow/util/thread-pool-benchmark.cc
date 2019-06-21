@@ -172,7 +172,7 @@ static void ThreadPoolSpawn_Customize(benchmark::internal::Benchmark* b) {
 // This benchmark simply provides a baseline indicating the raw cost of our workload
 // depending on the workload size.  Number of items / second in this (serial)
 // benchmark can be compared to the numbers obtained in ThreadPoolSpawn.
-static void WorkloadCost(benchmark::State& state) {
+static void ReferenceWorkloadCost(benchmark::State& state) {
   const auto workload_size = static_cast<int32_t>(state.range(0));
 
   Workload workload(workload_size);

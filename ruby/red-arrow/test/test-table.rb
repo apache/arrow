@@ -492,7 +492,8 @@ class TableTest < Test::Unit::TestCase
 
           test("csv.gz") do
             file = Tempfile.new(["red-arrow", ".csv.gz"])
-            Zlib::GzipWriter.wrap(file) do |gz|
+            file.close
+            Zlib::GzipWriter.open(file.path) do |gz|
               gz.write(<<-CSV)
 name,score
 alice,10
@@ -505,7 +506,7 @@ chris,-1
 0	alice	   10
 1	bob 	   29
 2	chris	   -1
-          TABLE
+            TABLE
           end
         end
       end

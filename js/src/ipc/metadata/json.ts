@@ -148,7 +148,7 @@ function typeFromJSON(f: any, children?: Field[]): DataType<any> {
     const typeId = f['type']['name'];
 
     switch (typeId) {
-        case 'NONE':   return new DataType();
+        case 'NONE':   return new Null();
         case 'null':   return new Null();
         case 'binary': return new Binary();
         case 'utf8':   return new Utf8();

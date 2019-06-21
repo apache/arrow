@@ -2070,6 +2070,143 @@ func (b *Date64Builder) newData() (data *Data) {
 	return
 }
 
+type DurationBuilder struct {
+	builder
+
+	dtype   *arrow.DurationType
+	data    *memory.Buffer
+	rawData []arrow.Duration
+}
+
+func NewDurationBuilder(mem memory.Allocator, dtype *arrow.DurationType) *DurationBuilder {
+	return &DurationBuilder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
+}
+
+// Release decreases the reference count by 1.
+// When the reference count goes to zero, the memory is freed.
+func (b *DurationBuilder) Release() {
+	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&b.refCount, -1) == 0 {
+		if b.nullBitmap != nil {
+			b.nullBitmap.Release()
+			b.nullBitmap = nil
+		}
+		if b.data != nil {
+			b.data.Release()
+			b.data = nil
+			b.rawData = nil
+		}
+	}
+}
+
+func (b *DurationBuilder) Append(v arrow.Duration) {
+	b.Reserve(1)
+	b.UnsafeAppend(v)
+}
+
+func (b *DurationBuilder) AppendNull() {
+	b.Reserve(1)
+	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *DurationBuilder) UnsafeAppend(v arrow.Duration) {
+	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
+	b.rawData[b.length] = v
+	b.length++
+}
+
+func (b *DurationBuilder) UnsafeAppendBoolToBitmap(isValid bool) {
+	if isValid {
+		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
+	} else {
+		b.nulls++
+	}
+	b.length++
+}
+
+// AppendValues will append the values in the v slice. The valid slice determines which values
+// in v are valid (not null). The valid slice must either be empty or be equal in length to v. If empty,
+// all values in v are appended and considered valid.
+func (b *DurationBuilder) AppendValues(v []arrow.Duration, valid []bool) {
+	if len(v) != len(valid) && len(valid) != 0 {
+		panic("len(v) != len(valid) && len(valid) != 0")
+	}
+
+	if len(v) == 0 {
+		return
+	}
+
+	b.Reserve(len(v))
+	arrow.DurationTraits.Copy(b.rawData[b.length:], v)
+	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
+}
+
+func (b *DurationBuilder) init(capacity int) {
+	b.builder.init(capacity)
+
+	b.data = memory.NewResizableBuffer(b.mem)
+	bytesN := arrow.DurationTraits.BytesRequired(capacity)
+	b.data.Resize(bytesN)
+	b.rawData = arrow.DurationTraits.CastFromBytes(b.data.Bytes())
+}
+
+// Reserve ensures there is enough space for appending n elements
+// by checking the capacity and calling Resize if necessary.
+func (b *DurationBuilder) Reserve(n int) {
+	b.builder.reserve(n, b.Resize)
+}
+
+// Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
+// additional memory will be allocated. If n is smaller, the allocated memory may reduced.
+func (b *DurationBuilder) Resize(n int) {
+	nBuilder := n
+	if n < minBuilderCapacity {
+		n = minBuilderCapacity
+	}
+
+	if b.capacity == 0 {
+		b.init(n)
+	} else {
+		b.builder.resize(nBuilder, b.init)
+		b.data.Resize(arrow.DurationTraits.BytesRequired(n))
+		b.rawData = arrow.DurationTraits.CastFromBytes(b.data.Bytes())
+	}
+}
+
+// NewArray creates a Duration array from the memory buffers used by the builder and resets the DurationBuilder
+// so it can be used to build a new array.
+func (b *DurationBuilder) NewArray() Interface {
+	return b.NewDurationArray()
+}
+
+// NewDurationArray creates a Duration array from the memory buffers used by the builder and resets the DurationBuilder
+// so it can be used to build a new array.
+func (b *DurationBuilder) NewDurationArray() (a *Duration) {
+	data := b.newData()
+	a = NewDurationData(data)
+	data.Release()
+	return
+}
+
+func (b *DurationBuilder) newData() (data *Data) {
+	bytesRequired := arrow.DurationTraits.BytesRequired(b.length)
+	if bytesRequired > 0 && bytesRequired < b.data.Len() {
+		// trim buffers
+		b.data.Resize(bytesRequired)
+	}
+	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
+	b.reset()
+
+	if b.data != nil {
+		b.data.Release()
+		b.data = nil
+		b.rawData = nil
+	}
+
+	return
+}
+
 var (
 	_ Builder = (*Int64Builder)(nil)
 	_ Builder = (*Uint64Builder)(nil)
@@ -2086,4 +2223,5 @@ var (
 	_ Builder = (*Time64Builder)(nil)
 	_ Builder = (*Date32Builder)(nil)
 	_ Builder = (*Date64Builder)(nil)
+	_ Builder = (*DurationBuilder)(nil)
 )

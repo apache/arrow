@@ -42,19 +42,27 @@ namespace py {
 
 #define _NUMPY_UNIFY_NOOP(DTYPE) \
   case NPY_##DTYPE:              \
-    return NOOP;
+    return OK;
 
 #define _NUMPY_UNIFY_PROMOTE(DTYPE) \
   case NPY_##DTYPE:                 \
-    return PROMOTE;
+    current_type_num_ = dtype;      \
+    current_dtype_ = descr;         \
+    return OK;
 
-// Form a consensus NumPy dtype to use for Arrow conversion for a collection of dtype
-// objects observed one at a time
+#define _NUMPY_UNIFY_PROMOTE_TO(DTYPE, NEW_TYPE)               \
+  case NPY_##DTYPE:                                            \
+    current_type_num_ = NPY_##NEW_TYPE;                        \
+    current_dtype_ = PyArray_DescrFromType(current_type_num_); \
+    return OK;
+
+// Form a consensus NumPy dtype to use for Arrow conversion for a
+// collection of dtype objects observed one at a time
 class NumPyDtypeUnifier {
  public:
-  enum Action { NOOP, PROMOTE, INVALID };
+  enum Action { OK, INVALID };
 
-  NumPyDtypeUnifier() : current_type_num_(-1), current_dtype_(NULLPTR) {}
+  NumPyDtypeUnifier() : current_type_num_(-1), current_dtype_(nullptr) {}
 
   Status InvalidMix(int new_dtype) {
     return Status::Invalid("Cannot mix NumPy dtypes ",
@@ -97,7 +105,7 @@ class NumPyDtypeUnifier {
       _NUMPY_UNIFY_PROMOTE(INT64);
       _NUMPY_UNIFY_NOOP(UINT8);
       _NUMPY_UNIFY_NOOP(UINT16);
-      _NUMPY_UNIFY_PROMOTE(FLOAT32);
+      _NUMPY_UNIFY_PROMOTE_TO(FLOAT32, FLOAT64);
       _NUMPY_UNIFY_PROMOTE(FLOAT64);
       default:
         return INVALID;
@@ -113,7 +121,7 @@ class NumPyDtypeUnifier {
       _NUMPY_UNIFY_NOOP(UINT8);
       _NUMPY_UNIFY_NOOP(UINT16);
       _NUMPY_UNIFY_NOOP(UINT32);
-      _NUMPY_UNIFY_PROMOTE(FLOAT32);
+      _NUMPY_UNIFY_PROMOTE_TO(FLOAT32, FLOAT64);
       _NUMPY_UNIFY_PROMOTE(FLOAT64);
       default:
         return INVALID;
@@ -149,7 +157,7 @@ class NumPyDtypeUnifier {
       _NUMPY_UNIFY_NOOP(UINT8);
       _NUMPY_UNIFY_NOOP(UINT16);
       _NUMPY_UNIFY_PROMOTE(UINT64);
-      _NUMPY_UNIFY_PROMOTE(FLOAT32);
+      _NUMPY_UNIFY_PROMOTE_TO(FLOAT32, FLOAT64);
       _NUMPY_UNIFY_PROMOTE(FLOAT64);
       default:
         return INVALID;
@@ -161,7 +169,7 @@ class NumPyDtypeUnifier {
       _NUMPY_UNIFY_NOOP(UINT8);
       _NUMPY_UNIFY_NOOP(UINT16);
       _NUMPY_UNIFY_NOOP(UINT32);
-      _NUMPY_UNIFY_PROMOTE(FLOAT32);
+      _NUMPY_UNIFY_PROMOTE_TO(FLOAT32, FLOAT64);
       _NUMPY_UNIFY_PROMOTE(FLOAT64);
       default:
         return INVALID;
@@ -210,12 +218,11 @@ class NumPyDtypeUnifier {
 
   int Observe_DATETIME(PyArray_Descr* dtype_obj) {
     // TODO: check that units are all the same
-    // current_dtype_ = dtype_obj->type_num;
-    return NOOP;
+    return OK;
   }
 
   Status Observe(PyArray_Descr* descr) {
-    const int dtype = fix_numpy_type_num(descr->type_num);
+    int dtype = fix_numpy_type_num(descr->type_num);
 
     if (current_type_num_ == -1) {
       current_dtype_ = descr;
@@ -230,7 +237,7 @@ class NumPyDtypeUnifier {
     action = Observe_##DTYPE(descr, dtype); \
     break;
 
-    int action = NOOP;
+    int action = OK;
     switch (current_type_num_) {
       OBSERVE_CASE(BOOL);
       OBSERVE_CASE(INT8);
@@ -253,9 +260,6 @@ class NumPyDtypeUnifier {
 
     if (action == INVALID) {
       return InvalidMix(dtype);
-    } else if (action == PROMOTE) {
-      current_type_num_ = dtype;
-      current_dtype_ = descr;
     }
     return Status::OK();
   }
@@ -263,6 +267,8 @@ class NumPyDtypeUnifier {
   bool dtype_was_observed() const { return current_type_num_ != -1; }
 
   PyArray_Descr* current_dtype() const { return current_dtype_; }
+
+  int current_type_num() const { return current_type_num_; }
 
  private:
   int current_type_num_;
@@ -278,8 +284,10 @@ class TypeInferrer {
   // early with long sequences that may have problems up front
   // \param make_unions permit mixed-type data by creating union types (not yet
   // implemented)
-  explicit TypeInferrer(int64_t validate_interval = 100, bool make_unions = false)
-      : validate_interval_(validate_interval),
+  explicit TypeInferrer(bool pandas_null_sentinels = false,
+                        int64_t validate_interval = 100, bool make_unions = false)
+      : pandas_null_sentinels_(pandas_null_sentinels),
+        validate_interval_(validate_interval),
         make_unions_(make_unions),
         total_count_(0),
         none_count_(0),
@@ -297,6 +305,7 @@ class TypeInferrer {
         decimal_count_(0),
         list_count_(0),
         struct_count_(0),
+        numpy_dtype_count_(0),
         max_decimal_metadata_(std::numeric_limits<int32_t>::min(),
                               std::numeric_limits<int32_t>::min()),
         decimal_type_() {
@@ -311,12 +320,12 @@ class TypeInferrer {
   Status Visit(PyObject* obj, bool* keep_going) {
     ++total_count_;
 
-    if (obj == Py_None || internal::PyFloat_IsNaN(obj)) {
+    if (obj == Py_None || (pandas_null_sentinels_ && internal::PyFloat_IsNaN(obj))) {
       ++none_count_;
     } else if (PyBool_Check(obj)) {
       ++bool_count_;
       *keep_going = make_unions_;
-    } else if (internal::PyFloatScalar_Check(obj)) {
+    } else if (PyFloat_Check(obj)) {
       ++float_count_;
       *keep_going = make_unions_;
     } else if (internal::IsPyInteger(obj)) {
@@ -367,7 +376,7 @@ class TypeInferrer {
     });
   }
 
-  Status GetType(std::shared_ptr<DataType>* out) const {
+  Status GetType(std::shared_ptr<DataType>* out) {
     // TODO(wesm): handling forming unions
     if (make_unions_) {
       return Status::NotImplemented("Creating union types not yet supported");
@@ -375,11 +384,48 @@ class TypeInferrer {
 
     RETURN_NOT_OK(Validate());
 
-    if (numpy_unifier_.current_dtype() != nullptr) {
-      std::shared_ptr<DataType> type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(numpy_unifier_.current_dtype(), &type));
-      *out = type;
-    } else if (list_count_) {
+    if (numpy_dtype_count_ > 0) {
+      // All NumPy scalars and Nones/nulls
+      if (numpy_dtype_count_ + none_count_ == total_count_) {
+        std::shared_ptr<DataType> type;
+        RETURN_NOT_OK(NumPyDtypeToArrow(numpy_unifier_.current_dtype(), &type));
+        *out = type;
+        return Status::OK();
+      }
+
+      // The "bad path": data contains a mix of NumPy scalars and
+      // other kinds of scalars. Note this can happen innocuously
+      // because numpy.nan is not a NumPy scalar (it's a built-in
+      // PyFloat)
+
+      // TODO(ARROW-5564): Merge together type unification so this
+      // hack is not necessary
+      switch (numpy_unifier_.current_type_num()) {
+        case NPY_BOOL:
+          bool_count_ += numpy_dtype_count_;
+          break;
+        case NPY_INT8:
+        case NPY_INT16:
+        case NPY_INT32:
+        case NPY_INT64:
+        case NPY_UINT8:
+        case NPY_UINT16:
+        case NPY_UINT32:
+        case NPY_UINT64:
+          int_count_ += numpy_dtype_count_;
+          break;
+        case NPY_FLOAT32:
+        case NPY_FLOAT64:
+          float_count_ += numpy_dtype_count_;
+          break;
+        case NPY_DATETIME:
+          return Status::Invalid(
+              "numpy.datetime64 scalars cannot be mixed "
+              "with other Python scalar values currently");
+      }
+    }
+
+    if (list_count_) {
       std::shared_ptr<DataType> value_type;
       RETURN_NOT_OK(list_inferrer_->GetType(&value_type));
       *out = list(value_type);
@@ -439,13 +485,15 @@ class TypeInferrer {
   Status VisitDType(PyArray_Descr* dtype, bool* keep_going) {
     // Continue visiting dtypes for now.
     // TODO(wesm): devise approach for unions
+    ++numpy_dtype_count_;
     *keep_going = true;
     return numpy_unifier_.Observe(dtype);
   }
 
   Status VisitList(PyObject* obj, bool* keep_going /* unused */) {
     if (!list_inferrer_) {
-      list_inferrer_.reset(new TypeInferrer(validate_interval_, make_unions_));
+      list_inferrer_.reset(
+          new TypeInferrer(pandas_null_sentinels_, validate_interval_, make_unions_));
     }
     ++list_count_;
     return list_inferrer_->VisitSequence(obj);
@@ -458,9 +506,15 @@ class TypeInferrer {
     }
     // Not an object array: infer child Arrow type from dtype
     if (!list_inferrer_) {
-      list_inferrer_.reset(new TypeInferrer(validate_interval_, make_unions_));
+      list_inferrer_.reset(
+          new TypeInferrer(pandas_null_sentinels_, validate_interval_, make_unions_));
     }
     ++list_count_;
+
+    // XXX(wesm): In ARROW-4324 I added accounting to check whether
+    // all of the non-null values have NumPy dtypes, but the
+    // total_count not not being properly incremented here
+    ++(*list_inferrer_).total_count_;
     return list_inferrer_->VisitDType(dtype, keep_going);
   }
 
@@ -484,7 +538,8 @@ class TypeInferrer {
       if (it == struct_inferrers_.end()) {
         it = struct_inferrers_
                  .insert(
-                     std::make_pair(key, TypeInferrer(validate_interval_, make_unions_)))
+                     std::make_pair(key, TypeInferrer(pandas_null_sentinels_,
+                                                      validate_interval_, make_unions_)))
                  .first;
       }
       TypeInferrer* visitor = &it->second;
@@ -503,9 +558,9 @@ class TypeInferrer {
     return Status::OK();
   }
 
-  Status GetStructType(std::shared_ptr<DataType>* out) const {
+  Status GetStructType(std::shared_ptr<DataType>* out) {
     std::vector<std::shared_ptr<Field>> fields;
-    for (const auto& it : struct_inferrers_) {
+    for (auto&& it : struct_inferrers_) {
       std::shared_ptr<DataType> field_type;
       RETURN_NOT_OK(it.second.GetType(&field_type));
       fields.emplace_back(field(it.first, field_type));
@@ -515,6 +570,7 @@ class TypeInferrer {
   }
 
  private:
+  bool pandas_null_sentinels_;
   int64_t validate_interval_;
   bool make_unions_;
   int64_t total_count_;
@@ -532,8 +588,9 @@ class TypeInferrer {
   int64_t unicode_count_;
   int64_t decimal_count_;
   int64_t list_count_;
-  std::unique_ptr<TypeInferrer> list_inferrer_;
   int64_t struct_count_;
+  int64_t numpy_dtype_count_;
+  std::unique_ptr<TypeInferrer> list_inferrer_;
   std::map<std::string, TypeInferrer> struct_inferrers_;
 
   // If we observe a strongly-typed value in e.g. a NumPy array, we can store
@@ -548,9 +605,10 @@ class TypeInferrer {
 };
 
 // Non-exhaustive type inference
-Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
+Status InferArrowType(PyObject* obj, bool pandas_null_sentinels,
+                      std::shared_ptr<DataType>* out_type) {
   PyDateTime_IMPORT;
-  TypeInferrer inferrer;
+  TypeInferrer inferrer(pandas_null_sentinels);
   RETURN_NOT_OK(inferrer.VisitSequence(obj));
   RETURN_NOT_OK(inferrer.GetType(out_type));
   if (*out_type == nullptr) {
@@ -560,7 +618,7 @@ Status InferArrowType(PyObject* obj, std::shared_ptr<DataType>* out_type) {
   return Status::OK();
 }
 
-Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
+Status InferArrowTypeAndSize(PyObject* obj, bool pandas_null_sentinels, int64_t* size,
                              std::shared_ptr<DataType>* out_type) {
   if (!PySequence_Check(obj)) {
     return Status::TypeError("Object is not a sequence");
@@ -572,7 +630,7 @@ Status InferArrowTypeAndSize(PyObject* obj, int64_t* size,
     *out_type = null();
     return Status::OK();
   }
-  RETURN_NOT_OK(InferArrowType(obj, out_type));
+  RETURN_NOT_OK(InferArrowType(obj, pandas_null_sentinels, out_type));
 
   return Status::OK();
 }

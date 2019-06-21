@@ -34,6 +34,7 @@ set(ARROW_PYTHON_SRCS
     config.cc
     decimal.cc
     deserialize.cc
+    extension_type.cc
     helpers.cc
     inference.cc
     init.cc

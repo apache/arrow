@@ -56,6 +56,10 @@ std::shared_ptr<Field> Field::WithType(const std::shared_ptr<DataType>& type) co
   return std::make_shared<Field>(name_, type, nullable_, metadata_);
 }
 
+std::shared_ptr<Field> Field::WithName(const std::string& name) const {
+  return std::make_shared<Field>(name, type_, nullable_, metadata_);
+}
+
 std::vector<std::shared_ptr<Field>> Field::Flatten() const {
   std::vector<std::shared_ptr<Field>> flattened;
   if (type_->id() == Type::STRUCT) {

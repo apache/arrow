@@ -19,7 +19,7 @@
 
 import { Data } from '../data';
 import { Visitor } from '../visitor';
-import { Vector } from '../interfaces';
+import { VectorType } from '../interfaces';
 import { Type, TimeUnit } from '../enum';
 import { Schema, Field } from '../schema';
 import {
@@ -32,13 +32,15 @@ import {
 /** @ignore */ const sum = (x: number, y: number) => x + y;
 /** @ignore */ const variableWidthColumnErrorMessage = (type: DataType) => `Cannot compute the byte width of variable-width column ${type}`;
 
+/** @ignore */
 export interface ByteWidthVisitor extends Visitor {
     visit<T extends DataType>(node: T): number;
     visitMany<T extends DataType>(nodes: T[]): number[];
     getVisitFn<T extends Type>    (node: T): (type: DataType<T>) => number;
-    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): (type: T) => number;
+    getVisitFn<T extends DataType>(node: VectorType<T> | Data<T> | T): (type: T) => number;
 }
 
+/** @ignore */
 export class ByteWidthVisitor extends Visitor {
     public visitNull            (____: Null            ) { return 0; }
     public visitInt             (type: Int             ) { return type.bitWidth / 8; }

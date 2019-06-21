@@ -15,12 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifdef _MSC_VER
-#include <intrin.h>
-#else
-#include <immintrin.h>
-#endif
-
 #include <iostream>
 
 #include "arrow/api.h"
@@ -28,9 +22,11 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/cpu-info.h"
+#include "arrow/util/sse-util.h"
 
 #include "benchmark/benchmark.h"
 
+#ifdef ARROW_HAVE_SSE4_2
 namespace arrow {
 
 using internal::CpuInfo;
@@ -229,3 +225,4 @@ BENCHMARK(ParallelMemoryCopy)
     ->UseRealTime();
 
 }  // namespace arrow
+#endif  // ARROW_HAVE_SSE4_2

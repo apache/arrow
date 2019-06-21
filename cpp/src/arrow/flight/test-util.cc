@@ -22,6 +22,7 @@
 #include <mach-o/dyld.h>
 #endif
 
+#include <cstdlib>
 #include <sstream>
 
 #include <boost/filesystem.hpp>
@@ -154,6 +155,101 @@ InProcessTestServer::~InProcessTestServer() {
   }
 }
 
+Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader>* out) {
+  if (ticket.ticket == "ticket-ints-1") {
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleIntBatches(&batches));
+    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    return Status::OK();
+  } else if (ticket.ticket == "ticket-dicts-1") {
+    BatchVector batches;
+    RETURN_NOT_OK(ExampleDictBatches(&batches));
+    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    return Status::OK();
+  } else {
+    return Status::NotImplemented("no stream implemented for this ticket");
+  }
+}
+
+class FlightTestServer : public FlightServerBase {
+  Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
+                     std::unique_ptr<FlightListing>* listings) override {
+    std::vector<FlightInfo> flights = ExampleFlightInfo();
+    *listings = std::unique_ptr<FlightListing>(new SimpleFlightListing(flights));
+    return Status::OK();
+  }
+
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* out) override {
+    std::vector<FlightInfo> flights = ExampleFlightInfo();
+
+    for (const auto& info : flights) {
+      if (info.descriptor().Equals(request)) {
+        *out = std::unique_ptr<FlightInfo>(new FlightInfo(info));
+        return Status::OK();
+      }
+    }
+    return Status::Invalid("Flight not found: ", request.ToString());
+  }
+
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* data_stream) override {
+    // Test for ARROW-5095
+    if (request.ticket == "ARROW-5095-fail") {
+      return Status::UnknownError("Server-side error");
+    }
+    if (request.ticket == "ARROW-5095-success") {
+      return Status::OK();
+    }
+
+    std::shared_ptr<RecordBatchReader> batch_reader;
+    RETURN_NOT_OK(GetBatchForFlight(request, &batch_reader));
+
+    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
+    return Status::OK();
+  }
+
+  Status RunAction1(const Action& action, std::unique_ptr<ResultStream>* out) {
+    std::vector<Result> results;
+    for (int i = 0; i < 3; ++i) {
+      Result result;
+      std::string value = action.body->ToString() + "-part" + std::to_string(i);
+      RETURN_NOT_OK(Buffer::FromString(value, &result.body));
+      results.push_back(result);
+    }
+    *out = std::unique_ptr<ResultStream>(new SimpleResultStream(std::move(results)));
+    return Status::OK();
+  }
+
+  Status RunAction2(std::unique_ptr<ResultStream>* out) {
+    // Empty
+    *out = std::unique_ptr<ResultStream>(new SimpleResultStream({}));
+    return Status::OK();
+  }
+
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* out) override {
+    if (action.type == "action1") {
+      return RunAction1(action, out);
+    } else if (action.type == "action2") {
+      return RunAction2(out);
+    } else {
+      return Status::NotImplemented(action.type);
+    }
+  }
+
+  Status ListActions(const ServerCallContext& context,
+                     std::vector<ActionType>* out) override {
+    std::vector<ActionType> actions = ExampleActionTypes();
+    *out = std::move(actions);
+    return Status::OK();
+  }
+};
+
+std::unique_ptr<FlightServerBase> ExampleTestServer() {
+  return std::unique_ptr<FlightServerBase>(new FlightTestServer);
+}
+
 Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
                       const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
                       int64_t total_bytes, FlightInfo::Data* out) {
@@ -284,6 +380,71 @@ Status TestClientAuthHandler::Authenticate(ClientAuthSender* outgoing,
 Status TestClientAuthHandler::GetToken(std::string* token) {
   *token = password_;
   return Status::OK();
+}
+
+Status GetTestResourceRoot(std::string* out) {
+  const char* c_root = std::getenv("ARROW_TEST_DATA");
+  if (!c_root) {
+    return Status::IOError("Test resources not found, set ARROW_TEST_DATA");
+  }
+  *out = std::string(c_root);
+  return Status::OK();
+}
+
+Status ExampleTlsCertificates(std::vector<CertKeyPair>* out) {
+  std::string root;
+  RETURN_NOT_OK(GetTestResourceRoot(&root));
+
+  *out = std::vector<CertKeyPair>();
+  for (int i = 0; i < 2; i++) {
+    try {
+      std::stringstream cert_path;
+      cert_path << root << "/flight/cert" << i << ".pem";
+      std::stringstream key_path;
+      key_path << root << "/flight/cert" << i << ".key";
+
+      std::ifstream cert_file(cert_path.str());
+      if (!cert_file) {
+        return Status::IOError("Could not open certificate: " + cert_path.str());
+      }
+      std::stringstream cert;
+      cert << cert_file.rdbuf();
+
+      std::ifstream key_file(key_path.str());
+      if (!key_file) {
+        return Status::IOError("Could not open key: " + key_path.str());
+      }
+      std::stringstream key;
+      key << key_file.rdbuf();
+
+      out->push_back(CertKeyPair{cert.str(), key.str()});
+    } catch (const std::ifstream::failure& e) {
+      return Status::IOError(e.what());
+    }
+  }
+  return Status::OK();
+}
+
+Status ExampleTlsCertificateRoot(CertKeyPair* out) {
+  std::string root;
+  RETURN_NOT_OK(GetTestResourceRoot(&root));
+
+  std::stringstream path;
+  path << root << "/flight/root-ca.pem";
+
+  try {
+    std::ifstream cert_file(path.str());
+    if (!cert_file) {
+      return Status::IOError("Could not open certificate: " + path.str());
+    }
+    std::stringstream cert;
+    cert << cert_file.rdbuf();
+    out->pem_cert = cert.str();
+    out->pem_key = "";
+    return Status::OK();
+  } catch (const std::ifstream::failure& e) {
+    return Status::IOError(e.what());
+  }
 }
 
 }  // namespace flight

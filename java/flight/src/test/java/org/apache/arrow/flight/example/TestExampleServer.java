@@ -18,7 +18,6 @@
 package org.apache.arrow.flight.example;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;

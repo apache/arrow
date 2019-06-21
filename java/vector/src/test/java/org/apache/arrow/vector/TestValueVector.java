@@ -35,6 +35,8 @@ import java.util.List;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
+import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -2049,6 +2051,126 @@ public class TestValueVector {
       expectedSize = BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity) * 2;
       assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
 
+    }
+  }
+
+  @Test
+  public void testSetNullableVarCharHolder() {
+    try (VarCharVector vector = new VarCharVector("", allocator)) {
+      vector.allocateNew(100, 10);
+
+      NullableVarCharHolder nullHolder = new NullableVarCharHolder();
+      nullHolder.isSet = 0;
+
+      NullableVarCharHolder stringHolder = new NullableVarCharHolder();
+      stringHolder.isSet = 1;
+
+      String str = "hello";
+      ArrowBuf buf = allocator.buffer(16);
+      buf.setBytes(0, str.getBytes());
+
+      stringHolder.start = 0;
+      stringHolder.end = str.length();
+      stringHolder.buffer = buf;
+
+      vector.set(0, nullHolder);
+      vector.set(1, stringHolder);
+
+      // verify results
+      assertTrue(vector.isNull(0));
+      assertEquals(str, new String(vector.get(1)));
+
+      buf.close();
+    }
+  }
+
+  @Test
+  public void testSetNullableVarCharHolderSafe() {
+    try (VarCharVector vector = new VarCharVector("", allocator)) {
+      vector.allocateNew(5, 1);
+
+      NullableVarCharHolder nullHolder = new NullableVarCharHolder();
+      nullHolder.isSet = 0;
+
+      NullableVarCharHolder stringHolder = new NullableVarCharHolder();
+      stringHolder.isSet = 1;
+
+      String str = "hello world";
+      ArrowBuf buf = allocator.buffer(16);
+      buf.setBytes(0, str.getBytes());
+
+      stringHolder.start = 0;
+      stringHolder.end = str.length();
+      stringHolder.buffer = buf;
+
+      vector.setSafe(0, stringHolder);
+      vector.setSafe(1, nullHolder);
+
+      // verify results
+      assertEquals(str, new String(vector.get(0)));
+      assertTrue(vector.isNull(1));
+
+      buf.close();
+    }
+  }
+
+  @Test
+  public void testSetNullableVarBinaryHolder() {
+    try (VarBinaryVector vector = new VarBinaryVector("", allocator)) {
+      vector.allocateNew(100, 10);
+
+      NullableVarBinaryHolder nullHolder = new NullableVarBinaryHolder();
+      nullHolder.isSet = 0;
+
+      NullableVarBinaryHolder binHolder = new NullableVarBinaryHolder();
+      binHolder.isSet = 1;
+
+      String str = "hello";
+      ArrowBuf buf = allocator.buffer(16);
+      buf.setBytes(0, str.getBytes());
+
+      binHolder.start = 0;
+      binHolder.end = str.length();
+      binHolder.buffer = buf;
+
+      vector.set(0, nullHolder);
+      vector.set(1, binHolder);
+
+      // verify results
+      assertTrue(vector.isNull(0));
+      assertEquals(str, new String(vector.get(1)));
+
+      buf.close();
+    }
+  }
+
+  @Test
+  public void testSetNullableVarBinaryHolderSafe() {
+    try (VarBinaryVector vector = new VarBinaryVector("", allocator)) {
+      vector.allocateNew(5, 1);
+
+      NullableVarBinaryHolder nullHolder = new NullableVarBinaryHolder();
+      nullHolder.isSet = 0;
+
+      NullableVarBinaryHolder binHolder = new NullableVarBinaryHolder();
+      binHolder.isSet = 1;
+
+      String str = "hello world";
+      ArrowBuf buf = allocator.buffer(16);
+      buf.setBytes(0, str.getBytes());
+
+      binHolder.start = 0;
+      binHolder.end = str.length();
+      binHolder.buffer = buf;
+
+      vector.setSafe(0, binHolder);
+      vector.setSafe(1, nullHolder);
+
+      // verify results
+      assertEquals(str, new String(vector.get(0)));
+      assertTrue(vector.isNull(1));
+
+      buf.close();
     }
   }
 }

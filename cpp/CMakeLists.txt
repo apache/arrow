@@ -87,6 +87,21 @@ string(
 string(
   REGEX
   REPLACE "^[0-9]+\\.([0-9]+)" "\\1" ARROW_LLVM_MINOR_VERSION "${ARROW_LLVM_VERSION}")
+
+if(APPLE)
+  find_program(BREW_BIN brew)
+  if(BREW_BIN)
+    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_LLVM_MAJOR_VERSION}"
+                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT LLVM_BREW_PREFIX)
+      execute_process(COMMAND ${BREW_BIN} --prefix llvm
+                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
+  endif()
+endif()
+
 find_package(ClangTools)
 if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
@@ -270,7 +285,12 @@ if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 else()
   add_custom_target(all-tests)
-  add_custom_target(unittest ctest -L unittest)
+  add_custom_target(unittest
+                    ctest
+                    -j4
+                    -L
+                    unittest
+                    --output-on-failure)
   add_dependencies(unittest all-tests)
 endif()
 
@@ -555,19 +575,19 @@ if(ARROW_WITH_URIPARSER)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
 endif()
 
-if(PARQUET_BUILD_ENCRYPTION)
-  list(APPEND ARROW_LINK_LIBS OpenSSL::Crypto)
-  list(APPEND ARROW_STATIC_LINK_LIBS OpenSSL::Crypto)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS OpenSSL::Crypto)
+if(ARROW_USE_OPENSSL)
+  set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
+  list(APPEND ARROW_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
 endif()
 
 if(ARROW_WITH_BROTLI)
   # Order is important for static linking
-  list(APPEND ARROW_LINK_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
-  list(APPEND ARROW_STATIC_LINK_LIBS Brotli::brotlienc Brotli::brotlidec
-              Brotli::brotlicommon)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Brotli::brotlienc Brotli::brotlidec
-              Brotli::brotlicommon)
+  set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
+  list(APPEND ARROW_LINK_LIBS ${ARROW_BROTLI_LIBS})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_BROTLI_LIBS})
 endif()
 
 if(ARROW_WITH_BZ2)
@@ -596,9 +616,9 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc_static)
-  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc_static)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc)
+  list(APPEND ARROW_LINK_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_STATIC_LINK_LIBS protobuf::libprotobuf orc::liborc)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS protobuf::libprotobuf orc::liborc)
 endif()
 
 if(ARROW_USE_GLOG)
@@ -692,6 +712,9 @@ if(ARROW_BUILD_BENCHMARKS)
 
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main benchmark::benchmark
                                 ${ARROW_TEST_LINK_LIBS})
+  if(WIN32)
+    set(ARROW_BENCHMARK_LINK_LIBS Shlwapi.dll ${ARROW_BENCHMARK_LINK_LIBS})
+  endif()
 endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)

@@ -30,7 +30,7 @@ namespace py {
 namespace flight {
 
 PyServerAuthHandler::PyServerAuthHandler(PyObject* handler,
-                                         PyServerAuthHandlerVtable vtable)
+                                         const PyServerAuthHandlerVtable& vtable)
     : vtable_(vtable) {
   Py_INCREF(handler);
   handler_.reset(handler);
@@ -53,7 +53,7 @@ Status PyServerAuthHandler::IsValid(const std::string& token,
 }
 
 PyClientAuthHandler::PyClientAuthHandler(PyObject* handler,
-                                         PyClientAuthHandlerVtable vtable)
+                                         const PyClientAuthHandlerVtable& vtable)
     : vtable_(vtable) {
   Py_INCREF(handler);
   handler_.reset(handler);
@@ -74,7 +74,7 @@ Status PyClientAuthHandler::GetToken(std::string* token) {
   });
 }
 
-PyFlightServer::PyFlightServer(PyObject* server, PyFlightServerVtable vtable)
+PyFlightServer::PyFlightServer(PyObject* server, const PyFlightServerVtable& vtable)
     : vtable_(vtable) {
   Py_INCREF(server);
   server_.reset(server);

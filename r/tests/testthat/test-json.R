@@ -75,10 +75,12 @@ test_that("read_json_arrow() converts to tibble", {
 test_that("Can read json file with nested columns (ARROW-5503)", {
   tf <- tempfile()
   writeLines('
-    { "hello": 3.5, "world": false, "yo": "thing", "arr": [1, 2, 3], "nuf": {} }
-    { "hello": 3.25, "world": null, "arr": [2], "nuf": null }
-    { "hello": 3.125, "world": null, "yo": "\u5fcd", "arr": [], "nuf": { "ps": 78 } }
-    { "hello": 0.0, "world": true, "yo": null, "arr": null, "nuf": { "ps": 90 } }
+    { "arr": [1.0, 2.0, 3.0], "nuf": {} }
+    { "arr": [2.0], "nuf": null }
+    { "arr": [], "nuf": { "ps": 78.0, "hello": "hi" } }
+    { "arr": null, "nuf": { "ps": 90.0, "hello": "bonjour" } }
+    { "arr": [5.0], "nuf": { "hello": "ciao" } }
+    { "arr": [5.0, 6.0], "nuf": { "ps": 19 } }
   ', tf)
 
   tab1 <- read_json_arrow(tf, as_tibble = FALSE)
@@ -91,15 +93,44 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
   expect_equal(
     tab1$schema,
     schema(
-      hello = float64(),
-      world = boolean(),
-      yo = utf8(),
-      arr = list_of(int64()),
-      nuf = struct(ps = int64())
+      arr = list_of(float64()),
+      nuf = struct(ps = float64(), hello = utf8())
     )
   )
-  # cannot yet test list and struct types in R api
-  # tib <- as.data.frame(tab1)
+
+  struct_array <- tab1$column(1)$data()$chunk(0)
+  ps <- array(c(NA, NA, 78, 90, NA, 19))
+  hello <- array(c(NA, NA, "hi", "bonjour", "ciao", NA))
+  expect_equal(struct_array$field(0L), ps)
+  expect_equal(struct_array$GetFieldByName("ps"), ps)
+  expect_equal(struct_array$Flatten(), list(ps, hello))
+  expect_equal(
+    struct_array$as_vector(),
+    data.frame(ps = ps$as_vector(), hello = hello$as_vector(), stringsAsFactors = FALSE)
+  )
+
+  list_array_r <- list(
+    c(1, 2, 3),
+    c(2),
+    numeric(),
+    NULL,
+    5,
+    c(5, 6)
+  )
+  list_array <- tab1$column(0)$data()
+  expect_identical(
+    list_array$as_vector(),
+    list_array_r
+  )
+
+  tib <- as.data.frame(tab1)
+  expect_identical(
+    tib,
+    tibble::tibble(
+      arr = list_array_r,
+      nuf = data.frame(ps = ps$as_vector(), hello = hello$as_vector(), stringsAsFactors = FALSE)
+    )
+  )
 
   unlink(tf)
 })

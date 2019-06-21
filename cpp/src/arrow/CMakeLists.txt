@@ -172,8 +172,8 @@ if(ARROW_COMPUTE)
       compute/kernels/cast.cc
       compute/kernels/compare.cc
       compute/kernels/count.cc
-      compute/kernels/filter.cc
       compute/kernels/hash.cc
+      compute/kernels/filter.cc
       compute/kernels/mean.cc
       compute/kernels/sum.cc
       compute/kernels/take.cc
@@ -379,6 +379,10 @@ add_subdirectory(json)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)
+
+if(ARROW_DATASET)
+  add_subdirectory(dataset)
+endif()
 
 if(ARROW_FLIGHT)
   add_subdirectory(flight)

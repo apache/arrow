@@ -290,17 +290,21 @@ def test_sequence_numpy_integer(seq, np_scalar_pa_type):
 def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     np_scalar, pa_type = np_scalar_pa_type
     expected = [np_scalar(1), None, np_scalar(3), None]
-    if np_scalar != np.uint64:
-        expected += [np_scalar(np.iinfo(np_scalar).min),
-                     np_scalar(np.iinfo(np_scalar).max)]
-    else:
-        # max(uint64) is too large for the inferred int64 type
-        expected += [0, np.iinfo(np.int64).max]
+    expected += [np_scalar(np.iinfo(np_scalar).min),
+                 np_scalar(np.iinfo(np_scalar).max)]
     arr = pa.array(seq(expected))
     assert len(arr) == 6
     assert arr.null_count == 2
     assert arr.type == pa_type
     assert arr.to_pylist() == expected
+
+
+def test_numpy_scalars_mixed_type():
+    # ARROW-4324
+    data = [np.int32(10), np.float32(0.5)]
+    arr = pa.array(data)
+    expected = pa.array([10, 0.5], type='float64')
+    assert arr.equals(expected)
 
 
 @pytest.mark.xfail(reason="Type inference for uint64 not implemented",
@@ -435,9 +439,13 @@ def test_mixed_sequence_errors():
 
 
 @parametrize_with_iterable_types
-@pytest.mark.parametrize("np_scalar", [np.float16, np.float32, np.float64])
+@pytest.mark.parametrize("np_scalar,pa_type", [
+    (np.float16, pa.float16()),
+    (np.float32, pa.float32()),
+    (np.float64, pa.float64())
+])
 @pytest.mark.parametrize("from_pandas", [True, False])
-def test_sequence_numpy_double(seq, np_scalar, from_pandas):
+def test_sequence_numpy_double(seq, np_scalar, pa_type, from_pandas):
     data = [np_scalar(1.5), np_scalar(1), None, np_scalar(2.5), None, np.nan]
     arr = pa.array(seq(data), from_pandas=from_pandas)
     assert len(arr) == 6
@@ -445,7 +453,12 @@ def test_sequence_numpy_double(seq, np_scalar, from_pandas):
         assert arr.null_count == 3
     else:
         assert arr.null_count == 2
-    assert arr.type == pa.float64()
+    if from_pandas:
+        # The NaN is skipped in type inference, otherwise it forces a
+        # float64 promotion
+        assert arr.type == pa_type
+    else:
+        assert arr.type == pa.float64()
 
     assert arr.to_pylist()[:4] == data[:4]
     if from_pandas:
@@ -473,6 +486,62 @@ def test_ndarray_nested_numpy_double(from_pandas, inner_seq):
     else:
         np.testing.assert_equal(arr.to_pylist(),
                                 [[1., 2.], [1., 2., 3.], [np.nan], None])
+
+
+def test_nested_ndarray_in_object_array():
+    # ARROW-4350
+    arr = np.empty(2, dtype=object)
+    arr[:] = [np.array([1, 2], dtype=np.int64),
+              np.array([2, 3], dtype=np.int64)]
+
+    arr2 = np.empty(2, dtype=object)
+    arr2[0] = [3, 4]
+    arr2[1] = [5, 6]
+
+    expected_type = pa.list_(pa.list_(pa.int64()))
+    assert pa.infer_type([arr]) == expected_type
+
+    result = pa.array([arr, arr2])
+    expected = pa.array([[[1, 2], [2, 3]], [[3, 4], [5, 6]]],
+                        type=expected_type)
+
+    assert result.equals(expected)
+
+    # test case for len-1 arrays to ensure they are interpreted as
+    # sublists and not scalars
+    arr = np.empty(2, dtype=object)
+    arr[:] = [np.array([1]), np.array([2])]
+    result = pa.array([arr, arr])
+    assert result.to_pylist() == [[[1], [2]], [[1], [2]]]
+
+
+@pytest.mark.xfail(reason=("Type inference for multidimensional ndarray "
+                           "not yet implemented"),
+                   raises=AssertionError)
+def test_multidimensional_ndarray_as_nested_list():
+    # TODO(wesm): see ARROW-5645
+    arr = np.array([[1, 2], [2, 3]], dtype=np.int64)
+    arr2 = np.array([[3, 4], [5, 6]], dtype=np.int64)
+
+    expected_type = pa.list_(pa.list_(pa.int64()))
+    assert pa.infer_type([arr]) == expected_type
+
+    result = pa.array([arr, arr2])
+    expected = pa.array([[[1, 2], [2, 3]], [[3, 4], [5, 6]]],
+                        type=expected_type)
+
+    assert result.equals(expected)
+
+
+def test_array_ignore_nan_from_pandas():
+    # See ARROW-4324, this reverts logic that was introduced in
+    # ARROW-2240
+    with pytest.raises(ValueError):
+        pa.array([np.nan, 'str'])
+
+    arr = pa.array([np.nan, 'str'], from_pandas=True)
+    expected = pa.array([None, 'str'])
+    assert arr.equals(expected)
 
 
 def test_nested_ndarray_different_dtypes():

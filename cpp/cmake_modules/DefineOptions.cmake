@@ -139,6 +139,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" ON)
 
+  define_option(ARROW_DATASET "Build the Arrow Dataset Modules" ON)
+
   define_option(ARROW_FLIGHT
                 "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)" OFF)
 
@@ -213,7 +215,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant" ON)
 
   define_option(ARROW_BOOST_VENDORED "Use vendored Boost instead of existing Boost. \
-Note that this requires linking Boost statically" OFF)
+Note that this requires linking Boost statically. \
+Deprecated. Use BOOST_SOURCE=BUNDLED instead." OFF)
 
   define_option(ARROW_PROTOBUF_USE_SHARED
                 "Rely on Protocol Buffers shared libraries where relevant" ON)
@@ -278,8 +281,6 @@ Note that this requires linking Boost statically" OFF)
   #----------------------------------------------------------------------
   set_option_category("Parquet")
 
-  define_option(PARQUET_BUILD_ENCRYPTION "Build Parquet with encryption support" ON)
-
   define_option(PARQUET_MINIMAL_DEPENDENCY
                 "Depend only on Thirdparty headers to build libparquet. \
 Always OFF if building binaries" OFF)
@@ -290,6 +291,9 @@ Always OFF if building binaries" OFF)
 
   define_option(PARQUET_BUILD_EXAMPLES
                 "Build the Parquet examples. Requires static libraries to be built." OFF)
+
+  define_option(PARQUET_REQUIRE_ENCRYPTION
+                "Build support for encryption. Fail if OpenSSL is not found" OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Gandiva")

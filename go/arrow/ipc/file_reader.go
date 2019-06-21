@@ -362,7 +362,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 		*arrow.Float16Type, *arrow.Float32Type, *arrow.Float64Type,
 		*arrow.Time32Type, *arrow.Time64Type,
 		*arrow.TimestampType,
-		*arrow.Date32Type, *arrow.Date64Type:
+		*arrow.Date32Type, *arrow.Date64Type,
+		*arrow.MonthIntervalType, *arrow.DayTimeIntervalType,
+		*arrow.DurationType:
 		return ctx.loadPrimitive(dt)
 
 	case *arrow.BinaryType, *arrow.StringType:

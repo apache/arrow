@@ -61,12 +61,17 @@ export function clampRange<T extends RangeLike, N extends ClampRangeThen<T> = Cl
 }
 
 const big0 = BigIntAvailable ? BigInt(0) : 0;
+const isNaNFast = (value: any) => value !== value;
 
 /** @ignore */
 export function createElementComparator(search: any) {
     let typeofSearch = typeof search;
     // Compare primitives
     if (typeofSearch !== 'object' || search === null) {
+        // Compare NaN
+        if (isNaNFast(search)) {
+            return isNaNFast;
+        }
         return typeofSearch !== 'bigint'
             ? (value: any) => value === search
             : (value: any) => (big0 + value) === search;

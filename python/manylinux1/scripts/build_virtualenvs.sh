@@ -33,7 +33,7 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PATH="$PATH:$(cpython_path $PYTHON ${U_WIDTH})"
 
     echo "=== (${PYTHON}, ${U_WIDTH}) Installing build dependencies ==="
-    $PIP install "numpy==1.14.5" "cython==0.29.3" "virtualenv==16.3.0"
+    $PIP install "numpy==1.14.5" "cython==0.29.8" "virtualenv==16.3.0"
     # Pandas requires numpy and cython
     $PIP install "pandas==0.24.0"
 
@@ -43,7 +43,6 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
         $PIP install "tensorflow==1.11.0" "Keras-Preprocessing==1.0.5"
       fi
     fi
-
 
     echo "=== (${PYTHON}, ${U_WIDTH}) Preparing virtualenv for tests ==="
     "$(cpython_path $PYTHON ${U_WIDTH})/bin/virtualenv" -p ${PYTHON_INTERPRETER} --no-download /venv-test-${PYTHON}-${U_WIDTH}
@@ -56,6 +55,7 @@ done
 find /venv-test-*/lib/*/site-packages/pandas -name '*.so' -exec strip '{}' ';'
 find /venv-test-*/lib/*/site-packages/numpy -name '*.so' -exec strip '{}' ';'
 find /opt/_internal/cpython-*/lib/*/site-packages/pandas -name '*.so' -exec strip '{}' ';'
+find /opt/_internal/cpython-*/lib/*/site-packages/tensorflow -name '*.so' -exec strip '{}' ';'
 # Only Python 3.6+ packages are stripable as they are built inside of the image
 find /opt/_internal/cpython-3.6.*/lib/python3.6/site-packages/numpy -name '*.so' -exec strip '{}' ';'
 find /opt/_internal/cpython-3.7.*/lib/python3.7/site-packages/numpy -name '*.so' -exec strip '{}' ';'
@@ -68,3 +68,5 @@ rm -rf /root/.cache
 # venv, i.e. 216MiB in total
 rm -rf /opt/_internal/*/lib/*/site-packages/pandas/tests
 rm -rf /venv-test-*/lib/*/site-packages/pandas/tests
+# Remove unused Python versions
+rm -rf /opt/_internal/cpython-3.4*

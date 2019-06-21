@@ -25,7 +25,6 @@ RUN dnf update -y && \
         boost-devel \
         brotli-devel \
         bzip2-devel \
-        c-ares-devel \
         ccache \
         clang-devel \
         cmake \
@@ -49,8 +48,6 @@ RUN dnf update -y && \
         make \
         ninja-build \
         openssl-devel \
-        protobuf-compiler \
-        protobuf-devel \
         python \
         rapidjson-devel \
         re2-devel \
@@ -58,19 +55,23 @@ RUN dnf update -y && \
         thrift-devel \
         zlib-devel
 
-# c-ares cmake config is not installed on Fedora but gRPC needs it
-# when built via ExternalProject: https://bugzilla.redhat.com/show_bug.cgi?id=1687844
+# * c-ares cmake config is not installed on Fedora but gRPC needs it
+#   when built via ExternalProject: https://bugzilla.redhat.com/show_bug.cgi?id=1687844
+# * protobuf libraries in Fedora 29 are too old for gRPC
 ENV CC=gcc \
      CXX=g++ \
      ARROW_ORC=ON \
      ARROW_DEPENDENCY_SOURCE=SYSTEM \
      ARROW_PARQUET=ON \
-     ARROW_FLIGHT=OFF \
+     ARROW_FLIGHT=ON \
      ARROW_GANDIVA=ON \
      ARROW_GANDIVA_JAVA=ON \
      ARROW_BUILD_TESTS=ON \
      ARROW_HOME=/usr/local \
-     CMAKE_ARGS="-DgRPC_SOURCE=BUNDLED"
+     CMAKE_ARGS="\
+-Dc-ares_SOURCE=BUNDLED \
+-DgRPC_SOURCE=BUNDLED \
+-DORC_SOURCE=BUNDLED \
+-DProtobuf_SOURCE=BUNDLED"
 
-# build; tests don't work on Fedora at the moment due to compiler problems in gcc 8.2 (fixed in 8.3)
-CMD ["arrow/ci/docker_build_cpp.sh"]
+CMD ["arrow/ci/docker_build_and_test_cpp.sh"]

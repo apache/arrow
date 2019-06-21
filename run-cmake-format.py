@@ -50,6 +50,7 @@ patterns = [
     'cpp/cmake_modules/FindgRPCAlt.cmake',
     'cpp/cmake_modules/FindgflagsAlt.cmake',
     'cpp/cmake_modules/Findjemalloc.cmake',
+    'cpp/cmake_modules/FinduriparserAlt.cmake',
     'cpp/cmake_modules/SetupCxxFlags.cmake',
     'cpp/cmake_modules/ThirdpartyToolchain.cmake',
     'cpp/cmake_modules/san-config.cmake',

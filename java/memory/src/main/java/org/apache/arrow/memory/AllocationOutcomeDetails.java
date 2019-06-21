@@ -123,7 +123,7 @@ public class AllocationOutcomeDetails {
           .append(" used: " + used)
           .append(" requestedSize: " + requestedSize)
           .append(" allocatedSize: " + allocatedSize)
-          .append(" localAllocationStatus: " + (allocationFailed ? "success" : "fail"))
+          .append(" localAllocationStatus: " + (allocationFailed ? "fail" : "success"))
           .append("\n")
           .toString();
     }

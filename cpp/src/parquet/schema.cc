@@ -921,21 +921,21 @@ std::string SchemaDescriptor::ToString() const {
 std::string ColumnDescriptor::ToString() const {
   std::ostringstream ss;
   ss << "column descriptor = {" << std::endl
-     << "  name: " << name() << std::endl
-     << "  path: " << path()->ToDotString() << std::endl
-     << "  physical_type: " << TypeToString(physical_type()) << std::endl
-     << "  logical_type: " << LogicalTypeToString(logical_type()) << std::endl
-     << "  logical_annotation: " << logical_annotation()->ToString() << std::endl
-     << "  max_definition_level: " << max_definition_level() << std::endl
-     << "  max_repetition_level: " << max_repetition_level() << std::endl;
+     << "  name: " << name() << "," << std::endl
+     << "  path: " << path()->ToDotString() << "," << std::endl
+     << "  physical_type: " << TypeToString(physical_type()) << "," << std::endl
+     << "  logical_type: " << LogicalTypeToString(logical_type()) << "," << std::endl
+     << "  logical_annotation: " << logical_annotation()->ToString() << "," << std::endl
+     << "  max_definition_level: " << max_definition_level() << "," << std::endl
+     << "  max_repetition_level: " << max_repetition_level() << "," << std::endl;
 
   if (physical_type() == ::parquet::Type::FIXED_LEN_BYTE_ARRAY) {
-    ss << "  length: " << type_length() << std::endl;
+    ss << "  length: " << type_length() << "," << std::endl;
   }
 
   if (logical_type() == parquet::LogicalType::DECIMAL) {
-    ss << "  precision: " << type_precision() << std::endl
-       << "  scale: " << type_scale() << std::endl;
+    ss << "  precision: " << type_precision() << "," << std::endl
+       << "  scale: " << type_scale() << "," << std::endl;
   }
 
   ss << "}";

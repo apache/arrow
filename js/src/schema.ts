@@ -88,7 +88,6 @@ export class Schema<T extends { [key: string]: DataType } = any> {
             : new Schema<R>(selectArgs<Field<R[keyof R]>>(Field, args));
 
         const curFields = [...this.fields] as Field[];
-        const curDictionaries = [...this.dictionaries];
         const curDictionaryFields = this.dictionaryFields;
         const metadata = mergeMaps(mergeMaps(new Map(), this.metadata), other.metadata);
         const newFields = other.fields.filter((f2) => {
@@ -98,20 +97,16 @@ export class Schema<T extends { [key: string]: DataType } = any> {
             })) && false : true;
         }) as Field[];
 
-        const { dictionaries, dictionaryFields } = generateDictionaryMap(newFields, new Map(), new Map());
-        const newDictionaries = [...dictionaries].filter(([y]) => !curDictionaries.every(([x]) => x === y));
+        const { dictionaries: newDictionaries, dictionaryFields } = generateDictionaryMap(newFields, new Map(), new Map());
         const newDictionaryFields = [...dictionaryFields].map(([id, newDictFields]) => {
             return [id, [...(curDictionaryFields.get(id) || []), ...newDictFields.map((f) => {
-                const i = newFields.findIndex((f2) => f.name === f2.name);
-                const { dictionary, indices, isOrdered, dictionaryVector } = f.type;
-                const type = new Dictionary(dictionary, indices, id, isOrdered, dictionaryVector);
-                return newFields[i] = f.clone({ type });
+                return newFields[newFields.findIndex((f2) => f.name === f2.name)] = f.clone();
             })]] as [number, Field<Dictionary>[]];
         });
 
         return new Schema<T & R>(
             [...curFields, ...newFields], metadata,
-            new Map([...curDictionaries, ...newDictionaries]),
+            new Map([...this.dictionaries, ...newDictionaries]),
             new Map([...curDictionaryFields, ...newDictionaryFields])
         );
     }

@@ -291,6 +291,9 @@ class ARROW_EXPORT Field {
   /// \brief Return a copy of this field with the replaced type.
   std::shared_ptr<Field> WithType(const std::shared_ptr<DataType>& type) const;
 
+  /// \brief Return a copy of this field with the replaced name.
+  std::shared_ptr<Field> WithName(const std::string& name) const;
+
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
   bool Equals(const Field& other, bool check_metadata = true) const;
@@ -769,6 +772,8 @@ class ARROW_EXPORT TimeType : public TemporalType, public ParametricType {
   TimeUnit::type unit_;
 };
 
+/// Concrete type class for 32-bit time data (as number of seconds or milliseconds
+/// since midnight)
 class ARROW_EXPORT Time32Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME32;
@@ -783,6 +788,8 @@ class ARROW_EXPORT Time32Type : public TimeType {
   std::string name() const override { return "time32"; }
 };
 
+/// Concrete type class for 64-bit time data (as number of microseconds or nanoseconds
+/// since midnight)
 class ARROW_EXPORT Time64Type : public TimeType {
  public:
   static constexpr Type::type type_id = Type::TIME64;
@@ -797,6 +804,38 @@ class ARROW_EXPORT Time64Type : public TimeType {
   std::string name() const override { return "time64"; }
 };
 
+/// \brief Concrete type class for datetime data (as number of seconds, milliseconds,
+/// microseconds or nanoseconds since UNIX epoch)
+///
+/// If supplied, the timezone string should take either the form (i) "Area/Location",
+/// with values drawn from the names in the IANA Time Zone Database (such as
+/// "Europe/Zurich"); or (ii) "(+|-)HH:MM" indicating an absolute offset from GMT
+/// (such as "-08:00").  To indicate a native UTC timestamp, one of the strings "UTC",
+/// "Etc/UTC" or "+00:00" should be used.
+///
+/// If any non-empty string is supplied as the timezone for a TimestampType, then the
+/// Arrow field containing that timestamp type (and by extension the column associated
+/// with such a field) is considered "timezone-aware".  The integer arrays that comprise
+/// a timezone-aware column must contain UTC normalized datetime values, regardless of
+/// the contents of their timezone string.  More precisely, (i) the producer of a
+/// timezone-aware column must populate its constituent arrays with valid UTC values
+/// (performing offset conversions from non-UTC values if necessary); and (ii) the
+/// consumer of a timezone-aware column may assume that the column's values are directly
+/// comparable (that is, with no offset adjustment required) to the values of any other
+/// timezone-aware column or to any other valid UTC datetime value (provided all values
+/// are expressed in the same units).
+///
+/// If a TimestampType is constructed without a timezone (or, equivalently, if the
+/// timezone supplied is an empty string) then the resulting Arrow field (column) is
+/// considered "timezone-naive".  The producer of a timezone-naive column may populate
+/// its constituent integer arrays with datetime values from any timezone; the consumer
+/// of a timezone-naive column should make no assumptions about the interoperability or
+/// comparability of the values of such a column with those of any other timestamp
+/// column or datetime value.
+///
+/// If a timezone-aware field contains a recognized timezone, its values may be
+/// localized to that locale upon display; the values of timezone-naive fields must
+/// always be displayed "as is", with no localization performed on them.
 class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;

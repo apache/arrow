@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.types.pojo;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -25,6 +26,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 import org.apache.arrow.vector.util.CallBack;
 
 /**
@@ -59,7 +61,20 @@ public class FieldType {
     this.nullable = nullable;
     this.type = Preconditions.checkNotNull(type);
     this.dictionary = dictionary;
-    this.metadata = metadata == null ? java.util.Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
+    if (type instanceof ExtensionType) {
+      // Save the extension type name/metadata
+      final Map<String, String> extensionMetadata = new HashMap<>();
+      extensionMetadata.put(ExtensionType.EXTENSION_METADATA_KEY_NAME, ((ExtensionType) type).extensionName());
+      extensionMetadata.put(ExtensionType.EXTENSION_METADATA_KEY_METADATA, ((ExtensionType) type).serialize());
+      if (metadata != null) {
+        for (Map.Entry<String, String> entry : metadata.entrySet()) {
+          extensionMetadata.put(entry.getKey(), entry.getValue());
+        }
+      }
+      this.metadata = Collections2.immutableMapCopy(extensionMetadata);
+    } else {
+      this.metadata = metadata == null ? java.util.Collections.emptyMap() : Collections2.immutableMapCopy(metadata);
+    }
   }
 
   public boolean isNullable() {

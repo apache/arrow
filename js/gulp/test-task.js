@@ -32,7 +32,7 @@ const parseXML = promisify(require('xml2js').parseString);
 const jestArgv = [];
 argv.verbose && jestArgv.push(`--verbose`);
 argv.coverage
-    ? jestArgv.push(`-c`, `jest.coverage.config.js`, `--coverage`)
+    ? jestArgv.push(`-c`, `jest.coverage.config.js`, `--coverage`, `-i`)
     : jestArgv.push(`-c`, `jest.config.js`, `-i`)
 
 const jest = path.join(path.parse(require.resolve(`jest`)).dir, `../bin/jest.js`);

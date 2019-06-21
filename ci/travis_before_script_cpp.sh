@@ -84,6 +84,12 @@ if [ "$ARROW_TRAVIS_USE_TOOLCHAIN" == "1" ]; then
     # Make sure the toolchain linker (from binutils package) is picked up by clang
     ARROW_CXXFLAGS="$ARROW_CXXFLAGS -B$CPP_TOOLCHAIN/bin"
   fi
+  export TRAVIS_MAKE=ninja
+elif [ "$using_homebrew" = "yes" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -GNinja"
+  export TRAVIS_MAKE=ninja
+else
+  export TRAVIS_MAKE=make
 fi
 
 if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
@@ -104,6 +110,14 @@ fi
 
 if [ "$ARROW_TRAVIS_ORC" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_ORC=ON"
+fi
+
+if [ "$ARROW_TRAVIS_PYTHON" == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_PYTHON=ON"
+  if [ "$using_homebrew" == "yes" ]; then
+    CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS \
+-DPYTHON_EXECUTABLE=$(brew --prefix python)/bin/python3"
+  fi
 fi
 
 if [ "$ARROW_TRAVIS_PARQUET" == "1" ]; then
@@ -141,10 +155,6 @@ if [ "$ARROW_TRAVIS_VERBOSE" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_VERBOSE_THIRDPARTY_BUILD=ON"
 fi
 
-if [ "$ARROW_TRAVIS_VENDORED_BOOST" == "1" ]; then
-  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BOOST_VENDORED=ON"
-fi
-
 if [ "$ARROW_TRAVIS_STATIC_BOOST" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_BOOST_USE_SHARED=OFF"
 fi
@@ -173,11 +183,6 @@ if [ $TRAVIS_OS_NAME == "linux" ]; then
           -DARROW_CXXFLAGS="$ARROW_CXXFLAGS" \
           $ARROW_CPP_DIR
 else
-    if [ "$using_homebrew" = "yes" ]; then
-	# build against homebrew's boost if we're using it
-	export BOOST_ROOT=$(brew --prefix boost)
-	export THRIFT_HOME=$(brew --prefix thrift)
-    fi
     cmake $CMAKE_COMMON_FLAGS \
           $CMAKE_OSX_FLAGS \
           -DCMAKE_BUILD_TYPE=$ARROW_BUILD_TYPE \

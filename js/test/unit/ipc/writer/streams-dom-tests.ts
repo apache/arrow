@@ -237,7 +237,7 @@ import {
             const tables = [] as Table[];
             const stream = AsyncIterable.from(generateRandomTables([10, 20, 30]))
                 // insert some asynchrony
-                .tap({ async next(table) { tables.push(table); await sleep(1); } })
+                .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
                 .pipeThrough(RecordBatchStreamWriter.throughDOM(opts));
 
             for await (const reader of RecordBatchReader.readAll(stream)) {
@@ -255,7 +255,7 @@ import {
             const tables = [] as Table[];
             const stream = AsyncIterable.from(generateRandomTables([10, 20, 30]))
                 // insert some asynchrony
-                .tap({ async next(table) { tables.push(table); await sleep(1); } })
+                .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
                 // flatMap from Table -> RecordBatches[]
                 .flatMap((table) => AsyncIterable.as(table.chunks))
                 .pipeThrough(RecordBatchStreamWriter.throughDOM(opts));

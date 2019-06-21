@@ -16,11 +16,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-wget http://ftp.gnu.org/gnu/bison/bison-3.0.4.tar.gz
-tar xf bison-3.0.4.tar.gz
-pushd bison-3.0.4
+BISON_VERSION=3.3.2
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
+
+wget http://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.gz
+tar xf bison-${BISON_VERSION}.tar.gz
+pushd bison-${BISON_VERSION}
 ./configure --prefix=/usr
-make -j4
+make -j$NCORES
 make install
 popd
-rm -rf bison-3.0.4 bison-3.0.4.tar.gz
+rm -rf bison-${BISON_VERSION} bison-${BISON_VERSION}.tar.gz

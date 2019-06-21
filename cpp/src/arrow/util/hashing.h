@@ -716,10 +716,12 @@ class BinaryMemoTable : public MemoTable {
 
     int32_t left_offset = offsets_[start];
 
-    // Ensure that the data_length is exactly missing width_size bytes to fit
+    // Ensure that the data length is exactly missing width_size bytes to fit
     // in the expected output (n_values * width_size).
+#ifndef NDEBUG
     int64_t data_length = values_.size() - static_cast<size_t>(left_offset);
     assert(data_length + width_size == out_size);
+#endif
 
     auto in_data = values_.data() + left_offset;
     // The null use 0-length in the data, slice the data in 2 and skip by

@@ -80,13 +80,13 @@ func TestMakeFromData(t *testing.T) {
 			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
 			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
 		}},
+		{name: "duration", d: &testDataType{arrow.DURATION}},
 
 		// unsupported types
 		{name: "union", d: &testDataType{arrow.UNION}, expPanic: true, expError: "unsupported data type: UNION"},
 		{name: "dictionary", d: &testDataType{arrow.DICTIONARY}, expPanic: true, expError: "unsupported data type: DICTIONARY"},
 		{name: "map", d: &testDataType{arrow.Type(27)}, expPanic: true, expError: "unsupported data type: MAP"},
 		{name: "extension", d: &testDataType{arrow.Type(28)}, expPanic: true, expError: "unsupported data type: EXTENSION"},
-		{name: "duration", d: &testDataType{arrow.Type(30)}, expPanic: true, expError: "unsupported data type: DURATION"},
 
 		// invalid types
 		{name: "invalid(-1)", d: &testDataType{arrow.Type(-1)}, expPanic: true, expError: "invalid data type: Type(-1)"},

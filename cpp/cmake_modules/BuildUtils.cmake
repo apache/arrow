@@ -20,6 +20,7 @@
 # search there as well.
 set(LIB_PATH_SUFFIXES
     "${CMAKE_LIBRARY_ARCHITECTURE}"
+    "lib/${CMAKE_LIBRARY_ARCHITECTURE}"
     "lib64"
     "lib32"
     "lib"
@@ -43,10 +44,6 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
   endif()
 
   if(ARG_STATIC_LIB AND ARG_SHARED_LIB)
-    if(NOT ARG_STATIC_LIB)
-      message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
-    endif()
-
     set(AUG_LIB_NAME "${LIB_NAME}_static")
     add_library(${AUG_LIB_NAME} STATIC IMPORTED)
     set_target_properties(${AUG_LIB_NAME}
@@ -720,9 +717,11 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
 
   set(PUBLIC_HEADERS)
   foreach(HEADER ${CURRENT_DIRECTORY_HEADERS})
-    if(NOT ((HEADER MATCHES "internal")))
-      list(APPEND PUBLIC_HEADERS ${HEADER})
+    get_filename_component(HEADER_BASENAME ${HEADER} NAME)
+    if(HEADER_BASENAME MATCHES "internal")
+      continue()
     endif()
+    list(APPEND PUBLIC_HEADERS ${HEADER})
   endforeach()
   install(FILES ${PUBLIC_HEADERS} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PATH}")
 endfunction()

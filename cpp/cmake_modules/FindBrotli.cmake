@@ -17,37 +17,47 @@
 #
 #  find_package(Brotli)
 
+# Favour static libraries over dynamic libraries, and handle various spellings
+set(BROTLI_COMMON_LIB_NAMES
+    brotlicommon-static
+    brotlicommon
+    ${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon_static${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${CMAKE_SHARED_LIBRARY_PREFIX}brotlicommon${CMAKE_SHARED_LIBRARY_SUFFIX}
+    ${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+set(BROTLI_ENC_LIB_NAMES
+    brotlienc-static
+    brotlienc
+    ${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc_static${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${CMAKE_SHARED_LIBRARY_PREFIX}brotlienc${CMAKE_SHARED_LIBRARY_SUFFIX}
+    ${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+set(BROTLI_DEC_LIB_NAMES
+    brotlidec-static
+    brotlidec
+    ${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec_static${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${CMAKE_SHARED_LIBRARY_PREFIX}brotlidec${CMAKE_SHARED_LIBRARY_SUFFIX}
+    ${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec${CMAKE_STATIC_LIBRARY_SUFFIX})
+
 if(BROTLI_ROOT)
-  find_library(
-    BROTLI_COMMON_LIBRARY
-    NAMES brotlicommon
-          ${CMAKE_SHARED_LIBRARY_PREFIX}brotlicommon${CMAKE_SHARED_LIBRARY_SUFFIX}
-          ${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon${CMAKE_STATIC_LIBRARY_SUFFIX}
-          ${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}
-          ${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon_static${CMAKE_STATIC_LIBRARY_SUFFIX}
-    PATHS ${BROTLI_ROOT}
-    PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
-    NO_DEFAULT_PATH)
-  find_library(
-    BROTLI_ENC_LIBRARY
-    NAMES brotlienc
-          ${CMAKE_SHARED_LIBRARY_PREFIX}brotlienc${CMAKE_SHARED_LIBRARY_SUFFIX}
-          ${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc${CMAKE_STATIC_LIBRARY_SUFFIX}
-          ${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}
-          ${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc_static${CMAKE_STATIC_LIBRARY_SUFFIX}
-    PATHS ${BROTLI_ROOT}
-    PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
-    NO_DEFAULT_PATH)
-  find_library(
-    BROTLI_DEC_LIBRARY
-    NAMES brotlidec
-          ${CMAKE_SHARED_LIBRARY_PREFIX}brotlidec${CMAKE_SHARED_LIBRARY_SUFFIX}
-          ${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec${CMAKE_STATIC_LIBRARY_SUFFIX}
-          ${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}
-          ${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec_static${CMAKE_STATIC_LIBRARY_SUFFIX}
-    PATHS ${BROTLI_ROOT}
-    PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
-    NO_DEFAULT_PATH)
+  find_library(BROTLI_COMMON_LIBRARY
+               NAMES ${BROTLI_COMMON_LIB_NAMES}
+               PATHS ${BROTLI_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
+  find_library(BROTLI_ENC_LIBRARY
+               NAMES ${BROTLI_ENC_LIB_NAMES}
+               PATHS ${BROTLI_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
+  find_library(BROTLI_DEC_LIBRARY
+               NAMES ${BROTLI_DEC_LIB_NAMES}
+               PATHS ${BROTLI_ROOT}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   find_path(BROTLI_INCLUDE_DIR
             NAMES brotli/decode.h
             PATHS ${BROTLI_ROOT}
@@ -63,44 +73,31 @@ else()
     list(APPEND BROTLI_PC_LIBRARY_DIRS "${BROTLI_PC_libbrotlienc_LIBDIR}")
     list(APPEND BROTLI_PC_LIBRARY_DIRS "${BROTLI_PC_libbrotlidec_LIBDIR}")
 
-    find_library(BROTLI_COMMON_LIBRARY brotlicommon
+    find_library(BROTLI_COMMON_LIBRARY
+                 NAMES ${BROTLI_COMMON_LIB_NAMES}
                  PATHS ${BROTLI_PC_LIBRARY_DIRS}
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
-    find_library(BROTLI_ENC_LIBRARY brotlienc
+    find_library(BROTLI_ENC_LIBRARY
+                 NAMES ${BROTLI_ENC_LIB_NAMES}
                  PATHS ${BROTLI_PC_LIBRARY_DIRS}
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
-    find_library(BROTLI_DEC_LIBRARY brotlidec
+    find_library(BROTLI_DEC_LIBRARY
+                 NAMES ${BROTLI_DEC_LIB_NAMES}
                  PATHS ${BROTLI_PC_LIBRARY_DIRS}
                  PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
   else()
-    find_library(
-      BROTLI_COMMON_LIBRARY
-      NAMES
-        brotlicommon
-        ${CMAKE_SHARED_LIBRARY_PREFIX}brotlicommon${CMAKE_SHARED_LIBRARY_SUFFIX}
-        ${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon${CMAKE_STATIC_LIBRARY_SUFFIX}
-        ${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}
-        ${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon_static${CMAKE_STATIC_LIBRARY_SUFFIX}
-      PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-    find_library(
-      BROTLI_ENC_LIBRARY
-      NAMES brotlienc
-            ${CMAKE_SHARED_LIBRARY_PREFIX}brotlienc${CMAKE_SHARED_LIBRARY_SUFFIX}
-            ${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc${CMAKE_STATIC_LIBRARY_SUFFIX}
-            ${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}
-            ${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc_static${CMAKE_STATIC_LIBRARY_SUFFIX}
-      PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-    find_library(
-      BROTLI_DEC_LIBRARY
-      NAMES brotlidec
-            ${CMAKE_SHARED_LIBRARY_PREFIX}brotlidec${CMAKE_SHARED_LIBRARY_SUFFIX}
-            ${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec${CMAKE_STATIC_LIBRARY_SUFFIX}
-            ${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}
-            ${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec_static${CMAKE_STATIC_LIBRARY_SUFFIX}
-      PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(BROTLI_COMMON_LIBRARY
+                 NAMES ${BROTLI_COMMON_LIB_NAMES}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(BROTLI_ENC_LIBRARY
+                 NAMES ${BROTLI_ENC_LIB_NAMES}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(BROTLI_DEC_LIBRARY
+                 NAMES ${BROTLI_DEC_LIB_NAMES}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
     find_path(BROTLI_INCLUDE_DIR
               NAMES brotli/decode.h
               PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})

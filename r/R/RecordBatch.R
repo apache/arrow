@@ -97,7 +97,7 @@
 #' @return a [arrow::RecordBatch][arrow__RecordBatch]
 #' @export
 record_batch <- function(..., schema = NULL){
-  arrays <- tibble::lst(...)
+  arrays <- list2(...)
   stopifnot(length(arrays) > 0)
   shared_ptr(`arrow::RecordBatch`, RecordBatch__from_arrays(schema, arrays))
 }

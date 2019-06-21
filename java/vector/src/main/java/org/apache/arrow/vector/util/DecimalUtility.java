@@ -22,6 +22,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * Utility methods for configurable precision Decimal values (e.g. {@link BigDecimal}).
@@ -101,6 +102,16 @@ public class DecimalUtility {
     final byte[] bytes = value.unscaledValue().toByteArray();
     final int padValue = value.signum() == -1 ? 0xFF : 0;
     writeByteArrayToArrowBuf(bytes, bytebuf, index, padValue);
+  }
+
+  /**
+   * Write the given long to the ArrowBuf at the given value index.
+   */
+  public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index) {
+    final long addressOfValue = bytebuf.memoryAddress() + index * DECIMAL_BYTE_LENGTH;
+    PlatformDependent.putLong(addressOfValue, value);
+    final long padValue = Long.signum(value) == -1 ? -1L : 0L;
+    PlatformDependent.putLong(addressOfValue + Long.BYTES, padValue);
   }
 
   /**

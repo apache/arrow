@@ -33,7 +33,8 @@ import numpy.testing as npt
 import pytest
 import pytz
 
-from pyarrow.pandas_compat import get_logical_type
+from pyarrow.pandas_compat import get_logical_type, _pandas_api
+
 import pyarrow as pa
 
 try:
@@ -183,14 +184,24 @@ class TestConvertMetadata(object):
         result = table.to_pandas()
         tm.assert_frame_equal(result, df)
         assert isinstance(result.index, pd.RangeIndex)
-        assert result.index._step == 2
+        assert _pandas_api.get_rangeindex_attribute(result.index, 'step') == 2
         assert result.index.name == index_name
 
         result2 = table_no_index_name.to_pandas()
         tm.assert_frame_equal(result2, df2)
         assert isinstance(result2.index, pd.RangeIndex)
-        assert result2.index._step == 1
+        assert _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
         assert result2.index.name is None
+
+    def test_rangeindex_doesnt_warn(self):
+        # ARROW-5606: pandas 0.25 deprecated private _start/stop/step
+        # attributes -> can be removed if support < pd 0.25 is dropped
+        df = pd.DataFrame(np.random.randn(4, 2), columns=['a', 'b'])
+
+        with pytest.warns(None) as record:
+            _check_pandas_roundtrip(df, preserve_index=True)
+
+        assert len(record) == 0
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
@@ -592,6 +603,13 @@ class TestConvertPrimitiveTypes(object):
         s = pd.Series([0.0, 1.0, 2.0, None, -3.0])
         expected = pd.Series([False, True, True, None, True])
         _check_array_roundtrip(s, expected=expected, type=pa.bool_())
+
+    def test_series_from_pandas_false_respected(self):
+        # Check that explicit from_pandas=False is respected
+        s = pd.Series([0.0, np.nan])
+        arr = pa.array(s, from_pandas=False)
+        assert arr.null_count == 0
+        assert np.isnan(arr[1].as_py())
 
     def test_integer_no_nulls(self):
         data = OrderedDict()

@@ -25,7 +25,7 @@ package org.apache.arrow.memory;
  */
 public interface AllocationListener {
 
-  public static final AllocationListener NOOP = new AllocationListener() {};
+  AllocationListener NOOP = new AllocationListener() {};
 
   /**
    * Called each time a new buffer has been requested.

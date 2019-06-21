@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
 Build-Depends:
   bison,
-  clang-7,
+  clang-7 [!arm64],
   cmake,
   debhelper (>= 12),
   flex,
@@ -20,16 +20,13 @@ Build-Depends:
   libgoogle-glog-dev,
   libgtest-dev,
   liblz4-dev,
-  libprotobuf-dev,
-  libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
   libzstd-dev,
   ninja-build,
-  nvidia-cuda-toolkit,
+  nvidia-cuda-toolkit [!arm64],
   pkg-config,
-  protobuf-compiler,
   python3-dev,
   python3-numpy,
   tzdata
@@ -66,7 +63,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libarrow-cuda14
 Section: libs
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -76,6 +73,19 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for CUDA support.
+
+Package: libarrow-flight14
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow14 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for Flight RPC system.
 
 Package: libarrow-dev
 Section: libdevel
@@ -102,7 +112,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libarrow-cuda-dev
 Section: libdevel
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -112,9 +122,21 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for CUDA support.
 
+Package: libarrow-flight-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dev (= ${binary:Version}),
+  libarrow-flight14 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ header files for Flight RPC system.
+
 Package: libgandiva14
 Section: libs
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -128,7 +150,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-dev
 Section: libdevel
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -141,7 +163,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libplasma14
 Section: libs
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -154,7 +176,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: plasma-store-server
 Section: utils
-Architecture: any
+Architecture: i386 amd64
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
@@ -166,7 +188,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: libplasma-dev
 Section: libdevel
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -252,7 +274,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libarrow-cuda-glib14
 Section: libs
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -266,7 +288,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: gir1.2-arrow-cuda-1.0
 Section: introspection
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${gir:Depends},
@@ -277,7 +299,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libarrow-cuda-glib-dev
 Section: libdevel
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -291,7 +313,7 @@ Description: Apache Arrow is a data processing library for analysis
 
 Package: libgandiva-glib14
 Section: libs
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -306,7 +328,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: gir1.2-gandiva-1.0
 Section: introspection
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${gir:Depends},
@@ -318,7 +340,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-glib-dev
 Section: libdevel
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -333,7 +355,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libgandiva-glib-doc
 Section: doc
-Architecture: all
+Architecture: i386 amd64
 Multi-Arch: foreign
 Depends:
   ${misc:Depends}
@@ -345,7 +367,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
 
 Package: libplasma-glib14
 Section: libs
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
@@ -359,7 +381,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: gir1.2-plasma-1.0
 Section: introspection
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${gir:Depends},
@@ -370,7 +392,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: libplasma-glib-dev
 Section: libdevel
-Architecture: any
+Architecture: i386 amd64
 Multi-Arch: same
 Depends:
   ${misc:Depends},
@@ -384,7 +406,7 @@ Description: Plasma is an in-memory object store and cache for big data.
 
 Package: libplasma-glib-doc
 Section: doc
-Architecture: all
+Architecture: i386 amd64
 Multi-Arch: foreign
 Depends:
   ${misc:Depends}

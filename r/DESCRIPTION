@@ -27,11 +27,8 @@ Imports:
     rlang,
     purrr,
     assertthat,
-    glue,
     R6,
-    vctrs (>= 0.1.0),
     fs,
-    crayon,
     bit64
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
@@ -43,6 +40,7 @@ Suggests:
     roxygen2,
     testthat,
     lubridate,
+    vctrs,
     hms
 Collate:
     'enums.R'

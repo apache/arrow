@@ -739,6 +739,23 @@ def test_table_remove_column_empty():
     assert t3.equals(table)
 
 
+def test_table_rename_columns():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = pa.Table.from_arrays(data, names=['a', 'b', 'c'])
+    assert table.column_names == ['a', 'b', 'c']
+
+    t2 = table.rename_columns(['eh', 'bee', 'sea'])
+    t2._validate()
+    assert t2.column_names == ['eh', 'bee', 'sea']
+
+    expected = pa.Table.from_arrays(data, names=['eh', 'bee', 'sea'])
+    assert t2.equals(expected)
+
+
 def test_table_flatten():
     ty1 = pa.struct([pa.field('x', pa.int16()),
                      pa.field('y', pa.float32())])

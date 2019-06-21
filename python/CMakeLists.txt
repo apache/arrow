@@ -274,31 +274,36 @@ endfunction()
 # We can assume that manylinux1 and macosx have system zlib.
 # See https://mail.python.org/mm3/archives/list/distutils-sig@python.org/thread/ZZG6GL3XTBLBJXSITYHEXMFKN43EREB7/
 # for manylinux1.
-# zlib uses zlib.dll for Windows
 function(bundle_arrow_dependency library_name)
   if(MSVC)
     set(SHARED_LIB_NAME "${library_name}.dll")
     if(DEFINED ENV{CONDA_PREFIX})
       set(SHARED_LIB_HOME "$ENV{CONDA_PREFIX}\\Library")
     endif()
-    if(DEFINED ENV{${library_name}_HOME})
-      set(SHARED_LIB_HOME "$ENV{${library_name}_HOME}")
+  else()
+    set(SHARED_LIB_NAME "lib${library_name}.so")
+    if(DEFINED ENV{CONDA_PREFIX})
+      set(SHARED_LIB_HOME "$ENV{CONDA_PREFIX}")
     endif()
-    if("${SHARED_LIB_HOME}" STREQUAL "")
-      find_library(SHARED_LIB_PATH NAMES ${SHARED_LIB_NAME})
-    else()
-      find_library(SHARED_LIB_PATH
-                   NAMES ${SHARED_LIB_NAME}
-                   PATHS ${SHARED_LIB_HOME}
-                   NO_DEFAULT_PATH
-                   PATH_SUFFIXES "bin")
-    endif()
-    if(SHARED_LIB_PATH)
-      message(STATUS "Bundle dependency ${library_name}: ${SHARED_LIB_PATH}")
-      file(COPY ${SHARED_LIB_PATH} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
-    else()
-      message(FATAL_ERROR "Unable to bundle dependency: ${library_name}")
-    endif()
+  endif()
+  if(DEFINED ENV{${library_name}_HOME})
+    set(SHARED_LIB_HOME "$ENV{${library_name}_HOME}")
+  endif()
+  unset(SHARED_LIB_PATH CACHE)
+  if("${SHARED_LIB_HOME}" STREQUAL "")
+    find_library(SHARED_LIB_PATH NAMES ${SHARED_LIB_NAME})
+  else()
+    find_library(SHARED_LIB_PATH
+                 NAMES ${SHARED_LIB_NAME}
+                 PATHS ${SHARED_LIB_HOME}
+                 NO_DEFAULT_PATH
+                 PATH_SUFFIXES "bin")
+  endif()
+  if(SHARED_LIB_PATH)
+    message(STATUS "Bundle dependency ${library_name}: ${SHARED_LIB_PATH}")
+    file(COPY ${SHARED_LIB_PATH} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
+  else()
+    message(FATAL_ERROR "Unable to bundle dependency: ${library_name}")
   endif()
 endfunction()
 
@@ -486,7 +491,7 @@ endif()
 
 # Flight
 if(PYARROW_BUILD_FLIGHT)
-  # Arrow CUDA
+  # Arrow Flight
   find_package(ArrowFlight)
   if(NOT ARROW_FLIGHT_FOUND)
     message(FATAL_ERROR "Unable to locate Arrow Flight libraries")
@@ -499,6 +504,13 @@ if(PYARROW_BUILD_FLIGHT)
                        ${ARROW_SO_VERSION})
       if(MSVC)
         bundle_arrow_implib(ARROW_FLIGHT_SHARED_IMP_LIB)
+        bundle_arrow_dependency(cares)
+        bundle_arrow_dependency(libprotobuf)
+        # XXX Hardcoded library names because CMake is too stupid to give us
+        # the shared library paths.
+        # https://gitlab.kitware.com/cmake/cmake/issues/16210
+        bundle_arrow_dependency(libcrypto-1_1-x64)
+        bundle_arrow_dependency(libssl-1_1-x64)
       endif()
     endif()
     if(MSVC)

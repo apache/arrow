@@ -1514,6 +1514,30 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(c_table)
 
+    @property
+    def column_names(self):
+        """
+        Names of the table's columns
+        """
+        names = self.table.ColumnNames()
+        return [frombytes(name) for name in names]
+
+    def rename_columns(self, names):
+        """
+        Create new table with columns renamed to provided names
+        """
+        cdef:
+            shared_ptr[CTable] c_table
+            vector[c_string] c_names
+
+        for name in names:
+            c_names.push_back(tobytes(name))
+
+        with nogil:
+            check_status(self.table.RenameColumns(c_names, &c_table))
+
+        return pyarrow_wrap_table(c_table)
+
     def drop(self, columns):
         """
         Drop one or more columns and return a new table.

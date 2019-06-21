@@ -540,13 +540,15 @@ TEST(TestMap, IntegerToInteger) {
   auto type = map(int16(), int16());
   std::shared_ptr<Array> expected, actual;
 
-  ASSERT_OK(ArrayFromJSON(type, R"([
+  const char* input = R"(
+[
     [[0, 1], [1, 1], [2, 2], [3, 3], [4, 5], [5, 8]],
     null,
     [[0, null], [1, null], [2, 0], [3, 1], [4, null], [5, 2]],
     []
-  ])",
-                          &actual));
+  ]
+)";
+  ASSERT_OK(ArrayFromJSON(type, input, &actual));
 
   std::unique_ptr<ArrayBuilder> builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder));
@@ -569,12 +571,15 @@ TEST(TestMap, IntegerToInteger) {
 
 TEST(TestMap, StringToInteger) {
   auto type = map(utf8(), int32());
-  auto actual = ArrayFromJSON(type, R"([
+  const char* input = R"(
+[
     [["joe", 0], ["mark", null]],
     null,
     [["cap", 8]],
     []
-  ])");
+  ]
+)";
+  auto actual = ArrayFromJSON(type, input);
   std::vector<int32_t> offsets = {0, 2, 2, 3, 3};
   auto expected_keys = ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])");
   auto expected_values = ArrayFromJSON(int32(), "[0, null, 8]");
@@ -610,7 +615,8 @@ TEST(TestMap, IntegerMapToStringList) {
   auto type = map(map(int16(), int16()), list(utf8()));
   std::shared_ptr<Array> expected, actual;
 
-  ASSERT_OK(ArrayFromJSON(type, R"([
+  const char* input = R"(
+[
     [
       [
         [],
@@ -626,8 +632,9 @@ TEST(TestMap, IntegerMapToStringList) {
       ]
     ],
     null
-  ])",
-                          &actual));
+  ]
+)";
+  ASSERT_OK(ArrayFromJSON(type, input, &actual));
 
   std::unique_ptr<ArrayBuilder> builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), type, &builder));

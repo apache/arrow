@@ -264,5 +264,15 @@
         <module name="CommentsIndentation"/>
         <!-- needed so that filters can access file contents -->
         <module name="FileContentsHolder"/>
+        <module name="UnusedImports">
+            <property name="severity" value="error"/>
+            <property name="processJavadoc" value="true"/>
+            <message key="import.unused"
+                     value="Unused import: {0}."/>
+        </module>
+        <module name="RedundantModifier">
+            <!-- Checks for redundant modifiers on various symbol definitions -->
+            <property name="tokens" value="VARIABLE_DEF, ANNOTATION_FIELD_DEF, INTERFACE_DEF, CLASS_DEF, ENUM_DEF"/>
+        </module>
     </module>
 </module>
