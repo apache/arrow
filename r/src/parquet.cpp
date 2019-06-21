@@ -90,6 +90,7 @@ void write_parquet_file(const std::shared_ptr<arrow::Table>& table,
   std::shared_ptr<arrow::io::OutputStream> sink;
   PARQUET_THROW_NOT_OK(arrow::io::FileOutputStream::Open(filename, &sink));
   PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, arrow::default_memory_pool(),
+                                                  sink, table->num_rows()));
 }
 
 // [[arrow::export]]
