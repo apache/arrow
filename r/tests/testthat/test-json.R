@@ -24,7 +24,7 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
     { "hello": 3.25, "world": null }
     { "hello": 3.125, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
-  ', tf)
+  ', tf, useBytes=TRUE)
 
   tab1 <- read_json_arrow(tf, as_tibble = FALSE)
   tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
@@ -52,7 +52,7 @@ test_that("read_json_arrow() converts to tibble", {
     { "hello": 3.25, "world": null }
     { "hello": 3.125, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
-  ', tf)
+  ', tf, useBytes=TRUE)
 
   tab1 <- read_json_arrow(tf)
   tab2 <- read_json_arrow(mmap_open(tf))
