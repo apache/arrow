@@ -113,11 +113,16 @@ class SerializedPageReader : public PageReader {
                        ::arrow::MemoryPool* pool, struct PageReaderContext* ctx)
       : stream_(stream),
         decompression_buffer_(AllocateBuffer(pool, 0)),
+        column_has_dictionary_(false),
         first_page_(true),
+        row_group_ordinal_(-1),
+        column_ordinal_(-1),
         page_ordinal_(-1),
         seen_num_rows_(0),
         total_num_rows_(total_num_rows),
-        decryption_buffer_(AllocateBuffer(pool, 0)) {
+        decryption_buffer_(AllocateBuffer(pool, 0)),
+        meta_decryptor_(NULLPTR),
+        data_decryptor_(NULLPTR) {
     if (ctx != NULLPTR) {
       column_has_dictionary_ = ctx->column_has_dictionary;
       row_group_ordinal_ = ctx->row_group_ordinal;
