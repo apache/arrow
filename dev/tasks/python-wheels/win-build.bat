@@ -23,12 +23,15 @@ conda update --yes --quiet conda
 call conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
-    --file=%ARROW_SRC%\ci\conda_env_python.yml ^
     python=%PYTHON_VERSION% ^
     numpy=%NUMPY_VERSION% ^
     || exit /B
 
 call activate wheel-build
+
+@rem Cannot use conda_env_python.yml here because conda-forge has
+@rem ceased providing up-to-date packages for Python 3.5
+pip install -r %ARROW_SRC%\python\requirements-wheel.txt
 
 set ARROW_HOME=%CONDA_PREFIX%\Library
 set PARQUET_HOME=%CONDA_PREFIX%\Library
