@@ -140,8 +140,7 @@ make install
 
 This likely will require additional system libraries to be installed,
 the specifics of which are platform dependent. See the [C++ developer
-guide](https://arrow.apache.org/docs/developers/cpp.html#building) for
-details.
+guide](https://arrow.apache.org/docs/developers/cpp.html) for details.
 
 Once you’ve built the C++ library, you can install the R package and its
 dependencies, along with additional dev dependencies, from the git

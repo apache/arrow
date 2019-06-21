@@ -67,6 +67,7 @@ Collate:
     'csv.R'
     'dictionary.R'
     'feather.R'
+    'install-arrow.R'
     'json.R'
     'memory_pool.R'
     'message.R'
