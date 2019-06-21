@@ -378,11 +378,8 @@ static inline Status ReadRecordBatch(const flatbuf::RecordBatch* metadata,
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo, int max_recursion_depth,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
-  flatbuffers::Verifier verifier(metadata.data(), metadata.size(), 128);
-  if (!flatbuf::VerifyMessageBuffer(verifier)) {
-    return Status::IOError("Verification of flatbuffer-encoded Message failed.");
-  }
-  auto message = flatbuf::GetMessage(metadata.data());
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto batch = message->header_as_RecordBatch();
   if (batch == nullptr) {
     return Status::IOError(
@@ -393,11 +390,8 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
                       io::RandomAccessFile* file) {
-  flatbuffers::Verifier verifier(metadata.data(), metadata.size(), 128);
-  if (!flatbuf::VerifyMessageBuffer(verifier)) {
-    return Status::IOError("Verification of flatbuffer-encoded Message failed.");
-  }
-  auto message = flatbuf::GetMessage(metadata.data());
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto dictionary_batch = message->header_as_DictionaryBatch();
   if (dictionary_batch == nullptr) {
     return Status::IOError(
@@ -891,11 +885,8 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
   RETURN_NOT_OK(internal::GetSparseTensorMetadata(
       metadata, &type, &shape, &dim_names, &non_zero_length, &sparse_tensor_format_id));
 
-  flatbuffers::Verifier verifier(metadata.data(), metadata.size(), 128);
-  if (!flatbuf::VerifyMessageBuffer(verifier)) {
-    return Status::IOError("Verification of flatbuffer-encoded Message failed.");
-  }
-  auto message = flatbuf::GetMessage(metadata.data());
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto sparse_tensor = message->header_as_SparseTensor();
   if (sparse_tensor == nullptr) {
     return Status::IOError(
