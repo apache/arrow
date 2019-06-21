@@ -506,25 +506,25 @@ mod tests {
         let mut a_builder = ListBuilder::new(Int32Builder::new(10));
         let mut b_builder = ListBuilder::new(Int32Builder::new(10));
 
-        a_builder.values().append_slice(&[1, 2, 3]).expect("");
-        a_builder.append(true).expect("");
-        a_builder.values().append_slice(&[4, 5]).expect("");
-        a_builder.append(true).expect("");
+        a_builder.values().append_slice(&[1, 2, 3]).unwrap();
+        a_builder.append(true).unwrap();
+        a_builder.values().append_slice(&[4, 5]).unwrap();
+        a_builder.append(true).unwrap();
 
-        b_builder.values().append_slice(&[1, 2, 3]).expect("");
-        b_builder.append(true).expect("");
-        b_builder.values().append_slice(&[4, 5]).expect("");
-        b_builder.append(true).expect("");
+        b_builder.values().append_slice(&[1, 2, 3]).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.values().append_slice(&[4, 5]).unwrap();
+        b_builder.append(true).unwrap();
 
         let a = a_builder.finish();
         let b = b_builder.finish();
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        b_builder.values().append_slice(&[1, 2, 3]).expect("");
-        b_builder.append(true).expect("");
-        b_builder.values().append_slice(&[4, 5, 6]).expect("");
-        b_builder.append(true).expect("");
+        b_builder.values().append_slice(&[1, 2, 3]).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.values().append_slice(&[4, 5, 6]).unwrap();
+        b_builder.append(true).unwrap();
         let b = b_builder.finish();
 
         assert!(!a.equals(&b));
@@ -532,50 +532,50 @@ mod tests {
 
         // Test the case where null_count > 0
 
-        a_builder.values().append_slice(&[1, 2]).expect("");
-        a_builder.append(true).expect("");
-        a_builder.append(false).expect("");
-        a_builder.append(false).expect("");
-        a_builder.values().append_slice(&[3, 4]).expect("");
-        a_builder.append(true).expect("");
-        a_builder.append(false).expect("");
-        a_builder.append(false).expect("");
+        a_builder.values().append_slice(&[1, 2]).unwrap();
+        a_builder.append(true).unwrap();
+        a_builder.append(false).unwrap();
+        a_builder.append(false).unwrap();
+        a_builder.values().append_slice(&[3, 4]).unwrap();
+        a_builder.append(true).unwrap();
+        a_builder.append(false).unwrap();
+        a_builder.append(false).unwrap();
 
-        b_builder.values().append_slice(&[1, 2]).expect("");
-        b_builder.append(true).expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
-        b_builder.values().append_slice(&[3, 4]).expect("");
-        b_builder.append(true).expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
+        b_builder.values().append_slice(&[1, 2]).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.values().append_slice(&[3, 4]).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
 
         let a = a_builder.finish();
         let b = b_builder.finish();
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        b_builder.values().append_slice(&[1, 2]).expect("");
-        b_builder.append(true).expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(true).expect("");
-        b_builder.values().append_slice(&[3, 4]).expect("");
-        b_builder.append(true).expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
+        b_builder.values().append_slice(&[1, 2]).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.values().append_slice(&[3, 4]).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
 
         let b = b_builder.finish();
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
-        b_builder.values().append_slice(&[1, 2]).expect("");
-        b_builder.append(true).expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
-        b_builder.values().append_slice(&[3, 4, 5]).expect("");
-        b_builder.append(true).expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
+        b_builder.values().append_slice(&[1, 2]).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.values().append_slice(&[3, 4, 5]).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
 
         let b = b_builder.finish();
         assert!(!a.equals(&b));
@@ -604,19 +604,19 @@ mod tests {
         let mut a_builder = BinaryBuilder::new(10);
         let mut b_builder = BinaryBuilder::new(10);
 
-        a_builder.append_string("hello").expect("");
-        a_builder.append_string("world").expect("");
+        a_builder.append_string("hello").unwrap();
+        a_builder.append_string("world").unwrap();
 
-        b_builder.append_string("hello").expect("");
-        b_builder.append_string("world").expect("");
+        b_builder.append_string("hello").unwrap();
+        b_builder.append_string("world").unwrap();
 
         let a = a_builder.finish();
         let b = b_builder.finish();
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        b_builder.append_string("hello").expect("");
-        b_builder.append_string("arrow").expect("");
+        b_builder.append_string("hello").unwrap();
+        b_builder.append_string("arrow").unwrap();
         let b = b_builder.finish();
 
         assert!(!a.equals(&b));
@@ -624,42 +624,42 @@ mod tests {
 
         // Test the case where null_count > 0
 
-        a_builder.append_string("hello").expect("");
-        a_builder.append(false).expect("");
-        a_builder.append(false).expect("");
-        a_builder.append_string("world").expect("");
-        a_builder.append(false).expect("");
-        a_builder.append(false).expect("");
+        a_builder.append_string("hello").unwrap();
+        a_builder.append(false).unwrap();
+        a_builder.append(false).unwrap();
+        a_builder.append_string("world").unwrap();
+        a_builder.append(false).unwrap();
+        a_builder.append(false).unwrap();
 
-        b_builder.append_string("hello").expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
-        b_builder.append_string("world").expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
+        b_builder.append_string("hello").unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append_string("world").unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
 
         let a = a_builder.finish();
         let b = b_builder.finish();
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        b_builder.append_string("hello").expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(true).expect("");
-        b_builder.append_string("world").expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
+        b_builder.append_string("hello").unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(true).unwrap();
+        b_builder.append_string("world").unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
 
         let b = b_builder.finish();
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
-        b_builder.append_string("hello").expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
-        b_builder.append_string("arrow").expect("");
-        b_builder.append(false).expect("");
-        b_builder.append(false).expect("");
+        b_builder.append_string("hello").unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append_string("arrow").unwrap();
+        b_builder.append(false).unwrap();
+        b_builder.append(false).unwrap();
 
         let b = b_builder.finish();
         assert!(!a.equals(&b));
@@ -698,14 +698,14 @@ mod tests {
         let mut builder = StructBuilder::new(fields, field_builders);
 
         let a = {
-            let string_builder = builder.field_builder::<BinaryBuilder>(0).expect("");
+            let string_builder = builder.field_builder::<BinaryBuilder>(0).unwrap();
             string_builder.append_string("joe").unwrap();
             string_builder.append_null().unwrap();
             string_builder.append_null().unwrap();
             string_builder.append_string("mark").unwrap();
             string_builder.append_string("doe").unwrap();
 
-            let int_builder = builder.field_builder::<Int32Builder>(1).expect("");
+            let int_builder = builder.field_builder::<Int32Builder>(1).unwrap();
             int_builder.append_value(1).unwrap();
             int_builder.append_value(2).unwrap();
             int_builder.append_null().unwrap();
@@ -722,14 +722,14 @@ mod tests {
         };
 
         let b = {
-            let string_builder = builder.field_builder::<BinaryBuilder>(0).expect("");
+            let string_builder = builder.field_builder::<BinaryBuilder>(0).unwrap();
             string_builder.append_string("joe").unwrap();
             string_builder.append_null().unwrap();
             string_builder.append_null().unwrap();
             string_builder.append_string("mark").unwrap();
             string_builder.append_string("doe").unwrap();
 
-            let int_builder = builder.field_builder::<Int32Builder>(1).expect("");
+            let int_builder = builder.field_builder::<Int32Builder>(1).unwrap();
             int_builder.append_value(1).unwrap();
             int_builder.append_value(2).unwrap();
             int_builder.append_null().unwrap();
