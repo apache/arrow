@@ -638,6 +638,27 @@ The report is then generated in ``compat_reports/libarrow`` as a HTML.
 
 .. _developers-cpp-windows:
 
+Debugging with Xcode on macOS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Xcode is the IDE provided with macOS and can be use to develop and debug Arrow 
+by generating an Xcode project:
+
+.. code-block:: shell
+
+   cd cpp
+   mkdir xcode-build
+   cd xcode-build
+   cmake .. -G Xcode ^
+         -DARROW_BUILD_TESTS=ON
+   open arrow.xcodeproj
+
+This will generate a project and open it in the Xcode app. As an alternative, 
+the command ``xcodebuild`` will perform a command-line build using the
+generated project. It is recommended to use the "Automatically Create Schemes"
+option when first launching the project.  Selecting an auto-generated scheme 
+will allow you to build and run a unittest with breakpoints enabled.
+
 Developing on Windows
 =====================
 
