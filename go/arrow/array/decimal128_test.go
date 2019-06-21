@@ -31,6 +31,10 @@ func TestNewDecimal128Builder(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	ab := array.NewDecimal128Builder(mem, &arrow.Decimal128Type{Precision: 10, Scale: 1})
+	defer ab.Release()
+
+	ab.Retain()
+	ab.Release()
 
 	want := []decimal128.Num{
 		decimal128.New(1, 1),
@@ -59,7 +63,9 @@ func TestNewDecimal128Builder(t *testing.T) {
 	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
-	a := ab.NewDecimal128Array()
+	a := ab.NewArray().(*array.Decimal128)
+	a.Retain()
+	a.Release()
 
 	// check state of builder after NewDecimal128Array
 	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewDecimal128Array did not reset state")
