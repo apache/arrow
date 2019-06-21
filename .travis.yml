@@ -280,15 +280,18 @@ matrix:
     script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
-  - name: "[OS X] C++ & GLib & Ruby w/ XCode 8.3 & homebrew"
+  - name: "[OS X] C++ & GLib & Ruby w/ XCode 10.2 & Homebrew"
     compiler: clang
-    osx_image: xcode8.3
+    osx_image: xcode10.2
     os: osx
     env:
-    - ARROW_TRAVIS_ORC=1
+    - ARROW_TRAVIS_FLIGHT=1
     - ARROW_TRAVIS_GANDIVA=1
+    - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PLASMA=1
+    - ARROW_TRAVIS_PYTHON=1
+    - ARROW_TRAVIS_VERBOSE=1
     cache:
     addons:
     before_script:

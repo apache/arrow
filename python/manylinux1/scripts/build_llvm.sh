@@ -43,4 +43,4 @@ cmake -DCMAKE_INSTALL_PREFIX=$PREFIX \
 ninja install
 popd
 popd
-rm -rf llvm-${LLVM_VERSION}.src.tar.xz llvm-${LLVM_VERSION}.src.tar llvm-${LLVM_VERSION}
+rm -rf llvm-${LLVM_VERSION}.src.tar.xz llvm-${LLVM_VERSION}.src.tar llvm-${LLVM_VERSION}.src

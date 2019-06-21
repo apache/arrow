@@ -319,8 +319,10 @@ endif()
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
   set(JEMALLOC_SOURCE_URL "$ENV{ARROW_JEMALLOC_URL}")
 else()
-  set(JEMALLOC_SOURCE_URL
-      "https://github.com/jemalloc/jemalloc/archive/${JEMALLOC_VERSION}.tar.gz")
+  set(
+    JEMALLOC_SOURCE_URL
+    "https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_LZ4_URL})
@@ -1360,7 +1362,7 @@ if(ARROW_JEMALLOC)
     jemalloc_ep
     URL ${JEMALLOC_SOURCE_URL}
     PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-    CONFIGURE_COMMAND ./autogen.sh
+    CONFIGURE_COMMAND ./configure
                       "AR=${CMAKE_AR}"
                       "CC=${CMAKE_C_COMPILER}"
                       "--prefix=${JEMALLOC_PREFIX}"
