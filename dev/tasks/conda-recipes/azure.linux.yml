@@ -4,18 +4,11 @@ jobs:
     vmImage: ubuntu-16.04
   timeoutInMinutes: 360
 
-  ############### crossbow specific #################
   variables:
     UPLOAD_PACKAGES: False
     DOCKER_IMAGE: condaforge/linux-anvil-comp7
-  steps:
-  - script: |
-      git clone --no-checkout {{ arrow.remote }} arrow
-      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-      git -C arrow checkout {{ arrow.head }}
-      cd arrow/dev/tasks/conda-recipes
-  ############ crossbow specific ###############
 
+  steps:
   # configure qemu binfmt-misc running.  This allows us to run docker containers
   # embedded qemu-static
   - script: |
@@ -25,8 +18,10 @@ jobs:
     displayName: Configure binfmt_misc
 
   - script: |
-        export CI=azure
-        run_docker_build.sh
+      git clone --no-checkout {{ arrow.remote }} arrow
+      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      git -C arrow checkout {{ arrow.head }}
+
+  - script: export CI=azure ./run_docker_build.sh
     displayName: Run docker build
-    env:
-      BINSTAR_TOKEN: $(BINSTAR_TOKEN)
+    workingDirectory: arrow/dev/tasks/conda-recipes
