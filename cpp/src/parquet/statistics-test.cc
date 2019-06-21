@@ -609,8 +609,8 @@ class TestStatisticsSortOrder : public ::testing::Test {
   typedef typename TestType::c_type T;
 
   void AddNodes(std::string name) {
-    fields_.push_back(schema::PrimitiveNode::Make(name, Repetition::REQUIRED,
-                                                  TestType::type_num, ConvertedType::NONE));
+    fields_.push_back(schema::PrimitiveNode::Make(
+        name, Repetition::REQUIRED, TestType::type_num, ConvertedType::NONE));
   }
 
   void SetUpSchema() {
@@ -838,8 +838,8 @@ using TestStatisticsSortOrderFLBA = TestStatisticsSortOrder<FLBAType>;
 
 TEST_F(TestStatisticsSortOrderFLBA, UnknownSortOrder) {
   this->fields_.push_back(schema::PrimitiveNode::Make(
-      "Column 0", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::INTERVAL,
-      FLBA_LENGTH));
+      "Column 0", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+      ConvertedType::INTERVAL, FLBA_LENGTH));
   this->SetUpSchema();
   this->WriteParquet();
 

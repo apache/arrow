@@ -215,8 +215,7 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
            << " \"PhysicalType\": \"" << TypeToString(descr->physical_type()) << "\","
            << " \"ConvertedType\": \"" << ConvertedTypeToString(descr->converted_type())
            << "\","
-           << " \"LogicalType\": " << (descr->logical_type())->ToJSON()
-           << " }";
+           << " \"LogicalType\": " << (descr->logical_type())->ToJSON() << " }";
     c++;
     if (c != static_cast<int>(selected_columns.size())) {
       stream << ",\n";

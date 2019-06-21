@@ -219,8 +219,8 @@ TEST_F(TestPrimitiveNode, Equals) {
 }
 
 TEST_F(TestPrimitiveNode, PhysicalLogicalMapping) {
-  ASSERT_NO_THROW(
-      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, ConvertedType::INT_32));
+  ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32,
+                                      ConvertedType::INT_32));
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
                                       ConvertedType::JSON));
   ASSERT_THROW(
@@ -228,9 +228,9 @@ TEST_F(TestPrimitiveNode, PhysicalLogicalMapping) {
       ParquetException);
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT64,
                                       ConvertedType::TIMESTAMP_MILLIS));
-  ASSERT_THROW(
-      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32, ConvertedType::INT_64),
-      ParquetException);
+  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::INT32,
+                                   ConvertedType::INT_64),
+               ParquetException);
   ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::BYTE_ARRAY,
                                    ConvertedType::INT_8),
                ParquetException);
@@ -271,9 +271,10 @@ TEST_F(TestPrimitiveNode, PhysicalLogicalMapping) {
   ASSERT_NO_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
                                       Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::INTERVAL,
                                       12));
-  ASSERT_THROW(PrimitiveNode::Make("foo", Repetition::REQUIRED,
-                                   Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::INTERVAL, 10),
-               ParquetException);
+  ASSERT_THROW(
+      PrimitiveNode::Make("foo", Repetition::REQUIRED, Type::FIXED_LEN_BYTE_ARRAY,
+                          ConvertedType::INTERVAL, 10),
+      ParquetException);
 }
 
 // ----------------------------------------------------------------------
@@ -524,8 +525,8 @@ TEST_F(TestSchemaFlatten, DecimalMetadata) {
 
   elements_.clear();
   // Not for integers with no logical type
-  group =
-      GroupNode::Make("group", Repetition::REPEATED, {Int64("int64")}, ConvertedType::LIST);
+  group = GroupNode::Make("group", Repetition::REPEATED, {Int64("int64")},
+                          ConvertedType::LIST);
   Flatten(reinterpret_cast<GroupNode*>(group.get()));
   ASSERT_EQ("int64", elements_[1].name);
   ASSERT_FALSE(elements_[0].__isset.precision);
@@ -849,10 +850,9 @@ TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
   auto check_is_time = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_time();
   };
-  auto check_is_timestamp =
-      [](const std::shared_ptr<const LogicalType>& logical_type) {
-        return logical_type->is_timestamp();
-      };
+  auto check_is_timestamp = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_timestamp();
+  };
   auto check_is_int = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_int();
   };
@@ -862,10 +862,9 @@ TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
   auto check_is_BSON = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_BSON();
   };
-  auto check_is_interval =
-      [](const std::shared_ptr<const LogicalType>& logical_type) {
-        return logical_type->is_interval();
-      };
+  auto check_is_interval = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_interval();
+  };
   auto check_is_none = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_none();
   };
@@ -877,16 +876,14 @@ TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
       {ConvertedType::LIST, LogicalType::List(), check_is_list},
       {ConvertedType::ENUM, LogicalType::Enum(), check_is_enum},
       {ConvertedType::DATE, LogicalType::Date(), check_is_date},
-      {ConvertedType::TIME_MILLIS,
-       LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), check_is_time},
-      {ConvertedType::TIME_MICROS,
-       LogicalType::Time(true, LogicalType::TimeUnit::MICROS), check_is_time},
+      {ConvertedType::TIME_MILLIS, LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
+       check_is_time},
+      {ConvertedType::TIME_MICROS, LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
+       check_is_time},
       {ConvertedType::TIMESTAMP_MILLIS,
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
-       check_is_timestamp},
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS), check_is_timestamp},
       {ConvertedType::TIMESTAMP_MICROS,
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
-       check_is_timestamp},
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), check_is_timestamp},
       {ConvertedType::UINT_8, LogicalType::Int(8, false), check_is_int},
       {ConvertedType::UINT_16, LogicalType::Int(16, false), check_is_int},
       {ConvertedType::UINT_32, LogicalType::Int(32, false), check_is_int},
@@ -910,8 +907,7 @@ TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
   converted_decimal_metadata.precision = 10;
   converted_decimal_metadata.scale = 4;
   std::shared_ptr<const LogicalType> from_converted_type =
-      LogicalType::FromConvertedType(ConvertedType::DECIMAL,
-                                           converted_decimal_metadata);
+      LogicalType::FromConvertedType(ConvertedType::DECIMAL, converted_decimal_metadata);
   std::shared_ptr<const LogicalType> from_make = LogicalType::Decimal(10, 4);
   ASSERT_EQ(from_converted_type->type(), from_make->type());
   ASSERT_TRUE(from_converted_type->Equals(*from_make));
@@ -940,7 +936,8 @@ static void ConfirmConvertedTypeCompatibility(
          "metadata it returned";
   ASSERT_FALSE(original->is_compatible(converted_type, {true, 1, 1}))
       << original->ToString()
-      << " logical type unexpectedly is compatible with converted decimal metadata that is "
+      << " logical type unexpectedly is compatible with converted decimal metadata that "
+         "is "
          "set";
   ASSERT_TRUE(original->is_compatible(converted_type))
       << original->ToString()
@@ -951,8 +948,8 @@ static void ConfirmConvertedTypeCompatibility(
                                          << " logical type unexpectedly is not valid";
   ASSERT_TRUE(reconstructed->Equals(*original))
       << "Reconstructed logical type (" << reconstructed->ToString()
-      << ") unexpectedly not equivalent to original logical type (" << original->ToString()
-      << ")";
+      << ") unexpectedly not equivalent to original logical type ("
+      << original->ToString() << ")";
   return;
 }
 
@@ -1045,7 +1042,8 @@ static void ConfirmNewTypeIncompatibility(
   ConvertedType::type converted_type =
       logical_type->ToConvertedType(&converted_decimal_metadata);
   ASSERT_EQ(converted_type, ConvertedType::NONE)
-      << logical_type->ToString() << " logical type converted type unexpectedly is not NONE";
+      << logical_type->ToString()
+      << " logical type converted type unexpectedly is not NONE";
   ASSERT_FALSE(converted_decimal_metadata.isset)
       << logical_type->ToString()
       << " logical type converted decimal metadata unexpectedly is set";
@@ -1070,28 +1068,21 @@ TEST(TestLogicalTypeConstruction, NewTypeIncompatibility) {
   auto check_is_time = [](const std::shared_ptr<const LogicalType>& logical_type) {
     return logical_type->is_time();
   };
-  auto check_is_timestamp =
-      [](const std::shared_ptr<const LogicalType>& logical_type) {
-        return logical_type->is_timestamp();
-      };
+  auto check_is_timestamp = [](const std::shared_ptr<const LogicalType>& logical_type) {
+    return logical_type->is_timestamp();
+  };
 
   std::vector<ConfirmNewTypeIncompatibilityArguments> cases = {
       {LogicalType::UUID(), check_is_UUID},
       {LogicalType::Null(), check_is_null},
-      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS),
-       check_is_time},
-      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
-       check_is_time},
+      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), check_is_time},
+      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), check_is_time},
       {LogicalType::Time(false, LogicalType::TimeUnit::NANOS), check_is_time},
       {LogicalType::Time(true, LogicalType::TimeUnit::NANOS), check_is_time},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
-       check_is_timestamp},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
-       check_is_timestamp},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
-       check_is_timestamp},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
-       check_is_timestamp},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS), check_is_timestamp},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS), check_is_timestamp},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS), check_is_timestamp},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS), check_is_timestamp},
   };
 
   for (const ConfirmNewTypeIncompatibilityArguments& c : cases) {
@@ -1108,7 +1099,7 @@ TEST(TestLogicalTypeConstruction, FactoryExceptions) {
       },  // Invalid TimeUnit
       []() {
         TimestampLogicalType::Make(true, LogicalType::TimeUnit::UNKNOWN);
-      },                                          // Invalid TimeUnit
+      },                                           // Invalid TimeUnit
       []() { IntLogicalType::Make(-1, false); },   // Invalid bit width
       []() { IntLogicalType::Make(0, false); },    // Invalid bit width
       []() { IntLogicalType::Make(1, false); },    // Invalid bit width
@@ -1126,8 +1117,8 @@ TEST(TestLogicalTypeConstruction, FactoryExceptions) {
 }
 
 static void ConfirmLogicalTypeProperties(
-    const std::shared_ptr<const LogicalType>& logical_type, bool nested,
-    bool serialized, bool valid) {
+    const std::shared_ptr<const LogicalType>& logical_type, bool nested, bool serialized,
+    bool valid) {
   ASSERT_TRUE(logical_type->is_nested() == nested)
       << logical_type->ToString() << " logical type has incorrect nested() property";
   ASSERT_TRUE(logical_type->is_serialized() == serialized)
@@ -1158,8 +1149,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {EnumLogicalType::Make(), false, true, true},
       {DecimalLogicalType::Make(16, 6), false, true, true},
       {DateLogicalType::Make(), false, true, true},
-      {TimeLogicalType::Make(true, LogicalType::TimeUnit::MICROS), false, true,
-       true},
+      {TimeLogicalType::Make(true, LogicalType::TimeUnit::MICROS), false, true, true},
       {TimestampLogicalType::Make(true, LogicalType::TimeUnit::MICROS), false, true,
        true},
       {IntervalLogicalType::Make(), false, true, true},
@@ -1185,8 +1175,7 @@ static Type::type physical_type[PHYSICAL_TYPE_COUNT] = {
     Type::FLOAT,   Type::DOUBLE, Type::BYTE_ARRAY, Type::FIXED_LEN_BYTE_ARRAY};
 
 static void ConfirmSinglePrimitiveTypeApplicability(
-    const std::shared_ptr<const LogicalType>& logical_type,
-    Type::type applicable_type) {
+    const std::shared_ptr<const LogicalType>& logical_type, Type::type applicable_type) {
   for (int i = 0; i < PHYSICAL_TYPE_COUNT; ++i) {
     if (physical_type[i] == applicable_type) {
       ASSERT_TRUE(logical_type->is_applicable(physical_type[i]))
@@ -1241,12 +1230,9 @@ TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
       {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), Type::INT32},
       {LogicalType::Time(true, LogicalType::TimeUnit::MICROS), Type::INT64},
       {LogicalType::Time(true, LogicalType::TimeUnit::NANOS), Type::INT64},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
-       Type::INT64},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
-       Type::INT64},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
-       Type::INT64},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS), Type::INT64},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), Type::INT64},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS), Type::INT64},
       {LogicalType::Int(8, false), Type::INT32},
       {LogicalType::Int(16, false), Type::INT32},
       {LogicalType::Int(32, false), Type::INT32},
@@ -1262,8 +1248,8 @@ TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
     ConfirmSinglePrimitiveTypeApplicability(c.logical_type, c.applicable_type);
   }
 
-  std::vector<std::shared_ptr<const LogicalType>> no_type_cases = {
-      LogicalType::Map(), LogicalType::List()};
+  std::vector<std::shared_ptr<const LogicalType>> no_type_cases = {LogicalType::Map(),
+                                                                   LogicalType::List()};
 
   for (auto c : no_type_cases) {
     ConfirmNoPrimitiveTypeApplicability(c);
@@ -1317,7 +1303,8 @@ TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {
   for (int32_t precision = 1; precision <= 9; ++precision) {
     logical_type = DecimalLogicalType::Make(precision, 0);
     ASSERT_TRUE(logical_type->is_applicable(Type::INT32))
-        << logical_type->ToString() << " unexpectedly inapplicable to physical type INT32";
+        << logical_type->ToString()
+        << " unexpectedly inapplicable to physical type INT32";
   }
   logical_type = DecimalLogicalType::Make(10, 0);
   ASSERT_FALSE(logical_type->is_applicable(Type::INT32))
@@ -1326,7 +1313,8 @@ TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {
   for (int32_t precision = 1; precision <= 18; ++precision) {
     logical_type = DecimalLogicalType::Make(precision, 0);
     ASSERT_TRUE(logical_type->is_applicable(Type::INT64))
-        << logical_type->ToString() << " unexpectedly inapplicable to physical type INT64";
+        << logical_type->ToString()
+        << " unexpectedly inapplicable to physical type INT64";
   }
   logical_type = DecimalLogicalType::Make(19, 0);
   ASSERT_FALSE(logical_type->is_applicable(Type::INT64))
@@ -1359,7 +1347,8 @@ TEST(TestLogicalTypeOperation, DecimalLogicalTypeApplicability) {
           << c.physical_length;
     }
     logical_type = DecimalLogicalType::Make(precision, 0);
-    ASSERT_FALSE(logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, c.physical_length))
+    ASSERT_FALSE(
+        logical_type->is_applicable(Type::FIXED_LEN_BYTE_ARRAY, c.physical_length))
         << logical_type->ToString()
         << " unexpectedly applicable to physical type FIXED_LEN_BYTE_ARRAY with length "
         << c.physical_length;
@@ -1473,30 +1462,18 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::Enum(), SortOrder::UNSIGNED},
       {LogicalType::Decimal(8, 2), SortOrder::SIGNED},
       {LogicalType::Date(), SortOrder::SIGNED},
-      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
-       SortOrder::SIGNED},
-      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
-       SortOrder::SIGNED},
-      {LogicalType::Time(true, LogicalType::TimeUnit::NANOS),
-       SortOrder::SIGNED},
-      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS),
-       SortOrder::SIGNED},
-      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
-       SortOrder::SIGNED},
-      {LogicalType::Time(false, LogicalType::TimeUnit::NANOS),
-       SortOrder::SIGNED},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
-       SortOrder::SIGNED},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
-       SortOrder::SIGNED},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
-       SortOrder::SIGNED},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
-       SortOrder::SIGNED},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
-       SortOrder::SIGNED},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
-       SortOrder::SIGNED},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), SortOrder::SIGNED},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS), SortOrder::SIGNED},
+      {LogicalType::Time(true, LogicalType::TimeUnit::NANOS), SortOrder::SIGNED},
+      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), SortOrder::SIGNED},
+      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), SortOrder::SIGNED},
+      {LogicalType::Time(false, LogicalType::TimeUnit::NANOS), SortOrder::SIGNED},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS), SortOrder::SIGNED},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), SortOrder::SIGNED},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS), SortOrder::SIGNED},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS), SortOrder::SIGNED},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS), SortOrder::SIGNED},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS), SortOrder::SIGNED},
       {LogicalType::Interval(), SortOrder::UNKNOWN},
       {LogicalType::Int(8, false), SortOrder::UNSIGNED},
       {LogicalType::Int(16, false), SortOrder::UNSIGNED},
@@ -1526,8 +1503,8 @@ static void ConfirmPrimitiveNodeFactoryEquivalence(
   Repetition::type repetition = Repetition::REQUIRED;
   NodePtr from_converted_type = PrimitiveNode::Make(
       name, repetition, physical_type, converted_type, physical_length, precision, scale);
-  NodePtr from_logical_type = PrimitiveNode::Make(
-      name, repetition, logical_type, physical_type, physical_length);
+  NodePtr from_logical_type =
+      PrimitiveNode::Make(name, repetition, logical_type, physical_type, physical_length);
   ASSERT_TRUE(from_converted_type->Equals(from_logical_type.get()))
       << "Primitive node constructed with converted type "
       << ConvertedTypeToString(converted_type)
@@ -1542,8 +1519,7 @@ static void ConfirmGroupNodeFactoryEquivalence(
     ConvertedType::type converted_type) {
   Repetition::type repetition = Repetition::OPTIONAL;
   NodePtr from_converted_type = GroupNode::Make(name, repetition, {}, converted_type);
-  NodePtr from_logical_type =
-      GroupNode::Make(name, repetition, {}, logical_type);
+  NodePtr from_logical_type = GroupNode::Make(name, repetition, {}, logical_type);
   ASSERT_TRUE(from_converted_type->Equals(from_logical_type.get()))
       << "Group node constructed with converted type "
       << ConvertedTypeToString(converted_type)
@@ -1572,16 +1548,16 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
       {LogicalType::Enum(), ConvertedType::ENUM, Type::BYTE_ARRAY, -1, -1, -1},
       {LogicalType::Decimal(16, 6), ConvertedType::DECIMAL, Type::INT64, -1, 16, 6},
       {LogicalType::Date(), ConvertedType::DATE, Type::INT32, -1, -1, -1},
-      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
-       ConvertedType::TIME_MILLIS, Type::INT32, -1, -1, -1},
-      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
-       ConvertedType::TIME_MICROS, Type::INT64, -1, -1, -1},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), ConvertedType::TIME_MILLIS,
+       Type::INT32, -1, -1, -1},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS), ConvertedType::TIME_MICROS,
+       Type::INT64, -1, -1, -1},
       {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        ConvertedType::TIMESTAMP_MILLIS, Type::INT64, -1, -1, -1},
       {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        ConvertedType::TIMESTAMP_MICROS, Type::INT64, -1, -1, -1},
-      {LogicalType::Interval(), ConvertedType::INTERVAL, Type::FIXED_LEN_BYTE_ARRAY,
-       12, -1, -1},
+      {LogicalType::Interval(), ConvertedType::INTERVAL, Type::FIXED_LEN_BYTE_ARRAY, 12,
+       -1, -1},
       {LogicalType::Int(8, false), ConvertedType::UINT_8, Type::INT32, -1, -1, -1},
       {LogicalType::Int(8, true), ConvertedType::INT_8, Type::INT32, -1, -1, -1},
       {LogicalType::Int(16, false), ConvertedType::UINT_16, Type::INT32, -1, -1, -1},
@@ -1602,8 +1578,7 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
 
   // Group nodes ...
   ConfirmGroupNodeFactoryEquivalence("map", LogicalType::Map(), ConvertedType::MAP);
-  ConfirmGroupNodeFactoryEquivalence("list", LogicalType::List(),
-                                     ConvertedType::LIST);
+  ConfirmGroupNodeFactoryEquivalence("list", LogicalType::List(), ConvertedType::LIST);
 }
 
 TEST(TestSchemaNodeCreation, FactoryExceptions) {
@@ -1611,8 +1586,8 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   // an object if compatibility conditions are not met
 
   // Nested logical type on non-group node ...
-  ASSERT_ANY_THROW(PrimitiveNode::Make("map", Repetition::REQUIRED, MapLogicalType::Make(),
-                                       Type::INT64));
+  ASSERT_ANY_THROW(PrimitiveNode::Make("map", Repetition::REQUIRED,
+                                       MapLogicalType::Make(), Type::INT64));
   // Incompatible primitive type ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("string", Repetition::REQUIRED,
                                        StringLogicalType::Make(), Type::BOOLEAN));
@@ -1625,8 +1600,8 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
                                        DecimalLogicalType::Make(16, 6), Type::INT32));
   // Incompatible primitive length ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("uuid", Repetition::REQUIRED,
-                                       UUIDLogicalType::Make(), Type::FIXED_LEN_BYTE_ARRAY,
-                                       64));
+                                       UUIDLogicalType::Make(),
+                                       Type::FIXED_LEN_BYTE_ARRAY, 64));
   // Non-positive length argument for fixed length binary ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("negative_length", Repetition::REQUIRED,
                                        NoLogicalType::Make(), Type::FIXED_LEN_BYTE_ARRAY,
@@ -1663,9 +1638,9 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_ANY_THROW(node = PrimitiveNode::FromParquet(&string_intermediary, 1));
 
   // Invalid TimeUnit in deserialized TimeLogicalType ...
-  node = PrimitiveNode::Make(
-      "time", Repetition::REQUIRED,
-      TimeLogicalType::Make(true, LogicalType::TimeUnit::NANOS), Type::INT64);
+  node = PrimitiveNode::Make("time", Repetition::REQUIRED,
+                             TimeLogicalType::Make(true, LogicalType::TimeUnit::NANOS),
+                             Type::INT64);
   format::SchemaElement time_intermediary;
   node->ToParquet(&time_intermediary);
   // ... corrupt the Thrift intermediary ....
@@ -1718,11 +1693,13 @@ class TestSchemaElementConstruction : public ::testing::Test {
     if (expect_converted_type_) {
       ASSERT_TRUE(element_->__isset.converted_type)
           << node_->logical_type()->ToString()
-          << " logical type unexpectedly failed to generate a converted type in the Thrift "
+          << " logical type unexpectedly failed to generate a converted type in the "
+             "Thrift "
              "intermediate object";
       ASSERT_EQ(element_->converted_type, ToThrift(converted_type_))
           << node_->logical_type()->ToString()
-          << " logical type unexpectedly failed to generate correct converted type in the "
+          << " logical type unexpectedly failed to generate correct converted type in "
+             "the "
              "Thrift intermediate object";
     } else {
       ASSERT_FALSE(element_->__isset.converted_type)
@@ -1735,9 +1712,10 @@ class TestSchemaElementConstruction : public ::testing::Test {
           << node_->logical_type()->ToString()
           << " logical type unexpectedly failed to genverate a logicalType in the Thrift "
              "intermediate object";
-      ASSERT_TRUE(check_logicalType_()) << node_->logical_type()->ToString()
-                                        << " logical type generated incorrect logicalType "
-                                           "settings in the Thrift intermediate object";
+      ASSERT_TRUE(check_logicalType_())
+          << node_->logical_type()->ToString()
+          << " logical type generated incorrect logicalType "
+             "settings in the Thrift intermediate object";
     } else {
       ASSERT_FALSE(element_->__isset.logicalType)
           << node_->logical_type()->ToString()
@@ -1771,27 +1749,26 @@ TEST_F(TestSchemaElementConstruction, SimpleCases) {
   };  // used for logical types that don't expect a logicalType to be set
 
   std::vector<SchemaElementConstructionArguments> cases = {
-      {"string", LogicalType::String(), Type::BYTE_ARRAY, -1, true,
-       ConvertedType::UTF8, true,
-       [this]() { return element_->logicalType.__isset.STRING; }},
-      {"enum", LogicalType::Enum(), Type::BYTE_ARRAY, -1, true, ConvertedType::ENUM,
-       true, [this]() { return element_->logicalType.__isset.ENUM; }},
+      {"string", LogicalType::String(), Type::BYTE_ARRAY, -1, true, ConvertedType::UTF8,
+       true, [this]() { return element_->logicalType.__isset.STRING; }},
+      {"enum", LogicalType::Enum(), Type::BYTE_ARRAY, -1, true, ConvertedType::ENUM, true,
+       [this]() { return element_->logicalType.__isset.ENUM; }},
       {"date", LogicalType::Date(), Type::INT32, -1, true, ConvertedType::DATE, true,
        [this]() { return element_->logicalType.__isset.DATE; }},
       {"interval", LogicalType::Interval(), Type::FIXED_LEN_BYTE_ARRAY, 12, true,
        ConvertedType::INTERVAL, false, check_nothing},
       {"null", LogicalType::Null(), Type::DOUBLE, -1, false, ConvertedType::NA, true,
        [this]() { return element_->logicalType.__isset.UNKNOWN; }},
-      {"json", LogicalType::JSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::JSON,
-       true, [this]() { return element_->logicalType.__isset.JSON; }},
-      {"bson", LogicalType::BSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::BSON,
-       true, [this]() { return element_->logicalType.__isset.BSON; }},
+      {"json", LogicalType::JSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::JSON, true,
+       [this]() { return element_->logicalType.__isset.JSON; }},
+      {"bson", LogicalType::BSON(), Type::BYTE_ARRAY, -1, true, ConvertedType::BSON, true,
+       [this]() { return element_->logicalType.__isset.BSON; }},
       {"uuid", LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16, false,
        ConvertedType::NA, true, [this]() { return element_->logicalType.__isset.UUID; }},
       {"none", LogicalType::None(), Type::INT64, -1, false, ConvertedType::NA, false,
        check_nothing},
-      {"unknown", LogicalType::Unknown(), Type::INT64, -1, true, ConvertedType::NA,
-       false, check_nothing}};
+      {"unknown", LogicalType::Unknown(), Type::INT64, -1, true, ConvertedType::NA, false,
+       check_nothing}};
 
   for (const SchemaElementConstructionArguments& c : cases) {
     this->Reconstruct(c)->Inspect();
@@ -1832,8 +1809,8 @@ TEST_F(TestDecimalSchemaElementConstruction, DecimalCases) {
        ConvertedType::DECIMAL, true, check_DECIMAL},
       {"decimal", LogicalType::Decimal(1, 0), Type::INT32, -1, true,
        ConvertedType::DECIMAL, true, check_DECIMAL},
-      {"decimal", LogicalType::Decimal(10), Type::INT64, -1, true,
-       ConvertedType::DECIMAL, true, check_DECIMAL},
+      {"decimal", LogicalType::Decimal(10), Type::INT64, -1, true, ConvertedType::DECIMAL,
+       true, check_DECIMAL},
       {"decimal", LogicalType::Decimal(11, 11), Type::INT64, -1, true,
        ConvertedType::DECIMAL, true, check_DECIMAL},
   };
@@ -1912,18 +1889,18 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
   auto check_TIME = [this]() { return element_->logicalType.__isset.TIME; };
 
   std::vector<SchemaElementConstructionArguments> time_cases = {
-      {"time_T_ms", LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
-       Type::INT32, -1, true, ConvertedType::TIME_MILLIS, true, check_TIME},
-      {"time_F_ms", LogicalType::Time(false, LogicalType::TimeUnit::MILLIS),
-       Type::INT32, -1, false, ConvertedType::NA, true, check_TIME},
-      {"time_T_us", LogicalType::Time(true, LogicalType::TimeUnit::MICROS),
-       Type::INT64, -1, true, ConvertedType::TIME_MICROS, true, check_TIME},
-      {"time_F_us", LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
-       Type::INT64, -1, false, ConvertedType::NA, true, check_TIME},
-      {"time_T_ns", LogicalType::Time(true, LogicalType::TimeUnit::NANOS),
-       Type::INT64, -1, false, ConvertedType::NA, true, check_TIME},
-      {"time_F_ns", LogicalType::Time(false, LogicalType::TimeUnit::NANOS),
-       Type::INT64, -1, false, ConvertedType::NA, true, check_TIME},
+      {"time_T_ms", LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), Type::INT32,
+       -1, true, ConvertedType::TIME_MILLIS, true, check_TIME},
+      {"time_F_ms", LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), Type::INT32,
+       -1, false, ConvertedType::NA, true, check_TIME},
+      {"time_T_us", LogicalType::Time(true, LogicalType::TimeUnit::MICROS), Type::INT64,
+       -1, true, ConvertedType::TIME_MICROS, true, check_TIME},
+      {"time_F_us", LogicalType::Time(false, LogicalType::TimeUnit::MICROS), Type::INT64,
+       -1, false, ConvertedType::NA, true, check_TIME},
+      {"time_T_ns", LogicalType::Time(true, LogicalType::TimeUnit::NANOS), Type::INT64,
+       -1, false, ConvertedType::NA, true, check_TIME},
+      {"time_F_ns", LogicalType::Time(false, LogicalType::TimeUnit::NANOS), Type::INT64,
+       -1, false, ConvertedType::NA, true, check_TIME},
   };
 
   for (const SchemaElementConstructionArguments& c : time_cases) {
@@ -1933,23 +1910,17 @@ TEST_F(TestTemporalSchemaElementConstruction, TemporalCases) {
   auto check_TIMESTAMP = [this]() { return element_->logicalType.__isset.TIMESTAMP; };
 
   std::vector<SchemaElementConstructionArguments> timestamp_cases = {
-      {"timestamp_T_ms",
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
+      {"timestamp_T_ms", LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        Type::INT64, -1, true, ConvertedType::TIMESTAMP_MILLIS, true, check_TIMESTAMP},
-      {"timestamp_F_ms",
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
+      {"timestamp_F_ms", LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
-      {"timestamp_T_us",
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
+      {"timestamp_T_us", LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        Type::INT64, -1, true, ConvertedType::TIMESTAMP_MICROS, true, check_TIMESTAMP},
-      {"timestamp_F_us",
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
+      {"timestamp_F_us", LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
-      {"timestamp_T_ns",
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
+      {"timestamp_T_ns", LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
-      {"timestamp_F_ns",
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
+      {"timestamp_F_ns", LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
        Type::INT64, -1, false, ConvertedType::NA, true, check_TIMESTAMP},
   };
 
@@ -1985,8 +1956,8 @@ TEST_F(TestIntegerSchemaElementConstruction, IntegerCases) {
   auto check_INTEGER = [this]() { return element_->logicalType.__isset.INTEGER; };
 
   std::vector<SchemaElementConstructionArguments> cases = {
-      {"uint8", LogicalType::Int(8, false), Type::INT32, -1, true,
-       ConvertedType::UINT_8, true, check_INTEGER},
+      {"uint8", LogicalType::Int(8, false), Type::INT32, -1, true, ConvertedType::UINT_8,
+       true, check_INTEGER},
       {"uint16", LogicalType::Int(16, false), Type::INT32, -1, true,
        ConvertedType::UINT_16, true, check_INTEGER},
       {"uint32", LogicalType::Int(32, false), Type::INT32, -1, true,
@@ -1995,12 +1966,12 @@ TEST_F(TestIntegerSchemaElementConstruction, IntegerCases) {
        ConvertedType::UINT_64, true, check_INTEGER},
       {"int8", LogicalType::Int(8, true), Type::INT32, -1, true, ConvertedType::INT_8,
        true, check_INTEGER},
-      {"int16", LogicalType::Int(16, true), Type::INT32, -1, true,
-       ConvertedType::INT_16, true, check_INTEGER},
-      {"int32", LogicalType::Int(32, true), Type::INT32, -1, true,
-       ConvertedType::INT_32, true, check_INTEGER},
-      {"int64", LogicalType::Int(64, true), Type::INT64, -1, true,
-       ConvertedType::INT_64, true, check_INTEGER},
+      {"int16", LogicalType::Int(16, true), Type::INT32, -1, true, ConvertedType::INT_16,
+       true, check_INTEGER},
+      {"int32", LogicalType::Int(32, true), Type::INT32, -1, true, ConvertedType::INT_32,
+       true, check_INTEGER},
+      {"int64", LogicalType::Int(64, true), Type::INT64, -1, true, ConvertedType::INT_64,
+       true, check_INTEGER},
   };
 
   for (const SchemaElementConstructionArguments& c : cases) {
@@ -2026,8 +1997,8 @@ TEST(TestLogicalTypeSerialization, SchemaElementNestedCases) {
       TimestampLogicalType::Make(false, LogicalType::TimeUnit::NANOS), Type::INT64);
   NodePtr int_node = PrimitiveNode::Make("int", Repetition::REQUIRED,
                                          IntLogicalType::Make(64, false), Type::INT64);
-  NodePtr decimal_node = PrimitiveNode::Make("decimal", Repetition::REQUIRED,
-                                             DecimalLogicalType::Make(16, 6), Type::INT64);
+  NodePtr decimal_node = PrimitiveNode::Make(
+      "decimal", Repetition::REQUIRED, DecimalLogicalType::Make(16, 6), Type::INT64);
 
   NodePtr list_node = GroupNode::Make("list", Repetition::REPEATED,
                                       {string_node, date_node, json_node, uuid_node,
@@ -2106,30 +2077,18 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
       {LogicalType::Enum(), Type::BYTE_ARRAY, -1},
       {LogicalType::Decimal(16, 6), Type::INT64, -1},
       {LogicalType::Date(), Type::INT32, -1},
-      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), Type::INT32,
-       -1},
-      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS), Type::INT64,
-       -1},
-      {LogicalType::Time(true, LogicalType::TimeUnit::NANOS), Type::INT64,
-       -1},
-      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), Type::INT32,
-       -1},
-      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), Type::INT64,
-       -1},
-      {LogicalType::Time(false, LogicalType::TimeUnit::NANOS), Type::INT64,
-       -1},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
-       Type::INT64, -1},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
-       Type::INT64, -1},
-      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
-       Type::INT64, -1},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
-       Type::INT64, -1},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
-       Type::INT64, -1},
-      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
-       Type::INT64, -1},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), Type::INT32, -1},
+      {LogicalType::Time(true, LogicalType::TimeUnit::MICROS), Type::INT64, -1},
+      {LogicalType::Time(true, LogicalType::TimeUnit::NANOS), Type::INT64, -1},
+      {LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), Type::INT32, -1},
+      {LogicalType::Time(false, LogicalType::TimeUnit::MICROS), Type::INT64, -1},
+      {LogicalType::Time(false, LogicalType::TimeUnit::NANOS), Type::INT64, -1},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS), Type::INT64, -1},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), Type::INT64, -1},
+      {LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS), Type::INT64, -1},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS), Type::INT64, -1},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS), Type::INT64, -1},
+      {LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS), Type::INT64, -1},
       {LogicalType::Interval(), Type::FIXED_LEN_BYTE_ARRAY, 12},
       {LogicalType::Int(8, false), Type::INT32, -1},
       {LogicalType::Int(16, false), Type::INT32, -1},

@@ -346,7 +346,8 @@ SortOrder::type GetSortOrder(const std::shared_ptr<const LogicalType>& logical_t
                              Type::type primitive) {
   SortOrder::type o = SortOrder::UNKNOWN;
   if (logical_type && logical_type->is_valid()) {
-    o = (logical_type->is_none() ? DefaultSortOrder(primitive) : logical_type->sort_order());
+    o = (logical_type->is_none() ? DefaultSortOrder(primitive)
+                                 : logical_type->sort_order());
   }
   return o;
 }
@@ -371,7 +372,7 @@ std::shared_ptr<const LogicalType> LogicalType::FromConvertedType(
       return EnumLogicalType::Make();
     case ConvertedType::DECIMAL:
       return DecimalLogicalType::Make(converted_decimal_metadata.precision,
-                                     converted_decimal_metadata.scale);
+                                      converted_decimal_metadata.scale);
     case ConvertedType::DATE:
       return DateLogicalType::Make();
     case ConvertedType::TIME_MILLIS:
@@ -457,7 +458,7 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     //  return IntervalLogicalType::Make();
   } else if (type.__isset.INTEGER) {
     return IntLogicalType::Make(static_cast<int>(type.INTEGER.bitWidth),
-                               type.INTEGER.isSigned);
+                                type.INTEGER.isSigned);
   } else if (type.__isset.UNKNOWN) {
     return NullLogicalType::Make();
   } else if (type.__isset.JSON) {
@@ -475,26 +476,18 @@ std::shared_ptr<const LogicalType> LogicalType::String() {
   return StringLogicalType::Make();
 }
 
-std::shared_ptr<const LogicalType> LogicalType::Map() {
-  return MapLogicalType::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::Map() { return MapLogicalType::Make(); }
 
-std::shared_ptr<const LogicalType> LogicalType::List() {
-  return ListLogicalType::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::List() { return ListLogicalType::Make(); }
 
-std::shared_ptr<const LogicalType> LogicalType::Enum() {
-  return EnumLogicalType::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::Enum() { return EnumLogicalType::Make(); }
 
 std::shared_ptr<const LogicalType> LogicalType::Decimal(int32_t precision,
-                                                                    int32_t scale) {
+                                                        int32_t scale) {
   return DecimalLogicalType::Make(precision, scale);
 }
 
-std::shared_ptr<const LogicalType> LogicalType::Date() {
-  return DateLogicalType::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::Date() { return DateLogicalType::Make(); }
 
 std::shared_ptr<const LogicalType> LogicalType::Time(
     bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit) {
@@ -512,31 +505,20 @@ std::shared_ptr<const LogicalType> LogicalType::Interval() {
   return IntervalLogicalType::Make();
 }
 
-std::shared_ptr<const LogicalType> LogicalType::Int(int bit_width,
-                                                                bool is_signed) {
+std::shared_ptr<const LogicalType> LogicalType::Int(int bit_width, bool is_signed) {
   DCHECK(bit_width == 64 || bit_width == 32 || bit_width == 16 || bit_width == 8);
   return IntLogicalType::Make(bit_width, is_signed);
 }
 
-std::shared_ptr<const LogicalType> LogicalType::Null() {
-  return NullLogicalType::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::Null() { return NullLogicalType::Make(); }
 
-std::shared_ptr<const LogicalType> LogicalType::JSON() {
-  return JSONLogicalType::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::JSON() { return JSONLogicalType::Make(); }
 
-std::shared_ptr<const LogicalType> LogicalType::BSON() {
-  return BSONLogicalType::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::BSON() { return BSONLogicalType::Make(); }
 
-std::shared_ptr<const LogicalType> LogicalType::UUID() {
-  return UUIDLogicalType::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::UUID() { return UUIDLogicalType::Make(); }
 
-std::shared_ptr<const LogicalType> LogicalType::None() {
-  return NoLogicalType::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
 
 std::shared_ptr<const LogicalType> LogicalType::Unknown() {
   return UnknownLogicalType::Make();
@@ -583,9 +565,7 @@ class LogicalType::Impl {
     throw ParquetException(ss.str());
   }
 
-  virtual bool Equals(const LogicalType& other) const {
-    return other.type() == type_;
-  }
+  virtual bool Equals(const LogicalType& other) const { return other.type() == type_; }
 
   LogicalType::Type::type type() const { return type_; }
 
@@ -639,7 +619,7 @@ LogicalType::~LogicalType() noexcept = default;
 // Delegating methods for public LogicalType class
 
 bool LogicalType::is_applicable(parquet::Type::type primitive_type,
-                                      int32_t primitive_length) const {
+                                int32_t primitive_length) const {
   return impl_->is_applicable(primitive_type, primitive_length);
 }
 
@@ -660,9 +640,7 @@ std::string LogicalType::ToJSON() const { return impl_->ToJSON(); }
 
 format::LogicalType LogicalType::ToThrift() const { return impl_->ToThrift(); }
 
-bool LogicalType::Equals(const LogicalType& other) const {
-  return impl_->Equals(other);
-}
+bool LogicalType::Equals(const LogicalType& other) const { return impl_->Equals(other); }
 
 LogicalType::Type::type LogicalType::type() const { return impl_->type(); }
 
@@ -670,54 +648,28 @@ SortOrder::type LogicalType::sort_order() const { return impl_->sort_order(); }
 
 // Type checks for public LogicalType class
 
-bool LogicalType::is_string() const {
-  return impl_->type() == LogicalType::Type::STRING;
-}
-bool LogicalType::is_map() const {
-  return impl_->type() == LogicalType::Type::MAP;
-}
-bool LogicalType::is_list() const {
-  return impl_->type() == LogicalType::Type::LIST;
-}
-bool LogicalType::is_enum() const {
-  return impl_->type() == LogicalType::Type::ENUM;
-}
+bool LogicalType::is_string() const { return impl_->type() == LogicalType::Type::STRING; }
+bool LogicalType::is_map() const { return impl_->type() == LogicalType::Type::MAP; }
+bool LogicalType::is_list() const { return impl_->type() == LogicalType::Type::LIST; }
+bool LogicalType::is_enum() const { return impl_->type() == LogicalType::Type::ENUM; }
 bool LogicalType::is_decimal() const {
   return impl_->type() == LogicalType::Type::DECIMAL;
 }
-bool LogicalType::is_date() const {
-  return impl_->type() == LogicalType::Type::DATE;
-}
-bool LogicalType::is_time() const {
-  return impl_->type() == LogicalType::Type::TIME;
-}
+bool LogicalType::is_date() const { return impl_->type() == LogicalType::Type::DATE; }
+bool LogicalType::is_time() const { return impl_->type() == LogicalType::Type::TIME; }
 bool LogicalType::is_timestamp() const {
   return impl_->type() == LogicalType::Type::TIMESTAMP;
 }
 bool LogicalType::is_interval() const {
   return impl_->type() == LogicalType::Type::INTERVAL;
 }
-bool LogicalType::is_int() const {
-  return impl_->type() == LogicalType::Type::INT;
-}
-bool LogicalType::is_null() const {
-  return impl_->type() == LogicalType::Type::NIL;
-}
-bool LogicalType::is_JSON() const {
-  return impl_->type() == LogicalType::Type::JSON;
-}
-bool LogicalType::is_BSON() const {
-  return impl_->type() == LogicalType::Type::BSON;
-}
-bool LogicalType::is_UUID() const {
-  return impl_->type() == LogicalType::Type::UUID;
-}
-bool LogicalType::is_none() const {
-  return impl_->type() == LogicalType::Type::NONE;
-}
-bool LogicalType::is_valid() const {
-  return impl_->type() != LogicalType::Type::UNKNOWN;
-}
+bool LogicalType::is_int() const { return impl_->type() == LogicalType::Type::INT; }
+bool LogicalType::is_null() const { return impl_->type() == LogicalType::Type::NIL; }
+bool LogicalType::is_JSON() const { return impl_->type() == LogicalType::Type::JSON; }
+bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::BSON; }
+bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
+bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
+bool LogicalType::is_valid() const { return impl_->type() != LogicalType::Type::UNKNOWN; }
 bool LogicalType::is_invalid() const { return !is_valid(); }
 bool LogicalType::is_nested() const {
   return (impl_->type() == LogicalType::Type::LIST) ||
@@ -749,8 +701,7 @@ class LogicalType::Impl::Compatible : public virtual LogicalType::Impl {
   { set_decimal_metadata(m___, false, -1, -1); }
 
 // For logical types that always translate to the same converted type
-class LogicalType::Impl::SimpleCompatible
-    : public virtual LogicalType::Impl::Compatible {
+class LogicalType::Impl::SimpleCompatible : public virtual LogicalType::Impl::Compatible {
  public:
   bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override {
@@ -775,7 +726,8 @@ class LogicalType::Impl::Incompatible : public virtual LogicalType::Impl {
  public:
   bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override {
-    return (converted_type == ConvertedType::NONE || converted_type == ConvertedType::NA) &&
+    return (converted_type == ConvertedType::NONE ||
+            converted_type == ConvertedType::NA) &&
            !converted_decimal_metadata.isset;
   }
 
@@ -798,8 +750,7 @@ class LogicalType::Impl::Applicable : public virtual LogicalType::Impl {
 
 // For logical types that can apply only to a single
 // physical type
-class LogicalType::Impl::SimpleApplicable
-    : public virtual LogicalType::Impl::Applicable {
+class LogicalType::Impl::SimpleApplicable : public virtual LogicalType::Impl::Applicable {
  public:
   bool is_applicable(parquet::Type::type primitive_type,
                      int32_t primitive_length = -1) const override {
@@ -870,9 +821,8 @@ class LogicalType::Impl::Inapplicable : public virtual LogicalType::Impl {
     return type;                                  \
   }
 
-class LogicalType::Impl::String final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::SimpleApplicable {
+class LogicalType::Impl::String final : public LogicalType::Impl::SimpleCompatible,
+                                        public LogicalType::Impl::SimpleApplicable {
  public:
   friend class StringLogicalType;
 
@@ -890,18 +840,17 @@ class LogicalType::Impl::String final
 // LogicalType::Impl::* object and installs that implementation in the logical type
 // it returns.
 
-#define GENERATE_MAKE(a___)                                           \
+#define GENERATE_MAKE(a___)                                      \
   std::shared_ptr<const LogicalType> a___##LogicalType::Make() { \
-    auto* logical_type = new a___##LogicalType();                        \
-    logical_type->impl_.reset(new LogicalType::Impl::a___());     \
-    return std::shared_ptr<const LogicalType>(logical_type);      \
+    auto* logical_type = new a___##LogicalType();                \
+    logical_type->impl_.reset(new LogicalType::Impl::a___());    \
+    return std::shared_ptr<const LogicalType>(logical_type);     \
   }
 
 GENERATE_MAKE(String)
 
-class LogicalType::Impl::Map final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::Inapplicable {
+class LogicalType::Impl::Map final : public LogicalType::Impl::SimpleCompatible,
+                                     public LogicalType::Impl::Inapplicable {
  public:
   friend class MapLogicalType;
 
@@ -923,9 +872,8 @@ class LogicalType::Impl::Map final
 
 GENERATE_MAKE(Map)
 
-class LogicalType::Impl::List final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::Inapplicable {
+class LogicalType::Impl::List final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::Inapplicable {
  public:
   friend class ListLogicalType;
 
@@ -940,9 +888,8 @@ class LogicalType::Impl::List final
 
 GENERATE_MAKE(List)
 
-class LogicalType::Impl::Enum final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::SimpleApplicable {
+class LogicalType::Impl::Enum final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::SimpleApplicable {
  public:
   friend class EnumLogicalType;
 
@@ -962,9 +909,8 @@ GENERATE_MAKE(Enum)
 // generally can't reuse the simple method implementations available in the base and
 // intermediate classes and must (re)implement them all
 
-class LogicalType::Impl::Decimal final
-    : public LogicalType::Impl::Compatible,
-      public LogicalType::Impl::Applicable {
+class LogicalType::Impl::Decimal final : public LogicalType::Impl::Compatible,
+                                         public LogicalType::Impl::Applicable {
  public:
   friend class DecimalLogicalType;
 
@@ -992,7 +938,7 @@ class LogicalType::Impl::Decimal final
 };
 
 bool LogicalType::Impl::Decimal::is_applicable(parquet::Type::type primitive_type,
-                                                     int32_t primitive_length) const {
+                                               int32_t primitive_length) const {
   bool ok = false;
   switch (primitive_type) {
     case parquet::Type::INT32: {
@@ -1062,7 +1008,7 @@ bool LogicalType::Impl::Decimal::Equals(const LogicalType& other) const {
 }
 
 std::shared_ptr<const LogicalType> DecimalLogicalType::Make(int32_t precision,
-                                                                 int32_t scale) {
+                                                            int32_t scale) {
   if (precision < 1) {
     throw ParquetException(
         "Precision must be greater than or equal to 1 for Decimal logical type");
@@ -1085,9 +1031,8 @@ int32_t DecimalLogicalType::scale() const {
   return (dynamic_cast<const LogicalType::Impl::Decimal&>(*impl_)).scale();
 }
 
-class LogicalType::Impl::Date final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::SimpleApplicable {
+class LogicalType::Impl::Date final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::SimpleApplicable {
  public:
   friend class DateLogicalType;
 
@@ -1103,16 +1048,15 @@ class LogicalType::Impl::Date final
 
 GENERATE_MAKE(Date)
 
-#define time_unit_string(u___)                                                \
-  ((u___) == LogicalType::TimeUnit::MILLIS                              \
-       ? "milliseconds"                                                       \
-       : ((u___) == LogicalType::TimeUnit::MICROS                       \
-              ? "microseconds"                                                \
-              : ((u___) == LogicalType::TimeUnit::NANOS ? "nanoseconds" \
-                                                              : "unknown")))
+#define time_unit_string(u___)                    \
+  ((u___) == LogicalType::TimeUnit::MILLIS        \
+       ? "milliseconds"                           \
+       : ((u___) == LogicalType::TimeUnit::MICROS \
+              ? "microseconds"                    \
+              : ((u___) == LogicalType::TimeUnit::NANOS ? "nanoseconds" : "unknown")))
 
 class LogicalType::Impl::Time final : public LogicalType::Impl::Compatible,
-                                            public LogicalType::Impl::Applicable {
+                                      public LogicalType::Impl::Applicable {
  public:
   friend class TimeLogicalType;
 
@@ -1140,7 +1084,7 @@ class LogicalType::Impl::Time final : public LogicalType::Impl::Compatible,
 };
 
 bool LogicalType::Impl::Time::is_applicable(parquet::Type::type primitive_type,
-                                                  int32_t primitive_length) const {
+                                            int32_t primitive_length) const {
   return (primitive_type == parquet::Type::INT32 &&
           unit_ == LogicalType::TimeUnit::MILLIS) ||
          (primitive_type == parquet::Type::INT64 &&
@@ -1158,7 +1102,8 @@ bool LogicalType::Impl::Time::is_compatible(
   } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MICROS) {
     return converted_type == ConvertedType::TIME_MICROS;
   } else {
-    return (converted_type == ConvertedType::NONE) || (converted_type == ConvertedType::NA);
+    return (converted_type == ConvertedType::NONE) ||
+           (converted_type == ConvertedType::NA);
   }
 }
 
@@ -1226,8 +1171,7 @@ std::shared_ptr<const LogicalType> TimeLogicalType::Make(
       time_unit == LogicalType::TimeUnit::MICROS ||
       time_unit == LogicalType::TimeUnit::NANOS) {
     auto* logical_type = new TimeLogicalType();
-    logical_type->impl_.reset(
-        new LogicalType::Impl::Time(is_adjusted_to_utc, time_unit));
+    logical_type->impl_.reset(new LogicalType::Impl::Time(is_adjusted_to_utc, time_unit));
     return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
@@ -1236,17 +1180,15 @@ std::shared_ptr<const LogicalType> TimeLogicalType::Make(
 }
 
 bool TimeLogicalType::is_adjusted_to_utc() const {
-  return (dynamic_cast<const LogicalType::Impl::Time&>(*impl_))
-      .is_adjusted_to_utc();
+  return (dynamic_cast<const LogicalType::Impl::Time&>(*impl_)).is_adjusted_to_utc();
 }
 
 LogicalType::TimeUnit::unit TimeLogicalType::time_unit() const {
   return (dynamic_cast<const LogicalType::Impl::Time&>(*impl_)).time_unit();
 }
 
-class LogicalType::Impl::Timestamp final
-    : public LogicalType::Impl::Compatible,
-      public LogicalType::Impl::SimpleApplicable {
+class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
+                                           public LogicalType::Impl::SimpleApplicable {
  public:
   friend class TimestampLogicalType;
 
@@ -1282,7 +1224,8 @@ bool LogicalType::Impl::Timestamp::is_compatible(
   } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MICROS) {
     return converted_type == ConvertedType::TIMESTAMP_MICROS;
   } else {
-    return (converted_type == ConvertedType::NONE) || (converted_type == ConvertedType::NA);
+    return (converted_type == ConvertedType::NONE) ||
+           (converted_type == ConvertedType::NA);
   }
 }
 
@@ -1360,17 +1303,15 @@ std::shared_ptr<const LogicalType> TimestampLogicalType::Make(
 }
 
 bool TimestampLogicalType::is_adjusted_to_utc() const {
-  return (dynamic_cast<const LogicalType::Impl::Timestamp&>(*impl_))
-      .is_adjusted_to_utc();
+  return (dynamic_cast<const LogicalType::Impl::Timestamp&>(*impl_)).is_adjusted_to_utc();
 }
 
 LogicalType::TimeUnit::unit TimestampLogicalType::time_unit() const {
   return (dynamic_cast<const LogicalType::Impl::Timestamp&>(*impl_)).time_unit();
 }
 
-class LogicalType::Impl::Interval final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::TypeLengthApplicable {
+class LogicalType::Impl::Interval final : public LogicalType::Impl::SimpleCompatible,
+                                          public LogicalType::Impl::TypeLengthApplicable {
  public:
   friend class IntervalLogicalType;
 
@@ -1383,14 +1324,14 @@ class LogicalType::Impl::Interval final
   Interval()
       : LogicalType::Impl(LogicalType::Type::INTERVAL, SortOrder::UNKNOWN),
         LogicalType::Impl::SimpleCompatible(ConvertedType::INTERVAL),
-        LogicalType::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY,
-                                                      12) {}
+        LogicalType::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY, 12) {
+  }
 };
 
 GENERATE_MAKE(Interval)
 
 class LogicalType::Impl::Int final : public LogicalType::Impl::Compatible,
-                                           public LogicalType::Impl::Applicable {
+                                     public LogicalType::Impl::Applicable {
  public:
   friend class IntLogicalType;
 
@@ -1411,7 +1352,7 @@ class LogicalType::Impl::Int final : public LogicalType::Impl::Compatible,
  private:
   Int(int w, bool s)
       : LogicalType::Impl(LogicalType::Type::INT,
-                                (s ? SortOrder::SIGNED : SortOrder::UNSIGNED)),
+                          (s ? SortOrder::SIGNED : SortOrder::UNSIGNED)),
         width_(w),
         signed_(s) {}
   int width_ = 0;
@@ -1419,7 +1360,7 @@ class LogicalType::Impl::Int final : public LogicalType::Impl::Compatible,
 };
 
 bool LogicalType::Impl::Int::is_applicable(parquet::Type::type primitive_type,
-                                                 int32_t primitive_length) const {
+                                           int32_t primitive_length) const {
   return (primitive_type == parquet::Type::INT32 && width_ <= 32) ||
          (primitive_type == parquet::Type::INT64 && width_ == 64);
 }
@@ -1511,8 +1452,7 @@ bool LogicalType::Impl::Int::Equals(const LogicalType& other) const {
   return eq;
 }
 
-std::shared_ptr<const LogicalType> IntLogicalType::Make(int bit_width,
-                                                             bool is_signed) {
+std::shared_ptr<const LogicalType> IntLogicalType::Make(int bit_width, bool is_signed) {
   if (bit_width == 8 || bit_width == 16 || bit_width == 32 || bit_width == 64) {
     auto* logical_type = new IntLogicalType();
     logical_type->impl_.reset(new LogicalType::Impl::Int(bit_width, is_signed));
@@ -1531,9 +1471,8 @@ bool IntLogicalType::is_signed() const {
   return (dynamic_cast<const LogicalType::Impl::Int&>(*impl_)).is_signed();
 }
 
-class LogicalType::Impl::Null final
-    : public LogicalType::Impl::Incompatible,
-      public LogicalType::Impl::UniversalApplicable {
+class LogicalType::Impl::Null final : public LogicalType::Impl::Incompatible,
+                                      public LogicalType::Impl::UniversalApplicable {
  public:
   friend class NullLogicalType;
 
@@ -1546,9 +1485,8 @@ class LogicalType::Impl::Null final
 
 GENERATE_MAKE(Null)
 
-class LogicalType::Impl::JSON final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::SimpleApplicable {
+class LogicalType::Impl::JSON final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::SimpleApplicable {
  public:
   friend class JSONLogicalType;
 
@@ -1564,9 +1502,8 @@ class LogicalType::Impl::JSON final
 
 GENERATE_MAKE(JSON)
 
-class LogicalType::Impl::BSON final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::SimpleApplicable {
+class LogicalType::Impl::BSON final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::SimpleApplicable {
  public:
   friend class BSONLogicalType;
 
@@ -1582,9 +1519,8 @@ class LogicalType::Impl::BSON final
 
 GENERATE_MAKE(BSON)
 
-class LogicalType::Impl::UUID final
-    : public LogicalType::Impl::Incompatible,
-      public LogicalType::Impl::TypeLengthApplicable {
+class LogicalType::Impl::UUID final : public LogicalType::Impl::Incompatible,
+                                      public LogicalType::Impl::TypeLengthApplicable {
  public:
   friend class UUIDLogicalType;
 
@@ -1594,15 +1530,14 @@ class LogicalType::Impl::UUID final
  private:
   UUID()
       : LogicalType::Impl(LogicalType::Type::UUID, SortOrder::UNSIGNED),
-        LogicalType::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY,
-                                                      16) {}
+        LogicalType::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY, 16) {
+  }
 };
 
 GENERATE_MAKE(UUID)
 
-class LogicalType::Impl::No final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::UniversalApplicable {
+class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
+                                    public LogicalType::Impl::UniversalApplicable {
  public:
   friend class NoLogicalType;
 
@@ -1616,9 +1551,8 @@ class LogicalType::Impl::No final
 
 GENERATE_MAKE(No)
 
-class LogicalType::Impl::Unknown final
-    : public LogicalType::Impl::SimpleCompatible,
-      public LogicalType::Impl::UniversalApplicable {
+class LogicalType::Impl::Unknown final : public LogicalType::Impl::SimpleCompatible,
+                                         public LogicalType::Impl::UniversalApplicable {
  public:
   friend class UnknownLogicalType;
 

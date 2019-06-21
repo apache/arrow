@@ -116,14 +116,11 @@ std::shared_ptr<const LogicalType> get_logical_type(const ::DataType& type) {
       const bool adjusted_to_utc = !(ts_type.timezone().empty());
       switch (ts_type.unit()) {
         case TimeUnit::MILLI:
-          return LogicalType::Timestamp(adjusted_to_utc,
-                                              LogicalType::TimeUnit::MILLIS);
+          return LogicalType::Timestamp(adjusted_to_utc, LogicalType::TimeUnit::MILLIS);
         case TimeUnit::MICRO:
-          return LogicalType::Timestamp(adjusted_to_utc,
-                                              LogicalType::TimeUnit::MICROS);
+          return LogicalType::Timestamp(adjusted_to_utc, LogicalType::TimeUnit::MICROS);
         case TimeUnit::NANO:
-          return LogicalType::Timestamp(adjusted_to_utc,
-                                              LogicalType::TimeUnit::NANOS);
+          return LogicalType::Timestamp(adjusted_to_utc, LogicalType::TimeUnit::NANOS);
         default:
           DCHECK(false)
               << "Only MILLI, MICRO, and NANO units supported for Arrow TIMESTAMP.";

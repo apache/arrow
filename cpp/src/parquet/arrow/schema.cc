@@ -252,8 +252,7 @@ static Status FromInt64(const LogicalType& logical_type,
 }
 
 Status FromPrimitive(const PrimitiveNode& primitive, std::shared_ptr<ArrowType>* out) {
-  const std::shared_ptr<const LogicalType>& logical_type =
-      primitive.logical_type();
+  const std::shared_ptr<const LogicalType>& logical_type = primitive.logical_type();
   if (logical_type->is_invalid() || logical_type->is_null()) {
     *out = ::arrow::null();
     return Status::OK();
@@ -590,7 +589,8 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   // must be coerced to microseconds.
   if (properties.version() == ::parquet::ParquetVersion::PARQUET_1_0 &&
       type.unit() == ::arrow::TimeUnit::NANO) {
-    *logical_type = TimestampLogicalTypeFromArrowTimestamp(type, ::arrow::TimeUnit::MICRO);
+    *logical_type =
+        TimestampLogicalTypeFromArrowTimestamp(type, ::arrow::TimeUnit::MICRO);
     return Status::OK();
   }
 
@@ -598,7 +598,8 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   // however the Arrow seconds time unit can not be represented (annotated) in
   // any version of Parquet and so must be coerced to milliseconds.
   if (type.unit() == ::arrow::TimeUnit::SECOND) {
-    *logical_type = TimestampLogicalTypeFromArrowTimestamp(type, ::arrow::TimeUnit::MILLI);
+    *logical_type =
+        TimestampLogicalTypeFromArrowTimestamp(type, ::arrow::TimeUnit::MILLI);
     return Status::OK();
   }
 

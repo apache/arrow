@@ -142,9 +142,7 @@ class PARQUET_EXPORT Node {
 
   ConvertedType::type converted_type() const { return converted_type_; }
 
-  const std::shared_ptr<const LogicalType>& logical_type() const {
-    return logical_type_;
-  }
+  const std::shared_ptr<const LogicalType>& logical_type() const { return logical_type_; }
 
   int id() const { return id_; }
 
@@ -269,9 +267,9 @@ class PARQUET_EXPORT GroupNode : public Node {
     return NodePtr(new GroupNode(name, repetition, fields, converted_type));
   }
 
-  static inline NodePtr Make(
-      const std::string& name, Repetition::type repetition, const NodeVector& fields,
-      std::shared_ptr<const LogicalType> logical_type) {
+  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
+                             const NodeVector& fields,
+                             std::shared_ptr<const LogicalType> logical_type) {
     return NodePtr(new GroupNode(name, repetition, fields, logical_type));
   }
 
@@ -293,12 +291,12 @@ class PARQUET_EXPORT GroupNode : public Node {
 
  private:
   GroupNode(const std::string& name, Repetition::type repetition,
-            const NodeVector& fields, ConvertedType::type converted_type = ConvertedType::NONE,
-            int id = -1);
+            const NodeVector& fields,
+            ConvertedType::type converted_type = ConvertedType::NONE, int id = -1);
 
   GroupNode(const std::string& name, Repetition::type repetition,
-            const NodeVector& fields,
-            std::shared_ptr<const LogicalType> logical_type, int id = -1);
+            const NodeVector& fields, std::shared_ptr<const LogicalType> logical_type,
+            int id = -1);
 
   NodeVector fields_;
   bool EqualsInternal(const GroupNode* other) const;

@@ -178,11 +178,10 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> Map();
   static std::shared_ptr<const LogicalType> List();
   static std::shared_ptr<const LogicalType> Enum();
-  static std::shared_ptr<const LogicalType> Decimal(int32_t precision,
-                                                          int32_t scale = 0);
+  static std::shared_ptr<const LogicalType> Decimal(int32_t precision, int32_t scale = 0);
   static std::shared_ptr<const LogicalType> Date();
-  static std::shared_ptr<const LogicalType> Time(
-      bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit);
+  static std::shared_ptr<const LogicalType> Time(bool is_adjusted_to_utc,
+                                                 LogicalType::TimeUnit::unit time_unit);
   static std::shared_ptr<const LogicalType> Timestamp(
       bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit);
   static std::shared_ptr<const LogicalType> Interval();
@@ -250,7 +249,8 @@ class PARQUET_EXPORT LogicalType {
   /// \brief Return true if this logical type is suitable for a schema GroupNode.
   bool is_nested() const;
   bool is_nonnested() const;
-  /// \brief Return true if this logical type is included in the Thrift output for its node.
+  /// \brief Return true if this logical type is included in the Thrift output for its
+  /// node.
   bool is_serialized() const;
 
   LogicalType(const LogicalType&) = delete;
@@ -304,8 +304,7 @@ class PARQUET_EXPORT EnumLogicalType : public LogicalType {
 /// depending on the precision.
 class PARQUET_EXPORT DecimalLogicalType : public LogicalType {
  public:
-  static std::shared_ptr<const LogicalType> Make(int32_t precision,
-                                                       int32_t scale = 0);
+  static std::shared_ptr<const LogicalType> Make(int32_t precision, int32_t scale = 0);
   int32_t precision() const;
   int32_t scale() const;
 
@@ -325,8 +324,8 @@ class PARQUET_EXPORT DateLogicalType : public LogicalType {
 /// \brief Allowed for physical type INT32 (for MILLIS) or INT64 (for MICROS and NANOS).
 class PARQUET_EXPORT TimeLogicalType : public LogicalType {
  public:
-  static std::shared_ptr<const LogicalType> Make(
-      bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit);
+  static std::shared_ptr<const LogicalType> Make(bool is_adjusted_to_utc,
+                                                 LogicalType::TimeUnit::unit time_unit);
   bool is_adjusted_to_utc() const;
   LogicalType::TimeUnit::unit time_unit() const;
 
@@ -337,8 +336,8 @@ class PARQUET_EXPORT TimeLogicalType : public LogicalType {
 /// \brief Allowed for physical type INT64.
 class PARQUET_EXPORT TimestampLogicalType : public LogicalType {
  public:
-  static std::shared_ptr<const LogicalType> Make(
-      bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit);
+  static std::shared_ptr<const LogicalType> Make(bool is_adjusted_to_utc,
+                                                 LogicalType::TimeUnit::unit time_unit);
   bool is_adjusted_to_utc() const;
   LogicalType::TimeUnit::unit time_unit() const;
 

@@ -38,7 +38,8 @@ TEST(TestConvertedTypeToString, ConvertedTypes) {
   ASSERT_STREQ("NONE", ConvertedTypeToString(ConvertedType::NONE).c_str());
   ASSERT_STREQ("UTF8", ConvertedTypeToString(ConvertedType::UTF8).c_str());
   ASSERT_STREQ("MAP", ConvertedTypeToString(ConvertedType::MAP).c_str());
-  ASSERT_STREQ("MAP_KEY_VALUE", ConvertedTypeToString(ConvertedType::MAP_KEY_VALUE).c_str());
+  ASSERT_STREQ("MAP_KEY_VALUE",
+               ConvertedTypeToString(ConvertedType::MAP_KEY_VALUE).c_str());
   ASSERT_STREQ("LIST", ConvertedTypeToString(ConvertedType::LIST).c_str());
   ASSERT_STREQ("ENUM", ConvertedTypeToString(ConvertedType::ENUM).c_str());
   ASSERT_STREQ("DECIMAL", ConvertedTypeToString(ConvertedType::DECIMAL).c_str());

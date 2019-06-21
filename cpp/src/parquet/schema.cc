@@ -105,8 +105,8 @@ void Node::SetParent(const Node* parent) { parent_ = parent; }
 // Primitive node
 
 PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetition,
-                             Type::type type, ConvertedType::type converted_type, int length,
-                             int precision, int scale, int id)
+                             Type::type type, ConvertedType::type converted_type,
+                             int length, int precision, int scale, int id)
     : Node(Node::PRIMITIVE, name, repetition, converted_type, id),
       physical_type_(type),
       type_length_(length) {
@@ -202,8 +202,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
       throw ParquetException(ss.str());
   }
   // For forward compatibility, create an equivalent logical type
-  logical_type_ =
-      LogicalType::FromConvertedType(converted_type_, decimal_metadata_);
+  logical_type_ = LogicalType::FromConvertedType(converted_type_, decimal_metadata_);
   DCHECK(logical_type_ && !logical_type_->is_nested() &&
          logical_type_->is_compatible(converted_type_, decimal_metadata_));
 
@@ -294,8 +293,7 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
     : Node(Node::GROUP, name, repetition, converted_type, id), fields_(fields) {
   // For forward compatibility, create an equivalent logical type
   logical_type_ = LogicalType::FromConvertedType(converted_type_);
-  DCHECK(logical_type_ &&
-         (logical_type_->is_nested() || logical_type_->is_none()) &&
+  DCHECK(logical_type_ && (logical_type_->is_nested() || logical_type_->is_none()) &&
          logical_type_->is_compatible(converted_type_));
 
   field_name_to_idx_.clear();
@@ -326,8 +324,7 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
     logical_type_ = NoLogicalType::Make();
     converted_type_ = logical_type_->ToConvertedType(nullptr);
   }
-  DCHECK(logical_type_ &&
-         (logical_type_->is_nested() || logical_type_->is_none()) &&
+  DCHECK(logical_type_ && (logical_type_->is_nested() || logical_type_->is_none()) &&
          logical_type_->is_compatible(converted_type_));
 
   field_name_to_idx_.clear();
@@ -703,8 +700,9 @@ static void PrintConvertedType(const PrimitiveNode* node, std::ostream& stream) 
   if (la && la->is_valid() && !la->is_none()) {
     stream << " (" << la->ToString() << ")";
   } else if (lt == ConvertedType::DECIMAL) {
-    stream << " (" << ConvertedTypeToString(lt) << "(" << node->decimal_metadata().precision
-           << "," << node->decimal_metadata().scale << "))";
+    stream << " (" << ConvertedTypeToString(lt) << "("
+           << node->decimal_metadata().precision << "," << node->decimal_metadata().scale
+           << "))";
   } else if (lt != ConvertedType::NONE) {
     stream << " (" << ConvertedTypeToString(lt) << ")";
   }
@@ -924,7 +922,8 @@ std::string ColumnDescriptor::ToString() const {
      << "  name: " << name() << "," << std::endl
      << "  path: " << path()->ToDotString() << "," << std::endl
      << "  physical_type: " << TypeToString(physical_type()) << "," << std::endl
-     << "  converted_type: " << ConvertedTypeToString(converted_type()) << "," << std::endl
+     << "  converted_type: " << ConvertedTypeToString(converted_type()) << ","
+     << std::endl
      << "  logical_type: " << logical_type()->ToString() << "," << std::endl
      << "  max_definition_level: " << max_definition_level() << "," << std::endl
      << "  max_repetition_level: " << max_repetition_level() << "," << std::endl;

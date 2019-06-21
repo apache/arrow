@@ -181,15 +181,14 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
   };
 
   std::vector<FieldConstructionArguments> cases = {
-      {"string", LogicalType::String(), ParquetType::BYTE_ARRAY, -1,
-       ::arrow::utf8()},
+      {"string", LogicalType::String(), ParquetType::BYTE_ARRAY, -1, ::arrow::utf8()},
       {"enum", LogicalType::Enum(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
       {"decimal(8, 2)", LogicalType::Decimal(8, 2), ParquetType::INT32, -1,
        ::arrow::decimal(8, 2)},
       {"decimal(16, 4)", LogicalType::Decimal(16, 4), ParquetType::INT64, -1,
        ::arrow::decimal(16, 4)},
-      {"decimal(32, 8)", LogicalType::Decimal(32, 8),
-       ParquetType::FIXED_LEN_BYTE_ARRAY, 16, ::arrow::decimal(32, 8)},
+      {"decimal(32, 8)", LogicalType::Decimal(32, 8), ParquetType::FIXED_LEN_BYTE_ARRAY,
+       16, ::arrow::decimal(32, 8)},
       {"date", LogicalType::Date(), ParquetType::INT32, -1, ::arrow::date32()},
       {"time(ms)", LogicalType::Time(true, LogicalType::TimeUnit::MILLIS),
        ParquetType::INT32, -1, ::arrow::time32(::arrow::TimeUnit::MILLI)},
@@ -203,24 +202,21 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
        ParquetType::INT64, -1, ::arrow::time64(::arrow::TimeUnit::MICRO)},
       {"time(ns)", LogicalType::Time(false, LogicalType::TimeUnit::NANOS),
        ParquetType::INT64, -1, ::arrow::time64(::arrow::TimeUnit::NANO)},
-      {"timestamp(true, ms)",
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
+      {"timestamp(true, ms)", LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
        ParquetType::INT64, -1, ::arrow::timestamp(::arrow::TimeUnit::MILLI, "UTC")},
-      {"timestamp(true, us)",
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
+      {"timestamp(true, us)", LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
        ParquetType::INT64, -1, ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC")},
-      {"timestamp(true, ns)",
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
+      {"timestamp(true, ns)", LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
        ParquetType::INT64, -1, ::arrow::timestamp(::arrow::TimeUnit::NANO, "UTC")},
       {"timestamp(false, ms)",
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
-       ParquetType::INT64, -1, ::arrow::timestamp(::arrow::TimeUnit::MILLI)},
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS), ParquetType::INT64,
+       -1, ::arrow::timestamp(::arrow::TimeUnit::MILLI)},
       {"timestamp(false, us)",
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
-       ParquetType::INT64, -1, ::arrow::timestamp(::arrow::TimeUnit::MICRO)},
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       -1, ::arrow::timestamp(::arrow::TimeUnit::MICRO)},
       {"timestamp(false, ns)",
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS),
-       ParquetType::INT64, -1, ::arrow::timestamp(::arrow::TimeUnit::NANO)},
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS), ParquetType::INT64,
+       -1, ::arrow::timestamp(::arrow::TimeUnit::NANO)},
       {"int(8, false)", LogicalType::Int(8, false), ParquetType::INT32, -1,
        ::arrow::uint8()},
       {"int(8, true)", LogicalType::Int(8, true), ParquetType::INT32, -1,
@@ -258,8 +254,9 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
   std::vector<std::shared_ptr<Field>> arrow_fields;
 
   for (const FieldConstructionArguments& c : cases) {
-    parquet_fields.push_back(PrimitiveNode::Make(
-        c.name, Repetition::OPTIONAL, c.logical_type, c.physical_type, c.physical_length));
+    parquet_fields.push_back(PrimitiveNode::Make(c.name, Repetition::OPTIONAL,
+                                                 c.logical_type, c.physical_type,
+                                                 c.physical_length));
     arrow_fields.push_back(std::make_shared<Field>(c.name, c.datatype));
   }
 
@@ -421,8 +418,8 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
     auto inner_element =
         PrimitiveNode::Make("int32", Repetition::REQUIRED, ParquetType::INT32);
     auto inner_list = GroupNode::Make("list", Repetition::REPEATED, {inner_element});
-    auto element =
-        GroupNode::Make("element", Repetition::REQUIRED, {inner_list}, ConvertedType::LIST);
+    auto element = GroupNode::Make("element", Repetition::REQUIRED, {inner_list},
+                                   ConvertedType::LIST);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(GroupNode::Make("array_of_arrays", Repetition::OPTIONAL,
                                              {list}, ConvertedType::LIST));
@@ -827,24 +824,18 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
   };
 
   std::vector<FieldConstructionArguments> cases = {
-      {"boolean", ::arrow::boolean(), LogicalType::None(), ParquetType::BOOLEAN,
-       -1},
-      {"binary", ::arrow::binary(), LogicalType::None(), ParquetType::BYTE_ARRAY,
-       -1},
+      {"boolean", ::arrow::boolean(), LogicalType::None(), ParquetType::BOOLEAN, -1},
+      {"binary", ::arrow::binary(), LogicalType::None(), ParquetType::BYTE_ARRAY, -1},
       {"fixed_size_binary", ::arrow::fixed_size_binary(64), LogicalType::None(),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 64},
-      {"uint8", ::arrow::uint8(), LogicalType::Int(8, false), ParquetType::INT32,
-       -1},
+      {"uint8", ::arrow::uint8(), LogicalType::Int(8, false), ParquetType::INT32, -1},
       {"int8", ::arrow::int8(), LogicalType::Int(8, true), ParquetType::INT32, -1},
-      {"uint16", ::arrow::uint16(), LogicalType::Int(16, false), ParquetType::INT32,
-       -1},
-      {"int16", ::arrow::int16(), LogicalType::Int(16, true), ParquetType::INT32,
-       -1},
+      {"uint16", ::arrow::uint16(), LogicalType::Int(16, false), ParquetType::INT32, -1},
+      {"int16", ::arrow::int16(), LogicalType::Int(16, true), ParquetType::INT32, -1},
       {"uint32", ::arrow::uint32(), LogicalType::None(), ParquetType::INT64,
        -1},  // Parquet 1.0
       {"int32", ::arrow::int32(), LogicalType::None(), ParquetType::INT32, -1},
-      {"uint64", ::arrow::uint64(), LogicalType::Int(64, false), ParquetType::INT64,
-       -1},
+      {"uint64", ::arrow::uint64(), LogicalType::Int(64, false), ParquetType::INT64, -1},
       {"int64", ::arrow::int64(), LogicalType::None(), ParquetType::INT64, -1},
       {"float32", ::arrow::float32(), LogicalType::None(), ParquetType::FLOAT, -1},
       {"float64", ::arrow::float64(), LogicalType::None(), ParquetType::DOUBLE, -1},
@@ -858,41 +849,38 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
       {"decimal(32, 8)", ::arrow::decimal(32, 8), LogicalType::Decimal(32, 8),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 14},
       {"time32", ::arrow::time32(::arrow::TimeUnit::MILLI),
-       LogicalType::Time(false, LogicalType::TimeUnit::MILLIS),
-       ParquetType::INT32, -1},
+       LogicalType::Time(false, LogicalType::TimeUnit::MILLIS), ParquetType::INT32, -1},
       {"time64(microsecond)", ::arrow::time64(::arrow::TimeUnit::MICRO),
-       LogicalType::Time(false, LogicalType::TimeUnit::MICROS),
-       ParquetType::INT64, -1},
+       LogicalType::Time(false, LogicalType::TimeUnit::MICROS), ParquetType::INT64, -1},
       {"time64(nanosecond)", ::arrow::time64(::arrow::TimeUnit::NANO),
-       LogicalType::Time(false, LogicalType::TimeUnit::NANOS),
-       ParquetType::INT64, -1},
+       LogicalType::Time(false, LogicalType::TimeUnit::NANOS), ParquetType::INT64, -1},
       {"timestamp(millisecond)", ::arrow::timestamp(::arrow::TimeUnit::MILLI),
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS),
-       ParquetType::INT64, -1},
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::MILLIS), ParquetType::INT64,
+       -1},
       {"timestamp(microsecond)", ::arrow::timestamp(::arrow::TimeUnit::MICRO),
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
-       ParquetType::INT64, -1},
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       -1},
       {"timestamp(nanosecond)", ::arrow::timestamp(::arrow::TimeUnit::NANO),
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS),
-       ParquetType::INT64, -1},
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       -1},
       {"timestamp(millisecond, UTC)", ::arrow::timestamp(::arrow::TimeUnit::MILLI, "UTC"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
-       ParquetType::INT64, -1},
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS), ParquetType::INT64,
+       -1},
       {"timestamp(microsecond, UTC)", ::arrow::timestamp(::arrow::TimeUnit::MICRO, "UTC"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
-       ParquetType::INT64, -1},
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       -1},
       {"timestamp(nanosecond, UTC)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "UTC"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
-       ParquetType::INT64, -1},
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       -1},
       {"timestamp(millisecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::MILLI, "CET"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS),
-       ParquetType::INT64, -1},
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS), ParquetType::INT64,
+       -1},
       {"timestamp(microsecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::MICRO, "CET"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
-       ParquetType::INT64, -1},
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       -1},
       {"timestamp(nanosecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "CET"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS),
-       ParquetType::INT64, -1},
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       -1},
       {"null", ::arrow::null(), LogicalType::Null(), ParquetType::INT32, -1}};
 
   std::vector<std::shared_ptr<Field>> arrow_fields;
@@ -900,8 +888,9 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
 
   for (const FieldConstructionArguments& c : cases) {
     arrow_fields.push_back(std::make_shared<Field>(c.name, c.datatype, false));
-    parquet_fields.push_back(PrimitiveNode::Make(
-        c.name, Repetition::REQUIRED, c.logical_type, c.physical_type, c.physical_length));
+    parquet_fields.push_back(PrimitiveNode::Make(c.name, Repetition::REQUIRED,
+                                                 c.logical_type, c.physical_type,
+                                                 c.physical_length));
   }
 
   ASSERT_OK(ConvertSchema(arrow_fields));
