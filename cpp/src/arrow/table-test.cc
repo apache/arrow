@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
@@ -138,6 +139,26 @@ TEST_F(TestChunkedArray, SliceEquals) {
   ASSERT_EQ(slice5->length(), 0);
   ASSERT_EQ(slice5->num_chunks(), 0);
   ASSERT_TRUE(slice5->type()->Equals(one_->type()));
+}
+
+TEST_F(TestChunkedArray, Validate) {
+  // Valid if empty
+  ArrayVector empty = {};
+  auto no_chunks = std::make_shared<ChunkedArray>(empty, utf8());
+  ASSERT_OK(no_chunks->Validate());
+
+  random::RandomArrayGenerator gen(0);
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+  ASSERT_OK(one_->Validate());
+
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+  ASSERT_OK(one_->Validate());
+
+  arrays_one_.push_back(gen.String(50, 0, 10, 0.1));
+  Construct();
+  ASSERT_RAISES(Invalid, one_->Validate());
 }
 
 class TestColumn : public TestChunkedArray {

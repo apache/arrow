@@ -268,6 +268,8 @@ def chunked_array(arrays, type=None):
     Parameters
     ----------
     arrays : list of Array or values coercible to arrays
+        Must all be the same data type. Can be empty only if type also
+        passed
     type : DataType or string coercible to DataType
 
     Returns
@@ -298,6 +300,10 @@ def chunked_array(arrays, type=None):
             raise ValueError("Cannot construct a chunked array with neither "
                              "arrays nor type")
         sp_chunked_array.reset(new CChunkedArray(c_arrays))
+
+    with nogil:
+        check_status(sp_chunked_array.get().Validate())
+
     return pyarrow_wrap_chunked_array(sp_chunked_array)
 
 
