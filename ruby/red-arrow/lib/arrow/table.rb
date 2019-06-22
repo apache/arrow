@@ -204,42 +204,42 @@ module Arrow
     #   @param offset [Integer] The offset of sub Arrow::Table.
     #   @param length [Integer] The length of sub Arrow::Table.
     #   @return [Arrow::Table]
-    #     The sub Arrow::Table. It covers only from
+    #     The sub `Arrow::Table`. It covers only from
     #     `offset` to `offset + length` range.
     #
     # @overload slice(offset)
     #
     #   @param offset [Integer] The offset of sub Arrow::Table.
     #   @return [Arrow::Table]
-    #      The sub Arrow::Table. It covers only from
+    #      The sub `Arrow::Table`. It covers only from
     #      `offset` until end of the table.
     #
     # @overload slice(boolean_array)
     #
     #   @param boolean_array [Array<Boolean>] The values indicating the target rows.
     #   @return [Arrow::Table]
-    #      The sub Arrow::Table. It covers only rows of index
+    #      The sub `Arrow::Table`. It covers only rows of index
     #      the values of `boolean_array` is true.
     #
     # @overload slice(arrow_boolean_array)
     #
     #   @param arrow_boolean_array [::Array<Arrow::BooleanArray>] The values indicating the target rows.
     #   @return [Arrow::Table]
-    #      The sub Arrow::Table. It covers only rows of index
+    #      The sub `Arrow::Table`. It covers only rows of index
     #      the values of `arrow_boolean_array` is true.
     #
     # @overload slice(range_included_end)
     #
-    #   @param range [Range] The range indicating the target rows.
+    #   @param range_included_end [Range] The range indicating the target rows.
     #   @return [Arrow::Table]
-    #     The sub Arrow::Table. It covers only rows of the range
+    #     The sub `Arrow::Table`. It covers only rows of the range
     #     included end.
     #
     # @overload slice(range_excluded_end)
     #
-    #   @param range [Range] The range indicating the target rows.
+    #   @param range_excluded_end [Range] The range indicating the target rows.
     #   @return [Arrow::Table]
-    #     The sub Arrow::Table. It covers only rows of the range
+    #     The sub `Arrow::Table`. It covers only rows of the range
     #     excluded end.
     #
     # @since 0.14.0
