@@ -20,6 +20,7 @@ import (
 	"io"
 
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -101,3 +102,12 @@ func WithSchema(schema *arrow.Schema) Option {
 		cfg.schema = schema
 	}
 }
+
+var (
+	_ arrio.Reader = (*Reader)(nil)
+	_ arrio.Writer = (*Writer)(nil)
+	_ arrio.Reader = (*FileReader)(nil)
+	_ arrio.Writer = (*FileWriter)(nil)
+
+	_ arrio.ReaderAt = (*FileReader)(nil)
+)

@@ -30,9 +30,8 @@ import (
 // FixedSizeList represents an immutable sequence of N array values.
 type FixedSizeList struct {
 	array
-	n       int32
-	values  Interface
-	offsets []int32
+	n      int32
+	values Interface
 }
 
 // NewFixedSizeListData returns a new List array value, from data.
@@ -65,18 +64,17 @@ func (a *FixedSizeList) String() string {
 }
 
 func (a *FixedSizeList) newListValue(i int) Interface {
-	j := i + a.array.data.offset
-	beg := int64(a.offsets[j])
-	end := int64(a.offsets[j+1])
-	return NewSlice(a.values, beg, end)
+	n := int64(a.n)
+	off := int64(a.array.data.offset)
+	beg := (off + int64(i)) * n
+	end := (off + int64(i+1)) * n
+	sli := NewSlice(a.values, beg, end)
+	return sli
 }
 
 func (a *FixedSizeList) setData(data *Data) {
 	a.array.setData(data)
-	vals := data.buffers[1]
-	if vals != nil {
-		a.offsets = arrow.Int32Traits.CastFromBytes(vals.Bytes())
-	}
+	a.n = a.DataType().(*arrow.FixedSizeListType).Len()
 	a.values = MakeFromData(data.childData[0])
 }
 
@@ -102,8 +100,6 @@ func arrayEqualFixedSizeList(left, right *FixedSizeList) bool {
 // Len returns the number of elements in the array.
 func (a *FixedSizeList) Len() int { return a.array.Len() }
 
-func (a *FixedSizeList) Offsets() []int32 { return a.offsets }
-
 func (a *FixedSizeList) Retain() {
 	a.array.Retain()
 	a.values.Retain()
@@ -117,10 +113,9 @@ func (a *FixedSizeList) Release() {
 type FixedSizeListBuilder struct {
 	builder
 
-	etype   arrow.DataType // data type of the list's elements.
-	n       int32          // number of elements in the fixed-size list.
-	values  Builder        // value builder for the list's elements.
-	offsets *Int32Builder
+	etype  arrow.DataType // data type of the list's elements.
+	n      int32          // number of elements in the fixed-size list.
+	values Builder        // value builder for the list's elements.
 }
 
 // NewFixedSizeListBuilder returns a builder, using the provided memory allocator.
@@ -131,7 +126,6 @@ func NewFixedSizeListBuilder(mem memory.Allocator, n int32, etype arrow.DataType
 		etype:   etype,
 		n:       n,
 		values:  newBuilder(mem, etype),
-		offsets: NewInt32Builder(mem),
 	}
 }
 
@@ -145,31 +139,25 @@ func (b *FixedSizeListBuilder) Release() {
 			b.nullBitmap.Release()
 			b.nullBitmap = nil
 		}
+		if b.values != nil {
+			b.values.Release()
+			b.values = nil
+		}
 	}
-
-	b.values.Release()
-	b.offsets.Release()
-}
-
-func (b *FixedSizeListBuilder) appendNextOffset() {
-	b.offsets.Append(int32(b.values.Len()))
 }
 
 func (b *FixedSizeListBuilder) Append(v bool) {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(v)
-	b.appendNextOffset()
 }
 
 func (b *FixedSizeListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
-	b.appendNextOffset()
 }
 
-func (b *FixedSizeListBuilder) AppendValues(offsets []int32, valid []bool) {
+func (b *FixedSizeListBuilder) AppendValues(valid []bool) {
 	b.Reserve(len(valid))
-	b.offsets.AppendValues(offsets, nil)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
 }
 
@@ -189,7 +177,6 @@ func (b *FixedSizeListBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 
 func (b *FixedSizeListBuilder) init(capacity int) {
 	b.builder.init(capacity)
-	b.offsets.init(capacity + 1)
 }
 
 // Reserve ensures there is enough space for appending n elements
@@ -209,7 +196,6 @@ func (b *FixedSizeListBuilder) Resize(n int) {
 		b.init(n)
 	} else {
 		b.builder.resize(n, b.builder.init)
-		b.offsets.resize(n+1, b.offsets.init)
 	}
 }
 
@@ -226,9 +212,6 @@ func (b *FixedSizeListBuilder) NewArray() Interface {
 // NewListArray creates a List array from the memory buffers used by the builder and resets the FixedSizeListBuilder
 // so it can be used to build a new array.
 func (b *FixedSizeListBuilder) NewListArray() (a *FixedSizeList) {
-	if b.offsets.Len() != b.length+1 {
-		b.appendNextOffset()
-	}
 	data := b.newData()
 	a = NewFixedSizeListData(data)
 	data.Release()
@@ -239,19 +222,9 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	values := b.values.NewArray()
 	defer values.Release()
 
-	var offsets *memory.Buffer
-	if b.offsets != nil {
-		arr := b.offsets.NewInt32Array()
-		defer arr.Release()
-		offsets = arr.Data().buffers[1]
-	}
-
 	data = NewData(
 		arrow.FixedSizeListOf(b.n, b.etype), b.length,
-		[]*memory.Buffer{
-			b.nullBitmap,
-			offsets,
-		},
+		[]*memory.Buffer{b.nullBitmap},
 		[]*Data{values.Data()},
 		b.nulls,
 		0,

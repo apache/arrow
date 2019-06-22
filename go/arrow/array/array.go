@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package array
+package array // import "github.com/apache/arrow/go/arrow/array"
 
 import (
 	"sync/atomic"
@@ -128,6 +128,10 @@ func (a *array) setData(data *Data) {
 		a.nullBitmapBytes = data.buffers[0].Bytes()
 	}
 	a.data = data
+}
+
+func (a *array) Offset() int {
+	return a.data.Offset()
 }
 
 type arrayConstructorFn func(*Data) Interface

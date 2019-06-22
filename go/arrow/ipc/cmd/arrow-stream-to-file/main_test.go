@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc_test
+package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-stream-to-file"
 
 import (
 	"io"
@@ -26,7 +26,7 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
-func TestStream(t *testing.T) {
+func TestStreamToFile(t *testing.T) {
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -43,15 +43,36 @@ func TestStream(t *testing.T) {
 
 			err = f.Sync()
 			if err != nil {
-				t.Fatalf("could not sync data to disk: %v", err)
+				t.Fatal(err)
 			}
 
 			_, err = f.Seek(0, io.SeekStart)
 			if err != nil {
-				t.Fatalf("could not seek to start: %v", err)
+				t.Fatal(err)
 			}
 
-			arrdata.CheckArrowStream(t, f, mem, recs[0].Schema(), recs)
+			o, err := ioutil.TempFile("", "arrow-ipc-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(o.Name())
+
+			err = processStream(o, f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = o.Sync()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = o.Seek(0, io.SeekStart)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			arrdata.CheckArrowFile(t, o, mem, recs[0].Schema(), recs)
 		})
 	}
 }

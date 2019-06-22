@@ -79,7 +79,7 @@ func TestMakeFromData(t *testing.T) {
 			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
 		}},
 
-		{name: "fixed_size_list", d: &testDataType{arrow.FIXED_SIZE_LIST}, child: []*array.Data{
+		{name: "fixed_size_list", d: arrow.FixedSizeListOf(4, arrow.PrimitiveTypes.Int64), child: []*array.Data{
 			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
 			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
 		}},

@@ -33,7 +33,6 @@ func TestFixedSizeListArray(t *testing.T) {
 		vs      = []int32{0, 1, 2, 3, 4, 5, 6}
 		lengths = []int{3, 0, 4}
 		isValid = []bool{true, false, true}
-		offsets = []int32{0, 3, 3, 7}
 	)
 
 	lb := array.NewFixedSizeListBuilder(pool, int32(len(vs)), arrow.PrimitiveTypes.Int32)
@@ -75,10 +74,6 @@ func TestFixedSizeListArray(t *testing.T) {
 			}
 		}
 
-		if got, want := arr.Offsets(), offsets; !reflect.DeepEqual(got, want) {
-			t.Fatalf("got=%v, want=%v", got, want)
-		}
-
 		varr := arr.ListValues().(*array.Int32)
 		if got, want := varr.Int32Values(), vs; !reflect.DeepEqual(got, want) {
 			t.Fatalf("got=%v, want=%v", got, want)
@@ -107,7 +102,6 @@ func TestFixedSizeListArrayBulkAppend(t *testing.T) {
 		vs      = []int32{0, 1, 2, 3, 4, 5, 6}
 		lengths = []int{3, 0, 4}
 		isValid = []bool{true, false, true}
-		offsets = []int32{0, 3, 3, 7}
 	)
 
 	lb := array.NewFixedSizeListBuilder(pool, int32(len(vs)), arrow.PrimitiveTypes.Int32)
@@ -115,7 +109,7 @@ func TestFixedSizeListArrayBulkAppend(t *testing.T) {
 	vb := lb.ValueBuilder().(*array.Int32Builder)
 	vb.Reserve(len(vs))
 
-	lb.AppendValues(offsets, isValid)
+	lb.AppendValues(isValid)
 	for _, v := range vs {
 		vb.Append(v)
 	}
@@ -138,10 +132,6 @@ func TestFixedSizeListArrayBulkAppend(t *testing.T) {
 		if got, want := arr.IsNull(i), lengths[i] == 0; got != want {
 			t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
 		}
-	}
-
-	if got, want := arr.Offsets(), offsets; !reflect.DeepEqual(got, want) {
-		t.Fatalf("got=%v, want=%v", got, want)
 	}
 
 	varr := arr.ListValues().(*array.Int32)

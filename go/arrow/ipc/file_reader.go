@@ -45,6 +45,9 @@ type FileReader struct {
 
 	schema *arrow.Schema
 	record array.Record
+
+	irec int   // current record index. used for the arrio.Reader interface
+	err  error // last error
 }
 
 // NewFileReader opens an Arrow file using the provided reader r.
@@ -277,6 +280,25 @@ func (f *FileReader) Record(i int) (array.Record, error) {
 	return f.record, nil
 }
 
+// Read reads the current record from the underlying stream and an error, if any.
+// When the Reader reaches the end of the underlying stream, it returns (nil, io.EOF).
+//
+// The returned record value is valid until the next call to Read.
+// Users need to call Retain on that Record to keep it valid for longer.
+func (f *FileReader) Read() (rec array.Record, err error) {
+	if f.irec == f.NumRecords() {
+		return nil, io.EOF
+	}
+	rec, f.err = f.Record(f.irec)
+	f.irec++
+	return rec, f.err
+}
+
+// ReadAt reads the i-th record from the underlying stream and an error, if any.
+func (f *FileReader) ReadAt(i int64) (array.Record, error) {
+	return f.Record(int(i))
+}
+
 func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker) array.Record {
 	var (
 		msg = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
@@ -475,8 +497,7 @@ func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) array.Interface {
 }
 
 func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) array.Interface {
-	field, buffers := ctx.loadCommon(2)
-	buffers = append(buffers, ctx.buffer())
+	field, buffers := ctx.loadCommon(1)
 
 	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()

@@ -201,7 +201,8 @@ type fieldVisitor struct {
 	meta   map[string]string
 }
 
-func (fv *fieldVisitor) visit(dt arrow.DataType) {
+func (fv *fieldVisitor) visit(field arrow.Field) {
+	dt := field.Type
 	switch dt := dt.(type) {
 	case *arrow.NullType:
 		fv.dtype = flatbuf.TypeNull
@@ -309,7 +310,10 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 	case *arrow.TimestampType:
 		fv.dtype = flatbuf.TypeTimestamp
 		unit := unitToFB(dt.Unit)
-		tz := fv.b.CreateString(dt.TimeZone)
+		var tz flatbuffers.UOffsetT
+		if dt.TimeZone != "" {
+			tz = fv.b.CreateString(dt.TimeZone)
+		}
 		flatbuf.TimestampStart(fv.b)
 		flatbuf.TimestampAddUnit(fv.b, unit)
 		flatbuf.TimestampAddTimezone(fv.b, tz)
@@ -330,13 +334,13 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 
 	case *arrow.ListType:
 		fv.dtype = flatbuf.TypeList
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem()}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable}, fv.memo))
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
 
 	case *arrow.FixedSizeListType:
 		fv.dtype = flatbuf.TypeFixedSizeList
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem()}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable}, fv.memo))
 		flatbuf.FixedSizeListStart(fv.b)
 		flatbuf.FixedSizeListAddListSize(fv.b, dt.Len())
 		fv.offset = flatbuf.FixedSizeListEnd(fv.b)
@@ -369,7 +373,7 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 func (fv *fieldVisitor) result(field arrow.Field) flatbuffers.UOffsetT {
 	nameFB := fv.b.CreateString(field.Name)
 
-	fv.visit(field.Type)
+	fv.visit(field)
 
 	flatbuf.FieldStartChildrenVector(fv.b, len(fv.kids))
 	for i := len(fv.kids) - 1; i >= 0; i-- {

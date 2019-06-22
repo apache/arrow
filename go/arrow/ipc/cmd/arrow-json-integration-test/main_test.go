@@ -14,10 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc_test
+package main // import "github.com/apache/arrow/go/arrow/ipc/cmd/arrow-json-integration-test"
 
 import (
-	"io"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -26,32 +25,64 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
-func TestStream(t *testing.T) {
+func TestIntegration(t *testing.T) {
+	const verbose = true
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile("", "arrow-ipc-")
+			af1, err := ioutil.TempFile("", "arrow-json-integration-")
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer f.Close()
-			defer os.Remove(f.Name())
+			defer af1.Close()
+			defer os.RemoveAll(af1.Name())
 
-			arrdata.WriteStream(t, f, mem, recs[0].Schema(), recs)
+			arrdata.WriteFile(t, af1, mem, recs[0].Schema(), recs)
+			arrdata.CheckArrowFile(t, af1, mem, recs[0].Schema(), recs)
 
-			err = f.Sync()
+			aj, err := ioutil.TempFile("", "arrow-json-integration-")
 			if err != nil {
-				t.Fatalf("could not sync data to disk: %v", err)
+				t.Fatal(err)
+			}
+			defer aj.Close()
+			defer os.RemoveAll(aj.Name())
+
+			err = cnvToJSON(af1.Name(), aj.Name(), verbose)
+			if err != nil {
+				t.Fatal(err)
 			}
 
-			_, err = f.Seek(0, io.SeekStart)
+			err = validate(af1.Name(), aj.Name(), verbose)
 			if err != nil {
-				t.Fatalf("could not seek to start: %v", err)
+				t.Fatal(err)
 			}
 
-			arrdata.CheckArrowStream(t, f, mem, recs[0].Schema(), recs)
+			af2, err := ioutil.TempFile("", "arrow-json-integration-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			af2.Close()
+			os.RemoveAll(af2.Name())
+
+			err = cnvToARROW(af2.Name(), aj.Name(), verbose)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = validate(af2.Name(), aj.Name(), verbose)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			af2, err = os.Open(af2.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer af2.Close()
+
+			arrdata.CheckArrowFile(t, af2, mem, recs[0].Schema(), recs)
 		})
 	}
 }

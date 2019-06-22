@@ -17,13 +17,11 @@
 package ipc_test
 
 import (
-	"io"
 	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -40,62 +38,8 @@ func TestFile(t *testing.T) {
 			defer f.Close()
 			defer os.Remove(f.Name())
 
-			{
-				w, err := ipc.NewFileWriter(f, ipc.WithSchema(recs[0].Schema()), ipc.WithAllocator(mem))
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer w.Close()
-
-				for i, rec := range recs {
-					err = w.Write(rec)
-					if err != nil {
-						t.Fatalf("could not write record[%d]: %v", i, err)
-					}
-				}
-
-				err = w.Close()
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				err = f.Sync()
-				if err != nil {
-					t.Fatalf("could not sync data to disk: %v", err)
-				}
-
-				_, err = f.Seek(0, io.SeekStart)
-				if err != nil {
-					t.Fatalf("could not seek to start: %v", err)
-				}
-			}
-
-			{
-				r, err := ipc.NewFileReader(f, ipc.WithSchema(recs[0].Schema()), ipc.WithAllocator(mem))
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer r.Close()
-
-				if got, want := r.NumRecords(), len(recs); got != want {
-					t.Fatalf("invalid number of records. got=%d, want=%d", got, want)
-				}
-
-				for i := 0; i < r.NumRecords(); i++ {
-					rec, err := r.Record(i)
-					if err != nil {
-						t.Fatalf("could not read record %d: %v", i, err)
-					}
-					if !cmpRecs(rec, recs[i]) {
-						t.Fatalf("records[%d] differ", i)
-					}
-				}
-
-				err = r.Close()
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
+			arrdata.WriteFile(t, f, mem, recs[0].Schema(), recs)
+			arrdata.CheckArrowFile(t, f, mem, recs[0].Schema(), recs)
 		})
 	}
 }

@@ -69,9 +69,16 @@ type TimestampType struct {
 	TimeZone string
 }
 
-func (*TimestampType) ID() Type         { return TIMESTAMP }
-func (*TimestampType) Name() string     { return "timestamp" }
-func (t *TimestampType) String() string { return "timestamp[" + t.Unit.String() + "]" }
+func (*TimestampType) ID() Type     { return TIMESTAMP }
+func (*TimestampType) Name() string { return "timestamp" }
+func (t *TimestampType) String() string {
+	switch len(t.TimeZone) {
+	case 0:
+		return "timestamp[" + t.Unit.String() + "]"
+	default:
+		return "timestamp[" + t.Unit.String() + ", tz=" + t.TimeZone + "]"
+	}
+}
 
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
@@ -146,8 +153,8 @@ func (t *MonthIntervalType) BitWidth() int { return 32 }
 
 // DayTimeInterval represents a number of days and milliseconds (fraction of day).
 type DayTimeInterval struct {
-	Days         int32
-	Milliseconds int32
+	Days         int32 `json:"days"`
+	Milliseconds int32 `json:"milliseconds"`
 }
 
 // DayTimeIntervalType is encoded as a pair of 32-bit signed integer,
@@ -177,7 +184,10 @@ var (
 		Time32ms        FixedWidthDataType
 		Time64us        FixedWidthDataType
 		Time64ns        FixedWidthDataType
-		Timestamp       FixedWidthDataType
+		Timestamp_s     FixedWidthDataType
+		Timestamp_ms    FixedWidthDataType
+		Timestamp_us    FixedWidthDataType
+		Timestamp_ns    FixedWidthDataType
 	}{
 		Boolean:         &BooleanType{},
 		Date32:          &Date32Type{},
@@ -193,7 +203,10 @@ var (
 		Time32ms:        &Time32Type{Unit: Millisecond},
 		Time64us:        &Time64Type{Unit: Microsecond},
 		Time64ns:        &Time64Type{Unit: Nanosecond},
-		Timestamp:       &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
+		Timestamp_s:     &TimestampType{Unit: Second, TimeZone: "UTC"},
+		Timestamp_ms:    &TimestampType{Unit: Millisecond, TimeZone: "UTC"},
+		Timestamp_us:    &TimestampType{Unit: Microsecond, TimeZone: "UTC"},
+		Timestamp_ns:    &TimestampType{Unit: Nanosecond, TimeZone: "UTC"},
 	}
 
 	_ FixedWidthDataType = (*FixedSizeBinaryType)(nil)

@@ -14,44 +14,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc_test
+package arrjson // import "github.com/apache/arrow/go/arrow/internal/arrjson"
 
 import (
-	"io"
-	"io/ioutil"
-	"os"
-	"testing"
-
-	"github.com/apache/arrow/go/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
-func TestStream(t *testing.T) {
-	for name, recs := range arrdata.Records {
-		t.Run(name, func(t *testing.T) {
-			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-			defer mem.AssertSize(t, 0)
+type config struct {
+	alloc  memory.Allocator
+	schema *arrow.Schema
+}
 
-			f, err := ioutil.TempFile("", "arrow-ipc-")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer f.Close()
-			defer os.Remove(f.Name())
+func newConfig(opts ...Option) *config {
+	cfg := &config{
+		alloc: memory.NewGoAllocator(),
+	}
 
-			arrdata.WriteStream(t, f, mem, recs[0].Schema(), recs)
+	for _, opt := range opts {
+		opt(cfg)
+	}
 
-			err = f.Sync()
-			if err != nil {
-				t.Fatalf("could not sync data to disk: %v", err)
-			}
+	return cfg
+}
 
-			_, err = f.Seek(0, io.SeekStart)
-			if err != nil {
-				t.Fatalf("could not seek to start: %v", err)
-			}
+// Option is a functional option to configure opening or creating Arrow files
+// and streams.
+type Option func(*config)
 
-			arrdata.CheckArrowStream(t, f, mem, recs[0].Schema(), recs)
-		})
+// WithAllocator specifies the Arrow memory allocator used while building records.
+func WithAllocator(mem memory.Allocator) Option {
+	return func(cfg *config) {
+		cfg.alloc = mem
+	}
+}
+
+// WithSchema specifies the Arrow schema to be used for reading or writing.
+func WithSchema(schema *arrow.Schema) Option {
+	return func(cfg *config) {
+		cfg.schema = schema
 	}
 }
