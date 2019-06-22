@@ -40,6 +40,7 @@ class SourceTest < Test::Unit::TestCase
 
   def prepare
     env = {"SOURCE_DEFAULT"=>"0"}
+    env["release_hash"] = @current_commit
     sh(env, "dev/release/02-source.sh", @current_version, "0")
   end
 

@@ -38,11 +38,7 @@ tagrc=${tag}-rc${rc}
 
 echo "Preparing source for tag ${tag}"
 
-if [ ${SOURCE_UPLOAD} -gt 0 ]; then
-  : ${release_hash:=`git rev-list $tag 2> /dev/null | head -n 1 `}
-else
-  : ${release_hash:=`git rev-parse HEAD `}
-fi
+: ${release_hash:=`git rev-list $tag 2> /dev/null | head -n 1 `}
 
 if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   if [ -z "$release_hash" ]; then
