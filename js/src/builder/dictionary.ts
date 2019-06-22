@@ -29,13 +29,17 @@ export interface DictionaryBuilderOptions<T extends DataType = any, TNull = any>
 /** @ignore */
 export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builder<T, TNull> {
 
-    protected _codes = Object.create(null);
+    protected _dictionaryOffset: number;
+    protected _dictionary?: Vector<T['dictionary']>;
+    protected _keysToIndices: { [key: string]: number };
     public readonly indices: IntBuilder<T['indices']>;
     public readonly dictionary: Builder<T['dictionary']>;
 
     constructor({ 'type': type, 'nullValues': nulls, 'dictionaryHashFunction': hashFn }: DictionaryBuilderOptions<T, TNull>) {
-        super({ type });
+        super({ type: new Dictionary(type.dictionary, type.indices, type.id, type.isOrdered) as T });
         this._nulls = <any> null;
+        this._dictionaryOffset = 0;
+        this._keysToIndices = Object.create(null);
         this.indices = Builder.new({ 'type': this.type.indices, 'nullValues': nulls }) as IntBuilder<T['indices']>;
         this.dictionary = Builder.new({ 'type': this.type.dictionary, 'nullValues': null }) as Builder<T['dictionary']>;
         if (typeof hashFn === 'function') {
@@ -46,9 +50,9 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
     public get values() { return this.indices.values; }
     public get nullCount() { return this.indices.nullCount; }
     public get nullBitmap() { return this.indices.nullBitmap; }
-    public get byteLength() { return this.indices.byteLength; }
-    public get reservedLength() { return this.indices.reservedLength; }
-    public get reservedByteLength() { return this.indices.reservedByteLength; }
+    public get byteLength() { return this.indices.byteLength + this.dictionary.byteLength; }
+    public get reservedLength() { return this.indices.reservedLength + this.dictionary.reservedLength; }
+    public get reservedByteLength() { return this.indices.reservedByteLength + this.dictionary.reservedByteLength; }
     public isValid(value: T['TValue'] | TNull) { return this.indices.isValid(value); }
     public setValid(index: number, valid: boolean) {
         const indices = this.indices;
@@ -57,25 +61,35 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
         return valid;
     }
     public setValue(index: number, value: T['TValue']) {
-        let keysToCodesMap = this._codes;
+        let keysToIndices = this._keysToIndices;
         let key = this.valueToKey(value);
-        let idx = keysToCodesMap[key];
+        let idx = keysToIndices[key];
         if (idx === undefined) {
-            keysToCodesMap[key] = idx = this.dictionary.append(value).length - 1;
+            keysToIndices[key] = idx = this._dictionaryOffset + this.dictionary.append(value).length - 1;
         }
         return this.indices.setValue(index, idx);
     }
     public flush() {
-        const chunk = this.indices.flush().clone(this.type);
+        const type = this.type;
+        const prev = this._dictionary;
+        const curr = this.dictionary.toVector();
+        const data = this.indices.flush().clone(type);
+        data.dictionary = prev ? prev.concat(curr) : curr;
+        this.finished || (this._dictionaryOffset += curr.length);
+        this._dictionary = data.dictionary as Vector<T['dictionary']>;
         this.clear();
-        return chunk;
+        return data;
     }
     public finish() {
-        this.type.dictionaryVector = Vector.new(this.dictionary.finish().flush());
+        this.indices.finish();
+        this.dictionary.finish();
+        this._dictionaryOffset = 0;
+        this._keysToIndices = Object.create(null);
         return super.finish();
     }
     public clear() {
         this.indices.clear();
+        this.dictionary.clear();
         return super.clear();
     }
     public valueToKey(val: any): string | number {

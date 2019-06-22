@@ -44,6 +44,8 @@ import {
     DateUnit, TimeUnit, UnionMode
 } from './Arrow';
 
+type TKeys = Int8 | Int16 | Int32 | Uint8 | Uint16 | Uint32;
+
 interface TestDataVectorGenerator extends Visitor {
 
     visit<T extends Null>            (type: T, length?: number): GeneratedVector<V<T>>;
@@ -167,6 +169,7 @@ export const table = (lengths = [100], schema: Schema = new Schema(defaultRecord
 
     return { rows, cols, keys, rowBatches, colBatches, keyBatches, table: new Table(schema, generated.map(({ recordBatch }) => recordBatch)) };
 };
+
 export const recordBatch = (length = 100, schema: Schema = new Schema(defaultRecordBatchChildren())): GeneratedRecordBatch => {
 
     const generated = schema.fields.map((f) => vectorGenerator.visit(f.type, length));
@@ -181,6 +184,7 @@ export const recordBatch = (length = 100, schema: Schema = new Schema(defaultRec
 
     return { rows, cols, keys, recordBatch: new RecordBatch(schema, length, vecs) };
 };
+
 export const null_ = (length = 100) => vectorGenerator.visit(new Null(), length);
 export const bool = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new Bool(), length, nullCount);
 export const int8 = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new Int8(), length, nullCount);
@@ -209,14 +213,14 @@ export const timeMicrosecond = (length = 100, nullCount = length * 0.2 | 0) => v
 export const timeNanosecond = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new TimeNanosecond(), length, nullCount);
 export const decimal = (length = 100, nullCount = length * 0.2 | 0, scale = 2, precision = 9) => vectorGenerator.visit(new Decimal(scale, precision), length, nullCount);
 export const list = (length = 100, nullCount = length * 0.2 | 0, child = defaultListChild) => vectorGenerator.visit(new List(child), length, nullCount);
-export const struct = (length = 100, nullCount = length * 0.2 | 0, children: Field[] = defaultStructChildren()) => vectorGenerator.visit(new Struct(children), length, nullCount);
+export const struct = <T extends { [key: string]: DataType } = any>(length = 100, nullCount = length * 0.2 | 0, children: Field<T[keyof T]>[] = <any> defaultStructChildren()) => vectorGenerator.visit(new Struct<T>(children), length, nullCount);
 export const denseUnion = (length = 100, nullCount = length * 0.2 | 0, children: Field[] = defaultUnionChildren()) => vectorGenerator.visit(new DenseUnion(children.map((f) => f.typeId), children), length, nullCount);
 export const sparseUnion = (length = 100, nullCount = length * 0.2 | 0, children: Field[] = defaultUnionChildren()) => vectorGenerator.visit(new SparseUnion(children.map((f) => f.typeId), children), length, nullCount);
-export const dictionary = (length = 100, nullCount = length * 0.2 | 0, dict: DataType = new Utf8(), keys: Int = new Int32()) => vectorGenerator.visit(new Dictionary(dict, <any> keys), length, nullCount);
+export const dictionary = <T extends DataType = Utf8, TKey extends TKeys = Int32> (length = 100, nullCount = length * 0.2 | 0, dict: T = <any> new Utf8(), keys: TKey = <any> new Int32()) => vectorGenerator.visit(new Dictionary(dict, keys), length, nullCount);
 export const intervalDayTime = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new IntervalDayTime(), length, nullCount);
 export const intervalYearMonth = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new IntervalYearMonth(), length, nullCount);
 export const fixedSizeList = (length = 100, nullCount = length * 0.2 | 0, listSize = 2, child = defaultListChild) => vectorGenerator.visit(new FixedSizeList(listSize, child), length, nullCount);
-export const map = (length = 100, nullCount = length * 0.2 | 0, children: Field[] = defaultStructChildren()) => vectorGenerator.visit(new Map_(children), length, nullCount);
+export const map = <T extends { [key: string]: DataType } = any>(length = 100, nullCount = length * 0.2 | 0, children: Field<T[keyof T]>[] = <any> defaultStructChildren()) => vectorGenerator.visit(new Map_<T>(children), length, nullCount);
 
 export const vecs = {
     null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, binary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map
@@ -410,11 +414,14 @@ function generateFixedSizeList<T extends FixedSizeList>(this: TestDataVectorGene
 
 function generateDictionary<T extends Dictionary>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = length * 0.2 | 0, dictionary = this.visit(type.dictionary, length, 0)): GeneratedVector<V<T>> {
 
-    const dict = type.dictionaryVector ? type.dictionaryVector : dictionary.vector;
-    const vals = type.dictionaryVector ? (<any> type).dictVals : dictionary.values;
+    const t = <any> type;
+    const currValues = t.dictionaryValues;
+    const hasDict = t.dictionaryVector && t.dictionaryVector.length > 0;
+    const dict = hasDict ? t.dictionaryVector.concat(dictionary.vector) : dictionary.vector;
+    const vals = hasDict ? (() => [...currValues(), ...dictionary.values()]) : dictionary.values;
 
     const maxIdx = dict.length - 1;
-    const keys = new type.indices.ArrayType(length) as any;
+    const keys = new t.indices.ArrayType(length);
     const nullBitmap = createBitmap(length, nullCount);
 
     const values = memoize(() => {
@@ -430,10 +437,10 @@ function generateDictionary<T extends Dictionary>(this: TestDataVectorGenerator,
         keys[i] = !valid ? 0 : rand() * maxIdx | 0;
     });
 
-    type.dictionaryVector = dict;
-    (<any> type).dictVals = vals;
+    t.dictionaryVector = dict;
+    t.dictionaryValues = vals;
 
-    return { values, keys, vector: Vector.new(Data.Dictionary(type, 0, length, nullCount, nullBitmap, keys)) };
+    return { values, keys, vector: Vector.new(Data.Dictionary(type, 0, length, nullCount, nullBitmap, keys, dict)) };
 }
 
 function generateUnion<T extends Union>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = length * 0.2 | 0, children?: GeneratedVector<any>[]): GeneratedVector<V<T>> {

@@ -18,7 +18,6 @@
 /* tslint:disable:class-name */
 
 import { Field } from './schema';
-import { Vector } from './vector';
 import { flatbuffers } from 'flatbuffers';
 import { TypedArrayConstructor } from './interfaces';
 import { VectorType as V, TypeToDataType } from './interfaces';
@@ -553,13 +552,11 @@ export class Dictionary<T extends DataType = any, TKey extends TKeys = TKeys> ex
     public readonly indices: TKey;
     public readonly dictionary: T;
     public readonly isOrdered: boolean;
-    public dictionaryVector: Vector<T>;
-    constructor(dictionary: T, indices: TKey, id?: Long | number | null, isOrdered?: boolean | null, dictionaryVector?: Vector<T>) {
+    constructor(dictionary: T, indices: TKey, id?: Long | number | null, isOrdered?: boolean | null) {
         super();
         this.indices = indices;
         this.dictionary = dictionary;
         this.isOrdered = isOrdered || false;
-        this.dictionaryVector = dictionaryVector!;
         this.id = id == null ? getId() : typeof id === 'number' ? id : id.low;
     }
     public get typeId() { return Type.Dictionary as Type.Dictionary; }
@@ -572,7 +569,6 @@ export class Dictionary<T extends DataType = any, TKey extends TKeys = TKeys> ex
         (<any> proto).indices = null;
         (<any> proto).isOrdered = null;
         (<any> proto).dictionary = null;
-        (<any> proto).dictionaryVector = null;
         return proto[Symbol.toStringTag] = 'Dictionary';
     })(Dictionary.prototype);
 }

@@ -19,11 +19,10 @@ import { Table } from '../table';
 import { MAGIC } from './message';
 import { Vector } from '../vector';
 import { Column } from '../column';
+import { DataType } from '../type';
 import { Schema, Field } from '../schema';
-import { Chunked } from '../vector/chunked';
 import { Message } from './metadata/message';
 import * as metadata from './metadata/message';
-import { DataType, Dictionary } from '../type';
 import { FileBlock, Footer } from './metadata/file';
 import { MessageHeader, MetadataVersion } from '../enum';
 import { WritableSink, AsyncByteQueue } from '../io/stream';
@@ -65,6 +64,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
     protected _schema: Schema | null = null;
     protected _dictionaryBlocks: FileBlock[] = [];
     protected _recordBatchBlocks: FileBlock[] = [];
+    protected _dictionaryDeltaOffsets = new Map<number, number>();
 
     public toString(sync: true): string;
     public toString(sync?: false): Promise<string>;
@@ -119,12 +119,13 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         }
 
         if (this._started && this._schema) {
-            this._writeFooter();
+            this._writeFooter(this._schema);
         }
 
         this._started = false;
         this._dictionaryBlocks = [];
         this._recordBatchBlocks = [];
+        this._dictionaryDeltaOffsets = new Map();
 
         if (!schema || !(schema.compareTo(this._schema))) {
             if (schema === null) {
@@ -206,12 +207,11 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
     }
 
     protected _writeSchema(schema: Schema<T>) {
-        return this
-            ._writeMessage(Message.from(schema))
-            ._writeDictionaries(schema.dictionaryFields);
+        return this._writeMessage(Message.from(schema));
     }
 
-    protected _writeFooter() {
+    // @ts-ignore
+    protected _writeFooter(schema: Schema<T>) {
         return this._writePadding(4); // eos bytes
     }
 
@@ -223,16 +223,18 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         return nBytes > 0 ? this._write(new Uint8Array(nBytes)) : this;
     }
 
-    protected _writeRecordBatch(records: RecordBatch<T>) {
-        const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(records);
-        const recordBatch = new metadata.RecordBatch(records.length, nodes, bufferRegions);
+    protected _writeRecordBatch(batch: RecordBatch<T>) {
+        const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(batch);
+        const recordBatch = new metadata.RecordBatch(batch.length, nodes, bufferRegions);
         const message = Message.from(recordBatch, byteLength);
         return this
+            ._writeDictionaries(batch)
             ._writeMessage(message)
             ._writeBodyBuffers(buffers);
     }
 
     protected _writeDictionaryBatch(dictionary: Vector, id: number, isDelta = false) {
+        this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
         const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(dictionary);
         const recordBatch = new metadata.RecordBatch(dictionary.length, nodes, bufferRegions);
         const dictionaryBatch = new metadata.DictionaryBatch(recordBatch, id, isDelta);
@@ -256,15 +258,14 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         return this;
     }
 
-    protected _writeDictionaries(dictionaryFields: Map<number, Field<Dictionary<any, any>>[]>) {
-        for (const [id, fields] of dictionaryFields) {
-            const vector = fields[0].type.dictionaryVector;
-            if (!(vector instanceof Chunked)) {
-                this._writeDictionaryBatch(vector, id, false);
-            } else {
-                const chunks = vector.chunks;
-                for (let i = -1, n = chunks.length; ++i < n;) {
-                    this._writeDictionaryBatch(chunks[i], id, i > 0);
+    protected _writeDictionaries(batch: RecordBatch<T>) {
+        for (let [id, dictionary] of batch.dictionaries) {
+            let offset = this._dictionaryDeltaOffsets.get(id) || 0;
+            if (offset === 0 || (dictionary = dictionary.slice(offset)).length > 0) {
+                const chunks = 'chunks' in dictionary ? (dictionary as any).chunks : [dictionary];
+                for (const chunk of chunks) {
+                    this._writeDictionaryBatch(chunk, id, offset > 0);
+                    offset += chunk.length;
                 }
             }
         }
@@ -312,15 +313,14 @@ export class RecordBatchFileWriter<T extends { [key: string]: DataType } = any> 
         this._autoDestroy = true;
     }
 
+    // @ts-ignore
     protected _writeSchema(schema: Schema<T>) {
-        return this
-            ._writeMagic()._writePadding(2)
-            ._writeDictionaries(schema.dictionaryFields);
+        return this._writeMagic()._writePadding(2);
     }
 
-    protected _writeFooter() {
+    protected _writeFooter(schema: Schema<T>) {
         const buffer = Footer.encode(new Footer(
-            this._schema!, MetadataVersion.V4,
+            schema, MetadataVersion.V4,
             this._recordBatchBlocks, this._dictionaryBlocks
         ));
         return this
@@ -344,43 +344,66 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
         return new RecordBatchJSONWriter<T>().writeAll(input as any);
     }
 
+    private _recordBatches: RecordBatch[];
+    private _dictionaries: RecordBatch[];
+
     constructor() {
         super();
         this._autoDestroy = true;
+        this._recordBatches = [];
+        this._dictionaries = [];
     }
 
     protected _writeMessage() { return this; }
     protected _writeSchema(schema: Schema<T>) {
         return this._write(`{\n  "schema": ${
             JSON.stringify({ fields: schema.fields.map(fieldToJSON) }, null, 2)
-        }`)._writeDictionaries(schema.dictionaryFields);
+        }`);
     }
-    protected _writeDictionaries(dictionaryFields: Map<number, Field<Dictionary<any, any>>[]>) {
-        this._write(`,\n  "dictionaries": [\n`);
-        super._writeDictionaries(dictionaryFields);
-        return this._write(`\n  ]`);
+    protected _writeDictionaries(batch: RecordBatch<T>) {
+        if (batch.dictionaries.size > 0) {
+            this._dictionaries.push(batch);
+        }
+        return this;
     }
     protected _writeDictionaryBatch(dictionary: Vector, id: number, isDelta = false) {
+        this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
         this._write(this._dictionaryBlocks.length === 0 ? `    ` : `,\n    `);
-        this._write(`${dictionaryBatchToJSON(this._schema!, dictionary, id, isDelta)}`);
+        this._write(`${dictionaryBatchToJSON(dictionary, id, isDelta)}`);
         this._dictionaryBlocks.push(new FileBlock(0, 0, 0));
         return this;
     }
-    protected _writeRecordBatch(records: RecordBatch<T>) {
-        this._write(this._recordBatchBlocks.length === 0
-            ? `,\n  "batches": [\n    `
-            : `,\n    `);
-        this._write(`${recordBatchToJSON(records)}`);
-        this._recordBatchBlocks.push(new FileBlock(0, 0, 0));
+    protected _writeRecordBatch(batch: RecordBatch<T>) {
+        this._writeDictionaries(batch);
+        this._recordBatches.push(batch);
         return this;
     }
     public close() {
-        if (this._recordBatchBlocks.length > 0) {
+
+        if (this._dictionaries.length > 0) {
+            this._write(`,\n  "dictionaries": [\n`);
+            for (const batch of this._dictionaries) {
+                super._writeDictionaries(batch);
+            }
             this._write(`\n  ]`);
         }
+
+        if (this._recordBatches.length > 0) {
+            for (let i = -1, n = this._recordBatches.length; ++i < n;) {
+                this._write(i === 0 ? `,\n  "batches": [\n    ` : `,\n    `);
+                this._write(`${recordBatchToJSON(this._recordBatches[i])}`);
+                this._recordBatchBlocks.push(new FileBlock(0, 0, 0));
+            }
+            this._write(`\n  ]`);
+        }
+
         if (this._schema) {
             this._write(`\n}`);
         }
+
+        this._dictionaries = [];
+        this._recordBatches = [];
+
         return super.close();
     }
 }
@@ -422,9 +445,8 @@ function fieldToJSON({ name, type, nullable }: Field): object {
 }
 
 /** @ignore */
-function dictionaryBatchToJSON(schema: Schema, dictionary: Vector, id: number, isDelta = false) {
-    const f = schema.dictionaryFields.get(id)![0];
-    const field = new Field(f.name, f.type.dictionary, f.nullable, f.metadata);
+function dictionaryBatchToJSON(dictionary: Vector, id: number, isDelta = false) {
+    const field = new Field(`${id}`, dictionary.type, dictionary.nullCount > 0);
     const columns = JSONVectorAssembler.assemble(new Column(field, [dictionary]));
     return JSON.stringify({
         'id': id,

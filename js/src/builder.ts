@@ -157,13 +157,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @nocollapse
      */
     public static throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-        const build = throughIterable(options);
-        if (!DataType.isDictionary(options.type)) {
-            return build;
-        }
-        return function*(source: Iterable<T['TValue'] | TNull>) {
-            const chunks = []; for (const chunk of build(source)) { chunks.push(chunk); } yield* chunks;
-        };
+        return throughIterable(options);
     }
 
     /**
@@ -192,13 +186,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @nocollapse
      */
     public static throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-        const build = throughAsyncIterable(options);
-        if (!DataType.isDictionary(options.type)) {
-            return build;
-        }
-        return async function* (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) {
-            const chunks = []; for await (const chunk of build(source)) { chunks.push(chunk); } yield* chunks;
-        };
+        return throughAsyncIterable(options);
     }
 
     /**
