@@ -638,7 +638,7 @@ def test_parquet_metadata_api():
     assert col.max_repetition_level == 0
 
     assert col.physical_type == 'BOOLEAN'
-    assert col.logical_type == 'NONE'
+    assert col.converted_type == 'NONE'
 
     with pytest.raises(IndexError):
         schema[ncols + 1]  # +1 for index
