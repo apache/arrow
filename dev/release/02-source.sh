@@ -17,11 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+set -e
+
 : ${PREPARE_DEFAULT:=1}
 : ${PREPARE_RELEASE_TAG:=${PREPARE_DEFAULT}}
 : ${PREPARE_C_GLIB_TAG:=${PREPARE_DEFAULT}}
-
-set -e
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
