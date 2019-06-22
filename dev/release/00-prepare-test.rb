@@ -17,21 +17,18 @@
 
 class PrepareTest < Test::Unit::TestCase
   include GitRunnable
+  include VersionDetectable
 
   def setup
     @current_commit = git_current_commit
+    detect_versions
+
     top_dir = Pathname(__dir__).parent.parent
     @original_git_repository = top_dir + ".git"
-    cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
-    @snapshot_version = cpp_cmake_lists.read[/ARROW_VERSION "(.+?)"/, 1]
-    r_description = top_dir + "r" + "DESCRIPTION"
-    @previous_version = r_description.read[/^Version: (.+?)\.9000$/, 1]
     Dir.mktmpdir do |dir|
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
       Dir.chdir(@test_git_repository) do
-        @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
-        @next_version = @release_version.gsub(/\A\d+/) {|major| major.succ}
         @tag_name = "apache-arrow-#{@release_version}"
         @release_branch = "release-#{@release_version}-rc0"
         @script = "dev/release/00-prepare.sh"

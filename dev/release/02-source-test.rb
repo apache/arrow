@@ -19,16 +19,15 @@ require "rexml/document"
 
 class SourceTest < Test::Unit::TestCase
   include GitRunnable
+  include VersionDetectable
 
   def setup
     @current_commit = git_current_commit
+    detect_versions
+    @tag_name = "apache-arrow-#{@release_version}"
+
     top_dir = Pathname(__dir__).parent.parent
     @original_git_repository = top_dir + ".git"
-    cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
-    @current_version = cpp_cmake_lists.read[/ARROW_VERSION "(.+?)"/, 1]
-    @release_version = @current_version.gsub(/-SNAPSHOT\z/, "")
-    @tag_name = "apache-arrow-#{@current_version}"
-
     Dir.mktmpdir do |dir|
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
@@ -41,7 +40,7 @@ class SourceTest < Test::Unit::TestCase
   def prepare
     env = {"SOURCE_DEFAULT" => "0",
            "release_hash" => @current_commit}
-    sh(env, "dev/release/02-source.sh", @current_version, "0")
+    sh(env, "dev/release/02-source.sh", @release_version, "0")
   end
 
   def test_git_commit_information
@@ -50,7 +49,7 @@ class SourceTest < Test::Unit::TestCase
       sh("dotnet", "pack", "-c", "Release")
     end
     Dir.chdir("#{@tag_name}/csharp/artifacts/Apache.Arrow/Release") do
-      sh("unzip", "Apache.Arrow.#{@current_version}.nupkg")
+      sh("unzip", "Apache.Arrow.#{@snapshot_version}.nupkg")
       sh("chmod", "400", "Apache.Arrow.nuspec")
       nuspec = REXML::Document.new(File.read("Apache.Arrow.nuspec"))
       nuspec_repository = nuspec.elements["package/metadata/repository"].attributes
