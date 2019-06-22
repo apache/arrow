@@ -13,14 +13,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Types;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
-using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
     public class StringArray: BinaryArray
     {
+        public static readonly Encoding DefaultEncoding = Encoding.UTF8;
+
+        public new class Builder : BuilderBase<StringArray, Builder>
+        {
+            public Builder() : base(StringType.Default) { }
+
+            protected override StringArray Build(ArrayData data)
+            {
+                return new StringArray(data);
+            }
+
+            public Builder Append(string value, Encoding encoding = null)
+            {
+                encoding = encoding ?? DefaultEncoding;
+                var span = encoding.GetBytes(value);
+                return Append(span);
+            }
+
+            public Builder AppendRange(IEnumerable<string> values, Encoding encoding = null)
+            {
+                foreach (var value in values)
+                {
+                    Append(value);
+                }
+
+                return this;
+            }
+        }
+
         public StringArray(ArrayData data) 
             : base(ArrowTypeId.String, data) { }
 
@@ -37,7 +67,7 @@ namespace Apache.Arrow
 
         public string GetString(int index, Encoding encoding = default)
         {
-            encoding = encoding ?? Encoding.UTF8;
+            encoding = encoding ?? DefaultEncoding;
 
             var bytes = GetBytes(index);
 

@@ -185,6 +185,8 @@ csharp/.gitattributes
 csharp/src/Apache.Arrow/Flatbuf/*
 csharp/Apache.Arrow.sln
 csharp/Directory.Build.props
+csharp/examples/FluentBuilderExample/FluentBuilderExample.csproj
+csharp/examples/Examples.sln
 csharp/src/Apache.Arrow/Apache.Arrow.csproj
 csharp/src/Apache.Arrow/Properties/Resources.Designer.cs
 csharp/src/Apache.Arrow/Properties/Resources.resx
