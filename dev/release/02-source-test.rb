@@ -43,7 +43,7 @@ class SourceTest < Test::Unit::TestCase
     sh("tar", "xf", "#{@tag_name}.tar.gz")
   end
 
-  def test_git_commit_information
+  def test_csharp_git_commit_information
     source
     Dir.chdir("#{@tag_name}/csharp") do
       sh("dotnet", "pack", "-c", "Release")
