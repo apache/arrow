@@ -40,11 +40,11 @@ class SourceTest < Test::Unit::TestCase
       "release_hash" => @current_commit,
     }
     sh(env, @script, @release_version, "0")
+    sh("tar", "xf", "#{@tag_name}.tar.gz")
   end
 
   def test_git_commit_information
     source
-    sh("tar", "xf", "#{@tag_name}.tar.gz")
     Dir.chdir("#{@tag_name}/csharp") do
       sh("dotnet", "pack", "-c", "Release")
     end
@@ -69,7 +69,6 @@ class SourceTest < Test::Unit::TestCase
 
   def test_source_link_information
     source
-    sh("tar", "xf", "#{@tag_name}.tar.gz")
     Dir.chdir("#{@tag_name}/csharp") do
       sh("dotnet", "pack", "-c", "Release")
 
@@ -84,7 +83,6 @@ class SourceTest < Test::Unit::TestCase
 
   def test_python_setup
     source
-    sh("tar", "xf", "#{@tag_name}.tar.gz")
     Dir.chdir("#{@tag_name}/python") do
       sh("python3", "setup.py", "sdist")
       assert_equal(["dist/pyarrow-#{@release_version}a0.tar.gz"],
