@@ -15,22 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/api.h"      // IWYU pragma: keep
-#include "arrow/io/api.h"   // IWYU pragma: keep
-#include "arrow/ipc/api.h"  // IWYU pragma: keep
+#include "arrow/result.h"
 
-#ifdef DCHECK
-#error "DCHECK should not be visible from Arrow public headers."
-#endif
+#include <string>
 
-#ifdef ASSIGN_OR_RAISE
-#error "ASSIGN_OR_RAISE should not be visible from Arrow public headers."
-#endif
+#include "arrow/util/logging.h"
 
-#ifdef ARROW_UTIL_PARALLEL_H
-#error "arrow/util/parallel.h is an internal header"
-#endif
+namespace arrow {
 
-#include <gtest/gtest.h>
+namespace internal {
 
-TEST(_, _) {}
+void DieWithMessage(const std::string& msg) { ARROW_LOG(FATAL) << msg; }
+
+}  // namespace internal
+
+}  // namespace arrow
