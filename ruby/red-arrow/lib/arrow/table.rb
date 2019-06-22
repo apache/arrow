@@ -491,7 +491,7 @@ module Arrow
         sliced_table << slice_raw(from, to - from + 1)
       end
       if sliced_table.size > 1
-        sliced_table[0].concatenate(sliced_table[1..])
+        sliced_table[0].concatenate(sliced_table[1..-1])
       else
         sliced_table[0]
       end
