@@ -17,6 +17,7 @@
 
 #include "arrow/compute/kernels/filter.h"
 
+#include <limits>
 #include <memory>
 #include <utility>
 

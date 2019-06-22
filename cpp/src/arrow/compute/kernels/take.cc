@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <memory>
 #include <utility>
 
@@ -36,7 +37,7 @@ class ArrayIndexSequence {
   static constexpr int64_t take_null_index = std::numeric_limits<int64_t>::min();
   static constexpr bool never_out_of_bounds = false;
 
-  ArrayIndexSequence(const Array& indices)
+  explicit ArrayIndexSequence(const Array& indices)
       : indices_(&checked_cast<const NumericArray<IndexType>&>(indices)) {}
 
   int64_t Next() {
@@ -59,7 +60,8 @@ class ArrayIndexSequence {
 template <typename IndexType>
 class TakeKernelImpl : public TakeKernel {
  public:
-  TakeKernelImpl(const std::shared_ptr<DataType>& value_type) : TakeKernel(value_type) {}
+  explicit TakeKernelImpl(const std::shared_ptr<DataType>& value_type)
+      : TakeKernel(value_type) {}
 
   Status Init() {
     return Taker<ArrayIndexSequence<IndexType>>::Make(this->type_, &taker_);

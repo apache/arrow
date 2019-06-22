@@ -18,6 +18,7 @@
 #pragma once
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -57,7 +58,7 @@ static Status UnsafeAppend(StringBuilder* builder, util::string_view value) {
 template <typename IndexSequence>
 class Taker {
  public:
-  Taker(const std::shared_ptr<DataType>& type) : type_(type) {}
+  explicit Taker(const std::shared_ptr<DataType>& type) : type_(type) {}
 
   virtual ~Taker() = default;
 
