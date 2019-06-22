@@ -82,8 +82,9 @@ class SourceTest < Test::Unit::TestCase
     prepare
     Dir.chdir("#{@tag_name}/python") do
       sh("python3", "setup.py", "sdist")
-      assert_equal(true,
-                   File.exist?("dist/pyarrow-#{@release_version}a0.tar.gz"))
+      assert do
+        File.exist?("dist/pyarrow-#{@release_version}a0.tar.gz")
+      end
     end
   end
 end
