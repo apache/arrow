@@ -63,6 +63,7 @@ docker run ${DOCKER_RUN_ARGS} \
            -e BINSTAR_TOKEN \
            -e HOST_USER_ID \
            -e UPLOAD_PACKAGES \
+           -e ARROW_VERSION \
            -e CI \
            $DOCKER_IMAGE \
            bash \

@@ -6,8 +6,9 @@ jobs:
 
   variables:
     CONFIG: {{ config }}
-    UPLOAD_PACKAGES: False
+    ARROW_VERSION: {{ arrow.no_rc_version }}
     DOCKER_IMAGE: condaforge/linux-anvil-comp7
+    UPLOAD_PACKAGES: False
 
   steps:
   # configure qemu binfmt-misc running.  This allows us to run docker containers
