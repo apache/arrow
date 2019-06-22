@@ -25,26 +25,26 @@ class SourceTest < Test::Unit::TestCase
     @current_commit = git_current_commit
     detect_versions
     @tag_name = "apache-arrow-#{@release_version}"
+    @script = File.expand_path("dev/release/02-source.sh")
 
-    top_dir = Pathname(__dir__).parent.parent
-    @original_git_repository = top_dir + ".git"
     Dir.mktmpdir do |dir|
-      @test_git_repository = Pathname(dir) + "arrow"
-      git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
-      Dir.chdir(@test_git_repository) do
+      Dir.chdir(dir) do
         yield
       end
     end
   end
 
-  def prepare
-    env = {"SOURCE_DEFAULT" => "0",
-           "release_hash" => @current_commit}
-    sh(env, "dev/release/02-source.sh", @release_version, "0")
+  def source
+    env = {
+      "SOURCE_DEFAULT" => "0",
+      "release_hash" => @current_commit,
+    }
+    sh(env, @script, @release_version, "0")
   end
 
   def test_git_commit_information
-    prepare
+    source
+    sh("tar", "xf", "#{@tag_name}.tar.gz")
     Dir.chdir("#{@tag_name}/csharp") do
       sh("dotnet", "pack", "-c", "Release")
     end
@@ -68,7 +68,8 @@ class SourceTest < Test::Unit::TestCase
   end
 
   def test_source_link_information
-    prepare
+    source
+    sh("tar", "xf", "#{@tag_name}.tar.gz")
     Dir.chdir("#{@tag_name}/csharp") do
       sh("dotnet", "pack", "-c", "Release")
 
@@ -82,7 +83,8 @@ class SourceTest < Test::Unit::TestCase
   end
 
   def test_python_setup
-    prepare
+    source
+    sh("tar", "xf", "#{@tag_name}.tar.gz")
     Dir.chdir("#{@tag_name}/python") do
       sh("python3", "setup.py", "sdist")
       assert do

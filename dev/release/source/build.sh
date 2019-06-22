@@ -22,7 +22,7 @@ set -e
 archive_name=$1
 dist_c_glib_tar_gz=$2
 
-tar xf /host/${archive_name}.tar.gz
+tar xf /host/${archive_name}.tar
 
 # build Apache Arrow C++ before building Apache Arrow GLib because
 # Apache Arrow GLib requires Apache Arrow C++.
