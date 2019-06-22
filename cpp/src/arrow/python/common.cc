@@ -102,7 +102,6 @@ PyBuffer::~PyBuffer() {
 // ----------------------------------------------------------------------
 // Python exception -> Status
 
-
 Status ConvertPyError(StatusCode code) {
   PyObject* exc_type = nullptr;
   PyObject* exc_value = nullptr;
@@ -148,7 +147,8 @@ Status PassPyError() {
   if (PyErr_Occurred()) {
     // Do not call PyErr_Clear, the assumption is that someone further
     // up the call stack will want to deal with the Python error.
-    return Status(StatusCode::UnknownError, "Python Error", std::make_shared<PythonErrorDetail>());
+    return Status(StatusCode::UnknownError, "Python Error",
+                  std::make_shared<PythonErrorDetail>());
   }
   return Status::OK();
 }

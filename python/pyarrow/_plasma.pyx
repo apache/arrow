@@ -269,9 +269,6 @@ class PlasmaObjectExists(ArrowException):
     pass
 
 
-
-
-
 cdef int plasma_check_status(const CStatus& status) nogil except -1:
     if status.ok():
         return 0
@@ -286,8 +283,6 @@ cdef int plasma_check_status(const CStatus& status) nogil except -1:
             raise PlasmaStoreFull(message)
 
     return check_status(status)
-
-
 
 
 cdef class PlasmaClient:
