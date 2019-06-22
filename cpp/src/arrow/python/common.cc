@@ -51,12 +51,14 @@ MemoryPool* get_memory_pool() {
 // PythonErroDetail
 namespace {
 
+const char kErrorDetailTypeId[] = "existing exception on python static status.";
 // PythonErrorDetail indicates a python exception was raised and not
 // reset in C++ code (i.e. it should be propagated up through the python
 // stack).
 class PythonErrorDetail : public StatusDetail {
  public:
   PythonErrorDetail() = default;
+  const char* type_id() const override { return kErrorDetailTypeId; }
   std::string ToString() const override { return "Python Error."; }
 };
 
@@ -157,8 +159,8 @@ bool IsPythonError(const Status& status) {
   if (status.ok()) {
     return false;
   }
-  auto detail = dynamic_cast<PythonErrorDetail*>(status.detail().get());
-  return detail != nullptr;
+  auto detail = status.detail().get();
+  return detail != nullptr && detail->type_id() == kErrorDetailTypeId;
 }
 
 }  // namespace py

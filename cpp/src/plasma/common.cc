@@ -30,10 +30,12 @@ namespace plasma {
 
 namespace {
 
+const char kErrorDetailTypeId[] = "plasma status detail";
+
 class PlasmaStatusDetail : public arrow::StatusDetail {
  public:
   explicit PlasmaStatusDetail(PlasmaErrorCode code) : code_(code) {}
-
+  const char* type_id() const override { return kErrorDetailTypeId; }
   std::string ToString() const override {
     const char* type;
     switch (code()) {
@@ -62,8 +64,9 @@ bool IsPlasmaStatus(const arrow::Status& status, PlasmaErrorCode code) {
   if (status.ok()) {
     return false;
   }
-  auto* detail = dynamic_cast<PlasmaStatusDetail*>(status.detail().get());
-  return detail != nullptr && detail->code() == code;
+  auto* detail = status.detail().get();
+  return detail != nullptr && detail->type_id() == kErrorDetailTypeId &&
+         static_cast<PlasmaStatusDetail*>(detail)->code() == code;
 }
 
 }  // namespace

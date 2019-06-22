@@ -27,6 +27,7 @@ namespace {
 
 class TestStatusDetail : public StatusDetail {
  public:
+  const char* type_id() const override { return "type_id"; }
   std::string ToString() const override { return "a specific detail message"; }
 };
 

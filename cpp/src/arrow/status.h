@@ -105,6 +105,9 @@ class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 class ARROW_EXPORT StatusDetail {
  public:
   virtual ~StatusDetail() = default;
+  // Return a unique id for the type of the StatusDetail
+  // (effectively a poor man's substitude for RTTI).
+  virtual const char* type_id() const = 0;
   virtual std::string ToString() const = 0;
 };
 
