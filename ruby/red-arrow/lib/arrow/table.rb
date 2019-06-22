@@ -199,9 +199,36 @@ module Arrow
     alias_method :[], :find_column
     alias_method :slice_raw, :slice
 
-    # TODO
+    # @overload slice(offset, length)
     #
-    # @return [Arrow::Table]
+    #   @param offset [Integer] The offset of sub Arrow::Table.
+    #   @param length [Integer] The length of sub Arrow::Table.
+    #   @return [Arrow::Table]
+    #     The sub Arrow::Table. It covers only from
+    #     `offset` to `offset + length` range.
+    #
+    # @overload slice(offset)
+    #
+    #   @param offset [Integer] The offset of sub Arrow::Table.
+    #   @return [Arrow::Table]
+    #      The sub Arrow::Table. It covers only from
+    #      `offset` until end of the table.
+    #
+    # @overload slice(boolean_array)
+    #
+    #   @param boolean_array [Array<Boolean>] The values indicating the target rows.
+    #   @return [Arrow::Table]
+    #      The sub Arrow::Table. It covers only rows of index
+    #      the values of `boolean_array` is true.
+    #
+    # @overload slice(arrow_boolean_array)
+    #
+    #   @param arrow_boolean_array [::Array<Arrow::BooleanArray>] The values indicating the target rows.
+    #   @return [Arrow::Table]
+    #      The sub Arrow::Table. It covers only rows of index
+    #      the values of `arrow_boolean_array` is true.
+    #
+    # @since 0.14.0
     def slice(*args)
       slicers = []
       expected_n_args = nil
