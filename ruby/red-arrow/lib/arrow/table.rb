@@ -228,6 +228,20 @@ module Arrow
     #      The sub Arrow::Table. It covers only rows of index
     #      the values of `arrow_boolean_array` is true.
     #
+    # @overload slice(range_included_end)
+    #
+    #   @param range [Range] The range indicating the target rows.
+    #   @return [Arrow::Table]
+    #     The sub Arrow::Table. It covers only rows of the range
+    #     included end.
+    #
+    # @overload slice(range_excluded_end)
+    #
+    #   @param range [Range] The range indicating the target rows.
+    #   @return [Arrow::Table]
+    #     The sub Arrow::Table. It covers only rows of the range
+    #     excluded end.
+    #
     # @since 0.14.0
     def slice(*args)
       slicers = []
