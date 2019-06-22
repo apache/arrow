@@ -67,7 +67,7 @@ class SourceTest < Test::Unit::TestCase
     end
   end
 
-  def test_python_setup
+  def test_python_version
     source
     Dir.chdir("#{@tag_name}/python") do
       sh("python3", "setup.py", "sdist")
