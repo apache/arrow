@@ -197,6 +197,7 @@ module Arrow
     alias_method :length, :n_rows
 
     alias_method :[], :find_column
+    alias_method :slice_raw, :slice
 
     # TODO
     #
@@ -243,7 +244,7 @@ module Arrow
         case slicer
         when Integer
           slicer += n_rows if slicer < 0
-          ranges << [slicer, slicer]
+          ranges << [slicer, n_rows - 1]
         when Range
           from = slicer.first
           to = slicer.last
@@ -457,47 +458,16 @@ module Arrow
       end
     end
 
-    # TODO: Almost codes should be implemented in Apache Arrow C++.
     def slice_by_ranges(ranges)
-      sliced_columns = columns.collect do |column|
-        chunks = []
-        arrays = column.data.each_chunk.to_a
-        offset = 0
-        offset_in_array = 0
-        ranges.each do |from, to|
-          range_size = to - from + 1
-          while range_size > 0
-            while offset + arrays.first.length - offset_in_array < from
-              offset += arrays.first.length - offset_in_array
-              arrays.shift
-              offset_in_array = 0
-            end
-            if offset < from
-              skipped_size = from - offset
-              offset += skipped_size
-              offset_in_array += skipped_size
-            end
-            array = arrays.first
-            array_length = array.length
-            rest_length = array_length - offset_in_array
-            if rest_length <= range_size
-              chunks << array.slice(offset_in_array, array_length)
-              offset += rest_length
-              range_size -= rest_length
-              offset_in_array = 0
-              arrays.shift
-            else
-              chunks << array.slice(offset_in_array, range_size)
-              offset += range_size
-              offset_in_array += range_size
-              range_size = 0
-            end
-          end
-        end
-        Column.new(column.field, ChunkedArray.new(chunks))
+      sliced_table = []
+      ranges.each do |from, to|
+        sliced_table << slice_raw(from, to - from + 1)
       end
-
-      self.class.new(schema, sliced_columns)
+      if sliced_table.size > 1
+        sliced_table[0].concatenate(sliced_table[1..])
+      else
+        sliced_table[0]
+      end
     end
 
     def ensure_column(name, data)
