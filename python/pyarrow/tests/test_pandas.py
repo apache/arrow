@@ -2607,6 +2607,20 @@ def test_table_from_pandas_columns_and_schema_are_mutually_exclusive():
         pa.Table.from_pandas(df, schema=schema, columns=columns)
 
 
+def test_table_from_pandas_keeps_schema_nullability():
+    # ARROW-5169
+    df = pd.DataFrame({'a': [1, 2, 3, 4]})
+
+    schema = pa.schema([
+        pa.field('a', pa.int64(), nullable=False),
+    ])
+
+    table = pa.Table.from_pandas(df)
+    assert table.schema.field_by_name('a').nullable is True
+    table = pa.Table.from_pandas(df, schema=schema)
+    assert table.schema.field_by_name('a').nullable is False
+
+
 # ----------------------------------------------------------------------
 # RecordBatch, Table
 

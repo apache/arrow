@@ -861,10 +861,10 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.RecordBatch
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        names, arrays, metadata = dataframe_to_arrays(
+        arrays, schema = dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
-        return cls.from_arrays(arrays, names, metadata)
+        return cls.from_arrays(arrays, schema)
 
     @staticmethod
     def from_arrays(list arrays, names, metadata=None):
@@ -1142,7 +1142,7 @@ cdef class Table(_PandasConvertible):
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        names, arrays, metadata = dataframe_to_arrays(
+        arrays, schema = dataframe_to_arrays(
             df,
             schema=schema,
             preserve_index=preserve_index,
@@ -1150,7 +1150,7 @@ cdef class Table(_PandasConvertible):
             columns=columns,
             safe=safe
         )
-        return cls.from_arrays(arrays, names=names, metadata=metadata)
+        return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
     def from_arrays(arrays, names=None, schema=None, metadata=None):
