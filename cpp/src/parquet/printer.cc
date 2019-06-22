@@ -86,10 +86,10 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
     stream << "Column " << i << ": " << descr->path()->ToDotString() << " ("
            << TypeToString(descr->physical_type());
-    if (descr->logical_type() != LogicalType::NONE) {
-      stream << "/" << LogicalTypeToString(descr->logical_type());
+    if (descr->converted_type() != ConvertedType::NONE) {
+      stream << "/" << ConvertedTypeToString(descr->converted_type());
     }
-    if (descr->logical_type() == LogicalType::DECIMAL) {
+    if (descr->converted_type() == ConvertedType::DECIMAL) {
       stream << "(" << descr->type_precision() << "," << descr->type_scale() << ")";
     }
     stream << ")" << std::endl;
@@ -213,10 +213,9 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
     stream << "     { \"Id\": \"" << i << "\", \"Name\": \"" << descr->name() << "\","
            << " \"PhysicalType\": \"" << TypeToString(descr->physical_type()) << "\","
-           << " \"LogicalType\": \"" << LogicalTypeToString(descr->logical_type())
+           << " \"ConvertedType\": \"" << ConvertedTypeToString(descr->converted_type())
            << "\","
-           << " \"LogicalAnnotation\": " << (descr->logical_annotation())->ToJSON()
-           << " }";
+           << " \"LogicalType\": " << (descr->logical_type())->ToJSON() << " }";
     c++;
     if (c != static_cast<int>(selected_columns.size())) {
       stream << ",\n";

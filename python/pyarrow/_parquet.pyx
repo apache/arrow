@@ -581,10 +581,10 @@ cdef class ParquetSchema:
         elements = []
         for i in range(self.schema.num_columns()):
             col = self.column(i)
-            logical_type = col.logical_type
+            converted_type = col.converted_type
             formatted = '{0}: {1}'.format(col.path, col.physical_type)
-            if logical_type != 'NONE':
-                formatted += ' {0}'.format(logical_type)
+            if converted_type != 'NONE':
+                formatted += ' {0}'.format(converted_type)
             elements.append(formatted)
 
         return """{0}
@@ -668,13 +668,13 @@ cdef class ColumnSchema:
 
     def __repr__(self):
         physical_type = self.physical_type
-        logical_type = self.logical_type
-        if logical_type == 'DECIMAL':
-            logical_type = 'DECIMAL({0}, {1})'.format(self.precision,
-                                                      self.scale)
+        converted_type = self.converted_type
+        if converted_type == 'DECIMAL':
+            converted_type = 'DECIMAL({0}, {1})'.format(self.precision,
+                                                        self.scale)
         elif physical_type == 'FIXED_LEN_BYTE_ARRAY':
-            logical_type = ('FIXED_LEN_BYTE_ARRAY(length={0})'
-                            .format(self.length))
+            converted_type = ('FIXED_LEN_BYTE_ARRAY(length={0})'
+                              .format(self.length))
 
         return """<ParquetColumnSchema>
   name: {0}
@@ -682,9 +682,10 @@ cdef class ColumnSchema:
   max_definition_level: {2}
   max_repetition_level: {3}
   physical_type: {4}
-  logical_type: {5}""".format(self.name, self.path, self.max_definition_level,
-                              self.max_repetition_level, physical_type,
-                              logical_type)
+  converted_type: {5}""".format(self.name, self.path,
+                                self.max_definition_level,
+                                self.max_repetition_level, physical_type,
+                                converted_type)
 
     @property
     def name(self):
@@ -707,8 +708,13 @@ cdef class ColumnSchema:
         return physical_type_name_from_enum(self.descr.physical_type())
 
     @property
+    def converted_type(self):
+        return converted_type_name_from_enum(self.descr.converted_type())
+
+    @property
     def logical_type(self):
-        return logical_type_name_from_enum(self.descr.logical_type())
+        # TODO: wrap new LogicalType objects
+        return self.converted_type
 
     # FIXED_LEN_BYTE_ARRAY attribute
     @property
@@ -738,31 +744,31 @@ cdef physical_type_name_from_enum(ParquetType type_):
     }.get(type_, 'UNKNOWN')
 
 
-cdef logical_type_name_from_enum(ParquetLogicalType type_):
+cdef converted_type_name_from_enum(ParquetConvertedType type_):
     return {
-        ParquetLogicalType_NONE: 'NONE',
-        ParquetLogicalType_UTF8: 'UTF8',
-        ParquetLogicalType_MAP: 'MAP',
-        ParquetLogicalType_MAP_KEY_VALUE: 'MAP_KEY_VALUE',
-        ParquetLogicalType_LIST: 'LIST',
-        ParquetLogicalType_ENUM: 'ENUM',
-        ParquetLogicalType_DECIMAL: 'DECIMAL',
-        ParquetLogicalType_DATE: 'DATE',
-        ParquetLogicalType_TIME_MILLIS: 'TIME_MILLIS',
-        ParquetLogicalType_TIME_MICROS: 'TIME_MICROS',
-        ParquetLogicalType_TIMESTAMP_MILLIS: 'TIMESTAMP_MILLIS',
-        ParquetLogicalType_TIMESTAMP_MICROS: 'TIMESTAMP_MICROS',
-        ParquetLogicalType_UINT_8: 'UINT_8',
-        ParquetLogicalType_UINT_16: 'UINT_16',
-        ParquetLogicalType_UINT_32: 'UINT_32',
-        ParquetLogicalType_UINT_64: 'UINT_64',
-        ParquetLogicalType_INT_8: 'INT_8',
-        ParquetLogicalType_INT_16: 'INT_16',
-        ParquetLogicalType_INT_32: 'INT_32',
-        ParquetLogicalType_INT_64: 'UINT_64',
-        ParquetLogicalType_JSON: 'JSON',
-        ParquetLogicalType_BSON: 'BSON',
-        ParquetLogicalType_INTERVAL: 'INTERVAL',
+        ParquetConvertedType_NONE: 'NONE',
+        ParquetConvertedType_UTF8: 'UTF8',
+        ParquetConvertedType_MAP: 'MAP',
+        ParquetConvertedType_MAP_KEY_VALUE: 'MAP_KEY_VALUE',
+        ParquetConvertedType_LIST: 'LIST',
+        ParquetConvertedType_ENUM: 'ENUM',
+        ParquetConvertedType_DECIMAL: 'DECIMAL',
+        ParquetConvertedType_DATE: 'DATE',
+        ParquetConvertedType_TIME_MILLIS: 'TIME_MILLIS',
+        ParquetConvertedType_TIME_MICROS: 'TIME_MICROS',
+        ParquetConvertedType_TIMESTAMP_MILLIS: 'TIMESTAMP_MILLIS',
+        ParquetConvertedType_TIMESTAMP_MICROS: 'TIMESTAMP_MICROS',
+        ParquetConvertedType_UINT_8: 'UINT_8',
+        ParquetConvertedType_UINT_16: 'UINT_16',
+        ParquetConvertedType_UINT_32: 'UINT_32',
+        ParquetConvertedType_UINT_64: 'UINT_64',
+        ParquetConvertedType_INT_8: 'INT_8',
+        ParquetConvertedType_INT_16: 'INT_16',
+        ParquetConvertedType_INT_32: 'INT_32',
+        ParquetConvertedType_INT_64: 'UINT_64',
+        ParquetConvertedType_JSON: 'JSON',
+        ParquetConvertedType_BSON: 'BSON',
+        ParquetConvertedType_INTERVAL: 'INTERVAL',
     }.get(type_, 'UNKNOWN')
 
 

@@ -54,32 +54,33 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetType_BYTE_ARRAY" parquet::Type::BYTE_ARRAY"
         ParquetType_FIXED_LEN_BYTE_ARRAY" parquet::Type::FIXED_LEN_BYTE_ARRAY"
 
-    enum ParquetLogicalType" parquet::LogicalType::type":
-        ParquetLogicalType_NONE" parquet::LogicalType::NONE"
-        ParquetLogicalType_UTF8" parquet::LogicalType::UTF8"
-        ParquetLogicalType_MAP" parquet::LogicalType::MAP"
-        ParquetLogicalType_MAP_KEY_VALUE" parquet::LogicalType::MAP_KEY_VALUE"
-        ParquetLogicalType_LIST" parquet::LogicalType::LIST"
-        ParquetLogicalType_ENUM" parquet::LogicalType::ENUM"
-        ParquetLogicalType_DECIMAL" parquet::LogicalType::DECIMAL"
-        ParquetLogicalType_DATE" parquet::LogicalType::DATE"
-        ParquetLogicalType_TIME_MILLIS" parquet::LogicalType::TIME_MILLIS"
-        ParquetLogicalType_TIME_MICROS" parquet::LogicalType::TIME_MICROS"
-        ParquetLogicalType_TIMESTAMP_MILLIS \
-            " parquet::LogicalType::TIMESTAMP_MILLIS"
-        ParquetLogicalType_TIMESTAMP_MICROS \
-            " parquet::LogicalType::TIMESTAMP_MICROS"
-        ParquetLogicalType_UINT_8" parquet::LogicalType::UINT_8"
-        ParquetLogicalType_UINT_16" parquet::LogicalType::UINT_16"
-        ParquetLogicalType_UINT_32" parquet::LogicalType::UINT_32"
-        ParquetLogicalType_UINT_64" parquet::LogicalType::UINT_64"
-        ParquetLogicalType_INT_8" parquet::LogicalType::INT_8"
-        ParquetLogicalType_INT_16" parquet::LogicalType::INT_16"
-        ParquetLogicalType_INT_32" parquet::LogicalType::INT_32"
-        ParquetLogicalType_INT_64" parquet::LogicalType::INT_64"
-        ParquetLogicalType_JSON" parquet::LogicalType::JSON"
-        ParquetLogicalType_BSON" parquet::LogicalType::BSON"
-        ParquetLogicalType_INTERVAL" parquet::LogicalType::INTERVAL"
+    enum ParquetConvertedType" parquet::ConvertedType::type":
+        ParquetConvertedType_NONE" parquet::ConvertedType::NONE"
+        ParquetConvertedType_UTF8" parquet::ConvertedType::UTF8"
+        ParquetConvertedType_MAP" parquet::ConvertedType::MAP"
+        ParquetConvertedType_MAP_KEY_VALUE \
+            " parquet::ConvertedType::MAP_KEY_VALUE"
+        ParquetConvertedType_LIST" parquet::ConvertedType::LIST"
+        ParquetConvertedType_ENUM" parquet::ConvertedType::ENUM"
+        ParquetConvertedType_DECIMAL" parquet::ConvertedType::DECIMAL"
+        ParquetConvertedType_DATE" parquet::ConvertedType::DATE"
+        ParquetConvertedType_TIME_MILLIS" parquet::ConvertedType::TIME_MILLIS"
+        ParquetConvertedType_TIME_MICROS" parquet::ConvertedType::TIME_MICROS"
+        ParquetConvertedType_TIMESTAMP_MILLIS \
+            " parquet::ConvertedType::TIMESTAMP_MILLIS"
+        ParquetConvertedType_TIMESTAMP_MICROS \
+            " parquet::ConvertedType::TIMESTAMP_MICROS"
+        ParquetConvertedType_UINT_8" parquet::ConvertedType::UINT_8"
+        ParquetConvertedType_UINT_16" parquet::ConvertedType::UINT_16"
+        ParquetConvertedType_UINT_32" parquet::ConvertedType::UINT_32"
+        ParquetConvertedType_UINT_64" parquet::ConvertedType::UINT_64"
+        ParquetConvertedType_INT_8" parquet::ConvertedType::INT_8"
+        ParquetConvertedType_INT_16" parquet::ConvertedType::INT_16"
+        ParquetConvertedType_INT_32" parquet::ConvertedType::INT_32"
+        ParquetConvertedType_INT_64" parquet::ConvertedType::INT_64"
+        ParquetConvertedType_JSON" parquet::ConvertedType::JSON"
+        ParquetConvertedType_BSON" parquet::ConvertedType::BSON"
+        ParquetConvertedType_INTERVAL" parquet::ConvertedType::INTERVAL"
 
     enum ParquetRepetition" parquet::Repetition::type":
         ParquetRepetition_REQUIRED" parquet::REPETITION::REQUIRED"
@@ -124,7 +125,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         int16_t max_repetition_level()
 
         ParquetType physical_type()
-        ParquetLogicalType logical_type()
+        ParquetConvertedType converted_type()
         const c_string& name()
         int type_length()
         int type_precision()
