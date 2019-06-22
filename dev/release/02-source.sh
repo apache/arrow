@@ -86,7 +86,7 @@ fi
 # Resolve all hard and symbolic links
 rm -rf ${tag}.tmp
 mv ${tag} ${tag}.tmp
-cp -r -L ${tag}.tmp ${tag}
+cp -R -L ${tag}.tmp ${tag}
 rm -rf ${tag}.tmp
 
 # Create a dummy .git/ directory to download the source files from GitHub with Source Link in C#.
