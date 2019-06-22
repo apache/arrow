@@ -81,8 +81,8 @@ Status PyBuffer::Init(PyObject* obj) {
     }
     return Status::OK();
   } else {
-    return Status(StatusCode::Invalid, "Couldn't convert to buffer.",
-                  std::make_shared<PythonErrorDetail>());
+    auto detail = std::make_shared<PythonErrorDetail>();
+    return Status(StatusCode::Invalid, "Couldn't convert to buffer.", detail);
   }
 }
 
@@ -149,8 +149,8 @@ Status PassPyError() {
   if (PyErr_Occurred()) {
     // Do not call PyErr_Clear, the assumption is that someone further
     // up the call stack will want to deal with the Python error.
-    return Status(StatusCode::UnknownError, "Python Error",
-                  std::make_shared<PythonErrorDetail>());
+    auto detail = std::make_shared<PythonErrorDetail>();
+    return Status(StatusCode::UnknownError, "Python Error", detail);
   }
   return Status::OK();
 }
