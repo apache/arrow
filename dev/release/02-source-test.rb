@@ -78,18 +78,13 @@ class SourceTest < Test::Unit::TestCase
       sh("unzip", "Apache.Arrow.#{@snapshot_version}.nupkg")
       FileUtils.chmod(0400, "Apache.Arrow.nuspec")
       nuspec = REXML::Document.new(File.read("Apache.Arrow.nuspec"))
-      nuspec_repository = nuspec.elements["package/metadata/repository"].attributes
-
-      assert_equal([
-                    "git",
-                    "https://github.com/apache/arrow",
-                    "#{@current_commit}"
-                   ],
-                   [
-                     nuspec_repository["type"],
-                     nuspec_repository["url"],
-                     nuspec_repository["commit"]
-                   ])
+      nuspec_repository = nuspec.elements["package/metadata/repository"]
+      assert_equal({
+                     "type" => "git",
+                     "url" => "https://github.com/apache/arrow",
+                     "commit" => @current_commit,
+                   },
+                   nuspec_repository.attributes.each.to_h)
     end
   end
 
