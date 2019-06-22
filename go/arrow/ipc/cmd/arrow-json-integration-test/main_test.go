@@ -29,6 +29,9 @@ func TestIntegration(t *testing.T) {
 	const verbose = true
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
+			if name == "decimal128" {
+				t.Skip() // FIXME(sbinet): implement full decimal128 support
+			}
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
