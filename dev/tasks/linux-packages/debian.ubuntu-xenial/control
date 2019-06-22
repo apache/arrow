@@ -48,6 +48,32 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files.
 
+Package: libarrow-cuda14
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow14 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for CUDA support.
+
+Package: libarrow-dataset14
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow14 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for Datasets module.
+
 Package: libarrow-python14
 Section: libs
 Architecture: any
@@ -63,19 +89,6 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Python support.
 
-Package: libarrow-cuda14
-Section: libs
-Architecture: any
-Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends:
-  ${misc:Depends},
-  ${shlibs:Depends},
-  libarrow14 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ library files for CUDA support.
-
 Package: libarrow-dev
 Section: libdevel
 Architecture: any
@@ -86,18 +99,6 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files.
-
-Package: libarrow-python-dev
-Section: libdevel
-Architecture: any
-Multi-Arch: same
-Depends:
-  ${misc:Depends},
-  libarrow-dev (= ${binary:Version}),
-  libarrow-python14 (= ${binary:Version})
-Description: Apache Arrow is a data processing library for analysis
- .
- This package provides C++ header files for Python support.
 
 Package: libarrow-cuda-dev
 Section: libdevel
@@ -110,6 +111,30 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for CUDA support.
+
+Package: libarrow-dataset-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dev (= ${binary:Version}),
+  libarrow-dataset14 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ header files for Datasets module.
+
+Package: libarrow-python-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-dev (= ${binary:Version}),
+  libarrow-python14 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ header files for Python support.
 
 Package: libgandiva14
 Section: libs
