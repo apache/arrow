@@ -22,6 +22,7 @@ set -e
 : ${SOURCE_DEFAULT:=1}
 : ${SOURCE_UPLOAD:=${SOURCE_DEFAULT}}
 : ${SOURCE_C_GLIB:=${SOURCE_DEFAULT}}
+: ${SOURCE_RAT:=${SOURCE_DEFAULT}}
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -92,13 +93,15 @@ echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config
 mkdir objects refs
 cd -
 
-if [ ${SOURCE_UPLOAD} -gt 0 ]; then
+if [ ${SOURCE_RAT} -gt 0 ]; then
   # Create new tarball from modified source directory
   tar czf ${tarball} ${tag}
   rm -rf ${tag}
 
   ${SOURCE_DIR}/run-rat.sh ${tarball}
+fi
 
+if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   # sign the archive
   gpg --armor --output ${tarball}.asc --detach-sig ${tarball}
   shasum -a 256 $tarball > ${tarball}.sha256
