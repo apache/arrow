@@ -43,6 +43,14 @@ class SourceTest < Test::Unit::TestCase
     sh("tar", "xf", "#{@tag_name}.tar.gz")
   end
 
+  def test_symbolic_links
+    source
+    Dir.chdir("#{@tag_name}") do
+      assert_equal([],
+                   Find.find(".").find_all {|path| File.symlink?(path)})
+    end
+  end
+
   def test_csharp_git_commit_information
     source
     Dir.chdir("#{@tag_name}/csharp") do
