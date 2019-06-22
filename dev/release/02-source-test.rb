@@ -72,9 +72,13 @@ class SourceTest < Test::Unit::TestCase
     prepare
     Dir.chdir("#{@tag_name}/csharp") do
       sh("dotnet", "pack", "-c", "Release")
-      assert(sh("~/.dotnet/tools/sourcelink \
-                test \
-                artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb"))
+
+      home = ENV['HOME']
+      assert do
+        sh("#{home}/.dotnet/tools/sourcelink",
+           "test",
+           "artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb")
+      end
     end
   end
 
