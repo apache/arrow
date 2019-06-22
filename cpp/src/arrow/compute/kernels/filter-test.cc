@@ -34,6 +34,8 @@ namespace compute {
 using internal::checked_pointer_cast;
 using util::string_view;
 
+constexpr auto kSeed = 0x0ff1ce;
+
 template <typename ArrowType>
 class TestFilterKernel : public ComputeFixture, public TestBase {
  protected:
@@ -138,7 +140,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
 }
 
 TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
-  auto rand = random::RandomArrayGenerator(0x5416447);
+  auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
@@ -191,7 +193,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using CType = typename TypeTraits<TypeParam>::CType;
 
-  auto rand = random::RandomArrayGenerator(0x5416447);
+  auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     // TODO(bkietz) rewrite with some nulls
@@ -216,7 +218,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
 TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
 
-  auto rand = random::RandomArrayGenerator(0x5416447);
+  auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     auto lhs =
@@ -242,7 +244,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using CType = typename TypeTraits<TypeParam>::CType;
 
-  auto rand = random::RandomArrayGenerator(0x5416447);
+  auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     auto array =
