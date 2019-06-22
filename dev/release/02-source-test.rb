@@ -34,11 +34,14 @@ class SourceTest < Test::Unit::TestCase
     end
   end
 
-  def source
+  def source(*targets)
     env = {
       "SOURCE_DEFAULT" => "0",
       "release_hash" => @current_commit,
     }
+    targets.each do |target|
+      env["SOURCE_#{target}"] = "1"
+    end
     sh(env, @script, @release_version, "0")
     sh("tar", "xf", "#{@tag_name}.tar.gz")
   end
@@ -48,6 +51,21 @@ class SourceTest < Test::Unit::TestCase
     Dir.chdir("#{@tag_name}") do
       assert_equal([],
                    Find.find(".").find_all {|path| File.symlink?(path)})
+    end
+  end
+
+  def test_glib_configure
+    unless ENV["ARROW_TEST_SOURCE_GLIB"] == "yes"
+      omit("This takes a long time. " +
+           "Set ARROW_TEST_SOURCE_GLIB=yes environment variable to test this.")
+    end
+    source("GLIB")
+    Dir.chdir("#{@tag_name}/c_glib") do
+      assert_equal([
+                     "configure",
+                     "configure.ac",
+                   ],
+                   Dir.glob("configure*").sort)
     end
   end
 

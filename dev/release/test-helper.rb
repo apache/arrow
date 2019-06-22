@@ -16,6 +16,7 @@
 # under the License.
 
 require "English"
+require "find"
 require "tempfile"
 require "tmpdir"
 
