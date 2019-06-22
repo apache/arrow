@@ -50,7 +50,7 @@ class SourceTest < Test::Unit::TestCase
     end
     Dir.chdir("#{@tag_name}/csharp/artifacts/Apache.Arrow/Release") do
       sh("unzip", "Apache.Arrow.#{@snapshot_version}.nupkg")
-      sh("chmod", "400", "Apache.Arrow.nuspec")
+      FileUtils.chmod(0400, "Apache.Arrow.nuspec")
       nuspec = REXML::Document.new(File.read("Apache.Arrow.nuspec"))
       nuspec_repository = nuspec.elements["package/metadata/repository"].attributes
 
