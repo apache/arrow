@@ -159,7 +159,7 @@ bool IsPythonError(const Status& status) {
   if (status.ok()) {
     return false;
   }
-  auto detail = status.detail().get();
+  auto* detail = status.detail();
   return detail != nullptr && detail->type_id() == kErrorDetailTypeId;
 }
 
