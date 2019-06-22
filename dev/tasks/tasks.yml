@@ -47,6 +47,7 @@ groups:
     - ubuntu-xenial
     - ubuntu-bionic
     - ubuntu-cosmic
+    - ubuntu-disco
     - centos-6
     - centos-7
   gandiva:
@@ -499,6 +500,61 @@ tasks:
     template: linux-packages/travis.linux.yml
     params:
       build_command: rake apt:build APT_TARGETS=ubuntu-cosmic
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
+      - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-doc_{no_rc_version}-1_all.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-python-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
+      - libparquet-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-doc_{no_rc_version}-1_all.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
+      - plasma-store-server_{no_rc_version}-1_amd64.deb
+
+  ubuntu-disco:
+    ci: travis
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-disco
       upload_extensions:
         - .deb
         - .dsc
