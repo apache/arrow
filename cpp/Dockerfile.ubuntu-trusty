@@ -58,7 +58,6 @@ RUN apt-get update -y -q && \
 # - liblz4-dev is too old
 ENV CC=gcc \
      CXX=g++ \
-     ARROW_BOOST_VENDORED=ON \
      ARROW_BUILD_TESTS=ON \
      ARROW_DEPENDENCY_SOURCE=SYSTEM \
      ARROW_FLIGHT=OFF \
@@ -69,6 +68,7 @@ ENV CC=gcc \
      ARROW_PARQUET=ON \
      ARROW_HOME=/usr \
      CMAKE_ARGS="-DThrift_SOURCE=BUNDLED \
+-DBOOST_SOURCE=BUNDLED \
 -Dbenchmark_SOURCE=BUNDLED \
 -DBrotli_SOURCE=BUNDLED \
 -Dc-ares_SOURCE=BUNDLED \

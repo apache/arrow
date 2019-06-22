@@ -543,6 +543,7 @@ macro(build_boost)
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
   set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
   add_dependencies(toolchain boost_ep)
+  set(BOOST_VENDORED TRUE)
 endmacro()
 
 if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
@@ -1147,7 +1148,7 @@ macro(build_thrift)
   endif()
   set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} ${ZLIB_LIBRARY})
 
-  if(ARROW_BOOST_VENDORED)
+  if(BOOST_VENDORED)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
   endif()
 
