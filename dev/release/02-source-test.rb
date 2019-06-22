@@ -67,20 +67,6 @@ class SourceTest < Test::Unit::TestCase
     end
   end
 
-  def test_source_link_information
-    source
-    Dir.chdir("#{@tag_name}/csharp") do
-      sh("dotnet", "pack", "-c", "Release")
-
-      home = ENV['HOME']
-      assert do
-        sh("#{home}/.dotnet/tools/sourcelink",
-           "test",
-           "artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb")
-      end
-    end
-  end
-
   def test_python_setup
     source
     Dir.chdir("#{@tag_name}/python") do
