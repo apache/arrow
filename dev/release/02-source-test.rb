@@ -39,7 +39,7 @@ class SourceTest < Test::Unit::TestCase
   end
 
   def prepare
-    env = {"PREPARE_DEFAULT"=>"0"}
+    env = {"SOURCE_DEFAULT"=>"0"}
     sh(env, "dev/release/02-source.sh", @current_version, "0")
   end
 
