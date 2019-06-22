@@ -93,15 +93,16 @@ echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config
 mkdir objects refs
 cd -
 
-if [ ${SOURCE_RAT} -gt 0 ]; then
-  # Create new tarball from modified source directory
-  tar czf ${tarball} ${tag}
-  rm -rf ${tag}
+# Create new tarball from modified source directory
+tar czf ${tarball} ${tag}
 
+if [ ${SOURCE_RAT} -gt 0 ]; then
   ${SOURCE_DIR}/run-rat.sh ${tarball}
 fi
 
 if [ ${SOURCE_UPLOAD} -gt 0 ]; then
+  rm -rf ${tag}
+
   # sign the archive
   gpg --armor --output ${tarball}.asc --detach-sig ${tarball}
   shasum -a 256 $tarball > ${tarball}.sha256
