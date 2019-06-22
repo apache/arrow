@@ -565,7 +565,13 @@ class ARROW_EXPORT MapArray : public ListArray {
 
   MapArray(const std::shared_ptr<DataType>& type, int64_t length,
            const std::shared_ptr<Buffer>& value_offsets,
-           const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& values,
+           const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
+           const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+           int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  MapArray(const std::shared_ptr<DataType>& type, int64_t length,
+           const std::shared_ptr<Buffer>& value_offsets,
+           const std::shared_ptr<Array>& values,
            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
