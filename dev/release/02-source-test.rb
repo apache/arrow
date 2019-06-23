@@ -78,12 +78,16 @@ class SourceTest < Test::Unit::TestCase
         FileUtils.chmod(0400, "Apache.Arrow.nuspec")
         nuspec = REXML::Document.new(File.read("Apache.Arrow.nuspec"))
         nuspec_repository = nuspec.elements["package/metadata/repository"]
+        attributes = {}
+        nuspec_repository.attributes.each do |key, value|
+          attributes[key] = value
+        end
         assert_equal({
                        "type" => "git",
                        "url" => "https://github.com/apache/arrow",
                        "commit" => @current_commit,
                      },
-                     nuspec_repository.attributes.each.to_h)
+                     attributes)
       end
     end
   end
