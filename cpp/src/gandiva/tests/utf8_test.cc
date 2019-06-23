@@ -551,12 +551,12 @@ TEST_F(TestUtf8, TestCastVarChar) {
       {"park", "Sparkle", "bright spark and fire", "fiery SPARK", "मदन"},
       {true, true, false, true, true});
 
-  auto array_b = MakeArrowArrayUtf8(
-      {"park", "Sparkle", "bright spar", "fiery SPAR", "मदन"},
-      {true, true, true, true, true});
+  auto array_b =
+      MakeArrowArrayUtf8({"park", "Sparkle", "bright spar", "fiery SPAR", "मदन"},
+                         {true, true, true, true, true});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a,array_b});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
@@ -564,10 +564,9 @@ TEST_F(TestUtf8, TestCastVarChar) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   auto exp = MakeArrowArrayBool({true, true, false, true, true},
-                                    {true, true, false, true, true});
+                                {true, true, false, true, true});
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp,
-                            outputs[0]); 
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[0]);
 }
 
 }  // namespace gandiva
