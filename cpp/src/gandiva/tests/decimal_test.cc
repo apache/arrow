@@ -480,7 +480,187 @@ TEST_F(TestDecimal, TestCastFunctions) {
   EXPECT_ARROW_ARRAY_EQUALS(array_float64, outputs[4]);
 }
 
+// isnull, isnumeric
+TEST_F(TestDecimal, TestIsNullNumericFunctions) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 2;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field_dec = field("dec", decimal_type);
+  auto schema = arrow::schema({field_dec});
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("isnull", {field_dec},
+                                      field("isnull", arrow::boolean())),
+
+      TreeExprBuilder::MakeExpression("isnotnull", {field_dec},
+                                      field("isnotnull", arrow::boolean())),
+      TreeExprBuilder::MakeExpression("isnumeric", {field_dec},
+                                      field("isnumeric", arrow::boolean()))};
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto validity = {false, true, true, true, false};
+
+  auto array_dec = MakeArrowArrayDecimal(
+      decimal_type, MakeDecimalVector({"1.51", "1.23", "1.23", "-1.23", "-1.24"}, scale),
+      validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_dec});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+  auto is_null = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(0));
+  auto is_not_null = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(1));
+  auto is_numeric = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(2));
+  for (int i = 0; i < num_records; ++i) {
+    EXPECT_EQ(is_not_null->Value(i), validity.begin()[i]);
+    EXPECT_EQ(is_null->Value(i), !is_not_null->Value(i));
+    EXPECT_EQ(is_numeric->Value(i), is_not_null->Value(i));
+  }
+}
+
+TEST_F(TestDecimal, TestIsDistinct) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale_1 = 2;
+  auto decimal_type_1 = std::make_shared<arrow::Decimal128Type>(precision, scale_1);
+  auto field_dec_1 = field("dec_1", decimal_type_1);
+  constexpr int32_t scale_2 = 1;
+  auto decimal_type_2 = std::make_shared<arrow::Decimal128Type>(precision, scale_2);
+  auto field_dec_2 = field("dec_2", decimal_type_2);
+
+  auto schema = arrow::schema({field_dec_1, field_dec_2});
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("is_distinct_from", {field_dec_1, field_dec_2},
+                                      field("isdistinct", arrow::boolean())),
+
+      TreeExprBuilder::MakeExpression("is_not_distinct_from", {field_dec_1, field_dec_2},
+                                      field("isnotdistinct", arrow::boolean()))};
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+
+  auto validity_1 = {true, false, true, true, false};
+  auto array_dec_1 = MakeArrowArrayDecimal(
+      decimal_type_1,
+      MakeDecimalVector({"1.51", "1.23", "1.20", "-1.20", "-1.20"}, scale_1), validity_1);
+
+  auto validity_2 = {true, false, false, true, false};
+  auto array_dec_2 = MakeArrowArrayDecimal(
+      decimal_type_2, MakeDecimalVector({"1.5", "1.2", "1.2", "-1.2", "-1.25"}, scale_2),
+      validity_2);
+
+  // prepare input record batch
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array_dec_1, array_dec_2});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+  auto is_distinct = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(0));
+  auto is_not_distinct = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(1));
+
+  // both not null; unequal
+  EXPECT_EQ(is_distinct->Value(0), true);
+  // both null; unequal
+  EXPECT_EQ(is_distinct->Value(1), false);
+  // one null; equal
+  EXPECT_EQ(is_distinct->Value(2), true);
+  // both not null; equal
+  EXPECT_EQ(is_distinct->Value(3), false);
+  // wrong scale
+  EXPECT_EQ(is_distinct->Value(4), false);
+
+  for (int i = 0; i < num_records; ++i) {
+    EXPECT_EQ(is_distinct->Value(i), !is_not_distinct->Value(i));
+  }
+}
+
 TEST_F(TestDecimal, TestHashFunctions) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 2;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+  auto field_dec = field("dec", decimal_type);
+  auto literal_seed32 = TreeExprBuilder::MakeLiteral((int32_t)10);
+  auto literal_seed64 = TreeExprBuilder::MakeLiteral((int64_t)10);
+  auto schema = arrow::schema({field_dec});
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("hash", {field_dec},
+                                      field("hash_of_dec", arrow::int32())),
+
+      TreeExprBuilder::MakeExpression("hash64", {field_dec},
+                                      field("hash64_of_dec", arrow::int64())),
+
+      TreeExprBuilder::MakeExpression("hash32AsDouble", {field_dec},
+                                      field("hash32_as_double", arrow::int32())),
+
+      TreeExprBuilder::MakeExpression("hash64AsDouble", {field_dec},
+                                      field("hash64_as_double", arrow::int64()))};
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto validity = {false, true, true, true, true};
+
+  auto array_dec = MakeArrowArrayDecimal(
+      decimal_type, MakeDecimalVector({"1.51", "1.23", "1.23", "-1.23", "-1.24"}, scale),
+      validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_dec});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+  auto int32_arr = std::dynamic_pointer_cast<arrow::Int32Array>(outputs.at(0));
+  EXPECT_EQ(int32_arr->null_count(), 0);
+  EXPECT_EQ(int32_arr->Value(0), 0);
+  EXPECT_EQ(int32_arr->Value(1), int32_arr->Value(2));
+  EXPECT_NE(int32_arr->Value(2), int32_arr->Value(3));
+  EXPECT_NE(int32_arr->Value(3), int32_arr->Value(4));
+
+  auto int64_arr = std::dynamic_pointer_cast<arrow::Int64Array>(outputs.at(1));
+  EXPECT_EQ(int64_arr->null_count(), 0);
+  EXPECT_EQ(int64_arr->Value(0), 0);
+  EXPECT_EQ(int64_arr->Value(1), int64_arr->Value(2));
+  EXPECT_NE(int64_arr->Value(2), int64_arr->Value(3));
+  EXPECT_NE(int64_arr->Value(3), int64_arr->Value(4));
+}
+
+// hash with seed
+TEST_F(TestDecimal, TestHashWSFunctions) {
   // schema for input fields
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
