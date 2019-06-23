@@ -307,8 +307,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   bool is_metadata_set_;
 
   inline const format::ColumnMetaData& GetMetadataIfSet() const {
-    if (column_->__isset.crypto_metadata
-        && column_->crypto_metadata.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
+    if (column_->__isset.crypto_metadata &&
+        column_->crypto_metadata.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
       if (!is_metadata_set_) {
         throw ParquetException(
             "Cannot decrypt ColumnMetadata. "
