@@ -1662,7 +1662,7 @@ class TestConvertListTypes(object):
         # ARROW-4370: Table to pandas conversion fails for list of bool
         array = pa.array([[decimal.Decimal('1'), decimal.Decimal('2')],
                          [decimal.Decimal('3.3')]],
-                         type=pa.list_(pa.decimal128(2,1)))
+                         type=pa.list_(pa.decimal128(2, 1)))
         table = pa.Table.from_arrays([array], names=['col1'])
         df = table.to_pandas()
 
@@ -1670,7 +1670,6 @@ class TestConvertListTypes(object):
                 {'col1': [[decimal.Decimal('1'), decimal.Decimal('2')],
                           [decimal.Decimal('3.3')]]})
         tm.assert_frame_equal(df, expected_df)
-
 
     def test_column_of_lists(self):
         df, schema = dataframe_with_lists()
