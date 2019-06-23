@@ -109,6 +109,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::UINT64:
     case Type::FLOAT:
     case Type::DOUBLE:
+    case Type::DECIMAL:
     case Type::BINARY:
     case Type::STRING:
     case Type::DATE32:
@@ -782,6 +783,7 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(TimestampType, TIMESTAMP)
         CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
         CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
+        CONVERTLISTSLIKE_CASE(DecimalType, DECIMAL)
         CONVERTLISTSLIKE_CASE(BinaryType, BINARY)
         CONVERTLISTSLIKE_CASE(StringType, STRING)
         CONVERTLISTSLIKE_CASE(ListType, LIST)
