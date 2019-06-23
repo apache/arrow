@@ -348,6 +348,7 @@ NodePtr ProtoTypeToInNode(const types::InNode& node) {
     return TreeExprBuilder::MakeInExpressionBinary(field, stringvalues);
   }
   // not supported yet.
+  std::cerr << "Unknown constant type for in expression.\n";
   return nullptr;
 }
 
