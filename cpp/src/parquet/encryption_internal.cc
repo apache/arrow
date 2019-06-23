@@ -389,9 +389,8 @@ AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id, int
   }
 }
 
-AesEncryptor* AesEncryptor::Make(
-    ParquetCipher::type alg_id, int key_len, bool metadata,
-    std::vector<AesEncryptor*> *all_encryptors) {
+AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
+                                 std::vector<AesEncryptor*>* all_encryptors) {
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
@@ -399,8 +398,7 @@ AesEncryptor* AesEncryptor::Make(
   }
 
   AesEncryptor* encryptor = new AesEncryptor(alg_id, key_len, metadata);
-  if (all_encryptors != NULLPTR)
-  all_encryptors->push_back(encryptor);
+  if (all_encryptors != NULLPTR) all_encryptors->push_back(encryptor);
   return encryptor;
 }
 
@@ -408,9 +406,8 @@ AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadat
     : impl_{std::unique_ptr<AesDecryptorImpl>(
           new AesDecryptorImpl(alg_id, key_len, metadata))} {}
 
-AesDecryptor* AesDecryptor::Make(
-    ParquetCipher::type alg_id, int key_len, bool metadata,
-    std::vector<AesDecryptor*> *all_decryptors) {
+AesDecryptor* AesDecryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
+                                 std::vector<AesDecryptor*>* all_decryptors) {
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
