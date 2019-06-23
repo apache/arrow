@@ -19,6 +19,7 @@ package org.apache.arrow.gandiva.expression;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -189,5 +190,25 @@ public class TreeBuilder {
 
     TreeNode root = makeFunction(function, children, new ArrowType.Bool());
     return makeCondition(root);
+  }
+
+  public static TreeNode makeInExpressionInt32(Field resultField,
+                                               Set<Integer> intValues) {
+    return InNode.makeIntInExpr(resultField, intValues);
+  }
+
+  public static TreeNode makeInExpressionBigInt(Field resultField,
+                                               Set<Long> longValues) {
+    return InNode.makeLongInExpr(resultField, longValues);
+  }
+
+  public static TreeNode makeInExpressionString(Field resultField,
+                                                Set<String> stringValues) {
+    return InNode.makeStringInExpr(resultField, stringValues);
+  }
+
+  public static TreeNode makeInExpressionBinary(Field resultField,
+                                                Set<byte[]> binaryValues) {
+    return InNode.makeBinaryInExpr(resultField, binaryValues);
   }
 }

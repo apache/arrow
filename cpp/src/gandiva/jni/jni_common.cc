@@ -313,6 +313,45 @@ NodePtr ProtoTypeToOrNode(const types::OrNode& node) {
   return TreeExprBuilder::MakeOr(children);
 }
 
+NodePtr ProtoTypeToInNode(const types::InNode& node) {
+  NodePtr field = ProtoTypeToFieldNode(node.field());
+
+  if (node.has_intvalues()) {
+    std::unordered_set<int32_t> int_values;
+    for (int i = 0; i < node.intvalues().intvalues_size(); i++) {
+      int_values.insert(node.intvalues().intvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionInt32(field, int_values);
+  }
+
+  if (node.has_longvalues()) {
+    std::unordered_set<int64_t> long_values;
+    for (int i = 0; i < node.longvalues().longvalues_size(); i++) {
+      long_values.insert(node.longvalues().longvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionInt64(field, long_values);
+  }
+
+  if (node.has_stringvalues()) {
+    std::unordered_set<std::string> stringvalues;
+    for (int i = 0; i < node.stringvalues().stringvalues_size(); i++) {
+      stringvalues.insert(node.stringvalues().stringvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionString(field, stringvalues);
+  }
+
+  if (node.has_binaryvalues()) {
+    std::unordered_set<std::string> stringvalues;
+    for (int i = 0; i < node.binaryvalues().binaryvalues_size(); i++) {
+      stringvalues.insert(node.binaryvalues().binaryvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionBinary(field, stringvalues);
+  }
+  // not supported yet.
+  std::cerr << "Unknown constant type for in expression.\n";
+  return nullptr;
+}
+
 NodePtr ProtoTypeToNullNode(const types::NullNode& node) {
   DataTypePtr data_type = ProtoTypeToDataType(node.type());
   if (data_type == nullptr) {
@@ -342,6 +381,10 @@ NodePtr ProtoTypeToNode(const types::TreeNode& node) {
 
   if (node.has_ornode()) {
     return ProtoTypeToOrNode(node.ornode());
+  }
+
+  if (node.has_innode()) {
+    return ProtoTypeToInNode(node.innode());
   }
 
   if (node.has_nullnode()) {
