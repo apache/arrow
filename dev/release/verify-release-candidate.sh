@@ -23,7 +23,7 @@
 # - Maven >= 3.3.9
 # - JDK >=7
 # - gcc >= 4.8
-# - nodejs >= 6.0.0 (best way is to use nvm)
+# - Node.js >= 11.12 (best way is to use nvm)
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
