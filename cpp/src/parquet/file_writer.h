@@ -99,6 +99,16 @@ class PARQUET_EXPORT RowGroupWriter {
 ARROW_DEPRECATED("Use version with arrow::io::OutputStream*")
 PARQUET_EXPORT
 void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink);
+
+PARQUET_EXPORT
+void WriteFileMetaData(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
+
+PARQUET_EXPORT
+void WriteMetaDataFile(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
+
+#ifdef PARQUET_ENCRYPTION
 PARQUET_EXPORT
 void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
                                 ArrowOutputStream* sink,
@@ -107,10 +117,6 @@ void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
 
 void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
                              OutputStream* sink);
-
-PARQUET_EXPORT
-void WriteFileMetaData(const FileMetaData& file_metadata,
-                       ::arrow::io::OutputStream* sink);
 PARQUET_EXPORT
 void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
                                 ::arrow::io::OutputStream* sink,
@@ -119,10 +125,7 @@ void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
 PARQUET_EXPORT
 void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
                              ::arrow::io::OutputStream* sink);
-
-PARQUET_EXPORT
-void WriteMetaDataFile(const FileMetaData& file_metadata,
-                       ::arrow::io::OutputStream* sink);
+#endif
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:

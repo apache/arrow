@@ -167,10 +167,6 @@ set(PARQUET_SRCS
     column_writer.cc
     deprecated_io.cc
     encoding.cc
-    encryption.cc
-    encryption_internal.cc
-    internal_file_decryptor.cc
-    internal_file_encryptor.cc
     file_reader.cc
     file_writer.cc
     metadata.cc
@@ -183,6 +179,16 @@ set(PARQUET_SRCS
     schema.cc
     statistics.cc
     types.cc)
+
+if (ARROW_USE_OPENSSL)
+  add_definitions(-DPARQUET_ENCRYPTION)
+  set(PARQUET_SRCS
+    ${PARQUET_SRCS}
+    encryption.cc
+    encryption_internal.cc
+    internal_file_decryptor.cc
+    internal_file_encryptor.cc)
+endif()
 
 # Ensure that thrift compilation is done before using its generated headers
 # in parquet code.
@@ -321,7 +327,7 @@ add_parquet_test(arrow-test
                  arrow/arrow_schema_test.cc
                  test_util.cc)
 
-if(PARQUET_BUILD_ENCRYPTION)
+if(ARROW_USE_OPENSSL)
   add_parquet_test(encryption-test
                    SOURCES
                    encryption-properties-test.cc
