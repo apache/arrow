@@ -317,7 +317,6 @@ TEST_F(TestUtf8, TestInternalAllocs) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
-
 TEST_F(TestUtf8, TestCastDate) {
   // schema for input fields
   auto field_a = field("a", utf8());
@@ -535,9 +534,9 @@ TEST_F(TestUtf8, TestCastVarChar) {
 
   auto node_a = TreeExprBuilder::MakeField(field_a);
   auto node_b = TreeExprBuilder::MakeLiteral(static_cast<int64_t>(10));
-  auto cast_varchar = TreeExprBuilder::MakeFunction("castVARCHAR", {node_a, node_b}, utf8());
-  auto length =
-      TreeExprBuilder::MakeFunction("length", {cast_varchar}, int32());
+  auto cast_varchar =
+      TreeExprBuilder::MakeFunction("castVARCHAR", {node_a, node_b}, utf8());
+  auto length = TreeExprBuilder::MakeFunction("length", {cast_varchar}, int32());
   auto expr = TreeExprBuilder::MakeExpression(length, res);
 
   // Build a projector for the expressions.
@@ -552,9 +551,7 @@ TEST_F(TestUtf8, TestCastVarChar) {
       {true, true, false, true, true});
 
   // expected output
-  auto exp = MakeArrowArrayInt32(
-      {4,7,10,10,3},
-      {true, true, false, true, true});
+  auto exp = MakeArrowArrayInt32({4, 7, 10, 10, 3}, {true, true, false, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
