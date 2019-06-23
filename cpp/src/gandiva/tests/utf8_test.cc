@@ -524,20 +524,21 @@ TEST_F(TestUtf8, TestVarlenOutput) {
 TEST_F(TestUtf8, TestCastVarChar) {
   // schema for input fields
   auto field_a = field("a", utf8());
-  auto schema = arrow::schema({field_a});
+  auto field_c = field("c", utf8());
+  auto schema = arrow::schema({field_a, field_c});
 
   // output fields
-  auto res = field("res", int32());
+  auto res = field("res", boolean());
 
   // build expressions.
-  // like(upper(a), literal("%SPARK%"))
-
   auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_c = TreeExprBuilder::MakeField(field_c);
+  // truncates the string to input length
   auto node_b = TreeExprBuilder::MakeLiteral(static_cast<int64_t>(10));
   auto cast_varchar =
       TreeExprBuilder::MakeFunction("castVARCHAR", {node_a, node_b}, utf8());
-  auto length = TreeExprBuilder::MakeFunction("length", {cast_varchar}, int32());
-  auto expr = TreeExprBuilder::MakeExpression(length, res);
+  auto equals = TreeExprBuilder::MakeFunction("equal", {cast_varchar, node_c}, boolean());
+  auto expr = TreeExprBuilder::MakeExpression(equals, res);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
@@ -550,19 +551,23 @@ TEST_F(TestUtf8, TestCastVarChar) {
       {"park", "Sparkle", "bright spark and fire", "fiery SPARK", "मदन"},
       {true, true, false, true, true});
 
-  // expected output
-  auto exp = MakeArrowArrayInt32({4, 7, 10, 10, 3}, {true, true, false, true, true});
+  auto array_b = MakeArrowArrayUtf8(
+      {"park", "Sparkle", "bright spar", "fiery SPAR", "मदन"},
+      {true, true, true, true, true});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a,array_b});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok()) << status.message();
 
+  auto exp = MakeArrowArrayBool({true, true, false, true, true},
+                                    {true, true, false, true, true});
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp,
+                            outputs[0]); 
 }
 
 }  // namespace gandiva

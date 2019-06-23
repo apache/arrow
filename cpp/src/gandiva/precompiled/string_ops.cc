@@ -160,8 +160,7 @@ char* upper_utf8(int64 context, const char* data, int32 data_len, int32_t* out_l
   return ret;
 }
 
-// Convert a utf8 sequence to upper case.
-// TODO : This handles only ascii characters.
+// Truncates the string to given length
 FORCE_INLINE
 char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
                              int64_t out_len, int32_t* out_length) {
