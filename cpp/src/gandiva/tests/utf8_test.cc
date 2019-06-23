@@ -317,6 +317,7 @@ TEST_F(TestUtf8, TestInternalAllocs) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+
 TEST_F(TestUtf8, TestCastDate) {
   // schema for input fields
   auto field_a = field("a", utf8());
@@ -519,6 +520,52 @@ TEST_F(TestUtf8, TestVarlenOutput) {
   // assert that it fails gracefully.
   ASSERT_RAISES(NotImplemented,
                 Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+}
+
+TEST_F(TestUtf8, TestCastVarChar) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res = field("res", int32());
+
+  // build expressions.
+  // like(upper(a), literal("%SPARK%"))
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_b = TreeExprBuilder::MakeLiteral(static_cast<int64_t>(10));
+  auto cast_varchar = TreeExprBuilder::MakeFunction("castVARCHAR", {node_a, node_b}, utf8());
+  auto length =
+      TreeExprBuilder::MakeFunction("length", {cast_varchar}, int32());
+  auto expr = TreeExprBuilder::MakeExpression(length, res);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array_a = MakeArrowArrayUtf8(
+      {"park", "Sparkle", "bright spark and fire", "fiery SPARK", "मदन"},
+      {true, true, false, true, true});
+
+  // expected output
+  auto exp = MakeArrowArrayInt32(
+      {4,7,10,10,3},
+      {true, true, false, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
 }  // namespace gandiva
