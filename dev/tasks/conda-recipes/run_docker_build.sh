@@ -10,7 +10,6 @@ set -xeo pipefail
 THISDIR="$( cd "$( dirname "$0" )" >/dev/null && pwd )"
 
 FEEDSTOCK_ROOT=$(cd "$(dirname "$0")"; pwd;)
-RECIPE_ROOT="${FEEDSTOCK_ROOT}/pyarrow"
 
 docker info
 
@@ -57,7 +56,6 @@ fi
 
 export UPLOAD_PACKAGES="${UPLOAD_PACKAGES:-True}"
 docker run ${DOCKER_RUN_ARGS} \
-           -v "${RECIPE_ROOT}":/home/conda/recipe_root:ro,z \
            -v "${FEEDSTOCK_ROOT}":/home/conda/feedstock_root:rw,z \
            -e CONFIG \
            -e BINSTAR_TOKEN \
