@@ -355,8 +355,8 @@ test_ruby() {
 
 test_rust() {
   # install rust toolchain in a similar fashion like test-miniconda
-  export RUSTUP_HOME=`pwd`/test-rustup
-  export CARGO_HOME=`pwd`/test-rustup
+  export RUSTUP_HOME=$PWD/test-rustup
+  export CARGO_HOME=$PWD/test-rustup
 
   curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
 
@@ -393,8 +393,8 @@ test_package_java() {
 
 # Run integration tests
 test_integration() {
-  JAVA_DIR=`pwd`/java
-  CPP_BUILD_DIR=`pwd`/cpp/build
+  JAVA_DIR=$PWD/java
+  CPP_BUILD_DIR=$PWD/cpp/build
 
   export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
