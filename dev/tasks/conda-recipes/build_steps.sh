@@ -20,18 +20,17 @@ CONDARC
 
 conda install --yes --quiet conda-forge-ci-setup=2 conda-build -c conda-forge
 
-pushd $FEEDSTOCK_ROOT
-
 # set up the condarc
-setup_conda_rc "${FEEDSTOCK_ROOT}" "pyarrow" "${CONFIG_FILE}"
+setup_conda_rc "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
 source run_conda_forge_build_setup
 
 # make the build number clobber
-make_build_number "${FEEDSTOCK_ROOT}" "pyarrow" "${CONFIG_FILE}"
+make_build_number "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
-conda build arrow-cpp parquet-cpp pyarrow \
+conda build \
+    "${FEEDSTOCK_ROOT}/arrow-cpp" \
+    "${FEEDSTOCK_ROOT}/parquet-cpp" \
+    "${FEEDSTOCK_ROOT}/pyarrow" \
     -m "${CI_SUPPORT}/${CONFIG}.yaml" \
     --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml"
-
-popd

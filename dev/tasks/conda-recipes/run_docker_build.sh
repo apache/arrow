@@ -8,8 +8,8 @@
 set -xeo pipefail
 
 THISDIR="$( cd "$( dirname "$0" )" >/dev/null && pwd )"
-
-FEEDSTOCK_ROOT=$(cd "$(dirname "$0")"; pwd;)
+ARROW_ROOT=$(cd "$THISDIR/../../.."; pwd;)
+FEEDSTOCK_ROOT=$THISDIR
 
 docker info
 
@@ -56,16 +56,15 @@ fi
 
 export UPLOAD_PACKAGES="${UPLOAD_PACKAGES:-True}"
 docker run ${DOCKER_RUN_ARGS} \
-           -v "${FEEDSTOCK_ROOT}":/home/conda/feedstock_root:rw,z \
+           -v "${ARROW_ROOT}":/arrow:rw,z \
+           -e FEEDSTOCK_ROOT="/arrow/dev/tasks/conda-recipes" \
            -e CONFIG \
-           -e BINSTAR_TOKEN \
            -e HOST_USER_ID \
            -e UPLOAD_PACKAGES \
            -e ARROW_VERSION \
            -e CI \
            $DOCKER_IMAGE \
-           bash \
-           /home/conda/feedstock_root/build_steps.sh
+           bash /arrow/dev/tasks/conda-recipes/build_steps.sh
 
 # verify that the end of the script was reached
 test -f "$DONE_CANARY"
