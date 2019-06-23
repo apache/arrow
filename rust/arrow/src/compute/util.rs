@@ -47,27 +47,27 @@ where
 
 /// Takes/filters a list array's inner data using the offsets of the list array.
 ///
-/// Where a list array has index `[0,2,5,10]`, taking an index of `[2,0]` returns
+/// Where a list array has indices `[0,2,5,10]`, taking indices of `[2,0]` returns
 /// an array of the indices `[5..10, 0..2]` and offsets `[0,5,7]` (5 elements and 2
 /// elements)
-pub(crate) fn take_index_from_list(
-    array: &ArrayRef,
-    index: &UInt32Array,
+pub(super) fn take_value_indices_from_list(
+    values: &ArrayRef,
+    indices: &UInt32Array,
 ) -> (UInt32Array, Vec<i32>) {
     // TODO benchmark this function, there might be a faster unsafe alternative
     // get list array's offsets
-    let list: &ListArray = array.as_any().downcast_ref::<ListArray>().unwrap();
+    let list: &ListArray = values.as_any().downcast_ref::<ListArray>().unwrap();
     let offsets: Vec<u32> = (0..=list.len())
         .map(|i| list.value_offset(i) as u32)
         .collect();
-    let mut new_offsets = Vec::with_capacity(index.len());
+    let mut new_offsets = Vec::with_capacity(indices.len());
     let mut current_offset = 0;
     // add first offset
     new_offsets.push(0);
-    let values: Vec<Option<u32>> = (0..index.len())
+    let values: Vec<Option<u32>> = (0..indices.len())
         .flat_map(|i: usize| {
-            if index.is_valid(i) {
-                let ix = index.value(i) as usize;
+            if indices.is_valid(i) {
+                let ix = indices.value(i) as usize;
                 let start = offsets[ix];
                 let end = offsets[ix + 1];
                 current_offset += (end - start) as i32;
@@ -79,7 +79,12 @@ pub(crate) fn take_index_from_list(
                 vec![None]
             }
         })
+        .map(|x| {
+            dbg!(&x);
+            x
+        })
         .collect();
+    dbg!(&values);
     (UInt32Array::from(values), new_offsets)
 }
 
@@ -125,7 +130,7 @@ mod tests {
     }
 
     #[test]
-    fn test_take_index_from_list() {
+    fn test_take_value_index_from_list() {
         let value_data = Int32Array::from((0..10).collect::<Vec<i32>>()).data();
         let value_offsets = Buffer::from(&[0, 2, 5, 10].to_byte_slice());
         let list_data_type = DataType::List(Box::new(DataType::Int32));
@@ -136,7 +141,7 @@ mod tests {
             .build();
         let array = Arc::new(ListArray::from(list_data)) as ArrayRef;
         let index = UInt32Array::from(vec![2, 0]);
-        let (indexed, offsets) = take_index_from_list(&array, &index);
+        let (indexed, offsets) = take_value_indices_from_list(&array, &index);
         assert_eq!(vec![0, 5, 7], offsets);
         let data = UInt32Array::from(vec![
             Some(5),
