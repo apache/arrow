@@ -47,7 +47,6 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
 
     constructor(builder: Builder<T, TNull>, options: BuilderDuplexOptions<T, TNull>) {
 
-        const isDictionary = DataType.isDictionary(builder.type);
         const { queueingStrategy = 'count', autoDestroy = true } = options;
         const { highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
 
@@ -58,20 +57,6 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
         this._builder = builder;
         this._desiredSize = highWaterMark;
         this._getSize = queueingStrategy !== 'bytes' ? builderLength : builderByteLength;
-
-        if (isDictionary) {
-            let chunks: any[] = [];
-            this.push = (chunk: any, _?: string) => {
-                if (chunk !== null) {
-                    chunks.push(chunk);
-                    return true;
-                }
-                const chunks_ = chunks;
-                chunks = [];
-                chunks_.forEach((x) => super.push(x));
-                return super.push(null) && false;
-            };
-        }
     }
     _read(size: number) {
         this._maybeFlush(this._builder, this._desiredSize = size);

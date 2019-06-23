@@ -15,11 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Download static arrow from rwinlib
-VERSION <- commandArgs(TRUE)
+args <- commandArgs(TRUE)
+VERSION <- args[1]
 if(!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))){
-  if(getRversion() < "3.3.0") setInternet2()
-  download.file(sprintf("https://github.com/rwinlib/arrow/archive/v%s.zip", VERSION), "lib.zip", quiet = TRUE)
+  if(length(args) > 1){
+    # Arg 2 would be the path/to/lib.zip
+    localfile <- args[2]
+    cat(sprintf("*** Using RWINLIB_LOCAL %s\n", localfile))
+    if(!file.exists(localfile)){
+      cat(sprintf("*** %s does not exist; build will fail\n", localfile))
+    }
+    file.copy(localfile, "lib.zip")
+  } else {
+    # Download static arrow from rwinlib
+    if(getRversion() < "3.3.0") setInternet2()
+    download.file(sprintf("https://github.com/rwinlib/arrow/archive/v%s.zip", VERSION), "lib.zip", quiet = TRUE)
+  }
   dir.create("windows", showWarnings = FALSE)
   unzip("lib.zip", exdir = "windows")
   unlink("lib.zip")

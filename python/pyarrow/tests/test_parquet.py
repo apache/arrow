@@ -638,7 +638,7 @@ def test_parquet_metadata_api():
     assert col.max_repetition_level == 0
 
     assert col.physical_type == 'BOOLEAN'
-    assert col.logical_type == 'NONE'
+    assert col.converted_type == 'NONE'
 
     with pytest.raises(IndexError):
         schema[ncols + 1]  # +1 for index
@@ -2863,6 +2863,7 @@ def test_parquet_file_too_small(tempdir):
         pq.read_table(path)
 
 
+@pytest.mark.pandas
 def test_multi_dataset_metadata(tempdir):
     filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
     metapath = str(tempdir / "_metadata")
@@ -2905,6 +2906,7 @@ def test_multi_dataset_metadata(tempdir):
     assert md['serialized_size'] > 0
 
 
+@pytest.mark.pandas
 def test_filter_before_validate_schema(tempdir):
     # ARROW-4076 apply filter before schema validation
     # to avoid checking unneeded schemas

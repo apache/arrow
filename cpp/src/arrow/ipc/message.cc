@@ -43,7 +43,8 @@ class Message::MessageImpl {
       : metadata_(metadata), message_(nullptr), body_(body) {}
 
   Status Open() {
-    message_ = flatbuf::GetMessage(metadata_->data());
+    RETURN_NOT_OK(
+        internal::VerifyMessage(metadata_->data(), metadata_->size(), &message_));
 
     // Check that the metadata version is supported
     if (message_->version() < internal::kMinMetadataVersion) {
@@ -143,12 +144,8 @@ bool Message::Equals(const Message& other) const {
 
 Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStream* stream,
                          std::unique_ptr<Message>* out) {
-  auto data = metadata->data();
-  flatbuffers::Verifier verifier(data, metadata->size(), /*max_depth=*/128);
-  if (!flatbuf::VerifyMessageBuffer(verifier)) {
-    return Status::IOError("Invalid flatbuffers message.");
-  }
-  auto fb_message = flatbuf::GetMessage(data);
+  const flatbuf::Message* fb_message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata->data(), metadata->size(), &fb_message));
 
   int64_t body_length = fb_message->bodyLength();
 
@@ -164,8 +161,8 @@ Status Message::ReadFrom(const std::shared_ptr<Buffer>& metadata, io::InputStrea
 
 Status Message::ReadFrom(const int64_t offset, const std::shared_ptr<Buffer>& metadata,
                          io::RandomAccessFile* file, std::unique_ptr<Message>* out) {
-  auto fb_message = flatbuf::GetMessage(metadata->data());
-
+  const flatbuf::Message* fb_message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata->data(), metadata->size(), &fb_message));
   int64_t body_length = fb_message->bodyLength();
 
   std::shared_ptr<Buffer> body;
@@ -209,9 +206,8 @@ Status Message::SerializeTo(io::OutputStream* stream, int32_t alignment,
 }
 
 bool Message::Verify() const {
-  std::shared_ptr<Buffer> meta = this->metadata();
-  flatbuffers::Verifier verifier(meta->data(), meta->size(), 128);
-  return flatbuf::VerifyMessageBuffer(verifier);
+  const flatbuf::Message* unused;
+  return internal::VerifyMessage(metadata()->data(), metadata()->size(), &unused).ok();
 }
 
 std::string FormatMessageType(Message::Type type) {

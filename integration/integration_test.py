@@ -1234,6 +1234,24 @@ class IntegrationRunner(object):
                       ' for JS once JS supports them')
                 continue
 
+            if ('Go' in (producer.name, consumer.name) and
+                    "decimal" in test_case.name):
+                print('TODO(ARROW-3676): Enable decimal tests ' +
+                      ' for Go')
+                continue
+
+            if ('Go' in (producer.name, consumer.name) and
+                    "map" in test_case.name):
+                print('TODO(ARROW-3679): Enable map tests ' +
+                      ' for Go')
+                continue
+
+            if ('Go' in (producer.name, consumer.name) and
+                    "dictionary" in test_case.name):
+                print('TODO(ARROW-3039): Enable dictionary tests ' +
+                      ' for Go')
+                continue
+
             # Make the random access file
             producer_file_path = os.path.join(self.temp_dir, file_id + '_' +
                                               name + '.json_as_file')
@@ -1586,6 +1604,57 @@ class JSTester(Tester):
         os.system(cmd)
 
 
+class GoTester(Tester):
+    PRODUCER = True
+    CONSUMER = True
+
+    # FIXME(sbinet): revisit for Go modules
+    GOPATH = os.getenv('GOPATH', '~/go')
+    GOBIN = os.environ.get('GOBIN', os.path.join(GOPATH, 'bin'))
+
+    GO_INTEGRATION_EXE = os.path.join(GOBIN, 'arrow-json-integration-test')
+    STREAM_TO_FILE = os.path.join(GOBIN, 'arrow-stream-to-file')
+    FILE_TO_STREAM = os.path.join(GOBIN, 'arrow-file-to-stream')
+
+    name = 'Go'
+
+    def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
+        cmd = [self.GO_INTEGRATION_EXE]
+
+        if arrow_path is not None:
+            cmd.extend(['-arrow', arrow_path])
+
+        if json_path is not None:
+            cmd.extend(['-json', json_path])
+
+        cmd.extend(['-mode', command])
+
+        if self.debug:
+            print(' '.join(cmd))
+
+        run_cmd(cmd)
+
+    def validate(self, json_path, arrow_path):
+        return self._run(arrow_path, json_path, 'VALIDATE')
+
+    def json_to_file(self, json_path, arrow_path):
+        return self._run(arrow_path, json_path, 'JSON_TO_ARROW')
+
+    def stream_to_file(self, stream_path, file_path):
+        cmd = ['cat', stream_path, '|', self.STREAM_TO_FILE, '>', file_path]
+        cmd = ' '.join(cmd)
+        if self.debug:
+            print(cmd)
+        os.system(cmd)
+
+    def file_to_stream(self, file_path, stream_path):
+        cmd = [self.FILE_TO_STREAM, file_path, '>', stream_path]
+        cmd = ' '.join(cmd)
+        if self.debug:
+            print(cmd)
+        os.system(cmd)
+
+
 def get_static_json_files():
     glob_pattern = os.path.join(ARROW_HOME, 'integration', 'data', '*.json')
     return [JsonFile(name=os.path.basename(p), path=p, skip=set(),
@@ -1604,6 +1673,9 @@ def run_all_tests(args):
 
     if args.enable_js:
         testers.append(JSTester(args))
+
+    if args.enable_go:
+        testers.append(GoTester(args))
 
     static_json_files = get_static_json_files()
     generated_json_files = get_generated_json_files(tempdir=args.tempdir,
@@ -1661,6 +1733,9 @@ if __name__ == '__main__':
     parser.add_argument('--enable-js', dest='enable_js',
                         action='store', type=int, default=1,
                         help='Include JavaScript in integration tests')
+    parser.add_argument('--enable-go', dest='enable_go',
+                        action='store', type=int, default=1,
+                        help='Include Go in integration tests')
 
     parser.add_argument('--write_generated_json', dest='generated_json_path',
                         action='store', default=False,

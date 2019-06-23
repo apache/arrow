@@ -87,43 +87,40 @@ static constexpr int LARGE_SIZE = 10000;
 
 static constexpr uint32_t kDefaultSeed = 0;
 
-std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType& type) {
+std::shared_ptr<const LogicalType> get_logical_type(const ::DataType& type) {
   switch (type.id()) {
     case ArrowId::UINT8:
-      return LogicalAnnotation::Int(8, false);
+      return LogicalType::Int(8, false);
     case ArrowId::INT8:
-      return LogicalAnnotation::Int(8, true);
+      return LogicalType::Int(8, true);
     case ArrowId::UINT16:
-      return LogicalAnnotation::Int(16, false);
+      return LogicalType::Int(16, false);
     case ArrowId::INT16:
-      return LogicalAnnotation::Int(16, true);
+      return LogicalType::Int(16, true);
     case ArrowId::UINT32:
-      return LogicalAnnotation::Int(32, false);
+      return LogicalType::Int(32, false);
     case ArrowId::INT32:
-      return LogicalAnnotation::Int(32, true);
+      return LogicalType::Int(32, true);
     case ArrowId::UINT64:
-      return LogicalAnnotation::Int(64, false);
+      return LogicalType::Int(64, false);
     case ArrowId::INT64:
-      return LogicalAnnotation::Int(64, true);
+      return LogicalType::Int(64, true);
     case ArrowId::STRING:
-      return LogicalAnnotation::String();
+      return LogicalType::String();
     case ArrowId::DATE32:
-      return LogicalAnnotation::Date();
+      return LogicalType::Date();
     case ArrowId::DATE64:
-      return LogicalAnnotation::Date();
+      return LogicalType::Date();
     case ArrowId::TIMESTAMP: {
       const auto& ts_type = static_cast<const ::arrow::TimestampType&>(type);
       const bool adjusted_to_utc = !(ts_type.timezone().empty());
       switch (ts_type.unit()) {
         case TimeUnit::MILLI:
-          return LogicalAnnotation::Timestamp(adjusted_to_utc,
-                                              LogicalAnnotation::TimeUnit::MILLIS);
+          return LogicalType::Timestamp(adjusted_to_utc, LogicalType::TimeUnit::MILLIS);
         case TimeUnit::MICRO:
-          return LogicalAnnotation::Timestamp(adjusted_to_utc,
-                                              LogicalAnnotation::TimeUnit::MICROS);
+          return LogicalType::Timestamp(adjusted_to_utc, LogicalType::TimeUnit::MICROS);
         case TimeUnit::NANO:
-          return LogicalAnnotation::Timestamp(adjusted_to_utc,
-                                              LogicalAnnotation::TimeUnit::NANOS);
+          return LogicalType::Timestamp(adjusted_to_utc, LogicalType::TimeUnit::NANOS);
         default:
           DCHECK(false)
               << "Only MILLI, MICRO, and NANO units supported for Arrow TIMESTAMP.";
@@ -131,14 +128,14 @@ std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType
       break;
     }
     case ArrowId::TIME32:
-      return LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MILLIS);
+      return LogicalType::Time(false, LogicalType::TimeUnit::MILLIS);
     case ArrowId::TIME64: {
       const auto& tm_type = static_cast<const ::arrow::TimeType&>(type);
       switch (tm_type.unit()) {
         case TimeUnit::MICRO:
-          return LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MICROS);
+          return LogicalType::Time(false, LogicalType::TimeUnit::MICROS);
         case TimeUnit::NANO:
-          return LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::NANOS);
+          return LogicalType::Time(false, LogicalType::TimeUnit::NANOS);
         default:
           DCHECK(false) << "Only MICRO and NANO units supported for Arrow TIME64.";
       }
@@ -147,16 +144,16 @@ std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType
     case ArrowId::DICTIONARY: {
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(type);
-      return get_logical_annotation(*dict_type.value_type());
+      return get_logical_type(*dict_type.value_type());
     }
     case ArrowId::DECIMAL: {
       const auto& dec_type = static_cast<const ::arrow::Decimal128Type&>(type);
-      return LogicalAnnotation::Decimal(dec_type.precision(), dec_type.scale());
+      return LogicalType::Decimal(dec_type.precision(), dec_type.scale());
     }
     default:
       break;
   }
-  return LogicalAnnotation::None();
+  return LogicalType::None();
 }
 
 ParquetType::type get_physical_type(const ::DataType& type) {
@@ -481,7 +478,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
     default:
       break;
   }
-  auto pnode = PrimitiveNode::Make("column1", repetition, get_logical_annotation(type),
+  auto pnode = PrimitiveNode::Make("column1", repetition, get_logical_type(type),
                                    get_physical_type(type), byte_width);
   NodePtr node_ =
       GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));

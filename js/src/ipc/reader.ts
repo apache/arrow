@@ -354,21 +354,17 @@ abstract class RecordBatchReaderImpl<T extends { [key: string]: DataType } = any
     protected _loadDictionaryBatch(header: metadata.DictionaryBatch, body: any) {
         const { id, isDelta, data } = header;
         const { dictionaries, schema } = this;
-        if (isDelta || !dictionaries.get(id)) {
-
+        const dictionary = dictionaries.get(id);
+        if (isDelta || !dictionary) {
             const type = schema.dictionaries.get(id)!;
-            const vector = (isDelta ? dictionaries.get(id)!.concat(
+            return (dictionary && isDelta ? dictionary.concat(
                 Vector.new(this._loadVectors(data, body, [type])[0])) :
                 Vector.new(this._loadVectors(data, body, [type])[0])) as Vector;
-
-            (schema.dictionaryFields.get(id) || []).forEach(({ type }) => type.dictionaryVector = vector);
-
-            return vector;
         }
-        return dictionaries.get(id)!;
+        return dictionary;
     }
     protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
-        return new VectorLoader(body, header.nodes, header.buffers).visitMany(types);
+        return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries).visitMany(types);
     }
 }
 
@@ -676,7 +672,7 @@ class RecordBatchJSONReaderImpl<T extends { [key: string]: DataType } = any> ext
         super(source, dictionaries);
     }
     protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
-        return new JSONVectorLoader(body, header.nodes, header.buffers).visitMany(types);
+        return new JSONVectorLoader(body, header.nodes, header.buffers, this.dictionaries).visitMany(types);
     }
 }
 

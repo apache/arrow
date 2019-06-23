@@ -23,6 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -42,6 +43,7 @@ func init() {
 	Records["fixed_size_binaries"] = makeFixedSizeBinariesRecords()
 	Records["intervals"] = makeIntervalsRecords()
 	Records["durations"] = makeDurationsRecords()
+	Records["decimal128"] = makeDecimal128sRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -359,10 +361,16 @@ func makeStringsRecords() []array.Record {
 	return recs
 }
 
-type time32s arrow.Time32
-type time32ms arrow.Time32
-type time64ns arrow.Time64
-type time64us arrow.Time64
+type (
+	time32s      arrow.Time32
+	time32ms     arrow.Time32
+	time64ns     arrow.Time64
+	time64us     arrow.Time64
+	timestamp_s  arrow.Timestamp
+	timestamp_ms arrow.Timestamp
+	timestamp_us arrow.Timestamp
+	timestamp_ns arrow.Timestamp
+)
 
 func makeFixedWidthTypesRecords() []array.Record {
 	mem := memory.NewGoAllocator()
@@ -373,7 +381,10 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrow.Field{Name: "time32s", Type: arrow.FixedWidthTypes.Time32s, Nullable: true},
 			arrow.Field{Name: "time64ns", Type: arrow.FixedWidthTypes.Time64ns, Nullable: true},
 			arrow.Field{Name: "time64us", Type: arrow.FixedWidthTypes.Time64us, Nullable: true},
-			arrow.Field{Name: "timestamp", Type: arrow.FixedWidthTypes.Timestamp, Nullable: true},
+			arrow.Field{Name: "timestamp_s", Type: arrow.FixedWidthTypes.Timestamp_s, Nullable: true},
+			arrow.Field{Name: "timestamp_ms", Type: arrow.FixedWidthTypes.Timestamp_ms, Nullable: true},
+			arrow.Field{Name: "timestamp_us", Type: arrow.FixedWidthTypes.Timestamp_us, Nullable: true},
+			arrow.Field{Name: "timestamp_ns", Type: arrow.FixedWidthTypes.Timestamp_ns, Nullable: true},
 			arrow.Field{Name: "date32s", Type: arrow.FixedWidthTypes.Date32, Nullable: true},
 			arrow.Field{Name: "date64s", Type: arrow.FixedWidthTypes.Date64, Nullable: true},
 		}, nil,
@@ -395,7 +406,10 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrayOf(mem, []time32s{-2, -1, 0, +1, +2}, mask),
 			arrayOf(mem, []time64ns{-2, -1, 0, +1, +2}, mask),
 			arrayOf(mem, []time64us{-2, -1, 0, +1, +2}, mask),
-			arrayOf(mem, []arrow.Timestamp{0, +1, +2, +3, +4}, mask),
+			arrayOf(mem, []timestamp_s{0, +1, +2, +3, +4}, mask),
+			arrayOf(mem, []timestamp_ms{0, +1, +2, +3, +4}, mask),
+			arrayOf(mem, []timestamp_us{0, +1, +2, +3, +4}, mask),
+			arrayOf(mem, []timestamp_ns{0, +1, +2, +3, +4}, mask),
 			arrayOf(mem, []arrow.Date32{-2, -1, 0, +1, +2}, mask),
 			arrayOf(mem, []arrow.Date64{-2, -1, 0, +1, +2}, mask),
 		},
@@ -405,7 +419,10 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrayOf(mem, []time32s{-12, -11, 10, +11, +12}, mask),
 			arrayOf(mem, []time64ns{-12, -11, 10, +11, +12}, mask),
 			arrayOf(mem, []time64us{-12, -11, 10, +11, +12}, mask),
-			arrayOf(mem, []arrow.Timestamp{10, +11, +12, +13, +14}, mask),
+			arrayOf(mem, []timestamp_s{10, +11, +12, +13, +14}, mask),
+			arrayOf(mem, []timestamp_ms{10, +11, +12, +13, +14}, mask),
+			arrayOf(mem, []timestamp_us{10, +11, +12, +13, +14}, mask),
+			arrayOf(mem, []timestamp_ns{10, +11, +12, +13, +14}, mask),
 			arrayOf(mem, []arrow.Date32{-12, -11, 10, +11, +12}, mask),
 			arrayOf(mem, []arrow.Date64{-12, -11, 10, +11, +12}, mask),
 		},
@@ -415,7 +432,10 @@ func makeFixedWidthTypesRecords() []array.Record {
 			arrayOf(mem, []time32s{-22, -21, 20, +21, +22}, mask),
 			arrayOf(mem, []time64ns{-22, -21, 20, +21, +22}, mask),
 			arrayOf(mem, []time64us{-22, -21, 20, +21, +22}, mask),
-			arrayOf(mem, []arrow.Timestamp{20, +21, +22, +23, +24}, mask),
+			arrayOf(mem, []timestamp_s{20, +21, +22, +23, +24}, mask),
+			arrayOf(mem, []timestamp_ms{20, +21, +22, +23, +24}, mask),
+			arrayOf(mem, []timestamp_us{20, +21, +22, +23, +24}, mask),
+			arrayOf(mem, []timestamp_ns{20, +21, +22, +23, +24}, mask),
 			arrayOf(mem, []arrow.Date32{-22, -21, 20, +21, +22}, mask),
 			arrayOf(mem, []arrow.Date64{-22, -21, 20, +21, +22}, mask),
 		},
@@ -575,6 +595,55 @@ func makeDurationsRecords() []array.Record {
 	return recs
 }
 
+var (
+	decimal128Type = &arrow.Decimal128Type{Precision: 10, Scale: 1}
+)
+
+func makeDecimal128sRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "dec128s", Type: decimal128Type, Nullable: true},
+		}, nil,
+	)
+
+	dec128s := func(vs []int64) []decimal128.Num {
+		o := make([]decimal128.Num, len(vs))
+		for i, v := range vs {
+			o[i] = decimal128.New(v, uint64(v))
+		}
+		return o
+	}
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			arrayOf(mem, dec128s([]int64{31, 32, 33, 34, 35}), mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, dec128s([]int64{41, 42, 43, 44, 45}), mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, dec128s([]int64{51, 52, 53, 54, 55}), mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
@@ -665,6 +734,14 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 		bldr.AppendValues(a, valids)
 		return bldr.NewFloat64Array()
 
+	case []decimal128.Num:
+		bldr := array.NewDecimal128Builder(mem, decimal128Type)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		aa := bldr.NewDecimal128Array()
+		return aa
+
 	case []string:
 		bldr := array.NewStringBuilder(mem)
 		defer bldr.Release()
@@ -723,11 +800,48 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 		bldr.AppendValues(vs, valids)
 		return bldr.NewArray()
 
-	case []arrow.Timestamp:
-		bldr := array.NewTimestampBuilder(mem, arrow.FixedWidthTypes.Timestamp.(*arrow.TimestampType))
+	case []timestamp_s:
+		bldr := array.NewTimestampBuilder(mem, arrow.FixedWidthTypes.Timestamp_s.(*arrow.TimestampType))
 		defer bldr.Release()
 
-		bldr.AppendValues(a, valids)
+		vs := make([]arrow.Timestamp, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Timestamp(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []timestamp_ms:
+		bldr := array.NewTimestampBuilder(mem, arrow.FixedWidthTypes.Timestamp_ms.(*arrow.TimestampType))
+		defer bldr.Release()
+
+		vs := make([]arrow.Timestamp, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Timestamp(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []timestamp_us:
+		bldr := array.NewTimestampBuilder(mem, arrow.FixedWidthTypes.Timestamp_us.(*arrow.TimestampType))
+		defer bldr.Release()
+
+		vs := make([]arrow.Timestamp, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Timestamp(v)
+		}
+		bldr.AppendValues(vs, valids)
+		return bldr.NewArray()
+
+	case []timestamp_ns:
+		bldr := array.NewTimestampBuilder(mem, arrow.FixedWidthTypes.Timestamp_ns.(*arrow.TimestampType))
+		defer bldr.Release()
+
+		vs := make([]arrow.Timestamp, len(a))
+		for i, v := range a {
+			vs[i] = arrow.Timestamp(v)
+		}
+		bldr.AppendValues(vs, valids)
 		return bldr.NewArray()
 
 	case []arrow.Date32:

@@ -34,32 +34,33 @@ TEST(TestTypeToString, PhysicalTypes) {
   ASSERT_STREQ("FIXED_LEN_BYTE_ARRAY", TypeToString(Type::FIXED_LEN_BYTE_ARRAY).c_str());
 }
 
-TEST(TestLogicalTypeToString, LogicalTypes) {
-  ASSERT_STREQ("NONE", LogicalTypeToString(LogicalType::NONE).c_str());
-  ASSERT_STREQ("UTF8", LogicalTypeToString(LogicalType::UTF8).c_str());
-  ASSERT_STREQ("MAP", LogicalTypeToString(LogicalType::MAP).c_str());
-  ASSERT_STREQ("MAP_KEY_VALUE", LogicalTypeToString(LogicalType::MAP_KEY_VALUE).c_str());
-  ASSERT_STREQ("LIST", LogicalTypeToString(LogicalType::LIST).c_str());
-  ASSERT_STREQ("ENUM", LogicalTypeToString(LogicalType::ENUM).c_str());
-  ASSERT_STREQ("DECIMAL", LogicalTypeToString(LogicalType::DECIMAL).c_str());
-  ASSERT_STREQ("DATE", LogicalTypeToString(LogicalType::DATE).c_str());
-  ASSERT_STREQ("TIME_MILLIS", LogicalTypeToString(LogicalType::TIME_MILLIS).c_str());
-  ASSERT_STREQ("TIME_MICROS", LogicalTypeToString(LogicalType::TIME_MICROS).c_str());
+TEST(TestConvertedTypeToString, ConvertedTypes) {
+  ASSERT_STREQ("NONE", ConvertedTypeToString(ConvertedType::NONE).c_str());
+  ASSERT_STREQ("UTF8", ConvertedTypeToString(ConvertedType::UTF8).c_str());
+  ASSERT_STREQ("MAP", ConvertedTypeToString(ConvertedType::MAP).c_str());
+  ASSERT_STREQ("MAP_KEY_VALUE",
+               ConvertedTypeToString(ConvertedType::MAP_KEY_VALUE).c_str());
+  ASSERT_STREQ("LIST", ConvertedTypeToString(ConvertedType::LIST).c_str());
+  ASSERT_STREQ("ENUM", ConvertedTypeToString(ConvertedType::ENUM).c_str());
+  ASSERT_STREQ("DECIMAL", ConvertedTypeToString(ConvertedType::DECIMAL).c_str());
+  ASSERT_STREQ("DATE", ConvertedTypeToString(ConvertedType::DATE).c_str());
+  ASSERT_STREQ("TIME_MILLIS", ConvertedTypeToString(ConvertedType::TIME_MILLIS).c_str());
+  ASSERT_STREQ("TIME_MICROS", ConvertedTypeToString(ConvertedType::TIME_MICROS).c_str());
   ASSERT_STREQ("TIMESTAMP_MILLIS",
-               LogicalTypeToString(LogicalType::TIMESTAMP_MILLIS).c_str());
+               ConvertedTypeToString(ConvertedType::TIMESTAMP_MILLIS).c_str());
   ASSERT_STREQ("TIMESTAMP_MICROS",
-               LogicalTypeToString(LogicalType::TIMESTAMP_MICROS).c_str());
-  ASSERT_STREQ("UINT_8", LogicalTypeToString(LogicalType::UINT_8).c_str());
-  ASSERT_STREQ("UINT_16", LogicalTypeToString(LogicalType::UINT_16).c_str());
-  ASSERT_STREQ("UINT_32", LogicalTypeToString(LogicalType::UINT_32).c_str());
-  ASSERT_STREQ("UINT_64", LogicalTypeToString(LogicalType::UINT_64).c_str());
-  ASSERT_STREQ("INT_8", LogicalTypeToString(LogicalType::INT_8).c_str());
-  ASSERT_STREQ("INT_16", LogicalTypeToString(LogicalType::INT_16).c_str());
-  ASSERT_STREQ("INT_32", LogicalTypeToString(LogicalType::INT_32).c_str());
-  ASSERT_STREQ("INT_64", LogicalTypeToString(LogicalType::INT_64).c_str());
-  ASSERT_STREQ("JSON", LogicalTypeToString(LogicalType::JSON).c_str());
-  ASSERT_STREQ("BSON", LogicalTypeToString(LogicalType::BSON).c_str());
-  ASSERT_STREQ("INTERVAL", LogicalTypeToString(LogicalType::INTERVAL).c_str());
+               ConvertedTypeToString(ConvertedType::TIMESTAMP_MICROS).c_str());
+  ASSERT_STREQ("UINT_8", ConvertedTypeToString(ConvertedType::UINT_8).c_str());
+  ASSERT_STREQ("UINT_16", ConvertedTypeToString(ConvertedType::UINT_16).c_str());
+  ASSERT_STREQ("UINT_32", ConvertedTypeToString(ConvertedType::UINT_32).c_str());
+  ASSERT_STREQ("UINT_64", ConvertedTypeToString(ConvertedType::UINT_64).c_str());
+  ASSERT_STREQ("INT_8", ConvertedTypeToString(ConvertedType::INT_8).c_str());
+  ASSERT_STREQ("INT_16", ConvertedTypeToString(ConvertedType::INT_16).c_str());
+  ASSERT_STREQ("INT_32", ConvertedTypeToString(ConvertedType::INT_32).c_str());
+  ASSERT_STREQ("INT_64", ConvertedTypeToString(ConvertedType::INT_64).c_str());
+  ASSERT_STREQ("JSON", ConvertedTypeToString(ConvertedType::JSON).c_str());
+  ASSERT_STREQ("BSON", ConvertedTypeToString(ConvertedType::BSON).c_str());
+  ASSERT_STREQ("INTERVAL", ConvertedTypeToString(ConvertedType::INTERVAL).c_str());
 }
 
 TEST(TestCompressionToString, Compression) {

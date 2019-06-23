@@ -18,6 +18,7 @@
 import { Data } from '../data';
 import * as type from '../type';
 import { Field } from '../schema';
+import { Vector } from '../vector';
 import { DataType } from '../type';
 import { Visitor } from '../visitor';
 import { packBools } from '../util/bit';
@@ -40,11 +41,13 @@ export class VectorLoader extends Visitor {
     private nodesIndex: number = -1;
     private buffers: BufferRegion[];
     private buffersIndex: number = -1;
-    constructor(bytes: Uint8Array, nodes: FieldNode[], buffers: BufferRegion[]) {
+    private dictionaries: Map<number, Vector<any>>;
+    constructor(bytes: Uint8Array, nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>) {
         super();
         this.bytes = bytes;
         this.nodes = nodes;
         this.buffers = buffers;
+        this.dictionaries = dictionaries;
     }
 
     public visit<T extends DataType>(node: Field<T> | T): Data<T> {
@@ -67,7 +70,7 @@ export class VectorLoader extends Visitor {
     public visitUnion           <T extends type.Union>           (type: T                                              ) { return type.mode === UnionMode.Sparse ? this.visitSparseUnion(type as type.SparseUnion) : this.visitDenseUnion(type as type.DenseUnion);                                      }
     public visitDenseUnion      <T extends type.DenseUnion>      (type: T, { length, nullCount } = this.nextFieldNode()) { return           Data.Union(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readTypeIds(type), this.readOffsets(type), this.visitMany(type.children)); }
     public visitSparseUnion     <T extends type.SparseUnion>     (type: T, { length, nullCount } = this.nextFieldNode()) { return           Data.Union(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readTypeIds(type), this.visitMany(type.children));                         }
-    public visitDictionary      <T extends type.Dictionary>      (type: T, { length, nullCount } = this.nextFieldNode()) { return      Data.Dictionary(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type.indices));                                                   }
+    public visitDictionary      <T extends type.Dictionary>      (type: T, { length, nullCount } = this.nextFieldNode()) { return      Data.Dictionary(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type.indices), this.readDictionary(type));                        }
     public visitInterval        <T extends type.Interval>        (type: T, { length, nullCount } = this.nextFieldNode()) { return        Data.Interval(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
     public visitFixedSizeList   <T extends type.FixedSizeList>   (type: T, { length, nullCount } = this.nextFieldNode()) { return   Data.FixedSizeList(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.visit(type.children[0]));                                                  }
     public visitMap             <T extends type.Map_>            (type: T, { length, nullCount } = this.nextFieldNode()) { return             Data.Map(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.visitMany(type.children));                                                 }
@@ -82,13 +85,16 @@ export class VectorLoader extends Visitor {
     protected readData<T extends DataType>(_type: T, { length, offset } = this.nextBufferRange()) {
         return this.bytes.subarray(offset, offset + length);
     }
+    protected readDictionary<T extends type.Dictionary>(type: T): Vector<T['dictionary']> {
+        return this.dictionaries.get(type.id)!;
+    }
 }
 
 /** @ignore */
 export class JSONVectorLoader extends VectorLoader {
     private sources: any[][];
-    constructor(sources: any[][], nodes: FieldNode[], buffers: BufferRegion[]) {
-        super(new Uint8Array(0), nodes, buffers);
+    constructor(sources: any[][], nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>) {
+        super(new Uint8Array(0), nodes, buffers, dictionaries);
         this.sources = sources;
     }
     protected readNullBitmap<T extends DataType>(_type: T, nullCount: number, { offset } = this.nextBufferRange()) {

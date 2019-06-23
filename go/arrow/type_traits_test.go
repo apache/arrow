@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/float16"
 )
 
@@ -81,6 +82,50 @@ func TestFloat16Traits(t *testing.T) {
 
 	v2 := make([]float16.Num, N)
 	arrow.Float16Traits.Copy(v2, v1)
+
+	if !reflect.DeepEqual(v1, v2) {
+		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)
+	}
+}
+
+func TestDecimal128Traits(t *testing.T) {
+	const N = 10
+	nbytes := arrow.Decimal128Traits.BytesRequired(N)
+	b1 := arrow.Decimal128Traits.CastToBytes([]decimal128.Num{
+		decimal128.New(0, 10),
+		decimal128.New(1, 10),
+		decimal128.New(2, 10),
+		decimal128.New(3, 10),
+		decimal128.New(4, 10),
+		decimal128.New(5, 10),
+		decimal128.New(6, 10),
+		decimal128.New(7, 10),
+		decimal128.New(8, 10),
+		decimal128.New(9, 10),
+	})
+
+	b2 := make([]byte, nbytes)
+	for i := 0; i < N; i++ {
+		beg := i * arrow.Decimal128SizeBytes
+		end := (i + 1) * arrow.Decimal128SizeBytes
+		arrow.Decimal128Traits.PutValue(b2[beg:end], decimal128.New(int64(i), 10))
+	}
+
+	if !reflect.DeepEqual(b1, b2) {
+		v1 := arrow.Decimal128Traits.CastFromBytes(b1)
+		v2 := arrow.Decimal128Traits.CastFromBytes(b2)
+		t.Fatalf("invalid values:\nb1=%v\nb2=%v\nv1=%v\nv2=%v\n", b1, b2, v1, v2)
+	}
+
+	v1 := arrow.Decimal128Traits.CastFromBytes(b1)
+	for i, v := range v1 {
+		if got, want := v, decimal128.New(int64(i), 10); got != want {
+			t.Fatalf("invalid value[%d]. got=%v, want=%v", i, got, want)
+		}
+	}
+
+	v2 := make([]decimal128.Num, N)
+	arrow.Decimal128Traits.Copy(v2, v1)
 
 	if !reflect.DeepEqual(v1, v2) {
 		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)

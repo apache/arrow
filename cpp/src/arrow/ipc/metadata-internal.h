@@ -29,6 +29,7 @@
 #include <flatbuffers/flatbuffers.h>
 
 #include "arrow/buffer.h"
+#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/dictionary.h"  // IYWU pragma: keep
 #include "arrow/ipc/message.h"
@@ -107,6 +108,16 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
                                std::vector<int64_t>* shape,
                                std::vector<std::string>* dim_names, int64_t* length,
                                SparseTensorFormat::type* sparse_tensor_format_id);
+
+static inline Status VerifyMessage(const uint8_t* data, int64_t size,
+                                   const flatbuf::Message** out) {
+  flatbuffers::Verifier verifier(data, size, /*max_depth=*/128);
+  if (!flatbuf::VerifyMessageBuffer(verifier)) {
+    return Status::IOError("Invalid flatbuffers message.");
+  }
+  *out = flatbuf::GetMessage(data);
+  return Status::OK();
+}
 
 /// Write a serialized message metadata with a length-prefix and padding to an
 /// 8-byte offset. Does not make assumptions about whether the stream is

@@ -49,6 +49,8 @@ dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-cuda-dev.install
 dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-cuda-glib-dev.install
 dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-cuda-glib14.install
 dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-cuda14.install
+dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-dataset-dev.install
+dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-dataset14.install
 dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-python-dev.install
 dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-python14.install
 dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow14.install
@@ -95,6 +97,8 @@ dev/tasks/linux-packages/debian/libarrow-cuda-dev.install
 dev/tasks/linux-packages/debian/libarrow-cuda-glib-dev.install
 dev/tasks/linux-packages/debian/libarrow-cuda-glib14.install
 dev/tasks/linux-packages/debian/libarrow-cuda14.install
+dev/tasks/linux-packages/debian/libarrow-dataset-dev.install
+dev/tasks/linux-packages/debian/libarrow-dataset14.install
 dev/tasks/linux-packages/debian/libarrow-flight-dev.install
 dev/tasks/linux-packages/debian/libarrow-flight14.install
 dev/tasks/linux-packages/debian/libarrow-python-dev.install
@@ -181,6 +185,8 @@ csharp/.gitattributes
 csharp/src/Apache.Arrow/Flatbuf/*
 csharp/Apache.Arrow.sln
 csharp/Directory.Build.props
+csharp/examples/FluentBuilderExample/FluentBuilderExample.csproj
+csharp/examples/Examples.sln
 csharp/src/Apache.Arrow/Apache.Arrow.csproj
 csharp/src/Apache.Arrow/Properties/Resources.Designer.cs
 csharp/src/Apache.Arrow/Properties/Resources.resx

@@ -631,7 +631,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType> {
     // ARROW-4688(wesm): Using 2^31 - 1 chunks for now
     constexpr int32_t kBinaryChunksize = 2147483647;
     DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    if (descr_->logical_type() == LogicalType::UTF8) {
+    if (descr_->converted_type() == ConvertedType::UTF8) {
       builder_.reset(
           new ::arrow::internal::ChunkedStringBuilder(kBinaryChunksize, pool_));
     } else {
@@ -867,7 +867,7 @@ bool TypedRecordReader<DType>::ReadNewPage() {
 std::shared_ptr<RecordReader> RecordReader::MakeByteArrayRecordReader(
     const ColumnDescriptor* descr, arrow::MemoryPool* pool, bool read_dictionary) {
   if (read_dictionary) {
-    if (descr->logical_type() == LogicalType::UTF8) {
+    if (descr->converted_type() == ConvertedType::UTF8) {
       using Builder = ::arrow::StringDictionaryBuilder;
       return std::shared_ptr<RecordReader>(
           new RecordReader(new ByteArrayDictionaryRecordReader<Builder>(descr, pool)));

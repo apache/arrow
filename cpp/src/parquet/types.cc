@@ -208,55 +208,55 @@ std::string TypeToString(Type::type t) {
   }
 }
 
-std::string LogicalTypeToString(LogicalType::type t) {
+std::string ConvertedTypeToString(ConvertedType::type t) {
   switch (t) {
-    case LogicalType::NONE:
+    case ConvertedType::NONE:
       return "NONE";
-    case LogicalType::UTF8:
+    case ConvertedType::UTF8:
       return "UTF8";
-    case LogicalType::MAP:
+    case ConvertedType::MAP:
       return "MAP";
-    case LogicalType::MAP_KEY_VALUE:
+    case ConvertedType::MAP_KEY_VALUE:
       return "MAP_KEY_VALUE";
-    case LogicalType::LIST:
+    case ConvertedType::LIST:
       return "LIST";
-    case LogicalType::ENUM:
+    case ConvertedType::ENUM:
       return "ENUM";
-    case LogicalType::DECIMAL:
+    case ConvertedType::DECIMAL:
       return "DECIMAL";
-    case LogicalType::DATE:
+    case ConvertedType::DATE:
       return "DATE";
-    case LogicalType::TIME_MILLIS:
+    case ConvertedType::TIME_MILLIS:
       return "TIME_MILLIS";
-    case LogicalType::TIME_MICROS:
+    case ConvertedType::TIME_MICROS:
       return "TIME_MICROS";
-    case LogicalType::TIMESTAMP_MILLIS:
+    case ConvertedType::TIMESTAMP_MILLIS:
       return "TIMESTAMP_MILLIS";
-    case LogicalType::TIMESTAMP_MICROS:
+    case ConvertedType::TIMESTAMP_MICROS:
       return "TIMESTAMP_MICROS";
-    case LogicalType::UINT_8:
+    case ConvertedType::UINT_8:
       return "UINT_8";
-    case LogicalType::UINT_16:
+    case ConvertedType::UINT_16:
       return "UINT_16";
-    case LogicalType::UINT_32:
+    case ConvertedType::UINT_32:
       return "UINT_32";
-    case LogicalType::UINT_64:
+    case ConvertedType::UINT_64:
       return "UINT_64";
-    case LogicalType::INT_8:
+    case ConvertedType::INT_8:
       return "INT_8";
-    case LogicalType::INT_16:
+    case ConvertedType::INT_16:
       return "INT_16";
-    case LogicalType::INT_32:
+    case ConvertedType::INT_32:
       return "INT_32";
-    case LogicalType::INT_64:
+    case ConvertedType::INT_64:
       return "INT_64";
-    case LogicalType::JSON:
+    case ConvertedType::JSON:
       return "JSON";
-    case LogicalType::BSON:
+    case ConvertedType::BSON:
       return "BSON";
-    case LogicalType::INTERVAL:
+    case ConvertedType::INTERVAL:
       return "INTERVAL";
-    case LogicalType::UNDEFINED:
+    case ConvertedType::UNDEFINED:
     default:
       return "UNKNOWN";
   }
@@ -307,46 +307,47 @@ SortOrder::type DefaultSortOrder(Type::type primitive) {
 }
 
 // Return the SortOrder of the Parquet Types using Logical or Physical Types
-SortOrder::type GetSortOrder(LogicalType::type converted, Type::type primitive) {
-  if (converted == LogicalType::NONE) return DefaultSortOrder(primitive);
+SortOrder::type GetSortOrder(ConvertedType::type converted, Type::type primitive) {
+  if (converted == ConvertedType::NONE) return DefaultSortOrder(primitive);
   switch (converted) {
-    case LogicalType::INT_8:
-    case LogicalType::INT_16:
-    case LogicalType::INT_32:
-    case LogicalType::INT_64:
-    case LogicalType::DATE:
-    case LogicalType::TIME_MICROS:
-    case LogicalType::TIME_MILLIS:
-    case LogicalType::TIMESTAMP_MICROS:
-    case LogicalType::TIMESTAMP_MILLIS:
+    case ConvertedType::INT_8:
+    case ConvertedType::INT_16:
+    case ConvertedType::INT_32:
+    case ConvertedType::INT_64:
+    case ConvertedType::DATE:
+    case ConvertedType::TIME_MICROS:
+    case ConvertedType::TIME_MILLIS:
+    case ConvertedType::TIMESTAMP_MICROS:
+    case ConvertedType::TIMESTAMP_MILLIS:
       return SortOrder::SIGNED;
-    case LogicalType::UINT_8:
-    case LogicalType::UINT_16:
-    case LogicalType::UINT_32:
-    case LogicalType::UINT_64:
-    case LogicalType::ENUM:
-    case LogicalType::UTF8:
-    case LogicalType::BSON:
-    case LogicalType::JSON:
+    case ConvertedType::UINT_8:
+    case ConvertedType::UINT_16:
+    case ConvertedType::UINT_32:
+    case ConvertedType::UINT_64:
+    case ConvertedType::ENUM:
+    case ConvertedType::UTF8:
+    case ConvertedType::BSON:
+    case ConvertedType::JSON:
       return SortOrder::UNSIGNED;
-    case LogicalType::DECIMAL:
-    case LogicalType::LIST:
-    case LogicalType::MAP:
-    case LogicalType::MAP_KEY_VALUE:
-    case LogicalType::INTERVAL:
-    case LogicalType::NONE:  // required instead of default
-    case LogicalType::NA:    // required instead of default
-    case LogicalType::UNDEFINED:
+    case ConvertedType::DECIMAL:
+    case ConvertedType::LIST:
+    case ConvertedType::MAP:
+    case ConvertedType::MAP_KEY_VALUE:
+    case ConvertedType::INTERVAL:
+    case ConvertedType::NONE:  // required instead of default
+    case ConvertedType::NA:    // required instead of default
+    case ConvertedType::UNDEFINED:
       return SortOrder::UNKNOWN;
   }
   return SortOrder::UNKNOWN;
 }
 
-SortOrder::type GetSortOrder(const std::shared_ptr<const LogicalAnnotation>& annotation,
+SortOrder::type GetSortOrder(const std::shared_ptr<const LogicalType>& logical_type,
                              Type::type primitive) {
   SortOrder::type o = SortOrder::UNKNOWN;
-  if (annotation && annotation->is_valid()) {
-    o = (annotation->is_none() ? DefaultSortOrder(primitive) : annotation->sort_order());
+  if (logical_type && logical_type->is_valid()) {
+    o = (logical_type->is_none() ? DefaultSortOrder(primitive)
+                                 : logical_type->sort_order());
   }
   return o;
 }
@@ -354,218 +355,199 @@ SortOrder::type GetSortOrder(const std::shared_ptr<const LogicalAnnotation>& ann
 ColumnOrder ColumnOrder::undefined_ = ColumnOrder(ColumnOrder::UNDEFINED);
 ColumnOrder ColumnOrder::type_defined_ = ColumnOrder(ColumnOrder::TYPE_DEFINED_ORDER);
 
-// Static methods for LogicalAnnotation class
+// Static methods for LogicalType class
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::FromConvertedType(
-    const LogicalType::type converted_type,
+std::shared_ptr<const LogicalType> LogicalType::FromConvertedType(
+    const ConvertedType::type converted_type,
     const schema::DecimalMetadata converted_decimal_metadata) {
   switch (converted_type) {
-    case LogicalType::UTF8:
-      return StringAnnotation::Make();
-    case LogicalType::MAP_KEY_VALUE:
-    case LogicalType::MAP:
-      return MapAnnotation::Make();
-    case LogicalType::LIST:
-      return ListAnnotation::Make();
-    case LogicalType::ENUM:
-      return EnumAnnotation::Make();
-    case LogicalType::DECIMAL:
-      return DecimalAnnotation::Make(converted_decimal_metadata.precision,
-                                     converted_decimal_metadata.scale);
-    case LogicalType::DATE:
-      return DateAnnotation::Make();
-    case LogicalType::TIME_MILLIS:
-      return TimeAnnotation::Make(true, LogicalAnnotation::TimeUnit::MILLIS);
-    case LogicalType::TIME_MICROS:
-      return TimeAnnotation::Make(true, LogicalAnnotation::TimeUnit::MICROS);
-    case LogicalType::TIMESTAMP_MILLIS:
-      return TimestampAnnotation::Make(true, LogicalAnnotation::TimeUnit::MILLIS);
-    case LogicalType::TIMESTAMP_MICROS:
-      return TimestampAnnotation::Make(true, LogicalAnnotation::TimeUnit::MICROS);
-    case LogicalType::INTERVAL:
-      return IntervalAnnotation::Make();
-    case LogicalType::INT_8:
-      return IntAnnotation::Make(8, true);
-    case LogicalType::INT_16:
-      return IntAnnotation::Make(16, true);
-    case LogicalType::INT_32:
-      return IntAnnotation::Make(32, true);
-    case LogicalType::INT_64:
-      return IntAnnotation::Make(64, true);
-    case LogicalType::UINT_8:
-      return IntAnnotation::Make(8, false);
-    case LogicalType::UINT_16:
-      return IntAnnotation::Make(16, false);
-    case LogicalType::UINT_32:
-      return IntAnnotation::Make(32, false);
-    case LogicalType::UINT_64:
-      return IntAnnotation::Make(64, false);
-    case LogicalType::JSON:
-      return JSONAnnotation::Make();
-    case LogicalType::BSON:
-      return BSONAnnotation::Make();
-    case LogicalType::NONE:
-      return NoAnnotation::Make();
-    case LogicalType::NA:
-    case LogicalType::UNDEFINED:
-      return UnknownAnnotation::Make();
+    case ConvertedType::UTF8:
+      return StringLogicalType::Make();
+    case ConvertedType::MAP_KEY_VALUE:
+    case ConvertedType::MAP:
+      return MapLogicalType::Make();
+    case ConvertedType::LIST:
+      return ListLogicalType::Make();
+    case ConvertedType::ENUM:
+      return EnumLogicalType::Make();
+    case ConvertedType::DECIMAL:
+      return DecimalLogicalType::Make(converted_decimal_metadata.precision,
+                                      converted_decimal_metadata.scale);
+    case ConvertedType::DATE:
+      return DateLogicalType::Make();
+    case ConvertedType::TIME_MILLIS:
+      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MILLIS);
+    case ConvertedType::TIME_MICROS:
+      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MICROS);
+    case ConvertedType::TIMESTAMP_MILLIS:
+      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MILLIS);
+    case ConvertedType::TIMESTAMP_MICROS:
+      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MICROS);
+    case ConvertedType::INTERVAL:
+      return IntervalLogicalType::Make();
+    case ConvertedType::INT_8:
+      return IntLogicalType::Make(8, true);
+    case ConvertedType::INT_16:
+      return IntLogicalType::Make(16, true);
+    case ConvertedType::INT_32:
+      return IntLogicalType::Make(32, true);
+    case ConvertedType::INT_64:
+      return IntLogicalType::Make(64, true);
+    case ConvertedType::UINT_8:
+      return IntLogicalType::Make(8, false);
+    case ConvertedType::UINT_16:
+      return IntLogicalType::Make(16, false);
+    case ConvertedType::UINT_32:
+      return IntLogicalType::Make(32, false);
+    case ConvertedType::UINT_64:
+      return IntLogicalType::Make(64, false);
+    case ConvertedType::JSON:
+      return JSONLogicalType::Make();
+    case ConvertedType::BSON:
+      return BSONLogicalType::Make();
+    case ConvertedType::NONE:
+      return NoLogicalType::Make();
+    case ConvertedType::NA:
+    case ConvertedType::UNDEFINED:
+      return UnknownLogicalType::Make();
   }
-  return UnknownAnnotation::Make();
+  return UnknownLogicalType::Make();
 }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::FromThrift(
+std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     const format::LogicalType& type) {
   if (type.__isset.STRING) {
-    return StringAnnotation::Make();
+    return StringLogicalType::Make();
   } else if (type.__isset.MAP) {
-    return MapAnnotation::Make();
+    return MapLogicalType::Make();
   } else if (type.__isset.LIST) {
-    return ListAnnotation::Make();
+    return ListLogicalType::Make();
   } else if (type.__isset.ENUM) {
-    return EnumAnnotation::Make();
+    return EnumLogicalType::Make();
   } else if (type.__isset.DECIMAL) {
-    return DecimalAnnotation::Make(type.DECIMAL.precision, type.DECIMAL.scale);
+    return DecimalLogicalType::Make(type.DECIMAL.precision, type.DECIMAL.scale);
   } else if (type.__isset.DATE) {
-    return DateAnnotation::Make();
+    return DateLogicalType::Make();
   } else if (type.__isset.TIME) {
-    LogicalAnnotation::TimeUnit::unit unit;
+    LogicalType::TimeUnit::unit unit;
     if (type.TIME.unit.__isset.MILLIS) {
-      unit = LogicalAnnotation::TimeUnit::MILLIS;
+      unit = LogicalType::TimeUnit::MILLIS;
     } else if (type.TIME.unit.__isset.MICROS) {
-      unit = LogicalAnnotation::TimeUnit::MICROS;
+      unit = LogicalType::TimeUnit::MICROS;
     } else if (type.TIME.unit.__isset.NANOS) {
-      unit = LogicalAnnotation::TimeUnit::NANOS;
+      unit = LogicalType::TimeUnit::NANOS;
     } else {
-      unit = LogicalAnnotation::TimeUnit::UNKNOWN;
+      unit = LogicalType::TimeUnit::UNKNOWN;
     }
-    return TimeAnnotation::Make(type.TIME.isAdjustedToUTC, unit);
+    return TimeLogicalType::Make(type.TIME.isAdjustedToUTC, unit);
   } else if (type.__isset.TIMESTAMP) {
-    LogicalAnnotation::TimeUnit::unit unit;
+    LogicalType::TimeUnit::unit unit;
     if (type.TIMESTAMP.unit.__isset.MILLIS) {
-      unit = LogicalAnnotation::TimeUnit::MILLIS;
+      unit = LogicalType::TimeUnit::MILLIS;
     } else if (type.TIMESTAMP.unit.__isset.MICROS) {
-      unit = LogicalAnnotation::TimeUnit::MICROS;
+      unit = LogicalType::TimeUnit::MICROS;
     } else if (type.TIMESTAMP.unit.__isset.NANOS) {
-      unit = LogicalAnnotation::TimeUnit::NANOS;
+      unit = LogicalType::TimeUnit::NANOS;
     } else {
-      unit = LogicalAnnotation::TimeUnit::UNKNOWN;
+      unit = LogicalType::TimeUnit::UNKNOWN;
     }
-    return TimestampAnnotation::Make(type.TIMESTAMP.isAdjustedToUTC, unit);
+    return TimestampLogicalType::Make(type.TIMESTAMP.isAdjustedToUTC, unit);
     // TODO(tpboudreau): activate the commented code after parquet.thrift
     // recognizes IntervalType as a LogicalType
     //} else if (type.__isset.INTERVAL) {
-    //  return IntervalAnnotation::Make();
+    //  return IntervalLogicalType::Make();
   } else if (type.__isset.INTEGER) {
-    return IntAnnotation::Make(static_cast<int>(type.INTEGER.bitWidth),
-                               type.INTEGER.isSigned);
+    return IntLogicalType::Make(static_cast<int>(type.INTEGER.bitWidth),
+                                type.INTEGER.isSigned);
   } else if (type.__isset.UNKNOWN) {
-    return NullAnnotation::Make();
+    return NullLogicalType::Make();
   } else if (type.__isset.JSON) {
-    return JSONAnnotation::Make();
+    return JSONLogicalType::Make();
   } else if (type.__isset.BSON) {
-    return BSONAnnotation::Make();
+    return BSONLogicalType::Make();
   } else if (type.__isset.UUID) {
-    return UUIDAnnotation::Make();
+    return UUIDLogicalType::Make();
   } else {
     throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
   }
 }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::String() {
-  return StringAnnotation::Make();
+std::shared_ptr<const LogicalType> LogicalType::String() {
+  return StringLogicalType::Make();
 }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Map() {
-  return MapAnnotation::Make();
+std::shared_ptr<const LogicalType> LogicalType::Map() { return MapLogicalType::Make(); }
+
+std::shared_ptr<const LogicalType> LogicalType::List() { return ListLogicalType::Make(); }
+
+std::shared_ptr<const LogicalType> LogicalType::Enum() { return EnumLogicalType::Make(); }
+
+std::shared_ptr<const LogicalType> LogicalType::Decimal(int32_t precision,
+                                                        int32_t scale) {
+  return DecimalLogicalType::Make(precision, scale);
 }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::List() {
-  return ListAnnotation::Make();
+std::shared_ptr<const LogicalType> LogicalType::Date() { return DateLogicalType::Make(); }
+
+std::shared_ptr<const LogicalType> LogicalType::Time(
+    bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit) {
+  DCHECK(time_unit != LogicalType::TimeUnit::UNKNOWN);
+  return TimeLogicalType::Make(is_adjusted_to_utc, time_unit);
 }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Enum() {
-  return EnumAnnotation::Make();
+std::shared_ptr<const LogicalType> LogicalType::Timestamp(
+    bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit) {
+  DCHECK(time_unit != LogicalType::TimeUnit::UNKNOWN);
+  return TimestampLogicalType::Make(is_adjusted_to_utc, time_unit);
 }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Decimal(int32_t precision,
-                                                                    int32_t scale) {
-  return DecimalAnnotation::Make(precision, scale);
+std::shared_ptr<const LogicalType> LogicalType::Interval() {
+  return IntervalLogicalType::Make();
 }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Date() {
-  return DateAnnotation::Make();
-}
-
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Time(
-    bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit) {
-  DCHECK(time_unit != LogicalAnnotation::TimeUnit::UNKNOWN);
-  return TimeAnnotation::Make(is_adjusted_to_utc, time_unit);
-}
-
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Timestamp(
-    bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit) {
-  DCHECK(time_unit != LogicalAnnotation::TimeUnit::UNKNOWN);
-  return TimestampAnnotation::Make(is_adjusted_to_utc, time_unit);
-}
-
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Interval() {
-  return IntervalAnnotation::Make();
-}
-
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Int(int bit_width,
-                                                                bool is_signed) {
+std::shared_ptr<const LogicalType> LogicalType::Int(int bit_width, bool is_signed) {
   DCHECK(bit_width == 64 || bit_width == 32 || bit_width == 16 || bit_width == 8);
-  return IntAnnotation::Make(bit_width, is_signed);
+  return IntLogicalType::Make(bit_width, is_signed);
 }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Null() {
-  return NullAnnotation::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::Null() { return NullLogicalType::Make(); }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::JSON() {
-  return JSONAnnotation::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::JSON() { return JSONLogicalType::Make(); }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::BSON() {
-  return BSONAnnotation::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::BSON() { return BSONLogicalType::Make(); }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::UUID() {
-  return UUIDAnnotation::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::UUID() { return UUIDLogicalType::Make(); }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::None() {
-  return NoAnnotation::Make();
-}
+std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
 
-std::shared_ptr<const LogicalAnnotation> LogicalAnnotation::Unknown() {
-  return UnknownAnnotation::Make();
+std::shared_ptr<const LogicalType> LogicalType::Unknown() {
+  return UnknownLogicalType::Make();
 }
 
 /*
- * The annotation implementation classes are built in four layers: (1) the base
+ * The logical type implementation classes are built in four layers: (1) the base
  * layer, which establishes the interface and provides generally reusable implementations
  * for the ToJSON() and Equals() methods; (2) an intermediate derived layer for the
  * "compatibility" methods, which provides implementations for is_compatible() and
  * ToConvertedType(); (3) another intermediate layer for the "applicability" methods
  * that provides several implementations for the is_applicable() method; and (4) the
- * final derived classes, one for each annotation type, which supply implementations
+ * final derived classes, one for each logical type, which supply implementations
  * for those methods that remain virtual (usually just ToString() and ToThrift()) or
  * otherwise need to be overridden.
  */
 
-// LogicalAnnotationImpl base class
+// LogicalTypeImpl base class
 
-class LogicalAnnotation::Impl {
+class LogicalType::Impl {
  public:
   virtual bool is_applicable(parquet::Type::type primitive_type,
                              int32_t primitive_length = -1) const = 0;
 
-  virtual bool is_compatible(LogicalType::type converted_type,
+  virtual bool is_compatible(ConvertedType::type converted_type,
                              schema::DecimalMetadata converted_decimal_metadata = {
                                  false, -1, -1}) const = 0;
 
-  virtual LogicalType::type ToConvertedType(
+  virtual ConvertedType::type ToConvertedType(
       schema::DecimalMetadata* out_decimal_metadata) const = 0;
 
   virtual std::string ToString() const = 0;
@@ -577,17 +559,15 @@ class LogicalAnnotation::Impl {
   }
 
   virtual format::LogicalType ToThrift() const {
-    // annotation types inheriting this method should never be serialized
+    // logical types inheriting this method should never be serialized
     std::stringstream ss;
-    ss << "Annotation type " << ToString() << " should not be serialized";
+    ss << "Logical type " << ToString() << " should not be serialized";
     throw ParquetException(ss.str());
   }
 
-  virtual bool Equals(const LogicalAnnotation& other) const {
-    return other.type() == type_;
-  }
+  virtual bool Equals(const LogicalType& other) const { return other.type() == type_; }
 
-  LogicalAnnotation::Type::type type() const { return type_; }
+  LogicalType::Type::type type() const { return type_; }
 
   SortOrder::type sort_order() const { return order_; }
 
@@ -623,115 +603,87 @@ class LogicalAnnotation::Impl {
   class Unknown;
 
  protected:
-  Impl(LogicalAnnotation::Type::type t, SortOrder::type o) : type_(t), order_(o) {}
+  Impl(LogicalType::Type::type t, SortOrder::type o) : type_(t), order_(o) {}
   Impl() = default;
 
  private:
-  LogicalAnnotation::Type::type type_ = LogicalAnnotation::Type::UNKNOWN;
+  LogicalType::Type::type type_ = LogicalType::Type::UNKNOWN;
   SortOrder::type order_ = SortOrder::UNKNOWN;
 };
 
-// Special methods for public LogicalAnnotation class
+// Special methods for public LogicalType class
 
-LogicalAnnotation::LogicalAnnotation() = default;
-LogicalAnnotation::~LogicalAnnotation() noexcept = default;
+LogicalType::LogicalType() = default;
+LogicalType::~LogicalType() noexcept = default;
 
-// Delegating methods for public LogicalAnnotation class
+// Delegating methods for public LogicalType class
 
-bool LogicalAnnotation::is_applicable(parquet::Type::type primitive_type,
-                                      int32_t primitive_length) const {
+bool LogicalType::is_applicable(parquet::Type::type primitive_type,
+                                int32_t primitive_length) const {
   return impl_->is_applicable(primitive_type, primitive_length);
 }
 
-bool LogicalAnnotation::is_compatible(
-    LogicalType::type converted_type,
+bool LogicalType::is_compatible(
+    ConvertedType::type converted_type,
     schema::DecimalMetadata converted_decimal_metadata) const {
   return impl_->is_compatible(converted_type, converted_decimal_metadata);
 }
 
-LogicalType::type LogicalAnnotation::ToConvertedType(
+ConvertedType::type LogicalType::ToConvertedType(
     schema::DecimalMetadata* out_decimal_metadata) const {
   return impl_->ToConvertedType(out_decimal_metadata);
 }
 
-std::string LogicalAnnotation::ToString() const { return impl_->ToString(); }
+std::string LogicalType::ToString() const { return impl_->ToString(); }
 
-std::string LogicalAnnotation::ToJSON() const { return impl_->ToJSON(); }
+std::string LogicalType::ToJSON() const { return impl_->ToJSON(); }
 
-format::LogicalType LogicalAnnotation::ToThrift() const { return impl_->ToThrift(); }
+format::LogicalType LogicalType::ToThrift() const { return impl_->ToThrift(); }
 
-bool LogicalAnnotation::Equals(const LogicalAnnotation& other) const {
-  return impl_->Equals(other);
-}
+bool LogicalType::Equals(const LogicalType& other) const { return impl_->Equals(other); }
 
-LogicalAnnotation::Type::type LogicalAnnotation::type() const { return impl_->type(); }
+LogicalType::Type::type LogicalType::type() const { return impl_->type(); }
 
-SortOrder::type LogicalAnnotation::sort_order() const { return impl_->sort_order(); }
+SortOrder::type LogicalType::sort_order() const { return impl_->sort_order(); }
 
-// Type checks for public LogicalAnnotation class
+// Type checks for public LogicalType class
 
-bool LogicalAnnotation::is_string() const {
-  return impl_->type() == LogicalAnnotation::Type::STRING;
+bool LogicalType::is_string() const { return impl_->type() == LogicalType::Type::STRING; }
+bool LogicalType::is_map() const { return impl_->type() == LogicalType::Type::MAP; }
+bool LogicalType::is_list() const { return impl_->type() == LogicalType::Type::LIST; }
+bool LogicalType::is_enum() const { return impl_->type() == LogicalType::Type::ENUM; }
+bool LogicalType::is_decimal() const {
+  return impl_->type() == LogicalType::Type::DECIMAL;
 }
-bool LogicalAnnotation::is_map() const {
-  return impl_->type() == LogicalAnnotation::Type::MAP;
+bool LogicalType::is_date() const { return impl_->type() == LogicalType::Type::DATE; }
+bool LogicalType::is_time() const { return impl_->type() == LogicalType::Type::TIME; }
+bool LogicalType::is_timestamp() const {
+  return impl_->type() == LogicalType::Type::TIMESTAMP;
 }
-bool LogicalAnnotation::is_list() const {
-  return impl_->type() == LogicalAnnotation::Type::LIST;
+bool LogicalType::is_interval() const {
+  return impl_->type() == LogicalType::Type::INTERVAL;
 }
-bool LogicalAnnotation::is_enum() const {
-  return impl_->type() == LogicalAnnotation::Type::ENUM;
+bool LogicalType::is_int() const { return impl_->type() == LogicalType::Type::INT; }
+bool LogicalType::is_null() const { return impl_->type() == LogicalType::Type::NIL; }
+bool LogicalType::is_JSON() const { return impl_->type() == LogicalType::Type::JSON; }
+bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::BSON; }
+bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
+bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
+bool LogicalType::is_valid() const { return impl_->type() != LogicalType::Type::UNKNOWN; }
+bool LogicalType::is_invalid() const { return !is_valid(); }
+bool LogicalType::is_nested() const {
+  return (impl_->type() == LogicalType::Type::LIST) ||
+         (impl_->type() == LogicalType::Type::MAP);
 }
-bool LogicalAnnotation::is_decimal() const {
-  return impl_->type() == LogicalAnnotation::Type::DECIMAL;
-}
-bool LogicalAnnotation::is_date() const {
-  return impl_->type() == LogicalAnnotation::Type::DATE;
-}
-bool LogicalAnnotation::is_time() const {
-  return impl_->type() == LogicalAnnotation::Type::TIME;
-}
-bool LogicalAnnotation::is_timestamp() const {
-  return impl_->type() == LogicalAnnotation::Type::TIMESTAMP;
-}
-bool LogicalAnnotation::is_interval() const {
-  return impl_->type() == LogicalAnnotation::Type::INTERVAL;
-}
-bool LogicalAnnotation::is_int() const {
-  return impl_->type() == LogicalAnnotation::Type::INT;
-}
-bool LogicalAnnotation::is_null() const {
-  return impl_->type() == LogicalAnnotation::Type::NIL;
-}
-bool LogicalAnnotation::is_JSON() const {
-  return impl_->type() == LogicalAnnotation::Type::JSON;
-}
-bool LogicalAnnotation::is_BSON() const {
-  return impl_->type() == LogicalAnnotation::Type::BSON;
-}
-bool LogicalAnnotation::is_UUID() const {
-  return impl_->type() == LogicalAnnotation::Type::UUID;
-}
-bool LogicalAnnotation::is_none() const {
-  return impl_->type() == LogicalAnnotation::Type::NONE;
-}
-bool LogicalAnnotation::is_valid() const {
-  return impl_->type() != LogicalAnnotation::Type::UNKNOWN;
-}
-bool LogicalAnnotation::is_invalid() const { return !is_valid(); }
-bool LogicalAnnotation::is_nested() const {
-  return (impl_->type() == LogicalAnnotation::Type::LIST) ||
-         (impl_->type() == LogicalAnnotation::Type::MAP);
-}
-bool LogicalAnnotation::is_nonnested() const { return !is_nested(); }
-bool LogicalAnnotation::is_serialized() const {
-  return !((impl_->type() == LogicalAnnotation::Type::NONE) ||
-           (impl_->type() == LogicalAnnotation::Type::UNKNOWN));
+bool LogicalType::is_nonnested() const { return !is_nested(); }
+bool LogicalType::is_serialized() const {
+  return !((impl_->type() == LogicalType::Type::NONE) ||
+           (impl_->type() == LogicalType::Type::UNKNOWN));
 }
 
-// LogicalAnnotationImpl intermediate "compatibility" classes
+// LogicalTypeImpl intermediate "compatibility" classes
 
-class LogicalAnnotation::Impl::Compatible : public virtual LogicalAnnotation::Impl {
+class LogicalType::Impl::Compatible : public virtual LogicalType::Impl {
  protected:
   Compatible() = default;
 };
@@ -748,58 +700,57 @@ class LogicalAnnotation::Impl::Compatible : public virtual LogicalAnnotation::Im
 #define reset_decimal_metadata(m___) \
   { set_decimal_metadata(m___, false, -1, -1); }
 
-// For logical annotation types that always translate to the same converted type
-class LogicalAnnotation::Impl::SimpleCompatible
-    : public virtual LogicalAnnotation::Impl::Compatible {
+// For logical types that always translate to the same converted type
+class LogicalType::Impl::SimpleCompatible : public virtual LogicalType::Impl::Compatible {
  public:
-  bool is_compatible(LogicalType::type converted_type,
+  bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override {
     return (converted_type == converted_type_) && !converted_decimal_metadata.isset;
   }
 
-  LogicalType::type ToConvertedType(
+  ConvertedType::type ToConvertedType(
       schema::DecimalMetadata* out_decimal_metadata) const override {
     reset_decimal_metadata(out_decimal_metadata);
     return converted_type_;
   }
 
  protected:
-  explicit SimpleCompatible(LogicalType::type c) : converted_type_(c) {}
+  explicit SimpleCompatible(ConvertedType::type c) : converted_type_(c) {}
 
  private:
-  LogicalType::type converted_type_ = LogicalType::NA;
+  ConvertedType::type converted_type_ = ConvertedType::NA;
 };
 
-// For logical annotations that have no corresponding converted type
-class LogicalAnnotation::Impl::Incompatible : public virtual LogicalAnnotation::Impl {
+// For logical types that have no corresponding converted type
+class LogicalType::Impl::Incompatible : public virtual LogicalType::Impl {
  public:
-  bool is_compatible(LogicalType::type converted_type,
+  bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override {
-    return (converted_type == LogicalType::NONE || converted_type == LogicalType::NA) &&
+    return (converted_type == ConvertedType::NONE ||
+            converted_type == ConvertedType::NA) &&
            !converted_decimal_metadata.isset;
   }
 
-  LogicalType::type ToConvertedType(
+  ConvertedType::type ToConvertedType(
       schema::DecimalMetadata* out_decimal_metadata) const override {
     reset_decimal_metadata(out_decimal_metadata);
-    return LogicalType::NONE;
+    return ConvertedType::NONE;
   }
 
  protected:
   Incompatible() = default;
 };
 
-// LogicalAnnotationImpl intermediate "applicability" classes
+// LogicalTypeImpl intermediate "applicability" classes
 
-class LogicalAnnotation::Impl::Applicable : public virtual LogicalAnnotation::Impl {
+class LogicalType::Impl::Applicable : public virtual LogicalType::Impl {
  protected:
   Applicable() = default;
 };
 
-// For logical annotations that can apply only to a single
+// For logical types that can apply only to a single
 // physical type
-class LogicalAnnotation::Impl::SimpleApplicable
-    : public virtual LogicalAnnotation::Impl::Applicable {
+class LogicalType::Impl::SimpleApplicable : public virtual LogicalType::Impl::Applicable {
  public:
   bool is_applicable(parquet::Type::type primitive_type,
                      int32_t primitive_length = -1) const override {
@@ -813,10 +764,10 @@ class LogicalAnnotation::Impl::SimpleApplicable
   parquet::Type::type type_;
 };
 
-// For logical annotations that can apply only to a particular
+// For logical types that can apply only to a particular
 // physical type and physical length combination
-class LogicalAnnotation::Impl::TypeLengthApplicable
-    : public virtual LogicalAnnotation::Impl::Applicable {
+class LogicalType::Impl::TypeLengthApplicable
+    : public virtual LogicalType::Impl::Applicable {
  public:
   bool is_applicable(parquet::Type::type primitive_type,
                      int32_t primitive_length = -1) const override {
@@ -831,9 +782,9 @@ class LogicalAnnotation::Impl::TypeLengthApplicable
   int32_t length_;
 };
 
-// For logical annotations that can apply to any physical type
-class LogicalAnnotation::Impl::UniversalApplicable
-    : public virtual LogicalAnnotation::Impl::Applicable {
+// For logical types that can apply to any physical type
+class LogicalType::Impl::UniversalApplicable
+    : public virtual LogicalType::Impl::Applicable {
  public:
   bool is_applicable(parquet::Type::type primitive_type,
                      int32_t primitive_length = -1) const override {
@@ -844,9 +795,9 @@ class LogicalAnnotation::Impl::UniversalApplicable
   UniversalApplicable() = default;
 };
 
-// For logical annotations that can never apply to any primitive
+// For logical types that can never apply to any primitive
 // physical type
-class LogicalAnnotation::Impl::Inapplicable : public virtual LogicalAnnotation::Impl {
+class LogicalType::Impl::Inapplicable : public virtual LogicalType::Impl {
  public:
   bool is_applicable(parquet::Type::type primitive_type,
                      int32_t primitive_length = -1) const override {
@@ -857,7 +808,7 @@ class LogicalAnnotation::Impl::Inapplicable : public virtual LogicalAnnotation::
   Inapplicable() = default;
 };
 
-// LogicalAnnotation implementation final classes
+// LogicalType implementation final classes
 
 #define OVERRIDE_TOSTRING(n___) \
   std::string ToString() const override { return #n___; }
@@ -870,45 +821,43 @@ class LogicalAnnotation::Impl::Inapplicable : public virtual LogicalAnnotation::
     return type;                                  \
   }
 
-class LogicalAnnotation::Impl::String final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::SimpleApplicable {
+class LogicalType::Impl::String final : public LogicalType::Impl::SimpleCompatible,
+                                        public LogicalType::Impl::SimpleApplicable {
  public:
-  friend class StringAnnotation;
+  friend class StringLogicalType;
 
   OVERRIDE_TOSTRING(String)
   OVERRIDE_TOTHRIFT(StringType, STRING)
 
  private:
   String()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::STRING, SortOrder::UNSIGNED),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::UTF8),
-        LogicalAnnotation::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
+      : LogicalType::Impl(LogicalType::Type::STRING, SortOrder::UNSIGNED),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::UTF8),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
 };
 
-// Each public annotation class's Make() creation method instantiates a corresponding
-// LogicalAnnotation::Impl::* object and installs that implementation in the annotation
+// Each public logical type class's Make() creation method instantiates a corresponding
+// LogicalType::Impl::* object and installs that implementation in the logical type
 // it returns.
 
-#define GENERATE_MAKE(a___)                                           \
-  std::shared_ptr<const LogicalAnnotation> a___##Annotation::Make() { \
-    auto* annotation = new a___##Annotation();                        \
-    annotation->impl_.reset(new LogicalAnnotation::Impl::a___());     \
-    return std::shared_ptr<const LogicalAnnotation>(annotation);      \
+#define GENERATE_MAKE(a___)                                      \
+  std::shared_ptr<const LogicalType> a___##LogicalType::Make() { \
+    auto* logical_type = new a___##LogicalType();                \
+    logical_type->impl_.reset(new LogicalType::Impl::a___());    \
+    return std::shared_ptr<const LogicalType>(logical_type);     \
   }
 
 GENERATE_MAKE(String)
 
-class LogicalAnnotation::Impl::Map final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::Inapplicable {
+class LogicalType::Impl::Map final : public LogicalType::Impl::SimpleCompatible,
+                                     public LogicalType::Impl::Inapplicable {
  public:
-  friend class MapAnnotation;
+  friend class MapLogicalType;
 
-  bool is_compatible(LogicalType::type converted_type,
+  bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override {
-    return (converted_type == LogicalType::MAP ||
-            converted_type == LogicalType::MAP_KEY_VALUE) &&
+    return (converted_type == ConvertedType::MAP ||
+            converted_type == ConvertedType::MAP_KEY_VALUE) &&
            !converted_decimal_metadata.isset;
   }
 
@@ -917,82 +866,79 @@ class LogicalAnnotation::Impl::Map final
 
  private:
   Map()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::MAP, SortOrder::UNKNOWN),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::MAP) {}
+      : LogicalType::Impl(LogicalType::Type::MAP, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::MAP) {}
 };
 
 GENERATE_MAKE(Map)
 
-class LogicalAnnotation::Impl::List final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::Inapplicable {
+class LogicalType::Impl::List final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::Inapplicable {
  public:
-  friend class ListAnnotation;
+  friend class ListLogicalType;
 
   OVERRIDE_TOSTRING(List)
   OVERRIDE_TOTHRIFT(ListType, LIST)
 
  private:
   List()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::LIST, SortOrder::UNKNOWN),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::LIST) {}
+      : LogicalType::Impl(LogicalType::Type::LIST, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::LIST) {}
 };
 
 GENERATE_MAKE(List)
 
-class LogicalAnnotation::Impl::Enum final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::SimpleApplicable {
+class LogicalType::Impl::Enum final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::SimpleApplicable {
  public:
-  friend class EnumAnnotation;
+  friend class EnumLogicalType;
 
   OVERRIDE_TOSTRING(Enum)
   OVERRIDE_TOTHRIFT(EnumType, ENUM)
 
  private:
   Enum()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::ENUM, SortOrder::UNSIGNED),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::ENUM),
-        LogicalAnnotation::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
+      : LogicalType::Impl(LogicalType::Type::ENUM, SortOrder::UNSIGNED),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::ENUM),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
 };
 
 GENERATE_MAKE(Enum)
 
-// The parameterized annotation types (currently Decimal, Time, Timestamp, and Int)
+// The parameterized logical types (currently Decimal, Time, Timestamp, and Int)
 // generally can't reuse the simple method implementations available in the base and
 // intermediate classes and must (re)implement them all
 
-class LogicalAnnotation::Impl::Decimal final
-    : public LogicalAnnotation::Impl::Compatible,
-      public LogicalAnnotation::Impl::Applicable {
+class LogicalType::Impl::Decimal final : public LogicalType::Impl::Compatible,
+                                         public LogicalType::Impl::Applicable {
  public:
-  friend class DecimalAnnotation;
+  friend class DecimalLogicalType;
 
   bool is_applicable(parquet::Type::type primitive_type,
                      int32_t primitive_length = -1) const override;
-  bool is_compatible(LogicalType::type converted_type,
+  bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override;
-  LogicalType::type ToConvertedType(
+  ConvertedType::type ToConvertedType(
       schema::DecimalMetadata* out_decimal_metadata) const override;
   std::string ToString() const override;
   std::string ToJSON() const override;
   format::LogicalType ToThrift() const override;
-  bool Equals(const LogicalAnnotation& other) const override;
+  bool Equals(const LogicalType& other) const override;
 
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
 
  private:
   Decimal(int32_t p, int32_t s)
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::DECIMAL, SortOrder::SIGNED),
+      : LogicalType::Impl(LogicalType::Type::DECIMAL, SortOrder::SIGNED),
         precision_(p),
         scale_(s) {}
   int32_t precision_ = -1;
   int32_t scale_ = -1;
 };
 
-bool LogicalAnnotation::Impl::Decimal::is_applicable(parquet::Type::type primitive_type,
-                                                     int32_t primitive_length) const {
+bool LogicalType::Impl::Decimal::is_applicable(parquet::Type::type primitive_type,
+                                               int32_t primitive_length) const {
   bool ok = false;
   switch (primitive_type) {
     case parquet::Type::INT32: {
@@ -1015,35 +961,35 @@ bool LogicalAnnotation::Impl::Decimal::is_applicable(parquet::Type::type primiti
   return ok;
 }
 
-bool LogicalAnnotation::Impl::Decimal::is_compatible(
-    LogicalType::type converted_type,
+bool LogicalType::Impl::Decimal::is_compatible(
+    ConvertedType::type converted_type,
     schema::DecimalMetadata converted_decimal_metadata) const {
-  return converted_type == LogicalType::DECIMAL &&
+  return converted_type == ConvertedType::DECIMAL &&
          (converted_decimal_metadata.isset &&
           converted_decimal_metadata.scale == scale_ &&
           converted_decimal_metadata.precision == precision_);
 }
 
-LogicalType::type LogicalAnnotation::Impl::Decimal::ToConvertedType(
+ConvertedType::type LogicalType::Impl::Decimal::ToConvertedType(
     schema::DecimalMetadata* out_decimal_metadata) const {
   set_decimal_metadata(out_decimal_metadata, true, precision_, scale_);
-  return LogicalType::DECIMAL;
+  return ConvertedType::DECIMAL;
 }
 
-std::string LogicalAnnotation::Impl::Decimal::ToString() const {
+std::string LogicalType::Impl::Decimal::ToString() const {
   std::stringstream type;
   type << "Decimal(precision=" << precision_ << ", scale=" << scale_ << ")";
   return type.str();
 }
 
-std::string LogicalAnnotation::Impl::Decimal::ToJSON() const {
+std::string LogicalType::Impl::Decimal::ToJSON() const {
   std::stringstream json;
   json << R"({"Type": "Decimal", "precision": )" << precision_ << R"(, "scale": )"
        << scale_ << "}";
   return json.str();
 }
 
-format::LogicalType LogicalAnnotation::Impl::Decimal::ToThrift() const {
+format::LogicalType LogicalType::Impl::Decimal::ToThrift() const {
   format::LogicalType type;
   format::DecimalType decimal_type;
   decimal_type.__set_precision(precision_);
@@ -1052,155 +998,154 @@ format::LogicalType LogicalAnnotation::Impl::Decimal::ToThrift() const {
   return type;
 }
 
-bool LogicalAnnotation::Impl::Decimal::Equals(const LogicalAnnotation& other) const {
+bool LogicalType::Impl::Decimal::Equals(const LogicalType& other) const {
   bool eq = false;
   if (other.is_decimal()) {
-    const auto& other_decimal = checked_cast<const DecimalAnnotation&>(other);
+    const auto& other_decimal = checked_cast<const DecimalLogicalType&>(other);
     eq = (precision_ == other_decimal.precision() && scale_ == other_decimal.scale());
   }
   return eq;
 }
 
-std::shared_ptr<const LogicalAnnotation> DecimalAnnotation::Make(int32_t precision,
-                                                                 int32_t scale) {
+std::shared_ptr<const LogicalType> DecimalLogicalType::Make(int32_t precision,
+                                                            int32_t scale) {
   if (precision < 1) {
     throw ParquetException(
-        "Precision must be greater than or equal to 1 for Decimal annotation");
+        "Precision must be greater than or equal to 1 for Decimal logical type");
   }
   if (scale < 0 || scale > precision) {
     throw ParquetException(
         "Scale must be a non-negative integer that does not exceed precision for "
-        "Decimal annotation");
+        "Decimal logical type");
   }
-  auto* annotation = new DecimalAnnotation();
-  annotation->impl_.reset(new LogicalAnnotation::Impl::Decimal(precision, scale));
-  return std::shared_ptr<const LogicalAnnotation>(annotation);
+  auto* logical_type = new DecimalLogicalType();
+  logical_type->impl_.reset(new LogicalType::Impl::Decimal(precision, scale));
+  return std::shared_ptr<const LogicalType>(logical_type);
 }
 
-int32_t DecimalAnnotation::precision() const {
-  return (dynamic_cast<const LogicalAnnotation::Impl::Decimal&>(*impl_)).precision();
+int32_t DecimalLogicalType::precision() const {
+  return (dynamic_cast<const LogicalType::Impl::Decimal&>(*impl_)).precision();
 }
 
-int32_t DecimalAnnotation::scale() const {
-  return (dynamic_cast<const LogicalAnnotation::Impl::Decimal&>(*impl_)).scale();
+int32_t DecimalLogicalType::scale() const {
+  return (dynamic_cast<const LogicalType::Impl::Decimal&>(*impl_)).scale();
 }
 
-class LogicalAnnotation::Impl::Date final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::SimpleApplicable {
+class LogicalType::Impl::Date final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::SimpleApplicable {
  public:
-  friend class DateAnnotation;
+  friend class DateLogicalType;
 
   OVERRIDE_TOSTRING(Date)
   OVERRIDE_TOTHRIFT(DateType, DATE)
 
  private:
   Date()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::DATE, SortOrder::SIGNED),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::DATE),
-        LogicalAnnotation::Impl::SimpleApplicable(parquet::Type::INT32) {}
+      : LogicalType::Impl(LogicalType::Type::DATE, SortOrder::SIGNED),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::DATE),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::INT32) {}
 };
 
 GENERATE_MAKE(Date)
 
-#define time_unit_string(u___)                                                \
-  ((u___) == LogicalAnnotation::TimeUnit::MILLIS                              \
-       ? "milliseconds"                                                       \
-       : ((u___) == LogicalAnnotation::TimeUnit::MICROS                       \
-              ? "microseconds"                                                \
-              : ((u___) == LogicalAnnotation::TimeUnit::NANOS ? "nanoseconds" \
-                                                              : "unknown")))
+#define time_unit_string(u___)                    \
+  ((u___) == LogicalType::TimeUnit::MILLIS        \
+       ? "milliseconds"                           \
+       : ((u___) == LogicalType::TimeUnit::MICROS \
+              ? "microseconds"                    \
+              : ((u___) == LogicalType::TimeUnit::NANOS ? "nanoseconds" : "unknown")))
 
-class LogicalAnnotation::Impl::Time final : public LogicalAnnotation::Impl::Compatible,
-                                            public LogicalAnnotation::Impl::Applicable {
+class LogicalType::Impl::Time final : public LogicalType::Impl::Compatible,
+                                      public LogicalType::Impl::Applicable {
  public:
-  friend class TimeAnnotation;
+  friend class TimeLogicalType;
 
   bool is_applicable(parquet::Type::type primitive_type,
                      int32_t primitive_length = -1) const override;
-  bool is_compatible(LogicalType::type converted_type,
+  bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override;
-  LogicalType::type ToConvertedType(
+  ConvertedType::type ToConvertedType(
       schema::DecimalMetadata* out_decimal_metadata) const override;
   std::string ToString() const override;
   std::string ToJSON() const override;
   format::LogicalType ToThrift() const override;
-  bool Equals(const LogicalAnnotation& other) const override;
+  bool Equals(const LogicalType& other) const override;
 
   bool is_adjusted_to_utc() const { return adjusted_; }
-  LogicalAnnotation::TimeUnit::unit time_unit() const { return unit_; }
+  LogicalType::TimeUnit::unit time_unit() const { return unit_; }
 
  private:
-  Time(bool a, LogicalAnnotation::TimeUnit::unit u)
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::TIME, SortOrder::SIGNED),
+  Time(bool a, LogicalType::TimeUnit::unit u)
+      : LogicalType::Impl(LogicalType::Type::TIME, SortOrder::SIGNED),
         adjusted_(a),
         unit_(u) {}
   bool adjusted_ = false;
-  LogicalAnnotation::TimeUnit::unit unit_;
+  LogicalType::TimeUnit::unit unit_;
 };
 
-bool LogicalAnnotation::Impl::Time::is_applicable(parquet::Type::type primitive_type,
-                                                  int32_t primitive_length) const {
+bool LogicalType::Impl::Time::is_applicable(parquet::Type::type primitive_type,
+                                            int32_t primitive_length) const {
   return (primitive_type == parquet::Type::INT32 &&
-          unit_ == LogicalAnnotation::TimeUnit::MILLIS) ||
+          unit_ == LogicalType::TimeUnit::MILLIS) ||
          (primitive_type == parquet::Type::INT64 &&
-          (unit_ == LogicalAnnotation::TimeUnit::MICROS ||
-           unit_ == LogicalAnnotation::TimeUnit::NANOS));
+          (unit_ == LogicalType::TimeUnit::MICROS ||
+           unit_ == LogicalType::TimeUnit::NANOS));
 }
 
-bool LogicalAnnotation::Impl::Time::is_compatible(
-    LogicalType::type converted_type,
+bool LogicalType::Impl::Time::is_compatible(
+    ConvertedType::type converted_type,
     schema::DecimalMetadata converted_decimal_metadata) const {
   if (converted_decimal_metadata.isset) {
     return false;
-  } else if (adjusted_ && unit_ == LogicalAnnotation::TimeUnit::MILLIS) {
-    return converted_type == LogicalType::TIME_MILLIS;
-  } else if (adjusted_ && unit_ == LogicalAnnotation::TimeUnit::MICROS) {
-    return converted_type == LogicalType::TIME_MICROS;
+  } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MILLIS) {
+    return converted_type == ConvertedType::TIME_MILLIS;
+  } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MICROS) {
+    return converted_type == ConvertedType::TIME_MICROS;
   } else {
-    return (converted_type == LogicalType::NONE) || (converted_type == LogicalType::NA);
+    return (converted_type == ConvertedType::NONE) ||
+           (converted_type == ConvertedType::NA);
   }
 }
 
-LogicalType::type LogicalAnnotation::Impl::Time::ToConvertedType(
+ConvertedType::type LogicalType::Impl::Time::ToConvertedType(
     schema::DecimalMetadata* out_decimal_metadata) const {
   reset_decimal_metadata(out_decimal_metadata);
   if (adjusted_) {
-    if (unit_ == LogicalAnnotation::TimeUnit::MILLIS) {
-      return LogicalType::TIME_MILLIS;
-    } else if (unit_ == LogicalAnnotation::TimeUnit::MICROS) {
-      return LogicalType::TIME_MICROS;
+    if (unit_ == LogicalType::TimeUnit::MILLIS) {
+      return ConvertedType::TIME_MILLIS;
+    } else if (unit_ == LogicalType::TimeUnit::MICROS) {
+      return ConvertedType::TIME_MICROS;
     }
   }
-  return LogicalType::NONE;
+  return ConvertedType::NONE;
 }
 
-std::string LogicalAnnotation::Impl::Time::ToString() const {
+std::string LogicalType::Impl::Time::ToString() const {
   std::stringstream type;
   type << "Time(isAdjustedToUTC=" << std::boolalpha << adjusted_
        << ", timeUnit=" << time_unit_string(unit_) << ")";
   return type.str();
 }
 
-std::string LogicalAnnotation::Impl::Time::ToJSON() const {
+std::string LogicalType::Impl::Time::ToJSON() const {
   std::stringstream json;
   json << R"({"Type": "Time", "isAdjustedToUTC": )" << std::boolalpha << adjusted_
        << R"(, "timeUnit": ")" << time_unit_string(unit_) << R"("})";
   return json.str();
 }
 
-format::LogicalType LogicalAnnotation::Impl::Time::ToThrift() const {
+format::LogicalType LogicalType::Impl::Time::ToThrift() const {
   format::LogicalType type;
   format::TimeType time_type;
   format::TimeUnit time_unit;
-  DCHECK(unit_ != LogicalAnnotation::TimeUnit::UNKNOWN);
-  if (unit_ == LogicalAnnotation::TimeUnit::MILLIS) {
+  DCHECK(unit_ != LogicalType::TimeUnit::UNKNOWN);
+  if (unit_ == LogicalType::TimeUnit::MILLIS) {
     format::MilliSeconds millis;
     time_unit.__set_MILLIS(millis);
-  } else if (unit_ == LogicalAnnotation::TimeUnit::MICROS) {
+  } else if (unit_ == LogicalType::TimeUnit::MICROS) {
     format::MicroSeconds micros;
     time_unit.__set_MICROS(micros);
-  } else if (unit_ == LogicalAnnotation::TimeUnit::NANOS) {
+  } else if (unit_ == LogicalType::TimeUnit::NANOS) {
     format::NanoSeconds nanos;
     time_unit.__set_NANOS(nanos);
   }
@@ -1210,121 +1155,119 @@ format::LogicalType LogicalAnnotation::Impl::Time::ToThrift() const {
   return type;
 }
 
-bool LogicalAnnotation::Impl::Time::Equals(const LogicalAnnotation& other) const {
+bool LogicalType::Impl::Time::Equals(const LogicalType& other) const {
   bool eq = false;
   if (other.is_time()) {
-    const auto& other_time = checked_cast<const TimeAnnotation&>(other);
+    const auto& other_time = checked_cast<const TimeLogicalType&>(other);
     eq =
         (adjusted_ == other_time.is_adjusted_to_utc() && unit_ == other_time.time_unit());
   }
   return eq;
 }
 
-std::shared_ptr<const LogicalAnnotation> TimeAnnotation::Make(
-    bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit) {
-  if (time_unit == LogicalAnnotation::TimeUnit::MILLIS ||
-      time_unit == LogicalAnnotation::TimeUnit::MICROS ||
-      time_unit == LogicalAnnotation::TimeUnit::NANOS) {
-    auto* annotation = new TimeAnnotation();
-    annotation->impl_.reset(
-        new LogicalAnnotation::Impl::Time(is_adjusted_to_utc, time_unit));
-    return std::shared_ptr<const LogicalAnnotation>(annotation);
+std::shared_ptr<const LogicalType> TimeLogicalType::Make(
+    bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit) {
+  if (time_unit == LogicalType::TimeUnit::MILLIS ||
+      time_unit == LogicalType::TimeUnit::MICROS ||
+      time_unit == LogicalType::TimeUnit::NANOS) {
+    auto* logical_type = new TimeLogicalType();
+    logical_type->impl_.reset(new LogicalType::Impl::Time(is_adjusted_to_utc, time_unit));
+    return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
-        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Time annotation");
+        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Time logical type");
   }
 }
 
-bool TimeAnnotation::is_adjusted_to_utc() const {
-  return (dynamic_cast<const LogicalAnnotation::Impl::Time&>(*impl_))
-      .is_adjusted_to_utc();
+bool TimeLogicalType::is_adjusted_to_utc() const {
+  return (dynamic_cast<const LogicalType::Impl::Time&>(*impl_)).is_adjusted_to_utc();
 }
 
-LogicalAnnotation::TimeUnit::unit TimeAnnotation::time_unit() const {
-  return (dynamic_cast<const LogicalAnnotation::Impl::Time&>(*impl_)).time_unit();
+LogicalType::TimeUnit::unit TimeLogicalType::time_unit() const {
+  return (dynamic_cast<const LogicalType::Impl::Time&>(*impl_)).time_unit();
 }
 
-class LogicalAnnotation::Impl::Timestamp final
-    : public LogicalAnnotation::Impl::Compatible,
-      public LogicalAnnotation::Impl::SimpleApplicable {
+class LogicalType::Impl::Timestamp final : public LogicalType::Impl::Compatible,
+                                           public LogicalType::Impl::SimpleApplicable {
  public:
-  friend class TimestampAnnotation;
+  friend class TimestampLogicalType;
 
-  bool is_compatible(LogicalType::type converted_type,
+  bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override;
-  LogicalType::type ToConvertedType(
+  ConvertedType::type ToConvertedType(
       schema::DecimalMetadata* out_decimal_metadata) const override;
   std::string ToString() const override;
   std::string ToJSON() const override;
   format::LogicalType ToThrift() const override;
-  bool Equals(const LogicalAnnotation& other) const override;
+  bool Equals(const LogicalType& other) const override;
 
   bool is_adjusted_to_utc() const { return adjusted_; }
-  LogicalAnnotation::TimeUnit::unit time_unit() const { return unit_; }
+  LogicalType::TimeUnit::unit time_unit() const { return unit_; }
 
  private:
-  Timestamp(bool a, LogicalAnnotation::TimeUnit::unit u)
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::TIMESTAMP, SortOrder::SIGNED),
-        LogicalAnnotation::Impl::SimpleApplicable(parquet::Type::INT64),
+  Timestamp(bool a, LogicalType::TimeUnit::unit u)
+      : LogicalType::Impl(LogicalType::Type::TIMESTAMP, SortOrder::SIGNED),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::INT64),
         adjusted_(a),
         unit_(u) {}
   bool adjusted_ = false;
-  LogicalAnnotation::TimeUnit::unit unit_;
+  LogicalType::TimeUnit::unit unit_;
 };
 
-bool LogicalAnnotation::Impl::Timestamp::is_compatible(
-    LogicalType::type converted_type,
+bool LogicalType::Impl::Timestamp::is_compatible(
+    ConvertedType::type converted_type,
     schema::DecimalMetadata converted_decimal_metadata) const {
   if (converted_decimal_metadata.isset) {
     return false;
-  } else if (adjusted_ && unit_ == LogicalAnnotation::TimeUnit::MILLIS) {
-    return converted_type == LogicalType::TIMESTAMP_MILLIS;
-  } else if (adjusted_ && unit_ == LogicalAnnotation::TimeUnit::MICROS) {
-    return converted_type == LogicalType::TIMESTAMP_MICROS;
+  } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MILLIS) {
+    return converted_type == ConvertedType::TIMESTAMP_MILLIS;
+  } else if (adjusted_ && unit_ == LogicalType::TimeUnit::MICROS) {
+    return converted_type == ConvertedType::TIMESTAMP_MICROS;
   } else {
-    return (converted_type == LogicalType::NONE) || (converted_type == LogicalType::NA);
+    return (converted_type == ConvertedType::NONE) ||
+           (converted_type == ConvertedType::NA);
   }
 }
 
-LogicalType::type LogicalAnnotation::Impl::Timestamp::ToConvertedType(
+ConvertedType::type LogicalType::Impl::Timestamp::ToConvertedType(
     schema::DecimalMetadata* out_decimal_metadata) const {
   reset_decimal_metadata(out_decimal_metadata);
   if (adjusted_) {
-    if (unit_ == LogicalAnnotation::TimeUnit::MILLIS) {
-      return LogicalType::TIMESTAMP_MILLIS;
-    } else if (unit_ == LogicalAnnotation::TimeUnit::MICROS) {
-      return LogicalType::TIMESTAMP_MICROS;
+    if (unit_ == LogicalType::TimeUnit::MILLIS) {
+      return ConvertedType::TIMESTAMP_MILLIS;
+    } else if (unit_ == LogicalType::TimeUnit::MICROS) {
+      return ConvertedType::TIMESTAMP_MICROS;
     }
   }
-  return LogicalType::NONE;
+  return ConvertedType::NONE;
 }
 
-std::string LogicalAnnotation::Impl::Timestamp::ToString() const {
+std::string LogicalType::Impl::Timestamp::ToString() const {
   std::stringstream type;
   type << "Timestamp(isAdjustedToUTC=" << std::boolalpha << adjusted_
        << ", timeUnit=" << time_unit_string(unit_) << ")";
   return type.str();
 }
 
-std::string LogicalAnnotation::Impl::Timestamp::ToJSON() const {
+std::string LogicalType::Impl::Timestamp::ToJSON() const {
   std::stringstream json;
   json << R"({"Type": "Timestamp", "isAdjustedToUTC": )" << std::boolalpha << adjusted_
        << R"(, "timeUnit": ")" << time_unit_string(unit_) << R"("})";
   return json.str();
 }
 
-format::LogicalType LogicalAnnotation::Impl::Timestamp::ToThrift() const {
+format::LogicalType LogicalType::Impl::Timestamp::ToThrift() const {
   format::LogicalType type;
   format::TimestampType timestamp_type;
   format::TimeUnit time_unit;
-  DCHECK(unit_ != LogicalAnnotation::TimeUnit::UNKNOWN);
-  if (unit_ == LogicalAnnotation::TimeUnit::MILLIS) {
+  DCHECK(unit_ != LogicalType::TimeUnit::UNKNOWN);
+  if (unit_ == LogicalType::TimeUnit::MILLIS) {
     format::MilliSeconds millis;
     time_unit.__set_MILLIS(millis);
-  } else if (unit_ == LogicalAnnotation::TimeUnit::MICROS) {
+  } else if (unit_ == LogicalType::TimeUnit::MICROS) {
     format::MicroSeconds micros;
     time_unit.__set_MICROS(micros);
-  } else if (unit_ == LogicalAnnotation::TimeUnit::NANOS) {
+  } else if (unit_ == LogicalType::TimeUnit::NANOS) {
     format::NanoSeconds nanos;
     time_unit.__set_NANOS(nanos);
   }
@@ -1334,165 +1277,163 @@ format::LogicalType LogicalAnnotation::Impl::Timestamp::ToThrift() const {
   return type;
 }
 
-bool LogicalAnnotation::Impl::Timestamp::Equals(const LogicalAnnotation& other) const {
+bool LogicalType::Impl::Timestamp::Equals(const LogicalType& other) const {
   bool eq = false;
   if (other.is_timestamp()) {
-    const auto& other_timestamp = checked_cast<const TimestampAnnotation&>(other);
+    const auto& other_timestamp = checked_cast<const TimestampLogicalType&>(other);
     eq = (adjusted_ == other_timestamp.is_adjusted_to_utc() &&
           unit_ == other_timestamp.time_unit());
   }
   return eq;
 }
 
-std::shared_ptr<const LogicalAnnotation> TimestampAnnotation::Make(
-    bool is_adjusted_to_utc, LogicalAnnotation::TimeUnit::unit time_unit) {
-  if (time_unit == LogicalAnnotation::TimeUnit::MILLIS ||
-      time_unit == LogicalAnnotation::TimeUnit::MICROS ||
-      time_unit == LogicalAnnotation::TimeUnit::NANOS) {
-    auto* annotation = new TimestampAnnotation();
-    annotation->impl_.reset(
-        new LogicalAnnotation::Impl::Timestamp(is_adjusted_to_utc, time_unit));
-    return std::shared_ptr<const LogicalAnnotation>(annotation);
+std::shared_ptr<const LogicalType> TimestampLogicalType::Make(
+    bool is_adjusted_to_utc, LogicalType::TimeUnit::unit time_unit) {
+  if (time_unit == LogicalType::TimeUnit::MILLIS ||
+      time_unit == LogicalType::TimeUnit::MICROS ||
+      time_unit == LogicalType::TimeUnit::NANOS) {
+    auto* logical_type = new TimestampLogicalType();
+    logical_type->impl_.reset(
+        new LogicalType::Impl::Timestamp(is_adjusted_to_utc, time_unit));
+    return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
-        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Timestamp annotation");
+        "TimeUnit must be one of MILLIS, MICROS, or NANOS for Timestamp logical type");
   }
 }
 
-bool TimestampAnnotation::is_adjusted_to_utc() const {
-  return (dynamic_cast<const LogicalAnnotation::Impl::Timestamp&>(*impl_))
-      .is_adjusted_to_utc();
+bool TimestampLogicalType::is_adjusted_to_utc() const {
+  return (dynamic_cast<const LogicalType::Impl::Timestamp&>(*impl_)).is_adjusted_to_utc();
 }
 
-LogicalAnnotation::TimeUnit::unit TimestampAnnotation::time_unit() const {
-  return (dynamic_cast<const LogicalAnnotation::Impl::Timestamp&>(*impl_)).time_unit();
+LogicalType::TimeUnit::unit TimestampLogicalType::time_unit() const {
+  return (dynamic_cast<const LogicalType::Impl::Timestamp&>(*impl_)).time_unit();
 }
 
-class LogicalAnnotation::Impl::Interval final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::TypeLengthApplicable {
+class LogicalType::Impl::Interval final : public LogicalType::Impl::SimpleCompatible,
+                                          public LogicalType::Impl::TypeLengthApplicable {
  public:
-  friend class IntervalAnnotation;
+  friend class IntervalLogicalType;
 
   OVERRIDE_TOSTRING(Interval)
   // TODO(tpboudreau): uncomment the following line to enable serialization after
-  // parquet.thrift recognizes IntervalType as a LogicalType
+  // parquet.thrift recognizes IntervalType as a ConvertedType
   // OVERRIDE_TOTHRIFT(IntervalType, INTERVAL)
 
  private:
   Interval()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::INTERVAL, SortOrder::UNKNOWN),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::INTERVAL),
-        LogicalAnnotation::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY,
-                                                      12) {}
+      : LogicalType::Impl(LogicalType::Type::INTERVAL, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::INTERVAL),
+        LogicalType::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY, 12) {
+  }
 };
 
 GENERATE_MAKE(Interval)
 
-class LogicalAnnotation::Impl::Int final : public LogicalAnnotation::Impl::Compatible,
-                                           public LogicalAnnotation::Impl::Applicable {
+class LogicalType::Impl::Int final : public LogicalType::Impl::Compatible,
+                                     public LogicalType::Impl::Applicable {
  public:
-  friend class IntAnnotation;
+  friend class IntLogicalType;
 
   bool is_applicable(parquet::Type::type primitive_type,
                      int32_t primitive_length = -1) const override;
-  bool is_compatible(LogicalType::type converted_type,
+  bool is_compatible(ConvertedType::type converted_type,
                      schema::DecimalMetadata converted_decimal_metadata) const override;
-  LogicalType::type ToConvertedType(
+  ConvertedType::type ToConvertedType(
       schema::DecimalMetadata* out_decimal_metadata) const override;
   std::string ToString() const override;
   std::string ToJSON() const override;
   format::LogicalType ToThrift() const override;
-  bool Equals(const LogicalAnnotation& other) const override;
+  bool Equals(const LogicalType& other) const override;
 
   int bit_width() const { return width_; }
   bool is_signed() const { return signed_; }
 
  private:
   Int(int w, bool s)
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::INT,
-                                (s ? SortOrder::SIGNED : SortOrder::UNSIGNED)),
+      : LogicalType::Impl(LogicalType::Type::INT,
+                          (s ? SortOrder::SIGNED : SortOrder::UNSIGNED)),
         width_(w),
         signed_(s) {}
   int width_ = 0;
   bool signed_ = false;
 };
 
-bool LogicalAnnotation::Impl::Int::is_applicable(parquet::Type::type primitive_type,
-                                                 int32_t primitive_length) const {
+bool LogicalType::Impl::Int::is_applicable(parquet::Type::type primitive_type,
+                                           int32_t primitive_length) const {
   return (primitive_type == parquet::Type::INT32 && width_ <= 32) ||
          (primitive_type == parquet::Type::INT64 && width_ == 64);
 }
 
-bool LogicalAnnotation::Impl::Int::is_compatible(
-    LogicalType::type converted_type,
+bool LogicalType::Impl::Int::is_compatible(
+    ConvertedType::type converted_type,
     schema::DecimalMetadata converted_decimal_metadata) const {
   if (converted_decimal_metadata.isset) {
     return false;
   } else if (signed_ && width_ == 8) {
-    return converted_type == LogicalType::INT_8;
+    return converted_type == ConvertedType::INT_8;
   } else if (signed_ && width_ == 16) {
-    return converted_type == LogicalType::INT_16;
+    return converted_type == ConvertedType::INT_16;
   } else if (signed_ && width_ == 32) {
-    return converted_type == LogicalType::INT_32;
+    return converted_type == ConvertedType::INT_32;
   } else if (signed_ && width_ == 64) {
-    return converted_type == LogicalType::INT_64;
+    return converted_type == ConvertedType::INT_64;
   } else if (!signed_ && width_ == 8) {
-    return converted_type == LogicalType::UINT_8;
+    return converted_type == ConvertedType::UINT_8;
   } else if (!signed_ && width_ == 16) {
-    return converted_type == LogicalType::UINT_16;
+    return converted_type == ConvertedType::UINT_16;
   } else if (!signed_ && width_ == 32) {
-    return converted_type == LogicalType::UINT_32;
+    return converted_type == ConvertedType::UINT_32;
   } else if (!signed_ && width_ == 64) {
-    return converted_type == LogicalType::UINT_64;
+    return converted_type == ConvertedType::UINT_64;
   } else {
     return false;
   }
 }
 
-LogicalType::type LogicalAnnotation::Impl::Int::ToConvertedType(
+ConvertedType::type LogicalType::Impl::Int::ToConvertedType(
     schema::DecimalMetadata* out_decimal_metadata) const {
   reset_decimal_metadata(out_decimal_metadata);
   if (signed_) {
     switch (width_) {
       case 8:
-        return LogicalType::INT_8;
+        return ConvertedType::INT_8;
       case 16:
-        return LogicalType::INT_16;
+        return ConvertedType::INT_16;
       case 32:
-        return LogicalType::INT_32;
+        return ConvertedType::INT_32;
       case 64:
-        return LogicalType::INT_64;
+        return ConvertedType::INT_64;
     }
   } else {  // unsigned
     switch (width_) {
       case 8:
-        return LogicalType::UINT_8;
+        return ConvertedType::UINT_8;
       case 16:
-        return LogicalType::UINT_16;
+        return ConvertedType::UINT_16;
       case 32:
-        return LogicalType::UINT_32;
+        return ConvertedType::UINT_32;
       case 64:
-        return LogicalType::UINT_64;
+        return ConvertedType::UINT_64;
     }
   }
-  return LogicalType::NONE;
+  return ConvertedType::NONE;
 }
 
-std::string LogicalAnnotation::Impl::Int::ToString() const {
+std::string LogicalType::Impl::Int::ToString() const {
   std::stringstream type;
   type << "Int(bitWidth=" << width_ << ", isSigned=" << std::boolalpha << signed_ << ")";
   return type.str();
 }
 
-std::string LogicalAnnotation::Impl::Int::ToJSON() const {
+std::string LogicalType::Impl::Int::ToJSON() const {
   std::stringstream json;
   json << R"({"Type": "Int", "bitWidth": )" << width_ << R"(, "isSigned": )"
        << std::boolalpha << signed_ << "}";
   return json.str();
 }
 
-format::LogicalType LogicalAnnotation::Impl::Int::ToThrift() const {
+format::LogicalType LogicalType::Impl::Int::ToThrift() const {
   format::LogicalType type;
   format::IntType int_type;
   DCHECK(width_ == 64 || width_ == 32 || width_ == 16 || width_ == 8);
@@ -1502,132 +1443,125 @@ format::LogicalType LogicalAnnotation::Impl::Int::ToThrift() const {
   return type;
 }
 
-bool LogicalAnnotation::Impl::Int::Equals(const LogicalAnnotation& other) const {
+bool LogicalType::Impl::Int::Equals(const LogicalType& other) const {
   bool eq = false;
   if (other.is_int()) {
-    const auto& other_int = checked_cast<const IntAnnotation&>(other);
+    const auto& other_int = checked_cast<const IntLogicalType&>(other);
     eq = (width_ == other_int.bit_width() && signed_ == other_int.is_signed());
   }
   return eq;
 }
 
-std::shared_ptr<const LogicalAnnotation> IntAnnotation::Make(int bit_width,
-                                                             bool is_signed) {
+std::shared_ptr<const LogicalType> IntLogicalType::Make(int bit_width, bool is_signed) {
   if (bit_width == 8 || bit_width == 16 || bit_width == 32 || bit_width == 64) {
-    auto* annotation = new IntAnnotation();
-    annotation->impl_.reset(new LogicalAnnotation::Impl::Int(bit_width, is_signed));
-    return std::shared_ptr<const LogicalAnnotation>(annotation);
+    auto* logical_type = new IntLogicalType();
+    logical_type->impl_.reset(new LogicalType::Impl::Int(bit_width, is_signed));
+    return std::shared_ptr<const LogicalType>(logical_type);
   } else {
     throw ParquetException(
-        "Bit width must be exactly 8, 16, 32, or 64 for Int annotation");
+        "Bit width must be exactly 8, 16, 32, or 64 for Int logical type");
   }
 }
 
-int IntAnnotation::bit_width() const {
-  return (dynamic_cast<const LogicalAnnotation::Impl::Int&>(*impl_)).bit_width();
+int IntLogicalType::bit_width() const {
+  return (dynamic_cast<const LogicalType::Impl::Int&>(*impl_)).bit_width();
 }
 
-bool IntAnnotation::is_signed() const {
-  return (dynamic_cast<const LogicalAnnotation::Impl::Int&>(*impl_)).is_signed();
+bool IntLogicalType::is_signed() const {
+  return (dynamic_cast<const LogicalType::Impl::Int&>(*impl_)).is_signed();
 }
 
-class LogicalAnnotation::Impl::Null final
-    : public LogicalAnnotation::Impl::Incompatible,
-      public LogicalAnnotation::Impl::UniversalApplicable {
+class LogicalType::Impl::Null final : public LogicalType::Impl::Incompatible,
+                                      public LogicalType::Impl::UniversalApplicable {
  public:
-  friend class NullAnnotation;
+  friend class NullLogicalType;
 
   OVERRIDE_TOSTRING(Null)
   OVERRIDE_TOTHRIFT(NullType, UNKNOWN)
 
  private:
-  Null() : LogicalAnnotation::Impl(LogicalAnnotation::Type::NIL, SortOrder::UNKNOWN) {}
+  Null() : LogicalType::Impl(LogicalType::Type::NIL, SortOrder::UNKNOWN) {}
 };
 
 GENERATE_MAKE(Null)
 
-class LogicalAnnotation::Impl::JSON final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::SimpleApplicable {
+class LogicalType::Impl::JSON final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::SimpleApplicable {
  public:
-  friend class JSONAnnotation;
+  friend class JSONLogicalType;
 
   OVERRIDE_TOSTRING(JSON)
   OVERRIDE_TOTHRIFT(JsonType, JSON)
 
  private:
   JSON()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::JSON, SortOrder::UNSIGNED),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::JSON),
-        LogicalAnnotation::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
+      : LogicalType::Impl(LogicalType::Type::JSON, SortOrder::UNSIGNED),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::JSON),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
 };
 
 GENERATE_MAKE(JSON)
 
-class LogicalAnnotation::Impl::BSON final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::SimpleApplicable {
+class LogicalType::Impl::BSON final : public LogicalType::Impl::SimpleCompatible,
+                                      public LogicalType::Impl::SimpleApplicable {
  public:
-  friend class BSONAnnotation;
+  friend class BSONLogicalType;
 
   OVERRIDE_TOSTRING(BSON)
   OVERRIDE_TOTHRIFT(BsonType, BSON)
 
  private:
   BSON()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::BSON, SortOrder::UNSIGNED),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::BSON),
-        LogicalAnnotation::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
+      : LogicalType::Impl(LogicalType::Type::BSON, SortOrder::UNSIGNED),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::BSON),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY) {}
 };
 
 GENERATE_MAKE(BSON)
 
-class LogicalAnnotation::Impl::UUID final
-    : public LogicalAnnotation::Impl::Incompatible,
-      public LogicalAnnotation::Impl::TypeLengthApplicable {
+class LogicalType::Impl::UUID final : public LogicalType::Impl::Incompatible,
+                                      public LogicalType::Impl::TypeLengthApplicable {
  public:
-  friend class UUIDAnnotation;
+  friend class UUIDLogicalType;
 
   OVERRIDE_TOSTRING(UUID)
   OVERRIDE_TOTHRIFT(UUIDType, UUID)
 
  private:
   UUID()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::UUID, SortOrder::UNSIGNED),
-        LogicalAnnotation::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY,
-                                                      16) {}
+      : LogicalType::Impl(LogicalType::Type::UUID, SortOrder::UNSIGNED),
+        LogicalType::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY, 16) {
+  }
 };
 
 GENERATE_MAKE(UUID)
 
-class LogicalAnnotation::Impl::No final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::UniversalApplicable {
+class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
+                                    public LogicalType::Impl::UniversalApplicable {
  public:
-  friend class NoAnnotation;
+  friend class NoLogicalType;
 
   OVERRIDE_TOSTRING(None)
 
  private:
   No()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::NONE, SortOrder::UNKNOWN),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::NONE) {}
+      : LogicalType::Impl(LogicalType::Type::NONE, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::NONE) {}
 };
 
 GENERATE_MAKE(No)
 
-class LogicalAnnotation::Impl::Unknown final
-    : public LogicalAnnotation::Impl::SimpleCompatible,
-      public LogicalAnnotation::Impl::UniversalApplicable {
+class LogicalType::Impl::Unknown final : public LogicalType::Impl::SimpleCompatible,
+                                         public LogicalType::Impl::UniversalApplicable {
  public:
-  friend class UnknownAnnotation;
+  friend class UnknownLogicalType;
 
   OVERRIDE_TOSTRING(Unknown)
 
  private:
   Unknown()
-      : LogicalAnnotation::Impl(LogicalAnnotation::Type::UNKNOWN, SortOrder::UNKNOWN),
-        LogicalAnnotation::Impl::SimpleCompatible(LogicalType::NA) {}
+      : LogicalType::Impl(LogicalType::Type::UNKNOWN, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::NA) {}
 };
 
 GENERATE_MAKE(Unknown)

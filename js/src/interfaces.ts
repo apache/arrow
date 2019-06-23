@@ -141,7 +141,7 @@ export type BuilderType<T extends Type | DataType = any, TNull = any> =
 
 /** @ignore */
 export type VectorCtor<T extends Type | DataType | VectorType> =
-    T extends VectorType        ? VectorCtorType<T>                  :
+    T extends VectorType    ? VectorCtorType<T>                      :
     T extends Type          ? VectorCtorType<VectorType<T>>          :
     T extends DataType      ? VectorCtorType<VectorType<T['TType']>> :
                               VectorCtorType<vecs.BaseVector>
@@ -157,7 +157,7 @@ export type BuilderCtor<T extends Type | DataType = any> =
 /** @ignore */
 export type DataTypeCtor<T extends Type | DataType | VectorType = any> =
     T extends DataType      ? ConstructorType<T>                 :
-    T extends VectorType        ? ConstructorType<T['type']>         :
+    T extends VectorType    ? ConstructorType<T['type']>         :
     T extends Type          ? ConstructorType<TypeToDataType<T>> :
                               never
     ;

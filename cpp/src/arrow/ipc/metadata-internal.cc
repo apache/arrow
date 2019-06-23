@@ -1112,8 +1112,12 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
 Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                          std::vector<int64_t>* shape, std::vector<int64_t>* strides,
                          std::vector<std::string>* dim_names) {
-  auto message = flatbuf::GetMessage(metadata.data());
-  auto tensor = reinterpret_cast<const flatbuf::Tensor*>(message->header());
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+  auto tensor = message->header_as_Tensor();
+  if (tensor == nullptr) {
+    return Status::IOError("Header-type of flatbuffer-encoded Message is not Tensor.");
+  }
 
   int ndim = static_cast<int>(tensor->shape()->size());
 
@@ -1143,15 +1147,13 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
                                std::vector<std::string>* dim_names,
                                int64_t* non_zero_length,
                                SparseTensorFormat::type* sparse_tensor_format_id) {
-  auto message = flatbuf::GetMessage(metadata.data());
-  if (message->header_type() != flatbuf::MessageHeader_SparseTensor) {
-    return Status::IOError("Header of flatbuffer-encoded Message is not SparseTensor.");
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+  auto sparse_tensor = message->header_as_SparseTensor();
+  if (sparse_tensor == nullptr) {
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not SparseTensor.");
   }
-  if (message->header() == nullptr) {
-    return Status::IOError("Header-pointer of flatbuffer-encoded Message is null.");
-  }
-
-  auto sparse_tensor = reinterpret_cast<const flatbuf::SparseTensor*>(message->header());
   int ndim = static_cast<int>(sparse_tensor->shape()->size());
 
   for (int i = 0; i < ndim; ++i) {

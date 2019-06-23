@@ -19,13 +19,13 @@ import { Data } from '../data';
 import { Field } from '../schema';
 import { clampRange } from '../util/vector';
 import { DataType, Dictionary } from '../type';
+import { selectChunkArgs } from '../util/args';
 import { DictionaryVector } from './dictionary';
 import { AbstractVector, Vector } from '../vector';
-import { selectChunkArgs } from '../util/args';
 import { Clonable, Sliceable, Applicative } from '../vector';
 
 /** @ignore */
-type ChunkedDict<T extends DataType> = T extends Dictionary ? T['dictionaryVector'] : null | never;
+type ChunkedDict<T extends DataType> = T extends Dictionary ? Vector<T['dictionary']> : null | never;
 /** @ignore */
 type ChunkedKeys<T extends DataType> = T extends Dictionary ? Vector<T['indices']> | Chunked<T['indices']> : null | never;
 
@@ -105,7 +105,7 @@ export class Chunked<T extends DataType = any>
     }
     public get dictionary(): ChunkedDict<T> | null {
         if (DataType.isDictionary(this._type)) {
-            return (<any> this._type.dictionaryVector) as ChunkedDict<T>;
+            return this._chunks[this._chunks.length - 1].data.dictionary as ChunkedDict<T>;
         }
         return null;
     }

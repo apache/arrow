@@ -201,7 +201,8 @@ type fieldVisitor struct {
 	meta   map[string]string
 }
 
-func (fv *fieldVisitor) visit(dt arrow.DataType) {
+func (fv *fieldVisitor) visit(field arrow.Field) {
+	dt := field.Type
 	switch dt := dt.(type) {
 	case *arrow.NullType:
 		fv.dtype = flatbuf.TypeNull
@@ -257,6 +258,13 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 		fv.dtype = flatbuf.TypeFloatingPoint
 		fv.offset = floatToFB(fv.b, int32(dt.BitWidth()))
 
+	case *arrow.Decimal128Type:
+		fv.dtype = flatbuf.TypeDecimal
+		flatbuf.DecimalStart(fv.b)
+		flatbuf.DecimalAddPrecision(fv.b, dt.Precision)
+		flatbuf.DecimalAddScale(fv.b, dt.Scale)
+		fv.offset = flatbuf.DecimalEnd(fv.b)
+
 	case *arrow.FixedSizeBinaryType:
 		fv.dtype = flatbuf.TypeFixedSizeBinary
 		flatbuf.FixedSizeBinaryStart(fv.b)
@@ -302,7 +310,10 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 	case *arrow.TimestampType:
 		fv.dtype = flatbuf.TypeTimestamp
 		unit := unitToFB(dt.Unit)
-		tz := fv.b.CreateString(dt.TimeZone)
+		var tz flatbuffers.UOffsetT
+		if dt.TimeZone != "" {
+			tz = fv.b.CreateString(dt.TimeZone)
+		}
 		flatbuf.TimestampStart(fv.b)
 		flatbuf.TimestampAddUnit(fv.b, unit)
 		flatbuf.TimestampAddTimezone(fv.b, tz)
@@ -323,13 +334,13 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 
 	case *arrow.ListType:
 		fv.dtype = flatbuf.TypeList
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem()}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable}, fv.memo))
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
 
 	case *arrow.FixedSizeListType:
 		fv.dtype = flatbuf.TypeFixedSizeList
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem()}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable}, fv.memo))
 		flatbuf.FixedSizeListStart(fv.b)
 		flatbuf.FixedSizeListAddListSize(fv.b, dt.Len())
 		fv.offset = flatbuf.FixedSizeListEnd(fv.b)
@@ -362,7 +373,7 @@ func (fv *fieldVisitor) visit(dt arrow.DataType) {
 func (fv *fieldVisitor) result(field arrow.Field) flatbuffers.UOffsetT {
 	nameFB := fv.b.CreateString(field.Name)
 
-	fv.visit(field.Type)
+	fv.visit(field)
 
 	flatbuf.FieldStartChildrenVector(fv.b, len(fv.kids))
 	for i := len(fv.kids) - 1; i >= 0; i-- {
@@ -510,6 +521,11 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		dt.Init(data.Bytes, data.Pos)
 		return floatFromFB(dt)
 
+	case flatbuf.TypeDecimal:
+		var dt flatbuf.Decimal
+		dt.Init(data.Bytes, data.Pos)
+		return decimalFromFB(dt)
+
 	case flatbuf.TypeBinary:
 		return arrow.BinaryTypes.Binary, nil
 
@@ -649,6 +665,10 @@ func floatToFB(b *flatbuffers.Builder, bw int32) flatbuffers.UOffsetT {
 	default:
 		panic(errors.Errorf("arrow/ipc: invalid floating point precision %d-bits", bw))
 	}
+}
+
+func decimalFromFB(data flatbuf.Decimal) (arrow.DataType, error) {
+	return &arrow.Decimal128Type{Precision: data.Precision(), Scale: data.Scale()}, nil
 }
 
 func timeFromFB(data flatbuf.Time) (arrow.DataType, error) {

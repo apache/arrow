@@ -1,2 +1,3 @@
 usr/lib/*/libarrow_flight.a
 usr/lib/*/libarrow_flight.so
+usr/lib/*/pkgconfig/arrow-flight.pc

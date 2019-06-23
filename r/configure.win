@@ -25,8 +25,9 @@ if [ "$ARROW_R_DEV" == "TRUE" ]; then
 fi
 
 VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
-# Try to find/download a C++ Arrow binary
-"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION
+# Try to find/download a C++ Arrow binary,
+# including possibly a local .zip file if RWINLIB_LOCAL is set
+"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION $RWINLIB_LOCAL
 # If binary not found, script exits nonzero
 if [ $? -ne 0 ]; then
   # We'll have to install without libarrow. Note to the user how to rectify.
@@ -38,7 +39,7 @@ else
   # Set the right flags to point to and enable arrow/parquet
   RWINLIB="../windows/arrow-${VERSION}"
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_R_WITH_PARQUET -DARROW_R_WITH_ARROW"
-  PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow -lthrift -lboost_regex-mt-s -ldouble-conversion -lz -lws2_32"
+  PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow -lthrift -lboost_regex-mt-s -lboost_filesystem-mt-s -lboost_system-mt-s -ldouble-conversion -lz -lws2_32"
 fi
 
 echo "*** Writing Makevars.win"

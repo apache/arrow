@@ -16,6 +16,7 @@
 # under the License.
 
 require "English"
+require "find"
 require "tempfile"
 require "tmpdir"
 
@@ -62,5 +63,17 @@ module GitRunnable
 
   def git_tags
     git("tags").lines(chomp: true)
+  end
+end
+
+module VersionDetectable
+  def detect_versions
+    top_dir = Pathname(__dir__).parent.parent
+    cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
+    @snapshot_version = cpp_cmake_lists.read[/ARROW_VERSION "(.+?)"/, 1]
+    @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
+    @next_version = @release_version.gsub(/\A\d+/) {|major| major.succ}
+    r_description = top_dir + "r" + "DESCRIPTION"
+    @previous_version = r_description.read[/^Version: (.+?)\.9000$/, 1]
   end
 end

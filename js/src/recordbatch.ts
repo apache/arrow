@@ -18,12 +18,13 @@
 import { Data } from './data';
 import { Table } from './table';
 import { Vector } from './vector';
+import { Visitor } from './visitor';
 import { Schema, Field } from './schema';
 import { isIterable } from './util/compat';
 import { Chunked } from './vector/chunked';
 import { MapVector } from './vector/index';
 import { selectFieldArgs } from './util/args';
-import { DataType, Struct, Map_ } from './type';
+import { DataType, Struct, Map_, Dictionary } from './type';
 import { ensureSameLengthData } from './util/recordbatch';
 import { Clonable, Sliceable, Applicative } from './vector';
 import { VectorBuilderOptions, VectorBuilderOptionsAsync } from './vector/index';
@@ -64,6 +65,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
     }
 
     protected _schema: Schema;
+    protected _dictionaries?: Map<number, Vector>;
 
     constructor(schema: Schema<T>, length: number, children: (Data | Vector)[]);
     constructor(schema: Schema<T>, data: Data<Map_<T>>, children?: Vector[]);
@@ -93,6 +95,9 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
 
     public get schema() { return this._schema; }
     public get numCols() { return this._schema.fields.length; }
+    public get dictionaries() {
+        return this._dictionaries || (this._dictionaries = DictionaryCollector.collect(this));
+    }
 
     public select<K extends keyof T = any>(...columnNames: K[]) {
         const nameToIndex = this._schema.fields.reduce((m, f, i) => m.set(f.name as K, i), new Map<K, number>());
@@ -117,5 +122,31 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
 export class _InternalEmptyPlaceholderRecordBatch<T extends { [key: string]: DataType } = any> extends RecordBatch<T> {
     constructor(schema: Schema<T>) {
         super(schema, 0, schema.fields.map((f) => Data.new(f.type, 0, 0, 0)));
+    }
+}
+
+/** @ignore */
+class DictionaryCollector extends Visitor {
+    public dictionaries = new Map<number, Vector>();
+    public static collect<T extends RecordBatch>(batch: T) {
+        return new DictionaryCollector().visit(
+            batch.data, new Map_(batch.schema.fields)
+        ).dictionaries;
+    }
+    public visit(data: Data, type: DataType) {
+        if (DataType.isDictionary(type)) {
+            return this.visitDictionary(data, type);
+        } else {
+            data.childData.forEach((child, i) =>
+                this.visit(child, type.children[i].type));
+        }
+        return this;
+    }
+    public visitDictionary(data: Data, type: Dictionary) {
+        const dictionary = data.dictionary;
+        if (dictionary && dictionary.length > 0) {
+            this.dictionaries.set(type.id, dictionary);
+        }
+        return this;
     }
 }

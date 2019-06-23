@@ -570,7 +570,7 @@ class SchemaPrinter : public PrettyPrinter {
       : PrettyPrinter(indent, indent_size, window, skip_new_lines, sink),
         schema_(schema) {}
 
-  Status PrintType(const DataType& type);
+  Status PrintType(const DataType& type, bool nullable);
   Status PrintField(const Field& field);
 
   Status Print() {
@@ -588,8 +588,11 @@ class SchemaPrinter : public PrettyPrinter {
   const Schema& schema_;
 };
 
-Status SchemaPrinter::PrintType(const DataType& type) {
+Status SchemaPrinter::PrintType(const DataType& type, bool nullable) {
   Write(type.ToString());
+  if (!nullable) {
+    Write(" not null");
+  }
   for (int i = 0; i < type.num_children(); ++i) {
     Newline();
 
@@ -607,7 +610,7 @@ Status SchemaPrinter::PrintType(const DataType& type) {
 Status SchemaPrinter::PrintField(const Field& field) {
   Write(field.name());
   Write(": ");
-  return PrintType(*field.type());
+  return PrintType(*field.type(), field.nullable());
 }
 
 Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,

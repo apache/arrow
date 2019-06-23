@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { DateUnit } from '../enum';
 import { Chunked } from './chunked';
 import { BaseVector } from './base';
 import { VectorType as V } from '../interfaces';
@@ -24,37 +25,27 @@ import { VectorBuilderOptionsAsync } from './index';
 import { Date_, DateDay, DateMillisecond  } from '../type';
 
 /** @ignore */
+type FromArgs<T extends Date_> = [Iterable<Date>, T['unit']];
+
+/** @ignore */
 export class DateVector<T extends Date_ = Date_> extends BaseVector<T> {
-    public static from<T extends Date_ = DateMillisecond, TNull = any>(input: Iterable<Date | TNull>): V<T>;
-    public static from<T extends Date_ = DateMillisecond, TNull = any>(input: AsyncIterable<Date | TNull>): Promise<V<T>>;
-    public static from<T extends Date_ = DateMillisecond, TNull = any>(input: VectorBuilderOptions<T, TNull>): Chunked<T>;
-    public static from<T extends Date_ = DateMillisecond, TNull = any>(input: VectorBuilderOptionsAsync<T, TNull>): Promise<Chunked<T>>;
+    public static from<T extends DateUnit.DAY>(...args: FromArgs<DateDay>): V<DateDay>;
+    public static from<T extends DateUnit.MILLISECOND>(...args: FromArgs<DateMillisecond>): V<DateMillisecond>;
+    public static from<T extends Date_, TNull = any>(input: Iterable<Date | TNull>): V<T>;
+    public static from<T extends Date_, TNull = any>(input: AsyncIterable<Date | TNull>): Promise<V<T>>;
+    public static from<T extends Date_, TNull = any>(input: VectorBuilderOptions<T, TNull>): Chunked<T>;
+    public static from<T extends Date_, TNull = any>(input: VectorBuilderOptionsAsync<T, TNull>): Promise<Chunked<T>>;
     /** @nocollapse */
-    public static from<T extends Date_ = DateMillisecond, TNull = any>(input: Iterable<Date | TNull> | AsyncIterable<Date | TNull> | VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>) {
-        return vectorFromValuesWithType(() => new DateMillisecond() as T, input);
+    public static from<T extends Date_, TNull = any>(...args: FromArgs<T> | [Iterable<Date | TNull> | AsyncIterable<Date | TNull> | VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>]) {
+        if (args.length === 2) {
+            return vectorFromValuesWithType(() => args[1] === DateUnit.DAY ? new DateDay() : new DateMillisecond() as T, args[0]);
+        }
+        return vectorFromValuesWithType(() => new DateMillisecond() as T, args[0]);
     }
 }
 
 /** @ignore */
-export class DateDayVector extends DateVector<DateDay> {
-    public static from<TNull = any>(input: Iterable<Date | TNull>): DateDayVector;
-    public static from<TNull = any>(input: AsyncIterable<Date | TNull>): Promise<DateDayVector>;
-    public static from<TNull = any>(input: VectorBuilderOptions<DateDay, TNull>): Chunked<DateDay>;
-    public static from<TNull = any>(input: VectorBuilderOptionsAsync<DateDay, TNull>): Promise<Chunked<DateDay>>;
-    /** @nocollapse */
-    public static from<TNull = any>(input: Iterable<Date | TNull> | AsyncIterable<Date | TNull> | VectorBuilderOptions<DateDay, TNull> | VectorBuilderOptionsAsync<DateDay, TNull>) {
-        return vectorFromValuesWithType(() => new DateDay(), input);
-    }
-}
+export class DateDayVector extends DateVector<DateDay> {}
 
 /** @ignore */
-export class DateMillisecondVector extends DateVector<DateMillisecond> {
-    public static from<TNull = any>(input: Iterable<Date | TNull>): DateMillisecondVector;
-    public static from<TNull = any>(input: AsyncIterable<Date | TNull>): Promise<DateMillisecondVector>;
-    public static from<TNull = any>(input: VectorBuilderOptions<DateMillisecond, TNull>): Chunked<DateMillisecond>;
-    public static from<TNull = any>(input: VectorBuilderOptionsAsync<DateMillisecond, TNull>): Promise<Chunked<DateMillisecond>>;
-    /** @nocollapse */
-    public static from<TNull = any>(input: Iterable<Date | TNull> | AsyncIterable<Date | TNull> | VectorBuilderOptions<DateMillisecond, TNull> | VectorBuilderOptionsAsync<DateMillisecond, TNull>) {
-        return vectorFromValuesWithType(() => new DateMillisecond(), input);
-    }
-}
+export class DateMillisecondVector extends DateVector<DateMillisecond> {}

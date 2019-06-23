@@ -57,7 +57,7 @@ inline bool HasStructListName(const GroupNode& node) {
 inline bool IsSimpleStruct(const Node* node) {
   if (!node->is_group()) return false;
   if (node->is_repeated()) return false;
-  if (node->logical_type() == LogicalType::LIST) return false;
+  if (node->converted_type() == ConvertedType::LIST) return false;
   // Special case mentioned in the format spec:
   //   If the name is array or ends in _tuple, this should be a list of struct
   //   even for single child elements.

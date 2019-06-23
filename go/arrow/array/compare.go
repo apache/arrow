@@ -128,6 +128,9 @@ func ArrayEqual(left, right Interface) bool {
 	case *Float64:
 		r := right.(*Float64)
 		return arrayEqualFloat64(l, r)
+	case *Decimal128:
+		r := right.(*Decimal128)
+		return arrayEqualDecimal128(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
@@ -314,6 +317,9 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 	case *Float64:
 		r := right.(*Float64)
 		return arrayApproxEqualFloat64(l, r, opt)
+	case *Decimal128:
+		r := right.(*Decimal128)
+		return arrayEqualDecimal128(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
