@@ -197,8 +197,10 @@ test_yum() {
 
 setup_tempdir() {
   cleanup() {
-    if [ -z "${NO_REMOVE_TEMPDIR}" ]; then
-      rm -fr "$TMPDIR"
+    if [ "${TEST_SUCCESS}" = "yes" ]; then
+      rm -fr "${TMPDIR}"
+    else
+      echo "Failed to verify release candidate. See ${TMPDIR} for details."
     fi
   }
   trap cleanup EXIT
@@ -471,16 +473,11 @@ test_binary_distribution() {
   fi
 }
 
-setup_tempdir "arrow-$VERSION"
-echo "Working in sandbox $TMPDIR"
-cd $TMPDIR
-
-import_gpg_keys
-
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
 : ${TEST_DEFAULT:=1}
+: ${TEST_SOURCE:=${TEST_DEFAULT}}
 : ${TEST_JAVA:=${TEST_DEFAULT}}
 : ${TEST_CPP:=${TEST_DEFAULT}}
 : ${TEST_GLIB:=${TEST_DEFAULT}}
@@ -500,18 +497,39 @@ TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
 TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
 TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
 
-if [ "$ARTIFACT" == "source" ]; then
-  TARBALL=apache-arrow-$1.tar.gz
-  DIST_NAME="apache-arrow-${VERSION}"
+: ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
+case "${TEST_ARCHIVE}" in
+  /*)
+   ;;
+  *)
+   TEST_ARCHIVE=${PWD}/${TEST_ARCHIVE}
+   ;;
+esac
 
-  fetch_archive $DIST_NAME
-  tar xvzf ${DIST_NAME}.tar.gz
-  cd ${DIST_NAME}
+TEST_SUCCESS=no
 
+setup_tempdir "arrow-${VERSION}"
+echo "Working in sandbox ${TMPDIR}"
+cd ${TMPDIR}
+
+if [ "${ARTIFACT}" == "source" ]; then
+  dist_name="apache-arrow-${VERSION}"
+  if [ ${TEST_SOURCE} -gt 0 ]; then
+    import_gpg_keys
+    fetch_archive ${dist_name}
+    tar xf ${dist_name}.tar.gz
+  else
+    mkdir -p ${dist_name}
+    tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
+  fi
+  pushd ${dist_name}
   test_source_distribution
+  popd
 else
+  import_gpg_keys
   test_binary_distribution
 fi
 
+TEST_SUCCESS=yes
 echo 'Release candidate looks good!'
 exit 0
