@@ -26,7 +26,7 @@
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <protobuf.version>2.6.1</protobuf.version>
+        <protobuf.version>2.5.0</protobuf.version>
         <dep.guava.version>18.0</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
         <gandiva.cpp.build.dir>../../cpp/build/debug</gandiva.cpp.build.dir>
@@ -128,7 +128,7 @@
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
-                <version>0.6.1</version>
+                <version>0.5.1</version>
                 <configuration>
                     <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}
                     </protocArtifact>

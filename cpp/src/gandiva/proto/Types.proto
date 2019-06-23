@@ -211,12 +211,10 @@ message FunctionSignature {
 
 message InNode {
   optional FieldNode field = 1;
-  oneof values {
-   IntConstants intValues = 2;
-   LongConstants longValues = 3;
-   StringConstants stringValues = 4;
-   BinaryConstants binaryValues = 5;
-  }
+  optional IntConstants intValues = 2;
+  optional LongConstants longValues = 3;
+  optional StringConstants stringValues = 4;
+  optional BinaryConstants binaryValues = 5;
 }
 
 message IntConstants {
