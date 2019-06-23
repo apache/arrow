@@ -32,11 +32,14 @@
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
-#include "parquet/encryption_internal.h"
-#include "parquet/internal_file_decryptor.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift.h"
+
+#ifdef PARQUET_ENCRYPTION
+#include "parquet/encryption_internal.h"
+#include "parquet/internal_file_decryptor.h"
+#endif
 
 using arrow::MemoryPool;
 
@@ -119,22 +122,28 @@ class SerializedPageReader : public PageReader {
         column_ordinal_(-1),
         page_ordinal_(-1),
         seen_num_rows_(0),
-        total_num_rows_(total_num_rows),
+        total_num_rows_(total_num_rows)
+#ifdef PARQUET_ENCRYPTION
+        ,
         decryption_buffer_(AllocateBuffer(pool, 0)),
         meta_decryptor_(NULLPTR),
-        data_decryptor_(NULLPTR) {
+        data_decryptor_(NULLPTR)
+#endif
+  {
     if (ctx != NULLPTR) {
       column_has_dictionary_ = ctx->column_has_dictionary;
       row_group_ordinal_ = ctx->row_group_ordinal;
       column_ordinal_ = ctx->column_ordinal;
+#ifdef PARQUET_ENCRYPTION
       meta_decryptor_ = ctx->meta_decryptor;
       data_decryptor_ = ctx->data_decryptor;
+      if (data_decryptor_ != NULLPTR || meta_decryptor_ != NULLPTR) {
+        InitDecryption();
+      }
+#endif
     }
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
     decompressor_ = GetCodecFromArrow(codec);
-    if (data_decryptor_ != NULLPTR || meta_decryptor_ != NULLPTR) {
-      InitDecryption();
-    }
   }
 
   // Implement the PageReader interface
@@ -143,11 +152,13 @@ class SerializedPageReader : public PageReader {
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
  private:
+#ifdef PARQUET_ENCRYPTION
   void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
                         bool current_page_is_dictionary, int8_t module_type,
                         const std::string& pageAAD);
 
   void InitDecryption();
+#endif
 
   std::shared_ptr<ArrowInputStream> stream_;
 
@@ -179,12 +190,6 @@ class SerializedPageReader : public PageReader {
   int16_t row_group_ordinal_;
   int16_t column_ordinal_;
   int16_t page_ordinal_;
-  // data_pageAAD_ and data_page_headerAAD_ contain the AAD for data page and data page
-  // header in a single column respectively.
-  // While calculating AAD for different pages in a single column the pages AAD is
-  // updated by only the page ordinal.
-  std::string data_pageAAD_;
-  std::string data_page_headerAAD_;
 
   // Maximum allowed page size
   uint32_t max_page_header_size_;
@@ -195,12 +200,21 @@ class SerializedPageReader : public PageReader {
   // Number of rows in all the data pages
   int64_t total_num_rows_;
 
+#ifdef PARQUET_ENCRYPTION
+  // data_pageAAD_ and data_page_headerAAD_ contain the AAD for data page and data page
+  // header in a single column respectively.
+  // While calculating AAD for different pages in a single column the pages AAD is
+  // updated by only the page ordinal.
+  std::string data_pageAAD_;
+  std::string data_page_headerAAD_;
   // Encryption
   std::shared_ptr<ResizableBuffer> decryption_buffer_;
   std::shared_ptr<Decryptor> meta_decryptor_;
   std::shared_ptr<Decryptor> data_decryptor_;
+#endif
 };
 
+#ifdef PARQUET_ENCRYPTION
 void SerializedPageReader::InitDecryption() {
   // Prepare the AAD for quick update later.
   if (data_decryptor_ != NULLPTR) {
@@ -232,14 +246,19 @@ void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& de
     decryptor->UpdateAad(pageAAD);
   }
 }
+#endif  // PARQUET_ENCRYPTION
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
+#ifdef PARQUET_ENCRYPTION
   bool current_page_is_dictionary = false;
+#endif
   if (column_has_dictionary_) {
     if (first_page_) {
+#ifdef PARQUET_ENCRYPTION
       current_page_is_dictionary = true;
+#endif
       first_page_ = false;
     } else {
       page_ordinal_++;
@@ -265,12 +284,17 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       // This gets used, then set by DeserializeThriftMsg
       header_size = static_cast<uint32_t>(buffer.size());
       try {
+#ifdef PARQUET_ENCRYPTION
         if (meta_decryptor_ != NULLPTR) {
           UpdateDecryption(meta_decryptor_, current_page_is_dictionary,
                            encryption::kDictionaryPageHeader, data_page_headerAAD_);
         }
         DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
                              &header_size, &current_page_header_, meta_decryptor_);
+#else
+        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
+                             &header_size, &current_page_header_);
+#endif  // PARQUET_ENCRYPTION
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -288,11 +312,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
+#ifdef PARQUET_ENCRYPTION
     if (data_decryptor_ != NULLPTR) {
       UpdateDecryption(data_decryptor_, current_page_is_dictionary,
                        encryption::kDictionaryPage, data_pageAAD_);
     }
-
+#endif
     // Read the compressed data page.
     std::shared_ptr<Buffer> page_buffer;
     PARQUET_THROW_NOT_OK(stream_->Read(compressed_len, &page_buffer));
@@ -303,6 +328,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       ParquetException::EofException(ss.str());
     }
 
+#ifdef PARQUET_ENCRYPTION
     // Decrypt it if we need to
     if (data_decryptor_ != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
@@ -312,7 +338,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       page_buffer = decryption_buffer_;
     }
-
+#endif  // PARQUET_ENCRYPTION
     // Uncompress it if we need to
     if (decompressor_ != nullptr) {
       // Grow the uncompressed buffer if we need to.
