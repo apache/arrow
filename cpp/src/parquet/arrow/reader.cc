@@ -188,8 +188,8 @@ class RowGroupRecordBatchReader : public ::arrow::RecordBatchReader {
       }
     }
 
-    // TODO (hatemhelal): refactor this to share logic/features as ReadTable so that other
-    // ArrowReaderProperties are honored (use_threads, and read_dictionary).
+    // TODO (hatemhelal): Consider refactoring this to share logic with ReadTable as this
+    // does not currently honor the use_threads option.
     std::vector<std::shared_ptr<Column>> columns(column_indices_.size());
 
     for (size_t i = 0; i < column_indices_.size(); ++i) {
