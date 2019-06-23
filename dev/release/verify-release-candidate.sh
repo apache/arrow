@@ -298,14 +298,18 @@ test_glib() {
   pushd c_glib
 
   if brew --prefix libffi > /dev/null 2>&1; then
-    ./configure --prefix=$ARROW_HOME \
-      PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
-  else
-    ./configure --prefix=$ARROW_HOME
+    PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
   fi
 
-  make -j$NPROC
-  make install
+  if [ -f configure ]; then
+    ./configure --prefix=$ARROW_HOME
+    make -j$NPROC
+    make install
+  else
+    meson build --prefix=$ARROW_HOME --libdir=lib
+    ninja
+    ninja install
+  fi
 
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
 
