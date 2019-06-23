@@ -51,7 +51,7 @@ RUN apt-get update -y && \
     apt-get install -y \
             texlive-latex-base && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /var/lib/apt/lists/*
 
 # So that arrowExports.* files are generated
 ENV ARROW_R_DEV=TRUE
