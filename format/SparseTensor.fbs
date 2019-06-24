@@ -27,6 +27,9 @@ namespace org.apache.arrow.flatbuf;
 
 /// Coodinate format of sparse tensor index.
 table SparseTensorIndexCOO {
+  /// The type of values in indicesBuffer.
+  indicesType: Int;
+
   /// COO's index list are represented as a NxM matrix,
   /// where N is the number of non-zero values,
   /// and M is the number of dimensions of a sparse tensor.
@@ -55,6 +58,9 @@ table SparseTensorIndexCOO {
 
 /// Compressed Sparse Row format, that is matrix-specific.
 table SparseMatrixIndexCSR {
+  /// The type of values in indptrBuffer
+  indptrType: Int;
+
   /// indptrBuffer stores the location and size of indptr array that
   /// represents the range of the rows.
   /// The i-th row spans from indptr[i] to indptr[i+1] in the data.
@@ -78,6 +84,9 @@ table SparseMatrixIndexCSR {
   ///
   ///   indptr(X) = [0, 2, 3, 5, 5, 8, 10].
   indptrBuffer: Buffer;
+
+  /// The type of values in indciesBuffer
+  indicesType: Int;
 
   /// indicesBuffer stores the location and size of the array that
   /// contains the column indices of the corresponding non-zero values.

@@ -967,9 +967,16 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
   *fb_sparse_index_type = flatbuf::SparseTensorIndex_SparseTensorIndexCOO;
+
+  // TODO: Now SparseCOOIndex support only Int64 tensor for indices matrix,
+  //       but we should also make smaller bit-width and unsigned index available.
+  auto indices_type_offset = flatbuf::CreateInt(fbb, 64, true);
+
   const BufferMetadata& indices_metadata = buffers[0];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
-  *fb_sparse_index = flatbuf::CreateSparseTensorIndexCOO(fbb, &indices).Union();
+
+  *fb_sparse_index =
+      flatbuf::CreateSparseTensorIndexCOO(fbb, indices_type_offset, &indices).Union();
   *num_buffers = 1;
   return Status::OK();
 }
@@ -979,11 +986,24 @@ Status MakeSparseMatrixIndexCSR(FBB& fbb, const SparseCSRIndex& sparse_index,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
   *fb_sparse_index_type = flatbuf::SparseTensorIndex_SparseMatrixIndexCSR;
+
+  // TODO: Now SparseCSRIndex support Int64 tensor for indptr array,
+  //       but we should also make smaller bit-width and unsigned index available.
+  auto indptr_type_offset = flatbuf::CreateInt(fbb, 64, true);
+
   const BufferMetadata& indptr_metadata = buffers[0];
-  const BufferMetadata& indices_metadata = buffers[1];
   flatbuf::Buffer indptr(indptr_metadata.offset, indptr_metadata.length);
+
+  // TODO: Now SparseCSRIndex support Int64 tensor for indices array,
+  //       but we should also make smaller bit-width and unsigned index available.
+  auto indices_type_offset = flatbuf::CreateInt(fbb, 64, true);
+
+  const BufferMetadata& indices_metadata = buffers[1];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
-  *fb_sparse_index = flatbuf::CreateSparseMatrixIndexCSR(fbb, &indptr, &indices).Union();
+
+  *fb_sparse_index = flatbuf::CreateSparseMatrixIndexCSR(fbb, indptr_type_offset, &indptr,
+                                                         indices_type_offset, &indices)
+                         .Union();
   *num_buffers = 2;
   return Status::OK();
 }

@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -864,6 +865,12 @@ Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t nd
                           int64_t non_zero_length, io::RandomAccessFile* file,
                           std::shared_ptr<SparseIndex>* out) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCOO();
+  auto* indices_type = sparse_index->indicesType();
+  // SparseCOOIndex currently can have Int64 tensor for indices
+  if (indices_type->bitWidth() != 64) {
+    return Status::NotImplemented(
+        "SparseCOOIndex with more or less than 64-bit indices not implemented");
+  }
   auto* indices_buffer = sparse_index->indicesBuffer();
   std::shared_ptr<Buffer> indices_data;
   RETURN_NOT_OK(
@@ -880,6 +887,20 @@ Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t nd
                           int64_t non_zero_length, io::RandomAccessFile* file,
                           std::shared_ptr<SparseIndex>* out) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSR();
+
+  auto* indptr_type = sparse_index->indptrType();
+  // SparseCSRIndex currently can have Int64 tensor for indptr
+  if (indptr_type->bitWidth() != 64) {
+    return Status::NotImplemented(
+        "SparseCSRIndex with more or less than 64-bit indptr not implemented");
+  }
+
+  auto* indices_type = sparse_index->indicesType();
+  // SparseCSRIndex currently can have Int64 tensor for indices
+  if (indices_type->bitWidth() != 64) {
+    return Status::NotImplemented(
+        "SparseCSRIndex with more or less than 64-bit indices not implemented");
+  }
 
   auto* indptr_buffer = sparse_index->indptrBuffer();
   std::shared_ptr<Buffer> indptr_data;
