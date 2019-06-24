@@ -3,67 +3,65 @@ jobs:
   pool:
     vmImage: macOS-10.13
   timeoutInMinutes: 360
-  ############ instead of strategy ###############
   variables:
+    CONFIG: {{ config }}
+    ARROW_VERSION: {{ arrow.no_rc_version }}
     UPLOAD_PACKAGES: False
   steps:
-  ############### clone arrow and change directory #################
-  - template: azure-template-clone-arrow.yml
-
-  # TODO: Fast finish on azure pipelines?
-  - script: |
-      echo "Fast Finish"
-
-  - script: |
+  - displayName: Remove homebrew
+    script: |
       echo "Removing homebrew from Azure to avoid conflicts."
       curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
       chmod +x ~/uninstall_homebrew
       ~/uninstall_homebrew -fq
       rm ~/uninstall_homebrew
-    displayName: Remove homebrew
 
-  - bash: |
+  - displayName: Add conda to PATH
+    bash: |
       echo "##vso[task.prependpath]$CONDA/bin"
       sudo chown -R $USER $CONDA
-    displayName: Add conda to PATH
 
-  - script: |
+  - displayName: 'Add conda-forge-ci-setup=2'
+    script: |
       source activate base
       conda install -n base -c conda-forge --quiet --yes conda-forge-ci-setup=2 conda-build
-    displayName: 'Add conda-forge-ci-setup=2'
 
-  - script: |
+  - displayName: Clone arrow
+    script: |
+      git clone --no-checkout {{ arrow.remote }} arrow
+      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      git -C arrow checkout {{ arrow.head }}
+
+  - displayName: Configure conda and conda-build
+    script: |
       source activate base
       echo "Configuring conda."
 
-      setup_conda_rc ./ ./recipe ./.ci_support/${CONFIG}.yaml
+      setup_conda_rc ./ ./ ./.ci_support/${CONFIG}.yaml
       export CI=azure
       source run_conda_forge_build_setup
       conda update --yes --quiet --override-channels -c conda-forge -c defaults --all
+    workingDirectory: arrow/dev/tasks/conda-recipes
     env: {
       OSX_FORCE_SDK_DOWNLOAD: "1"
     }
-    displayName: Configure conda and conda-build
 
-  - script: |
+  - displayName: Mangle compiler
+    workingDirectory: arrow/dev/tasks/conda-recipes
+    script: |
       source activate base
-      mangle_compiler ./ ./recipe ./.ci_support/${CONFIG}.yaml
-    displayName: Mangle compiler
+      mangle_compiler ./ ./ ./.ci_support/${CONFIG}.yaml
 
-  - script: |
+  - displayName: Generate build number clobber file
+    workingDirectory: arrow/dev/tasks/conda-recipes
+    script: |
       source activate base
-      make_build_number ./ ./recipe ./.ci_support/${CONFIG}.yaml
-    displayName: Generate build number clobber file
+      make_build_number ./ ./ ./.ci_support/${CONFIG}.yaml
 
-  - script: |
+  - displayName: Build recipes
+    workingDirectory: arrow/dev/tasks/conda-recipes
+    script: |
       source activate base
-      conda build ./recipe -m ./.ci_support/${CONFIG}.yaml --clobber-file ./.ci_support/clobber_${CONFIG}.yaml
-    displayName: Build recipe
-
-  - script: |
-      source activate base
-      upload_package ./ ./recipe ./.ci_support/${CONFIG}.yaml
-    displayName: Upload recipe
-    env:
-      BINSTAR_TOKEN: $(BINSTAR_TOKEN)
-    condition: not(eq(variables['UPLOAD_PACKAGES'], 'False'))
+      conda build arrow-cpp parquet-cpp pyarrow \
+        -m ./.ci_support/${CONFIG}.yaml \
+        --clobber-file ./.ci_support/clobber_${CONFIG}.yaml

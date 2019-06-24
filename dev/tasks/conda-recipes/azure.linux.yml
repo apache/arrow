@@ -13,17 +13,18 @@ jobs:
   steps:
   # configure qemu binfmt-misc running.  This allows us to run docker containers
   # embedded qemu-static
-  - script: |
+  - displayName: Configure binfmt_misc
+    script: |
       docker run --rm --privileged multiarch/qemu-user-static:register --reset --credential yes
       ls /proc/sys/fs/binfmt_misc/
     condition: not(startsWith(variables['CONFIG'], 'linux_64'))
-    displayName: Configure binfmt_misc
 
-  - script: |
+  - displayName: Clone arrow
+    script: |
       git clone --no-checkout {{ arrow.remote }} arrow
       git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
       git -C arrow checkout {{ arrow.head }}
 
-  - script: CI=azure ./run_docker_build.sh
-    displayName: Run docker build
+  - displayName: Run docker build
+    script: CI=azure ./run_docker_build.sh
     workingDirectory: arrow/dev/tasks/conda-recipes
