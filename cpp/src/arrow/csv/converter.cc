@@ -29,6 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
 #include "arrow/util/trie.h"
 #include "arrow/util/utf8.h"
@@ -54,6 +55,28 @@ inline bool IsWhitespace(uint8_t c) {
     return false;
   }
   return c == ' ' || c == '\t';
+}
+
+// Updates data_inout and size_inout to not include leading/trailing whitespace
+// characters.
+inline void TrimWhiteSpace(const uint8_t** data_inout, uint32_t* size_inout) {
+  const uint8_t*& data = *data_inout;
+  uint32_t& size = *size_inout;
+  // Skip trailing whitespace
+  if (ARROW_PREDICT_TRUE(size > 0) && ARROW_PREDICT_FALSE(IsWhitespace(data[size - 1]))) {
+    const uint8_t* p = data + size - 1;
+    while (size > 0 && IsWhitespace(*p)) {
+      --size;
+      --p;
+    }
+  }
+  // Skip leading whitespace
+  if (ARROW_PREDICT_TRUE(size > 0) && ARROW_PREDICT_FALSE(IsWhitespace(data[0]))) {
+    while (size > 0 && IsWhitespace(*data)) {
+      --size;
+      ++data;
+    }
+  }
 }
 
 Status InitializeTrie(const std::vector<std::string>& inputs, Trie* trie) {
@@ -280,22 +303,7 @@ Status NumericConverter<T>::Convert(const BlockParser& parser, int32_t col_index
       return Status::OK();
     }
     if (!std::is_same<BooleanType, T>::value) {
-      // Skip trailing whitespace
-      if (ARROW_PREDICT_TRUE(size > 0) &&
-          ARROW_PREDICT_FALSE(IsWhitespace(data[size - 1]))) {
-        const uint8_t* p = data + size - 1;
-        while (size > 0 && IsWhitespace(*p)) {
-          --size;
-          --p;
-        }
-      }
-      // Skip leading whitespace
-      if (ARROW_PREDICT_TRUE(size > 0) && ARROW_PREDICT_FALSE(IsWhitespace(data[0]))) {
-        while (size > 0 && IsWhitespace(*data)) {
-          --size;
-          ++data;
-        }
-      }
+      TrimWhiteSpace(&data, &size);
     }
     if (ARROW_PREDICT_FALSE(
             !converter(reinterpret_cast<const char*>(data), size, &value))) {
@@ -346,6 +354,49 @@ class TimestampConverter : public ConcreteConverter {
   }
 };
 
+/////////////////////////////////////////////////////////////////////////
+// Concrete Converter for Decimals
+
+class DecimalConverter : public ConcreteConverter {
+ public:
+  using ConcreteConverter::ConcreteConverter;
+
+  Status Convert(const BlockParser& parser, int32_t col_index,
+                 std::shared_ptr<Array>* out) override {
+    Decimal128Builder builder(type_, pool_);
+
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      if (IsNull(data, size, quoted)) {
+        builder.UnsafeAppendNull();
+        return Status::OK();
+      }
+      TrimWhiteSpace(&data, &size);
+      Decimal128 decimal;
+      int32_t precision, scale;
+      util::string_view view(reinterpret_cast<const char*>(data), size);
+      RETURN_NOT_OK(Decimal128::FromString(view, &decimal, &precision, &scale));
+      DecimalType& type = *internal::checked_cast<DecimalType*>(type_.get());
+      if (precision > type.precision()) {
+        return Status::Invalid("Error converting ", view, " to ", type_->ToString(),
+                               " precision not supported by type.");
+      }
+      if (scale != type.scale()) {
+        Decimal128 scaled;
+        RETURN_NOT_OK(decimal.Rescale(scale, type.scale(), &scaled));
+        RETURN_NOT_OK(builder.Append(scaled.ToBytes()));
+      } else {
+        RETURN_NOT_OK(builder.Append(decimal.ToBytes()));
+      }
+      return Status::OK();
+    };
+    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+    RETURN_NOT_OK(builder.Finish(out));
+
+    return Status::OK();
+  }
+};
+
 }  // namespace
 
 /////////////////////////////////////////////////////////////////////////
@@ -381,6 +432,7 @@ Status Converter::Make(const std::shared_ptr<DataType>& type,
     CONVERTER_CASE(Type::TIMESTAMP, TimestampConverter)
     CONVERTER_CASE(Type::BINARY, (VarSizeBinaryConverter<BinaryType, false>))
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
+    CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
 
     case Type::STRING:
       if (options.check_utf8) {
