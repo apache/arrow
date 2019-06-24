@@ -270,6 +270,11 @@ const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
   return data_ptr + i * byte_width_;
 }
 
+uint8_t* FixedSizeBinaryBuilder::GetMutableValue(int64_t i) {
+  uint8_t* data_ptr = byte_builder_.mutable_data();
+  return data_ptr + i * byte_width_;
+}
+
 util::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
   const uint8_t* data_ptr = byte_builder_.data();
   return util::string_view(reinterpret_cast<const char*>(data_ptr + i * byte_width_),

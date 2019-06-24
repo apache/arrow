@@ -383,9 +383,9 @@ class DecimalConverter : public ConcreteConverter {
       if (scale != type.scale()) {
         Decimal128 scaled;
         RETURN_NOT_OK(decimal.Rescale(scale, type.scale(), &scaled));
-        RETURN_NOT_OK(builder.Append(scaled.ToBytes()));
+        builder.UnsafeAppend(scaled);
       } else {
-        RETURN_NOT_OK(builder.Append(decimal.ToBytes()));
+        builder.UnsafeAppend(decimal);
       }
       return Status::OK();
     };

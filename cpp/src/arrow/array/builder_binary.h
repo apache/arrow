@@ -295,6 +295,11 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   int32_t byte_width_;
   BufferBuilder byte_builder_;
 
+  /// Temporary access to a value.
+  ///
+  /// This pointer becomes invalid on the next modifying operation.
+  uint8_t* GetMutableValue(int64_t i);
+
 #ifndef NDEBUG
   void CheckValueSize(int64_t size);
 #endif
