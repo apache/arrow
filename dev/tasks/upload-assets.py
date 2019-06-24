@@ -38,6 +38,7 @@ def upload_assets(tag, sha, pattern):
 
     gh = github3.login(token=token)
     repo = gh.repository(owner, repository)
+    click.echo('Selected repository: {}/{}'.format(owner, repository))
 
     try:
         release = repo.release_from_tag(tag)
