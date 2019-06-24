@@ -193,6 +193,8 @@ TEST_F(TestTakeKernelWithString, TakeString) {
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
                 this->Take(utf8(), R"(["a", "b", "c"])", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError, this->Take(utf8(), R"(["a", "b", null, "ddd", "ee"])",
+                                       int64(), "[2, 5]", &arr));
 }
 
 TEST_F(TestTakeKernelWithString, TakeDictionary) {

@@ -96,14 +96,24 @@ class Taker {
                 "An index sequence must provide the number of nulls it will take.");
 
  protected:
+  Status OutOfBounds() { return Status::IndexError("take index out of bounds"); }
+
   Status BoundsCheck(const Array& values, int64_t index) {
     if (IndexSequence::never_out_of_bounds) {
       return Status::OK();
     }
+    if (index == IndexSequence::take_null_index) {
+      return Status::OK();
+    }
     if (index < 0 || index >= values.length()) {
-      return Status::IndexError("take index out of bounds");
+      return OutOfBounds();
     }
     return Status::OK();
+  }
+
+  Status BoundsCheckedNext(const Array& values, IndexSequence* indices, int64_t* index) {
+    *index = indices->Next();
+    return BoundsCheck(values, *index);
   }
 
   template <typename Builder>
@@ -171,12 +181,8 @@ class TakerImpl<IndexSequence, NullType> : public Taker<IndexSequence> {
     DCHECK(this->type_->Equals(values.type()));
 
     if (!IndexSequence::never_out_of_bounds) {
-      for (int64_t i = 0; i < indices.length(); ++i) {
-        int64_t index = indices.Next();
-        if (index == IndexSequence::take_null_index) {
-          continue;
-        }
-        RETURN_NOT_OK(this->BoundsCheck(values, index));
+      for (int64_t index, i = 0; i < indices.length(); ++i) {
+        RETURN_NOT_OK(this->BoundsCheckedNext(values, &indices, &index));
       }
     }
 
@@ -235,12 +241,13 @@ class TakerImpl : public Taker<IndexSequence> {
         continue;
       }
 
+      RETURN_NOT_OK(this->BoundsCheck(values, index));
+
       if (SomeValuesNull && values.IsNull(index)) {
         builder_->UnsafeAppendNull();
         continue;
       }
 
-      RETURN_NOT_OK(this->BoundsCheck(values, index));
       auto value = checked_cast<const ArrayType&>(values).GetView(index);
       RETURN_NOT_OK(UnsafeAppend(builder_.get(), value));
     }
@@ -276,14 +283,13 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
     int32_t offset = 0;
     offset_builder_->UnsafeAppend(offset);
 
-    for (int64_t i = 0; i < indices.length(); ++i) {
-      int64_t index = indices.Next();
+    for (int64_t index, i = 0; i < indices.length(); ++i) {
+      RETURN_NOT_OK(this->BoundsCheckedNext(values, &indices, &index));
 
       bool is_valid = index != IndexSequence::take_null_index && values.IsValid(index);
       null_bitmap_builder_->UnsafeAppend(is_valid);
 
       if (is_valid) {
-        RETURN_NOT_OK(this->BoundsCheck(values, index));
         offset += list_array.value_length(index);
         RangeIndexSequence value_indices(list_array.value_offset(index),
                                          list_array.value_length(index));
@@ -352,15 +358,12 @@ class TakerImpl<IndexSequence, FixedSizeListType> : public Taker<IndexSequence> 
 
     RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
 
-    for (int64_t i = 0; i < indices.length(); ++i) {
-      int64_t index = indices.Next();
+    for (int64_t index, i = 0; i < indices.length(); ++i) {
+      RETURN_NOT_OK(this->BoundsCheckedNext(values, &indices, &index));
 
       bool is_valid = index != IndexSequence::take_null_index && values.IsValid(index);
       null_bitmap_builder_->UnsafeAppend(is_valid);
 
-      if (is_valid) {
-        RETURN_NOT_OK(this->BoundsCheck(values, index));
-      }
       RangeOrNullIndexSequence value_indices(
           is_valid ? list_array.value_offset(index) : IndexSequence::take_null_index,
           list_size);
