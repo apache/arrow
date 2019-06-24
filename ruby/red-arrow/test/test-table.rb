@@ -143,17 +143,17 @@ class TableTest < Test::Unit::TestCase
         end
       end
 
-      test("too many arguments: with block") do
+      test("too many arguments") do
         message = "wrong number of arguments (given 3, expected 1..2)"
         assert_raise(ArgumentError.new(message)) do
           @table.slice(1, 2, 3)
         end
       end
 
-      test("too many arguments: without block") do
-        message = "wrong number of arguments (given 3, expected 0..2)"
+      test("arguments: with block") do
+        message = "Can't give arguments with block"
         assert_raise(ArgumentError.new(message)) do
-          @table.slice(1, 2, 3) {}
+          @table.slice(1, 2) {}
         end
       end
 

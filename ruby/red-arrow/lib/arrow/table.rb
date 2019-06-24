@@ -236,33 +236,10 @@ module Arrow
     #     The sub `Arrow::Table`. It covers only rows of the range.
     def slice(*args)
       slicers = []
-      expected_n_args = nil
-      case args.size
-      when 0
-        expected_n_args = "1..2" unless block_given?
-      when 1
-        if args[0].is_a?(Integer)
-          return Record.new(self, args[0])
-        else
-          slicers << args[0]
-        end
-      when 2
-        from, to = args
-        slicers << (from...(from + to))
-      else
-        if block_given?
-          expected_n_args = "0..2"
-        else
-          expected_n_args = "1..2"
-        end
-      end
-      if expected_n_args
-        message = "wrong number of arguments " +
-          "(given #{args.size}, expected #{expected_n_args})"
-        raise ArgumentError, message
-      end
-
       if block_given?
+        unless args.empty?
+          raise ArgumentError, "Can't give arguments with block"
+        end
         block_slicer = yield(Slicer.new(self))
         case block_slicer
         when nil
@@ -271,6 +248,32 @@ module Arrow
           slicers.concat(block_slicer)
         else
           slicers << block_slicer
+        end
+      else
+        expected_n_args = nil
+        case args.size
+        when 0
+          expected_n_args = "1..2" unless block_given?
+        when 1
+          if args[0].is_a?(Integer)
+            return Record.new(self, args[0])
+          else
+            slicers << args[0]
+          end
+        when 2
+          from, to = args
+          slicers << (from...(from + to))
+        else
+          if block_given?
+            expected_n_args = "0..2"
+          else
+            expected_n_args = "1..2"
+          end
+        end
+        if expected_n_args
+          message = "wrong number of arguments " +
+            "(given #{args.size}, expected #{expected_n_args})"
+          raise ArgumentError, message
         end
       end
 
