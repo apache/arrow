@@ -16,7 +16,7 @@
 // under the License.
 
 use std::any::Any;
-use std::convert::From;
+use std::convert::{From, TryFrom};
 use std::fmt;
 use std::io::Write;
 use std::mem;
@@ -27,6 +27,7 @@ use chrono::prelude::*;
 use super::*;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::*;
+use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_util;
 
@@ -200,6 +201,9 @@ pub trait PrimitiveArrayOps<T: ArrowPrimitiveType> {
     fn value(&self, i: usize) -> T::Native;
 }
 
+// This is necessary when caller wants to access `PrimitiveArrayOps`'s methods with
+// `ArrowPrimitiveType`. It doesn't have any implementation as the actual implementations
+// are delegated to that of `ArrowNumericType` and `BooleanType`.
 impl<T: ArrowPrimitiveType> PrimitiveArrayOps<T> for PrimitiveArray<T> {
     default fn values(&self) -> Buffer {
         unimplemented!()
@@ -836,12 +840,12 @@ impl BinaryArray {
         self.value_offset_at(i + 1) - self.value_offset_at(i)
     }
 
-    /// Returns a reference of the value offset buffer
+    /// Returns a clone of the value offset buffer
     pub fn value_offsets(&self) -> Buffer {
         self.data.buffers()[0].clone()
     }
 
-    /// Returns a reference of the value data buffer
+    /// Returns a clone of the value data buffer
     pub fn value_data(&self) -> Buffer {
         self.data.buffers()[1].clone()
     }
@@ -893,7 +897,7 @@ impl<'a> From<Vec<&'a str>> for BinaryArray {
     }
 }
 
-impl<'a> From<Vec<&[u8]>> for BinaryArray {
+impl From<Vec<&[u8]>> for BinaryArray {
     fn from(v: Vec<&[u8]>) -> Self {
         let mut offsets = Vec::with_capacity(v.len() + 1);
         let mut values = Vec::new();
@@ -910,6 +914,22 @@ impl<'a> From<Vec<&[u8]>> for BinaryArray {
             .add_buffer(Buffer::from(&values[..]))
             .build();
         BinaryArray::from(array_data)
+    }
+}
+
+impl<'a> TryFrom<Vec<Option<&'a str>>> for BinaryArray {
+    type Error = ArrowError;
+
+    fn try_from(v: Vec<Option<&'a str>>) -> Result<Self> {
+        let mut builder = BinaryBuilder::new(v.len());
+        for val in v {
+            if let Some(s) = val {
+                builder.append_string(s)?;
+            } else {
+                builder.append(false)?;
+            }
+        }
+        Ok(builder.finish())
     }
 }
 

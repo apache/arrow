@@ -83,6 +83,7 @@ impl<T: ArrowPrimitiveType> ArrayEqual for PrimitiveArray<T> {
         end_idx: usize,
         other_start_idx: usize,
     ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
 
         let mut j = other_start_idx;
@@ -160,6 +161,7 @@ impl ArrayEqual for ListArray {
         end_idx: usize,
         other_start_idx: usize,
     ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<ListArray>().unwrap();
 
         let mut j = other_start_idx;
@@ -258,6 +260,7 @@ impl ArrayEqual for BinaryArray {
         end_idx: usize,
         other_start_idx: usize,
     ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<BinaryArray>().unwrap();
 
         let mut j = other_start_idx;
@@ -339,6 +342,7 @@ impl ArrayEqual for StructArray {
         end_idx: usize,
         other_start_idx: usize,
     ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<StructArray>().unwrap();
 
         let mut j = other_start_idx;
@@ -419,9 +423,12 @@ fn value_offset_equal<T: Array + ListArrayOps>(this: &T, other: &T) -> bool {
 mod tests {
     use super::*;
 
+    use std::convert::TryFrom;
+
     use crate::builder::{
         ArrayBuilder, BinaryBuilder, Int32Builder, ListBuilder, StructBuilder,
     };
+    use crate::error::Result;
 
     #[test]
     fn test_primitive_equal() {
@@ -506,78 +513,54 @@ mod tests {
         let mut a_builder = ListBuilder::new(Int32Builder::new(10));
         let mut b_builder = ListBuilder::new(Int32Builder::new(10));
 
-        a_builder.values().append_slice(&[1, 2, 3]).unwrap();
-        a_builder.append(true).unwrap();
-        a_builder.values().append_slice(&[4, 5]).unwrap();
-        a_builder.append(true).unwrap();
+        let a = create_list_array(&mut a_builder, &[Some(&[1, 2, 3]), Some(&[4, 5, 6])])
+            .unwrap();
+        let b = create_list_array(&mut a_builder, &[Some(&[1, 2, 3]), Some(&[4, 5, 6])])
+            .unwrap();
 
-        b_builder.values().append_slice(&[1, 2, 3]).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.values().append_slice(&[4, 5]).unwrap();
-        b_builder.append(true).unwrap();
-
-        let a = a_builder.finish();
-        let b = b_builder.finish();
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        b_builder.values().append_slice(&[1, 2, 3]).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.values().append_slice(&[4, 5, 6]).unwrap();
-        b_builder.append(true).unwrap();
-        let b = b_builder.finish();
-
+        let b = create_list_array(&mut a_builder, &[Some(&[1, 2, 3]), Some(&[4, 5, 7])])
+            .unwrap();
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
         // Test the case where null_count > 0
 
-        a_builder.values().append_slice(&[1, 2]).unwrap();
-        a_builder.append(true).unwrap();
-        a_builder.append(false).unwrap();
-        a_builder.append(false).unwrap();
-        a_builder.values().append_slice(&[3, 4]).unwrap();
-        a_builder.append(true).unwrap();
-        a_builder.append(false).unwrap();
-        a_builder.append(false).unwrap();
-
-        b_builder.values().append_slice(&[1, 2]).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.values().append_slice(&[3, 4]).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-
-        let a = a_builder.finish();
-        let b = b_builder.finish();
+        let a = create_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2]), None, None, Some(&[3, 4]), None, None],
+        )
+        .unwrap();
+        let b = create_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2]), None, None, Some(&[3, 4]), None, None],
+        )
+        .unwrap();
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        b_builder.values().append_slice(&[1, 2]).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.values().append_slice(&[3, 4]).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-
-        let b = b_builder.finish();
+        let b = create_list_array(
+            &mut a_builder,
+            &[
+                Some(&[1, 2]),
+                None,
+                Some(&[5, 6]),
+                Some(&[3, 4]),
+                None,
+                None,
+            ],
+        )
+        .unwrap();
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
-        b_builder.values().append_slice(&[1, 2]).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.values().append_slice(&[3, 4, 5]).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-
-        let b = b_builder.finish();
+        let b = create_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2]), None, None, Some(&[3, 5]), None, None],
+        )
+        .unwrap();
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
@@ -601,67 +584,60 @@ mod tests {
 
     #[test]
     fn test_binary_equal() {
-        let mut a_builder = BinaryBuilder::new(10);
-        let mut b_builder = BinaryBuilder::new(10);
-
-        a_builder.append_string("hello").unwrap();
-        a_builder.append_string("world").unwrap();
-
-        b_builder.append_string("hello").unwrap();
-        b_builder.append_string("world").unwrap();
-
-        let a = a_builder.finish();
-        let b = b_builder.finish();
+        let a = BinaryArray::from(vec!["hello", "world"]);
+        let b = BinaryArray::from(vec!["hello", "world"]);
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        b_builder.append_string("hello").unwrap();
-        b_builder.append_string("arrow").unwrap();
-        let b = b_builder.finish();
-
+        let b = BinaryArray::from(vec!["hello", "arrow"]);
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
         // Test the case where null_count > 0
 
-        a_builder.append_string("hello").unwrap();
-        a_builder.append(false).unwrap();
-        a_builder.append(false).unwrap();
-        a_builder.append_string("world").unwrap();
-        a_builder.append(false).unwrap();
-        a_builder.append(false).unwrap();
+        let a = BinaryArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
 
-        b_builder.append_string("hello").unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append_string("world").unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-
-        let a = a_builder.finish();
-        let b = b_builder.finish();
+        let b = BinaryArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        b_builder.append_string("hello").unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(true).unwrap();
-        b_builder.append_string("world").unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-
-        let b = b_builder.finish();
+        let b = BinaryArray::try_from(vec![
+            Some("hello"),
+            Some("foo"),
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
-        b_builder.append_string("hello").unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append_string("arrow").unwrap();
-        b_builder.append(false).unwrap();
-        b_builder.append(false).unwrap();
-
-        let b = b_builder.finish();
+        let b = BinaryArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("arrow"),
+            None,
+            None,
+        ])
+        .unwrap();
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
@@ -697,55 +673,95 @@ mod tests {
 
         let mut builder = StructBuilder::new(fields, field_builders);
 
-        let a = {
-            let string_builder = builder.field_builder::<BinaryBuilder>(0).unwrap();
-            string_builder.append_string("joe").unwrap();
-            string_builder.append_null().unwrap();
-            string_builder.append_null().unwrap();
-            string_builder.append_string("mark").unwrap();
-            string_builder.append_string("doe").unwrap();
-
-            let int_builder = builder.field_builder::<Int32Builder>(1).unwrap();
-            int_builder.append_value(1).unwrap();
-            int_builder.append_value(2).unwrap();
-            int_builder.append_null().unwrap();
-            int_builder.append_value(4).unwrap();
-            int_builder.append_value(5).unwrap();
-
-            builder.append(true).unwrap();
-            builder.append(true).unwrap();
-            builder.append_null().unwrap();
-            builder.append(true).unwrap();
-            builder.append(true).unwrap();
-
-            builder.finish()
-        };
-
-        let b = {
-            let string_builder = builder.field_builder::<BinaryBuilder>(0).unwrap();
-            string_builder.append_string("joe").unwrap();
-            string_builder.append_null().unwrap();
-            string_builder.append_null().unwrap();
-            string_builder.append_string("mark").unwrap();
-            string_builder.append_string("doe").unwrap();
-
-            let int_builder = builder.field_builder::<Int32Builder>(1).unwrap();
-            int_builder.append_value(1).unwrap();
-            int_builder.append_value(2).unwrap();
-            int_builder.append_null().unwrap();
-            int_builder.append_value(4).unwrap();
-            int_builder.append_value(5).unwrap();
-
-            builder.append(true).unwrap();
-            builder.append(true).unwrap();
-            builder.append_null().unwrap();
-            builder.append(true).unwrap();
-            builder.append(true).unwrap();
-
-            builder.finish()
-        };
+        let a = create_struct_array(
+            &mut builder,
+            &[Some("joe"), None, None, Some("mark"), Some("doe")],
+            &[Some(1), Some(2), None, Some(4), Some(5)],
+            &[true, true, false, true, true],
+        )
+        .unwrap();
+        let b = create_struct_array(
+            &mut builder,
+            &[Some("joe"), None, None, Some("mark"), Some("doe")],
+            &[Some(1), Some(2), None, Some(4), Some(5)],
+            &[true, true, false, true, true],
+        )
+        .unwrap();
 
         assert!(a.equals(&b));
         assert!(b.equals(&a));
     }
+
+    fn create_list_array<'a, U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
+        builder: &'a mut ListBuilder<Int32Builder>,
+        data: T,
+    ) -> Result<ListArray> {
+        for d in data.as_ref() {
+            if let Some(v) = d {
+                builder.values().append_slice(v.as_ref())?;
+                builder.append(true)?
+            } else {
+                builder.append(false)?
+            }
+        }
+        Ok(builder.finish())
+    }
+
+    fn create_struct_array<
+        'a,
+        T: AsRef<[Option<&'a str>]>,
+        U: AsRef<[Option<i32>]>,
+        V: AsRef<[bool]>,
+    >(
+        builder: &'a mut StructBuilder,
+        first: T,
+        second: U,
+        is_valid: V,
+    ) -> Result<StructArray> {
+        let string_builder = builder.field_builder::<BinaryBuilder>(0).unwrap();
+        for v in first.as_ref() {
+            if let Some(s) = v {
+                string_builder.append_string(s)?;
+            } else {
+                string_builder.append_null()?;
+            }
+        }
+
+        let int_builder = builder.field_builder::<Int32Builder>(1).unwrap();
+        for v in second.as_ref() {
+            if let Some(i) = v {
+                int_builder.append_value(*i)?;
+            } else {
+                int_builder.append_null()?;
+            }
+        }
+
+        for v in is_valid.as_ref() {
+            builder.append(*v)?
+        }
+
+        Ok(builder.finish())
+    }
 }
+
+// let string_builder = builder.field_builder::<BinaryBuilder>(0).unwrap();
+// string_builder.append_string("joe").unwrap();
+// string_builder.append_null().unwrap();
+// string_builder.append_null().unwrap();
+// string_builder.append_string("mark").unwrap();
+// string_builder.append_string("doe").unwrap();
+
+// let int_builder = builder.field_builder::<Int32Builder>(1).unwrap();
+// int_builder.append_value(1).unwrap();
+// int_builder.append_value(2).unwrap();
+// int_builder.append_null().unwrap();
+// int_builder.append_value(4).unwrap();
+// int_builder.append_value(5).unwrap();
+
+// builder.append(true).unwrap();
+// builder.append(true).unwrap();
+// builder.append_null().unwrap();
+// builder.append(true).unwrap();
+// builder.append(true).unwrap();
+
+// builder.finish()
