@@ -359,7 +359,7 @@ FORCE_INLINE int32 hash32_buf(const uint8* buf, int len, int32 seed) {
       return seed;                                                      \
     }                                                                   \
     return hash32_buf(reinterpret_cast<const uint8_t*>(in), len, seed); \
-}
+  }
 
 #define HASH64_BUF_OP(NAME, TYPE)                                                   \
   FORCE_INLINE                                                                      \

@@ -354,8 +354,8 @@ boolean is_distinct_from_decimal128_decimal128_internal(
     boolean x_isvalid, int64_t y_high, uint64_t y_low, int32_t y_precision,
     int32_t y_scale, boolean y_isvalid) {
   return !is_not_distinct_from_decimal128_decimal128_internal(
-      x_high, x_low, x_precision, x_scale, x_isvalid, y_high, y_low, y_precision,
-      y_scale, y_isvalid);
+      x_high, x_low, x_precision, x_scale, x_isvalid, y_high, y_low, y_precision, y_scale,
+      y_isvalid);
 }
 
 }  // extern "C"
