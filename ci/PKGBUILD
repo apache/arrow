@@ -27,6 +27,7 @@ license=("Apache-2.0")
 depends=("${MINGW_PACKAGE_PREFIX}-boost"
          "${MINGW_PACKAGE_PREFIX}-double-conversion"
          "${MINGW_PACKAGE_PREFIX}-thrift"
+         "${MINGW_PACKAGE_PREFIX}-snappy"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
@@ -72,13 +73,9 @@ build() {
     -DCMAKE_BUILD_TYPE=${cmake_build_type} \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_BUILD_SHARED=OFF \
-    -DARROW_BUILD_TESTS=OFF \
     -DARROW_PARQUET=ON \
-    -DARROW_PLASMA=OFF \
     -DARROW_HDFS=OFF \
-    -DARROW_PYTHON=OFF \
     -DARROW_BOOST_USE_SHARED=OFF \
-    -DARROW_WITH_SNAPPY=OFF \
     -DARROW_WITH_ZSTD=OFF \
     -DARROW_WITH_LZ4=OFF \
     -DARROW_JEMALLOC=OFF \
@@ -90,6 +87,7 @@ build() {
     -Ddouble-conversion_ROOT="${MINGW_PREFIX}" \
     -DThrift_ROOT="${MINGW_PREFIX}"
 
+  # Workaround for a compile error that appears with GCC 4.9.3
   sed -i 's/-fPIC/ /g' flatbuffers_ep-prefix/src/flatbuffers_ep-stamp/flatbuffers_ep-configure-RELEASE.cmake
 
   make
