@@ -57,6 +57,27 @@ inline bool IsWhitespace(uint8_t c) {
   return c == ' ' || c == '\t';
 }
 
+// Updates data and size to not include leading/trailing whitespace
+// characters.
+inline void TrimWhiteSpace(const uint8_t*& data, uint32_t& size) {
+ // Skip trailing whitespace
+      if (ARROW_PREDICT_TRUE(size > 0) &&
+          ARROW_PREDICT_FALSE(IsWhitespace(data[size - 1]))) {
+        const uint8_t* p = data + size - 1;
+        while (size > 0 && IsWhitespace(*p)) {
+          --size;
+          --p;
+        }
+      }
+      // Skip leading whitespace
+      if (ARROW_PREDICT_TRUE(size > 0) && ARROW_PREDICT_FALSE(IsWhitespace(data[0]))) {
+        while (size > 0 && IsWhitespace(*data)) {
+          --size;
+          ++data;
+        }
+      }
+}
+
 Status InitializeTrie(const std::vector<std::string>& inputs, Trie* trie) {
   TrieBuilder builder;
   for (const auto& s : inputs) {
@@ -281,22 +302,7 @@ Status NumericConverter<T>::Convert(const BlockParser& parser, int32_t col_index
       return Status::OK();
     }
     if (!std::is_same<BooleanType, T>::value) {
-      // Skip trailing whitespace
-      if (ARROW_PREDICT_TRUE(size > 0) &&
-          ARROW_PREDICT_FALSE(IsWhitespace(data[size - 1]))) {
-        const uint8_t* p = data + size - 1;
-        while (size > 0 && IsWhitespace(*p)) {
-          --size;
-          --p;
-        }
-      }
-      // Skip leading whitespace
-      if (ARROW_PREDICT_TRUE(size > 0) && ARROW_PREDICT_FALSE(IsWhitespace(data[0]))) {
-        while (size > 0 && IsWhitespace(*data)) {
-          --size;
-          ++data;
-        }
-      }
+      TrimWhiteSpace(data, size);	  
     }
     if (ARROW_PREDICT_FALSE(
             !converter(reinterpret_cast<const char*>(data), size, &value))) {
@@ -363,30 +369,14 @@ class DecimalConverter : public ConcreteConverter {
         builder.UnsafeAppendNull();
         return Status::OK();
       }
-      // Skip trailing whitespace
-      if (ARROW_PREDICT_TRUE(size > 0) &&
-          ARROW_PREDICT_FALSE(IsWhitespace(data[size - 1]))) {
-        const uint8_t* p = data + size - 1;
-        while (size > 0 && IsWhitespace(*p)) {
-          --size;
-          --p;
-        }
-      }
-      // Skip leading whitespace
-      if (ARROW_PREDICT_TRUE(size > 0) && ARROW_PREDICT_FALSE(IsWhitespace(data[0]))) {
-        while (size > 0 && IsWhitespace(*data)) {
-          --size;
-          ++data;
-        }
-      }
-
+      TrimWhiteSpace(data, size);
       Decimal128 decimal;
       int32_t precision, scale;
       util::string_view view(reinterpret_cast<const char*>(data), size);
       RETURN_NOT_OK(Decimal128::FromString(view, &decimal, &precision, &scale));
       DecimalType& type = *internal::checked_cast<DecimalType*>(type_.get());
       if (precision > type.precision()) {
-        return Status::Invalid("Error converting", view, " to ", type_->ToString(),
+        return Status::Invalid("Error converting ", view, " to ", type_->ToString(),
                                " precision not supported by type.");
       }
       if (scale != type.scale()) {
