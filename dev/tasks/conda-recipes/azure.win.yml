@@ -3,18 +3,12 @@ jobs:
   pool:
     vmImage: vs2017-win2016
   timeoutInMinutes: 360
-  ############ instead of strategy ###############
   variables:
+    CONFIG: {{ config }}
+    ARROW_VERSION: {{ arrow.no_rc_version }}
     CONDA_BLD_PATH: D:\\bld\\
     UPLOAD_PACKAGES: False
   steps:
-    ############### clone arrow and change directory #################
-    - template: azure-template-clone-arrow.yml
-
-    # TODO: Fast finish on azure pipelines?
-    - script: |
-        ECHO ON
-
     - script: |
         choco install vcpython27 -fdv -y --debug
       condition: contains(variables['CONFIG'], 'vs2008')
@@ -58,15 +52,21 @@ jobs:
 
     - script: set PYTHONUNBUFFERED=1
 
+    - script: |
+        git clone --no-checkout {{ arrow.remote }} arrow
+        git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+        git -C arrow checkout {{ arrow.head }}
+      displayName: Clone arrow
+
     # Configure the VM
-    - script: setup_conda_rc .\ .\recipe .\.ci_support\%CONFIG%.yaml
+    - script: setup_conda_rc .\ .\ .\.ci_support\%CONFIG%.yaml
+      workingDirectory: arrow\dev\tasks\conda-recipes
 
     # Configure the VM.
     - script: |
         set "CI=azure"
         run_conda_forge_build_setup
       displayName: conda-forge build setup
-
 
     - script: |
         rmdir C:\strawberry /s /q
@@ -75,22 +75,18 @@ jobs:
 
     # Special cased version setting some more things!
     - script: |
-        conda.exe build recipe -m .ci_support\%CONFIG%.yaml
+        conda.exe build arrow-cpp parquet-cpp pyarrow -m .ci_support\%CONFIG%.yaml
       displayName: Build recipe (vs2008)
+      workingDirectory: arrow\dev\tasks\conda-recipes
       env:
         VS90COMNTOOLS: "C:\\Program Files (x86)\\Common Files\\Microsoft\\Visual C++ for Python\\9.0\\VC\\bin"
         PYTHONUNBUFFERED: 1
       condition: contains(variables['CONFIG'], 'vs2008')
 
     - script: |
-        conda.exe build recipe -m .ci_support\%CONFIG%.yaml
+        conda.exe build arrow-cpp parquet-cpp pyarrow -m .ci_support\%CONFIG%.yaml
       displayName: Build recipe
+      workingDirectory: arrow\dev\tasks\conda-recipes
       env:
         PYTHONUNBUFFERED: 1
       condition: not(contains(variables['CONFIG'], 'vs2008'))
-
-    - script: |
-        upload_package .\ .\recipe .ci_support\%CONFIG%.yaml
-      env:
-        BINSTAR_TOKEN: $(BINSTAR_TOKEN)
-      condition: not(eq(variables['UPLOAD_PACKAGES'], 'False'))
