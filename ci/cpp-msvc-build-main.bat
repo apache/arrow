@@ -124,7 +124,7 @@ popd
 
 call deactivate
 
-conda create -n wheel_test -q -y python=%PYTHON% || exit /B
+call conda create -n wheel_test -q -y python=%PYTHON% || exit /B
 
 call activate wheel_test
 

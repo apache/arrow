@@ -26,16 +26,16 @@ rd /s /q C:\OpenSSL-v11-Win64
 rd /s /q C:\OpenSSL-v111-Win32
 rd /s /q C:\OpenSSL-v111-Win64
 
-conda update -y -q conda
-conda config --set auto_update_conda false
-conda info -a
+call conda update -y -q conda
+call conda config --set auto_update_conda false
+call conda info -a
 
-conda config --set show_channel_urls True
+call conda config --set show_channel_urls True
 
 @rem Help with SSL timeouts to S3
-conda config --set remote_connect_timeout_secs 12
+call conda config --set remote_connect_timeout_secs 12
 
-conda info -a
+call conda info -a
 
 if "%GENERATOR%"=="Ninja" set need_vcvarsall=1
 
@@ -48,7 +48,9 @@ if defined need_vcvarsall (
     )
 )
 
-if "%GENERATOR%"=="Ninja" conda install -y -q ninja
+if "%GENERATOR%"=="Ninja" (
+    call conda install -y -q ninja
+)
 
 if "%USE_CLCACHE%" == "true" (
     @rem Use clcache for faster builds

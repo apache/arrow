@@ -112,7 +112,7 @@ if "%JOB%" == "Toolchain" (
   set CONDA_PACKAGES=%CONDA_PACKAGES% --file=ci\conda_env_cpp.yml
 )
 
-conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge || exit /B
+call conda create -n arrow -q -y %CONDA_PACKAGES% -c conda-forge || exit /B
 
 call activate arrow
 
