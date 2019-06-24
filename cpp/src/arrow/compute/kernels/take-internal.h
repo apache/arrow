@@ -568,4 +568,3 @@ Status Taker<IndexSequence>::Make(const std::shared_ptr<DataType>& type,
 
 }  // namespace compute
 }  // namespace arrow
-

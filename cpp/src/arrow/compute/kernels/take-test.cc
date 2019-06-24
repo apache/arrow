@@ -29,6 +29,7 @@
 namespace arrow {
 namespace compute {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 using util::string_view;
 
@@ -154,7 +155,8 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeRandomNumeric) {
       const int64_t indices_length = static_cast<int64_t>(1ULL << j);
       for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
         auto values = rand.Numeric<TypeParam>(length, 0, 127, null_probability);
-        auto filter = rand.Int32(indices_length, 0, length - 1, null_probability);
+        auto max_index = static_cast<int32_t>(length - 1);
+        auto filter = rand.Int32(indices_length, 0, max_index, null_probability);
         this->ValidateTake(values, filter);
       }
     }
