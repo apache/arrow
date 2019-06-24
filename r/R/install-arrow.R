@@ -44,21 +44,21 @@ install_arrow_msg <- function(has_arrow, version, from_cran, os) {
   # the integers. Then see how many there are.
   dev_version <- length(unclass(package_version(version))[[1]]) > 3
   # Based on these parameters, assemble a string with installation advice
-  if(has_arrow) {
+  if (has_arrow) {
     # Respond that you already have it
     msg <- ALREADY_HAVE
-  } else if(os == "sunos") {
+  } else if (os == "sunos") {
     # Good luck with that.
     msg <- c(SEE_DEV_GUIDE, THEN_REINSTALL)
-  } else if(os == "linux") {
-    if(dev_version) {
+  } else if (os == "linux") {
+    if (dev_version) {
       # Point to compilation instructions on readme
       msg <- c(SEE_DEV_GUIDE, THEN_REINSTALL)
     } else {
       # Suggest arrow.apache.org/install for PPAs, or compilation instructions
       msg <- c(paste(SEE_ARROW_INSTALL, OR_SEE_DEV_GUIDE), THEN_REINSTALL)
     }
-  } else if(!dev_version && !from_cran) {
+  } else if (!dev_version && !from_cran) {
     # Windows or Mac with a released version but not from CRAN
     # Recommend installing released binary package from CRAN
     msg <- INSTALL_FROM_CRAN
@@ -66,7 +66,7 @@ install_arrow_msg <- function(has_arrow, version, from_cran, os) {
     # Windows or Mac, most likely a dev version
     # for each OS, recommend dev installation, refer to readme
     # TODO: if there is a newer version on CRAN, recommend CRAN
-    if(os == "windows") {
+    if (os == "windows") {
       msg <- c(paste(FIND_WIN_BINARY, OR_SEE_DEV_GUIDE), THEN_REINSTALL)
     } else {
       # macOS
