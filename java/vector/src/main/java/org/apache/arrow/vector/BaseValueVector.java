@@ -122,12 +122,17 @@ public abstract class BaseValueVector implements ValueVector {
     return ((size + 7) / 8) * 8;
   }
 
+  /* round up bytes for the validity buffer for the given valueCount */
+  private long roundUp8ForValidityBuffer(int valueCount) {
+    return (valueCount + 63) / 64 * 8;
+  }
+
   long computeCombinedBufferSize(int valueCount, int typeWidth) {
     Preconditions.checkArgument(valueCount >= 0, "valueCount must be >= 0");
     Preconditions.checkArgument(typeWidth >= 0, "typeWidth must be >= 0");
 
     // compute size of validity buffer.
-    long bufferSize = roundUp8(getValidityBufferSizeFromCount(valueCount));
+    long bufferSize = roundUp8ForValidityBuffer(valueCount);
 
     // add the size of the value buffer.
     if (typeWidth == 0) {
