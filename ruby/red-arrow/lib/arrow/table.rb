@@ -197,6 +197,7 @@ module Arrow
     alias_method :length, :n_rows
 
     alias_method :[], :find_column
+
     alias_method :slice_raw, :slice
 
     # @overload slice(offset, length)
