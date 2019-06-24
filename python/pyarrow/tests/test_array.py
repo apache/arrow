@@ -1451,6 +1451,11 @@ def test_array_masked():
                    mask=np.array([False, True, False, True]))
     assert arr.type == pa.int64()
 
+    # ndarray dtype=object argument
+    arr = pa.array(np.array([4, None, 4, 3.], dtype="O"),
+                   mask=np.array([False, True, False, True]))
+    assert arr.type == pa.int64()
+
 
 def test_array_from_large_pyints():
     # ARROW-5430
