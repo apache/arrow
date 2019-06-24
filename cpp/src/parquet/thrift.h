@@ -54,6 +54,11 @@
 #include "parquet/encryption_internal.h"
 #include "parquet/internal_file_decryptor.h"
 #include "parquet/internal_file_encryptor.h"
+#else
+namespace parquet {
+class Encryptor;
+class Decryptor;
+}  // namespace parquet
 #endif
 namespace parquet {
 
@@ -225,12 +230,8 @@ inline void DeserializeThriftUnencryptedMsg(const uint8_t* buf, uint32_t* len,
 // all the bytes needed to store the thrift message.  On return, len will be
 // set to the actual length of the header.
 template <class T>
-inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg
-#ifdef PARQUET_ENCRYPTION
-                                 ,
-                                 const std::shared_ptr<Decryptor>& decryptor = NULLPTR
-#endif
-) {
+inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deserialized_msg,
+                                 const std::shared_ptr<Decryptor>& decryptor = NULLPTR) {
 #ifdef PARQUET_ENCRYPTION
   // thrift message is not encrypted
   if (decryptor == NULLPTR) {
@@ -286,12 +287,8 @@ class ThriftSerializer {
   }
 
   template <class T>
-  int64_t Serialize(const T* obj, ArrowOutputStream* out
-#ifdef PARQUET_ENCRYPTION
-                    ,
-                    const std::shared_ptr<Encryptor>& encryptor = NULLPTR
-#endif
-  ) {
+  int64_t Serialize(const T* obj, ArrowOutputStream* out,
+                    const std::shared_ptr<Encryptor>& encryptor = NULLPTR) {
     uint8_t* out_buffer;
     uint32_t out_length;
     SerializeToBuffer(obj, &out_length, &out_buffer);

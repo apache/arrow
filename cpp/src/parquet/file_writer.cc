@@ -31,6 +31,10 @@
 #ifdef PARQUET_ENCRYPTION
 #include "parquet/encryption_internal.h"
 #include "parquet/internal_file_encryptor.h"
+#else
+namespace parquet {
+class InternalFileEncryptor;
+}
 #endif
 
 using arrow::MemoryPool;
@@ -83,12 +87,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
  public:
   RowGroupSerializer(const std::shared_ptr<ArrowOutputStream>& sink,
                      RowGroupMetaDataBuilder* metadata, int16_t row_group_ordinal,
-                     const WriterProperties* properties, bool buffered_row_group = false
-#ifdef PARQUET_ENCRYPTION
-                     ,
-                     InternalFileEncryptor* file_encryptor = NULLPTR
-#endif
-                     )
+                     const WriterProperties* properties, bool buffered_row_group = false,
+                     InternalFileEncryptor* file_encryptor = NULLPTR)
       : sink_(sink),
         metadata_(metadata),
         properties_(properties),
@@ -97,12 +97,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         row_group_ordinal_ (row_group_ordinal),
         next_column_index_(0),
         num_rows_(0),
-        buffered_row_group_(buffered_row_group)
-#ifdef PARQUET_ENCRYPTION
-        ,
-        file_encryptor_(file_encryptor)
-#endif
-  {
+        buffered_row_group_(buffered_row_group),
+        file_encryptor_(file_encryptor) {
     if (buffered_row_group) {
       InitColumns();
     } else {
@@ -224,10 +220,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   int next_column_index_;
   mutable int64_t num_rows_;
   bool buffered_row_group_;
-
-#ifdef PARQUET_ENCRYPTION
   InternalFileEncryptor* file_encryptor_;
-#endif
 
   void CheckRowsWritten() const {
     // verify when only one column is written at a time
@@ -345,11 +338,13 @@ class FileSerializer : public ParquetFileWriter::Contents {
     }
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
+#ifdef PARQUET_ENCRYPTION
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
         sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-#ifdef PARQUET_ENCRYPTION
         buffered_row_group, file_encryptor_.get()));
 #else
+    std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
+        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
         buffered_row_group));
 #endif
     row_group_writer_.reset(new RowGroupWriter(std::move(contents)));

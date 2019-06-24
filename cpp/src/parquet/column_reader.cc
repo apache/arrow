@@ -131,14 +131,10 @@ class SerializedPageReader : public PageReader {
         column_ordinal_(-1),
         page_ordinal_(-1),
         seen_num_rows_(0),
-        total_num_rows_(total_num_rows)
-#ifdef PARQUET_ENCRYPTION
-        ,
+        total_num_rows_(total_num_rows),
         decryption_buffer_(AllocateBuffer(pool, 0)),
         meta_decryptor_(NULLPTR),
-        data_decryptor_(NULLPTR)
-#endif
-  {
+        data_decryptor_(NULLPTR) {
     if (ctx != NULLPTR) {
       column_has_dictionary_ = ctx->column_has_dictionary;
       row_group_ordinal_ = ctx->row_group_ordinal;
@@ -209,7 +205,6 @@ class SerializedPageReader : public PageReader {
   // Number of rows in all the data pages
   int64_t total_num_rows_;
 
-#ifdef PARQUET_ENCRYPTION
   // data_pageAAD_ and data_page_headerAAD_ contain the AAD for data page and data page
   // header in a single column respectively.
   // While calculating AAD for different pages in a single column the pages AAD is
@@ -220,7 +215,6 @@ class SerializedPageReader : public PageReader {
   std::shared_ptr<ResizableBuffer> decryption_buffer_;
   std::shared_ptr<Decryptor> meta_decryptor_;
   std::shared_ptr<Decryptor> data_decryptor_;
-#endif
 };
 
 #ifdef PARQUET_ENCRYPTION
