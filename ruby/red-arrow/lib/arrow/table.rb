@@ -205,7 +205,7 @@ module Arrow
     #   @param offset [Integer] The offset of sub Arrow::Table.
     #   @param length [Integer] The length of sub Arrow::Table.
     #   @return [Arrow::Table]
-    #     The sub `Arrow::Table`. It covers only from
+    #     The sub `Arrow::Table` that covers only from
     #     `offset` to `offset + length` range.
     #
     # @overload slice(index)
@@ -219,21 +219,21 @@ module Arrow
     #
     #   @param boolean_array [Array<Boolean>] The values indicating the target rows.
     #   @return [Arrow::Table]
-    #      The sub `Arrow::Table`. It covers only rows of index
-    #      the values of `boolean_array` is true.
+    #      The sub `Arrow::Table` that covers only rows of indices
+    #      the values of `booleans` is true.
     #
     # @overload slice(boolean_array)
     #
     #   @param arrow_boolean_array [::Array<Arrow::BooleanArray>] The values indicating the target rows.
     #   @return [Arrow::Table]
-    #      The sub `Arrow::Table`. It covers only rows of index
-    #      the values of `arrow_boolean_array` is true.
+    #      The sub `Arrow::Table` that covers only rows of indices
+    #      the values of `boolean_array` is true.
     #
     # @overload slice(range)
     #
     #   @param range_included_end [Range] The range indicating the target rows.
     #   @return [Arrow::Table]
-    #     The sub `Arrow::Table`. It covers only rows of the range.
+    #     The sub `Arrow::Table` that covers only rows of the range of indices.
     def slice(*args)
       slicers = []
       if block_given?
