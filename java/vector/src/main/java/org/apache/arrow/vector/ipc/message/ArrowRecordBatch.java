@@ -80,7 +80,7 @@ public class ArrowRecordBatch implements ArrowMessage {
       LOGGER.debug("Buffer in RecordBatch at {}, length: {}", offset, size);
       offset += size;
       if (alignBuffers) { // align on 8 byte boundaries
-        offset = (offset + 7) / 8;
+        offset = (offset + 7) & 0xfffffffffffffff8L;
       }
     }
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
@@ -197,7 +197,7 @@ public class ArrowRecordBatch implements ArrowMessage {
       ByteBuffer nioBuffer =
           buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
       size += nioBuffer.remaining();
-      size = (size + 7) / 8;
+      size = (size + 7) & 0xfffffff8;
     }
     return size;
   }
