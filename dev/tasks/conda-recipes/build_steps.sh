@@ -34,3 +34,5 @@ conda build \
     "${FEEDSTOCK_ROOT}/pyarrow" \
     -m "${CI_SUPPORT}/${CONFIG}.yaml" \
     --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml"
+
+touch "${FEEDSTOCK_ROOT}/build_artifacts/conda-forge-build-done-${CONFIG}"
