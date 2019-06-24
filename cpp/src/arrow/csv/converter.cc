@@ -29,6 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
 #include "arrow/util/trie.h"
 #include "arrow/util/utf8.h"
@@ -346,6 +347,65 @@ class TimestampConverter : public ConcreteConverter {
   }
 };
 
+/////////////////////////////////////////////////////////////////////////
+// Concrete Converter for Decimals
+
+class DecimalConverter : public ConcreteConverter {
+ public:
+  using ConcreteConverter::ConcreteConverter;
+
+  Status Convert(const BlockParser& parser, int32_t col_index,
+                 std::shared_ptr<Array>* out) override {
+    Decimal128Builder builder(type_, pool_);
+
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      if (IsNull(data, size, quoted)) {
+        builder.UnsafeAppendNull();
+        return Status::OK();
+      }
+      // Skip trailing whitespace
+      if (ARROW_PREDICT_TRUE(size > 0) &&
+          ARROW_PREDICT_FALSE(IsWhitespace(data[size - 1]))) {
+        const uint8_t* p = data + size - 1;
+        while (size > 0 && IsWhitespace(*p)) {
+          --size;
+          --p;
+        }
+      }
+      // Skip leading whitespace
+      if (ARROW_PREDICT_TRUE(size > 0) && ARROW_PREDICT_FALSE(IsWhitespace(data[0]))) {
+        while (size > 0 && IsWhitespace(*data)) {
+          --size;
+          ++data;
+        }
+      }
+
+      Decimal128 decimal;
+      int32_t precision, scale;
+      util::string_view view(reinterpret_cast<const char*>(data), size);
+      RETURN_NOT_OK(Decimal128::FromString(view, &decimal, &precision, &scale));
+      DecimalType& type = *internal::checked_cast<DecimalType*>(type_.get());
+      if (precision > type.precision()) {
+        return Status::Invalid("Error converting", view, " to ", type_->ToString(),
+                               " precision not supported by type.");
+      }
+      if (scale != type.scale()) {
+        Decimal128 scaled;
+        RETURN_NOT_OK(decimal.Rescale(scale, type.scale(), &scaled));
+        RETURN_NOT_OK(builder.Append(scaled.ToBytes()));
+      } else {
+        RETURN_NOT_OK(builder.Append(decimal.ToBytes()));
+      }
+      return Status::OK();
+    };
+    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+    RETURN_NOT_OK(builder.Finish(out));
+
+    return Status::OK();
+  }
+};
+
 }  // namespace
 
 /////////////////////////////////////////////////////////////////////////
@@ -381,6 +441,7 @@ Status Converter::Make(const std::shared_ptr<DataType>& type,
     CONVERTER_CASE(Type::TIMESTAMP, TimestampConverter)
     CONVERTER_CASE(Type::BINARY, (VarSizeBinaryConverter<BinaryType, false>))
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
+    CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
 
     case Type::STRING:
       if (options.check_utf8) {
