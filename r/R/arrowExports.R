@@ -884,6 +884,10 @@ Schema__serialize <- function(schema){
     .Call(`_arrow_Schema__serialize` , schema)
 }
 
+Schema__Equals <- function(schema, other, check_metadata){
+    .Call(`_arrow_Schema__Equals` , schema, other, check_metadata)
+}
+
 Table__from_dataframe <- function(tbl){
     .Call(`_arrow_Table__from_dataframe` , tbl)
 }

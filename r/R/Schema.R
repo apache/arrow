@@ -47,12 +47,18 @@
     ToString = function() Schema__ToString(self),
     num_fields = function() Schema__num_fields(self),
     field = function(i) shared_ptr(`arrow::Field`, Schema__field(self, i)),
-    serialize = function() Schema__serialize(self)
+    serialize = function() Schema__serialize(self),
+    Equals = function(other, check_metadata = TRUE) Schema__Equals(self, other, isTRUE(check_metadata))
   ),
   active = list(
     names = function() Schema__names(self)
   )
 )
+
+#' @export
+`==.arrow::Schema` <- function(lhs, rhs){
+  lhs$Equals(rhs)
+}
 
 #' Schema factory
 #'

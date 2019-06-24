@@ -66,4 +66,10 @@ Rcpp::RawVector Schema__serialize(const std::shared_ptr<arrow::Schema>& schema) 
   return vec;
 }
 
+// [[arrow::export]]
+bool Schema__Equals(const std::shared_ptr<arrow::Schema>& schema,
+                    const std::shared_ptr<arrow::Schema>& other, bool check_metadata) {
+  return schema->Equals(*other, check_metadata);
+}
+
 #endif
