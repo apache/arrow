@@ -156,6 +156,20 @@ class TableTest < Test::Unit::TestCase
           @table.slice(1, 2, 3) {}
         end
       end
+
+      test("from must be less or equal than table rows length") do
+        message = "start index must be less or equal than the length of table rows " + "(start index: 9)"
+        assert_raise(ArgumentError.new(message)) do
+          @table.slice(9, 1)
+        end
+      end
+
+      test("from must be grater or equal than 0") do
+        message = "start index must be grater or equal than 0 " + "(start index: -1)"
+        assert_raise(ArgumentError.new(message)) do
+          @table.slice(-9, 1)
+        end
+      end
     end
   end
 

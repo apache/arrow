@@ -497,7 +497,15 @@ module Arrow
     def slice_by_ranges(ranges)
       sliced_table = []
       ranges.each do |from, to|
-        sliced_table << slice_raw(from, to - from + 1)
+        if from > n_rows
+          message = "start index must be less or equal than the length of table rows " + "(start index: #{from})"
+          raise ArgumentError, message
+        elsif from < 0
+          message = "start index must be grater or equal than 0 " + "(start index: #{from})"
+          raise ArgumentError, message
+        else
+          sliced_table << slice_raw(from, to - from + 1)
+        end
       end
       if sliced_table.size > 1
         sliced_table[0].concatenate(sliced_table[1..-1])
