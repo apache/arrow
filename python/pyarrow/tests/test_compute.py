@@ -51,7 +51,10 @@ def test_sum(arrow_type):
     ('double', np.arange(0, 0.5, 0.1)),
     ('string', ['a', 'b', None, 'ddd', 'ee']),
     ('binary', [b'a', b'b', b'c', b'ddd', b'ee']),
-    (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg'])
+    (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg']),
+    (pa.list_(pa.int8()), [[1, 2], [3, 4], [5, 6], None, [9, 16]]),
+    (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
+     {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
 ])
 def test_take(ty, values):
     arr = pa.array(values, type=ty)
@@ -100,14 +103,3 @@ def test_take_dictionary(ordered):
     assert result.to_pylist() == ['a', 'b', 'a']
     assert result.dictionary.to_pylist() == ['a', 'b', 'c']
     assert result.type.ordered is ordered
-
-
-@pytest.mark.parametrize('array', [
-    [[1, 2], [3, 4], [5, 6]],
-    [{'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}],
-], ids=['listarray', 'structarray'])
-def test_take_notimplemented(array):
-    array = pa.array(array)
-    indices = pa.array([0, 2])
-    with pytest.raises(NotImplementedError):
-        array.take(indices)
