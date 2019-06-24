@@ -654,6 +654,7 @@
     <module>plasma</module>
     <module>flight</module>
     <module>performance</module>
+    <module>algorithm</module>
   </modules>
 
   <profiles>
