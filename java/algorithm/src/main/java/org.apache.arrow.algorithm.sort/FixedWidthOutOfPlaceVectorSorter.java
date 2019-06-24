@@ -34,15 +34,6 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> im
   protected IndexSorter<V> indexSorter = new IndexSorter<>();
 
   @Override
-  public V sort(V srcVector, VectorValueComparator<V> comparator) {
-    V dstVector = (V) srcVector.getField().getFieldType().createNewSingleVector("", srcVector.getAllocator(), null);
-    dstVector.allocateNew(srcVector.getValueCount());
-    dstVector.setValueCount(srcVector.getValueCount());
-    sortOutOfPlace(srcVector, dstVector, comparator);
-    return dstVector;
-  }
-
-  @Override
   public void sortOutOfPlace(V srcVector, V dstVector, VectorValueComparator<V> comparator) {
     comparator.attachVector(srcVector);
 

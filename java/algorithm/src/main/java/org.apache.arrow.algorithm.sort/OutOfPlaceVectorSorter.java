@@ -25,7 +25,7 @@ import org.apache.arrow.vector.ValueVector;
  * and the original vector is not modified.
  * @param <V> the vector type.
  */
-public interface OutOfPlaceVectorSorter<V extends ValueVector> extends VectorSorter<V> {
+public interface OutOfPlaceVectorSorter<V extends ValueVector> {
 
   /**
    * Sort a vector out-of-place.

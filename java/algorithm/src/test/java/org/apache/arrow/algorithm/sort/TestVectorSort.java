@@ -85,7 +85,7 @@ public class TestVectorSort {
   }
 
   @Test
-  public void testSortInt() {
+  public void testSortIntOutOfPlace() {
     try (IntVector vec = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -106,7 +106,11 @@ public class TestVectorSort {
       FixedWidthOutOfPlaceVectorSorter sorter = new FixedWidthOutOfPlaceVectorSorter();
       DefaultVectorComparators.IntComparator comparator = new DefaultVectorComparators.IntComparator();
 
-      IntVector sortedVec = (IntVector) sorter.sort(vec, comparator);
+      IntVector sortedVec = (IntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+      sortedVec.allocateNew(vec.getValueCount());
+      sortedVec.setValueCount(vec.getValueCount());
+
+      sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
       Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
@@ -127,7 +131,7 @@ public class TestVectorSort {
   }
 
   @Test
-  public void testSortString() {
+  public void testSortStringOutOfPlace() {
     try (VarCharVector vec = new VarCharVector("", allocator)) {
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
@@ -148,7 +152,13 @@ public class TestVectorSort {
       VariableWidthOutOfPlaceVectorSorter sorter = new VariableWidthOutOfPlaceVectorSorter();
       DefaultVectorComparators.VarCharComparator comparator = new DefaultVectorComparators.VarCharComparator();
 
-      VarCharVector sortedVec = (VarCharVector) sorter.sort(vec, comparator);
+      VarCharVector sortedVec =
+              (VarCharVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+      sortedVec.allocateNew(vec.getByteCapacity(), vec.getValueCount());
+      sortedVec.setLastSet(vec.getValueCount() - 1);
+      sortedVec.setValueCount(vec.getValueCount());
+
+      sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
       Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());

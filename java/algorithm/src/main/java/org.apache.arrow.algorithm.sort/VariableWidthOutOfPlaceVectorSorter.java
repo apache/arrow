@@ -35,17 +35,6 @@ public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVect
   protected IndexSorter<V> indexSorter = new IndexSorter<>();
 
   @Override
-  public V sort(V srcVector, VectorValueComparator<V> comparator) {
-    V dstVector = (V) srcVector.getField().getFieldType().createNewSingleVector("", srcVector.getAllocator(), null);
-    dstVector.allocateNew(srcVector.getByteCapacity(), srcVector.getValueCount());
-    dstVector.setLastSet(srcVector.getValueCount() - 1);
-    dstVector.setValueCount(srcVector.getValueCount());
-
-    sortOutOfPlace(srcVector, dstVector, comparator);
-    return dstVector;
-  }
-
-  @Override
   public void sortOutOfPlace(V srcVector, V dstVector, VectorValueComparator<V> comparator) {
     comparator.attachVector(srcVector);
 

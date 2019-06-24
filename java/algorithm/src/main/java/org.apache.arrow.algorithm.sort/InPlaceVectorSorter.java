@@ -26,7 +26,7 @@ import org.apache.arrow.vector.ValueVector;
  *
  * @param <V> the vector type.
  */
-public interface InPlaceVectorSorter<V extends ValueVector> extends VectorSorter<V> {
+public interface InPlaceVectorSorter<V extends ValueVector> {
 
   /**
    * Sort a vector in-place.
