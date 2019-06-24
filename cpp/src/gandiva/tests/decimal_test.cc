@@ -561,8 +561,8 @@ TEST_F(TestDecimal, TestIsDistinct) {
 
   auto validity_1 = {true, false, true, true};
   auto array_dec_1 = MakeArrowArrayDecimal(
-      decimal_type_1,
-      MakeDecimalVector({"1.51", "1.23", "1.20", "-1.20"}, scale_1), validity_1);
+      decimal_type_1, MakeDecimalVector({"1.51", "1.23", "1.20", "-1.20"}, scale_1),
+      validity_1);
 
   auto validity_2 = {true, false, false, true};
   auto array_dec_2 = MakeArrowArrayDecimal(
@@ -673,8 +673,8 @@ TEST_F(TestDecimal, TestHash32WithSeed) {
 
   auto hash32 =
       TreeExprBuilder::MakeFunction("hash32", {field_2_nodePtr}, arrow::int32());
-  auto hash32_with_seed = TreeExprBuilder::MakeFunction(
-      "hash32", {field_1_nodePtr, hash32}, arrow::int32());
+  auto hash32_with_seed =
+      TreeExprBuilder::MakeFunction("hash32", {field_1_nodePtr, hash32}, arrow::int32());
   auto expr = TreeExprBuilder::MakeExpression(hash32, field("hash32", arrow::int32()));
   auto exprWS = TreeExprBuilder::MakeExpression(hash32_with_seed, res);
 
@@ -724,7 +724,6 @@ TEST_F(TestDecimal, TestHash32WithSeed) {
   EXPECT_NE(int32_arr_WS->Value(4), int32_arr->Value(4));
 }
 
-
 TEST_F(TestDecimal, TestHash64WithSeed) {
   constexpr int32_t precision = 38;
   constexpr int32_t scale = 2;
@@ -740,8 +739,8 @@ TEST_F(TestDecimal, TestHash64WithSeed) {
 
   auto hash64 =
       TreeExprBuilder::MakeFunction("hash64", {field_2_nodePtr}, arrow::int64());
-  auto hash64_with_seed = TreeExprBuilder::MakeFunction(
-      "hash64", {field_1_nodePtr, hash64}, arrow::int64());
+  auto hash64_with_seed =
+      TreeExprBuilder::MakeFunction("hash64", {field_1_nodePtr, hash64}, arrow::int64());
   auto expr = TreeExprBuilder::MakeExpression(hash64, field("hash64", arrow::int64()));
   auto exprWS = TreeExprBuilder::MakeExpression(hash64_with_seed, res);
 
