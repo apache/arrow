@@ -85,6 +85,11 @@ class TableTest < Test::Unit::TestCase
                    [record[0], record[1]])
     end
 
+    test("Integer: out of index") do
+      assert_equal([nil, nil],
+                   [@table.slice(9), @table.slice(-9)])
+    end
+
     test("Range: positive: include end") do
       assert_equal(<<-TABLE, @table.slice(2..4).to_s)
 	count	visible

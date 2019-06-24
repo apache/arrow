@@ -256,6 +256,8 @@ module Arrow
           expected_n_args = "1..2" unless block_given?
         when 1
           if args[0].is_a?(Integer)
+            return nil if n_rows <= args[0] or -n_rows > args[0]
+
             return Record.new(self, args[0])
           else
             slicers << args[0]
