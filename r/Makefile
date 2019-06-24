@@ -15,14 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-VERSION = $(shell grep ^Version DESCRIPTION | sed s/Version:\ //)
+VERSION=$(shell grep ^Version DESCRIPTION | sed s/Version:\ //)
+ARROW_R_DEV="TRUE"
 
 doc:
 	R --slave -e 'devtools::document(); rmarkdown::render("README.Rmd")'
 	-git add --all man/*.Rd
 
 test:
-	R CMD INSTALL --install-tests .
+	export ARROW_R_DEV=$(ARROW_R_DEV) && R CMD INSTALL --install-tests .
 	export NOT_CRAN=true && R --slave -e 'library(testthat); setwd(file.path(.libPaths()[1], "arrow", "tests")); system.time(test_check("arrow", filter="${file}", reporter=ifelse(nchar("${r}"), "${r}", "summary")))'
 
 deps:
@@ -32,7 +33,7 @@ build: doc
 	R CMD build .
 
 check: build
-	-export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE && R CMD check --as-cran arrow_$(VERSION).tar.gz
+	-export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE && export ARROW_R_DEV=$(ARROW_R_DEV) && R CMD check --as-cran arrow_$(VERSION).tar.gz
 	rm -rf arrow.Rcheck/
 
 clean:
