@@ -73,23 +73,15 @@ public class IndexSorter<V extends ValueVector> {
       while (low < high && comparator.compare(indices.get(high), pivotIndex) >= 0) {
         high -= 1;
       }
-      copyIntElement(indices, high, indices, low);
+      indices.set(low, indices.get(high));
 
       while (low < high && comparator.compare(indices.get(low), pivotIndex) <= 0) {
         low += 1;
       }
-      copyIntElement(indices, low, indices, high);
+      indices.set(high, indices.get(low));
     }
 
     indices.set(low, pivotIndex);
     return low;
-  }
-
-  private void copyIntElement(IntVector srcVector, int srcIndex, IntVector dstVector, int dstIndex) {
-    if (srcVector.isNull(srcIndex)) {
-      dstVector.setNull(dstIndex);
-    } else {
-      dstVector.set(dstIndex, 1, srcVector.get(srcIndex));
-    }
   }
 }

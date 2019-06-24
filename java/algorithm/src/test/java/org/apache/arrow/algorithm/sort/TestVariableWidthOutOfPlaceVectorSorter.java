@@ -22,18 +22,16 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Test cases for sorting vectors.
+ * Test cases for {@link VariableWidthOutOfPlaceVectorSorter}.
  */
-public class TestVectorSort {
+public class TestVariableWidthOutOfPlaceVectorSorter {
 
   private BufferAllocator allocator;
 
@@ -48,90 +46,7 @@ public class TestVectorSort {
   }
 
   @Test
-  public void testIndexSort() {
-    try (IntVector vec = new IntVector("", allocator)) {
-      vec.allocateNew(10);
-      vec.setValueCount(10);
-
-      // fill data to sort
-      vec.set(0, 11);
-      vec.set(1, 8);
-      vec.set(2, 33);
-      vec.set(3, 10);
-      vec.set(4, 12);
-      vec.set(5, 17);
-      vec.setNull(6);
-      vec.set(7, 23);
-      vec.set(8, 35);
-      vec.set(9, 2);
-
-      // sort the index
-      IndexSorter<IntVector> indexSorter = new IndexSorter<>();
-      DefaultVectorComparators.IntComparator intComparator = new DefaultVectorComparators.IntComparator();
-      intComparator.attachVector(vec);
-
-      IntVector indices = new IntVector("", allocator);
-      indices.setValueCount(10);
-      indexSorter.sort(vec, indices, intComparator);
-
-      int[] expected = new int[]{6, 9, 1, 3, 0, 4, 5, 7, 2, 8};
-
-      for (int i = 0; i < expected.length; i++) {
-        assertTrue(!indices.isNull(i));
-        assertEquals(expected[i], indices.get(i));
-      }
-      indices.close();
-    }
-  }
-
-  @Test
-  public void testSortIntOutOfPlace() {
-    try (IntVector vec = new IntVector("", allocator)) {
-      vec.allocateNew(10);
-      vec.setValueCount(10);
-
-      // fill data to sort
-      vec.set(0, 10);
-      vec.set(1, 8);
-      vec.setNull(2);
-      vec.set(3, 10);
-      vec.set(4, 12);
-      vec.set(5, 17);
-      vec.setNull(6);
-      vec.set(7, 23);
-      vec.set(8, 35);
-      vec.set(9, 2);
-
-      // sort the vector
-      FixedWidthOutOfPlaceVectorSorter sorter = new FixedWidthOutOfPlaceVectorSorter();
-      DefaultVectorComparators.IntComparator comparator = new DefaultVectorComparators.IntComparator();
-
-      IntVector sortedVec = (IntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
-      sortedVec.allocateNew(vec.getValueCount());
-      sortedVec.setValueCount(vec.getValueCount());
-
-      sorter.sortOutOfPlace(vec, sortedVec, comparator);
-
-      // verify results
-      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
-
-      assertTrue(sortedVec.isNull(0));
-      assertTrue(sortedVec.isNull(1));
-      Assert.assertEquals(2, sortedVec.get(2));
-      Assert.assertEquals(8, sortedVec.get(3));
-      Assert.assertEquals(10, sortedVec.get(4));
-      Assert.assertEquals(10, sortedVec.get(5));
-      Assert.assertEquals(12, sortedVec.get(6));
-      Assert.assertEquals(17, sortedVec.get(7));
-      Assert.assertEquals(23, sortedVec.get(8));
-      Assert.assertEquals(35, sortedVec.get(9));
-
-      sortedVec.close();
-    }
-  }
-
-  @Test
-  public void testSortStringOutOfPlace() {
+  public void testSortString() {
     try (VarCharVector vec = new VarCharVector("", allocator)) {
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
