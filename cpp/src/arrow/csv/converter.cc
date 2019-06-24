@@ -57,9 +57,11 @@ inline bool IsWhitespace(uint8_t c) {
   return c == ' ' || c == '\t';
 }
 
-// Updates data and size to not include leading/trailing whitespace
+// Updates data_inout and size_inout to not include leading/trailing whitespace
 // characters.
-inline void TrimWhiteSpace(const uint8_t*& data, uint32_t& size) {
+inline void TrimWhiteSpace(const uint8_t** data_inout, uint32_t* size_inout) {
+  const uint8_t*& data = *data_inout;
+  uint32_t& size = *size_inout;
   // Skip trailing whitespace
   if (ARROW_PREDICT_TRUE(size > 0) && ARROW_PREDICT_FALSE(IsWhitespace(data[size - 1]))) {
     const uint8_t* p = data + size - 1;
@@ -301,7 +303,7 @@ Status NumericConverter<T>::Convert(const BlockParser& parser, int32_t col_index
       return Status::OK();
     }
     if (!std::is_same<BooleanType, T>::value) {
-      TrimWhiteSpace(data, size);
+      TrimWhiteSpace(&data, &size);
     }
     if (ARROW_PREDICT_FALSE(
             !converter(reinterpret_cast<const char*>(data), size, &value))) {
@@ -368,7 +370,7 @@ class DecimalConverter : public ConcreteConverter {
         builder.UnsafeAppendNull();
         return Status::OK();
       }
-      TrimWhiteSpace(data, size);
+      TrimWhiteSpace(&data, &size);
       Decimal128 decimal;
       int32_t precision, scale;
       util::string_view view(reinterpret_cast<const char*>(data), size);
