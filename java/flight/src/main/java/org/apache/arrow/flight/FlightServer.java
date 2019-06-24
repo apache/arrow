@@ -72,10 +72,23 @@ public class FlightServer implements AutoCloseable {
     server.awaitTermination();
   }
 
+  /** Request that the server shut down. */
+  public void shutdown() {
+    server.shutdown();
+  }
+
+  /**
+   * Wait for the server to shut down with a timeout.
+   * @return true if the server shut down successfully.
+   */
+  public boolean awaitTermination(final long timeout, final TimeUnit unit) throws InterruptedException {
+    return server.awaitTermination(timeout, unit);
+  }
+
   /** Shutdown the server, waits for up to 6 seconds for successful shutdown before returning. */
   public void close() throws InterruptedException {
-    server.shutdown();
-    final boolean terminated = server.awaitTermination(3000, TimeUnit.MILLISECONDS);
+    shutdown();
+    final boolean terminated = awaitTermination(3000, TimeUnit.MILLISECONDS);
     if (terminated) {
       logger.debug("Server was terminated within 3s");
       return;

@@ -675,5 +675,23 @@ TEST_F(TestTls, DoAction) {
   ASSERT_EQ(result->body->ToString(), "Hello, world!");
 }
 
+TEST_F(TestTls, OverrideHostname) {
+  std::unique_ptr<FlightClient> client;
+  auto client_options = FlightClientOptions();
+  client_options.override_hostname = "fakehostname";
+  CertKeyPair root_cert;
+  ASSERT_OK(ExampleTlsCertificateRoot(&root_cert));
+  client_options.tls_root_certs = root_cert.pem_cert;
+  ASSERT_OK(FlightClient::Connect(server_->location(), client_options, &client));
+
+  FlightCallOptions options;
+  options.timeout = TimeoutDuration{5.0};
+  Action action;
+  action.type = "test";
+  action.body = Buffer::FromString("");
+  std::unique_ptr<ResultStream> results;
+  ASSERT_RAISES(IOError, client->DoAction(options, action, &results));
+}
+
 }  // namespace flight
 }  // namespace arrow

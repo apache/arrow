@@ -354,6 +354,7 @@ public class FlightClient implements AutoCloseable {
     private InputStream trustedCertificates = null;
     private InputStream clientCertificate = null;
     private InputStream clientKey = null;
+    private String overrideHostname = null;
 
     private Builder() {
     }
@@ -368,6 +369,12 @@ public class FlightClient implements AutoCloseable {
      */
     public Builder useTls() {
       this.forceTls = true;
+      return this;
+    }
+
+    /** Override the hostname checked for TLS. Use with caution in production. */
+    public Builder overrideHostname(final String hostname) {
+      this.overrideHostname = hostname;
       return this;
     }
 
@@ -460,6 +467,10 @@ public class FlightClient implements AutoCloseable {
           } catch (SSLException e) {
             throw new RuntimeException(e);
           }
+        }
+
+        if (this.overrideHostname != null) {
+          builder.overrideAuthority(this.overrideHostname);
         }
       } else {
         builder.usePlaintext();

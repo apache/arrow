@@ -259,6 +259,11 @@ class FlightClient::FlightClientImpl {
     args.SetInt(GRPC_ARG_INITIAL_RECONNECT_BACKOFF_MS, 100);
     // Receive messages of any size
     args.SetMaxReceiveMessageSize(-1);
+
+    if (options.override_hostname != "") {
+      args.SetSslTargetNameOverride(options.override_hostname);
+    }
+
     stub_ = pb::FlightService::NewStub(
         grpc::CreateCustomChannel(grpc_uri.str(), creds, args));
     return Status::OK();
