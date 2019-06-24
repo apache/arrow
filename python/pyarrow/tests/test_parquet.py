@@ -782,7 +782,7 @@ def test_statistics_convert_logical_types(tempdir):
         t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
                                  ['col'])
         path = str(tempdir / ('example{}.parquet'.format(i)))
-        pq.write_table(t, path, version='1.0')
+        pq.write_table(t, path, version='2.0')
         pf = pq.ParquetFile(path)
         stats = pf.metadata.row_group(0).column(0).statistics
         assert stats.min == min_val
