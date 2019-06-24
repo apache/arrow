@@ -30,6 +30,7 @@ add_gandiva_test(in_expr_test)
 add_gandiva_test(null_validity_test)
 add_gandiva_test(decimal_test)
 add_gandiva_test(decimal_single_test)
+add_gandiva_test(filter_project_test)
 
 add_gandiva_test(projector_test_static SOURCES projector_test.cc USE_STATIC_LINKING)
 
