@@ -73,7 +73,7 @@ namespace parquet {
 using schema::GroupNode;
 using schema::NodePtr;
 using schema::PrimitiveNode;
-using parquet::LogicalType;
+using parquet::ConvertedType;
 using parquet::Repetition;
 using parquet::Type;
 
@@ -540,34 +540,34 @@ class TestEncryptionConfiguration : public ::testing::Test {
     // Create a primitive node named 'boolean_field' with type:BOOLEAN,
     // repetition:REQUIRED
     fields.push_back(PrimitiveNode::Make("boolean_field", Repetition::REQUIRED,
-                                         Type::BOOLEAN, LogicalType::NONE));
+                                         Type::BOOLEAN, ConvertedType::NONE));
 
     // Create a primitive node named 'int32_field' with type:INT32, repetition:REQUIRED,
     // logical type:TIME_MILLIS
     fields.push_back(PrimitiveNode::Make("int32_field", Repetition::REQUIRED, Type::INT32,
-                                         LogicalType::TIME_MILLIS));
+                                         ConvertedType::TIME_MILLIS));
 
     // Create a primitive node named 'int64_field' with type:INT64, repetition:REPEATED
     fields.push_back(PrimitiveNode::Make("int64_field", Repetition::REPEATED, Type::INT64,
-                                         LogicalType::NONE));
+                                         ConvertedType::NONE));
 
     fields.push_back(PrimitiveNode::Make("int96_field", Repetition::REQUIRED, Type::INT96,
-                                         LogicalType::NONE));
+                                         ConvertedType::NONE));
 
     fields.push_back(PrimitiveNode::Make("float_field", Repetition::REQUIRED, Type::FLOAT,
-                                         LogicalType::NONE));
+                                         ConvertedType::NONE));
 
     fields.push_back(PrimitiveNode::Make("double_field", Repetition::REQUIRED,
-                                         Type::DOUBLE, LogicalType::NONE));
+                                         Type::DOUBLE, ConvertedType::NONE));
 
     // Create a primitive node named 'ba_field' with type:BYTE_ARRAY, repetition:OPTIONAL
     fields.push_back(PrimitiveNode::Make("ba_field", Repetition::OPTIONAL,
-                                         Type::BYTE_ARRAY, LogicalType::NONE));
+                                         Type::BYTE_ARRAY, ConvertedType::NONE));
 
     // Create a primitive node named 'flba_field' with type:FIXED_LEN_BYTE_ARRAY,
     // repetition:REQUIRED, field_length = kFixedLength
     fields.push_back(PrimitiveNode::Make("flba_field", Repetition::REQUIRED,
-                                         Type::FIXED_LEN_BYTE_ARRAY, LogicalType::NONE,
+                                         Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::NONE,
                                          kFixedLength));
 
     // Create a GroupNode named 'schema' using the primitive nodes defined above

@@ -21,7 +21,7 @@
 #include <parquet/api/reader.h>
 #include <parquet/api/writer.h>
 
-using parquet::LogicalType;
+using parquet::ConvertedType;
 using parquet::Repetition;
 using parquet::Type;
 using parquet::schema::GroupNode;
@@ -34,18 +34,18 @@ static std::shared_ptr<GroupNode> SetupSchema() {
   // Create a primitive node named 'boolean_field' with type:BOOLEAN,
   // repetition:REQUIRED
   fields.push_back(PrimitiveNode::Make("boolean_field", Repetition::REQUIRED,
-                                       Type::BOOLEAN, LogicalType::NONE));
+                                       Type::BOOLEAN, ConvertedType::NONE));
 
   // Create a primitive node named 'int32_field' with type:INT32, repetition:REQUIRED,
   // logical type:TIME_MILLIS
   fields.push_back(PrimitiveNode::Make("int32_field", Repetition::REQUIRED, Type::INT32,
-                                       LogicalType::TIME_MILLIS));
+                                       ConvertedType::TIME_MILLIS));
 
   fields.push_back(PrimitiveNode::Make("float_field", Repetition::REQUIRED, Type::FLOAT,
-                                       LogicalType::NONE));
+                                       ConvertedType::NONE));
 
   fields.push_back(PrimitiveNode::Make("double_field", Repetition::REQUIRED, Type::DOUBLE,
-                                       LogicalType::NONE));
+                                       ConvertedType::NONE));
 
   // Create a GroupNode named 'schema' using the primitive nodes defined above
   // This GroupNode is the root node of the schema tree
