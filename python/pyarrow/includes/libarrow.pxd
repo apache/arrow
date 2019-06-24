@@ -1153,7 +1153,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
-    CStatus InferArrowType(object obj, c_bool pandas_null_sentinels,
+    CStatus InferArrowType(object obj, object mask,
+                           c_bool pandas_null_sentinels,
                            shared_ptr[CDataType]* out_type)
 
 

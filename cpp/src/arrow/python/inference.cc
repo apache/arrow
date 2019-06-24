@@ -370,10 +370,21 @@ class TypeInferrer {
   }
 
   // Infer value type from a sequence of values
-  Status VisitSequence(PyObject* obj) {
-    return internal::VisitSequence(obj, [this](PyObject* value, bool* keep_going) {
-      return Visit(value, keep_going);
-    });
+  Status VisitSequence(PyObject* obj, PyObject* mask = nullptr) {
+    if (mask == nullptr || mask == Py_None) {
+      return internal::VisitSequence(obj, [this](PyObject* value, bool* keep_going) {
+        return Visit(value, keep_going);
+      });
+    } else {
+      return internal::VisitSequenceMasked(
+          obj, mask, [this](PyObject* value, uint8_t masked, bool* keep_going) {
+            if (!masked) {
+              return Visit(value, keep_going);
+            } else {
+              return Status::OK();
+            }
+          });
+    }
   }
 
   Status GetType(std::shared_ptr<DataType>* out) {
@@ -605,11 +616,11 @@ class TypeInferrer {
 };
 
 // Non-exhaustive type inference
-Status InferArrowType(PyObject* obj, bool pandas_null_sentinels,
+Status InferArrowType(PyObject* obj, PyObject* mask, bool pandas_null_sentinels,
                       std::shared_ptr<DataType>* out_type) {
   PyDateTime_IMPORT;
   TypeInferrer inferrer(pandas_null_sentinels);
-  RETURN_NOT_OK(inferrer.VisitSequence(obj));
+  RETURN_NOT_OK(inferrer.VisitSequence(obj, mask));
   RETURN_NOT_OK(inferrer.GetType(out_type));
   if (*out_type == nullptr) {
     return Status::TypeError("Unable to determine data type");
@@ -618,8 +629,8 @@ Status InferArrowType(PyObject* obj, bool pandas_null_sentinels,
   return Status::OK();
 }
 
-Status InferArrowTypeAndSize(PyObject* obj, bool pandas_null_sentinels, int64_t* size,
-                             std::shared_ptr<DataType>* out_type) {
+Status InferArrowTypeAndSize(PyObject* obj, PyObject* mask, bool pandas_null_sentinels,
+                             int64_t* size, std::shared_ptr<DataType>* out_type) {
   if (!PySequence_Check(obj)) {
     return Status::TypeError("Object is not a sequence");
   }
@@ -630,7 +641,7 @@ Status InferArrowTypeAndSize(PyObject* obj, bool pandas_null_sentinels, int64_t*
     *out_type = null();
     return Status::OK();
   }
-  RETURN_NOT_OK(InferArrowType(obj, pandas_null_sentinels, out_type));
+  RETURN_NOT_OK(InferArrowType(obj, mask, pandas_null_sentinels, out_type));
 
   return Status::OK();
 }
