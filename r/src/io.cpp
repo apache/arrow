@@ -75,6 +75,29 @@ int64_t io___RandomAccessFile__Tell(
   return out;
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Buffer> io___RandomAccessFile__Read0(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
+  int64_t current;
+  STOP_IF_NOT_OK(x->Tell(&current));
+
+  int64_t n;
+  STOP_IF_NOT_OK(x->GetSize(&n));
+
+  std::shared_ptr<arrow::Buffer> buf;
+  STOP_IF_NOT_OK(x->Read(n - current, &buf));
+  return buf;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Buffer> io___RandomAccessFile__ReadAt(
+    const std::shared_ptr<arrow::io::RandomAccessFile>& x, int64_t position,
+    int64_t nbytes) {
+  std::shared_ptr<arrow::Buffer> buf;
+  STOP_IF_NOT_OK(x->ReadAt(position, nbytes, &buf));
+  return buf;
+}
+
 // ------ arrow::io::MemoryMappedFile
 
 // [[arrow::export]]

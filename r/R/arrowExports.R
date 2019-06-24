@@ -168,6 +168,10 @@ r___RBuffer__initialize <- function(x){
     .Call(`_arrow_r___RBuffer__initialize` , x)
 }
 
+Buffer__data <- function(buffer){
+    .Call(`_arrow_Buffer__data` , buffer)
+}
+
 ChunkedArray__length <- function(chunked_array){
     .Call(`_arrow_ChunkedArray__length` , chunked_array)
 }
@@ -594,6 +598,14 @@ io___RandomAccessFile__Seek <- function(x, position){
 
 io___RandomAccessFile__Tell <- function(x){
     .Call(`_arrow_io___RandomAccessFile__Tell` , x)
+}
+
+io___RandomAccessFile__Read0 <- function(x){
+    .Call(`_arrow_io___RandomAccessFile__Read0` , x)
+}
+
+io___RandomAccessFile__ReadAt <- function(x, position, nbytes){
+    .Call(`_arrow_io___RandomAccessFile__ReadAt` , x, position, nbytes)
 }
 
 io___MemoryMappedFile__Create <- function(path, size){
