@@ -65,7 +65,7 @@ environment:
       CONFIGURATION: "Release"
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
     - JOB: "Toolchain"
-      GENERATOR: Visual Studio 14 2015 Win64
+      GENERATOR: Ninja
       CONFIGURATION: "Release"
       ARROW_BUILD_FLIGHT: "ON"
       ARROW_BUILD_GANDIVA: "ON"

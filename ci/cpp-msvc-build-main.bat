@@ -31,6 +31,14 @@ if "%JOB%" == "Toolchain" (
   set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_DEPENDENCY_SOURCE=AUTO
 )
 
+if "%USE_CLCACHE%" == "true" (
+  @rem XXX Without forcing CMAKE_CXX_COMPILER, CMake can re-run itself and
+  @rem unfortunately switch from Release to Debug mode...
+  set CMAKE_ARGS=%CMAKE_ARGS% ^
+      -DARROW_USE_CLCACHE=ON ^
+      -DCMAKE_CXX_COMPILER=clcache
+)
+
 @rem Retrieve git submodules, configure env var for Parquet unit tests
 git submodule update --init || exit /B
 set ARROW_TEST_DATA=%CD%\testing\data
@@ -51,14 +59,14 @@ mkdir cpp\build
 pushd cpp\build
 
 cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
-      -DCMAKE_VERBOSE_MAKEFILE=OFF ^
-      -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
-      -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
+      -DCMAKE_VERBOSE_MAKEFILE=OFF ^
+      -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+      -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
       -DARROW_BUILD_EXAMPLES=ON ^
-      -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DARROW_CXXFLAGS="%ARROW_CXXFLAGS%" ^
       -DCMAKE_CXX_FLAGS_RELEASE="/MD %CMAKE_CXX_FLAGS_RELEASE%" ^
       -DARROW_FLIGHT=%ARROW_BUILD_FLIGHT% ^

@@ -78,22 +78,13 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
                            ${BC_FILES}
                    DEPENDS ${BC_FILES})
 
-# write a cmake script to replace precompiled bitcode file's content into a .cc file
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake" "\
-  file(READ \"${GANDIVA_PRECOMPILED_BC_PATH}\" HEXCONTENT HEX)
-  string(REGEX REPLACE
-         \"([0-9a-f][0-9a-f])\"
-         \"'\\\\\\\\x\\\\1',\"
-         GANDIVA_PRECOMPILED_BITCODE_CHARS
-         \"\${HEXCONTENT}\")
-  configure_file(${GANDIVA_PRECOMPILED_CC_IN_PATH}
-                 ${GANDIVA_PRECOMPILED_CC_PATH})
-")
-
-# add the previous command to the execution chain
+# turn the bitcode file into a C++ static data variable.
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
-                   COMMAND ${CMAKE_COMMAND} -P
-                           "${CMAKE_CURRENT_BINARY_DIR}/WritePrecompiledCC.cmake"
+                   COMMAND python
+                           "${CMAKE_CURRENT_SOURCE_DIR}/../make_precompiled_bitcode.py"
+                           ${GANDIVA_PRECOMPILED_CC_IN_PATH}
+                           ${GANDIVA_PRECOMPILED_BC_PATH}
+                           ${GANDIVA_PRECOMPILED_CC_PATH}
                    DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH}
                            ${GANDIVA_PRECOMPILED_BC_PATH})
 
