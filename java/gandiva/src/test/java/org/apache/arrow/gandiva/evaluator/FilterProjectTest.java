@@ -27,6 +27,7 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
+import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -54,7 +55,7 @@ public class FilterProjectTest extends BaseEvaluatorTest {
     Filter filter = Filter.make(schema, condition);
 
     ExpressionTree expression = TreeBuilder.makeExpression("add", Lists.newArrayList(a, b), c);
-    Projector projector = Projector.make(schema, Lists.newArrayList(expression));
+    Projector projector = Projector.make(schema, Lists.newArrayList(expression), SelectionVectorType.SV_INT16);
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};

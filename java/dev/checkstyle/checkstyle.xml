@@ -272,7 +272,7 @@
         </module>
         <module name="RedundantModifier">
             <!-- Checks for redundant modifiers on various symbol definitions -->
-            <property name="tokens" value="VARIABLE_DEF, ANNOTATION_FIELD_DEF, INTERFACE_DEF, CLASS_DEF, ENUM_DEF"/>
+            <property name="tokens" value="VARIABLE_DEF, ANNOTATION_FIELD_DEF, INTERFACE_DEF, CLASS_DEF, ENUM_DEF, METHOD_DEF"/>
         </module>
     </module>
 </module>

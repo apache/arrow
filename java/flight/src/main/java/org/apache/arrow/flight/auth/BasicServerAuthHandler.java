@@ -45,9 +45,9 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
    */
   public interface BasicAuthValidator {
 
-    public byte[] getToken(String username, String password) throws Exception;
+    byte[] getToken(String username, String password) throws Exception;
 
-    public Optional<String> isValid(byte[] token);
+    Optional<String> isValid(byte[] token);
 
   }
 

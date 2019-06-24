@@ -570,3 +570,18 @@ def test_tls_do_get():
             server_location, tls_root_certs=certs["root_cert"])
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
+
+
+def test_tls_override_hostname():
+    """Check that incorrectly overriding the hostname fails."""
+    certs = example_tls_certs()
+
+    with flight_server(
+            ConstantFlightServer, tls_certificates=certs["certificates"],
+            connect_args=dict(tls_root_certs=certs["root_cert"]),
+    ) as server_location:
+        client = flight.FlightClient.connect(
+            server_location, tls_root_certs=certs["root_cert"],
+            override_hostname="fakehostname")
+        with pytest.raises(pa.ArrowIOError):
+            client.do_get(flight.Ticket(b'ints'))

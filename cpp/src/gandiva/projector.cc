@@ -40,11 +40,19 @@ Projector::~Projector() {}
 
 Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
                        std::shared_ptr<Projector>* projector) {
-  return Projector::Make(schema, exprs, ConfigurationBuilder::DefaultConfiguration(),
+  return Projector::Make(schema, exprs, SelectionVector::Mode::MODE_NONE,
+                         ConfigurationBuilder::DefaultConfiguration(), projector);
+}
+
+Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
+                       std::shared_ptr<Configuration> configuration,
+                       std::shared_ptr<Projector>* projector) {
+  return Projector::Make(schema, exprs, SelectionVector::Mode::MODE_NONE, configuration,
                          projector);
 }
 
 Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
+                       SelectionVector::Mode selection_vector_mode,
                        std::shared_ptr<Configuration> configuration,
                        std::shared_ptr<Projector>* projector) {
   ARROW_RETURN_IF(schema == nullptr, Status::Invalid("Schema cannot be null"));
@@ -54,7 +62,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
   // see if equivalent projector was already built
   static Cache<ProjectorCacheKey, std::shared_ptr<Projector>> cache;
-  ProjectorCacheKey cache_key(schema, configuration, exprs);
+  ProjectorCacheKey cache_key(schema, configuration, exprs, selection_vector_mode);
   std::shared_ptr<Projector> cached_projector = cache.GetModule(cache_key);
   if (cached_projector != nullptr) {
     *projector = cached_projector;
@@ -73,7 +81,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
     ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
   }
 
-  ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs));
+  ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;

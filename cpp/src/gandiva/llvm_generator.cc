@@ -59,33 +59,31 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
   ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
   // Generate the IR function for the decomposed expression.
   std::unique_ptr<CompiledExpr> compiled_expr(new CompiledExpr(value_validity, output));
-  for (auto mode : SelectionVector::kAllModes) {
-    llvm::Function* ir_function = nullptr;
-    ARROW_RETURN_NOT_OK(
-        CodeGenExprValue(value_validity->value_expr(), output, idx, &ir_function, mode));
-    compiled_expr->SetIRFunction(mode, ir_function);
-  }
+  llvm::Function* ir_function = nullptr;
+  ARROW_RETURN_NOT_OK(CodeGenExprValue(value_validity->value_expr(), output, idx,
+                                       &ir_function, selection_vector_mode_));
+  compiled_expr->SetIRFunction(selection_vector_mode_, ir_function);
 
   compiled_exprs_.push_back(std::move(compiled_expr));
   return Status::OK();
 }
 
 /// Build and optimise module for projection expression.
-Status LLVMGenerator::Build(const ExpressionVector& exprs) {
+Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode mode) {
+  selection_vector_mode_ = mode;
   for (auto& expr : exprs) {
     auto output = annotator_.AddOutputFieldDescriptor(expr->result());
     ARROW_RETURN_NOT_OK(Add(expr, output));
   }
   // optimise, compile and finalize the module
   ARROW_RETURN_NOT_OK(engine_->FinalizeModule(optimise_ir_, dump_ir_));
+
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
-    for (auto mode : SelectionVector::kAllModes) {
-      auto ir_function = compiled_expr->GetIRFunction(mode);
-      auto jit_function =
-          reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_function));
-      compiled_expr->SetJITFunction(mode, jit_function);
-    }
+    auto ir_function = compiled_expr->GetIRFunction(mode);
+    auto jit_function =
+        reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_function));
+    compiled_expr->SetJITFunction(selection_vector_mode_, jit_function);
   }
   return Status::OK();
 }
@@ -106,15 +104,22 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
   auto eval_batch = annotator_.PrepareEvalBatch(record_batch, output_vector);
   DCHECK_GT(eval_batch->GetNumBuffers(), 0);
 
+  auto mode = SelectionVector::MODE_NONE;
+  if (selection_vector != nullptr) {
+    mode = selection_vector->GetMode();
+  }
+  if (mode != selection_vector_mode_) {
+    return Status::Invalid("llvm expression built for selection vector mode ",
+                           selection_vector_mode_, " received vector with mode ", mode);
+  }
+
   for (auto& compiled_expr : compiled_exprs_) {
     // generate data/offset vectors.
     const uint8_t* selection_buffer = nullptr;
     auto num_output_rows = record_batch.num_rows();
-    auto mode = SelectionVector::MODE_NONE;
     if (selection_vector != nullptr) {
       selection_buffer = selection_vector->GetBuffer().data();
       num_output_rows = selection_vector->GetNumSlots();
-      mode = selection_vector->GetMode();
     }
 
     EvalFunc jit_function = compiled_expr->GetJITFunction(mode);

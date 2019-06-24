@@ -232,12 +232,17 @@ class Repo:
     A high level wrapper used for both reading revision information from
     arrow's repository and pushing continuous integration tasks to the queue
     repository.
-    """
 
-    def __init__(self, path, github_token=None):
+    Parameters
+    ----------
+    require_https : boolean, default False
+        Raise exception for SSH origin URLs
+    """
+    def __init__(self, path, github_token=None, require_https=False):
         self.path = Path(path)
         self.repo = pygit2.Repository(str(self.path))
         self.github_token = github_token
+        self.require_https = require_https
         self._updated_refs = []
 
     def __str__(self):
@@ -253,7 +258,11 @@ class Repo:
 
     @property
     def origin(self):
-        return self.repo.remotes['origin']
+        remote = self.repo.remotes['origin']
+        if self.require_https and remote.url.startswith('git@github.com'):
+            raise ValueError("Change SSH origin URL to HTTPS to use "
+                             "Crossbow: {}".format(remote.url))
+        return remote
 
     def fetch(self):
         refspec = '+refs/heads/*:refs/remotes/origin/*'
@@ -297,8 +306,7 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent usable with Github OAuth token.
         """
-        return self.remote.url.replace('git@github.com:',
-                                       'https://github.com/')
+        return _git_ssh_to_https(self.remote.url)
 
     @property
     def user_name(self):
@@ -383,6 +391,10 @@ class Repo:
         username, reponame = self._parse_github_user_repo()
         gh = github3.login(token=self.github_token)
         return gh.repository(username, reponame)
+
+
+def _git_ssh_to_https(url):
+    return url.replace('git@github.com:', 'https://github.com/')
 
 
 class Queue(Repo):
@@ -631,8 +643,9 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
             'valid GitHub access token or pass one to --github-token.'
         )
 
-    ctx.obj['arrow'] = Repo(Path(arrow_path))
-    ctx.obj['queue'] = Queue(Path(queue_path), github_token=github_token)
+    ctx.obj['arrow'] = Repo(arrow_path)
+    ctx.obj['queue'] = Queue(queue_path, github_token=github_token,
+                             require_https=True)
 
 
 @crossbow.command()

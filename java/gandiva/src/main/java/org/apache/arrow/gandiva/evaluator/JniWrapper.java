@@ -34,12 +34,14 @@ public class JniWrapper {
    * @param schemaBuf   The schema serialized as a protobuf. See Types.proto
    *                    to see the protobuf specification
    * @param exprListBuf The serialized protobuf of the expression vector. Each
-   *                    expression is created using TreeBuilder::MakeExpression
+   *                    expression is created using TreeBuilder::MakeExpression.
+   * @param selectionVectorType type of selection vector
    * @param configId    Configuration to gandiva.
    * @return A moduleId that is passed to the evaluateProjector() and closeProjector() methods
    *
    */
   native long buildProjector(byte[] schemaBuf, byte[] exprListBuf,
+                             int selectionVectorType,
                              long configId) throws GandivaException;
 
   /**
