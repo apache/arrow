@@ -22,16 +22,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
+import org.apache.arrow.flight.AsyncPutListener;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.PutResult;
@@ -102,9 +98,8 @@ class IntegrationTestClient {
       jsonRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
       VectorUnloader unloader = new VectorUnloader(root);
       VectorLoader jsonLoader = new VectorLoader(jsonRoot);
-      final CompletableFuture<Void> completed = new CompletableFuture<>();
       FlightClient.ClientStreamListener stream = client.startPut(descriptor, root, reader,
-          new StreamListener<PutResult>() {
+          new AsyncPutListener() {
             int counter = 0;
 
             @Override
@@ -117,16 +112,6 @@ class IntegrationTestClient {
                     String.format("Invalid ACK from server. Expected '%d' but got '%s'.", counter, metadata));
               }
               counter++;
-            }
-
-            @Override
-            public void onError(Throwable t) {
-              completed.completeExceptionally(t);
-            }
-
-            @Override
-            public void onCompleted() {
-              completed.complete(null);
             }
           });
       int counter = 0;
@@ -143,9 +128,6 @@ class IntegrationTestClient {
       stream.completed();
       // Need to call this, or exceptions from the server get swallowed
       stream.getResult();
-      completed.get(30, TimeUnit.SECONDS);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new RuntimeException(e);
     }
 
     // 2. Get the ticket for the data.

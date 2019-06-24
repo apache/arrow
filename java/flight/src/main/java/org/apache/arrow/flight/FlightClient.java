@@ -20,7 +20,6 @@ package org.apache.arrow.flight;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -44,7 +43,6 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvid
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 
@@ -168,7 +166,7 @@ public class FlightClient implements AutoCloseable {
    * @return ClientStreamListener an interface to control uploading data
    */
   public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root,
-      StreamListener<PutResult> metadataListener, CallOption... options) {
+      PutListener metadataListener, CallOption... options) {
     return startPut(descriptor, root, new MapDictionaryProvider(), metadataListener, options);
   }
 
@@ -181,7 +179,7 @@ public class FlightClient implements AutoCloseable {
    * @return ClientStreamListener an interface to control uploading data
    */
   public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root, DictionaryProvider provider,
-      StreamListener<PutResult> metadataListener, CallOption... options) {
+      PutListener metadataListener, CallOption... options) {
     Preconditions.checkNotNull(descriptor);
     Preconditions.checkNotNull(root);
 
@@ -194,7 +192,7 @@ public class FlightClient implements AutoCloseable {
     DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, provider, observer::onNext);
     return new PutObserver(new VectorUnloader(
         root, true /* include # of nulls in vectors */, true /* must align buffers to be C++-compatible */),
-        observer, resultObserver);
+        observer, metadataListener);
   }
 
   /**
@@ -257,7 +255,7 @@ public class FlightClient implements AutoCloseable {
     return stream;
   }
 
-  private static class SetStreamObserver extends CompletableFuture<Void> implements StreamObserver<Flight.PutResult> {
+  private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
     private final BufferAllocator allocator;
     private final StreamListener<PutResult> listener;
 
@@ -277,13 +275,11 @@ public class FlightClient implements AutoCloseable {
     @Override
     public void onError(Throwable t) {
       listener.onError(t);
-      completeExceptionally(t);
     }
 
     @Override
     public void onCompleted() {
       listener.onCompleted();
-      complete(null);
     }
   }
 
@@ -291,13 +287,13 @@ public class FlightClient implements AutoCloseable {
 
     private final ClientCallStreamObserver<ArrowMessage> observer;
     private final VectorUnloader unloader;
-    private final CompletableFuture<Void> futureResult;
+    private final PutListener listener;
 
     public PutObserver(VectorUnloader unloader, ClientCallStreamObserver<ArrowMessage> observer,
-        CompletableFuture<Void> futureResult) {
+        PutListener listener) {
       this.observer = observer;
       this.unloader = unloader;
-      this.futureResult = futureResult;
+      this.listener = listener;
     }
 
     @Override
@@ -308,8 +304,7 @@ public class FlightClient implements AutoCloseable {
     @Override
     public void putNext(ArrowBuf appMetadata) {
       ArrowRecordBatch batch = unloader.getRecordBatch();
-      // Check the futureResult in case server sent an exception
-      while (!observer.isReady() && !futureResult.isDone()) {
+      while (!observer.isReady()) {
         /* busy wait */
       }
       // Takes ownership of appMetadata
@@ -328,11 +323,7 @@ public class FlightClient implements AutoCloseable {
 
     @Override
     public void getResult() {
-      try {
-        futureResult.get();
-      } catch (Exception ex) {
-        throw Throwables.propagate(ex);
-      }
+      listener.getResult();
     }
   }
 
@@ -365,6 +356,30 @@ public class FlightClient implements AutoCloseable {
      * happened during the upload.
      */
     void getResult();
+  }
+
+  /**
+   * A handler for server-sent application metadata messages during a Flight DoPut operation.
+   *
+   * <p>Generally, instead of implementing this yourself, you should use {@link AsyncPutListener} or {@link
+   * SyncPutListener}.
+   */
+  public interface PutListener extends StreamListener<PutResult> {
+
+    /**
+     * Wait for the stream to finish on the server side. You must call this to be notified of any errors that may have
+     * happened during the upload.
+     */
+    void getResult();
+
+    /**
+     * Called when a message from the server is received.
+     *
+     * @param val The application metadata. This buffer will be reclaimed once onNext returns; you must retain a
+     *     reference to use it outside this method.
+     */
+    @Override
+    void onNext(PutResult val);
   }
 
   /**

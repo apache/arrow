@@ -23,7 +23,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
-import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor.DescriptorType;
 import org.apache.arrow.memory.BufferAllocator;
@@ -98,7 +97,7 @@ public class TestBasicOperation {
 
       VectorSchemaRoot root = VectorSchemaRoot.of(iv);
       ClientStreamListener listener = c
-          .startPut(FlightDescriptor.path("hello"), root, NoOpStreamListener.getInstance());
+          .startPut(FlightDescriptor.path("hello"), root, new AsyncPutListener());
 
       //batch 1
       root.allocateNew();

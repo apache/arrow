@@ -19,6 +19,7 @@ package org.apache.arrow.flight.example;
 
 import java.io.IOException;
 
+import org.apache.arrow.flight.AsyncPutListener;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -26,7 +27,6 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.NoOpStreamListener;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -78,7 +78,7 @@ public class TestExampleServer {
 
     VectorSchemaRoot root = VectorSchemaRoot.of(iv);
     ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root,
-        NoOpStreamListener.getInstance());
+        new AsyncPutListener());
 
     //batch 1
     root.allocateNew();

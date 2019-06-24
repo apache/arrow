@@ -76,7 +76,7 @@ public class TestLargeMessage {
            BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE);
            VectorSchemaRoot root = generateData(testAllocator)) {
         final FlightClient.ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root,
-            NoOpStreamListener.getInstance());
+            new AsyncPutListener());
         listener.putNext();
         listener.completed();
         listener.getResult();

@@ -19,7 +19,11 @@ package org.apache.arrow.flight;
 
 import java.util.Collections;
 
-import org.apache.arrow.flight.FlightProducer.StreamListener;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+
+import org.apache.arrow.flight.FlightClient.PutListener;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -47,23 +51,20 @@ public class TestApplicationMetadata {
   // This test is consistently flaky on CI, unfortunately.
   @Ignore
   public void retrieveMetadata() {
-    try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        final FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(a, location, new MetadataFlightProducer(a)).build());
-        final FlightClient client = FlightClient.builder(a, s.getLocation()).build();
-        final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
-      byte i = 0;
-      while (stream.next()) {
-        final IntVector vector = (IntVector) stream.getRoot().getVector("a");
-        Assert.assertEquals(1, vector.getValueCount());
-        Assert.assertEquals(10, vector.get(0));
-        Assert.assertEquals(i, stream.getLatestMetadata().getByte(0));
-        i++;
+    test((allocator, client) -> {
+      try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
+        byte i = 0;
+        while (stream.next()) {
+          final IntVector vector = (IntVector) stream.getRoot().getVector("a");
+          Assert.assertEquals(1, vector.getValueCount());
+          Assert.assertEquals(10, vector.get(0));
+          Assert.assertEquals(i, stream.getLatestMetadata().getByte(0));
+          i++;
+        }
+      } catch (Exception e) {
+        throw new RuntimeException(e);
       }
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    });
   }
 
   /**
@@ -71,51 +72,116 @@ public class TestApplicationMetadata {
    */
   @Test
   @Ignore
-  public void uploadMetadata() {
-    final FlightDescriptor descriptor = FlightDescriptor.path("test");
+  public void uploadMetadataAsync() {
     final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
-    try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        VectorSchemaRoot root = VectorSchemaRoot.create(schema, a);
+    test((allocator, client) -> {
+      try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        final FlightDescriptor descriptor = FlightDescriptor.path("test");
+
+        final PutListener listener = new AsyncPutListener() {
+          int counter = 0;
+
+          @Override
+          public void onNext(PutResult val) {
+            Assert.assertNotNull(val);
+            Assert.assertEquals(counter, val.getApplicationMetadata().getByte(0));
+            counter++;
+          }
+        };
+        final FlightClient.ClientStreamListener writer = client.startPut(descriptor, root, listener);
+
+        root.allocateNew();
+        for (byte i = 0; i < 10; i++) {
+          final IntVector vector = (IntVector) root.getVector("a");
+          final ArrowBuf metadata = allocator.buffer(1);
+          metadata.writeByte(i);
+          vector.set(0, 10);
+          vector.setValueCount(1);
+          root.setRowCount(1);
+          writer.putNext(metadata);
+        }
+        writer.completed();
+        // Must attempt to retrieve the result to get any server-side errors.
+        writer.getResult();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+  }
+
+  /**
+   * Ensure that a client can send metadata to the server. Uses the synchronous API.
+   */
+  @Test
+  @Ignore
+  public void uploadMetadataSync() {
+    final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
+    test((allocator, client) -> {
+      try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+          final SyncPutListener listener = new SyncPutListener()) {
+        final FlightDescriptor descriptor = FlightDescriptor.path("test");
+        final FlightClient.ClientStreamListener writer = client.startPut(descriptor, root, listener);
+
+        root.allocateNew();
+        for (byte i = 0; i < 10; i++) {
+          final IntVector vector = (IntVector) root.getVector("a");
+          final ArrowBuf metadata = allocator.buffer(1);
+          metadata.writeByte(i);
+          vector.set(0, 10);
+          vector.setValueCount(1);
+          root.setRowCount(1);
+          writer.putNext(metadata);
+          try (final PutResult message = listener.poll(5000, TimeUnit.SECONDS)) {
+            Assert.assertNotNull(message);
+            Assert.assertEquals(i, message.getApplicationMetadata().getByte(0));
+          } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+          }
+        }
+        writer.completed();
+        // Must attempt to retrieve the result to get any server-side errors.
+        writer.getResult();
+      }
+    });
+  }
+
+  /**
+   * Make sure that a {@link SyncPutListener} properly reclaims memory if ignored.
+   */
+  @Test
+  @Ignore
+  public void syncMemoryReclaimed() {
+    final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
+    test((allocator, client) -> {
+      try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+          final SyncPutListener listener = new SyncPutListener()) {
+        final FlightDescriptor descriptor = FlightDescriptor.path("test");
+        final FlightClient.ClientStreamListener writer = client.startPut(descriptor, root, listener);
+
+        root.allocateNew();
+        for (byte i = 0; i < 10; i++) {
+          final IntVector vector = (IntVector) root.getVector("a");
+          final ArrowBuf metadata = allocator.buffer(1);
+          metadata.writeByte(i);
+          vector.set(0, 10);
+          vector.setValueCount(1);
+          root.setRowCount(1);
+          writer.putNext(metadata);
+        }
+        writer.completed();
+        // Must attempt to retrieve the result to get any server-side errors.
+        writer.getResult();
+      }
+    });
+  }
+
+  private void test(BiConsumer<BufferAllocator, FlightClient> fun) {
+    try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
         final FlightServer s =
             FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(a, location, new MetadataFlightProducer(a)).build());
-        final FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
-
-      final StreamListener<PutResult> listener = new StreamListener<PutResult>() {
-        int counter = 0;
-
-        @Override
-        public void onNext(PutResult val) {
-          Assert.assertNotNull(val);
-          Assert.assertEquals(counter, val.getApplicationMetadata().getByte(0));
-          counter++;
-        }
-
-        @Override
-        public void onError(Throwable t) {
-          Assert.fail(t.toString());
-        }
-
-        @Override
-        public void onCompleted() {
-          Assert.assertEquals(10, counter);
-        }
-      };
-      final FlightClient.ClientStreamListener writer = client.startPut(descriptor, root, listener);
-
-      root.allocateNew();
-      for (byte i = 0; i < 10; i++) {
-        final IntVector vector = (IntVector) root.getVector("a");
-        final ArrowBuf metadata = a.buffer(1);
-        metadata.writeByte(i);
-        vector.set(0, 10);
-        vector.setValueCount(1);
-        root.setRowCount(1);
-        writer.putNext(metadata);
-      }
-      writer.completed();
-      // Must attempt to retrieve the result to get any server-side errors.
-      writer.getResult();
+                (location) -> FlightServer.builder(allocator, location, new MetadataFlightProducer(allocator)).build());
+        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+      fun.accept(allocator, client);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
