@@ -557,16 +557,16 @@ TEST_F(TestDecimal, TestIsDistinct) {
   DCHECK_OK(status);
 
   // Create a row-batch with some sample data
-  int num_records = 5;
+  int num_records = 4;
 
-  auto validity_1 = {true, false, true, true, false};
+  auto validity_1 = {true, false, true, true};
   auto array_dec_1 = MakeArrowArrayDecimal(
       decimal_type_1,
-      MakeDecimalVector({"1.51", "1.23", "1.20", "-1.20", "-1.20"}, scale_1), validity_1);
+      MakeDecimalVector({"1.51", "1.23", "1.20", "-1.20"}, scale_1), validity_1);
 
-  auto validity_2 = {true, false, false, true, false};
+  auto validity_2 = {true, false, false, true};
   auto array_dec_2 = MakeArrowArrayDecimal(
-      decimal_type_2, MakeDecimalVector({"1.5", "1.2", "1.2", "-1.2", "-1.25"}, scale_2),
+      decimal_type_2, MakeDecimalVector({"1.5", "1.2", "1.2", "-1.2"}, scale_2),
       validity_2);
 
   // prepare input record batch
@@ -590,8 +590,6 @@ TEST_F(TestDecimal, TestIsDistinct) {
   EXPECT_EQ(is_distinct->Value(2), true);
   // both not null; equal
   EXPECT_EQ(is_distinct->Value(3), false);
-  // wrong scale
-  EXPECT_EQ(is_distinct->Value(4), false);
 
   for (int i = 0; i < num_records; ++i) {
     EXPECT_EQ(is_distinct->Value(i), !is_not_distinct->Value(i));
