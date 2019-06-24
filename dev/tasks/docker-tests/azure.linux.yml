@@ -1,0 +1,28 @@
+jobs:
+- job: linux
+  pool:
+    vmImage: ubuntu-16.04
+  timeoutInMinutes: 360
+
+  steps:
+  - task: DockerInstaller@0
+    displayName: Docker Installer
+    inputs:
+      dockerVersion: 17.09.0-ce
+      releaseType: stable
+
+  - script: |
+      git clone --no-checkout {{ arrow.remote }} arrow
+      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      git -C arrow checkout {{ arrow.head }}
+      git -C arrow submodule update --init --recursive
+    displayName: Clone arrow
+
+  - script: |
+      pushd arrow
+      {%- for command in commands %}
+        {{ command }}
+      {%- endfor %}
+      popd
+    workingDirectory: arrow
+    displayName: Run docker test
