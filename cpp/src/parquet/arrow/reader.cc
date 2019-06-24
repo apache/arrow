@@ -739,6 +739,10 @@ Status FileReader::GetColumn(int i, std::unique_ptr<ColumnReader>* out) {
   return impl_->GetColumn(i, iterator_factory, out);
 }
 
+Status FileReader::GetSchema(std::shared_ptr<::arrow::Schema>* out) {
+  return impl_->GetSchema(out);
+}
+
 Status FileReader::GetSchema(const std::vector<int>& indices,
                              std::shared_ptr<::arrow::Schema>* out) {
   return impl_->GetSchema(indices, out);
