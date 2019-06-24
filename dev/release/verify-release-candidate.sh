@@ -234,6 +234,17 @@ setup_miniconda() {
   conda activate arrow-test
 }
 
+# Build and test Java (Requires newer Maven -- I used 3.3.9)
+
+test_package_java() {
+  pushd java
+
+  mvn test
+  mvn package
+
+  popd
+}
+
 # Build and test C++
 
 test_and_install_cpp() {
@@ -292,7 +303,6 @@ test_python() {
 
   popd
 }
-
 
 test_glib() {
   pushd c_glib
@@ -359,6 +369,15 @@ test_ruby() {
   popd
 }
 
+test_go() {
+  pushd go
+
+  go get -v ./...
+  go test ./...
+
+  popd
+}
+
 test_rust() {
   # install rust toolchain in a similar fashion like test-miniconda
   export RUSTUP_HOME=$PWD/test-rustup
@@ -382,17 +401,6 @@ test_rust() {
   # raises on any warnings
   RUSTFLAGS="-D warnings" cargo build
   cargo test
-
-  popd
-}
-
-# Build and test Java (Requires newer Maven -- I used 3.3.9)
-
-test_package_java() {
-  pushd java
-
-  mvn test
-  mvn package
 
   popd
 }
@@ -455,11 +463,14 @@ test_source_distribution() {
   if [ ${TEST_JS} -gt 0 ]; then
     test_js
   fi
-  if [ ${TEST_INTEGRATION} -gt 0 ]; then
-    test_integration
+  if [ ${TEST_GO} -gt 0 ]; then
+    test_go
   fi
   if [ ${TEST_RUST} -gt 0 ]; then
     test_rust
+  fi
+  if [ ${TEST_INTEGRATION} -gt 0 ]; then
+    test_integration
   fi
 }
 
@@ -488,8 +499,9 @@ test_binary_distribution() {
 : ${TEST_RUBY:=${TEST_DEFAULT}}
 : ${TEST_PYTHON:=${TEST_DEFAULT}}
 : ${TEST_JS:=${TEST_DEFAULT}}
-: ${TEST_INTEGRATION:=${TEST_DEFAULT}}
+: ${TEST_GO:=${TEST_DEFAULT}}
 : ${TEST_RUST:=${TEST_DEFAULT}}
+: ${TEST_INTEGRATION:=${TEST_DEFAULT}}
 : ${TEST_BINARY:=${TEST_DEFAULT}}
 : ${TEST_APT:=${TEST_DEFAULT}}
 : ${TEST_YUM:=${TEST_DEFAULT}}
