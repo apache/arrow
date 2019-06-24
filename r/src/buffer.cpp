@@ -57,4 +57,9 @@ std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
   return nullptr;
 }
 
+// [[arrow::export]]
+Rcpp::RawVector Buffer__data(const std::shared_ptr<arrow::Buffer>& buffer) {
+  return Rcpp::RawVector(buffer->data(), buffer->data() + buffer->size());
+}
+
 #endif
