@@ -400,26 +400,6 @@ DataType__id <- function(type){
     .Call(`_arrow_DataType__id` , type)
 }
 
-schema_ <- function(fields){
-    .Call(`_arrow_schema_` , fields)
-}
-
-Schema__ToString <- function(s){
-    .Call(`_arrow_Schema__ToString` , s)
-}
-
-Schema__num_fields <- function(s){
-    .Call(`_arrow_Schema__num_fields` , s)
-}
-
-Schema__field <- function(s, i){
-    .Call(`_arrow_Schema__field` , s, i)
-}
-
-Schema__names <- function(schema){
-    .Call(`_arrow_Schema__names` , schema)
-}
-
 ListType__ToString <- function(type){
     .Call(`_arrow_ListType__ToString` , type)
 }
@@ -874,6 +854,26 @@ ipc___RecordBatchFileWriter__Open <- function(stream, schema){
 
 ipc___RecordBatchStreamWriter__Open <- function(stream, schema){
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open` , stream, schema)
+}
+
+schema_ <- function(fields){
+    .Call(`_arrow_schema_` , fields)
+}
+
+Schema__ToString <- function(s){
+    .Call(`_arrow_Schema__ToString` , s)
+}
+
+Schema__num_fields <- function(s){
+    .Call(`_arrow_Schema__num_fields` , s)
+}
+
+Schema__field <- function(s, i){
+    .Call(`_arrow_Schema__field` , s, i)
+}
+
+Schema__names <- function(schema){
+    .Call(`_arrow_Schema__names` , schema)
 }
 
 Table__from_dataframe <- function(tbl){
