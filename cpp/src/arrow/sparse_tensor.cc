@@ -135,18 +135,6 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
   using BaseClass::tensor_;
 };
 
-template <typename TYPE, typename SparseIndexType>
-void MakeSparseTensorFromTensor(const Tensor& tensor,
-                                std::shared_ptr<SparseIndex>* sparse_index,
-                                std::shared_ptr<Buffer>* data) {
-  NumericTensor<TYPE> numeric_tensor(tensor.data(), tensor.shape(), tensor.strides());
-  SparseTensorConverter<TYPE, SparseIndexType> converter(numeric_tensor);
-  Status s = converter.Convert();
-  DCHECK_OK(s);
-  *sparse_index = converter.sparse_index;
-  *data = converter.data;
-}
-
 // ----------------------------------------------------------------------
 // SparseTensorConverter for SparseCSRIndex
 
@@ -244,6 +232,86 @@ INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCSRIndex);
 
 }  // namespace
 
+namespace internal {
+
+namespace {
+
+template <typename TYPE, typename SparseIndexType>
+Status MakeSparseTensorFromTensor(const Tensor& tensor,
+                                  std::shared_ptr<SparseIndex>* sparse_index,
+                                  std::shared_ptr<Buffer>* data) {
+  NumericTensor<TYPE> numeric_tensor(tensor.data(), tensor.shape(), tensor.strides());
+  SparseTensorConverter<TYPE, SparseIndexType> converter(numeric_tensor);
+  Status s = converter.Convert();
+  RETURN_NOT_OK(s);
+  *sparse_index = converter.sparse_index;
+  *data = converter.data;
+  return Status::OK();
+}
+
+template <typename SparseIndexType>
+inline Status MakeSparseTensorFromTensor(const Tensor& tensor,
+                                         std::shared_ptr<SparseIndex>* sparse_index,
+                                         std::shared_ptr<Buffer>* data) {
+  switch (tensor.type()->id()) {
+    case Type::UINT8:
+      return MakeSparseTensorFromTensor<UInt8Type, SparseIndexType>(tensor, sparse_index,
+                                                                    data);
+    case Type::INT8:
+      return MakeSparseTensorFromTensor<Int8Type, SparseIndexType>(tensor, sparse_index,
+                                                                   data);
+    case Type::UINT16:
+      return MakeSparseTensorFromTensor<UInt16Type, SparseIndexType>(tensor, sparse_index,
+                                                                     data);
+    case Type::INT16:
+      return MakeSparseTensorFromTensor<Int16Type, SparseIndexType>(tensor, sparse_index,
+                                                                    data);
+    case Type::UINT32:
+      return MakeSparseTensorFromTensor<UInt32Type, SparseIndexType>(tensor, sparse_index,
+                                                                     data);
+    case Type::INT32:
+      return MakeSparseTensorFromTensor<Int32Type, SparseIndexType>(tensor, sparse_index,
+                                                                    data);
+    case Type::UINT64:
+      return MakeSparseTensorFromTensor<UInt64Type, SparseIndexType>(tensor, sparse_index,
+                                                                     data);
+    case Type::INT64:
+      return MakeSparseTensorFromTensor<Int64Type, SparseIndexType>(tensor, sparse_index,
+                                                                    data);
+    case Type::HALF_FLOAT:
+      return MakeSparseTensorFromTensor<HalfFloatType, SparseIndexType>(
+          tensor, sparse_index, data);
+    case Type::FLOAT:
+      return MakeSparseTensorFromTensor<FloatType, SparseIndexType>(tensor, sparse_index,
+                                                                    data);
+    case Type::DOUBLE:
+      return MakeSparseTensorFromTensor<DoubleType, SparseIndexType>(tensor, sparse_index,
+                                                                     data);
+    default:
+      return Status::NotImplemented("Unspported Tensor value type");
+  }
+}
+
+}  // namespace
+
+Status MakeSparseTensorFromTensor(const Tensor& tensor,
+                                  SparseTensorFormat::type sparse_format_id,
+                                  std::shared_ptr<SparseIndex>* sparse_index,
+                                  std::shared_ptr<Buffer>* data) {
+  switch (sparse_format_id) {
+    case SparseTensorFormat::COO:
+      return MakeSparseTensorFromTensor<SparseCOOIndex>(tensor, sparse_index, data);
+
+    case SparseTensorFormat::CSR:
+      return MakeSparseTensorFromTensor<SparseCSRIndex>(tensor, sparse_index, data);
+
+    default:
+      return Status::Invalid("Invalid sparse tensor format ID");
+  }
+}
+
+}  // namespace internal
+
 // ----------------------------------------------------------------------
 // SparseCOOIndex
 
@@ -302,114 +370,5 @@ int64_t SparseTensor::size() const {
 bool SparseTensor::Equals(const SparseTensor& other) const {
   return SparseTensorEquals(*this, other);
 }
-
-// ----------------------------------------------------------------------
-// SparseTensorImpl
-
-// Constructor with a dense tensor
-template <typename SparseIndexType>
-SparseTensorImpl<SparseIndexType>::SparseTensorImpl(
-    const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
-    const std::vector<std::string>& dim_names)
-    : SparseTensorImpl(nullptr, type, nullptr, shape, dim_names) {}
-
-// Constructor with a dense tensor
-template <typename SparseIndexType>
-template <typename TYPE>
-SparseTensorImpl<SparseIndexType>::SparseTensorImpl(const NumericTensor<TYPE>& tensor)
-    : SparseTensorImpl(nullptr, tensor.type(), nullptr, tensor.shape(),
-                       tensor.dim_names_) {
-  SparseTensorConverter<TYPE, SparseIndexType> converter(tensor);
-  Status s = converter.Convert();
-  DCHECK_OK(s);
-  sparse_index_ = converter.sparse_index;
-  data_ = converter.data;
-}
-
-// Constructor with a dense tensor
-template <typename SparseIndexType>
-SparseTensorImpl<SparseIndexType>::SparseTensorImpl(const Tensor& tensor)
-    : SparseTensorImpl(nullptr, tensor.type(), nullptr, tensor.shape(),
-                       tensor.dim_names_) {
-  switch (tensor.type()->id()) {
-    case Type::UINT8:
-      MakeSparseTensorFromTensor<UInt8Type, SparseIndexType>(tensor, &sparse_index_,
-                                                             &data_);
-      return;
-    case Type::INT8:
-      MakeSparseTensorFromTensor<Int8Type, SparseIndexType>(tensor, &sparse_index_,
-                                                            &data_);
-      return;
-    case Type::UINT16:
-      MakeSparseTensorFromTensor<UInt16Type, SparseIndexType>(tensor, &sparse_index_,
-                                                              &data_);
-      return;
-    case Type::INT16:
-      MakeSparseTensorFromTensor<Int16Type, SparseIndexType>(tensor, &sparse_index_,
-                                                             &data_);
-      return;
-    case Type::UINT32:
-      MakeSparseTensorFromTensor<UInt32Type, SparseIndexType>(tensor, &sparse_index_,
-                                                              &data_);
-      return;
-    case Type::INT32:
-      MakeSparseTensorFromTensor<Int32Type, SparseIndexType>(tensor, &sparse_index_,
-                                                             &data_);
-      return;
-    case Type::UINT64:
-      MakeSparseTensorFromTensor<UInt64Type, SparseIndexType>(tensor, &sparse_index_,
-                                                              &data_);
-      return;
-    case Type::INT64:
-      MakeSparseTensorFromTensor<Int64Type, SparseIndexType>(tensor, &sparse_index_,
-                                                             &data_);
-      return;
-    case Type::HALF_FLOAT:
-      MakeSparseTensorFromTensor<HalfFloatType, SparseIndexType>(tensor, &sparse_index_,
-                                                                 &data_);
-      return;
-    case Type::FLOAT:
-      MakeSparseTensorFromTensor<FloatType, SparseIndexType>(tensor, &sparse_index_,
-                                                             &data_);
-      return;
-    case Type::DOUBLE:
-      MakeSparseTensorFromTensor<DoubleType, SparseIndexType>(tensor, &sparse_index_,
-                                                              &data_);
-      return;
-    default:
-      break;
-  }
-}
-
-// ----------------------------------------------------------------------
-// Instantiate templates
-
-#define INSTANTIATE_SPARSE_TENSOR(IndexType)                           \
-  template class ARROW_TEMPLATE_EXPORT SparseTensorImpl<IndexType>;    \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<UInt8Type>&);                                \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<UInt16Type>&);                               \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<UInt32Type>&);                               \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<UInt64Type>&);                               \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<Int8Type>&);                                 \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<Int16Type>&);                                \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<Int32Type>&);                                \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<Int64Type>&);                                \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<HalfFloatType>&);                            \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<FloatType>&);                                \
-  template ARROW_EXPORT SparseTensorImpl<IndexType>::SparseTensorImpl( \
-      const NumericTensor<DoubleType>&)
-
-INSTANTIATE_SPARSE_TENSOR(SparseCOOIndex);
-INSTANTIATE_SPARSE_TENSOR(SparseCSRIndex);
 
 }  // namespace arrow

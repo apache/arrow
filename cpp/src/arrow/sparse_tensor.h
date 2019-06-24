@@ -217,6 +217,15 @@ class ARROW_EXPORT SparseTensor {
 // ----------------------------------------------------------------------
 // SparseTensorImpl class
 
+namespace internal {
+
+Status MakeSparseTensorFromTensor(const Tensor& tensor,
+                                  SparseTensorFormat::type sparse_format_id,
+                                  std::shared_ptr<SparseIndex>* sparse_index,
+                                  std::shared_ptr<Buffer>* data);
+
+}
+
 /// \brief EXPERIMENTAL: Concrete sparse tensor implementation classes with sparse index
 /// type
 template <typename SparseIndexType>
@@ -234,14 +243,16 @@ class ARROW_EXPORT SparseTensorImpl : public SparseTensor {
   // Constructor for empty sparse tensor
   SparseTensorImpl(const std::shared_ptr<DataType>& type,
                    const std::vector<int64_t>& shape,
-                   const std::vector<std::string>& dim_names = {});
-
-  // Constructor with a dense numeric tensor
-  template <typename TYPE>
-  explicit SparseTensorImpl(const NumericTensor<TYPE>& tensor);
+                   const std::vector<std::string>& dim_names = {})
+      : SparseTensorImpl(nullptr, type, nullptr, shape, dim_names) {}
 
   // Constructor with a dense tensor
-  explicit SparseTensorImpl(const Tensor& tensor);
+  explicit SparseTensorImpl(const Tensor& tensor)
+      : SparseTensorImpl(nullptr, tensor.type(), nullptr, tensor.shape(),
+                         tensor.dim_names_) {
+    (void)internal::MakeSparseTensorFromTensor(tensor, SparseIndexType::format_id,
+                                               &sparse_index_, &data_);
+  }
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensorImpl);
