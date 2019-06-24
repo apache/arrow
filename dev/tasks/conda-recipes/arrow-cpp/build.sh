@@ -10,7 +10,7 @@ EXTRA_CMAKE_ARGS=""
 # Include g++'s system headers
 if [ "$(uname)" == "Linux" ]; then
   SYSTEM_INLUDES=$(echo | ${CXX} -E -Wp,-v - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
-  EXTRA_CMAKE_ARGS=" -DARROW_GANDIVA_PC_CXX_FLAGS=\"${SYSTEM_INLUDES}\""
+  EXTRA_CMAKE_ARGS=" -DARROW_GANDIVA_PC_CXX_FLAGS=${SYSTEM_INLUDES}"
 fi
 
 cmake \
@@ -30,7 +30,6 @@ cmake \
     -DARROW_PARQUET=ON \
     -DARROW_GANDIVA=ON \
     -DARROW_ORC=ON \
-    -DORC_HOME=$PREFIX \
     -DCMAKE_AR=${AR} \
     -DCMAKE_RANLIB=${RANLIB} \
     -GNinja \
