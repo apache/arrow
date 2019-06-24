@@ -35,7 +35,6 @@
 #include "parquet/deprecated_io.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
-#include "parquet/internal_file_decryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -44,6 +43,11 @@
 
 #ifdef PARQUET_ENCRYPTION
 #include "parquet/encryption_internal.h"
+#include "parquet/internal_file_decryptor.h"
+#else
+namespace parquet {
+class InternalFileDecryptor;
+}
 #endif
 
 namespace parquet {
@@ -88,21 +92,13 @@ class SerializedRowGroup : public RowGroupReader::Contents {
  public:
   SerializedRowGroup(const std::shared_ptr<ArrowInputFile>& source,
                      FileMetaData* file_metadata, int row_group_number,
-                     const ReaderProperties& props
-#ifdef PARQUET_ENCRYPTION
-                     ,
-                     InternalFileDecryptor* file_decryptor
-#endif
-                     )
+                     const ReaderProperties& props,
+                     InternalFileDecryptor* file_decryptor = NULLPTR)
       : source_(source),
         file_metadata_(file_metadata),
         properties_(props),
-        row_group_ordinal_((int16_t)row_group_number)
-#ifdef PARQUET_ENCRYPTION
-        ,
-        file_decryptor_(file_decryptor)
-#endif
-  {
+        row_group_ordinal_((int16_t)row_group_number),
+        file_decryptor_(file_decryptor) {
     row_group_metadata_ = file_metadata->RowGroup(row_group_number);
   }
 
@@ -112,11 +108,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
-#ifdef PARQUET_ENCRYPTION
     auto col = row_group_metadata_->ColumnChunk(i, row_group_ordinal_, file_decryptor_);
-#else
-    auto col = row_group_metadata_->ColumnChunk(i, row_group_ordinal_);
-#endif
 
     int64_t col_start = col->data_page_offset();
     if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
@@ -191,10 +183,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   std::unique_ptr<RowGroupMetaData> row_group_metadata_;
   ReaderProperties properties_;
   int16_t row_group_ordinal_;
-
-#ifdef PARQUET_ENCRYPTION
   InternalFileDecryptor* file_decryptor_;
-#endif
 };
 
 // ----------------------------------------------------------------------
@@ -223,12 +212,12 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
-    std::unique_ptr<SerializedRowGroup> contents(
-        new SerializedRowGroup(source_, file_metadata_.get(), i,
 #ifdef PARQUET_ENCRYPTION
-                               properties_, file_decryptor_.get()));
+    std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(
+        source_, file_metadata_.get(), i, properties_, file_decryptor_.get()));
 #else
-                               properties_));
+    std::unique_ptr<SerializedRowGroup> contents(
+        new SerializedRowGroup(source_, file_metadata_.get(), i, properties_));
 #endif
     return std::make_shared<RowGroupReader>(std::move(contents));
   }

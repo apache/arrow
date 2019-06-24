@@ -43,12 +43,9 @@ class RleDecoder;
 
 namespace parquet {
 
+class Decryptor;
 class DictionaryPage;
 class Page;
-
-#ifdef PARQUET_ENCRYPTION
-class Decryptor;
-#endif
 
 // 16 MB is the default maximum page header size
 static constexpr uint32_t kDefaultMaxPageHeaderSize = 16 * 1024 * 1024;
@@ -82,10 +79,8 @@ struct PageReaderContext {
   int16_t row_group_ordinal;
   int16_t column_ordinal;
 
-#ifdef PARQUET_ENCRYPTION
   std::shared_ptr<Decryptor> meta_decryptor;
   std::shared_ptr<Decryptor> data_decryptor;
-#endif
 };
 
 // Abstract page iterator interface. This way, we can feed column pages to the

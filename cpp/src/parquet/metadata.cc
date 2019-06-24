@@ -34,6 +34,10 @@
 
 #ifdef PARQUET_ENCRYPTION
 #include "parquet/internal_file_decryptor.h"
+#else
+namespace parquet {
+class Decryptor;
+}
 #endif
 
 namespace parquet {
@@ -170,12 +174,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   explicit ColumnChunkMetaDataImpl(const format::ColumnChunk* column,
                                    const ColumnDescriptor* descr,
                                    int16_t row_group_ordinal, int16_t column_ordinal,
-                                   const ApplicationVersion* writer_version
-#ifdef PARQUET_ENCRYPTION
-                                   ,
-                                   InternalFileDecryptor* file_decryptor = NULLPTR
-#endif
-                                   )
+                                   const ApplicationVersion* writer_version,
+                                   InternalFileDecryptor* file_decryptor = NULLPTR)
       : column_(column), descr_(descr), writer_version_(writer_version) {
 #ifdef PARQUET_ENCRYPTION
     if (column->__isset.crypto_metadata) {  // column metadata is encrypted
@@ -333,41 +333,21 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
     const void* metadata, const ColumnDescriptor* descr,
     const ApplicationVersion* writer_version, int16_t row_group_ordinal,
-    int16_t column_ordinal
-#ifdef PARQUET_ENCRYPTION
-    ,
-    InternalFileDecryptor* file_decryptor
-#endif
-) {
+    int16_t column_ordinal, InternalFileDecryptor* file_decryptor) {
   return std::unique_ptr<ColumnChunkMetaData>(
       new ColumnChunkMetaData(metadata, descr, row_group_ordinal, column_ordinal,
-#ifdef PARQUET_ENCRYPTION
                               writer_version, file_decryptor));
-#else
-                              writer_version));
-#endif
 }
 
 ColumnChunkMetaData::ColumnChunkMetaData(const void* metadata,
                                          const ColumnDescriptor* descr,
                                          int16_t row_group_ordinal,
                                          int16_t column_ordinal,
-                                         const ApplicationVersion* writer_version
-#ifdef PARQUET_ENCRYPTION
-                                         ,
-                                         InternalFileDecryptor* file_decryptor
-#endif
-                                         )
+                                         const ApplicationVersion* writer_version,
+                                         InternalFileDecryptor* file_decryptor)
     : impl_{std::unique_ptr<ColumnChunkMetaDataImpl>(new ColumnChunkMetaDataImpl(
           reinterpret_cast<const format::ColumnChunk*>(metadata), descr,
-          row_group_ordinal, column_ordinal,
-#ifdef PARQUET_ENCRYPTION
-          writer_version, file_decryptor))} {
-}
-#else
-          writer_version))} {
-}
-#endif
+          row_group_ordinal, column_ordinal, writer_version, file_decryptor))} {}
 
 ColumnChunkMetaData::~ColumnChunkMetaData() {}
 // column chunk
@@ -455,12 +435,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
   inline const SchemaDescriptor* schema() const { return schema_; }
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(
-      int i,
-#ifdef PARQUET_ENCRYPTION
-      int16_t row_group_ordinal, InternalFileDecryptor* file_decryptor = NULLPTR) {
-#else
-      int16_t row_group_ordinal) {
-#endif
+      int i, int16_t row_group_ordinal, InternalFileDecryptor* file_decryptor = NULLPTR) {
     if (!(i < num_columns())) {
       std::stringstream ss;
       ss << "The file only has " << num_columns()
@@ -468,12 +443,8 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
       throw ParquetException(ss.str());
     }
     return ColumnChunkMetaData::Make(&row_group_->columns[i], schema_->Column(i),
-                                     writer_version_, row_group_ordinal,
-#ifdef PARQUET_ENCRYPTION
-                                     (int16_t)i, file_decryptor);
-#else
-                                     (int16_t)i);
-#endif
+                                     writer_version_, row_group_ordinal, (int16_t)i,
+                                     file_decryptor);
   }
 
  private:
@@ -504,37 +475,22 @@ int64_t RowGroupMetaData::total_byte_size() const { return impl_->total_byte_siz
 
 const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(); }
 
-#ifdef PARQUET_ENCRYPTION
 std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(
     int i, int16_t row_group_ordinal, InternalFileDecryptor* file_decryptor) const {
   return impl_->ColumnChunk(i, row_group_ordinal, file_decryptor);
 }
-#else
-std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(
-    int i, int16_t row_group_ordinal) const {
-  return impl_->ColumnChunk(i, row_group_ordinal);
-}
-#endif
 
 // file metadata
 class FileMetaData::FileMetaDataImpl {
  public:
   FileMetaDataImpl() : metadata_len_(0) {}
 
-#ifdef PARQUET_ENCRYPTION
   explicit FileMetaDataImpl(const void* metadata, uint32_t* metadata_len,
                             const std::shared_ptr<Decryptor>& decryptor = nullptr)
-#else
-  explicit FileMetaDataImpl(const void* metadata, uint32_t* metadata_len)
-#endif
       : metadata_len_(0) {
     metadata_.reset(new format::FileMetaData);
     DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(metadata), metadata_len,
-#ifdef PARQUET_ENCRYPTION
                          metadata_.get(), decryptor);
-#else
-                         metadata_.get());
-#endif
     metadata_len_ = *metadata_len;
 
     if (metadata_->__isset.created_by) {
@@ -598,10 +554,10 @@ class FileMetaData::FileMetaDataImpl {
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
 
-#ifdef PARQUET_ENCRYPTION
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor) const {
     ThriftSerializer serializer;
+#ifdef PARQUET_ENCRYPTION
     // Only in encrypted files with plaintext footers the
     // encryption_algorithm is set in footer
     if (is_encryption_algorithm_set()) {
@@ -627,13 +583,10 @@ class FileMetaData::FileMetaDataImpl {
       // or encrypted file with encrypted footer
       serializer.Serialize(metadata_.get(), dst, encryptor);
     }
-  }
 #else
-  void WriteTo(::arrow::io::OutputStream* dst) const {
-    ThriftSerializer serializer;
     serializer.Serialize(metadata_.get(), dst);
-  }
 #endif  // PARQUET_ENCRYPTION
+  }
 
   std::unique_ptr<RowGroupMetaData> RowGroup(int i) {
     if (!(i < num_row_groups())) {
@@ -716,7 +669,6 @@ class FileMetaData::FileMetaDataImpl {
   std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
 
-#ifdef PARQUET_ENCRYPTION
 std::shared_ptr<FileMetaData> FileMetaData::Make(
     const void* metadata, uint32_t* metadata_len,
     const std::shared_ptr<Decryptor>& decryptor) {
@@ -724,24 +676,11 @@ std::shared_ptr<FileMetaData> FileMetaData::Make(
   return std::shared_ptr<FileMetaData>(
       new FileMetaData(metadata, metadata_len, decryptor));
 }
-#else
-std::shared_ptr<FileMetaData> FileMetaData::Make(const void* metadata,
-                                                 uint32_t* metadata_len) {
-  // This FileMetaData ctor is private, not compatible with std::make_shared
-  return std::shared_ptr<FileMetaData>(new FileMetaData(metadata, metadata_len));
-}
-#endif
 
-#ifdef PARQUET_ENCRYPTION
 FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
                            const std::shared_ptr<Decryptor>& decryptor)
     : impl_{std::unique_ptr<FileMetaDataImpl>(
           new FileMetaDataImpl(metadata, metadata_len, decryptor))} {}
-#else
-FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len)
-    : impl_{std::unique_ptr<FileMetaDataImpl>(
-          new FileMetaDataImpl(metadata, metadata_len))} {}
-#endif
 
 FileMetaData::FileMetaData()
     : impl_{std::unique_ptr<FileMetaDataImpl>(new FileMetaDataImpl())} {}
@@ -814,16 +753,10 @@ void FileMetaData::AppendRowGroups(const FileMetaData& other) {
   impl_->AppendRowGroups(other.impl_);
 }
 
-#ifdef PARQUET_ENCRYPTION
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
                            const std::shared_ptr<Encryptor>& encryptor) const {
   return impl_->WriteTo(dst, encryptor);
 }
-#else
-void FileMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
-  return impl_->WriteTo(dst);
-}
-#endif
 
 #ifdef PARQUET_ENCRYPTION
 class FileCryptoMetaData::FileCryptoMetaDataImpl {
@@ -1016,12 +949,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
-              bool dictionary_fallback
-#ifdef PARQUET_ENCRYPTION
-              ,
-              const std::shared_ptr<Encryptor>& encryptor
-#endif
-  ) {
+              bool dictionary_fallback, const std::shared_ptr<Encryptor>& encryptor) {
     if (dictionary_page_offset > 0) {
       column_chunk_->meta_data.__set_dictionary_page_offset(dictionary_page_offset);
       column_chunk_->__set_file_offset(dictionary_page_offset + compressed_size);
@@ -1177,19 +1105,11 @@ void ColumnChunkMetaDataBuilder::Finish(int64_t num_values,
                                         int64_t index_page_offset,
                                         int64_t data_page_offset, int64_t compressed_size,
                                         int64_t uncompressed_size, bool has_dictionary,
-#ifdef PARQUET_ENCRYPTION
                                         bool dictionary_fallback,
                                         const std::shared_ptr<Encryptor>& encryptor) {
-#else
-                                        bool dictionary_fallback) {
-#endif
   impl_->Finish(num_values, dictionary_page_offset, index_page_offset, data_page_offset,
-                compressed_size, uncompressed_size, has_dictionary,
-#ifdef PARQUET_ENCRYPTION
-                dictionary_fallback, encryptor);
-#else
-                dictionary_fallback);
-#endif
+                compressed_size, uncompressed_size, has_dictionary, dictionary_fallback,
+                encryptor);
 }
 
 void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink) {
