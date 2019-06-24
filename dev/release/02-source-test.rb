@@ -72,7 +72,9 @@ class SourceTest < Test::Unit::TestCase
   def test_csharp_git_commit_information
     source
     Dir.chdir("#{@tag_name}/csharp") do
+      FileUtils.mv("dummy.git", "../.git")
       sh("dotnet", "pack", "-c", "Release")
+      FileUtils.mv("../.git", "dummy.git")
       Dir.chdir("artifacts/Apache.Arrow/Release") do
         sh("unzip", "Apache.Arrow.#{@snapshot_version}.nupkg")
         FileUtils.chmod(0400, "Apache.Arrow.nuspec")

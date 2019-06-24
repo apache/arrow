@@ -90,11 +90,13 @@ cp -R -L ${tag}.tmp ${tag}
 rm -rf ${tag}.tmp
 
 # Create a dummy .git/ directory to download the source files from GitHub with Source Link in C#.
-mkdir ${tag}/.git && cd $_
+dummy_git=${tag}/csharp/dummy.git
+mkdir ${dummy_git}
+pushd ${dummy_git}
 echo ${release_hash} > HEAD
 echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config
 mkdir objects refs
-cd -
+popd
 
 # Create new tarball from modified source directory
 tar czf ${tarball} ${tag}
