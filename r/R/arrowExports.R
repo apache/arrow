@@ -876,6 +876,10 @@ Schema__names <- function(schema){
     .Call(`_arrow_Schema__names` , schema)
 }
 
+Schema__serialize <- function(schema){
+    .Call(`_arrow_Schema__serialize` , schema)
+}
+
 Table__from_dataframe <- function(tbl){
     .Call(`_arrow_Table__from_dataframe` , tbl)
 }

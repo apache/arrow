@@ -36,7 +36,7 @@ int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s) {
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s,
-  int i) {
+                                            int i) {
   if (i >= s->num_fields() || i < 0) {
     Rcpp::stop("Invalid field index for schema.");
   }
@@ -48,8 +48,22 @@ std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>
 Rcpp::CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema) {
   auto fields = schema->fields();
   return Rcpp::CharacterVector(
-    fields.begin(), fields.end(),
-    [](const std::shared_ptr<arrow::Field>& field) { return field->name(); });
+      fields.begin(), fields.end(),
+      [](const std::shared_ptr<arrow::Field>& field) { return field->name(); });
+}
+
+// [[arrow::export]]
+Rcpp::RawVector Schema__serialize(const std::shared_ptr<arrow::Schema>& schema) {
+  arrow::ipc::DictionaryMemo empty_memo;
+  std::shared_ptr<arrow::Buffer> out;
+  STOP_IF_NOT_OK(arrow::ipc::SerializeSchema(*schema, &empty_memo,
+                                             arrow::default_memory_pool(), &out));
+
+  auto n = out->size();
+  Rcpp::RawVector vec(out->size());
+  std::copy_n(out->data(), n, vec.begin());
+
+  return vec;
 }
 
 #endif

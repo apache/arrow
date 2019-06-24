@@ -3372,6 +3372,21 @@ RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
 }
 #endif
 
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+Rcpp::RawVector Schema__serialize(const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Schema__serialize(SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(Schema__serialize(schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__serialize(SEXP schema_sexp){
+	Rf_error("Cannot call Schema__serialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl);
@@ -3741,6 +3756,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 
 		{ "_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2}, 
 		{ "_arrow_Schema__names", (DL_FUNC) &_arrow_Schema__names, 1}, 
+		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1}, 
 		{ "_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1}, 
 		{ "_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1}, 
 		{ "_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1}, 
