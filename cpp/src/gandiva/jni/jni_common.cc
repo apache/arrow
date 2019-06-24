@@ -538,7 +538,7 @@ void releaseProjectorInput(jbyteArray schema_arr, jbyte* schema_bytes,
 
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_buildProjector(
     JNIEnv* env, jobject obj, jbyteArray schema_arr, jbyteArray exprs_arr,
-    jlong configuration_id) {
+    jint selection_vector_type, jlong configuration_id) {
   jlong module_id = 0LL;
   std::shared_ptr<Projector> projector;
   std::shared_ptr<ProjectorHolder> holder;
@@ -555,6 +555,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
   SchemaPtr schema_ptr;
   FieldVector ret_types;
   gandiva::Status status;
+  auto mode = gandiva::SelectionVector::MODE_NONE;
 
   std::shared_ptr<Configuration> config = ConfigHolder::MapLookup(configuration_id);
   std::stringstream ss;
@@ -599,8 +600,19 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
     ret_types.push_back(root->result());
   }
 
+  switch (selection_vector_type) {
+    case types::SV_NONE:
+      mode = gandiva::SelectionVector::MODE_NONE;
+      break;
+    case types::SV_INT16:
+      mode = gandiva::SelectionVector::MODE_UINT16;
+      break;
+    case types::SV_INT32:
+      mode = gandiva::SelectionVector::MODE_UINT32;
+      break;
+  }
   // good to invoke the evaluator now
-  status = Projector::Make(schema_ptr, expr_vector, config, &projector);
+  status = Projector::Make(schema_ptr, expr_vector, mode, config, &projector);
 
   if (!status.ok()) {
     ss << "Failed to make LLVM module due to " << status.message() << "\n";
