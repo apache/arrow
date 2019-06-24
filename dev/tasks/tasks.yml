@@ -136,9 +136,9 @@ tasks:
   ############################## Conda Windows ################################
 
   conda-win-vs2015-py36:
-    ci: azure
+    ci: appveyor
     platform: win
-    template: conda-recipes/azure.win.yml
+    template: conda-recipes/appveyor.win.yml
     params:
       config: win_c_compilervs2015cxx_compilervs2015python3.6
     artifacts:
@@ -146,9 +146,9 @@ tasks:
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-win-vs2015-py37:
-    ci: azure
+    ci: appveyor
     platform: win
-    template: conda-recipes/azure.win.yml
+    template: conda-recipes/appveyor.win.yml
     params:
       config: win_c_compilervs2015cxx_compilervs2015python3.7
     artifacts:
