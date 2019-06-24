@@ -34,14 +34,14 @@ public interface BufferManager extends AutoCloseable {
    * @param newSize Size of new replacement buffer.
    * @return A new version of the buffer.
    */
-  public ArrowBuf replace(ArrowBuf old, int newSize);
+  ArrowBuf replace(ArrowBuf old, int newSize);
 
   /**
    * Get a managed buffer of indeterminate size.
    *
    * @return A buffer.
    */
-  public ArrowBuf getManagedBuffer();
+  ArrowBuf getManagedBuffer();
 
   /**
    * Get a managed buffer of at least a certain size.
@@ -49,7 +49,7 @@ public interface BufferManager extends AutoCloseable {
    * @param size The desired size
    * @return A buffer
    */
-  public ArrowBuf getManagedBuffer(int size);
+  ArrowBuf getManagedBuffer(int size);
 
-  public void close();
+  void close();
 }

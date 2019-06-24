@@ -23,7 +23,7 @@ package org.apache.arrow.vector.complex;
  */
 @SuppressWarnings("unused") // Used in when instantiating freemarker templates.
 public interface Positionable {
-  public int getPosition();
+  int getPosition();
 
-  public void setPosition(int index);
+  void setPosition(int index);
 }

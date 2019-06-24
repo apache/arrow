@@ -132,9 +132,9 @@ class BaseEvaluatorTest {
 
   interface DataAndVectorGenerator {
 
-    public void writeData(ArrowBuf buffer);
+    void writeData(ArrowBuf buffer);
 
-    public ValueVector generateOutputVector(int numRowsInBatch);
+    ValueVector generateOutputVector(int numRowsInBatch);
   }
 
   class Int32DataAndVectorGenerator implements DataAndVectorGenerator {
