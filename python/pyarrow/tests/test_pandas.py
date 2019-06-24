@@ -2807,6 +2807,21 @@ def test_dictionary_with_pandas():
     tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
 
 
+def test_variable_dictionary_with_pandas():
+    a1 = pa.DictionaryArray.from_arrays([0, 1, 2], ['a', 'b', 'c'])
+    a2 = pa.DictionaryArray.from_arrays([0, 1], ['a', 'c'])
+
+    a = pa.chunked_array([a1, a2])
+    assert a.to_pylist() == ['a', 'b', 'c', 'a', 'c']
+    with pytest.raises(NotImplementedError):
+        a.to_pandas()
+
+    a = pa.chunked_array([a2, a1])
+    assert a.to_pylist() == ['a', 'c', 'a', 'b', 'c']
+    with pytest.raises(NotImplementedError):
+        a.to_pandas()
+
+
 # ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
 

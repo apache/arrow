@@ -1147,6 +1147,19 @@ class CategoricalBlock : public PandasBlock {
       converted_col =
           std::make_shared<Column>(field(col->name(), out.type()), out.chunked_array());
     } else {
+      // check if all dictionaries are equal
+      const ChunkedArray& data = *col->data().get();
+      const std::shared_ptr<Array> arr_first = data.chunk(0);
+      const auto& dict_arr_first = checked_cast<const DictionaryArray&>(*arr_first);
+
+      for (int c = 1; c < data.num_chunks(); c++) {
+        const std::shared_ptr<Array> arr = data.chunk(c);
+        const auto& dict_arr = checked_cast<const DictionaryArray&>(*arr);
+
+        if (!(dict_arr_first.dictionary()->Equals(dict_arr.dictionary()))) {
+          return Status::NotImplemented("Variable dictionary type not supported");
+        }
+      }
       converted_col = col;
     }
 
