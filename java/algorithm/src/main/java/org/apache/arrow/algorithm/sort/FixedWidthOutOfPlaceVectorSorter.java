@@ -45,24 +45,24 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> im
     ArrowBuf dstValueBuffer = dstVector.getDataBuffer();
 
     // sort value indices
-    IntVector sortedIndices = new IntVector("", srcVector.getAllocator());
-    sortedIndices.allocateNew(srcVector.getValueCount());
-    sortedIndices.setValueCount(srcVector.getValueCount());
-    indexSorter.sort(srcVector, sortedIndices, comparator);
+    try (IntVector sortedIndices = new IntVector("", srcVector.getAllocator())) {
+      sortedIndices.allocateNew(srcVector.getValueCount());
+      sortedIndices.setValueCount(srcVector.getValueCount());
+      indexSorter.sort(srcVector, sortedIndices, comparator);
 
-    // copy sorted values to the output vector
-    for (int dstIndex = 0; dstIndex < sortedIndices.getValueCount(); dstIndex++) {
-      int srcIndex = sortedIndices.get(dstIndex);
-      if (srcVector.isNull(srcIndex)) {
-        BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 0);
-      } else {
-        BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 1);
-        PlatformDependent.copyMemory(
-                srcValueBuffer.memoryAddress() + srcIndex * valueWidth,
-                dstValueBuffer.memoryAddress() + dstIndex * valueWidth,
-                valueWidth);
+      // copy sorted values to the output vector
+      for (int dstIndex = 0; dstIndex < sortedIndices.getValueCount(); dstIndex++) {
+        int srcIndex = sortedIndices.get(dstIndex);
+        if (srcVector.isNull(srcIndex)) {
+          BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 0);
+        } else {
+          BitVectorHelper.setValidityBit(dstValidityBuffer, dstIndex, 1);
+          PlatformDependent.copyMemory(
+                  srcValueBuffer.memoryAddress() + srcIndex * valueWidth,
+                  dstValueBuffer.memoryAddress() + dstIndex * valueWidth,
+                  valueWidth);
+        }
       }
     }
-    sortedIndices.close();
   }
 }
