@@ -24,6 +24,7 @@
 # - JDK >=7
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
+# - Go >= 1.11
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
@@ -370,7 +371,7 @@ test_ruby() {
 }
 
 test_go() {
-  pushd go
+  pushd go/arrow
 
   go get -v ./...
   go test ./...
