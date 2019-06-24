@@ -79,25 +79,9 @@ public class ArrowRecordBatch implements ArrowMessage {
       arrowBuffers.add(new ArrowBuffer(offset, size));
       LOGGER.debug("Buffer in RecordBatch at {}, length: {}", offset, size);
       offset += size;
-      if (alignBuffers && offset % 8 != 0) { // align on 8 byte boundaries
-        offset += 8 - (offset % 8);
+      if (alignBuffers) { // align on 8 byte boundaries
+        offset = (offset + 7) / 8;
       }
-    }
-    this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
-  }
-
-  // clone constructor
-  private ArrowRecordBatch(boolean dummy, int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    this.length = length;
-    this.nodes = nodes;
-    this.buffers = buffers;
-    this.closed = false;
-    List<ArrowBuffer> arrowBuffers = new ArrayList<>();
-    long offset = 0;
-    for (ArrowBuf arrowBuf : buffers) {
-      long size = arrowBuf.readableBytes();
-      arrowBuffers.add(new ArrowBuffer(offset, size));
-      offset += size;
     }
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
   }
@@ -143,7 +127,7 @@ public class ArrowRecordBatch implements ArrowMessage {
             .writerIndex(buf.writerIndex()))
         .collect(Collectors.toList());
     close();
-    return new ArrowRecordBatch(false, length, nodes, newBufs);
+    return new ArrowRecordBatch(length, nodes, newBufs);
   }
 
   /**
@@ -213,9 +197,7 @@ public class ArrowRecordBatch implements ArrowMessage {
       ByteBuffer nioBuffer =
           buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
       size += nioBuffer.remaining();
-      if (size % 8 != 0) {
-        size += 8 - (size % 8);
-      }
+      size = (size + 7) / 8;
     }
     return size;
   }
