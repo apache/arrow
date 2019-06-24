@@ -74,22 +74,15 @@ class TableTest < Test::Unit::TestCase
     end
 
     test("Integer: positive") do
-      assert_equal(<<-TABLE, @table.slice(2).to_s)
-	count	visible
-0	    4	       
-1	    8	true   
-2	   16	true   
-3	   32	false  
-4	   64	       
-5	  128	       
-      TABLE
+      record = @table.slice(2)
+      assert_equal([4, nil],
+                   [record[0], record[1]])
     end
 
     test("Integer: negative") do
-      assert_equal(<<-TABLE, @table.slice(-1).to_s)
-	count	visible
-0	  128	       
-      TABLE
+      record = @table.slice(-1)
+      assert_equal([128, nil],
+                   [record[0], record[1]])
     end
 
     test("Range: positive: include end") do

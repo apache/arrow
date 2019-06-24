@@ -207,12 +207,12 @@ module Arrow
     #     The sub `Arrow::Table`. It covers only from
     #     `offset` to `offset + length` range.
     #
-    # @overload slice(offset)
+    # @overload slice(index)
     #
-    #   @param offset [Integer] The offset of sub Arrow::Table.
-    #   @return [Arrow::Table]
-    #      The sub `Arrow::Table`. It covers only from
-    #      `offset` until end of the table.
+    #   @param index [Integer] The index of sub Arrow::Table.
+    #   @return [Arrow::Record]
+    #      The `Arrow::Record` corresponding to index of
+    #      the table.
     #
     # @overload slice(boolean_array)
     #
@@ -250,7 +250,11 @@ module Arrow
       when 0
         expected_n_args = "1..2" unless block_given?
       when 1
-        slicers << args[0]
+        if args[0].is_a?(Integer)
+          return Record.new(self, args[0])
+        else
+          slicers << args[0]
+        end
       when 2
         from, to = args
         slicers << (from...(from + to))
