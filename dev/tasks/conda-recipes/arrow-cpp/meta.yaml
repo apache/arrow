@@ -14,8 +14,8 @@ build:
 
 requirements:
   build:
-    - autoconf  # [unix]
     - cmake
+    - autoconf  # [unix]
     - ninja
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
@@ -44,6 +44,7 @@ requirements:
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
     - boost-cpp
     - brotli
+    - double-conversion
     - gflags
     - glog
     - lz4-c
