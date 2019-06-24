@@ -318,8 +318,8 @@ test_glib() {
     make install
   else
     meson build --prefix=$ARROW_HOME --libdir=lib
-    ninja
-    ninja install
+    ninja -C build
+    ninja -C build install
   fi
 
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
