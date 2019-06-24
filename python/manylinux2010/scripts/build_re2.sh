@@ -1,5 +1,4 @@
-#!/bin/bash
-
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,28 +16,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+export RE2_VERSION="2019-04-01"
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
 
-# Install built wheel
-pip install -q /arrow/python/manylinux1/dist/*.whl
+curl -sL "http://github.com/google/re2/archive/${RE2_VERSION}.tar.gz" -o re2-${RE2_VERSION}.tar.gz
+tar xf re2-${RE2_VERSION}.tar.gz
+pushd re2-${RE2_VERSION}
 
-# Runs tests on installed distribution from an empty directory
-python --version
+export CXXFLAGS="-fPIC -O2 ${CXXFLAGS}"
+export CFLAGS="-fPIC -O2 ${CFLAGS}"
 
-# Test optional dependencies
-python -c "
-import sys
-import pyarrow
-import pyarrow.orc
-import pyarrow.parquet
-import pyarrow.plasma
+# Build shared libraries
+make prefix=/usr/local -j${NCORES} install
 
-if sys.version_info.major > 2:
-    import pyarrow.gandiva
-"
+popd
 
-export ARROW_TEST_DATA=/arrow/testing/data
-
-# Run pyarrow tests
-pip install -q -r /arrow/python/requirements-test.txt
-pytest -v --pyargs pyarrow
+# Need to remove shared library to make sure the static library is picked up by Arrow
+rm -rf re2-${RE2_VERSION}.tar.gz re2-${RE2_VERSION} /usr/local/lib/libre2.so*

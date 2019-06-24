@@ -51,22 +51,22 @@ script:
 
   # don't attempt to build it, because the base image by pypa is updated
   # regularly and would cause undeterministic builds
-  - docker-compose pull python-manylinux1
+  - docker-compose pull python-manylinux2010
   - docker-compose run
       -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }}
       -e PYTHON_VERSION="{{ python_version }}"
       -e UNICODE_WIDTH="{{ unicode_width }}"
-      python-manylinux1
+      python-manylinux2010
   - popd
 
   # test on multiple distributions
   {%- for image in test_docker_images %}
   - docker run -it --shm-size 2G --volume $(pwd)/arrow:/arrow {{ image }}
-      /arrow/dev/tasks/python-wheels/linux-test.sh
+      /arrow/dev/tasks/python-wheels/manylinux2010-test.sh
   {%- endfor %}
 
   # prepare for deployment
-  - sudo mv arrow/python/manylinux1/dist/* dist/
+  - sudo mv arrow/python/manylinux2010/dist/* dist/
 
 deploy:
   provider: releases
