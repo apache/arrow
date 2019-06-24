@@ -13,9 +13,10 @@ build:
 
 requirements:
   host:
-    - arrow-cpp >={{ ARROW_VERSION }}
+    # NOTE: in the upstream feedstock use >= instead of =
+    - arrow-cpp ={{ ARROW_VERSION }}
   run:
-    - arrow-cpp >={{ ARROW_VERSION }}
+    - arrow-cpp ={{ ARROW_VERSION }}
 
 test:
   commands:
