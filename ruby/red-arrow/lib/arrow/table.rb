@@ -238,7 +238,7 @@ module Arrow
       slicers = []
       if block_given?
         unless args.empty?
-          raise ArgumentError, "Can't give arguments with block"
+          raise ArgumentError, "Can't give argument and block mix"
         end
         block_slicer = yield(Slicer.new(self))
         case block_slicer

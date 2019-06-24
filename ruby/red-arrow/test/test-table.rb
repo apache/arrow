@@ -156,7 +156,7 @@ class TableTest < Test::Unit::TestCase
       end
 
       test("arguments: with block") do
-        message = "Can't give arguments with block"
+        message = "Can't give argument and block mix"
         assert_raise(ArgumentError.new(message)) do
           @table.slice(1, 2) {}
         end
