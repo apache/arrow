@@ -20,7 +20,7 @@
 set -e
 
 # Install built wheel
-pip install -q /arrow/python/manylinux2010/dist/*.whl
+pip install -q /arrow/python/$WHEEL_TAG/dist/*.whl
 
 # Runs tests on installed distribution from an empty directory
 python --version

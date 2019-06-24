@@ -159,10 +159,11 @@ tasks:
   wheel-manylinux1-cp27m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux1.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 2.7
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images: []
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
@@ -170,10 +171,11 @@ tasks:
   wheel-manylinux1-cp27mu:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux1.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 2.7
       unicode_width: 32
+      wheel_tag: manylinux1
       test_docker_images:
         - python:2.7-slim  # debian ucs4
     artifacts:
@@ -182,10 +184,11 @@ tasks:
   wheel-manylinux1-cp35m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux1.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.5
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images:
         - python:3.5-slim
     artifacts:
@@ -194,10 +197,11 @@ tasks:
   wheel-manylinux1-cp36m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux1.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.6
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images:
         - python:3.6-slim
     artifacts:
@@ -206,10 +210,11 @@ tasks:
   wheel-manylinux1-cp37m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux1.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.7
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images:
         - python:3.7-slim
     artifacts:
@@ -218,10 +223,11 @@ tasks:
   wheel-manylinux2010-cp27m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux2010.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 2.7
       unicode_width: 16
+      wheel_tag: manylinux2010
       test_docker_images: []
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux2010_x86_64.whl
@@ -229,10 +235,11 @@ tasks:
   wheel-manylinux2010-cp27mu:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux2010.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 2.7
       unicode_width: 32
+      wheel_tag: manylinux2010
       test_docker_images:
         - python:2.7-slim  # debian ucs4
     artifacts:
@@ -241,10 +248,11 @@ tasks:
   wheel-manylinux2010-cp35m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux2010.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.5
       unicode_width: 16
+      wheel_tag: manylinux2010
       test_docker_images:
         - python:3.5-slim
     artifacts:
@@ -253,10 +261,11 @@ tasks:
   wheel-manylinux2010-cp36m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux2010.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.6
       unicode_width: 16
+      wheel_tag: manylinux2010
       test_docker_images:
         - python:3.6-slim
     artifacts:
@@ -265,10 +274,11 @@ tasks:
   wheel-manylinux2010-cp37m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.manylinux2010.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.7
       unicode_width: 16
+      wheel_tag: manylinux2010
       test_docker_images:
         - python:3.7-slim
     artifacts:
