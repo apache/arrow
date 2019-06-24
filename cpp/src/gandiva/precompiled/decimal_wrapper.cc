@@ -258,9 +258,6 @@ int32_t hash32WithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                            int32_t x_precision, int32_t x_scale,
                                            boolean x_isvalid, int32_t seed,
                                            boolean seed_isvalid) {
-  if (!seed_isvalid) {
-    seed = 0;
-  }
   if (!x_isvalid) {
     return seed;
   }
@@ -272,9 +269,6 @@ int64_t hash64WithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
                                            int32_t x_precision, int32_t x_scale,
                                            boolean x_isvalid, int64_t seed,
                                            boolean seed_isvalid) {
-  if (!seed_isvalid) {
-    seed = 0;
-  }
   if (!x_isvalid) {
     return seed;
   }
@@ -304,9 +298,6 @@ int32_t hash32AsDoubleWithSeed_decimal128_internal(int64_t x_high, uint64_t x_lo
                                                    int32_t x_precision, int32_t x_scale,
                                                    boolean x_isvalid, int32_t seed,
                                                    boolean seed_isvalid) {
-  if (!seed_isvalid) {
-    seed = 0;
-  }
   if (!x_isvalid) {
     return seed;
   }
@@ -318,9 +309,6 @@ int64_t hash64AsDoubleWithSeed_decimal128_internal(int64_t x_high, uint64_t x_lo
                                                    int32_t x_precision, int32_t x_scale,
                                                    boolean x_isvalid, int64_t seed,
                                                    boolean seed_isvalid) {
-  if (!seed_isvalid) {
-    seed = 0;
-  }
   if (!x_isvalid) {
     return seed;
   }

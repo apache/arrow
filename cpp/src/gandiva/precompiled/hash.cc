@@ -126,9 +126,6 @@ FORCE_INLINE int32 hash32(double val, int32 seed) {
 #define HASH64_WITH_SEED_OP(NAME, TYPE)                                              \
   FORCE_INLINE                                                                       \
   int64 NAME##_##TYPE(TYPE in, boolean is_valid, int64 seed, boolean seed_isvalid) { \
-    if (!seed_isvalid) {                                                             \
-      seed = 0;                                                                      \
-    }                                                                                \
     if (!is_valid) {                                                                 \
       return seed;                                                                   \
     }                                                                                \
@@ -138,9 +135,6 @@ FORCE_INLINE int32 hash32(double val, int32 seed) {
 #define HASH32_WITH_SEED_OP(NAME, TYPE)                                              \
   FORCE_INLINE                                                                       \
   int32 NAME##_##TYPE(TYPE in, boolean is_valid, int32 seed, boolean seed_isvalid) { \
-    if (!seed_isvalid) {                                                             \
-      seed = 0;                                                                      \
-    }                                                                                \
     if (!is_valid) {                                                                 \
       return seed;                                                                   \
     }                                                                                \
@@ -351,9 +345,6 @@ FORCE_INLINE int32 hash32_buf(const uint8* buf, int len, int32 seed) {
   FORCE_INLINE                                                          \
   int64 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int64 seed, \
                       boolean seed_isvalid) {                           \
-    if (!seed_isvalid) {                                                \
-      seed = 0;                                                         \
-    }                                                                   \
     if (!is_valid) {                                                    \
       return seed;                                                      \
     }                                                                   \
@@ -364,9 +355,6 @@ FORCE_INLINE int32 hash32_buf(const uint8* buf, int len, int32 seed) {
   FORCE_INLINE                                                          \
   int32 NAME##_##TYPE(TYPE in, int32 len, boolean is_valid, int32 seed, \
                       boolean seed_isvalid) {                           \
-    if (!seed_isvalid) {                                                \
-      seed = 0;                                                         \
-    }                                                                   \
     if (!is_valid) {                                                    \
       return seed;                                                      \
     }                                                                   \
