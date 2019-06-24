@@ -8,32 +8,31 @@ jobs:
     ARROW_VERSION: {{ arrow.no_rc_version }}
     UPLOAD_PACKAGES: False
   steps:
-  - displayName: Remove homebrew
-    script: |
+  - script: |
       echo "Removing homebrew from Azure to avoid conflicts."
       curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
       chmod +x ~/uninstall_homebrew
       ~/uninstall_homebrew -fq
       rm ~/uninstall_homebrew
+    displayName: Remove homebrew
 
-  - displayName: Add conda to PATH
-    bash: |
+  - bash: |
       echo "##vso[task.prependpath]$CONDA/bin"
       sudo chown -R $USER $CONDA
+    displayName: Add conda to PATH
 
-  - displayName: 'Add conda-forge-ci-setup=2'
-    script: |
+  - script: |
       source activate base
       conda install -n base -c conda-forge --quiet --yes conda-forge-ci-setup=2 conda-build
+    displayName: 'Add conda-forge-ci-setup=2'
 
-  - displayName: Clone arrow
-    script: |
+  - script: |
       git clone --no-checkout {{ arrow.remote }} arrow
       git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
       git -C arrow checkout {{ arrow.head }}
+    displayName: Clone arrow
 
-  - displayName: Configure conda and conda-build
-    script: |
+  - script: |
       source activate base
       echo "Configuring conda."
 
@@ -41,27 +40,28 @@ jobs:
       export CI=azure
       source run_conda_forge_build_setup
       conda update --yes --quiet --override-channels -c conda-forge -c defaults --all
+    displayName: Configure conda and conda-build
     workingDirectory: arrow/dev/tasks/conda-recipes
     env: {
       OSX_FORCE_SDK_DOWNLOAD: "1"
     }
 
-  - displayName: Mangle compiler
-    workingDirectory: arrow/dev/tasks/conda-recipes
-    script: |
+  - script: |
       source activate base
       mangle_compiler ./ ./ ./.ci_support/${CONFIG}.yaml
-
-  - displayName: Generate build number clobber file
     workingDirectory: arrow/dev/tasks/conda-recipes
-    script: |
+    displayName: Mangle compiler
+
+  - script: |
       source activate base
       make_build_number ./ ./ ./.ci_support/${CONFIG}.yaml
-
-  - displayName: Build recipes
     workingDirectory: arrow/dev/tasks/conda-recipes
-    script: |
+    displayName: Generate build number clobber file
+
+  - script: |
       source activate base
       conda build arrow-cpp parquet-cpp pyarrow \
         -m ./.ci_support/${CONFIG}.yaml \
         --clobber-file ./.ci_support/clobber_${CONFIG}.yaml
+    workingDirectory: arrow/dev/tasks/conda-recipes
+    displayName: Build recipes
