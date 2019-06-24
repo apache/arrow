@@ -703,15 +703,18 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::TIME32:
       type = ParquetType::INT32;
-      logical_type = LogicalType::Time(false, LogicalType::TimeUnit::MILLIS);
+      logical_type =
+          LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::MILLIS);
       break;
     case ArrowTypeId::TIME64: {
       type = ParquetType::INT64;
       auto time_type = static_cast<::arrow::Time64Type*>(field->type().get());
       if (time_type->unit() == ::arrow::TimeUnit::NANO) {
-        logical_type = LogicalType::Time(false, LogicalType::TimeUnit::NANOS);
+        logical_type =
+            LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::NANOS);
       } else {
-        logical_type = LogicalType::Time(false, LogicalType::TimeUnit::MICROS);
+        logical_type =
+            LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::MICROS);
       }
     } break;
     case ArrowTypeId::STRUCT: {

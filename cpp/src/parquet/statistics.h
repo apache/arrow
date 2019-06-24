@@ -225,6 +225,9 @@ class PARQUET_EXPORT Statistics {
   /// \brief The physical type of the column schema
   virtual Type::type physical_type() const = 0;
 
+  /// \brief The full type descriptor from the column schema
+  virtual const ColumnDescriptor* descr() const = 0;
+
  protected:
   static std::shared_ptr<Statistics> Make(Type::type physical_type, const void* min,
                                           const void* max, int64_t num_values,
