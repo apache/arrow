@@ -712,6 +712,10 @@ ipc___ReadSchema_InputStream <- function(stream){
     .Call(`_arrow_ipc___ReadSchema_InputStream` , stream)
 }
 
+ipc___ReadSchema_Message <- function(message){
+    .Call(`_arrow_ipc___ReadSchema_Message` , message)
+}
+
 ipc___MessageReader__Open <- function(stream){
     .Call(`_arrow_ipc___MessageReader__Open` , stream)
 }

@@ -93,3 +93,8 @@ read_schema <- function(stream, ...) {
   on.exit(stream$close())
   shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
 }
+
+#' @export
+`read_schema.arrow::ipc::Message` <- function(stream, ...) {
+  shared_ptr(`arrow::Schema`, ipc___ReadSchema_Message(stream))
+}
