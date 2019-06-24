@@ -2323,6 +2323,23 @@ RcppExport SEXP _arrow_io___RandomAccessFile__Read0(SEXP x_sexp){
 
 // io.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Buffer> io___RandomAccessFile__ReadAt(const std::shared_ptr<arrow::io::RandomAccessFile>& x, int64_t position, int64_t nbytes);
+RcppExport SEXP _arrow_io___RandomAccessFile__ReadAt(SEXP x_sexp, SEXP position_sexp, SEXP nbytes_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type position(position_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type nbytes(nbytes_sexp);
+	return Rcpp::wrap(io___RandomAccessFile__ReadAt(x, position, nbytes));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_io___RandomAccessFile__ReadAt(SEXP x_sexp, SEXP position_sexp, SEXP nbytes_sexp){
+	Rf_error("Cannot call io___RandomAccessFile__ReadAt(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// io.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(const std::string& path, int64_t size);
 RcppExport SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_sexp){
 BEGIN_RCPP
@@ -3656,6 +3673,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___RandomAccessFile__Seek", (DL_FUNC) &_arrow_io___RandomAccessFile__Seek, 2}, 
 		{ "_arrow_io___RandomAccessFile__Tell", (DL_FUNC) &_arrow_io___RandomAccessFile__Tell, 1}, 
 		{ "_arrow_io___RandomAccessFile__Read0", (DL_FUNC) &_arrow_io___RandomAccessFile__Read0, 1}, 
+		{ "_arrow_io___RandomAccessFile__ReadAt", (DL_FUNC) &_arrow_io___RandomAccessFile__ReadAt, 3}, 
 		{ "_arrow_io___MemoryMappedFile__Create", (DL_FUNC) &_arrow_io___MemoryMappedFile__Create, 2}, 
 		{ "_arrow_io___MemoryMappedFile__Open", (DL_FUNC) &_arrow_io___MemoryMappedFile__Open, 2}, 
 		{ "_arrow_io___MemoryMappedFile__Resize", (DL_FUNC) &_arrow_io___MemoryMappedFile__Resize, 2}, 

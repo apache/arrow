@@ -604,6 +604,10 @@ io___RandomAccessFile__Read0 <- function(x){
     .Call(`_arrow_io___RandomAccessFile__Read0` , x)
 }
 
+io___RandomAccessFile__ReadAt <- function(x, position, nbytes){
+    .Call(`_arrow_io___RandomAccessFile__ReadAt` , x, position, nbytes)
+}
+
 io___MemoryMappedFile__Create <- function(path, size){
     .Call(`_arrow_io___MemoryMappedFile__Create` , path, size)
 }

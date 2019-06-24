@@ -68,6 +68,10 @@ test_that("can read remaining bytes of a RandomAccessFile", {
   file <- ReadableFile(tf)
   z <- file$Read()$data()
 
+  file <- ReadableFile(tf)
+  a <- file$ReadAt(20)$data()
+
   expect_equal(file$GetSize(), length(x) + length(y))
   expect_equal(z, c(x, y))
+  expect_equal(a, y)
 })

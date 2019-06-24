@@ -182,6 +182,13 @@
       } else {
         shared_ptr(`arrow::Buffer`, io___Readable__Read(self, nbytes))
       }
+    },
+
+    ReadAt = function(position, nbytes = NULL) {
+      if (is.null(nbytes)) {
+        nbytes <- self$GetSize() - position
+      }
+      shared_ptr(`arrow::Buffer`, io___RandomAccessFile__ReadAt(self, position, nbytes))
     }
   )
 )
