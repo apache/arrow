@@ -37,14 +37,14 @@ before_script:
   - pushd arrow/dev/tasks/conda-recipes
 
   # Configure conda
-  - setup_conda_rc ./ ./ variants/{{ config }}.yaml
+  - setup_conda_rc ./ ./ .ci_support/{{ config }}.yaml
   - source run_conda_forge_build_setup
 
 script:
   - |
     conda build --croot $TRAVIS_HOME/conda_build_root \
                 --output-folder . \
-                -m variants/{{ config }}.yaml \
+                -m .ci_support/{{ config }}.yaml \
                 parquet-cpp arrow-cpp pyarrow
 
 deploy:

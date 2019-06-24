@@ -33,11 +33,11 @@ test_script:
   - pushd arrow\dev\tasks\conda-recipes
 
   # Configure conda
-  - cmd: setup_conda_rc .\ .\ variants\{{ config }}.yaml
+  - cmd: setup_conda_rc .\ .\ .ci_support\{{ config }}.yaml
   - cmd: run_conda_forge_build_setup
 
   # Build the recipes
-  - conda.exe build --output-folder . -m variants\{{ config }}.yaml parquet-cpp arrow-cpp pyarrow
+  - conda.exe build --output-folder . -m .ci_support\{{ config }}.yaml parquet-cpp arrow-cpp pyarrow
 
   # Rename artifacts
   - pushd win-64

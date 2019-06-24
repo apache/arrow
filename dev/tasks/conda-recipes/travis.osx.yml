@@ -36,11 +36,7 @@ before_script:
   - pushd arrow/dev/tasks/conda-recipes
 
   # Configure conda
-  - setup_conda_rc ./ ./ variants/{{ config }}.yaml
-
-  # XXX: workaround, see run_conda_forge_build_setup_osx#L33
-  - mkdir -p ./.ci_support
-  - cp variants/{{ config }}.yaml ./.ci_support/{{ config }}.yaml
+  - setup_conda_rc ./ ./ .ci_support/{{ config }}.yaml
   - CONFIG={{ config }} source run_conda_forge_build_setup
 
   # Compiler cleanup
