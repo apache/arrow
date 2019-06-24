@@ -56,6 +56,7 @@ fi
 
 export UPLOAD_PACKAGES="${UPLOAD_PACKAGES:-True}"
 docker run ${DOCKER_RUN_ARGS} \
+           --shm-size=2G \
            -v "${ARROW_ROOT}":/arrow:rw,z \
            -e FEEDSTOCK_ROOT="/arrow/dev/tasks/conda-recipes" \
            -e CONFIG \
