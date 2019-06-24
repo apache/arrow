@@ -178,7 +178,7 @@ public abstract class BaseValueVector implements ValueVector {
       // requested size. Utilize the allocated buffer fully.;
       int actualCount = (int) ((bufferSize * 8.0) / (8 * typeWidth + 1));
       do {
-        validityBufferSize = (int) roundUp8(getValidityBufferSizeFromCount(actualCount));
+        validityBufferSize = (int) roundUp8ForValidityBuffer(actualCount);
         dataBufferSize = (int) roundUp8(actualCount * typeWidth);
         if (validityBufferSize + dataBufferSize <= bufferSize) {
           break;
