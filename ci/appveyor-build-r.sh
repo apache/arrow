@@ -19,6 +19,8 @@
 
 set -x
 
+pacman --sync --noconfirm ccache
+
 pacman --noconfirm -Rcsu mingw-w64-{i686,x86_64}-toolchain gcc pkg-config
 
 wget https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf
