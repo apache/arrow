@@ -347,7 +347,7 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
     return builder_->AppendNull();
   }
 
-  Status Reserve(int64_t values) { return builder_->Reserve(values); }
+  Status Reserve(int64_t values);
 
   virtual Status Finish(ArrayVector* out);
 
@@ -355,7 +355,8 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
   Status NextChunk();
 
   int64_t max_chunk_size_;
-  int64_t chunk_data_size_;
+  int64_t chunk_data_size_ = 0;
+  int64_t extra_capacity_ = 0;
 
   std::unique_ptr<BinaryBuilder> builder_;
   std::vector<std::shared_ptr<Array>> chunks_;
