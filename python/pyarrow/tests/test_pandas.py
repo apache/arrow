@@ -767,6 +767,23 @@ class TestConvertPrimitiveTypes(object):
         _check_pandas_roundtrip(df, expected=expected,
                                 expected_schema=schema)
 
+    def test_float_with_null_as_integer(self):
+        # ARROW-2298
+        s = pd.Series([np.nan, 1., 2., np.nan])
+
+        types = [pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+                 pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64()]
+        for ty in types:
+            result = pa.array(s, type=ty)
+            expected = pa.array([None, 1, 2, None], type=ty)
+            assert result.equals(expected)
+
+            df = pd.DataFrame({'has_nulls': s})
+            schema = pa.schema([pa.field('has_nulls', ty)])
+            result = pa.Table.from_pandas(df, schema=schema,
+                                          preserve_index=False)
+            assert result[0].data.chunk(0).equals(expected)
+
     def test_int_object_nulls(self):
         arr = np.array([None, 1, np.int64(3)] * 5, dtype=object)
         df = pd.DataFrame({'ints': arr})
