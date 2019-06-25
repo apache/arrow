@@ -44,17 +44,21 @@ class TestTakeKernel : public ComputeFixture, public TestBase {
     std::shared_ptr<Array> actual;
     TakeOptions options;
     ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *indices, options, &actual));
+    ASSERT_OK(ValidateArray(*actual));
     AssertArraysEqual(*expected, *actual);
   }
+
   void AssertTake(const std::shared_ptr<DataType>& type, const std::string& values,
                   const std::string& indices, const std::string& expected) {
     std::shared_ptr<Array> actual;
 
     for (auto index_type : {int8(), uint32()}) {
       ASSERT_OK(this->Take(type, values, index_type, indices, &actual));
+      ASSERT_OK(ValidateArray(*actual));
       AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
     }
   }
+
   Status Take(const std::shared_ptr<DataType>& type, const std::string& values,
               const std::shared_ptr<DataType>& index_type, const std::string& indices,
               std::shared_ptr<Array>* out) {
@@ -68,7 +72,7 @@ class TestTakeKernelWithNull : public TestTakeKernel<NullType> {
  protected:
   void AssertTake(const std::string& values, const std::string& indices,
                   const std::string& expected) {
-    TestTakeKernel<NullType>::AssertTake(utf8(), values, indices, expected);
+    TestTakeKernel<NullType>::AssertTake(null(), values, indices, expected);
   }
 };
 
@@ -78,6 +82,8 @@ TEST_F(TestTakeKernelWithNull, TakeNull) {
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
                 this->Take(null(), "[null, null, null]", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError,
+                this->Take(boolean(), "[null, null, null]", int8(), "[0, -1, 0]", &arr));
 }
 
 TEST_F(TestTakeKernelWithNull, InvalidIndexType) {
@@ -95,6 +101,7 @@ class TestTakeKernelWithBoolean : public TestTakeKernel<BooleanType> {
 };
 
 TEST_F(TestTakeKernelWithBoolean, TakeBoolean) {
+  this->AssertTake("[7, 8, 9]", "[]", "[]");
   this->AssertTake("[true, false, true]", "[0, 1, 0]", "[true, false, true]");
   this->AssertTake("[null, false, true]", "[0, 1, 0]", "[null, false, null]");
   this->AssertTake("[true, false, true]", "[null, 1, 0]", "[null, false, true]");
@@ -102,6 +109,8 @@ TEST_F(TestTakeKernelWithBoolean, TakeBoolean) {
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
                 this->Take(boolean(), "[true, false, true]", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError,
+                this->Take(boolean(), "[true, false, true]", int8(), "[0, -1, 0]", &arr));
 }
 
 template <typename ArrowType>
@@ -111,15 +120,18 @@ class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
                   const std::string& expected) {
     TestTakeKernel<ArrowType>::AssertTake(type_singleton(), values, indices, expected);
   }
+
   std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<ArrowType>::type_singleton();
   }
+
   void ValidateTake(const std::shared_ptr<Array>& values,
                     const std::shared_ptr<Array>& indices_boxed) {
     std::shared_ptr<Array> taken;
     TakeOptions options;
     ASSERT_OK(
         arrow::compute::Take(&this->ctx_, *values, *indices_boxed, options, &taken));
+    ASSERT_OK(ValidateArray(*taken));
     ASSERT_EQ(indices_boxed->length(), taken->length());
 
     ASSERT_EQ(indices_boxed->type_id(), Type::INT32);
@@ -137,14 +149,18 @@ class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
 
 TYPED_TEST_CASE(TestTakeKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
+  this->AssertTake("[7, 8, 9]", "[]", "[]");
   this->AssertTake("[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
   this->AssertTake("[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
   this->AssertTake("[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
   this->AssertTake("[null, 8, 9]", "[]", "[]");
+  this->AssertTake("[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
 
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError, this->Take(this->type_singleton(), "[7, 8, 9]", int8(),
                                        "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError, this->Take(this->type_singleton(), "[7, 8, 9]", int8(),
+                                       "[0, -1, 0]", &arr));
 }
 
 TYPED_TEST(TestTakeKernelWithNumeric, TakeRandomNumeric) {
@@ -153,7 +169,7 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeRandomNumeric) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     for (size_t j = 0; j < 13; j++) {
       const int64_t indices_length = static_cast<int64_t>(1ULL << j);
-      for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
         auto values = rand.Numeric<TypeParam>(length, 0, 127, null_probability);
         auto max_index = static_cast<int32_t>(length - 1);
         auto filter = rand.Int32(indices_length, 0, max_index, null_probability);
@@ -216,6 +232,33 @@ TEST_F(TestTakeKernelWithList, TakeListInt32) {
   this->AssertTake(list(int32()), list_json, "[0, 1, 2, 3]", list_json);
   this->AssertTake(list(int32()), list_json, "[0, 0, 0, 0, 0, 0, 1]",
                    "[[], [], [], [], [], [], [1, 2]]");
+}
+
+TEST_F(TestTakeKernelWithList, TakeListListInt32) {
+  std::string list_json = R"([
+    [],
+    [[1], [2, null, 2], []],
+    null,
+    [[3, null], null]
+  ])";
+  auto type = list(list(int32()));
+  this->AssertTake(type, list_json, "[]", "[]");
+  this->AssertTake(type, list_json, "[3, 2, 1]", R"([
+    [[3, null], null],
+    null,
+    [[1], [2, null, 2], []]
+  ])");
+  this->AssertTake(type, list_json, "[null, 3, 0]", R"([
+    null,
+    [[3, null], null],
+    []
+  ])");
+  this->AssertTake(type, list_json, "[null, null]", "[null, null]");
+  this->AssertTake(type, list_json, "[3, 0, 0, 3]",
+                   "[[[3, null], null], [], [], [[3, null], null]]");
+  this->AssertTake(type, list_json, "[0, 1, 2, 3]", list_json);
+  this->AssertTake(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
+                   "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
 }
 
 class TestTakeKernelWithFixedSizeList : public TestTakeKernel<FixedSizeListType> {};
@@ -313,6 +356,7 @@ class TestPermutationsWithTake : public ComputeFixture, public TestBase {
     TakeOptions options;
     std::shared_ptr<Array> boxed_out;
     ASSERT_OK(arrow::compute::Take(&this->ctx_, values, indices, options, &boxed_out));
+    ASSERT_OK(ValidateArray(*boxed_out));
     *out = checked_pointer_cast<Int16Array>(std::move(boxed_out));
   }
 

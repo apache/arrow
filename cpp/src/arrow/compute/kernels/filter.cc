@@ -83,6 +83,9 @@ class FilterKernelImpl : public FilterKernel {
 
   Status Filter(FunctionContext* ctx, const Array& values, const BooleanArray& filter,
                 int64_t length, std::shared_ptr<Array>* out) override {
+    if (values.length() != filter.length()) {
+      return Status::Invalid("filter and value array must have identical lengths");
+    }
     RETURN_NOT_OK(taker_->Init(ctx->memory_pool()));
     RETURN_NOT_OK(taker_->Take(values, FilterIndexSequence(filter, length)));
     return taker_->Finish(out);

@@ -270,6 +270,7 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
   Status Init(MemoryPool* pool) override {
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool));
     offset_builder_.reset(new TypedBufferBuilder<int32_t>(pool));
+    RETURN_NOT_OK(offset_builder_->Append(0));
     return value_taker_->Init(pool);
   }
 
@@ -279,11 +280,9 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
     const auto& list_array = checked_cast<const ListArray&>(values);
 
     RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
-    RETURN_NOT_OK(offset_builder_->Reserve(indices.length() + 1));
+    RETURN_NOT_OK(offset_builder_->Reserve(indices.length()));
 
-    int32_t offset = 0;
-    offset_builder_->UnsafeAppend(offset);
-
+    int32_t offset = offset_builder_->data()[offset_builder_->length() - 1];
     return VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
       null_bitmap_builder_->UnsafeAppend(is_valid);
 

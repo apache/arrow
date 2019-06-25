@@ -145,6 +145,9 @@ class ARROW_EXPORT BufferBuilder {
     ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
     if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
+    if (*out == NULLPTR) {
+      ARROW_RETURN_NOT_OK(AllocateBuffer(pool_, 0, out));
+    }
     Reset();
     return Status::OK();
   }
