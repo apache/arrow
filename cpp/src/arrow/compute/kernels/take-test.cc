@@ -306,5 +306,119 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
   ])");
 }
 
+class TestPermutationsWithTake : public ComputeFixture, public TestBase {
+ protected:
+  void Take(const Int16Array& values, const Int16Array& indices,
+            std::shared_ptr<Int16Array>* out) {
+    TakeOptions options;
+    std::shared_ptr<Array> boxed_out;
+    ASSERT_OK(arrow::compute::Take(&this->ctx_, values, indices, options, &boxed_out));
+    *out = checked_pointer_cast<Int16Array>(std::move(boxed_out));
+  }
+
+  std::shared_ptr<Int16Array> Take(const Int16Array& values, const Int16Array& indices) {
+    std::shared_ptr<Int16Array> out;
+    Take(values, indices, &out);
+    return out;
+  }
+
+  std::shared_ptr<Int16Array> TakeN(uint64_t n, std::shared_ptr<Int16Array> array) {
+    auto power_of_2 = array;
+    array = Identity(array->length());
+    while (n != 0) {
+      if (n & 1) {
+        array = Take(*array, *power_of_2);
+      }
+      power_of_2 = Take(*power_of_2, *power_of_2);
+      n >>= 1;
+    }
+    return array;
+  }
+
+  template <typename Rng>
+  void Shuffle(const Int16Array& array, Rng& gen, std::shared_ptr<Int16Array>* shuffled) {
+    auto byte_length = array.length() * sizeof(int16_t);
+    std::shared_ptr<Buffer> data;
+    ASSERT_OK(array.values()->Copy(0, byte_length, &data));
+    auto mutable_data = reinterpret_cast<int16_t*>(data->mutable_data());
+    std::shuffle(mutable_data, mutable_data + array.length(), gen);
+    shuffled->reset(new Int16Array(array.length(), data));
+  }
+
+  template <typename Rng>
+  std::shared_ptr<Int16Array> Shuffle(const Int16Array& array, Rng& gen) {
+    std::shared_ptr<Int16Array> out;
+    Shuffle(array, gen, &out);
+    return out;
+  }
+
+  void Identity(int64_t length, std::shared_ptr<Int16Array>* identity) {
+    Int16Builder identity_builder;
+    ASSERT_OK(identity_builder.Resize(length));
+    for (int16_t i = 0; i < length; ++i) {
+      identity_builder.UnsafeAppend(i);
+    }
+    ASSERT_OK(identity_builder.Finish(identity));
+  }
+
+  std::shared_ptr<Int16Array> Identity(int64_t length) {
+    std::shared_ptr<Int16Array> out;
+    Identity(length, &out);
+    return out;
+  }
+
+  std::shared_ptr<Int16Array> Inverse(const std::shared_ptr<Int16Array>& permutation) {
+    std::vector<bool> cycle_lengths(permutation->length() + 1, false);
+    auto permutation_to_the_i = permutation;
+    for (int16_t cycle_length = 1; cycle_length <= permutation->length();
+         ++cycle_length) {
+      cycle_lengths[cycle_length] = HasTrivialCycle(*permutation_to_the_i);
+      permutation_to_the_i = Take(*permutation, *permutation_to_the_i);
+    }
+
+    uint64_t cycle_to_identity_length = 1;
+    for (int16_t cycle_length = permutation->length(); cycle_length > 1; --cycle_length) {
+      if (!cycle_lengths[cycle_length]) {
+        continue;
+      }
+      if (cycle_to_identity_length % cycle_length == 0) {
+        continue;
+      }
+      if (cycle_to_identity_length >
+          std::numeric_limits<uint64_t>::max() / cycle_length) {
+        // overflow, can't compute Inverse
+        return nullptr;
+      }
+      cycle_to_identity_length *= cycle_length;
+    }
+
+    return TakeN(cycle_to_identity_length - 1, permutation);
+  }
+
+  bool HasTrivialCycle(const Int16Array& permutation) {
+    for (int64_t i = 0; i < permutation.length(); ++i) {
+      if (permutation.Value(i) == static_cast<int16_t>(i)) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+TEST_F(TestPermutationsWithTake, InvertPermutation) {
+  for (int seed : {0, kSeed, kSeed * 2 - 1}) {
+    std::default_random_engine gen(seed);
+    for (int16_t length = 0; length < 1 << 10; ++length) {
+      auto identity = Identity(length);
+      auto permutation = Shuffle(*identity, gen);
+      auto inverse = Inverse(permutation);
+      if (inverse == nullptr) {
+        break;
+      }
+      ASSERT_TRUE(Take(*inverse, *permutation)->Equals(identity));
+    }
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow
