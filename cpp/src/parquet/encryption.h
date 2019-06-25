@@ -97,7 +97,7 @@ inline uint8_t* str2bytes(const std::string& str) {
 
 class PARQUET_EXPORT ColumnEncryptionProperties {
  public:
-  class Builder {
+  class PARQUET_EXPORT Builder {
    public:
     /// Convenience builder for regular (not nested) columns.
     explicit Builder(const std::string& name) {
@@ -188,7 +188,7 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
 
 class PARQUET_EXPORT ColumnDecryptionProperties {
  public:
-  class Builder {
+  class PARQUET_EXPORT Builder {
    public:
     /// convenience builder for regular (not nested) columns.
     explicit Builder(const std::string& name)
@@ -255,7 +255,7 @@ class PARQUET_EXPORT AADPrefixVerifier {
 
 class PARQUET_EXPORT FileDecryptionProperties {
  public:
-  class Builder {
+  class PARQUET_EXPORT Builder {
    public:
     Builder() {
       check_plaintext_footer_integrity_ = kDefaultCheckSignature;
@@ -400,7 +400,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
 
 class PARQUET_EXPORT FileEncryptionProperties {
  public:
-  class Builder {
+  class PARQUET_EXPORT Builder {
    public:
     explicit Builder(const std::string& footer_key)
         : parquet_cipher_(kDefaultEncryptionAlgorithm),
