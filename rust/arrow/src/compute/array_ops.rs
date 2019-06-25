@@ -199,7 +199,6 @@ pub fn limit(array: &ArrayRef, num_elements: usize) -> Result<ArrayRef> {
 mod tests {
     use super::*;
     use crate::array::*;
-    use crate::array_data::ArrayData;
     use crate::buffer::Buffer;
     use crate::datatypes::{Field, ToByteSlice};
     use crate::util::bit_util;

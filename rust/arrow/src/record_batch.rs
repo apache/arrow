@@ -120,7 +120,6 @@ unsafe impl Sync for RecordBatch {}
 mod tests {
     use super::*;
 
-    use crate::array_data::*;
     use crate::buffer::*;
 
     #[test]
