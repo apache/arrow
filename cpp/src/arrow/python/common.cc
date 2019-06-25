@@ -59,7 +59,7 @@ class PythonErrorDetail : public StatusDetail {
  public:
   PythonErrorDetail() = default;
   const char* type_id() const override { return kErrorDetailTypeId; }
-  std::string ToString() const override { return "Python Error."; }
+  std::string ToString() const override { return "Uncaught Python."; }
 };
 
 }  // namespace
