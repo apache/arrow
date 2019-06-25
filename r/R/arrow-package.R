@@ -24,8 +24,13 @@
 #' @keywords internal
 "_PACKAGE"
 
-#' Is the C++ Arrow library available
+#' Is the C++ Arrow library available?
 #'
+#' You won't generally need to call this function, but it's here in case it
+#' helps for development purposes.
+#' @return `TRUE` or `FALSE` depending on whether the package was installed
+#' with the Arrow C++ library. If `FALSE`, you'll need to install the C++
+#' library and then reinstall the R package. See [install_arrow()] for help.
 #' @export
 arrow_available <- function() {
   .Call(`_arrow_available`)

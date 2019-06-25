@@ -2,10 +2,11 @@ Package: arrow
 Title: Integration to 'Apache' 'Arrow'
 Version: 0.13.0.9000
 Authors@R: c(
-    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")),
+    person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
     person("Jeffrey", "Wong", email = "jeffreyw@netflix.com", role = c("ctb")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
+    person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
 Description: 'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
@@ -23,6 +24,7 @@ SystemRequirements: C++11
 LinkingTo:
     Rcpp (>= 1.0.1)
 Imports:
+    utils,
     Rcpp (>= 1.0.1),
     rlang,
     purrr,
@@ -66,6 +68,7 @@ Collate:
     'csv.R'
     'dictionary.R'
     'feather.R'
+    'install-arrow.R'
     'json.R'
     'memory_pool.R'
     'message.R'

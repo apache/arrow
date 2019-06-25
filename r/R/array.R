@@ -132,11 +132,11 @@
 
 `arrow::Array`$dispatch <- function(xp){
   a <- shared_ptr(`arrow::Array`, xp)
-  if(a$type_id() == Type$DICTIONARY){
+  if (a$type_id() == Type$DICTIONARY){
     a <- shared_ptr(`arrow::DictionaryArray`, xp)
   } else if (a$type_id() == Type$STRUCT) {
     a <- shared_ptr(`arrow::StructArray`, xp)
-  } else if(a$type_id() == Type$LIST) {
+  } else if (a$type_id() == Type$LIST) {
     a <- shared_ptr(`arrow::ListArray`, xp)
   }
   a
