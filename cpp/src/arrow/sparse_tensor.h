@@ -229,7 +229,7 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
 /// \brief EXPERIMENTAL: Concrete sparse tensor implementation classes with sparse index
 /// type
 template <typename SparseIndexType>
-class ARROW_EXPORT SparseTensorImpl : public SparseTensor {
+class SparseTensorImpl : public SparseTensor {
  public:
   virtual ~SparseTensorImpl() = default;
 
