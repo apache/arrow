@@ -23,7 +23,8 @@
 # - Maven >= 3.3.9
 # - JDK >=7
 # - gcc >= 4.8
-# - nodejs >= 6.0.0 (best way is to use nvm)
+# - Node.js >= 11.12 (best way is to use nvm)
+# - Go >= 1.11
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
@@ -49,8 +50,6 @@ set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
-ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
-
 detect_cuda() {
   if ! (which nvcc && which nvidia-smi) > /dev/null; then
     return 1
@@ -60,10 +59,15 @@ detect_cuda() {
   return $((${n_gpus} < 1))
 }
 
+# Build options for the C++ library
+
 if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
   ARROW_CUDA=ON
 fi
 : ${ARROW_CUDA:=OFF}
+: ${ARROW_FLIGHT:=ON}
+
+ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
 download_dist_file() {
   curl \
@@ -191,9 +195,14 @@ test_yum() {
   done
 }
 
+
 setup_tempdir() {
   cleanup() {
-    rm -fr "$TMPDIR"
+    if [ "${TEST_SUCCESS}" = "yes" ]; then
+      rm -fr "${TMPDIR}"
+    else
+      echo "Failed to verify release candidate. See ${TMPDIR} for details."
+    fi
   }
   trap cleanup EXIT
   TMPDIR=$(mktemp -d -t "$1.XXXXX")
@@ -208,7 +217,7 @@ setup_miniconda() {
     MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
   fi
 
-  MINICONDA=`pwd`/test-miniconda
+  MINICONDA=$PWD/test-miniconda
 
   wget -O miniconda.sh $MINICONDA_URL
   bash miniconda.sh -b -p $MINICONDA
@@ -226,6 +235,17 @@ setup_miniconda() {
   conda activate arrow-test
 }
 
+# Build and test Java (Requires newer Maven -- I used 3.3.9)
+
+test_package_java() {
+  pushd java
+
+  mvn test
+  mvn package
+
+  popd
+}
+
 # Build and test C++
 
 test_and_install_cpp() {
@@ -236,6 +256,7 @@ test_and_install_cpp() {
 ${ARROW_CMAKE_OPTIONS}
 -DCMAKE_INSTALL_PREFIX=$ARROW_HOME
 -DCMAKE_INSTALL_LIBDIR=lib
+-DARROW_FLIGHT=${ARROW_FLIGHT}
 -DARROW_PLASMA=ON
 -DARROW_ORC=ON
 -DARROW_PYTHON=ON
@@ -249,11 +270,11 @@ ${ARROW_CMAKE_OPTIONS}
 "
   cmake $ARROW_CMAKE_OPTIONS ..
 
-  make -j$NPROC
-  make install
+  make -j$NPROC install
 
-  # TODO: ARROW-5036
-  ctest \
+  # TODO: ARROW-5036: plasma-serialization_tests broken
+  # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
+  LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
     --exclude-regex "plasma-serialization_tests" \
     -j$NPROC \
     --output-on-failure \
@@ -274,6 +295,9 @@ test_python() {
   if [ "${ARROW_CUDA}" = "ON" ]; then
     export PYARROW_WITH_CUDA=1
   fi
+  if [ "${ARROW_FLIGHT}" = "ON" ]; then
+    export PYARROW_WITH_FLIGHT=1
+  fi
 
   python setup.py build_ext --inplace
   py.test pyarrow -v --pdb
@@ -281,19 +305,22 @@ test_python() {
   popd
 }
 
-
 test_glib() {
   pushd c_glib
 
   if brew --prefix libffi > /dev/null 2>&1; then
-    ./configure --prefix=$ARROW_HOME \
-      PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
-  else
-    ./configure --prefix=$ARROW_HOME
+    PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
   fi
 
-  make -j$NPROC
-  make install
+  if [ -f configure ]; then
+    ./configure --prefix=$ARROW_HOME
+    make -j$NPROC
+    make install
+  else
+    meson build --prefix=$ARROW_HOME --libdir=lib
+    ninja -C build
+    ninja -C build install
+  fi
 
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
 
@@ -343,10 +370,19 @@ test_ruby() {
   popd
 }
 
+test_go() {
+  pushd go/arrow
+
+  go get -v ./...
+  go test ./...
+
+  popd
+}
+
 test_rust() {
   # install rust toolchain in a similar fashion like test-miniconda
-  export RUSTUP_HOME=`pwd`/test-rustup
-  export CARGO_HOME=`pwd`/test-rustup
+  export RUSTUP_HOME=$PWD/test-rustup
+  export CARGO_HOME=$PWD/test-rustup
 
   curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
 
@@ -370,95 +406,44 @@ test_rust() {
   popd
 }
 
-test_go() {
-  pushd go
-
-  go get -v ./...
-  go test ./...
-
-  popd
-}
-
-# Build and test Java (Requires newer Maven -- I used 3.3.9)
-
-test_package_java() {
-  pushd java
-
-  mvn test
-  mvn package
-
-  popd
-}
-
 # Run integration tests
 test_integration() {
-  JAVA_DIR=`pwd`/java
-  CPP_BUILD_DIR=`pwd`/cpp/build
+  JAVA_DIR=$PWD/java
+  CPP_BUILD_DIR=$PWD/cpp/build
 
   export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
   pushd integration
 
-  python integration_test.py
+  INTEGRATION_TEST_ARGS=
+
+  if [ "${ARROW_FLIGHT}" = "ON" ]; then
+    INTEGRATION_TEST_ARGS=--run_flight
+  fi
+
+  python integration_test.py $INTEGRATION_TEST_ARGS
 
   popd
 }
 
-setup_tempdir "arrow-$VERSION"
-echo "Working in sandbox $TMPDIR"
-cd $TMPDIR
+test_source_distribution() {
+  export ARROW_HOME=$TMPDIR/install
+  export PARQUET_HOME=$TMPDIR/install
+  export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
+  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:$PKG_CONFIG_PATH
 
-export ARROW_HOME=$TMPDIR/install
-export PARQUET_HOME=$TMPDIR/install
-export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
-export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:$PKG_CONFIG_PATH
-
-if [ "$(uname)" == "Darwin" ]; then
-  NPROC=$(sysctl -n hw.ncpu)
-else
-  NPROC=$(nproc)
-fi
-
-import_gpg_keys
-
-# By default test all functionalities.
-# To deactivate one test, deactivate the test and all of its dependents
-# To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
-: ${TEST_DEFAULT:=1}
-: ${TEST_JAVA:=${TEST_DEFAULT}}
-: ${TEST_CPP:=${TEST_DEFAULT}}
-: ${TEST_GLIB:=${TEST_DEFAULT}}
-: ${TEST_RUBY:=${TEST_DEFAULT}}
-: ${TEST_PYTHON:=${TEST_DEFAULT}}
-: ${TEST_JS:=${TEST_DEFAULT}}
-: ${TEST_INTEGRATION:=${TEST_DEFAULT}}
-: ${TEST_GO:=${TEST_DEFAULT}}
-: ${TEST_RUST:=${TEST_DEFAULT}}
-: ${TEST_BINARY:=${TEST_DEFAULT}}
-: ${TEST_APT:=${TEST_DEFAULT}}
-: ${TEST_YUM:=${TEST_DEFAULT}}
-
-# Automatically test if its activated by a dependent
-TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
-TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
-TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
-TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
-TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
-
-if [ "$ARTIFACT" == "source" ]; then
-  TARBALL=apache-arrow-$1.tar.gz
-  DIST_NAME="apache-arrow-${VERSION}"
+  if [ "$(uname)" == "Darwin" ]; then
+    NPROC=$(sysctl -n hw.ncpu)
+  else
+    NPROC=$(nproc)
+  fi
 
   git clone https://github.com/apache/arrow-testing.git
   export ARROW_TEST_DATA=$PWD/arrow-testing/data
 
   git clone https://github.com/apache/parquet-testing.git
   export PARQUET_TEST_DATA=$PWD/parquet-testing/data
-
-  fetch_archive $DIST_NAME
-  tar xvzf ${DIST_NAME}.tar.gz
-  cd ${DIST_NAME}
 
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java
@@ -479,16 +464,18 @@ if [ "$ARTIFACT" == "source" ]; then
   if [ ${TEST_JS} -gt 0 ]; then
     test_js
   fi
-  if [ ${TEST_INTEGRATION} -gt 0 ]; then
-    test_integration
-  fi
   if [ ${TEST_GO} -gt 0 ]; then
     test_go
   fi
   if [ ${TEST_RUST} -gt 0 ]; then
     test_rust
   fi
-else
+  if [ ${TEST_INTEGRATION} -gt 0 ]; then
+    test_integration
+  fi
+}
+
+test_binary_distribution() {
   : ${BINTRAY_REPOSITORY:=apache/arrow}
 
   if [ ${TEST_BINARY} -gt 0 ]; then
@@ -500,7 +487,66 @@ else
   if [ ${TEST_YUM} -gt 0 ]; then
     test_yum
   fi
+}
+
+# By default test all functionalities.
+# To deactivate one test, deactivate the test and all of its dependents
+# To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+: ${TEST_DEFAULT:=1}
+: ${TEST_SOURCE:=${TEST_DEFAULT}}
+: ${TEST_JAVA:=${TEST_DEFAULT}}
+: ${TEST_CPP:=${TEST_DEFAULT}}
+: ${TEST_GLIB:=${TEST_DEFAULT}}
+: ${TEST_RUBY:=${TEST_DEFAULT}}
+: ${TEST_PYTHON:=${TEST_DEFAULT}}
+: ${TEST_JS:=${TEST_DEFAULT}}
+: ${TEST_GO:=${TEST_DEFAULT}}
+: ${TEST_RUST:=${TEST_DEFAULT}}
+: ${TEST_INTEGRATION:=${TEST_DEFAULT}}
+: ${TEST_BINARY:=${TEST_DEFAULT}}
+: ${TEST_APT:=${TEST_DEFAULT}}
+: ${TEST_YUM:=${TEST_DEFAULT}}
+
+# Automatically test if its activated by a dependent
+TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
+TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
+TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
+TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
+TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+
+: ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
+case "${TEST_ARCHIVE}" in
+  /*)
+   ;;
+  *)
+   TEST_ARCHIVE=${PWD}/${TEST_ARCHIVE}
+   ;;
+esac
+
+TEST_SUCCESS=no
+
+setup_tempdir "arrow-${VERSION}"
+echo "Working in sandbox ${TMPDIR}"
+cd ${TMPDIR}
+
+if [ "${ARTIFACT}" == "source" ]; then
+  dist_name="apache-arrow-${VERSION}"
+  if [ ${TEST_SOURCE} -gt 0 ]; then
+    import_gpg_keys
+    fetch_archive ${dist_name}
+    tar xf ${dist_name}.tar.gz
+  else
+    mkdir -p ${dist_name}
+    tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
+  fi
+  pushd ${dist_name}
+  test_source_distribution
+  popd
+else
+  import_gpg_keys
+  test_binary_distribution
 fi
 
+TEST_SUCCESS=yes
 echo 'Release candidate looks good!'
 exit 0
