@@ -4,12 +4,14 @@
 \alias{read_json_arrow}
 \title{Read json file into an arrow::Table}
 \usage{
-read_json_arrow(..., as_tibble = TRUE)
+read_json_arrow(..., as_tibble = TRUE, col_select = NULL)
 }
 \arguments{
 \item{...}{Used to construct an arrow::json::TableReader}
 
 \item{as_tibble}{convert the \link[=arrow__Table]{arrow::Table} to a data frame}
+
+\item{col_select}{\link[tidyselect:vars_select]{tidy selection} of columns}
 }
 \description{
 Use \link[=arrow__json__TableReader]{arrow::json::TableReader} from \code{\link[=json_table_reader]{json_table_reader()}}

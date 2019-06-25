@@ -548,6 +548,10 @@ ipc___feather___TableReader__Open <- function(stream){
     .Call(`_arrow_ipc___feather___TableReader__Open` , stream)
 }
 
+ipc___feather___TableReader__column_names <- function(reader){
+    .Call(`_arrow_ipc___feather___TableReader__column_names` , reader)
+}
+
 Field__initialize <- function(name, field, nullable){
     .Call(`_arrow_Field__initialize` , name, field, nullable)
 }
@@ -744,12 +748,48 @@ ipc___ReadMessage <- function(stream){
     .Call(`_arrow_ipc___ReadMessage` , stream)
 }
 
-read_parquet_file <- function(filename){
-    .Call(`_arrow_read_parquet_file` , filename)
+parquet___arrow___ArrowReaderProperties__Make <- function(use_threads){
+    .Call(`_arrow_parquet___arrow___ArrowReaderProperties__Make` , use_threads)
+}
+
+parquet___arrow___ArrowReaderProperties__set_use_threads <- function(properties, use_threads){
+    invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads` , properties, use_threads))
+}
+
+parquet___arrow___ArrowReaderProperties__get_use_threads <- function(properties, use_threads){
+    .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads` , properties, use_threads)
+}
+
+parquet___arrow___ArrowReaderProperties__get_read_dictionary <- function(properties, column_index){
+    .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary` , properties, column_index)
+}
+
+parquet___arrow___ArrowReaderProperties__set_read_dictionary <- function(properties, column_index, read_dict){
+    invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary` , properties, column_index, read_dict))
+}
+
+parquet___arrow___FileReader__OpenFile <- function(file, props){
+    .Call(`_arrow_parquet___arrow___FileReader__OpenFile` , file, props)
+}
+
+parquet___arrow___FileReader__ReadTable1 <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadTable1` , reader)
+}
+
+parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
 }
 
 write_parquet_file <- function(table, filename){
     invisible(.Call(`_arrow_write_parquet_file` , table, filename))
+}
+
+parquet___arrow___FileReader__GetSchema2 <- function(reader, indices){
+    .Call(`_arrow_parquet___arrow___FileReader__GetSchema2` , reader, indices)
+}
+
+parquet___arrow___FileReader__GetSchema1 <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__GetSchema1` , reader)
 }
 
 RecordBatch__num_columns <- function(x){
@@ -898,6 +938,14 @@ Table__column <- function(table, i){
 
 Table__columns <- function(table){
     .Call(`_arrow_Table__columns` , table)
+}
+
+Table__column_names <- function(table){
+    .Call(`_arrow_Table__column_names` , table)
+}
+
+Table__select <- function(table, indices){
+    .Call(`_arrow_Table__select` , table, indices)
 }
 
 Table__from_dots <- function(lst, schema_sxp){

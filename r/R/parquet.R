@@ -15,15 +15,102 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' @include R6.R
+
+`parquet::arrow::FileReader` <- R6Class("parquet::arrow::FileReader",
+  inherit = `arrow::Object`,
+  public = list(
+    ReadTable = function(col_select = NULL) {
+      col_select <- enquo(col_select)
+      if(quo_is_null(col_select)) {
+        shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable1(self))
+      } else {
+        all_vars <- shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema1(self))$names
+        indices <- match(vars_select(all_vars, !!col_select), all_vars) - 1L
+        shared_ptr(`arrow::Table`, parquet___arrow___FileReader__ReadTable2(self, indices))
+      }
+    },
+    GetSchema = function(column_indices = NULL) {
+      if (is.null(column_indices)) {
+        shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema1(self))
+      } else {
+        shared_ptr(`arrow::Schema`, parquet___arrow___FileReader__GetSchema2(self, column_indices))
+      }
+
+    }
+  )
+)
+
+`parquet::arrow::ArrowReaderProperties` <- R6Class("parquet::arrow::ArrowReaderProperties",
+  inherit = `arrow::Object`,
+  public = list(
+    read_dictionary = function(column_index) {
+      parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index)
+    },
+    set_read_dictionary = function(column_index, read_dict) {
+      parquet___arrow___ArrowReaderProperties__set_read_dictionary(self, column_index, read_dict)
+    }
+  ),
+  active = list(
+    use_threads = function(use_threads) {
+      if(missing(use_threads)) {
+        parquet___arrow___ArrowReaderProperties__get_use_threads(self)
+      } else {
+        parquet___arrow___ArrowReaderProperties__set_use_threads(self, use_threads)
+      }
+    }
+  )
+)
+
+#' Create a new ArrowReaderProperties instance
+#'
+#' @param use_threads use threads ?
+#'
+#' @export
+parquet_arrow_reader_properties <- function(use_threads = TRUE) {
+  shared_ptr(`parquet::arrow::ArrowReaderProperties`, parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads)))
+}
+
+#' Create a FileReader instance
+#'
+#' @param file file
+#' @param props reader file properties, as created by [parquet_arrow_reader_properties()]
+#'
+#' @param ... additional parameters
+#'
+#' @export
+parquet_file_reader <- function(file, props = parquet_arrow_reader_properties(), ...) {
+  UseMethod("parquet_file_reader")
+}
+
+#' @export
+`parquet_file_reader.arrow::io::RandomAccessFile` <- function(file, props = parquet_arrow_reader_properties(), ...) {
+  unique_ptr(`parquet::arrow::FileReader`, parquet___arrow___FileReader__OpenFile(file, props))
+}
+
+#' @export
+parquet_file_reader.fs_path <- function(file, props = parquet_arrow_reader_properties(), memory_map = TRUE, ...) {
+  if (isTRUE(memory_map)) {
+    parquet_file_reader(mmap_open(file), props = props, ...)
+  } else {
+    parquet_file_reader(ReadableFile(file), props = props, ...)
+  }
+}
+
+#' @export
+parquet_file_reader.character <- function(file, props = parquet_arrow_reader_properties(), memory_map = TRUE, ...) {
+  parquet_file_reader(fs::path_abs(file), props = parquet_arrow_reader_properties(), memory_map = memory_map, ...)
+}
+
 #' Read Parquet file from disk
 #'
 #' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
 #' This function enables you to read Parquet files into R.
 #'
-#' @param file a file path
+#' @inheritParams parquet_file_reader
 #' @param as_tibble Should the [arrow::Table][arrow__Table] be converted to a
 #' tibble? Default is `TRUE`.
-#' @param ... Additional arguments, currently ignored
+#' @param col_select [tidy selection][tidyselect::vars_select] of columns to read
 #'
 #' @return A [arrow::Table][arrow__Table], or a `tbl_df` if `as_tibble` is
 #' `TRUE`.
@@ -34,9 +121,11 @@
 #' }
 #'
 #' @export
-read_parquet <- function(file, as_tibble = TRUE, ...) {
-  tab <- shared_ptr(`arrow::Table`, read_parquet_file(file))
-  if (isTRUE(as_tibble)) {
+read_parquet <- function(file, props = parquet_arrow_reader_properties(), as_tibble = TRUE, col_select = NULL, ...) {
+  reader <- parquet_file_reader(file, props = props, ...)
+  tab <- reader$ReadTable(!!enquo(col_select))
+
+  if (as_tibble) {
     tab <- as.data.frame(tab)
   }
   tab

@@ -138,7 +138,7 @@ csv_table_reader.default <- function(file,
   convert_options = csv_convert_options(),
   ...
 ){
-  csv_table_reader(ReadableFile(file),
+  csv_table_reader(mmap_open(file),
     read_options = read_options,
     parse_options = parse_options,
     convert_options = convert_options,
@@ -172,8 +172,30 @@ csv_table_reader.default <- function(file,
 #'
 #' Use arrow::csv::TableReader from [csv_table_reader()]
 #'
-#' @param ... Used to construct an arrow::csv::TableReader
+#' @inheritParams csv_table_reader
+#'
+#' @param col_select [tidy selection specification][tidyselect::vars_select] of columns
+#' @param as_tibble Should the [arrow::Table][arrow__Table] be converted to a data frame.
+#'
 #' @export
-read_csv_arrow <- function(...) {
-  csv_table_reader(...)$Read()
+read_csv_arrow <- function(file,
+  read_options = csv_read_options(),
+  parse_options = csv_parse_options(),
+  convert_options = csv_convert_options(),
+  col_select = NULL,
+  as_tibble = TRUE
+  )
+{
+  reader <- csv_table_reader(file,
+    read_options = read_options,
+    parse_options = parse_options,
+    convert_options = convert_options)
+
+  tab <- reader$Read()$select(!!enquo(col_select))
+
+  if (isTRUE(as_tibble)) {
+    tab <- as.data.frame(tab)
+  }
+
+  tab
 }

@@ -148,10 +148,12 @@ json_table_reader.default <- function(file,
 #'
 #' @param ... Used to construct an arrow::json::TableReader
 #' @param as_tibble convert the [arrow::Table][arrow__Table] to a data frame
+#' @param col_select [tidy selection][tidyselect::vars_select] of columns
 #'
 #' @export
-read_json_arrow <- function(..., as_tibble = TRUE) {
-  tab <- json_table_reader(...)$Read()
+read_json_arrow <- function(..., as_tibble = TRUE, col_select = NULL) {
+  tab <- json_table_reader(...)$Read()$select(!!enquo(col_select))
+
   if (isTRUE(as_tibble)) {
     tab <- as.data.frame(tab)
   }

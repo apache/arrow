@@ -162,15 +162,23 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
 #' Read a feather file
 #'
 #' @param file a arrow::ipc::feather::TableReader or whatever the [FeatherTableReader()] function can handle
-#' @param columns names if the columns to read. The default `NULL` means all columns
+#' @param col_select [tidy selection][tidyselect::vars_select()] of columns to read.
 #' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
 #' @param ... additional parameters
 #'
 #' @return a data frame if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
 #'
 #' @export
-read_feather <- function(file, columns = NULL, as_tibble = TRUE, ...){
-  out <- FeatherTableReader(file, ...)$Read(columns)
+read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...){
+  reader <- FeatherTableReader(file, ...)
+
+  all_columns <- ipc___feather___TableReader__column_names(reader)
+  col_select <- enquo(col_select)
+  columns <- if (!quo_is_null(col_select)) {
+    vars_select(all_columns, !!col_select)
+  }
+
+  out <- reader$Read(columns)
   if (isTRUE(as_tibble)) {
     out <- as.data.frame(out)
   }
