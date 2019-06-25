@@ -35,7 +35,7 @@
 # #endif
 
 suppressPackageStartupMessages({
-  # pak::pkg_install("romainfrancois/decor")
+  # remotes::install_github("romainfrancois/decor")
   library(decor)
 
   library(dplyr)
@@ -44,7 +44,7 @@ suppressPackageStartupMessages({
 })
 
 if (packageVersion("decor") < '0.0.0.9001') {
-  stop("more recent version of `decor` needed, please install with `pak::pkg_install('romainfrancois/decor')`")
+  stop("more recent version of `decor` needed, please install with `remotes::install_github('romainfrancois/decor')`")
 }
 
 decorations <- cpp_decorations() %>%
