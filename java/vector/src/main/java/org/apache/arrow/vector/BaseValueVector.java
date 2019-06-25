@@ -123,8 +123,8 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   /* round up bytes for the validity buffer for the given valueCount */
-  private long roundUp8ForValidityBuffer(int valueCount) {
-    return (valueCount + 63) / 64 * 8;
+  private static long roundUp8ForValidityBuffer(int valueCount) {
+    return ((valueCount + 63) >> 6) << 3;
   }
 
   long computeCombinedBufferSize(int valueCount, int typeWidth) {
