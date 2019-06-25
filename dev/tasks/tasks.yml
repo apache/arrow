@@ -142,7 +142,7 @@ tasks:
     params:
       config: win_c_compilervs2015cxx_compilervs2015python3.6
     artifacts:
-      - arrow-cpp-{no_rc_version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-win-vs2015-py37:
@@ -152,7 +152,7 @@ tasks:
     params:
       config: win_c_compilervs2015cxx_compilervs2015python3.7
     artifacts:
-      - arrow-cpp-{no_rc_version}-py37_vc14(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Wheel Linux ##################################
