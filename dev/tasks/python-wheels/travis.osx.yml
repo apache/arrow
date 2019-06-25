@@ -60,9 +60,6 @@ before_install:
 install:
   - mkdir -p dist
 
-  # multibuild's default clean_code function
-  - clean_code arrow {{ arrow.head }}
-
   # the following functions are defined in osx-build.sh
   - build_wheel arrow
 
