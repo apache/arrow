@@ -86,6 +86,25 @@ public class ArrowRecordBatch implements ArrowMessage {
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
   }
 
+  // clone constructor
+  // this constructor is different from the public ones in that the reference manager's
+  // <code>retain</code> method is not called, so the first <code>dummy</code> parameter is used
+  // to distinguish this from the public constructor.
+  private ArrowRecordBatch(boolean dummy, int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
+    this.length = length;
+    this.nodes = nodes;
+    this.buffers = buffers;
+    this.closed = false;
+    List<ArrowBuffer> arrowBuffers = new ArrayList<>();
+    long offset = 0;
+    for (ArrowBuf arrowBuf : buffers) {
+      long size = arrowBuf.readableBytes();
+      arrowBuffers.add(new ArrowBuffer(offset, size));
+      offset += size;
+    }
+    this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
+  }
+
   public int getLength() {
     return length;
   }
@@ -127,7 +146,7 @@ public class ArrowRecordBatch implements ArrowMessage {
             .writerIndex(buf.writerIndex()))
         .collect(Collectors.toList());
     close();
-    return new ArrowRecordBatch(length, nodes, newBufs);
+    return new ArrowRecordBatch(false, length, nodes, newBufs);
   }
 
   /**
@@ -197,6 +216,8 @@ public class ArrowRecordBatch implements ArrowMessage {
       ByteBuffer nioBuffer =
           buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
       size += nioBuffer.remaining();
+
+      // round up size to the next multiple of 8
       size = (size + 7) & 0xfffffff8;
     }
     return size;
