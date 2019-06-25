@@ -36,7 +36,7 @@ The process is split up in two parts:
 ### Building PyArrow
 
 You can build the PyArrow wheels by running the following command in this
-directroy (this is for Python 2.7 with unicode width 16, similarly you can pass
+directory (this is for Python 2.7 with unicode width 16, similarly you can pass
 in `PYTHON_VERSION="3.5"`, `PYTHON_VERSION="3.6"` or `PYTHON_VERSION="3.7"` or
 use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`):
 
@@ -106,4 +106,5 @@ your Github fork of the Arrow repository.
 6.  In your arrow PR,
 
     *  include the change from 1.
-    *  modify `travis_script_manylinux.sh` to switch to the location from step 5 for the docker image.
+    *  modify the `python-manylinux2010` entry in `docker-compose.yml`
+       to switch to the location from step 5 for the docker image.

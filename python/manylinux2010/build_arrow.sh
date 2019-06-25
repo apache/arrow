@@ -57,12 +57,12 @@ PIP="${CPYTHON_PATH}/bin/pip"
 PATH="${PATH}:${CPYTHON_PATH}"
 
 if [ "${PYTHON_VERSION}" != "2.7" ]; then
-  # Gandiva is not supported on Python 2.7
   export PYARROW_WITH_FLIGHT=1
   export PYARROW_WITH_GANDIVA=1
   export BUILD_ARROW_FLIGHT=ON
   export BUILD_ARROW_GANDIVA=ON
 else
+  # Flight and Gandiva are not supported on Python 2.7
   export PYARROW_WITH_FLIGHT=0
   export PYARROW_WITH_GANDIVA=0
   export BUILD_ARROW_FLIGHT=OFF
