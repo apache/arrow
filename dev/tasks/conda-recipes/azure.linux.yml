@@ -31,8 +31,8 @@ jobs:
 
   # Using github release tries to find a common ancestor between the currently
   # pushed tag and the latest tag of the github repository (don't know why).
-  # The tag upload took 43 minutes because of this scanning, so use an
-  # alternative upload script.
+  # The tag upload took 43 minutes because of this scan, so use an alternative
+  # upload script.
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '3.6'
