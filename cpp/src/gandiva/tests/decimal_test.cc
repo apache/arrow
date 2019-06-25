@@ -521,14 +521,19 @@ TEST_F(TestDecimal, TestIsNullNumericFunctions) {
   DCHECK_OK(status);
 
   // Validate results
-  auto is_null = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(0));
-  auto is_not_null = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(1));
-  auto is_numeric = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(2));
-  for (int i = 0; i < num_records; ++i) {
-    EXPECT_EQ(is_not_null->Value(i), validity.begin()[i]);
-    EXPECT_EQ(is_null->Value(i), !is_not_null->Value(i));
-    EXPECT_EQ(is_numeric->Value(i), is_not_null->Value(i));
-  }
+  auto is_null = outputs.at(0);
+  auto is_not_null = outputs.at(1);
+  auto is_numeric = outputs.at(2);
+
+  // isnull
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, false, false, false, true}),
+                            outputs[0]);
+
+  // isnotnull
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool(validity), outputs[1]);
+
+  // isnumeric
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool(validity), outputs[2]);
 }
 
 TEST_F(TestDecimal, TestIsDistinct) {
@@ -582,18 +587,11 @@ TEST_F(TestDecimal, TestIsDistinct) {
   auto is_distinct = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(0));
   auto is_not_distinct = std::dynamic_pointer_cast<arrow::BooleanArray>(outputs.at(1));
 
-  // both not null; unequal
-  EXPECT_EQ(is_distinct->Value(0), true);
-  // both null; unequal
-  EXPECT_EQ(is_distinct->Value(1), false);
-  // one null; equal
-  EXPECT_EQ(is_distinct->Value(2), true);
-  // both not null; equal
-  EXPECT_EQ(is_distinct->Value(3), false);
+  // isdistinct
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, false, true, false}), outputs[0]);
 
-  for (int i = 0; i < num_records; ++i) {
-    EXPECT_EQ(is_distinct->Value(i), !is_not_distinct->Value(i));
-  }
+  // isnotdistinct
+  EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({false, true, false, true}), outputs[1]);
 }
 
 // decimal hashes without seed
