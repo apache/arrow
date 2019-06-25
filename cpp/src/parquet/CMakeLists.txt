@@ -179,14 +179,14 @@ set(PARQUET_SRCS
     statistics.cc
     types.cc)
 
-if (ARROW_USE_OPENSSL)
+if(ARROW_USE_OPENSSL)
   add_definitions(-DPARQUET_ENCRYPTION)
   set(PARQUET_SRCS
-    ${PARQUET_SRCS}
-    encryption.cc
-    encryption_internal.cc
-    internal_file_decryptor.cc
-    internal_file_encryptor.cc)
+      ${PARQUET_SRCS}
+      encryption.cc
+      encryption_internal.cc
+      internal_file_decryptor.cc
+      internal_file_encryptor.cc)
 endif()
 
 # Ensure that thrift compilation is done before using its generated headers
@@ -327,10 +327,8 @@ add_parquet_test(arrow-test
                  test-util.cc)
 
 if(ARROW_USE_OPENSSL)
-  add_parquet_test(encryption-test
-                   SOURCES
-                   encryption-configurations-test.cc
-                   encryption-properties-test.cc)
+  add_parquet_test(encryption-test SOURCES encryption-properties-test.cc
+                   encryption-configurations-test.cc)
 endif()
 
 # Those tests need to use static linking as they access thrift-generated
