@@ -33,6 +33,7 @@ conda build \
     "${FEEDSTOCK_ROOT}/parquet-cpp" \
     "${FEEDSTOCK_ROOT}/pyarrow" \
     -m "${CI_SUPPORT}/${CONFIG}.yaml" \
-    --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml"
+    --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml" \
+    --output-folder "${FEEDSTOCK_ROOT}/build_artifacts"
 
 touch "${FEEDSTOCK_ROOT}/build_artifacts/conda-forge-build-done-${CONFIG}"

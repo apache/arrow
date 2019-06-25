@@ -62,7 +62,8 @@ jobs:
       source activate base
       conda build arrow-cpp parquet-cpp pyarrow \
         -m ./.ci_support/${CONFIG}.yaml \
-        --clobber-file ./.ci_support/clobber_${CONFIG}.yaml
+        --clobber-file ./.ci_support/clobber_${CONFIG}.yaml \
+        --output-folder ./build_artifacts
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
 
