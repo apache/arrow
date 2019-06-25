@@ -68,6 +68,24 @@ static void FilterFixedSizeList1Int64(benchmark::State& state) {
   }
 }
 
+static void FilterString(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto array = std::static_pointer_cast<StringArray>(
+      rand.String(array_size, 0, 128, args.null_proportion));
+  auto filter = std::static_pointer_cast<BooleanArray>(
+      rand.Boolean(array_size, 0.75, args.null_proportion));
+
+  FunctionContext ctx;
+  for (auto _ : state) {
+    Datum out;
+    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
+    benchmark::DoNotOptimize(out);
+  }
+}
+
 BENCHMARK(FilterInt64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
@@ -76,6 +94,13 @@ BENCHMARK(FilterInt64)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
 BENCHMARK(FilterFixedSizeList1Int64)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 1})
+    ->Args({1 << 23, 1})
+    ->MinTime(1.0)
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
+BENCHMARK(FilterString)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
     ->Args({1 << 23, 1})
