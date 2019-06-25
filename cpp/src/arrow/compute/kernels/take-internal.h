@@ -137,6 +137,9 @@ class Taker {
   // factory; the output Taker will support gathering values of the given type
   static Status Make(const std::shared_ptr<DataType>& type, std::unique_ptr<Taker>* out);
 
+  static_assert(std::is_literal_type<IndexSequence>::value,
+                "Index sequences must be literal type");
+
   static_assert(std::is_copy_constructible<IndexSequence>::value,
                 "Index sequences must be copy constructible");
 
@@ -180,6 +183,8 @@ class RangeIndexSequence {
  public:
   constexpr bool never_out_of_bounds() const { return true; }
   void set_never_out_of_bounds() {}
+
+  constexpr RangeIndexSequence() = default;
 
   RangeIndexSequence(bool is_valid, int64_t offset, int64_t length)
       : is_valid_(is_valid), index_(offset), length_(length) {}

@@ -41,6 +41,8 @@ class FilterIndexSequence {
   constexpr bool never_out_of_bounds() const { return true; }
   void set_never_out_of_bounds() {}
 
+  constexpr FilterIndexSequence() = default;
+
   FilterIndexSequence(const BooleanArray& filter, int64_t out_length)
       : filter_(&filter), out_length_(out_length) {}
 
@@ -58,7 +60,7 @@ class FilterIndexSequence {
   int64_t null_count() const { return filter_->null_count(); }
 
  private:
-  const BooleanArray* filter_;
+  const BooleanArray* filter_ = nullptr;
   int64_t index_ = 0, out_length_ = -1;
 };
 
