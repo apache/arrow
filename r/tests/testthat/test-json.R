@@ -41,7 +41,6 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
   tib <- as.data.frame(tab1)
   expect_equal(tib$hello, c(3.5, 3.25, 3.125, 0))
   expect_equal(tib$world, c(FALSE, NA, NA, TRUE))
-  skip_on_os("windows") # TODO: debug UTF-8 test
   expect_equal(tib$yo, c("thing", NA, "\u5fcd", NA))
 })
 
@@ -68,7 +67,6 @@ test_that("read_json_arrow() converts to tibble", {
 
   expect_equal(tab1$hello, c(3.5, 3.25, 3.125, 0))
   expect_equal(tab1$world, c(FALSE, NA, NA, TRUE))
-  skip_on_os("windows") # TODO: debug UTF-8 test
   expect_equal(tab1$yo, c("thing", NA, "\u5fcd", NA))
 })
 

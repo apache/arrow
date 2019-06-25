@@ -27,11 +27,18 @@ license=("Apache-2.0")
 depends=("${MINGW_PACKAGE_PREFIX}-boost"
          "${MINGW_PACKAGE_PREFIX}-double-conversion"
          "${MINGW_PACKAGE_PREFIX}-thrift"
+         "${MINGW_PACKAGE_PREFIX}-snappy"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
 source_dir=apache-${_realname}-${pkgver}
+
+# For released version:
+#source=("https://archive.apache.org/dist/arrow/arrow-${pkgver}/apache-arrow-${pkgver}.tar.gz")
+#sha256sums=("ac2a77dd9168e9892e432c474611e86ded0be6dfe15f689c948751d37f81391a")
+# For github dev version:
+# Append `#commit=54b1b2f688e5e84b4c664b1e12a95f93b94ab2f3` to the URL to select a revision
 source=("${source_dir}"::"git+https://github.com/apache/arrow")
 sha256sums=("SKIP")
 
@@ -58,6 +65,8 @@ build() {
   # Workaround to fix static libparquet
   export CXXFLAGS="-DARROW_STATIC"
 
+  # This is the difference between rtools-packages and rtools-backports
+  # Remove this when submitting to rtools-packages
   export CC="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin/gcc"
   export CXX="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin/g++"
   export PATH="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin:$PATH"
@@ -72,13 +81,9 @@ build() {
     -DCMAKE_BUILD_TYPE=${cmake_build_type} \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_BUILD_SHARED=OFF \
-    -DARROW_BUILD_TESTS=OFF \
     -DARROW_PARQUET=ON \
-    -DARROW_PLASMA=OFF \
     -DARROW_HDFS=OFF \
-    -DARROW_PYTHON=OFF \
     -DARROW_BOOST_USE_SHARED=OFF \
-    -DARROW_WITH_SNAPPY=OFF \
     -DARROW_WITH_ZSTD=OFF \
     -DARROW_WITH_LZ4=OFF \
     -DARROW_JEMALLOC=OFF \
@@ -90,6 +95,7 @@ build() {
     -Ddouble-conversion_ROOT="${MINGW_PREFIX}" \
     -DThrift_ROOT="${MINGW_PREFIX}"
 
+  # Workaround for a compile error that appears with GCC 4.9.3
   sed -i 's/-fPIC/ /g' flatbuffers_ep-prefix/src/flatbuffers_ep-stamp/flatbuffers_ep-configure-RELEASE.cmake
 
   make
