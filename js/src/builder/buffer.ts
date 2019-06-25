@@ -105,7 +105,7 @@ export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, nu
     public get(index: number) { return this.buffer[index]; }
     public set(index: number, value: number) {
         this.reserve(index - this.length + 1);
-        this.buffer[index] = value;
+        this.buffer[index * this.stride] = value;
         return this;
     }
 }
