@@ -39,7 +39,7 @@ before_script:
 script:
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout {{ arrow.head }}
+  - git -C arrow checkout FETCH_HEAD
   - mkdir -p dist
 
   # build wheel

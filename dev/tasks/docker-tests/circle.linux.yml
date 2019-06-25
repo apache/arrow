@@ -25,7 +25,7 @@ jobs:
       - run: docker-compose -v
       - run: git clone --no-checkout {{ arrow.remote }} arrow
       - run: git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-      - run: git -C arrow checkout {{ arrow.head }}
+      - run: git -C arrow checkout FETCH_HEAD
       - run: git -C arrow submodule update --init --recursive
       - run: |
           pushd arrow
