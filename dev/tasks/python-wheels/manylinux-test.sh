@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,45 +17,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
-dist: xenial
-language: ruby
+set -e
 
-services:
-  - docker
+# Install built wheel
+pip install -q /arrow/python/$WHEEL_TAG/dist/*.whl
 
-# don't build twice
-if: tag IS blank
+# Runs tests on installed distribution from an empty directory
+python --version
 
-env:
-  global:
-    - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - ARROW_VERSION={{ arrow.version }}
+# Test optional dependencies
+python -c "
+import sys
+import pyarrow
+import pyarrow.orc
+import pyarrow.parquet
+import pyarrow.plasma
 
-before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
+if sys.version_info.major > 2:
+    import pyarrow.flight
+    import pyarrow.gandiva
+"
 
-script:
-  - pushd arrow/dev/tasks/linux-packages
-  - rake version:update
-  - rake dist
-  - {{ build_command }}
+export ARROW_TEST_DATA=/arrow/testing/data
 
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+# Run pyarrow tests
+pip install -q -r /arrow/python/requirements-test.txt
+pytest -v --pyargs pyarrow

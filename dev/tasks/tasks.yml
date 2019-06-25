@@ -28,11 +28,16 @@ groups:
     - conda-win-vs2015-py36
     - conda-win-vs2015-py37
   wheel:
-    - wheel-linux-cp27m
-    - wheel-linux-cp27mu
-    - wheel-linux-cp35m
-    - wheel-linux-cp36m
-    - wheel-linux-cp37m
+    - wheel-manylinux1-cp27m
+    - wheel-manylinux1-cp27mu
+    - wheel-manylinux1-cp35m
+    - wheel-manylinux1-cp36m
+    - wheel-manylinux1-cp37m
+    - wheel-manylinux2010-cp27m
+    - wheel-manylinux2010-cp27mu
+    - wheel-manylinux2010-cp35m
+    - wheel-manylinux2010-cp36m
+    - wheel-manylinux2010-cp37m
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
@@ -151,64 +156,133 @@ tasks:
 
   ############################## Wheel Linux ##################################
 
-  wheel-linux-cp27m:
+  wheel-manylinux1-cp27m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 2.7
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images: []
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
 
-  wheel-linux-cp27mu:
+  wheel-manylinux1-cp27mu:
     ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 2.7
       unicode_width: 32
+      wheel_tag: manylinux1
       test_docker_images:
         - python:2.7-slim  # debian ucs4
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux1_x86_64.whl
 
-  wheel-linux-cp35m:
+  wheel-manylinux1-cp35m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.5
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images:
         - python:3.5-slim
     artifacts:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux1_x86_64.whl
 
-  wheel-linux-cp36m:
+  wheel-manylinux1-cp36m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.6
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images:
         - python:3.6-slim
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
 
-  wheel-linux-cp37m:
+  wheel-manylinux1-cp37m:
     ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.7
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images:
         - python:3.7-slim
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
+
+  wheel-manylinux2010-cp27m:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 2.7
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      test_docker_images: []
+    artifacts:
+      - pyarrow-{no_rc_version}-cp27-cp27m-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp27mu:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 2.7
+      unicode_width: 32
+      wheel_tag: manylinux2010
+      test_docker_images:
+        - python:2.7-slim  # debian ucs4
+    artifacts:
+      - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp35m:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 3.5
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      test_docker_images:
+        - python:3.5-slim
+    artifacts:
+      - pyarrow-{no_rc_version}-cp35-cp35m-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp36m:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 3.6
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      test_docker_images:
+        - python:3.6-slim
+    artifacts:
+      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp37m:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 3.7
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      test_docker_images:
+        - python:3.7-slim
+    artifacts:
+      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
 
   ############################## Wheel OSX ####################################
 

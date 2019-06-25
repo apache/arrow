@@ -439,6 +439,28 @@ services:
       - ./python/manylinux1:/io:delegated
     command: /io/build_arrow.sh
 
+  python-manylinux2010:
+    # Usage:
+    #   either build:
+    #     $ docker-compose build python-manylinux2010
+    #   or pull:
+    #     $ docker-compose pull python-manylinux2010
+    #   an then run:
+    #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux2010
+    image: quay.io/ursa-labs/arrow_manylinux2010_x86_64_base:latest
+    build:
+      context: python/manylinux2010
+      dockerfile: Dockerfile-x86_64_base
+    shm_size: 2G
+    environment:
+      PYARROW_PARALLEL: 3
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux2010:/io:delegated
+    command: /io/build_arrow.sh
+
   ######################### Integration Tests #################################
 
   # impala:

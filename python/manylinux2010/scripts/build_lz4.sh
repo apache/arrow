@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,45 +16,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
-dist: xenial
-language: ruby
+NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
+export LZ4_VERSION="1.8.3"
+export PREFIX="/usr/local"
+export CFLAGS="${CFLAGS} -O3 -fPIC"
+export LDFLAGS="${LDFLAGS} -Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
+curl -sL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz" -o lz4-${LZ4_VERSION}.tar.gz
+tar xf lz4-${LZ4_VERSION}.tar.gz
+pushd lz4-${LZ4_VERSION}
 
-services:
-  - docker
-
-# don't build twice
-if: tag IS blank
-
-env:
-  global:
-    - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - ARROW_VERSION={{ arrow.version }}
-
-before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
-
-script:
-  - pushd arrow/dev/tasks/linux-packages
-  - rake version:update
-  - rake dist
-  - {{ build_command }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+make -j$NCORES PREFIX=${PREFIX}
+make install PREFIX=${PREFIX}
+popd
+rm -rf lz4-${LZ4_VERSION}.tar.gz lz4-${LZ4_VERSION}
+# We don't want to link against shared libs
+rm -rf /usr/lib/liblz4.so*

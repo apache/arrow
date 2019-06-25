@@ -1,3 +1,4 @@
+#!/bin/bash -e
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,45 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
-dist: xenial
-language: ruby
-
-services:
-  - docker
-
-# don't build twice
-if: tag IS blank
-
-env:
-  global:
-    - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - ARROW_VERSION={{ arrow.version }}
-
-before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
-
-script:
-  - pushd arrow/dev/tasks/linux-packages
-  - rake version:update
-  - rake dist
-  - {{ build_command }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+/opt/python/cp37-cp37m/bin/pip install cmake ninja
+ln -s /opt/python/cp37-cp37m/bin/cmake /usr/local/bin/cmake
+ln -s /opt/python/cp37-cp37m/bin/ninja /usr/local/bin/ninja
+strip /opt/_internal/cpython-3.*/lib/python3.7/site-packages/cmake/data/bin/*

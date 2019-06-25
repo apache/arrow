@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,45 +16,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
-dist: xenial
-language: ruby
+export CARES_VERSION="1.15.0"
+export CFLAGS="-fPIC"
+export PREFIX="/usr/local"
+curl -sL "https://c-ares.haxx.se/download/c-ares-$CARES_VERSION.tar.gz" -o c-ares-${CARES_VERSION}.tar.gz
+tar xf c-ares-${CARES_VERSION}.tar.gz
+pushd c-ares-${CARES_VERSION}
 
-services:
-  - docker
-
-# don't build twice
-if: tag IS blank
-
-env:
-  global:
-    - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - ARROW_VERSION={{ arrow.version }}
-
-before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
-
-script:
-  - pushd arrow/dev/tasks/linux-packages
-  - rake version:update
-  - rake dist
-  - {{ build_command }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DCARES_STATIC=ON \
+      -DCARES_SHARED=OFF \
+      -DCMAKE_C_FLAGS=${CFLAGS} \
+      -GNinja .
+ninja install
+popd
+rm -rf c-ares-${CARES_VERSION}.tar.gz c-ares-${CARES_VERSION}

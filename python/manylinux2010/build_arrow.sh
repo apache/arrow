@@ -44,7 +44,7 @@ export PYARROW_BUNDLE_BOOST=1
 export PYARROW_BOOST_NAMESPACE=arrow_boost
 export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/arrow-dist/lib/pkgconfig
 
-export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr -DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist'
+export PYARROW_CMAKE_OPTIONS='-DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist'
 # Ensure the target directory exists
 mkdir -p /io/dist
 
@@ -83,8 +83,9 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_BUILD_SHARED=ON \
+    -DARROW_BUILD_STATIC=OFF \
     -DARROW_BOOST_USE_SHARED=ON \
-    -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2;-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2/x86_64-CentOS-linux/" \
+    -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-8/root/usr/include/c++/8/;-isystem;/opt/rh/devtoolset-8/root/usr/include/c++/8/x86_64-redhat-linux/" \
     -DARROW_JEMALLOC=ON \
     -DARROW_RPATH_ORIGIN=ON \
     -DARROW_PYTHON=ON \
@@ -123,19 +124,15 @@ PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 # Source distribution is used for debian pyarrow packages.
 PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
 
-if [ -n "$UBUNTU_WHEELS" ]; then
-  echo "=== (${PYTHON_VERSION}) Wheels are not compatible with manylinux1 ==="
-  mv dist/pyarrow-*.whl /io/dist
-else
-  echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux1 ==="
-  mkdir -p repaired_wheels/
-  auditwheel repair -L . dist/pyarrow-*.whl -w repaired_wheels/
+echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux2010 ==="
+mkdir -p repaired_wheels/
+auditwheel repair --plat manylinux2010_x86_64 -L . dist/pyarrow-*.whl -w repaired_wheels/
 
-  # Install the built wheels
-  $PIP install repaired_wheels/*.whl
+# Install the built wheels
+$PIP install repaired_wheels/*.whl
 
-  # Test that the modules are importable
-  $PYTHON_INTERPRETER -c "
+# Test that the modules are importable
+$PYTHON_INTERPRETER -c "
 import sys
 import pyarrow
 import pyarrow.orc
@@ -145,10 +142,9 @@ import pyarrow.plasma
 if sys.version_info.major > 2:
     import pyarrow.flight
     import pyarrow.gandiva
-  "
+"
 
-  # More thorough testing happens outsite of the build to prevent
-  # packaging issues like ARROW-4372
-  mv dist/*.tar.gz /io/dist
-  mv repaired_wheels/*.whl /io/dist
-fi
+# More thorough testing happens outsite of the build to prevent
+# packaging issues like ARROW-4372
+mv dist/*.tar.gz /io/dist
+mv repaired_wheels/*.whl /io/dist

@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,45 +16,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
-dist: xenial
-language: ruby
+export RAPIDJSON_VERSION="1.1.0"
 
-services:
-  - docker
-
-# don't build twice
-if: tag IS blank
-
-env:
-  global:
-    - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - ARROW_VERSION={{ arrow.version }}
-
-before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
-
-script:
-  - pushd arrow/dev/tasks/linux-packages
-  - rake version:update
-  - rake dist
-  - {{ build_command }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+curl -sL "https://github.com/miloyip/rapidjson/archive/v${RAPIDJSON_VERSION}.tar.gz" -o rapidjson-${RAPIDJSON_VERSION}.tar.gz
+tar xf rapidjson-${RAPIDJSON_VERSION}.tar.gz
+pushd rapidjson-${RAPIDJSON_VERSION}
+mkdir build
+pushd build
+cmake -GNinja \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DRAPIDJSON_HAS_STDSTRING=ON \
+      -DRAPIDJSON_BUILD_TESTS=OFF \
+      -DRAPIDJSON_BUILD_EXAMPLES=OFF \
+      -DRAPIDJSON_BUILD_DOC=OFF \
+      -DCMAKE_BUILD_TYPE=release \
+      ..
+ninja install
+popd
+popd
+rm -rf rapidjson-${RAPIDJSON_VERSION}.tar.gz rapidjson-${RAPIDJSON_VERSION}

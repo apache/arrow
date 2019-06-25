@@ -36,7 +36,7 @@ before_install:
 
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout {{ arrow.head }}
+  - git -C arrow checkout FETCH_HEAD
 
   # ARROW-3976 Old versions of git can cause failures when Homebrew prints a
   # donation solicitation. Attempt to update git
@@ -59,9 +59,6 @@ before_install:
 
 install:
   - mkdir -p dist
-
-  # multibuild's default clean_code function
-  - clean_code arrow {{ arrow.head }}
 
   # the following functions are defined in osx-build.sh
   - build_wheel arrow

@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,45 +16,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
-dist: xenial
-language: ruby
+nm --demangle --dynamic /arrow-dist/lib/libarrow.so > nm_arrow.log
 
-services:
-  - docker
+# Filter out Arrow symbols and see if anything remains.
+# '_init' and '_fini' symbols may or not be present, we don't care.
+# (note we must ignore the grep exit status when no match is found)
+grep ' T ' nm_arrow.log | grep -v -E '(arrow|\b_init\b|\b_fini\b)' | cat - > visible_symbols.log
 
-# don't build twice
-if: tag IS blank
+if [[ -f visible_symbols.log && `cat visible_symbols.log | wc -l` -eq 0 ]]
+then
+    exit 0
+fi
 
-env:
-  global:
-    - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - ARROW_VERSION={{ arrow.version }}
+echo "== Unexpected symbols exported by libarrow.so =="
+cat visible_symbols.log
+echo "================================================"
 
-before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
-
-script:
-  - pushd arrow/dev/tasks/linux-packages
-  - rake version:update
-  - rake dist
-  - {{ build_command }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+exit 1

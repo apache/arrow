@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,45 +16,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
-dist: xenial
-language: ruby
+export URIPARSER_VERSION="0.9.2"
+export CFLAGS="-fPIC"
+export PREFIX="/usr/local"
+curl -sL "https://github.com/uriparser/uriparser/archive/uriparser-${URIPARSER_VERSION}.tar.gz" -o uriparser-${URIPARSER_VERSION}.tar.gz
+tar xf uriparser-${URIPARSER_VERSION}.tar.gz
+pushd uriparser-uriparser-${URIPARSER_VERSION}
 
-services:
-  - docker
-
-# don't build twice
-if: tag IS blank
-
-env:
-  global:
-    - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - ARROW_VERSION={{ arrow.version }}
-
-before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
-
-script:
-  - pushd arrow/dev/tasks/linux-packages
-  - rake version:update
-  - rake dist
-  - {{ build_command }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DURIPARSER_BUILD_DOCS=off \
+      -DURIPARSER_BUILD_TESTS=off \
+      -DURIPARSER_BUILD_TOOLS=off \
+      -DURIPARSER_BUILD_WCHAR_T=off \
+      -DBUILD_SHARED_LIBS=off \
+      -DCMAKE_POSITION_INDEPENDENT_CODE=on \
+      -GNinja .
+ninja install
+popd
+rm -rf uriparser-${URIPARSER_VERSION}.tar.gz uriparser-uriparser-${URIPARSER_VERSION}

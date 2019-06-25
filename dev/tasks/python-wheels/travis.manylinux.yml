@@ -39,7 +39,7 @@ before_script:
 script:
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout {{ arrow.head }}
+  - git -C arrow checkout FETCH_HEAD
   - mkdir -p dist
 
   # build wheel
@@ -51,22 +51,25 @@ script:
 
   # don't attempt to build it, because the base image by pypa is updated
   # regularly and would cause undeterministic builds
-  - docker-compose pull python-manylinux1
+  - BUILD_IMAGE=python-{{ wheel_tag }}
+  - docker-compose pull $BUILD_IMAGE
   - docker-compose run
       -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }}
       -e PYTHON_VERSION="{{ python_version }}"
       -e UNICODE_WIDTH="{{ unicode_width }}"
-      python-manylinux1
+      $BUILD_IMAGE
   - popd
 
   # test on multiple distributions
   {%- for image in test_docker_images %}
-  - docker run -it --shm-size 2G --volume $(pwd)/arrow:/arrow {{ image }}
-      /arrow/dev/tasks/python-wheels/linux-test.sh
+  - docker run -it --shm-size 2G --volume $(pwd)/arrow:/arrow
+      --env WHEEL_TAG="{{ wheel_tag }}"
+      {{ image }}
+      /arrow/dev/tasks/python-wheels/manylinux-test.sh
   {%- endfor %}
 
   # prepare for deployment
-  - sudo mv arrow/python/manylinux1/dist/* dist/
+  - sudo mv arrow/python/{{ wheel_tag }}/dist/* dist/
 
 deploy:
   provider: releases

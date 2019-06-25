@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,45 +16,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
-dist: xenial
-language: ruby
+DC_VERSION=3.1.4
 
-services:
-  - docker
+curl -sL https://github.com/google/double-conversion/archive/v${DC_VERSION}.tar.gz -o double-conversion-${DC_VERSION}.tar.gz
+tar xf double-conversion-${DC_VERSION}.tar.gz
+pushd double-conversion-${DC_VERSION}
 
-# don't build twice
-if: tag IS blank
+cmake . \
+    -GNinja \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_TESTING=OFF
+ninja install
 
-env:
-  global:
-    - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - ARROW_VERSION={{ arrow.version }}
-
-before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
-
-script:
-  - pushd arrow/dev/tasks/linux-packages
-  - rake version:update
-  - rake dist
-  - {{ build_command }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+popd
+rm -rf double-conversion-${DC_VERSION}.tar.gz double-conversion-${DC_VERSION}

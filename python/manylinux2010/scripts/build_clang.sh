@@ -1,3 +1,4 @@
+#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,45 +16,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
-dist: xenial
-language: ruby
+source /multibuild/manylinux_utils.sh
 
-services:
-  - docker
-
-# don't build twice
-if: tag IS blank
-
-env:
-  global:
-    - TRAVIS_TAG={{ task.tag }}
-    - BUILD_REF={{ arrow.head }}
-    - ARROW_VERSION={{ arrow.version }}
-
-before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
-
-script:
-  - pushd arrow/dev/tasks/linux-packages
-  - rake version:update
-  - rake dist
-  - {{ build_command }}
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file:
-  {% for extension in upload_extensions -%}
-    - "**/*{{ extension }}"
-  {% endfor -%}
-  skip_cleanup: true
-  on:
-    tags: true
-
-notifications:
-  email:
-    - {{ job.email }}
+export LLVM_VERSION="7.0.1"
+curl -sL http://releases.llvm.org/${LLVM_VERSION}/cfe-${LLVM_VERSION}.src.tar.xz -o cfe-${LLVM_VERSION}.src.tar.xz
+unxz cfe-${LLVM_VERSION}.src.tar.xz
+tar xf cfe-${LLVM_VERSION}.src.tar
+pushd cfe-${LLVM_VERSION}.src
+mkdir build
+pushd build
+cmake  \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCLANG_INCLUDE_TESTS=OFF \
+    -DCLANG_INCLUDE_DOCS=OFF \
+    -DCLANG_ENABLE_ARCMT=OFF \
+    -DCLANG_ENABLE_STATIC_ANALYZER=OFF \
+    -DLLVM_ENABLE_RTTI=ON \
+    -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
+    -DLLVM_INCLUDE_TESTS=OFF \
+    -DLLVM_INCLUDE_DOCS=OFF \
+    -GNinja \
+    ..
+ninja install
+popd
+popd
+rm -rf cfe-${LLVM_VERSION}.src.tar.xz cfe-${LLVM_VERSION}.src.tar cfe-${LLVM_VERSION}.src
