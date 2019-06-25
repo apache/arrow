@@ -323,12 +323,22 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
 
   Status Append(const uint8_t* value, int32_t length) {
     if (ARROW_PREDICT_FALSE(length + chunk_data_size_ > max_chunk_size_)) {
-      // Move onto next chunk, unless the builder length is currently 0, which
-      // means that max_chunk_size_ is less than the item length
-      if (builder_->length() > 0) {
-        ARROW_RETURN_NOT_OK(NextChunk());
+      if (chunk_data_size_ == 0) {
+        // The current item is larger than max_chunk_size_;
+        // this chunk will be oversize and hold *only* this item
+        ARROW_RETURN_NOT_OK(builder_->Append(value, length));
+        return NextChunk();
       }
-      // else fall through
+      // The current item would cause chunk_data_size_ to exceed max_chunk_size_
+      // finish this chunk and append the current item to the next chunk
+      ARROW_RETURN_NOT_OK(NextChunk());
+      return Append(value, length);
+    }
+
+    if (ARROW_PREDICT_FALSE(builder_->length() == kListMaximumElements)) {
+      // The current item would cause builder_ to overflow kListMaximumElements
+      // finish this chunk and append the current item to the next chunk
+      ARROW_RETURN_NOT_OK(NextChunk());
     }
 
     chunk_data_size_ += length;
