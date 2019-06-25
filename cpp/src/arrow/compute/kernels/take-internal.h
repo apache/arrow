@@ -55,6 +55,57 @@ static Status UnsafeAppend(StringBuilder* builder, util::string_view value) {
   return Status::OK();
 }
 
+template <bool SomeIndicesNull, bool SomeValuesNull, bool NeverOutOfBounds,
+          typename IndexSequence, typename Visitor>
+Status VisitIndices(IndexSequence indices, const Array& values, Visitor&& vis) {
+  for (int64_t i = 0; i < indices.length(); ++i) {
+    auto index_valid = indices.Next();
+    if (SomeIndicesNull && !index_valid.second) {
+      RETURN_NOT_OK(vis(0, false));
+      continue;
+    }
+
+    auto index = index_valid.first;
+    if (!NeverOutOfBounds) {
+      if (index < 0 || index >= values.length()) {
+        return Status::IndexError("take index out of bounds");
+      }
+    }
+
+    bool is_valid = !SomeValuesNull || values.IsValid(index);
+    RETURN_NOT_OK(vis(index, is_valid));
+  }
+  return Status::OK();
+}
+
+template <bool SomeIndicesNull, bool SomeValuesNull, typename IndexSequence,
+          typename Visitor>
+Status VisitIndices(IndexSequence indices, const Array& values, Visitor&& vis) {
+  if (indices.never_out_of_bounds()) {
+    return VisitIndices<SomeIndicesNull, SomeValuesNull, true>(
+        indices, values, std::forward<Visitor>(vis));
+  }
+  return VisitIndices<SomeIndicesNull, SomeValuesNull, false>(indices, values,
+                                                              std::forward<Visitor>(vis));
+}
+
+template <bool SomeIndicesNull, typename IndexSequence, typename Visitor>
+Status VisitIndices(IndexSequence indices, const Array& values, Visitor&& vis) {
+  if (values.null_count() == 0) {
+    return VisitIndices<SomeIndicesNull, false>(indices, values,
+                                                std::forward<Visitor>(vis));
+  }
+  return VisitIndices<SomeIndicesNull, true>(indices, values, std::forward<Visitor>(vis));
+}
+
+template <typename IndexSequence, typename Visitor>
+Status VisitIndices(IndexSequence indices, const Array& values, Visitor&& vis) {
+  if (indices.null_count() == 0) {
+    return VisitIndices<false>(indices, values, std::forward<Visitor>(vis));
+  }
+  return VisitIndices<true>(indices, values, std::forward<Visitor>(vis));
+}
+
 template <typename IndexSequence>
 class Taker {
  public:
@@ -75,17 +126,9 @@ class Taker {
   static_assert(std::is_copy_constructible<IndexSequence>::value,
                 "Index sequences must be copy constructible");
 
-  static_assert(
-      IndexSequence::take_null_index == std::numeric_limits<int64_t>::min(),
-      "Index sequences must declare a taken element as null with index == LONG_MIN");
-
-  static_assert(
-      std::is_same<decltype(IndexSequence::never_out_of_bounds), const bool>::value,
-      "Index sequences must declare whether bounds checking is necessary");
-
-  static_assert(
-      std::is_same<decltype(std::declval<IndexSequence>().Next()), int64_t>::value,
-      "An index sequence must yield indices of type int64_t.");
+  static_assert(std::is_same<decltype(std::declval<IndexSequence>().Next()),
+                             std::pair<int64_t, bool>>::value,
+                "An index sequence must yield pairs of indices:int64_t, validity:bool.");
 
   static_assert(std::is_same<decltype(std::declval<const IndexSequence>().length()),
                              int64_t>::value,
@@ -95,27 +138,12 @@ class Taker {
                              int64_t>::value,
                 "An index sequence must provide the number of nulls it will take.");
 
+  static_assert(
+      std::is_same<decltype(std::declval<const IndexSequence>().never_out_of_bounds()),
+                   bool>::value,
+      "Index sequences must declare whether bounds checking is necessary");
+
  protected:
-  Status OutOfBounds() { return Status::IndexError("take index out of bounds"); }
-
-  Status BoundsCheck(const Array& values, int64_t index) {
-    if (IndexSequence::never_out_of_bounds) {
-      return Status::OK();
-    }
-    if (index == IndexSequence::take_null_index) {
-      return Status::OK();
-    }
-    if (index < 0 || index >= values.length()) {
-      return OutOfBounds();
-    }
-    return Status::OK();
-  }
-
-  Status BoundsCheckedNext(const Array& values, IndexSequence* indices, int64_t* index) {
-    *index = indices->Next();
-    return BoundsCheck(values, *index);
-  }
-
   template <typename Builder>
   Status MakeBuilder(MemoryPool* pool, std::unique_ptr<Builder>* out) {
     std::unique_ptr<ArrayBuilder> builder;
@@ -129,12 +157,11 @@ class Taker {
 
 class RangeIndexSequence {
  public:
-  static constexpr int64_t take_null_index = std::numeric_limits<int64_t>::min();
-  static constexpr bool never_out_of_bounds = true;
+  constexpr bool never_out_of_bounds() const { return true; }
 
   RangeIndexSequence(int64_t offset, int64_t length) : index_(offset), length_(length) {}
 
-  int64_t Next() { return index_++; }
+  std::pair<int64_t, bool> Next() { return std::make_pair(index_++, true); }
 
   int64_t length() const { return length_; }
 
@@ -146,24 +173,19 @@ class RangeIndexSequence {
 
 class RangeOrNullIndexSequence {
  public:
-  static constexpr int64_t take_null_index = std::numeric_limits<int64_t>::min();
-  static constexpr bool never_out_of_bounds = true;
+  constexpr bool never_out_of_bounds() const { return true; }
 
-  RangeOrNullIndexSequence(int64_t offset_or_null, int64_t length)
-      : index_(offset_or_null), length_(length) {}
+  RangeOrNullIndexSequence(bool is_valid, int64_t offset, int64_t length)
+      : is_valid_(is_valid), index_(offset), length_(length) {}
 
-  int64_t Next() {
-    if (index_ == take_null_index) {
-      return take_null_index;
-    }
-    return index_++;
-  }
+  std::pair<int64_t, bool> Next() { return std::make_pair(index_++, is_valid_); }
 
   int64_t length() const { return length_; }
 
-  int64_t null_count() const { return index_ == take_null_index ? length_ : 0; }
+  int64_t null_count() const { return is_valid_ ? 0 : length_; }
 
  private:
+  bool is_valid_ = true;
   int64_t index_ = 0, length_ = -1;
 };
 
@@ -180,14 +202,16 @@ class TakerImpl<IndexSequence, NullType> : public Taker<IndexSequence> {
   Status Take(const Array& values, IndexSequence indices) override {
     DCHECK(this->type_->Equals(values.type()));
 
-    if (!IndexSequence::never_out_of_bounds) {
-      for (int64_t index, i = 0; i < indices.length(); ++i) {
-        RETURN_NOT_OK(this->BoundsCheckedNext(values, &indices, &index));
-      }
+    length_ += indices.length();
+
+    if (indices.never_out_of_bounds()) {
+      return Status::OK();
     }
 
-    length_ += indices.length();
-    return Status::OK();
+    return VisitIndices(indices, values, [](int64_t, bool) {
+      // just do bounds checking
+      return Status::OK();
+    });
   }
 
   Status Finish(std::shared_ptr<Array>* out) override {
@@ -212,48 +236,19 @@ class TakerImpl : public Taker<IndexSequence> {
   Status Take(const Array& values, IndexSequence indices) override {
     DCHECK(this->type_->Equals(values.type()));
     RETURN_NOT_OK(builder_->Reserve(indices.length()));
-
-    if (indices.null_count() == 0) {
-      if (values.null_count() == 0) {
-        return Take<false, false>(values, indices);
-      } else {
-        return Take<false, true>(values, indices);
+    return VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
+      if (!is_valid) {
+        builder_->UnsafeAppendNull();
+        return Status::OK();
       }
-    } else {
-      if (values.null_count() == 0) {
-        return Take<true, false>(values, indices);
-      } else {
-        return Take<true, true>(values, indices);
-      }
-    }
+      auto value = checked_cast<const ArrayType&>(values).GetView(index);
+      return UnsafeAppend(builder_.get(), value);
+    });
   }
 
   Status Finish(std::shared_ptr<Array>* out) override { return builder_->Finish(out); }
 
  private:
-  template <bool SomeIndicesNull, bool SomeValuesNull>
-  Status Take(const Array& values, IndexSequence indices) {
-    for (int64_t i = 0; i < indices.length(); ++i) {
-      int64_t index = indices.Next();
-
-      if (SomeIndicesNull && index == IndexSequence::take_null_index) {
-        builder_->UnsafeAppendNull();
-        continue;
-      }
-
-      RETURN_NOT_OK(this->BoundsCheck(values, index));
-
-      if (SomeValuesNull && values.IsNull(index)) {
-        builder_->UnsafeAppendNull();
-        continue;
-      }
-
-      auto value = checked_cast<const ArrayType&>(values).GetView(index);
-      RETURN_NOT_OK(UnsafeAppend(builder_.get(), value));
-    }
-    return Status::OK();
-  }
-
   std::unique_ptr<BuilderType> builder_;
 };
 
@@ -282,11 +277,7 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
     RETURN_NOT_OK(offset_builder_->Reserve(indices.length() + 1));
     int32_t offset = 0;
     offset_builder_->UnsafeAppend(offset);
-
-    for (int64_t index, i = 0; i < indices.length(); ++i) {
-      RETURN_NOT_OK(this->BoundsCheckedNext(values, &indices, &index));
-
-      bool is_valid = index != IndexSequence::take_null_index && values.IsValid(index);
+    return VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
       null_bitmap_builder_->UnsafeAppend(is_valid);
 
       if (is_valid) {
@@ -295,9 +286,10 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
                                          list_array.value_length(index));
         RETURN_NOT_OK(value_taker_->Take(*list_array.values(), value_indices));
       }
+
       offset_builder_->UnsafeAppend(offset);
-    }
-    return Status::OK();
+      return Status::OK();
+    });
   }
 
   Status Finish(std::shared_ptr<Array>* out) override { return FinishAs<ListArray>(out); }
@@ -357,19 +349,13 @@ class TakerImpl<IndexSequence, FixedSizeListType> : public Taker<IndexSequence> 
     auto list_size = list_array.list_type()->list_size();
 
     RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
-
-    for (int64_t index, i = 0; i < indices.length(); ++i) {
-      RETURN_NOT_OK(this->BoundsCheckedNext(values, &indices, &index));
-
-      bool is_valid = index != IndexSequence::take_null_index && values.IsValid(index);
+    return VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
       null_bitmap_builder_->UnsafeAppend(is_valid);
 
-      RangeOrNullIndexSequence value_indices(
-          is_valid ? list_array.value_offset(index) : IndexSequence::take_null_index,
-          list_size);
-      RETURN_NOT_OK(value_taker_->Take(*list_array.values(), value_indices));
-    }
-    return Status::OK();
+      RangeOrNullIndexSequence value_indices(is_valid, list_array.value_offset(index),
+                                             list_size);
+      return value_taker_->Take(*list_array.values(), value_indices);
+    });
   }
 
   Status Finish(std::shared_ptr<Array>* out) override {
@@ -424,12 +410,10 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
     // TODO(bkietz) each child is doing bounds checking; this only needs to happen once
 
     RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
-    for (int64_t i = 0; i < indices.length(); ++i) {
-      int64_t index = indices.Next();
-      null_bitmap_builder_->UnsafeAppend(index != IndexSequence::take_null_index &&
-                                         values.IsValid(index));
-    }
-    return Status::OK();
+    return VisitIndices(indices, values, [&](int64_t, bool is_valid) {
+      null_bitmap_builder_->UnsafeAppend(is_valid);
+      return Status::OK();
+    });
   }
 
   Status Finish(std::shared_ptr<Array>* out) override {

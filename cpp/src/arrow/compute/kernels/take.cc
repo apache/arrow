@@ -34,18 +34,17 @@ using internal::checked_cast;
 template <typename IndexType>
 class ArrayIndexSequence {
  public:
-  static constexpr int64_t take_null_index = std::numeric_limits<int64_t>::min();
-  static constexpr bool never_out_of_bounds = false;
+  constexpr bool never_out_of_bounds() const { return false; }
 
   explicit ArrayIndexSequence(const Array& indices)
       : indices_(&checked_cast<const NumericArray<IndexType>&>(indices)) {}
 
-  int64_t Next() {
+  std::pair<int64_t, bool> Next() {
     if (indices_->IsNull(index_)) {
       ++index_;
-      return take_null_index;
+      return std::make_pair(-1, false);
     }
-    return static_cast<int64_t>(indices_->Value(index_++));
+    return std::make_pair(indices_->Value(index_++), true);
   }
 
   int64_t length() const { return indices_->length(); }

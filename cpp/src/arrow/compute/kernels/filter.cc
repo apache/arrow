@@ -35,21 +35,17 @@ using internal::checked_pointer_cast;
 
 class FilterIndexSequence {
  public:
-  static constexpr int64_t take_null_index = std::numeric_limits<int64_t>::min();
-  static constexpr bool never_out_of_bounds = true;
+  constexpr bool never_out_of_bounds() const { return true; }
 
   FilterIndexSequence(const BooleanArray& filter, int64_t out_length)
       : filter_(&filter), out_length_(out_length) {}
 
-  int64_t Next() {
+  std::pair<int64_t, bool> Next() {
     while (filter_->IsValid(index_) && !filter_->Value(index_)) {
       ++index_;
     }
-    if (filter_->IsNull(index_)) {
-      ++index_;
-      return take_null_index;
-    }
-    return index_++;
+    bool is_valid = filter_->IsValid(index_);
+    return std::make_pair(index_++, is_valid);
   }
 
   int64_t length() const { return out_length_; }
