@@ -30,7 +30,10 @@ Status::Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> d
   state_ = new State;
   state_->code = code;
   state_->msg = std::move(msg);
-  state_->detail = std::move(detail);
+  if (detail != nullptr) {
+    std::cerr << "!!!!!!non null detail" << detail;
+    state_->detail = std::move(detail);
+  }
 }
 
 void Status::CopyFrom(const Status& s) {
@@ -39,6 +42,7 @@ void Status::CopyFrom(const Status& s) {
     state_ = nullptr;
   } else {
     state_ = new State(*s.state_);
+    std::cerr << "!!!!copy_from " << state_->detail;
   }
 }
 
