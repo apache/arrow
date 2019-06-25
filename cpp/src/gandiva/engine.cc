@@ -66,7 +66,7 @@
 
 namespace gandiva {
 
-extern const char kPrecompiledBitcode[];
+extern const unsigned char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
 
 std::once_flag init_once_flag;
@@ -130,7 +130,8 @@ Status Engine::Make(std::shared_ptr<Configuration> config,
 
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
-  auto bitcode = llvm::StringRef(kPrecompiledBitcode, kPrecompiledBitcodeSize);
+  auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
+                                 kPrecompiledBitcodeSize);
 
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =

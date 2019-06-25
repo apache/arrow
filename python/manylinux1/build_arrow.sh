@@ -54,7 +54,8 @@ mkdir -p /io/dist
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
-PATH="${PATH}:${CPYTHON_PATH}"
+# Put our Python first to avoid picking up an antiquated Python from CMake
+PATH="${CPYTHON_PATH}/bin:${PATH}"
 
 if [ "${PYTHON_VERSION}" != "2.7" ]; then
   export PYARROW_WITH_FLIGHT=1
@@ -76,7 +77,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}-${UNICODE_WIDTH}
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
-PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
+cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
     -DZLIB_ROOT=/usr/local \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \
