@@ -485,9 +485,13 @@ Status FileReader::Impl::ReadColumn(int i, std::shared_ptr<ChunkedArray>* out) {
 
 Status FileReader::Impl::GetSchema(const std::vector<int>& indices,
                                    std::shared_ptr<::arrow::Schema>* out) {
-  auto descr = reader_->metadata()->schema();
-  auto parquet_key_value_metadata = reader_->metadata()->key_value_metadata();
-  return FromParquetSchema(descr, indices, parquet_key_value_metadata, out);
+  return FromParquetSchema(reader_->metadata()->schema(), indices,
+                           reader_->metadata()->key_value_metadata(), out);
+}
+
+Status FileReader::Impl::GetSchema(std::shared_ptr<::arrow::Schema>* out) {
+  return FromParquetSchema(reader_->metadata()->schema(),
+                           reader_->metadata()->key_value_metadata(), out);
 }
 
 Status FileReader::Impl::ReadColumnChunk(int column_index, int row_group_index,
