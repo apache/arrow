@@ -181,7 +181,7 @@ static constexpr int64_t kPowersOfTen[kInt64DecimalDigits + 1] = {1LL,
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
 static inline void ShiftAndAdd(const char* data, size_t length, Decimal128* out) {
-  static internal::StringConverter<Int64Type> converter;
+  internal::StringConverter<Int64Type> converter;
   for (size_t posn = 0; posn < length;) {
     const size_t group_size = std::min(kInt64DecimalDigits, length - posn);
     const int64_t multiple = kPowersOfTen[group_size];
@@ -276,7 +276,7 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
       ++pos;
     }
     out->has_exponent = true;
-    static internal::StringConverter<Int32Type> exponent_converter;
+    internal::StringConverter<Int32Type> exponent_converter;
     return exponent_converter(s + pos, size - pos, &(out->exponent));
   }
   return pos == size;

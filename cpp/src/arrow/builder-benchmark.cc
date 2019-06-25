@@ -194,7 +194,7 @@ static void BuildDecimalArray(benchmark::State& state) {  // NOLINT non-const re
     ABORT_NOT_OK(builder.Finish(&out));
   }
 
-  state.SetBytesProcessed(state.iterations() * kBytesProcessed * 2);
+  state.SetBytesProcessed(state.iterations() * kRounds * kNumberOfElements * 16);
 }
 
 // ----------------------------------------------------------------------
