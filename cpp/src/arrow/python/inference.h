@@ -38,14 +38,21 @@ class Status;
 
 namespace py {
 
-// These three functions take a sequence input, not arbitrary iterables
+// These functions take a sequence input, not arbitrary iterables
+
+/// \brief Infer Arrow type from a Python sequence
+/// \param[in] obj the sequence of values
+/// \param[in] mask an optional mask where True values are null. May
+/// be nullptr
+/// \param[in] pandas_null_sentinels use pandas's null value markers
+/// \param[out] out_type the inferred type
 ARROW_PYTHON_EXPORT
-arrow::Status InferArrowType(PyObject* obj, bool pandas_null_sentinels,
+arrow::Status InferArrowType(PyObject* obj, PyObject* mask, bool pandas_null_sentinels,
                              std::shared_ptr<arrow::DataType>* out_type);
 
 ARROW_PYTHON_EXPORT
-arrow::Status InferArrowTypeAndSize(PyObject* obj, bool pandas_null_sentinels,
-                                    int64_t* size,
+arrow::Status InferArrowTypeAndSize(PyObject* obj, PyObject* mask,
+                                    bool pandas_null_sentinels, int64_t* size,
                                     std::shared_ptr<arrow::DataType>* out_type);
 
 /// Checks whether the passed Python object is a boolean scalar
