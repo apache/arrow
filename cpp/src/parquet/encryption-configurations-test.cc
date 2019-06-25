@@ -294,11 +294,11 @@ class TestEncryptionConfiguration : public ::testing::Test {
 
       // Get the number of RowGroups
       int num_row_groups = file_metadata->num_row_groups();
-      assert(num_row_groups == 1);
+      ASSERT_EQ(num_row_groups, 1);
 
       // Get the number of Columns
       int num_columns = file_metadata->num_columns();
-      assert(num_columns == 8);
+      ASSERT_EQ(num_columns, 8);
 
       // Iterate over all the RowGroups in the file
       for (int r = 0; r < num_row_groups; ++r) {
@@ -326,12 +326,12 @@ class TestEncryptionConfiguration : public ::testing::Test {
           // contains the number of non-null rows
           rows_read = bool_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
           // Ensure only one value is read
-          assert(rows_read == 1);
+          ASSERT_EQ(rows_read, 1);
           // There are no NULL values in the rows written
-          assert(values_read == 1);
+          ASSERT_EQ(values_read, 1);
           // Verify the value written
           bool expected_value = ((i % 2) == 0) ? true : false;
-          assert(value == expected_value);
+          ASSERT_EQ(value, expected_value);
           i++;
         }
         // Get the Column Reader for the Int32 column
@@ -346,11 +346,11 @@ class TestEncryptionConfiguration : public ::testing::Test {
           // contains the number of non-null rows
           rows_read = int32_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
           // Ensure only one value is read
-          assert(rows_read == 1);
+          ASSERT_EQ(rows_read, 1);
           // There are no NULL values in the rows written
-          assert(values_read == 1);
+          ASSERT_EQ(values_read, 1);
           // Verify the value written
-          assert(value == i);
+          ASSERT_EQ(value, i);
           i++;
         }
         // Get the Column Reader for the Int64 column
@@ -366,17 +366,17 @@ class TestEncryptionConfiguration : public ::testing::Test {
           rows_read = int64_reader->ReadBatch(1, &definition_level, &repetition_level,
                                               &value, &values_read);
           // Ensure only one value is read
-          assert(rows_read == 1);
+          ASSERT_EQ(rows_read, 1);
           // There are no NULL values in the rows written
-          assert(values_read == 1);
+          ASSERT_EQ(values_read, 1);
           // Verify the value written
           int64_t expected_value = i * 1000 * 1000;
           expected_value *= 1000 * 1000;
-          assert(value == expected_value);
+          ASSERT_EQ(value, expected_value);
           if ((i % 2) == 0) {
-            assert(repetition_level == 1);
+            ASSERT_EQ(repetition_level, 1);
           } else {
-            assert(repetition_level == 0);
+            ASSERT_EQ(repetition_level, 0);
           }
           i++;
         }
@@ -393,16 +393,16 @@ class TestEncryptionConfiguration : public ::testing::Test {
           // contains the number of non-null rows
           rows_read = int96_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
           // Ensure only one value is read
-          assert(rows_read == 1);
+          ASSERT_EQ(rows_read, 1);
           // There are no NULL values in the rows written
-          assert(values_read == 1);
+          ASSERT_EQ(values_read, 1);
           // Verify the value written
           parquet::Int96 expected_value;
           expected_value.value[0] = i;
           expected_value.value[1] = i + 1;
           expected_value.value[2] = i + 2;
           for (int j = 0; j < 3; j++) {
-            assert(value.value[j] == expected_value.value[j]);
+            ASSERT_EQ(value.value[j], expected_value.value[j]);
           }
           i++;
         }
@@ -419,12 +419,12 @@ class TestEncryptionConfiguration : public ::testing::Test {
           // contains the number of non-null rows
           rows_read = float_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
           // Ensure only one value is read
-          assert(rows_read == 1);
+          ASSERT_EQ(rows_read, 1);
           // There are no NULL values in the rows written
-          assert(values_read == 1);
+          ASSERT_EQ(values_read, 1);
           // Verify the value written
           float expected_value = static_cast<float>(i) * 1.1f;
-          assert(value == expected_value);
+          ASSERT_EQ(value, expected_value);
           i++;
         }
         // Get the Column Reader for the Double column
@@ -439,12 +439,12 @@ class TestEncryptionConfiguration : public ::testing::Test {
           // contains the number of non-null rows
           rows_read = double_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
           // Ensure only one value is read
-          assert(rows_read == 1);
+          ASSERT_EQ(rows_read, 1);
           // There are no NULL values in the rows written
-          assert(values_read == 1);
+          ASSERT_EQ(values_read, 1);
           // Verify the value written
           double expected_value = i * 1.1111111;
-          assert(value == expected_value);
+          ASSERT_EQ(value, expected_value);
           i++;
         }
         // Get the Column Reader for the ByteArray column
@@ -460,7 +460,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
           rows_read =
               ba_reader->ReadBatch(1, &definition_level, nullptr, &value, &values_read);
           // Ensure only one value is read
-          assert(rows_read == 1);
+          ASSERT_EQ(rows_read, 1);
           // Verify the value written
           char expected_value[kFixedLength] = "parquet";
           expected_value[7] = static_cast<char>('0' + i / 100);
@@ -468,14 +468,14 @@ class TestEncryptionConfiguration : public ::testing::Test {
           expected_value[9] = static_cast<char>('0' + i % 10);
           if (i % 2 == 0) {  // only alternate values exist
             // There are no NULL values in the rows written
-            assert(values_read == 1);
-            assert(value.len == kFixedLength);
-            assert(memcmp(value.ptr, &expected_value[0], kFixedLength) == 0);
-            assert(definition_level == 1);
+            ASSERT_EQ(values_read, 1);
+            ASSERT_EQ(value.len, kFixedLength);
+            ASSERT_EQ(memcmp(value.ptr, &expected_value[0], kFixedLength), 0);
+            ASSERT_EQ(definition_level, 1);
           } else {
             // There are NULL values in the rows written
-            assert(values_read == 0);
-            assert(definition_level == 0);
+            ASSERT_EQ(values_read, 0);
+            ASSERT_EQ(definition_level, 0);
           }
           i++;
         }
@@ -491,13 +491,13 @@ class TestEncryptionConfiguration : public ::testing::Test {
           // contains the number of non-null rows
           rows_read = flba_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
           // Ensure only one value is read
-          assert(rows_read == 1);
+          ASSERT_EQ(rows_read, 1);
           // There are no NULL values in the rows written
-          assert(values_read == 1);
+          ASSERT_EQ(values_read, 1);
           // Verify the value written
           char v = static_cast<char>(i);
           char expected_value[kFixedLength] = {v, v, v, v, v, v, v, v, v, v};
-          assert(memcmp(value.ptr, &expected_value[0], kFixedLength) == 0);
+          ASSERT_EQ(memcmp(value.ptr, &expected_value[0], kFixedLength), 0);
           i++;
         }
       }
