@@ -230,7 +230,8 @@ TYPED_TEST(ResultTest, CopyConstructorNonOkStatus) {
 // Verify that Result can be copy-constructed from a Result with an ok
 // status.
 TYPED_TEST(ResultTest, CopyConstructorOkStatus) {
-  Result<typename TypeParam::value_type> result1((TypeParam()()));
+  typename TypeParam::value_type value = TypeParam()();
+  Result<typename TypeParam::value_type> result1(value);
   Result<typename TypeParam::value_type> result2(result1);
 
   EXPECT_EQ(result1.ok(), result2.ok());
@@ -243,7 +244,8 @@ TYPED_TEST(ResultTest, CopyConstructorOkStatus) {
 // expected.
 TYPED_TEST(ResultTest, CopyAssignmentNonOkStatus) {
   Result<typename TypeParam::value_type> result1(Status(kErrorCode, kErrorMessage));
-  Result<typename TypeParam::value_type> result2((TypeParam()()));
+  typename TypeParam::value_type value = TypeParam()();
+  Result<typename TypeParam::value_type> result2(value);
 
   // Invoke the copy-assignment operator.
   result2 = result1;
@@ -254,7 +256,8 @@ TYPED_TEST(ResultTest, CopyAssignmentNonOkStatus) {
 // Verify that copy-assignment of a Result with an ok status is working as
 // expected.
 TYPED_TEST(ResultTest, CopyAssignmentOkStatus) {
-  Result<typename TypeParam::value_type> result1((TypeParam()()));
+  typename TypeParam::value_type value = TypeParam()();
+  Result<typename TypeParam::value_type> result1(value);
   Result<typename TypeParam::value_type> result2(Status(kErrorCode, kErrorMessage));
 
   // Invoke the copy-assignment operator.
@@ -325,7 +328,8 @@ TYPED_TEST(ResultTest, MoveConstructorOkStatus) {
 TYPED_TEST(ResultTest, MoveAssignmentOperatorNonOkStatus) {
   Status status(kErrorCode, kErrorMessage);
   Result<typename TypeParam::value_type> result1(status);
-  Result<typename TypeParam::value_type> result2((TypeParam()()));
+  typename TypeParam::value_type value = TypeParam()();
+  Result<typename TypeParam::value_type> result2(value);
 
   // Invoke the move-assignment operator.
   result2 = std::move(result1);
