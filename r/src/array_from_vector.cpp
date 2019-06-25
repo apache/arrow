@@ -163,6 +163,15 @@ std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
   }
 }
 
+std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
+  int n = type->num_children();
+  std::vector<std::shared_ptr<Array>> children(n);
+  for (int i = 0; i < n; i++) {
+    children[i] = Array__from_vector(VECTOR_ELT(df, i), type->child(i)->type(), true);
+  }
+  return std::make_shared<StructArray>(type, children[0]->length(), children);
+}
+
 template <typename T>
 int64_t time_cast(T value);
 
@@ -728,14 +737,12 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
     SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
 
-      // TODO: probably after we merge ARROW-3628
-      // case Type::DECIMAL:
+    // TODO: probably after we merge ARROW-3628
+    // case Type::DECIMAL:
 
-    case Type::DICTIONARY:
-
-      TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
-      TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
-      TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
+    TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
+    TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
+    TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
 
     default:
       break;
@@ -932,6 +939,13 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
   return dict_type->value_type() == utf8();
 }
 
+bool CheckCompatibleStruct(SEXP obj, const std::shared_ptr<arrow::DataType>& type) {
+  if (!Rf_inherits(obj, "data.frame")) return false;
+
+  // TODO: check each column
+  return true;
+}
+
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered) {
   // short circuit if `x` is already an Array
@@ -958,6 +972,15 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     }
 
     Rcpp::stop("Object incompatible with dictionary type");
+  }
+
+  // struct types
+  if (type->id() == Type::STRUCT) {
+    if (type_infered || arrow::r::CheckCompatibleStruct(x, type)) {
+      return arrow::r::MakeStructArray(x, type);
+    }
+
+    Rcpp::stop("Object incompatible with struct type");
   }
 
   // general conversion with converter and builder

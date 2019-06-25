@@ -272,3 +272,10 @@ test_that("chunked_array() can ingest arrays (ARROW-3815)", {
     1:10
   )
 })
+
+test_that("chunked_array() handles data frame -> struct arrays (ARROW-3811)", {
+  df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
+  a <- chunked_array(df, df)
+  expect_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
+  expect_equivalent(a$as_vector(), rbind(df, df))
+})

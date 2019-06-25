@@ -415,3 +415,10 @@ test_that("array() recognise arrow::Array (ARROW-3815)", {
   a <- array(1:10)
   expect_equal(a, array(a))
 })
+
+test_that("array() handles data frame -> struct arrays (ARROW-3811)", {
+  df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
+  a <- array(df)
+  expect_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
+  expect_equivalent(a$as_vector(), df)
+})
