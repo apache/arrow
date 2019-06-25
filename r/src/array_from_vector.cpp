@@ -801,6 +801,18 @@ std::shared_ptr<arrow::DataType> InferType(SEXP x) {
       return int8();
     case STRSXP:
       return utf8();
+    case VECSXP:
+      if (Rf_inherits(x, "data.frame")) {
+        R_xlen_t n = XLENGTH(x);
+        SEXP names = Rf_getAttrib(x, R_NamesSymbol);
+        std::vector<std::shared_ptr<arrow::Field>> fields(n);
+        for (R_xlen_t i = 0; i < n; i++) {
+          fields[i] = std::make_shared<arrow::Field>(CHAR(STRING_ELT(names, i)),
+                                                     InferType(VECTOR_ELT(x, i)));
+        }
+        return std::make_shared<StructType>(std::move(fields));
+      }
+      break;
     default:
       break;
   }
