@@ -2542,6 +2542,17 @@ def test_to_pandas_deduplicate_date_time():
 
 # ---------------------------------------------------------------------
 
+def test_table_from_pandas_checks_field_nullability():
+    # ARROW-2136
+    df = pd.DataFrame({'a': [1.2, 2.1, 3.1],
+                       'b': [np.nan, 'string', 'foo']})
+    schema = pa.schema([pa.field('a', pa.float64(), nullable=False),
+                        pa.field('b', pa.utf8(), nullable=False)])
+
+    with pytest.raises(ValueError):
+        pa.Table.from_pandas(df, schema=schema)
+
+
 def test_table_from_pandas_keeps_column_order_of_dataframe():
     df1 = pd.DataFrame(OrderedDict([
         ('partition', [0, 0, 1, 1]),

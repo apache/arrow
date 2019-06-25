@@ -328,12 +328,11 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     columns = _resolve_columns_of_interest(df, schema, columns)
 
     column_names = []
-    type = None
 
     index_levels = _get_index_level_values(df.index) if preserve_index else []
 
     columns_to_convert = []
-    convert_types = []
+    convert_fields = []
 
     if not df.columns.is_unique:
         raise ValueError(
@@ -350,10 +349,11 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
 
         if schema is not None:
             field = schema.field_by_name(name)
-            type = getattr(field, "type", None)
+        else:
+            field = None
 
         columns_to_convert.append(col)
-        convert_types.append(type)
+        convert_fields.append(field)
         column_names.append(name)
 
     index_descriptors = []
@@ -364,7 +364,7 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
             descr = _get_range_index_descriptor(index_level)
         else:
             columns_to_convert.append(index_level)
-            convert_types.append(None)
+            convert_fields.append(None)
             descr = name
             index_column_names.append(name)
         index_descriptors.append(descr)
@@ -380,10 +380,10 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     # index_levels : the extracted index level values
     # columns_to_convert : assembled raw data (both data columns and indexes)
     # to be converted to Arrow format
-    # columns_types : specified column types to use for coercion / casting
+    # columns_fields : specified column to use for coercion / casting
     # during serialization, if a Schema was provided
     return (all_names, column_names, index_column_names, index_descriptors,
-            index_levels, columns_to_convert, convert_types)
+            index_levels, columns_to_convert, convert_fields)
 
 
 def _get_range_index_descriptor(level):
@@ -452,8 +452,8 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
      index_descriptors,
      index_columns,
      columns_to_convert,
-     convert_types) = _get_columns_to_convert(df, schema, preserve_index,
-                                              columns)
+     convert_fields) = _get_columns_to_convert(df, schema, preserve_index,
+                                               columns)
 
     # NOTE(wesm): If nthreads=None, then we use a heuristic to decide whether
     # using a thread pool is worth it. Currently the heuristic is whether the
@@ -465,26 +465,36 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         else:
             nthreads = 1
 
-    def convert_column(col, ty):
+    def convert_column(col, field):
+        if field is None:
+            field_nullable = True
+            type_ = None
+        else:
+            field_nullable = field.nullable
+            type_ = field.type
+
         try:
-            return pa.array(col, type=ty, from_pandas=True, safe=safe)
+            result = pa.array(col, type=type_, from_pandas=True, safe=safe)
         except (pa.ArrowInvalid,
                 pa.ArrowNotImplementedError,
                 pa.ArrowTypeError) as e:
             e.args += ("Conversion failed for column {0!s} with type {1!s}"
                        .format(col.name, col.dtype),)
             raise e
+        if not field_nullable and result.null_count > 0:
+            raise ValueError("Field {} was non-nullable but pandas column "
+                             "had {} null values".format(str(field),
+                                                         result.null_count))
+        return result
 
     if nthreads == 1:
-        arrays = [convert_column(c, t)
-                  for c, t in zip(columns_to_convert,
-                                  convert_types)]
+        arrays = [convert_column(c, f)
+                  for c, f in zip(columns_to_convert, convert_fields)]
     else:
         from concurrent import futures
         with futures.ThreadPoolExecutor(nthreads) as executor:
-            arrays = list(executor.map(convert_column,
-                                       columns_to_convert,
-                                       convert_types))
+            arrays = list(executor.map(convert_column, columns_to_convert,
+                                       convert_fields))
 
     types = [x.type for x in arrays]
 
