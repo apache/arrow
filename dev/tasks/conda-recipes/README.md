@@ -33,11 +33,11 @@ latest releases.
 
 ### Backporting from the upstream feedstocks
 
-So most of the cases these recipes are more accurate, altough the upstream
-feedstock regurarly receive automatic updates by the conda-forge team, and
-we need to backport those changes to the crossbow recipes. Most of these
-updates are touching the version pinning files (``.ci_support`) and other CI
-related configuration files.
+In most of the cases these recipes are more accurate, then the upstream
+feedstocks. Altough the upstream feedstocks regurarly receive automatic updates
+by the conda-forge team so we need to backport those changes to the crossbow
+recipes. Most of these updates are touching the version pinning files
+(under `.ci_support`) and other CI related configuration files.
 
 Because all three recipes must be built in the same continuous integration
 job prefer porting from the [pyarrow feedstock][pyarrow-feedstock].
@@ -66,4 +66,4 @@ copied to the upstream feedstocks.
 [arrow-cpp-feedstock]: https://github.com/conda-forge/arrow-cpp-feedstock
 [parquet-cpp-feedstock]: https://github.com/conda-forge/parquet-cpp-feedstock
 [pyarrow-cpp-feedstock]: https://github.com/conda-forge/pyarrow-feedstock
-[matric-definition]: https://github.com/conda-forge/pyarrow-feedstock/blob/master/.azure-pipelines/azure-pipelines-linux.yml#L12
+[matrix-definition]: https://github.com/conda-forge/pyarrow-feedstock/blob/master/.azure-pipelines/azure-pipelines-linux.yml#L12
