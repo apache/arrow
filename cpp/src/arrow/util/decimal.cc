@@ -186,7 +186,7 @@ static inline void ShiftAndAdd(const char* data, size_t length, Decimal128* out)
     const size_t group_size = std::min(kInt64DecimalDigits, length - posn);
     const int64_t multiple = kPowersOfTen[group_size];
     int64_t chunk = 0;
-    CHECK(converter(data + posn, group_size, &chunk));
+    ARROW_CHECK(converter(data + posn, group_size, &chunk));
 
     *out *= multiple;
     *out += chunk;
