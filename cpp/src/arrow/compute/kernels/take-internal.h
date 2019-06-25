@@ -43,18 +43,25 @@ static Status UnsafeAppend(Builder* builder, Scalar&& value) {
   return Status::OK();
 }
 
+// Use BinaryBuilder::UnsafeAppend, but reserve byte storage first
 static Status UnsafeAppend(BinaryBuilder* builder, util::string_view value) {
   RETURN_NOT_OK(builder->ReserveData(static_cast<int64_t>(value.size())));
   builder->UnsafeAppend(value);
   return Status::OK();
 }
 
+// Use StringBuilder::UnsafeAppend, but reserve character storage first
 static Status UnsafeAppend(StringBuilder* builder, util::string_view value) {
   RETURN_NOT_OK(builder->ReserveData(static_cast<int64_t>(value.size())));
   builder->UnsafeAppend(value);
   return Status::OK();
 }
 
+/// \brief visit indices from an IndexSequence while bounds checking
+///
+/// \param[in] indices IndexSequence to visit
+/// \param[in] values array to bounds check against, if necessary
+/// \param[in] vis index visitor, signature must be Status(int64_t index, bool is_valid)
 template <bool SomeIndicesNull, bool SomeValuesNull, bool NeverOutOfBounds,
           typename IndexSequence, typename Visitor>
 Status VisitIndices(IndexSequence indices, const Array& values, Visitor&& vis) {
@@ -106,6 +113,7 @@ Status VisitIndices(IndexSequence indices, const Array& values, Visitor&& vis) {
   return VisitIndices<true>(indices, values, std::forward<Visitor>(vis));
 }
 
+// Helper class for gathering values from an array
 template <typename IndexSequence>
 class Taker {
  public:
@@ -113,14 +121,20 @@ class Taker {
 
   virtual ~Taker() = default;
 
+  // construct any children, must be called once after construction
   virtual Status MakeChildren() { return Status::OK(); }
 
+  // reset this Taker, prepare to gather into an array allocated from pool
+  // must be called each time the output pool may have changed
   virtual Status Init(MemoryPool* pool) = 0;
 
+  // gather elements from an array at the provided indices
   virtual Status Take(const Array& values, IndexSequence indices) = 0;
 
+  // assemble an array of all gathered values
   virtual Status Finish(std::shared_ptr<Array>*) = 0;
 
+  // factory; the output Taker will support gathering values of the given type
   static Status Make(const std::shared_ptr<DataType>& type, std::unique_ptr<Taker>* out);
 
   static_assert(std::is_copy_constructible<IndexSequence>::value,
@@ -160,29 +174,14 @@ class Taker {
   std::shared_ptr<DataType> type_;
 };
 
+// an IndexSequence which yields indices from a specified range
+// or yields null for the length of that range
 class RangeIndexSequence {
  public:
   constexpr bool never_out_of_bounds() const { return true; }
   void set_never_out_of_bounds() {}
 
-  RangeIndexSequence(int64_t offset, int64_t length) : index_(offset), length_(length) {}
-
-  std::pair<int64_t, bool> Next() { return std::make_pair(index_++, true); }
-
-  int64_t length() const { return length_; }
-
-  int64_t null_count() const { return 0; }
-
- private:
-  int64_t index_ = 0, length_ = -1;
-};
-
-class RangeOrNullIndexSequence {
- public:
-  constexpr bool never_out_of_bounds() const { return true; }
-  void set_never_out_of_bounds() {}
-
-  RangeOrNullIndexSequence(bool is_valid, int64_t offset, int64_t length)
+  RangeIndexSequence(bool is_valid, int64_t offset, int64_t length)
       : is_valid_(is_valid), index_(offset), length_(length) {}
 
   std::pair<int64_t, bool> Next() { return std::make_pair(index_++, is_valid_); }
@@ -196,40 +195,9 @@ class RangeOrNullIndexSequence {
   int64_t index_ = 0, length_ = -1;
 };
 
-template <typename IndexSequence, typename T>
-class TakerImpl;
-
-template <typename IndexSequence>
-class TakerImpl<IndexSequence, NullType> : public Taker<IndexSequence> {
- public:
-  using Taker<IndexSequence>::Taker;
-
-  Status Init(MemoryPool*) override { return Status::OK(); }
-
-  Status Take(const Array& values, IndexSequence indices) override {
-    DCHECK(this->type_->Equals(values.type()));
-
-    length_ += indices.length();
-
-    if (indices.never_out_of_bounds()) {
-      return Status::OK();
-    }
-
-    return VisitIndices(indices, values, [](int64_t, bool) {
-      // just do bounds checking
-      return Status::OK();
-    });
-  }
-
-  Status Finish(std::shared_ptr<Array>* out) override {
-    out->reset(new NullArray(length_));
-    return Status::OK();
-  }
-
- private:
-  int64_t length_ = 0;
-};
-
+// Default implementation: taking from a simple array into a builder requires only that
+// the array supports array.GetView() and the corresponding builder supports
+// builder.UnsafeAppend(array.GetView())
 template <typename IndexSequence, typename T>
 class TakerImpl : public Taker<IndexSequence> {
  public:
@@ -259,6 +227,36 @@ class TakerImpl : public Taker<IndexSequence> {
   std::unique_ptr<BuilderType> builder_;
 };
 
+// Gathering from NullArrays is trivial; skip the builder and just
+// do bounds checking
+template <typename IndexSequence>
+class TakerImpl<IndexSequence, NullType> : public Taker<IndexSequence> {
+ public:
+  using Taker<IndexSequence>::Taker;
+
+  Status Init(MemoryPool*) override { return Status::OK(); }
+
+  Status Take(const Array& values, IndexSequence indices) override {
+    DCHECK(this->type_->Equals(values.type()));
+
+    length_ += indices.length();
+
+    if (indices.never_out_of_bounds()) {
+      return Status::OK();
+    }
+
+    return VisitIndices(indices, values, [](int64_t, bool) { return Status::OK(); });
+  }
+
+  Status Finish(std::shared_ptr<Array>* out) override {
+    out->reset(new NullArray(length_));
+    return Status::OK();
+  }
+
+ private:
+  int64_t length_ = 0;
+};
+
 template <typename IndexSequence>
 class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
  public:
@@ -282,14 +280,16 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
 
     RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
     RETURN_NOT_OK(offset_builder_->Reserve(indices.length() + 1));
+
     int32_t offset = 0;
     offset_builder_->UnsafeAppend(offset);
+
     return VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
       null_bitmap_builder_->UnsafeAppend(is_valid);
 
       if (is_valid) {
         offset += list_array.value_length(index);
-        RangeIndexSequence value_indices(list_array.value_offset(index),
+        RangeIndexSequence value_indices(true, list_array.value_offset(index),
                                          list_array.value_length(index));
         RETURN_NOT_OK(value_taker_->Take(*list_array.values(), value_indices));
       }
@@ -302,6 +302,8 @@ class TakerImpl<IndexSequence, ListType> : public Taker<IndexSequence> {
   Status Finish(std::shared_ptr<Array>* out) override { return FinishAs<ListArray>(out); }
 
  protected:
+  // this added method is provided for use by TakerImpl<IndexSequence, MapType>,
+  // which needs to construct a MapArray rather than a ListArray
   template <typename T>
   Status FinishAs(std::shared_ptr<Array>* out) {
     auto null_count = null_bitmap_builder_->false_count();
@@ -341,7 +343,7 @@ class TakerImpl<IndexSequence, FixedSizeListType> : public Taker<IndexSequence> 
 
   Status MakeChildren() override {
     const auto& list_type = checked_cast<const FixedSizeListType&>(*this->type_);
-    return Taker<RangeOrNullIndexSequence>::Make(list_type.value_type(), &value_taker_);
+    return Taker<RangeIndexSequence>::Make(list_type.value_type(), &value_taker_);
   }
 
   Status Init(MemoryPool* pool) override {
@@ -359,8 +361,10 @@ class TakerImpl<IndexSequence, FixedSizeListType> : public Taker<IndexSequence> 
     return VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
       null_bitmap_builder_->UnsafeAppend(is_valid);
 
-      RangeOrNullIndexSequence value_indices(is_valid, list_array.value_offset(index),
-                                             list_size);
+      // for FixedSizeList, null lists are not empty (they also span a segment of
+      // list_size in the child data), so we must append to value_taker_ even if !is_valid
+      RangeIndexSequence value_indices(is_valid, list_array.value_offset(index),
+                                       list_size);
       return value_taker_->Take(*list_array.values(), value_indices);
     });
   }
@@ -382,7 +386,7 @@ class TakerImpl<IndexSequence, FixedSizeListType> : public Taker<IndexSequence> 
 
  protected:
   std::unique_ptr<TypedBufferBuilder<bool>> null_bitmap_builder_;
-  std::unique_ptr<Taker<RangeOrNullIndexSequence>> value_taker_;
+  std::unique_ptr<Taker<RangeIndexSequence>> value_taker_;
 };
 
 template <typename IndexSequence>
@@ -447,6 +451,7 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
   std::vector<std::unique_ptr<Taker<IndexSequence>>> children_;
 };
 
+// taking from a DictionaryArray is accomplished by taking from its indices
 template <typename IndexSequence>
 class TakerImpl<IndexSequence, DictionaryType> : public Taker<IndexSequence> {
  public:
@@ -487,6 +492,7 @@ class TakerImpl<IndexSequence, DictionaryType> : public Taker<IndexSequence> {
   std::unique_ptr<Taker<IndexSequence>> index_taker_;
 };
 
+// taking from an ExtensionArray is accomplished by taking from its storage
 template <typename IndexSequence>
 class TakerImpl<IndexSequence, ExtensionType> : public Taker<IndexSequence> {
  public:
@@ -518,38 +524,14 @@ class TakerImpl<IndexSequence, ExtensionType> : public Taker<IndexSequence> {
 
 template <typename IndexSequence>
 struct TakerMakeImpl {
-  Status Visit(const NullType&) { return Make<NullType>(); }
-
-  template <typename Fixed>
-  typename std::enable_if<std::is_base_of<FixedWidthType, Fixed>::value, Status>::type
-  Visit(const Fixed&) {
-    return Make<Fixed>();
-  }
-
-  Status Visit(const BinaryType&) { return Make<BinaryType>(); }
-
-  Status Visit(const StringType&) { return Make<StringType>(); }
-
-  Status Visit(const ListType&) { return Make<ListType>(); }
-
-  Status Visit(const MapType&) { return Make<MapType>(); }
-
-  Status Visit(const FixedSizeListType&) { return Make<FixedSizeListType>(); }
-
-  Status Visit(const StructType& t) { return Make<StructType>(); }
-
-  Status Visit(const DictionaryType& t) { return Make<DictionaryType>(); }
-
-  Status Visit(const ExtensionType& t) { return Make<ExtensionType>(); }
-
-  Status Visit(const DataType& t) {
-    return Status::NotImplemented("gathering values of type ", t);
-  }
-
   template <typename T>
-  Status Make() {
+  Status Visit(const T&) {
     out_->reset(new TakerImpl<IndexSequence, T>(type_));
     return (*out_)->MakeChildren();
+  }
+
+  Status Visit(const UnionType& t) {
+    return Status::NotImplemented("gathering values of type ", t);
   }
 
   std::shared_ptr<DataType> type_;

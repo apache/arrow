@@ -70,15 +70,27 @@ class ARROW_EXPORT TakeKernel : public BinaryKernel {
   explicit TakeKernel(const std::shared_ptr<DataType>& type, TakeOptions options = {})
       : type_(type) {}
 
+  /// \brief BinaryKernel interface
+  ///
+  /// delegates to subclasses via Take()
   Status Call(FunctionContext* ctx, const Datum& values, const Datum& indices,
               Datum* out) override;
 
+  /// \brief output type of this kernel (identical to type of values taken)
   std::shared_ptr<DataType> out_type() const override { return type_; }
 
+  /// \brief factory for TakeKernels
+  ///
+  /// \param[in] value_type constructed TakeKernel will support taking
+  ///            values of this type
+  /// \param[in] index_type constructed TakeKernel will support taking
+  ///            with indices of this type
+  /// \param[out] out created kernel
   static Status Make(const std::shared_ptr<DataType>& value_type,
                      const std::shared_ptr<DataType>& index_type,
                      std::unique_ptr<TakeKernel>* out);
 
+  /// \brief single-array implementation
   virtual Status Take(FunctionContext* ctx, const Array& values, const Array& indices,
                       std::shared_ptr<Array>* out) = 0;
 

@@ -33,8 +33,11 @@ namespace compute {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
+// IndexSequence which yields the indices of positions in a BooleanArray
+// which are either null or true
 class FilterIndexSequence {
  public:
+  // constexpr so we'll never instantiate bounds checking
   constexpr bool never_out_of_bounds() const { return true; }
   void set_never_out_of_bounds() {}
 
@@ -42,6 +45,7 @@ class FilterIndexSequence {
       : filter_(&filter), out_length_(out_length) {}
 
   std::pair<int64_t, bool> Next() {
+    // skip until an index is found at which the filter is either null or true
     while (filter_->IsValid(index_) && !filter_->Value(index_)) {
       ++index_;
     }

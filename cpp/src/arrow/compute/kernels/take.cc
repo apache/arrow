@@ -31,6 +31,7 @@ namespace compute {
 
 using internal::checked_cast;
 
+// an IndexSequence which yields the values of an Array of integers
 template <typename IndexType>
 class ArrayIndexSequence {
  public:
