@@ -43,7 +43,7 @@ jobs:
       python upload-assets.py \
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
-        --pattern "conda-recipes/build_artifacts/*.tar.bz2"
+        --pattern "conda-recipes/build_artifacts/linux-64/*.tar.bz2"
     env:
       CROSSBOW_GITHUB_REPO: $(Build.Repository.Name)
       CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
