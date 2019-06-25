@@ -27,7 +27,7 @@
     },
     print = function(...){
       cat(class(self)[[1]], "\n")
-      if(!is.null(self$ToString)){
+      if (!is.null(self$ToString)){
         cat(self$ToString(), "\n")
       }
       invisible(self)
@@ -36,11 +36,11 @@
 )
 
 shared_ptr <- function(class, xp) {
-  if(!shared_ptr_is_null(xp)) class$new(xp)
+  if (!shared_ptr_is_null(xp)) class$new(xp)
 }
 
 unique_ptr <- function(class, xp) {
-  if(!unique_ptr_is_null(xp)) class$new(xp)
+  if (!unique_ptr_is_null(xp)) class$new(xp)
 }
 
 #' @export

@@ -69,8 +69,8 @@ else
         BREWDIR=$(brew --prefix)
 
         if brew ls --versions apache-arrow > /dev/null; then
-          # right now, we need HEAD version
-          brew install apache-arrow --HEAD
+          # Install apache-arrow via Homebrew if we don't already have it
+          brew install apache-arrow
         fi
 
         PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
@@ -104,8 +104,8 @@ echo "#include $PKG_TEST_HEADER" | ${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FL
 # Customize the error
 if [ $? -ne 0 ]; then
   echo "------------------------- NOTE ---------------------------"
-  echo "After installation, please run arrow::install_arrow() to install"
-  echo "required runtime libraries"
+  echo "After installation, please run arrow::install_arrow()"
+  echo "for help installing required runtime libraries"
   echo "---------------------------------------------------------"
   PKG_LIBS=""
   PKG_CFLAGS=""

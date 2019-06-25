@@ -141,7 +141,11 @@ FeatherTableReader.character <- function(file, mmap = TRUE, ...) {
 
 #' @export
 FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
-  stream <- if(isTRUE(mmap)) mmap_open(file, ...) else ReadableFile(file, ...)
+  if (isTRUE(mmap)) {
+    stream <- mmap_open(file, ...)
+  } else {
+    stream <- ReadableFile(file, ...)
+  }
   FeatherTableReader(stream)
 }
 

@@ -44,7 +44,7 @@
     write = function(x) {
       if (inherits(x, "arrow::RecordBatch")) {
         self$write_batch(x)
-      } else if(inherits(x, "arrow::Table")) {
+      } else if (inherits(x, "arrow::Table")) {
         self$write_table(x)
       } else if (inherits(x, "data.frame")) {
         self$write_table(table(x))
