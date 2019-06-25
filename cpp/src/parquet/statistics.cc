@@ -310,6 +310,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   Type::type physical_type() const override { return descr_->physical_type(); }
 
+  const ColumnDescriptor* descr() const override { return descr_; }
+
   std::string EncodeMin() override {
     std::string s;
     if (HasMinMax()) this->PlainEncode(min_, &s);

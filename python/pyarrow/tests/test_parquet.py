@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -669,7 +670,7 @@ def test_parquet_metadata_api():
     assert col_meta.num_values == 10000
     assert col_meta.path_in_schema == 'bool'
     assert col_meta.is_stats_set is True
-    assert isinstance(col_meta.statistics, pq.RowGroupStatistics)
+    assert isinstance(col_meta.statistics, pq.Statistics)
     assert col_meta.compression == 'SNAPPY'
     assert col_meta.encodings == ('PLAIN', 'RLE')
     assert col_meta.has_dictionary_page is False
@@ -741,14 +742,52 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
 
     stat = col_meta.statistics
     assert stat.has_min_max
-    assert stat.min == min_value
-    assert stat.max == max_value
+    assert _close(type, stat.min, min_value)
+    assert _close(type, stat.max, max_value)
     assert stat.null_count == null_count
     assert stat.num_values == num_values
     # TODO(kszucs) until parquet-cpp API doesn't expose HasDistinctCount
     # method, missing distinct_count is represented as zero instead of None
     assert stat.distinct_count == distinct_count
     assert stat.physical_type == physical_type
+
+
+def _close(type, left, right):
+    if type == pa.float32():
+        return abs(left - right) < 1E-7
+    elif type == pa.float64():
+        return abs(left - right) < 1E-13
+    else:
+        return left == right
+
+
+def test_statistics_convert_logical_types(tempdir):
+    # ARROW-5166, ARROW-4139
+
+    # (min, max, type)
+    cases = [(10, 11164359321221007157, pa.uint64()),
+             (10, 4294967295, pa.uint32()),
+             (u"ähnlich", u"öffentlich", pa.utf8()),
+             (datetime.time(10, 30, 0, 1000), datetime.time(15, 30, 0, 1000),
+              pa.time32('ms')),
+             (datetime.time(10, 30, 0, 1000), datetime.time(15, 30, 0, 1000),
+              pa.time64('us')),
+             (datetime.datetime(2019, 6, 24, 0, 0, 0, 1000),
+              datetime.datetime(2019, 6, 25, 0, 0, 0, 1000),
+              pa.timestamp('ms')),
+             (datetime.datetime(2019, 6, 24, 0, 0, 0, 1000),
+              datetime.datetime(2019, 6, 25, 0, 0, 0, 1000),
+              pa.timestamp('us'))]
+
+    for i, (min_val, max_val, typ) in enumerate(cases):
+        t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
+                                 ['col'])
+        path = str(tempdir / ('example{}.parquet'.format(i)))
+        pq.write_table(t, path, version='2.0')
+        pf = pq.ParquetFile(path)
+        stats = pf.metadata.row_group(0).column(0).statistics
+        assert stats.min == min_val
+        assert stats.max == max_val
 
 
 def test_parquet_write_disable_statistics(tempdir):
