@@ -34,7 +34,8 @@ using internal::checked_cast;
 template <typename IndexType>
 class ArrayIndexSequence {
  public:
-  constexpr bool never_out_of_bounds() const { return false; }
+  bool never_out_of_bounds() const { return never_out_of_bounds_; }
+  void set_never_out_of_bounds() { never_out_of_bounds_ = true; }
 
   explicit ArrayIndexSequence(const Array& indices)
       : indices_(&checked_cast<const NumericArray<IndexType>&>(indices)) {}
@@ -54,6 +55,7 @@ class ArrayIndexSequence {
  private:
   const NumericArray<IndexType>* indices_;
   int64_t index_ = 0;
+  bool never_out_of_bounds_ = false;
 };
 
 template <typename IndexType>

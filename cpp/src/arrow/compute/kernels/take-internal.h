@@ -143,6 +143,11 @@ class Taker {
                    bool>::value,
       "Index sequences must declare whether bounds checking is necessary");
 
+  static_assert(
+      std::is_same<decltype(std::declval<IndexSequence>().set_never_out_of_bounds()),
+                   void>::value,
+      "An index sequence must support ignoring bounds checking.");
+
  protected:
   template <typename Builder>
   Status MakeBuilder(MemoryPool* pool, std::unique_ptr<Builder>* out) {
@@ -158,6 +163,7 @@ class Taker {
 class RangeIndexSequence {
  public:
   constexpr bool never_out_of_bounds() const { return true; }
+  void set_never_out_of_bounds() {}
 
   RangeIndexSequence(int64_t offset, int64_t length) : index_(offset), length_(length) {}
 
@@ -174,6 +180,7 @@ class RangeIndexSequence {
 class RangeOrNullIndexSequence {
  public:
   constexpr bool never_out_of_bounds() const { return true; }
+  void set_never_out_of_bounds() {}
 
   RangeOrNullIndexSequence(bool is_valid, int64_t offset, int64_t length)
       : is_valid_(is_valid), index_(offset), length_(length) {}
@@ -403,17 +410,20 @@ class TakerImpl<IndexSequence, StructType> : public Taker<IndexSequence> {
   Status Take(const Array& values, IndexSequence indices) override {
     DCHECK(this->type_->Equals(values.type()));
 
+    RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
+    RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t, bool is_valid) {
+      null_bitmap_builder_->UnsafeAppend(is_valid);
+      return Status::OK();
+    }));
+
+    // bounds checking was done while appending to the null bitmap
+    indices.set_never_out_of_bounds();
+
     const auto& struct_array = checked_cast<const StructArray&>(values);
     for (int i = 0; i < this->type_->num_children(); ++i) {
       RETURN_NOT_OK(children_[i]->Take(*struct_array.field(i), indices));
     }
-    // TODO(bkietz) each child is doing bounds checking; this only needs to happen once
-
-    RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
-    return VisitIndices(indices, values, [&](int64_t, bool is_valid) {
-      null_bitmap_builder_->UnsafeAppend(is_valid);
-      return Status::OK();
-    });
+    return Status::OK();
   }
 
   Status Finish(std::shared_ptr<Array>* out) override {

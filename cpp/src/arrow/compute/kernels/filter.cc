@@ -36,6 +36,7 @@ using internal::checked_pointer_cast;
 class FilterIndexSequence {
  public:
   constexpr bool never_out_of_bounds() const { return true; }
+  void set_never_out_of_bounds() {}
 
   FilterIndexSequence(const BooleanArray& filter, int64_t out_length)
       : filter_(&filter), out_length_(out_length) {}
