@@ -63,7 +63,6 @@ jobs:
       conda build arrow-cpp parquet-cpp pyarrow \
         -m ./.ci_support/${CONFIG}.yaml \
         --clobber-file ./.ci_support/clobber_${CONFIG}.yaml
-      source deactivate
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
 
@@ -71,11 +70,6 @@ jobs:
   # pushed tag and the latest tag of the github repository (don't know why).
   # The tag upload took 43 minutes because of this scan, so use an alternative
   # upload script.
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.6'
-      architecture: 'x64'
-
   - script: |
       python -m pip install github3-py click
       python upload-assets.py \
