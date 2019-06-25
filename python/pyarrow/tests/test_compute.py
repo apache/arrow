@@ -61,12 +61,14 @@ def test_take(ty, values):
     for indices_type in [pa.uint8(), pa.int64()]:
         indices = pa.array([0, 4, 2, None], type=indices_type)
         result = arr.take(indices)
+        result.validate()
         expected = pa.array([values[0], values[4], values[2], None], type=ty)
         assert result.equals(expected)
 
         # empty indices
         indices = pa.array([], type=indices_type)
         result = arr.take(indices)
+        result.validate()
         expected = pa.array([], type=ty)
         assert result.equals(expected)
 
@@ -86,6 +88,7 @@ def test_take_indices_types():
                          'uint32', 'int32', 'uint64', 'int64']:
         indices = pa.array([0, 4, 2, None], type=indices_type)
         result = arr.take(indices)
+        result.validate()
         expected = pa.array([0, 4, 2, None])
         assert result.equals(expected)
 
@@ -100,6 +103,7 @@ def test_take_dictionary(ordered):
     arr = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1, 2], ['a', 'b', 'c'],
                                          ordered=ordered)
     result = arr.take(pa.array([0, 1, 3]))
+    result.validate()
     assert result.to_pylist() == ['a', 'b', 'a']
     assert result.dictionary.to_pylist() == ['a', 'b', 'c']
     assert result.type.ordered is ordered
