@@ -244,11 +244,11 @@ class ARROW_EXPORT SparseTensorImpl : public SparseTensor {
   SparseTensorImpl(const std::shared_ptr<DataType>& type,
                    const std::vector<int64_t>& shape,
                    const std::vector<std::string>& dim_names = {})
-      : SparseTensorImpl(nullptr, type, nullptr, shape, dim_names) {}
+      : SparseTensorImpl(NULLPTR, type, NULLPTR, shape, dim_names) {}
 
   // Constructor with a dense tensor
   explicit SparseTensorImpl(const Tensor& tensor)
-      : SparseTensorImpl(nullptr, tensor.type(), nullptr, tensor.shape(),
+      : SparseTensorImpl(NULLPTR, tensor.type(), NULLPTR, tensor.shape(),
                          tensor.dim_names_) {
     (void)internal::MakeSparseTensorFromTensor(tensor, SparseIndexType::format_id,
                                                &sparse_index_, &data_);
