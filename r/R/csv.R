@@ -15,6 +15,100 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' Read a CSV or other delimited file with Arrow
+#'
+#' Use arrow::csv::TableReader from [csv_table_reader()]
+#'
+#' @inheritParams csv_table_reader
+#'
+#' @param col_select [tidy selection specification][tidyselect::vars_select] of columns
+#' @param as_tibble Should the [arrow::Table][arrow__Table] be converted to a data frame.
+#'
+#' @return
+#' @export
+read_csv_arrow <- function(file,
+                           delim = ",",
+                           quote = '"',
+                           escape_double = TRUE,
+                           escape_backslash = FALSE,
+                           col_names = TRUE,
+                           # col_types = TRUE,
+                           col_select = NULL,
+                           # na = c("", "NA"),
+                           # quoted_na = TRUE,
+                           skip_empty_rows = TRUE,
+                           skip = 0L,
+                           parse_options = NULL,
+                           convert_options = NULL,
+                           read_options = csv_read_options(),
+                           as_tibble = TRUE) {
+
+  if (is.null(parse_options)) {
+    if (isTRUE(col_names)) {
+      # Add one row to skip, to match arrow's header_rows
+      skip <- skip + 1L
+    }
+    parse_options <- readr_to_csv_parse_options(
+      delim,
+      quote,
+      escape_double,
+      escape_backslash,
+      skip_empty_rows,
+      skip
+    )
+  }
+
+  if (is.null(convert_options)) {
+    # TODO:
+    # * na strings (needs wiring in csv_convert_options)
+    # * col_types (needs wiring in csv_convert_options). Note that we can't do
+    # col_types if col_names is strings because the column type specification
+    # requires a map of name: type, but the CSV reader doesn't handle user-
+    # provided names--they're renamed after the fact.
+    convert_options <- csv_convert_options()
+  }
+
+  reader <- csv_table_reader(
+    file,
+    read_options = read_options,
+    parse_options = parse_options,
+    convert_options = convert_options
+  )
+
+  tab <- reader$Read()$select(!!enquo(col_select))
+  if (is.character(col_names)) {
+    # TODO: Rename `tab`'s columns
+    # See https://github.com/apache/arrow/pull/4557
+  }
+
+  if (isTRUE(as_tibble)) {
+    tab <- as.data.frame(tab)
+  }
+
+  tab
+}
+
+readr_to_csv_parse_options <- function(delim = ",",
+                                       quote = '"',
+                                       escape_double = TRUE,
+                                       escape_backslash = FALSE,
+                                       skip_empty_rows = TRUE,
+                                       skip = 0L) {
+  # This function translates from the readr argument list to the arrow arg names
+  # TODO: validate inputs
+  csv_parse_options(
+    delimiter = delim,
+    quoting = nzchar(quote),
+    quote_char = quote,
+    double_quote = escape_double,
+    escaping = escape_backslash,
+    escape_char = '\\',
+    newlines_in_values = escape_backslash,
+    ignore_empty_lines = skip_empty_rows,
+    header_rows = skip
+  )
+}
+
 #' @include R6.R
 
 `arrow::csv::TableReader` <- R6Class("arrow::csv::TableReader", inherit = `arrow::Object`,
@@ -80,7 +174,22 @@ csv_parse_options <- function(
 #' @param check_utf8 Whether to check UTF8 validity of string columns
 #'
 #' @export
-csv_convert_options <- function(check_utf8 = TRUE){
+csv_convert_options <- function(check_utf8 = TRUE) {
+  # TODO: there are more conversion options available:
+  # // Whether to check UTF8 validity of string columns
+  # bool check_utf8 = true;
+  # // Optional per-column types (disabling type inference on those columns)
+  # std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
+  # // Recognized spellings for null values
+  # std::vector<std::string> null_values;
+  # // Recognized spellings for boolean values
+  # std::vector<std::string> true_values;
+  # std::vector<std::string> false_values;
+  # // Whether string / binary columns can have null values.
+  # // If true, then strings in "null_values" are considered null for string columns.
+  # // If false, then all strings are valid string values.
+  # bool strings_can_be_null = false;
+
   shared_ptr(`arrow::csv::ConvertOptions`, csv___ConvertOptions__initialize(
     list(
       check_utf8 = check_utf8
@@ -166,36 +275,4 @@ csv_table_reader.default <- function(file,
   ...
 ){
   file
-}
-
-#' Read csv file into an arrow::Table
-#'
-#' Use arrow::csv::TableReader from [csv_table_reader()]
-#'
-#' @inheritParams csv_table_reader
-#'
-#' @param col_select [tidy selection specification][tidyselect::vars_select] of columns
-#' @param as_tibble Should the [arrow::Table][arrow__Table] be converted to a data frame.
-#'
-#' @export
-read_csv_arrow <- function(file,
-  read_options = csv_read_options(),
-  parse_options = csv_parse_options(),
-  convert_options = csv_convert_options(),
-  col_select = NULL,
-  as_tibble = TRUE
-  )
-{
-  reader <- csv_table_reader(file,
-    read_options = read_options,
-    parse_options = parse_options,
-    convert_options = convert_options)
-
-  tab <- reader$Read()$select(!!enquo(col_select))
-
-  if (isTRUE(as_tibble)) {
-    tab <- as.data.frame(tab)
-  }
-
-  tab
 }
