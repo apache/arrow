@@ -96,7 +96,7 @@ jobs:
       architecture: 'x64'
 
   - script: |
-      pip install github3-py click
+      python -m pip install github3-py click
       python upload-assets.py \
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \

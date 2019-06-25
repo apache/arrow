@@ -63,6 +63,7 @@ jobs:
       conda build arrow-cpp parquet-cpp pyarrow \
         -m ./.ci_support/${CONFIG}.yaml \
         --clobber-file ./.ci_support/clobber_${CONFIG}.yaml
+      source deactivate
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
 
@@ -76,7 +77,7 @@ jobs:
       architecture: 'x64'
 
   - script: |
-      pip3 install github3-py click
+      python -m pip install github3-py click
       python upload-assets.py \
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
