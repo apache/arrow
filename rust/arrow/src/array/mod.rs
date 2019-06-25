@@ -55,14 +55,14 @@
 //! ```
 
 mod array;
-mod array_data;
+mod data;
 mod builder;
 
 pub use self::array::Array;
 pub use self::array::ArrayRef;
-pub use self::array_data::ArrayData;
-pub use self::array_data::ArrayDataBuilder;
-pub use self::array_data::ArrayDataRef;
+pub use self::data::ArrayData;
+pub use self::data::ArrayDataBuilder;
+pub use self::data::ArrayDataRef;
 
 use crate::datatypes::*;
 
