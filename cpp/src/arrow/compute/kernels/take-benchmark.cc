@@ -145,4 +145,3 @@ BENCHMARK(TakeString)
 
 }  // namespace compute
 }  // namespace arrow
-
