@@ -219,12 +219,13 @@ class ARROW_EXPORT SparseTensor {
 
 namespace internal {
 
-Status MakeSparseTensorFromTensor(const Tensor& tensor,
-                                  SparseTensorFormat::type sparse_format_id,
-                                  std::shared_ptr<SparseIndex>* sparse_index,
-                                  std::shared_ptr<Buffer>* data);
+ARROW_EXPORT
+void MakeSparseTensorFromTensor(const Tensor& tensor,
+                                SparseTensorFormat::type sparse_format_id,
+                                std::shared_ptr<SparseIndex>* sparse_index,
+                                std::shared_ptr<Buffer>* data);
 
-}
+}  // namespace internal
 
 /// \brief EXPERIMENTAL: Concrete sparse tensor implementation classes with sparse index
 /// type
@@ -250,8 +251,8 @@ class SparseTensorImpl : public SparseTensor {
   explicit SparseTensorImpl(const Tensor& tensor)
       : SparseTensorImpl(NULLPTR, tensor.type(), NULLPTR, tensor.shape(),
                          tensor.dim_names_) {
-    (void)internal::MakeSparseTensorFromTensor(tensor, SparseIndexType::format_id,
-                                               &sparse_index_, &data_);
+    internal::MakeSparseTensorFromTensor(tensor, SparseIndexType::format_id,
+                                         &sparse_index_, &data_);
   }
 
  private:

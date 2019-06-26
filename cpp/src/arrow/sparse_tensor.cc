@@ -237,76 +237,77 @@ namespace internal {
 namespace {
 
 template <typename TYPE, typename SparseIndexType>
-Status MakeSparseTensorFromTensor(const Tensor& tensor,
-                                  std::shared_ptr<SparseIndex>* sparse_index,
-                                  std::shared_ptr<Buffer>* data) {
+void MakeSparseTensorFromTensor(const Tensor& tensor,
+                                std::shared_ptr<SparseIndex>* sparse_index,
+                                std::shared_ptr<Buffer>* data) {
   NumericTensor<TYPE> numeric_tensor(tensor.data(), tensor.shape(), tensor.strides());
   SparseTensorConverter<TYPE, SparseIndexType> converter(numeric_tensor);
-  Status s = converter.Convert();
-  RETURN_NOT_OK(s);
+  ARROW_CHECK_OK(converter.Convert());
   *sparse_index = converter.sparse_index;
   *data = converter.data;
-  return Status::OK();
 }
 
 template <typename SparseIndexType>
-inline Status MakeSparseTensorFromTensor(const Tensor& tensor,
-                                         std::shared_ptr<SparseIndex>* sparse_index,
-                                         std::shared_ptr<Buffer>* data) {
+inline void MakeSparseTensorFromTensor(const Tensor& tensor,
+                                       std::shared_ptr<SparseIndex>* sparse_index,
+                                       std::shared_ptr<Buffer>* data) {
   switch (tensor.type()->id()) {
     case Type::UINT8:
-      return MakeSparseTensorFromTensor<UInt8Type, SparseIndexType>(tensor, sparse_index,
-                                                                    data);
+      MakeSparseTensorFromTensor<UInt8Type, SparseIndexType>(tensor, sparse_index, data);
+      break;
     case Type::INT8:
-      return MakeSparseTensorFromTensor<Int8Type, SparseIndexType>(tensor, sparse_index,
-                                                                   data);
+      MakeSparseTensorFromTensor<Int8Type, SparseIndexType>(tensor, sparse_index, data);
+      break;
     case Type::UINT16:
-      return MakeSparseTensorFromTensor<UInt16Type, SparseIndexType>(tensor, sparse_index,
-                                                                     data);
+      MakeSparseTensorFromTensor<UInt16Type, SparseIndexType>(tensor, sparse_index, data);
+      break;
     case Type::INT16:
-      return MakeSparseTensorFromTensor<Int16Type, SparseIndexType>(tensor, sparse_index,
-                                                                    data);
+      MakeSparseTensorFromTensor<Int16Type, SparseIndexType>(tensor, sparse_index, data);
+      break;
     case Type::UINT32:
-      return MakeSparseTensorFromTensor<UInt32Type, SparseIndexType>(tensor, sparse_index,
-                                                                     data);
+      MakeSparseTensorFromTensor<UInt32Type, SparseIndexType>(tensor, sparse_index, data);
+      break;
     case Type::INT32:
-      return MakeSparseTensorFromTensor<Int32Type, SparseIndexType>(tensor, sparse_index,
-                                                                    data);
+      MakeSparseTensorFromTensor<Int32Type, SparseIndexType>(tensor, sparse_index, data);
+      break;
     case Type::UINT64:
-      return MakeSparseTensorFromTensor<UInt64Type, SparseIndexType>(tensor, sparse_index,
-                                                                     data);
+      MakeSparseTensorFromTensor<UInt64Type, SparseIndexType>(tensor, sparse_index, data);
+      break;
     case Type::INT64:
-      return MakeSparseTensorFromTensor<Int64Type, SparseIndexType>(tensor, sparse_index,
-                                                                    data);
+      MakeSparseTensorFromTensor<Int64Type, SparseIndexType>(tensor, sparse_index, data);
+      break;
     case Type::HALF_FLOAT:
-      return MakeSparseTensorFromTensor<HalfFloatType, SparseIndexType>(
-          tensor, sparse_index, data);
+      MakeSparseTensorFromTensor<HalfFloatType, SparseIndexType>(tensor, sparse_index,
+                                                                 data);
+      break;
     case Type::FLOAT:
-      return MakeSparseTensorFromTensor<FloatType, SparseIndexType>(tensor, sparse_index,
-                                                                    data);
+      MakeSparseTensorFromTensor<FloatType, SparseIndexType>(tensor, sparse_index, data);
+      break;
     case Type::DOUBLE:
-      return MakeSparseTensorFromTensor<DoubleType, SparseIndexType>(tensor, sparse_index,
-                                                                     data);
+      MakeSparseTensorFromTensor<DoubleType, SparseIndexType>(tensor, sparse_index, data);
+      break;
     default:
-      return Status::NotImplemented("Unspported Tensor value type");
+      ARROW_LOG(FATAL) << "Unsupported Tensor value type";
+      break;
   }
 }
 
 }  // namespace
 
-Status MakeSparseTensorFromTensor(const Tensor& tensor,
-                                  SparseTensorFormat::type sparse_format_id,
-                                  std::shared_ptr<SparseIndex>* sparse_index,
-                                  std::shared_ptr<Buffer>* data) {
+void MakeSparseTensorFromTensor(const Tensor& tensor,
+                                SparseTensorFormat::type sparse_format_id,
+                                std::shared_ptr<SparseIndex>* sparse_index,
+                                std::shared_ptr<Buffer>* data) {
   switch (sparse_format_id) {
     case SparseTensorFormat::COO:
-      return MakeSparseTensorFromTensor<SparseCOOIndex>(tensor, sparse_index, data);
-
+      MakeSparseTensorFromTensor<SparseCOOIndex>(tensor, sparse_index, data);
+      break;
     case SparseTensorFormat::CSR:
-      return MakeSparseTensorFromTensor<SparseCSRIndex>(tensor, sparse_index, data);
-
+      MakeSparseTensorFromTensor<SparseCSRIndex>(tensor, sparse_index, data);
+      break;
     default:
-      return Status::Invalid("Invalid sparse tensor format ID");
+      ARROW_LOG(FATAL) << "Invalid sparse tensor format ID";
+      break;
   }
 }
 
