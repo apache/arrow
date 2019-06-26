@@ -415,3 +415,27 @@ test_that("array() recognise arrow::Array (ARROW-3815)", {
   a <- array(1:10)
   expect_equal(a, array(a))
 })
+
+test_that("array() handles data frame -> struct arrays (ARROW-3811)", {
+  df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
+  a <- array(df)
+  expect_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
+  expect_equivalent(a$as_vector(), df)
+})
+
+test_that("array() can handle data frame with custom struct type (not infered)", {
+  df <- tibble::tibble(x = 1:10, y = 1:10)
+  type <- struct(x = float64(), y = int16())
+  a <- array(df, type = type)
+  expect_equal(a$type, type)
+
+  type <- struct(x = float64(), y = int16(), z = int32())
+  expect_error(array(df, type = type), regexp = "Number of fields in struct.* incompatible with number of columns in the data frame")
+
+  type <- struct(y = int16(), x = float64())
+  expect_error(array(df, type = type), regexp = "Field name in position.*does not match the name of the column of the data frame")
+
+  type <- struct(x = float64(), y = utf8())
+  expect_error(array(df, type = type), regexp = "Cannot convert R object to string array")
+})
+
