@@ -70,12 +70,12 @@
 
 namespace parquet {
 
-using schema::GroupNode;
-using schema::NodePtr;
-using schema::PrimitiveNode;
 using parquet::ConvertedType;
 using parquet::Repetition;
 using parquet::Type;
+using schema::GroupNode;
+using schema::NodePtr;
+using schema::PrimitiveNode;
 
 constexpr int kFixedLength = 10;
 

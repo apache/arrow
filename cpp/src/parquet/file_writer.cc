@@ -426,7 +426,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // Unencrypted parquet files always start with PAR1
       PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
     } else {
-      file_encryptor_.reset(new InternalFileEncryptor(file_encryption_properties));
+      file_encryptor_.reset(new InternalFileEncryptor(file_encryption_properties,
+                                                      properties_->memory_pool()));
       if (file_encryption_properties->encrypted_footer()) {
         PARQUET_THROW_NOT_OK(sink_->Write(kParquetEMagic, 4));
       } else {

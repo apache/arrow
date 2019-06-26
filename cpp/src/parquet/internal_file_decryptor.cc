@@ -46,8 +46,13 @@ int FooterSigningEncryptor::SignedFooterEncrypt(const uint8_t* footer, int foote
 
 // Decryptor
 Decryptor::Decryptor(encryption::AesDecryptor* aes_decryptor, const std::string& key,
-                     const std::string& file_aad, const std::string& aad)
-    : aes_decryptor_(aes_decryptor), key_(key), file_aad_(file_aad), aad_(aad) {}
+                     const std::string& file_aad, const std::string& aad,
+                     ::arrow::MemoryPool* pool)
+    : aes_decryptor_(aes_decryptor),
+      key_(key),
+      file_aad_(file_aad),
+      aad_(aad),
+      pool_(pool) {}
 
 int Decryptor::CiphertextSizeDelta() { return aes_decryptor_->CiphertextSizeDelta(); }
 
@@ -62,11 +67,13 @@ int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
 InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* properties,
                                              const std::string& file_aad,
                                              ParquetCipher::type algorithm,
-                                             const std::string& footer_key_metadata)
+                                             const std::string& footer_key_metadata,
+                                             ::arrow::MemoryPool* pool)
     : properties_(properties),
       file_aad_(file_aad),
       algorithm_(algorithm),
-      footer_key_metadata_(footer_key_metadata) {
+      footer_key_metadata_(footer_key_metadata),
+      pool_(pool) {
   if (properties_->is_utilized()) {
     throw ParquetException(
         "Re-using decryption properties with explicit keys for another file");
@@ -160,10 +167,10 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
   auto aes_metadata_decryptor = GetMetaAesDecryptor(footer_key.size());
   auto aes_data_decryptor = GetDataAesDecryptor(footer_key.size());
 
-  footer_metadata_decryptor_ =
-      std::make_shared<Decryptor>(aes_metadata_decryptor, footer_key, file_aad_, aad);
+  footer_metadata_decryptor_ = std::make_shared<Decryptor>(
+      aes_metadata_decryptor, footer_key, file_aad_, aad, pool_);
   footer_data_decryptor_ =
-      std::make_shared<Decryptor>(aes_data_decryptor, footer_key, file_aad_, aad);
+      std::make_shared<Decryptor>(aes_data_decryptor, footer_key, file_aad_, aad, pool_);
 
   if (metadata) return footer_metadata_decryptor_;
   return footer_data_decryptor_;
@@ -219,10 +226,10 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   auto aes_metadata_decryptor = GetMetaAesDecryptor(column_key.size());
   auto aes_data_decryptor = GetDataAesDecryptor(column_key.size());
 
-  column_metadata_map_[column_path] =
-      std::make_shared<Decryptor>(aes_metadata_decryptor, column_key, file_aad_, aad);
+  column_metadata_map_[column_path] = std::make_shared<Decryptor>(
+      aes_metadata_decryptor, column_key, file_aad_, aad, pool_);
   column_data_map_[column_path] =
-      std::make_shared<Decryptor>(aes_data_decryptor, column_key, file_aad_, aad);
+      std::make_shared<Decryptor>(aes_data_decryptor, column_key, file_aad_, aad, pool_);
 
   if (metadata) return column_metadata_map_[column_path];
   return column_data_map_[column_path];
