@@ -77,6 +77,7 @@ jobs:
   # The tag upload took 43 minutes because of this scan, so use an alternative
   # upload script.
   - script: |
+      source activate base
       python -m pip install github3-py click
       python upload-assets.py \
         --sha {{ task.branch }} \
