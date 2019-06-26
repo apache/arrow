@@ -284,6 +284,40 @@ ${ARROW_CMAKE_OPTIONS}
   popd
 }
 
+test_csharp() {
+  pushd csharp
+
+  if ! which dotnet > /dev/null 2>&1; then
+    if [ "$(uname)" == "Darwin" ]; then
+      DOTNET_URL=https://download.visualstudio.microsoft.com/download/pr/328d95ad-eb94-4d1f-a4a9-2a35dbfea719/4913918a65ae135af1c8823f04061708/dotnet-sdk-2.2.300-osx-x64.tar.gz
+    else
+      DOTNET_URL=https://download.visualstudio.microsoft.com/download/pr/5e92f45b-384e-41b9-bf8d-c949684e20a1/67a98aa2a4e441245d6afe194bd79b9b/dotnet-sdk-2.2.300-linux-x64.tar.gz
+    fi
+
+    curl -o dotnet.tar.gz $DOTNET_URL
+    mkdir $PWD/bin
+    tar xf dotnet.tar.gz -C $PWD/bin
+    PATH=$PWD/bin:$PATH
+  fi
+
+  dotnet test
+  mv dummy.git ../.git
+  dotnet pack -c Release
+  mv ../.git dummy.git
+
+  if ! which sourcelink > /dev/null 2>&1; then
+    dotnet tool install --tool-path $PWD/bin sourcelink
+    export DOTNET_ROOT=$PWD/bin
+  else
+    PATH=$HOME/.dotnet/tools:$PATH
+  fi
+
+  sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
+  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb
+
+  popd
+}
+
 # Build and test Python
 
 test_python() {
@@ -454,6 +488,9 @@ test_source_distribution() {
     setup_miniconda
     test_and_install_cpp
   fi
+  if [ ${TEST_CSHARP} -gt 0 ]; then
+    test_csharp
+  fi
   if [ ${TEST_PYTHON} -gt 0 ]; then
     test_python
   fi
@@ -498,6 +535,7 @@ test_binary_distribution() {
 : ${TEST_SOURCE:=${TEST_DEFAULT}}
 : ${TEST_JAVA:=${TEST_DEFAULT}}
 : ${TEST_CPP:=${TEST_DEFAULT}}
+: ${TEST_CSHARP:=${TEST_DEFAULT}}
 : ${TEST_GLIB:=${TEST_DEFAULT}}
 : ${TEST_RUBY:=${TEST_DEFAULT}}
 : ${TEST_PYTHON:=${TEST_DEFAULT}}
