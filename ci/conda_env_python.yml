@@ -21,5 +21,6 @@ hypothesis
 numpy>=1.14
 pandas
 pytest
+pytest-faulthandler
 setuptools
 setuptools_scm=3.2.0
