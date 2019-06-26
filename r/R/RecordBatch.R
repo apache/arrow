@@ -98,6 +98,7 @@
 #' @export
 record_batch <- function(..., schema = NULL){
   arrays <- list2(...)
+  # making sure there are always names
   if (is.null(names(arrays))) {
     names(arrays) <- rep_len("", length(arrays))
   }
