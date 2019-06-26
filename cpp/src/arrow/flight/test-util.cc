@@ -25,6 +25,11 @@
 #include <cstdlib>
 #include <sstream>
 
+// HACK(ARROW-5735): Silence C4244 generated with Boost 1.69.0
+#if defined(_MSC_VER)
+#pragma warning(disable : 4244)
+#endif
+
 #include <boost/filesystem.hpp>
 #include <boost/process.hpp>
 
@@ -40,11 +45,6 @@
 
 namespace arrow {
 namespace flight {
-
-// HACK(ARROW-5735): Silence C4244 generated with Boost 1.69.0
-#if defined(_MSC_VER)
-#pragma warning(disable : 4244)
-#endif
 
 namespace bp = boost::process;
 namespace fs = boost::filesystem;
