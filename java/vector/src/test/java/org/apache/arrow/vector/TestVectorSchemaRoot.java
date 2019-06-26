@@ -89,8 +89,8 @@ public class TestVectorSchemaRoot {
   }
 
   private VectorSchemaRoot createBatch() {
-    FieldType varCharType = new FieldType(true, new ArrowType.Utf8(), null);
-    FieldType listType = new FieldType(true, new ArrowType.List(), null);
+    FieldType varCharType = new FieldType(true, new ArrowType.Utf8(), /*dictionary=*/null);
+    FieldType listType = new FieldType(true, new ArrowType.List(), /*dictionary=*/null);
 
     // create the schema
     List<Field> schemaFields  = new ArrayList<>();
@@ -115,6 +115,10 @@ public class TestVectorSchemaRoot {
 
     // write data vector(0)(0)
     writer.list().startList();
+
+    // According to the schema above, the list element should have varchar type.
+    // When we write a big int, the original writer cannot handle this, so the writer will
+    // be promoted, and the vector structure will be different from the schema.
     writer.list().bigInt().writeBigInt(0);
     writer.list().bigInt().writeBigInt(1);
     writer.list().endList();

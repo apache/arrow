@@ -208,7 +208,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Synchronizes the schema according from the current vectors.
+   * Synchronizes the schema from the current vectors.
    * In some cases, the schema and the actual vector structure may be different.
    * This can be caused by a promoted writer (For details, please see
    * {@link org.apache.arrow.vector.complex.impl.PromotableWriter}).
@@ -217,7 +217,7 @@ public class VectorSchemaRoot implements AutoCloseable {
    * When this happens, this method should be called to bring the schema and vector structure in a synchronized state.
    */
   public void syncSchema() {
-    List<Field> fields = this.fieldVectors.stream().map(vector -> vector.getField()).collect(Collectors.toList());
+    List<Field> fields = this.fieldVectors.stream().map(ValueVector::getField).collect(Collectors.toList());
     this.schema = new Schema(fields);
   }
 }
