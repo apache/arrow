@@ -561,14 +561,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
   auto i64 = decimal_ir->types()->i64_type();
   auto f64 = decimal_ir->types()->double_type();
   auto i8_ptr = decimal_ir->types()->i8_ptr_type();
-<<<<<<< HEAD
-<<<<<<< HEAD
   auto i32_ptr = decimal_ir->types()->i32_ptr_type();
-=======
->>>>>>> add varchar <-> decimal functions
-=======
-  auto i32_ptr = decimal_ir->types()->i32_ptr_type();
->>>>>>> add castVARCHAR test
 
   // Populate global variables used by decimal operations.
   decimal_ir->AddGlobals(engine);
