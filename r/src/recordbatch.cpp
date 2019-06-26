@@ -207,18 +207,6 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
 
   // generate schema from the types that have been infered
   std::shared_ptr<arrow::Schema> schema;
-  if (Rf_inherits(schema_sxp, "arrow::Schema")) {
-    schema = arrow::r::extract<arrow::Schema>(schema_sxp);
-  } else {
-    Rcpp::CharacterVector names(Rf_getAttrib(lst, R_NamesSymbol));
-    std::vector<std::shared_ptr<arrow::Field>> fields(n_arrays);
-    for (R_xlen_t i = 0; i < n_arrays; i++) {
-      fields[i] =
-          std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type());
-    }
-    schema = std::make_shared<arrow::Schema>(std::move(fields));
-  }
-
   Rcpp::CharacterVector names(Rf_getAttrib(lst, R_NamesSymbol));
   std::vector<std::shared_ptr<arrow::Field>> fields(n_arrays);
   for (R_xlen_t i = 0; i < n_arrays; i++) {
