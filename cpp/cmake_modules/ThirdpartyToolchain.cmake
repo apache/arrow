@@ -1158,7 +1158,8 @@ macro(build_thrift)
         "${CMAKE_CURRENT_BINARY_DIR}/winflexbison_ep/src/winflexbison_ep-install")
     externalproject_add(
       winflexbison_ep
-      URL https://github.com/lexxmark/winflexbison/releases/download/v${WINFLEXBISON_VERSION}/win_flex_bison-${WINFLEXBISON_VERSION}.zip
+      URL
+        https://github.com/lexxmark/winflexbison/releases/download/v${WINFLEXBISON_VERSION}/win_flex_bison-${WINFLEXBISON_VERSION}.zip
       URL_HASH MD5=620e8a34385ac28adbbe72fd2b8a3c42
       SOURCE_DIR ${WINFLEXBISON_PREFIX}
       CONFIGURE_COMMAND ""
