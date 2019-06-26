@@ -17,32 +17,66 @@
 
 #' Read a CSV or other delimited file with Arrow
 #'
-#' Use arrow::csv::TableReader from [csv_table_reader()]
+#' This function uses the Arrow C++ CSV reader to read into a `data.frame`.
+#' Arrow C++ options have been mapped to argument names that follow those of
+#' [readr::read_delim()], and `col_select` was inspired by [vroom::vroom()].
 #'
-#' @inheritParams csv_table_reader
+#' Note that not all `readr` options are currently implemented here. Please file
+#' an issue if you encounter one that `arrow` should support.
 #'
-#' @param col_select [tidy selection specification][tidyselect::vars_select] of columns
-#' @param as_tibble Should the [arrow::Table][arrow__Table] be converted to a data frame.
+#' If you need to control Arrow-specific reader parameters that don't have an
+#' equivalent in `readr::read_csv()`, you can either provide them in the
+#' `parse_options`, `convert_options`, or `read_options` arguments, or you can
+#' call [csv_table_reader()] directly for lower-level access.
 #'
-#' @return
+#' @param file A character path to a local file, or an Arrow input stream
+#' @param delim Single character used to separate fields within a record.
+#' @param quote Single character used to quote strings.
+#' @param escape_double Does the file escape quotes by doubling them?
+#' i.e. If this option is `TRUE`, the value `""""` represents
+#' a single quote, `\"`.
+#' @param escape_backslash Does the file use backslashes to escape special
+#' characters? This is more general than `escape_double` as backslashes
+#' can be used to escape the delimiter character, the quote character, or
+#' to add special characters like `\\n`.
+# #' @param col_names If `TRUE`, the first row of the input will be used as the
+# #' column names and will not be included in the data frame. Note that `FALSE`
+# #' is not currently supported, nor is specifying a character vector of column
+# #' names.
+#' @param col_select A [tidy selection specification][tidyselect::vars_select]
+#' of columns, as used in `dplyr::select()`.
+#' @param skip_empty_rows Should blank rows be ignored altogether? If
+#' `TRUE`, blank rows will not be represented at all. If `FALSE`, they will be
+#' filled with missings.
+# #' @param skip Number of lines to skip before reading data.
+#' @param parse_options see [csv_parse_options()]. If given, this overrides any
+#' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
+#' @param convert_options see [csv_convert_options()]
+#' @param read_options see [csv_read_options()]
+#' @param as_tibble Should the function return a `data.frame` or an
+#' [arrow::Table][arrow__Table]?
+#'
+#' @return A `data.frame`, or an `arrow::Table` if `as_tibble = FALSE`.
 #' @export
 read_csv_arrow <- function(file,
                            delim = ",",
                            quote = '"',
                            escape_double = TRUE,
                            escape_backslash = FALSE,
-                           col_names = TRUE,
+                           # col_names = TRUE,
                            # col_types = TRUE,
                            col_select = NULL,
                            # na = c("", "NA"),
                            # quoted_na = TRUE,
                            skip_empty_rows = TRUE,
-                           skip = 0L,
+                           # skip = 0L,
                            parse_options = NULL,
                            convert_options = NULL,
                            read_options = csv_read_options(),
                            as_tibble = TRUE) {
 
+  col_names <- TRUE # Hardcoded pending fix
+  skip <- 0L # Hardcoded pending fix
   if (is.null(parse_options)) {
     if (isTRUE(col_names)) {
       # Add one row to skip, to match arrow's header_rows
@@ -88,27 +122,6 @@ read_csv_arrow <- function(file,
   tab
 }
 
-readr_to_csv_parse_options <- function(delim = ",",
-                                       quote = '"',
-                                       escape_double = TRUE,
-                                       escape_backslash = FALSE,
-                                       skip_empty_rows = TRUE,
-                                       skip = 0L) {
-  # This function translates from the readr argument list to the arrow arg names
-  # TODO: validate inputs
-  csv_parse_options(
-    delimiter = delim,
-    quoting = nzchar(quote),
-    quote_char = quote,
-    double_quote = escape_double,
-    escaping = escape_backslash,
-    escape_char = '\\',
-    newlines_in_values = escape_backslash,
-    ignore_empty_lines = skip_empty_rows,
-    header_rows = skip
-  )
-}
-
 #' @include R6.R
 
 `arrow::csv::TableReader` <- R6Class("arrow::csv::TableReader", inherit = `arrow::Object`,
@@ -135,7 +148,29 @@ csv_read_options <- function(block_size = 1048576L) {
   ))
 }
 
-#' Parsing options
+readr_to_csv_parse_options <- function(delim = ",",
+                                       quote = '"',
+                                       escape_double = TRUE,
+                                       escape_backslash = FALSE,
+                                       skip_empty_rows = TRUE,
+                                       skip = 0L) {
+  # This function translates from the readr argument list to the arrow arg names
+  # TODO: validate inputs
+  csv_parse_options(
+    delimiter = delim,
+    quoting = nzchar(quote),
+    quote_char = quote,
+    double_quote = escape_double,
+    escaping = escape_backslash,
+    escape_char = '\\',
+    newlines_in_values = escape_backslash,
+    ignore_empty_lines = skip_empty_rows,
+    header_rows = skip
+  )
+}
+
+#' CSV parsing options
+#'
 #'
 #' @param delimiter Field delimiter
 #' @param quoting Whether quoting is used
@@ -148,12 +183,16 @@ csv_read_options <- function(block_size = 1048576L) {
 #' @param header_rows Number of header rows to skip (including the first row containing column names)
 #'
 #' @export
-csv_parse_options <- function(
-  delimiter = ",", quoting = TRUE, quote_char = '"',
-  double_quote = TRUE, escaping = FALSE, escape_char = '\\',
-  newlines_in_values = FALSE, ignore_empty_lines = TRUE,
-  header_rows = 1L
-){
+csv_parse_options <- function(delimiter = ",",
+                              quoting = TRUE,
+                              quote_char = '"',
+                              double_quote = TRUE,
+                              escaping = FALSE,
+                              escape_char = '\\',
+                              newlines_in_values = FALSE,
+                              ignore_empty_lines = TRUE,
+                              header_rows = 1L) {
+
   shared_ptr(`arrow::csv::ParseOptions`, csv___ParseOptions__initialize(
     list(
       delimiter = delimiter,
@@ -176,8 +215,6 @@ csv_parse_options <- function(
 #' @export
 csv_convert_options <- function(check_utf8 = TRUE) {
   # TODO: there are more conversion options available:
-  # // Whether to check UTF8 validity of string columns
-  # bool check_utf8 = true;
   # // Optional per-column types (disabling type inference on those columns)
   # std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
   # // Recognized spellings for null values
@@ -197,14 +234,20 @@ csv_convert_options <- function(check_utf8 = TRUE) {
   ))
 }
 
-#' CSV table reader
+#' Arrow CSV table reader
 #'
-#' @param file file
+#' These methods wrap the Arrow C++ CSV table reader.
+#' For an interface to the CSV reader that's more familiar for R users, see
+#' [read_csv_arrow()]
+#'
+#' @param file A character path to a local file, or an Arrow input stream
 #' @param read_options, see [csv_read_options()]
 #' @param parse_options, see [csv_parse_options()]
 #' @param convert_options, see [csv_convert_options()]
 #' @param ... additional parameters.
 #'
+#' @return An `arrow::csv::TableReader` R6 object. Call `$Read()` on it to get
+#' an Arrow Table.
 #' @export
 csv_table_reader <- function(file,
   read_options = csv_read_options(),
