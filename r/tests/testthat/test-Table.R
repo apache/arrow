@@ -119,3 +119,21 @@ test_that("table() handles ... of arrays, chunked arrays, vectors", {
     tibble::tibble(a = 1:10, b = 1:10, c = v, x = 1:10, y = letters[1:10])
   )
 })
+
+test_that("table() auto splices (ARROW-5718)", {
+  df <- tibble::tibble(x = 1:10, y = letters[1:10])
+
+  tab1 <- table(df)
+  tab2 <- table(!!!df)
+  expect_equal(tab1, tab2)
+  expect_equal(tab1$schema, schema(x = int32(), y = utf8()))
+  expect_equivalent(as.data.frame(tab1), df)
+
+  s <- schema(x = float64(), y = utf8())
+  tab3 <- table(df, schema = s)
+  tab4 <- table(!!!df, schema = s)
+  expect_equal(tab3, tab4)
+  expect_equal(tab3$schema, s)
+  expect_equivalent(as.data.frame(tab3), df)
+})
+

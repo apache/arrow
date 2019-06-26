@@ -204,6 +204,14 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
   std::vector<std::shared_ptr<arrow::Array>> arrays(num_fields);
   SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
 
+  auto fill_array = [&arrays, &schema](int j, SEXP x, SEXP name) {
+    if (schema->field(j)->name() != CHAR(name)) {
+      Rcpp::stop("field at index %d has name '%s' != '%s'", j + 1,
+                 schema->field(j)->name(), CHAR(name));
+    }
+    arrays[j] = arrow::r::Array__from_vector(x, schema->field(j)->type(), false);
+  };
+
   for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
     SEXP name_i = STRING_ELT(names, i);
     SEXP x_i = VECTOR_ELT(lst, i);
@@ -211,15 +219,10 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
     if (LENGTH(name_i) == 0) {
       SEXP names_x_i = Rf_getAttrib(x_i, R_NamesSymbol);
       for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
-        if (schema->field(j)->name() != CHAR(STRING_ELT(names_x_i, k))) {
-          Rcpp::stop("field at index %d has name '%s' != '%s'", j + 1,
-                     schema->field(j)->name(), CHAR(STRING_ELT(names_x_i, k)));
-        }
-        arrays[j] = arrow::r::Array__from_vector(VECTOR_ELT(x_i, k),
-                                                 schema->field(j)->type(), false);
+        fill_array(j, VECTOR_ELT(x_i, k), STRING_ELT(names_x_i, k));
       }
     } else {
-      arrays[j] = arrow::r::Array__from_vector(x_i, schema->field(j)->type(), false);
+      fill_array(j, x_i, name_i);
       j++;
     }
   }
@@ -243,18 +246,22 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
   std::vector<std::shared_ptr<arrow::Array>> arrays(num_fields);
   std::vector<std::string> arrays_names(num_fields);
   SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
+
+  auto fill_array = [&arrays, &arrays_names](int j, SEXP x, SEXP name) {
+    arrays[j] = Array__from_vector(x, R_NilValue);
+    arrays_names[j] = CHAR(name);
+  };
+
   for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
     SEXP name_i = STRING_ELT(names, i);
     SEXP x_i = VECTOR_ELT(lst, i);
     if (LENGTH(name_i) == 0) {
       SEXP names_x_i = Rf_getAttrib(x_i, R_NamesSymbol);
       for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
-        arrays[j] = Array__from_vector(VECTOR_ELT(x_i, k), R_NilValue);
-        arrays_names[j] = CHAR(STRING_ELT(names_x_i, k));
+        fill_array(j, VECTOR_ELT(x_i, k), STRING_ELT(names_x_i, k));
       }
     } else {
-      arrays[j] = Array__from_vector(x_i, R_NilValue);
-      arrays_names[j] = CHAR(name_i);
+      fill_array(j, x_i, name_i);
       j++;
     }
   }

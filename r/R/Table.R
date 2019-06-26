@@ -74,6 +74,9 @@
 #' @export
 table <- function(..., schema = NULL){
   dots <- list2(...)
+  if (is.null(names(dots))) {
+    names(dots) <- rep("", length(dots))
+  }
   stopifnot(length(dots) > 0)
   shared_ptr(`arrow::Table`, Table__from_dots(dots, schema))
 }
