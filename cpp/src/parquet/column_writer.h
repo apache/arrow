@@ -45,11 +45,8 @@ class RleEncoder;
 namespace parquet {
 
 class ColumnChunkMetaDataBuilder;
-class WriterProperties;
-
-#ifdef PARQUET_ENCRYPTION
 class Encryptor;
-#endif
+class WriterProperties;
 
 class PARQUET_EXPORT LevelEncoder {
  public:
@@ -90,13 +87,9 @@ class PARQUET_EXPORT PageWriter {
       ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal = -1,
       int16_t column_chunk_ordinal = -1,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-#ifdef PARQUET_ENCRYPTION
       bool buffered_row_group = false,
       std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
       std::shared_ptr<Encryptor> data_encryptor = NULLPTR);
-#else
-      bool buffered_row_group = false);
-#endif
 
   // The Column Writer decides if dictionary encoding is used if set and
   // if the dictionary encoding has fallen back to default encoding on reaching dictionary

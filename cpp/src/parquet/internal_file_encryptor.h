@@ -69,7 +69,8 @@ class Encryptor {
 
 class InternalFileEncryptor {
  public:
-  explicit InternalFileEncryptor(FileEncryptionProperties* propperties, ::arrow::MemoryPool* pool);
+  explicit InternalFileEncryptor(FileEncryptionProperties* propperties,
+                                 ::arrow::MemoryPool* pool);
 
   std::shared_ptr<Encryptor> GetFooterEncryptor();
   std::shared_ptr<Encryptor> GetFooterSigningEncryptor();
