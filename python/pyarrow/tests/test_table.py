@@ -992,3 +992,26 @@ def test_table_from_pydict():
     # Cannot pass both schema and metadata
     with pytest.raises(ValueError):
         pa.Table.from_pydict(data, schema=schema, metadata=metadata)
+
+
+@pytest.mark.pandas
+def test_table_factory_function():
+    import pandas as pd
+
+    d = {'a': [1, 2, 3], 'b': ['a', 'b', 'c']}
+    schema = pa.schema([('a', pa.int32()), ('b', pa.string())])
+
+    df = pd.DataFrame(d)
+    table1 = pa.table(df)
+    table2 = pa.Table.from_pandas(df)
+    assert table1.equals(table2)
+    table1 = pa.table(df, schema=schema)
+    table2 = pa.Table.from_pandas(df, schema=schema)
+    assert table1.equals(table2)
+
+    table1 = pa.table(d)
+    table2 = pa.Table.from_pydict(d)
+    assert table1.equals(table2)
+    table1 = pa.table(d, schema=schema)
+    table2 = pa.Table.from_pydict(d, schema=schema)
+    assert table1.equals(table2)

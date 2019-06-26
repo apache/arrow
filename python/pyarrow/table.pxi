@@ -1576,6 +1576,35 @@ def _reconstruct_table(arrays, schema):
     return Table.from_arrays(arrays, schema=schema)
 
 
+def table(data, schema=None):
+    """
+    Create a pyarrow.Table from a Python object (table like objects such as
+    DataFrame, dictionary).
+
+    Parameters
+    ----------
+    data : pandas.DataFrame, dict
+        A DataFrame or a mapping of strings to Arrays or Python lists.
+    schema : Schema, default None
+        The expected schema of the Arrow Table. If not passed, will be
+        inferred from the data.
+
+    Returns
+    -------
+    Table
+
+    See Also
+    --------
+    Table.from_pandas, Table.from_pydict
+    """
+    if isinstance(data, dict):
+        return Table.from_pydict(data, schema=schema)
+    elif isinstance(data, _pandas_api.pd.DataFrame):
+        return Table.from_pandas(data, schema=schema)
+    else:
+        return TypeError("Expected pandas DataFrame or python dictionary")
+
+
 def concat_tables(tables):
     """
     Perform zero-copy concatenation of pyarrow.Table objects. Raises exception
