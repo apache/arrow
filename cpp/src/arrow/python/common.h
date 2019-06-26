@@ -24,12 +24,15 @@
 #include "arrow/python/config.h"
 
 #include "arrow/buffer.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 
 class MemoryPool;
+template <class T>
+class Result;
 
 namespace py {
 
@@ -51,6 +54,20 @@ ARROW_PYTHON_EXPORT Status PassPyError();
 #define RETURN_IF_PYERROR() ARROW_RETURN_NOT_OK(CheckPyError());
 
 #define PY_RETURN_IF_ERROR(CODE) ARROW_RETURN_NOT_OK(CheckPyError(CODE));
+
+// For Cython, as you can't define template C++ functions in Cython, only use them.
+// This function can set a Python exception.  It assumes that T has a (cheap)
+// default constructor.
+template <class T>
+T GetResultValue(Result<T>& result) {
+  if (ARROW_PREDICT_TRUE(result.ok())) {
+    return *std::move(result);
+  } else {
+    int r = internal::check_status(result.status());
+    assert(r == -1);  // should have errored out
+    return {};
+  }
+}
 
 // A RAII-style helper that ensures the GIL is acquired inside a lexical block.
 class ARROW_PYTHON_EXPORT PyAcquireGIL {

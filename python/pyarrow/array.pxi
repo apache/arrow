@@ -1456,10 +1456,10 @@ cdef class StructArray(Array):
         result : StructArray
         """
         cdef:
-            Array array
             shared_ptr[CArray] c_array
             vector[shared_ptr[CArray]] c_arrays
-            shared_ptr[CArray] c_result
+            vector[c_string] c_names
+            CResult[shared_ptr[CArray]] c_result
             ssize_t num_arrays
             ssize_t length
             ssize_t i
@@ -1469,30 +1469,20 @@ cdef class StructArray(Array):
             raise ValueError('Names are currently required')
 
         arrays = [asarray(x) for x in arrays]
+        for arr in arrays:
+            c_arrays.push_back(pyarrow_unwrap_array(arr))
+        for name in names:
+            c_names.push_back(tobytes(name))
 
-        num_arrays = len(arrays)
-        if num_arrays != len(names):
-            raise ValueError("The number of names should be equal to the "
-                             "number of arrays")
+        if c_arrays.size() == 0 and c_names.size() == 0:
+            # The C++ side doesn't allow this
+            return array([], struct([]))
 
-        if num_arrays > 0:
-            length = len(arrays[0])
-            c_arrays.resize(num_arrays)
-            for i in range(num_arrays):
-                array = arrays[i]
-                if len(array) != length:
-                    raise ValueError("All arrays must have the same length")
-                c_arrays[i] = array.sp_array
-        else:
-            length = 0
-
-        struct_type = struct([
-            field(name, array.type) for name, array in zip(names, arrays)
-        ])
-
-        c_result.reset(new CStructArray(struct_type.sp_type, length, c_arrays))
-
-        return pyarrow_wrap_array(c_result)
+        # XXX Cannot pass "nullptr" for a shared_ptr<T> argument:
+        # https://github.com/cython/cython/issues/3020
+        c_result = CStructArray.Make(c_arrays, c_names,
+                                     shared_ptr[CBuffer](), -1, 0)
+        return pyarrow_wrap_array(GetResultValue(c_result))
 
 
 cdef class ExtensionArray(Array):

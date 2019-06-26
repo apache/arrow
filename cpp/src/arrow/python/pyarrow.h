@@ -81,6 +81,11 @@ ARROW_PYTHON_EXPORT Status unwrap_record_batch(PyObject* batch,
 ARROW_PYTHON_EXPORT PyObject* wrap_record_batch(
     const std::shared_ptr<RecordBatch>& batch);
 
+namespace internal {
+
+ARROW_PYTHON_EXPORT int check_status(const Status& status);
+
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow
 

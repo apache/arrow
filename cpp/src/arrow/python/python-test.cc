@@ -32,6 +32,7 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
