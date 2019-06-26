@@ -71,10 +71,16 @@ static void FilterFixedSizeList1Int64(benchmark::State& state) {
 static void FilterString(benchmark::State& state) {
   RegressionArgs args(state);
 
-  const int64_t array_size = args.size / sizeof(int64_t);
+  int32_t string_min_length = 0, string_max_length = 128;
+  int32_t string_mean_length = (string_max_length + string_min_length) / 2;
+  // for an array of 50% null strings, we need to generate twice as many strings
+  // to ensure that they have an average of args.size total characters
+  auto array_size =
+      static_cast<int64_t>(args.size / string_mean_length / (1 - args.null_proportion));
+
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto array = std::static_pointer_cast<StringArray>(
-      rand.String(array_size, 0, 128, args.null_proportion));
+  auto array = std::static_pointer_cast<StringArray>(rand.String(
+      array_size, string_min_length, string_max_length, args.null_proportion));
   auto filter = std::static_pointer_cast<BooleanArray>(
       rand.Boolean(array_size, 0.75, args.null_proportion));
 
