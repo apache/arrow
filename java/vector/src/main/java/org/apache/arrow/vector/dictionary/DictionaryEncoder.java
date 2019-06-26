@@ -74,7 +74,7 @@ public class DictionaryEncoder {
       Object value = vector.getObject(i);
       if (value != null) { // if it's null leave it null
         // note: this may fail if value was not included in the dictionary
-        Object encoded = lookUps.get(value);
+        Integer encoded = lookUps.get(value);
         if (encoded == null) {
           throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
         }

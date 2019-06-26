@@ -25,5 +25,5 @@ public interface BaseIntVector extends ValueVector {
   /**
    * set the encoded value from a {@link org.apache.arrow.vector.dictionary.Dictionary}.
    */
-  void setEncodedValue(int index, Object value);
+  void setEncodedValue(int index, int value);
 }
