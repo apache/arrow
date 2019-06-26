@@ -341,7 +341,7 @@ public class BigIntVector extends BaseFixedWidthVector implements BaseIntVector 
 
   @Override
   public void setEncodedValue(int index, int value) {
-    this.setSafe(index, (long) value);
+    this.setSafe(index, value);
   }
 
   private class TransferImpl implements TransferPair {
