@@ -351,7 +351,7 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
   }
 
   Status AppendNull() {
-    if (ARROW_PREDICT_FALSE(builder_->length() == std::numeric_limits<int32_t>::max())) {
+    if (ARROW_PREDICT_FALSE(builder_->length() == kListMaximumElements)) {
       ARROW_RETURN_NOT_OK(NextChunk());
     }
     return builder_->AppendNull();
@@ -366,6 +366,8 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
 
   int64_t max_chunk_size_;
   int64_t chunk_data_size_ = 0;
+  // when Reserve() would cause builder_ to exceed its maximum capacity,
+  // add to extra_capacity_ instead and wait to reserve until the next chunk
   int64_t extra_capacity_ = 0;
 
   std::unique_ptr<BinaryBuilder> builder_;

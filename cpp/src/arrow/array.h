@@ -690,8 +690,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
   /// Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data);
 
-  // Constructor that allows sub-classes/builders to propagate there logical type up the
-  // class hierarchy.
+  // Constructor to allow sub-classes/builders to substitute their own logical type
   BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
               const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,

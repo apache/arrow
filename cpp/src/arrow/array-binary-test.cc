@@ -740,6 +740,32 @@ TEST_F(TestChunkedBinaryBuilder, LargeElements) {
   ASSERT_EQ(iterations * bufsize, total_data_size);
 }
 
+TEST_F(TestChunkedBinaryBuilder, MassiveReserve) {
+  Init(100);
+
+  auto length = kListMaximumElements + 1;
+
+  // ChunkedBinaryBuilder can reserve memory for more than kListMaximumElements
+  ASSERT_OK(builder_->Reserve(length));
+
+  for (int64_t i = 0; i < length; ++i) {
+    // ChunkedBinaryBuilder can append more than kListMaximumElements
+    ASSERT_OK(builder_->Append(""));
+  }
+
+  ArrayVector chunks;
+  ASSERT_OK(builder_->Finish(&chunks));
+
+  // should have one chunk full of empty strings and another with one more empty string
+  ASSERT_EQ(chunks.size(), 2);
+  ASSERT_EQ(chunks[0]->length(), length - 1);
+  ASSERT_EQ(chunks[1]->length(), 1);
+  for (auto&& boxed_chunk : chunks) {
+    const auto& chunk = checked_cast<const BinaryArray&>(*boxed_chunk);
+    ASSERT_EQ(chunk.value_offset(0), chunk.value_offset(chunk.length()));
+  }
+}
+
 TEST(TestChunkedStringBuilder, BasicOperation) {
   const int chunksize = 100;
   internal::ChunkedStringBuilder builder(chunksize);
@@ -758,7 +784,7 @@ TEST(TestChunkedStringBuilder, BasicOperation) {
 
   // Type is correct
   for (auto chunk : chunks) {
-    ASSERT_TRUE(chunk->type()->Equals(*::arrow::utf8()));
+    ASSERT_TRUE(chunk->type()->Equals(utf8()));
   }
 }
 
