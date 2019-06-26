@@ -148,9 +148,8 @@ public class IntervalYearVector extends BaseFixedWidthVector {
       return null;
     } else {
       final int interval = valueBuffer.getInt(index * TYPE_WIDTH);
-      final int years = (interval / org.apache.arrow.vector.util.DateUtility.yearsToMonths);
-      final int months = (interval % org.apache.arrow.vector.util.DateUtility.yearsToMonths);
-      return Period.ofYears(years).plusMonths(months);
+      // TODO: verify interval is in months
+      return Period.ofMonths(interval);
     }
   }
 
@@ -172,16 +171,10 @@ public class IntervalYearVector extends BaseFixedWidthVector {
   private StringBuilder getAsStringBuilderHelper(int index) {
     int value = valueBuffer.getInt(index * TYPE_WIDTH);
 
-    final int years = (value / org.apache.arrow.vector.util.DateUtility.yearsToMonths);
-    final int months = (value % org.apache.arrow.vector.util.DateUtility.yearsToMonths);
-
-    final String yearString = (Math.abs(years) == 1) ? " year " : " years ";
-    final String monthString = (Math.abs(months) == 1) ? " month " : " months ";
+    final String monthString = (Math.abs(value) == 1) ? " month " : " months ";
 
     return (new StringBuilder()
-      .append(years)
-      .append(yearString)
-      .append(months)
+      .append(value)
       .append(monthString));
   }
 

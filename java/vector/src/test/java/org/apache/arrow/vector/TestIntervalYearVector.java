@@ -39,7 +39,7 @@ public class TestIntervalYearVector {
   }
 
   @Test
-  public void testGetObject() {
+  public void testGetAsStringBuilder() {
     try (final IntervalYearVector vector = new IntervalYearVector("", allocator)) {
       int valueCount = 100;
       vector.setInitialCapacity(valueCount);
@@ -48,8 +48,9 @@ public class TestIntervalYearVector {
         vector.set(i, i);
       }
 
-      assertEquals("P10M", vector.getObject(10).toString());
-      assertEquals("P2Y10M", vector.getObject(34).toString());
+      assertEquals("1 month ", vector.getAsStringBuilder(1).toString());
+      assertEquals("10 months ", vector.getAsStringBuilder(10).toString());
+      assertEquals("20 months ", vector.getAsStringBuilder(20).toString());
 
     }
   }
