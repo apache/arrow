@@ -20,7 +20,37 @@ limitations under the License.
 {% endcomment %}
 -->
 
+## Project and Product Names Using "Apache Arrow"
+
+Organizations creating products and projects for use with Apache Arrow, along
+with associated marketing materials, should take care to respect the trademark
+in "Apache Arrow" and its logo. Please refer to [ASF Trademarks Guidance][1]
+and associated [FAQ][2] for comprehensive and authoritative guidance on proper
+usage of ASF trademarks.
+
+Names that do not include "Apache Arrow" at all have no potential trademark
+issue with the Apache Arrow project. This is recommended.
+
+Names like "Apache Arrow BigCoProduct" are not OK, as are names including
+"Apache Arrow" in general. The above links, however, describe some exceptions,
+like for names such as "BigCoProduct, powered by Apache Arrow" or
+"BigCoProduct for Apache Arrow".
+
+It is common practice to create software identifiers (Maven coordinates, module
+names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
+in descriptions is also always allowed, as in "BigCoProduct is a widget for
+Apache Arrow".
+
+Projects and documents that want to include a logo for Apache Arrow should use
+the official logo:
+
+<img src="{{ site.baseurl }}/img/arrow.png" style="max-width: 100%;"/>
+
 ## Projects Powered By Apache Arrow
+
+To add yourself to the list, please open a [pull request][27] adding your
+organization name, URL, a list of which Arrow components you are using, and a
+short description of your use case.
 
 * **[Apache Parquet][3]:** A columnar storage format available to any project
   in the Hadoop ecosystem, regardless of the choice of data processing
@@ -113,36 +143,6 @@ limitations under the License.
   stream and batch processing. It supports Arrow as input and output, uses
   Arrow internally to maximize performance, and can be used with existing
   Apache Spark™ APIs.
-
-To add yourself to the list, please open a [pull request][27] adding your
-organization name, URL, a list of which Arrow components you are using, and a
-short description of your use case.
-
-### The "Apache Arrow" Trademark and Logo
-
-Organizations creating products and projects for use with Apache Arrow, along
-with associated marketing materials, should take care to respect the trademark
-in "Apache Arrow" and its logo. Please refer to [ASF Trademarks Guidance][1]
-and associated [FAQ][2] for comprehensive and authoritative guidance on proper
-usage of ASF trademarks.
-
-Names that do not include "Apache Arrow" at all have no potential trademark
-issue with the Apache Arrow project. This is recommended.
-
-Names like "Apache Arrow BigCoProduct" are not OK, as are names including
-"Apache Arrow" in general. The above links, however, describe some exceptions,
-like for names such as "BigCoProduct, powered by Apache Arrow" or
-"BigCoProduct for Apache Arrow".
-
-It is common practice to create software identifiers (Maven coordinates, module
-names, etc.) like "arrow-foo". These are permitted. Nominative use of trademarks
-in descriptions is also always allowed, as in "BigCoProduct is a widget for
-Apache Arrow".
-
-Projects and documents that want to include a logo for Apache Arrow should use
-the official logo:
-
-<img src="{{ site.baseurl }}/img/arrow.png" style="max-width: 100%;"/>
 
 [1]: https://www.apache.org/foundation/marks/
 [2]: https://www.apache.org/foundation/marks/faq/
