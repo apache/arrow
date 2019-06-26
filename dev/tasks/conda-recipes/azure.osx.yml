@@ -40,6 +40,11 @@ jobs:
       export CI=azure
       source run_conda_forge_build_setup
       conda update --yes --quiet --override-channels -c conda-forge -c defaults --all
+      # ARROW-5738: OSX package builds are failing with missing intrinsics
+      #             Conda 4.7 has introduced a new format, probably broken
+      #             packages cause the error, so using a temporary solution:
+      #             pin `conda` to 4.6.
+      conda install --yes conda=4.6
     displayName: Configure conda and conda-build
     workingDirectory: arrow/dev/tasks/conda-recipes
     env: {
@@ -72,7 +77,8 @@ jobs:
   # The tag upload took 43 minutes because of this scan, so use an alternative
   # upload script.
   - script: |
-      python -m pip install github3-py click
+      source activate base
+      conda install -c conda-forge -y github3.py click
       python upload-assets.py \
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
