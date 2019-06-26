@@ -153,10 +153,24 @@ test_that("record_batch() handles arrow::Array", {
 
 test_that("record_batch() handles data frame columns", {
   tib <- tibble::tibble(x = 1:10, y = 1:10)
+  # because tib is named here, this becomes a struct array
   batch <- record_batch(a = 1:10, b = tib)
-  expect_equal(batch$schema, schema(a = int32(), struct(x = int32(), y = int32())))
+  expect_equal(batch$schema,
+    schema(
+      a = int32(),
+      struct(x = int32(), y = int32())
+    )
+  )
   out <- as.data.frame(batch)
   expect_equivalent(out, tibble::tibble(a = 1:10, b = tib))
+
+  # if not named, columns from tib are auto spliced
+  batch2 <- record_batch(a = 1:10, tib)
+  expect_equal(batch$schema,
+    schema(a = int32(), x = int32(), y = int32())
+  )
+  out <- as.data.frame(batch2)
+  expect_equivalent(out, tibble::tibble(a = 1:10, !!!tib))
 })
 
 test_that("record_batch() handles data frame columns with schema spec", {
@@ -179,10 +193,31 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   expect_equal(batch1$schema, schema(x = int32(), y = utf8()))
   expect_equivalent(as.data.frame(batch1), df)
 
-  s <- schema(x = float64(), y = utf8())
-  batch3 <- record_batch(df, schema = s)
-  batch4 <- record_batch(!!!df, schema = s)
+  batch3 <- record_batch(df, z = 1:10)
+  batch4 <- record_batch(!!!df, z = 1:10)
   expect_equal(batch3, batch4)
-  expect_equal(batch3$schema, s)
-  expect_equivalent(as.data.frame(batch3), df)
+  expect_equal(batch3$schema, schema(x = int32(), y = utf8(), z = int32()))
+  expect_equivalent(as.data.frame(batch3), cbind(df, data.frame(z = 1:10)))
+
+  s <- schema(x = float64(), y = utf8())
+  batch5 <- record_batch(df, schema = s)
+  batch6 <- record_batch(!!!df, schema = s)
+  expect_equal(batch5, batch6)
+  expect_equal(batch5$schema, s)
+  expect_equivalent(as.data.frame(batch5), df)
+
+  s2 <- schema(x = float64(), y = utf8(), z = int16())
+  batch7 <- record_batch(df, z = 1:10, schema = s2)
+  batch8 <- record_batch(!!!df, z = 1:10, schema = s2)
+  expect_equal(batch7, batch8)
+  expect_equal(batch7$schema, s2)
+  expect_equivalent(as.data.frame(batch7), cbind(df, data.frame(z = 1:10)))
 })
+
+test_that("record_batch() only auto splice data frames", {
+  expect_error(
+    record_batch(1:10),
+    regexp = "only data frames are allowed as unnamed arguments to be auto spliced"
+  )
+})
+
