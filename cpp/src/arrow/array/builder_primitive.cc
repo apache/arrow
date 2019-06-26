@@ -49,7 +49,7 @@ BooleanBuilder::BooleanBuilder(MemoryPool* pool)
 
 BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : BooleanBuilder(pool) {
-  DCHECK_EQ(Type::BOOL, type->id());
+  ARROW_CHECK_EQ(Type::BOOL, type->id());
 }
 
 void BooleanBuilder::Reset() {

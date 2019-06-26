@@ -295,7 +295,9 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
 
     if (first_payload_) {
       // First Flight message needs to encore the Flight descriptor
-      DCHECK_EQ(ipc_payload.type, ipc::Message::SCHEMA);
+      if (ipc_payload.type != ipc::Message::SCHEMA) {
+        return Status::Invalid("First IPC message should be schema");
+      }
       std::string str_descr;
       {
         pb::FlightDescriptor pb_descr;

@@ -150,7 +150,9 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   // Write the descriptor if present
   int32_t descriptor_size = 0;
   if (msg.descriptor != nullptr) {
-    DCHECK_LT(msg.descriptor->size(), kInt32Max);
+    if (msg.descriptor->size() > kInt32Max) {
+      return ToGrpcStatus(Status::CapacityError("Descriptor size overflow (>= 2**31)"));
+    }
     descriptor_size = static_cast<int32_t>(msg.descriptor->size());
     header_size += 1 + WireFormatLite::LengthDelimitedSize(descriptor_size);
   }

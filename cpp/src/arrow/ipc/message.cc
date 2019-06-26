@@ -226,7 +226,8 @@ std::string FormatMessageType(Message::Type type) {
 
 Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile* file,
                    std::unique_ptr<Message>* message) {
-  DCHECK_GT(static_cast<size_t>(metadata_length), sizeof(int32_t));
+  ARROW_CHECK_GT(static_cast<size_t>(metadata_length), sizeof(int32_t))
+      << "metadata_length should be at least 4";
 
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));

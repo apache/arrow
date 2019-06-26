@@ -15,11 +15,14 @@
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
+
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
 Status::Status(StatusCode code, const std::string& msg) {
-  assert(code != StatusCode::OK);
+  ARROW_CHECK_NE(code, StatusCode::OK) << "Cannot construct ok status with message";
   state_ = new State;
   state_->code = code;
   state_->msg = msg;
@@ -125,5 +128,14 @@ void Status::Abort(const std::string& message) const {
   std::cerr << ToString() << std::endl;
   std::abort();
 }
+
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+void Status::AddContextLine(const char* filename, int line, const char* expr) {
+  ARROW_CHECK(!ok()) << "Cannot add context line to ok status";
+  std::stringstream ss;
+  ss << "\nIn " << filename << ", line " << line << ", code: " << expr;
+  state_->msg += ss.str();
+}
+#endif
 
 }  // namespace arrow

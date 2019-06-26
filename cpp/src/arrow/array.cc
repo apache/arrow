@@ -78,7 +78,7 @@ std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type
 }
 
 ArrayData ArrayData::Slice(int64_t off, int64_t len) const {
-  DCHECK_LE(off, length);
+  ARROW_CHECK_LE(off, length) << "Slice offset greater than array length";
   len = std::min(length - off, len);
   off += offset;
 
@@ -166,8 +166,7 @@ std::shared_ptr<Array> Array::Slice(int64_t offset) const {
 
 std::string Array::ToString() const {
   std::stringstream ss;
-  Status s = PrettyPrint(*this, 0, &ss);
-  DCHECK_OK(s);
+  ARROW_CHECK_OK(PrettyPrint(*this, 0, &ss));
   return ss.str();
 }
 
@@ -190,7 +189,7 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
 
 BooleanArray::BooleanArray(const std::shared_ptr<ArrayData>& data)
     : PrimitiveArray(data) {
-  DCHECK_EQ(data->type->id(), Type::BOOL);
+  ARROW_CHECK_EQ(data->type->id(), Type::BOOL);
 }
 
 BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
@@ -221,7 +220,7 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
   }
 
   if (offsets.type_id() != Type::INT32) {
-    return Status::Invalid("List offsets must be signed int32");
+    return Status::TypeError("List offsets must be signed int32");
   }
 
   BufferVector buffers = {};
@@ -231,11 +230,15 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
   const int64_t num_offsets = offsets.length();
 
   if (offsets.null_count() > 0) {
-    std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
+    if (!offsets.IsValid(num_offsets - 1)) {
+      return Status::Invalid("Last list offset should be non-null");
+    }
 
+    std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
     RETURN_NOT_OK(AllocateBuffer(pool, num_offsets * sizeof(int32_t), &clean_offsets));
 
     // Copy valid bits, zero out the bit for the final offset
+    // XXX why?
     RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
                                               &clean_valid_bits));
     BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
@@ -245,7 +248,6 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
     auto clean_raw_offsets = reinterpret_cast<int32_t*>(clean_offsets->mutable_data());
 
     // Must work backwards so we can tell how many values were in the last non-null value
-    DCHECK(offsets.IsValid(num_offsets - 1));
     int32_t current_offset = raw_offsets[num_offsets - 1];
     for (int64_t i = num_offsets - 1; i >= 0; --i) {
       if (offsets.IsValid(i)) {
@@ -271,8 +273,8 @@ Status ListArray::FromArrays(const Array& offsets, const Array& values, MemoryPo
 
 void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
-  DCHECK_EQ(data->buffers.size(), 2);
-  DCHECK(data->type->id() == Type::LIST);
+  ARROW_CHECK_EQ(data->buffers.size(), 2);
+  ARROW_CHECK(data->type->id() == Type::LIST);
   list_type_ = checked_cast<const ListType*>(data->type.get());
 
   auto value_offsets = data->buffers[1];
@@ -280,7 +282,9 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
 
-  DCHECK_EQ(data_->child_data.size(), 1);
+  ARROW_CHECK_EQ(data_->child_data.size(), 1);
+  ARROW_CHECK_EQ(list_type_->value_type()->id(), data->child_data[0]->type->id());
+  DCHECK(list_type_->value_type()->Equals(data->child_data[0]->type));
   values_ = MakeArray(data_->child_data[0]);
 }
 
@@ -309,12 +313,12 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
 }
 
 void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::MAP);
+  ARROW_CHECK_EQ(data->type->id(), Type::MAP);
   auto pair_data = data->child_data[0];
-  DCHECK_EQ(pair_data->type->id(), Type::STRUCT);
-  DCHECK_EQ(pair_data->null_count, 0);
-  DCHECK_EQ(pair_data->child_data.size(), 2);
-  DCHECK_EQ(pair_data->child_data[0]->null_count, 0);
+  ARROW_CHECK_EQ(pair_data->type->id(), Type::STRUCT);
+  ARROW_CHECK_EQ(pair_data->null_count, 0);
+  ARROW_CHECK_EQ(pair_data->child_data.size(), 2);
+  ARROW_CHECK_EQ(pair_data->child_data[0]->null_count, 0);
 
   auto pair_list_data = data->Copy();
   pair_list_data->type = list(pair_data->type);
@@ -343,13 +347,14 @@ FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<DataType>& type,
 }
 
 void FixedSizeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::FIXED_SIZE_LIST);
+  ARROW_CHECK_EQ(data->type->id(), Type::FIXED_SIZE_LIST);
   this->Array::SetData(data);
 
+  ARROW_CHECK_EQ(list_type()->value_type()->id(), data->child_data[0]->type->id());
   DCHECK(list_type()->value_type()->Equals(data->child_data[0]->type));
   list_size_ = list_type()->list_size();
 
-  DCHECK_EQ(data_->child_data.size(), 1);
+  ARROW_CHECK_EQ(data_->child_data.size(), 1);
   values_ = MakeArray(data_->child_data[0]);
 }
 
@@ -367,12 +372,12 @@ std::shared_ptr<Array> FixedSizeListArray::values() const { return values_; }
 // String and binary
 
 BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::BINARY);
+  ARROW_CHECK_EQ(data->type->id(), Type::BINARY);
   SetData(data);
 }
 
 void BinaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->buffers.size(), 3);
+  ARROW_CHECK_EQ(data->buffers.size(), 3);
   auto value_offsets = data->buffers[1];
   auto value_data = data->buffers[2];
   this->Array::SetData(data);
@@ -399,7 +404,7 @@ BinaryArray::BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
 }
 
 StringArray::StringArray(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::STRING);
+  ARROW_CHECK_EQ(data->type->id(), Type::STRING);
   SetData(data);
 }
 
@@ -453,7 +458,7 @@ DayTimeIntervalType::DayMilliseconds DayTimeIntervalArray::GetValue(int64_t i) c
 
 Decimal128Array::Decimal128Array(const std::shared_ptr<ArrayData>& data)
     : FixedSizeBinaryArray(data) {
-  DCHECK_EQ(data->type->id(), Type::DECIMAL);
+  ARROW_CHECK_EQ(data->type->id(), Type::DECIMAL);
 }
 
 std::string Decimal128Array::FormatValue(int64_t i) const {
@@ -466,7 +471,7 @@ std::string Decimal128Array::FormatValue(int64_t i) const {
 // Struct
 
 StructArray::StructArray(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::STRUCT);
+  ARROW_CHECK_EQ(data->type->id(), Type::STRUCT);
   SetData(data);
   boxed_fields_.resize(data->child_data.size());
 }
@@ -475,6 +480,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
                          const std::vector<std::shared_ptr<Array>>& children,
                          std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                          int64_t offset) {
+  ARROW_CHECK_EQ(type->id(), Type::STRUCT);
   SetData(ArrayData::Make(type, length, {null_bitmap}, null_count, offset));
   for (const auto& child : children) {
     data_->child_data.push_back(child->data());
@@ -497,7 +503,6 @@ std::shared_ptr<Array> StructArray::field(int i) const {
     }
     boxed_fields_[i] = MakeArray(field_data);
   }
-  DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
 }
 
@@ -559,7 +564,8 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
 void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
 
-  DCHECK_EQ(data->buffers.size(), 3);
+  ARROW_CHECK_EQ(data->type->id(), Type::UNION);
+  ARROW_CHECK_EQ(data->buffers.size(), 3);
 
   auto type_ids = data_->buffers[1];
   auto value_offsets = data_->buffers[2];
@@ -571,10 +577,7 @@ void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   boxed_fields_.resize(data->child_data.size());
 }
 
-UnionArray::UnionArray(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::UNION);
-  SetData(data);
-}
+UnionArray::UnionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
 UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::vector<std::shared_ptr<Array>>& children,
@@ -600,11 +603,11 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
   }
 
   if (value_offsets.type_id() != Type::INT32) {
-    return Status::Invalid("UnionArray offsets must be signed int32");
+    return Status::TypeError("UnionArray offsets must be signed int32");
   }
 
   if (type_ids.type_id() != Type::INT8) {
-    return Status::Invalid("UnionArray type_ids must be signed int8");
+    return Status::TypeError("UnionArray type_ids must be signed int8");
   }
 
   if (value_offsets.null_count() != 0) {
@@ -640,7 +643,7 @@ Status UnionArray::MakeSparse(const Array& type_ids,
                               const std::vector<uint8_t>& type_codes,
                               std::shared_ptr<Array>* out) {
   if (type_ids.type_id() != Type::INT8) {
-    return Status::Invalid("UnionArray type_ids must be signed int8");
+    return Status::TypeError("UnionArray type_ids must be signed int8");
   }
 
   if (field_names.size() > 0 && field_names.size() != children.size()) {
@@ -681,7 +684,6 @@ std::shared_ptr<Array> UnionArray::child(int i) const {
     }
     boxed_fields_[i] = MakeArray(child_data);
   }
-  DCHECK(boxed_fields_[i]);
   return boxed_fields_[i];
 }
 
@@ -689,7 +691,6 @@ const Array* UnionArray::UnsafeChild(int i) const {
   if (!boxed_fields_[i]) {
     boxed_fields_[i] = MakeArray(data_->child_data[i]);
   }
-  DCHECK(boxed_fields_[i]);
   return boxed_fields_[i].get();
 }
 
@@ -733,8 +734,8 @@ std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
     : dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {
-  DCHECK_EQ(data->type->id(), Type::DICTIONARY);
-  DCHECK(data->dictionary);
+  ARROW_CHECK_EQ(data->type->id(), Type::DICTIONARY);
+  ARROW_CHECK_NE(data->dictionary, nullptr);
   SetData(data);
 }
 
@@ -749,10 +750,10 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
                                  const std::shared_ptr<Array>& indices,
                                  const std::shared_ptr<Array>& dictionary)
     : dict_type_(checked_cast<const DictionaryType*>(type.get())) {
-  DCHECK_EQ(type->id(), Type::DICTIONARY);
+  ARROW_CHECK_EQ(type->id(), Type::DICTIONARY);
+  ARROW_CHECK_EQ(indices->type_id(), dict_type_->index_type()->id());
+  ARROW_CHECK_EQ(dict_type_->value_type()->id(), dictionary->type()->id());
   DCHECK(dict_type_->value_type()->Equals(*dictionary->type()));
-  DCHECK_EQ(indices->type_id(), dict_type_->index_type()->id());
-  DCHECK(dictionary);
   auto data = indices->data()->Copy();
   data->type = type;
   data->dictionary = dictionary;
@@ -765,9 +766,11 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
                                    const std::shared_ptr<Array>& indices,
                                    const std::shared_ptr<Array>& dictionary,
                                    std::shared_ptr<Array>* out) {
-  DCHECK_EQ(type->id(), Type::DICTIONARY);
+  if (type->id() != Type::DICTIONARY) {
+    return Status::TypeError("Expected a dictionary type");
+  }
   const auto& dict = checked_cast<const DictionaryType&>(*type);
-  DCHECK_EQ(indices->type_id(), dict.index_type()->id());
+  ARROW_CHECK_EQ(indices->type_id(), dict.index_type()->id());
 
   int64_t upper_bound = dictionary->length();
   Status is_valid;
@@ -786,16 +789,12 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
       is_valid = ValidateDictionaryIndices<Int64Type>(indices, upper_bound);
       break;
     default:
-      return Status::NotImplemented("Categorical index type not supported: ",
+      return Status::NotImplemented("Dictionary index type not supported: ",
                                     indices->type()->ToString());
   }
-
-  if (!is_valid.ok()) {
-    return is_valid;
-  }
-
+  RETURN_NOT_OK(is_valid);
   *out = std::make_shared<DictionaryArray>(type, indices, dictionary);
-  return is_valid;
+  return Status::OK();
 }
 
 template <typename InType, typename OutType>
@@ -816,7 +815,9 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
                                   const std::shared_ptr<Array>& dictionary,
                                   const std::vector<int32_t>& transpose_map,
                                   std::shared_ptr<Array>* out) const {
-  DCHECK_EQ(type->id(), Type::DICTIONARY);
+  if (type->id() != Type::DICTIONARY) {
+    return Status::TypeError("Expected dictionary type");
+  }
   const auto& out_dict_type = checked_cast<const DictionaryType&>(*type);
 
   const auto& out_index_type =
@@ -1378,7 +1379,8 @@ class NullArrayFactory {
         : type_(*type), length_(length), buffer_length_(BitUtil::BytesForBits(length)) {}
 
     operator int64_t() && {
-      DCHECK_OK(VisitTypeInline(type_, this));
+      // TODO this should implement proper error propagation
+      ARROW_CHECK_OK(VisitTypeInline(type_, this));
       return buffer_length_;
     }
 
@@ -1485,7 +1487,7 @@ class NullArrayFactory {
 
   Status Visit(const StructType& type) {
     for (int i = 0; i < type_->num_children(); ++i) {
-      DCHECK_OK(CreateChild(i, length_, &(*out_)->child_data[i]));
+      RETURN_NOT_OK(CreateChild(i, length_, &(*out_)->child_data[i]));
     }
     return Status::OK();
   }
@@ -1498,7 +1500,7 @@ class NullArrayFactory {
     }
 
     for (int i = 0; i < type_->num_children(); ++i) {
-      DCHECK_OK(CreateChild(i, length_, &(*out_)->child_data[i]));
+      RETURN_NOT_OK(CreateChild(i, length_, &(*out_)->child_data[i]));
     }
     return Status::OK();
   }

@@ -49,7 +49,11 @@ BinaryBuilder::BinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* 
 BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BinaryBuilder(binary(), pool) {}
 
 Status BinaryBuilder::Resize(int64_t capacity) {
-  DCHECK_LE(capacity, kListMaximumElements);
+  if (capacity > kListMaximumElements) {
+    return Status::CapacityError(
+        "BinaryBuilder cannot reserve space for more then 2^31 - 1 child elements, got ",
+        capacity);
+  }
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
 
   // one more then requested for offsets

@@ -264,7 +264,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
 
 ReadableFile::ReadableFile(MemoryPool* pool) { impl_.reset(new ReadableFileImpl(pool)); }
 
-ReadableFile::~ReadableFile() { DCHECK_OK(impl_->Close()); }
+ReadableFile::~ReadableFile() { ARROW_CHECK_OK(impl_->Close()); }
 
 Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>* file) {
   return Open(path, default_memory_pool(), file);
@@ -337,7 +337,7 @@ FileOutputStream::FileOutputStream() { impl_.reset(new FileOutputStreamImpl()); 
 
 FileOutputStream::~FileOutputStream() {
   // This can fail; better to explicitly call close
-  DCHECK_OK(impl_->Close());
+  ARROW_CHECK_OK(impl_->Close());
 }
 
 Status FileOutputStream::Open(const std::string& path,
@@ -393,11 +393,10 @@ class MemoryMappedFile::MemoryMap : public MutableBuffer {
   MemoryMap() : MutableBuffer(nullptr, 0) {}
 
   ~MemoryMap() {
-    DCHECK_OK(Close());
+    ARROW_CHECK_OK(Close());
     if (mutable_data_ != nullptr) {
       int result = munmap(mutable_data_, static_cast<size_t>(size_));
-      DCHECK_EQ(result, 0);
-      ARROW_UNUSED(result);
+      ARROW_CHECK_EQ(result, 0) << "munmap failed";
     }
   }
 

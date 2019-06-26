@@ -134,10 +134,11 @@ class DecimalTest : public ::testing::Test {
     OwnedRef decimal_module;
 
     Status status = internal::ImportModule("decimal", &decimal_module);
-    DCHECK_OK(status);
+    ARROW_CHECK_OK(status);
 
-    status = internal::ImportFromModule(decimal_module, "Decimal", &decimal_constructor_);
-    DCHECK_OK(status);
+    status = internal::ImportFromModule(decimal_module.obj(), "Decimal",
+                                        &decimal_constructor_);
+    ARROW_CHECK_OK(status);
   }
 
   OwnedRef CreatePythonDecimal(const std::string& string_value) {
@@ -239,13 +240,15 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   auto schema = ::arrow::schema(fields);
   auto table = Table::Make(schema, cols);
 
-  PyObject* out;
+  Status st;
   Py_BEGIN_ALLOW_THREADS;
+  PyObject* out;
   PandasOptions options;
   options.use_threads = true;
   MemoryPool* pool = default_memory_pool();
-  ASSERT_RAISES(UnknownError, ConvertTableToPandas(options, table, pool, &out));
+  st = ConvertTableToPandas(options, table, pool, &out);
   Py_END_ALLOW_THREADS;
+  ASSERT_RAISES(UnknownError, st);
 }
 
 TEST(BuiltinConversionTest, TestMixedTypeFails) {

@@ -33,7 +33,7 @@ namespace internal {
 Status ImportDecimalType(OwnedRef* decimal_type) {
   OwnedRef decimal_module;
   RETURN_NOT_OK(ImportModule("decimal", &decimal_module));
-  RETURN_NOT_OK(ImportFromModule(decimal_module, "Decimal", decimal_type));
+  RETURN_NOT_OK(ImportFromModule(decimal_module.obj(), "Decimal", decimal_type));
   return Status::OK();
 }
 
@@ -166,14 +166,13 @@ Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
 bool PyDecimal_Check(PyObject* obj) {
   static OwnedRef decimal_type;
   if (!decimal_type.obj()) {
-    Status status = ImportDecimalType(&decimal_type);
-    DCHECK_OK(status);
+    ARROW_CHECK_OK(ImportDecimalType(&decimal_type));
     DCHECK(PyType_Check(decimal_type.obj()));
   }
   // PyObject_IsInstance() is slower as it has to check for virtual subclasses
   const int result =
       PyType_IsSubtype(Py_TYPE(obj), reinterpret_cast<PyTypeObject*>(decimal_type.obj()));
-  DCHECK_NE(result, -1) << " error during PyType_IsSubtype check";
+  ARROW_CHECK_NE(result, -1) << " error during PyType_IsSubtype check";
   return result == 1;
 }
 
@@ -209,7 +208,6 @@ Status DecimalMetadata::Update(int32_t suggested_precision, int32_t suggested_sc
 
 Status DecimalMetadata::Update(PyObject* object) {
   bool is_decimal = PyDecimal_Check(object);
-  DCHECK(is_decimal) << "Object is not a Python Decimal";
 
   if (ARROW_PREDICT_FALSE(!is_decimal || PyDecimal_ISNAN(object))) {
     return Status::OK();
