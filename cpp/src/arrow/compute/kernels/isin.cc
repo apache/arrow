@@ -56,6 +56,7 @@ class IsInKernelImpl : public UnaryKernel {
   virtual Status Compute(FunctionContext* ctx, const ArrayData& right) = 0;
 
  public:
+  // \brief Check if value in both arrays or not and returns boolean values
   Status Call(FunctionContext* ctx, const Datum& right, Datum* out) override {
     DCHECK_EQ(Datum::ARRAY, right.kind());
     const ArrayData& right_data = *right.array();
@@ -91,22 +92,14 @@ struct MemoTableRight {
 };
 
 // ----------------------------------------------------------------------
-// Check if value in both arrays or not and returns boolean values
-
-// \brief Iterate over the left array using another visitor.
-// In VisitValue, use the memo_table_ (for right array) and check if value
-// in left array is in the memo_table_. Append the true to the
-// BooleanBuilder if condition satisfied, else false.
-
-// Additional member "right_null_count" is used to check if
-// null count in right is not 0, then append true to the BooleanBuilder
-// when left array has a null, else append null.
 
 template <typename T, typename Scalar>
 class IsInKernel : public IsInKernelImpl {
  public:
   IsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
 
+  // \brief if null_count in right is not 0, then append true to the
+  // BooleanBuilder when left array has a null, else append null.
   Status VisitNull() {
     if (right_null_count != 0) {
       bool_builder_.UnsafeAppend(true);
@@ -116,14 +109,16 @@ class IsInKernel : public IsInKernelImpl {
     return Status::OK();
   }
 
+  // \brief Iterate over the left array using another visitor.
+  // In VisitValue, use the memo_table_ (for right array) and check if value
+  // in left array is in the memo_table_. Append the true to the
+  // BooleanBuilder if condition satisfied, else false.
   Status VisitValue(const Scalar& value) {
     bool_builder_.UnsafeAppend(memo_table_->Get(value) != -1);
     return Status::OK();
   }
 
   Status Compute(FunctionContext* ctx, const ArrayData& right) override {
-    memo_table_.reset(new MemoTable(0));
-
     MemoTableRight<T, Scalar> func;
     func.Append(right);
     memo_table_ = std::move(func.memo_table_);
@@ -147,6 +142,8 @@ class IsInKernel : public IsInKernelImpl {
   std::unique_ptr<MemoTable> memo_table_;
 
  private:
+  // \brief Additional member "right_null_count" is used to check if
+  // null count in right is not 0
   int64_t right_null_count;
   BooleanBuilder bool_builder_;
   std::shared_ptr<ArrayData> output;

@@ -29,11 +29,16 @@
 namespace arrow {
 namespace compute {
 
-/// \brief IsIn returns boolean values
+/// \brief IsIn returns boolean values if the value
+/// is in both left and right arrays.
+///
+/// If null occurs in left, if null_count in right is not 0,
+/// it returns true, else returns null.
+///
 /// \param[in] context the FunctionContext
 /// \param[in] left array-like input
 /// \param[in] right array-like input
-/// \param[out] out result with same shape and type as input
+/// \param[out] out resulting datum
 ///
 /// \since 0.14.0
 /// \note API not yet finalized
