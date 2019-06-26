@@ -57,6 +57,9 @@ table SparseTensorIndexCOO {
   /// The type of values in indicesBuffer
   indicesType: Int;
 
+  /// Non-negative byte offsets to advance one value cell along each dimension
+  indicesStrides: [long];
+
   /// The location and size of the indices matrix's data
   indicesBuffer: Buffer;
 }
