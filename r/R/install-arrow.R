@@ -22,7 +22,7 @@
 #' first. This function offers guidance on how to get the C++ library depending
 #' on your operating system and package version.
 #' @export
-#' @importFrom utils packageVersion
+#' @importFrom utils packageVersion installed.packages
 install_arrow <- function() {
   os <- tolower(Sys.info()[["sysname"]])
   # c("windows", "darwin", "linux", "sunos") # win/mac/linux/solaris
