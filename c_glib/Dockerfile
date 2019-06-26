@@ -40,7 +40,8 @@ ENV ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_INSTALL_NAME_RPATH=OFF \
     LD_LIBRARY_PATH="${CONDA_PREFIX}/lib" \
-    PKG_CONFIG_PATH="${CONDA_PREFIX}/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig" \
+    PKG_CONFIG=/usr/bin/pkg-config \
+    PKG_CONFIG_PATH="${CONDA_PREFIX}/lib/pkgconfig" \
     GI_TYPELIB_PATH="${CONDA_PREFIX}/lib/girepository-1.0"
 
 # build, install and test
