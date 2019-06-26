@@ -2686,6 +2686,11 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
   std::shared_ptr<::arrow::Table> table;
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
 
+  std::shared_ptr<::arrow::Schema> schema;
+  ASSERT_OK_NO_THROW(arrow_reader->GetSchema(&schema));
+  ASSERT_EQ(1, schema->num_fields());
+  ASSERT_TRUE(schema->field(0)->type()->Equals(*decimal_type));
+
   ASSERT_EQ(1, table->num_columns());
 
   constexpr int32_t expected_length = 24;
