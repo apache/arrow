@@ -665,6 +665,10 @@ class TestChunkedBinaryBuilder : public ::testing::Test {
     builder_.reset(new internal::ChunkedBinaryBuilder(chunksize));
   }
 
+  void Init(int32_t chunksize, int32_t chunklength) {
+    builder_.reset(new internal::ChunkedBinaryBuilder(chunksize, chunklength));
+  }
+
  protected:
   std::unique_ptr<internal::ChunkedBinaryBuilder> builder_;
 };
@@ -740,26 +744,30 @@ TEST_F(TestChunkedBinaryBuilder, LargeElements) {
   ASSERT_EQ(iterations * bufsize, total_data_size);
 }
 
-TEST_F(TestChunkedBinaryBuilder, MassiveReserve) {
-  Init(100);
+TEST_F(TestChunkedBinaryBuilder, LargeElementCount) {
+  int32_t max_chunk_length = 100;
+  Init(100, max_chunk_length);
 
-  auto length = kListMaximumElements + 1;
+  auto length = max_chunk_length + 1;
 
-  // ChunkedBinaryBuilder can reserve memory for more than kListMaximumElements
+  // ChunkedBinaryBuilder can reserve memory for more than its configured maximum
+  // (per chunk) element count
   ASSERT_OK(builder_->Reserve(length));
 
-  for (int64_t i = 0; i < length; ++i) {
-    // ChunkedBinaryBuilder can append more than kListMaximumElements
+  for (int64_t i = 0; i < 2 * length; ++i) {
+    // Appending more elements than have been reserved memory simply overflows to the next
+    // chunk
     ASSERT_OK(builder_->Append(""));
   }
 
   ArrayVector chunks;
   ASSERT_OK(builder_->Finish(&chunks));
 
-  // should have one chunk full of empty strings and another with one more empty string
-  ASSERT_EQ(chunks.size(), 2);
-  ASSERT_EQ(chunks[0]->length(), length - 1);
-  ASSERT_EQ(chunks[1]->length(), 1);
+  // should have two chunks full of empty strings and another with two more empty strings
+  ASSERT_EQ(chunks.size(), 3);
+  ASSERT_EQ(chunks[0]->length(), max_chunk_length);
+  ASSERT_EQ(chunks[1]->length(), max_chunk_length);
+  ASSERT_EQ(chunks[2]->length(), 2);
   for (auto&& boxed_chunk : chunks) {
     const auto& chunk = checked_cast<const BinaryArray&>(*boxed_chunk);
     ASSERT_EQ(chunk.value_offset(0), chunk.value_offset(chunk.length()));

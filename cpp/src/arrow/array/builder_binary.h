@@ -316,32 +316,37 @@ namespace internal {
 
 class ARROW_EXPORT ChunkedBinaryBuilder {
  public:
-  ChunkedBinaryBuilder(int32_t max_chunk_size,
+  ChunkedBinaryBuilder(int32_t max_chunk_value_length,
+                       MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+
+  ChunkedBinaryBuilder(int32_t max_chunk_value_length, int32_t max_chunk_length,
                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   virtual ~ChunkedBinaryBuilder() = default;
 
   Status Append(const uint8_t* value, int32_t length) {
-    if (ARROW_PREDICT_FALSE(length + chunk_data_size_ > max_chunk_size_)) {
-      if (chunk_data_size_ == 0) {
+    if (ARROW_PREDICT_FALSE(length + builder_->value_data_length() >
+                            max_chunk_value_length_)) {
+      if (builder_->value_data_length() == 0) {
         // The current item is larger than max_chunk_size_;
         // this chunk will be oversize and hold *only* this item
         ARROW_RETURN_NOT_OK(builder_->Append(value, length));
         return NextChunk();
       }
-      // The current item would cause chunk_data_size_ to exceed max_chunk_size_
-      // finish this chunk and append the current item to the next chunk
+      // The current item would cause builder_->value_data_length() to exceed
+      // max_chunk_size_, so finish this chunk and append the current item to the next
+      // chunk
       ARROW_RETURN_NOT_OK(NextChunk());
       return Append(value, length);
     }
 
-    if (ARROW_PREDICT_FALSE(builder_->length() == kListMaximumElements)) {
-      // The current item would cause builder_ to overflow kListMaximumElements
-      // finish this chunk and append the current item to the next chunk
+    if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
+      // The current item would cause builder_->value_data_length() to exceed
+      // max_chunk_size_, so finish this chunk and append the current item to the next
+      // chunk
       ARROW_RETURN_NOT_OK(NextChunk());
     }
 
-    chunk_data_size_ += length;
     return builder_->Append(value, length);
   }
 
@@ -351,7 +356,7 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
   }
 
   Status AppendNull() {
-    if (ARROW_PREDICT_FALSE(builder_->length() == kListMaximumElements)) {
+    if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
       ARROW_RETURN_NOT_OK(NextChunk());
     }
     return builder_->AppendNull();
@@ -364,9 +369,13 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
  protected:
   Status NextChunk();
 
-  int64_t max_chunk_size_;
-  int64_t chunk_data_size_ = 0;
-  // when Reserve() would cause builder_ to exceed its maximum capacity,
+  // maximum total character data size per chunk
+  int64_t max_chunk_value_length_;
+
+  // maximum elements allowed per chunk
+  int64_t max_chunk_length_ = kListMaximumElements;
+
+  // when Reserve() would cause builder_ to exceed its max_chunk_length_,
   // add to extra_capacity_ instead and wait to reserve until the next chunk
   int64_t extra_capacity_ = 0;
 
