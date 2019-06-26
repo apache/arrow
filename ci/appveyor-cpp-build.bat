@@ -100,7 +100,9 @@ if "%JOB%" == "Build_Debug" (
   exit /B 0
 )
 
-set CONDA_PACKAGES=--file=ci\conda_env_python.yml python=%PYTHON% numpy=1.14 boost-cpp
+@rem Avoid Boost 1.70 because of https://github.com/boostorg/process/issues/85
+set CONDA_PACKAGES=--file=ci\conda_env_python.yml ^
+  python=%PYTHON% numpy=1.14 "boost-cpp<1.70"
 
 if "%ARROW_BUILD_GANDIVA%" == "ON" (
   @rem Install llvmdev in the toolchain if building gandiva.dll

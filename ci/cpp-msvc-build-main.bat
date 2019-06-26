@@ -117,30 +117,5 @@ python setup.py develop -q || exit /B
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 
 @rem
-@rem Build wheel
+@rem Wheels are built and tested separately (see ARROW-5142).
 @rem
-
-python setup.py bdist_wheel -q || exit /B
-
-for /F %%i in ('dir /B /S dist\*.whl') do set WHEEL_PATH=%%i
-
-popd
-
-@rem
-@rem Test pyarrow wheel from pristine environment
-@rem
-
-call deactivate
-
-conda create -n wheel_test -q -y python=%PYTHON% || exit /B
-
-call activate wheel_test
-
-pip install %WHEEL_PATH% || exit /B
-
-python -c "import pyarrow" || exit /B
-python -c "import pyarrow.parquet" || exit /B
-
-pip install pandas pickle5 pytest pytest-faulthandler hypothesis || exit /B
-
-py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
