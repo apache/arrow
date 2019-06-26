@@ -53,10 +53,12 @@ class FooterSigningEncryptor {
 class Decryptor {
  public:
   Decryptor(encryption::AesDecryptor* decryptor, const std::string& key,
-            const std::string& file_aad, const std::string& aad);
+            const std::string& file_aad, const std::string& aad,
+            ::arrow::MemoryPool* pool);
 
   const std::string& file_aad() const { return file_aad_; }
   void UpdateAad(const std::string& aad) { aad_ = aad; }
+  ::arrow::MemoryPool* pool() { return pool_; }
 
   int CiphertextSizeDelta();
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* plaintext);
@@ -66,6 +68,7 @@ class Decryptor {
   std::string key_;
   std::string file_aad_;
   std::string aad_;
+  ::arrow::MemoryPool* pool_;
 };
 
 class InternalFileDecryptor {
@@ -73,7 +76,8 @@ class InternalFileDecryptor {
   explicit InternalFileDecryptor(FileDecryptionProperties* properties,
                                  const std::string& file_aad,
                                  ParquetCipher::type algorithm,
-                                 const std::string& footer_key_metadata);
+                                 const std::string& footer_key_metadata,
+                                 ::arrow::MemoryPool* pool);
 
   std::string& file_aad() { return file_aad_; }
 
@@ -119,6 +123,8 @@ class InternalFileDecryptor {
   // types of meta_decryptors and data_decryptors.
   std::unique_ptr<encryption::AesDecryptor> meta_decryptor_[3];
   std::unique_ptr<encryption::AesDecryptor> data_decryptor_[3];
+
+  ::arrow::MemoryPool* pool_;
 
   std::shared_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
   std::shared_ptr<Decryptor> GetColumnDecryptor(

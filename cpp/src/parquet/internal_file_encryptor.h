@@ -38,9 +38,11 @@ class ColumnEncryptionProperties;
 class Encryptor {
  public:
   Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string& key,
-            const std::string& file_aad, const std::string& aad);
+            const std::string& file_aad, const std::string& aad,
+            ::arrow::MemoryPool* pool);
   const std::string& file_aad() { return file_aad_; }
   void UpdateAad(const std::string& aad) { aad_ = aad; }
+  ::arrow::MemoryPool* pool() { return pool_; }
 
   int CiphertextSizeDelta();
   int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* ciphertext);
@@ -62,11 +64,12 @@ class Encryptor {
   std::string key_;
   std::string file_aad_;
   std::string aad_;
+  ::arrow::MemoryPool* pool_;
 };
 
 class InternalFileEncryptor {
  public:
-  explicit InternalFileEncryptor(FileEncryptionProperties* propperties);
+  explicit InternalFileEncryptor(FileEncryptionProperties* propperties, ::arrow::MemoryPool* pool);
 
   std::shared_ptr<Encryptor> GetFooterEncryptor();
   std::shared_ptr<Encryptor> GetFooterSigningEncryptor();
@@ -95,6 +98,8 @@ class InternalFileEncryptor {
   // types of meta_encryptors and data_encryptors.
   std::unique_ptr<encryption::AesEncryptor> meta_encryptor_[3];
   std::unique_ptr<encryption::AesEncryptor> data_encryptor_[3];
+
+  ::arrow::MemoryPool* pool_;
 
   std::shared_ptr<Encryptor> GetColumnEncryptor(
       const std::shared_ptr<schema::ColumnPath>& column_path, bool metadata);

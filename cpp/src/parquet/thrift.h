@@ -242,7 +242,7 @@ inline void DeserializeThriftMsg(const uint8_t* buf, uint32_t* len, T* deseriali
     // decrypt
     std::shared_ptr<ResizableBuffer> decrypted_buffer =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
-            ::arrow::default_memory_pool(),
+            decryptor->pool(),
             static_cast<int64_t>(clen - decryptor->CiphertextSizeDelta())));
     const uint8_t* cipher_buf = buf;
     uint32_t decrypted_buffer_len =
@@ -326,7 +326,7 @@ class ThriftSerializer {
                                 const std::shared_ptr<Encryptor>& encryptor) {
     std::shared_ptr<ResizableBuffer> cipher_buffer =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
-            ::arrow::default_memory_pool(),
+            encryptor->pool(),
             static_cast<int64_t>(encryptor->CiphertextSizeDelta() + out_length)));
     int cipher_buffer_len =
         encryptor->Encrypt(out_buffer, out_length, cipher_buffer->mutable_data());
