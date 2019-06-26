@@ -108,10 +108,12 @@ Status PyFlightServer::DoGet(const arrow::flight::ServerCallContext& context,
   });
 }
 
-Status PyFlightServer::DoPut(const arrow::flight::ServerCallContext& context,
-                             std::unique_ptr<arrow::flight::FlightMessageReader> reader) {
+Status PyFlightServer::DoPut(
+    const arrow::flight::ServerCallContext& context,
+    std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+    std::unique_ptr<arrow::flight::FlightMetadataWriter> writer) {
   return SafeCallIntoPython([&] {
-    vtable_.do_put(server_.obj(), context, std::move(reader));
+    vtable_.do_put(server_.obj(), context, std::move(reader), std::move(writer));
     return CheckPyError();
   });
 }

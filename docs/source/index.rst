@@ -43,6 +43,7 @@ such topics as:
    format/Layout
    format/Metadata
    format/IPC
+   format/Flight
 
 .. _toc.usage:
 

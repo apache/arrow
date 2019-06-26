@@ -163,6 +163,14 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   // 1 byte for metadata tag
   header_size += 1 + WireFormatLite::LengthDelimitedSize(metadata_size);
 
+  // App metadata tag if appropriate
+  int32_t app_metadata_size = 0;
+  if (msg.app_metadata && msg.app_metadata->size() > 0) {
+    DCHECK_LT(msg.app_metadata->size(), kInt32Max);
+    app_metadata_size = static_cast<int32_t>(msg.app_metadata->size());
+    header_size += 1 + WireFormatLite::LengthDelimitedSize(app_metadata_size);
+  }
+
   for (const auto& buffer : ipc_msg.body_buffers) {
     // Buffer may be null when the row length is zero, or when all
     // entries are invalid.
@@ -213,6 +221,15 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
   header_stream.WriteVarint32(metadata_size);
   header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
                                      static_cast<int>(ipc_msg.metadata->size()));
+
+  // Write app metadata
+  if (app_metadata_size > 0) {
+    WireFormatLite::WriteTag(pb::FlightData::kAppMetadataFieldNumber,
+                             WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+    header_stream.WriteVarint32(app_metadata_size);
+    header_stream.WriteRawMaybeAliased(msg.app_metadata->data(),
+                                       static_cast<int>(msg.app_metadata->size()));
+  }
 
   if (has_body) {
     // Write body tag
@@ -292,6 +309,12 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
                               "Unable to read FlightData metadata");
         }
       } break;
+      case pb::FlightData::kAppMetadataFieldNumber: {
+        if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->app_metadata)) {
+          return grpc::Status(grpc::StatusCode::INTERNAL,
+                              "Unable to read FlightData application metadata");
+        }
+      } break;
       case pb::FlightData::kDataBodyFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
           return grpc::Status(grpc::StatusCode::INTERNAL,
@@ -330,7 +353,7 @@ Status FlightData::OpenMessage(std::unique_ptr<ipc::Message>* message) {
 // (see customize_protobuf.h).
 
 bool WritePayload(const FlightPayload& payload,
-                  grpc::ClientWriter<pb::FlightData>* writer) {
+                  grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer) {
   // Pretend to be pb::FlightData and intercept in SerializationTraits
   return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
                        grpc::WriteOptions());
@@ -348,7 +371,8 @@ bool ReadPayload(grpc::ClientReader<pb::FlightData>* reader, FlightData* data) {
   return reader->Read(reinterpret_cast<pb::FlightData*>(data));
 }
 
-bool ReadPayload(grpc::ServerReader<pb::FlightData>* reader, FlightData* data) {
+bool ReadPayload(grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader,
+                 FlightData* data) {
   // Pretend to be pb::FlightData and intercept in SerializationTraits
   return reader->Read(reinterpret_cast<pb::FlightData*>(data));
 }

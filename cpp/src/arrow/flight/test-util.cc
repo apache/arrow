@@ -260,6 +260,24 @@ Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
   return internal::SchemaToString(schema, &out->schema);
 }
 
+NumberingStream::NumberingStream(std::unique_ptr<FlightDataStream> stream)
+    : counter_(0), stream_(std::move(stream)) {}
+
+std::shared_ptr<Schema> NumberingStream::schema() { return stream_->schema(); }
+
+Status NumberingStream::GetSchemaPayload(FlightPayload* payload) {
+  return stream_->GetSchemaPayload(payload);
+}
+
+Status NumberingStream::Next(FlightPayload* payload) {
+  RETURN_NOT_OK(stream_->Next(payload));
+  if (payload && payload->ipc_message.type == ipc::Message::RECORD_BATCH) {
+    payload->app_metadata = Buffer::FromString(std::to_string(counter_));
+    counter_++;
+  }
+  return Status::OK();
+}
+
 std::shared_ptr<Schema> ExampleIntSchema() {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int32());

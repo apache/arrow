@@ -72,12 +72,15 @@ namespace {
 // A MessageReader implementation that reads from a gRPC ServerReader
 class FlightIpcMessageReader : public ipc::MessageReader {
  public:
-  explicit FlightIpcMessageReader(grpc::ServerReader<pb::FlightData>* reader)
-      : reader_(reader) {}
+  explicit FlightIpcMessageReader(
+      grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader,
+      std::shared_ptr<Buffer>* last_metadata)
+      : reader_(reader), app_metadata_(last_metadata) {}
 
   Status ReadNextMessage(std::unique_ptr<ipc::Message>* out) override {
     if (stream_finished_) {
       *out = nullptr;
+      *app_metadata_ = nullptr;
       return Status::OK();
     }
     internal::FlightData data;
@@ -89,6 +92,7 @@ class FlightIpcMessageReader : public ipc::MessageReader {
             "Client provided malformed message or did not provide message");
       }
       *out = nullptr;
+      *app_metadata_ = nullptr;
       return Status::OK();
     }
 
@@ -100,25 +104,29 @@ class FlightIpcMessageReader : public ipc::MessageReader {
       first_message_ = false;
     }
 
-    return data.OpenMessage(out);
+    RETURN_NOT_OK(data.OpenMessage(out));
+    *app_metadata_ = std::move(data.app_metadata);
+    return Status::OK();
   }
 
   const FlightDescriptor& descriptor() const { return descriptor_; }
 
  protected:
-  grpc::ServerReader<pb::FlightData>* reader_;
+  grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader_;
   bool stream_finished_ = false;
   bool first_message_ = true;
   FlightDescriptor descriptor_;
+  std::shared_ptr<Buffer>* app_metadata_;
 };
 
 class FlightMessageReaderImpl : public FlightMessageReader {
  public:
-  explicit FlightMessageReaderImpl(grpc::ServerReader<pb::FlightData>* reader)
+  explicit FlightMessageReaderImpl(
+      grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader)
       : reader_(reader) {}
 
   Status Init() {
-    message_reader_ = new FlightIpcMessageReader(reader_);
+    message_reader_ = new FlightIpcMessageReader(reader_, &last_metadata_);
     return ipc::RecordBatchStreamReader::Open(
         std::unique_ptr<ipc::MessageReader>(message_reader_), &batch_reader_);
   }
@@ -129,16 +137,39 @@ class FlightMessageReaderImpl : public FlightMessageReader {
 
   std::shared_ptr<Schema> schema() const override { return batch_reader_->schema(); }
 
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
-    return batch_reader_->ReadNext(out);
+  Status Next(FlightStreamChunk* out) override {
+    out->app_metadata = nullptr;
+    RETURN_NOT_OK(batch_reader_->ReadNext(&out->data));
+    out->app_metadata = std::move(last_metadata_);
+    return Status::OK();
   }
 
  private:
   std::shared_ptr<Schema> schema_;
   std::unique_ptr<ipc::DictionaryMemo> dictionary_memo_;
-  grpc::ServerReader<pb::FlightData>* reader_;
+  grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader_;
   FlightIpcMessageReader* message_reader_;
+  std::shared_ptr<Buffer> last_metadata_;
   std::shared_ptr<RecordBatchReader> batch_reader_;
+};
+
+class GrpcMetadataWriter : public FlightMetadataWriter {
+ public:
+  explicit GrpcMetadataWriter(
+      grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* writer)
+      : writer_(writer) {}
+
+  Status WriteMetadata(const Buffer& buffer) override {
+    pb::PutResult message{};
+    message.set_app_metadata(buffer.data(), buffer.size());
+    if (writer_->Write(message)) {
+      return Status::OK();
+    }
+    return Status::IOError("Unknown error writing metadata.");
+  }
+
+ private:
+  grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* writer_;
 };
 
 class GrpcServerAuthReader : public ServerAuthReader {
@@ -153,7 +184,7 @@ class GrpcServerAuthReader : public ServerAuthReader {
       *token = std::move(*request.release_payload());
       return Status::OK();
     }
-    return Status::UnknownError("Could not read client handshake request.");
+    return Status::IOError("Stream is closed.");
   }
 
  private:
@@ -246,7 +277,7 @@ class FlightServiceImpl : public FlightService::Service {
     }
 
     const auto client_metadata = context->client_metadata();
-    const auto auth_header = client_metadata.find(internal::AUTH_HEADER);
+    const auto auth_header = client_metadata.find(internal::kGrpcAuthHeader);
     std::string token;
     if (auth_header == client_metadata.end()) {
       token = "";
@@ -349,16 +380,18 @@ class FlightServiceImpl : public FlightService::Service {
     return grpc::Status::OK;
   }
 
-  grpc::Status DoPut(ServerContext* context, grpc::ServerReader<pb::FlightData>* reader,
-                     pb::PutResult* response) {
+  grpc::Status DoPut(ServerContext* context,
+                     grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader) {
     GrpcServerCallContext flight_context;
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(context, flight_context));
 
     auto message_reader =
         std::unique_ptr<FlightMessageReaderImpl>(new FlightMessageReaderImpl(reader));
     GRPC_RETURN_NOT_OK(message_reader->Init());
-    return internal::ToGrpcStatus(
-        server_->DoPut(flight_context, std::move(message_reader)));
+    auto metadata_writer =
+        std::unique_ptr<FlightMetadataWriter>(new GrpcMetadataWriter(reader));
+    return internal::ToGrpcStatus(server_->DoPut(
+        flight_context, std::move(message_reader), std::move(metadata_writer)));
   }
 
   grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
@@ -409,6 +442,8 @@ class FlightServiceImpl : public FlightService::Service {
 };
 
 }  // namespace
+
+FlightMetadataWriter::~FlightMetadataWriter() = default;
 
 //
 // gRPC server lifecycle
@@ -572,7 +607,8 @@ Status FlightServerBase::DoGet(const ServerCallContext& context, const Ticket& r
 }
 
 Status FlightServerBase::DoPut(const ServerCallContext& context,
-                               std::unique_ptr<FlightMessageReader> reader) {
+                               std::unique_ptr<FlightMessageReader> reader,
+                               std::unique_ptr<FlightMetadataWriter> writer) {
   return Status::NotImplemented("NYI");
 }
 

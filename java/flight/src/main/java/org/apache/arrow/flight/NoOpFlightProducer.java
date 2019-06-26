@@ -17,10 +17,6 @@
 
 package org.apache.arrow.flight;
 
-import java.util.concurrent.Callable;
-
-import org.apache.arrow.flight.impl.Flight.PutResult;
-
 /**
  * A {@link FlightProducer} that throws on all operations.
  */
@@ -45,8 +41,8 @@ public class NoOpFlightProducer implements FlightProducer {
   }
 
   @Override
-  public Callable<PutResult> acceptPut(CallContext context,
-      FlightStream flightStream) {
+  public Runnable acceptPut(CallContext context,
+      FlightStream flightStream, StreamListener<PutResult> ackStream) {
     throw new UnsupportedOperationException("NYI");
   }
 

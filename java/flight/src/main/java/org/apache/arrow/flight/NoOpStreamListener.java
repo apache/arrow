@@ -17,26 +17,33 @@
 
 package org.apache.arrow.flight;
 
+import org.apache.arrow.flight.FlightProducer.StreamListener;
+
 /**
- * Unused?.
+ * A {@link StreamListener} that does nothing for all callbacks.
+ * @param <T> The type of the callback object.
  */
-class GenericOperation {
+public class NoOpStreamListener<T> implements StreamListener<T> {
+  private static NoOpStreamListener INSTANCE = new NoOpStreamListener();
 
-  private final String type;
-  private final byte[] body;
-
-  public GenericOperation(String type, byte[] body) {
-    super();
-    this.type = type;
-    this.body = body == null ? new byte[0] : body;
+  /** Ignores the value received. */
+  @Override
+  public void onNext(T val) {
   }
 
-  public String getType() {
-    return type;
+  /** Ignores the error received. */
+  @Override
+  public void onError(Throwable t) {
   }
 
-  public byte[] getBody() {
-    return body;
+  /** Ignores the stream completion event. */
+  @Override
+  public void onCompleted() {
   }
 
+  @SuppressWarnings("unchecked")
+  public static <T> StreamListener<T> getInstance() {
+    // Safe because we never use T
+    return (StreamListener<T>) INSTANCE;
+  }
 }

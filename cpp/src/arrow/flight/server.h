@@ -74,23 +74,22 @@ class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
   std::unique_ptr<RecordBatchStreamImpl> impl_;
 };
 
-// Silence warning
-// "non dll-interface class RecordBatchReader used as base for dll-interface class"
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4275)
-#endif
-
-/// \brief A reader for IPC payloads uploaded by a client
-class ARROW_FLIGHT_EXPORT FlightMessageReader : public RecordBatchReader {
+/// \brief A reader for IPC payloads uploaded by a client. Also allows
+/// reading application-defined metadata via the Flight protocol.
+class ARROW_FLIGHT_EXPORT FlightMessageReader : public MetadataRecordBatchReader {
  public:
   /// \brief Get the descriptor for this upload.
   virtual const FlightDescriptor& descriptor() const = 0;
 };
 
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+/// \brief A writer for application-specific metadata sent back to the
+/// client during an upload.
+class ARROW_FLIGHT_EXPORT FlightMetadataWriter {
+ public:
+  virtual ~FlightMetadataWriter();
+  /// \brief Send a message to the client.
+  virtual Status WriteMetadata(const Buffer& app_metadata) = 0;
+};
 
 /// \brief Call state/contextual data.
 class ARROW_FLIGHT_EXPORT ServerCallContext {
@@ -178,9 +177,11 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \brief Process a stream of IPC payloads sent from a client
   /// \param[in] context The call context.
   /// \param[in] reader a sequence of uploaded record batches
+  /// \param[in] writer send metadata back to the client
   /// \return Status
   virtual Status DoPut(const ServerCallContext& context,
-                       std::unique_ptr<FlightMessageReader> reader);
+                       std::unique_ptr<FlightMessageReader> reader,
+                       std::unique_ptr<FlightMetadataWriter> writer);
 
   /// \brief Execute an action, return stream of zero or more results
   /// \param[in] context The call context.
