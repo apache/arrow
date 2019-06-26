@@ -83,7 +83,7 @@ class HashUtil {
 #define BLK_LENGTH 42
   static uint32_t Armv8CrcHashParallel(const void* data, int32_t nbytes, uint32_t crc) {
     const uint8_t* buf8;
-    const uint64_t* buf64 = (const uint64_t*)data;
+    const uint64_t* buf64 = reinterpret_cast<const uint64_t*>(data);
     int32_t length = nbytes;
 
     while (length >= 1024) {
@@ -125,27 +125,27 @@ class HashUtil {
       length -= 1024;
     }
 
-    buf8 = (const uint8_t*)buf64;
+    buf8 = reinterpret_cast<const uint8_t*>(buf64);
     while (length >= 8) {
-      crc = ARMCE_crc32_u64(crc, *(const uint64_t*)buf8);
+      crc = ARMCE_crc32_u64(crc, *reinterpret_cast<const uint64_t*>(buf8));
       buf8 += 8;
       length -= 8;
     }
 
     /* The following is more efficient than the straight loop */
     if (length >= 4) {
-      crc = ARMCE_crc32_u32(crc, *(const uint32_t*)buf8);
+      crc = ARMCE_crc32_u32(crc, *reinterpret_cast<const uint32_t*>(buf8));
       buf8 += 4;
       length -= 4;
     }
 
     if (length >= 2) {
-      crc = ARMCE_crc32_u16(crc, *(const uint16_t*)buf8);
+      crc = ARMCE_crc32_u16(crc, *reinterpret_cast<const uint16_t*>(buf8));
       buf8 += 2;
       length -= 2;
     }
 
-    if (length >= 1) crc = ARMCE_crc32_u8(crc, *buf8);
+    if (length >= 1) crc = ARMCE_crc32_u8(crc, *(buf8));
 
     return crc;
   }
