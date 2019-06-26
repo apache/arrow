@@ -30,9 +30,7 @@ use std::sync::Arc;
 use num::Zero;
 
 use crate::array::*;
-use crate::array_data::ArrayData;
 use crate::buffer::MutableBuffer;
-use crate::builder::PrimitiveBuilder;
 use crate::compute::util::apply_bin_op_to_option_bitmap;
 use crate::datatypes;
 use crate::error::{ArrowError, Result};
