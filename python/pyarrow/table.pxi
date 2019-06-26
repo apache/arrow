@@ -1596,7 +1596,7 @@ def table(data, schema=None):
     elif isinstance(data, _pandas_api.pd.DataFrame):
         return Table.from_pandas(data, schema=schema)
     else:
-        return ValueError("Expected pandas DataFrame or python dictionary")
+        return TypeError("Expected pandas DataFrame or python dictionary")
 
 
 def concat_tables(tables):
