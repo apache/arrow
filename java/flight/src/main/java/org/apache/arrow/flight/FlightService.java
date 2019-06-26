@@ -172,7 +172,7 @@ class FlightService extends FlightServiceImplBase {
         responseObserver.onNext(producer.acceptPut(makeContext(responseObserver), fs).call());
         responseObserver.onCompleted();
       } catch (Exception ex) {
-        logger.error("Failed to process custom put due to: " + ex.getMessage());
+        logger.error("Failed to process custom put.", ex);
         ex.printStackTrace();
         responseObserver.onError(ex);
       }
