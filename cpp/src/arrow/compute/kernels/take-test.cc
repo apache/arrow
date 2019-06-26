@@ -412,16 +412,17 @@ class TestPermutationsWithTake : public ComputeFixture, public TestBase {
   }
 
   std::shared_ptr<Int16Array> Inverse(const std::shared_ptr<Int16Array>& permutation) {
-    std::vector<bool> cycle_lengths(permutation->length() + 1, false);
+    auto length = static_cast<int16_t>(permutation->length());
+
+    std::vector<bool> cycle_lengths(length + 1, false);
     auto permutation_to_the_i = permutation;
-    for (int16_t cycle_length = 1; cycle_length <= permutation->length();
-         ++cycle_length) {
+    for (int16_t cycle_length = 1; cycle_length <= length; ++cycle_length) {
       cycle_lengths[cycle_length] = HasTrivialCycle(*permutation_to_the_i);
       permutation_to_the_i = Take(*permutation, *permutation_to_the_i);
     }
 
     uint64_t cycle_to_identity_length = 1;
-    for (int16_t cycle_length = permutation->length(); cycle_length > 1; --cycle_length) {
+    for (int16_t cycle_length = length; cycle_length > 1; --cycle_length) {
       if (!cycle_lengths[cycle_length]) {
         continue;
       }

@@ -1311,7 +1311,7 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   const auto& fw_array = checked_cast<const FixedSizeBinaryArray&>(*array);
 
   // data is never allocated
-  ASSERT_TRUE(fw_array.values() == nullptr);
+  ASSERT_EQ(fw_array.values()->size(), 0);
   ASSERT_EQ(0, fw_array.byte_width());
 
   ASSERT_EQ(6, array->length());
