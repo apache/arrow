@@ -55,8 +55,8 @@
 //! ```
 
 mod array;
-mod data;
 mod builder;
+mod data;
 
 pub use self::array::Array;
 pub use self::array::ArrayRef;
@@ -68,6 +68,7 @@ use crate::datatypes::*;
 
 pub use self::builder::BufferBuilder;
 pub use self::builder::BufferBuilderTrait;
+
 pub type BooleanBufferBuilder = BufferBuilder<BooleanType>;
 pub type Int8BufferBuilder = BufferBuilder<Int8Type>;
 pub type Int16BufferBuilder = BufferBuilder<Int16Type>;
