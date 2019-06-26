@@ -72,9 +72,9 @@ tasks:
   ############################## Conda Linux ##################################
 
   conda-linux-gcc-py27:
-    ci: travis
+    ci: azure
     platform: linux
-    template: conda-recipes/travis.linux.yml
+    template: conda-recipes/azure.linux.yml
     params:
       config: linux_python2.7
     artifacts:
@@ -82,9 +82,9 @@ tasks:
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-gcc-py36:
-    ci: travis
+    ci: azure
     platform: linux
-    template: conda-recipes/travis.linux.yml
+    template: conda-recipes/azure.linux.yml
     params:
       config: linux_python3.6
     artifacts:
@@ -92,9 +92,9 @@ tasks:
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-gcc-py37:
-    ci: travis
+    ci: azure
     platform: linux
-    template: conda-recipes/travis.linux.yml
+    template: conda-recipes/azure.linux.yml
     params:
       config: linux_python3.7
     artifacts:
@@ -104,9 +104,9 @@ tasks:
   ############################## Conda OSX ####################################
 
   conda-osx-clang-py27:
-    ci: travis
+    ci: azure
     platform: osx
-    template: conda-recipes/travis.osx.yml
+    template: conda-recipes/azure.osx.yml
     params:
       config: osx_python2.7
     artifacts:
@@ -114,9 +114,9 @@ tasks:
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-clang-py36:
-    ci: travis
+    ci: azure
     platform: osx
-    template: conda-recipes/travis.osx.yml
+    template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.6
     artifacts:
@@ -124,8 +124,9 @@ tasks:
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-clang-py37:
+    ci: azure
     platform: osx
-    template: conda-recipes/travis.osx.yml
+    template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.7
     artifacts:
@@ -137,21 +138,21 @@ tasks:
   conda-win-vs2015-py36:
     ci: appveyor
     platform: win
-    template: conda-recipes/appveyor.yml
+    template: conda-recipes/appveyor.win.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.6vc14
+      config: win_c_compilervs2015cxx_compilervs2015python3.6
     artifacts:
-      - arrow-cpp-{no_rc_version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-win-vs2015-py37:
     ci: appveyor
     platform: win
-    template: conda-recipes/appveyor.yml
+    template: conda-recipes/appveyor.win.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.7vc14
+      config: win_c_compilervs2015cxx_compilervs2015python3.7
     artifacts:
-      - arrow-cpp-{no_rc_version}-py37_vc14(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Wheel Linux ##################################

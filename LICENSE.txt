@@ -740,7 +740,7 @@ You can contact the author at :
 
 --------------------------------------------------------------------------------
 
-The files in dev/tasks/conda-recipes/variants have the following license
+The files under dev/tasks/conda-recipes have the following license
 
 BSD 3-clause license
 Copyright (c) 2015-2018, conda-forge

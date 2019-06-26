@@ -1,5 +1,5 @@
 boost_cpp:
-- 1.68.0
+- 1.70.0
 c_compiler:
 - vs2015
 channel_sources:
@@ -8,40 +8,15 @@ channel_targets:
 - conda-forge main
 cxx_compiler:
 - vs2015
-libprotobuf:
-- '3.7'
-lz4_c:
-- 1.8.1
 pin_run_as_build:
   boost-cpp:
-    max_pin: x.x.x
-  libprotobuf:
-    max_pin: x.x
-  lz4-c:
     max_pin: x.x.x
   python:
     min_pin: x.x
     max_pin: x.x
-  snappy:
-    max_pin: x.x.x
-  vc:
-    max_pin: x
-  zlib:
-    max_pin: x.x
-  zstd:
-    max_pin: x.x.x
 python:
 - '3.7'
-snappy:
-- 1.1.7
-vc:
-- '14'
 zip_keys:
 - - python
-  - vc
   - c_compiler
   - cxx_compiler
-zlib:
-- '1.2'
-zstd:
-- 1.3.3
