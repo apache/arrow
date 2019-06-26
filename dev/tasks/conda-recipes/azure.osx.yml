@@ -40,6 +40,8 @@ jobs:
       export CI=azure
       source run_conda_forge_build_setup
       conda update --yes --quiet --override-channels -c conda-forge -c defaults --all
+      #XXX: pin conda
+      conda install --yes conda=4.6
     displayName: Configure conda and conda-build
     workingDirectory: arrow/dev/tasks/conda-recipes
     env: {
