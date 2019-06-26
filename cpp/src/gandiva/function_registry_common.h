@@ -190,7 +190,7 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 #define NUMERIC_TYPES(INNER, NAME)                                                       \
   INNER(NAME, int8), INNER(NAME, int16), INNER(NAME, int32), INNER(NAME, int64),         \
       INNER(NAME, uint8), INNER(NAME, uint16), INNER(NAME, uint32), INNER(NAME, uint64), \
-      INNER(NAME, float32), INNER(NAME, float64)
+      INNER(NAME, float32), INNER(NAME, float64), INNER(NAME, decimal128)
 
 // Iterate the inner macro over numeric and date/time types
 #define NUMERIC_DATE_TYPES(INNER, NAME) \

@@ -231,4 +231,131 @@ void castDECIMAL_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_p
   *out_low = out.low_bits();
 }
 
+FORCE_INLINE
+int32_t hash32_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                   int32_t x_scale, boolean x_isvalid) {
+  return x_isvalid
+             ? hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
+             : 0;
+}
+
+FORCE_INLINE
+int32_t hash_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                 int32_t x_scale, boolean x_isvalid) {
+  return hash32_decimal128_internal(x_high, x_low, x_precision, x_scale, x_isvalid);
+}
+
+FORCE_INLINE
+int64_t hash64_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                   int32_t x_scale, boolean x_isvalid) {
+  return x_isvalid
+             ? hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
+             : 0;
+}
+
+FORCE_INLINE
+int32_t hash32WithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
+                                           int32_t x_precision, int32_t x_scale,
+                                           boolean x_isvalid, int32_t seed,
+                                           boolean seed_isvalid) {
+  if (!x_isvalid) {
+    return seed;
+  }
+  return hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, seed);
+}
+
+FORCE_INLINE
+int64_t hash64WithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
+                                           int32_t x_precision, int32_t x_scale,
+                                           boolean x_isvalid, int64_t seed,
+                                           boolean seed_isvalid) {
+  if (!x_isvalid) {
+    return seed;
+  }
+  return hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, seed);
+}
+
+FORCE_INLINE
+int32_t hash32AsDouble_decimal128_internal(int64_t x_high, uint64_t x_low,
+                                           int32_t x_precision, int32_t x_scale,
+                                           boolean x_isvalid) {
+  return x_isvalid
+             ? hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
+             : 0;
+}
+
+FORCE_INLINE
+int64_t hash64AsDouble_decimal128_internal(int64_t x_high, uint64_t x_low,
+                                           int32_t x_precision, int32_t x_scale,
+                                           boolean x_isvalid) {
+  return x_isvalid
+             ? hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, 0)
+             : 0;
+}
+
+FORCE_INLINE
+int32_t hash32AsDoubleWithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
+                                                   int32_t x_precision, int32_t x_scale,
+                                                   boolean x_isvalid, int32_t seed,
+                                                   boolean seed_isvalid) {
+  if (!x_isvalid) {
+    return seed;
+  }
+  return hash32_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, seed);
+}
+
+FORCE_INLINE
+int64_t hash64AsDoubleWithSeed_decimal128_internal(int64_t x_high, uint64_t x_low,
+                                                   int32_t x_precision, int32_t x_scale,
+                                                   boolean x_isvalid, int64_t seed,
+                                                   boolean seed_isvalid) {
+  if (!x_isvalid) {
+    return seed;
+  }
+  return hash64_buf(gandiva::BasicDecimal128(x_high, x_low).ToBytes().data(), 16, seed);
+}
+
+FORCE_INLINE
+boolean isnull_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                   int32_t x_scale, boolean x_isvalid) {
+  return !x_isvalid;
+}
+
+FORCE_INLINE
+boolean isnotnull_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                      int32_t x_scale, boolean x_isvalid) {
+  return x_isvalid;
+}
+
+FORCE_INLINE
+boolean isnumeric_decimal128_internal(int64_t x_high, uint64_t x_low, int32_t x_precision,
+                                      int32_t x_scale, boolean x_isvalid) {
+  return x_isvalid;
+}
+
+FORCE_INLINE
+boolean is_not_distinct_from_decimal128_decimal128_internal(
+    int64_t x_high, uint64_t x_low, int32_t x_precision, int32_t x_scale,
+    boolean x_isvalid, int64_t y_high, uint64_t y_low, int32_t y_precision,
+    int32_t y_scale, boolean y_isvalid) {
+  if (x_isvalid != y_isvalid) {
+    return false;
+  }
+  if (!x_isvalid) {
+    return true;
+  }
+  return 0 == compare_internal_decimal128_decimal128(x_high, x_low, x_precision, x_scale,
+                                                     y_high, y_low, y_precision, y_scale);
+}
+
+FORCE_INLINE
+boolean is_distinct_from_decimal128_decimal128_internal(
+    int64_t x_high, uint64_t x_low, int32_t x_precision, int32_t x_scale,
+    boolean x_isvalid, int64_t y_high, uint64_t y_low, int32_t y_precision,
+    int32_t y_scale, boolean y_isvalid) {
+  return !is_not_distinct_from_decimal128_decimal128_internal(
+      x_high, x_low, x_precision, x_scale, x_isvalid, y_high, y_low, y_precision, y_scale,
+      y_isvalid);
+}
+
 }  // extern "C"
