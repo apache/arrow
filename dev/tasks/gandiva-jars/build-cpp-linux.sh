@@ -34,7 +34,9 @@ ARROW_BUILD_DIR=/tmp/arrow-build
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
 
-PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
+PATH="${CPYTHON_PATH}/bin:${PATH}"
+
+cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
     -DZLIB_ROOT=/usr/local \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \
