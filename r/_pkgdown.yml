@@ -45,7 +45,7 @@ reference:
   - install_arrow
 - title: Reading and writing files
   contents:
-  - read_csv_arrow
+  - read_delim_arrow
   - read_json_arrow
   - read_feather
   - read_parquet
