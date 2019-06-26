@@ -212,7 +212,7 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
         column_metadata.append(metadata)
 
     index_column_metadata = []
-    if preserve_index:
+    if preserve_index is not False:
         for level, arrow_type, descriptor in zip(index_levels, index_types,
                                                  index_descriptors):
             if isinstance(descriptor, dict):
@@ -329,7 +329,10 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
 
     column_names = []
 
-    index_levels = _get_index_level_values(df.index) if preserve_index else []
+    index_levels = (
+        _get_index_level_values(df.index) if preserve_index is not False
+        else []
+    )
 
     columns_to_convert = []
     convert_fields = []
@@ -360,7 +363,8 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     index_column_names = []
     for i, index_level in enumerate(index_levels):
         name = _index_level_name(index_level, i, column_names)
-        if isinstance(index_level, _pandas_api.pd.RangeIndex):
+        if (isinstance(index_level, _pandas_api.pd.RangeIndex)
+                and preserve_index is None):
             descr = _get_range_index_descriptor(index_level)
         else:
             columns_to_convert.append(index_level)

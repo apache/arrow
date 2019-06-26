@@ -855,7 +855,7 @@ cdef class Schema:
                                            check_metadata)
 
     @classmethod
-    def from_pandas(cls, df, bint preserve_index=True):
+    def from_pandas(cls, df, preserve_index=None):
         """
         Returns implied schema from dataframe
 
@@ -865,6 +865,9 @@ cdef class Schema:
         preserve_index : bool, default True
             Whether to store the index as an additional column (or columns, for
             MultiIndex) in the resulting `Table`.
+            The default of None will store the index as a column, except for
+            RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a column.
 
         Returns
         -------

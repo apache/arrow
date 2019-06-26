@@ -836,7 +836,7 @@ cdef class RecordBatch(_PandasConvertible):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
 
     @classmethod
-    def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
+    def from_pandas(cls, df, Schema schema=None, preserve_index=None,
                     nthreads=None, columns=None):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
@@ -849,7 +849,9 @@ cdef class RecordBatch(_PandasConvertible):
             indicate the type of columns if we cannot infer it automatically.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
-            ``RecordBatch``.
+            ``RecordBatch``. The default of None will store the index as a
+            column, except for RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a column.
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
@@ -1090,7 +1092,7 @@ cdef class Table(_PandasConvertible):
         return Table.from_arrays(newcols, schema=target_schema)
 
     @classmethod
-    def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
+    def from_pandas(cls, df, Schema schema=None, preserve_index=None,
                     nthreads=None, columns=None, bint safe=True):
         """
         Convert pandas.DataFrame to an Arrow Table.
@@ -1116,7 +1118,9 @@ cdef class Table(_PandasConvertible):
             indicate the type of columns if we cannot infer it automatically.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
-            ``Table``.
+            ``Table``. The default of None will store the index as a column,
+            except for RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a column.
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
