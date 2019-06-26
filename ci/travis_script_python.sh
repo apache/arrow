@@ -46,7 +46,8 @@ if [ "$ARROW_TRAVIS_PYTHON_GANDIVA" == "1" ]; then
 fi
 
 if [ "$ARROW_TRAVIS_PYTHON_JVM" == "1" ]; then
-    CONDA_PACKAGES="$CONDA_PACKAGES jpype1"
+    JPYPE_VERSION=0.6.3
+    CONDA_PACKAGES="$CONDA_PACKAGES jpype1=$JPYPE_VERSION"
 fi
 
 conda create -y -q -p $CONDA_ENV_DIR \
