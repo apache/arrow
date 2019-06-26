@@ -558,6 +558,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CStatus Flatten(CMemoryPool* pool, shared_ptr[CTable]* out)
 
+        CStatus CombineChunks(CMemoryPool* pool, shared_ptr[CTable]* out)
+
         CStatus Validate()
 
         shared_ptr[CTable] ReplaceSchemaMetadata(
