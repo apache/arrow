@@ -1773,7 +1773,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     std::shared_ptr<Array> lhs = out->Slice(offset);
     std::shared_ptr<Array> rhs = expected->Slice(offset);
-    ASSERT_TRUE(lhs->Equals(rhs));
+    ASSERT_ARRAYS_EQUAL(*rhs, *lhs);
   }
 };
 

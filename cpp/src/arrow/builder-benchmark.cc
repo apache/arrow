@@ -29,6 +29,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit-util.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -174,6 +175,26 @@ static void BuildFixedSizeBinaryArray(
   }
 
   state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+}
+
+static void BuildDecimalArray(benchmark::State& state) {  // NOLINT non-const reference
+  auto type = decimal(10, 5);
+  Decimal128 value;
+  int32_t precision = 0;
+  int32_t scale = 0;
+  ABORT_NOT_OK(Decimal128::FromString("1234.1234", &value, &precision, &scale));
+  for (auto _ : state) {
+    Decimal128Builder builder(type);
+
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
+      ABORT_NOT_OK(builder.Append(value));
+    }
+
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+
+  state.SetBytesProcessed(state.iterations() * kRounds * kNumberOfElements * 16);
 }
 
 // ----------------------------------------------------------------------
@@ -383,6 +404,7 @@ BENCHMARK(BuildAdaptiveIntNoNullsScalarAppend);
 BENCHMARK(BuildBinaryArray);
 BENCHMARK(BuildChunkedBinaryArray);
 BENCHMARK(BuildFixedSizeBinaryArray);
+BENCHMARK(BuildDecimalArray);
 
 BENCHMARK(BuildInt64DictionaryArrayRandom);
 BENCHMARK(BuildInt64DictionaryArraySequential);
