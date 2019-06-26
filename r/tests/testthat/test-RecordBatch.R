@@ -170,3 +170,19 @@ test_that("record_batch() handles data frame columns with schema spec", {
   schema <- schema(a = int32(), b = struct(x = int16(), y = utf8()))
   expect_error(record_batch(a = 1:10, b = tib, schema = schema))
 })
+
+test_that("record_batch() auto splices (ARROW-5718)", {
+  df <- tibble::tibble(x = 1:10, y = letters[1:10])
+  batch1 <- record_batch(df)
+  batch2 <- record_batch(!!!df)
+  expect_equal(batch1, batch2)
+  expect_equal(batch1$schema, schema(x = int32(), y = utf8()))
+  expect_equivalent(as.data.frame(batch1), df)
+
+  s <- schema(x = float64(), y = utf8())
+  batch3 <- record_batch(df, schema = s)
+  batch4 <- record_batch(!!!df, schema = s)
+  expect_equal(batch3, batch4)
+  expect_equal(batch3$schema, s)
+  expect_equivalent(as.data.frame(batch3), df)
+})

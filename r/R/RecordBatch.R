@@ -98,6 +98,9 @@
 #' @export
 record_batch <- function(..., schema = NULL){
   arrays <- list2(...)
+  if (is.null(names(arrays))) {
+    names(arrays) <- rep_len("", length(arrays))
+  }
   stopifnot(length(arrays) > 0)
   shared_ptr(`arrow::RecordBatch`, RecordBatch__from_arrays(schema, arrays))
 }
