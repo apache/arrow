@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/decimal.h"
 #include "gandiva/precompiled/decimal_ops.h"
 #include "gandiva/precompiled/types.h"
 
@@ -356,6 +357,40 @@ boolean is_distinct_from_decimal128_decimal128_internal(
   return !is_not_distinct_from_decimal128_decimal128_internal(
       x_high, x_low, x_precision, x_scale, x_isvalid, y_high, y_low, y_precision, y_scale,
       y_isvalid);
+}
+
+FORCE_INLINE
+void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int64_t out_precision,
+                               int64_t out_scale, int64_t* out_high, uint64_t* out_low) {
+  auto dec = std::make_shared<arrow::Decimal128>();
+  int32_t precision_from_str;
+  int32_t scale_from_str;
+  dec->FromString(std::string(in, in_length), dec.get(), &precision_from_str,
+                  &scale_from_str);
+  gandiva::BasicDecimalScalar128 x({dec->high_bits(), dec->low_bits()}, precision_from_str, scale_from_str);
+  bool overflow = false;
+  auto out = gandiva::decimalops::Convert(x, out_precision, out_scale, &overflow);
+  *out_high = out.high_bits();
+  *out_low = out.low_bits();
+}
+
+FORCE_INLINE
+char* castVARCHAR_decimal128_int64_internal(int64_t context, int64_t x_high,
+                                            uint64_t x_low, int32_t x_precision,
+                                            int32_t x_scale, int64_t out_len,
+                                            int32_t* out_length) {
+  arrow::Decimal128 dec(arrow::BasicDecimal128(x_high, x_low));
+  std::string full_dec_str = dec.ToString(x_scale);
+  std::string trunc_dec_str = out_len < full_dec_str.length()
+                                  ? full_dec_str.substr(0, static_cast<int32_t>(out_len))
+                                  : full_dec_str;
+  if (trunc_dec_str == "-") {
+    trunc_dec_str = "-0.0";
+  }
+  *out_length = trunc_dec_str.length();
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_length));
+  memcpy(ret, trunc_dec_str.data(), *out_length);
+  return ret;
 }
 
 }  // extern "C"
