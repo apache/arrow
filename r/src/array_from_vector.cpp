@@ -939,11 +939,35 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
   return dict_type->value_type() == utf8();
 }
 
-bool CheckCompatibleStruct(SEXP obj, const std::shared_ptr<arrow::DataType>& type) {
-  if (!Rf_inherits(obj, "data.frame")) return false;
+arrow::Status CheckCompatibleStruct(SEXP obj,
+                                    const std::shared_ptr<arrow::DataType>& type) {
+  if (!Rf_inherits(obj, "data.frame")) {
+    return Status::RError("Conversion to struct arrays requires a data.frame");
+  }
 
-  // TODO: check each column
-  return true;
+  // check the number of columns
+  int num_fields = type->num_children();
+  if (XLENGTH(obj) != num_fields) {
+    return Status::RError("Number of fields in struct (", num_fields,
+                          ") incompatible with number of columns in the data frame (",
+                          XLENGTH(obj), ")");
+  }
+
+  // check the names of each column
+  //
+  // the columns themselves are not checked against the
+  // types of the fields, because Array__from_vector will error
+  // when not compatible.
+  SEXP names = Rf_getAttrib(obj, R_NamesSymbol);
+  for (int i = 0; i < num_fields; i++) {
+    if (type->child(i)->name() != CHAR(STRING_ELT(names, i))) {
+      return Status::RError("Field name in position ", i, " (", type->child(i)->name(),
+                            ") does not match the name of the column of the data frame (",
+                            CHAR(STRING_ELT(names, i)), ")");
+    }
+  }
+
+  return Status::OK();
 }
 
 std::shared_ptr<arrow::Array> Array__from_vector(
@@ -976,11 +1000,11 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 
   // struct types
   if (type->id() == Type::STRUCT) {
-    if (type_infered || arrow::r::CheckCompatibleStruct(x, type)) {
-      return arrow::r::MakeStructArray(x, type);
+    if (!type_infered) {
+      STOP_IF_NOT_OK(arrow::r::CheckCompatibleStruct(x, type));
     }
 
-    Rcpp::stop("Object incompatible with struct type");
+    return arrow::r::MakeStructArray(x, type);
   }
 
   // general conversion with converter and builder
