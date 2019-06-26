@@ -17,9 +17,12 @@
 
 #' Read a CSV or other delimited file with Arrow
 #'
-#' This function uses the Arrow C++ CSV reader to read into a `data.frame`.
+#' These functions uses the Arrow C++ CSV reader to read into a `data.frame`.
 #' Arrow C++ options have been mapped to argument names that follow those of
 #' [readr::read_delim()], and `col_select` was inspired by [vroom::vroom()].
+#'
+#' `read_csv_arrow()` and `read_tsv_arrow()` are wrappers around
+#' `read_delim_arrow()` that specify a delimiter.
 #'
 #' Note that not all `readr` options are currently implemented here. Please file
 #' an issue if you encounter one that `arrow` should support.
@@ -58,29 +61,33 @@
 #'
 #' @return A `data.frame`, or an `arrow::Table` if `as_tibble = FALSE`.
 #' @export
-read_csv_arrow <- function(file,
-                           delim = ",",
-                           quote = '"',
-                           escape_double = TRUE,
-                           escape_backslash = FALSE,
-                           # col_names = TRUE,
-                           # col_types = TRUE,
-                           col_select = NULL,
-                           # na = c("", "NA"),
-                           # quoted_na = TRUE,
-                           skip_empty_rows = TRUE,
-                           # skip = 0L,
-                           parse_options = NULL,
-                           convert_options = NULL,
-                           read_options = csv_read_options(),
-                           as_tibble = TRUE) {
+read_delim_arrow <- function(file,
+                             delim = ",",
+                             quote = '"',
+                             escape_double = TRUE,
+                             escape_backslash = FALSE,
+                             # col_names = TRUE,
+                             # col_types = TRUE,
+                             col_select = NULL,
+                             # na = c("", "NA"),
+                             # quoted_na = TRUE,
+                             skip_empty_rows = TRUE,
+                             # skip = 0L,
+                             parse_options = NULL,
+                             convert_options = NULL,
+                             read_options = csv_read_options(),
+                             as_tibble = TRUE) {
 
-  col_names <- TRUE # Hardcoded pending fix
-  skip <- 0L # Hardcoded pending fix
+  # These are hardcoded pending https://issues.apache.org/jira/browse/ARROW-5747
+  col_names <- TRUE
+  skip <- 0L
+
   if (is.null(parse_options)) {
     if (isTRUE(col_names)) {
       # Add one row to skip, to match arrow's header_rows
       skip <- skip + 1L
+      # Note that with the hardcoding, header_rows is always 1, which
+      # turns out to be the only value that works meaningfully
     }
     parse_options <- readr_to_csv_parse_options(
       delim,
@@ -120,6 +127,54 @@ read_csv_arrow <- function(file,
   }
 
   tab
+}
+
+#' @rdname read_delim_arrow
+#' @export
+read_csv_arrow <- function(file,
+                           quote = '"',
+                           escape_double = TRUE,
+                           escape_backslash = FALSE,
+                           # col_names = TRUE,
+                           # col_types = TRUE,
+                           col_select = NULL,
+                           # na = c("", "NA"),
+                           # quoted_na = TRUE,
+                           skip_empty_rows = TRUE,
+                           # skip = 0L,
+                           parse_options = NULL,
+                           convert_options = NULL,
+                           read_options = csv_read_options(),
+                           as_tibble = TRUE) {
+
+  mc <- match.call()
+  mc$delim <- ","
+  mc[[1]] <- as.name("read_delim_arrow")
+  eval.parent(mc)
+}
+
+#' @rdname read_delim_arrow
+#' @export
+read_tsv_arrow <- function(file,
+                           quote = '"',
+                           escape_double = TRUE,
+                           escape_backslash = FALSE,
+                           # col_names = TRUE,
+                           # col_types = TRUE,
+                           col_select = NULL,
+                           # na = c("", "NA"),
+                           # quoted_na = TRUE,
+                           skip_empty_rows = TRUE,
+                           # skip = 0L,
+                           parse_options = NULL,
+                           convert_options = NULL,
+                           read_options = csv_read_options(),
+                           as_tibble = TRUE) {
+
+  mc <- match.call()
+  mc$delim <- "\t"
+  mc[[1]] <- as.name("read_delim_arrow")
+  eval.parent(mc)
 }
 
 #' @include R6.R

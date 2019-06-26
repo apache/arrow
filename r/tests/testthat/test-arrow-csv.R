@@ -50,24 +50,26 @@ test_that("read_csv_arrow(as_tibble=TRUE)", {
   expect_equivalent(iris, tab3)
 })
 
-test_that("read_csv_arrow parsing options: delim", {
+test_that("read_delim_arrow parsing options: delim", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
   write.table(iris, tf, sep = "\t", row.names = FALSE)
-  tab1 <- read_csv_arrow(tf, delim = "\t")
+  tab1 <- read_tsv_arrow(tf)
+  tab2 <- read_delim_arrow(tf, delim = "\t")
+  expect_equivalent(tab1, tab2)
 
   iris$Species <- as.character(iris$Species)
   expect_equivalent(iris, tab1)
 })
 
-test_that("read_csv_arrow parsing options: quote", {
+test_that("read_delim_arrow parsing options: quote", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
   df <- data.frame(a=c(1, 2), b=c("'abc'", "'def'"))
   write.table(df, sep=";", tf, row.names = FALSE, quote = FALSE)
-  tab1 <- read_csv_arrow(tf, delim = ";", quote = "'")
+  tab1 <- read_delim_arrow(tf, delim = ";", quote = "'")
 
   # Is this a problem?
   # Component “a”: target is integer64, current is numeric
