@@ -21,6 +21,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -47,13 +49,15 @@ public class FlightServer implements AutoCloseable {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FlightServer.class);
 
+  private final Location location;
   private final Server server;
 
   /** The maximum size of an individual gRPC message. This effectively disables the limit. */
   static final int MAX_GRPC_MESSAGE_SIZE = Integer.MAX_VALUE;
 
   /** Create a new instance from a gRPC server. For internal use only. */
-  private FlightServer(Server server) {
+  private FlightServer(Location location, Server server) {
+    this.location = location;
     this.server = server;
   }
 
@@ -63,8 +67,25 @@ public class FlightServer implements AutoCloseable {
     return this;
   }
 
+  /** Get the port the server is running on (if applicable). */
   public int getPort() {
     return server.getPort();
+  }
+
+  /** Get the location for this server. */
+  public Location getLocation() {
+    if (location.getUri().getPort() == 0) {
+      // If the server was bound to port 0, replace the port in the location with the real port.
+      final URI uri = location.getUri();
+      try {
+        return new Location(new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), getPort(),
+            uri.getPath(), uri.getQuery(), uri.getFragment()));
+      } catch (URISyntaxException e) {
+        // We don't expect this to happen
+        throw new RuntimeException(e);
+      }
+    }
+    return location;
   }
 
   /** Block until the server shuts down. */
@@ -211,7 +232,7 @@ public class FlightServer implements AutoCloseable {
         return null;
       });
 
-      return new FlightServer(builder.build());
+      return new FlightServer(location, builder.build());
     }
 
     /**

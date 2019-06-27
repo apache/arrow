@@ -28,7 +28,6 @@ import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
-import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass.Perf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -81,8 +80,7 @@ public class TestPerf {
       try (
           final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
           final PerformanceTestServer server =
-              FlightTestUtil.getStartedServer((port) -> new PerformanceTestServer(a,
-                  Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, port)));
+              FlightTestUtil.getStartedServer((location) -> new PerformanceTestServer(a, location));
           final FlightClient client = FlightClient.builder(a, server.getLocation()).build();
       ) {
         final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000L, 4095, 2));
@@ -93,11 +91,13 @@ public class TestPerf {
             .map(t -> pool.submit(t))
             .collect(Collectors.toList());
 
-        Futures.whenAllSucceed(results);
-        Result r = new Result();
-        for (ListenableFuture<Result> f : results) {
-          r.add(f.get());
-        }
+        final Result r = Futures.whenAllSucceed(results).call(() -> {
+          Result res = new Result();
+          for (ListenableFuture<Result> f : results) {
+            res.add(f.get());
+          }
+          return res;
+        }).get();
 
         double seconds = r.nanos * 1.0d / 1000 / 1000 / 1000;
         System.out.println(String.format(
@@ -127,28 +127,29 @@ public class TestPerf {
     public Result call() throws Exception {
       final Result r = new Result();
       Stopwatch watch = Stopwatch.createStarted();
-      FlightStream stream = client.getStream(ticket);
-      final VectorSchemaRoot root = stream.getRoot();
-      try {
-        BigIntVector a = (BigIntVector) root.getVector("a");
-        while (stream.next()) {
-          int rows = root.getRowCount();
-          long aSum = r.aSum;
-          for (int i = 0; i < rows; i++) {
-            if (VALIDATE) {
-              aSum += a.get(i);
+      try (final FlightStream stream = client.getStream(ticket)) {
+        final VectorSchemaRoot root = stream.getRoot();
+        try {
+          BigIntVector a = (BigIntVector) root.getVector("a");
+          while (stream.next()) {
+            int rows = root.getRowCount();
+            long aSum = r.aSum;
+            for (int i = 0; i < rows; i++) {
+              if (VALIDATE) {
+                aSum += a.get(i);
+              }
             }
+            r.bytes += rows * 32;
+            r.rows += rows;
+            r.aSum = aSum;
+            r.batches++;
           }
-          r.bytes += rows * 32;
-          r.rows += rows;
-          r.aSum = aSum;
-          r.batches++;
-        }
 
-        r.nanos = watch.elapsed(TimeUnit.NANOSECONDS);
-        return r;
-      } finally {
-        root.clear();
+          r.nanos = watch.elapsed(TimeUnit.NANOSECONDS);
+          return r;
+        } finally {
+          root.clear();
+        }
       }
     }
 

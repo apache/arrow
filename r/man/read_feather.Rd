@@ -4,12 +4,12 @@
 \alias{read_feather}
 \title{Read a feather file}
 \usage{
-read_feather(file, columns = NULL, as_tibble = TRUE, ...)
+read_feather(file, col_select = NULL, as_tibble = TRUE, ...)
 }
 \arguments{
 \item{file}{a arrow::ipc::feather::TableReader or whatever the \code{\link[=FeatherTableReader]{FeatherTableReader()}} function can handle}
 
-\item{columns}{names if the columns to read. The default \code{NULL} means all columns}
+\item{col_select}{\link[tidyselect:vars_select]{tidy selection} of columns to read.}
 
 \item{as_tibble}{should the \link[=arrow__Table]{arrow::Table} be converted to a tibble.}
 

@@ -257,7 +257,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
    * @return number of elements that validity buffer can hold
    */
   private int getValidityBufferValueCapacity() {
-    return (int) (validityBuffer.capacity() * 8L);
+    return validityBuffer.capacity() * 8;
   }
 
   /**

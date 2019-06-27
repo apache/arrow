@@ -2,10 +2,16 @@
 % Please edit documentation in R/arrow-package.R
 \name{arrow_available}
 \alias{arrow_available}
-\title{Is the C++ Arrow library available}
+\title{Is the C++ Arrow library available?}
 \usage{
 arrow_available()
 }
+\value{
+\code{TRUE} or \code{FALSE} depending on whether the package was installed
+with the Arrow C++ library. If \code{FALSE}, you'll need to install the C++
+library and then reinstall the R package. See \code{\link[=install_arrow]{install_arrow()}} for help.
+}
 \description{
-Is the C++ Arrow library available
+You won't generally need to call this function, but it's here in case it
+helps for development purposes.
 }

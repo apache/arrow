@@ -353,7 +353,7 @@ fn register_csv(
     ctx.register_csv(name, filename, &schema, true);
 }
 
-fn load_parquet_table(name: &str) -> Rc<TableProvider> {
+fn load_parquet_table(name: &str) -> Rc<dyn TableProvider> {
     let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
     let filename = format!("{}/{}", testdata, name);
     let table = ParquetTable::try_new(&filename).unwrap();
@@ -367,7 +367,7 @@ fn execute(ctx: &mut ExecutionContext, sql: &str) -> String {
     result_str(&results)
 }
 
-fn result_str(results: &Rc<RefCell<Relation>>) -> String {
+fn result_str(results: &Rc<RefCell<dyn Relation>>) -> String {
     let mut relation = results.borrow_mut();
     let mut str = String::new();
     while let Some(batch) = relation.next().unwrap() {

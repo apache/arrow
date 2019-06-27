@@ -198,42 +198,91 @@ module Arrow
 
     alias_method :[], :find_column
 
-    # TODO
+    alias_method :slice_raw, :slice
+
+    # @overload slice(offset, length)
     #
-    # @return [Arrow::Table]
+    #   @param offset [Integer] The offset of sub Arrow::Table.
+    #   @param length [Integer] The length of sub Arrow::Table.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only from
+    #     `offset` to `offset + length` range.
+    #
+    # @overload slice(index)
+    #
+    #   @param index [Integer] The index in this table.
+    #   @return [Arrow::Record]
+    #     The `Arrow::Record` corresponding to index of
+    #     the table.
+    #
+    # @overload slice(booleans)
+    #
+    #   @param booleans [::Array<Boolean>]
+    #     The values indicating the target rows.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only rows of indices
+    #     the values of `booleans` is true.
+    #
+    # @overload slice(boolean_array)
+    #
+    #   @param boolean_array [::Array<Arrow::BooleanArray>]
+    #     The values indicating the target rows.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only rows of indices
+    #     the values of `boolean_array` is true.
+    #
+    # @overload slice(range)
+    #
+    #   @param range_included_end [Range] The range indicating the target rows.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only rows of the range of indices.
+    #
+    # @overload slice
+    #
+    #   @yield [slicer] Gives slicer that constructs condition to select records.
+    #   @yieldparam slicer [Arrow::Slicer] The slicer that helps us to
+    #     build condition.
+    #   @yieldreturn [Arrow::Slicer::Condition, ::Array<Arrow::Slicer::Condition>]
+    #     The condition to select records.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only rows matched by condition
+    #     specified by slicer.
     def slice(*args)
       slicers = []
-      expected_n_args = nil
-      case args.size
-      when 0
-        expected_n_args = "1..2" unless block_given?
-      when 1
-        slicers << args[0]
-      when 2
-        from, to = args
-        slicers << (from...(from + to))
-      else
-        if block_given?
-          expected_n_args = "0..2"
-        else
-          expected_n_args = "1..2"
-        end
-      end
-      if expected_n_args
-        message = "wrong number of arguments " +
-          "(given #{args.size}, expected #{expected_n_args})"
-        raise ArgumentError, message
-      end
-
       if block_given?
+        unless args.empty?
+          raise ArgumentError, "must not specify both arguments and block"
+        end
         block_slicer = yield(Slicer.new(self))
         case block_slicer
-        when nil
-          # Ignore
         when ::Array
           slicers.concat(block_slicer)
         else
           slicers << block_slicer
+        end
+      else
+        expected_n_args = nil
+        case args.size
+        when 1
+          if args[0].is_a?(Integer)
+            index = args[0]
+            index += n_rows if index < 0
+            return nil if index < 0
+            return nil if index >= n_rows
+            return Record.new(self, index)
+          else
+            slicers << args[0]
+          end
+        when 2
+          offset, length = args
+          slicers << (offset...(offset + length))
+        else
+          expected_n_args = "1..2"
+        end
+        if expected_n_args
+          message = "wrong number of arguments " +
+            "(given #{args.size}, expected #{expected_n_args})"
+          raise ArgumentError, message
         end
       end
 
@@ -243,12 +292,18 @@ module Arrow
         case slicer
         when Integer
           slicer += n_rows if slicer < 0
-          ranges << [slicer, slicer]
+          ranges << [slicer, n_rows - 1]
         when Range
-          from = slicer.first
+          original_from = from = slicer.first
           to = slicer.last
           to -= 1 if slicer.exclude_end?
           from += n_rows if from < 0
+          if from < 0 or from >= n_rows
+            message =
+              "offset is out of range (-#{n_rows + 1},#{n_rows}): " +
+              "#{original_from}"
+            raise ArgumentError, message
+          end
           to += n_rows if to < 0
           ranges << [from, to]
         when ::Array
@@ -457,47 +512,16 @@ module Arrow
       end
     end
 
-    # TODO: Almost codes should be implemented in Apache Arrow C++.
     def slice_by_ranges(ranges)
-      sliced_columns = columns.collect do |column|
-        chunks = []
-        arrays = column.data.each_chunk.to_a
-        offset = 0
-        offset_in_array = 0
-        ranges.each do |from, to|
-          range_size = to - from + 1
-          while range_size > 0
-            while offset + arrays.first.length - offset_in_array < from
-              offset += arrays.first.length - offset_in_array
-              arrays.shift
-              offset_in_array = 0
-            end
-            if offset < from
-              skipped_size = from - offset
-              offset += skipped_size
-              offset_in_array += skipped_size
-            end
-            array = arrays.first
-            array_length = array.length
-            rest_length = array_length - offset_in_array
-            if rest_length <= range_size
-              chunks << array.slice(offset_in_array, array_length)
-              offset += rest_length
-              range_size -= rest_length
-              offset_in_array = 0
-              arrays.shift
-            else
-              chunks << array.slice(offset_in_array, range_size)
-              offset += range_size
-              offset_in_array += range_size
-              range_size = 0
-            end
-          end
-        end
-        Column.new(column.field, ChunkedArray.new(chunks))
+      sliced_table = []
+      ranges.each do |from, to|
+        sliced_table << slice_raw(from, to - from + 1)
       end
-
-      self.class.new(schema, sliced_columns)
+      if sliced_table.size > 1
+        sliced_table[0].concatenate(sliced_table[1..-1])
+      else
+        sliced_table[0]
+      end
     end
 
     def ensure_column(name, data)

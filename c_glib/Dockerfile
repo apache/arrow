@@ -30,7 +30,7 @@ RUN apt-get update -y -q && \
     && rm -rf /var/lib/apt/lists/*
 
 COPY c_glib/Gemfile /arrow/c_glib/
-RUN conda install meson=0.47.1 && \
+RUN conda install meson=0.50.1 && \
     conda clean --all && \
     gem install bundler && \
     bundle install --gemfile arrow/c_glib/Gemfile
@@ -40,6 +40,7 @@ ENV ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_INSTALL_NAME_RPATH=OFF \
     LD_LIBRARY_PATH="${CONDA_PREFIX}/lib" \
+    PKG_CONFIG=/usr/bin/pkg-config \
     PKG_CONFIG_PATH="${CONDA_PREFIX}/lib/pkgconfig" \
     GI_TYPELIB_PATH="${CONDA_PREFIX}/lib/girepository-1.0"
 

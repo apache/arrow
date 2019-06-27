@@ -18,14 +18,20 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr map map_int map2
 #' @importFrom assertthat assert_that
-#' @importFrom rlang list2 %||% is_false abort dots_n warn
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos
 #' @importFrom Rcpp sourceCpp
+#' @importFrom tidyselect vars_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
 "_PACKAGE"
 
-#' Is the C++ Arrow library available
+#' Is the C++ Arrow library available?
 #'
+#' You won't generally need to call this function, but it's here in case it
+#' helps for development purposes.
+#' @return `TRUE` or `FALSE` depending on whether the package was installed
+#' with the Arrow C++ library. If `FALSE`, you'll need to install the C++
+#' library and then reinstall the R package. See [install_arrow()] for help.
 #' @export
 arrow_available <- function() {
   .Call(`_arrow_available`)

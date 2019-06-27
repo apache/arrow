@@ -175,7 +175,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   private int getValidityBufferValueCapacity() {
-    return (int) (validityBuffer.capacity() * 8L);
+    return validityBuffer.capacity() * 8;
   }
 
   /**

@@ -46,6 +46,11 @@ wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-thrift-0.12.0-8000
 # wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-thrift-0.12.0-1-any.pkg.tar.xz
 # wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-thrift-0.12.0-1-any.pkg.tar.xz
 
+wget https://dl.bintray.com/rtools/backports/mingw-w64-i686-snappy-1.1.7-2-any.pkg.tar.xz
+wget https://dl.bintray.com/rtools/backports/mingw-w64-x86_64-snappy-1.1.7-2-any.pkg.tar.xz
+# wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-snappy-1.1.7-2-any.pkg.tar.xz
+# wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-snappy-1.1.7-2-any.pkg.tar.xz
+
 # double-conversion is only available in the Rtools4.0 builds, but apparently that's ok
 wget https://dl.bintray.com/rtools/mingw64/mingw-w64-x86_64-double-conversion-3.1.2-1-any.pkg.tar.xz
 wget https://dl.bintray.com/rtools/mingw32/mingw-w64-i686-double-conversion-3.1.2-1-any.pkg.tar.xz

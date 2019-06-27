@@ -150,3 +150,23 @@ test_that("record_batch() handles arrow::Array", {
   batch <- record_batch(x = 1:10, y = arrow::array(1:10))
   expect_equal(batch$schema, schema(x = int32(), y = int32()))
 })
+
+test_that("record_batch() handles data frame columns", {
+  tib <- tibble::tibble(x = 1:10, y = 1:10)
+  batch <- record_batch(a = 1:10, b = tib)
+  expect_equal(batch$schema, schema(a = int32(), struct(x = int32(), y = int32())))
+  out <- as.data.frame(batch)
+  expect_equivalent(out, tibble::tibble(a = 1:10, b = tib))
+})
+
+test_that("record_batch() handles data frame columns with schema spec", {
+  tib <- tibble::tibble(x = 1:10, y = 1:10)
+  schema <- schema(a = int32(), b = struct(x = int16(), y = float64()))
+  batch <- record_batch(a = 1:10, b = tib, schema = schema)
+  expect_equal(batch$schema, schema)
+  out <- as.data.frame(batch)
+  expect_equivalent(out, tibble::tibble(a = 1:10, b = tib))
+
+  schema <- schema(a = int32(), b = struct(x = int16(), y = utf8()))
+  expect_error(record_batch(a = 1:10, b = tib, schema = schema))
+})

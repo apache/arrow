@@ -69,11 +69,8 @@ public class TestCallOptions {
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
         FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (port) -> FlightServer.builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, port), producer)
-                    .build());
-        FlightClient client = FlightClient.builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort()))
-            .build()) {
+            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
+        FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
       testFn.accept(client);
     } catch (InterruptedException | IOException e) {
       throw new RuntimeException(e);

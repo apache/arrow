@@ -193,6 +193,20 @@ class TestConvertMetadata(object):
         assert _pandas_api.get_rangeindex_attribute(result2.index, 'step') == 1
         assert result2.index.name is None
 
+    def test_range_index_force_serialization(self):
+        # ARROW-5427: preserve_index=True will force the RangeIndex to
+        # be serialized as a column rather than tracked more
+        # efficiently as metadata
+        df = pd.DataFrame({'a': [1, 2, 3, 4]},
+                          index=pd.RangeIndex(0, 8, step=2, name='foo'))
+
+        table = pa.Table.from_pandas(df, preserve_index=True)
+        assert table.num_columns == 2
+        assert 'foo' in table.column_names
+
+        restored = table.to_pandas()
+        tm.assert_frame_equal(restored, df)
+
     def test_rangeindex_doesnt_warn(self):
         # ARROW-5606: pandas 0.25 deprecated private _start/stop/step
         # attributes -> can be removed if support < pd 0.25 is dropped
@@ -507,7 +521,7 @@ class TestConvertMetadata(object):
         # First roundtrip changes schema, because pandas cannot preserve the
         # type of empty lists
         df = tbl.to_pandas()
-        tbl2 = pa.Table.from_pandas(df, preserve_index=True)
+        tbl2 = pa.Table.from_pandas(df)
         md2 = tbl2.schema.pandas_metadata
 
         # Second roundtrip
@@ -766,6 +780,23 @@ class TestConvertPrimitiveTypes(object):
         schema = pa.schema([field])
         _check_pandas_roundtrip(df, expected=expected,
                                 expected_schema=schema)
+
+    def test_float_with_null_as_integer(self):
+        # ARROW-2298
+        s = pd.Series([np.nan, 1., 2., np.nan])
+
+        types = [pa.int8(), pa.int16(), pa.int32(), pa.int64(),
+                 pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64()]
+        for ty in types:
+            result = pa.array(s, type=ty)
+            expected = pa.array([None, 1, 2, None], type=ty)
+            assert result.equals(expected)
+
+            df = pd.DataFrame({'has_nulls': s})
+            schema = pa.schema([pa.field('has_nulls', ty)])
+            result = pa.Table.from_pandas(df, schema=schema,
+                                          preserve_index=False)
+            assert result[0].data.chunk(0).equals(expected)
 
     def test_int_object_nulls(self):
         arr = np.array([None, 1, np.int64(3)] * 5, dtype=object)
@@ -2525,6 +2556,17 @@ def test_to_pandas_deduplicate_date_time():
 
 # ---------------------------------------------------------------------
 
+def test_table_from_pandas_checks_field_nullability():
+    # ARROW-2136
+    df = pd.DataFrame({'a': [1.2, 2.1, 3.1],
+                       'b': [np.nan, 'string', 'foo']})
+    schema = pa.schema([pa.field('a', pa.float64(), nullable=False),
+                        pa.field('b', pa.utf8(), nullable=False)])
+
+    with pytest.raises(ValueError):
+        pa.Table.from_pandas(df, schema=schema)
+
+
 def test_table_from_pandas_keeps_column_order_of_dataframe():
     df1 = pd.DataFrame(OrderedDict([
         ('partition', [0, 0, 1, 1]),
@@ -2805,6 +2847,21 @@ def test_dictionary_with_pandas():
                                            categories=dictionary)
 
     tm.assert_series_equal(pd.Series(pandas2), pd.Series(ex_pandas2))
+
+
+def test_variable_dictionary_with_pandas():
+    a1 = pa.DictionaryArray.from_arrays([0, 1, 2], ['a', 'b', 'c'])
+    a2 = pa.DictionaryArray.from_arrays([0, 1], ['a', 'c'])
+
+    a = pa.chunked_array([a1, a2])
+    assert a.to_pylist() == ['a', 'b', 'c', 'a', 'c']
+    with pytest.raises(NotImplementedError):
+        a.to_pandas()
+
+    a = pa.chunked_array([a2, a1])
+    assert a.to_pylist() == ['a', 'c', 'a', 'b', 'c']
+    with pytest.raises(NotImplementedError):
+        a.to_pandas()
 
 
 # ----------------------------------------------------------------------

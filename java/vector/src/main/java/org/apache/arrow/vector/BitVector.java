@@ -106,7 +106,7 @@ public class BitVector extends BaseFixedWidthVector {
    */
   @Override
   public int getValueCapacity() {
-    return (int) (validityBuffer.capacity() * 8L);
+    return validityBuffer.capacity() * 8;
   }
 
   /**

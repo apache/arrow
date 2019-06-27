@@ -24,8 +24,7 @@
 
 use std::sync::Arc;
 
-use crate::array::{Array, BooleanArray};
-use crate::array_data::ArrayData;
+use crate::array::{Array, ArrayData, BooleanArray};
 use crate::buffer::Buffer;
 use crate::compute::util::apply_bin_op_to_option_bitmap;
 use crate::datatypes::DataType;

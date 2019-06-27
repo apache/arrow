@@ -20,7 +20,6 @@ context("Parquet file reading/writing")
 pq_file <- system.file("v0.7.1.parquet", package="arrow")
 
 test_that("reading a known Parquet file to tibble", {
-  skip_on_os("windows") # TODO: enable snappy in windows build
   df <- read_parquet(pq_file)
   expect_true(tibble::is_tibble(df))
   expect_identical(dim(df), c(10L, 11L))
@@ -35,4 +34,12 @@ test_that("simple int column roundtrip", {
   write_parquet(df, pq_tmp_file)
   df_read <- read_parquet(pq_tmp_file)
   expect_identical(df, df_read)
+})
+
+test_that("read_parquet() supports col_select", {
+  df <- read_parquet(pq_file, col_select = c(x, y, z))
+  expect_equal(names(df), c("x", "y", "z"))
+
+  df <- read_parquet(pq_file, col_select = starts_with("c"))
+  expect_equal(names(df), c("carat", "cut", "color", "clarity"))
 })

@@ -26,8 +26,7 @@ use std::sync::Arc;
 
 use arrow::datatypes::*;
 
-use crate::arrow::array::ArrayRef;
-use crate::arrow::builder::BooleanBuilder;
+use crate::arrow::array::{ArrayRef, BooleanBuilder};
 use crate::datasource::csv::CsvFile;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};

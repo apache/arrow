@@ -41,7 +41,6 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
   tib <- as.data.frame(tab1)
   expect_equal(tib$hello, c(3.5, 3.25, 3.125, 0))
   expect_equal(tib$world, c(FALSE, NA, NA, TRUE))
-  skip_on_os("windows") # TODO: debug UTF-8 test
   expect_equal(tib$yo, c("thing", NA, "\u5fcd", NA))
 })
 
@@ -68,8 +67,23 @@ test_that("read_json_arrow() converts to tibble", {
 
   expect_equal(tab1$hello, c(3.5, 3.25, 3.125, 0))
   expect_equal(tab1$world, c(FALSE, NA, NA, TRUE))
-  skip_on_os("windows") # TODO: debug UTF-8 test
   expect_equal(tab1$yo, c("thing", NA, "\u5fcd", NA))
+})
+
+test_that("read_json_arrow() supports col_select=", {
+  tf <- tempfile()
+  writeLines('
+    { "hello": 3.5, "world": false, "yo": "thing" }
+    { "hello": 3.25, "world": null }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd" }
+    { "hello": 0.0, "world": true, "yo": null }
+  ', tf)
+
+  tab1 <- read_json_arrow(tf, col_select = c(hello, world))
+  expect_equal(names(tab1), c("hello", "world"))
+
+  tab2 <- read_json_arrow(tf, col_select = 1:2)
+  expect_equal(names(tab2), c("hello", "world"))
 })
 
 test_that("Can read json file with nested columns (ARROW-5503)", {

@@ -30,6 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/decimal.h"
 
 namespace arrow {
 namespace csv {
@@ -312,10 +313,51 @@ TEST(TimestampConversion, CustomNulls) {
                                            {{true}, {false}, {false}}, options);
 }
 
-TEST(DecimalConversion, NotImplemented) {
-  std::shared_ptr<Converter> converter;
-  ASSERT_RAISES(NotImplemented,
-                Converter::Make(decimal(12, 3), ConvertOptions::Defaults(), &converter));
+Decimal128 Dec128(util::string_view value) {
+  Decimal128 dec;
+  int32_t scale = 0;
+  int32_t precision = 0;
+  DCHECK_OK(Decimal128::FromString(value, &dec, &precision, &scale));
+  return dec;
+}
+
+TEST(DecimalConversion, Basics) {
+  AssertConversion<Decimal128Type, Decimal128>(
+      decimal(23, 2), {"12,34.5\n", "36.37,-1e5\n"},
+      {{Dec128("12.00"), Dec128("36.37")}, {Dec128("34.50"), Dec128("-100000.00")}});
+}
+
+TEST(DecimalConversion, Nulls) {
+  AssertConversion<Decimal128Type, Decimal128>(
+      decimal(14, 3), {"1.5,0.\n", ",-1e3\n"},
+      {{Dec128("1.500"), Decimal128()}, {Decimal128(), Dec128("-1000.000")}},
+      {{true, false}, {true, true}});
+
+  AssertConversionAllNulls<Decimal128Type, Decimal128>(decimal(14, 2));
+}
+
+TEST(DecimalConversion, CustomNulls) {
+  auto options = ConvertOptions::Defaults();
+  options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<Decimal128Type, Decimal128>(
+      decimal(14, 3), {"1.5,xxx\n", "zzz,-1e3\n"},
+      {{Dec128("1.500"), Decimal128()}, {Decimal128(), Dec128("-1000.000")}},
+      {{true, false}, {false, true}}, options);
+}
+
+TEST(DecimalConversion, Whitespace) {
+  AssertConversion<Decimal128Type, Decimal128>(
+      decimal(5, 1), {" 12.00,34.5\n", " 0 ,-1e2 \n"},
+      {{Dec128("12.0"), Decimal128()}, {Dec128("34.5"), Dec128("-100.0")}});
+}
+
+TEST(DecimalConversion, OverflowFails) {
+  AssertConversionError(decimal(5, 0), {"1e6,0\n"}, {0});
+
+  AssertConversionError(decimal(5, 1), {"123.22\n"}, {0});
+  AssertConversionError(decimal(5, 1), {"12345.6\n"}, {0});
+  AssertConversionError(decimal(5, 1), {"1.61\n"}, {0});
 }
 
 }  // namespace csv

@@ -144,7 +144,7 @@ def open_file(source, footer_offset=None):
     return RecordBatchFileReader(source, footer_offset=footer_offset)
 
 
-def serialize_pandas(df, nthreads=None, preserve_index=True):
+def serialize_pandas(df, nthreads=None, preserve_index=None):
     """Serialize a pandas DataFrame into a buffer protocol compatible object.
 
     Parameters
@@ -152,9 +152,11 @@ def serialize_pandas(df, nthreads=None, preserve_index=True):
     df : pandas.DataFrame
     nthreads : int, default None
         Number of threads to use for conversion to Arrow, default all CPUs
-    preserve_index : boolean, default True
-        If True, preserve the pandas index data, otherwise the result will have
-        a default RangeIndex
+    preserve_index : boolean, default None
+        The default of None will store the index as a column, except for
+        RangeIndex which is stored as metadata only. If True, always
+        preserve the pandas index data as a column. If False, no index
+        information is saved and the result will have a default RangeIndex.
 
     Returns
     -------

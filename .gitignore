@@ -26,6 +26,7 @@ arrow-src.tar.gz
 *.py[ocd]
 *.so
 *.so.*
+*.bundle
 *.dylib
 .build_cache_dir
 dependency-reduced-pom.xml

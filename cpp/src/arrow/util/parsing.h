@@ -45,7 +45,7 @@ namespace internal {
 ///
 /// The class may have a non-trivial construction cost in some cases,
 /// so it's recommended to use a single instance many times, if doing bulk
-/// conversion.
+/// conversion. Instances of this class are not guaranteed to be thread-safe.
 ///
 template <typename ARROW_TYPE, typename Enable = void>
 class StringConverter;

@@ -153,8 +153,11 @@ std::string ListType::ToString() const {
 
 MapType::MapType(const std::shared_ptr<DataType>& key_type,
                  const std::shared_ptr<DataType>& item_type, bool keys_sorted)
-    : ListType(struct_({std::make_shared<Field>("key", key_type, false),
-                        std::make_shared<Field>("item", item_type)})),
+    : ListType(std::make_shared<Field>(
+          "entries",
+          struct_({std::make_shared<Field>("key", key_type, false),
+                   std::make_shared<Field>("value", item_type)}),
+          false)),
       keys_sorted_(keys_sorted) {
   id_ = type_id;
 }

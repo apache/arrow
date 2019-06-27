@@ -54,6 +54,28 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetType_BYTE_ARRAY" parquet::Type::BYTE_ARRAY"
         ParquetType_FIXED_LEN_BYTE_ARRAY" parquet::Type::FIXED_LEN_BYTE_ARRAY"
 
+    enum ParquetLogicalTypeId" parquet::LogicalType::Type::type":
+        ParquetLogicalType_UNKNOWN" parquet::LogicalType::Type::UNKNOWN"
+        ParquetLogicalType_STRING" parquet::LogicalType::Type::STRING"
+        ParquetLogicalType_MAP" parquet::LogicalType::Type::MAP"
+        ParquetLogicalType_LIST" parquet::LogicalType::Type::LIST"
+        ParquetLogicalType_ENUM" parquet::LogicalType::Type::ENUM"
+        ParquetLogicalType_DECIMAL" parquet::LogicalType::Type::DECIMAL"
+        ParquetLogicalType_DATE" parquet::LogicalType::Type::DATE"
+        ParquetLogicalType_TIME" parquet::LogicalType::Type::TIME"
+        ParquetLogicalType_TIMESTAMP" parquet::LogicalType::Type::TIMESTAMP"
+        ParquetLogicalType_INT" parquet::LogicalType::Type::INT"
+        ParquetLogicalType_JSON" parquet::LogicalType::Type::JSON"
+        ParquetLogicalType_BSON" parquet::LogicalType::Type::BSON"
+        ParquetLogicalType_UUID" parquet::LogicalType::Type::UUID"
+        ParquetLogicalType_NONE" parquet::LogicalType::Type::NONE"
+
+    enum ParquetTimeUnit" parquet::LogicalType::TimeUnit::unit":
+        ParquetTimeUnit_UNKNOWN" parquet::LogicalType::TimeUnit::UNKNOWN"
+        ParquetTimeUnit_MILLIS" parquet::LogicalType::TimeUnit::MILLIS"
+        ParquetTimeUnit_MICROS" parquet::LogicalType::TimeUnit::MICROS"
+        ParquetTimeUnit_NANOS" parquet::LogicalType::TimeUnit::NANOS"
+
     enum ParquetConvertedType" parquet::ConvertedType::type":
         ParquetConvertedType_NONE" parquet::ConvertedType::NONE"
         ParquetConvertedType_UTF8" parquet::ConvertedType::UTF8"
@@ -117,7 +139,32 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetSortOrder_UNSIGNED" parquet::SortOrder::UNSIGNED"
         ParquetSortOrder_UNKNOWN" parquet::SortOrder::UNKNOWN"
 
-    cdef cppclass ColumnDescriptor:
+    cdef cppclass CParquetLogicalType" parquet::LogicalType":
+        c_string ToString() const
+        c_string ToJSON() const
+        ParquetLogicalTypeId type() const
+
+    cdef cppclass CParquetDecimalType \
+            " parquet::DecimalLogicalType"(CParquetLogicalType):
+        int32_t precision() const
+        int32_t scale() const
+
+    cdef cppclass CParquetIntType \
+            " parquet::IntLogicalType"(CParquetLogicalType):
+        int bit_width() const
+        c_bool is_signed() const
+
+    cdef cppclass CParquetTimeType \
+            " parquet::TimeLogicalType"(CParquetLogicalType):
+        c_bool is_adjusted_to_utc() const
+        ParquetTimeUnit time_unit() const
+
+    cdef cppclass CParquetTimestampType \
+            " parquet::TimestampLogicalType"(CParquetLogicalType):
+        c_bool is_adjusted_to_utc() const
+        ParquetTimeUnit time_unit() const
+
+    cdef cppclass ColumnDescriptor" parquet::ColumnDescriptor":
         c_bool Equals(const ColumnDescriptor& other)
 
         shared_ptr[ColumnPath] path()
@@ -125,6 +172,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         int16_t max_repetition_level()
 
         ParquetType physical_type()
+        const shared_ptr[const CParquetLogicalType]& logical_type()
         ParquetConvertedType converted_type()
         const c_string& name()
         int type_length()
@@ -179,7 +227,14 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         bint has_null_count
         bint has_distinct_count
 
-    cdef cppclass CRowGroupStatistics" parquet::RowGroupStatistics":
+    cdef cppclass ParquetByteArray" parquet::ByteArray":
+        uint32_t len
+        const uint8_t* ptr
+
+    cdef cppclass ParquetFLBA" parquet::FLBA":
+        const uint8_t* ptr
+
+    cdef cppclass CStatistics" parquet::Statistics":
         int64_t null_count() const
         int64_t distinct_count() const
         int64_t num_values() const
@@ -190,6 +245,36 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         CEncodedStatistics Encode()
         void SetComparator()
         ParquetType physical_type() const
+        const ColumnDescriptor* descr() const
+
+    cdef cppclass CBoolStatistics" parquet::BoolStatistics"(CStatistics):
+        c_bool min()
+        c_bool max()
+
+    cdef cppclass CInt32Statistics" parquet::Int32Statistics"(CStatistics):
+        int32_t min()
+        int32_t max()
+
+    cdef cppclass CInt64Statistics" parquet::Int64Statistics"(CStatistics):
+        int64_t min()
+        int64_t max()
+
+    cdef cppclass CFloatStatistics" parquet::FloatStatistics"(CStatistics):
+        float min()
+        float max()
+
+    cdef cppclass CDoubleStatistics" parquet::DoubleStatistics"(CStatistics):
+        double min()
+        double max()
+
+    cdef cppclass CByteArrayStatistics \
+            " parquet::ByteArrayStatistics"(CStatistics):
+        ParquetByteArray min()
+        ParquetByteArray max()
+
+    cdef cppclass CFLBAStatistics" parquet::FLBAStatistics"(CStatistics):
+        ParquetFLBA min()
+        ParquetFLBA max()
 
     cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":
         int64_t file_offset() const
@@ -199,7 +284,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t num_values() const
         shared_ptr[ColumnPath] path_in_schema() const
         bint is_stats_set() const
-        shared_ptr[CRowGroupStatistics] statistics() const
+        shared_ptr[CStatistics] statistics() const
         ParquetCompression compression() const
         const vector[ParquetEncoding]& encodings() const
 

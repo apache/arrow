@@ -320,9 +320,7 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       if (children.size() != 1) {
         return Status::Invalid("Map must have exactly 1 child field");
       }
-      if (  // FIXME(bkietz) temporarily disabled: this field is sometimes read nullable
-            // children[0]->nullable() ||
-          children[0]->type()->id() != Type::STRUCT ||
+      if (children[0]->nullable() || children[0]->type()->id() != Type::STRUCT ||
           children[0]->type()->num_children() != 2) {
         return Status::Invalid("Map's key-item pairs must be non-nullable structs");
       }

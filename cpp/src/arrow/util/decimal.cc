@@ -33,6 +33,7 @@
 #include "arrow/util/int-util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/parsing.h"
 
 namespace arrow {
 
@@ -176,37 +177,46 @@ static constexpr int64_t kPowersOfTen[kInt64DecimalDigits + 1] = {1LL,
                                                                   100000000000000000LL,
                                                                   1000000000000000000LL};
 
-static void StringToInteger(const std::string& str, Decimal128* out) {
+// Iterates over data and for each group of kInt64DecimalDigits multiple out by
+// the appropriate power of 10 necessary to add source parsed as uint64 and
+// then adds the parsed value of source.
+static inline void ShiftAndAdd(const char* data, size_t length, Decimal128* out) {
+  internal::StringConverter<Int64Type> converter;
+  for (size_t posn = 0; posn < length;) {
+    const size_t group_size = std::min(kInt64DecimalDigits, length - posn);
+    const int64_t multiple = kPowersOfTen[group_size];
+    int64_t chunk = 0;
+    ARROW_CHECK(converter(data + posn, group_size, &chunk));
+
+    *out *= multiple;
+    *out += chunk;
+    posn += group_size;
+  }
+}
+
+static void StringToInteger(const util::string_view whole_digits,
+                            util::string_view fractional_digits, Decimal128* out) {
   using std::size_t;
 
   DCHECK_NE(out, nullptr) << "Decimal128 output variable cannot be nullptr";
   DCHECK_EQ(*out, 0)
       << "When converting a string to Decimal128 the initial output must be 0";
 
-  const size_t length = str.length();
+  DCHECK_GT(whole_digits.size() + fractional_digits.size(), 0)
+      << "length of parsed decimal string should be greater than 0";
 
-  DCHECK_GT(length, 0) << "length of parsed decimal string should be greater than 0";
-
-  for (size_t posn = 0; posn < length;) {
-    const size_t group = std::min(kInt64DecimalDigits, length - posn);
-    const int64_t chunk = std::stoll(str.substr(posn, group));
-    const int64_t multiple = kPowersOfTen[group];
-
-    *out *= multiple;
-    *out += chunk;
-
-    posn += group;
-  }
+  ShiftAndAdd(whole_digits.data(), whole_digits.length(), out);
+  ShiftAndAdd(fractional_digits.data(), fractional_digits.length(), out);
 }
 
 namespace {
 
 struct DecimalComponents {
-  std::string sign;
-  std::string whole_digits;
-  std::string fractional_digits;
-  std::string exponent_sign;
-  std::string exponent_digits;
+  util::string_view whole_digits;
+  util::string_view fractional_digits;
+  int32_t exponent;
+  char sign = 0;
+  bool has_exponent = false;
 };
 
 inline bool IsSign(char c) { return c == '-' || c == '+'; }
@@ -217,14 +227,15 @@ inline bool IsDigit(char c) { return c >= '0' && c <= '9'; }
 
 inline bool StartsExponent(char c) { return c == 'e' || c == 'E'; }
 
-inline size_t ParseDigitsRun(const char* s, size_t start, size_t size, std::string* out) {
+inline size_t ParseDigitsRun(const char* s, size_t start, size_t size,
+                             util::string_view* out) {
   size_t pos;
   for (pos = start; pos < size; ++pos) {
     if (!IsDigit(s[pos])) {
       break;
     }
   }
-  *out = std::string(s + start, pos - start);
+  *out = util::string_view(s + start, pos - start);
   return pos;
 }
 
@@ -236,7 +247,7 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
   }
   // Sign of the number
   if (IsSign(s[pos])) {
-    out->sign = std::string(s + pos, 1);
+    out->sign = *(s + pos);
     ++pos;
   }
   // First run of digits
@@ -261,19 +272,12 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
   // Optional exponent
   if (StartsExponent(s[pos])) {
     ++pos;
-    if (pos == size) {
-      return false;
-    }
-    // Optional exponent sign
-    if (IsSign(s[pos])) {
-      out->exponent_sign = std::string(s + pos, 1);
+    if (pos != size && s[pos] == '+') {
       ++pos;
     }
-    pos = ParseDigitsRun(s, pos, size, &out->exponent_digits);
-    if (out->exponent_digits.empty()) {
-      // Need some exponent digits
-      return false;
-    }
+    out->has_exponent = true;
+    internal::StringConverter<Int32Type> exponent_converter;
+    return exponent_converter(s + pos, size - pos, &(out->exponent));
   }
   return pos == size;
 }
@@ -290,7 +294,6 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
     return Status::Invalid("The string '", s, "' is not a valid decimal number");
   }
-  std::string exponent_value = dec.exponent_sign + dec.exponent_digits;
 
   // Count number of significant digits (without leading zeros)
   size_t first_non_zero = dec.whole_digits.find_first_not_of('0');
@@ -304,8 +307,8 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   }
 
   if (scale != nullptr) {
-    if (!exponent_value.empty()) {
-      auto adjusted_exponent = static_cast<int32_t>(std::stol(exponent_value));
+    if (dec.has_exponent) {
+      auto adjusted_exponent = dec.exponent;
       auto len = static_cast<int32_t>(significant_digits);
       *scale = -adjusted_exponent + len - 1;
     } else {
@@ -315,8 +318,8 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
 
   if (out != nullptr) {
     *out = 0;
-    StringToInteger(dec.whole_digits + dec.fractional_digits, out);
-    if (dec.sign == "-") {
+    StringToInteger(dec.whole_digits, dec.fractional_digits, out);
+    if (dec.sign == '-') {
       out->Negate();
     }
 

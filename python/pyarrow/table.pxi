@@ -836,7 +836,7 @@ cdef class RecordBatch(_PandasConvertible):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
 
     @classmethod
-    def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
+    def from_pandas(cls, df, Schema schema=None, preserve_index=None,
                     nthreads=None, columns=None):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
@@ -849,7 +849,9 @@ cdef class RecordBatch(_PandasConvertible):
             indicate the type of columns if we cannot infer it automatically.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
-            ``RecordBatch``.
+            ``RecordBatch``. The default of None will store the index as a
+            column, except for RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a column.
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
@@ -1090,7 +1092,7 @@ cdef class Table(_PandasConvertible):
         return Table.from_arrays(newcols, schema=target_schema)
 
     @classmethod
-    def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
+    def from_pandas(cls, df, Schema schema=None, preserve_index=None,
                     nthreads=None, columns=None, bint safe=True):
         """
         Convert pandas.DataFrame to an Arrow Table.
@@ -1116,7 +1118,9 @@ cdef class Table(_PandasConvertible):
             indicate the type of columns if we cannot infer it automatically.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
-            ``Table``.
+            ``Table``. The default of None will store the index as a column,
+            except for RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a column.
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
@@ -1574,6 +1578,35 @@ def _reconstruct_table(arrays, schema):
     Internal: reconstruct pa.Table from pickled components.
     """
     return Table.from_arrays(arrays, schema=schema)
+
+
+def table(data, schema=None):
+    """
+    Create a pyarrow.Table from a Python object (table like objects such as
+    DataFrame, dictionary).
+
+    Parameters
+    ----------
+    data : pandas.DataFrame, dict
+        A DataFrame or a mapping of strings to Arrays or Python lists.
+    schema : Schema, default None
+        The expected schema of the Arrow Table. If not passed, will be
+        inferred from the data.
+
+    Returns
+    -------
+    Table
+
+    See Also
+    --------
+    Table.from_pandas, Table.from_pydict
+    """
+    if isinstance(data, dict):
+        return Table.from_pydict(data, schema=schema)
+    elif isinstance(data, _pandas_api.pd.DataFrame):
+        return Table.from_pandas(data, schema=schema)
+    else:
+        return TypeError("Expected pandas DataFrame or python dictionary")
 
 
 def concat_tables(tables):

@@ -35,6 +35,7 @@ export PYARROW_WITH_PLASMA=${PYARROW_WITH_PLASMA:-1}
 pushd ${source_dir}
   # hacky again, setuptools_scm writes _generated_version.py before pyarrow
   # directory is created by setuptools
+  rm -rf ${build_dir}
   mkdir -p $build_dir/pyarrow
 
   relative_build_dir=$(realpath --relative-to=. $build_dir)

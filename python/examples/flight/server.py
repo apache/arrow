@@ -77,7 +77,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
             return None
         return pyarrow.flight.RecordBatchStream(self.flights[key])
 
-    def list_actions(self):
+    def list_actions(self, context):
         return [
             ("clear", "Clear the stored flights."),
             ("shutdown", "Shut down this server."),

@@ -25,6 +25,8 @@ import io
 import six
 import warnings
 
+import numpy as np
+
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -40,36 +42,45 @@ from pyarrow.lib cimport (Buffer, Array, Schema,
 
 from pyarrow.compat import tobytes, frombytes
 from pyarrow.lib import (ArrowException, NativeFile, _stringify_path,
-                         BufferOutputStream)
+                         BufferOutputStream,
+                         _datetime_conversion_functions,
+                         _box_time_milli,
+                         _box_time_micro)
 from pyarrow.util import indent
 
+cimport cpython as cp
 
-cdef class RowGroupStatistics:
+
+cdef class Statistics:
     cdef:
-        shared_ptr[CRowGroupStatistics] statistics
+        shared_ptr[CStatistics] statistics
 
     def __cinit__(self):
         pass
 
-    cdef init(self, const shared_ptr[CRowGroupStatistics]& statistics):
+    cdef init(self, const shared_ptr[CStatistics]& statistics):
         self.statistics = statistics
 
     def __repr__(self):
-        return """{0}
-  has_min_max: {1}
-  min: {2}
-  max: {3}
-  null_count: {4}
-  distinct_count: {5}
-  num_values: {6}
-  physical_type: {7}""".format(object.__repr__(self),
-                               self.has_min_max,
-                               self.min,
-                               self.max,
-                               self.null_count,
-                               self.distinct_count,
-                               self.num_values,
-                               self.physical_type)
+        return """{}
+  has_min_max: {}
+  min: {}
+  max: {}
+  null_count: {}
+  distinct_count: {}
+  num_values: {}
+  physical_type: {}
+  logical_type: {}
+  converted_type (legacy): {}""".format(object.__repr__(self),
+                                        self.has_min_max,
+                                        self.min,
+                                        self.max,
+                                        self.null_count,
+                                        self.distinct_count,
+                                        self.num_values,
+                                        self.physical_type,
+                                        str(self.logical_type),
+                                        self.converted_type)
 
     def to_dict(self):
         d = dict(
@@ -89,8 +100,8 @@ cdef class RowGroupStatistics:
         except TypeError:
             return NotImplemented
 
-    def equals(self, RowGroupStatistics other):
-        # TODO(kszucs): implement native Equals method for RowGroupStatistics
+    def equals(self, Statistics other):
+        # TODO(kszucs): implement native Equals method for Statistics
         return (self.has_min_max == other.has_min_max and
                 self.min == other.min and
                 self.max == other.max and
@@ -99,50 +110,25 @@ cdef class RowGroupStatistics:
                 self.num_values == other.num_values and
                 self.physical_type == other.physical_type)
 
-    cdef inline _cast_statistic(self, object value):
-        # Input value is bytes
-        cdef ParquetType physical_type = self.statistics.get().physical_type()
-        if physical_type == ParquetType_BOOLEAN:
-            return bool(int(value))
-        elif physical_type == ParquetType_INT32:
-            return int(value)
-        elif physical_type == ParquetType_INT64:
-            return int(value)
-        elif physical_type == ParquetType_INT96:
-            # Leave as PyBytes
-            return value
-        elif physical_type == ParquetType_FLOAT:
-            return float(value)
-        elif physical_type == ParquetType_DOUBLE:
-            return float(value)
-        elif physical_type == ParquetType_BYTE_ARRAY:
-            # Leave as PyBytes
-            return value
-        elif physical_type == ParquetType_FIXED_LEN_BYTE_ARRAY:
-            # Leave as PyBytes
-            return value
-        else:
-            raise ValueError('Unknown physical ParquetType')
-
     @property
     def has_min_max(self):
         return self.statistics.get().HasMinMax()
 
     @property
-    def min(self):
-        raw_physical_type = self.statistics.get().physical_type()
-        encode_min = self.statistics.get().EncodeMin()
+    def min_raw(self):
+        return _cast_statistic_raw_min(self.statistics.get())
 
-        min_value = FormatStatValue(raw_physical_type, encode_min)
-        return self._cast_statistic(min_value)
+    @property
+    def max_raw(self):
+        return _cast_statistic_raw_max(self.statistics.get())
+
+    @property
+    def min(self):
+        return _cast_statistic_min(self.statistics.get())
 
     @property
     def max(self):
-        raw_physical_type = self.statistics.get().physical_type()
-        encode_max = self.statistics.get().EncodeMax()
-
-        max_value = FormatStatValue(raw_physical_type, encode_max)
-        return self._cast_statistic(max_value)
+        return _cast_statistic_max(self.statistics.get())
 
     @property
     def null_count(self):
@@ -160,6 +146,145 @@ cdef class RowGroupStatistics:
     def physical_type(self):
         raw_physical_type = self.statistics.get().physical_type()
         return physical_type_name_from_enum(raw_physical_type)
+
+    @property
+    def logical_type(self):
+        return wrap_logical_type(self.statistics.get().descr().logical_type())
+
+    @property
+    def converted_type(self):
+        raw_converted_type = self.statistics.get().descr().converted_type()
+        return converted_type_name_from_enum(raw_converted_type)
+
+
+cdef class ParquetLogicalType:
+    cdef:
+        shared_ptr[const CParquetLogicalType] type
+
+    def __cinit__(self):
+        pass
+
+    cdef init(self, const shared_ptr[const CParquetLogicalType]& type):
+        self.type = type
+
+    def __str__(self):
+        return frombytes(self.type.get().ToString())
+
+    def to_json(self):
+        return frombytes(self.type.get().ToJSON())
+
+    @property
+    def type(self):
+        return logical_type_name_from_enum(self.type.get().type())
+
+
+cdef wrap_logical_type(const shared_ptr[const CParquetLogicalType]& type):
+    cdef ParquetLogicalType out = ParquetLogicalType()
+    out.init(type)
+    return out
+
+
+cdef _cast_statistic_raw_min(CStatistics* statistics):
+    cdef ParquetType physical_type = statistics.physical_type()
+    cdef uint32_t type_length = statistics.descr().type_length()
+    if physical_type == ParquetType_BOOLEAN:
+        return (<CBoolStatistics*> statistics).min()
+    elif physical_type == ParquetType_INT32:
+        return (<CInt32Statistics*> statistics).min()
+    elif physical_type == ParquetType_INT64:
+        return (<CInt64Statistics*> statistics).min()
+    elif physical_type == ParquetType_FLOAT:
+        return (<CFloatStatistics*> statistics).min()
+    elif physical_type == ParquetType_DOUBLE:
+        return (<CDoubleStatistics*> statistics).min()
+    elif physical_type == ParquetType_BYTE_ARRAY:
+        return _box_byte_array((<CByteArrayStatistics*> statistics).min())
+    elif physical_type == ParquetType_FIXED_LEN_BYTE_ARRAY:
+        return _box_flba((<CFLBAStatistics*> statistics).min(), type_length)
+
+
+cdef _cast_statistic_raw_max(CStatistics* statistics):
+    cdef ParquetType physical_type = statistics.physical_type()
+    cdef uint32_t type_length = statistics.descr().type_length()
+    if physical_type == ParquetType_BOOLEAN:
+        return (<CBoolStatistics*> statistics).max()
+    elif physical_type == ParquetType_INT32:
+        return (<CInt32Statistics*> statistics).max()
+    elif physical_type == ParquetType_INT64:
+        return (<CInt64Statistics*> statistics).max()
+    elif physical_type == ParquetType_FLOAT:
+        return (<CFloatStatistics*> statistics).max()
+    elif physical_type == ParquetType_DOUBLE:
+        return (<CDoubleStatistics*> statistics).max()
+    elif physical_type == ParquetType_BYTE_ARRAY:
+        return _box_byte_array((<CByteArrayStatistics*> statistics).max())
+    elif physical_type == ParquetType_FIXED_LEN_BYTE_ARRAY:
+        return _box_flba((<CFLBAStatistics*> statistics).max(), type_length)
+
+
+cdef _cast_statistic_min(CStatistics* statistics):
+    min_raw = _cast_statistic_raw_min(statistics)
+    return _box_logical_type_value(min_raw, statistics.descr())
+
+
+cdef _cast_statistic_max(CStatistics* statistics):
+    max_raw = _cast_statistic_raw_max(statistics)
+    return _box_logical_type_value(max_raw, statistics.descr())
+
+
+cdef _box_logical_type_value(object value, const ColumnDescriptor* descr):
+    cdef:
+        const CParquetLogicalType* ltype = descr.logical_type().get()
+        ParquetTimeUnit time_unit
+        const CParquetIntType* itype
+        const CParquetTimestampType* ts_type
+
+    if ltype.type() == ParquetLogicalType_STRING:
+        return value.decode('utf8')
+    elif ltype.type() == ParquetLogicalType_TIME:
+        time_unit = (<const CParquetTimeType*> ltype).time_unit()
+        if time_unit == ParquetTimeUnit_MILLIS:
+            return _box_time_milli(value)
+        else:
+            return _box_time_micro(value)
+    elif ltype.type() == ParquetLogicalType_TIMESTAMP:
+        ts_type = <const CParquetTimestampType*> ltype
+        time_unit = ts_type.time_unit()
+        if time_unit == ParquetTimeUnit_MILLIS:
+            converter = _datetime_conversion_functions()[TimeUnit_MILLI]
+        elif time_unit == ParquetTimeUnit_MICROS:
+            converter = _datetime_conversion_functions()[TimeUnit_MICRO]
+        elif time_unit == ParquetTimeUnit_NANOS:
+            converter = _datetime_conversion_functions()[TimeUnit_NANO]
+        else:
+            raise ValueError("Unsupported time unit")
+
+        if ts_type.is_adjusted_to_utc():
+            import pytz
+            tzinfo = pytz.utc
+        else:
+            tzinfo = None
+
+        return converter(value, tzinfo)
+    elif ltype.type() == ParquetLogicalType_INT:
+        itype = <const CParquetIntType*> ltype
+        if not itype.is_signed() and itype.bit_width() == 32:
+            return int(np.int32(value).view(np.uint32))
+        elif not itype.is_signed() and itype.bit_width() == 64:
+            return int(np.int64(value).view(np.uint64))
+        else:
+            return value
+    else:
+        # No logical boxing defined
+        return value
+
+
+cdef _box_byte_array(ParquetByteArray val):
+    return cp.PyBytes_FromStringAndSize(<char*> val.ptr, <Py_ssize_t> val.len)
+
+
+cdef _box_flba(ParquetFLBA val, uint32_t len):
+    return cp.PyBytes_FromStringAndSize(<char*> val.ptr, <Py_ssize_t> len)
 
 
 cdef class ColumnChunkMetaData:
@@ -278,7 +403,7 @@ cdef class ColumnChunkMetaData:
     def statistics(self):
         if not self.metadata.is_stats_set():
             return None
-        statistics = RowGroupStatistics()
+        statistics = Statistics()
         statistics.init(self.metadata.statistics())
         return statistics
 
@@ -581,10 +706,10 @@ cdef class ParquetSchema:
         elements = []
         for i in range(self.schema.num_columns()):
             col = self.column(i)
-            converted_type = col.converted_type
+            logical_type = col.logical_type
             formatted = '{0}: {1}'.format(col.path, col.physical_type)
-            if converted_type != 'NONE':
-                formatted += ' {0}'.format(converted_type)
+            if logical_type.type != 'NONE':
+                formatted += ' {0}'.format(str(logical_type))
             elements.append(formatted)
 
         return """{0}
@@ -682,10 +807,13 @@ cdef class ColumnSchema:
   max_definition_level: {2}
   max_repetition_level: {3}
   physical_type: {4}
-  converted_type: {5}""".format(self.name, self.path,
-                                self.max_definition_level,
-                                self.max_repetition_level, physical_type,
-                                converted_type)
+  logical_type: {5}
+  converted_type (legacy): {6}""".format(self.name, self.path,
+                                         self.max_definition_level,
+                                         self.max_repetition_level,
+                                         physical_type,
+                                         str(self.logical_type),
+                                         converted_type)
 
     @property
     def name(self):
@@ -708,13 +836,16 @@ cdef class ColumnSchema:
         return physical_type_name_from_enum(self.descr.physical_type())
 
     @property
+    def logical_type(self):
+        return wrap_logical_type(self.descr.logical_type())
+
+    @property
     def converted_type(self):
         return converted_type_name_from_enum(self.descr.converted_type())
 
     @property
     def logical_type(self):
-        # TODO: wrap new LogicalType objects
-        return self.converted_type
+        return wrap_logical_type(self.descr.logical_type())
 
     # FIXED_LEN_BYTE_ARRAY attribute
     @property
@@ -741,6 +872,25 @@ cdef physical_type_name_from_enum(ParquetType type_):
         ParquetType_DOUBLE: 'DOUBLE',
         ParquetType_BYTE_ARRAY: 'BYTE_ARRAY',
         ParquetType_FIXED_LEN_BYTE_ARRAY: 'FIXED_LEN_BYTE_ARRAY',
+    }.get(type_, 'UNKNOWN')
+
+
+cdef logical_type_name_from_enum(ParquetLogicalTypeId type_):
+    return {
+        ParquetLogicalType_UNKNOWN: 'UNKNOWN',
+        ParquetLogicalType_STRING: 'STRING',
+        ParquetLogicalType_MAP: 'MAP',
+        ParquetLogicalType_LIST: 'LIST',
+        ParquetLogicalType_ENUM: 'ENUM',
+        ParquetLogicalType_DECIMAL: 'DECIMAL',
+        ParquetLogicalType_DATE: 'DATE',
+        ParquetLogicalType_TIME: 'TIME',
+        ParquetLogicalType_TIMESTAMP: 'TIMESTAMP',
+        ParquetLogicalType_INT: 'INT',
+        ParquetLogicalType_JSON: 'JSON',
+        ParquetLogicalType_BSON: 'BSON',
+        ParquetLogicalType_UUID: 'UUID',
+        ParquetLogicalType_NONE: 'NONE',
     }.get(type_, 'UNKNOWN')
 
 

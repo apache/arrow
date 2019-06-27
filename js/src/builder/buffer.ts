@@ -16,13 +16,12 @@
 // under the License.
 
 import { memcpy } from '../util/buffer';
-import { BigInt64Array, BigUint64Array } from '../util/compat';
+import { BigIntAvailable, BigInt64Array, BigUint64Array } from '../util/compat';
 import {
     TypedArray, TypedArrayConstructor,
     BigIntArray, BigIntArrayConstructor
 } from '../interfaces';
 
-/** @ignore */ type WideArray<T extends BigIntArray> = T extends BigIntArray ? Int32Array : Uint32Array;
 /** @ignore */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? WideValue<T> : T;
 /** @ignore */ type WideValue<T extends BigIntArray> = T extends BigIntArray ? bigint | Int32Array | Uint32Array : never;
 /** @ignore */ type ArrayCtor<T extends TypedArray | BigIntArray> =
@@ -105,7 +104,7 @@ export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, nu
     public get(index: number) { return this.buffer[index]; }
     public set(index: number, value: number) {
         this.reserve(index - this.length + 1);
-        this.buffer[index] = value;
+        this.buffer[index * this.stride] = value;
         return this;
     }
 }
@@ -157,16 +156,13 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
 }
 
 /** @ignore */
-export class WideBufferBuilder<T extends BigIntArray> extends BufferBuilder<WideArray<T>, DataValue<T>> {
+export class WideBufferBuilder<T extends TypedArray, R extends BigIntArray> extends BufferBuilder<T, DataValue<T>> {
     // @ts-ignore
-    public buffer64: T;
+    public buffer64: R;
     // @ts-ignore
-    constructor(buffer: T, stride: number) {
-        const ArrayType = buffer instanceof BigInt64Array ? Int32Array : Uint32Array;
-        super(new ArrayType(buffer.buffer, buffer.byteOffset, buffer.byteLength / 4) as WideArray<T>, stride);
-    }
-    public get ArrayType64(): BigIntArrayConstructor<T> {
-        return this.buffer instanceof Int32Array ? BigInt64Array : BigUint64Array as any;
+    protected _ArrayType64: BigIntArrayConstructor<R>;
+    public get ArrayType64() {
+        return this._ArrayType64 || (this._ArrayType64 = <BigIntArrayConstructor<R>> (this.buffer instanceof Int32Array ? BigInt64Array : BigUint64Array));
     }
     public set(index: number, value: DataValue<T>) {
         this.reserve(index - this.length + 1);
@@ -180,7 +176,9 @@ export class WideBufferBuilder<T extends BigIntArray> extends BufferBuilder<Wide
     protected _resize(newLength: number) {
         const data = super._resize(newLength);
         const length = data.byteLength / (this.BYTES_PER_ELEMENT * this.stride);
-        this.buffer64 = new this.ArrayType64(data.buffer, data.byteOffset, length);
+        if (BigIntAvailable) {
+            this.buffer64 = new this.ArrayType64(data.buffer, data.byteOffset, length);
+        }
         return data;
     }
 }

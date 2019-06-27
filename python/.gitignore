@@ -36,8 +36,10 @@ htmlcov
 .asv
 pyarrow/_table_api.h
 
-# manylinux1 temporary files
+# manylinux temporary files
 manylinux1/arrow
+nm_arrow.log
+visible_symbols.log
 
 # plasma store
 pyarrow/plasma_store_server

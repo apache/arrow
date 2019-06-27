@@ -43,14 +43,15 @@ public class FlightTestUtil {
    * Returns a a FlightServer (actually anything that is startable)
    * that has been started bound to a random port.
    */
-  public static <T> T getStartedServer(Function<Integer, T> newServerFromPort) throws IOException {
+  public static <T> T getStartedServer(Function<Location, T> newServerFromLocation) throws IOException {
     IOException lastThrown = null;
     T server = null;
     for (int x = 0; x < 3; x++) {
       final int port = 49152 + RANDOM.nextInt(5000);
+      final Location location = Location.forGrpcInsecure(LOCALHOST, port);
       lastThrown = null;
       try {
-        server = newServerFromPort.apply(port);
+        server = newServerFromLocation.apply(location);
         try {
           server.getClass().getMethod("start").invoke(server);
         } catch (NoSuchMethodException | IllegalAccessException e) {

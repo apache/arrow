@@ -35,7 +35,8 @@
 #' @name arrow__Buffer
 `arrow::Buffer` <- R6Class("arrow::Buffer", inherit = `arrow::Object`,
   public = list(
-    ZeroPadding = function() Buffer__ZeroPadding(self)
+    ZeroPadding = function() Buffer__ZeroPadding(self),
+    data = function() Buffer__data(self)
   ),
 
   active = list(
@@ -44,6 +45,9 @@
     capacity = function() Buffer__capacity(self)
   )
 )
+
+#' @export
+`as.raw.arrow::Buffer` <- function(x) x$data()
 
 #' Create a [arrow::Buffer][arrow__Buffer] from an R object
 #'

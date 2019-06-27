@@ -204,7 +204,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
   TestArrayRoundTrip(list_array);
 
-  // List
+  // Map
   auto map_type = map(utf8(), int32());
   auto keys_array = ArrayFromJSON(utf8(), R"(["a", "b", "c", "d", "a", "b", "c"])");
 

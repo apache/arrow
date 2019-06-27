@@ -4,10 +4,23 @@
 \alias{read_csv_arrow}
 \title{Read csv file into an arrow::Table}
 \usage{
-read_csv_arrow(...)
+read_csv_arrow(file, read_options = csv_read_options(),
+  parse_options = csv_parse_options(),
+  convert_options = csv_convert_options(), col_select = NULL,
+  as_tibble = TRUE)
 }
 \arguments{
-\item{...}{Used to construct an arrow::csv::TableReader}
+\item{file}{file}
+
+\item{read_options}{see \code{\link[=csv_read_options]{csv_read_options()}}}
+
+\item{parse_options}{see \code{\link[=csv_parse_options]{csv_parse_options()}}}
+
+\item{convert_options}{see \code{\link[=csv_convert_options]{csv_convert_options()}}}
+
+\item{col_select}{\link[tidyselect:vars_select]{tidy selection specification} of columns}
+
+\item{as_tibble}{Should the \link[=arrow__Table]{arrow::Table} be converted to a data frame.}
 }
 \description{
 Use arrow::csv::TableReader from \code{\link[=csv_table_reader]{csv_table_reader()}}

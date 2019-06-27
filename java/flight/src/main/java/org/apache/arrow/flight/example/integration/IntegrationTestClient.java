@@ -19,15 +19,18 @@ package org.apache.arrow.flight.example.integration;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.flight.AsyncPutListener;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorLoader;
@@ -40,6 +43,8 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * An Example Flight Server that provides access to the InMemoryStore.
@@ -89,15 +94,36 @@ class IntegrationTestClient {
     FlightDescriptor descriptor = FlightDescriptor.path(inputPath);
     VectorSchemaRoot jsonRoot;
     try (JsonFileReader reader = new JsonFileReader(new File(inputPath), allocator);
-         VectorSchemaRoot root = VectorSchemaRoot.create(reader.start(), allocator)) {
+        VectorSchemaRoot root = VectorSchemaRoot.create(reader.start(), allocator)) {
       jsonRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
       VectorUnloader unloader = new VectorUnloader(root);
       VectorLoader jsonLoader = new VectorLoader(jsonRoot);
-      FlightClient.ClientStreamListener stream = client.startPut(descriptor, root);
+      FlightClient.ClientStreamListener stream = client.startPut(descriptor, root, reader,
+          new AsyncPutListener() {
+            int counter = 0;
+
+            @Override
+            public void onNext(PutResult val) {
+              final byte[] metadataRaw = new byte[val.getApplicationMetadata().readableBytes()];
+              val.getApplicationMetadata().readBytes(metadataRaw);
+              final String metadata = new String(metadataRaw, StandardCharsets.UTF_8);
+              if (!Integer.toString(counter).equals(metadata)) {
+                throw new RuntimeException(
+                    String.format("Invalid ACK from server. Expected '%d' but got '%s'.", counter, metadata));
+              }
+              counter++;
+            }
+          });
+      int counter = 0;
       while (reader.read(root)) {
-        stream.putNext();
+        final byte[] rawMetadata = Integer.toString(counter).getBytes(StandardCharsets.UTF_8);
+        final ArrowBuf metadata = allocator.buffer(rawMetadata.length);
+        metadata.writeBytes(rawMetadata);
+        // Transfers ownership of the buffer, so do not release it ourselves
+        stream.putNext(metadata);
         jsonLoader.load(unloader.getRecordBatch());
         root.clear();
+        counter++;
       }
       stream.completed();
       // Need to call this, or exceptions from the server get swallowed

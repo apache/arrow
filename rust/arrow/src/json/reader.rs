@@ -51,7 +51,6 @@ use std::sync::Arc;
 use serde_json::Value;
 
 use crate::array::*;
-use crate::builder::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;

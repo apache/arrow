@@ -938,8 +938,8 @@ mod tests {
         for s in SIZE {
             for i in 0..33 {
                 match i {
-                    0...8 => test_get_batch_helper::<u8>(*s, i),
-                    9...16 => test_get_batch_helper::<u16>(*s, i),
+                    0..=8 => test_get_batch_helper::<u8>(*s, i),
+                    9..=16 => test_get_batch_helper::<u16>(*s, i),
                     _ => test_get_batch_helper::<u32>(*s, i),
                 }
             }

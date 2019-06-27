@@ -25,6 +25,7 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -120,6 +121,24 @@ std::string Location::scheme() const {
 
 bool Location::Equals(const Location& other) const {
   return ToString() == other.ToString();
+}
+
+Status MetadataRecordBatchReader::ReadAll(
+    std::vector<std::shared_ptr<RecordBatch>>* batches) {
+  FlightStreamChunk chunk;
+
+  while (true) {
+    RETURN_NOT_OK(Next(&chunk));
+    if (!chunk.data) break;
+    batches->emplace_back(std::move(chunk.data));
+  }
+  return Status::OK();
+}
+
+Status MetadataRecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  RETURN_NOT_OK(ReadAll(&batches));
+  return Table::FromRecordBatches(schema(), batches, table);
 }
 
 SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)

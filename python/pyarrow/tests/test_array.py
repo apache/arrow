@@ -1430,6 +1430,33 @@ def test_numpy_string_overflow_to_chunked():
             value_index += 1
 
 
+def test_infer_type_masked():
+    # ARROW-5208
+    ty = pa.infer_type([u'foo', u'bar', None, 2],
+                       mask=[False, False, False, True])
+    assert ty == pa.utf8()
+
+    # all masked
+    ty = pa.infer_type([u'foo', u'bar', None, 2],
+                       mask=np.array([True, True, True, True]))
+    assert ty == pa.null()
+
+    # length 0
+    assert pa.infer_type([], mask=[]) == pa.null()
+
+
+def test_array_masked():
+    # ARROW-5208
+    arr = pa.array([4, None, 4, 3.],
+                   mask=np.array([False, True, False, True]))
+    assert arr.type == pa.int64()
+
+    # ndarray dtype=object argument
+    arr = pa.array(np.array([4, None, 4, 3.], dtype="O"),
+                   mask=np.array([False, True, False, True]))
+    assert arr.type == pa.int64()
+
+
 def test_array_from_large_pyints():
     # ARROW-5430
     with pytest.raises(pa.ArrowInvalid):

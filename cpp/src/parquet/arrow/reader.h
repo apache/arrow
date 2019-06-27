@@ -168,6 +168,9 @@ class PARQUET_EXPORT FileReader {
   // Returns error status if the column of interest is not flat.
   ::arrow::Status GetColumn(int i, std::unique_ptr<ColumnReader>* out);
 
+  /// \brief Return arrow schema for all the columns.
+  ::arrow::Status GetSchema(std::shared_ptr<::arrow::Schema>* out);
+
   /// \brief Return arrow schema by apply selection of column indices.
   /// \returns error status if passed wrong indices.
   ::arrow::Status GetSchema(const std::vector<int>& indices,

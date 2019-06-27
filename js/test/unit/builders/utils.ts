@@ -53,7 +53,17 @@ export const int16sNoNulls = (length = 20) => Array.from(new Int16Array(randomBy
 export const int32sNoNulls = (length = 20) => Array.from(new Int32Array(randomBytes(length * Int32Array.BYTES_PER_ELEMENT).buffer));
 export const int64sNoNulls = (length = 20) => Array.from({ length }, (_, i) => {
     const bn = util.BN.new(new Int32Array(randomBytes(2 * 4).buffer));
-    return i % 3 === 0 ? bn : i % 2 === 0 ? bn[Symbol.toPrimitive]() : bn[0];
+    // Evenly distribute the three types of arguments we support in the Int64
+    // builder
+    switch (i % 3) {
+        // Int32Array (util.BN is-a Int32Array)
+        case 0: return bn;
+        // BigInt
+        case 1: return bn[Symbol.toPrimitive]()
+        // number
+        case 2:
+        default: return bn[0];
+    }
 });
 
 export const uint8sNoNulls = (length = 20) => Array.from(new Uint8Array(randomBytes(length * Uint8Array.BYTES_PER_ELEMENT).buffer));
@@ -61,7 +71,17 @@ export const uint16sNoNulls = (length = 20) => Array.from(new Uint16Array(random
 export const uint32sNoNulls = (length = 20) => Array.from(new Uint32Array(randomBytes(length * Uint32Array.BYTES_PER_ELEMENT).buffer));
 export const uint64sNoNulls = (length = 20) => Array.from({ length }, (_, i) => {
     const bn = util.BN.new(new Uint32Array(randomBytes(2 * 4).buffer));
-    return i % 3 === 0 ? bn : i % 2 === 0 ? bn[Symbol.toPrimitive]() : bn[0];
+    // Evenly distribute the three types of arguments we support in the Uint64
+    // builder
+    switch (i % 3) {
+        // UInt32Array (util.BN is-a Uint32Array)
+        case 0: return bn;
+        // BigInt
+        case 1: return bn[Symbol.toPrimitive]()
+        // number
+        case 2:
+        default: return bn[0];
+    }
 });
 export const float16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer)).map((x) => (x - 32767) / 32767);
 export const float32sNoNulls = (length = 20) => Array.from(new Float32Array(randomBytes(length * Float32Array.BYTES_PER_ELEMENT).buffer));

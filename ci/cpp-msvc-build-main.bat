@@ -31,6 +31,14 @@ if "%JOB%" == "Toolchain" (
   set CMAKE_ARGS=%CMAKE_ARGS% -DARROW_DEPENDENCY_SOURCE=AUTO
 )
 
+if "%USE_CLCACHE%" == "true" (
+  @rem XXX Without forcing CMAKE_CXX_COMPILER, CMake can re-run itself and
+  @rem unfortunately switch from Release to Debug mode...
+  set CMAKE_ARGS=%CMAKE_ARGS% ^
+      -DARROW_USE_CLCACHE=ON ^
+      -DCMAKE_CXX_COMPILER=clcache
+)
+
 @rem Retrieve git submodules, configure env var for Parquet unit tests
 git submodule update --init || exit /B
 set ARROW_TEST_DATA=%CD%\testing\data
@@ -51,14 +59,14 @@ mkdir cpp\build
 pushd cpp\build
 
 cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
-      -DCMAKE_VERBOSE_MAKEFILE=OFF ^
-      -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
-      -DARROW_BOOST_USE_SHARED=OFF ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
+      -DCMAKE_INSTALL_PREFIX=%CONDA_PREFIX%\Library ^
+      -DCMAKE_VERBOSE_MAKEFILE=OFF ^
+      -DARROW_VERBOSE_THIRDPARTY_BUILD=OFF ^
+      -DARROW_BOOST_USE_SHARED=OFF ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
       -DARROW_BUILD_EXAMPLES=ON ^
-      -DARROW_VERBOSE_THIRDPARTY_BUILD=ON ^
       -DARROW_CXXFLAGS="%ARROW_CXXFLAGS%" ^
       -DCMAKE_CXX_FLAGS_RELEASE="/MD %CMAKE_CXX_FLAGS_RELEASE%" ^
       -DARROW_FLIGHT=%ARROW_BUILD_FLIGHT% ^
@@ -109,30 +117,5 @@ python setup.py develop -q || exit /B
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 
 @rem
-@rem Build wheel
+@rem Wheels are built and tested separately (see ARROW-5142).
 @rem
-
-python setup.py bdist_wheel -q || exit /B
-
-for /F %%i in ('dir /B /S dist\*.whl') do set WHEEL_PATH=%%i
-
-popd
-
-@rem
-@rem Test pyarrow wheel from pristine environment
-@rem
-
-call deactivate
-
-conda create -n wheel_test -q -y python=%PYTHON% || exit /B
-
-call activate wheel_test
-
-pip install %WHEEL_PATH% || exit /B
-
-python -c "import pyarrow" || exit /B
-python -c "import pyarrow.parquet" || exit /B
-
-pip install pandas pickle5 pytest pytest-faulthandler hypothesis || exit /B
-
-py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B

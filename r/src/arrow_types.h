@@ -176,6 +176,9 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/json/reader.h>
 #include <arrow/type.h>
 #include <arrow/util/compression.h>
+#include <parquet/arrow/reader.h>
+#include <parquet/arrow/writer.h>
+#include <parquet/exception.h>
 
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
