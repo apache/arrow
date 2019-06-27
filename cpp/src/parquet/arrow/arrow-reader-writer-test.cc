@@ -2658,6 +2658,47 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   TryReadDataFile(path, ::arrow::StatusCode::IOError);
 }
 
+TEST(TestArrowReaderAdHoc, DISABLED_LargeStringColumn) {
+  // ARROW-3762
+  ::arrow::StringBuilder builder;
+  int64_t length = 1 << 30;
+  ASSERT_OK(builder.Resize(length));
+  ASSERT_OK(builder.ReserveData(length));
+  for (int64_t i = 0; i < length; ++i) {
+    builder.UnsafeAppend("1", 1);
+  }
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+  auto table = Table::Make({std::make_shared<Column>("x", array)});
+  std::shared_ptr<SchemaDescriptor> schm;
+  ASSERT_OK_NO_THROW(
+      ToParquetSchema(table->schema().get(), *default_writer_properties(), &schm));
+
+  auto sink = CreateOutputStream();
+
+  auto schm_node = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, {schm->group_node()->field(0)}));
+
+  auto writer = ParquetFileWriter::Open(sink, schm_node);
+  FileWriter arrow_writer(default_memory_pool(), std::move(writer), table->schema());
+  for (int i : {0, 1}) {
+    ASSERT_OK_NO_THROW(arrow_writer.WriteTable(*table, table->num_rows())) << i;
+  }
+  ASSERT_OK_NO_THROW(arrow_writer.Close());
+
+  std::shared_ptr<Buffer> tables_buffer;
+  ASSERT_OK_NO_THROW(sink->Finish(&tables_buffer));
+
+  // drop to save memory
+  table.reset();
+  array.reset();
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
+  FileReader arrow_reader(default_memory_pool(), std::move(reader));
+  ASSERT_OK_NO_THROW(arrow_reader.ReadTable(&table));
+  ASSERT_OK(table->Validate());
+}
+
 TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
   // PARQUET-1402: parquet-mr writes files this way which tripped up
   // some business logic

@@ -316,22 +316,37 @@ namespace internal {
 
 class ARROW_EXPORT ChunkedBinaryBuilder {
  public:
-  ChunkedBinaryBuilder(int32_t max_chunk_size,
+  ChunkedBinaryBuilder(int32_t max_chunk_value_length,
+                       MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+
+  ChunkedBinaryBuilder(int32_t max_chunk_value_length, int32_t max_chunk_length,
                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   virtual ~ChunkedBinaryBuilder() = default;
 
   Status Append(const uint8_t* value, int32_t length) {
-    if (ARROW_PREDICT_FALSE(length + chunk_data_size_ > max_chunk_size_)) {
-      // Move onto next chunk, unless the builder length is currently 0, which
-      // means that max_chunk_size_ is less than the item length
-      if (builder_->length() > 0) {
-        ARROW_RETURN_NOT_OK(NextChunk());
+    if (ARROW_PREDICT_FALSE(length + builder_->value_data_length() >
+                            max_chunk_value_length_)) {
+      if (builder_->value_data_length() == 0) {
+        // The current item is larger than max_chunk_size_;
+        // this chunk will be oversize and hold *only* this item
+        ARROW_RETURN_NOT_OK(builder_->Append(value, length));
+        return NextChunk();
       }
-      // else fall through
+      // The current item would cause builder_->value_data_length() to exceed
+      // max_chunk_size_, so finish this chunk and append the current item to the next
+      // chunk
+      ARROW_RETURN_NOT_OK(NextChunk());
+      return Append(value, length);
     }
 
-    chunk_data_size_ += length;
+    if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
+      // The current item would cause builder_->value_data_length() to exceed
+      // max_chunk_size_, so finish this chunk and append the current item to the next
+      // chunk
+      ARROW_RETURN_NOT_OK(NextChunk());
+    }
+
     return builder_->Append(value, length);
   }
 
@@ -341,21 +356,28 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
   }
 
   Status AppendNull() {
-    if (ARROW_PREDICT_FALSE(builder_->length() == std::numeric_limits<int32_t>::max())) {
+    if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
       ARROW_RETURN_NOT_OK(NextChunk());
     }
     return builder_->AppendNull();
   }
 
-  Status Reserve(int64_t values) { return builder_->Reserve(values); }
+  Status Reserve(int64_t values);
 
   virtual Status Finish(ArrayVector* out);
 
  protected:
   Status NextChunk();
 
-  int64_t max_chunk_size_;
-  int64_t chunk_data_size_;
+  // maximum total character data size per chunk
+  int64_t max_chunk_value_length_;
+
+  // maximum elements allowed per chunk
+  int64_t max_chunk_length_ = kListMaximumElements;
+
+  // when Reserve() would cause builder_ to exceed its max_chunk_length_,
+  // add to extra_capacity_ instead and wait to reserve until the next chunk
+  int64_t extra_capacity_ = 0;
 
   std::unique_ptr<BinaryBuilder> builder_;
   std::vector<std::shared_ptr<Array>> chunks_;

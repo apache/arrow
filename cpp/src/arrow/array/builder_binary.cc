@@ -281,9 +281,15 @@ util::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
 
 namespace internal {
 
-ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_size, MemoryPool* pool)
-    : max_chunk_size_(max_chunk_size),
-      chunk_data_size_(0),
+ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_value_length,
+                                           MemoryPool* pool)
+    : max_chunk_value_length_(max_chunk_value_length),
+      builder_(new BinaryBuilder(pool)) {}
+
+ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_value_length,
+                                           int32_t max_chunk_length, MemoryPool* pool)
+    : max_chunk_value_length_(max_chunk_value_length),
+      max_chunk_length_(max_chunk_length),
       builder_(new BinaryBuilder(pool)) {}
 
 Status ChunkedBinaryBuilder::Finish(ArrayVector* out) {
@@ -301,7 +307,11 @@ Status ChunkedBinaryBuilder::NextChunk() {
   RETURN_NOT_OK(builder_->Finish(&chunk));
   chunks_.emplace_back(std::move(chunk));
 
-  chunk_data_size_ = 0;
+  if (auto capacity = extra_capacity_) {
+    extra_capacity_ = 0;
+    return Reserve(capacity);
+  }
+
   return Status::OK();
 }
 
@@ -315,6 +325,22 @@ Status ChunkedStringBuilder::Finish(ArrayVector* out) {
     (*out)[i] = std::make_shared<StringArray>(data);
   }
   return Status::OK();
+}
+
+Status ChunkedBinaryBuilder::Reserve(int64_t values) {
+  if (ARROW_PREDICT_FALSE(extra_capacity_ != 0)) {
+    extra_capacity_ += values;
+    return Status::OK();
+  }
+
+  auto min_capacity = builder_->length() + values;
+  auto new_capacity = BufferBuilder::GrowByFactor(builder_->capacity(), min_capacity);
+  if (ARROW_PREDICT_TRUE(new_capacity <= kListMaximumElements)) {
+    return builder_->Resize(new_capacity);
+  }
+
+  extra_capacity_ = new_capacity - kListMaximumElements;
+  return builder_->Resize(kListMaximumElements);
 }
 
 }  // namespace internal
