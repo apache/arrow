@@ -105,6 +105,15 @@ tasks:
         - docker-compose build cpp
         - docker-compose run cpp
 
+  docker-cpp-release:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose run cpp-release
+
   docker-cpp-alpine:
     ci: circle
     platform: linux
