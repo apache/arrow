@@ -48,9 +48,10 @@ public class TestIntervalYearVector {
         vector.set(i, i);
       }
 
-      assertEquals("1 month ", vector.getAsStringBuilder(1).toString());
-      assertEquals("10 months ", vector.getAsStringBuilder(10).toString());
-      assertEquals("20 months ", vector.getAsStringBuilder(20).toString());
+      assertEquals("0 years 1 month ", vector.getAsStringBuilder(1).toString());
+      assertEquals("0 years 10 months ", vector.getAsStringBuilder(10).toString());
+      assertEquals("1 year 8 months ", vector.getAsStringBuilder(20).toString());
+      assertEquals("2 years 6 months ", vector.getAsStringBuilder(30).toString());
 
     }
   }
