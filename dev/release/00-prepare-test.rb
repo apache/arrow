@@ -280,7 +280,7 @@ class PrepareTest < Test::Unit::TestCase
                      path: "r/NEWS.md",
                      # Note that these are additions only, no replacement
                      hunks: [
-                       ["+# arrow 0.14.0.9000",
+                       ["+# arrow #{@release_version}.9000",
                         "+"],
                      ],
                    },

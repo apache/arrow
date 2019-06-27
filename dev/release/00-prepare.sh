@@ -102,7 +102,7 @@ update_versions() {
   cd -
 
   cd "${SOURCE_DIR}/../../r"
-  if [[ ${r_version} == *".9000" ]]; then
+  if [[ ${type} = "snapshot" ]]; then
     # Add a news entry for the new dev version
     echo "dev"
     sed -i.bak -E -e \
