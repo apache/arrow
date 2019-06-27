@@ -8,7 +8,6 @@ jobs:
     CONFIG: {{ config }}
     ARROW_VERSION: {{ arrow.no_rc_version }}
     DOCKER_IMAGE: condaforge/linux-anvil-comp7
-    ARROW_TEST_DATA: $(Agent.BuildDirectory)/arrow/testing/data
     UPLOAD_PACKAGES: False
 
   steps:

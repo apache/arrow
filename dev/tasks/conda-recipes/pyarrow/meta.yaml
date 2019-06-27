@@ -55,6 +55,7 @@ test:
     - hypothesis
 
   commands:
+    - export ARROW_TEST_DATA="${SRC_DIR}/testing/data"
     - pytest --pyargs pyarrow
 
 about:
