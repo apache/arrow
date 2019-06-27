@@ -28,6 +28,7 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.common.base.Preconditions;
@@ -43,19 +44,22 @@ public class FlightHolder implements AutoCloseable {
   private final FlightDescriptor descriptor;
   private final Schema schema;
   private final List<Stream> streams = new CopyOnWriteArrayList<>();
+  private final DictionaryProvider dictionaryProvider;
 
   /**
    * Creates a new instance.
-   *
-   * @param allocator The allocator to use for allocating buffers to store data.
+   *  @param allocator The allocator to use for allocating buffers to store data.
    * @param descriptor The descriptor for the streams.
    * @param schema  The schema for the stream.
+   * @param dictionaryProvider The dictionary provider for the stream.
    */
-  public FlightHolder(BufferAllocator allocator, FlightDescriptor descriptor, Schema schema) {
+  public FlightHolder(BufferAllocator allocator, FlightDescriptor descriptor, Schema schema,
+      DictionaryProvider dictionaryProvider) {
     Preconditions.checkArgument(!descriptor.isCommand());
     this.allocator = allocator.newChildAllocator(descriptor.toString(), 0, Long.MAX_VALUE);
     this.descriptor = descriptor;
     this.schema = schema;
+    this.dictionaryProvider = dictionaryProvider;
   }
 
   /**
@@ -72,8 +76,8 @@ public class FlightHolder implements AutoCloseable {
    * Adds a new streams which clients can populate via the returned object.
    */
   public Stream.StreamCreator addStream(Schema schema) {
-    Preconditions.checkArgument(schema.equals(schema), "Stream schema inconsistent with existing schema.");
-    return new Stream.StreamCreator(schema, allocator, t -> {
+    Preconditions.checkArgument(this.schema.equals(schema), "Stream schema inconsistent with existing schema.");
+    return new Stream.StreamCreator(schema, dictionaryProvider, allocator, t -> {
       synchronized (streams) {
         streams.add(t);
       }

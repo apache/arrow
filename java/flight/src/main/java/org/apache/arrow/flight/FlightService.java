@@ -30,18 +30,21 @@ import org.apache.arrow.flight.impl.Flight.ActionType;
 import org.apache.arrow.flight.impl.Flight.Empty;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
-import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
+import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
+import io.netty.buffer.ArrowBuf;
 
 /**
  * GRPC service implementation for a flight server.
@@ -138,15 +141,25 @@ class FlightService extends FlightServiceImplBase {
 
     @Override
     public void start(VectorSchemaRoot root) {
-      responseObserver.onNext(new ArrowMessage(null, root.getSchema()));
-      // [ARROW-4213] We must align buffers to be compatible with other languages.
+      start(root, new MapDictionaryProvider());
+    }
+
+    @Override
+    public void start(VectorSchemaRoot root, DictionaryProvider provider) {
       unloader = new VectorUnloader(root, true, true);
+
+      DictionaryUtils.generateSchemaMessages(root.getSchema(), null, provider, responseObserver::onNext);
     }
 
     @Override
     public void putNext() {
+      putNext(null);
+    }
+
+    @Override
+    public void putNext(ArrowBuf metadata) {
       Preconditions.checkNotNull(unloader);
-      responseObserver.onNext(new ArrowMessage(unloader.getRecordBatch()));
+      responseObserver.onNext(new ArrowMessage(unloader.getRecordBatch(), metadata));
     }
 
     @Override
@@ -161,18 +174,33 @@ class FlightService extends FlightServiceImplBase {
 
   }
 
-  public StreamObserver<ArrowMessage> doPutCustom(final StreamObserver<PutResult> responseObserverSimple) {
-    ServerCallStreamObserver<PutResult> responseObserver = (ServerCallStreamObserver<PutResult>) responseObserverSimple;
+  public StreamObserver<ArrowMessage> doPutCustom(final StreamObserver<Flight.PutResult> responseObserverSimple) {
+    ServerCallStreamObserver<Flight.PutResult> responseObserver =
+        (ServerCallStreamObserver<Flight.PutResult>) responseObserverSimple;
     responseObserver.disableAutoInboundFlowControl();
     responseObserver.request(1);
 
-    FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, null, (count) -> responseObserver.request(count));
+    // Set a default metadata listener that does nothing. Service implementations should call
+    // FlightStream#setMetadataListener before returning a Runnable if they want to receive metadata.
+    FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, (String message, Throwable cause) -> {
+      responseObserver.onError(Status.CANCELLED.withCause(cause).withDescription(message).asException());
+    }, responseObserver::request);
     executors.submit(() -> {
       try {
-        responseObserver.onNext(producer.acceptPut(makeContext(responseObserver), fs).call());
+        producer.acceptPut(makeContext(responseObserver), fs,
+            StreamPipe.wrap(responseObserver, PutResult::toProtocol)).run();
         responseObserver.onCompleted();
       } catch (Exception ex) {
         responseObserver.onError(ex);
+        // The client may have terminated, so the exception here is effectively swallowed.
+        // Log the error as well so -something- makes it to the developer.
+        logger.error("Exception handling DoPut", ex);
+      }
+      try {
+        fs.close();
+      } catch (Exception e) {
+        logger.error("Exception closing Flight stream", e);
+        throw new RuntimeException(e);
       }
     });
 

@@ -24,7 +24,6 @@ use std::str;
 use std::sync::Arc;
 
 use arrow::array::*;
-use arrow::builder::*;
 use arrow::compute;
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;

@@ -313,18 +313,20 @@ matrix:
           - libelf-dev
           - libdw-dev
           - binutils-dev
+          - libssl-dev
           - cmake
     before_script:
-    - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
+      - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
+      - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
     script:
-    - RUSTUP_TOOLCHAIN=nightly $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+      - RUSTUP_TOOLCHAIN=nightly $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+    before_cache:
+      cargo install cargo-tarpaulin -f
     after_success:
-    - pushd ${TRAVIS_BUILD_DIR}/rust
-    # Run coverage for codecov.io
-    - mkdir -p target/kcov
-    - RUST_BACKTRACE=1 RUSTUP_TOOLCHAIN=nightly RUSTFLAGS="-D warnings" cargo coverage --verbose
-    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+      - pushd ${TRAVIS_BUILD_DIR}/rust
+      # Run coverage for codecov.io
+      - cargo tarpaulin --out Xml
+      - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   - name: Go
     language: go
     go_import_path: github.com/apache/arrow

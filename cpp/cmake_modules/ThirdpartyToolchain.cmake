@@ -1115,7 +1115,9 @@ macro(build_thrift)
       -DWITH_HASKELL=OFF
       -DWITH_CPP=ON
       -DWITH_STATIC_LIB=ON
-      -DWITH_LIBEVENT=OFF)
+      -DWITH_LIBEVENT=OFF
+      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
+      -DBoost_NO_BOOST_CMAKE=ON)
 
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
   if(DEFINED BOOST_ROOT)

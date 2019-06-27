@@ -15,45 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines public types representing Apache Arrow arrays. Arrow's specification defines
-//! an array as "a sequence of values with known length all having the same type." For
-//! example, the type `Int16Array` represents an Apache Arrow array of 16-bit integers.
-//!
-//! ```
-//! extern crate arrow;
-//!
-//! use arrow::array::Int16Array;
-//!
-//! // Create a new builder with a capacity of 100
-//! let mut builder = Int16Array::builder(100);
-//!
-//! // Append a single primitive value
-//! builder.append_value(1).unwrap();
-//!
-//! // Append a null value
-//! builder.append_null().unwrap();
-//!
-//! // Append a slice of primitive values
-//! builder.append_slice(&[2, 3, 4]).unwrap();
-//!
-//! // Build the array
-//! let array = builder.finish();
-//!
-//! assert_eq!(
-//!     5,
-//!     array.len(),
-//!     "The array has 5 values, counting the null value"
-//! );
-//!
-//! assert_eq!(2, array.value(2), "Get the value with index 2");
-//!
-//! assert_eq!(
-//!     array.value_slice(3, 2),
-//!     &[3, 4],
-//!     "Get slice of len 2 starting at idx 3"
-//! )
-//! ```
-
 use std::any::Any;
 use std::convert::From;
 use std::fmt;
@@ -63,9 +24,8 @@ use std::sync::Arc;
 
 use chrono::prelude::*;
 
-use crate::array_data::{ArrayData, ArrayDataRef};
+use super::*;
 use crate::buffer::{Buffer, MutableBuffer};
-use crate::builder::*;
 use crate::datatypes::*;
 use crate::memory;
 use crate::util::bit_util;
@@ -131,7 +91,7 @@ pub type ArrayRef = Arc<Array>;
 
 /// Constructs an array using the input `data`. Returns a reference-counted `Array`
 /// instance.
-pub(crate) fn make_array(data: ArrayDataRef) -> ArrayRef {
+pub fn make_array(data: ArrayDataRef) -> ArrayRef {
     // TODO: here data_type() needs to clone the type - maybe add a type tag enum to
     // avoid the cloning.
     match data.data_type().clone() {
@@ -233,30 +193,6 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     /// i.e. `self.raw_values.get() as *const u8`
     raw_values: RawPtrBox<T::Native>,
 }
-
-pub type BooleanArray = PrimitiveArray<BooleanType>;
-pub type Int8Array = PrimitiveArray<Int8Type>;
-pub type Int16Array = PrimitiveArray<Int16Type>;
-pub type Int32Array = PrimitiveArray<Int32Type>;
-pub type Int64Array = PrimitiveArray<Int64Type>;
-pub type UInt8Array = PrimitiveArray<UInt8Type>;
-pub type UInt16Array = PrimitiveArray<UInt16Type>;
-pub type UInt32Array = PrimitiveArray<UInt32Type>;
-pub type UInt64Array = PrimitiveArray<UInt64Type>;
-pub type Float32Array = PrimitiveArray<Float32Type>;
-pub type Float64Array = PrimitiveArray<Float64Type>;
-
-pub type TimestampSecondArray = PrimitiveArray<TimestampSecondType>;
-pub type TimestampMillisecondArray = PrimitiveArray<TimestampMillisecondType>;
-pub type TimestampMicrosecondArray = PrimitiveArray<TimestampMicrosecondType>;
-pub type TimestampNanosecondArray = PrimitiveArray<TimestampNanosecondType>;
-pub type Date32Array = PrimitiveArray<Date32Type>;
-pub type Date64Array = PrimitiveArray<Date64Type>;
-pub type Time32SecondArray = PrimitiveArray<Time32SecondType>;
-pub type Time32MillisecondArray = PrimitiveArray<Time32MillisecondType>;
-pub type Time64MicrosecondArray = PrimitiveArray<Time64MicrosecondType>;
-pub type Time64NanosecondArray = PrimitiveArray<Time64NanosecondType>;
-// TODO add interval
 
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     fn as_any(&self) -> &Any {
@@ -1041,7 +977,6 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
 
-    use crate::array_data::ArrayData;
     use crate::buffer::Buffer;
     use crate::datatypes::{DataType, Field};
     use crate::memory;

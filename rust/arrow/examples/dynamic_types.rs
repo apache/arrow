@@ -46,7 +46,7 @@ fn main() -> Result<()> {
     let nested = StructArray::from(vec![
         (
             Field::new("a", DataType::Utf8, false),
-            Arc::new(BinaryArray::from(vec!["a", "b", "c", "d", "e"])) as Arc<Array>,
+            Arc::new(BinaryArray::from(vec!["a", "b", "c", "d", "e"])) as Arc<dyn Array>,
         ),
         (
             Field::new("b", DataType::Float64, false),

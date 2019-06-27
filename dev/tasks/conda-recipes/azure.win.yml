@@ -1,0 +1,108 @@
+jobs:
+- job: win
+  pool:
+    vmImage: vs2017-win2016
+  timeoutInMinutes: 360
+  variables:
+    CONFIG: {{ config }}
+    ARROW_VERSION: {{ arrow.no_rc_version }}
+    CONDA_BLD_PATH: D:\\bld\\
+    UPLOAD_PACKAGES: False
+  steps:
+  - script: |
+      choco install vcpython27 -fdv -y --debug
+    condition: contains(variables['CONFIG'], 'vs2008')
+    displayName: Install vcpython27.msi (if needed)
+
+  - powershell: |
+      Set-PSDebug -Trace 1
+
+      $batchcontent = @"
+      ECHO ON
+      SET vcpython=C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0
+
+      DIR "%vcpython%"
+
+      CALL "%vcpython%\vcvarsall.bat" %*
+      "@
+
+      $batchDir = "C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0\VC"
+      $batchPath = "$batchDir" + "\vcvarsall.bat"
+      New-Item -Path $batchPath -ItemType "file" -Force
+
+      Set-Content -Value $batchcontent -Path $batchPath
+
+      Get-ChildItem -Path $batchDir
+
+      Get-ChildItem -Path ($batchDir + '\..')
+
+    condition: contains(variables['CONFIG'], 'vs2008')
+    displayName: Patch vs2008 (if needed)
+
+  - task: CondaEnvironment@1
+    inputs:
+      packageSpecs: 'python=3.6 conda-build conda conda-forge::conda-forge-ci-setup=2' # Optional
+      installOptions: "-c conda-forge"
+      updateConda: false
+    displayName: Install conda-build and activate environment
+
+  - script: set PYTHONUNBUFFERED=1
+
+  - script: |
+      git clone --no-checkout {{ arrow.remote }} arrow
+      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      git -C arrow checkout FETCH_HEAD
+    displayName: Clone arrow
+
+  # Configure the VM
+  - script: setup_conda_rc .\ .\ .\.ci_support\%CONFIG%.yaml
+    workingDirectory: arrow\dev\tasks\conda-recipes
+
+  # Configure the VM.
+  - script: |
+      set "CI=azure"
+      run_conda_forge_build_setup
+    displayName: conda-forge build setup
+
+  - script: |
+      rmdir C:\strawberry /s /q
+    continueOnError: true
+    displayName: remove strawberryperl
+
+  # Special cased version setting some more things!
+  - script: |
+      conda.exe build arrow-cpp parquet-cpp pyarrow -m .ci_support\%CONFIG%.yaml
+    displayName: Build recipe (vs2008)
+    workingDirectory: arrow\dev\tasks\conda-recipes
+    env:
+      VS90COMNTOOLS: "C:\\Program Files (x86)\\Common Files\\Microsoft\\Visual C++ for Python\\9.0\\VC\\bin"
+      PYTHONUNBUFFERED: 1
+    condition: contains(variables['CONFIG'], 'vs2008')
+
+  - script: |
+      conda.exe build arrow-cpp parquet-cpp pyarrow -m .ci_support\%CONFIG%.yaml
+    displayName: Build recipe
+    workingDirectory: arrow\dev\tasks\conda-recipes
+    env:
+      PYTHONUNBUFFERED: 1
+    condition: not(contains(variables['CONFIG'], 'vs2008'))
+
+  # Using github release tries to find a common ancestor between the currently
+  # pushed tag and the latest tag of the github repository (don't know why).
+  # The tag upload took 43 minutes because of this scan, so use an alternative upload script.
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.6'
+      architecture: 'x64'
+
+  - script: |
+      python -m pip install github3-py click
+      python upload-assets.py \
+        --sha {{ task.branch }} \
+        --tag {{ task.tag }} \
+        --pattern "conda-recipes/build_artifacts/*.tar.bz2"
+    env:
+      CROSSBOW_GITHUB_REPO: $(Build.Repository.Name)
+      CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
+    displayName: Upload packages as a GitHub release
+    workingDirectory: arrow/dev/tasks

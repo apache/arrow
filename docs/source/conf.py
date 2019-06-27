@@ -416,7 +416,16 @@ except ImportError:
     from unittest import mock
     pyarrow.cuda = sys.modules['pyarrow.cuda'] = mock.Mock()
 
+try:
+    import pyarrow.flight
+    flight_enabled = True
+except ImportError:
+    flight_enabled = False
+    pyarrow.flight = sys.modules['pyarrow.flight'] = mock.Mock()
+
+
 def setup(app):
     # Use a config value to indicate whether CUDA API docs can be generated.
     # This will also rebuild appropriately when the value changes.
     app.add_config_value('cuda_enabled', cuda_enabled, 'env')
+    app.add_config_value('flight_enabled', flight_enabled, 'env')

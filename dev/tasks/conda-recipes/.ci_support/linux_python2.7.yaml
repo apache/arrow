@@ -1,40 +1,24 @@
 boost_cpp:
-- 1.68.0
+- 1.70.0
 c_compiler:
 - gcc
+c_compiler_version:
+- '7'
 channel_sources:
 - conda-forge,defaults
 channel_targets:
 - conda-forge main
 cxx_compiler:
 - gxx
+cxx_compiler_version:
+- '7'
 docker_image:
 - condaforge/linux-anvil-comp7
-libprotobuf:
-- '3.7'
-lz4_c:
-- 1.8.1
 pin_run_as_build:
   boost-cpp:
-    max_pin: x.x.x
-  libprotobuf:
-    max_pin: x.x
-  lz4-c:
     max_pin: x.x.x
   python:
     min_pin: x.x
     max_pin: x.x
-  snappy:
-    max_pin: x.x.x
-  zlib:
-    max_pin: x.x
-  zstd:
-    max_pin: x.x.x
 python:
 - '2.7'
-snappy:
-- 1.1.7
-zlib:
-- '1.2'
-zstd:
-- 1.3.3

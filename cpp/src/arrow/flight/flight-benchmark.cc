@@ -106,10 +106,10 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
 
-    std::unique_ptr<RecordBatchReader> reader;
+    std::unique_ptr<FlightStreamReader> reader;
     RETURN_NOT_OK(client->DoGet(endpoint.ticket, &reader));
 
-    std::shared_ptr<RecordBatch> batch;
+    FlightStreamChunk batch;
 
     // This is hard-coded for right now, 4 columns each with int64
     const int bytes_per_record = 32;
@@ -120,26 +120,26 @@ Status RunPerformanceTest(const std::string& hostname, const int port) {
     int64_t num_bytes = 0;
     int64_t num_records = 0;
     while (true) {
-      RETURN_NOT_OK(reader->ReadNext(&batch));
-      if (!batch) {
+      RETURN_NOT_OK(reader->Next(&batch));
+      if (!batch.data) {
         break;
       }
 
       if (verify) {
-        auto values =
-            reinterpret_cast<const int64_t*>(batch->column_data(0)->buffers[1]->data());
+        auto values = reinterpret_cast<const int64_t*>(
+            batch.data->column_data(0)->buffers[1]->data());
         const int64_t start = token.start() + num_records;
-        for (int64_t i = 0; i < batch->num_rows(); ++i) {
+        for (int64_t i = 0; i < batch.data->num_rows(); ++i) {
           if (values[i] != start + i) {
             return Status::Invalid("verification failure");
           }
         }
       }
 
-      num_records += batch->num_rows();
+      num_records += batch.data->num_rows();
 
       // Hard-coded
-      num_bytes += batch->num_rows() * bytes_per_record;
+      num_bytes += batch.data->num_rows() * bytes_per_record;
     }
     stats.Update(num_records, num_bytes);
     return Status::OK();

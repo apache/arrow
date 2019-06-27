@@ -96,9 +96,9 @@ public class TestTls {
         Producer producer = new Producer();
         FlightServer s =
             FlightTestUtil.getStartedServer(
-                (port) -> {
+                (location) -> {
                   try {
-                    return FlightServer.builder(a, Location.forGrpcTls(FlightTestUtil.LOCALHOST, port), producer)
+                    return FlightServer.builder(a, location, producer)
                         .useTls(certKey.cert, certKey.key)
                         .build();
                   } catch (IOException e) {
