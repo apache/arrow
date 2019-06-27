@@ -74,15 +74,13 @@ class TableTest < Test::Unit::TestCase
     end
 
     test("Integer: positive") do
-      record = @table.slice(@table.size - 1)
-      assert_equal([128, nil],
-                   [record[0], record[1]])
+      assert_equal({"count" => 128, "visible" => nil},
+                   @table.slice(@table.n_rows - 1).to_h)
     end
 
     test("Integer: negative") do
-      record = @table.slice(-@table.size)
-      assert_equal([1, true],
-                   [record[0], record[1]])
+      assert_equal({"count" => 1, "visible" => true},
+                   @table.slice(-@table.n_rows).to_h)
     end
 
     test("Integer: out of index") do
@@ -91,8 +89,8 @@ class TableTest < Test::Unit::TestCase
                      nil,
                    ],
                    [
-                     @table.slice(@table.size),
-                     @table.slice(-(@table.size + 1)),
+                     @table.slice(@table.n_rows),
+                     @table.slice(-(@table.n_rows + 1)),
                    ])
     end
 
