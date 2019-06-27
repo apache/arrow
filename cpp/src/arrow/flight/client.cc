@@ -241,7 +241,7 @@ void GrpcStreamReader::Cancel() { rpc_->context.TryCancel(); }
 class DoPutPayloadWriter;
 class GrpcStreamWriter : public FlightStreamWriter {
  public:
-  ~GrpcStreamWriter() = default;
+  ~GrpcStreamWriter() override = default;
 
   GrpcStreamWriter() : app_metadata_(nullptr), batch_writer_(nullptr) {}
 
