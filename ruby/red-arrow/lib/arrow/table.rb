@@ -274,8 +274,8 @@ module Arrow
             slicers << args[0]
           end
         when 2
-          from, to = args
-          slicers << (from...(from + to))
+          offset, length = args
+          slicers << (offset...(offset + length))
         else
           expected_n_args = "1..2"
         end
