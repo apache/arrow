@@ -365,8 +365,8 @@ void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int64_t out_pr
   auto dec = std::make_shared<arrow::Decimal128>();
   int32_t precision_from_str;
   int32_t scale_from_str;
-  dec->FromString(std::string(in, in_length), dec.get(), &precision_from_str,
-                  &scale_from_str);
+  auto status = dec->FromString(std::string(in, in_length), dec.get(),
+                                &precision_from_str, &scale_from_str);
   gandiva::BasicDecimalScalar128 x({dec->high_bits(), dec->low_bits()},
                                    precision_from_str, scale_from_str);
   bool overflow = false;

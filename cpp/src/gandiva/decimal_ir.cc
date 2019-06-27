@@ -561,6 +561,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
   auto i64 = decimal_ir->types()->i64_type();
   auto f64 = decimal_ir->types()->double_type();
   auto i8_ptr = decimal_ir->types()->i8_ptr_type();
+  auto i32_ptr = decimal_ir->types()->i32_ptr_type();
 
   // Populate global variables used by decimal operations.
   decimal_ir->AddGlobals(engine);
@@ -832,10 +833,12 @@ Status DecimalIR::AddFunctions(Engine* engine) {
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castVARCHAR_decimal128_int64",
                                                        i8_ptr,
                                                        {
+                                                           {"context", i64},
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
                                                            {"out_len", i64},
+                                                           {"out_length", i32_ptr},
                                                        }));
   return Status::OK();
 }
