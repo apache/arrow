@@ -24,6 +24,7 @@ groups:
     - docker-cpp
     - docker-cpp-alpine
     - docker-cpp-cmake32
+    - docker-cpp-release
     - docker-c_glib
     - docker-go
     - docker-python-2.7

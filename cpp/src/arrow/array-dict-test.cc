@@ -856,7 +856,7 @@ TEST(TestDictionary, Validate) {
   // Only checking index type for now
   ASSERT_OK(ValidateArray(*arr));
 
-#ifdef NDEBUG
+#ifndef NDEBUG
   std::shared_ptr<Array> null_dict_arr =
       std::make_shared<DictionaryArray>(dict_type, indices, nullptr);
 
