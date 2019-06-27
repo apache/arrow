@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +72,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     this.length = length;
     this.nodes = nodes;
     this.buffers = buffers;
-    List<ArrowBuffer> arrowBuffers = new ArrayList<>();
+    List<ArrowBuffer> arrowBuffers = new ArrayList<>(buffers.size());
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
       arrowBuf.getReferenceManager().retain();
@@ -80,7 +81,7 @@ public class ArrowRecordBatch implements ArrowMessage {
       LOGGER.debug("Buffer in RecordBatch at {}, length: {}", offset, size);
       offset += size;
       if (alignBuffers) { // align on 8 byte boundaries
-        offset = (offset + 7) & 0xfffffffffffffff8L;
+        offset = DataSizeRoundingUtil.roundUpTo8Multiple(offset);
       }
     }
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
@@ -218,7 +219,7 @@ public class ArrowRecordBatch implements ArrowMessage {
       size += nioBuffer.remaining();
 
       // round up size to the next multiple of 8
-      size = (size + 7) & 0xfffffff8;
+      size = DataSizeRoundingUtil.roundUpTo8Multiple(size);
     }
     return size;
   }

@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 
 import io.netty.buffer.ArrowBuf;
@@ -125,7 +126,7 @@ public class BitVectorHelper {
    * @return buffer size
    */
   public static int getValidityBufferSize(int valueCount) {
-    return (valueCount + 7) >> 3;
+    return DataSizeRoundingUtil.divideBy8Ceil(valueCount);
   }
 
   /**
