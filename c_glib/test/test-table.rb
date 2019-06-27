@@ -184,10 +184,20 @@ valid:
       assert_equal(table, table1.concatenate([table2, table3]))
     end
 
-    def test_slice
-      table1 = build_table("visible" => build_boolean_array([true, false, true]))
-      table2 = build_table("visible" => build_boolean_array([false, true]))
-      assert_equal(table2, table1.slice(1, 2))
+    sub_test_case("#slice") do
+      test("offset: positive") do
+        visibles = [true, false, true]
+        table = build_table("visible" => build_boolean_array(visibles))
+        assert_equal(build_table("visible" => build_boolean_array([false, true])),
+                     table.slice(1, 2))
+      end
+
+      test("offset: negative") do
+        visibles = [true, false, true]
+        table = build_table("visible" => build_boolean_array(visibles))
+        assert_equal(build_table("visible" => build_boolean_array([false, true])),
+                     table.slice(-2, 2))
+      end
     end
   end
 end

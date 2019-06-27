@@ -565,7 +565,8 @@ garrow_table_concatenate(GArrowTable *table,
 /**
  * garrow_table_slice:
  * @table: A #GArrowTable.
- * @offset: The offset of sub #GArrowTable.
+ * @offset: The offset of sub #GArrowTable. If the offset is negative,
+ *   the offset is counted from the last.
  * @length: The length of sub #GArrowTable.
  *
  * Returns: (transfer full): The sub #GArrowTable. It covers
@@ -581,6 +582,9 @@ garrow_table_slice(GArrowTable *table,
                    gint64 length)
 {
   const auto arrow_table = garrow_table_get_raw(table);
+  if (offset < 0) {
+    offset += arrow_table->num_rows();
+  }
   auto arrow_sub_table = arrow_table->Slice(offset, length);
   return garrow_table_new_raw(&arrow_sub_table);
 }
