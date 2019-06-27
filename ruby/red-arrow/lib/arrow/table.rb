@@ -217,7 +217,8 @@ module Arrow
     #
     # @overload slice(booleans)
     #
-    #   @param booleans [Array<Boolean>] The values indicating the target rows.
+    #   @param booleans [::Array<Boolean>]
+    #     The values indicating the target rows.
     #   @return [Arrow::Table]
     #     The sub `Arrow::Table` that covers only rows of indices
     #     the values of `booleans` is true.
