@@ -294,10 +294,16 @@ module Arrow
           slicer += n_rows if slicer < 0
           ranges << [slicer, n_rows - 1]
         when Range
-          from = slicer.first
+          original_from = from = slicer.first
           to = slicer.last
           to -= 1 if slicer.exclude_end?
           from += n_rows if from < 0
+          if from < 0 or from >= n_rows
+            message =
+              "offset is out of range (-#{n_rows + 1},#{n_rows}): " +
+              "#{original_from}"
+            raise ArgumentError, message
+          end
           to += n_rows if to < 0
           ranges << [from, to]
         when ::Array
@@ -509,15 +515,7 @@ module Arrow
     def slice_by_ranges(ranges)
       sliced_table = []
       ranges.each do |from, to|
-        if from > n_rows
-          message = "start index must be less or equal than the length of table rows " + "(start index: #{from})"
-          raise ArgumentError, message
-        elsif from < 0
-          message = "start index must be grater or equal than 0 " + "(start index: #{from})"
-          raise ArgumentError, message
-        else
-          sliced_table << slice_raw(from, to - from + 1)
-        end
+        sliced_table << slice_raw(from, to - from + 1)
       end
       if sliced_table.size > 1
         sliced_table[0].concatenate(sliced_table[1..-1])

@@ -168,17 +168,21 @@ class TableTest < Test::Unit::TestCase
         end
       end
 
-      test("start index must be less or equal than the length of table rows") do
-        message = "start index must be less or equal than the length of table rows " + "(start index: 9)"
+      test("offset: too small") do
+        n_rows = @table.n_rows
+        offset = -(n_rows + 1)
+        message = "offset is out of range (-#{n_rows + 1},#{n_rows}): #{offset}"
         assert_raise(ArgumentError.new(message)) do
-          @table.slice(9, 1)
+          @table.slice(offset, 1)
         end
       end
 
-      test("start index must be grater or equal than 0") do
-        message = "start index must be grater or equal than 0 " + "(start index: -1)"
+      test("offset: too large") do
+        n_rows = @table.n_rows
+        offset = n_rows
+        message = "offset is out of range (-#{n_rows + 1},#{n_rows}): #{offset}"
         assert_raise(ArgumentError.new(message)) do
-          @table.slice(-9, 1)
+          @table.slice(offset, 1)
         end
       end
     end
