@@ -89,7 +89,7 @@ class PARQUET_EXPORT KeyAccessDeniedException : public ParquetException {
 };
 
 inline uint8_t* str2bytes(const std::string& str) {
-  if (str.empty()) return nullptr;
+  if (str.empty()) return NULLPTR;
 
   char* cbytes = const_cast<char*>(str.c_str());
   return reinterpret_cast<uint8_t*>(cbytes);
