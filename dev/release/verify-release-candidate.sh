@@ -287,7 +287,14 @@ ${ARROW_CMAKE_OPTIONS}
 test_csharp() {
   pushd csharp
 
-  if ! which dotnet > /dev/null 2>&1; then
+  if which dotnet > /dev/null 2>&1; then
+    if ! which sourcelink > /dev/null 2>&1; then
+      local dotnet_tools_dir=$HOME/.dotnet/tools
+      if [ -d "${dotnet_tools_dir}" ]; then
+        PATH="${dotnet_tools_dir}:$PATH"
+      fi
+    fi
+  else
     if [ "$(uname)" == "Darwin" ]; then
       DOTNET_URL=https://download.visualstudio.microsoft.com/download/pr/328d95ad-eb94-4d1f-a4a9-2a35dbfea719/4913918a65ae135af1c8823f04061708/dotnet-sdk-2.2.300-osx-x64.tar.gz
     else
@@ -308,8 +315,6 @@ test_csharp() {
   if ! which sourcelink > /dev/null 2>&1; then
     dotnet tool install --tool-path $PWD/bin sourcelink
     export DOTNET_ROOT=$PWD/bin
-  else
-    PATH=$HOME/.dotnet/tools:$PATH
   fi
 
   sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
