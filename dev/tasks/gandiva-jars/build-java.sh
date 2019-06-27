@@ -27,7 +27,7 @@ pushd java
   fi
 
   # build the entire project
-  mvn clean install -DskipTests -P gandiva -Darrow.cpp.build.dir=$CPP_BUILD_DIR
+  mvn clean install -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$CPP_BUILD_DIR
   # test only gandiva
   mvn test -P arrow-jni -pl gandiva -Darrow.cpp.build.dir=$CPP_BUILD_DIR
   # copy the jars to distribution folder
