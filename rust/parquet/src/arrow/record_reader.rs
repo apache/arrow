@@ -177,21 +177,35 @@ impl<T: DataType> RecordReader<T> {
         replace(&mut self.def_levels, empty_def_buffer).map(|x| x.freeze())
     }
 
+    /// Return repetition level data
+    pub fn consume_rep_levels(&mut self) -> Option<Buffer> {
+        let empty_def_buffer = if self.column_desc.max_rep_level() > 0 {
+            Some(MutableBuffer::new(MIN_BATCH_SIZE))
+        } else {
+            None
+        };
+
+        replace(&mut self.rep_levels, empty_def_buffer).map(|x| x.freeze())
+    }
+
     /// Returns currently stored buffer data.
     pub fn consume_record_data(&mut self) -> Buffer {
         replace(&mut self.records, MutableBuffer::new(MIN_BATCH_SIZE)).freeze()
     }
 
-    /// Returns bitmap data.
-    pub fn consume_bitmap(&mut self) -> Option<Bitmap> {
+    pub fn consume_bitmap_buffer(&mut self) -> Option<Buffer> {
         let bitmap_builder = if self.column_desc.max_def_level() > 0 {
             Some(BooleanBufferBuilder::new(MIN_BATCH_SIZE))
         } else {
             None
         };
 
-        replace(&mut self.null_bitmap, bitmap_builder)
-            .map(|mut builder| builder.finish())
+        replace(&mut self.null_bitmap, bitmap_builder).map(|mut builder| builder.finish())
+    }
+
+    /// Returns bitmap data.
+    pub fn consume_bitmap(&mut self) -> Option<Bitmap> {
+        self.consume_bitmap_buffer()
             .map(|buffer| Bitmap::from(buffer))
     }
 
@@ -225,7 +239,7 @@ impl<T: DataType> RecordReader<T> {
 
         if data_read < levels_read {
             // This means that there are null values in column data
-            //TODO: Move this into ColumnReader
+            // TODO: Move this into ColumnReader
 
             let data_buf = unsafe { data_buf.to_slice_mut() };
 
