@@ -263,8 +263,6 @@ module Arrow
       else
         expected_n_args = nil
         case args.size
-        when 0
-          expected_n_args = "1..2" unless block_given?
         when 1
           if args[0].is_a?(Integer)
             index = args[0]
@@ -279,11 +277,7 @@ module Arrow
           from, to = args
           slicers << (from...(from + to))
         else
-          if block_given?
-            expected_n_args = "0..2"
-          else
-            expected_n_args = "1..2"
-          end
+          expected_n_args = "1..2"
         end
         if expected_n_args
           message = "wrong number of arguments " +
