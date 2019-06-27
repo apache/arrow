@@ -289,6 +289,9 @@ ${ARROW_CMAKE_OPTIONS}
 test_csharp() {
   pushd csharp
 
+  local csharp_bin=${PWD}/bin
+  mkdir -p ${csharp_bin}
+
   if which dotnet > /dev/null 2>&1; then
     if ! which sourcelink > /dev/null 2>&1; then
       local dotnet_tools_dir=$HOME/.dotnet/tools
@@ -304,9 +307,8 @@ test_csharp() {
     fi
 
     curl -o dotnet.tar.gz $DOTNET_URL
-    mkdir $PWD/bin
-    tar xf dotnet.tar.gz -C $PWD/bin
-    PATH=$PWD/bin:$PATH
+    tar xf dotnet.tar.gz -C ${csharp_bin}
+    PATH=${csharp_bin}:${PATH}
   fi
 
   dotnet test
@@ -315,8 +317,8 @@ test_csharp() {
   mv ../.git dummy.git
 
   if ! which sourcelink > /dev/null 2>&1; then
-    dotnet tool install --tool-path $PWD/bin sourcelink
-    export DOTNET_ROOT=$PWD/bin
+    dotnet tool install --tool-path ${csharp_bin} sourcelink
+    export DOTNET_ROOT=${csharp_bin}
   fi
 
   sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
