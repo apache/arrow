@@ -66,9 +66,9 @@ install:
   # the following functions are defined in osx-build.sh
   - build_wheel arrow
 
-  # test the built wheels, remove llvm and grpc to ensure they link statically
-  - brew uninstall llvm@7
-  - brew uninstall grpc
+  # test the built wheels, remove llvm and grpc dependencies to ensure
+  # things are properly statically-linked
+  - brew uninstall llvm@7 grpc c-ares
   - install_run arrow
 
   # move built wheels to a top level directory
