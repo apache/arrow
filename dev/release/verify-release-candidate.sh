@@ -300,14 +300,24 @@ test_csharp() {
       fi
     fi
   else
-    if [ "$(uname)" == "Darwin" ]; then
-      DOTNET_URL=https://download.visualstudio.microsoft.com/download/pr/328d95ad-eb94-4d1f-a4a9-2a35dbfea719/4913918a65ae135af1c8823f04061708/dotnet-sdk-2.2.300-osx-x64.tar.gz
-    else
-      DOTNET_URL=https://download.visualstudio.microsoft.com/download/pr/5e92f45b-384e-41b9-bf8d-c949684e20a1/67a98aa2a4e441245d6afe194bd79b9b/dotnet-sdk-2.2.300-linux-x64.tar.gz
-    fi
-
-    curl -o dotnet.tar.gz $DOTNET_URL
-    tar xf dotnet.tar.gz -C ${csharp_bin}
+    local dotnet_version=2.2.300
+    local dotnet_platform=
+    case "$(uname)" in
+      Linux)
+        dotnet_platform=linux
+        ;;
+      Darwin)
+        dotnet_platform=macos
+        ;;
+    esac
+    local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
+    local dotnet_download_url=$( \
+      curl ${dotnet_download_thank_you_url} | \
+        grep 'window\.open' | \
+        grep -E -o '[^"]+' | \
+        sed -n 2p)
+    curl ${dotnet_download_url} | \
+      tar xzf - -C ${csharp_bin}
     PATH=${csharp_bin}:${PATH}
   fi
 
