@@ -55,11 +55,7 @@ test:
     - hypothesis
 
   commands:
-    - env
-    - echo $SRC_DIR
-    - export ARROW_TEST_DATA=$SRC_DIR/testing/data
-    - echo $ARROW_TEST_DATA
-    - pytest --pyargs pyarrow
+    - pytest -m "not requires_testing_data" --pyargs pyarrow
 
 about:
   home: http://github.com/apache/arrow
