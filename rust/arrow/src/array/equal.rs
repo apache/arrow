@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::array::*;
-use crate::array_data::*;
+use super::*;
 use crate::datatypes::*;
 use crate::util::bit_util;
 
@@ -425,9 +424,6 @@ mod tests {
 
     use std::convert::TryFrom;
 
-    use crate::builder::{
-        ArrayBuilder, BinaryBuilder, Int32Builder, ListBuilder, StructBuilder,
-    };
     use crate::error::Result;
 
     #[test]
@@ -743,25 +739,3 @@ mod tests {
         Ok(builder.finish())
     }
 }
-
-// let string_builder = builder.field_builder::<BinaryBuilder>(0).unwrap();
-// string_builder.append_string("joe").unwrap();
-// string_builder.append_null().unwrap();
-// string_builder.append_null().unwrap();
-// string_builder.append_string("mark").unwrap();
-// string_builder.append_string("doe").unwrap();
-
-// let int_builder = builder.field_builder::<Int32Builder>(1).unwrap();
-// int_builder.append_value(1).unwrap();
-// int_builder.append_value(2).unwrap();
-// int_builder.append_null().unwrap();
-// int_builder.append_value(4).unwrap();
-// int_builder.append_value(5).unwrap();
-
-// builder.append(true).unwrap();
-// builder.append(true).unwrap();
-// builder.append_null().unwrap();
-// builder.append(true).unwrap();
-// builder.append(true).unwrap();
-
-// builder.finish()
