@@ -36,26 +36,27 @@ bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, othe
 Time32Scalar::Time32Scalar(int32_t value, const std::shared_ptr<DataType>& type,
                            bool is_valid)
     : internal::PrimitiveScalar{type, is_valid}, value(value) {
-  DCHECK_EQ(Type::TIME32, type->id());
+  ARROW_CHECK_EQ(Type::TIME32, type->id());
 }
 
 Time64Scalar::Time64Scalar(int64_t value, const std::shared_ptr<DataType>& type,
                            bool is_valid)
     : internal::PrimitiveScalar{type, is_valid}, value(value) {
-  DCHECK_EQ(Type::TIME64, type->id());
+  ARROW_CHECK_EQ(Type::TIME64, type->id());
 }
 
 TimestampScalar::TimestampScalar(int64_t value, const std::shared_ptr<DataType>& type,
                                  bool is_valid)
     : internal::PrimitiveScalar{type, is_valid}, value(value) {
-  DCHECK_EQ(Type::TIMESTAMP, type->id());
+  ARROW_CHECK_EQ(Type::TIMESTAMP, type->id());
 }
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
                                              const std::shared_ptr<DataType>& type,
                                              bool is_valid)
     : BinaryScalar(value, type, is_valid) {
-  DCHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*type).byte_width(), value->size());
+  ARROW_CHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*type).byte_width(),
+                 value->size());
 }
 
 Decimal128Scalar::Decimal128Scalar(const Decimal128& value,
@@ -82,8 +83,8 @@ FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
                                          const std::shared_ptr<DataType>& type,
                                          bool is_valid)
     : Scalar{type, is_valid}, value(value) {
-  DCHECK_EQ(value->length(),
-            checked_cast<const FixedSizeListType*>(type.get())->list_size());
+  ARROW_CHECK_EQ(value->length(),
+                 checked_cast<const FixedSizeListType*>(type.get())->list_size());
 }
 
 FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,

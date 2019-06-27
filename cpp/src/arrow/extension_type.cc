@@ -49,8 +49,8 @@ ExtensionArray::ExtensionArray(const std::shared_ptr<ArrayData>& data) { SetData
 
 ExtensionArray::ExtensionArray(const std::shared_ptr<DataType>& type,
                                const std::shared_ptr<Array>& storage) {
-  DCHECK_EQ(type->id(), Type::EXTENSION);
-  DCHECK(
+  ARROW_CHECK_EQ(type->id(), Type::EXTENSION);
+  ARROW_CHECK(
       storage->type()->Equals(*checked_cast<const ExtensionType&>(*type).storage_type()));
   auto data = storage->data()->Copy();
   // XXX This pointer is reverted below in SetData()...
@@ -59,7 +59,7 @@ ExtensionArray::ExtensionArray(const std::shared_ptr<DataType>& type,
 }
 
 void ExtensionArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  ARROW_CHECK_EQ(data->type->id(), Type::EXTENSION);
   this->Array::SetData(data);
 
   auto storage_data = data->Copy();

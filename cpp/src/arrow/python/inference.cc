@@ -309,8 +309,7 @@ class TypeInferrer {
         max_decimal_metadata_(std::numeric_limits<int32_t>::min(),
                               std::numeric_limits<int32_t>::min()),
         decimal_type_() {
-    Status status = internal::ImportDecimalType(&decimal_type_);
-    DCHECK_OK(status);
+    ARROW_CHECK_OK(internal::ImportDecimalType(&decimal_type_));
   }
 
   /// \param[in] obj a Python object in the sequence

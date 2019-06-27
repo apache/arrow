@@ -160,7 +160,9 @@ class BufferedOutputStream::Impl : public BufferedBase {
 
   Status SetBufferSize(int64_t new_buffer_size) {
     std::lock_guard<std::mutex> guard(lock_);
-    DCHECK_GT(new_buffer_size, 0);
+    if (new_buffer_size <= 0) {
+      return Status::Invalid("Buffer size should be positive");
+    }
     if (buffer_pos_ >= new_buffer_size) {
       // If the buffer is shrinking, first flush to the raw OutputStream
       RETURN_NOT_OK(FlushUnlocked());
@@ -189,7 +191,7 @@ Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
   return Status::OK();
 }
 
-BufferedOutputStream::~BufferedOutputStream() { DCHECK_OK(impl_->Close()); }
+BufferedOutputStream::~BufferedOutputStream() { ARROW_CHECK_OK(impl_->Close()); }
 
 Status BufferedOutputStream::SetBufferSize(int64_t new_buffer_size) {
   return impl_->SetBufferSize(new_buffer_size);
@@ -229,7 +231,7 @@ class BufferedInputStream::Impl : public BufferedBase {
         raw_read_bound_(raw_total_bytes_bound),
         bytes_buffered_(0) {}
 
-  ~Impl() { DCHECK_OK(Close()); }
+  ~Impl() { ARROW_CHECK_OK(Close()); }
 
   Status Close() {
     std::lock_guard<std::mutex> guard(lock_);
@@ -253,7 +255,9 @@ class BufferedInputStream::Impl : public BufferedBase {
 
   Status SetBufferSize(int64_t new_buffer_size) {
     std::lock_guard<std::mutex> guard(lock_);
-    DCHECK_GT(new_buffer_size, 0);
+    if (new_buffer_size <= 0) {
+      return Status::Invalid("Buffer size should be positive");
+    }
     if ((buffer_pos_ + bytes_buffered_) >= new_buffer_size) {
       return Status::Invalid("Cannot shrink read buffer if buffered data remains");
     }
@@ -339,7 +343,7 @@ class BufferedInputStream::Impl : public BufferedBase {
 
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
     std::lock_guard<std::mutex> guard(lock_);
-    DCHECK_GT(nbytes, 0);
+    ARROW_CHECK_GT(nbytes, 0);
 
     if (nbytes < buffer_size_) {
       // Pre-buffer for small reads
@@ -408,7 +412,7 @@ BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
   impl_.reset(new Impl(std::move(raw), pool, raw_total_bytes_bound));
 }
 
-BufferedInputStream::~BufferedInputStream() { DCHECK_OK(impl_->Close()); }
+BufferedInputStream::~BufferedInputStream() { ARROW_CHECK_OK(impl_->Close()); }
 
 Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
                                    std::shared_ptr<InputStream> raw,

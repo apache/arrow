@@ -75,7 +75,7 @@ Status RecordBatchBuilder::Flush(std::shared_ptr<RecordBatch>* batch) {
 }
 
 void RecordBatchBuilder::SetInitialCapacity(int64_t capacity) {
-  DCHECK_GT(capacity, 0) << "Initial capacity must be positive";
+  ARROW_CHECK_GT(capacity, 0) << "Initial capacity must be positive";
   initial_capacity_ = capacity;
 }
 

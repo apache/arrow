@@ -866,7 +866,12 @@ Status DelEnvVar(const std::string& name) { return DelEnvVar(name.c_str()); }
 
 TemporaryDir::TemporaryDir(PlatformFilename&& path) : path_(std::move(path)) {}
 
-TemporaryDir::~TemporaryDir() { DCHECK_OK(DeleteDirTree(path_)); }
+TemporaryDir::~TemporaryDir() {
+  Status st = DeleteDirTree(path_);
+  if (!st.ok()) {
+    ARROW_LOG(WARNING) << "When trying to delete temporary directory: " << st;
+  }
+}
 
 Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
   bfs::path path;

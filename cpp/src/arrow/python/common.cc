@@ -55,7 +55,7 @@ PyBuffer::PyBuffer() : Buffer(nullptr, 0) {}
 Status PyBuffer::Init(PyObject* obj) {
   if (!PyObject_GetBuffer(obj, &py_buf_, PyBUF_ANY_CONTIGUOUS)) {
     data_ = reinterpret_cast<const uint8_t*>(py_buf_.buf);
-    DCHECK(data_ != nullptr);
+    ARROW_CHECK_NE(data_, nullptr) << "Null pointer in Py_buffer";
     size_ = py_buf_.len;
     capacity_ = py_buf_.len;
     is_mutable_ = !py_buf_.readonly;
@@ -94,7 +94,7 @@ Status ConvertPyError(StatusCode code) {
   PyErr_Fetch(&exc_type, &exc_value, &traceback);
   PyErr_NormalizeException(&exc_type, &exc_value, &traceback);
 
-  DCHECK_NE(exc_type, nullptr);
+  DCHECK_NE(exc_type, nullptr) << "ConvertPyError called without an exception set";
 
   OwnedRef exc_type_ref(exc_type);
   OwnedRef exc_value_ref(exc_value);

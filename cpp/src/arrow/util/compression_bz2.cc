@@ -44,8 +44,8 @@ static constexpr auto kSizeLimit =
     static_cast<int64_t>(std::numeric_limits<unsigned int>::max());
 
 Status BZ2Error(const char* prefix_msg, int bz_result) {
-  DCHECK(bz_result != BZ_OK && bz_result != BZ_RUN_OK && bz_result != BZ_FLUSH_OK &&
-         bz_result != BZ_FINISH_OK && bz_result != BZ_STREAM_END);
+  ARROW_CHECK(bz_result != BZ_OK && bz_result != BZ_RUN_OK && bz_result != BZ_FLUSH_OK &&
+              bz_result != BZ_FINISH_OK && bz_result != BZ_STREAM_END);
   StatusCode code;
   std::stringstream ss;
   ss << prefix_msg;

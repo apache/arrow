@@ -319,7 +319,7 @@ void MakeSparseTensorFromTensor(const Tensor& tensor,
 // Constructor with a column-major NumericTensor
 SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords)
     : SparseIndexBase(coords->shape()[0]), coords_(coords) {
-  DCHECK(coords_->is_column_major());
+  ARROW_CHECK(coords_->is_column_major());
 }
 
 std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOIndex"); }
@@ -331,8 +331,8 @@ std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOInde
 SparseCSRIndex::SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
                                const std::shared_ptr<IndexTensor>& indices)
     : SparseIndexBase(indices->shape()[0]), indptr_(indptr), indices_(indices) {
-  DCHECK_EQ(1, indptr_->ndim());
-  DCHECK_EQ(1, indices_->ndim());
+  ARROW_CHECK_EQ(1, indptr_->ndim());
+  ARROW_CHECK_EQ(1, indices_->ndim());
 }
 
 std::string SparseCSRIndex::ToString() const { return std::string("SparseCSRIndex"); }
@@ -351,7 +351,7 @@ SparseTensor::SparseTensor(const std::shared_ptr<DataType>& type,
       shape_(shape),
       sparse_index_(sparse_index),
       dim_names_(dim_names) {
-  DCHECK(is_tensor_supported(type->id()));
+  ARROW_CHECK(is_tensor_supported(type->id()));
 }
 
 const std::string& SparseTensor::dim_name(int i) const {
@@ -359,7 +359,7 @@ const std::string& SparseTensor::dim_name(int i) const {
   if (dim_names_.size() == 0) {
     return kEmpty;
   } else {
-    DCHECK_LT(i, static_cast<int>(dim_names_.size()));
+    ARROW_CHECK_LT(i, static_cast<int>(dim_names_.size()));
     return dim_names_[i];
   }
 }
