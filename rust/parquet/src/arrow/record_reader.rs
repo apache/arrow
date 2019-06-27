@@ -25,9 +25,9 @@ use crate::column::{page::PageReader, reader::ColumnReaderImpl};
 use crate::data_type::DataType;
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::ColumnDescPtr;
+use arrow::array::{BooleanBufferBuilder, BufferBuilderTrait};
 use arrow::bitmap::Bitmap;
 use arrow::buffer::{Buffer, MutableBuffer};
-use arrow::builder::{BooleanBufferBuilder, BufferBuilderTrait};
 
 const MIN_BATCH_SIZE: usize = 1024;
 
@@ -394,10 +394,10 @@ mod tests {
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::SchemaDescriptor;
     use crate::util::test_common::page_util::{DataPageBuilder, DataPageBuilderImpl};
-    use arrow::bitmap::Bitmap;
-    use arrow::builder::{
+    use arrow::array::{
         BooleanBufferBuilder, BufferBuilderTrait, Int16BufferBuilder, Int32BufferBuilder,
     };
+    use arrow::bitmap::Bitmap;
     use std::rc::Rc;
 
     struct TestPageReader {
