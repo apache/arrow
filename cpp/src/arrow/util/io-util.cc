@@ -407,6 +407,13 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
                                        const PlatformFilename& file_name,
                                        const char* opname) {
   if (ret == -1) {
+#ifdef _WIN32
+    int winerr = GetLastError();
+    if (winerr != ERROR_SUCCESS) {
+      return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
+                             "', error: ", WinErrorMessage(winerr));
+    }
+#endif
     return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
                            "', error: ", ErrnoMessage(errno_actual));
   }
@@ -416,6 +423,7 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
 Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
   int ret, errno_actual;
 #if defined(_WIN32)
+  SetLastError(0);
   errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(),
                            _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
   ret = *fd;
@@ -446,6 +454,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
   int ret, errno_actual;
 
 #if defined(_WIN32)
+  SetLastError(0);
   int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
   int pmode = _S_IREAD | _S_IWRITE;
 
