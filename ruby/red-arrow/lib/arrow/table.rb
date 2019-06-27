@@ -212,23 +212,23 @@ module Arrow
     #
     #   @param index [Integer] The index in this table.
     #   @return [Arrow::Record]
-    #      The `Arrow::Record` corresponding to index of
-    #      the table.
+    #     The `Arrow::Record` corresponding to index of
+    #     the table.
     #
     # @overload slice(booleans)
     #
     #   @param booleans [Array<Boolean>] The values indicating the target rows.
     #   @return [Arrow::Table]
-    #      The sub `Arrow::Table` that covers only rows of indices
-    #      the values of `booleans` is true.
+    #     The sub `Arrow::Table` that covers only rows of indices
+    #     the values of `booleans` is true.
     #
     # @overload slice(boolean_array)
     #
     #   @param boolean_array [::Array<Arrow::BooleanArray>]
     #     The values indicating the target rows.
     #   @return [Arrow::Table]
-    #      The sub `Arrow::Table` that covers only rows of indices
-    #      the values of `boolean_array` is true.
+    #     The sub `Arrow::Table` that covers only rows of indices
+    #     the values of `boolean_array` is true.
     #
     # @overload slice(range)
     #
