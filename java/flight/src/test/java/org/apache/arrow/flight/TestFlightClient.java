@@ -39,14 +39,15 @@ public class TestFlightClient {
   public void independentShutdown() throws Exception {
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
         final FlightServer server = FlightTestUtil.getStartedServer(
-            port -> FlightServer.builder(allocator, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, port),
+            location -> FlightServer.builder(allocator, location,
                 new Producer(allocator)).build())) {
       final Location location = Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort());
       final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
       try (final FlightClient client1 = FlightClient.builder(allocator, location).build();
           final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
         // Use startPut as this ensures the RPC won't finish until we want it to
-        final ClientStreamListener listener = client1.startPut(FlightDescriptor.path("test"), root);
+        final ClientStreamListener listener = client1.startPut(FlightDescriptor.path("test"), root,
+            new AsyncPutListener());
         try (final FlightClient client2 = FlightClient.builder(allocator, location).build()) {
           client2.listActions().forEach(actionType -> Assert.assertNotNull(actionType.getType()));
         }
