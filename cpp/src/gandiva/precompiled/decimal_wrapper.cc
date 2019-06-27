@@ -371,7 +371,6 @@ void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int32_t out_pr
                                    precision_from_str, scale_from_str);
   bool overflow = false;
   auto out = gandiva::decimalops::Convert(x, out_precision, out_scale, &overflow);
-  printf(overflow ? "true" : "false");
   *out_high = out.high_bits();
   *out_low = out.low_bits();
 }
@@ -379,13 +378,14 @@ void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int32_t out_pr
 FORCE_INLINE
 char* castVARCHAR_decimal128_int64_internal(int64_t context, int64_t x_high,
                                             uint64_t x_low, int32_t x_precision,
-                                            int32_t x_scale, int64_t out_len,
+                                            int32_t x_scale, int64_t out_len_param,
                                             int32_t* out_length) {
   arrow::Decimal128 dec(arrow::BasicDecimal128(x_high, x_low));
   std::string full_dec_str = dec.ToString(x_scale);
-  std::string trunc_dec_str = out_len < full_dec_str.length()
-                                  ? full_dec_str.substr(0, static_cast<int32_t>(out_len))
-                                  : full_dec_str;
+  std::string trunc_dec_str =
+      out_len_param < full_dec_str.length()
+          ? full_dec_str.substr(0, static_cast<int32_t>(out_len_param))
+          : full_dec_str;
   if (trunc_dec_str == "-") {
     trunc_dec_str = "0";
   }
