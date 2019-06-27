@@ -255,8 +255,6 @@ module Arrow
         end
         block_slicer = yield(Slicer.new(self))
         case block_slicer
-        when nil
-          # Ignore
         when ::Array
           slicers.concat(block_slicer)
         else
