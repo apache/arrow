@@ -94,6 +94,8 @@ const std::string kColumnEncryptionKey1 = "1234567890123450";
 const std::string kColumnEncryptionKey2 = "1234567890123451";
 const std::string fileName = "tester";
 
+using FileClass = ::arrow::io::FileOutputStream;
+
 void PrintDecryptionConfiguration(int configuration);
 // Check that the decryption result is as expected.
 void CheckResult(std::string file, int example_id, std::string exception_msg);
@@ -260,7 +262,6 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
     std::string test_number_string = ss.str();
     try {
       // Create a local file output stream instance.
-      using FileClass = ::arrow::io::FileOutputStream;
       std::shared_ptr<FileClass> out_file;
       std::string file =
           root_path + fileName + std::string(test_number_string) + ".parquet.encrypted";

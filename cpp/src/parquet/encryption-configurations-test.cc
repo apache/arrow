@@ -17,6 +17,10 @@
 
 #include <gtest/gtest.h>
 
+#include <stdio.h>
+
+#include <arrow/io/file.h>
+
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -69,6 +73,15 @@
  */
 
 namespace parquet {
+namespace test {
+std::string data_file(const char* file) {
+  std::string dir_string(test::get_data_dir());
+  std::stringstream ss;
+  ss << dir_string << "/" << file;
+  return ss.str();
+}
+
+using FileClass = ::arrow::io::FileOutputStream;
 
 using parquet::ConvertedType;
 using parquet::Repetition;
@@ -79,8 +92,6 @@ using schema::PrimitiveNode;
 
 constexpr int kFixedLength = 10;
 
-namespace test {
-
 const char kFooterEncryptionKey[] = "0123456789012345";  // 128bit/16
 const char kColumnEncryptionKey1[] = "1234567890123450";
 const char kColumnEncryptionKey2[] = "1234567890123451";
@@ -89,18 +100,25 @@ const char kFileName[] = "tester";
 class TestEncryptionConfiguration : public ::testing::Test {
  public:
   void SetUp() {
-    rows_per_rowgroup_ = 50;
+    createDecryptionConfigurations();
     // Setup the parquet schema
     schema_ = SetupEncryptionSchema();
-    createDecryptionConfigurations();
-    path_to_double_field_ = parquet::schema::ColumnPath::FromDotString("double_field");
-    path_to_float_field_ = parquet::schema::ColumnPath::FromDotString("float_field");
+    std::string res = "test.parquet.encrypted";
+    file_name_ = data_file(res.c_str());
+  }
+
+  void TearDown() {
+    // delete test file.
+    ASSERT_EQ(std::remove(file_name_.c_str()), 0);
   }
 
  protected:
-  std::shared_ptr<parquet::schema::ColumnPath> path_to_double_field_;
-  std::shared_ptr<parquet::schema::ColumnPath> path_to_float_field_;
-  int rows_per_rowgroup_;
+  std::shared_ptr<parquet::schema::ColumnPath> path_to_double_field_ =
+      parquet::schema::ColumnPath::FromDotString("double_field");
+  std::shared_ptr<parquet::schema::ColumnPath> path_to_float_field_ =
+      parquet::schema::ColumnPath::FromDotString("float_field");
+  std::string file_name_;
+  int rows_per_rowgroup_ = 50;
   std::shared_ptr<GroupNode> schema_;
   // This vector will hold various decryption configurations.
   std::vector<std::shared_ptr<parquet::FileDecryptionProperties>>
@@ -169,17 +187,21 @@ class TestEncryptionConfiguration : public ::testing::Test {
             ->build());
   }
 
-  std::shared_ptr<Buffer> EncryptFile(
-      std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations) {
-    auto sink = CreateOutputStream();
+  void EncryptFile(
+      std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations,
+      std::string file) {
+    std::shared_ptr<FileClass> out_file;
 
     WriterProperties::Builder prop_builder;
-
     prop_builder.compression(parquet::Compression::SNAPPY);
     prop_builder.encryption(encryption_configurations);
     std::shared_ptr<WriterProperties> writer_properties = prop_builder.build();
 
-    auto file_writer = ParquetFileWriter::Open(sink, schema_, writer_properties);
+    PARQUET_THROW_NOT_OK(FileClass::Open(file, &out_file));
+    // Create a ParquetFileWriter instance
+    std::shared_ptr<parquet::ParquetFileWriter> file_writer =
+        parquet::ParquetFileWriter::Open(out_file, schema_, writer_properties);
+
     RowGroupWriter* row_group_writer;
     row_group_writer = file_writer->AppendRowGroup();
 
@@ -273,21 +295,23 @@ class TestEncryptionConfiguration : public ::testing::Test {
     // Close the ParquetFileWriter
     file_writer->Close();
 
-    std::shared_ptr<Buffer> buffer;
-    PARQUET_THROW_NOT_OK(sink->Finish(&buffer));
-    return buffer;
+    // Close the ParquetFileWriter
+    file_writer->Close();
+
+    // Write the bytes to file
+    out_file->Close().ok();
+    return;
   }
 
-  void DecryptFile(std::shared_ptr<Buffer> buffer, int example_id,
-                   int encryption_configuration) {
+  void DecryptFile(std::string file, int example_id, int encryption_configuration) {
     std::string exception_msg;
     try {
       parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
       reader_properties.file_decryption_properties(
           vector_of_decryption_configurations_[example_id]->DeepClone());
 
-      auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
-      auto file_reader = ParquetFileReader::Open(source, reader_properties);
+      auto file_reader =
+          parquet::ParquetFileReader::OpenFile(file, false, reader_properties);
 
       // Get the File MetaData
       std::shared_ptr<parquet::FileMetaData> file_metadata = file_reader->metadata();
@@ -583,14 +607,14 @@ TEST_F(TestEncryptionConfiguration, UniformEncryption) {
   parquet::FileEncryptionProperties::Builder file_encryption_builder_1(
       kFooterEncryptionKey_);
 
-  std::shared_ptr<Buffer> buffer =
-      this->EncryptFile(file_encryption_builder_1.footer_key_metadata("kf")->build());
+  this->EncryptFile(file_encryption_builder_1.footer_key_metadata("kf")->build(),
+                    file_name_);
 
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parqeut file.
   for (unsigned example_id = 0; example_id < vector_of_decryption_configurations_.size();
        ++example_id) {
-    DecryptFile(buffer, example_id, 1 /* encryption_configuration_number */);
+    DecryptFile(file_name_, example_id, 1 /* encryption_configuration_number */);
   }
 }
 
@@ -617,23 +641,23 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndTheFooter) {
   parquet::FileEncryptionProperties::Builder file_encryption_builder_2(
       kFooterEncryptionKey_);
 
-  std::shared_ptr<Buffer> buffer =
-      this->EncryptFile(file_encryption_builder_2.footer_key_metadata("kf")
-                            ->column_properties(encryption_cols2)
-                            ->build());
+  this->EncryptFile(file_encryption_builder_2.footer_key_metadata("kf")
+                        ->column_properties(encryption_cols2)
+                        ->build(),
+                    file_name_);
 
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parqeut file.
   for (unsigned example_id = 0; example_id < vector_of_decryption_configurations_.size();
        ++example_id) {
-    DecryptFile(buffer, example_id, 2 /* encryption_configuration_number */);
+    DecryptFile(file_name_, example_id, 2 /* encryption_configuration_number */);
   }
 }
 
+// Encryption configuration 3: Encrypt two columns, with different keys.
+// Don’t encrypt footer.
+// (plaintext footer mode, readable by legacy readers)
 TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsWithPlaintextFooter) {
-  // Encryption configuration 3: Encrypt two columns, with different keys.
-  // Don’t encrypt footer.
-  // (plaintext footer mode, readable by legacy readers)
   std::map<std::shared_ptr<parquet::schema::ColumnPath>,
            std::shared_ptr<parquet::ColumnEncryptionProperties>,
            parquet::schema::ColumnPath::CmpColumnPath>
@@ -650,17 +674,17 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsWithPlaintextFooter) {
   parquet::FileEncryptionProperties::Builder file_encryption_builder_3(
       kFooterEncryptionKey_);
 
-  std::shared_ptr<Buffer> buffer =
-      this->EncryptFile(file_encryption_builder_3.footer_key_metadata("kf")
-                            ->column_properties(encryption_cols3)
-                            ->set_plaintext_footer()
-                            ->build());
+  this->EncryptFile(file_encryption_builder_3.footer_key_metadata("kf")
+                        ->column_properties(encryption_cols3)
+                        ->set_plaintext_footer()
+                        ->build(),
+                    file_name_);
 
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parqeut file.
   for (unsigned example_id = 0; example_id < vector_of_decryption_configurations_.size();
        ++example_id) {
-    DecryptFile(buffer, example_id, 3 /* encryption_configuration_number */);
+    DecryptFile(file_name_, example_id, 3 /* encryption_configuration_number */);
   }
 }
 
@@ -683,16 +707,16 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterWithAadPrefix) {
   parquet::FileEncryptionProperties::Builder file_encryption_builder_4(
       kFooterEncryptionKey_);
 
-  std::shared_ptr<Buffer> buffer =
-      this->EncryptFile(file_encryption_builder_4.footer_key_metadata("kf")
-                            ->column_properties(encryption_cols4)
-                            ->aad_prefix(kFileName_)
-                            ->build());
+  this->EncryptFile(file_encryption_builder_4.footer_key_metadata("kf")
+                        ->column_properties(encryption_cols4)
+                        ->aad_prefix(kFileName_)
+                        ->build(),
+                    file_name_);
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parqeut file.
   for (unsigned example_id = 0; example_id < vector_of_decryption_configurations_.size();
        ++example_id) {
-    DecryptFile(buffer, example_id, 4 /* encryption_configuration_number */);
+    DecryptFile(file_name_, example_id, 4 /* encryption_configuration_number */);
   }
 }
 
@@ -716,17 +740,17 @@ TEST_F(TestEncryptionConfiguration,
   parquet::FileEncryptionProperties::Builder file_encryption_builder_5(
       kFooterEncryptionKey_);
 
-  std::shared_ptr<Buffer> buffer =
-      this->EncryptFile(file_encryption_builder_5.column_properties(encryption_cols5)
-                            ->footer_key_metadata("kf")
-                            ->aad_prefix(kFileName_)
-                            ->disable_store_aad_prefix_storage()
-                            ->build());
+  this->EncryptFile(file_encryption_builder_5.column_properties(encryption_cols5)
+                        ->footer_key_metadata("kf")
+                        ->aad_prefix(kFileName_)
+                        ->disable_store_aad_prefix_storage()
+                        ->build(),
+                    file_name_);
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parqeut file.
   for (unsigned example_id = 0; example_id < vector_of_decryption_configurations_.size();
        ++example_id) {
-    DecryptFile(buffer, example_id, 5 /* encryption_configuration_number */);
+    DecryptFile(file_name_, example_id, 5 /* encryption_configuration_number */);
   }
 }
 
@@ -749,17 +773,17 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
   parquet::FileEncryptionProperties::Builder file_encryption_builder_6(
       kFooterEncryptionKey_);
 
-  std::shared_ptr<Buffer> buffer =
-      this->EncryptFile(file_encryption_builder_6.footer_key_metadata("kf")
-                            ->column_properties(encryption_cols6)
-                            ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
-                            ->build());
+  this->EncryptFile(file_encryption_builder_6.footer_key_metadata("kf")
+                        ->column_properties(encryption_cols6)
+                        ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
+                        ->build(),
+                    file_name_);
 
   // Iterate over the decryption configurations and use each one to read the encrypted
   // parqeut file.
   for (unsigned example_id = 0; example_id < vector_of_decryption_configurations_.size();
        ++example_id) {
-    DecryptFile(buffer, example_id, 6 /* encryption_configuration_number */);
+    DecryptFile(file_name_, example_id, 6 /* encryption_configuration_number */);
   }
 }
 
