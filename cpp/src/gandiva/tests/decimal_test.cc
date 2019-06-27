@@ -789,6 +789,7 @@ TEST_F(TestDecimal, TestHash64WithSeed) {
   EXPECT_NE(int64_arr_WS->Value(4), int64_arr->Value(4));
 }
 
+<<<<<<< HEAD
 TEST_F(TestDecimal, TestNullDecimalConstant) {
   // schema for input fields
   constexpr int32_t precision = 36;
