@@ -249,6 +249,7 @@ VERSION=#{@deb_upstream_version}
               "debian-stretch",
               # Disable by default for now because it requires some setups on host.
               # "debian-stretch-arm64",
+              "debian-buster",
               "ubuntu-xenial",
               "ubuntu-bionic",
               "ubuntu-cosmic",

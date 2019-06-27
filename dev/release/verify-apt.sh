@@ -52,11 +52,12 @@ if [ "${IS_RC}" = "yes" ]; then
 fi
 
 have_signed_by=yes
+have_flight=yes
 have_python=yes
 have_gandiva=yes
 need_llvm_apt=no
 case "${distribution}-${code_name}" in
-  debian-*)
+  debian-stretch)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
@@ -66,12 +67,20 @@ deb http://deb.debian.org/debian ${code_name}-backports main
 APT_LINE
     need_llvm_apt=yes
     ;;
+  debian-buster)
+    sed \
+      -i"" \
+      -e "s/ main$/ main contrib non-free/g" \
+      /etc/apt/sources.list
+    ;;
   ubuntu-xenial)
     have_signed_by=no
     need_llvm_apt=yes
+    have_flight=no
     ;;
   ubuntu-trusty)
     have_signed_by=no
+    have_flight=no
     have_python=no
     have_gandiva=no
     ;;
@@ -106,6 +115,10 @@ apt update
 
 apt install -y -V libarrow-glib-dev=${deb_version}
 apt install -y -V libarrow-glib-doc=${deb_version}
+
+if [ "${have_flight}" = "yes" ]; then
+  apt install -y -V libarrow-flight-dev=${deb_version}
+fi
 
 if [ "${have_python}" = "yes" ]; then
   apt install -y -V libarrow-python-dev=${deb_version}

@@ -164,10 +164,12 @@ test_binary() {
 
 test_apt() {
   for target in debian-stretch \
+                debian-buster \
                 ubuntu-trusty \
                 ubuntu-xenial \
                 ubuntu-bionic \
-                ubuntu-cosmic; do
+                ubuntu-cosmic \
+                ubuntu-disco; do
     if ! "${SOURCE_DIR}/../run_docker_compose.sh" \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \

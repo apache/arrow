@@ -590,6 +590,11 @@ services:
     volumes:
       - .:/arrow:delegated
 
+  debian-buster:
+    image: debian:buster
+    volumes:
+      - .:/arrow:delegated
+
   ubuntu-trusty:
     image: ubuntu:trusty
     volumes:
@@ -607,6 +612,11 @@ services:
 
   ubuntu-cosmic:
     image: ubuntu:cosmic
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-disco:
+    image: ubuntu:disco
     volumes:
       - .:/arrow:delegated
 
