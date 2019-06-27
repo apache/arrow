@@ -236,6 +236,17 @@ module Arrow
     #   @param range_included_end [Range] The range indicating the target rows.
     #   @return [Arrow::Table]
     #     The sub `Arrow::Table` that covers only rows of the range of indices.
+    #
+    # @overload slice
+    #
+    #   @yield [slicer] Gives slicer that constructs condition to select records.
+    #   @yieldparam slicer [Arrow::Slicer] The slicer that helps us to
+    #     build condition.
+    #   @yieldreturn [Arrow::Slicer::Condition, ::Array<Arrow::Slicer::Condition>]
+    #     The condition to select records.
+    #   @return [Arrow::Table]
+    #     The sub `Arrow::Table` that covers only rows matched by condition
+    #     specified by slicer.
     def slice(*args)
       slicers = []
       if block_given?
