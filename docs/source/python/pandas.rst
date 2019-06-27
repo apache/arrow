@@ -62,6 +62,10 @@ Conversion from a Table to a DataFrame is done by calling
     # Infer Arrow schema from pandas
     schema = pa.Schema.from_pandas(df)
 
+By default ``pyarrow`` tries to preserve and restore the ``.index``
+data as accurately as possible. See the section below for more about
+this, and how to disable this logic.
+
 Series
 ------
 
@@ -70,6 +74,29 @@ It is a vector that contains data of the same type as linear memory. You can
 convert a pandas Series to an Arrow Array using :meth:`pyarrow.Array.from_pandas`.
 As Arrow Arrays are always nullable, you can supply an optional mask using
 the ``mask`` parameter to mark all null-entries.
+
+Handling pandas Indexes
+-----------------------
+
+Methods like :meth:`pyarrow.Table.from_pandas` have a
+``preserve_index`` option which defines how to preserve (store) or not
+to preserve (to not store) the data in the ``index`` member of the
+corresponding pandas object. This data is tracked using schema-level
+metadata in the internal ``arrow::Schema`` object.
+
+The default of ``preserve_index`` is ``None``, which behaves as
+follows:
+
+* ``RangeIndex`` is stored as metadata-only, not requiring any extra
+  storage.
+* Other index types are stored as one or more physical data columns in
+  the resulting :class:`Table`
+
+To not store the index at all pass ``preserve_index=False``. Since
+storing a ``RangeIndex`` can cause issues in some limited scenarios
+(such as storing multiple DataFrame objects in a Parquet file), to
+force all index data to be serialized in the resulting table, pass
+``preserve_index=True``.
 
 Type differences
 ----------------
