@@ -74,17 +74,24 @@ class TableTest < Test::Unit::TestCase
     end
 
     test("Integer: positive") do
-      assert_equal(<<-TABLE, @table.slice(2).to_s)
-	count	visible
-0	    4	       
-      TABLE
+      assert_equal({"count" => 128, "visible" => nil},
+                   @table.slice(@table.n_rows - 1).to_h)
     end
 
     test("Integer: negative") do
-      assert_equal(<<-TABLE, @table.slice(-1).to_s)
-	count	visible
-0	  128	       
-      TABLE
+      assert_equal({"count" => 1, "visible" => true},
+                   @table.slice(-@table.n_rows).to_h)
+    end
+
+    test("Integer: out of index") do
+      assert_equal([
+                     nil,
+                     nil,
+                   ],
+                   [
+                     @table.slice(@table.n_rows),
+                     @table.slice(-(@table.n_rows + 1)),
+                   ])
     end
 
     test("Range: positive: include end") do
@@ -145,17 +152,35 @@ class TableTest < Test::Unit::TestCase
         end
       end
 
-      test("too many arguments: with block") do
+      test("too many arguments") do
         message = "wrong number of arguments (given 3, expected 1..2)"
         assert_raise(ArgumentError.new(message)) do
           @table.slice(1, 2, 3)
         end
       end
 
-      test("too many arguments: without block") do
-        message = "wrong number of arguments (given 3, expected 0..2)"
+      test("arguments: with block") do
+        message = "must not specify both arguments and block"
         assert_raise(ArgumentError.new(message)) do
-          @table.slice(1, 2, 3) {}
+          @table.slice(1, 2) {}
+        end
+      end
+
+      test("offset: too small") do
+        n_rows = @table.n_rows
+        offset = -(n_rows + 1)
+        message = "offset is out of range (-#{n_rows + 1},#{n_rows}): #{offset}"
+        assert_raise(ArgumentError.new(message)) do
+          @table.slice(offset, 1)
+        end
+      end
+
+      test("offset: too large") do
+        n_rows = @table.n_rows
+        offset = n_rows
+        message = "offset is out of range (-#{n_rows + 1},#{n_rows}): #{offset}"
+        assert_raise(ArgumentError.new(message)) do
+          @table.slice(offset, 1)
         end
       end
     end
