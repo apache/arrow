@@ -91,6 +91,16 @@ struct PlasmaObject {
   int64_t metadata_size;
   /// Device number object is on.
   int device_num;
+
+  bool operator==(const PlasmaObject& other) const {
+    return (
+#ifdef PLASMA_CUDA
+        (ipc_handle == other.ipc_handle) &&
+#endif
+        (store_fd == other.store_fd) && (data_offset == other.data_offset) &&
+        (metadata_offset == other.metadata_offset) && (data_size == other.data_size) &&
+        (metadata_size == other.metadata_size) && (device_num == other.device_num));
+  }
 };
 
 enum class ObjectStatus : int {
