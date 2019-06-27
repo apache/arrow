@@ -1083,7 +1083,7 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCOOIndex>(
       checked_cast<const SparseCOOIndex&>(*result->sparse_index());
   ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
   ASSERT_EQ(result->data()->size(), data_length);
-  ASSERT_TRUE(result->Equals(*result));
+  ASSERT_TRUE(result->Equals(tensor));
 }
 
 template <>
@@ -1117,22 +1117,93 @@ void TestSparseTensorRoundTrip::CheckSparseTensorRoundTrip<SparseCSRIndex>(
   ASSERT_EQ(resulted_sparse_index.indptr()->data()->size(), indptr_length);
   ASSERT_EQ(resulted_sparse_index.indices()->data()->size(), indices_length);
   ASSERT_EQ(result->data()->size(), data_length);
-  ASSERT_TRUE(result->Equals(*result));
+  ASSERT_TRUE(result->Equals(tensor));
 }
 
-TEST_F(TestSparseTensorRoundTrip, WithSparseCOOIndex) {
+TEST_F(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
   std::string path = "test-write-sparse-coo-tensor";
   constexpr int64_t kBufferSize = 1 << 20;
   ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
 
+  // Dense representation:
+  // [
+  //   [
+  //     1 0 2 0
+  //     0 3 0 4
+  //     5 0 6 0
+  //   ],
+  //   [
+  //      0 11  0 12
+  //     13  0 14  0
+  //      0 15  0 16
+  //   ]
+  // ]
+  //
+  // Sparse representation:
+  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
+  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
+  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
+  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
+
+  std::vector<int64_t> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
+                                        0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
+                                        1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
+  auto coords_data = Buffer::Wrap(coords_values);
+  std::vector<int64_t> coords_shape = {12, 3};
+  auto coords = std::make_shared<NumericTensor<Int64Type>>(coords_data, coords_shape);
+  auto si = std::make_shared<SparseCOOIndex>(coords);
+
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
-  std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
+  auto data = Buffer::Wrap(values);
+
+  SparseTensorImpl<SparseCOOIndex> st(si, int64(), data, shape, dim_names);
+
+  CheckSparseTensorRoundTrip(st);
+}
+
+TEST_F(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
+  std::string path = "test-write-sparse-coo-tensor";
+  constexpr int64_t kBufferSize = 1 << 20;
+  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+
+  // Dense representation:
+  // [
+  //   [
+  //     1 0 2 0
+  //     0 3 0 4
+  //     5 0 6 0
+  //   ],
+  //   [
+  //      0 11  0 12
+  //     13  0 14  0
+  //      0 15  0 16
+  //   ]
+  // ]
+  //
+  // Sparse representation:
+  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
+  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
+  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
+  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
+
+  std::vector<int64_t> coords_values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
+                                        0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
+                                        0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
+  auto coords_data = Buffer::Wrap(coords_values);
+  std::vector<int64_t> coords_shape = {12, 3};
+  std::vector<int64_t> coords_strides = {sizeof(int64_t), sizeof(int64_t) * 12};
+  auto coords = std::make_shared<NumericTensor<Int64Type>>(coords_data, coords_shape,
+                                                           coords_strides);
+  auto si = std::make_shared<SparseCOOIndex>(coords);
+
+  std::vector<int64_t> shape = {2, 3, 4};
+  std::vector<std::string> dim_names = {"foo", "bar", "baz"};
+  std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
 
   auto data = Buffer::Wrap(values);
-  NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  SparseTensorImpl<SparseCOOIndex> st(t);
+  SparseTensorImpl<SparseCOOIndex> st(si, int64(), data, shape, dim_names);
 
   CheckSparseTensorRoundTrip(st);
 }

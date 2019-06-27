@@ -871,13 +871,18 @@ Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t nd
     return Status::NotImplemented(
         "SparseCOOIndex with more or less than 64-bit indices not implemented");
   }
+
   auto* indices_buffer = sparse_index->indicesBuffer();
   std::shared_ptr<Buffer> indices_data;
   RETURN_NOT_OK(
       file->ReadAt(indices_buffer->offset(), indices_buffer->length(), &indices_data));
   std::vector<int64_t> shape({non_zero_length, ndim});
-  const int64_t elsize = sizeof(int64_t);
-  std::vector<int64_t> strides({elsize, elsize * non_zero_length});
+  auto* indices_strides = sparse_index->indicesStrides();
+  std::vector<int64_t> strides;
+  if (indices_strides->size() > 0) {
+    strides.push_back(indices_strides->Get(0));
+    strides.push_back(indices_strides->Get(1));
+  }
   *out = std::make_shared<SparseCOOIndex>(
       std::make_shared<SparseCOOIndex::CoordsTensor>(indices_data, shape, strides));
   return Status::OK();

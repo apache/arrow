@@ -972,11 +972,16 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
   //       but we should also make smaller bit-width and unsigned index available.
   auto indices_type_offset = flatbuf::CreateInt(fbb, 64, true);
 
+  auto fb_strides =
+      fbb.CreateVector(util::MakeNonNull(sparse_index.indices()->strides().data()),
+                       sparse_index.indices()->strides().size());
+
   const BufferMetadata& indices_metadata = buffers[0];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
 
   *fb_sparse_index =
-      flatbuf::CreateSparseTensorIndexCOO(fbb, indices_type_offset, &indices).Union();
+      flatbuf::CreateSparseTensorIndexCOO(fbb, indices_type_offset, fb_strides, &indices)
+          .Union();
   *num_buffers = 1;
   return Status::OK();
 }
