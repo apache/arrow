@@ -856,8 +856,12 @@ TEST(TestDictionary, Validate) {
   // Only checking index type for now
   ASSERT_OK(ValidateArray(*arr));
 
-  // Other checks are handled by ARROW_CHECK_* and cannot be put in
-  // unit test form
+  ASSERT_DEATH(
+      {
+        std::shared_ptr<Array> null_dict_arr =
+            std::make_shared<DictionaryArray>(dict_type, indices, nullptr);
+      },
+      "");
 }
 
 TEST(TestDictionary, FromArray) {
