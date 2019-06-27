@@ -60,10 +60,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("castVARCHAR", DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
                      NativeFunction::kNeedsContext),
-    
-    NativeFunction("castVARCHAR", DataTypeVector{decimal128(), int64()}, utf8(),
-                   kResultNullIfNull, "castVARCHAR_decimal128_int64",
-                   NativeFunction::kNeedsContext),
+
+      NativeFunction("castVARCHAR", DataTypeVector{decimal128(), int64()}, utf8(),
+                     kResultNullIfNull, "castVARCHAR_decimal128_int64",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("castVARCHAR", DataTypeVector{decimal128(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_decimal128_int64",
