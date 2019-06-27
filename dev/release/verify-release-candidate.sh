@@ -45,7 +45,9 @@ case $# in
      ;;
 esac
 
-set -ex
+set -e
+set -u
+set -x
 set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
