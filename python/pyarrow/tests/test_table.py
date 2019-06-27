@@ -791,7 +791,7 @@ def test_table_combine_chunks():
     combined._validate()
     assert combined.equals(table)
     for c in combined.columns:
-      assert c.data.num_chunks == 1
+        assert c.data.num_chunks == 1
 
 
 def test_concat_tables():
