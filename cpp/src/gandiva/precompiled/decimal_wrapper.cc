@@ -370,7 +370,8 @@ void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int32_t out_pr
   gandiva::BasicDecimalScalar128 x({dec->high_bits(), dec->low_bits()},
                                    precision_from_str, scale_from_str);
   bool overflow = false;
-  auto out = gandiva::decimalops::Convert(x, out_precision, out_scale, &overflow);
+  auto out = gandiva::decimalops::Convert(x, static_cast<int32_t>(out_precision),
+                                          static_cast<int32_t>(out_scale), &overflow);
   *out_high = out.high_bits();
   *out_low = out.low_bits();
 }
