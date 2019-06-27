@@ -1029,6 +1029,31 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(flattened)
 
+    def combine_chunks(self, MemoryPool memory_pool=None):
+        """
+        Make a new table by combining the chunks this table has.
+
+        All the underlying chunks in the ChunkedArray of each column are
+        concatenated into zero or one chunk.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : Table
+        """
+        cdef:
+            shared_ptr[CTable] combined
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            check_status(self.table.CombineChunks(pool, &combined))
+
+        return pyarrow_wrap_table(combined)
+
     def __eq__(self, other):
         try:
             return self.equals(other)
