@@ -17,7 +17,7 @@
 
 #include "benchmark/benchmark.h"
 
-#include "arrow/compute/kernels/filter.h"
+#include "arrow/compute/kernels/take.h"
 
 #include "arrow/compute/benchmark-util.h"
 #include "arrow/compute/test-util.h"
@@ -29,46 +29,74 @@ namespace compute {
 
 constexpr auto kSeed = 0x0ff1ce;
 
-static void FilterInt64(benchmark::State& state) {
-  RegressionArgs args(state);
-
-  const int64_t array_size = args.size / sizeof(int64_t);
-  auto rand = random::RandomArrayGenerator(kSeed);
-  auto array = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, args.null_proportion));
-  auto filter = std::static_pointer_cast<BooleanArray>(
-      rand.Boolean(array_size, 0.75, args.null_proportion));
-
+static void TakeBenchmark(benchmark::State& state, const std::shared_ptr<Array>& values,
+                          const std::shared_ptr<Array>& indices) {
   FunctionContext ctx;
+  TakeOptions options;
   for (auto _ : state) {
     Datum out;
-    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
+    ABORT_NOT_OK(Take(&ctx, Datum(values), Datum(indices), options, &out));
     benchmark::DoNotOptimize(out);
   }
 }
 
-static void FilterFixedSizeList1Int64(benchmark::State& state) {
+static void TakeInt64(benchmark::State& state) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size / sizeof(int64_t);
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto int_array = std::static_pointer_cast<NumericArray<Int64Type>>(
-      rand.Int64(array_size, -100, 100, args.null_proportion));
-  auto array = std::make_shared<FixedSizeListArray>(
+
+  auto values = rand.Int64(array_size, -100, 100, args.null_proportion);
+
+  auto indices = rand.Int32(array_size, 0, array_size - 1, args.null_proportion);
+
+  TakeBenchmark(state, values, indices);
+}
+
+static void TakeFixedSizeList1Int64(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  auto rand = random::RandomArrayGenerator(kSeed);
+
+  auto int_array = rand.Int64(array_size, -100, 100, args.null_proportion);
+  auto values = std::make_shared<FixedSizeListArray>(
       fixed_size_list(int64(), 1), array_size, int_array, int_array->null_bitmap(),
       int_array->null_count());
+
+  auto indices = rand.Int32(array_size, 0, array_size - 1, args.null_proportion);
+
+  TakeBenchmark(state, values, indices);
+}
+
+static void TakeInt64VsFilter(benchmark::State& state) {
+  RegressionArgs args(state);
+
+  const int64_t array_size = args.size / sizeof(int64_t);
+  auto rand = random::RandomArrayGenerator(kSeed);
+
+  auto values = rand.Int64(array_size, -100, 100, args.null_proportion);
+
   auto filter = std::static_pointer_cast<BooleanArray>(
       rand.Boolean(array_size, 0.75, args.null_proportion));
 
-  FunctionContext ctx;
-  for (auto _ : state) {
-    Datum out;
-    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
-    benchmark::DoNotOptimize(out);
+  Int32Builder indices_builder;
+  ABORT_NOT_OK(indices_builder.Resize(array_size));
+
+  for (int64_t i = 0; i < array_size; ++i) {
+    if (filter->IsNull(i)) {
+      indices_builder.UnsafeAppendNull();
+    } else if (filter->Value(i)) {
+      indices_builder.UnsafeAppend(static_cast<int32_t>(i));
+    }
   }
+
+  std::shared_ptr<Array> indices;
+  ABORT_NOT_OK(indices_builder.Finish(&indices));
+  TakeBenchmark(state, values, indices);
 }
 
-static void FilterString(benchmark::State& state) {
+static void TakeString(benchmark::State& state) {
   RegressionArgs args(state);
 
   int32_t string_min_length = 0, string_max_length = 128;
@@ -79,34 +107,36 @@ static void FilterString(benchmark::State& state) {
       static_cast<int64_t>(args.size / string_mean_length / (1 - args.null_proportion));
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto array = std::static_pointer_cast<StringArray>(rand.String(
+  auto values = std::static_pointer_cast<StringArray>(rand.String(
       array_size, string_min_length, string_max_length, args.null_proportion));
-  auto filter = std::static_pointer_cast<BooleanArray>(
-      rand.Boolean(array_size, 0.75, args.null_proportion));
 
-  FunctionContext ctx;
-  for (auto _ : state) {
-    Datum out;
-    ABORT_NOT_OK(Filter(&ctx, Datum(array), Datum(filter), &out));
-    benchmark::DoNotOptimize(out);
-  }
+  auto indices = rand.Int32(array_size, 0, array_size - 1, args.null_proportion);
+
+  TakeBenchmark(state, values, indices);
 }
 
-BENCHMARK(FilterInt64)
+BENCHMARK(TakeInt64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
     ->Args({1 << 23, 1})
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
-BENCHMARK(FilterFixedSizeList1Int64)
+BENCHMARK(TakeFixedSizeList1Int64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
     ->Args({1 << 23, 1})
     ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
-BENCHMARK(FilterString)
+BENCHMARK(TakeInt64VsFilter)
+    ->Apply(RegressionSetArgs)
+    ->Args({1 << 20, 1})
+    ->Args({1 << 23, 1})
+    ->MinTime(1.0)
+    ->Unit(benchmark::TimeUnit::kNanosecond);
+
+BENCHMARK(TakeString)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 1})
     ->Args({1 << 23, 1})

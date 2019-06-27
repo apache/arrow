@@ -301,12 +301,21 @@ MapArray::MapArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
 MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
                    const std::shared_ptr<Buffer>& offsets,
-                   const std::shared_ptr<Array>& keys,
                    const std::shared_ptr<Array>& values,
                    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                    int64_t offset) {
+  SetData(ArrayData::Make(type, length, {null_bitmap, offsets}, {values->data()},
+                          null_count, offset));
+}
+
+MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
+                   const std::shared_ptr<Buffer>& offsets,
+                   const std::shared_ptr<Array>& keys,
+                   const std::shared_ptr<Array>& items,
+                   const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
+                   int64_t offset) {
   auto pair_data = ArrayData::Make(type->children()[0]->type(), keys->data()->length,
-                                   {nullptr}, {keys->data(), values->data()}, 0, offset);
+                                   {nullptr}, {keys->data(), items->data()}, 0, offset);
   auto map_data = ArrayData::Make(type, length, {null_bitmap, offsets}, {pair_data},
                                   null_count, offset);
   SetData(map_data);

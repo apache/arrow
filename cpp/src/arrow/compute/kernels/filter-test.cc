@@ -34,6 +34,8 @@ namespace compute {
 using internal::checked_pointer_cast;
 using util::string_view;
 
+constexpr auto kSeed = 0x0ff1ce;
+
 template <typename ArrowType>
 class TestFilterKernel : public ComputeFixture, public TestBase {
  protected:
@@ -42,23 +44,29 @@ class TestFilterKernel : public ComputeFixture, public TestBase {
                           const std::shared_ptr<Array>& expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter, &actual));
+    ASSERT_OK(ValidateArray(*actual));
     AssertArraysEqual(*expected, *actual);
   }
+
   void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
                     const std::string& filter, const std::string& expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(this->Filter(type, values, filter, &actual));
+    ASSERT_OK(ValidateArray(*actual));
     AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
   }
+
   Status Filter(const std::shared_ptr<DataType>& type, const std::string& values,
                 const std::string& filter, std::shared_ptr<Array>* out) {
     return arrow::compute::Filter(&this->ctx_, *ArrayFromJSON(type, values),
                                   *ArrayFromJSON(boolean(), filter), out);
   }
+
   void ValidateFilter(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<Array>& filter_boxed) {
     std::shared_ptr<Array> filtered;
     ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter_boxed, &filtered));
+    ASSERT_OK(ValidateArray(*filtered));
 
     auto filter = checked_pointer_cast<BooleanArray>(filter_boxed);
     int64_t values_i = 0, filtered_i = 0;
@@ -84,11 +92,13 @@ class TestFilterKernelWithNull : public TestFilterKernel<NullType> {
  protected:
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel<NullType>::AssertFilter(utf8(), values, filter, expected);
+    TestFilterKernel<NullType>::AssertFilter(null(), values, filter, expected);
   }
 };
 
 TEST_F(TestFilterKernelWithNull, FilterNull) {
+  this->AssertFilter("[]", "[]", "[]");
+
   this->AssertFilter("[null, null, null]", "[0, 1, 0]", "[null]");
   this->AssertFilter("[null, null, null]", "[1, 1, 0]", "[null, null]");
 }
@@ -102,6 +112,8 @@ class TestFilterKernelWithBoolean : public TestFilterKernel<BooleanType> {
 };
 
 TEST_F(TestFilterKernelWithBoolean, FilterBoolean) {
+  this->AssertFilter("[]", "[]", "[]");
+
   this->AssertFilter("[true, false, true]", "[0, 1, 0]", "[false]");
   this->AssertFilter("[null, false, true]", "[0, 1, 0]", "[false]");
   this->AssertFilter("[true, false, true]", "[null, 1, 0]", "[null, false]");
@@ -114,6 +126,7 @@ class TestFilterKernelWithNumeric : public TestFilterKernel<ArrowType> {
                     const std::string& expected) {
     TestFilterKernel<ArrowType>::AssertFilter(type_singleton(), values, filter, expected);
   }
+
   std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<ArrowType>::type_singleton();
   }
@@ -135,13 +148,16 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
   this->AssertFilter("[null, 8, 9]", "[0, 1, 0]", "[8]");
   this->AssertFilter("[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
   this->AssertFilter("[7, 8, 9]", "[1, null, 1]", "[7, null, 9]");
+
+  std::shared_ptr<Array> arr;
+  ASSERT_RAISES(Invalid, this->Filter(this->type_singleton(), "[7, 8, 9]", "[]", &arr));
 }
 
 TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
-  auto rand = random::RandomArrayGenerator(0x5416447);
+  auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+    for (auto null_probability : {0.0, 0.01, 0.25, 1.0}) {
       for (auto filter_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
         auto values = rand.Numeric<TypeParam>(length, 0, 127, null_probability);
         auto filter = rand.Boolean(length, filter_probability, null_probability);
@@ -191,7 +207,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using CType = typename TypeTraits<TypeParam>::CType;
 
-  auto rand = random::RandomArrayGenerator(0x5416447);
+  auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     // TODO(bkietz) rewrite with some nulls
@@ -206,6 +222,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
                                         &selection));
       ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
       auto filtered_array = filtered.make_array();
+      ASSERT_OK(ValidateArray(*filtered_array));
       auto expected =
           CompareAndFilter<TypeParam>(array->raw_values(), array->length(), c_fifty, op);
       ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
@@ -216,7 +233,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
 TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
 
-  auto rand = random::RandomArrayGenerator(0x5416447);
+  auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     auto lhs =
@@ -230,6 +247,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
                                         &selection));
       ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(lhs), selection, &filtered));
       auto filtered_array = filtered.make_array();
+      ASSERT_OK(ValidateArray(*filtered_array));
       auto expected = CompareAndFilter<TypeParam>(lhs->raw_values(), lhs->length(),
                                                   rhs->raw_values(), op);
       ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
@@ -242,7 +260,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   using CType = typename TypeTraits<TypeParam>::CType;
 
-  auto rand = random::RandomArrayGenerator(0x5416447);
+  auto rand = random::RandomArrayGenerator(kSeed);
   for (size_t i = 3; i < 13; i++) {
     const int64_t length = static_cast<int64_t>(1ULL << i);
     auto array =
@@ -259,6 +277,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
                                   &selection));
     ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
     auto filtered_array = filtered.make_array();
+    ASSERT_OK(ValidateArray(*filtered_array));
     auto expected = CompareAndFilter<TypeParam>(
         array->raw_values(), array->length(),
         [&](CType e) { return (e > c_fifty) && (e < c_hundred); });
@@ -311,6 +330,32 @@ TEST_F(TestFilterKernelWithList, FilterListInt32) {
   this->AssertFilter(list(int32()), list_json, "[1, 0, 0, 1]", "[[], [3]]");
   this->AssertFilter(list(int32()), list_json, "[1, 1, 1, 1]", list_json);
   this->AssertFilter(list(int32()), list_json, "[0, 1, 0, 1]", "[[1,2], [3]]");
+}
+
+TEST_F(TestFilterKernelWithList, FilterListListInt32) {
+  std::string list_json = R"([
+    [],
+    [[1], [2, null, 2], []],
+    null,
+    [[3, null], null]
+  ])";
+  auto type = list(list(int32()));
+  this->AssertFilter(type, list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(type, list_json, "[0, 1, 1, null]", R"([
+    [[1], [2, null, 2], []],
+    null,
+    null
+  ])");
+  this->AssertFilter(type, list_json, "[0, 0, 1, null]", "[null, null]");
+  this->AssertFilter(type, list_json, "[1, 0, 0, 1]", R"([
+    [],
+    [[3, null], null]
+  ])");
+  this->AssertFilter(type, list_json, "[1, 1, 1, 1]", list_json);
+  this->AssertFilter(type, list_json, "[0, 1, 0, 1]", R"([
+    [[1], [2, null, 2], []],
+    [[3, null], null]
+  ])");
 }
 
 class TestFilterKernelWithFixedSizeList : public TestFilterKernel<FixedSizeListType> {};
