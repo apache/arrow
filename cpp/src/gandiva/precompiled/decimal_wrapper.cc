@@ -371,7 +371,6 @@ void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int32_t out_pr
                                    precision_from_str, scale_from_str);
   bool overflow = false;
   auto out = gandiva::decimalops::Convert(x, out_precision, out_scale, &overflow);
-  printf(overflow ? "true" : "false");
   *out_high = out.high_bits();
   *out_low = out.low_bits();
 }
