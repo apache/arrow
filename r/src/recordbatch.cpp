@@ -148,6 +148,9 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
   return batch;
 }
 
+namespace arrow {
+namespace r {
+
 arrow::Status check_consistent_array_size(
     const std::vector<std::shared_ptr<arrow::Array>>& arrays, int64_t* num_rows) {
   if (arrays.size()) {
@@ -163,30 +166,69 @@ arrow::Status check_consistent_array_size(
   return arrow::Status::OK();
 }
 
+Status count_fields(SEXP lst, int* out) {
+  int res = 0;
+  R_xlen_t n = XLENGTH(lst);
+  SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
+  for (R_xlen_t i = 0; i < n; i++) {
+    if (LENGTH(STRING_ELT(names, i)) > 0) {
+      ++res;
+    } else {
+      SEXP x = VECTOR_ELT(lst, i);
+      if (Rf_inherits(x, "data.frame")) {
+        res += XLENGTH(x);
+      } else {
+        return Status::RError(
+            "only data frames are allowed as unnamed arguments to be auto spliced");
+      }
+    }
+  }
+  *out = res;
+  return Status::OK();
+}
+
+}  // namespace r
+}  // namespace arrow
+
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
     const std::shared_ptr<arrow::Schema>& schema, SEXP lst) {
-  R_xlen_t n_arrays = XLENGTH(lst);
-  if (schema->num_fields() != n_arrays) {
+  int num_fields;
+  STOP_IF_NOT_OK(arrow::r::count_fields(lst, &num_fields));
+
+  if (schema->num_fields() != num_fields) {
     Rcpp::stop("incompatible. schema has %d fields, and %d arrays are supplied",
-               schema->num_fields(), n_arrays);
+               schema->num_fields(), num_fields);
   }
 
   // convert lst to a vector of arrow::Array
-  std::vector<std::shared_ptr<arrow::Array>> arrays(n_arrays);
+  std::vector<std::shared_ptr<arrow::Array>> arrays(num_fields);
   SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
-  bool has_names = !Rf_isNull(names);
 
-  for (R_xlen_t i = 0; i < n_arrays; i++) {
-    if (has_names && schema->field(i)->name() != CHAR(STRING_ELT(names, i))) {
-      Rcpp::stop("field at index %d has name '%s' != '%s'", i + 1,
-                 schema->field(i)->name(), CHAR(STRING_ELT(names, i)));
+  auto fill_array = [&arrays, &schema](int j, SEXP x, SEXP name) {
+    if (schema->field(j)->name() != CHAR(name)) {
+      Rcpp::stop("field at index %d has name '%s' != '%s'", j + 1,
+                 schema->field(j)->name(), CHAR(name));
     }
-    arrays[i] =
-        arrow::r::Array__from_vector(VECTOR_ELT(lst, i), schema->field(i)->type(), false);
+    arrays[j] = arrow::r::Array__from_vector(x, schema->field(j)->type(), false);
+  };
+
+  for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
+    SEXP name_i = STRING_ELT(names, i);
+    SEXP x_i = VECTOR_ELT(lst, i);
+
+    if (LENGTH(name_i) == 0) {
+      SEXP names_x_i = Rf_getAttrib(x_i, R_NamesSymbol);
+      for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
+        fill_array(j, VECTOR_ELT(x_i, k), STRING_ELT(names_x_i, k));
+      }
+    } else {
+      fill_array(j, x_i, name_i);
+      j++;
+    }
   }
 
   int64_t num_rows = 0;
-  STOP_IF_NOT_OK(check_consistent_array_size(arrays, &num_rows));
+  STOP_IF_NOT_OK(arrow::r::check_consistent_array_size(arrays, &num_rows));
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }
 
@@ -197,38 +239,45 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
         arrow::r::extract<arrow::Schema>(schema_sxp), lst);
   }
 
-  R_xlen_t n_arrays = XLENGTH(lst);
+  int num_fields;
+  STOP_IF_NOT_OK(arrow::r::count_fields(lst, &num_fields));
 
   // convert lst to a vector of arrow::Array
-  std::vector<std::shared_ptr<arrow::Array>> arrays(n_arrays);
-  for (R_xlen_t i = 0; i < n_arrays; i++) {
-    arrays[i] = Array__from_vector(VECTOR_ELT(lst, i), R_NilValue);
+  std::vector<std::shared_ptr<arrow::Array>> arrays(num_fields);
+  std::vector<std::string> arrays_names(num_fields);
+  SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
+
+  auto fill_array = [&arrays, &arrays_names](int j, SEXP x, SEXP name) {
+    arrays[j] = Array__from_vector(x, R_NilValue);
+    arrays_names[j] = CHAR(name);
+  };
+
+  for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
+    SEXP name_i = STRING_ELT(names, i);
+    SEXP x_i = VECTOR_ELT(lst, i);
+    if (LENGTH(name_i) == 0) {
+      SEXP names_x_i = Rf_getAttrib(x_i, R_NamesSymbol);
+      for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
+        fill_array(j, VECTOR_ELT(x_i, k), STRING_ELT(names_x_i, k));
+      }
+    } else {
+      fill_array(j, x_i, name_i);
+      j++;
+    }
   }
 
   // generate schema from the types that have been infered
   std::shared_ptr<arrow::Schema> schema;
-  if (Rf_inherits(schema_sxp, "arrow::Schema")) {
-    schema = arrow::r::extract<arrow::Schema>(schema_sxp);
-  } else {
-    Rcpp::CharacterVector names(Rf_getAttrib(lst, R_NamesSymbol));
-    std::vector<std::shared_ptr<arrow::Field>> fields(n_arrays);
-    for (R_xlen_t i = 0; i < n_arrays; i++) {
-      fields[i] =
-          std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type());
-    }
-    schema = std::make_shared<arrow::Schema>(std::move(fields));
-  }
 
-  Rcpp::CharacterVector names(Rf_getAttrib(lst, R_NamesSymbol));
-  std::vector<std::shared_ptr<arrow::Field>> fields(n_arrays);
-  for (R_xlen_t i = 0; i < n_arrays; i++) {
-    fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), arrays[i]->type());
+  std::vector<std::shared_ptr<arrow::Field>> fields(num_fields);
+  for (R_xlen_t i = 0; i < num_fields; i++) {
+    fields[i] = std::make_shared<arrow::Field>(arrays_names[i], arrays[i]->type());
   }
   schema = std::make_shared<arrow::Schema>(std::move(fields));
 
   // check all sizes are the same
   int64_t num_rows = 0;
-  STOP_IF_NOT_OK(check_consistent_array_size(arrays, &num_rows));
+  STOP_IF_NOT_OK(arrow::r::check_consistent_array_size(arrays, &num_rows));
 
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }
