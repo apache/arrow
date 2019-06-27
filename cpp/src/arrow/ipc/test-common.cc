@@ -120,7 +120,7 @@ Status MakeRandomMapArray(const std::shared_ptr<Array>& key_array,
                           bool include_nulls, MemoryPool* pool,
                           std::shared_ptr<Array>* out) {
   auto pair_type = struct_(
-      {field("key", key_array->type(), false), field("item", item_array->type())});
+      {field("key", key_array->type(), false), field("value", item_array->type())});
 
   auto pair_array = std::make_shared<StructArray>(pair_type, num_maps,
                                                   ArrayVector{key_array, item_array});

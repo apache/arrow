@@ -714,7 +714,7 @@ class MapType(DataType):
         assert not key_type.nullable
         self.key_type = key_type
         self.item_type = item_type
-        self.pair_type = StructType('item', [key_type, item_type], False)
+        self.pair_type = StructType('entries', [key_type, item_type], False)
         self.keysSorted = keysSorted
 
     def _get_type(self):
@@ -1060,10 +1060,10 @@ def generate_interval_case():
 
 def generate_map_case():
     # TODO(bkietz): separated from nested_case so it can be
-    # independently skipped, consolidate after Java supports map
+    # independently skipped, consolidate after JS supports map
     fields = [
         MapType('map_nullable', get_field('key', 'utf8', False),
-                get_field('item', 'int32')),
+                get_field('value', 'int32')),
     ]
 
     batch_sizes = [7, 10]
@@ -1220,12 +1220,10 @@ class IntegrationRunner(object):
 
             file_id = guid()[:8]
 
-            if (('JS' in (producer.name, consumer.name) or
-                    'Java' in (producer.name, consumer.name)) and
+            if ('JS' in (producer.name, consumer.name) and
                     "map" in test_case.name):
                 print('TODO(ARROW-1279): Enable map tests ' +
-                      ' for Java and JS once Java supports them and JS\'' +
-                      ' are unbroken')
+                      ' for JS once they are unbroken')
                 continue
 
             if ('JS' in (producer.name, consumer.name) and
