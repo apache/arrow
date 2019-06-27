@@ -1532,82 +1532,6 @@ RcppExport SEXP _arrow_DataType__id(SEXP type_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> schema_(List fields);
-RcppExport SEXP _arrow_schema_(SEXP fields_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<List>::type fields(fields_sexp);
-	return Rcpp::wrap(schema_(fields));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_schema_(SEXP fields_sexp){
-	Rf_error("Cannot call schema_(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// datatype.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s);
-RcppExport SEXP _arrow_Schema__ToString(SEXP s_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
-	return Rcpp::wrap(Schema__ToString(s));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Schema__ToString(SEXP s_sexp){
-	Rf_error("Cannot call Schema__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// datatype.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s);
-RcppExport SEXP _arrow_Schema__num_fields(SEXP s_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
-	return Rcpp::wrap(Schema__num_fields(s));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Schema__num_fields(SEXP s_sexp){
-	Rf_error("Cannot call Schema__num_fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// datatype.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s, int i);
-RcppExport SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
-	Rcpp::traits::input_parameter<int>::type i(i_sexp);
-	return Rcpp::wrap(Schema__field(s, i));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
-	Rf_error("Cannot call Schema__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// datatype.cpp
-#if defined(ARROW_R_WITH_ARROW)
-CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema);
-RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	return Rcpp::wrap(Schema__names(schema));
-END_RCPP
-}
-#else
-RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
-	Rf_error("Cannot call Schema__names(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// datatype.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type);
 RcppExport SEXP _arrow_ListType__ToString(SEXP type_sexp){
 BEGIN_RCPP
@@ -2830,6 +2754,21 @@ RcppExport SEXP _arrow_ipc___ReadSchema_InputStream(SEXP stream_sexp){
 
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> ipc___ReadSchema_Message(const std::unique_ptr<arrow::ipc::Message>& message);
+RcppExport SEXP _arrow_ipc___ReadSchema_Message(SEXP message_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	return Rcpp::wrap(ipc___ReadSchema_Message(message));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ipc___ReadSchema_Message(SEXP message_sexp){
+	Rf_error("Cannot call ipc___ReadSchema_Message(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// message.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 RcppExport SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
 BEGIN_RCPP
@@ -3532,6 +3471,114 @@ RcppExport SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 }
 #endif
 
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> schema_(Rcpp::List fields);
+RcppExport SEXP _arrow_schema_(SEXP fields_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<Rcpp::List>::type fields(fields_sexp);
+	return Rcpp::wrap(schema_(fields));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_schema_(SEXP fields_sexp){
+	Rf_error("Cannot call schema_(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s);
+RcppExport SEXP _arrow_Schema__ToString(SEXP s_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	return Rcpp::wrap(Schema__ToString(s));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__ToString(SEXP s_sexp){
+	Rf_error("Cannot call Schema__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s);
+RcppExport SEXP _arrow_Schema__num_fields(SEXP s_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	return Rcpp::wrap(Schema__num_fields(s));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__num_fields(SEXP s_sexp){
+	Rf_error("Cannot call Schema__num_fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s, int i);
+RcppExport SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	Rcpp::traits::input_parameter<int>::type i(i_sexp);
+	return Rcpp::wrap(Schema__field(s, i));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
+	Rf_error("Cannot call Schema__field(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+Rcpp::CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(Schema__names(schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__names(SEXP schema_sexp){
+	Rf_error("Cannot call Schema__names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+Rcpp::RawVector Schema__serialize(const std::shared_ptr<arrow::Schema>& schema);
+RcppExport SEXP _arrow_Schema__serialize(SEXP schema_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return Rcpp::wrap(Schema__serialize(schema));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__serialize(SEXP schema_sexp){
+	Rf_error("Cannot call Schema__serialize(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool Schema__Equals(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::Schema>& other, bool check_metadata);
+RcppExport SEXP _arrow_Schema__Equals(SEXP schema_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type other(other_sexp);
+	Rcpp::traits::input_parameter<bool>::type check_metadata(check_metadata_sexp);
+	return Rcpp::wrap(Schema__Equals(schema, other, check_metadata));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Schema__Equals(SEXP schema_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
+	Rf_error("Cannot call Schema__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> Table__from_dataframe(DataFrame tbl);
@@ -3813,11 +3860,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_DataType__num_children", (DL_FUNC) &_arrow_DataType__num_children, 1}, 
 		{ "_arrow_DataType__children_pointer", (DL_FUNC) &_arrow_DataType__children_pointer, 1}, 
 		{ "_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1}, 
-		{ "_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1}, 
-		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1}, 
-		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 
-		{ "_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2}, 
-		{ "_arrow_Schema__names", (DL_FUNC) &_arrow_Schema__names, 1}, 
 		{ "_arrow_ListType__ToString", (DL_FUNC) &_arrow_ListType__ToString, 1}, 
 		{ "_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1}, 
 		{ "_arrow_DateType__unit", (DL_FUNC) &_arrow_DateType__unit, 1}, 
@@ -3897,6 +3939,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___Message__Equals", (DL_FUNC) &_arrow_ipc___Message__Equals, 2}, 
 		{ "_arrow_ipc___ReadRecordBatch__Message__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__Message__Schema, 2}, 
 		{ "_arrow_ipc___ReadSchema_InputStream", (DL_FUNC) &_arrow_ipc___ReadSchema_InputStream, 1}, 
+		{ "_arrow_ipc___ReadSchema_Message", (DL_FUNC) &_arrow_ipc___ReadSchema_Message, 1}, 
 		{ "_arrow_ipc___MessageReader__Open", (DL_FUNC) &_arrow_ipc___MessageReader__Open, 1}, 
 		{ "_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1}, 
 		{ "_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1}, 
@@ -3942,6 +3985,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 2}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 2}, 
+		{ "_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1}, 
+		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1}, 
+		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 
+		{ "_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2}, 
+		{ "_arrow_Schema__names", (DL_FUNC) &_arrow_Schema__names, 1}, 
+		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1}, 
+		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 3}, 
 		{ "_arrow_Table__from_dataframe", (DL_FUNC) &_arrow_Table__from_dataframe, 1}, 
 		{ "_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1}, 
 		{ "_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1}, 

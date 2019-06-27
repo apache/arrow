@@ -31,3 +31,34 @@ test_that("read_message can read from input stream", {
   message <- read_message(stream)
   expect_null(read_message(stream))
 })
+
+test_that("read_message() can read Schema messages", {
+  bytes <- schema(x=int32())$serialize()
+  stream <- BufferReader(bytes)
+  message <- read_message(stream)
+
+  expect_is(message, "arrow::ipc::Message")
+  expect_equal(message$type, MessageType$SCHEMA)
+  expect_is(message$body, "arrow::Buffer")
+  expect_is(message$metadata, "arrow::Buffer")
+
+  message <- read_message(stream)
+  expect_null(read_message(stream))
+})
+
+test_that("read_message() can handle raw vectors", {
+  batch <- record_batch(x = 1:10)
+  bytes <- batch$serialize()
+  stream <- BufferReader(bytes)
+
+  message_stream <- read_message(stream)
+  message_raw <- read_message(bytes)
+  expect_equal(message_stream, message_raw)
+
+  bytes <- schema(x=int32())$serialize()
+  stream <- BufferReader(bytes)
+  message_stream <- read_message(stream)
+  message_raw <- read_message(bytes)
+
+  expect_equal(message_stream, message_raw)
+})

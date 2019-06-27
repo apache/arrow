@@ -75,6 +75,15 @@ std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(
   return schema;
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> ipc___ReadSchema_Message(
+    const std::unique_ptr<arrow::ipc::Message>& message) {
+  std::shared_ptr<arrow::Schema> schema;
+  arrow::ipc::DictionaryMemo empty_memo;
+  STOP_IF_NOT_OK(arrow::ipc::ReadSchema(*message, &empty_memo, &schema));
+  return schema;
+}
+
 //--------- MessageReader
 
 // [[arrow::export]]

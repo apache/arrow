@@ -167,39 +167,6 @@ arrow::Type::type DataType__id(const std::shared_ptr<arrow::DataType>& type) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> schema_(List fields) {
-  return arrow::schema(arrow::r::List_to_shared_ptr_vector<arrow::Field>(fields));
-}
-
-// [[arrow::export]]
-std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s) {
-  return s->ToString();
-}
-
-// [[arrow::export]]
-int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s) {
-  return s->num_fields();
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s,
-                                            int i) {
-  if (i >= s->num_fields() || i < 0) {
-    Rcpp::stop("Invalid field index for schema.");
-  }
-
-  return s->field(i);
-}
-
-// [[arrow::export]]
-CharacterVector Schema__names(const std::shared_ptr<arrow::Schema>& schema) {
-  auto fields = schema->fields();
-  return CharacterVector(
-      fields.begin(), fields.end(),
-      [](const std::shared_ptr<arrow::Field>& field) { return field->name(); });
-}
-
-// [[arrow::export]]
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type) {
   return type->ToString();
 }
