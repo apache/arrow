@@ -837,7 +837,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_value", i128},
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
-                                                           {"out_len", i64},
+                                                           {"out_len_param", i64},
                                                            {"out_length", i32_ptr},
                                                        }));
   return Status::OK();
