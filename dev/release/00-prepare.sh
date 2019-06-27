@@ -208,10 +208,11 @@ if [ ${PREPARE_VERSION_PRE_TAG} -gt 0 ]; then
 fi
 
 if [ ${PREPARE_TAG} -gt 0 ]; then
+  profile=arrow-jni # this includes components which depend on arrow cpp.
   cd "${SOURCE_DIR}/../../java"
   git submodule update --init --recursive
   mvn release:clean
-  mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot}
+  mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot} -P ${profile}
   cd -
 fi
 
