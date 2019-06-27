@@ -55,7 +55,7 @@ test:
     - hypothesis
 
   commands:
-    - ARROW_TEST_DATA=../../../../testing/data pytest --pyargs pyarrow
+    - pytest --pyargs pyarrow
 
 about:
   home: http://github.com/apache/arrow
