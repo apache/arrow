@@ -1158,34 +1158,11 @@ public final class ArrowBuf implements AutoCloseable {
    * @return this ArrowBuf
    */
   public ArrowBuf setZero(int index, int length) {
-    if (length == 0) {
-      return this;
-    } else {
+    if (length != 0) {
       this.checkIndex(index, length);
-      int nLong = length >>> 3;
-      int nBytes = length & 7;
-      int i;
-      for (i = nLong; i > 0; --i) {
-        setLong(index, 0L);
-        index += 8;
-      }
-      if (nBytes == 4) {
-        setInt(index, 0);
-      } else if (nBytes < 4) {
-        for (i = nBytes; i > 0; --i) {
-          setByte(index, 0);
-          ++index;
-        }
-      } else {
-        setInt(index, 0);
-        index += 4;
-        for (i = nBytes - 4; i > 0; --i) {
-          setByte(index, 0);
-          ++index;
-        }
-      }
-      return this;
+      PlatformDependent.setMemory(this.addr + index, length, (byte) 0);
     }
+    return this;
   }
 
   /**
