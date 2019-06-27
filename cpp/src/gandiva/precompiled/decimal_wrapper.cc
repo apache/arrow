@@ -360,8 +360,8 @@ boolean is_distinct_from_decimal128_decimal128_internal(
 }
 
 FORCE_INLINE
-void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int64_t out_precision,
-                               int64_t out_scale, int64_t* out_high, uint64_t* out_low) {
+void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int32_t out_precision,
+                               int32_t out_scale, int64_t* out_high, uint64_t* out_low) {
   auto dec = std::make_shared<arrow::Decimal128>();
   int32_t precision_from_str;
   int32_t scale_from_str;
@@ -370,8 +370,8 @@ void castDECIMAL_utf8_internal(const char* in, int32_t in_length, int64_t out_pr
   gandiva::BasicDecimalScalar128 x({dec->high_bits(), dec->low_bits()},
                                    precision_from_str, scale_from_str);
   bool overflow = false;
-  auto out = gandiva::decimalops::Convert(x, static_cast<int32_t>(out_precision),
-                                          static_cast<int32_t>(out_scale), &overflow);
+  auto out = gandiva::decimalops::Convert(x, out_precision, out_scale, &overflow);
+  printf(overflow ? "true" : "false");
   *out_high = out.high_bits();
   *out_low = out.low_bits();
 }
@@ -387,7 +387,7 @@ char* castVARCHAR_decimal128_int64_internal(int64_t context, int64_t x_high,
                                   ? full_dec_str.substr(0, static_cast<int32_t>(out_len))
                                   : full_dec_str;
   if (trunc_dec_str == "-") {
-    trunc_dec_str = "-0.0";
+    trunc_dec_str = "0";
   }
   *out_length = trunc_dec_str.length();
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_length));

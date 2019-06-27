@@ -827,8 +827,8 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                        {
                                                            {"in", i8_ptr},
                                                            {"in_len", i32},
-                                                           {"out_precision", i64},
-                                                           {"out_scale", i64},
+                                                           {"out_precision", i32},
+                                                           {"out_scale", i32},
                                                        }));
   ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castVARCHAR_decimal128_int64",
                                                        i8_ptr,
