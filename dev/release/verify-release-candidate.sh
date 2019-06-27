@@ -488,8 +488,8 @@ test_integration() {
 test_source_distribution() {
   export ARROW_HOME=$TMPDIR/install
   export PARQUET_HOME=$TMPDIR/install
-  export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
-  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:$PKG_CONFIG_PATH
+  export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
+  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
