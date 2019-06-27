@@ -318,7 +318,10 @@ test_csharp() {
 
   if ! which sourcelink > /dev/null 2>&1; then
     dotnet tool install --tool-path ${csharp_bin} sourcelink
-    export DOTNET_ROOT=${csharp_bin}
+    PATH=${csharp_bin}:${PATH}
+    if ! sourcelink --help > /dev/null 2>&1; then
+      export DOTNET_ROOT=${csharp_bin}
+    fi
   fi
 
   sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
