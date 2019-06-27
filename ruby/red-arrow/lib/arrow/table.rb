@@ -210,7 +210,7 @@ module Arrow
     #
     # @overload slice(index)
     #
-    #   @param index [Integer] The index of sub Arrow::Table.
+    #   @param index [Integer] The index in this table.
     #   @return [Arrow::Record]
     #      The `Arrow::Record` corresponding to index of
     #      the table.
