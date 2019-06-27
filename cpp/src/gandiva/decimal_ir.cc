@@ -829,12 +829,13 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"out_precision", i64},
                                                            {"out_scale", i64},
                                                        }));
-  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castVARCHAR_decimal128_int64", i8_ptr,
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("castVARCHAR_decimal128_int64",
+                                                       i8_ptr,
                                                        {
-                                                         {"x_value", i128},
-                                                         {"x_precision", i32},
-                                                         {"x_scale", i32},
-                                                         {"out_len", i64},
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"out_len", i64},
                                                        }));
   return Status::OK();
 }
