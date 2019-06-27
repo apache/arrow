@@ -74,20 +74,26 @@ class TableTest < Test::Unit::TestCase
     end
 
     test("Integer: positive") do
-      record = @table.slice(2)
-      assert_equal([4, nil],
-                   [record[0], record[1]])
-    end
-
-    test("Integer: negative") do
-      record = @table.slice(-1)
+      record = @table.slice(@table.size - 1)
       assert_equal([128, nil],
                    [record[0], record[1]])
     end
 
+    test("Integer: negative") do
+      record = @table.slice(-@table.size)
+      assert_equal([1, true],
+                   [record[0], record[1]])
+    end
+
     test("Integer: out of index") do
-      assert_equal([nil, nil],
-                   [@table.slice(9), @table.slice(-9)])
+      assert_equal([
+                     nil,
+                     nil,
+                   ],
+                   [
+                     @table.slice(@table.size),
+                     @table.slice(-(@table.size + 1)),
+                   ])
     end
 
     test("Range: positive: include end") do
