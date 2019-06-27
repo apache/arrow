@@ -29,6 +29,7 @@
 
 using arrow::boolean;
 using arrow::Decimal128;
+using arrow::utf8;
 
 namespace gandiva {
 
@@ -843,4 +844,61 @@ TEST_F(TestDecimal, TestNullDecimalConstant) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestDecimal, TestDecimalVarCharCastFuncs) {
+  // schema for input fields
+  constexpr int32_t precision = 38;
+  constexpr int32_t scale = 2;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+
+  auto field_dec = field("dec", decimal_type);
+  auto field_str = field("str", utf8());
+  auto field_res_str = field("res_str", utf8());
+  //  auto schema = arrow::schema({field_dec, field_str});
+  auto schema = arrow::schema({field_dec, field_res_str});
+
+  // output fields
+  auto res_str = field("res_str", utf8());
+  auto equals_res_bool = field("equals_res", boolean());
+
+  // build expressions.
+  auto node_dec = TreeExprBuilder::MakeField(field_dec);
+  auto node_str = TreeExprBuilder::MakeField(field_str);
+  auto node_res_str = TreeExprBuilder::MakeField(field_res_str);
+  // limits decimal string to input length
+  auto str_len_limit = TreeExprBuilder::MakeLiteral(static_cast<int64_t>(5));
+  auto cast_varchar =
+      TreeExprBuilder::MakeFunction("castVARCHAR", {node_dec, str_len_limit}, utf8());
+  auto equals =
+      TreeExprBuilder::MakeFunction("equal", {cast_varchar, node_res_str}, boolean());
+  auto expr = TreeExprBuilder::MakeExpression(equals, equals_res_bool);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array_dec = MakeArrowArrayDecimal(
+      decimal_type,
+      MakeDecimalVector({"10.51", "1.23", "100.23", "-1000.23", "-1.24"}, scale),
+      {true, false, true, true, true});
+  auto array_str_res = MakeArrowArrayUtf8({"10.51", "1.23", "100.2", "-1000", "-1.24"},
+                                          {true, false, true, true, true});
+  // prepare input record batch
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array_dec, array_str_res});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto exp = MakeArrowArrayBool({true, false, true, true, true},
+                                {true, false, true, true, true});
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[0]);
+}
 }  // namespace gandiva
