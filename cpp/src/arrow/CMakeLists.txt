@@ -126,6 +126,8 @@ set(ARROW_SRCS
     io/buffered.cc
     io/compressed.cc
     io/file.cc
+    io/hdfs.cc
+    io/hdfs-internal.cc
     io/interfaces.cc
     io/memory.cc
     io/readahead.cc
@@ -230,10 +232,6 @@ endif()
 
 if(ARROW_TENSORFLOW)
   add_subdirectory(adapters/tensorflow)
-endif()
-
-if(NOT ARROW_BOOST_HEADER_ONLY)
-  set(ARROW_SRCS ${ARROW_SRCS} io/hdfs.cc io/hdfs-internal.cc)
 endif()
 
 if(ARROW_IPC)

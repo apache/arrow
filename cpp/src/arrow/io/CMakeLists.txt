@@ -22,7 +22,7 @@ add_arrow_test(buffered-test PREFIX "arrow-io")
 add_arrow_test(compressed-test PREFIX "arrow-io")
 add_arrow_test(file-test PREFIX "arrow-io")
 
-if(ARROW_HDFS AND NOT ARROW_BOOST_HEADER_ONLY)
+if(ARROW_HDFS)
   add_arrow_test(hdfs-test NO_VALGRIND PREFIX "arrow-io")
 endif()
 
