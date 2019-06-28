@@ -27,16 +27,14 @@
 
 namespace arrow {
 
-
-template<typename data_type>
-std::shared_ptr<typename TypeTraits<data_type>::ArrayType> ArrayOf(
-  const std::vector<typename data_type::c_type>& values) {
-
+template<typename data_type, typename c_type = typename data_type::c_type>
+std::shared_ptr<typename TypeTraits<data_type>::ArrayType>
+ArrayOf(const std::vector<c_type>& values) {
   std::shared_ptr<Array> array;
   ArrayFromVector<data_type>(std::make_shared<data_type>(), values, &array);
-
   return std::static_pointer_cast<typename TypeTraits<data_type>::ArrayType>(array);
 }
+
 
 void Roundtrip(const std::shared_ptr<Field>& schema,
                const std::shared_ptr<Array>& array_in,
@@ -224,6 +222,32 @@ TEST(TestColumnarFormat, Siblings) {
 
   Roundtrip(f0, array, colmap);
 }
+
+TEST(TestColumnarFormat, PrimitiveTypes) {
+  auto f1 = field("f1", uint32(), true);
+  auto f2 = field("f2", utf8(), true);
+  auto f3 = field("f3", boolean(), true);
+  auto f0 = field("f0", struct_({f1, f2, f3}), false);
+
+  std::string json = "[{'f1':4294967295},{'f2':'abcde'},{'f3':true}]";
+  std::replace(json.begin(), json.end(), '\'', '"');
+  std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
+
+  ColumnMap colmap;
+  colmap.Put(f0, ArrayOf<Int16Type>({0,0,0}),
+                 ArrayOf<Int16Type>({0,0,0}));
+  colmap.Put(f1, ArrayOf<Int16Type>({0,0,0}),
+                 ArrayOf<Int16Type>({1,0,0}),
+                 ArrayOf<UInt32Type>({4294967295}));
+  colmap.Put(f2, ArrayOf<Int16Type>({0,0,0}),
+                 ArrayOf<Int16Type>({0,1,0}),
+                 ArrayOf<StringType, std::string>({"abcde"}));
+  colmap.Put(f3, ArrayOf<Int16Type>({0,0,0}),
+                 ArrayOf<Int16Type>({0,0,1}),
+                 ArrayOf<BooleanType, bool>({true}));
+  Roundtrip(f0, array, colmap);
+}
+
 
 }  // namespace arrow
 
