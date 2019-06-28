@@ -45,7 +45,9 @@ case $# in
      ;;
 esac
 
-set -ex
+set -e
+set -u
+set -x
 set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -255,7 +257,7 @@ test_and_install_cpp() {
   pushd cpp/build
 
   ARROW_CMAKE_OPTIONS="
-${ARROW_CMAKE_OPTIONS}
+${ARROW_CMAKE_OPTIONS:-}
 -DCMAKE_INSTALL_PREFIX=$ARROW_HOME
 -DCMAKE_INSTALL_LIBDIR=lib
 -DARROW_FLIGHT=${ARROW_FLIGHT}
@@ -267,6 +269,7 @@ ${ARROW_CMAKE_OPTIONS}
 -DARROW_BOOST_USE_SHARED=ON
 -DCMAKE_BUILD_TYPE=release
 -DARROW_BUILD_TESTS=ON
+-DARROW_BUILD_INTEGRATION=ON
 -DARROW_CUDA=${ARROW_CUDA}
 -DARROW_DEPENDENCY_SOURCE=AUTO
 "
@@ -281,6 +284,60 @@ ${ARROW_CMAKE_OPTIONS}
     -j$NPROC \
     --output-on-failure \
     -L unittest
+  popd
+}
+
+test_csharp() {
+  pushd csharp
+
+  local csharp_bin=${PWD}/bin
+  mkdir -p ${csharp_bin}
+
+  if which dotnet > /dev/null 2>&1; then
+    if ! which sourcelink > /dev/null 2>&1; then
+      local dotnet_tools_dir=$HOME/.dotnet/tools
+      if [ -d "${dotnet_tools_dir}" ]; then
+        PATH="${dotnet_tools_dir}:$PATH"
+      fi
+    fi
+  else
+    local dotnet_version=2.2.300
+    local dotnet_platform=
+    case "$(uname)" in
+      Linux)
+        dotnet_platform=linux
+        ;;
+      Darwin)
+        dotnet_platform=macos
+        ;;
+    esac
+    local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
+    local dotnet_download_url=$( \
+      curl ${dotnet_download_thank_you_url} | \
+        grep 'window\.open' | \
+        grep -E -o '[^"]+' | \
+        sed -n 2p)
+    curl ${dotnet_download_url} | \
+      tar xzf - -C ${csharp_bin}
+    PATH=${csharp_bin}:${PATH}
+  fi
+
+  dotnet test
+  mv dummy.git ../.git
+  dotnet pack -c Release
+  mv ../.git dummy.git
+
+  if ! which sourcelink > /dev/null 2>&1; then
+    dotnet tool install --tool-path ${csharp_bin} sourcelink
+    PATH=${csharp_bin}:${PATH}
+    if ! sourcelink --help > /dev/null 2>&1; then
+      export DOTNET_ROOT=${csharp_bin}
+    fi
+  fi
+
+  sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
+  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb
+
   popd
 }
 
@@ -432,8 +489,8 @@ test_integration() {
 test_source_distribution() {
   export ARROW_HOME=$TMPDIR/install
   export PARQUET_HOME=$TMPDIR/install
-  export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
-  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:$PKG_CONFIG_PATH
+  export LD_LIBRARY_PATH=$ARROW_HOME/lib:${LD_LIBRARY_PATH:-}
+  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
@@ -453,6 +510,9 @@ test_source_distribution() {
   if [ ${TEST_CPP} -gt 0 ]; then
     setup_miniconda
     test_and_install_cpp
+  fi
+  if [ ${TEST_CSHARP} -gt 0 ]; then
+    test_csharp
   fi
   if [ ${TEST_PYTHON} -gt 0 ]; then
     test_python
@@ -498,6 +558,7 @@ test_binary_distribution() {
 : ${TEST_SOURCE:=${TEST_DEFAULT}}
 : ${TEST_JAVA:=${TEST_DEFAULT}}
 : ${TEST_CPP:=${TEST_DEFAULT}}
+: ${TEST_CSHARP:=${TEST_DEFAULT}}
 : ${TEST_GLIB:=${TEST_DEFAULT}}
 : ${TEST_RUBY:=${TEST_DEFAULT}}
 : ${TEST_PYTHON:=${TEST_DEFAULT}}
