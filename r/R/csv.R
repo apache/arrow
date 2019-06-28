@@ -195,10 +195,11 @@ read_tsv_arrow <- function(file,
 #' @param block_size Block size we request from the IO layer; also determines the size of chunks when use_threads is `TRUE`. NB: if false, JSON input must end with an empty line
 #'
 #' @export
-csv_read_options <- function(block_size = 1048576L) {
+csv_read_options <- function(use_threads = option_use_threads(),
+                             block_size = 1048576L) {
   shared_ptr(`arrow::csv::ReadOptions`, csv___ReadOptions__initialize(
     list(
-      use_threads = option_use_threads(),
+      use_threads = use_threads,
       block_size = block_size
     )
   ))
