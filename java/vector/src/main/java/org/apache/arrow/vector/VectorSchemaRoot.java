@@ -215,9 +215,15 @@ public class VectorSchemaRoot implements AutoCloseable {
    * For example, when writing different types of data to a {@link org.apache.arrow.vector.complex.ListVector}
    * may lead to such a case.
    * When this happens, this method should be called to bring the schema and vector structure in a synchronized state.
+   * @return true if the schema is updated, false otherwise.
    */
-  public void syncSchema() {
-    List<Field> fields = this.fieldVectors.stream().map(ValueVector::getField).collect(Collectors.toList());
-    this.schema = new Schema(fields);
+  public boolean syncSchema() {
+    List<Field> oldFields = this.schema.getFields();
+    List<Field> newFields = this.fieldVectors.stream().map(ValueVector::getField).collect(Collectors.toList());
+    if (!oldFields.equals(newFields)) {
+      this.schema = new Schema(newFields);
+      return true;
+    }
+    return false;
   }
 }

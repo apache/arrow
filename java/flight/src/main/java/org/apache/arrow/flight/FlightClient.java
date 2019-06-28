@@ -171,6 +171,11 @@ public class FlightClient implements AutoCloseable {
     ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
         asyncClientStreamingCall(
                 authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
+
+    // sync the schema from the vector structure,
+    // so that the server side can restore the vector schema root correctly
+    root.syncSchema();
+
     // send the schema to start.
     ArrowMessage message = new ArrowMessage(descriptor.toProtocol(), root.getSchema());
     observer.onNext(message);
