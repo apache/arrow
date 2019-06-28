@@ -23,6 +23,7 @@ import java.util.Iterator;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.util.TransferPair;
 import org.slf4j.Logger;
@@ -114,12 +115,7 @@ public abstract class BaseValueVector implements ValueVector {
 
   /* number of bytes for the validity buffer for the given valueCount */
   protected static int getValidityBufferSizeFromCount(final int valueCount) {
-    return (valueCount + 7) >> 3;
-  }
-
-  /* round up to the next multiple of 8 */
-  private static long roundUp8(long size) {
-    return ((size + 7) / 8) * 8;
+    return DataSizeRoundingUtil.divideBy8Ceil(valueCount);
   }
 
   /* round up bytes for the validity buffer for the given valueCount */
@@ -139,7 +135,7 @@ public abstract class BaseValueVector implements ValueVector {
       // for boolean type, value-buffer and validity-buffer are of same size.
       bufferSize *= 2;
     } else {
-      bufferSize += roundUp8(valueCount * typeWidth);
+      bufferSize += DataSizeRoundingUtil.roundUpTo8Multiple(valueCount * typeWidth);
     }
     return BaseAllocator.nextPowerOfTwo(bufferSize);
   }
@@ -179,7 +175,7 @@ public abstract class BaseValueVector implements ValueVector {
       int actualCount = (int) ((bufferSize * 8.0) / (8 * typeWidth + 1));
       do {
         validityBufferSize = (int) roundUp8ForValidityBuffer(actualCount);
-        dataBufferSize = (int) roundUp8(actualCount * typeWidth);
+        dataBufferSize = DataSizeRoundingUtil.roundUpTo8Multiple(actualCount * typeWidth);
         if (validityBufferSize + dataBufferSize <= bufferSize) {
           break;
         }
