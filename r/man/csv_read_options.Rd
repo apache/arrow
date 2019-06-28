@@ -5,14 +5,15 @@
 \alias{json_read_options}
 \title{Read options for the Arrow file readers}
 \usage{
-csv_read_options(block_size = 1048576L)
+csv_read_options(use_threads = option_use_threads(),
+  block_size = 1048576L)
 
 json_read_options(use_threads = TRUE, block_size = 1048576L)
 }
 \arguments{
-\item{block_size}{Block size we request from the IO layer; also determines the size of chunks when use_threads is \code{TRUE}. NB: if false, JSON input must end with an empty line}
-
 \item{use_threads}{Whether to use the global CPU thread pool}
+
+\item{block_size}{Block size we request from the IO layer; also determines the size of chunks when use_threads is \code{TRUE}. NB: if false, JSON input must end with an empty line}
 }
 \description{
 Read options for the Arrow file readers
