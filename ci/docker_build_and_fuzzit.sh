@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,22 +16,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+export ARROW_FUZZING="ON"
+#export ARROW_DEPENDENCY_SOURCE="BUNDLED"
+export ARROW_USE_ASAN="ON"
+export CC="clang-7"
+export CXX="clang++-7"
+export ARROW_BUILD_TYPE="RelWithDebInfo"
+export ARROW_ORC="OFF"
+export ARROW_PARQUET="OFF"
+export ARROW_PLASMA="OFF"
+export ARROW_FLIGHT="OFF"
+export ARROW_BUILD_BENCHMARKS="OFF"
+export ARROW_WITH_BZ2="OFF"
+export ARROW_WITH_ZSTD="OFF"
+export ARROW_BUILD_UTILITIES="OFF"
+/arrow/ci/docker_build_cpp.sh || exit 1
+pushd /build/cpp
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+mkdir ./relwithdebinfo/out
+cp ./relwithdebinfo/arrow-ipc-fuzzing-test ./relwithdebinfo/out/fuzzer
+ldd ./relwithdebinfo/arrow-ipc-fuzzing-test | grep "=> /" | awk '{print $3}' | xargs -I '{}' cp -v '{}' ./relwithdebinfo/out/.
+cd ./relwithdebinfo/out/
+tar -czvf fuzzer.tar.gz *
+cd ../../
 
 export TARGET_ID=u79f6bXYgNH4NkU99iWK
 export FUZZIT_API_KEY=${FUZZIT_API_KEY:-ac6089a1bc2313679f2d99bb80553162c380676bff3f094de826b16229e28184a8084b86f52c95112bde6b3dbb07b9b7}
 wget -O fuzzit https://bin.fuzzit.dev/fuzzit-1.1
 chmod a+x fuzzit
 ./fuzzit auth $FUZZIT_API_KEY
-
-# Because arrow is not build statically we send the shared object together with the binary
-mkdir $ARROW_CPP_BUILD_DIR/relwithdebinfo/out
-cp $ARROW_CPP_BUILD_DIR/relwithdebinfo/arrow-ipc-fuzzing-test $ARROW_CPP_BUILD_DIR/relwithdebinfo/out/fuzzer
-ldd $ARROW_CPP_BUILD_DIR/relwithdebinfo/arrow-ipc-fuzzing-test | grep "=> /" | awk '{print $3}' | xargs -I '{}' cp -v '{}' $ARROW_CPP_BUILD_DIR/relwithdebinfo/out/.
-cd $ARROW_CPP_BUILD_DIR/relwithdebinfo/out/
-tar -czvf fuzzer.tar.gz *
-cd ../../../
-./fuzzit create job --type fuzzing --revision $TRAVIS_COMMIT --branch $TRAVIS_BRANCH $TARGET_ID $ARROW_CPP_BUILD_DIR/relwithdebinfo/out/fuzzer.tar.gz
-
+./fuzzit create job --type fuzzing --host bionic-llvm7 --revision $CIRCLE_SHA1 --branch $CIRCLE_BRANCH $TARGET_ID ./relwithdebinfo/out/fuzzer.tar.gz

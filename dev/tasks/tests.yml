@@ -25,6 +25,7 @@ groups:
     - docker-cpp-alpine
     - docker-cpp-cmake32
     - docker-cpp-release
+    - docker-cpp-fuzzit
     - docker-c_glib
     - docker-go
     - docker-python-2.7
@@ -131,6 +132,16 @@ tasks:
       commands:
         - docker-compose build cpp-cmake32
         - docker-compose run cpp-cmake32
+
+  docker-cpp-fuzzit:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose build fuzzit
+        - docker-compose run fuzzit
 
   docker-c_glib:
     ci: circle

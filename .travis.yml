@@ -84,28 +84,6 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
-  - name: "C++ Continuous Fuzzing integration with Fuzzit w/ 7.0, system packages"
-    os: linux
-    env:
-    - ARROW_TRAVIS_USE_SYSTEM=1
-    - ARROW_TRAVIS_VERBOSE=1
-    - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - ARROW_TRAVIS_FUZZING=1
-    - ARROW_USE_ASAN=1
-    - ARROW_BUILD_TYPE=RelWithDebInfo
-    - CC="clang-7"
-    - CXX="clang++-7"
-    - secure: "xSJ/UbmBn8w6kd5kZhprIwQppGYC69mmoKoxyqI9DbDof3tN/+kfETvFNM8Ir/+VHkNOKEnsizUDASaoINNbfFoP/jDOj7uYjOXU/heZAZY3hIi3I+m12atqkt0ZE/uj6LW+znD+jGfQw9jNh/iy8G2EmZku/3vrNHJFgC5GS3VyaT9rArFHuOv5CCYdHxfNWIeVt0rWfPckYt+6xIEskPm3ciq+wqOWvr7nnqBSAYr0YrD27FZvfUIoUqQ3t8zI2n0nkwjS8tyNu39hStYac2+KsSOu7QZnI/M6E4lPCXOalQZqD/b/emj7+WOq2179YXBF8b5mYrzo/VcKv8xINgi+FmZE5b3Jtq3ngdEz/GZD4iDBfg9LBc7gBAIx/vhBLilIucuz4FqaCrfcliCslLAZZe8GyHh5j7XZMrXVYzHgLWdGDEk8HqTdhLFnCZbglqIgytbMntQwbuYQN1J03Ce+CE13yL5e6J5Lan3q894PyQ5DbYTLq1puJpK/Y0sPzHXuQD6A+lTGoVMJrB9PYjD5JAdf5uVA4KEPoKj4WgEptfyQyLLaOttcAaJvKotaGHVhYL9Rz41zJHM6sctBQhhVakAkl9UlvVfvOmn+gVtZpfBSXXp9SalhLP/wNca5kHOYNUzEfUX4RTPDL2691jdAuCOtxXDkm4q7Tce+E38="
-    before_script:
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    # If either C++ or Python changed, we must install the C++ libraries
-    - git submodule update --init
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_fuzzit.sh || travis_terminate 1
   # Separating Valgrind and C++ coverage makes individual jobs shorter
   - name: "C++ unit tests w/ conda-forge toolchain, coverage"
     compiler: gcc
