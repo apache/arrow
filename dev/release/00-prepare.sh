@@ -209,11 +209,32 @@ fi
 
 if [ ${PREPARE_TAG} -gt 0 ]; then
   profile=arrow-jni # this includes components which depend on arrow cpp.
-  cd "${SOURCE_DIR}/../../java"
+  pushd "${SOURCE_DIR}/../../java"
   git submodule update --init --recursive
+  cpp_dir="${PWD}/../cpp"
+  cpp_build_dir=$(mktemp -d -t "apache-arrow-cpp.XXXXX")
+  pushd ${cpp_build_dir}
+  cmake \
+    -DARROW_GANDIVA=ON \
+    -DARROW_GANDIVA_JAVA=ON \
+    -DARROW_JNI=ON \
+    -DARROW_ORC=ON \
+    -DCMAKE_BUILD_TYPE=release \
+    -G Ninja \
+    "${cpp_dir}"
+  ninja
+  popd
   mvn release:clean
-  mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot} -P ${profile}
-  cd -
+  mvn \
+    release:prepare \
+    -Dtag=${tag} \
+    -DreleaseVersion=${version} \
+    -DautoVersionSubmodules \
+    -DdevelopmentVersion=${next_version_snapshot} \
+    -Darrow.cpp.build.dir=${cpp_build_dir} \
+    -P ${profile}
+  rm -rf ${cpp_build_dir}
+  popd
 fi
 
 ############################## Post-Tag Commits #############################
