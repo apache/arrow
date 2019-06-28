@@ -12,6 +12,7 @@ cd python
 
 $PYTHON setup.py \
         build_ext --build-type=release \
+                  --with-flight \
                   --with-orc \
                   --with-plasma \
                   --with-parquet \

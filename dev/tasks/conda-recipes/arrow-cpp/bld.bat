@@ -10,10 +10,12 @@ cmake -G "%CMAKE_GENERATOR%" ^
       -DARROW_BUILD_TESTS:BOOL=OFF ^
       -DARROW_BUILD_UTILITIES:BOOL=OFF ^
       -DCMAKE_BUILD_TYPE=release ^
+      -DARROW_FLIGHT:BOOL=ON ^
       -DARROW_PYTHON:BOOL=ON ^
       -DARROW_PARQUET:BOOL=ON ^
       -DARROW_GANDIVA:BOOL=ON ^
       -DARROW_ORC:BOOL=ON ^
+      -Duriparser_SOURCE=BUNDLED ^
       ..
 
 cmake --build . --target INSTALL --config Release

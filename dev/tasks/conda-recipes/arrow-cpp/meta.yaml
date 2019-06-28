@@ -22,10 +22,12 @@ requirements:
   host:
     - boost-cpp
     - brotli
+    - c-ares
     - double-conversion
     - flatbuffers
     - gflags
     - glog
+    - grpc-cpp
     - libprotobuf
     - clangdev 7.*
     - llvmdev 7.*
@@ -44,9 +46,11 @@ requirements:
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
     - boost-cpp
     - brotli
+    - c-ares
     - double-conversion
     - gflags
     - glog
+    - grpc-cpp
     - lz4-c
     - python
     - re2
@@ -58,6 +62,7 @@ test:
   commands:
     # headers
     - test -f $PREFIX/include/arrow/api.h              # [unix]
+    - test -f $PREFIX/include/arrow/flight/types.h     # [unix]
     - test -f $PREFIX/include/plasma/client.h          # [unix]
     - test -f $PREFIX/include/gandiva/engine.h         # [unix]
     - test -f $PREFIX/include/parquet/api/reader.h     # [unix]
@@ -67,17 +72,20 @@ test:
 
     # static
     - test -f $PREFIX/lib/libarrow.a         # [unix]
+    - test -f $PREFIX/lib/libarrow_flight.a  # [unix]
     - test -f $PREFIX/lib/libarrow_python.a  # [unix]
     - test -f $PREFIX/lib/libplasma.a        # [unix]
     - test -f $PREFIX/lib/libparquet.a       # [unix]
     - test -f $PREFIX/lib/libgandiva.a       # [unix]
     - if not exist %PREFIX%\\Library\\lib\\arrow_static.lib exit 1         # [win]
+    - if not exist %PREFIX%\\Library\\lib\\arrow_flight_static.lib exit 1  # [win]
     - if not exist %PREFIX%\\Library\\lib\\arrow_python_static.lib exit 1  # [win]
     - if not exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1       # [win]
     - if not exist %PREFIX%\\Library\\lib\\gandiva_static.lib exit 1       # [win]
 
     # shared
     - test -f $PREFIX/lib/libarrow.so            # [linux]
+    - test -f $PREFIX/lib/libarrow_flight.so     # [linux]
     - test -f $PREFIX/lib/libarrow_python.so     # [linux]
     - test -f $PREFIX/lib/libparquet.so          # [linux]
     - test -f $PREFIX/lib/libgandiva.so          # [linux]
@@ -88,6 +96,7 @@ test:
     - test -f $PREFIX/lib/libparquet.dylib       # [osx]
     - test -f $PREFIX/lib/libplasma.dylib        # [osx]
     - if not exist %PREFIX%\\Library\\bin\\arrow.dll exit 1         # [win]
+    - if not exist %PREFIX%\\Library\\bin\\arrow_flight.dll exit 1  # [win]
     - if not exist %PREFIX%\\Library\\bin\\arrow_python.dll exit 1  # [win]
     - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1       # [win]
     - if not exist %PREFIX%\\Library\\bin\\gandiva.dll exit 1       # [win]

@@ -45,6 +45,7 @@ requirements:
 test:
   imports:
     - pyarrow
+    - pyarrow.flight  # [py>=35]
     - pyarrow.plasma  # [unix]
     - pyarrow.parquet
     - pyarrow.gandiva  # [py>=35]
@@ -54,7 +55,7 @@ test:
     - hypothesis
 
   commands:
-    - pytest --pyargs pyarrow
+    - pytest -m "not requires_testing_data" --pyargs pyarrow
 
 about:
   home: http://github.com/apache/arrow

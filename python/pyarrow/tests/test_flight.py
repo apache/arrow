@@ -618,6 +618,7 @@ def test_location_invalid():
 
 
 @pytest.mark.slow
+@pytest.mark.requires_testing_data
 def test_tls_fails():
     """Make sure clients cannot connect when cert verification fails."""
     certs = example_tls_certs()
@@ -635,6 +636,7 @@ def test_tls_fails():
             client.do_get(flight.Ticket(b'ints'))
 
 
+@pytest.mark.requires_testing_data
 def test_tls_do_get():
     """Try a simple do_get call over TLS."""
     table = simple_ints_table()
@@ -650,6 +652,7 @@ def test_tls_do_get():
         assert data.equals(table)
 
 
+@pytest.mark.requires_testing_data
 def test_tls_override_hostname():
     """Check that incorrectly overriding the hostname fails."""
     certs = example_tls_certs()
