@@ -264,6 +264,17 @@ template <typename VISITOR>
 inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
   switch (scalar.type->id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(SCALAR_VISIT_INLINE);
+    case Type::INTERVAL: {
+      const auto& interval_type =
+          internal::checked_cast<const IntervalType&>(*scalar.type);
+      if (interval_type.interval_type() == IntervalType::MONTHS) {
+        return visitor->Visit(internal::checked_cast<const MonthIntervalScalar&>(scalar));
+      }
+      if (interval_type.interval_type() == IntervalType::DAY_TIME) {
+        return visitor->Visit(
+            internal::checked_cast<const DayTimeIntervalScalar&>(scalar));
+      }
+    }
     default:
       break;
   }

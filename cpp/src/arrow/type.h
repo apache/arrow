@@ -897,10 +897,10 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   struct DayMilliseconds {
     int32_t days;
     int32_t milliseconds;
-    bool operator==(DayMilliseconds other) {
+    bool operator==(DayMilliseconds other) const {
       return this->days == other.days && this->milliseconds == other.milliseconds;
     }
-    bool operator!=(DayMilliseconds other) { return !(*this == other); }
+    bool operator!=(DayMilliseconds other) const { return !(*this == other); }
   };
   using c_type = DayMilliseconds;
   static_assert(sizeof(DayMilliseconds) == 8,

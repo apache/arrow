@@ -51,6 +51,30 @@ TimestampScalar::TimestampScalar(int64_t value, const std::shared_ptr<DataType>&
   ARROW_CHECK_EQ(Type::TIMESTAMP, type->id());
 }
 
+DurationScalar::DurationScalar(int64_t value, const std::shared_ptr<DataType>& type,
+                               bool is_valid)
+    : internal::PrimitiveScalar{type, is_valid}, value(value) {
+  DCHECK_EQ(Type::DURATION, type->id());
+}
+
+MonthIntervalScalar::MonthIntervalScalar(int32_t value,
+                                         const std::shared_ptr<DataType>& type,
+                                         bool is_valid)
+    : internal::PrimitiveScalar{type, is_valid}, value(value) {
+  DCHECK_EQ(Type::INTERVAL, type->id());
+  DCHECK_EQ(IntervalType::MONTHS,
+            checked_cast<IntervalType*>(type.get())->interval_type());
+}
+
+DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
+                                             const std::shared_ptr<DataType>& type,
+                                             bool is_valid)
+    : internal::PrimitiveScalar{type, is_valid}, value(value) {
+  DCHECK_EQ(Type::INTERVAL, type->id());
+  DCHECK_EQ(IntervalType::DAY_TIME,
+            checked_cast<IntervalType*>(type.get())->interval_type());
+}
+
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
                                              const std::shared_ptr<DataType>& type,
                                              bool is_valid)
