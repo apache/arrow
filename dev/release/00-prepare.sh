@@ -209,6 +209,7 @@ fi
 
 if [ ${PREPARE_TAG} -gt 0 ]; then
   cd "${SOURCE_DIR}/../../java"
+  git submodule update --init --recursive
   mvn release:clean
   mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot}
   cd -
