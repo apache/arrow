@@ -4,11 +4,12 @@
 \alias{parquet_arrow_reader_properties}
 \title{Create a new ArrowReaderProperties instance}
 \usage{
-parquet_arrow_reader_properties(use_threads = TRUE)
+parquet_arrow_reader_properties(use_threads = option_use_threads())
 }
 \arguments{
-\item{use_threads}{use threads ?}
+\item{use_threads}{use threads?}
 }
 \description{
 Create a new ArrowReaderProperties instance
 }
+\keyword{internal}

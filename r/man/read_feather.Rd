@@ -2,12 +2,12 @@
 % Please edit documentation in R/feather.R
 \name{read_feather}
 \alias{read_feather}
-\title{Read a feather file}
+\title{Read a Feather file}
 \usage{
 read_feather(file, col_select = NULL, as_tibble = TRUE, ...)
 }
 \arguments{
-\item{file}{a arrow::ipc::feather::TableReader or whatever the \code{\link[=FeatherTableReader]{FeatherTableReader()}} function can handle}
+\item{file}{an \code{arrow::ipc::feather::TableReader} or whatever the \code{\link[=FeatherTableReader]{FeatherTableReader()}} function can handle}
 
 \item{col_select}{\link[tidyselect:vars_select]{tidy selection} of columns to read.}
 
@@ -16,8 +16,8 @@ read_feather(file, col_select = NULL, as_tibble = TRUE, ...)
 \item{...}{additional parameters}
 }
 \value{
-a data frame if \code{as_tibble} is \code{TRUE} (the default), or a \link[=arrow__Table]{arrow::Table} otherwise
+A \code{data.frame} if \code{as_tibble} is \code{TRUE} (the default), or a \link[=arrow__Table]{arrow::Table} otherwise
 }
 \description{
-Read a feather file
+Read a Feather file
 }
