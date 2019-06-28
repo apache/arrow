@@ -22,9 +22,6 @@ source /multibuild/manylinux_utils.sh
 # Quit on failure
 set -e
 
-# Print commands for debugging
-set -x
-
 PYTHON_VERSION=2.7
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} 16)"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
