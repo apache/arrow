@@ -1,3 +1,9 @@
+apache-arrow (0.14.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Sutou Kouhei <kou@clear-code.com>  Fri, 28 Jun 2019 22:22:35 -0000
+
 apache-arrow (0.13.0-1) unstable; urgency=low
 
   * New upstream release.
