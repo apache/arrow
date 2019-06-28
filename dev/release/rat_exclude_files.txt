@@ -182,6 +182,7 @@ c_glib/doc/plasma-glib/plasma-glib-sections.txt
 c_glib/doc/plasma-glib/plasma-glib-overrides.txt
 c_glib/gtk-doc.make
 csharp/.gitattributes
+csharp/dummy.git/*
 csharp/src/Apache.Arrow/Flatbuf/*
 csharp/Apache.Arrow.sln
 csharp/Directory.Build.props
