@@ -280,9 +280,9 @@ class Result {
     }
     T tmp(std::move(arrow::util::get<T>(variant_)));
     variant_ = "Object already returned with ValueOrDie";
-    return std::move(tmp);
+    return tmp;
   }
-  T operator*() && { return std::move(ValueOrDie()); }
+  T operator*() && { return ValueOrDie(); }
 
  private:
   // Assignment is disabled by default so we need to destruct/reconstruct
