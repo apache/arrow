@@ -914,7 +914,7 @@ TEST_F(TestDecimal, TestCastVarCharDecimal) {
 
 TEST_F(TestDecimal, TestCastDecimalVarChar) {
   // schema for input fields
-  constexpr int32_t precision = 1;
+  constexpr int32_t precision = 4;
   constexpr int32_t scale = 2;
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
 
@@ -939,7 +939,7 @@ TEST_F(TestDecimal, TestCastDecimalVarChar) {
   // Create a row-batch with some sample data
   int num_records = 5;
 
-  auto array_str = MakeArrowArrayUtf8({"10.5134", "-0.0", "910.5", "-1000", "-0.10"},
+  auto array_str = MakeArrowArrayUtf8({"10.5134", "-0.0", "-0.1", "10.516", "-1000"},
                                       {true, false, true, true, true});
 
   // prepare input record batch
@@ -951,7 +951,7 @@ TEST_F(TestDecimal, TestCastDecimalVarChar) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   auto array_dec = MakeArrowArrayDecimal(
-      decimal_type, MakeDecimalVector({"10.51", "1.23", "10.50", "0.00", "-0.10"}, scale),
+      decimal_type, MakeDecimalVector({"10.51", "1.23", "-0.10", "10.52", "0.00"}, scale),
       {true, false, true, true, true});
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(array_dec, outputs[0]);
