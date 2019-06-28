@@ -31,6 +31,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace csv {

@@ -76,6 +76,63 @@ void ValidateBasicStructArray(const StructArray* result,
   }
 }
 
+TEST(StructArray, FromFieldNames) {
+  std::shared_ptr<Array> a, b, c, array, expected;
+  a = ArrayFromJSON(int32(), "[4, null]");
+  b = ArrayFromJSON(utf8(), R"([null, "foo"])");
+
+  auto res = StructArray::Make({a, b}, {"a", "b"});
+  ASSERT_OK(res);
+  array = *res;
+  expected = ArrayFromJSON(struct_({field("a", int32()), field("b", utf8())}),
+                           R"([{"a": 4, "b": null}, {"a": null, "b": "foo"}])");
+  AssertArraysEqual(*array, *expected);
+
+  // With non-zero offsets
+  res = StructArray::Make({a, b}, {"a", "b"}, /*null_bitmap =*/nullptr, /*null_count =*/0,
+                          /*offset =*/1);
+  ASSERT_OK(res);
+  array = *res;
+  expected = ArrayFromJSON(struct_({field("a", int32()), field("b", utf8())}),
+                           R"([{"a": null, "b": "foo"}])");
+  AssertArraysEqual(*array, *expected);
+
+  res = StructArray::Make({a, b}, {"a", "b"}, /*null_bitmap =*/nullptr, /*null_count =*/0,
+                          /*offset =*/2);
+  ASSERT_OK(res);
+  array = *res;
+  expected = ArrayFromJSON(struct_({field("a", int32()), field("b", utf8())}), R"([])");
+  AssertArraysEqual(*array, *expected);
+
+  // Offset greater than length
+  res = StructArray::Make({a, b}, {"a", "b"}, /*null_bitmap =*/nullptr, /*null_count =*/0,
+                          /*offset =*/3);
+  ASSERT_RAISES(IndexError, res);
+
+  // With null bitmap
+  std::shared_ptr<Buffer> null_bitmap;
+  BitmapFromVector<bool>({false, true}, &null_bitmap);
+  res = StructArray::Make({a, b}, {"a", "b"}, null_bitmap);
+  ASSERT_OK(res);
+  array = *res;
+  expected = ArrayFromJSON(struct_({field("a", int32()), field("b", utf8())}),
+                           R"([null, {"a": null, "b": "foo"}])");
+  AssertArraysEqual(*array, *expected);
+
+  // Mismatching array lengths
+  c = ArrayFromJSON(int64(), "[1, 2, 3]");
+  res = StructArray::Make({a, c}, {"a", "c"});
+  ASSERT_RAISES(Invalid, res);
+
+  // Mismatching number of fields
+  res = StructArray::Make({a, b}, {"a", "b", "c"});
+  ASSERT_RAISES(Invalid, res);
+
+  // Fail on 0 children (cannot infer array length)
+  res = StructArray::Make({}, {});
+  ASSERT_RAISES(Invalid, res);
+}
+
 // ----------------------------------------------------------------------------------
 // Struct test
 class TestStructBuilder : public TestBuilder {

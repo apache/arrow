@@ -28,6 +28,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -822,6 +823,16 @@ class ARROW_EXPORT StructArray : public Array {
               std::shared_ptr<Buffer> null_bitmap = NULLPTR,
               int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
+  /// \brief Return a StructArray from child arrays and field names.
+  ///
+  /// The length and data type are automatically inferred from the arguments.
+  /// There should be at least one child array.
+  static Result<std::shared_ptr<Array>> Make(
+      const std::vector<std::shared_ptr<Array>>& children,
+      const std::vector<std::string>& field_names,
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
   const StructType* struct_type() const;
 
   // Return a shared pointer in case the requestor desires to share ownership
@@ -840,6 +851,7 @@ class ARROW_EXPORT StructArray : public Array {
 
  private:
   // For caching boxed child data
+  // XXX This is not handled in a thread-safe manner.
   mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
 };
 

@@ -387,6 +387,26 @@ def test_struct_from_buffers():
                               children=children[:1])
 
 
+def test_struct_from_arrays():
+    a = pa.array([4, 5, None])
+    b = pa.array(["bar", None, ""])
+    c = pa.array([[1, 2], None, [3, None]])
+
+    arr = pa.StructArray.from_arrays([a, b, c], ["a", "b", "c"])
+    assert arr.to_pylist() == [
+        {'a': 4, 'b': 'bar', 'c': [1, 2]},
+        {'a': 5, 'b': None, 'c': None},
+        {'a': None, 'b': '', 'c': [3, None]},
+    ]
+
+    with pytest.raises(ValueError):
+        pa.StructArray.from_arrays([a, b, c], ["a", "b"])
+
+    arr = pa.StructArray.from_arrays([], [])
+    assert arr.type == pa.struct([])
+    assert arr.to_pylist() == []
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)

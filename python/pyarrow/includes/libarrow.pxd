@@ -453,8 +453,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStructArray(shared_ptr[CDataType] type, int64_t length,
                      vector[shared_ptr[CArray]] children,
                      shared_ptr[CBuffer] null_bitmap=nullptr,
-                     int64_t null_count=0,
+                     int64_t null_count=-1,
                      int64_t offset=0)
+
+        # XXX Cython crashes if default argument values are declared here
+        # https://github.com/cython/cython/issues/2167
+        @staticmethod
+        CResult[shared_ptr[CArray]] Make(
+            vector[shared_ptr[CArray]] children,
+            vector[c_string] field_names,
+            shared_ptr[CBuffer] null_bitmap,
+            int64_t null_count,
+            int64_t offset)
 
         shared_ptr[CArray] field(int pos)
         shared_ptr[CArray] GetFieldByName(const c_string& name) const

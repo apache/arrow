@@ -197,7 +197,7 @@ class TestFlightClient : public ::testing::Test {
   void CheckDoGet(const FlightDescriptor& descr, const BatchVector& expected_batches,
                   EndpointCheckFunc&& check_endpoints) {
     auto num_batches = static_cast<int>(expected_batches.size());
-    DCHECK_GE(num_batches, 2);
+    ASSERT_GE(num_batches, 2);
     auto expected_schema = expected_batches[0]->schema();
 
     std::unique_ptr<FlightInfo> info;

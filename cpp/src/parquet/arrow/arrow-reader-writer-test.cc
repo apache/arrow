@@ -34,6 +34,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/logging.h"
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"

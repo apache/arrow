@@ -497,6 +497,34 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
   boxed_fields_.resize(children.size());
 }
 
+Result<std::shared_ptr<Array>> StructArray::Make(
+    const std::vector<std::shared_ptr<Array>>& children,
+    const std::vector<std::string>& field_names, std::shared_ptr<Buffer> null_bitmap,
+    int64_t null_count, int64_t offset) {
+  if (children.size() != field_names.size()) {
+    return Status::Invalid("Mismatching number of field names and child arrays");
+  }
+  int64_t length = 0;
+  if (children.size() == 0) {
+    return Status::Invalid("Can't infer struct array length with 0 child arrays");
+  }
+  length = children.front()->length();
+  for (const auto& child : children) {
+    if (length != child->length()) {
+      return Status::Invalid("Mismatching child array lengths");
+    }
+  }
+  if (offset > length) {
+    return Status::IndexError("Offset greater than length of child arrays");
+  }
+  std::vector<std::shared_ptr<Field>> fields(children.size());
+  for (size_t i = 0; i < children.size(); ++i) {
+    fields[i] = ::arrow::field(field_names[i], children[i]->type());
+  }
+  return std::make_shared<StructArray>(struct_(fields), length - offset, children,
+                                       null_bitmap, null_count, offset);
+}
+
 const StructType* StructArray::struct_type() const {
   return checked_cast<const StructType*>(data_->type.get());
 }
