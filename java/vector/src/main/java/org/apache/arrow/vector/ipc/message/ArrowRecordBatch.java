@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +72,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     this.length = length;
     this.nodes = nodes;
     this.buffers = buffers;
-    List<ArrowBuffer> arrowBuffers = new ArrayList<>();
+    List<ArrowBuffer> arrowBuffers = new ArrayList<>(buffers.size());
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
       arrowBuf.getReferenceManager().retain();
@@ -79,14 +80,17 @@ public class ArrowRecordBatch implements ArrowMessage {
       arrowBuffers.add(new ArrowBuffer(offset, size));
       LOGGER.debug("Buffer in RecordBatch at {}, length: {}", offset, size);
       offset += size;
-      if (alignBuffers && offset % 8 != 0) { // align on 8 byte boundaries
-        offset += 8 - (offset % 8);
+      if (alignBuffers) { // align on 8 byte boundaries
+        offset = DataSizeRoundingUtil.roundUpTo8Multiple(offset);
       }
     }
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
   }
 
   // clone constructor
+  // this constructor is different from the public ones in that the reference manager's
+  // <code>retain</code> method is not called, so the first <code>dummy</code> parameter is used
+  // to distinguish this from the public constructor.
   private ArrowRecordBatch(boolean dummy, int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
     this.length = length;
     this.nodes = nodes;
@@ -213,9 +217,9 @@ public class ArrowRecordBatch implements ArrowMessage {
       ByteBuffer nioBuffer =
           buffer.nioBuffer(buffer.readerIndex(), buffer.readableBytes());
       size += nioBuffer.remaining();
-      if (size % 8 != 0) {
-        size += 8 - (size % 8);
-      }
+
+      // round up size to the next multiple of 8
+      size = DataSizeRoundingUtil.roundUpTo8Multiple(size);
     }
     return size;
   }

@@ -1311,7 +1311,7 @@ TEST_F(TestFWBinaryArray, ZeroSize) {
   const auto& fw_array = checked_cast<const FixedSizeBinaryArray&>(*array);
 
   // data is never allocated
-  ASSERT_TRUE(fw_array.values() == nullptr);
+  ASSERT_EQ(fw_array.values()->size(), 0);
   ASSERT_EQ(0, fw_array.byte_width());
 
   ASSERT_EQ(6, array->length());
@@ -1773,7 +1773,7 @@ class DecimalTest : public ::testing::TestWithParam<int> {
 
     std::shared_ptr<Array> lhs = out->Slice(offset);
     std::shared_ptr<Array> rhs = expected->Slice(offset);
-    ASSERT_TRUE(lhs->Equals(rhs));
+    ASSERT_ARRAYS_EQUAL(*rhs, *lhs);
   }
 };
 

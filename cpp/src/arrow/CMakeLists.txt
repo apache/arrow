@@ -97,6 +97,7 @@ set(ARROW_SRCS
     memory_pool.cc
     pretty_print.cc
     record_batch.cc
+    result.cc
     scalar.cc
     sparse_tensor.cc
     status.cc
@@ -125,6 +126,8 @@ set(ARROW_SRCS
     io/buffered.cc
     io/compressed.cc
     io/file.cc
+    io/hdfs.cc
+    io/hdfs-internal.cc
     io/interfaces.cc
     io/memory.cc
     io/readahead.cc
@@ -229,10 +232,6 @@ endif()
 
 if(ARROW_TENSORFLOW)
   add_subdirectory(adapters/tensorflow)
-endif()
-
-if(NOT ARROW_BOOST_HEADER_ONLY)
-  set(ARROW_SRCS ${ARROW_SRCS} io/hdfs.cc io/hdfs-internal.cc)
 endif()
 
 if(ARROW_IPC)
@@ -360,6 +359,7 @@ endif()
 add_arrow_test(memory_pool-test)
 add_arrow_test(pretty_print-test)
 add_arrow_test(public-api-test)
+add_arrow_test(result-test)
 add_arrow_test(scalar-test)
 add_arrow_test(status-test)
 add_arrow_test(stl-test)

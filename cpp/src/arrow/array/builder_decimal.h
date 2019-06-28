@@ -35,7 +35,9 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
   using FixedSizeBinaryBuilder::AppendValues;
   using FixedSizeBinaryBuilder::Reset;
 
-  Status Append(const Decimal128& val);
+  Status Append(Decimal128 val);
+  void UnsafeAppend(Decimal128 val);
+  void UnsafeAppend(util::string_view val);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 

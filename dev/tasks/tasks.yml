@@ -28,11 +28,16 @@ groups:
     - conda-win-vs2015-py36
     - conda-win-vs2015-py37
   wheel:
-    - wheel-linux-cp27m
-    - wheel-linux-cp27mu
-    - wheel-linux-cp35m
-    - wheel-linux-cp36m
-    - wheel-linux-cp37m
+    - wheel-manylinux1-cp27m
+    - wheel-manylinux1-cp27mu
+    - wheel-manylinux1-cp35m
+    - wheel-manylinux1-cp36m
+    - wheel-manylinux1-cp37m
+    - wheel-manylinux2010-cp27m
+    - wheel-manylinux2010-cp27mu
+    - wheel-manylinux2010-cp35m
+    - wheel-manylinux2010-cp36m
+    - wheel-manylinux2010-cp37m
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
@@ -44,9 +49,11 @@ groups:
     - debian-stretch
     # We can't finish this on Travis CI for now.
     # - debian-stretch-arm64
+    - debian-buster
     - ubuntu-xenial
     - ubuntu-bionic
     - ubuntu-cosmic
+    - ubuntu-disco
     - centos-6
     - centos-7
   gandiva:
@@ -66,8 +73,9 @@ tasks:
   ############################## Conda Linux ##################################
 
   conda-linux-gcc-py27:
+    ci: azure
     platform: linux
-    template: conda-recipes/travis.linux.yml
+    template: conda-recipes/azure.linux.yml
     params:
       config: linux_python2.7
     artifacts:
@@ -75,8 +83,9 @@ tasks:
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-gcc-py36:
+    ci: azure
     platform: linux
-    template: conda-recipes/travis.linux.yml
+    template: conda-recipes/azure.linux.yml
     params:
       config: linux_python3.6
     artifacts:
@@ -84,8 +93,9 @@ tasks:
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-linux-gcc-py37:
+    ci: azure
     platform: linux
-    template: conda-recipes/travis.linux.yml
+    template: conda-recipes/azure.linux.yml
     params:
       config: linux_python3.7
     artifacts:
@@ -95,8 +105,9 @@ tasks:
   ############################## Conda OSX ####################################
 
   conda-osx-clang-py27:
+    ci: azure
     platform: osx
-    template: conda-recipes/travis.osx.yml
+    template: conda-recipes/azure.osx.yml
     params:
       config: osx_python2.7
     artifacts:
@@ -104,8 +115,9 @@ tasks:
       - pyarrow-{no_rc_version}-py27(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-clang-py36:
+    ci: azure
     platform: osx
-    template: conda-recipes/travis.osx.yml
+    template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.6
     artifacts:
@@ -113,8 +125,9 @@ tasks:
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-osx-clang-py37:
+    ci: azure
     platform: osx
-    template: conda-recipes/travis.osx.yml
+    template: conda-recipes/azure.osx.yml
     params:
       config: osx_python3.7
     artifacts:
@@ -124,82 +137,159 @@ tasks:
   ############################## Conda Windows ################################
 
   conda-win-vs2015-py36:
+    ci: appveyor
     platform: win
-    template: conda-recipes/appveyor.yml
+    template: conda-recipes/appveyor.win.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.6vc14
+      config: win_c_compilervs2015cxx_compilervs2015python3.6
     artifacts:
-      - arrow-cpp-{no_rc_version}-py36_vc14(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0.tar.bz2
 
   conda-win-vs2015-py37:
+    ci: appveyor
     platform: win
-    template: conda-recipes/appveyor.yml
+    template: conda-recipes/appveyor.win.yml
     params:
-      config: win_c_compilervs2015cxx_compilervs2015python3.7vc14
+      config: win_c_compilervs2015cxx_compilervs2015python3.7
     artifacts:
-      - arrow-cpp-{no_rc_version}-py37_vc14(h[a-z0-9]+)_0.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0.tar.bz2
 
   ############################## Wheel Linux ##################################
 
-  wheel-linux-cp27m:
+  wheel-manylinux1-cp27m:
+    ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 2.7
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images: []
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
 
-  wheel-linux-cp27mu:
+  wheel-manylinux1-cp27mu:
+    ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 2.7
       unicode_width: 32
+      wheel_tag: manylinux1
       test_docker_images:
         - python:2.7-slim  # debian ucs4
     artifacts:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux1_x86_64.whl
 
-  wheel-linux-cp35m:
+  wheel-manylinux1-cp35m:
+    ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.5
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images:
         - python:3.5-slim
     artifacts:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux1_x86_64.whl
 
-  wheel-linux-cp36m:
+  wheel-manylinux1-cp36m:
+    ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.6
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images:
         - python:3.6-slim
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
 
-  wheel-linux-cp37m:
+  wheel-manylinux1-cp37m:
+    ci: travis
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/travis.manylinux.yml
     params:
       python_version: 3.7
       unicode_width: 16
+      wheel_tag: manylinux1
       test_docker_images:
         - python:3.7-slim
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
 
+  wheel-manylinux2010-cp27m:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 2.7
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      test_docker_images: []
+    artifacts:
+      - pyarrow-{no_rc_version}-cp27-cp27m-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp27mu:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 2.7
+      unicode_width: 32
+      wheel_tag: manylinux2010
+      test_docker_images:
+        - python:2.7-slim  # debian ucs4
+    artifacts:
+      - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp35m:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 3.5
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      test_docker_images:
+        - python:3.5-slim
+    artifacts:
+      - pyarrow-{no_rc_version}-cp35-cp35m-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp36m:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 3.6
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      test_docker_images:
+        - python:3.6-slim
+    artifacts:
+      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp37m:
+    ci: travis
+    platform: linux
+    template: python-wheels/travis.manylinux.yml
+    params:
+      python_version: 3.7
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      test_docker_images:
+        - python:3.7-slim
+    artifacts:
+      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
+
   ############################## Wheel OSX ####################################
 
   wheel-osx-cp27m:
+    ci: travis
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
@@ -208,6 +298,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27m-macosx_10_6_intel.whl
 
   wheel-osx-cp35m:
+    ci: travis
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
@@ -216,6 +307,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp35-cp35m-macosx_10_6_intel.whl
 
   wheel-osx-cp36m:
+    ci: travis
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
@@ -224,6 +316,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_6_intel.whl
 
   wheel-osx-cp37m:
+    ci: travis
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
@@ -234,6 +327,7 @@ tasks:
   ############################## Wheel Windows ################################
 
   wheel-win-cp35m:
+    ci: appveyor
     platform: win
     template: python-wheels/appveyor.yml
     params:
@@ -242,6 +336,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp35-cp35m-win_amd64.whl
 
   wheel-win-cp36m:
+    ci: appveyor
     platform: win
     template: python-wheels/appveyor.yml
     params:
@@ -250,6 +345,7 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-win_amd64.whl
 
   wheel-win-cp37m:
+    ci: appveyor
     platform: win
     template: python-wheels/appveyor.yml
     params:
@@ -260,6 +356,7 @@ tasks:
   ############################## Linux PKGS ####################################
 
   debian-stretch:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -289,6 +386,9 @@ tasks:
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
       - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-flight14_{no_rc_version}-1_amd64.deb
@@ -323,6 +423,7 @@ tasks:
 
   # Don't use this for now. We can't complete this task in 50min on Travis CI.
   debian-stretch-arm64:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.arm64.yml
     params:
@@ -339,6 +440,9 @@ tasks:
       - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
       - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
       - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-flight14_{no_rc_version}-1_amd64.deb
@@ -359,7 +463,74 @@ tasks:
       - libparquet14-dbgsym_{no_rc_version}-1_amd64.deb
       - libparquet14_{no_rc_version}-1_amd64.deb
 
+  debian-buster:
+    ci: travis
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=debian-buster
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
+      - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-doc_{no_rc_version}-1_all.deb
+      - libarrow-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-python-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-python14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
+      - libparquet-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-doc_{no_rc_version}-1_all.deb
+      - libparquet-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
+      - plasma-store-server_{no_rc_version}-1_amd64.deb
+
   ubuntu-xenial:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -386,6 +557,9 @@ tasks:
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-python-dev_{no_rc_version}-1_amd64.deb
       - libarrow-python14_{no_rc_version}-1_amd64.deb
       - libarrow14_{no_rc_version}-1_amd64.deb
@@ -408,6 +582,7 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-bionic:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -434,6 +609,9 @@ tasks:
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
       - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-flight14_{no_rc_version}-1_amd64.deb
@@ -459,6 +637,7 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   ubuntu-cosmic:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -485,6 +664,64 @@ tasks:
       - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
       - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
       - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
+      - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-flight14_{no_rc_version}-1_amd64.deb
+      - libarrow-python-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-python14_{no_rc_version}-1_amd64.deb
+      - libarrow14_{no_rc_version}-1_amd64.deb
+      - libgandiva-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-dev_{no_rc_version}-1_amd64.deb
+      - libgandiva-glib-doc_{no_rc_version}-1_all.deb
+      - libgandiva-glib14_{no_rc_version}-1_amd64.deb
+      - libgandiva14_{no_rc_version}-1_amd64.deb
+      - libparquet-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-dev_{no_rc_version}-1_amd64.deb
+      - libparquet-glib-doc_{no_rc_version}-1_all.deb
+      - libparquet-glib14_{no_rc_version}-1_amd64.deb
+      - libparquet14_{no_rc_version}-1_amd64.deb
+      - libplasma-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-dev_{no_rc_version}-1_amd64.deb
+      - libplasma-glib-doc_{no_rc_version}-1_all.deb
+      - libplasma-glib14_{no_rc_version}-1_amd64.deb
+      - libplasma14_{no_rc_version}-1_amd64.deb
+      - plasma-store-server-dbgsym_{no_rc_version}-1_amd64.deb
+      - plasma-store-server_{no_rc_version}-1_amd64.deb
+
+  ubuntu-disco:
+    ci: travis
+    platform: linux
+    template: linux-packages/travis.linux.yml
+    params:
+      build_command: rake apt:build APT_TARGETS=ubuntu-disco
+      upload_extensions:
+        - .deb
+        - .dsc
+        - .debian.tar.xz
+        - .orig.tar.gz
+    artifacts:
+      - apache-arrow_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow_{no_rc_version}-1.dsc
+      - apache-arrow_{no_rc_version}.orig.tar.gz
+      - gir1.2-arrow-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-gandiva-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-parquet-1.0_{no_rc_version}-1_amd64.deb
+      - gir1.2-plasma-1.0_{no_rc_version}-1_amd64.deb
+      - libarrow-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-glib-doc_{no_rc_version}-1_all.deb
+      - libarrow-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda-glib14_{no_rc_version}-1_amd64.deb
+      - libarrow-cuda14_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset-dev_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14-dbgsym_{no_rc_version}-1_amd64.deb
+      - libarrow-dataset14_{no_rc_version}-1_amd64.deb
       - libarrow-flight-dev_{no_rc_version}-1_amd64.deb
       - libarrow-flight14-dbgsym_{no_rc_version}-1_amd64.deb
       - libarrow-flight14_{no_rc_version}-1_amd64.deb
@@ -510,6 +747,7 @@ tasks:
       - plasma-store-server_{no_rc_version}-1_amd64.deb
 
   centos-6:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -521,12 +759,15 @@ tasks:
       - arrow-debuginfo-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-devel-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-libs-{no_rc_version}-1.el6.x86_64.rpm
+      - arrow-dataset-devel-{no_rc_version}-1.el6.x86_64.rpm
+      - arrow-dataset-libs-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-python-devel-{no_rc_version}-1.el6.x86_64.rpm
       - arrow-python-libs-{no_rc_version}-1.el6.x86_64.rpm
       - plasma-devel-{no_rc_version}-1.el6.x86_64.rpm
       - plasma-libs-{no_rc_version}-1.el6.x86_64.rpm
 
   centos-7:
+    ci: travis
     platform: linux
     template: linux-packages/travis.linux.yml
     params:
@@ -541,6 +782,8 @@ tasks:
       - arrow-glib-doc-{no_rc_version}-1.el7.x86_64.rpm
       - arrow-glib-libs-{no_rc_version}-1.el7.x86_64.rpm
       - arrow-libs-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-dataset-devel-{no_rc_version}-1.el7.x86_64.rpm
+      - arrow-dataset-libs-{no_rc_version}-1.el7.x86_64.rpm
       - arrow-python-devel-{no_rc_version}-1.el7.x86_64.rpm
       - arrow-python-libs-{no_rc_version}-1.el7.x86_64.rpm
       - parquet-devel-{no_rc_version}-1.el7.x86_64.rpm
@@ -557,12 +800,14 @@ tasks:
   ############################## Gandiva Tasks ################################
 
   gandiva-jar-trusty:
+    ci: travis
     platform: linux
     template: gandiva-jars/travis.linux.yml
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
 
   gandiva-jar-osx:
+    ci: travis
     platform: osx
     template: gandiva-jars/travis.osx.yml
     artifacts:

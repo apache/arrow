@@ -29,7 +29,6 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
-import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
@@ -119,9 +118,9 @@ public class TestAuth {
       }
     };
 
-    server = FlightTestUtil.getStartedServer((port) -> FlightServer.builder(
+    server = FlightTestUtil.getStartedServer((location) -> FlightServer.builder(
         allocator,
-        Location.forGrpcInsecure("localhost", port),
+        location,
         new NoOpFlightProducer() {
           @Override
           public void listFlights(CallContext context, Criteria criteria,
@@ -150,8 +149,7 @@ public class TestAuth {
             listener.completed();
           }
         }).authHandler(new BasicServerAuthHandler(validator)).build());
-    client = FlightClient.builder(allocator, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, server.getPort()))
-        .build();
+    client = FlightClient.builder(allocator, server.getLocation()).build();
   }
 
   @After

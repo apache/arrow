@@ -34,6 +34,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/logging.h"
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
@@ -87,43 +88,40 @@ static constexpr int LARGE_SIZE = 10000;
 
 static constexpr uint32_t kDefaultSeed = 0;
 
-std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType& type) {
+std::shared_ptr<const LogicalType> get_logical_type(const ::DataType& type) {
   switch (type.id()) {
     case ArrowId::UINT8:
-      return LogicalAnnotation::Int(8, false);
+      return LogicalType::Int(8, false);
     case ArrowId::INT8:
-      return LogicalAnnotation::Int(8, true);
+      return LogicalType::Int(8, true);
     case ArrowId::UINT16:
-      return LogicalAnnotation::Int(16, false);
+      return LogicalType::Int(16, false);
     case ArrowId::INT16:
-      return LogicalAnnotation::Int(16, true);
+      return LogicalType::Int(16, true);
     case ArrowId::UINT32:
-      return LogicalAnnotation::Int(32, false);
+      return LogicalType::Int(32, false);
     case ArrowId::INT32:
-      return LogicalAnnotation::Int(32, true);
+      return LogicalType::Int(32, true);
     case ArrowId::UINT64:
-      return LogicalAnnotation::Int(64, false);
+      return LogicalType::Int(64, false);
     case ArrowId::INT64:
-      return LogicalAnnotation::Int(64, true);
+      return LogicalType::Int(64, true);
     case ArrowId::STRING:
-      return LogicalAnnotation::String();
+      return LogicalType::String();
     case ArrowId::DATE32:
-      return LogicalAnnotation::Date();
+      return LogicalType::Date();
     case ArrowId::DATE64:
-      return LogicalAnnotation::Date();
+      return LogicalType::Date();
     case ArrowId::TIMESTAMP: {
       const auto& ts_type = static_cast<const ::arrow::TimestampType&>(type);
       const bool adjusted_to_utc = !(ts_type.timezone().empty());
       switch (ts_type.unit()) {
         case TimeUnit::MILLI:
-          return LogicalAnnotation::Timestamp(adjusted_to_utc,
-                                              LogicalAnnotation::TimeUnit::MILLIS);
+          return LogicalType::Timestamp(adjusted_to_utc, LogicalType::TimeUnit::MILLIS);
         case TimeUnit::MICRO:
-          return LogicalAnnotation::Timestamp(adjusted_to_utc,
-                                              LogicalAnnotation::TimeUnit::MICROS);
+          return LogicalType::Timestamp(adjusted_to_utc, LogicalType::TimeUnit::MICROS);
         case TimeUnit::NANO:
-          return LogicalAnnotation::Timestamp(adjusted_to_utc,
-                                              LogicalAnnotation::TimeUnit::NANOS);
+          return LogicalType::Timestamp(adjusted_to_utc, LogicalType::TimeUnit::NANOS);
         default:
           DCHECK(false)
               << "Only MILLI, MICRO, and NANO units supported for Arrow TIMESTAMP.";
@@ -131,14 +129,14 @@ std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType
       break;
     }
     case ArrowId::TIME32:
-      return LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MILLIS);
+      return LogicalType::Time(false, LogicalType::TimeUnit::MILLIS);
     case ArrowId::TIME64: {
       const auto& tm_type = static_cast<const ::arrow::TimeType&>(type);
       switch (tm_type.unit()) {
         case TimeUnit::MICRO:
-          return LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::MICROS);
+          return LogicalType::Time(false, LogicalType::TimeUnit::MICROS);
         case TimeUnit::NANO:
-          return LogicalAnnotation::Time(false, LogicalAnnotation::TimeUnit::NANOS);
+          return LogicalType::Time(false, LogicalType::TimeUnit::NANOS);
         default:
           DCHECK(false) << "Only MICRO and NANO units supported for Arrow TIME64.";
       }
@@ -147,16 +145,16 @@ std::shared_ptr<const LogicalAnnotation> get_logical_annotation(const ::DataType
     case ArrowId::DICTIONARY: {
       const ::arrow::DictionaryType& dict_type =
           static_cast<const ::arrow::DictionaryType&>(type);
-      return get_logical_annotation(*dict_type.value_type());
+      return get_logical_type(*dict_type.value_type());
     }
     case ArrowId::DECIMAL: {
       const auto& dec_type = static_cast<const ::arrow::Decimal128Type&>(type);
-      return LogicalAnnotation::Decimal(dec_type.precision(), dec_type.scale());
+      return LogicalType::Decimal(dec_type.precision(), dec_type.scale());
     }
     default:
       break;
   }
-  return LogicalAnnotation::None();
+  return LogicalType::None();
 }
 
 ParquetType::type get_physical_type(const ::DataType& type) {
@@ -481,7 +479,7 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const ::DataType& type,
     default:
       break;
   }
-  auto pnode = PrimitiveNode::Make("column1", repetition, get_logical_annotation(type),
+  auto pnode = PrimitiveNode::Make("column1", repetition, get_logical_type(type),
                                    get_physical_type(type), byte_width);
   NodePtr node_ =
       GroupNode::Make("schema", Repetition::REQUIRED, std::vector<NodePtr>({pnode}));
@@ -1943,23 +1941,23 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) {
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, num_rows / 2,
                                              default_arrow_writer_properties(), &buffer));
 
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_batch_size(100);
+
   std::unique_ptr<FileReader> reader;
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                              ::arrow::default_memory_pool(),
-                              ::parquet::default_reader_properties(), nullptr, &reader));
+                              ::arrow::default_memory_pool(), properties, &reader));
 
   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
   ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0, 1}, &rb_reader));
 
   std::shared_ptr<::arrow::RecordBatch> batch;
 
-  ASSERT_OK(rb_reader->ReadNext(&batch));
-  ASSERT_EQ(500, batch->num_rows());
-  ASSERT_EQ(20, batch->num_columns());
-
-  ASSERT_OK(rb_reader->ReadNext(&batch));
-  ASSERT_EQ(500, batch->num_rows());
-  ASSERT_EQ(20, batch->num_columns());
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_OK(rb_reader->ReadNext(&batch));
+    ASSERT_EQ(100, batch->num_rows());
+    ASSERT_EQ(20, batch->num_columns());
+  }
 
   ASSERT_OK(rb_reader->ReadNext(&batch));
   ASSERT_EQ(nullptr, batch);
@@ -2661,6 +2659,47 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   TryReadDataFile(path, ::arrow::StatusCode::IOError);
 }
 
+TEST(TestArrowReaderAdHoc, DISABLED_LargeStringColumn) {
+  // ARROW-3762
+  ::arrow::StringBuilder builder;
+  int64_t length = 1 << 30;
+  ASSERT_OK(builder.Resize(length));
+  ASSERT_OK(builder.ReserveData(length));
+  for (int64_t i = 0; i < length; ++i) {
+    builder.UnsafeAppend("1", 1);
+  }
+  std::shared_ptr<Array> array;
+  ASSERT_OK(builder.Finish(&array));
+  auto table = Table::Make({std::make_shared<Column>("x", array)});
+  std::shared_ptr<SchemaDescriptor> schm;
+  ASSERT_OK_NO_THROW(
+      ToParquetSchema(table->schema().get(), *default_writer_properties(), &schm));
+
+  auto sink = CreateOutputStream();
+
+  auto schm_node = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, {schm->group_node()->field(0)}));
+
+  auto writer = ParquetFileWriter::Open(sink, schm_node);
+  FileWriter arrow_writer(default_memory_pool(), std::move(writer), table->schema());
+  for (int i : {0, 1}) {
+    ASSERT_OK_NO_THROW(arrow_writer.WriteTable(*table, table->num_rows())) << i;
+  }
+  ASSERT_OK_NO_THROW(arrow_writer.Close());
+
+  std::shared_ptr<Buffer> tables_buffer;
+  ASSERT_OK_NO_THROW(sink->Finish(&tables_buffer));
+
+  // drop to save memory
+  table.reset();
+  array.reset();
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
+  FileReader arrow_reader(default_memory_pool(), std::move(reader));
+  ASSERT_OK_NO_THROW(arrow_reader.ReadTable(&table));
+  ASSERT_OK(table->Validate());
+}
+
 TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {
   // PARQUET-1402: parquet-mr writes files this way which tripped up
   // some business logic
@@ -2688,6 +2727,11 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
       arrow_reader.reset(new FileReader(pool, ParquetFileReader::OpenFile(path, false))));
   std::shared_ptr<::arrow::Table> table;
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
+
+  std::shared_ptr<::arrow::Schema> schema;
+  ASSERT_OK_NO_THROW(arrow_reader->GetSchema(&schema));
+  ASSERT_EQ(1, schema->num_fields());
+  ASSERT_TRUE(schema->field(0)->type()->Equals(*decimal_type));
 
   ASSERT_EQ(1, table->num_columns());
 

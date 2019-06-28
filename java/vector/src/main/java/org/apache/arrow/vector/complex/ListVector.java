@@ -704,7 +704,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   private int getValidityBufferValueCapacity() {
-    return (int) (validityBuffer.capacity() * 8L);
+    return validityBuffer.capacity() * 8;
   }
 
   /**

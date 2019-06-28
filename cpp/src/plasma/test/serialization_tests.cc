@@ -202,12 +202,13 @@ TEST_F(TestPlasmaSerialization, GetReply) {
 
   ASSERT_EQ(object_ids[0], object_ids_return[0]);
   ASSERT_EQ(object_ids[1], object_ids_return[1]);
-  ASSERT_EQ(memcmp(&plasma_objects[object_ids[0]], &plasma_objects_return[0],
-                   sizeof(PlasmaObject)),
-            0);
-  ASSERT_EQ(memcmp(&plasma_objects[object_ids[1]], &plasma_objects_return[1],
-                   sizeof(PlasmaObject)),
-            0);
+
+  PlasmaObject po, po2;
+  for (int i = 0; i < 2; ++i) {
+    po = plasma_objects[object_ids[i]];
+    po2 = plasma_objects_return[i];
+    ASSERT_EQ(po, po2);
+  }
   ASSERT_TRUE(store_fds == store_fds_return);
   ASSERT_TRUE(mmap_sizes == mmap_sizes_return);
   close(fd);

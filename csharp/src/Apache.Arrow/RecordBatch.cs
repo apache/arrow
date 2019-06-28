@@ -21,7 +21,7 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public class RecordBatch : IDisposable
+    public partial class RecordBatch : IDisposable
     {
         public Schema Schema { get; }
         public int ColumnCount => _arrays.Count;

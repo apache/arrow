@@ -63,6 +63,34 @@ std::vector<std::shared_ptr<arrow::Column>> Table__columns(
   return res;
 }
 
+// [[arrow::export]]
+Rcpp::CharacterVector Table__column_names(const std::shared_ptr<arrow::Table>& table) {
+  int nc = table->num_columns();
+  Rcpp::CharacterVector res(nc);
+  for (int i = 0; i < nc; i++) {
+    res[i] = table->column(i)->name();
+  }
+  return res;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>& table,
+                                            const Rcpp::IntegerVector& indices) {
+  R_xlen_t n = indices.size();
+
+  std::vector<std::shared_ptr<arrow::Field>> fields(n);
+  std::vector<std::shared_ptr<arrow::Column>> columns(n);
+
+  for (R_xlen_t i = 0; i < n; i++) {
+    int pos = indices[i] - 1;
+    fields[i] = table->schema()->field(pos);
+    columns[i] = table->column(pos);
+  }
+
+  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
+  return arrow::Table::Make(schema, columns);
+}
+
 bool all_record_batches(SEXP lst) {
   R_xlen_t n = XLENGTH(lst);
   for (R_xlen_t i = 0; i < n; i++) {
@@ -89,54 +117,84 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     return tab;
   }
 
-  R_xlen_t n = XLENGTH(lst);
-  std::vector<std::shared_ptr<arrow::Column>> columns(n);
+  int num_fields;
+  STOP_IF_NOT_OK(arrow::r::count_fields(lst, &num_fields));
+
+  std::vector<std::shared_ptr<arrow::Column>> columns(num_fields);
   std::shared_ptr<arrow::Schema> schema;
 
   if (Rf_isNull(schema_sxp)) {
     // infer the schema from the ...
-    std::vector<std::shared_ptr<arrow::Field>> fields(n);
-    Rcpp::CharacterVector names(Rf_getAttrib(lst, R_NamesSymbol));
+    std::vector<std::shared_ptr<arrow::Field>> fields(num_fields);
+    SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
 
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP x = VECTOR_ELT(lst, i);
+    auto fill_one_column = [&columns, &fields](int j, SEXP x, SEXP name) {
       if (Rf_inherits(x, "arrow::Column")) {
-        columns[i] = arrow::r::extract<arrow::Column>(x);
-        fields[i] = columns[i]->field();
+        columns[j] = arrow::r::extract<arrow::Column>(x);
+        fields[j] = columns[j]->field();
       } else if (Rf_inherits(x, "arrow::ChunkedArray")) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
-        fields[i] =
-            std::make_shared<arrow::Field>(std::string(names[i]), chunked_array->type());
-        columns[i] = std::make_shared<arrow::Column>(fields[i], chunked_array);
+        fields[j] = std::make_shared<arrow::Field>(CHAR(name), chunked_array->type());
+        columns[j] = std::make_shared<arrow::Column>(fields[j], chunked_array);
       } else if (Rf_inherits(x, "arrow::Array")) {
         auto array = arrow::r::extract<arrow::Array>(x);
-        fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), array->type());
-        columns[i] = std::make_shared<arrow::Column>(fields[i], array);
+        fields[j] = std::make_shared<arrow::Field>(CHAR(name), array->type());
+        columns[j] = std::make_shared<arrow::Column>(fields[j], array);
       } else {
         auto array = Array__from_vector(x, R_NilValue);
-        fields[i] = std::make_shared<arrow::Field>(std::string(names[i]), array->type());
-        columns[i] = std::make_shared<arrow::Column>(fields[i], array);
+        fields[j] = std::make_shared<arrow::Field>(CHAR(name), array->type());
+        columns[j] = std::make_shared<arrow::Column>(fields[j], array);
+      }
+    };
+
+    for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
+      SEXP name_i = STRING_ELT(names, i);
+      SEXP x_i = VECTOR_ELT(lst, i);
+
+      if (LENGTH(name_i) == 0) {
+        SEXP names_x_i = Rf_getAttrib(x_i, R_NamesSymbol);
+        for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
+          fill_one_column(j, VECTOR_ELT(x_i, k), STRING_ELT(names_x_i, k));
+        }
+      } else {
+        fill_one_column(j, x_i, name_i);
+        j++;
       }
     }
+
     schema = std::make_shared<arrow::Schema>(std::move(fields));
   } else {
     // use the schema that is given
     schema = arrow::r::extract<arrow::Schema>(schema_sxp);
 
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP x = VECTOR_ELT(lst, i);
+    auto fill_one_column = [&columns, &schema](int j, SEXP x) {
       if (Rf_inherits(x, "arrow::Column")) {
-        columns[i] = arrow::r::extract<arrow::Column>(x);
+        columns[j] = arrow::r::extract<arrow::Column>(x);
       } else if (Rf_inherits(x, "arrow::ChunkedArray")) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
-        columns[i] = std::make_shared<arrow::Column>(schema->field(i), chunked_array);
+        columns[j] = std::make_shared<arrow::Column>(schema->field(j), chunked_array);
       } else if (Rf_inherits(x, "arrow::Array")) {
         auto array = arrow::r::extract<arrow::Array>(x);
-        columns[i] = std::make_shared<arrow::Column>(schema->field(i), array);
+        columns[j] = std::make_shared<arrow::Column>(schema->field(j), array);
       } else {
-        auto type = schema->field(i)->type();
+        auto type = schema->field(j)->type();
         auto array = arrow::r::Array__from_vector(x, type, false);
-        columns[i] = std::make_shared<arrow::Column>(schema->field(i), array);
+        columns[j] = std::make_shared<arrow::Column>(schema->field(j), array);
+      }
+    };
+
+    SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
+    for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
+      SEXP name_i = STRING_ELT(names, i);
+      SEXP x_i = VECTOR_ELT(lst, i);
+
+      if (LENGTH(name_i) == 0) {
+        for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
+          fill_one_column(j, VECTOR_ELT(x_i, k));
+        }
+      } else {
+        fill_one_column(j, x_i);
+        j++;
       }
     }
   }

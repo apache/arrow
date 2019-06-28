@@ -44,40 +44,58 @@ struct ARROW_EXPORT TakeOptions {};
 /// = [values[2], values[1], null, values[3]]
 /// = ["c", "b", null, null]
 ///
-/// \param[in] context the FunctionContext
+/// \param[in] ctx the FunctionContext
 /// \param[in] values array from which to take
 /// \param[in] indices which values to take
 /// \param[in] options options
 /// \param[out] out resulting array
 ARROW_EXPORT
-Status Take(FunctionContext* context, const Array& values, const Array& indices,
+Status Take(FunctionContext* ctx, const Array& values, const Array& indices,
             const TakeOptions& options, std::shared_ptr<Array>* out);
 
 /// \brief Take from an array of values at indices in another array
 ///
-/// \param[in] context the FunctionContext
+/// \param[in] ctx the FunctionContext
 /// \param[in] values datum from which to take
 /// \param[in] indices which values to take
 /// \param[in] options options
 /// \param[out] out resulting datum
 ARROW_EXPORT
-Status Take(FunctionContext* context, const Datum& values, const Datum& indices,
+Status Take(FunctionContext* ctx, const Datum& values, const Datum& indices,
             const TakeOptions& options, Datum* out);
 
 /// \brief BinaryKernel implementing Take operation
 class ARROW_EXPORT TakeKernel : public BinaryKernel {
  public:
   explicit TakeKernel(const std::shared_ptr<DataType>& type, TakeOptions options = {})
-      : type_(type), options_(options) {}
+      : type_(type) {}
 
+  /// \brief BinaryKernel interface
+  ///
+  /// delegates to subclasses via Take()
   Status Call(FunctionContext* ctx, const Datum& values, const Datum& indices,
               Datum* out) override;
 
+  /// \brief output type of this kernel (identical to type of values taken)
   std::shared_ptr<DataType> out_type() const override { return type_; }
 
- private:
+  /// \brief factory for TakeKernels
+  ///
+  /// \param[in] value_type constructed TakeKernel will support taking
+  ///            values of this type
+  /// \param[in] index_type constructed TakeKernel will support taking
+  ///            with indices of this type
+  /// \param[out] out created kernel
+  static Status Make(const std::shared_ptr<DataType>& value_type,
+                     const std::shared_ptr<DataType>& index_type,
+                     std::unique_ptr<TakeKernel>* out);
+
+  /// \brief single-array implementation
+  virtual Status Take(FunctionContext* ctx, const Array& values, const Array& indices,
+                      std::shared_ptr<Array>* out) = 0;
+
+ protected:
   std::shared_ptr<DataType> type_;
-  TakeOptions options_;
 };
 }  // namespace compute
 }  // namespace arrow

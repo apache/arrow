@@ -118,6 +118,20 @@ services:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
+  cpp-release:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp-release
+    image: arrow:cpp
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+    environment:
+      ARROW_BUILD_TYPE: release
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
   cpp-static-only:
     # Usage:
     #   docker-compose build cpp
@@ -149,11 +163,15 @@ services:
     shm_size: 2G
     build:
       context: .
-      dockerfile: cpp/Dockerfile
+      dockerfile: cpp/Dockerfile.cmake
       args:
-        EXTRA_CONDA_PKGS: cmake=3.2
+        CMAKE_VERSION: 3.2.3
     environment:
+      # Vendor boost to avoid dealing with stale FindBoost.
+      ARROW_BOOST_SOURCE: "BUNDLED"
       ARROW_ORC: "OFF"
+      # uriparser requires cmake 3.3
+      ARROW_FLIGHT: "OFF"
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
@@ -435,6 +453,28 @@ services:
       - ./python/manylinux1:/io:delegated
     command: /io/build_arrow.sh
 
+  python-manylinux2010:
+    # Usage:
+    #   either build:
+    #     $ docker-compose build python-manylinux2010
+    #   or pull:
+    #     $ docker-compose pull python-manylinux2010
+    #   an then run:
+    #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux2010
+    image: quay.io/ursa-labs/arrow_manylinux2010_x86_64_base:latest
+    build:
+      context: python/manylinux2010
+      dockerfile: Dockerfile-x86_64_base
+    shm_size: 2G
+    environment:
+      PYARROW_PARALLEL: 3
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux2010:/io:delegated
+    command: /io/build_arrow.sh
+
   ######################### Integration Tests #################################
 
   # impala:
@@ -564,6 +604,11 @@ services:
     volumes:
       - .:/arrow:delegated
 
+  debian-buster:
+    image: debian:buster
+    volumes:
+      - .:/arrow:delegated
+
   ubuntu-trusty:
     image: ubuntu:trusty
     volumes:
@@ -581,6 +626,11 @@ services:
 
   ubuntu-cosmic:
     image: ubuntu:cosmic
+    volumes:
+      - .:/arrow:delegated
+
+  ubuntu-disco:
+    image: ubuntu:disco
     volumes:
       - .:/arrow:delegated
 

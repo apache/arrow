@@ -63,7 +63,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Return if the expression is invalid since we will not be able to process further.
   ExprValidator expr_validator(llvm_gen->types(), schema);
   ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
-  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}));
+  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);

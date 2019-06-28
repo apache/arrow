@@ -221,8 +221,8 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
 mod tests {
     use super::*;
 
+    use crate::array::*;
     use crate::buffer::Buffer;
-    use crate::builder::*;
 
     #[test]
     fn test_compute_row_major_strides() {

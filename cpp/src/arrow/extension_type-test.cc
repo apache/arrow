@@ -43,6 +43,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 

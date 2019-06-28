@@ -62,7 +62,8 @@ TEST_F(TestFilterProject, TestSimple16) {
   auto status = Filter::Make(schema, condition, configuration, &filter);
   EXPECT_TRUE(status.ok());
 
-  status = Projector::Make(schema, {sum_expr}, configuration, &projector);
+  status = Projector::Make(schema, {sum_expr}, SelectionVector::MODE_UINT16,
+                           configuration, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -117,7 +118,8 @@ TEST_F(TestFilterProject, TestSimple32) {
   auto status = Filter::Make(schema, condition, configuration, &filter);
   EXPECT_TRUE(status.ok());
 
-  status = Projector::Make(schema, {sum_expr}, configuration, &projector);
+  status = Projector::Make(schema, {sum_expr}, SelectionVector::MODE_UINT32,
+                           configuration, &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -141,7 +143,7 @@ TEST_F(TestFilterProject, TestSimple32) {
   arrow::ArrayVector outputs;
 
   status = projector->Evaluate(*in_batch, selection_vector.get(), pool_, &outputs);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(status);
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(result, outputs.at(0));
@@ -172,8 +174,9 @@ TEST_F(TestFilterProject, TestSimple64) {
   auto status = Filter::Make(schema, condition, configuration, &filter);
   EXPECT_TRUE(status.ok());
 
-  status = Projector::Make(schema, {sum_expr}, configuration, &projector);
-  EXPECT_TRUE(status.ok());
+  status = Projector::Make(schema, {sum_expr}, SelectionVector::MODE_UINT64,
+                           configuration, &projector);
+  ASSERT_OK(status);
 
   // Create a row-batch with some sample data
   int num_records = 5;
@@ -234,8 +237,9 @@ TEST_F(TestFilterProject, TestSimpleIf) {
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {expr}, configuration, &projector);
-  EXPECT_TRUE(status.ok());
+  status = Projector::Make(schema, {expr}, SelectionVector::MODE_UINT32, configuration,
+                           &projector);
+  ASSERT_OK(status);
 
   // Create a row-batch with some sample data
   int num_records = 6;

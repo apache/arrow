@@ -176,6 +176,9 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/json/reader.h>
 #include <arrow/type.h>
 #include <arrow/util/compression.h>
+#include <parquet/arrow/reader.h>
+#include <parquet/arrow/writer.h>
+#include <parquet/exception.h>
 
 RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
@@ -193,6 +196,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame 
 
 namespace arrow {
 namespace r {
+
+Status count_fields(SEXP lst, int* out);
 
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered);

@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
@@ -138,6 +139,26 @@ TEST_F(TestChunkedArray, SliceEquals) {
   ASSERT_EQ(slice5->length(), 0);
   ASSERT_EQ(slice5->num_chunks(), 0);
   ASSERT_TRUE(slice5->type()->Equals(one_->type()));
+}
+
+TEST_F(TestChunkedArray, Validate) {
+  // Valid if empty
+  ArrayVector empty = {};
+  auto no_chunks = std::make_shared<ChunkedArray>(empty, utf8());
+  ASSERT_OK(no_chunks->Validate());
+
+  random::RandomArrayGenerator gen(0);
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+  ASSERT_OK(one_->Validate());
+
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+  ASSERT_OK(one_->Validate());
+
+  arrays_one_.push_back(gen.String(50, 0, 10, 0.1));
+  Construct();
+  ASSERT_RAISES(Invalid, one_->Validate());
 }
 
 class TestColumn : public TestChunkedArray {
@@ -400,6 +421,41 @@ TEST_F(TestTable, FromRecordBatchesZeroLength) {
 
   ASSERT_EQ(0, result->num_rows());
   ASSERT_TRUE(result->schema()->Equals(*schema_));
+}
+
+TEST_F(TestTable, CombineChunksEmptyTable) {
+  MakeExample1(10);
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(Table::FromRecordBatches(schema_, {}, &table));
+  ASSERT_EQ(0, table->num_rows());
+
+  std::shared_ptr<Table> compacted;
+  ASSERT_OK(table->CombineChunks(default_memory_pool(), &compacted));
+
+  EXPECT_TRUE(compacted->Equals(*table));
+}
+
+TEST_F(TestTable, CombineChunks) {
+  MakeExample1(10);
+  auto batch1 = RecordBatch::Make(schema_, 10, arrays_);
+
+  MakeExample1(15);
+  auto batch2 = RecordBatch::Make(schema_, 15, arrays_);
+
+  std::shared_ptr<Table> table;
+  ASSERT_OK(Table::FromRecordBatches({batch1, batch2}, &table));
+  for (int i = 0; i < table->num_columns(); ++i) {
+    ASSERT_EQ(2, table->column(i)->data()->num_chunks());
+  }
+
+  std::shared_ptr<Table> compacted;
+  ASSERT_OK(table->CombineChunks(default_memory_pool(), &compacted));
+
+  EXPECT_TRUE(compacted->Equals(*table));
+  for (int i = 0; i < compacted->num_columns(); ++i) {
+    EXPECT_EQ(1, compacted->column(i)->data()->num_chunks());
+  }
 }
 
 TEST_F(TestTable, ConcatenateTables) {

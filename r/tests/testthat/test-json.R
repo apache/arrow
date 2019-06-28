@@ -19,12 +19,13 @@ context("arrow::json::TableReader")
 
 test_that("Can read json file with scalars columns (ARROW-5503)", {
   tf <- tempfile()
+  on.exit(unlink(tf))
   writeLines('
     { "hello": 3.5, "world": false, "yo": "thing" }
     { "hello": 3.25, "world": null }
     { "hello": 3.125, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
-  ', tf)
+  ', tf, useBytes=TRUE)
 
   tab1 <- read_json_arrow(tf, as_tibble = FALSE)
   tab2 <- read_json_arrow(mmap_open(tf), as_tibble = FALSE)
@@ -41,18 +42,17 @@ test_that("Can read json file with scalars columns (ARROW-5503)", {
   expect_equal(tib$hello, c(3.5, 3.25, 3.125, 0))
   expect_equal(tib$world, c(FALSE, NA, NA, TRUE))
   expect_equal(tib$yo, c("thing", NA, "\u5fcd", NA))
-
-  unlink(tf)
 })
 
 test_that("read_json_arrow() converts to tibble", {
   tf <- tempfile()
+  on.exit(unlink(tf))
   writeLines('
     { "hello": 3.5, "world": false, "yo": "thing" }
     { "hello": 3.25, "world": null }
     { "hello": 3.125, "world": null, "yo": "\u5fcd" }
     { "hello": 0.0, "world": true, "yo": null }
-  ', tf)
+  ', tf, useBytes=TRUE)
 
   tab1 <- read_json_arrow(tf)
   tab2 <- read_json_arrow(mmap_open(tf))
@@ -68,12 +68,27 @@ test_that("read_json_arrow() converts to tibble", {
   expect_equal(tab1$hello, c(3.5, 3.25, 3.125, 0))
   expect_equal(tab1$world, c(FALSE, NA, NA, TRUE))
   expect_equal(tab1$yo, c("thing", NA, "\u5fcd", NA))
+})
 
-  unlink(tf)
+test_that("read_json_arrow() supports col_select=", {
+  tf <- tempfile()
+  writeLines('
+    { "hello": 3.5, "world": false, "yo": "thing" }
+    { "hello": 3.25, "world": null }
+    { "hello": 3.125, "world": null, "yo": "\u5fcd" }
+    { "hello": 0.0, "world": true, "yo": null }
+  ', tf)
+
+  tab1 <- read_json_arrow(tf, col_select = c(hello, world))
+  expect_equal(names(tab1), c("hello", "world"))
+
+  tab2 <- read_json_arrow(tf, col_select = 1:2)
+  expect_equal(names(tab2), c("hello", "world"))
 })
 
 test_that("Can read json file with nested columns (ARROW-5503)", {
   tf <- tempfile()
+  on.exit(unlink(tf))
   writeLines('
     { "arr": [1.0, 2.0, 3.0], "nuf": {} }
     { "arr": [2.0], "nuf": null }
@@ -131,7 +146,4 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
       nuf = data.frame(ps = ps$as_vector(), hello = hello$as_vector(), stringsAsFactors = FALSE)
     )
   )
-
-  unlink(tf)
 })
-

@@ -25,14 +25,17 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
 /**
  * A MapVector is used to store entries of key/value pairs. It is a container vector that is
@@ -45,6 +48,9 @@ public class MapVector extends ListVector {
 
   public static final String KEY_NAME = "key";
   public static final String VALUE_NAME = "value";
+
+  // TODO: this is only used for addOrGetVector because ListVector declares it private
+  protected CallBack callBack;
 
   /**
    * Construct an empty MapVector with no data. Child vectors must be added subsequently.
@@ -68,6 +74,7 @@ public class MapVector extends ListVector {
    */
   public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, fieldType, callBack);
+    this.callBack = callBack;
     reader = new UnionMapReader(this);
   }
 
@@ -121,9 +128,29 @@ public class MapVector extends ListVector {
    */
   @Override
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
-    AddOrGetResult<T> result = super.addOrGetVector(fieldType);
+
+    // TODO: can call super method once DATA_VECTOR_NAME is configurable
+    boolean created = false;
+    if (vector instanceof ZeroVector) {
+      vector = fieldType.createNewSingleVector("entries", allocator, callBack);
+      // returned vector must have the same field
+      created = true;
+      if (callBack != null &&
+              // not a schema change if changing from ZeroVector to ZeroVector
+              (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
+        callBack.doWork();
+      }
+    }
+
+    if (vector.getField().getType().getTypeID() != fieldType.getType().getTypeID()) {
+      final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
+              fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
+      throw new SchemaChangeRuntimeException(msg);
+    }
+
     reader = new UnionMapReader(this);
-    return result;
+
+    return new AddOrGetResult<>((T) vector, created);
   }
 
   /**

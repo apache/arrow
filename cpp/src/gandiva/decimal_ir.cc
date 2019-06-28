@@ -557,6 +557,7 @@ Status DecimalIR::AddFunctions(Engine* engine) {
   auto decimal_ir = std::make_shared<DecimalIR>(engine);
   auto i128 = decimal_ir->types()->i128_type();
   auto i32 = decimal_ir->types()->i32_type();
+  auto i1 = decimal_ir->types()->i1_type();
   auto i64 = decimal_ir->types()->i64_type();
   auto f64 = decimal_ir->types()->double_type();
 
@@ -688,6 +689,139 @@ Status DecimalIR::AddFunctions(Engine* engine) {
                                                            {"x_precision", i32},
                                                            {"x_scale", i32},
                                                        }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash_decimal128", i32,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32_decimal128", i32,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64_decimal128", i64,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32WithSeed_decimal128", i32,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                           {"seed", i32},
+                                                           {"seed_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64WithSeed_decimal128", i64,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                           {"seed", i64},
+                                                           {"seed_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash32AsDouble_decimal128", i32,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("hash64AsDouble_decimal128", i64,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildDecimalFunction("hash32AsDoubleWithSeed_decimal128", i32,
+                                       {
+                                           {"x_value", i128},
+                                           {"x_precision", i32},
+                                           {"x_scale", i32},
+                                           {"x_isvalid", i1},
+                                           {"seed", i32},
+                                           {"seed_isvalid", i1},
+                                       }));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildDecimalFunction("hash64AsDoubleWithSeed_decimal128", i64,
+                                       {
+                                           {"x_value", i128},
+                                           {"x_precision", i32},
+                                           {"x_scale", i32},
+                                           {"x_isvalid", i1},
+                                           {"seed", i64},
+                                           {"seed_isvalid", i1},
+                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("isnull_decimal128", i1,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("isnotnull_decimal128", i1,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(decimal_ir->BuildDecimalFunction("isnumeric_decimal128", i1,
+                                                       {
+                                                           {"x_value", i128},
+                                                           {"x_precision", i32},
+                                                           {"x_scale", i32},
+                                                           {"x_isvalid", i1},
+                                                       }));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildDecimalFunction("is_distinct_from_decimal128_decimal128", i1,
+                                       {
+                                           {"x_value", i128},
+                                           {"x_precision", i32},
+                                           {"x_scale", i32},
+                                           {"x_isvalid", i1},
+                                           {"y_value", i128},
+                                           {"y_precision", i32},
+                                           {"y_scale", i32},
+                                           {"y_isvalid", i1},
+                                       }));
+
+  ARROW_RETURN_NOT_OK(
+      decimal_ir->BuildDecimalFunction("is_not_distinct_from_decimal128_decimal128", i1,
+                                       {
+                                           {"x_value", i128},
+                                           {"x_precision", i32},
+                                           {"x_scale", i32},
+                                           {"x_isvalid", i1},
+                                           {"y_value", i128},
+                                           {"y_precision", i32},
+                                           {"y_scale", i32},
+                                           {"y_isvalid", i1},
+                                       }));
+
   return Status::OK();
 }
 

@@ -35,6 +35,7 @@ import org.apache.arrow.flight.impl.Flight.FlightData;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -52,7 +53,6 @@ import com.google.protobuf.WireFormat;
 import io.grpc.Drainable;
 import io.grpc.MethodDescriptor;
 import io.grpc.MethodDescriptor.Marshaller;
-import io.grpc.internal.ReadableBuffer;
 import io.grpc.protobuf.ProtoUtils;
 
 import io.netty.buffer.ArrowBuf;
@@ -74,8 +74,15 @@ class ArrowMessage implements AutoCloseable {
       (FlightData.DATA_BODY_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
   private static final int HEADER_TAG =
       (FlightData.DATA_HEADER_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
+  private static final int APP_METADATA_TAG =
+      (FlightData.APP_METADATA_FIELD_NUMBER << 3) | WireFormat.WIRETYPE_LENGTH_DELIMITED;
 
   private static Marshaller<FlightData> NO_BODY_MARSHALLER = ProtoUtils.marshaller(FlightData.getDefaultInstance());
+
+  /** Get the application-specific metadata in this message. The ArrowMessage retains ownership of the buffer. */
+  public ArrowBuf getApplicationMetadata() {
+    return appMetadata;
+  }
 
   /** Types of messages that can be sent. */
   public enum HeaderType {
@@ -114,6 +121,7 @@ class ArrowMessage implements AutoCloseable {
 
   private final FlightDescriptor descriptor;
   private final Message message;
+  private final ArrowBuf appMetadata;
   private final List<ArrowBuf> bufs;
 
   public ArrowMessage(FlightDescriptor descriptor, Schema schema) {
@@ -124,9 +132,15 @@ class ArrowMessage implements AutoCloseable {
     message = Message.getRootAsMessage(serializedMessage);
     bufs = ImmutableList.of();
     this.descriptor = descriptor;
+    this.appMetadata = null;
   }
 
-  public ArrowMessage(ArrowRecordBatch batch) {
+  /**
+   * Create an ArrowMessage from a record batch and app metadata.
+   * @param batch The record batch.
+   * @param appMetadata The app metadata. May be null. Takes ownership of the buffer otherwise.
+   */
+  public ArrowMessage(ArrowRecordBatch batch, ArrowBuf appMetadata) {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int batchOffset = batch.writeTo(builder);
     ByteBuffer serializedMessage = MessageSerializer.serializeMessage(builder, MessageHeader.RecordBatch, batchOffset,
@@ -135,11 +149,28 @@ class ArrowMessage implements AutoCloseable {
     this.message = Message.getRootAsMessage(serializedMessage);
     this.bufs = ImmutableList.copyOf(batch.getBuffers());
     this.descriptor = null;
+    this.appMetadata = appMetadata;
   }
 
-  private ArrowMessage(FlightDescriptor descriptor, Message message, ArrowBuf buf) {
+  public ArrowMessage(ArrowDictionaryBatch batch) {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int batchOffset = batch.writeTo(builder);
+    ByteBuffer serializedMessage = MessageSerializer
+        .serializeMessage(builder, MessageHeader.DictionaryBatch, batchOffset,
+            batch.computeBodyLength());
+    serializedMessage = serializedMessage.slice();
+    this.message = Message.getRootAsMessage(serializedMessage);
+    // asInputStream will free the buffers implicitly, so increment the reference count
+    batch.getDictionary().getBuffers().forEach(buf -> buf.getReferenceManager().retain());
+    this.bufs = ImmutableList.copyOf(batch.getDictionary().getBuffers());
+    this.descriptor = null;
+    this.appMetadata = null;
+  }
+
+  private ArrowMessage(FlightDescriptor descriptor, Message message, ArrowBuf appMetadata, ArrowBuf buf) {
     this.message = message;
     this.descriptor = descriptor;
+    this.appMetadata = appMetadata;
     this.bufs = buf == null ? ImmutableList.of() : ImmutableList.of(buf);
   }
 
@@ -169,8 +200,16 @@ class ArrowMessage implements AutoCloseable {
     RecordBatch recordBatch = new RecordBatch();
     message.header(recordBatch);
     ArrowBuf underlying = bufs.get(0);
+    underlying.getReferenceManager().retain();
     ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(recordBatch, underlying);
     return batch;
+  }
+
+  public ArrowDictionaryBatch asDictionaryBatch() throws IOException {
+    Preconditions.checkArgument(bufs.size() == 1, "A batch can only be consumed if it contains a single ArrowBuf.");
+    Preconditions.checkArgument(getMessageType() == HeaderType.DICTIONARY_BATCH);
+    ArrowBuf underlying = bufs.get(0);
+    return MessageSerializer.deserializeDictionaryBatch(message, underlying);
   }
 
   public Iterable<ArrowBuf> getBufs() {
@@ -183,6 +222,7 @@ class ArrowMessage implements AutoCloseable {
       FlightDescriptor descriptor = null;
       Message header = null;
       ArrowBuf body = null;
+      ArrowBuf appMetadata = null;
       while (stream.available() > 0) {
         int tag = readRawVarint32(stream);
         switch (tag) {
@@ -201,6 +241,12 @@ class ArrowMessage implements AutoCloseable {
             header = Message.getRootAsMessage(ByteBuffer.wrap(bytes));
             break;
           }
+          case APP_METADATA_TAG: {
+            int size = readRawVarint32(stream);
+            appMetadata = allocator.buffer(size);
+            GetReadableBuffer.readIntoBuffer(stream, appMetadata, size, FAST_PATH);
+            break;
+          }
           case BODY_TAG:
             if (body != null) {
               // only read last body.
@@ -209,15 +255,7 @@ class ArrowMessage implements AutoCloseable {
             }
             int size = readRawVarint32(stream);
             body = allocator.buffer(size);
-            ReadableBuffer readableBuffer = FAST_PATH ? GetReadableBuffer.getReadableBuffer(stream) : null;
-            if (readableBuffer != null) {
-              readableBuffer.readBytes(body.nioBuffer(0, size));
-            } else {
-              byte[] heapBytes = new byte[size];
-              ByteStreams.readFully(stream, heapBytes);
-              body.writeBytes(heapBytes);
-            }
-            body.writerIndex(size);
+            GetReadableBuffer.readIntoBuffer(stream, body, size, FAST_PATH);
             break;
 
           default:
@@ -225,7 +263,7 @@ class ArrowMessage implements AutoCloseable {
         }
       }
 
-      return new ArrowMessage(descriptor, header, body);
+      return new ArrowMessage(descriptor, header, appMetadata, body);
     } catch (Exception ioe) {
       throw new RuntimeException(ioe);
     }
@@ -246,7 +284,6 @@ class ArrowMessage implements AutoCloseable {
 
       final ByteString bytes = ByteString.copyFrom(message.getByteBuffer(), message.getByteBuffer().remaining());
 
-
       if (getMessageType() == HeaderType.SCHEMA) {
 
         final FlightData.Builder builder = FlightData.newBuilder()
@@ -260,15 +297,23 @@ class ArrowMessage implements AutoCloseable {
         return NO_BODY_MARSHALLER.stream(builder.build());
       }
 
-      Preconditions.checkArgument(getMessageType() == HeaderType.RECORD_BATCH);
+      Preconditions.checkArgument(getMessageType() == HeaderType.RECORD_BATCH ||
+          getMessageType() == HeaderType.DICTIONARY_BATCH);
       Preconditions.checkArgument(!bufs.isEmpty());
       Preconditions.checkArgument(descriptor == null, "Descriptor should only be included in the schema message.");
 
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       CodedOutputStream cos = CodedOutputStream.newInstance(baos);
       cos.writeBytes(FlightData.DATA_HEADER_FIELD_NUMBER, bytes);
-      cos.writeTag(FlightData.DATA_BODY_FIELD_NUMBER, WireFormat.WIRETYPE_LENGTH_DELIMITED);
 
+      if (appMetadata != null && appMetadata.capacity() > 0) {
+        // Must call slice() as CodedOutputStream#writeByteBuffer writes -capacity- bytes, not -limit- bytes
+        cos.writeByteBuffer(FlightData.APP_METADATA_FIELD_NUMBER, appMetadata.asNettyBuffer().nioBuffer().slice());
+        // This is weird, but implicitly, writing an ArrowMessage frees any references it has
+        appMetadata.getReferenceManager().release();
+      }
+
+      cos.writeTag(FlightData.DATA_BODY_FIELD_NUMBER, WireFormat.WIRETYPE_LENGTH_DELIMITED);
       int size = 0;
       List<ByteBuf> allBufs = new ArrayList<>();
       for (ArrowBuf b : bufs) {
@@ -290,6 +335,7 @@ class ArrowMessage implements AutoCloseable {
       initialBuf.writeBytes(baos.toByteArray());
       final CompositeByteBuf bb = new CompositeByteBuf(allocator.getAsByteBufAllocator(), true, bufs.size() + 1,
           ImmutableList.<ByteBuf>builder().add(initialBuf.asNettyBuffer()).addAll(allBufs).build());
+      // Implicitly, transfer ownership of our buffers to the input stream (which will decrement the refcount when done)
       final ByteBufInputStream is = new DrainableByteBufInputStream(bb);
       return is;
     } catch (Exception ex) {
@@ -319,7 +365,7 @@ class ArrowMessage implements AutoCloseable {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
       buf.release();
     }
 
@@ -354,5 +400,8 @@ class ArrowMessage implements AutoCloseable {
   @Override
   public void close() throws Exception {
     AutoCloseables.close(bufs);
+    if (appMetadata != null) {
+      appMetadata.close();
+    }
   }
 }

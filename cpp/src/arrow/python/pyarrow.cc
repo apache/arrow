@@ -168,5 +168,10 @@ PyObject* wrap_record_batch(const std::shared_ptr<RecordBatch>& batch) {
   return ::pyarrow_wrap_batch(batch);
 }
 
+namespace internal {
+
+int check_status(const Status& status) { return ::pyarrow_internal_check_status(status); }
+
+}  // namespace internal
 }  // namespace py
 }  // namespace arrow

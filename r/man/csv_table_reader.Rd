@@ -2,14 +2,14 @@
 % Please edit documentation in R/csv.R
 \name{csv_table_reader}
 \alias{csv_table_reader}
-\title{CSV table reader}
+\title{Arrow CSV table reader}
 \usage{
 csv_table_reader(file, read_options = csv_read_options(),
   parse_options = csv_parse_options(),
   convert_options = csv_convert_options(), ...)
 }
 \arguments{
-\item{file}{file}
+\item{file}{A character path to a local file, or an Arrow input stream}
 
 \item{read_options, }{see \code{\link[=csv_read_options]{csv_read_options()}}}
 
@@ -19,6 +19,12 @@ csv_table_reader(file, read_options = csv_read_options(),
 
 \item{...}{additional parameters.}
 }
+\value{
+An \code{arrow::csv::TableReader} R6 object. Call \code{$Read()} on it to get
+an Arrow Table.
+}
 \description{
-CSV table reader
+These methods wrap the Arrow C++ CSV table reader.
+For an interface to the CSV reader that's more familiar for R users, see
+\code{\link[=read_csv_arrow]{read_csv_arrow()}}
 }

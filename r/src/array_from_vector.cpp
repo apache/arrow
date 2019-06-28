@@ -163,6 +163,15 @@ std::shared_ptr<Array> MakeFactorArray(Rcpp::IntegerVector_ factor,
   }
 }
 
+std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
+  int n = type->num_children();
+  std::vector<std::shared_ptr<Array>> children(n);
+  for (int i = 0; i < n; i++) {
+    children[i] = Array__from_vector(VECTOR_ELT(df, i), type->child(i)->type(), true);
+  }
+  return std::make_shared<StructArray>(type, children[0]->length(), children);
+}
+
 template <typename T>
 int64_t time_cast(T value);
 
@@ -728,14 +737,12 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(DATE32, Date32Converter);
     SIMPLE_CONVERTER_CASE(DATE64, Date64Converter);
 
-      // TODO: probably after we merge ARROW-3628
-      // case Type::DECIMAL:
+    // TODO: probably after we merge ARROW-3628
+    // case Type::DECIMAL:
 
-    case Type::DICTIONARY:
-
-      TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
-      TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
-      TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
+    TIME_CONVERTER_CASE(TIME32, Time32Type, Time32Converter);
+    TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
+    TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
 
     default:
       break;
@@ -801,6 +808,18 @@ std::shared_ptr<arrow::DataType> InferType(SEXP x) {
       return int8();
     case STRSXP:
       return utf8();
+    case VECSXP:
+      if (Rf_inherits(x, "data.frame")) {
+        R_xlen_t n = XLENGTH(x);
+        SEXP names = Rf_getAttrib(x, R_NamesSymbol);
+        std::vector<std::shared_ptr<arrow::Field>> fields(n);
+        for (R_xlen_t i = 0; i < n; i++) {
+          fields[i] = std::make_shared<arrow::Field>(CHAR(STRING_ELT(names, i)),
+                                                     InferType(VECTOR_ELT(x, i)));
+        }
+        return std::make_shared<StructType>(std::move(fields));
+      }
+      break;
     default:
       break;
   }
@@ -920,6 +939,37 @@ bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& typ
   return dict_type->value_type() == utf8();
 }
 
+arrow::Status CheckCompatibleStruct(SEXP obj,
+                                    const std::shared_ptr<arrow::DataType>& type) {
+  if (!Rf_inherits(obj, "data.frame")) {
+    return Status::RError("Conversion to struct arrays requires a data.frame");
+  }
+
+  // check the number of columns
+  int num_fields = type->num_children();
+  if (XLENGTH(obj) != num_fields) {
+    return Status::RError("Number of fields in struct (", num_fields,
+                          ") incompatible with number of columns in the data frame (",
+                          XLENGTH(obj), ")");
+  }
+
+  // check the names of each column
+  //
+  // the columns themselves are not checked against the
+  // types of the fields, because Array__from_vector will error
+  // when not compatible.
+  SEXP names = Rf_getAttrib(obj, R_NamesSymbol);
+  for (int i = 0; i < num_fields; i++) {
+    if (type->child(i)->name() != CHAR(STRING_ELT(names, i))) {
+      return Status::RError("Field name in position ", i, " (", type->child(i)->name(),
+                            ") does not match the name of the column of the data frame (",
+                            CHAR(STRING_ELT(names, i)), ")");
+    }
+  }
+
+  return Status::OK();
+}
+
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered) {
   // short circuit if `x` is already an Array
@@ -946,6 +996,15 @@ std::shared_ptr<arrow::Array> Array__from_vector(
     }
 
     Rcpp::stop("Object incompatible with dictionary type");
+  }
+
+  // struct types
+  if (type->id() == Type::STRUCT) {
+    if (!type_infered) {
+      STOP_IF_NOT_OK(arrow::r::CheckCompatibleStruct(x, type));
+    }
+
+    return arrow::r::MakeStructArray(x, type);
   }
 
   // general conversion with converter and builder

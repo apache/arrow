@@ -16,42 +16,75 @@ knitr::opts_chunk$set(
 ```
 # arrow
 
-[![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
+[![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow) [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
 
 [Apache Arrow](https://arrow.apache.org/) is a cross-language development platform for in-memory data. It specifies a standardized language-independent columnar memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware. It also provides computational libraries and zero-copy streaming messaging and interprocess communication.
 
-The `arrow` package exposes an interface to the Arrow C++ library.
+The `arrow` package exposes an interface to the Arrow C++ library to access many of its features in R. This includes support for working with Parquet (`read_parquet()`, `write_parquet()`) and Feather (`read_feather()`, `write_feather()`) files, as well as lower-level access to Arrow memory and messages.
 
 ## Installation
 
-Installing `arrow` is a two-step process: first install the Arrow C++ library, then the R package.
+Install the latest release of `arrow` from CRAN with
 
-### Release version
-
-The current release of Apache Arrow is 0.13.
-
-On macOS, you may install the C++ library using [Homebrew](https://brew.sh/):
-
-```shell
-brew install apache-arrow
+```r
+install.packages("arrow")
 ```
 
-On Linux, see the [Arrow project installation page](https://arrow.apache.org/install/).
+On macOS and Windows, installing a binary package from CRAN will handle Arrow's C++ dependencies for you. On Linux, you'll need to first install the C++ library. See the [Arrow project installation page](https://arrow.apache.org/install/) for a list of PPAs from which you can obtain it.
 
-Then, you can install the release version of the package from GitHub using the [`remotes`](https://remotes.r-lib.org/) package. From within an R session,
+If you install the `arrow` package from source and the C++ library is not found, the R package functions will notify you that Arrow is not available. Call
+
+```r
+arrow::install_arrow()
+```
+
+for version- and platform-specific guidance on installing the Arrow C++ library.
+
+## Example
+
+```{r}
+library(arrow)
+set.seed(24)
+
+tab <- arrow::table(x = 1:10, y = rnorm(10))
+tab$schema
+tab
+as.data.frame(tab)
+```
+
+## Installing a development version
+
+To use the development version of the R package, you'll need to install it from source, which requires the additional C++ library setup. On macOS, you may install the C++ library using [Homebrew](https://brew.sh/):
+
+```shell
+# For the released version:
+brew install apache-arrow
+# Or for a development version, you can try:
+brew install apache-arrow --HEAD
+```
+
+On Windows, you can download a .zip file with the arrow dependencies from the [rwinlib](https://github.com/rwinlib/arrow/releases) project, and then set the `RWINLIB_LOCAL` environment variable to point to that zip file before installing the `arrow` R package. That project contains released versions of the C++ library; for a development version, Windows users may be able to find a binary by going to the [Apache Arrow project's Appveyor](https://ci.appveyor.com/project/ApacheSoftwareFoundation/arrow), selecting an R job from a recent build, and downloading the `build\arrow-*.zip` file from the "Artifacts" tab.
+
+Linux users can get a released version of the library from our PPAs, as described above. If you need a development version of the C++ library, you will likely need to build it from source. See "Development" below.
+
+Once you have the C++ library, you can install the R package from GitHub using the [`remotes`](https://remotes.r-lib.org/) package. From within an R session,
 
 ```r
 # install.packages("remotes") # Or install "devtools", which includes remotes
-remotes::install_github("apache/arrow/r", ref="76e1bc5dfb9d08e31eddd5cbcc0b1bab934da2c7")
+remotes::install_github("apache/arrow/r")
 ```
 
 or if you prefer to stay at the command line,
 
 ```shell
-R -e 'remotes::install_github("apache/arrow/r", ref="76e1bc5dfb9d08e31eddd5cbcc0b1bab934da2c7")'
+R -e 'remotes::install_github("apache/arrow/r")'
 ```
 
-### Development version
+You can specify a particular commit, branch, or [release](https://github.com/apache/arrow/releases) to install by including a `ref` argument to `install_github()`.
+
+## Developing
+
+If you need to alter both the Arrow C++ library and the R package code, or if you can't get a binary version of the latest C++ library elsewhere, you'll need to build it from source too.
 
 First, clone the repository and install a release build of the C++ library.
 
@@ -62,11 +95,13 @@ cmake .. -DARROW_PARQUET=ON -DARROW_BOOST_USE_SHARED:BOOL=Off -DARROW_INSTALL_NA
 make install
 ```
 
-Then, you can install the R package and its dependencies from the git checkout:
+This likely will require additional system libraries to be installed, the specifics of which are platform dependent. See the [C++ developer guide](https://arrow.apache.org/docs/developers/cpp.html) for details.
+
+Once you've built the C++ library, you can install the R package and its dependencies, along with additional dev dependencies, from the git checkout:
 
 ```shell
 cd ../../r
-R -e 'install.packages("remotes"); remotes::install_deps()'
+R -e 'install.packages("devtools"); devtools::install_dev_deps()'
 R CMD INSTALL .
 ```
 
@@ -83,39 +118,26 @@ try setting the environment variable `LD_LIBRARY_PATH` (or `DYLD_LIBRARY_PATH` o
 
 For any other build/configuration challenges, see the [C++ developer guide](https://arrow.apache.org/docs/developers/cpp.html#building).
 
-## Example
+### Editing Rcpp code
 
-```{r}
-library(arrow)
+The `arrow` package uses some customized tools on top of `Rcpp` to prepare its C++ code in `src/`. If you change C++ code in the R package, you will need to set the `ARROW_R_DEV` environment variable to `TRUE` (optionally, add it to your`~/.Renviron` file to persist across sessions) so that the `data-raw/codegen.R` file is used for code generation.
 
-tab <- arrow::table(x = 1:10, y = rnorm(10))
-tab$schema
-tab
-as.data.frame(tab)
-```
-
-## Developing
-
-It is recommended to use the `devtools` package to help with some package-related manipulations. You'll need a few more R packages, which you can install using
-
-```r
-install.packages("devtools")
-devtools::install_dev_deps()
-```
-
-If you change C++ code, you need to set the `ARROW_R_DEV` environment variable to `TRUE`, e.g. 
-in your `~/.Renviron` so that the `data-raw/codegen.R` file is used for code generation. 
+You'll also need `remotes::install_github("romainfrancois/decor")`.
 
 ### Useful functions
+
+Within an R session, these can help with package development:
 
 ```r
 devtools::load_all() # Load the dev package
 devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
 devtools::document() # Update roxygen documentation
 rmarkdown::render("README.Rmd") # To rebuild README.md
-pkgdown::build_site() # To preview the documentation website
+pkgdown::build_site(run_dont_run=TRUE) # To preview the documentation website
 devtools::check() # All package checks; see also below
 ```
+
+Any of those can be run from the command line by wrapping them in `R -e '$COMMAND'`. There's also a `Makefile` to help with some common tasks from the command line (`make test`, `make doc`, `make clean`, etc.)
 
 ### Full package validation
 

@@ -387,6 +387,26 @@ def test_struct_from_buffers():
                               children=children[:1])
 
 
+def test_struct_from_arrays():
+    a = pa.array([4, 5, None])
+    b = pa.array(["bar", None, ""])
+    c = pa.array([[1, 2], None, [3, None]])
+
+    arr = pa.StructArray.from_arrays([a, b, c], ["a", "b", "c"])
+    assert arr.to_pylist() == [
+        {'a': 4, 'b': 'bar', 'c': [1, 2]},
+        {'a': 5, 'b': None, 'c': None},
+        {'a': None, 'b': '', 'c': [3, None]},
+    ]
+
+    with pytest.raises(ValueError):
+        pa.StructArray.from_arrays([a, b, c], ["a", "b"])
+
+    arr = pa.StructArray.from_arrays([], [])
+    assert arr.type == pa.struct([])
+    assert arr.to_pylist() == []
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
@@ -1428,6 +1448,33 @@ def test_numpy_string_overflow_to_chunked():
         for val in chunk:
             assert val.as_py() == values[value_index]
             value_index += 1
+
+
+def test_infer_type_masked():
+    # ARROW-5208
+    ty = pa.infer_type([u'foo', u'bar', None, 2],
+                       mask=[False, False, False, True])
+    assert ty == pa.utf8()
+
+    # all masked
+    ty = pa.infer_type([u'foo', u'bar', None, 2],
+                       mask=np.array([True, True, True, True]))
+    assert ty == pa.null()
+
+    # length 0
+    assert pa.infer_type([], mask=[]) == pa.null()
+
+
+def test_array_masked():
+    # ARROW-5208
+    arr = pa.array([4, None, 4, 3.],
+                   mask=np.array([False, True, False, True]))
+    assert arr.type == pa.int64()
+
+    # ndarray dtype=object argument
+    arr = pa.array(np.array([4, None, 4, 3.], dtype="O"),
+                   mask=np.array([False, True, False, True]))
+    assert arr.type == pa.int64()
 
 
 def test_array_from_large_pyints():

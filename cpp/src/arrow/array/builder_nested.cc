@@ -89,7 +89,11 @@ Status ListBuilder::AppendNulls(int64_t length) {
 }
 
 Status ListBuilder::Resize(int64_t capacity) {
-  DCHECK_LE(capacity, kListMaximumElements);
+  if (capacity > kListMaximumElements) {
+    return Status::CapacityError(
+        "ListArray cannot reserve space for more then 2^31 - 1 child elements, got ",
+        capacity);
+  }
   RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
 
   // one more then requested for offsets
@@ -169,7 +173,8 @@ void MapBuilder::Reset() {
 }
 
 Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  ARROW_CHECK_EQ(item_builder_->length(), key_builder_->length())
+      << "keys and items builders don't have the same size in MapBuilder";
   // finish list(keys) builder
   RETURN_NOT_OK(list_builder_->FinishInternal(out));
   // finish values builder

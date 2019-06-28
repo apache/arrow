@@ -20,18 +20,19 @@
 import os
 import re
 import time
-import click
 import hashlib
+from io import StringIO
+from pathlib import Path
+from textwrap import dedent
+from datetime import datetime
+from collections import namedtuple
+
+import click
 import gnupg
 import toolz
 import pygit2
 import github3
 import jira.client
-
-from io import StringIO
-from pathlib import Path
-from textwrap import dedent
-from datetime import datetime
 from jinja2 import Template, StrictUndefined
 from setuptools_scm.git import parse as parse_git_version
 from ruamel.yaml import YAML
@@ -51,6 +52,63 @@ def md(template, *args, **kwargs):
             s = s.replace(char, '\\' + char)
         return s
     return template.format(*map(escape, args), **toolz.valmap(escape, kwargs))
+
+
+def unflatten(mapping):
+    result = {}
+    for path, value in mapping.items():
+        parents, leaf = path[:-1], path[-1]
+        # create the hierarchy until we reach the leaf value
+        temp = result
+        for parent in parents:
+            temp.setdefault(parent, {})
+            temp = temp[parent]
+        # set the leaf value
+        temp[leaf] = value
+
+    return result
+
+
+# configurations for setting up branch skipping
+# - appveyor has a feature to skip builds without an appveyor.yml
+# - travis reads from the master branch and applies the rules
+# - circle requires the configuration to be present on all branch, even ones
+#   that are configured to be skipped
+# - azure skips branches without azure-pipelines.yml by default
+
+_default_travis_yml = """
+branches:
+  only:
+    - master
+    - /.*-travis-.*/
+
+os: linux
+dist: trusty
+language: generic
+"""
+
+_default_circle_yml = """
+version: 2
+
+jobs:
+  build:
+    machine: true
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only:
+                - /.*-circle-.*/
+"""
+
+_default_tree = {
+    '.travis.yml': _default_travis_yml,
+    '.circleci/config.yml': _default_circle_yml
+}
 
 
 class JiraChangelog:
@@ -170,18 +228,28 @@ class GitRemoteCallbacks(pygit2.RemoteCallbacks):
             return None
 
 
+def _git_ssh_to_https(url):
+    return url.replace('git@github.com:', 'https://github.com/')
+
+
 class Repo:
     """Base class for interaction with local git repositories
 
     A high level wrapper used for both reading revision information from
     arrow's repository and pushing continuous integration tasks to the queue
     repository.
-    """
 
-    def __init__(self, path, github_token=None):
+    Parameters
+    ----------
+    require_https : boolean, default False
+        Raise exception for SSH origin URLs
+    """
+    def __init__(self, path, github_token=None, require_https=False):
         self.path = Path(path)
         self.repo = pygit2.Repository(str(self.path))
         self.github_token = github_token
+        self.require_https = require_https
+        self._github_repo = None  # set by as_github_repo()
         self._updated_refs = []
 
     def __str__(self):
@@ -197,7 +265,11 @@ class Repo:
 
     @property
     def origin(self):
-        return self.repo.remotes['origin']
+        remote = self.repo.remotes['origin']
+        if self.require_https and remote.url.startswith('git@github.com'):
+            raise ValueError("Change SSH origin URL to HTTPS to use "
+                             "Crossbow: {}".format(remote.url))
+        return remote
 
     def fetch(self):
         refspec = '+refs/heads/*:refs/remotes/origin/*'
@@ -241,8 +313,7 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent usable with Github OAuth token.
         """
-        return self.remote.url.replace('git@github.com:',
-                                       'https://github.com/')
+        return _git_ssh_to_https(self.remote.url)
 
     @property
     def user_name(self):
@@ -263,17 +334,28 @@ class Repo:
         return pygit2.Signature(self.user_name, self.user_email,
                                 int(time.time()))
 
-    def create_branch(self, branch_name, files, parents=[], message='',
-                      signature=None):
-        # 1. create tree
+    def create_tree(self, files):
         builder = self.repo.TreeBuilder()
 
         for filename, content in files.items():
-            # insert the file and creating the new filetree
-            blob_id = self.repo.create_blob(content)
-            builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
+            if isinstance(content, dict):
+                # create a subtree
+                tree_id = self.create_tree(content)
+                builder.insert(filename, tree_id, pygit2.GIT_FILEMODE_TREE)
+            else:
+                # create a file
+                blob_id = self.repo.create_blob(content)
+                builder.insert(filename, blob_id, pygit2.GIT_FILEMODE_BLOB)
 
         tree_id = builder.write()
+        return tree_id
+
+    def create_branch(self, branch_name, files, parents=[], message='',
+                      signature=None):
+        # 1. create tree
+        files = toolz.keymap(lambda path: tuple(path.split('/')), files)
+        files = unflatten(files)
+        tree_id = self.create_tree(files)
 
         # 2. create commit with the tree created above
         # TODO(kszucs): pass signature explicitly
@@ -313,9 +395,14 @@ class Repo:
 
     def as_github_repo(self):
         """Converts it to a repository object which wraps the GitHub API"""
-        username, reponame = self._parse_github_user_repo()
-        gh = github3.login(token=self.github_token)
-        return gh.repository(username, reponame)
+        if self._github_repo is None:
+            username, reponame = self._parse_github_user_repo()
+            gh = github3.login(token=self.github_token)
+            return gh.repository(username, reponame)
+        return self._github_repo
+
+
+CombinedStatus = namedtuple('CombinedStatus', ('state', 'total_count'))
 
 
 class Queue(Repo):
@@ -349,7 +436,9 @@ class Queue(Repo):
 
         # create tasks' branches
         for task_name, task in job.tasks.items():
-            task.branch = '{}-{}'.format(job.branch, task_name)
+            # adding CI's name to the end of the branch in order to use skip
+            # patterns on travis and circleci
+            task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
             files = task.render_files(job=job, arrow=job.target)
             branch = self.create_branch(task.branch, files=files)
             self.create_tag(task.tag, branch.target)
@@ -358,10 +447,71 @@ class Queue(Repo):
         # create job's branch with its description
         return self.create_branch(job.branch, files=job.render_files())
 
-    def github_statuses(self, job):
+    def combined_status(self, task):
+        """Combine the results from status and checks API to a single state.
+
+        Azure pipelines uses checks API which doesn't provide a combined
+        interface like status API does, so we need to manually combine
+        both the commit statuses and the commit checks coming from
+        different API endpoint
+
+        Status.state: error, failure, pending or success, default pending
+        CheckRun.status: queued, in_progress or completed, default: queued
+        CheckRun.conclusion: success, failure, neutral, cancelled, timed_out
+                             or action_required, only set if
+                             CheckRun.status == 'completed'
+
+        1. Convert CheckRun's status and conslusion to one of Status.state
+        2. Merge the states based on the following rules:
+           - failure if any of the contexts report as error or failure
+           - pending if there are no statuses or a context is pending
+           - success if the latest status for all contexts is success
+           error otherwise.
+
+        Parameters
+        ----------
+        task : Task
+            Task to query the combined status for.
+
+        Returns
+        -------
+        combined_state: CombinedStatus(
+            state='error|failure|pending|success',
+            total_count='number of statuses and checks'
+        )
+        """
         repo = self.as_github_repo()
-        return {name: repo.commit(task.commit).status()
-                for name, task in job.tasks.items()}
+        commit = repo.commit(task.commit)
+        states = []
+
+        for status in commit.status().statuses:
+            states.append(status.state)
+
+        for check in commit.check_runs():
+            if check.status == 'completed':
+                if check.conclusion in {'success', 'failure'}:
+                    states.append(check.conclusion)
+                elif check.conclusion in {'cancelled', 'timed_out',
+                                          'action_required'}:
+                    states.append('error')
+                # omit `neutral` conslusion
+            else:
+                states.append('pending')
+
+        # it could be more effective, but the following is more descriptive
+        if any(state in {'error', 'failure'} for state in states):
+            combined_state = 'failure'
+        elif any(state == 'pending' for state in states):
+            combined_state = 'pending'
+        elif all(state == 'success' for state in states):
+            combined_state = 'success'
+        else:
+            combined_state = 'error'
+
+        return CombinedStatus(state=combined_state, total_count=len(states))
+
+    def github_statuses(self, job):
+        return toolz.valmap(self.combined_status, job.tasks)
 
     def github_assets(self, task):
         repo = self.as_github_repo()
@@ -465,8 +615,10 @@ class Task:
     submitting the job to a queue.
     """
 
-    def __init__(self, platform, template, artifacts=None, params=None):
+    def __init__(self, platform, ci, template, artifacts=None, params=None):
         assert platform in {'win', 'osx', 'linux'}
+        assert ci in {'circle', 'travis', 'appveyor', 'azure'}
+        self.ci = ci
         self.platform = platform
         self.template = template
         self.artifacts = artifacts or []
@@ -479,25 +631,21 @@ class Task:
         params = toolz.merge(self.params, extra_params)
         template = Template(path.read_text(), undefined=StrictUndefined)
         rendered = template.render(task=self, **params)
-        return {self.filename: rendered}
+        return toolz.merge(_default_tree, {self.filename: rendered})
 
     @property
     def tag(self):
         return self.branch
 
     @property
-    def ci(self):
-        if self.platform == 'win':
-            return 'appveyor'
-        else:
-            return 'travis'
-
-    @property
     def filename(self):
-        if self.ci == 'appveyor':
-            return 'appveyor.yml'
-        else:
-            return '.travis.yml'
+        config_files = {
+            'circle': '.circleci/config.yml',
+            'travis': '.travis.yml',
+            'appveyor': 'appveyor.yml',
+            'azure': 'azure-pipelines.yml'
+        }
+        return config_files[self.ci]
 
 
 class Job:
@@ -518,7 +666,7 @@ class Job:
         with StringIO() as buf:
             yaml.dump(self, buf)
             content = buf.getvalue()
-        return {'job.yml': content}
+        return toolz.merge(_default_tree, {'job.yml': content})
 
     @property
     def email(self):
@@ -565,8 +713,9 @@ def crossbow(ctx, github_token, arrow_path, queue_path):
             'valid GitHub access token or pass one to --github-token.'
         )
 
-    ctx.obj['arrow'] = Repo(Path(arrow_path))
-    ctx.obj['queue'] = Queue(Path(queue_path), github_token=github_token)
+    ctx.obj['arrow'] = Repo(arrow_path)
+    ctx.obj['queue'] = Queue(queue_path, github_token=github_token,
+                             require_https=True)
 
 
 @crossbow.command()

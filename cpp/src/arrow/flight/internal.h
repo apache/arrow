@@ -63,7 +63,8 @@ namespace flight {
 
 namespace internal {
 
-static const char* AUTH_HEADER = "auth-token-bin";
+/// The name of the header used to pass authentication tokens.
+static const char* kGrpcAuthHeader = "auth-token-bin";
 
 ARROW_FLIGHT_EXPORT
 Status SchemaToString(const Schema& schema, std::string* out);

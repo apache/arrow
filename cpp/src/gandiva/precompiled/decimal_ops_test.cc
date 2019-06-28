@@ -180,7 +180,7 @@ void TestDecimalSql::VerifyAllSign(DecimalTypeUtil::Op op, const DecimalScalar12
     // both -ve
     Verify(op, -left, -right, -expected_output, expected_overflow);
   } else {
-    DCHECK(op == DecimalTypeUtil::kOpMultiply || op == DecimalTypeUtil::kOpDivide);
+    ASSERT_TRUE(op == DecimalTypeUtil::kOpMultiply || op == DecimalTypeUtil::kOpDivide);
 
     // right -ve
     Verify(op, left, -right, -expected_output, expected_overflow);

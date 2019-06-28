@@ -313,6 +313,45 @@ NodePtr ProtoTypeToOrNode(const types::OrNode& node) {
   return TreeExprBuilder::MakeOr(children);
 }
 
+NodePtr ProtoTypeToInNode(const types::InNode& node) {
+  NodePtr field = ProtoTypeToFieldNode(node.field());
+
+  if (node.has_intvalues()) {
+    std::unordered_set<int32_t> int_values;
+    for (int i = 0; i < node.intvalues().intvalues_size(); i++) {
+      int_values.insert(node.intvalues().intvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionInt32(field, int_values);
+  }
+
+  if (node.has_longvalues()) {
+    std::unordered_set<int64_t> long_values;
+    for (int i = 0; i < node.longvalues().longvalues_size(); i++) {
+      long_values.insert(node.longvalues().longvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionInt64(field, long_values);
+  }
+
+  if (node.has_stringvalues()) {
+    std::unordered_set<std::string> stringvalues;
+    for (int i = 0; i < node.stringvalues().stringvalues_size(); i++) {
+      stringvalues.insert(node.stringvalues().stringvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionString(field, stringvalues);
+  }
+
+  if (node.has_binaryvalues()) {
+    std::unordered_set<std::string> stringvalues;
+    for (int i = 0; i < node.binaryvalues().binaryvalues_size(); i++) {
+      stringvalues.insert(node.binaryvalues().binaryvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionBinary(field, stringvalues);
+  }
+  // not supported yet.
+  std::cerr << "Unknown constant type for in expression.\n";
+  return nullptr;
+}
+
 NodePtr ProtoTypeToNullNode(const types::NullNode& node) {
   DataTypePtr data_type = ProtoTypeToDataType(node.type());
   if (data_type == nullptr) {
@@ -342,6 +381,10 @@ NodePtr ProtoTypeToNode(const types::TreeNode& node) {
 
   if (node.has_ornode()) {
     return ProtoTypeToOrNode(node.ornode());
+  }
+
+  if (node.has_innode()) {
+    return ProtoTypeToInNode(node.innode());
   }
 
   if (node.has_nullnode()) {
@@ -495,7 +538,7 @@ void releaseProjectorInput(jbyteArray schema_arr, jbyte* schema_bytes,
 
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_buildProjector(
     JNIEnv* env, jobject obj, jbyteArray schema_arr, jbyteArray exprs_arr,
-    jlong configuration_id) {
+    jint selection_vector_type, jlong configuration_id) {
   jlong module_id = 0LL;
   std::shared_ptr<Projector> projector;
   std::shared_ptr<ProjectorHolder> holder;
@@ -512,6 +555,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
   SchemaPtr schema_ptr;
   FieldVector ret_types;
   gandiva::Status status;
+  auto mode = gandiva::SelectionVector::MODE_NONE;
 
   std::shared_ptr<Configuration> config = ConfigHolder::MapLookup(configuration_id);
   std::stringstream ss;
@@ -556,8 +600,19 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
     ret_types.push_back(root->result());
   }
 
+  switch (selection_vector_type) {
+    case types::SV_NONE:
+      mode = gandiva::SelectionVector::MODE_NONE;
+      break;
+    case types::SV_INT16:
+      mode = gandiva::SelectionVector::MODE_UINT16;
+      break;
+    case types::SV_INT32:
+      mode = gandiva::SelectionVector::MODE_UINT32;
+      break;
+  }
   // good to invoke the evaluator now
-  status = Projector::Make(schema_ptr, expr_vector, config, &projector);
+  status = Projector::Make(schema_ptr, expr_vector, mode, config, &projector);
 
   if (!status.ok()) {
     ss << "Failed to make LLVM module due to " << status.message() << "\n";

@@ -19,14 +19,12 @@ package org.apache.arrow.flight;
 
 import java.net.URISyntaxException;
 import java.util.Iterator;
-import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor.DescriptorType;
-import org.apache.arrow.flight.impl.Flight.PutResult;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -98,7 +96,8 @@ public class TestBasicOperation {
       IntVector iv = new IntVector("c1", a);
 
       VectorSchemaRoot root = VectorSchemaRoot.of(iv);
-      ClientStreamListener listener = c.startPut(FlightDescriptor.path("hello"), root);
+      ClientStreamListener listener = c
+          .startPut(FlightDescriptor.path("hello"), root, new AsyncPutListener());
 
       //batch 1
       root.allocateNew();
@@ -155,12 +154,11 @@ public class TestBasicOperation {
         Producer producer = new Producer(a);
         FlightServer s =
             FlightTestUtil.getStartedServer(
-                (port) -> FlightServer.builder(a, Location.forGrpcInsecure("localhost", port), producer).build()
+                (location) -> FlightServer.builder(a, location, producer).build()
             )) {
 
       try (
-          FlightClient c = FlightClient.builder(a, Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, s.getPort()))
-              .build()
+          FlightClient c = FlightClient.builder(a, s.getLocation()).build()
       ) {
         try (BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE)) {
           consumer.accept(c, testAllocator);
@@ -199,14 +197,12 @@ public class TestBasicOperation {
     }
 
     @Override
-    public Callable<PutResult> acceptPut(CallContext context,
-        FlightStream flightStream) {
+    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         try (VectorSchemaRoot root = flightStream.getRoot()) {
           while (flightStream.next()) {
 
           }
-          return PutResult.getDefaultInstance();
         }
       };
     }

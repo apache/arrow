@@ -19,6 +19,7 @@ package org.apache.arrow.flight.example;
 
 import java.io.IOException;
 
+import org.apache.arrow.flight.AsyncPutListener;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -33,12 +34,12 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
  * Ensure that example server supports get and put.
  */
-@org.junit.Ignore
 public class TestExampleServer {
 
   private BufferAllocator allocator;
@@ -68,6 +69,7 @@ public class TestExampleServer {
   }
 
   @Test
+  @Ignore
   public void putStream() {
     BufferAllocator a = caseAllocator;
     final int size = 10;
@@ -75,7 +77,8 @@ public class TestExampleServer {
     IntVector iv = new IntVector("c1", a);
 
     VectorSchemaRoot root = VectorSchemaRoot.of(iv);
-    ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root);
+    ClientStreamListener listener = client.startPut(FlightDescriptor.path("hello"), root,
+        new AsyncPutListener());
 
     //batch 1
     root.allocateNew();
@@ -102,10 +105,13 @@ public class TestExampleServer {
     listener.getResult();
 
     FlightInfo info = client.getInfo(FlightDescriptor.path("hello"));
-    FlightStream stream = client.getStream(info.getEndpoints().get(0).getTicket());
-    VectorSchemaRoot newRoot = stream.getRoot();
-    while (stream.next()) {
-      newRoot.clear();
+    try (final FlightStream stream = client.getStream(info.getEndpoints().get(0).getTicket())) {
+      VectorSchemaRoot newRoot = stream.getRoot();
+      while (stream.next()) {
+        newRoot.clear();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 }

@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
@@ -22,16 +21,24 @@ namespace Apache.Arrow.Tests
 {
     public class ArrowBufferBuilderTests
     {
+        [Fact]
+        public void ThrowsWhenIndexOutOfBounds()
+        {
+            Assert.Throws<IndexOutOfRangeException>(() =>
+            {
+                var builder = new ArrowBuffer.Builder<int>();
+                builder.Span[100] = 100;
+            });
+        }
+
         public class Append
         {
-
             [Fact]
             public void DoesNotThrowWithNullParameters()
             {
                 var builder = new ArrowBuffer.Builder<int>();
 
                 builder.AppendRange(null);
-                builder.Append((Func<IEnumerable<int>>) null);
             }
 
             [Fact]
@@ -179,5 +186,30 @@ namespace Apache.Arrow.Tests
                 Assert.True(zeros.SequenceEqual(values));
             }
         }
+
+        public class Resize
+        {
+            [Fact]
+            public void LengthHasExpectedValueAfterResize()
+            {
+                var builder = new ArrowBuffer.Builder<int>();
+                builder.Resize(8);
+
+                Assert.True(builder.Capacity >= 8);
+                Assert.Equal(8, builder.Length);
+            }
+
+            [Fact]
+            public void NegativeLengthResizesToZero()
+            {
+                var builder = new ArrowBuffer.Builder<int>();
+                builder.Append(10);
+                builder.Append(20);
+                builder.Resize(-1);
+
+                Assert.Equal(0, builder.Length);
+            }
+        }
+
     }
 }

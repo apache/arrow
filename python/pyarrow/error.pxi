@@ -108,3 +108,9 @@ cdef int check_status(const CStatus& status) nogil except -1:
         else:
             message = frombytes(status.ToString())
             raise ArrowException(message)
+
+
+# This is an API function for C++ PyArrow
+cdef api int pyarrow_internal_check_status(const CStatus& status) \
+        nogil except -1:
+    return check_status(status)

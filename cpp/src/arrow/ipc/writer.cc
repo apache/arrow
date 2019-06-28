@@ -36,6 +36,7 @@
 #include "arrow/ipc/util.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/result_internal.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -593,8 +594,8 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
 
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
                               io::OutputStream* dst) {
-  std::shared_ptr<RecordBatchWriter> writer;
-  RETURN_NOT_OK(RecordBatchStreamWriter::Open(dst, batches[0]->schema(), &writer));
+  ASSIGN_OR_RAISE(std::shared_ptr<RecordBatchWriter> writer,
+                  RecordBatchStreamWriter::Open(dst, batches[0]->schema()));
   for (const auto& batch : batches) {
     // allow sizes > INT32_MAX
     DCHECK(batch->schema()->Equals(*batches[0]->schema())) << "Schemas unequal";
@@ -1159,11 +1160,16 @@ void RecordBatchStreamWriter::set_memory_pool(MemoryPool* pool) {
 Status RecordBatchStreamWriter::Open(io::OutputStream* sink,
                                      const std::shared_ptr<Schema>& schema,
                                      std::shared_ptr<RecordBatchWriter>* out) {
+  ASSIGN_OR_RAISE(*out, Open(sink, schema));
+  return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchStreamWriter::Open(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
   // ctor is private
   auto result = std::shared_ptr<RecordBatchStreamWriter>(new RecordBatchStreamWriter());
   result->impl_.reset(new RecordBatchStreamWriterImpl(sink, schema));
-  *out = result;
-  return Status::OK();
+  return std::move(result);
 }
 
 Status RecordBatchStreamWriter::Close() { return impl_->Close(); }
@@ -1175,11 +1181,16 @@ RecordBatchFileWriter::~RecordBatchFileWriter() {}
 Status RecordBatchFileWriter::Open(io::OutputStream* sink,
                                    const std::shared_ptr<Schema>& schema,
                                    std::shared_ptr<RecordBatchWriter>* out) {
+  ASSIGN_OR_RAISE(*out, Open(sink, schema));
+  return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
   // ctor is private
   auto result = std::shared_ptr<RecordBatchFileWriter>(new RecordBatchFileWriter());
   result->file_impl_.reset(new RecordBatchFileWriterImpl(sink, schema));
-  *out = result;
-  return Status::OK();
+  return std::move(result);
 }
 
 Status RecordBatchFileWriter::WriteRecordBatch(const RecordBatch& batch,
@@ -1194,9 +1205,15 @@ namespace internal {
 Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
                              const std::shared_ptr<Schema>& schema,
                              std::unique_ptr<RecordBatchWriter>* out) {
-  out->reset(new RecordBatchPayloadWriter(std::move(sink), schema));
-  // XXX should we call Start()?
+  ASSIGN_OR_RAISE(*out, OpenRecordBatchWriter(std::move(sink), schema));
   return Status::OK();
+}
+
+Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
+    std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema) {
+  // XXX should we call Start()?
+  return std::unique_ptr<RecordBatchWriter>(
+      new RecordBatchPayloadWriter(std::move(sink), schema));
 }
 
 }  // namespace internal

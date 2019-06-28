@@ -56,7 +56,7 @@ public class ServerAuthInterceptor implements ServerInterceptor {
     return next.startCall(call, headers);
   }
 
-  private final Optional<String> isValid(Metadata headers) {
+  private Optional<String> isValid(Metadata headers) {
     byte[] token = headers.get(AuthConstants.TOKEN_KEY);
     return authHandler.isValid(token);
   }

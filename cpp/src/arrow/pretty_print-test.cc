@@ -658,4 +658,27 @@ four: struct<one: int32, two: dictionary<values=string, indices=int16, ordered=0
   Check(*sch, options, expected);
 }
 
+TEST_F(TestPrettyPrint, SchemaWithNotNull) {
+  auto simple = field("one", int32());
+  auto non_null = field("two", int32(), false);
+  auto list_simple = field("three", list(int32()));
+  auto list_non_null = field("four", list(int32()), false);
+  auto list_non_null2 = field("five", list(field("item", int32(), false)));
+
+  auto sch = schema({simple, non_null, list_simple, list_non_null, list_non_null2});
+
+  static const char* expected = R"expected(one: int32
+two: int32 not null
+three: list<item: int32>
+  child 0, item: int32
+four: list<item: int32> not null
+  child 0, item: int32
+five: list<item: int32 not null>
+  child 0, item: int32 not null)expected";
+
+  PrettyPrintOptions options{0};
+
+  Check(*sch, options, expected);
+}
+
 }  // namespace arrow

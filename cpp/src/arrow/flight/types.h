@@ -32,8 +32,10 @@
 namespace arrow {
 
 class Buffer;
+class RecordBatch;
 class Schema;
 class Status;
+class Table;
 
 namespace ipc {
 
@@ -205,6 +207,7 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
 /// This structure corresponds to FlightData in the protocol.
 struct ARROW_FLIGHT_EXPORT FlightPayload {
   std::shared_ptr<Buffer> descriptor;
+  std::shared_ptr<Buffer> app_metadata;
   ipc::internal::IpcPayload ipc_message;
 };
 
@@ -276,6 +279,30 @@ class ARROW_FLIGHT_EXPORT ResultStream {
   /// \param[out] info a single Result
   /// \return Status
   virtual Status Next(std::unique_ptr<Result>* info) = 0;
+};
+
+/// \brief A holder for a RecordBatch with associated Flight metadata.
+struct ARROW_FLIGHT_EXPORT FlightStreamChunk {
+ public:
+  std::shared_ptr<RecordBatch> data;
+  std::shared_ptr<Buffer> app_metadata;
+};
+
+/// \brief An interface to read Flight data with metadata.
+class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
+ public:
+  virtual ~MetadataRecordBatchReader() = default;
+
+  /// \brief Get the schema for this stream.
+  virtual std::shared_ptr<Schema> schema() const = 0;
+  /// \brief Get the next message from Flight. If the stream is
+  /// finished, then the members of \a FlightStreamChunk will be
+  /// nullptr.
+  virtual Status Next(FlightStreamChunk* next) = 0;
+  /// \brief Consume entire stream as a vector of record batches
+  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+  /// \brief Consume entire stream as a Table
+  virtual Status ReadAll(std::shared_ptr<Table>* table);
 };
 
 // \brief Create a FlightListing from a vector of FlightInfo objects. This can

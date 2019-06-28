@@ -23,6 +23,10 @@
 #error "DCHECK should not be visible from Arrow public headers."
 #endif
 
+#ifdef ASSIGN_OR_RAISE
+#error "ASSIGN_OR_RAISE should not be visible from Arrow public headers."
+#endif
+
 #ifdef ARROW_UTIL_PARALLEL_H
 #error "arrow/util/parallel.h is an internal header"
 #endif

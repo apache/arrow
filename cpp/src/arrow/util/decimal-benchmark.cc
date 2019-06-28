@@ -27,13 +27,18 @@ namespace arrow {
 namespace Decimal {
 
 static void FromString(benchmark::State& state) {  // NOLINT non-const reference
-  std::vector<std::string> values = {"0", "1.23", "12.345e6", "-12.345e-6"};
+  std::vector<std::string> values = {"0",
+                                     "1.23",
+                                     "12.345e6",
+                                     "-12.345e-6",
+                                     "123456789.123456789",
+                                     "1231234567890.451234567890"};
 
   while (state.KeepRunning()) {
     for (const auto& value : values) {
       Decimal128 dec;
       int32_t scale, precision;
-      ARROW_UNUSED(Decimal128::FromString(value, &dec, &scale, &precision));
+      benchmark::DoNotOptimize(Decimal128::FromString(value, &dec, &scale, &precision));
     }
   }
   state.SetItemsProcessed(state.iterations() * values.size());

@@ -119,16 +119,6 @@ std::shared_ptr<arrow::Table> ipc___feather___TableReader__Read(
   std::shared_ptr<arrow::Table> table;
 
   switch (TYPEOF(columns)) {
-    case INTSXP: {
-      R_xlen_t n = XLENGTH(columns);
-      std::vector<int> indices(n);
-      int* p_columns = INTEGER(columns);
-      for (int i = 0; i < n; i++) {
-        indices[i] = p_columns[i] - 1;
-      }
-      STOP_IF_NOT_OK(reader->Read(indices, &table));
-      break;
-    }
     case STRSXP: {
       R_xlen_t n = XLENGTH(columns);
       std::vector<std::string> names(n);
@@ -155,6 +145,17 @@ std::unique_ptr<arrow::ipc::feather::TableReader> ipc___feather___TableReader__O
   std::unique_ptr<arrow::ipc::feather::TableReader> reader;
   STOP_IF_NOT_OK(arrow::ipc::feather::TableReader::Open(stream, &reader));
   return reader;
+}
+
+// [[arrow::export]]
+Rcpp::CharacterVector ipc___feather___TableReader__column_names(
+    const std::unique_ptr<arrow::ipc::feather::TableReader>& reader) {
+  int64_t n = reader->num_columns();
+  Rcpp::CharacterVector out(n);
+  for (int64_t i = 0; i < n; i++) {
+    out[i] = reader->GetColumnName(i);
+  }
+  return out;
 }
 
 #endif

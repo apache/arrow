@@ -33,7 +33,7 @@ import pyarrow as pa
 import pyarrow.lib as lib
 import pyarrow._parquet as _parquet
 
-from pyarrow._parquet import (ParquetReader, RowGroupStatistics,  # noqa
+from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema)

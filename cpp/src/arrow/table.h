@@ -98,6 +98,9 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Determine if two chunked arrays are equal.
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
 
+  /// \brief Check that all chunks have the same data type
+  Status Validate() const;
+
  protected:
   ArrayVector chunks_;
   int64_t length_;
@@ -333,6 +336,15 @@ class ARROW_EXPORT Table {
   /// Two tables can be equal only if they have equal schemas.
   /// However, they may be equal even if they have different chunkings.
   bool Equals(const Table& other) const;
+
+  /// \brief Make a new table by combining the chunks this table has.
+  ///
+  /// All the underlying chunks in the ChunkedArray of each column are
+  /// concatenated into zero or one chunk.
+  ///
+  /// \param[in] pool The pool for buffer allocations
+  /// \param[out] out The table with chunks combined
+  Status CombineChunks(MemoryPool* pool, std::shared_ptr<Table>* out) const;
 
  protected:
   Table();

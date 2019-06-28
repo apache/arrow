@@ -15,18 +15,18 @@
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://arrow.apache.org/docs/r/}
   \item \url{https://github.com/apache/arrow/}
   \item Report bugs at \url{https://issues.apache.org/jira/projects/ARROW/issues}
 }
 
 }
 \author{
-\strong{Maintainer}: Romain François \email{romain@rstudio.com}
+\strong{Maintainer}: Romain François \email{romain@rstudio.com} (0000-0002-2444-4226)
 
 Authors:
 \itemize{
   \item Jeroen Ooms \email{jeroen@berkeley.edu}
+  \item Neal Richardson \email{neal@ursalabs.org}
   \item Apache Arrow \email{dev@arrow.apache.org} [copyright holder]
 }
 

@@ -34,13 +34,35 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
+namespace arrow {
+
+template <typename T>
+class Result;
+
+namespace internal {
+
+// Helpers for the ASSERT* macros below
+
+inline Status GenericToStatus(const Status& st) { return st; }
+
+template <typename T>
+inline Status GenericToStatus(const Result<T>& res) {
+  return res.status();
+}
+
+}  // namespace internal
+}  // namespace arrow
+
+// NOTE: failing must be inline in the macros below, to get correct file / line number
+// reporting on test failures.
+
 #define ASSERT_RAISES(ENUM, expr)                                                     \
   do {                                                                                \
-    ::arrow::Status _st = (expr);                                                     \
+    auto _res = (expr);                                                               \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
     if (!_st.Is##ENUM()) {                                                            \
       FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                                \
@@ -50,7 +72,8 @@
 
 #define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
   do {                                                                                \
-    ::arrow::Status _st = (expr);                                                     \
+    auto _res = (expr);                                                               \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
     if (!_st.Is##ENUM()) {                                                            \
       FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
                     ENUM) ", but got "                                                \
@@ -61,7 +84,8 @@
 
 #define ASSERT_OK(expr)                                                       \
   do {                                                                        \
-    ::arrow::Status _st = (expr);                                             \
+    auto _res = (expr);                                                       \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);           \
     if (!_st.ok()) {                                                          \
       FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
     }                                                                         \
@@ -69,18 +93,20 @@
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
-#define ARROW_EXPECT_OK(expr)     \
-  do {                            \
-    ::arrow::Status _st = (expr); \
-    EXPECT_TRUE(_st.ok());        \
+#define ARROW_EXPECT_OK(expr)                                       \
+  do {                                                              \
+    auto _res = (expr);                                             \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res); \
+    EXPECT_TRUE(_st.ok());                                          \
   } while (false)
 
-#define ABORT_NOT_OK(s)                   \
-  do {                                    \
-    ::arrow::Status _st = (s);            \
-    if (ARROW_PREDICT_FALSE(!_st.ok())) { \
-      _st.Abort();                        \
-    }                                     \
+#define ABORT_NOT_OK(expr)                                          \
+  do {                                                              \
+    auto _res = (expr);                                             \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res); \
+    if (ARROW_PREDICT_FALSE(!_st.ok())) {                           \
+      _st.Abort();                                                  \
+    }                                                               \
   } while (false);
 
 namespace arrow {
@@ -170,7 +196,8 @@ template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,
                      const std::vector<bool>& is_valid, const std::vector<C_TYPE>& values,
                      std::shared_ptr<Array>* out) {
-  DCHECK_EQ(TYPE::type_id, type->id())
+  auto type_id = TYPE::type_id;
+  ASSERT_EQ(type_id, type->id())
       << "template parameter and concrete DataType instance don't agree";
 
   std::unique_ptr<ArrayBuilder> builder_ptr;
@@ -191,7 +218,8 @@ void ArrayFromVector(const std::shared_ptr<DataType>& type,
 template <typename TYPE, typename C_TYPE = typename TYPE::c_type>
 void ArrayFromVector(const std::shared_ptr<DataType>& type,
                      const std::vector<C_TYPE>& values, std::shared_ptr<Array>* out) {
-  DCHECK_EQ(TYPE::type_id, type->id())
+  auto type_id = TYPE::type_id;
+  ASSERT_EQ(type_id, type->id())
       << "template parameter and concrete DataType instance don't agree";
 
   std::unique_ptr<ArrayBuilder> builder_ptr;
@@ -228,7 +256,7 @@ void ChunkedArrayFromVector(const std::shared_ptr<DataType>& type,
                             const std::vector<std::vector<C_TYPE>>& values,
                             std::shared_ptr<ChunkedArray>* out) {
   ArrayVector chunks;
-  DCHECK_EQ(is_valid.size(), values.size());
+  ASSERT_EQ(is_valid.size(), values.size());
   for (size_t i = 0; i < values.size(); ++i) {
     std::shared_ptr<Array> array;
     ArrayFromVector<TYPE, C_TYPE>(type, is_valid[i], values[i], &array);

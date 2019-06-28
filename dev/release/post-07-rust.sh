@@ -69,6 +69,6 @@ if [ "${INSTALL_RUST}" == "yes" ]; then
 fi
 
 echo "Success! The released packages are available here:"
-for module in ${modules}; do
+for module in ${modules[@]}; do
   echo "  https://crates.io/crates/${module}/${version}"
 done

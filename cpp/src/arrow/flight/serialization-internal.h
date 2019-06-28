@@ -43,6 +43,9 @@ struct FlightData {
   /// Non-length-prefixed Message header as described in format/Message.fbs
   std::shared_ptr<Buffer> metadata;
 
+  /// Application-defined metadata
+  std::shared_ptr<Buffer> app_metadata;
+
   /// Message body
   std::shared_ptr<Buffer> body;
 
@@ -53,14 +56,15 @@ struct FlightData {
 /// Write Flight message on gRPC stream with zero-copy optimizations.
 /// True is returned on success, false if some error occurred (connection closed?).
 bool WritePayload(const FlightPayload& payload,
-                  grpc::ClientWriter<pb::FlightData>* writer);
+                  grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer);
 bool WritePayload(const FlightPayload& payload,
                   grpc::ServerWriter<pb::FlightData>* writer);
 
 /// Read Flight message from gRPC stream with zero-copy optimizations.
 /// True is returned on success, false if stream ended.
 bool ReadPayload(grpc::ClientReader<pb::FlightData>* reader, FlightData* data);
-bool ReadPayload(grpc::ServerReader<pb::FlightData>* reader, FlightData* data);
+bool ReadPayload(grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader,
+                 FlightData* data);
 
 }  // namespace internal
 }  // namespace flight

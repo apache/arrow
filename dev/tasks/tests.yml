@@ -24,6 +24,7 @@ groups:
     - docker-cpp
     - docker-cpp-alpine
     - docker-cpp-cmake32
+    - docker-cpp-release
     - docker-c_glib
     - docker-go
     - docker-python-2.7
@@ -77,8 +78,9 @@ tasks:
   ############################## Language containers #########################
 
   docker-r:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       commands:
         - docker-compose build cpp
@@ -86,73 +88,91 @@ tasks:
         - docker-compose run r
 
   docker-rust:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       commands:
         - docker-compose build rust
         - docker-compose run rust
 
   docker-cpp:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       commands:
         - docker-compose build cpp
         - docker-compose run cpp
 
-  docker-cpp-alpine:
+  docker-cpp-release:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose run cpp-release
+
+  docker-cpp-alpine:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
     params:
       commands:
         - docker-compose build cpp-alpine
         - docker-compose run cpp-alpine
 
   docker-cpp-cmake32:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       commands:
         - docker-compose build cpp-cmake32
         - docker-compose run cpp-cmake32
 
   docker-c_glib:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       commands:
         - docker-compose build cpp
         - docker-compose build c_glib
-        - docker-compose run cpp
+        - docker-compose run c_glib
 
   docker-go:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       commands:
         - docker-compose build go
         - docker-compose run go
 
   docker-js:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       commands:
         - docker-compose build js
         - docker-compose run js
 
   docker-java:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       commands:
         - docker-compose build java
         - docker-compose run java
 
   docker-python-2.7:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 2.7
@@ -162,8 +182,9 @@ tasks:
         - docker-compose run python
 
   docker-python-3.6:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -173,8 +194,9 @@ tasks:
         - docker-compose run python
 
   docker-python-3.7:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.7
@@ -184,8 +206,9 @@ tasks:
         - docker-compose run python
 
   docker-python-2.7-alpine:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 2.7
@@ -195,8 +218,9 @@ tasks:
         - docker-compose run python-alpine
 
   docker-python-3.6-alpine:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -206,8 +230,9 @@ tasks:
         - docker-compose run python-alpine
 
   docker-python-2.7-nopandas:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 2.7
@@ -218,8 +243,9 @@ tasks:
         - docker-compose run python-nopandas
 
   docker-python-3.6-nopandas:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -232,8 +258,9 @@ tasks:
   ###################### Documentation building tests #########################
 
   docker-docs:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -246,8 +273,9 @@ tasks:
   ############################## Linter tests #################################
 
   docker-lint:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -258,8 +286,9 @@ tasks:
         - docker-compose run lint
 
   docker-iwyu:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -270,8 +299,9 @@ tasks:
         - docker-compose run iwyu
 
   docker-clang-format:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -284,8 +314,9 @@ tasks:
   ############################## Integration tests ############################
 
   docker-dask-integration:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -296,8 +327,9 @@ tasks:
         - docker-compose run dask-integration
 
   docker-hdfs-integration:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -308,8 +340,9 @@ tasks:
         - docker-compose run hdfs-integration
 
   docker-spark-integration:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -320,8 +353,9 @@ tasks:
         - docker-compose run spark-integration
 
   docker-turbodbc-integration:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6
@@ -332,8 +366,9 @@ tasks:
         - docker-compose run turbodbc-integration
 
   docker-pandas-master:
+    ci: circle
     platform: linux
-    template: docker-tests/travis.linux.yml
+    template: docker-tests/circle.linux.yml
     params:
       environment:
         PYTHON_VERSION: 3.6

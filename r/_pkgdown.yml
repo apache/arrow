@@ -39,17 +39,28 @@ navbar:
       text: Reference
       href: reference/index.html
 reference:
+- title: Installation helpers
+  contents:
+  - arrow_available
+  - install_arrow
 - title: Reading and writing files
   contents:
-  - read_csv_arrow
+  - read_delim_arrow
+  - read_json_arrow
   - read_feather
   - read_parquet
   - write_arrow
   - write_feather
+  - write_parquet
   - csv_convert_options
   - csv_parse_options
   - csv_read_options
   - csv_table_reader
+  - json_parse_options
+  - json_read_options
+  - parquet_arrow_reader_properties
+  - json_table_reader
+  - parquet_file_reader
 - title: Arrow data containers
   contents:
   - buffer
@@ -92,6 +103,7 @@ reference:
   - arrow__io__RandomAccessFile
   - arrow__io__Readable
   - arrow__io__ReadableFile
+  - arrow__json__TableReader
   - arrow__ipc__Message
   - arrow__ipc__MessageReader
   - arrow__ipc__RecordBatchFileReader
@@ -117,7 +129,6 @@ reference:
   - RecordBatchFileWriter
   - RecordBatchStreamReader
   - RecordBatchStreamWriter
-  - threadpool
   - cast_options
   - compression_codec
   - default_memory_pool

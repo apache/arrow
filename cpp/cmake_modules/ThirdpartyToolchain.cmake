@@ -319,8 +319,10 @@ endif()
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
   set(JEMALLOC_SOURCE_URL "$ENV{ARROW_JEMALLOC_URL}")
 else()
-  set(JEMALLOC_SOURCE_URL
-      "https://github.com/jemalloc/jemalloc/archive/${JEMALLOC_VERSION}.tar.gz")
+  set(
+    JEMALLOC_SOURCE_URL
+    "https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_LZ4_URL})
@@ -490,47 +492,42 @@ macro(build_boost)
   # This is needed by the thrift_ep build
   set(BOOST_ROOT ${BOOST_PREFIX})
 
-  if(ARROW_BOOST_HEADER_ONLY)
-    set(BOOST_BUILD_PRODUCTS)
-    set(BOOST_CONFIGURE_COMMAND "")
-    set(BOOST_BUILD_COMMAND "")
+  set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
+  set(BOOST_BUILD_LINK "static")
+  set(
+    BOOST_STATIC_SYSTEM_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(
+    BOOST_STATIC_FILESYSTEM_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(
+    BOOST_STATIC_REGEX_LIBRARY
+    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(BOOST_SYSTEM_LIBRARY boost_system_static)
+  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+  set(BOOST_REGEX_LIBRARY boost_regex_static)
+  set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
+                           ${BOOST_STATIC_FILESYSTEM_LIBRARY}
+                           ${BOOST_STATIC_REGEX_LIBRARY})
+  set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
+                              "--with-libraries=filesystem,regex,system")
+  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    set(BOOST_BUILD_VARIANT "debug")
   else()
-    set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-    set(BOOST_BUILD_LINK "static")
-    set(
-      BOOST_STATIC_SYSTEM_LIBRARY
-      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    set(
-      BOOST_STATIC_FILESYSTEM_LIBRARY
-      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    set(
-      BOOST_STATIC_REGEX_LIBRARY
-      "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    set(BOOST_SYSTEM_LIBRARY boost_system_static)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-    set(BOOST_REGEX_LIBRARY boost_regex_static)
-    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                             ${BOOST_STATIC_FILESYSTEM_LIBRARY}
-                             ${BOOST_STATIC_REGEX_LIBRARY})
-    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
-                                "--with-libraries=filesystem,regex,system")
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_BUILD_VARIANT "debug")
-    else()
-      set(BOOST_BUILD_VARIANT "release")
-    endif()
-    set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
-                            "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
-
-    add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
-
-    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
+    set(BOOST_BUILD_VARIANT "release")
   endif()
+  set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
+                          "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
+
+  add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
+
+  add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
+
+  add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
+
   externalproject_add(boost_ep
                       URL ${BOOST_SOURCE_URL}
                       BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
@@ -541,6 +538,7 @@ macro(build_boost)
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
   set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
   add_dependencies(toolchain boost_ep)
+  set(BOOST_VENDORED TRUE)
 endmacro()
 
 if(ARROW_FLIGHT AND ARROW_BUILD_TESTS)
@@ -588,20 +586,16 @@ elseif(BOOST_SOURCE STREQUAL "SYSTEM")
   find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
 endif()
 
-if(ARROW_BOOST_HEADER_ONLY)
-  set(ARROW_BOOST_LIBS)
+if(TARGET Boost::system)
+  set(BOOST_SYSTEM_LIBRARY Boost::system)
+  set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+  set(BOOST_REGEX_LIBRARY Boost::regex)
 else()
-  if(TARGET Boost::system)
-    set(BOOST_SYSTEM_LIBRARY Boost::system)
-    set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-    set(BOOST_REGEX_LIBRARY Boost::regex)
-  else()
-    set(BOOST_SYSTEM_LIBRARY boost_system_static)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-    set(BOOST_REGEX_LIBRARY boost_regex_static)
-  endif()
-  set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+  set(BOOST_SYSTEM_LIBRARY boost_system_static)
+  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+  set(BOOST_REGEX_LIBRARY boost_regex_static)
 endif()
+set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
 
 message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
 message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
@@ -1112,7 +1106,9 @@ macro(build_thrift)
       -DWITH_HASKELL=OFF
       -DWITH_CPP=ON
       -DWITH_STATIC_LIB=ON
-      -DWITH_LIBEVENT=OFF)
+      -DWITH_LIBEVENT=OFF
+      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
+      -DBoost_NO_BOOST_CMAKE=ON)
 
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
   if(DEFINED BOOST_ROOT)
@@ -1145,7 +1141,7 @@ macro(build_thrift)
   endif()
   set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} ${ZLIB_LIBRARY})
 
-  if(ARROW_BOOST_VENDORED)
+  if(BOOST_VENDORED)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
   endif()
 
@@ -1360,7 +1356,7 @@ if(ARROW_JEMALLOC)
     jemalloc_ep
     URL ${JEMALLOC_SOURCE_URL}
     PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-    CONFIGURE_COMMAND ./autogen.sh
+    CONFIGURE_COMMAND ./configure
                       "AR=${CMAKE_AR}"
                       "CC=${CMAKE_C_COMPILER}"
                       "--prefix=${JEMALLOC_PREFIX}"

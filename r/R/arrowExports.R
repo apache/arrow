@@ -168,6 +168,10 @@ r___RBuffer__initialize <- function(x){
     .Call(`_arrow_r___RBuffer__initialize` , x)
 }
 
+Buffer__data <- function(buffer){
+    .Call(`_arrow_Buffer__data` , buffer)
+}
+
 ChunkedArray__length <- function(chunked_array){
     .Call(`_arrow_ChunkedArray__length` , chunked_array)
 }
@@ -396,26 +400,6 @@ DataType__id <- function(type){
     .Call(`_arrow_DataType__id` , type)
 }
 
-schema_ <- function(fields){
-    .Call(`_arrow_schema_` , fields)
-}
-
-Schema__ToString <- function(s){
-    .Call(`_arrow_Schema__ToString` , s)
-}
-
-Schema__num_fields <- function(s){
-    .Call(`_arrow_Schema__num_fields` , s)
-}
-
-Schema__field <- function(s, i){
-    .Call(`_arrow_Schema__field` , s, i)
-}
-
-Schema__names <- function(schema){
-    .Call(`_arrow_Schema__names` , schema)
-}
-
 ListType__ToString <- function(type){
     .Call(`_arrow_ListType__ToString` , type)
 }
@@ -544,6 +528,10 @@ ipc___feather___TableReader__Open <- function(stream){
     .Call(`_arrow_ipc___feather___TableReader__Open` , stream)
 }
 
+ipc___feather___TableReader__column_names <- function(reader){
+    .Call(`_arrow_ipc___feather___TableReader__column_names` , reader)
+}
+
 Field__initialize <- function(name, field, nullable){
     .Call(`_arrow_Field__initialize` , name, field, nullable)
 }
@@ -594,6 +582,14 @@ io___RandomAccessFile__Seek <- function(x, position){
 
 io___RandomAccessFile__Tell <- function(x){
     .Call(`_arrow_io___RandomAccessFile__Tell` , x)
+}
+
+io___RandomAccessFile__Read0 <- function(x){
+    .Call(`_arrow_io___RandomAccessFile__Read0` , x)
+}
+
+io___RandomAccessFile__ReadAt <- function(x, position, nbytes){
+    .Call(`_arrow_io___RandomAccessFile__ReadAt` , x, position, nbytes)
 }
 
 io___MemoryMappedFile__Create <- function(path, size){
@@ -720,6 +716,10 @@ ipc___ReadSchema_InputStream <- function(stream){
     .Call(`_arrow_ipc___ReadSchema_InputStream` , stream)
 }
 
+ipc___ReadSchema_Message <- function(message){
+    .Call(`_arrow_ipc___ReadSchema_Message` , message)
+}
+
 ipc___MessageReader__Open <- function(stream){
     .Call(`_arrow_ipc___MessageReader__Open` , stream)
 }
@@ -732,12 +732,48 @@ ipc___ReadMessage <- function(stream){
     .Call(`_arrow_ipc___ReadMessage` , stream)
 }
 
-read_parquet_file <- function(filename){
-    .Call(`_arrow_read_parquet_file` , filename)
+parquet___arrow___ArrowReaderProperties__Make <- function(use_threads){
+    .Call(`_arrow_parquet___arrow___ArrowReaderProperties__Make` , use_threads)
+}
+
+parquet___arrow___ArrowReaderProperties__set_use_threads <- function(properties, use_threads){
+    invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads` , properties, use_threads))
+}
+
+parquet___arrow___ArrowReaderProperties__get_use_threads <- function(properties, use_threads){
+    .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads` , properties, use_threads)
+}
+
+parquet___arrow___ArrowReaderProperties__get_read_dictionary <- function(properties, column_index){
+    .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary` , properties, column_index)
+}
+
+parquet___arrow___ArrowReaderProperties__set_read_dictionary <- function(properties, column_index, read_dict){
+    invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary` , properties, column_index, read_dict))
+}
+
+parquet___arrow___FileReader__OpenFile <- function(file, props){
+    .Call(`_arrow_parquet___arrow___FileReader__OpenFile` , file, props)
+}
+
+parquet___arrow___FileReader__ReadTable1 <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadTable1` , reader)
+}
+
+parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
 }
 
 write_parquet_file <- function(table, filename){
     invisible(.Call(`_arrow_write_parquet_file` , table, filename))
+}
+
+parquet___arrow___FileReader__GetSchema2 <- function(reader, indices){
+    .Call(`_arrow_parquet___arrow___FileReader__GetSchema2` , reader, indices)
+}
+
+parquet___arrow___FileReader__GetSchema1 <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__GetSchema1` , reader)
 }
 
 RecordBatch__num_columns <- function(x){
@@ -864,6 +900,34 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema){
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open` , stream, schema)
 }
 
+schema_ <- function(fields){
+    .Call(`_arrow_schema_` , fields)
+}
+
+Schema__ToString <- function(s){
+    .Call(`_arrow_Schema__ToString` , s)
+}
+
+Schema__num_fields <- function(s){
+    .Call(`_arrow_Schema__num_fields` , s)
+}
+
+Schema__field <- function(s, i){
+    .Call(`_arrow_Schema__field` , s, i)
+}
+
+Schema__names <- function(schema){
+    .Call(`_arrow_Schema__names` , schema)
+}
+
+Schema__serialize <- function(schema){
+    .Call(`_arrow_Schema__serialize` , schema)
+}
+
+Schema__Equals <- function(schema, other, check_metadata){
+    .Call(`_arrow_Schema__Equals` , schema, other, check_metadata)
+}
+
 Table__from_dataframe <- function(tbl){
     .Call(`_arrow_Table__from_dataframe` , tbl)
 }
@@ -886,6 +950,14 @@ Table__column <- function(table, i){
 
 Table__columns <- function(table){
     .Call(`_arrow_Table__columns` , table)
+}
+
+Table__column_names <- function(table){
+    .Call(`_arrow_Table__column_names` , table)
+}
+
+Table__select <- function(table, indices){
+    .Call(`_arrow_Table__select` , table, indices)
 }
 
 Table__from_dots <- function(lst, schema_sxp){

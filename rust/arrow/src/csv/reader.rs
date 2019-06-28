@@ -48,8 +48,7 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
-use crate::array::ArrayRef;
-use crate::builder::*;
+use crate::array::{ArrayRef, BinaryBuilder, PrimitiveBuilder};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;

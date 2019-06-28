@@ -327,17 +327,17 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
   "NumberOfRealColumns": "11",
   "NumberOfColumns": "11",
   "Columns": [
-     { "Id": "0", "Name": "id", "PhysicalType": "INT32", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "1", "Name": "bool_col", "PhysicalType": "BOOLEAN", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "2", "Name": "tinyint_col", "PhysicalType": "INT32", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "3", "Name": "smallint_col", "PhysicalType": "INT32", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "4", "Name": "int_col", "PhysicalType": "INT32", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "5", "Name": "bigint_col", "PhysicalType": "INT64", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "6", "Name": "float_col", "PhysicalType": "FLOAT", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "7", "Name": "double_col", "PhysicalType": "DOUBLE", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "8", "Name": "date_string_col", "PhysicalType": "BYTE_ARRAY", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "9", "Name": "string_col", "PhysicalType": "BYTE_ARRAY", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} },
-     { "Id": "10", "Name": "timestamp_col", "PhysicalType": "INT96", "LogicalType": "NONE", "LogicalAnnotation": {"Type": "None"} }
+     { "Id": "0", "Name": "id", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "1", "Name": "bool_col", "PhysicalType": "BOOLEAN", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "2", "Name": "tinyint_col", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "3", "Name": "smallint_col", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "4", "Name": "int_col", "PhysicalType": "INT32", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "5", "Name": "bigint_col", "PhysicalType": "INT64", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "6", "Name": "float_col", "PhysicalType": "FLOAT", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "7", "Name": "double_col", "PhysicalType": "DOUBLE", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "8", "Name": "date_string_col", "PhysicalType": "BYTE_ARRAY", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "9", "Name": "string_col", "PhysicalType": "BYTE_ARRAY", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} },
+     { "Id": "10", "Name": "timestamp_col", "PhysicalType": "INT96", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} }
   ],
   "RowGroups": [
      {

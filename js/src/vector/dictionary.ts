@@ -25,19 +25,19 @@ import { VectorBuilderOptionsAsync } from './index';
 import { DataType, Dictionary, TKeys } from '../type';
 
 /** @ignore */
-type DictionaryFromArgs<T extends DataType = any, TKey extends TKeys = TKeys> = [Vector<T>, TKey, ArrayLike<number> | TKey['TArray']];
+type FromArgs<T extends DataType = any, TKey extends TKeys = TKeys> = [Vector<T>, TKey, ArrayLike<number> | TKey['TArray']];
 
 /** @ignore */
 export class DictionaryVector<T extends DataType = any, TKey extends TKeys = TKeys> extends BaseVector<Dictionary<T, TKey>> {
-    public static from<T extends DataType = any, TKey extends TKeys = TKeys>(...args: DictionaryFromArgs<T, TKey>): V<Dictionary<T, TKey>>;
+    public static from<T extends DataType = any, TKey extends TKeys = TKeys>(...args: FromArgs<T, TKey>): V<Dictionary<T, TKey>>;
     public static from<T extends DataType = any, TKey extends TKeys = TKeys>(input: VectorBuilderOptions<Dictionary<T, TKey>>): Vector<Dictionary<T, TKey>>;
     public static from<T extends DataType = any, TKey extends TKeys = TKeys>(input: VectorBuilderOptionsAsync<Dictionary<T, TKey>>): Promise<Vector<Dictionary<T, TKey>>>;
     /** @nocollapse */
     public static from<T extends DataType = any, TKey extends TKeys = TKeys>(...args: any[]) {
         if (args.length === 3) {
-            const [values, indices, keys] = args as DictionaryFromArgs<T, TKey>;
-            const type = new Dictionary(values.type, indices, null, null, values);
-            return Vector.new(Data.Dictionary(type, 0, keys.length, 0, null, keys));
+            const [values, indices, keys] = args as FromArgs<T, TKey>;
+            const type = new Dictionary(values.type, indices, null, null);
+            return Vector.new(Data.Dictionary(type, 0, keys.length, 0, null, keys, values));
         }
         return vectorFromValuesWithType(() => args[0].type, args[0]);
     }
@@ -49,7 +49,7 @@ export class DictionaryVector<T extends DataType = any, TKey extends TKeys = TKe
 
     public readonly indices: V<TKey>;
 
-    public get dictionary() { return this.data.type.dictionaryVector; }
+    public get dictionary() { return <Vector<T>> this.data.dictionary; }
     public reverseLookup(value: T) { return this.dictionary.indexOf(value); }
     public getKey(idx: number): TKey['TValue'] | null { return this.indices.get(idx); }
     public getValue(key: number): T['TValue'] | null { return this.dictionary.get(key); }

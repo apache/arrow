@@ -453,8 +453,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStructArray(shared_ptr[CDataType] type, int64_t length,
                      vector[shared_ptr[CArray]] children,
                      shared_ptr[CBuffer] null_bitmap=nullptr,
-                     int64_t null_count=0,
+                     int64_t null_count=-1,
                      int64_t offset=0)
+
+        # XXX Cython crashes if default argument values are declared here
+        # https://github.com/cython/cython/issues/2167
+        @staticmethod
+        CResult[shared_ptr[CArray]] Make(
+            vector[shared_ptr[CArray]] children,
+            vector[c_string] field_names,
+            shared_ptr[CBuffer] null_bitmap,
+            int64_t null_count,
+            int64_t offset)
 
         shared_ptr[CArray] field(int pos)
         shared_ptr[CArray] GetFieldByName(const c_string& name) const
@@ -476,6 +486,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] type()
         shared_ptr[CChunkedArray] Slice(int64_t offset, int64_t length) const
         shared_ptr[CChunkedArray] Slice(int64_t offset) const
+
+        CStatus Validate() const
 
     cdef cppclass CColumn" arrow::Column":
         CColumn(const shared_ptr[CField]& field,
@@ -555,6 +567,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus RenameColumns(const vector[c_string]&, shared_ptr[CTable]* out)
 
         CStatus Flatten(CMemoryPool* pool, shared_ptr[CTable]* out)
+
+        CStatus CombineChunks(CMemoryPool* pool, shared_ptr[CTable]* out)
 
         CStatus Validate()
 
@@ -1151,7 +1165,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
-    CStatus InferArrowType(object obj, c_bool pandas_null_sentinels,
+    CStatus InferArrowType(object obj, object mask,
+                           c_bool pandas_null_sentinels,
                            shared_ptr[CDataType]* out_type)
 
 

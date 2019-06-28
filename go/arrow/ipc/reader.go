@@ -179,6 +179,24 @@ func (r *Reader) Record() array.Record {
 	return r.rec
 }
 
+// Read reads the current record from the underlying stream and an error, if any.
+// When the Reader reaches the end of the underlying stream, it returns (nil, io.EOF).
+func (r *Reader) Read() (array.Record, error) {
+	if r.rec != nil {
+		r.rec.Release()
+		r.rec = nil
+	}
+
+	if !r.next() {
+		if r.done {
+			return nil, io.EOF
+		}
+		return nil, r.err
+	}
+
+	return r.rec, nil
+}
+
 var (
 	_ array.RecordReader = (*Reader)(nil)
 )

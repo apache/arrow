@@ -131,7 +131,7 @@ class ARROW_EXPORT PrimitiveAllocatingUnaryKernel : public UnaryKernel {
 /// \brief Kernel used to preallocate outputs for primitive types.
 class ARROW_EXPORT PrimitiveAllocatingBinaryKernel : public BinaryKernel {
  public:
-  // \brief Construct with a kernel to delegate operatoions to.
+  // \brief Construct with a kernel to delegate operations to.
   //
   // Ownership is not taken of the delegate kernel, it must outlive
   // the life time of this object.

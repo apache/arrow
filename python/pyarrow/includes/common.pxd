@@ -69,6 +69,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool IsPlasmaObjectNonexistent()
         c_bool IsPlasmaStoreFull()
 
+cdef extern from "arrow/result.h" namespace "arrow::internal" nogil:
+    cdef cppclass CResult[T]:
+        c_bool ok()
+        CStatus status()
+        T operator*()
+
+cdef extern from "arrow/python/common.h" namespace "arrow::py":
+    T GetResultValue[T](CResult[T]) except *
 
 cdef inline object PyObject_to_object(PyObject* o):
     # Cast to "object" increments reference count

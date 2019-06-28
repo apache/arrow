@@ -620,7 +620,7 @@ class PrimitiveTypedTest : public ::testing::Test {
     for (int i = 0; i < num_columns; ++i) {
       std::string name = TestColumnName(i);
       fields.push_back(schema::PrimitiveNode::Make(name, repetition, TestType::type_num,
-                                                   LogicalType::NONE, FLBA_LENGTH));
+                                                   ConvertedType::NONE, FLBA_LENGTH));
     }
     node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
     schema_.Init(node_);

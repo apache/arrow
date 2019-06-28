@@ -24,6 +24,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -207,7 +208,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   private int getValidityBufferValueCapacity() {
-    return (int) (validityBuffer.capacity() * 8L);
+    return validityBuffer.capacity() * 8;
   }
 
   private int getOffsetBufferValueCapacity() {

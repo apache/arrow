@@ -65,7 +65,7 @@ Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
 BufferOutputStream::~BufferOutputStream() {
   // This can fail, better to explicitly call close
   if (buffer_) {
-    DCHECK_OK(Close());
+    ARROW_CHECK_OK(Close());
   }
 }
 
@@ -159,7 +159,7 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
         memcopy_blocksize_(kMemcopyDefaultBlocksize),
         memcopy_threshold_(kMemcopyDefaultThreshold) {
     buffer_ = buffer;
-    DCHECK(buffer->is_mutable()) << "Must pass mutable buffer";
+    ARROW_CHECK(buffer->is_mutable()) << "Must pass mutable buffer";
     mutable_data_ = buffer->mutable_data();
     size_ = buffer->size();
     position_ = 0;

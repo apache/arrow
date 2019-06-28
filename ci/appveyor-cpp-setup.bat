@@ -26,7 +26,6 @@ rd /s /q C:\OpenSSL-v11-Win64
 rd /s /q C:\OpenSSL-v111-Win32
 rd /s /q C:\OpenSSL-v111-Win64
 
-conda update -y -q conda
 conda config --set auto_update_conda false
 conda info -a
 

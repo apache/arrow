@@ -90,13 +90,16 @@ records: 3
 		{
 			name: "fixed_width_types",
 			want: `schema:
-  fields: 8
+  fields: 11
     - float16s: type=float16, nullable
     - time32ms: type=time32[ms], nullable
     - time32s: type=time32[s], nullable
     - time64ns: type=time64[ns], nullable
     - time64us: type=time64[us], nullable
-    - timestamp: type=timestamp[ns], nullable
+    - timestamp_s: type=timestamp[s, tz=UTC], nullable
+    - timestamp_ms: type=timestamp[ms, tz=UTC], nullable
+    - timestamp_us: type=timestamp[us, tz=UTC], nullable
+    - timestamp_ns: type=timestamp[ns, tz=UTC], nullable
     - date32s: type=date32, nullable
     - date64s: type=date64, nullable
 records: 3

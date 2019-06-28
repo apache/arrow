@@ -22,24 +22,17 @@ import {
 } from '../../data/tables';
 
 import { ArrowIOTestHelper } from './helpers';
-
-import {
-    Chunked,
-    MessageReader,
-    AsyncMessageReader
-} from '../../Arrow';
+import { MessageReader, AsyncMessageReader } from '../../Arrow';
 
 for (const table of generateRandomTables([10, 20, 30])) {
 
     const io = ArrowIOTestHelper.stream(table);
     const name = `[\n ${table.schema.fields.join(',\n ')}\n]`;
-    let numMessages = /* schema message */ 1 + table.chunks.length;
-
-    // count dictionary chunks
-    table.schema.dictionaryFields.forEach((fields) => {
-        const vector = fields[0].type.dictionaryVector as Chunked;
-        numMessages += (vector.chunks ? vector.chunks.length : 1);
-    });
+    const numMessages = table.chunks.reduce((numMessages, batch) => {
+        return numMessages +
+            /* recordBatch message */ 1 +
+            /* dictionary messages */ batch.dictionaries.size;
+    }, /* schema message */ 1);
 
     const validate = validateMessageReader.bind(0, numMessages);
     const validateAsync = validateAsyncMessageReader.bind(0, numMessages);

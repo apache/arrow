@@ -84,8 +84,7 @@ func main() {
 }
 
 func processStream(w io.Writer, rin io.Reader) error {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(nil, 0)
+	mem := memory.NewGoAllocator()
 
 	for {
 		r, err := ipc.NewReader(rin, ipc.WithAllocator(mem))
@@ -138,8 +137,7 @@ func processFile(w io.Writer, fname string) error {
 		return processStream(w, f)
 	}
 
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(nil, 0)
+	mem := memory.NewGoAllocator()
 
 	r, err := ipc.NewFileReader(f, ipc.WithAllocator(mem))
 	if err != nil {

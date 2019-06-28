@@ -174,7 +174,22 @@
     GetSize = function() io___RandomAccessFile__GetSize(self),
     supports_zero_copy = function() io___RandomAccessFile__supports_zero_copy(self),
     Seek = function(position) io___RandomAccessFile__Seek(self, position),
-    Tell = function() io___RandomAccessFile__Tell(self)
+    Tell = function() io___RandomAccessFile__Tell(self),
+
+    Read = function(nbytes = NULL) {
+      if (is.null(nbytes)) {
+        shared_ptr(`arrow::Buffer`, io___RandomAccessFile__Read0(self))
+      } else {
+        shared_ptr(`arrow::Buffer`, io___Readable__Read(self, nbytes))
+      }
+    },
+
+    ReadAt = function(position, nbytes = NULL) {
+      if (is.null(nbytes)) {
+        nbytes <- self$GetSize() - position
+      }
+      shared_ptr(`arrow::Buffer`, io___RandomAccessFile__ReadAt(self, position, nbytes))
+    }
   )
 )
 

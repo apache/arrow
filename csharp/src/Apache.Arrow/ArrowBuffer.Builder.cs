@@ -25,17 +25,24 @@ namespace Apache.Arrow
         public class Builder<T>
             where T : struct
         {
+            private const int DefaultCapacity = 8;
+
             private readonly int _size;
-            private byte[] _buffer;
 
-            public int Capacity => _buffer.Length / _size;
+            public int Capacity => Memory.Length / _size;
             public int Length { get; private set; }
+            public Memory<byte> Memory { get; private set; }
+            public Span<T> Span
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => Memory.Span.CastTo<T>();
+            }
 
-            public Builder(int capacity = 8)
+            public Builder(int capacity = DefaultCapacity)
             {
                 _size = Unsafe.SizeOf<T>();
-                _buffer = new byte[capacity * _size];
 
+                Memory = new byte[capacity * _size];
                 Length = 0;
             }
 
@@ -47,26 +54,16 @@ namespace Apache.Arrow
 
             public Builder<T> Append(T value)
             {
-                var span = EnsureCapacity(1);
-                span[Length++] = value;
+                EnsureCapacity(1);
+                Span[Length++] = value;
                 return this;
             }
 
             public Builder<T> Append(ReadOnlySpan<T> source)
             {
-                var span = EnsureCapacity(source.Length);
-                source.CopyTo(span.Slice(Length, source.Length));
+                EnsureCapacity(source.Length);
+                source.CopyTo(Span.Slice(Length, source.Length));
                 Length += source.Length;
-                return this;
-            }
-
-            public Builder<T> Append(Func<IEnumerable<T>> fn)
-            {
-                if (fn != null)
-                {
-                    AppendRange(fn());
-                }
-
                 return this;
             }
 
@@ -91,13 +88,8 @@ namespace Apache.Arrow
 
             public Builder<T> Resize(int capacity)
             {
-                if (capacity < 0)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(capacity));
-                }
-
-                Reallocate(capacity);
-                Length = Math.Min(Length, capacity);
+                EnsureCapacity(capacity);
+                Length = Math.Max(0, capacity);
 
                 return this;
             }
@@ -125,21 +117,17 @@ namespace Apache.Arrow
                 return new ArrowBuffer(memoryOwner);
             }
 
-            private Span<T> EnsureCapacity(int len)
+            private void EnsureCapacity(int n)
             {
-                var targetCapacity = Length + len;
+                var length = checked(Length + n);
 
-                if (targetCapacity > Capacity)
+                if (length > Capacity)
                 {
                     // TODO: specifiable growth strategy
 
-                    var capacity = Math.Max(
-                        targetCapacity * _size, _buffer.Length * 2);
-
+                    var capacity = Math.Max(length * _size, Memory.Length * 2);
                     Reallocate(capacity);
                 }
-
-                return Span;
             }
 
             private void Reallocate(int length)
@@ -151,17 +139,13 @@ namespace Apache.Arrow
 
                 if (length != 0)
                 {
-                    System.Array.Resize(ref _buffer, length);
+                    var memory = new Memory<byte>(new byte[length]);
+                    Memory.CopyTo(memory);
+
+                    Memory = memory;
                 }
             }
 
-            private Memory<byte> Memory => _buffer;
-
-            private Span<T> Span
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => Memory.Span.CastTo<T>();
-            }
         }
 
     }

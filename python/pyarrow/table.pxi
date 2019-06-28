@@ -268,6 +268,8 @@ def chunked_array(arrays, type=None):
     Parameters
     ----------
     arrays : list of Array or values coercible to arrays
+        Must all be the same data type. Can be empty only if type also
+        passed
     type : DataType or string coercible to DataType
 
     Returns
@@ -298,6 +300,10 @@ def chunked_array(arrays, type=None):
             raise ValueError("Cannot construct a chunked array with neither "
                              "arrays nor type")
         sp_chunked_array.reset(new CChunkedArray(c_arrays))
+
+    with nogil:
+        check_status(sp_chunked_array.get().Validate())
+
     return pyarrow_wrap_chunked_array(sp_chunked_array)
 
 
@@ -830,7 +836,7 @@ cdef class RecordBatch(_PandasConvertible):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
 
     @classmethod
-    def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
+    def from_pandas(cls, df, Schema schema=None, preserve_index=None,
                     nthreads=None, columns=None):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
@@ -843,7 +849,9 @@ cdef class RecordBatch(_PandasConvertible):
             indicate the type of columns if we cannot infer it automatically.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
-            ``RecordBatch``.
+            ``RecordBatch``. The default of None will store the index as a
+            column, except for RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a column.
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
@@ -855,10 +863,10 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.RecordBatch
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        names, arrays, metadata = dataframe_to_arrays(
+        arrays, schema = dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
-        return cls.from_arrays(arrays, names, metadata)
+        return cls.from_arrays(arrays, schema)
 
     @staticmethod
     def from_arrays(list arrays, names, metadata=None):
@@ -1021,6 +1029,31 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(flattened)
 
+    def combine_chunks(self, MemoryPool memory_pool=None):
+        """
+        Make a new table by combining the chunks this table has.
+
+        All the underlying chunks in the ChunkedArray of each column are
+        concatenated into zero or one chunk.
+
+        Parameters
+        ----------
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Returns
+        -------
+        result : Table
+        """
+        cdef:
+            shared_ptr[CTable] combined
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            check_status(self.table.CombineChunks(pool, &combined))
+
+        return pyarrow_wrap_table(combined)
+
     def __eq__(self, other):
         try:
             return self.equals(other)
@@ -1084,7 +1117,7 @@ cdef class Table(_PandasConvertible):
         return Table.from_arrays(newcols, schema=target_schema)
 
     @classmethod
-    def from_pandas(cls, df, Schema schema=None, bint preserve_index=True,
+    def from_pandas(cls, df, Schema schema=None, preserve_index=None,
                     nthreads=None, columns=None, bint safe=True):
         """
         Convert pandas.DataFrame to an Arrow Table.
@@ -1110,7 +1143,9 @@ cdef class Table(_PandasConvertible):
             indicate the type of columns if we cannot infer it automatically.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
-            ``Table``.
+            ``Table``. The default of None will store the index as a column,
+            except for RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a column.
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
             indicated number of threads
@@ -1136,7 +1171,7 @@ cdef class Table(_PandasConvertible):
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        names, arrays, metadata = dataframe_to_arrays(
+        arrays, schema = dataframe_to_arrays(
             df,
             schema=schema,
             preserve_index=preserve_index,
@@ -1144,7 +1179,7 @@ cdef class Table(_PandasConvertible):
             columns=columns,
             safe=safe
         )
-        return cls.from_arrays(arrays, names=names, metadata=metadata)
+        return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
     def from_arrays(arrays, names=None, schema=None, metadata=None):
@@ -1568,6 +1603,35 @@ def _reconstruct_table(arrays, schema):
     Internal: reconstruct pa.Table from pickled components.
     """
     return Table.from_arrays(arrays, schema=schema)
+
+
+def table(data, schema=None):
+    """
+    Create a pyarrow.Table from a Python object (table like objects such as
+    DataFrame, dictionary).
+
+    Parameters
+    ----------
+    data : pandas.DataFrame, dict
+        A DataFrame or a mapping of strings to Arrays or Python lists.
+    schema : Schema, default None
+        The expected schema of the Arrow Table. If not passed, will be
+        inferred from the data.
+
+    Returns
+    -------
+    Table
+
+    See Also
+    --------
+    Table.from_pandas, Table.from_pydict
+    """
+    if isinstance(data, dict):
+        return Table.from_pydict(data, schema=schema)
+    elif isinstance(data, _pandas_api.pd.DataFrame):
+        return Table.from_pandas(data, schema=schema)
+    else:
+        return TypeError("Expected pandas DataFrame or python dictionary")
 
 
 def concat_tables(tables):

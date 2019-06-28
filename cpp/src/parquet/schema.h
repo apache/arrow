@@ -103,20 +103,20 @@ class PARQUET_EXPORT Node {
   enum type { PRIMITIVE, GROUP };
 
   Node(Node::type type, const std::string& name, Repetition::type repetition,
-       LogicalType::type logical_type = LogicalType::NONE, int id = -1)
+       ConvertedType::type converted_type = ConvertedType::NONE, int id = -1)
       : type_(type),
         name_(name),
         repetition_(repetition),
-        logical_type_(logical_type),
+        converted_type_(converted_type),
         id_(id),
         parent_(NULLPTR) {}
 
   Node(Node::type type, const std::string& name, Repetition::type repetition,
-       std::shared_ptr<const LogicalAnnotation> logical_annotation, int id = -1)
+       std::shared_ptr<const LogicalType> logical_type, int id = -1)
       : type_(type),
         name_(name),
         repetition_(repetition),
-        logical_annotation_(logical_annotation),
+        logical_type_(logical_type),
         id_(id),
         parent_(NULLPTR) {}
 
@@ -140,11 +140,9 @@ class PARQUET_EXPORT Node {
 
   Repetition::type repetition() const { return repetition_; }
 
-  LogicalType::type logical_type() const { return logical_type_; }
+  ConvertedType::type converted_type() const { return converted_type_; }
 
-  const std::shared_ptr<const LogicalAnnotation>& logical_annotation() const {
-    return logical_annotation_;
-  }
+  const std::shared_ptr<const LogicalType>& logical_type() const { return logical_type_; }
 
   int id() const { return id_; }
 
@@ -177,8 +175,8 @@ class PARQUET_EXPORT Node {
   Node::type type_;
   std::string name_;
   Repetition::type repetition_;
-  LogicalType::type logical_type_;
-  std::shared_ptr<const LogicalAnnotation> logical_annotation_;
+  ConvertedType::type converted_type_;
+  std::shared_ptr<const LogicalType> logical_type_;
   int id_;
   // Nodes should not be shared, they have a single parent.
   const Node* parent_;
@@ -204,16 +202,16 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              Type::type type,
-                             LogicalType::type logical_type = LogicalType::NONE,
+                             ConvertedType::type converted_type = ConvertedType::NONE,
                              int length = -1, int precision = -1, int scale = -1) {
-    return NodePtr(new PrimitiveNode(name, repetition, type, logical_type, length,
+    return NodePtr(new PrimitiveNode(name, repetition, type, converted_type, length,
                                      precision, scale));
   }
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
-                             std::shared_ptr<const LogicalAnnotation> logical_annotation,
+                             std::shared_ptr<const LogicalType> logical_type,
                              Type::type primitive_type, int primitive_length = -1) {
-    return NodePtr(new PrimitiveNode(name, repetition, logical_annotation, primitive_type,
+    return NodePtr(new PrimitiveNode(name, repetition, logical_type, primitive_type,
                                      primitive_length));
   }
 
@@ -235,11 +233,11 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
  private:
   PrimitiveNode(const std::string& name, Repetition::type repetition, Type::type type,
-                LogicalType::type logical_type = LogicalType::NONE, int length = -1,
+                ConvertedType::type converted_type = ConvertedType::NONE, int length = -1,
                 int precision = -1, int scale = -1, int id = -1);
 
   PrimitiveNode(const std::string& name, Repetition::type repetition,
-                std::shared_ptr<const LogicalAnnotation> logical_annotation,
+                std::shared_ptr<const LogicalType> logical_type,
                 Type::type primitive_type, int primitive_length = -1, int id = -1);
 
   Type::type physical_type_;
@@ -265,14 +263,14 @@ class PARQUET_EXPORT GroupNode : public Node {
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              const NodeVector& fields,
-                             LogicalType::type logical_type = LogicalType::NONE) {
-    return NodePtr(new GroupNode(name, repetition, fields, logical_type));
+                             ConvertedType::type converted_type = ConvertedType::NONE) {
+    return NodePtr(new GroupNode(name, repetition, fields, converted_type));
   }
 
-  static inline NodePtr Make(
-      const std::string& name, Repetition::type repetition, const NodeVector& fields,
-      std::shared_ptr<const LogicalAnnotation> logical_annotation) {
-    return NodePtr(new GroupNode(name, repetition, fields, logical_annotation));
+  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
+                             const NodeVector& fields,
+                             std::shared_ptr<const LogicalType> logical_type) {
+    return NodePtr(new GroupNode(name, repetition, fields, logical_type));
   }
 
   bool Equals(const Node* other) const override;
@@ -293,12 +291,12 @@ class PARQUET_EXPORT GroupNode : public Node {
 
  private:
   GroupNode(const std::string& name, Repetition::type repetition,
-            const NodeVector& fields, LogicalType::type logical_type = LogicalType::NONE,
-            int id = -1);
+            const NodeVector& fields,
+            ConvertedType::type converted_type = ConvertedType::NONE, int id = -1);
 
   GroupNode(const std::string& name, Repetition::type repetition,
-            const NodeVector& fields,
-            std::shared_ptr<const LogicalAnnotation> logical_annotation, int id = -1);
+            const NodeVector& fields, std::shared_ptr<const LogicalType> logical_type,
+            int id = -1);
 
   NodeVector fields_;
   bool EqualsInternal(const GroupNode* other) const;
@@ -353,18 +351,18 @@ class PARQUET_EXPORT ColumnDescriptor {
 
   Type::type physical_type() const { return primitive_node_->physical_type(); }
 
-  LogicalType::type logical_type() const { return primitive_node_->logical_type(); }
+  ConvertedType::type converted_type() const { return primitive_node_->converted_type(); }
 
-  const std::shared_ptr<const LogicalAnnotation>& logical_annotation() const {
-    return primitive_node_->logical_annotation();
+  const std::shared_ptr<const LogicalType>& logical_type() const {
+    return primitive_node_->logical_type();
   }
 
   ColumnOrder column_order() const { return primitive_node_->column_order(); }
 
   SortOrder::type sort_order() const {
-    auto la = logical_annotation();
+    auto la = logical_type();
     auto pt = physical_type();
-    return la ? GetSortOrder(la, pt) : GetSortOrder(logical_type(), pt);
+    return la ? GetSortOrder(la, pt) : GetSortOrder(converted_type(), pt);
   }
 
   const std::string& name() const { return primitive_node_->name(); }

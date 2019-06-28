@@ -2,7 +2,7 @@
 % Please edit documentation in R/csv.R
 \name{csv_parse_options}
 \alias{csv_parse_options}
-\title{Parsing options}
+\title{CSV parsing options}
 \usage{
 csv_parse_options(delimiter = ",", quoting = TRUE,
   quote_char = "\\"", double_quote = TRUE, escaping = FALSE,
@@ -29,5 +29,5 @@ csv_parse_options(delimiter = ",", quoting = TRUE,
 \item{header_rows}{Number of header rows to skip (including the first row containing column names)}
 }
 \description{
-Parsing options
+CSV parsing options
 }
