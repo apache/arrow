@@ -15,12 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifdef _MSC_VER
-#pragma warning(push)
-// Disable forcing value to bool warnings
-#pragma warning(disable : 4800)
-#endif
-
 #include "gtest/gtest.h"
 
 #include <vector>
@@ -30,7 +24,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
 #include "arrow/columnar_format.h"
-
 
 namespace arrow {
 
@@ -127,35 +120,9 @@ TEST(TestColumnarFormat, OptionalFields) {
   auto f1 = field("f1", list(f2), true);
   auto f0 = field("f0", struct_({f1}), true);
 
-  auto pool = default_memory_pool();
-
-  auto f2b = std::make_shared<Int64Builder>(f2->type(), pool);
-  auto f1b = std::make_shared<ListBuilder>(pool, f2b, f1->type());
-  auto f0b = std::make_shared<StructBuilder>(
-    f0->type(), pool, std::vector<std::shared_ptr<ArrayBuilder>>{{f1b}});
-
-  // f0: null
-  ASSERT_OK(f0b->Append(false));
-  ASSERT_OK(f1b->Append(false));
-
-  // f0: { f1: null}
-  ASSERT_OK(f0b->Append(true));
-  ASSERT_OK(f1b->Append(false));
-
-  // f0: { f1: []}
-  ASSERT_OK(f0b->Append(true));
-  ASSERT_OK(f1b->Append(true));
-
-  // f0: { f1: [f2:5, f2:null, f2:10]}
-  ASSERT_OK(f0b->Append(true));
-  ASSERT_OK(f1b->Append(true));
-  ASSERT_OK(f2b->Append(5));
-  ASSERT_OK(f2b->AppendNull());
-  ASSERT_OK(f2b->Append(10));
-
-  std::shared_ptr<Array> array;
-  ASSERT_OK(f0b->Finish(&array));
-
+  std::string json = "[null, {'f1':null}, {'f1':[]}, {'f1':[5,null,10]}]";
+  std::replace(json.begin(), json.end(), '\'', '"');
+  std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
   colmap.Put(f0, ArrayOf<Int16Type>({0,0,0,0}),
@@ -181,27 +148,9 @@ TEST(TestColumnarFormat, RequiredFields) {
   auto f1 = field("f1", list(f2), false);
   auto f0 = field("f0", struct_({f1}), false);
 
-  auto pool = default_memory_pool();
-
-  auto f2b = std::make_shared<Int64Builder>(f2->type(), pool);
-  auto f1b = std::make_shared<ListBuilder>(pool, f2b, f1->type());
-  auto f0b = std::make_shared<StructBuilder>(
-    f0->type(), pool, std::vector<std::shared_ptr<ArrayBuilder>>{{f1b}});
-
-  // f0: { f1: []}
-  ASSERT_OK(f0b->Append(true));
-  ASSERT_OK(f1b->Append(true));
-
-  // f0: { f1: [f2:5, f2:10, f2:15]}
-  ASSERT_OK(f0b->Append(true));
-  ASSERT_OK(f1b->Append(true));
-  ASSERT_OK(f2b->Append(5));
-  ASSERT_OK(f2b->Append(10));
-  ASSERT_OK(f2b->Append(15));
-
-  std::shared_ptr<Array> array;
-  ASSERT_OK(f0b->Finish(&array));
-
+  std::string json = "[{'f1':[]}, {'f1':[5,10,15]}]";
+  std::replace(json.begin(), json.end(), '\'', '"');
+  std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
   colmap.Put(f0, ArrayOf<Int16Type>({0,0}),
@@ -211,6 +160,67 @@ TEST(TestColumnarFormat, RequiredFields) {
   colmap.Put(f2, ArrayOf<Int16Type>({0,0,1,1}),
                  ArrayOf<Int16Type>({0,1,1,1}),
                  ArrayOf<Int64Type>({5,10,15}));
+
+  Roundtrip(f0, array, colmap);
+}
+
+TEST(TestColumnarFormat, EmptySchema) {
+  auto f0 = field("f0", struct_({}), false);
+
+  std::string json = "[{},{},{}]";
+  std::replace(json.begin(), json.end(), '\'', '"');
+  std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
+
+  ColumnMap colmap;
+  colmap.Put(f0, ArrayOf<Int16Type>({0,0,0}),
+                 ArrayOf<Int16Type>({0,0,0}));
+  Roundtrip(f0, array, colmap);
+}
+
+TEST(TestColumnarFormat, Siblings) {
+  /*
+   * f0: required struct {
+   *   f1: required struct {
+   *     f2: required int64,
+   *     f3: required int64
+   *   },
+   *   f4: required struct {
+   *     f5: required int64,
+   *     f6: required int64
+   *   }
+   * }
+   */
+  auto f3 = field("f3", int64(), false);
+  auto f2 = field("f2", int64(), false);
+  auto f1 = field("f1", struct_({f2, f3}), false);
+  auto f5 = field("f5", int64(), false);
+  auto f6 = field("f6", int64(), false);
+  auto f4 = field("f4", struct_({f5, f6}), false);
+  auto f0 = field("f0", struct_({f1, f4}), false);
+
+  std::string json = "[{'f1':{'f2':5,'f3':10},'f4':{'f5':15,'f6':20}}]";
+  std::replace(json.begin(), json.end(), '\'', '"');
+  std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
+
+  ColumnMap colmap;
+  colmap.Put(f0, ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int16Type>({0}));
+  colmap.Put(f1, ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int16Type>({0}));
+  colmap.Put(f2, ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int64Type>({5}));
+  colmap.Put(f3, ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int64Type>({10}));
+  colmap.Put(f4, ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int16Type>({0}));
+  colmap.Put(f5, ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int64Type>({15}));
+  colmap.Put(f6, ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int16Type>({0}),
+                 ArrayOf<Int64Type>({20}));
 
   Roundtrip(f0, array, colmap);
 }
