@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.2)
 set(CMAKE_CXX_STANDARD 11)
 
-set(MLARROW_VERSION "0.14.0")
+set(MLARROW_VERSION "1.0.0-SNAPSHOT")
 string(REGEX MATCH
   "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_VERSION}")
 
