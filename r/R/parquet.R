@@ -64,16 +64,17 @@
 
 #' Create a new ArrowReaderProperties instance
 #'
-#' @param use_threads use threads ?
+#' @param use_threads use threads?
 #'
 #' @export
-parquet_arrow_reader_properties <- function(use_threads = TRUE) {
+#' @keywords internal
+parquet_arrow_reader_properties <- function(use_threads = option_use_threads()) {
   shared_ptr(`parquet::arrow::ArrowReaderProperties`, parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads)))
 }
 
-#' Create a FileReader instance
+#' Parquet file reader
 #'
-#' @param file file
+#' @inheritParams read_delim_arrow
 #' @param props reader file properties, as created by [parquet_arrow_reader_properties()]
 #'
 #' @param ... additional parameters
@@ -102,17 +103,15 @@ parquet_file_reader.character <- function(file, props = parquet_arrow_reader_pro
   parquet_file_reader(fs::path_abs(file), props = parquet_arrow_reader_properties(), memory_map = memory_map, ...)
 }
 
-#' Read Parquet file from disk
+#' Read a Parquet file
 #'
 #' '[Parquet](https://parquet.apache.org/)' is a columnar storage file format.
 #' This function enables you to read Parquet files into R.
 #'
+#' @inheritParams read_delim_arrow
 #' @inheritParams parquet_file_reader
-#' @param as_tibble Should the [arrow::Table][arrow__Table] be converted to a
-#' tibble? Default is `TRUE`.
-#' @param col_select [tidy selection][tidyselect::vars_select] of columns to read
 #'
-#' @return A [arrow::Table][arrow__Table], or a `tbl_df` if `as_tibble` is
+#' @return A [arrow::Table][arrow__Table], or a `data.frame` if `as_tibble` is
 #' `TRUE`.
 #' @examples
 #'
@@ -121,7 +120,7 @@ parquet_file_reader.character <- function(file, props = parquet_arrow_reader_pro
 #' }
 #'
 #' @export
-read_parquet <- function(file, props = parquet_arrow_reader_properties(), as_tibble = TRUE, col_select = NULL, ...) {
+read_parquet <- function(file, col_select = NULL, as_tibble = TRUE, props = parquet_arrow_reader_properties(), ...) {
   reader <- parquet_file_reader(file, props = props, ...)
   tab <- reader$ReadTable(!!enquo(col_select))
 

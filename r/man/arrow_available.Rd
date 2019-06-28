@@ -15,3 +15,6 @@ library and then reinstall the R package. See \code{\link[=install_arrow]{instal
 You won't generally need to call this function, but it's here in case it
 helps for development purposes.
 }
+\examples{
+arrow_available()
+}

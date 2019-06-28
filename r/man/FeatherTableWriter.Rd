@@ -2,13 +2,13 @@
 % Please edit documentation in R/feather.R
 \name{FeatherTableWriter}
 \alias{FeatherTableWriter}
-\title{Create TableWriter that writes into a stream}
+\title{Create \code{TableWriter} that writes into a stream}
 \usage{
 FeatherTableWriter(stream)
 }
 \arguments{
-\item{stream}{an OutputStream}
+\item{stream}{an \code{OutputStream}}
 }
 \description{
-Create TableWriter that writes into a stream
+Create \code{TableWriter} that writes into a stream
 }

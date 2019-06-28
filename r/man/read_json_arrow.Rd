@@ -2,16 +2,23 @@
 % Please edit documentation in R/json.R
 \name{read_json_arrow}
 \alias{read_json_arrow}
-\title{Read json file into an arrow::Table}
+\title{Read a JSON file}
 \usage{
-read_json_arrow(..., as_tibble = TRUE, col_select = NULL)
+read_json_arrow(file, col_select = NULL, as_tibble = TRUE, ...)
 }
 \arguments{
-\item{...}{Used to construct an arrow::json::TableReader}
+\item{file}{A character path to a local file, or an Arrow input stream}
 
-\item{as_tibble}{convert the \link[=arrow__Table]{arrow::Table} to a data frame}
+\item{col_select}{A \link[tidyselect:vars_select]{tidy selection specification}
+of columns, as used in \code{dplyr::select()}.}
 
-\item{col_select}{\link[tidyselect:vars_select]{tidy selection} of columns}
+\item{as_tibble}{Should the function return a \code{data.frame} or an
+\link[=arrow__Table]{arrow::Table}?}
+
+\item{...}{Additional options, passed to \code{json_table_reader()}}
+}
+\value{
+A \code{data.frame}, or an \code{arrow::Table} if \code{as_tibble = FALSE}.
 }
 \description{
 Use \link[=arrow__json__TableReader]{arrow::json::TableReader} from \code{\link[=json_table_reader]{json_table_reader()}}

@@ -11,7 +11,7 @@ class arrow::json::TableReader
 \section{Methods}{
 
 \itemize{
-\item \code{Read()} : read the json file as an \link[=arrow__Table]{arrow::Table}
+\item \code{Read()} : read the JSON file as an \link[=arrow__Table]{arrow::Table}
 }
 }
 

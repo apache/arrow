@@ -33,6 +33,8 @@
 #' with the Arrow C++ library. If `FALSE`, you'll need to install the C++
 #' library and then reinstall the R package. See [install_arrow()] for help.
 #' @export
+#' @examples
+#' arrow_available()
 arrow_available <- function() {
   .Call(`_arrow_available`)
 }
