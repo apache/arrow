@@ -19,7 +19,7 @@
 #'
 #' These functions uses the Arrow C++ CSV reader to read into a `data.frame`.
 #' Arrow C++ options have been mapped to argument names that follow those of
-#' [readr::read_delim()], and `col_select` was inspired by [vroom::vroom()].
+#' [readr::read_delim()], and `col_select` was inspired by `vroom::vroom()`.
 #'
 #' `read_csv_arrow()` and `read_tsv_arrow()` are wrappers around
 #' `read_delim_arrow()` that specify a delimiter.
