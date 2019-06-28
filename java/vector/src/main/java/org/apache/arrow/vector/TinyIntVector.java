@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.TinyIntReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableTinyIntHolder;
@@ -372,6 +373,7 @@ public class TinyIntVector extends BaseFixedWidthVector implements BaseIntVector
 
   @Override
   public void setEncodedValue(int index, int value) {
+    Preconditions.checkArgument(value <= Byte.MAX_VALUE, "value is overflow:" + value);
     this.setSafe(index, value);
   }
 
