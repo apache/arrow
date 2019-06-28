@@ -103,7 +103,7 @@
     <build>
         <resources>
             <resource>
-                <directory>${arrow.cpp.build.dir}/src/jni/orc</directory>
+                <directory>${arrow.cpp.build.dir}</directory>
                 <includes>
                     <include>**/libarrow_orc_jni.*</include>
                 </includes>

@@ -231,7 +231,7 @@ if [ ${PREPARE_TAG} -gt 0 ]; then
     -DreleaseVersion=${version} \
     -DautoVersionSubmodules \
     -DdevelopmentVersion=${next_version_snapshot} \
-    -Darrow.cpp.build.dir=${cpp_build_dir} \
+    -Darrow.cpp.build.dir=${cpp_build_dir}/release \
     -P ${profile}
   rm -rf ${cpp_build_dir}
   popd
