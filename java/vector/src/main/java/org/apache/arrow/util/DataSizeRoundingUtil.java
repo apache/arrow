@@ -20,31 +20,31 @@ package org.apache.arrow.util;
 /**
  * Utilities for rounding data size.
  */
-public class DataSizeRoundingUtil {
+public final class DataSizeRoundingUtil {
 
   /**
    * The mask for rounding an integer to a multiple of 8.
    * (i.e. clear the lowest 3 bits)
    */
-  public static final int ROUND_8_MASK_INT = 0xFFFFFFF8;
+  public static int ROUND_8_MASK_INT = 0xFFFFFFF8;
 
   /**
    * The mask for rounding a long integer to a multiple of 8.
    * (i.e. clear the lowest 3 bits)
    */
-  public static final long ROUND_8_MASK_LONG = 0xFFFFFFFFFFFFFFF8L;
+  public static long ROUND_8_MASK_LONG = 0xFFFFFFFFFFFFFFF8L;
 
   /**
    * The number of bits to shift for dividing by 8.
    */
-  public static final int DIVIDE_BY_8_SHIFT_BITS = 3;
+  public static int DIVIDE_BY_8_SHIFT_BITS = 3;
 
   /**
    * Round up the number to the nearest multiple of 8.
    * @param input the number to round.
    * @return the rounded number.
    */
-  public static final int roundUpTo8Multiple(int input) {
+  public static int roundUpTo8Multiple(int input) {
     return (input + 7) & ROUND_8_MASK_INT;
   }
 
@@ -53,7 +53,7 @@ public class DataSizeRoundingUtil {
    * @param input the number to round.
    * @return the rounded number
    */
-  public static final long roundUpTo8Multiple(long input) {
+  public static long roundUpTo8Multiple(long input) {
     return (input + 7L) & ROUND_8_MASK_LONG;
   }
 
@@ -62,7 +62,7 @@ public class DataSizeRoundingUtil {
    * @param input the number to round.
    * @return the rounded number.
    */
-  public static final int roundDownTo8Multiple(int input) {
+  public static int roundDownTo8Multiple(int input) {
     return input & ROUND_8_MASK_INT;
   }
 
@@ -71,7 +71,7 @@ public class DataSizeRoundingUtil {
    * @param input the number to round.
    * @return the rounded number
    */
-  public static final long roundDownTo8Multiple(long input) {
+  public static long roundDownTo8Multiple(long input) {
     return input & ROUND_8_MASK_LONG;
   }
 
@@ -80,7 +80,7 @@ public class DataSizeRoundingUtil {
    * @param input the input number.
    * @return the computed number.
    */
-  public static final int divideBy8Ceil(int input) {
+  public static int divideBy8Ceil(int input) {
     return (input + 7) >>> DIVIDE_BY_8_SHIFT_BITS;
   }
 
@@ -89,7 +89,7 @@ public class DataSizeRoundingUtil {
    * @param input the input number.
    * @return the computed number.
    */
-  public static final long divideBy8Ceil(long input) {
+  public static long divideBy8Ceil(long input) {
     return (input + 7) >>> (long) DIVIDE_BY_8_SHIFT_BITS;
   }
 
