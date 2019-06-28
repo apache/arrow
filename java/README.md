@@ -28,6 +28,7 @@ install:
 ## Building and running tests
 
 ```
+git submodule update --init --recursive # Needed for flight
 cd java
 mvn install
 ```
