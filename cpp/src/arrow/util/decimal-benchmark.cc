@@ -76,7 +76,7 @@ static void UnaryOp(benchmark::State& state) {  // NOLINT non-const reference
 static void Constants(benchmark::State& state) {  // NOLINT non-const reference
   BasicDecimal128 d1(-546, 123), d2(-123, 456);
   while (state.KeepRunning()) {
-    benchmark::DoNotOptimize(d1.GetMaxValue() + d1);
+    benchmark::DoNotOptimize(BasicDecimal128::GetMaxValue() - d1);
     benchmark::DoNotOptimize(BasicDecimal128::GetScaleMultiplier(3) + d2);
   }
 }
