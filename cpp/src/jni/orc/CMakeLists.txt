@@ -45,9 +45,9 @@ add_arrow_lib(arrow_orc_jni
               ${JNI_HEADERS_DIR}
               PRIVATE_INCLUDES
               ${JNI_INCLUDE_DIRS}
-              ${CMAKE_CURRENT_BINARY_DIR}
               DEPENDENCIES
               arrow_static
-              arrow_orc_java)
+              arrow_orc_java
+              ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(arrow_orc_jni ${ARROW_ORC_JNI_LIBRARIES})
