@@ -100,6 +100,10 @@ int ColumnMap::size() const {
   return static_cast<int>(impl_->columns_.size());
 }
 
+std::shared_ptr<Field> ColumnMap::field(int i) const {
+  return impl_->columns_[i].field;
+}
+
 void ColumnMap::get(int i, std::shared_ptr<Int16Array>* rep_levels,
                            std::shared_ptr<Int16Array>* def_levels,
                            std::shared_ptr<Array>* values) const {

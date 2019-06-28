@@ -47,6 +47,8 @@ class ARROW_EXPORT ColumnMap {
   /// Return number of fields in map
   int size() const;
 
+  std::shared_ptr<Field> field(int i) const;
+
   /// Get all data for i'th field. Pass NULL if you don't need some array.
   void get(int i, std::shared_ptr<Int16Array>* rep_levels,
                   std::shared_ptr<Int16Array>* def_levels,
