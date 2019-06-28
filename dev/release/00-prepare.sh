@@ -228,10 +228,10 @@ if [ ${PREPARE_TAG} -gt 0 ]; then
   mvn \
     release:prepare \
     -Darguments=-Darrow.cpp.build.dir=${cpp_build_dir}/release \
-    -Dtag=${tag} \
-    -DreleaseVersion=${version} \
     -DautoVersionSubmodules \
     -DdevelopmentVersion=${next_version_snapshot} \
+    -DreleaseVersion=${version} \
+    -Dtag=${tag} \
     -P ${profile}
   rm -rf ${cpp_build_dir}
   popd
