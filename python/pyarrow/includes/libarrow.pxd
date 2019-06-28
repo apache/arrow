@@ -1259,11 +1259,13 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                       const vector[c_string]& dim_names,
                                       shared_ptr[CSparseTensorCSR]* out)
 
-    CStatus NdarrayToSparseTensorCOO(CMemoryPool* pool, object ao,
-                                     shared_ptr[CSparseTensorCOO]* out)
+    CStatus DenseNdarrayToSparseTensorCOO(CMemoryPool* pool, object ao,
+                                          const vector[c_string]& dim_names,
+                                          shared_ptr[CSparseTensorCOO]* out)
 
-    CStatus NdarrayToSparseTensorCSR(CMemoryPool* pool, object ao,
-                                     shared_ptr[CSparseTensorCSR]* out)
+    CStatus DenseNdarrayToSparseTensorCSR(CMemoryPool* pool, object ao,
+                                          const vector[c_string]& dim_names,
+                                          shared_ptr[CSparseTensorCSR]* out)
 
     CStatus TensorToSparseTensorCOO(shared_ptr[CTensor],
                                     shared_ptr[CSparseTensorCOO]* out)

@@ -891,15 +891,27 @@ type: {0.type}
 shape: {0.shape}""".format(self)
 
     @staticmethod
-    def from_dense_numpy(obj):
+    def from_dense_numpy(obj, dim_names=None):
+        """
+        Convert numpy.ndarray to arrow::SparseTensorCOO
+        """
         cdef shared_ptr[CSparseTensorCOO] csparse_tensor
-        with nogil:
-            check_status(NdarrayToSparseTensorCOO(c_default_memory_pool(), obj,
-                                                  &csparse_tensor))
+        cdef vector[c_string] c_dim_names
+
+        if dim_names is not None:
+            for x in dim_names:
+                c_dim_names.push_back(tobytes(x))
+
+        check_status(DenseNdarrayToSparseTensorCOO(c_default_memory_pool(),
+                                                   obj, c_dim_names,
+                                                   &csparse_tensor))
         return pyarrow_wrap_sparse_tensor_coo(csparse_tensor)
 
     @staticmethod
     def from_numpy(data, coords, shape, dim_names=None):
+        """
+        Create arrow::SparseTensorCOO from numpy.ndarrays
+        """
         cdef shared_ptr[CSparseTensorCOO] csparse_tensor
         cdef vector[int64_t] c_shape
         cdef vector[c_string] c_dim_names
@@ -909,18 +921,23 @@ shape: {0.shape}""".format(self)
         if dim_names is not None:
             for x in dim_names:
                 c_dim_names.push_back(tobytes(x))
-        with nogil:
-            check_status(NdarraysToSparseTensorCOO(c_default_memory_pool(),
-                         data, coords, c_shape, c_dim_names, &csparse_tensor))
+
+        if coords.dtype != 'i8':
+            coords = coords.astype('i8')
+
+        check_status(NdarraysToSparseTensorCOO(c_default_memory_pool(),
+                     data, coords, c_shape, c_dim_names, &csparse_tensor))
         return pyarrow_wrap_sparse_tensor_coo(csparse_tensor)
 
     @staticmethod
     def from_tensor(obj):
+        """
+        Convert arrow::Tensor to arrow::SparseTensorCOO
+        """
         cdef shared_ptr[CSparseTensorCOO] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
 
-        with nogil:
-            check_status(TensorToSparseTensorCOO(ctensor, &csparse_tensor))
+        check_status(TensorToSparseTensorCOO(ctensor, &csparse_tensor))
 
         return pyarrow_wrap_sparse_tensor_coo(csparse_tensor)
 
@@ -931,9 +948,8 @@ shape: {0.shape}""".format(self)
         cdef PyObject* out_data
         cdef PyObject* out_coords
 
-        with nogil:
-            check_status(SparseTensorCOOToNdarray(self.sp_sparse_tensor, self,
-                                                  &out_data, &out_coords))
+        check_status(SparseTensorCOOToNdarray(self.sp_sparse_tensor, self,
+                                              &out_data, &out_coords))
         return PyObject_to_object(out_data), PyObject_to_object(out_coords)
 
     def equals(self, SparseTensorCOO other):
@@ -966,11 +982,11 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
-        return self.stp.dim_name(i)
+        return frombytes(self.stp.dim_name(i))
 
     @property
     def dim_names(self):
-        return self.stp.dim_names()
+        return [frombytes(x) for x in tuple(self.stp.dim_names())]
 
     @property
     def non_zero_length(self):
@@ -998,15 +1014,27 @@ type: {0.type}
 shape: {0.shape}""".format(self)
 
     @staticmethod
-    def from_dense_numpy(obj):
+    def from_dense_numpy(obj, dim_names=None):
+        """
+        Convert numpy.ndarray to arrow::SparseTensorCSR
+        """
         cdef shared_ptr[CSparseTensorCSR] csparse_tensor
-        with nogil:
-            check_status(NdarrayToSparseTensorCSR(c_default_memory_pool(), obj,
-                                                  &csparse_tensor))
+        cdef vector[c_string] c_dim_names
+
+        if dim_names is not None:
+            for x in dim_names:
+                c_dim_names.push_back(tobytes(x))
+
+        check_status(DenseNdarrayToSparseTensorCSR(c_default_memory_pool(),
+                                                   obj, c_dim_names,
+                                                   &csparse_tensor))
         return pyarrow_wrap_sparse_tensor_csr(csparse_tensor)
 
     @staticmethod
     def from_numpy(data, indptr, indices, shape, dim_names=None):
+        """
+        Create arrow::SparseTensorCSR from numpy.ndarrays
+        """
         cdef shared_ptr[CSparseTensorCSR] csparse_tensor
         cdef vector[int64_t] c_shape
         cdef vector[c_string] c_dim_names
@@ -1016,19 +1044,26 @@ shape: {0.shape}""".format(self)
         if dim_names is not None:
             for x in dim_names:
                 c_dim_names.push_back(tobytes(x))
-        with nogil:
-            check_status(NdarraysToSparseTensorCSR(c_default_memory_pool(),
-                         data, indptr, indices, c_shape, c_dim_names,
-                         &csparse_tensor))
+
+        if indptr.dtype != 'i8':
+            indptr = indptr.astype('i8')
+        if indices.dtype != 'i8':
+            indices = indices.astype('i8')
+
+        check_status(NdarraysToSparseTensorCSR(c_default_memory_pool(),
+                     data, indptr, indices, c_shape, c_dim_names,
+                     &csparse_tensor))
         return pyarrow_wrap_sparse_tensor_csr(csparse_tensor)
 
     @staticmethod
     def from_tensor(obj):
+        """
+        Convert arrow::Tensor to arrow::SparseTensorCSR
+        """
         cdef shared_ptr[CSparseTensorCSR] csparse_tensor
         cdef shared_ptr[CTensor] ctensor = pyarrow_unwrap_tensor(obj)
 
-        with nogil:
-            check_status(TensorToSparseTensorCSR(ctensor, &csparse_tensor))
+        check_status(TensorToSparseTensorCSR(ctensor, &csparse_tensor))
 
         return pyarrow_wrap_sparse_tensor_csr(csparse_tensor)
 
@@ -1040,9 +1075,8 @@ shape: {0.shape}""".format(self)
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
 
-        with nogil:
-            check_status(SparseTensorCSRToNdarray(self.sp_sparse_tensor, self,
-                         &out_data, &out_indptr, &out_indices))
+        check_status(SparseTensorCSRToNdarray(self.sp_sparse_tensor, self,
+                     &out_data, &out_indptr, &out_indices))
         return (PyObject_to_object(out_data), PyObject_to_object(out_indptr),
                 PyObject_to_object(out_indices))
 
@@ -1076,11 +1110,11 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
-        return self.stp.dim_name(i)
+        return frombytes(self.stp.dim_name(i))
 
     @property
     def dim_names(self):
-        return self.stp.dim_names()
+        return [frombytes(x) for x in tuple(self.stp.dim_names())]
 
     @property
     def non_zero_length(self):

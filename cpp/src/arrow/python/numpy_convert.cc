@@ -281,17 +281,18 @@ Status SparseTensorCOOToNdarray(const std::shared_ptr<SparseTensorCOO>& sparse_t
   PyAcquireGIL lock;
 
   int type_num_data;
-  int type_num_coords;
+  RETURN_NOT_OK(GetNumPyType(*sparse_tensor->type(), &type_num_data));
+  PyArray_Descr* dtype_data = PyArray_DescrNewFromType(type_num_data);
+  RETURN_IF_PYERROR();
+
   const auto& sparse_index = arrow::internal::checked_cast<const SparseCOOIndex&>(
       *sparse_tensor->sparse_index());
   const std::shared_ptr<arrow::NumericTensor<arrow::Int64Type>> sparse_index_coords =
       sparse_index.indices();
 
-  RETURN_NOT_OK(GetNumPyType(*sparse_tensor->type(), &type_num_data));
-  PyArray_Descr* dtype_data = PyArray_DescrNewFromType(type_num_data);
-  RETURN_NOT_OK(GetNumPyType(*sparse_index_coords->type(), &type_num_coords));
-  PyArray_Descr* dtype_coords = PyArray_DescrNewFromType(type_num_coords);
   RETURN_IF_PYERROR();
+
+  std::vector<npy_intp> npy_shape_data({sparse_index.non_zero_length(), 1});
 
   const int ndim_coords = sparse_tensor->ndim();
   std::vector<npy_intp> npy_shape_coords(ndim_coords);
@@ -300,17 +301,8 @@ Status SparseTensorCOOToNdarray(const std::shared_ptr<SparseTensorCOO>& sparse_t
     npy_shape_coords[i] = sparse_index_coords->shape()[i];
   }
 
-  std::vector<npy_intp> npy_shape_data({sparse_index.non_zero_length(), 1});
-
-  const void* immutable_data = nullptr;
-  if (sparse_tensor->data()) {
-    immutable_data = sparse_tensor->data()->data();
-  }
-
-  const void* immutable_coords = nullptr;
-  if (sparse_index_coords->data()) {
-    immutable_coords = sparse_index_coords->data()->data();
-  }
+  const void* immutable_data = sparse_tensor->data()->data();
+  const void* immutable_coords = sparse_index_coords->data()->data();
 
   // Remove const =(
   void* mutable_data = const_cast<void*>(immutable_data);
@@ -321,20 +313,21 @@ Status SparseTensorCOOToNdarray(const std::shared_ptr<SparseTensorCOO>& sparse_t
     array_flags |= NPY_ARRAY_WRITEABLE;
   }
 
-  PyObject* result_data =
-      PyArray_NewFromDescr(&PyArray_Type, dtype_data, 1, npy_shape_data.data(), nullptr,
-                           mutable_data, array_flags, nullptr);
-  PyObject* result_coords =
-      PyArray_NewFromDescr(&PyArray_Type, dtype_coords, 2, npy_shape_coords.data(),
-                           nullptr, mutable_coords, array_flags, nullptr);
+  int type_num_coords;
+  RETURN_NOT_OK(GetNumPyType(*sparse_index_coords->type(), &type_num_coords));
+  PyArray_Descr* dtype_coords = PyArray_DescrNewFromType(type_num_coords);
 
+  PyObject* result_data =
+      PyArray_NewFromDescr(&PyArray_Type, dtype_data, 2, npy_shape_data.data(), nullptr,
+                           mutable_data, array_flags, nullptr);
+  PyObject* result_coords = PyArray_NewFromDescr(&PyArray_Type, dtype_coords, ndim_coords,
+                                                 npy_shape_coords.data(), nullptr,
+                                                 mutable_coords, array_flags, nullptr);
   RETURN_IF_PYERROR()
 
-  if (base == Py_None || base == nullptr) {
-    base = py::wrap_sparse_tensor_coo(sparse_tensor);
-  } else {
-    Py_XINCREF(base);
-  }
+  Py_XINCREF(base);
+  Py_XINCREF(base);
+
   PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_data), base);
   PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_coords), base);
 
@@ -376,20 +369,9 @@ Status SparseTensorCSRToNdarray(const std::shared_ptr<SparseTensorCSR>& sparse_t
     npy_shape_indices[i] = sparse_index_indices->shape()[i];
   }
 
-  const void* immutable_data = nullptr;
-  if (sparse_tensor->data()) {
-    immutable_data = sparse_tensor->data()->data();
-  }
-
-  const void* immutable_indptr = nullptr;
-  if (sparse_index_indptr->data()) {
-    immutable_indptr = sparse_index_indptr->data()->data();
-  }
-
-  const void* immutable_indices = nullptr;
-  if (sparse_index_indices->data()) {
-    immutable_indices = sparse_index_indices->data()->data();
-  }
+  const void* immutable_data = sparse_tensor->data()->data();
+  const void* immutable_indptr = sparse_index_indptr->data()->data();
+  const void* immutable_indices = sparse_index_indices->data()->data();
 
   // Remove const =(
   void* mutable_data = const_cast<void*>(immutable_data);
@@ -410,21 +392,20 @@ Status SparseTensorCSRToNdarray(const std::shared_ptr<SparseTensorCSR>& sparse_t
   PyArray_Descr* dtype_indices = PyArray_DescrNewFromType(type_num_indices);
 
   PyObject* result_data =
-      PyArray_NewFromDescr(&PyArray_Type, dtype_data, 1, npy_shape_data.data(), nullptr,
+      PyArray_NewFromDescr(&PyArray_Type, dtype_data, 2, npy_shape_data.data(), nullptr,
                            mutable_data, array_flags, nullptr);
-  PyObject* result_indptr =
-      PyArray_NewFromDescr(&PyArray_Type, dtype_indptr, 1, npy_shape_indptr.data(),
-                           nullptr, mutable_indptr, array_flags, nullptr);
-  PyObject* result_indices =
-      PyArray_NewFromDescr(&PyArray_Type, dtype_indices, 1, npy_shape_indices.data(),
-                           nullptr, mutable_indices, array_flags, nullptr);
+  PyObject* result_indptr = PyArray_NewFromDescr(&PyArray_Type, dtype_indptr, ndim_indptr,
+                                                 npy_shape_indptr.data(), nullptr,
+                                                 mutable_indptr, array_flags, nullptr);
+  PyObject* result_indices = PyArray_NewFromDescr(
+      &PyArray_Type, dtype_indices, ndim_indices, npy_shape_indices.data(), nullptr,
+      mutable_indices, array_flags, nullptr);
   RETURN_IF_PYERROR()
 
-  if (base == Py_None || base == nullptr) {
-    base = py::wrap_sparse_tensor_csr(sparse_tensor);
-  } else {
-    Py_XINCREF(base);
-  }
+  Py_XINCREF(base);
+  Py_XINCREF(base);
+  Py_XINCREF(base);
+
   PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_data), base);
   PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_indptr), base);
   PyArray_SetBaseObject(reinterpret_cast<PyArrayObject*>(result_indices), base);
@@ -435,19 +416,17 @@ Status SparseTensorCSRToNdarray(const std::shared_ptr<SparseTensorCSR>& sparse_t
   return Status::OK();
 }
 
-Status NdarrayToSparseTensorCOO(MemoryPool* pool, PyObject* ao,
-                                std::shared_ptr<SparseTensorCOO>* out) {
+Status DenseNdarrayToSparseTensorCOO(MemoryPool* pool, PyObject* ao,
+                                     const std::vector<std::string>& dim_names,
+                                     std::shared_ptr<SparseTensorCOO>* out) {
   if (!PyArray_Check(ao)) {
     return Status::TypeError("Did not pass ndarray object");
   }
 
   PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(ao);
 
-  // TODO(wesm): What do we want to do with non-contiguous memory and negative strides?
-
   int ndim = PyArray_NDIM(ndarray);
 
-  // This is also holding the GIL, so don't already draw it.
   std::shared_ptr<Buffer> data = std::make_shared<NumPyBuffer>(ao);
   std::vector<int64_t> shape(ndim);
   std::vector<int64_t> strides(ndim);
@@ -467,25 +446,23 @@ Status NdarrayToSparseTensorCOO(MemoryPool* pool, PyObject* ao,
     std::shared_ptr<DataType> type;
     RETURN_NOT_OK(
         GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray)), &type));
-    Tensor tensor(type, data, shape, strides);
+    Tensor tensor(type, data, shape, strides, dim_names);
     *out = std::make_shared<SparseTensorCOO>(tensor);
     return Status::OK();
   }
 }
 
-Status NdarrayToSparseTensorCSR(MemoryPool* pool, PyObject* ao,
-                                std::shared_ptr<SparseTensorCSR>* out) {
+Status DenseNdarrayToSparseTensorCSR(MemoryPool* pool, PyObject* ao,
+                                     const std::vector<std::string>& dim_names,
+                                     std::shared_ptr<SparseTensorCSR>* out) {
   if (!PyArray_Check(ao)) {
     return Status::TypeError("Did not pass ndarray object");
   }
 
   PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(ao);
 
-  // TODO(wesm): What do we want to do with non-contiguous memory and negative strides?
-
   int ndim = PyArray_NDIM(ndarray);
 
-  // This is also holding the GIL, so don't already draw it.
   std::shared_ptr<Buffer> data = std::make_shared<NumPyBuffer>(ao);
   std::vector<int64_t> shape(ndim);
   std::vector<int64_t> strides(ndim);
@@ -505,7 +482,7 @@ Status NdarrayToSparseTensorCSR(MemoryPool* pool, PyObject* ao,
     std::shared_ptr<DataType> type;
     RETURN_NOT_OK(
         GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray)), &type));
-    Tensor tensor(type, data, shape, strides);
+    Tensor tensor(type, data, shape, strides, dim_names);
     *out = std::make_shared<SparseTensorCSR>(tensor);
     return Status::OK();
   }
@@ -529,22 +506,34 @@ Status NdarraysToSparseTensorCOO(MemoryPool* pool, PyObject* data_ao, PyObject* 
 
   int coords_ndim = PyArray_NDIM(ndarray_coords);
 
-  std::shared_ptr<DataType> type;
+  std::shared_ptr<DataType> type_data;
+  std::shared_ptr<DataType> type_coords;
+  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data)),
+                              &type_data));
+  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_coords)),
+                              &type_coords));
+  ARROW_CHECK_EQ(type_coords->id(), Type::INT64);
+
+  const int64_t i64_size = sizeof(int64_t);
   npy_intp* coords_array_shape = PyArray_SHAPE(ndarray_coords);
   std::vector<int64_t> coords_shape(coords_ndim);
+  std::vector<int64_t> coords_strides(coords_ndim);
 
   for (int i = 0; i < coords_ndim; ++i) {
     coords_shape[i] = coords_array_shape[i];
+    if (i == 0) {
+      coords_strides[i] = i64_size;
+    } else {
+      coords_strides[i] = coords_strides[i - 1] * coords_array_shape[i - 1];
+    }
   }
 
   std::shared_ptr<NumericTensor<Int64Type>> coords =
-      std::make_shared<NumericTensor<Int64Type>>(coords_buffer, coords_shape);
-
-  RETURN_NOT_OK(
-      GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data)), &type));
+      std::make_shared<NumericTensor<Int64Type>>(coords_buffer, coords_shape,
+                                                 coords_strides);
 
   std::shared_ptr<SparseCOOIndex> sparse_index = std::make_shared<SparseCOOIndex>(coords);
-  *out = std::make_shared<SparseTensorImpl<SparseCOOIndex>>(sparse_index, type, data,
+  *out = std::make_shared<SparseTensorImpl<SparseCOOIndex>>(sparse_index, type_data, data,
                                                             shape, dim_names);
   return Status::OK();
 }
@@ -564,7 +553,6 @@ Status NdarraysToSparseTensorCSR(MemoryPool* pool, PyObject* data_ao, PyObject* 
   PyArrayObject* ndarray_indptr = reinterpret_cast<PyArrayObject*>(indptr_ao);
   PyArrayObject* ndarray_indices = reinterpret_cast<PyArrayObject*>(indices_ao);
 
-  // This is also holding the GIL, so don't already draw it.
   std::shared_ptr<Buffer> data = std::make_shared<NumPyBuffer>(data_ao);
   std::shared_ptr<Buffer> indptr_buffer = std::make_shared<NumPyBuffer>(indptr_ao);
   std::shared_ptr<Buffer> indices_buffer = std::make_shared<NumPyBuffer>(indices_ao);
@@ -572,7 +560,9 @@ Status NdarraysToSparseTensorCSR(MemoryPool* pool, PyObject* data_ao, PyObject* 
   int indptr_ndim = PyArray_NDIM(ndarray_indptr);
   int indices_ndim = PyArray_NDIM(ndarray_indices);
 
-  std::shared_ptr<DataType> type;
+  std::shared_ptr<DataType> type_data;
+  std::shared_ptr<DataType> type_indptr;
+  std::shared_ptr<DataType> type_indices;
   npy_intp* indptr_array_shape = PyArray_SHAPE(ndarray_indptr);
   npy_intp* indices_array_shape = PyArray_SHAPE(ndarray_indices);
   std::vector<int64_t> indptr_shape(indptr_ndim);
@@ -585,17 +575,23 @@ Status NdarraysToSparseTensorCSR(MemoryPool* pool, PyObject* data_ao, PyObject* 
     indices_shape[i] = indices_array_shape[i];
   }
 
+  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data)),
+                              &type_data));
+  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_indptr)),
+                              &type_indptr));
+  RETURN_NOT_OK(GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_indices)),
+                              &type_indices));
+  ARROW_CHECK_EQ(type_indptr->id(), Type::INT64);
+  ARROW_CHECK_EQ(type_indices->id(), Type::INT64);
+
   std::shared_ptr<SparseCSRIndex::IndexTensor> indptr =
       std::make_shared<SparseCSRIndex::IndexTensor>(indptr_buffer, indptr_shape);
   std::shared_ptr<SparseCSRIndex::IndexTensor> indices =
       std::make_shared<SparseCSRIndex::IndexTensor>(indices_buffer, indices_shape);
 
-  RETURN_NOT_OK(
-      GetTensorType(reinterpret_cast<PyObject*>(PyArray_DESCR(ndarray_data)), &type));
-
   std::shared_ptr<SparseCSRIndex> sparse_index =
       std::make_shared<SparseCSRIndex>(indptr, indices);
-  *out = std::make_shared<SparseTensorImpl<SparseCSRIndex>>(sparse_index, type, data,
+  *out = std::make_shared<SparseTensorImpl<SparseCSRIndex>>(sparse_index, type_data, data,
                                                             shape, dim_names);
   return Status::OK();
 }

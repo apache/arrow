@@ -34,29 +34,52 @@ def test_sparse_tensor_attrs(sparse_tensor_type):
         [0, 0, 0, 0, 0],
         [0, 3, 0, 0, 0],
     ])
-    sparse_tensor = sparse_tensor_type.from_dense_numpy(data)
+    dim_names = ['x', 'y']
+    sparse_tensor = sparse_tensor_type.from_dense_numpy(data, dim_names)
 
     assert sparse_tensor.ndim == 2
     assert sparse_tensor.size == 25
     assert sparse_tensor.shape == data.shape
     assert sparse_tensor.is_mutable
-    assert sparse_tensor.dim_name(0) == b''
-    assert sparse_tensor.dim_names == []
+    assert sparse_tensor.dim_name(0) == dim_names[0]
+    assert sparse_tensor.dim_names == dim_names
     assert sparse_tensor.non_zero_length == 4
 
 
 def test_sparse_tensor_coo_base_object():
-    sparse_tensor = pa.SparseTensorCOO.from_dense_numpy(np.random.randn(10, 4))
+    data = np.array([[4], [9], [7], [5]])
+    coords = np.array([[0, 0], [1, 3], [0, 2], [1, 3]])
+    array = np.array([[4, 0, 9, 0],
+                      [0, 7, 0, 0],
+                      [0, 0, 0, 0],
+                      [0, 0, 0, 5]])
+    sparse_tensor = pa.SparseTensorCOO.from_dense_numpy(array)
     n = sys.getrefcount(sparse_tensor)
-    data, coords = sparse_tensor.to_numpy()  # noqa
-    assert sys.getrefcount(sparse_tensor) == n + 1
+    result_data, result_coords = sparse_tensor.to_numpy()
+    assert sys.getrefcount(sparse_tensor) == n + 2
+
+    sparse_tensor = None
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(coords, result_coords)
 
 
 def test_sparse_tensor_csr_base_object():
-    sparse_tensor = pa.SparseTensorCSR.from_dense_numpy(np.random.randn(10, 4))
+    data = np.array([[1], [2], [3], [4], [5], [6]])
+    indptr = np.array([0, 2, 3, 6])
+    indices = np.array([0, 2, 2, 0, 1, 2])
+    array = np.array([[1, 0, 2],
+                      [0, 0, 3],
+                      [4, 5, 6]])
+
+    sparse_tensor = pa.SparseTensorCSR.from_dense_numpy(array)
     n = sys.getrefcount(sparse_tensor)
-    data, indptr, indices = sparse_tensor.to_numpy()  # noqa
-    assert sys.getrefcount(sparse_tensor) == n + 1
+    result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
+    assert sys.getrefcount(sparse_tensor) == n + 3
+
+    sparse_tensor = None
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(indptr, result_indptr)
+    assert np.array_equal(indices, result_indices)
 
 
 @pytest.mark.skip
@@ -102,29 +125,29 @@ def test_sparse_tensor_equals(sparse_tensor_type):
 ])
 def test_sparse_tensor_coo_from_dense(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
-    data_vector = np.array([4, 9, 7, 5]).astype(dtype)
+    data = np.array([[4], [9], [7], [5]]).astype(dtype)
     coords = np.array([[0, 0], [1, 3], [0, 2], [1, 3]])
-    data = np.array([[4, 0, 9, 0],
-                     [0, 7, 0, 0],
-                     [0, 0, 0, 0],
-                     [0, 0, 0, 5]]).astype(dtype)
-    tensor = pa.Tensor.from_numpy(data)
+    array = np.array([[4, 0, 9, 0],
+                      [0, 7, 0, 0],
+                      [0, 0, 0, 0],
+                      [0, 0, 0, 5]]).astype(dtype)
+    tensor = pa.Tensor.from_numpy(array)
 
     # Test from numpy array
-    sparse_tensor = pa.SparseTensorCOO.from_dense_numpy(data)
+    sparse_tensor = pa.SparseTensorCOO.from_dense_numpy(array)
     repr(sparse_tensor)
     assert sparse_tensor.type == arrow_type
     result_data, result_coords = sparse_tensor.to_numpy()
-    assert (data_vector == result_data).all()
-    assert (result_coords == coords).all()
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(coords, result_coords)
 
     # Test from Tensor
     sparse_tensor = pa.SparseTensorCOO.from_tensor(tensor)
     repr(sparse_tensor)
     assert sparse_tensor.type == arrow_type
     result_data, result_coords = sparse_tensor.to_numpy()
-    assert (data_vector == result_data).all()
-    assert (result_coords == coords).all()
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(coords, result_coords)
 
 
 @pytest.mark.parametrize('dtype_str,arrow_type', [
@@ -146,7 +169,7 @@ def test_sparse_tensor_csr_from_dense(dtype_str, arrow_type):
                            [0, 0, 3],
                            [4, 5, 6]]).astype(dtype)
 
-    data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
+    data = np.array([[1], [2], [3], [4], [5], [6]])
     indptr = np.array([0, 2, 3, 6])
     indices = np.array([0, 2, 2, 0, 1, 2])
     tensor = pa.Tensor.from_numpy(dense_data)
@@ -155,21 +178,20 @@ def test_sparse_tensor_csr_from_dense(dtype_str, arrow_type):
     sparse_tensor = pa.SparseTensorCSR.from_dense_numpy(dense_data)
     repr(sparse_tensor)
     result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
-    assert (data == result_data).all()
-    assert (indptr == result_indptr).all()
-    assert (indices == result_indices).all()
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(indptr, result_indptr)
+    assert np.array_equal(indices, result_indices)
 
     # Test from Tensor
     sparse_tensor = pa.SparseTensorCSR.from_tensor(tensor)
     repr(sparse_tensor)
     assert sparse_tensor.type == arrow_type
     result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
-    assert (data == result_data).all()
-    assert (indptr == result_indptr).all()
-    assert (indices == result_indices).all()
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(indptr, result_indptr)
+    assert np.array_equal(indices, result_indices)
 
 
-@pytest.mark.skip
 @pytest.mark.parametrize('dtype_str,arrow_type', [
     ('i1', pa.int8()),
     ('i2', pa.int16()),
@@ -185,8 +207,8 @@ def test_sparse_tensor_csr_from_dense(dtype_str, arrow_type):
 ])
 def test_sparse_tensor_coo_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
-    data = np.array([4, 5, 7, 9]).astype(dtype)
-    coords = np.array([[0, 0], [3, 3], [1, 1], [0, 2]]).astype('i8')
+    data = np.array([[4], [9], [7], [5]]).astype(dtype)
+    coords = np.array([[0, 0], [3, 3], [1, 1], [0, 2]])
     shape = (4, 4)
     dim_names = ["x", "y"]
 
@@ -195,8 +217,9 @@ def test_sparse_tensor_coo_numpy_roundtrip(dtype_str, arrow_type):
     repr(sparse_tensor)
     assert sparse_tensor.type == arrow_type
     result_data, result_coords = sparse_tensor.to_numpy()
-    assert (data == result_data).all()
-    assert (coords == result_coords).all()
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(coords, result_coords)
+    assert sparse_tensor.dim_names == dim_names
 
 
 @pytest.mark.parametrize('dtype_str,arrow_type', [
@@ -214,9 +237,9 @@ def test_sparse_tensor_coo_numpy_roundtrip(dtype_str, arrow_type):
 ])
 def test_sparse_tensor_csr_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
-    data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
-    indptr = np.array([0, 2, 3, 6]).astype('i8')
-    indices = np.array([0, 2, 2, 0, 1, 2]).astype('i8')
+    data = np.array([[1], [2], [3], [4], [5], [6]]).astype(dtype)
+    indptr = np.array([0, 2, 3, 6])
+    indices = np.array([0, 2, 2, 0, 1, 2])
     shape = (3, 3)
     dim_names = ["x", "y"]
 
@@ -225,6 +248,7 @@ def test_sparse_tensor_csr_numpy_roundtrip(dtype_str, arrow_type):
     repr(sparse_tensor)
     assert sparse_tensor.type == arrow_type
     result_data, result_indptr, result_indices = sparse_tensor.to_numpy()
-    assert (data == result_data).all()
-    assert (indptr == result_indptr).all()
-    assert (indices == result_indices).all()
+    assert np.array_equal(data, result_data)
+    assert np.array_equal(indptr, result_indptr)
+    assert np.array_equal(indices, result_indices)
+    assert sparse_tensor.dim_names == dim_names

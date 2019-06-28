@@ -61,18 +61,6 @@ __PYX_EXTERN_C std::shared_ptr< arrow::Table>  __pyx_f_7pyarrow_3lib_pyarrow_unw
 __PYX_EXTERN_C std::shared_ptr< arrow::Tensor>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_tensor(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::SparseTensorCOO>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_sparse_tensor_coo(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::SparseTensorCSR>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_sparse_tensor_csr(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_buffer(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_data_type(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_field(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_schema(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_array(PyObject *);
-__PYX_EXTERN_C PyObject *pyarrow_wrap_chunked_array(std::shared_ptr< arrow::ChunkedArray>  const &);
-__PYX_EXTERN_C int pyarrow_is_tensor(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_sparse_tensor_coo(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_sparse_tensor_csr(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_column(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_table(PyObject *);
-__PYX_EXTERN_C int pyarrow_is_batch(PyObject *);
 
 #endif /* !__PYX_HAVE_API__pyarrow__lib */
 
