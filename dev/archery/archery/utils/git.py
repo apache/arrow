@@ -55,9 +55,9 @@ class Git(Command):
     def log(self, *argv, **kwargs):
         return self.run_cmd(*argv, **kwargs)
 
+    @capture_stdout(strip=True)
     @git_cmd
     def rev_parse(self, *argv, **kwargs):
-        print(self.head())
         return self.run_cmd(*argv, **kwargs)
 
     @capture_stdout(strip=True)
