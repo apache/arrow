@@ -18,7 +18,7 @@
 [package]
 name = "datafusion"
 description = "DataFusion is an in-memory query engine that uses Apache Arrow as the memory model"
-version = "0.14.0-SNAPSHOT"
+version = "0.14.0"
 homepage = "https://github.com/apache/arrow"
 repository = "https://github.com/apache/arrow"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
@@ -40,8 +40,8 @@ path = "src/bin/repl.rs"
 
 [dependencies]
 fnv = "1.0.3"
-arrow = { path = "../arrow" }
-parquet = { path = "../parquet" }
+arrow = "0.14.0"
+parquet = "0.14.0"
 serde = { version = "1.0.80", features = ["rc"] }
 serde_derive = "1.0.80"
 serde_json = "1.0.33"
