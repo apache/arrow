@@ -101,6 +101,24 @@ update_versions() {
   git add DESCRIPTION
   cd -
 
+  cd "${SOURCE_DIR}/../../r"
+  if [ ${type} = "snapshot" ]; then
+    # Add a news entry for the new dev version
+    echo "dev"
+    sed -i.bak -E -e \
+      "0,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
+      NEWS.md
+  else
+    # Replace dev version with release version
+    echo "release"
+    sed -i.bak -E -e \
+      "0,/^# arrow /s/^# arrow .+/# arrow ${r_version}/" \
+      NEWS.md
+  fi
+  rm -f NEWS.md.bak
+  git add NEWS.md
+  cd -
+
   cd "${SOURCE_DIR}/../../ruby"
   sed -i.bak -E -e \
     "s/^  VERSION = \".+\"/  VERSION = \"${version}\"/g" \

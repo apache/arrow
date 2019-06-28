@@ -128,6 +128,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "r/NEWS.md",
+                     hunks: [
+                       ["-\# arrow #{@previous_version}.9000",
+                        "+\# arrow #{@release_version}"],
+                     ],
+                   },
+                   {
                      path: "ruby/red-arrow-cuda/lib/arrow-cuda/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@snapshot_version}\"",
@@ -267,6 +274,14 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-Version: #{@release_version}",
                         "+Version: #{@release_version}.9000"],
+                     ],
+                   },
+                   {
+                     path: "r/NEWS.md",
+                     # Note that these are additions only, no replacement
+                     hunks: [
+                       ["+# arrow #{@release_version}.9000",
+                        "+"],
                      ],
                    },
                    {
