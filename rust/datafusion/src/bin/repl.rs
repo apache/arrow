@@ -17,12 +17,9 @@
 
 #![allow(bare_trait_objects)]
 
-#[macro_use]
-extern crate clap;
-
 use arrow::array::*;
 use arrow::datatypes::{DataType, TimeUnit};
-use clap::{App, Arg};
+use clap::{crate_version, App, Arg};
 use datafusion::error::{ExecutionError, Result};
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::relation::Relation;
@@ -32,7 +29,7 @@ use std::cell::RefMut;
 use std::env;
 use std::path::Path;
 
-fn main() {
+pub fn main() {
     let matches = App::new("DataFusion")
         .version(crate_version!())
         .about(
