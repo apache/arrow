@@ -690,6 +690,14 @@ class StitchNode {
       return Status::Invalid("Different number of repetition vs definition levels, field ",
                              field_->name());
     }
+    for (int64_t i = 0; i < rep_levels->length(); i++) {
+      if (rep_levels->Value(i) < 0 || rep_levels->Value(i) > rep_level_) {
+        return Status::Invalid("Invalid repetition level, field ", field_->name());
+      }
+      if (def_levels->Value(i) < 0 || def_levels->Value(i) > def_level_) {
+        return Status::Invalid("Invalid definition level, field ", field_->name());
+      }
+    }
     this->rep_levels_ = rep_levels;
     this->def_levels_ = def_levels;
     this->levels_pos_ = 0;
@@ -802,7 +810,7 @@ class PrimitiveStitchNode : public StitchNode {
       }
       RETURN_NOT_OK(CopyValue<data_type>(*values_, values_pos_++, builder_.get()));
     } else {
-      return Status::Invalid("Bad definition value ", def_level,
+      return Status::Invalid("Bad definition level ", def_level,
                              " for field ", field_->name());
     }
     *godown = false;
