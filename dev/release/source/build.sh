@@ -29,4 +29,4 @@ cd ${archive_name}/c_glib
 ./autogen.sh
 cd -
 mv ${archive_name}/c_glib/ c_glib/
-tar czf /host/${c_glib_including_configure_tar_gz} c_glib/
+tar czf /host/${c_glib_including_configure_tar_gz} c_glib
