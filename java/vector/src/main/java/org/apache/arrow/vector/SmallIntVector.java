@@ -373,7 +373,7 @@ public class SmallIntVector extends BaseFixedWidthVector implements BaseIntVecto
 
   @Override
   public void setEncodedValue(int index, int value) {
-    Preconditions.checkArgument(value <= Short.MAX_VALUE, "value is overflow:" + value);
+    Preconditions.checkArgument(value <= Short.MAX_VALUE, "value is overflow: %s", value);
     this.setSafe(index, value);
   }
 

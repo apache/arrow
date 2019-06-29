@@ -311,7 +311,7 @@ public class UInt2Vector extends BaseFixedWidthVector implements BaseIntVector {
 
   @Override
   public void setEncodedValue(int index, int value) {
-    Preconditions.checkArgument(value <= 0xFFFF, "value is overflow:" + value);
+    Preconditions.checkArgument(value <= Character.MAX_VALUE, "value is overflow: %s", value);
     this.setSafe(index, value);
   }
 
