@@ -28,7 +28,7 @@ namespace util {
 
 namespace internal {
 
-static uint8_t non_null_filler;
+extern uint8_t non_null_filler;
 
 }  // namespace internal
 
