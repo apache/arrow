@@ -720,6 +720,7 @@ class BinaryMemoTable : public MemoTable {
 #ifndef NDEBUG
     int64_t data_length = values_.size() - static_cast<size_t>(left_offset);
     assert(data_length + width_size == out_size);
+    ARROW_UNUSED(data_length);
 #endif
 
     auto in_data = values_.data() + left_offset;
