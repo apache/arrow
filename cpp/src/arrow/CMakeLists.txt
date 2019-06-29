@@ -146,6 +146,7 @@ set(ARROW_SRCS
     util/task-group.cc
     util/thread-pool.cc
     util/trie.cc
+    util/ubsan.cc
     util/utf8.cc
     vendored/datetime/tz.cpp)
 
