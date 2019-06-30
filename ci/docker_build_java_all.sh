@@ -21,7 +21,9 @@ set -e
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+export ARROW_JAVADOC=1
 bash $SOURCE_DIR/docker_build_java.sh
 
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export ARROW_JAVADOC=0
 bash $SOURCE_DIR/docker_build_java.sh

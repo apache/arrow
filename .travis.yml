@@ -206,7 +206,7 @@ matrix:
     - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     - docker-compose pull java-all-jdks
     script:
-    - docker-compose run java-all-jdk
+    - docker-compose run java-all-jdks
   - name: "Integration w/ OpenJDK 8, conda-forge toolchain"
     language: java
     os: linux

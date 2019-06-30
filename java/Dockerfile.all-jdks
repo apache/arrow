@@ -30,9 +30,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         rsync \
         tzdata \
         openjdk-8-jdk \
-        openjdk-11-jdk
-
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+        openjdk-11-jdk && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Test all supported JDKs
 CMD ["arrow/ci/docker_build_java_all.sh"]

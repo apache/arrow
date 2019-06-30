@@ -31,4 +31,9 @@ popd
 
 pushd $arrow_src/java
 mvn -B -DskipTests -Drat.skip=true install
+
+if [ "$ARROW_JAVADOC" == "1" ]; then
+  export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
+  mvn -B site
+fi
 popd
