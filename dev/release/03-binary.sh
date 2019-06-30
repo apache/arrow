@@ -88,13 +88,22 @@ docker_run() {
 docker_gpg_ssh() {
   local ssh_port=$1
   shift
-  ssh \
-    -o StrictHostKeyChecking=no \
-    -i "${docker_ssh_key}" \
-    -p ${ssh_port} \
-    -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
-    arrow@127.0.0.1 \
-    "$@"
+  local known_hosts_file=$(mktemp -t "arrow-binary-gpg-ssh-known-hosts.XXXXX")
+  local exit_code=
+  if ssh \
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=${known_hosts_file} \
+      -i "${docker_ssh_key}" \
+      -p ${ssh_port} \
+      -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
+      arrow@127.0.0.1 \
+      "$@"; then
+    exit_code=$?;
+  else
+    exit_code=$?;
+  fi
+  rm -f ${known_hosts_file}
+  return ${exit_code}
 }
 
 docker_run_gpg_ready() {
