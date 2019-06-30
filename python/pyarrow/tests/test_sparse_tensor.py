@@ -82,7 +82,6 @@ def test_sparse_tensor_csr_base_object():
     assert np.array_equal(indices, result_indices)
 
 
-@pytest.mark.skip
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseTensorCSR,
     pa.SparseTensorCOO,
