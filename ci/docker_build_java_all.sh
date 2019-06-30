@@ -18,17 +18,10 @@
 
 set -e
 
-export MAVEN_OPTS="-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# /arrow/java is read-only
-mkdir -p /build/java
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+bash $SOURCE_DIR/docker_build_java.sh
 
-arrow_src=/build/java/arrow
-
-pushd /arrow
-rsync -a header java format integration $arrow_src
-popd
-
-pushd $arrow_src/java
-mvn -B -DskipTests -Drat.skip=true install
-popd
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+bash $SOURCE_DIR/docker_build_java.sh
