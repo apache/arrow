@@ -83,6 +83,7 @@ namespace arrow {
 
 using ::arrow::BitUtil::FromBigEndian;
 using ::arrow::internal::SafeLeftShift;
+using ::arrow::util::SafeLoadAs;
 
 template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
@@ -1212,38 +1213,37 @@ static uint64_t BytesToInteger(const uint8_t* bytes, int32_t start, int32_t stop
     case 1:
       return bytes[start];
     case 2:
-      return FromBigEndian(*reinterpret_cast<const uint16_t*>(bytes + start));
+      return FromBigEndian(SafeLoadAs<uint16_t>(bytes + start));
     case 3: {
-      const uint64_t first_two_bytes =
-          FromBigEndian(*reinterpret_cast<const uint16_t*>(bytes + start));
+      const uint64_t first_two_bytes = FromBigEndian(SafeLoadAs<uint16_t>(bytes + start));
       const uint64_t last_byte = bytes[stop - 1];
       return first_two_bytes << 8 | last_byte;
     }
     case 4:
-      return FromBigEndian(*reinterpret_cast<const uint32_t*>(bytes + start));
+      return FromBigEndian(SafeLoadAs<uint32_t>(bytes + start));
     case 5: {
       const uint64_t first_four_bytes =
-          FromBigEndian(*reinterpret_cast<const uint32_t*>(bytes + start));
+          FromBigEndian(SafeLoadAs<uint32_t>(bytes + start));
       const uint64_t last_byte = bytes[stop - 1];
       return first_four_bytes << 8 | last_byte;
     }
     case 6: {
       const uint64_t first_four_bytes =
-          FromBigEndian(*reinterpret_cast<const uint32_t*>(bytes + start));
+          FromBigEndian(SafeLoadAs<uint32_t>(bytes + start));
       const uint64_t last_two_bytes =
-          FromBigEndian(*reinterpret_cast<const uint16_t*>(bytes + start + 4));
+          FromBigEndian(SafeLoadAs<uint16_t>(bytes + start + 4));
       return first_four_bytes << 16 | last_two_bytes;
     }
     case 7: {
       const uint64_t first_four_bytes =
-          FromBigEndian(*reinterpret_cast<const uint32_t*>(bytes + start));
+          FromBigEndian(SafeLoadAs<uint32_t>(bytes + start));
       const uint64_t second_two_bytes =
-          FromBigEndian(*reinterpret_cast<const uint16_t*>(bytes + start + 4));
+          FromBigEndian(SafeLoadAs<uint16_t>(bytes + start + 4));
       const uint64_t last_byte = bytes[stop - 1];
       return first_four_bytes << 24 | second_two_bytes << 8 | last_byte;
     }
     case 8:
-      return FromBigEndian(*reinterpret_cast<const uint64_t*>(bytes + start));
+      return FromBigEndian(SafeLoadAs<uint64_t>(bytes + start));
     default: {
       DCHECK(false);
       return UINT64_MAX;
