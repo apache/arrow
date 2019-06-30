@@ -167,7 +167,6 @@ test_binary() {
 test_apt() {
   for target in debian-stretch \
                 debian-buster \
-                ubuntu-trusty \
                 ubuntu-xenial \
                 ubuntu-bionic \
                 ubuntu-cosmic \
