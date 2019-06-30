@@ -317,6 +317,7 @@ upload_deb() {
   for base_path in *; do
     upload_deb_file ${version} ${rc} ${distribution} ${code_name} ${base_path} &
   done
+  wait
 }
 
 upload_apt() {
@@ -447,6 +448,7 @@ upload_rpm() {
       ${distribution_version} \
       ${rpm_path} &
   done
+  wait
 }
 
 upload_yum() {
@@ -516,6 +518,7 @@ upload_python() {
       ${base_path} \
       ${version}-rc${rc}/${base_path} &
   done
+  wait
 }
 
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary
