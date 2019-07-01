@@ -397,7 +397,7 @@ Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is
       return ParseError("Empty CSV file or block: cannot infer number of columns");
     }
   }
-  constexpr int32_t kMaxCols = 1000 * 1024;
+  constexpr int32_t kMaxCols = 1024 * 1024;
   if (num_cols_ > kMaxCols) {
     return Status::Invalid("CSV parsing only supports upto ", kMaxCols,
                            " in CSV Files. Found: ", num_cols_);
