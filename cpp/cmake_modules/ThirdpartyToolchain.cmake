@@ -523,15 +523,32 @@ macro(build_boost)
   set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
                            ${BOOST_STATIC_FILESYSTEM_LIBRARY}
                            ${BOOST_STATIC_REGEX_LIBRARY})
-  set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
-                              "--with-libraries=filesystem,regex,system")
+  if(MSVC)
+    set(BOOST_CONFIGURE_COMMAND "bootstrap.bat" "--prefix=${BOOST_PREFIX}"
+                                "--with-libraries=filesystem,regex,system")
+  else()
+    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
+                                "--with-libraries=filesystem,regex,system")
+  endif()
+
   if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     set(BOOST_BUILD_VARIANT "debug")
   else()
     set(BOOST_BUILD_VARIANT "release")
   endif()
-  set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
-                          "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
+  if(MSVC)
+    set(BOOST_BUILD_COMMAND
+        "b2.exe"
+        "link=${BOOST_BUILD_LINK}"
+        "variant=${BOOST_BUILD_VARIANT}"
+        "cxxflags=-fPIC")
+  else()
+    set(BOOST_BUILD_COMMAND
+        "./b2"
+        "link=${BOOST_BUILD_LINK}"
+        "variant=${BOOST_BUILD_VARIANT}"
+        "cxxflags=-fPIC")
+  endif()
 
   add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
 
