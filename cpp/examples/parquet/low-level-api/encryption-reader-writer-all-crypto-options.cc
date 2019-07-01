@@ -369,8 +369,7 @@ void InteropTestReadEncryptedParquetFiles(std::string root_path) {
   vector_of_decryption_configurations.push_back(
       file_decryption_builder_2.key_retriever(kr2)->aad_prefix(fileName)->build());
 
-  // Decryption configuration 3: Decrypt using explicit column and footer keys. Supply
-  // aad_prefix.
+  // Decryption configuration 3: Decrypt using explicit column and footer keys.
   std::shared_ptr<parquet::schema::ColumnPath> path_float_ptr =
       parquet::schema::ColumnPath::FromDotString("float_field");
   std::shared_ptr<parquet::schema::ColumnPath> path_double_ptr =

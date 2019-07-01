@@ -161,8 +161,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
     vector_of_decryption_configurations_.push_back(
         file_decryption_builder_2.key_retriever(kr2)->aad_prefix(kFileName_)->build());
 
-    // Decryption configuration 3: Decrypt using explicit column and footer keys. Supply
-    // aad_prefix.
+    // Decryption configuration 3: Decrypt using explicit column and footer keys.
     std::shared_ptr<parquet::schema::ColumnPath> path_float_ptr =
         parquet::schema::ColumnPath::FromDotString("float_field");
     std::shared_ptr<parquet::schema::ColumnPath> path_double_ptr =
@@ -295,11 +294,6 @@ class TestEncryptionConfiguration : public ::testing::Test {
     // Close the ParquetFileWriter
     file_writer->Close();
 
-    // Close the ParquetFileWriter
-    file_writer->Close();
-
-    // Write the bytes to file
-    out_file->Close().ok();
     return;
   }
 
@@ -524,6 +518,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
           ASSERT_EQ(memcmp(value.ptr, &expected_value[0], kFixedLength), 0);
           i++;
         }
+        file_reader->Close();
       }
     } catch (const std::exception& e) {
       exception_msg = e.what();
