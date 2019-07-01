@@ -273,7 +273,7 @@ Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
 }
 
 // Wrap the dense data of a sparse tensor in a ndarray
-static Status SparseTendorDataToNdarray(const SparseTensor& sparse_tensor,
+static Status SparseTensorDataToNdarray(const SparseTensor& sparse_tensor,
                                         std::vector<npy_intp> data_shape, PyObject* base,
                                         PyObject** out_data) {
   int type_num_data;
@@ -306,7 +306,7 @@ Status SparseTensorCOOToNdarray(const std::shared_ptr<SparseTensorCOO>& sparse_t
 
   // Wrap tensor data
   OwnedRef result_data;
-  RETURN_NOT_OK(SparseTendorDataToNdarray(
+  RETURN_NOT_OK(SparseTensorDataToNdarray(
       *sparse_tensor, {sparse_index.non_zero_length(), 1}, base, result_data.ref()));
 
   // Wrap indices
@@ -326,7 +326,7 @@ Status SparseTensorCSRToNdarray(const std::shared_ptr<SparseTensorCSR>& sparse_t
 
   // Wrap tensor data
   OwnedRef result_data;
-  RETURN_NOT_OK(SparseTendorDataToNdarray(
+  RETURN_NOT_OK(SparseTensorDataToNdarray(
       *sparse_tensor, {sparse_index.non_zero_length(), 1}, base, result_data.ref()));
 
   // Wrap indices
