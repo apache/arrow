@@ -36,5 +36,6 @@ python
 rapidjson
 snappy
 thrift-cpp>=0.11.0
+uriparser
 zlib
 zstd
