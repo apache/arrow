@@ -19,7 +19,6 @@ package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
 
-import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
@@ -37,10 +36,10 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmarks for {@link Float8Vector}.
+ * Benchmarks for {@link VarCharVector}.
  */
 @State(Scope.Benchmark)
-public class Float8Benchmarks {
+public class VarCharBenchmarks {
 
   private static final int VECTOR_LENGTH = 1024;
 
@@ -48,9 +47,9 @@ public class Float8Benchmarks {
 
   private BufferAllocator allocator;
 
-  private Float8Vector vector;
+  private VarCharVector vector;
 
-  private Float8Vector fromVector;
+  private VarCharVector fromVector;
 
   /**
    * Setup benchmarks.
@@ -58,17 +57,17 @@ public class Float8Benchmarks {
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
-    vector = new Float8Vector("vector", allocator);
-    vector.allocateNew(VECTOR_LENGTH);
+    vector = new VarCharVector("vector", allocator);
+    vector.allocateNew(ALLOCATOR_CAPACITY / 4, VECTOR_LENGTH);
 
-    fromVector = new Float8Vector("vector", allocator);
-    fromVector.allocateNew(VECTOR_LENGTH);
+    fromVector = new VarCharVector("vector", allocator);
+    fromVector.allocateNew(ALLOCATOR_CAPACITY / 4, VECTOR_LENGTH);
 
     for (int i = 0;i < VECTOR_LENGTH; i++) {
       if (i % 3 == 0) {
         fromVector.setNull(i);
       } else {
-        fromVector.set(i, i * i);
+        fromVector.set(i, String.valueOf(i * 1000).getBytes());
       }
     }
     fromVector.setValueCount(VECTOR_LENGTH);
@@ -84,38 +83,19 @@ public class Float8Benchmarks {
     allocator.close();
   }
 
-  /**
-   * Test reading/writing on {@link Float8Vector}.
-   * The performance of this benchmark is influenced by the states of two flags:
-   * 1. The flag for boundary checking. For details, please see {@link BoundsChecking}.
-   * 2. The flag for null checking in get methods. For details, please see {@link NullCheckingForGet}.
-   * @return useless. To avoid DCE by JIT.
-   */
-  @Benchmark
-  @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  public double readWriteBenchmark() {
-    double sum = 0;
-    for (int i = 0; i < VECTOR_LENGTH; i++) {
-      vector.set(i, i + 10.0);
-      sum += vector.get(i);
-    }
-    return sum;
-  }
-
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public void copyFromBenchmark() {
     for (int i = 0; i < VECTOR_LENGTH; i++) {
-      vector.copyFrom(i, i, (Float8Vector) fromVector);
+      vector.copyFrom(i, i, fromVector);
     }
   }
 
   @Test
   public void evaluate() throws RunnerException {
     Options opt = new OptionsBuilder()
-            .include(Float8Benchmarks.class.getSimpleName())
+            .include(VarCharBenchmarks.class.getSimpleName())
             .forks(1)
             .build();
 
