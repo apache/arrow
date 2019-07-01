@@ -458,18 +458,10 @@ std::string MakeLotsOfCsvColumns(int32_t num_columns) {
   return MakeCSVData({header, values});
 }
 
-TEST(BlockParser, MaxAllowedColumns) {
+TEST(BlockParser, LotsOfColumns) {
   auto options = ParseOptions::Defaults();
   BlockParser parser(options);
   AssertParseOk(parser, MakeLotsOfCsvColumns(1024 * 1024));
-}
-
-TEST(BlockParser, MoreThanMaxAllowedColumns) {
-  auto options = ParseOptions::Defaults();
-  BlockParser parser(options);
-  uint32_t parsed_size = static_cast<uint32_t>(-1);
-  ASSERT_RAISES(Invalid,
-                Parse(parser, MakeLotsOfCsvColumns((1024 * 1024) + 1), &parsed_size));
 }
 
 TEST(BlockParser, QuotedEscape) {
