@@ -506,19 +506,37 @@ TEST_F(TestUtf8, TestIsNull) {
 
 TEST_F(TestUtf8, TestVarlenOutput) {
   // schema for input fields
-  auto field_a = field("a", utf8());
+  auto field_a = field("a", boolean());
   auto schema = arrow::schema({field_a});
 
   // build expressions.
-  auto expr = TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeField(field_a),
-                                              field("res", utf8()));
+  // if (a) literal_hi else literal_bye
+  auto if_node = TreeExprBuilder::MakeIf(
+      TreeExprBuilder::MakeField(field_a), TreeExprBuilder::MakeStringLiteral("hi"),
+      TreeExprBuilder::MakeStringLiteral("bye"), utf8());
+  auto expr = TreeExprBuilder::MakeExpression(if_node, field("res", utf8()));
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
 
   // assert that it fails gracefully.
-  ASSERT_RAISES(NotImplemented,
-                Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_in =
+      MakeArrowArrayBool({true, false, false, false}, {true, true, true, false});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_in});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*in_batch, pool_, &outputs));
+
+  // expected output
+  auto exp = MakeArrowArrayUtf8({"hi", "bye", "bye", "bye"}, {true, true, true, true});
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
 TEST_F(TestUtf8, TestCastVarChar) {
