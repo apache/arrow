@@ -541,7 +541,9 @@ macro(build_boost)
         "b2.exe"
         "link=${BOOST_BUILD_LINK}"
         "variant=${BOOST_BUILD_VARIANT}"
-        "cxxflags=-fPIC")
+        "address-model=64"
+        "toolset=msvc-14.0"
+        "threading=multi")
   else()
     set(BOOST_BUILD_COMMAND
         "./b2"
