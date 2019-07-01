@@ -17,6 +17,12 @@
 
 package org.apache.arrow.vector.dictionary;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.arrow.memory.DictionaryEncodeHashMap;
 import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -30,12 +36,6 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Benchmarks for {@link org.apache.arrow.memory.DictionaryEncodeHashMap}.
@@ -61,11 +61,11 @@ public class DictionaryEncodeHashMapBenchmarks {
     }
   }
 
-  private String getRandomString(int length){
+  private String getRandomString(int length) {
     String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     Random random = new Random();
     StringBuffer sb = new StringBuffer();
-    for(int i = 0; i < length; i++){
+    for (int i = 0; i < length; i++) {
       int number = random.nextInt(62);
       sb.append(str.charAt(number));
     }

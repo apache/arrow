@@ -19,6 +19,7 @@ package org.apache.arrow.memory;
 
 /**
  * Specific hash map for int type value, reducing boxing/unboxing operations.
+ * @param <K> key type.
  */
 public interface ObjectIntMap<K> {
 

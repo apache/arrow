@@ -22,6 +22,7 @@ import java.util.Objects;
 /**
  * Implementation of the {@link ObjectIntMap} interface, used for DictionaryEncoder.
  * Note that value in this map is always not less than 0, and -1 represents a null value.
+ * @param <K> key type.
  */
 public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
 
@@ -43,15 +44,21 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
 
   final float loadFactor;
 
+  /**
+   * Constructs an empty map with the specified initial capacity and load factor.
+   */
   public DictionaryEncodeHashMap(int initialCapacity, float loadFactor) {
-    if (initialCapacity < 0)
+    if (initialCapacity < 0) {
       throw new IllegalArgumentException("Illegal initial capacity: " +
           initialCapacity);
-    if (initialCapacity > MAXIMUM_CAPACITY)
+    }
+    if (initialCapacity > MAXIMUM_CAPACITY) {
       initialCapacity = MAXIMUM_CAPACITY;
-    if (loadFactor <= 0 || Float.isNaN(loadFactor))
+    }
+    if (loadFactor <= 0 || Float.isNaN(loadFactor)) {
       throw new IllegalArgumentException("Illegal load factor: " +
           loadFactor);
+    }
     this.loadFactor = loadFactor;
     this.threshold = initialCapacity;
   }
@@ -64,7 +71,7 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     this(DEFAULT_INITIAL_CAPACITY, DEFAULT_LOAD_FACTOR);
   }
 
-  private void inflateTable(int threshold){
+  private void inflateTable(int threshold) {
     int capacity = roundUpToPowerOf2(threshold);
     this.threshold = (int) Math.min(capacity * loadFactor, MAXIMUM_CAPACITY + 1);
     table = new Entry[capacity];
@@ -76,7 +83,7 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
   }
 
   static int indexFor(int h, int length) {
-    return h & (length-1);
+    return h & (length - 1);
   }
 
 
@@ -179,7 +186,7 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
   void transfer(Entry[] newTable) {
     int newCapacity = newTable.length;
     for (Entry<K> e : table) {
-      while(null != e) {
+      while (null != e) {
         Entry<K> next = e.next;
         int i = indexFor(e.hash, newCapacity);
         e.next = newTable[i];
@@ -225,6 +232,9 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     return size;
   }
 
+  /**
+   * Removes all elements from this map, leaving it empty.
+   */
   public void clear() {
     size = 0;
     for (int i = 0; i < table.length; i++) {
@@ -232,6 +242,10 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     }
   }
 
+  /**
+   * Class to keep key-value data within hash map.
+   * @param <K> key type.
+   */
   static class Entry<K> {
     final K key;
     int value;
