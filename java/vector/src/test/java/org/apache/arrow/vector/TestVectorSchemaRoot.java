@@ -17,8 +17,10 @@
 
 package org.apache.arrow.vector;
 
+import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -159,8 +161,11 @@ public class TestVectorSchemaRoot {
               schemaRoot.getFieldVectors().stream().map(vec -> vec.getField()).collect(Collectors.toList()));
 
       assertNotEquals(newSchema, schemaRoot.getSchema());
-      schemaRoot.syncSchema();
+      assertTrue(schemaRoot.syncSchema());
       assertEquals(newSchema, schemaRoot.getSchema());
+
+      // no schema update this time.
+      assertFalse(schemaRoot.syncSchema());
     }
   }
 }
