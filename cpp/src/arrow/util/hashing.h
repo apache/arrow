@@ -149,7 +149,6 @@ hash_t ComputeStringHash(const void* data, int64_t length) {
       // the results
       uint32_t x, y;
       hash_t hx, hy;
-      // XXX those are unaligned accesses.  Should we have a facility for that?
       x = util::SafeLoadAs<uint32_t>(p + n - 4);
       y = util::SafeLoadAs<uint32_t>(p);
       hx = ScalarHelper<uint32_t, AlgNum>::ComputeHash(x);
