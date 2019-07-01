@@ -17,12 +17,15 @@
 
 package org.apache.arrow.memory;
 
-import java.util.*;
+import java.util.Objects;
 
 /**
- * Created by niki.lj on 2019/6/29.
+ * Implementation of the {@link ObjectIntMap} interface, used for DictionaryEncoder.
+ * Note that value in this map is always not less than 0, and -1 represents a null value.
  */
-public class DictionaryEncodeHashMap<K> {
+public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
+
+  static final int NULL_VALUE = -1;
 
   static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;
 
@@ -39,8 +42,6 @@ public class DictionaryEncodeHashMap<K> {
   int threshold;
 
   final float loadFactor;
-
-  transient int modCount;
 
   public DictionaryEncodeHashMap(int initialCapacity, float loadFactor) {
     if (initialCapacity < 0)
@@ -69,10 +70,6 @@ public class DictionaryEncodeHashMap<K> {
     table = new Entry[capacity];
   }
 
-  private static void set(long value) {
-    System.out.println(value);
-  }
-
   static final int hash(Object key) {
     int h;
     return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
@@ -93,12 +90,7 @@ public class DictionaryEncodeHashMap<K> {
     return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
   }
 
-  void createEntry(int hash, K key, int value, int bucketIndex) {
-    Entry<K> e = table[bucketIndex];
-    table[bucketIndex] = new Entry<>(hash, key, value, e);
-    size++;
-  }
-
+  @Override
   public int get(K key) {
     int hash = hash(key);
     int index = indexFor(hash, table.length);
@@ -107,9 +99,10 @@ public class DictionaryEncodeHashMap<K> {
         return e.value;
       }
     }
-    return -1;
+    return NULL_VALUE;
   }
 
+  @Override
   public int put(K key, int value) {
     if (table == EMPTY_TABLE) {
       inflateTable(threshold);
@@ -130,9 +123,21 @@ public class DictionaryEncodeHashMap<K> {
       }
     }
 
-    modCount++;
     addEntry(hash, key, value, i);
-    return -1;
+    return NULL_VALUE;
+  }
+
+
+  @Override
+  public int remove(K key) {
+    Entry<K> e = removeEntryForKey(key);
+    return (e == null ? NULL_VALUE : e.value);
+  }
+
+  void createEntry(int hash, K key, int value, int bucketIndex) {
+    Entry<K> e = table[bucketIndex];
+    table[bucketIndex] = new Entry<>(hash, key, value, e);
+    size++;
   }
 
   private int putForNullKey(int value) {
@@ -143,9 +148,8 @@ public class DictionaryEncodeHashMap<K> {
         return oldValue;
       }
     }
-    modCount++;
     addEntry(0, null, value, 0);
-    return -1;
+    return NULL_VALUE;
   }
 
   void addEntry(int hash, K key, int value, int bucketIndex) {
@@ -185,11 +189,6 @@ public class DictionaryEncodeHashMap<K> {
     }
   }
 
-  public int remove(K key) {
-    Entry<K> e = removeEntryForKey(key);
-    return (e == null ? -1 : e.value);
-  }
-
   final Entry<K> removeEntryForKey(Object key) {
     if (size == 0) {
       return null;
@@ -203,7 +202,6 @@ public class DictionaryEncodeHashMap<K> {
       Entry<K> next = e.next;
       Object k;
       if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k)))) {
-        modCount++;
         size--;
         if (prev == e) {
           table[i] = next;
@@ -220,6 +218,19 @@ public class DictionaryEncodeHashMap<K> {
     return e;
   }
 
+  /**
+   * Returns the number of mappings in this Map.
+   */
+  public int size() {
+    return size;
+  }
+
+  public void clear() {
+    size = 0;
+    for (int i = 0; i < table.length; i++) {
+      table[i] = null;
+    }
+  }
 
   static class Entry<K> {
     final K key;

@@ -18,15 +18,23 @@
 package org.apache.arrow.vector.dictionary;
 
 import org.apache.arrow.memory.DictionaryEncodeHashMap;
-import org.apache.arrow.vector.BaseValueVectorBenchmarks;
 import org.junit.Test;
-import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -36,40 +44,64 @@ import java.util.concurrent.TimeUnit;
 public class DictionaryEncodeHashMapBenchmarks {
   private static final int SIZE = 1000;
 
-  private HashMap hashMap;
-  private DictionaryEncodeHashMap dictionaryEncodeHashMap;
+  private static final int KEY_LENGTH = 10;
+
+  private List<String> testData = new ArrayList<>();
+
+  private HashMap<String, Integer> hashMap =  new HashMap();
+  private DictionaryEncodeHashMap<String> dictionaryEncodeHashMap = new DictionaryEncodeHashMap();
 
   /**
    * Setup benchmarks.
    */
   @Setup
   public void prepare() {
-    hashMap = new HashMap();
-    dictionaryEncodeHashMap = new DictionaryEncodeHashMap();
+    for (int i = 0; i < SIZE; i++) {
+      testData.add(getRandomString(KEY_LENGTH));
+    }
   }
 
+  private String getRandomString(int length){
+    String str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    Random random = new Random();
+    StringBuffer sb = new StringBuffer();
+    for(int i = 0; i < length; i++){
+      int number = random.nextInt(62);
+      sb.append(str.charAt(number));
+    }
+    return sb.toString();
+  }
+
+  /**
+   * Test set/get int values for {@link HashMap}.
+   * @return useless. To avoid DCE by JIT.
+   */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public int testHashMap() {
     for (int i = 0; i < SIZE; i++) {
-      hashMap.put("test" + i, i);
+      hashMap.put(testData.get(i), i);
     }
     for (int i = 0; i < SIZE; i++) {
-      hashMap.get("test" + i);
+      hashMap.get(testData.get(i));
     }
     return 0;
   }
 
+  /**
+   * Test set/get int values for {@link DictionaryEncodeHashMap}.
+   * @return useless. To avoid DCE by JIT.
+   */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public int testDictionaryEncodeHashMap() {
     for (int i = 0; i < SIZE; i++) {
-      dictionaryEncodeHashMap.put("test" + i, i);
+      dictionaryEncodeHashMap.put(testData.get(i), i);
     }
     for (int i = 0; i < SIZE; i++) {
-      dictionaryEncodeHashMap.get("test" + i);
+      dictionaryEncodeHashMap.get(testData.get(i));
     }
     return 0;
   }
