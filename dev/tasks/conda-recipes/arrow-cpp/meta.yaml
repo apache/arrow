@@ -39,6 +39,7 @@ requirements:
     - re2
     - snappy
     - thrift-cpp >=0.11
+    - uriparser
     - zlib
     - zstd
 
@@ -55,6 +56,7 @@ requirements:
     - python
     - re2
     - snappy
+    - uriparser
     - zlib
     - zstd
 
