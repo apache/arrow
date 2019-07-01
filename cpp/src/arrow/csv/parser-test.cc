@@ -461,7 +461,7 @@ std::string MakeLotsOfCsvColumns(int32_t num_columns) {
 TEST(BlockParser, LotsOfColumns) {
   auto options = ParseOptions::Defaults();
   BlockParser parser(options);
-  AssertParseOk(parser, MakeLotsOfCsvColumns(1024 * 1024));
+  AssertParseOk(parser, MakeLotsOfCsvColumns(1024 * 100));
 }
 
 TEST(BlockParser, QuotedEscape) {
