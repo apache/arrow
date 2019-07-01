@@ -781,6 +781,19 @@ def test_table_flatten():
     assert t2.equals(expected)
 
 
+def test_table_combine_chunks():
+    batch1 = pa.RecordBatch.from_arrays([pa.array([1]), pa.array(["a"])],
+                                        names=['f1', 'f2'])
+    batch2 = pa.RecordBatch.from_arrays([pa.array([2]), pa.array(["b"])],
+                                        names=['f1', 'f2'])
+    table = pa.Table.from_batches([batch1, batch2])
+    combined = table.combine_chunks()
+    combined._validate()
+    assert combined.equals(table)
+    for c in combined.columns:
+        assert c.data.num_chunks == 1
+
+
 def test_concat_tables():
     data = [
         list(range(5)),

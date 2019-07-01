@@ -2,25 +2,26 @@
 % Please edit documentation in R/parquet.R
 \name{read_parquet}
 \alias{read_parquet}
-\title{Read Parquet file from disk}
+\title{Read a Parquet file}
 \usage{
-read_parquet(file, props = parquet_arrow_reader_properties(),
-  as_tibble = TRUE, col_select = NULL, ...)
+read_parquet(file, col_select = NULL, as_tibble = TRUE,
+  props = parquet_arrow_reader_properties(), ...)
 }
 \arguments{
-\item{file}{file}
+\item{file}{A character path to a local file, or an Arrow input stream}
+
+\item{col_select}{A \link[tidyselect:vars_select]{tidy selection specification}
+of columns, as used in \code{dplyr::select()}.}
+
+\item{as_tibble}{Should the function return a \code{data.frame} or an
+\link[=arrow__Table]{arrow::Table}?}
 
 \item{props}{reader file properties, as created by \code{\link[=parquet_arrow_reader_properties]{parquet_arrow_reader_properties()}}}
-
-\item{as_tibble}{Should the \link[=arrow__Table]{arrow::Table} be converted to a
-tibble? Default is \code{TRUE}.}
-
-\item{col_select}{\link[tidyselect:vars_select]{tidy selection} of columns to read}
 
 \item{...}{additional parameters}
 }
 \value{
-A \link[=arrow__Table]{arrow::Table}, or a \code{tbl_df} if \code{as_tibble} is
+A \link[=arrow__Table]{arrow::Table}, or a \code{data.frame} if \code{as_tibble} is
 \code{TRUE}.
 }
 \description{

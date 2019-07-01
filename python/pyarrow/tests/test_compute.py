@@ -51,19 +51,24 @@ def test_sum(arrow_type):
     ('double', np.arange(0, 0.5, 0.1)),
     ('string', ['a', 'b', None, 'ddd', 'ee']),
     ('binary', [b'a', b'b', b'c', b'ddd', b'ee']),
-    (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg'])
+    (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg']),
+    (pa.list_(pa.int8()), [[1, 2], [3, 4], [5, 6], None, [9, 16]]),
+    (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
+     {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
 ])
 def test_take(ty, values):
     arr = pa.array(values, type=ty)
     for indices_type in [pa.uint8(), pa.int64()]:
         indices = pa.array([0, 4, 2, None], type=indices_type)
         result = arr.take(indices)
+        result.validate()
         expected = pa.array([values[0], values[4], values[2], None], type=ty)
         assert result.equals(expected)
 
         # empty indices
         indices = pa.array([], type=indices_type)
         result = arr.take(indices)
+        result.validate()
         expected = pa.array([], type=ty)
         assert result.equals(expected)
 
@@ -83,6 +88,7 @@ def test_take_indices_types():
                          'uint32', 'int32', 'uint64', 'int64']:
         indices = pa.array([0, 4, 2, None], type=indices_type)
         result = arr.take(indices)
+        result.validate()
         expected = pa.array([0, 4, 2, None])
         assert result.equals(expected)
 
@@ -97,17 +103,7 @@ def test_take_dictionary(ordered):
     arr = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1, 2], ['a', 'b', 'c'],
                                          ordered=ordered)
     result = arr.take(pa.array([0, 1, 3]))
+    result.validate()
     assert result.to_pylist() == ['a', 'b', 'a']
     assert result.dictionary.to_pylist() == ['a', 'b', 'c']
     assert result.type.ordered is ordered
-
-
-@pytest.mark.parametrize('array', [
-    [[1, 2], [3, 4], [5, 6]],
-    [{'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}],
-], ids=['listarray', 'structarray'])
-def test_take_notimplemented(array):
-    array = pa.array(array)
-    indices = pa.array([0, 2])
-    with pytest.raises(NotImplementedError):
-        array.take(indices)

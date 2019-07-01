@@ -189,7 +189,7 @@ TEST_F(TestListArray, TestFromArrays) {
                 ListArray::FromArrays(*offsets1->Slice(0, 0), *values, pool_, &tmp));
 
   // Offsets not int32
-  ASSERT_RAISES(Invalid, ListArray::FromArrays(*values, *offsets1, pool_, &tmp));
+  ASSERT_RAISES(TypeError, ListArray::FromArrays(*values, *offsets1, pool_, &tmp));
 }
 
 TEST_F(TestListArray, TestAppendNull) {

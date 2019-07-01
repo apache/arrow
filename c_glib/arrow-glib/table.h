@@ -94,5 +94,10 @@ GArrowTable *
 garrow_table_concatenate(GArrowTable *table,
                          GList *other_tables,
                          GError **error);
+GARROW_AVAILABLE_IN_0_14
+GArrowTable*
+garrow_table_slice(GArrowTable *table,
+                   gint64 offset,
+                   gint64 length);
 
 G_END_DECLS

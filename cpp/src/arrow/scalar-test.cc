@@ -199,6 +199,73 @@ TEST(TestTimestampScalars, Basics) {
   ASSERT_FALSE(ts_val2.Equals(ts_null));
 }
 
+TEST(TestDurationScalars, Basics) {
+  auto type1 = duration(TimeUnit::MILLI);
+  auto type2 = duration(TimeUnit::SECOND);
+
+  int64_t val1 = 1;
+  int64_t val2 = 2;
+  DurationScalar ts_val1(val1, type1);
+  DurationScalar ts_val2(val2, type2);
+  DurationScalar ts_null(val2, type1, false);
+  ASSERT_EQ(val1, ts_val1.value);
+  ASSERT_EQ(val2, ts_null.value);
+
+  ASSERT_TRUE(ts_val1.type->Equals(*type1));
+  ASSERT_TRUE(ts_val2.type->Equals(*type2));
+  ASSERT_TRUE(ts_val1.is_valid);
+  ASSERT_FALSE(ts_null.is_valid);
+  ASSERT_TRUE(ts_null.type->Equals(*type1));
+
+  ASSERT_FALSE(ts_val1.Equals(ts_val2));
+  ASSERT_FALSE(ts_val1.Equals(ts_null));
+  ASSERT_FALSE(ts_val2.Equals(ts_null));
+}
+
+TEST(TestMonthIntervalScalars, Basics) {
+  auto type = month_interval();
+
+  int32_t val1 = 1;
+  int32_t val2 = 2;
+  MonthIntervalScalar ts_val1(val1, type);
+  MonthIntervalScalar ts_val2(val2, type);
+  MonthIntervalScalar ts_null(val2, type, false);
+  ASSERT_EQ(val1, ts_val1.value);
+  ASSERT_EQ(val2, ts_null.value);
+
+  ASSERT_TRUE(ts_val1.type->Equals(*type));
+  ASSERT_TRUE(ts_val2.type->Equals(*type));
+  ASSERT_TRUE(ts_val1.is_valid);
+  ASSERT_FALSE(ts_null.is_valid);
+  ASSERT_TRUE(ts_null.type->Equals(*type));
+
+  ASSERT_FALSE(ts_val1.Equals(ts_val2));
+  ASSERT_FALSE(ts_val1.Equals(ts_null));
+  ASSERT_FALSE(ts_val2.Equals(ts_null));
+}
+
+TEST(TestDayTimeIntervalScalars, Basics) {
+  auto type = day_time_interval();
+
+  DayTimeIntervalType::DayMilliseconds val1 = {1, 1};
+  DayTimeIntervalType::DayMilliseconds val2 = {2, 2};
+  DayTimeIntervalScalar ts_val1(val1, type);
+  DayTimeIntervalScalar ts_val2(val2, type);
+  DayTimeIntervalScalar ts_null(val2, type, false);
+  ASSERT_EQ(val1, ts_val1.value);
+  ASSERT_EQ(val2, ts_null.value);
+
+  ASSERT_TRUE(ts_val1.type->Equals(*type));
+  ASSERT_TRUE(ts_val2.type->Equals(*type));
+  ASSERT_TRUE(ts_val1.is_valid);
+  ASSERT_FALSE(ts_null.is_valid);
+  ASSERT_TRUE(ts_null.type->Equals(*type));
+
+  ASSERT_FALSE(ts_val1.Equals(ts_val2));
+  ASSERT_FALSE(ts_val1.Equals(ts_null));
+  ASSERT_FALSE(ts_val2.Equals(ts_null));
+}
+
 // TODO test HalfFloatScalar
 
 }  // namespace arrow

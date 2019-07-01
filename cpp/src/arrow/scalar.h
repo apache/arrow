@@ -157,7 +157,7 @@ class ARROW_EXPORT MonthIntervalScalar : public internal::PrimitiveScalar {
                       bool is_valid = true);
 };
 
-class ARROW_EXPORT DayTimeIntervalScalar : public Scalar {
+class ARROW_EXPORT DayTimeIntervalScalar : public internal::PrimitiveScalar {
  public:
   DayTimeIntervalType::DayMilliseconds value;
   DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,

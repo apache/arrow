@@ -15,7 +15,6 @@
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://arrow.apache.org/docs/r/}
   \item \url{https://github.com/apache/arrow/}
   \item Report bugs at \url{https://issues.apache.org/jira/projects/ARROW/issues}
 }

@@ -180,6 +180,9 @@ class GANDIVA_EXPORT LLVMGenerator {
   /// Generate code to load the vector at specified index and cast it as offsets array.
   llvm::Value* GetOffsetsReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
 
+  /// Generate code to load the vector at specified index and cast it as buffer pointer.
+  llvm::Value* GetDataBufferPtrReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
+
   /// Generate code for the value array of one expression.
   Status CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr output, int suffix_idx,
                           llvm::Function** fn,

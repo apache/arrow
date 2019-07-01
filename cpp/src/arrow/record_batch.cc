@@ -97,8 +97,8 @@ class SimpleRecordBatch : public RecordBatch {
   Status AddColumn(int i, const std::shared_ptr<Field>& field,
                    const std::shared_ptr<Array>& column,
                    std::shared_ptr<RecordBatch>* out) const override {
-    DCHECK(field != nullptr);
-    DCHECK(column != nullptr);
+    ARROW_CHECK(field != nullptr);
+    ARROW_CHECK(column != nullptr);
 
     if (!field->type()->Equals(column->type())) {
       return Status::Invalid("Column data type ", field->type()->name(),

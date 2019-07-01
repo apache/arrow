@@ -46,12 +46,19 @@
   public = list(
     ToString = function() Schema__ToString(self),
     num_fields = function() Schema__num_fields(self),
-    field = function(i) shared_ptr(`arrow::Field`, Schema__field(self, i))
+    field = function(i) shared_ptr(`arrow::Field`, Schema__field(self, i)),
+    serialize = function() Schema__serialize(self),
+    Equals = function(other, check_metadata = TRUE) Schema__Equals(self, other, isTRUE(check_metadata))
   ),
   active = list(
     names = function() Schema__names(self)
   )
 )
+
+#' @export
+`==.arrow::Schema` <- function(lhs, rhs){
+  lhs$Equals(rhs)
+}
 
 #' Schema factory
 #'
@@ -91,4 +98,9 @@ read_schema <- function(stream, ...) {
   stream <- BufferReader(stream)
   on.exit(stream$close())
   shared_ptr(`arrow::Schema`, ipc___ReadSchema_InputStream(stream))
+}
+
+#' @export
+`read_schema.arrow::ipc::Message` <- function(stream, ...) {
+  shared_ptr(`arrow::Schema`, ipc___ReadSchema_Message(stream))
 }

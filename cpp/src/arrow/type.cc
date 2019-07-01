@@ -153,8 +153,11 @@ std::string ListType::ToString() const {
 
 MapType::MapType(const std::shared_ptr<DataType>& key_type,
                  const std::shared_ptr<DataType>& item_type, bool keys_sorted)
-    : ListType(struct_({std::make_shared<Field>("key", key_type, false),
-                        std::make_shared<Field>("item", item_type)})),
+    : ListType(std::make_shared<Field>(
+          "entries",
+          struct_({std::make_shared<Field>("key", key_type, false),
+                   std::make_shared<Field>("value", item_type)}),
+          false)),
       keys_sorted_(keys_sorted) {
   id_ = type_id;
 }
@@ -205,7 +208,7 @@ TimeType::TimeType(Type::type type_id, TimeUnit::type unit)
     : TemporalType(type_id), unit_(unit) {}
 
 Time32Type::Time32Type(TimeUnit::type unit) : TimeType(Type::TIME32, unit) {
-  DCHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
+  ARROW_CHECK(unit == TimeUnit::SECOND || unit == TimeUnit::MILLI)
       << "Must be seconds or milliseconds";
 }
 
@@ -216,7 +219,7 @@ std::string Time32Type::ToString() const {
 }
 
 Time64Type::Time64Type(TimeUnit::type unit) : TimeType(Type::TIME64, unit) {
-  DCHECK(unit == TimeUnit::MICRO || unit == TimeUnit::NANO)
+  ARROW_CHECK(unit == TimeUnit::MICRO || unit == TimeUnit::NANO)
       << "Must be microseconds or nanoseconds";
 }
 
@@ -404,8 +407,8 @@ int StructType::GetChildIndex(const std::string& name) const {
 
 Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
     : DecimalType(16, precision, scale) {
-  DCHECK_GE(precision, 1);
-  DCHECK_LE(precision, 38);
+  ARROW_CHECK_GE(precision, 1);
+  ARROW_CHECK_LE(precision, 38);
 }
 
 // ----------------------------------------------------------------------
@@ -421,10 +424,10 @@ DictionaryType::DictionaryType(const std::shared_ptr<DataType>& index_type,
       index_type_(index_type),
       value_type_(value_type),
       ordered_(ordered) {
-#ifndef NDEBUG
+  ARROW_CHECK(is_integer(index_type->id()))
+      << "dictionary index type should be signed integer";
   const auto& int_type = checked_cast<const IntegerType&>(*index_type);
-  DCHECK_EQ(int_type.is_signed(), true) << "dictionary index type should be signed";
-#endif
+  ARROW_CHECK(int_type.is_signed()) << "dictionary index type should be signed integer";
 }
 
 DataTypeLayout DictionaryType::layout() const {

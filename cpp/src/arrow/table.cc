@@ -61,7 +61,7 @@ Status CompactColumn(const std::shared_ptr<Column>& column, MemoryPool* pool,
 ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
   length_ = 0;
   null_count_ = 0;
-  DCHECK_GT(chunks.size(), 0)
+  ARROW_CHECK_GT(chunks.size(), 0)
       << "cannot construct ChunkedArray from empty vector and omitted type";
   type_ = chunks[0]->type();
   for (const std::shared_ptr<Array>& chunk : chunks) {
@@ -141,7 +141,7 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
-  DCHECK_LE(offset, length_);
+  ARROW_CHECK_LE(offset, length_) << "Slice offset greater than array length";
 
   int curr_chunk = 0;
   while (curr_chunk < num_chunks() && offset >= chunk(curr_chunk)->length()) {

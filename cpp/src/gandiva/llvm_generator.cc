@@ -156,6 +156,14 @@ llvm::Value* LLVMGenerator::GetValidityReference(llvm::Value* arg_addrs, int idx
 }
 
 /// Get reference to data array at specified index in the args list.
+llvm::Value* LLVMGenerator::GetDataBufferPtrReference(llvm::Value* arg_addrs, int idx,
+                                                      FieldPtr field) {
+  const std::string& name = field->name();
+  llvm::Value* load = LoadVectorAtIndex(arg_addrs, idx, name);
+  return ir_builder()->CreateIntToPtr(load, types()->i8_ptr_type(), name + "_buf_ptr");
+}
+
+/// Get reference to data array at specified index in the args list.
 llvm::Value* LLVMGenerator::GetDataReference(llvm::Value* arg_addrs, int idx,
                                              FieldPtr field) {
   const std::string& name = field->name();
@@ -293,6 +301,10 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
   builder->SetInsertPoint(loop_entry);
   llvm::Value* output_ref =
       GetDataReference(arg_addrs, output->data_idx(), output->field());
+  llvm::Value* output_buffer_ptr_ref = GetDataBufferPtrReference(
+      arg_addrs, output->data_buffer_ptr_idx(), output->field());
+  llvm::Value* output_offset_ref =
+      GetOffsetsReference(arg_addrs, output->offsets_idx(), output->field());
 
   // Loop body
   builder->SetInsertPoint(loop_body);
@@ -323,6 +335,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
 
   // save the value in the output vector.
   builder->SetInsertPoint(loop_body_tail);
+
   auto output_type_id = output->Type()->id();
   if (output_type_id == arrow::Type::BOOL) {
     SetPackedBitValue(output_ref, loop_var, output_value->data());
@@ -330,6 +343,13 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr out
              output_type_id == arrow::Type::DECIMAL) {
     llvm::Value* slot_offset = builder->CreateGEP(output_ref, loop_var);
     builder->CreateStore(output_value->data(), slot_offset);
+  } else if (arrow::is_binary_like(output_type_id)) {
+    // Var-len output. Make a function call to populate the data.
+    // if there is an error, the fn sets it in the context. And, will be returned at the
+    // end of this row batch.
+    AddFunctionCall("gdv_fn_populate_varlen_vector", types()->i32_type(),
+                    {arg_context_ptr, output_buffer_ptr_ref, output_offset_ref, loop_var,
+                     output_value->data(), output_value->length()});
   } else {
     return Status::NotImplemented("output type ", output->Type()->ToString(),
                                   " not supported");

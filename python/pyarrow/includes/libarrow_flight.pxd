@@ -46,13 +46,13 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string type
         shared_ptr[CBuffer] body
 
-    cdef cppclass CResult" arrow::flight::Result":
-        CResult()
-        CResult(CResult)
+    cdef cppclass CFlightResult" arrow::flight::Result":
+        CFlightResult()
+        CFlightResult(CFlightResult)
         shared_ptr[CBuffer] body
 
     cdef cppclass CResultStream" arrow::flight::ResultStream":
-        CStatus Next(unique_ptr[CResult]* result)
+        CStatus Next(unique_ptr[CFlightResult]* result)
 
     cdef cppclass CDescriptorType \
             " arrow::flight::FlightDescriptor::DescriptorType":
@@ -247,7 +247,7 @@ ctypedef void cb_do_action(object, const CServerCallContext&, const CAction&,
                            unique_ptr[CResultStream]*)
 ctypedef void cb_list_actions(object, const CServerCallContext&,
                               vector[CActionType]*)
-ctypedef void cb_result_next(object, unique_ptr[CResult]*)
+ctypedef void cb_result_next(object, unique_ptr[CFlightResult]*)
 ctypedef void cb_data_stream_next(object, CFlightPayload*)
 ctypedef void cb_server_authenticate(object, CServerAuthSender*,
                                      CServerAuthReader*)
@@ -315,6 +315,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         int64_t total_records,
         int64_t total_bytes,
         unique_ptr[CFlightInfo]* out)
+
 
 cdef extern from "<utility>" namespace "std":
     unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream]) nogil

@@ -136,6 +136,7 @@ function build_wheel {
           -DBoost_NAMESPACE=arrow_boost \
           -DARROW_FLIGHT=ON \
           -DgRPC_SOURCE=SYSTEM \
+          -Dc-ares_SOURCE=BUNDLED \
           -DARROW_PROTOBUF_USE_SHARED=OFF \
           -DMAKE=make \
           ..

@@ -280,9 +280,9 @@ class Result {
     }
     T tmp(std::move(arrow::util::get<T>(variant_)));
     variant_ = "Object already returned with ValueOrDie";
-    return std::move(tmp);
+    return tmp;
   }
-  T operator*() && { return std::move(ValueOrDie()); }
+  T operator*() && { return ValueOrDie(); }
 
  private:
   // Assignment is disabled by default so we need to destruct/reconstruct
@@ -333,4 +333,12 @@ class Result {
 #define ARROW_ASSIGN_OR_RAISE(lhs, rexpr)                                              \
   ARROW_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                              lhs, rexpr);
+
+namespace internal {
+
+// For Cython, because of https://github.com/cython/cython/issues/3018
+template <class T>
+using CResult = Result<T>;
+
+}  // namespace internal
 }  // namespace arrow

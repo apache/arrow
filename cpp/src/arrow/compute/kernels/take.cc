@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <memory>
 #include <utility>
 
-#include "arrow/builder.h"
 #include "arrow/compute/context.h"
+#include "arrow/compute/kernels/take-internal.h"
 #include "arrow/compute/kernels/take.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -30,199 +31,106 @@ namespace compute {
 
 using internal::checked_cast;
 
-Status Take(FunctionContext* context, const Array& values, const Array& indices,
-            const TakeOptions& options, std::shared_ptr<Array>* out) {
-  Datum out_datum;
-  RETURN_NOT_OK(
-      Take(context, Datum(values.data()), Datum(indices.data()), options, &out_datum));
-  *out = out_datum.make_array();
-  return Status::OK();
-}
+// an IndexSequence which yields the values of an Array of integers
+template <typename IndexType>
+class ArrayIndexSequence {
+ public:
+  bool never_out_of_bounds() const { return never_out_of_bounds_; }
+  void set_never_out_of_bounds() { never_out_of_bounds_ = true; }
 
-Status Take(FunctionContext* context, const Datum& values, const Datum& indices,
-            const TakeOptions& options, Datum* out) {
-  TakeKernel kernel(values.type(), options);
-  RETURN_NOT_OK(kernel.Call(context, values, indices, out));
-  return Status::OK();
-}
+  constexpr ArrayIndexSequence() = default;
 
-struct TakeParameters {
-  FunctionContext* context;
-  std::shared_ptr<Array> values, indices;
-  TakeOptions options;
-  std::shared_ptr<Array>* out;
+  explicit ArrayIndexSequence(const Array& indices)
+      : indices_(&checked_cast<const NumericArray<IndexType>&>(indices)) {}
+
+  std::pair<int64_t, bool> Next() {
+    if (indices_->IsNull(index_)) {
+      ++index_;
+      return std::make_pair(-1, false);
+    }
+    return std::make_pair(indices_->Value(index_++), true);
+  }
+
+  int64_t length() const { return indices_->length(); }
+
+  int64_t null_count() const { return indices_->null_count(); }
+
+ private:
+  const NumericArray<IndexType>* indices_ = nullptr;
+  int64_t index_ = 0;
+  bool never_out_of_bounds_ = false;
 };
 
-template <typename Builder, typename Scalar>
-Status UnsafeAppend(Builder* builder, Scalar&& value) {
-  builder->UnsafeAppend(std::forward<Scalar>(value));
-  return Status::OK();
-}
-
-Status UnsafeAppend(BinaryBuilder* builder, util::string_view value) {
-  RETURN_NOT_OK(builder->ReserveData(static_cast<int64_t>(value.size())));
-  builder->UnsafeAppend(value);
-  return Status::OK();
-}
-
-Status UnsafeAppend(StringBuilder* builder, util::string_view value) {
-  RETURN_NOT_OK(builder->ReserveData(static_cast<int64_t>(value.size())));
-  builder->UnsafeAppend(value);
-  return Status::OK();
-}
-
-template <bool AllValuesValid, bool AllIndicesValid, typename ValueArray,
-          typename IndexArray, typename OutBuilder>
-Status TakeImpl(FunctionContext*, const ValueArray& values, const IndexArray& indices,
-                OutBuilder* builder) {
-  auto raw_indices = indices.raw_values();
-  for (int64_t i = 0; i < indices.length(); ++i) {
-    if (!AllIndicesValid && indices.IsNull(i)) {
-      builder->UnsafeAppendNull();
-      continue;
-    }
-    auto index = static_cast<int64_t>(raw_indices[i]);
-    if (index < 0 || index >= values.length()) {
-      return Status::IndexError("take index out of bounds");
-    }
-    if (!AllValuesValid && values.IsNull(index)) {
-      builder->UnsafeAppendNull();
-      continue;
-    }
-    RETURN_NOT_OK(UnsafeAppend(builder, values.GetView(index)));
-  }
-  return Status::OK();
-}
-
-template <bool AllValuesValid, typename ValueArray, typename IndexArray,
-          typename OutBuilder>
-Status UnpackIndicesNullCount(FunctionContext* context, const ValueArray& values,
-                              const IndexArray& indices, OutBuilder* builder) {
-  if (indices.null_count() == 0) {
-    return TakeImpl<AllValuesValid, true>(context, values, indices, builder);
-  }
-  return TakeImpl<AllValuesValid, false>(context, values, indices, builder);
-}
-
-template <typename ValueArray, typename IndexArray, typename OutBuilder>
-Status UnpackValuesNullCount(FunctionContext* context, const ValueArray& values,
-                             const IndexArray& indices, OutBuilder* builder) {
-  if (values.null_count() == 0) {
-    return UnpackIndicesNullCount<true>(context, values, indices, builder);
-  }
-  return UnpackIndicesNullCount<false>(context, values, indices, builder);
-}
-
 template <typename IndexType>
-struct UnpackValues {
-  using IndexArrayRef = const typename TypeTraits<IndexType>::ArrayType&;
+class TakeKernelImpl : public TakeKernel {
+ public:
+  explicit TakeKernelImpl(const std::shared_ptr<DataType>& value_type)
+      : TakeKernel(value_type) {}
 
-  template <typename ValueType>
-  Status Visit(const ValueType&) {
-    using ValueArrayRef = const typename TypeTraits<ValueType>::ArrayType&;
-    using OutBuilder = typename TypeTraits<ValueType>::BuilderType;
-    IndexArrayRef indices = checked_cast<IndexArrayRef>(*params_.indices);
-    ValueArrayRef values = checked_cast<ValueArrayRef>(*params_.values);
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(params_.context->memory_pool(), values.type(), &builder));
-    RETURN_NOT_OK(builder->Reserve(indices.length()));
-    RETURN_NOT_OK(UnpackValuesNullCount(params_.context, values, indices,
-                                        checked_cast<OutBuilder*>(builder.get())));
-    return builder->Finish(params_.out);
+  Status Init() {
+    return Taker<ArrayIndexSequence<IndexType>>::Make(this->type_, &taker_);
   }
 
-  Status Visit(const NullType& t) {
-    auto indices_length = params_.indices->length();
-    if (indices_length != 0) {
-      auto indices = checked_cast<IndexArrayRef>(*params_.indices).raw_values();
-      auto minmax = std::minmax_element(indices, indices + indices_length);
-      auto min = static_cast<int64_t>(*minmax.first);
-      auto max = static_cast<int64_t>(*minmax.second);
-      if (min < 0 || max >= params_.values->length()) {
-        return Status::IndexError("take index out of bounds");
-      }
-    }
-    params_.out->reset(new NullArray(indices_length));
-    return Status::OK();
+  Status Take(FunctionContext* ctx, const Array& values, const Array& indices_array,
+              std::shared_ptr<Array>* out) override {
+    RETURN_NOT_OK(taker_->Init(ctx->memory_pool()));
+    RETURN_NOT_OK(taker_->Take(values, ArrayIndexSequence<IndexType>(indices_array)));
+    return taker_->Finish(out);
   }
 
-  Status Visit(const DictionaryType& t) {
-    std::shared_ptr<Array> taken_indices;
-    const auto& values = internal::checked_cast<const DictionaryArray&>(*params_.values);
-    {
-      // To take from a dictionary, apply the current kernel to the dictionary's
-      // indices. (Use UnpackValues<IndexType> since IndexType is already unpacked)
-      auto indices = values.indices();
-      TakeParameters params = params_;
-      params.values = indices;
-      params.out = &taken_indices;
-      UnpackValues<IndexType> unpack = {params};
-      RETURN_NOT_OK(VisitTypeInline(*t.index_type(), &unpack));
-    }
-    // create output dictionary from taken indices
-    *params_.out = std::make_shared<DictionaryArray>(values.type(), taken_indices,
-                                                     values.dictionary());
-    return Status::OK();
-  }
-
-  Status Visit(const ExtensionType& t) {
-    // XXX can we just take from its storage?
-    return Status::NotImplemented("gathering values of type ", t);
-  }
-
-  Status Visit(const UnionType& t) {
-    return Status::NotImplemented("gathering values of type ", t);
-  }
-
-  Status Visit(const ListType& t) {
-    return Status::NotImplemented("gathering values of type ", t);
-  }
-
-  Status Visit(const MapType& t) {
-    return Status::NotImplemented("gathering values of type ", t);
-  }
-
-  Status Visit(const FixedSizeListType& t) {
-    return Status::NotImplemented("gathering values of type ", t);
-  }
-
-  Status Visit(const StructType& t) {
-    return Status::NotImplemented("gathering values of type ", t);
-  }
-
-  const TakeParameters& params_;
+  std::unique_ptr<Taker<ArrayIndexSequence<IndexType>>> taker_;
 };
 
 struct UnpackIndices {
   template <typename IndexType>
   enable_if_integer<IndexType, Status> Visit(const IndexType&) {
-    UnpackValues<IndexType> unpack = {params_};
-    return VisitTypeInline(*params_.values->type(), &unpack);
+    auto out = new TakeKernelImpl<IndexType>(value_type_);
+    out_->reset(out);
+    return out->Init();
   }
 
   Status Visit(const DataType& other) {
     return Status::TypeError("index type not supported: ", other);
   }
 
-  const TakeParameters& params_;
+  std::shared_ptr<DataType> value_type_;
+  std::unique_ptr<TakeKernel>* out_;
 };
+
+Status TakeKernel::Make(const std::shared_ptr<DataType>& value_type,
+                        const std::shared_ptr<DataType>& index_type,
+                        std::unique_ptr<TakeKernel>* out) {
+  UnpackIndices visitor{value_type, out};
+  return VisitTypeInline(*index_type, &visitor);
+}
 
 Status TakeKernel::Call(FunctionContext* ctx, const Datum& values, const Datum& indices,
                         Datum* out) {
   if (!values.is_array() || !indices.is_array()) {
     return Status::Invalid("TakeKernel expects array values and indices");
   }
+  auto values_array = values.make_array();
+  auto indices_array = indices.make_array();
   std::shared_ptr<Array> out_array;
-  TakeParameters params;
-  params.context = ctx;
-  params.values = values.make_array();
-  params.indices = indices.make_array();
-  params.options = options_;
-  params.out = &out_array;
-  UnpackIndices unpack = {params};
-  RETURN_NOT_OK(VisitTypeInline(*indices.type(), &unpack));
+  RETURN_NOT_OK(Take(ctx, *values_array, *indices_array, &out_array));
   *out = Datum(out_array);
   return Status::OK();
+}
+
+Status Take(FunctionContext* ctx, const Array& values, const Array& indices,
+            const TakeOptions& options, std::shared_ptr<Array>* out) {
+  Datum out_datum;
+  RETURN_NOT_OK(
+      Take(ctx, Datum(values.data()), Datum(indices.data()), options, &out_datum));
+  *out = out_datum.make_array();
+  return Status::OK();
+}
+
+Status Take(FunctionContext* ctx, const Datum& values, const Datum& indices,
+            const TakeOptions& options, Datum* out) {
+  std::unique_ptr<TakeKernel> kernel;
+  RETURN_NOT_OK(TakeKernel::Make(values.type(), indices.type(), &kernel));
+  return kernel->Call(ctx, values, indices, out);
 }
 
 }  // namespace compute

@@ -24,6 +24,7 @@ groups:
     - docker-cpp
     - docker-cpp-alpine
     - docker-cpp-cmake32
+    - docker-cpp-release
     - docker-c_glib
     - docker-go
     - docker-python-2.7
@@ -103,6 +104,15 @@ tasks:
       commands:
         - docker-compose build cpp
         - docker-compose run cpp
+
+  docker-cpp-release:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose build cpp
+        - docker-compose run cpp-release
 
   docker-cpp-alpine:
     ci: circle

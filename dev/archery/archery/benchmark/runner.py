@@ -66,7 +66,10 @@ class BenchmarkRunner:
             build = CMakeBuild.from_path(rev_or_path)
             return CppBenchmarkRunner(build, **kwargs)
         else:
-            root_rev = os.path.join(root, rev_or_path)
+            # Revisions can references remote via the `/` character, ensure
+            # that the revision is path friendly
+            path_rev = rev_or_path.replace("/", "_")
+            root_rev = os.path.join(root, path_rev)
             os.mkdir(root_rev)
 
             clone_dir = os.path.join(root_rev, "arrow")

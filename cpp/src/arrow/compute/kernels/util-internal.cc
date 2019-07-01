@@ -58,7 +58,7 @@ Status AllocateValueBuffer(FunctionContext* ctx, const DataType& type, int64_t l
     if (bit_width == 1) {
       buffer_size = BitUtil::BytesForBits(length);
     } else {
-      DCHECK_EQ(bit_width % 8, 0)
+      ARROW_CHECK_EQ(bit_width % 8, 0)
           << "Only bit widths with multiple of 8 are currently supported";
       buffer_size = length * fw_type.bit_width() / 8;
     }
@@ -182,7 +182,7 @@ Datum WrapArraysLike(const Datum& value,
   } else if (value.kind() == Datum::CHUNKED_ARRAY) {
     return Datum(std::make_shared<ChunkedArray>(arrays));
   } else {
-    DCHECK(false) << "unhandled datum kind";
+    ARROW_LOG(FATAL) << "unhandled datum kind";
     return Datum();
   }
 }
@@ -200,7 +200,7 @@ Datum WrapDatumsLike(const Datum& value, const std::vector<Datum>& datums) {
     }
     return Datum(std::make_shared<ChunkedArray>(arrays));
   } else {
-    DCHECK(false) << "unhandled datum kind";
+    ARROW_LOG(FATAL) << "unhandled datum kind";
     return Datum();
   }
 }

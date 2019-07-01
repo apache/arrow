@@ -131,7 +131,7 @@ class GZipDecompressor : public Decompressor {
       *bytes_written = 0;
       *need_more_output = true;
     } else {
-      DCHECK(ret == Z_OK || ret == Z_STREAM_END);
+      ARROW_CHECK(ret == Z_OK || ret == Z_STREAM_END);
       // Some progress has been made
       *bytes_read = input_len - stream_.avail_in;
       *bytes_written = output_len - stream_.avail_out;
@@ -224,7 +224,7 @@ Status GZipCompressor::Compress(int64_t input_len, const uint8_t* input,
     *bytes_written = output_len - stream_.avail_out;
   } else {
     // No progress was possible
-    DCHECK_EQ(ret, Z_BUF_ERROR);
+    ARROW_CHECK_EQ(ret, Z_BUF_ERROR);
     *bytes_read = 0;
     *bytes_written = 0;
   }
@@ -250,7 +250,7 @@ Status GZipCompressor::Flush(int64_t output_len, uint8_t* output, int64_t* bytes
   if (ret == Z_OK) {
     *bytes_written = output_len - stream_.avail_out;
   } else {
-    DCHECK_EQ(ret, Z_BUF_ERROR);
+    ARROW_CHECK_EQ(ret, Z_BUF_ERROR);
     *bytes_written = 0;
   }
   // "If deflate returns with avail_out == 0, this function must be called
@@ -428,7 +428,7 @@ class GZipCodec::GZipCodecImpl {
     // Must be in compression mode
     if (!compressor_initialized_) {
       Status s = InitCompressor();
-      DCHECK_OK(s);
+      ARROW_CHECK_OK(s);
     }
     int64_t max_len = deflateBound(&stream_, static_cast<uLong>(input_length));
     // ARROW-3514: return a more pessimistic estimate to account for bugs

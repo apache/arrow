@@ -42,7 +42,7 @@ using internal::SafeSignedAdd;
 
 Decimal128::Decimal128(const std::string& str) : Decimal128() {
   Status status = Decimal128::FromString(str, this);
-  DCHECK_OK(status);
+  ARROW_CHECK_OK(status);
 }
 
 static const Decimal128 kTenTo36(static_cast<int64_t>(0xC097CE7BC90715),
@@ -56,7 +56,7 @@ std::string Decimal128::ToIntegerString() const {
 
   // get anything above 10 ** 36 and print it
   Decimal128 top;
-  DCHECK_OK(Divide(kTenTo36, &top, &remainder));
+  ARROW_CHECK_OK(Divide(kTenTo36, &top, &remainder));
 
   if (top != 0) {
     buf << static_cast<int64_t>(top);

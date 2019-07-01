@@ -41,23 +41,22 @@ class FunctionContext;
 /// filter = [0, 1, 1, 0, null, 1], the output will be
 /// = ["b", "c", null, "f"]
 ///
-/// \param[in] context the FunctionContext
+/// \param[in] ctx the FunctionContext
 /// \param[in] values array to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting array
 ARROW_EXPORT
-Status Filter(FunctionContext* context, const Array& values, const Array& filter,
+Status Filter(FunctionContext* ctx, const Array& values, const Array& filter,
               std::shared_ptr<Array>* out);
 
 /// \brief Filter an array with a boolean selection filter
 ///
-/// \param[in] context the FunctionContext
+/// \param[in] ctx the FunctionContext
 /// \param[in] values datum to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting datum
 ARROW_EXPORT
-Status Filter(FunctionContext* context, const Datum& values, const Datum& filter,
-              Datum* out);
+Status Filter(FunctionContext* ctx, const Datum& values, const Datum& filter, Datum* out);
 
 /// \brief BinaryKernel implementing Filter operation
 class ARROW_EXPORT FilterKernel : public BinaryKernel {

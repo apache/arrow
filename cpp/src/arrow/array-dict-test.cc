@@ -856,27 +856,12 @@ TEST(TestDictionary, Validate) {
   // Only checking index type for now
   ASSERT_OK(ValidateArray(*arr));
 
-#ifdef NDEBUG
-  std::shared_ptr<Array> null_dict_arr =
-      std::make_shared<DictionaryArray>(dict_type, indices, nullptr);
-
-  // Only checking index type for now
-  ASSERT_RAISES(Invalid, ValidateArray(*null_dict_arr));
-#endif
-
-  // TODO(wesm) In ARROW-1199, there is now a DCHECK to compare the indices
-  // type with the dict_type. How can we test for this?
-
-  // std::shared_ptr<Array> indices2;
-  // vector<float> indices2_values = {1., 2., 0., 0., 2., 0.};
-  // ArrayFromVector<FloatType, float>(is_valid, indices2_values, &indices2);
-
-  // std::shared_ptr<Array> indices3;
-  // vector<int64_t> indices3_values = {1, 2, 0, 0, 2, 0};
-  // ArrayFromVector<Int64Type, int64_t>(is_valid, indices3_values, &indices3);
-  // std::shared_ptr<Array> arr2 = std::make_shared<DictionaryArray>(dict_type, indices2);
-  // std::shared_ptr<Array> arr3 = std::make_shared<DictionaryArray>(dict_type, indices3);
-  // ASSERT_OK(ValidateArray(*arr3));
+  ASSERT_DEATH(
+      {
+        std::shared_ptr<Array> null_dict_arr =
+            std::make_shared<DictionaryArray>(dict_type, indices, nullptr);
+      },
+      "");
 }
 
 TEST(TestDictionary, FromArray) {

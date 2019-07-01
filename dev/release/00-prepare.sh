@@ -101,6 +101,24 @@ update_versions() {
   git add DESCRIPTION
   cd -
 
+  cd "${SOURCE_DIR}/../../r"
+  if [ ${type} = "snapshot" ]; then
+    # Add a news entry for the new dev version
+    echo "dev"
+    sed -i.bak -E -e \
+      "0,/^# arrow /s/^(# arrow .+)/# arrow ${r_version}\n\n\1/" \
+      NEWS.md
+  else
+    # Replace dev version with release version
+    echo "release"
+    sed -i.bak -E -e \
+      "0,/^# arrow /s/^# arrow .+/# arrow ${r_version}/" \
+      NEWS.md
+  fi
+  rm -f NEWS.md.bak
+  git add NEWS.md
+  cd -
+
   cd "${SOURCE_DIR}/../../ruby"
   sed -i.bak -E -e \
     "s/^  VERSION = \".+\"/  VERSION = \"${version}\"/g" \
@@ -190,10 +208,33 @@ if [ ${PREPARE_VERSION_PRE_TAG} -gt 0 ]; then
 fi
 
 if [ ${PREPARE_TAG} -gt 0 ]; then
-  cd "${SOURCE_DIR}/../../java"
+  profile=arrow-jni # this includes components which depend on arrow cpp.
+  pushd "${SOURCE_DIR}/../../java"
+  git submodule update --init --recursive
+  cpp_dir="${PWD}/../cpp"
+  cpp_build_dir=$(mktemp -d -t "apache-arrow-cpp.XXXXX")
+  pushd ${cpp_build_dir}
+  cmake \
+    -DARROW_GANDIVA=ON \
+    -DARROW_GANDIVA_JAVA=ON \
+    -DARROW_JNI=ON \
+    -DARROW_ORC=ON \
+    -DCMAKE_BUILD_TYPE=release \
+    -G Ninja \
+    "${cpp_dir}"
+  ninja
+  popd
   mvn release:clean
-  mvn release:prepare -Dtag=${tag} -DreleaseVersion=${version} -DautoVersionSubmodules -DdevelopmentVersion=${next_version_snapshot}
-  cd -
+  mvn \
+    release:prepare \
+    -Darguments=-Darrow.cpp.build.dir=${cpp_build_dir}/release \
+    -DautoVersionSubmodules \
+    -DdevelopmentVersion=${next_version_snapshot} \
+    -DreleaseVersion=${version} \
+    -Dtag=${tag} \
+    -P ${profile}
+  rm -rf ${cpp_build_dir}
+  popd
 fi
 
 ############################## Post-Tag Commits #############################

@@ -118,6 +118,20 @@ services:
       PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
 
+  cpp-release:
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose run cpp-release
+    image: arrow:cpp
+    shm_size: 2G
+    build:
+      context: .
+      dockerfile: cpp/Dockerfile
+    environment:
+      ARROW_BUILD_TYPE: release
+      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
+    volumes: *ubuntu-volumes
+
   cpp-static-only:
     # Usage:
     #   docker-compose build cpp

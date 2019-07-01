@@ -41,9 +41,9 @@
   )
 )
 
-#' Create TableWriter that writes into a stream
+#' Create `TableWriter` that writes into a stream
 #'
-#' @param stream an OutputStream
+#' @param stream an `OutputStream`
 #'
 #' @export
 FeatherTableWriter <- function(stream) {
@@ -55,10 +55,10 @@ FeatherTableWriter <- function(stream) {
   unique_ptr(`arrow::ipc::feather::TableWriter`, ipc___feather___TableWriter__Open(stream))
 }
 
-#' Write data in the feather format
+#' Write data in the Feather format
 #'
-#' @param data frame or arrow::RecordBatch
-#' @param stream A file path or an arrow::io::OutputStream
+#' @param data `data.frame` or `arrow::RecordBatch`
+#' @param stream A file path or an `arrow::io::OutputStream`
 #'
 #' @export
 write_feather <- function(data, stream) {
@@ -72,12 +72,7 @@ write_feather.default <- function(data, stream) {
 
 #' @export
 write_feather.data.frame <- function(data, stream) {
-  # splice the columns in the record_batch() call
-  # e.g. if we had data <- data.frame(x = <...>, y = <...>)
-  # then record_batch(!!!data) is the same as
-  # record_batch(x = data$x, y = data$y)
-  # see ?rlang::list2()
-  write_feather(record_batch(!!!data), stream)
+  write_feather(record_batch(data), stream)
 }
 
 #' @method write_feather arrow::RecordBatch
@@ -86,8 +81,13 @@ write_feather.data.frame <- function(data, stream) {
   write_feather_RecordBatch(data, stream)
 }
 
-#' @rdname write_feather
+#' Write a record batch in the feather format
+#'
+#' @param data `data.frame` or `arrow::RecordBatch`
+#' @param stream A file path or an `arrow::io::OutputStream`
+#'
 #' @export
+#' @keywords internal
 write_feather_RecordBatch <- function(data, stream) {
   UseMethod("write_feather_RecordBatch", stream)
 }
@@ -118,10 +118,10 @@ write_feather_RecordBatch <- function(data, stream) {
   ipc___TableWriter__RecordBatch__WriteFeather(FeatherTableWriter(stream), data)
 }
 
-#' A arrow::ipc::feather::TableReader to read from a file
+#' A `arrow::ipc::feather::TableReader` to read from a file
 #'
-#' @param file A file path, arrow::io::RandomAccessFile
-#' @param mmap Is the file memory mapped (applicable to the character and fs_path methods)
+#' @param file A file path or `arrow::io::RandomAccessFile`
+#' @param mmap Is the file memory mapped (applicable to the `character` and `fs_path` methods)
 #' @param ... extra parameters
 #'
 #' @export
@@ -159,14 +159,14 @@ FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
   file
 }
 
-#' Read a feather file
+#' Read a Feather file
 #'
-#' @param file a arrow::ipc::feather::TableReader or whatever the [FeatherTableReader()] function can handle
+#' @param file an `arrow::ipc::feather::TableReader` or whatever the [FeatherTableReader()] function can handle
 #' @param col_select [tidy selection][tidyselect::vars_select()] of columns to read.
 #' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
 #' @param ... additional parameters
 #'
-#' @return a data frame if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
+#' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
 #'
 #' @export
 read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...){

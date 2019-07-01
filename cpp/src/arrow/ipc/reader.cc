@@ -104,9 +104,11 @@ class IpcComponentSource {
       *out = nullptr;
       return Status::OK();
     } else {
-      DCHECK(BitUtil::IsMultipleOf8(buffer->offset()))
-          << "Buffer " << buffer_index
-          << " did not start on 8-byte aligned offset: " << buffer->offset();
+      if (!BitUtil::IsMultipleOf8(buffer->offset())) {
+        return Status::Invalid(
+            "Buffer ", buffer_index,
+            " did not start on 8-byte aligned offset: ", buffer->offset());
+      }
       return file_->ReadAt(buffer->offset(), buffer->length(), out);
     }
   }
@@ -357,7 +359,9 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
   for (int i = 0; i < schema->num_fields(); ++i) {
     auto arr = std::make_shared<ArrayData>();
     RETURN_NOT_OK(LoadArray(*schema->field(i), &context, arr.get()));
-    DCHECK_EQ(num_rows, arr->length) << "Array length did not match record batch length";
+    if (num_rows != arr->length) {
+      return Status::IOError("Array length did not match record batch length");
+    }
     arrays[i] = std::move(arr);
   }
 
@@ -893,9 +897,11 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
         "Header-type of flatbuffer-encoded Message is not SparseTensor.");
   }
   const flatbuf::Buffer* buffer = sparse_tensor->data();
-  DCHECK(BitUtil::IsMultipleOf8(buffer->offset()))
-      << "Buffer of sparse index data "
-      << "did not start on 8-byte aligned offset: " << buffer->offset();
+  if (!BitUtil::IsMultipleOf8(buffer->offset())) {
+    return Status::Invalid(
+        "Buffer of sparse index data did not start on 8-byte aligned offset: ",
+        buffer->offset());
+  }
 
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(file->ReadAt(buffer->offset(), buffer->length(), &data));

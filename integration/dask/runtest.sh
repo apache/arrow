@@ -29,7 +29,7 @@ python -c "import pyarrow.parquet"
 # pytest -sv --pyargs dask.bytes.tests.test_hdfs
 # pytest -sv --pyargs dask.bytes.tests.test_local
 
-# TODO(kszucs): re-enable it, for more see ARROW-3910
-# pytest -v --pyargs dask.dataframe.io.tests.test_orc
-pytest -v --pyargs dask.dataframe.io.tests.test_parquet
 pytest -v --pyargs dask.dataframe.tests.test_dataframe
+pytest -v --pyargs dask.dataframe.io.tests.test_orc
+pytest -v --pyargs dask.dataframe.io.tests.test_parquet \
+  -k "not test_timestamp_index and not test_roundtrip_from_pandas"

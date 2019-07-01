@@ -20,10 +20,6 @@
 #include <string>
 #include <utility>
 
-#ifdef ARROW_EXTRA_ERROR_CONTEXT
-#include <sstream>
-#endif
-
 #include "arrow/util/macros.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/visibility.h"
@@ -31,14 +27,13 @@
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
 /// \brief Return with given status if condition is met.
-#define ARROW_RETURN_IF_(condition, status, expr)                                     \
-  do {                                                                                \
-    if (ARROW_PREDICT_FALSE(condition)) {                                             \
-      ::arrow::Status _s = (status);                                                  \
-      std::stringstream ss;                                                           \
-      ss << _s.message() << "\n" << __FILE__ << ":" << __LINE__ << " code: " << expr; \
-      return ::arrow::Status(_s.code(), ss.str());                                    \
-    }                                                                                 \
+#define ARROW_RETURN_IF_(condition, status, expr)   \
+  do {                                              \
+    if (ARROW_PREDICT_FALSE(condition)) {           \
+      ::arrow::Status _st = (status);               \
+      _st.AddContextLine(__FILE__, __LINE__, expr); \
+      return _st;                                   \
+    }                                               \
   } while (0)
 
 #else
@@ -337,6 +332,10 @@ class ARROW_EXPORT Status {
 
   [[noreturn]] void Abort() const;
   [[noreturn]] void Abort(const std::string& message) const;
+
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+  void AddContextLine(const char* filename, int line, const char* expr);
+#endif
 
  private:
   struct State {

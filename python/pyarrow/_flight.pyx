@@ -127,7 +127,7 @@ class ActionType(_ActionType):
 cdef class Result:
     """A result from executing an Action."""
     cdef:
-        unique_ptr[CResult] result
+        unique_ptr[CFlightResult] result
 
     def __init__(self, buf):
         """Create a new result.
@@ -136,7 +136,7 @@ cdef class Result:
         ----------
         buf : Buffer or bytes-like object
         """
-        self.result.reset(new CResult())
+        self.result.reset(new CFlightResult())
         self.result.get().body = pyarrow_unwrap_buffer(as_buffer(buf))
 
     @property
@@ -1145,14 +1145,18 @@ cdef void _do_get(void* self, const CServerCallContext& context,
 
 
 cdef void _do_action_result_next(void* self,
-                                 unique_ptr[CResult]* result) except *:
+                                 unique_ptr[CFlightResult]* result) except *:
     """Callback for implementing Flight servers in Python."""
+    cdef:
+        CFlightResult* c_result
+
     try:
         action_result = next(<object> self)
         if not isinstance(action_result, Result):
             raise TypeError("Result of FlightServerBase.do_action must "
                             "return an iterator of Result objects")
-        result.reset(new CResult(deref((<Result> action_result).result.get())))
+        c_result = (<Result> action_result).result.get()
+        result.reset(new CFlightResult(deref(c_result)))
     except StopIteration:
         result.reset(nullptr)
 

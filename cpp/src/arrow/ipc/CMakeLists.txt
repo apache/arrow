@@ -23,21 +23,19 @@ add_arrow_test(read-write-test PREFIX "arrow-ipc")
 add_arrow_test(json-simple-test PREFIX "arrow-ipc")
 add_arrow_test(json-test PREFIX "arrow-ipc")
 
-if(NOT ARROW_BOOST_HEADER_ONLY)
-  # json-integration-test is two things at the same time:
-  # - an executable that can be called to answer integration test requests
-  # - a self-(unit)test for the C++ side of integration testing
-  if(ARROW_BUILD_TESTS)
-    add_arrow_test(json-integration-test EXTRA_LINK_LIBS ${GFLAGS_LIBRARIES})
-    add_dependencies(arrow-integration arrow-json-integration-test)
-  elseif(ARROW_BUILD_INTEGRATION)
-    add_executable(arrow-json-integration-test json-integration-test.cc)
-    target_link_libraries(arrow-json-integration-test ${ARROW_TEST_LINK_LIBS}
-                          ${GFLAGS_LIBRARIES} GTest::GTest)
+# json-integration-test is two things at the same time:
+# - an executable that can be called to answer integration test requests
+# - a self-(unit)test for the C++ side of integration testing
+if(ARROW_BUILD_TESTS)
+  add_arrow_test(json-integration-test EXTRA_LINK_LIBS ${GFLAGS_LIBRARIES})
+  add_dependencies(arrow-integration arrow-json-integration-test)
+elseif(ARROW_BUILD_INTEGRATION)
+  add_executable(arrow-json-integration-test json-integration-test.cc)
+  target_link_libraries(arrow-json-integration-test ${ARROW_TEST_LINK_LIBS}
+                        ${GFLAGS_LIBRARIES} GTest::GTest)
 
-    add_dependencies(arrow-json-integration-test arrow arrow_testing)
-    add_dependencies(arrow-integration arrow-json-integration-test)
-  endif()
+  add_dependencies(arrow-json-integration-test arrow arrow_testing)
+  add_dependencies(arrow-integration arrow-json-integration-test)
 endif()
 
 # make clean will delete the generated file

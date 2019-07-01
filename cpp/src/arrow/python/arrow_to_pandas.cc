@@ -688,7 +688,7 @@ static Status ConvertDecimals(const PandasOptions& options, const ChunkedArray& 
   OwnedRef decimal;
   OwnedRef Decimal;
   RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
-  RETURN_NOT_OK(internal::ImportFromModule(decimal, "Decimal", &Decimal));
+  RETURN_NOT_OK(internal::ImportFromModule(decimal.obj(), "Decimal", &Decimal));
   PyObject* decimal_constructor = Decimal.obj();
 
   for (int c = 0; c < data.num_chunks(); c++) {

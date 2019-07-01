@@ -28,6 +28,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit-util.h"
@@ -565,7 +566,13 @@ class ARROW_EXPORT MapArray : public ListArray {
 
   MapArray(const std::shared_ptr<DataType>& type, int64_t length,
            const std::shared_ptr<Buffer>& value_offsets,
-           const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& values,
+           const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
+           const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+           int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  MapArray(const std::shared_ptr<DataType>& type, int64_t length,
+           const std::shared_ptr<Buffer>& value_offsets,
+           const std::shared_ptr<Array>& values,
            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
@@ -690,8 +697,7 @@ class ARROW_EXPORT BinaryArray : public FlatArray {
   /// Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data);
 
-  // Constructor that allows sub-classes/builders to propagate there logical type up the
-  // class hierarchy.
+  // Constructor to allow sub-classes/builders to substitute their own logical type
   BinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
               const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,
@@ -817,6 +823,16 @@ class ARROW_EXPORT StructArray : public Array {
               std::shared_ptr<Buffer> null_bitmap = NULLPTR,
               int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
+  /// \brief Return a StructArray from child arrays and field names.
+  ///
+  /// The length and data type are automatically inferred from the arguments.
+  /// There should be at least one child array.
+  static Result<std::shared_ptr<Array>> Make(
+      const std::vector<std::shared_ptr<Array>>& children,
+      const std::vector<std::string>& field_names,
+      std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+      int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
   const StructType* struct_type() const;
 
   // Return a shared pointer in case the requestor desires to share ownership
@@ -835,6 +851,7 @@ class ARROW_EXPORT StructArray : public Array {
 
  private:
   // For caching boxed child data
+  // XXX This is not handled in a thread-safe manner.
   mutable std::vector<std::shared_ptr<Array>> boxed_fields_;
 };
 
