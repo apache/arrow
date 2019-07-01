@@ -175,7 +175,7 @@ mod tests {
             &mut self,
             list_type: TypePtr,
             item_type: &Type,
-            context: TestVisitorContext,
+            _context: TestVisitorContext,
         ) -> Result<bool> {
             assert_eq!(
                 self.get_field_by_name(list_type.name()).as_ref(),
@@ -214,8 +214,8 @@ mod tests {
           message spark_schema {
             REQUIRED INT32 a;
             OPTIONAL group inner_schema {
-              INT32 b;
-              DOUBLE c;
+              REQUIRED INT32 b;
+              REQUIRED DOUBLE c;
             }
 
             OPTIONAL group e (LIST) {
