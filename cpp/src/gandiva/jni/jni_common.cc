@@ -632,6 +632,32 @@ err_out:
   return module_id;
 }
 
+///
+/// \brief Resizable buffer which resizes by doing a callback into java.
+///
+class JavaResizableBuffer : public arrow::ResizableBuffer {
+ public:
+  JavaResizableBuffer(uint8_t* buffer, int32_t len) : ResizableBuffer(buffer, len) {
+    size_ = 0;
+  }
+
+  Status Resize(const int64_t new_size, bool shrink_to_fit) override {
+    if (shrink_to_fit == true) {
+      return Status::NotImplemented("shrink not implemented");
+    } else if (new_size < capacity()) {
+      size_ = new_size;
+      return Status::OK();
+    } else {
+      // TODO: callback into java to re-alloc the buffer.
+      return Status::NotImplemented("buffer expand not implemented");
+    }
+  }
+
+  Status Reserve(const int64_t new_capacity) override {
+    return Status::NotImplemented("reserve not implemented");
+  }
+};
+
 #define CHECK_OUT_BUFFER_IDX_AND_BREAK(idx, len)                               \
   if (idx >= len) {                                                            \
     status = gandiva::Status::Invalid("insufficient number of out_buf_addrs"); \
@@ -710,20 +736,31 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
     int buf_idx = 0;
     int sz_idx = 0;
     for (FieldPtr field : ret_types) {
+      std::vector<std::shared_ptr<arrow::Buffer>> buffers;
+
       CHECK_OUT_BUFFER_IDX_AND_BREAK(buf_idx, out_bufs_len);
       uint8_t* validity_buf = reinterpret_cast<uint8_t*>(out_bufs[buf_idx++]);
       jlong bitmap_sz = out_sizes[sz_idx++];
-      std::shared_ptr<arrow::MutableBuffer> bitmap_buf =
-          std::make_shared<arrow::MutableBuffer>(validity_buf, bitmap_sz);
+      buffers.push_back(std::make_shared<arrow::MutableBuffer>(validity_buf, bitmap_sz));
+
+      if (arrow::is_binary_like(field->type()->id())) {
+        CHECK_OUT_BUFFER_IDX_AND_BREAK(buf_idx, out_bufs_len);
+        uint8_t* offsets_buf = reinterpret_cast<uint8_t*>(out_bufs[buf_idx++]);
+        jlong offsets_sz = out_sizes[sz_idx++];
+        buffers.push_back(
+            std::make_shared<arrow::MutableBuffer>(offsets_buf, offsets_sz));
+      }
 
       CHECK_OUT_BUFFER_IDX_AND_BREAK(buf_idx, out_bufs_len);
       uint8_t* value_buf = reinterpret_cast<uint8_t*>(out_bufs[buf_idx++]);
       jlong data_sz = out_sizes[sz_idx++];
-      std::shared_ptr<arrow::MutableBuffer> data_buf =
-          std::make_shared<arrow::MutableBuffer>(value_buf, data_sz);
+      if (arrow::is_binary_like(field->type()->id())) {
+        buffers.push_back(std::make_shared<JavaResizableBuffer>(value_buf, data_sz));
+      } else {
+        buffers.push_back(std::make_shared<arrow::MutableBuffer>(value_buf, data_sz));
+      }
 
-      auto array_data =
-          arrow::ArrayData::Make(field->type(), output_row_count, {bitmap_buf, data_buf});
+      auto array_data = arrow::ArrayData::Make(field->type(), output_row_count, buffers);
       output.push_back(array_data);
     }
     status = holder->projector()->Evaluate(*in_batch, selection_vector.get(), output);
