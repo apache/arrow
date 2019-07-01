@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.UInt2ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
@@ -35,7 +36,7 @@ import io.netty.buffer.ArrowBuf;
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class UInt2Vector extends BaseFixedWidthVector {
+public class UInt2Vector extends BaseFixedWidthVector implements BaseIntVector {
   private static final byte TYPE_WIDTH = 2;
   private final FieldReader reader;
 
@@ -306,6 +307,12 @@ public class UInt2Vector extends BaseFixedWidthVector {
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
     return new TransferImpl((UInt2Vector) to);
+  }
+
+  @Override
+  public void setEncodedValue(int index, int value) {
+    Preconditions.checkArgument(value <= Character.MAX_VALUE, "value is overflow: %s", value);
+    this.setSafe(index, value);
   }
 
   private class TransferImpl implements TransferPair {
