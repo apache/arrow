@@ -397,11 +397,7 @@ Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is
       return ParseError("Empty CSV file or block: cannot infer number of columns");
     }
   }
-  constexpr int32_t kMaxCols = 1024 * 1024;
-  if (num_cols_ > kMaxCols) {
-    return Status::Invalid("CSV parsing only supports upto ", kMaxCols,
-                           " in CSV Files. Found: ", num_cols_);
-  }
+
   while (!finished_parsing && data < data_end && num_rows_ < max_num_rows_) {
     // We know the number of columns, so can presize a values array for
     // a given number of rows
@@ -410,11 +406,11 @@ Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is
     int32_t rows_in_chunk;
     constexpr int32_t kTargetChunkSize = 32768;
     if (num_cols_ > 0) {
-      rows_in_chunk = std::min(kTargetChunkSize / num_cols_, max_num_rows_ - num_rows_);
+      rows_in_chunk = std::min(std::max(kTargetChunkSize / num_cols_, 512),
+                               max_num_rows_ - num_rows_);
     } else {
       rows_in_chunk = std::min(kTargetChunkSize, max_num_rows_ - num_rows_);
     }
-    rows_in_chunk = std::max(1, rows_in_chunk);
 
     PresizedValuesWriter values_writer(pool_, rows_in_chunk, num_cols_);
     values_writer.Start(parsed_writer);
