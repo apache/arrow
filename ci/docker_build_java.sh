@@ -25,6 +25,9 @@ mkdir -p /build/java
 
 arrow_src=/build/java/arrow
 
+# Remove any pre-existing artifacts
+rm -rf $arrow_src
+
 pushd /arrow
 rsync -a header java format integration $arrow_src
 popd

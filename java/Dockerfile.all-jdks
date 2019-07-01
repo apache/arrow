@@ -21,10 +21,8 @@ FROM ubuntu:18.04
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-        wget software-properties-common gpg-agent && \
-    apt-add-repository -y ppa:webupd8team/java && \
-    apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
+        wget \
+        software-properties-common \
         ca-certificates \
         maven \
         rsync \
