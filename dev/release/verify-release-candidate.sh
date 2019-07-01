@@ -130,9 +130,8 @@ download_bintray_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file} &
+      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
   done
-  wait
 }
 
 test_binary() {
