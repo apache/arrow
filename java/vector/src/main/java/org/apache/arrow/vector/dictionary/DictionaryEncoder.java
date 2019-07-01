@@ -17,12 +17,10 @@
 
 package org.apache.arrow.vector.dictionary;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -61,43 +59,27 @@ public class DictionaryEncoder {
     Field indexField = new Field(valueField.getName(), indexFieldType, null);
 
     // vector to hold our indices (dictionary encoded values)
-    FieldVector indices = indexField.createVector(vector.getAllocator());
+    FieldVector createdVector = indexField.createVector(vector.getAllocator());
+    if (! (createdVector instanceof BaseIntVector)) {
+      throw new IllegalArgumentException("Dictionary encoding does not have a valid int type:" +
+          createdVector.getClass());
+    }
 
-    // use reflection to pull out the set method
-    // TODO implement a common interface for int vectors
-    Method setter = null;
-    for (Class<?> c : Arrays.asList(int.class, long.class)) {
-      try {
-        setter = indices.getClass().getMethod("setSafe", int.class, c);
-        break;
-      } catch (NoSuchMethodException e) {
-        // ignore
-      }
-    }
-    if (setter == null) {
-      throw new IllegalArgumentException("Dictionary encoding does not have a valid int type:" + indices.getClass());
-    }
+    BaseIntVector indices = (BaseIntVector) createdVector;
+    indices.allocateNew();
 
     int count = vector.getValueCount();
 
-    indices.allocateNew();
-
-    try {
-      for (int i = 0; i < count; i++) {
-        Object value = vector.getObject(i);
-        if (value != null) { // if it's null leave it null
-          // note: this may fail if value was not included in the dictionary
-          Object encoded = lookUps.get(value);
-          if (encoded == null) {
-            throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
-          }
-          setter.invoke(indices, i, encoded);
+    for (int i = 0; i < count; i++) {
+      Object value = vector.getObject(i);
+      if (value != null) { // if it's null leave it null
+        // note: this may fail if value was not included in the dictionary
+        Integer encoded = lookUps.get(value);
+        if (encoded == null) {
+          throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
         }
+        indices.setEncodedValue(i, encoded);
       }
-    } catch (IllegalAccessException e) {
-      throw new RuntimeException("IllegalAccessException invoking vector mutator set():", e);
-    } catch (InvocationTargetException e) {
-      throw new RuntimeException("InvocationTargetException invoking vector mutator set():", e.getCause());
     }
 
     indices.setValueCount(count);

@@ -19,6 +19,7 @@ License: Apache License (>= 2.0)
 URL: https://github.com/apache/arrow/
 BugReports: https://issues.apache.org/jira/projects/ARROW/issues
 Encoding: UTF-8
+Language: en-US
 LazyData: true
 SystemRequirements: C++11
 LinkingTo:

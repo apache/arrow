@@ -2,17 +2,17 @@
 % Please edit documentation in R/parquet.R
 \name{parquet_file_reader}
 \alias{parquet_file_reader}
-\title{Create a FileReader instance}
+\title{Parquet file reader}
 \usage{
 parquet_file_reader(file, props = parquet_arrow_reader_properties(), ...)
 }
 \arguments{
-\item{file}{file}
+\item{file}{A character path to a local file, or an Arrow input stream}
 
 \item{props}{reader file properties, as created by \code{\link[=parquet_arrow_reader_properties]{parquet_arrow_reader_properties()}}}
 
 \item{...}{additional parameters}
 }
 \description{
-Create a FileReader instance
+Parquet file reader
 }

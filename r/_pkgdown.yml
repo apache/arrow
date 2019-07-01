@@ -58,7 +58,6 @@ reference:
   - csv_table_reader
   - json_parse_options
   - json_read_options
-  - parquet_arrow_reader_properties
   - json_table_reader
   - parquet_file_reader
 - title: Arrow data containers

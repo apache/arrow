@@ -21,8 +21,10 @@ set -e
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cd "${SOURCE_DIR}/../../java"
+pushd "${SOURCE_DIR}/../../java"
 
+git submodule update --init --recursive
+export ARROW_TEST_DATA=${PWD}/../testing/data
 mvn release:perform
 
-cd -
+popd

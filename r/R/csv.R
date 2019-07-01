@@ -19,7 +19,7 @@
 #'
 #' These functions uses the Arrow C++ CSV reader to read into a `data.frame`.
 #' Arrow C++ options have been mapped to argument names that follow those of
-#' [readr::read_delim()], and `col_select` was inspired by [vroom::vroom()].
+#' `readr::read_delim()`, and `col_select` was inspired by `vroom::vroom()`.
 #'
 #' `read_csv_arrow()` and `read_tsv_arrow()` are wrappers around
 #' `read_delim_arrow()` that specify a delimiter.
@@ -189,15 +189,17 @@ read_tsv_arrow <- function(file,
 `arrow::csv::ParseOptions` <- R6Class("arrow::csv::ParseOptions", inherit = `arrow::Object`)
 `arrow::csv::ConvertOptions` <- R6Class("arrow::csv::ConvertOptions", inherit = `arrow::Object`)
 
-#' read options for the csv reader
+#' Read options for the Arrow file readers
 #'
-#' @param block_size Block size we request from the IO layer; also determines the size of chunks when use_threads is `TRUE`
+#' @param use_threads Whether to use the global CPU thread pool
+#' @param block_size Block size we request from the IO layer; also determines the size of chunks when use_threads is `TRUE`. NB: if false, JSON input must end with an empty line
 #'
 #' @export
-csv_read_options <- function(block_size = 1048576L) {
+csv_read_options <- function(use_threads = option_use_threads(),
+                             block_size = 1048576L) {
   shared_ptr(`arrow::csv::ReadOptions`, csv___ReadOptions__initialize(
     list(
-      use_threads = option_use_threads(),
+      use_threads = use_threads,
       block_size = block_size
     )
   ))
@@ -224,8 +226,7 @@ readr_to_csv_parse_options <- function(delim = ",",
   )
 }
 
-#' CSV parsing options
-#'
+#' Parsing options for Arrow file readers
 #'
 #' @param delimiter Field delimiter
 #' @param quoting Whether quoting is used
@@ -263,7 +264,7 @@ csv_parse_options <- function(delimiter = ",",
   ))
 }
 
-#' Conversion Options for the csv reader
+#' Conversion options for the CSV reader
 #'
 #' @param check_utf8 Whether to check UTF8 validity of string columns
 #'
@@ -289,20 +290,20 @@ csv_convert_options <- function(check_utf8 = TRUE) {
   ))
 }
 
-#' Arrow CSV table reader
+#' Arrow CSV and JSON table readers
 #'
-#' These methods wrap the Arrow C++ CSV table reader.
+#' These methods wrap the Arrow C++ CSV and JSON table readers.
 #' For an interface to the CSV reader that's more familiar for R users, see
 #' [read_csv_arrow()]
 #'
 #' @param file A character path to a local file, or an Arrow input stream
-#' @param read_options, see [csv_read_options()]
-#' @param parse_options, see [csv_parse_options()]
-#' @param convert_options, see [csv_convert_options()]
+#' @param read_options see [csv_read_options()]
+#' @param parse_options see [csv_parse_options()]
+#' @param convert_options see [csv_convert_options()]
 #' @param ... additional parameters.
 #'
-#' @return An `arrow::csv::TableReader` R6 object. Call `$Read()` on it to get
-#' an Arrow Table.
+#' @return An `arrow::csv::TableReader` or `arrow::json::TableReader` R6
+#' object. Call `$Read()` on it to get an Arrow Table.
 #' @export
 csv_table_reader <- function(file,
   read_options = csv_read_options(),

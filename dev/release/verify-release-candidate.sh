@@ -167,7 +167,6 @@ test_binary() {
 test_apt() {
   for target in debian-stretch \
                 debian-buster \
-                ubuntu-trusty \
                 ubuntu-xenial \
                 ubuntu-bionic \
                 ubuntu-cosmic \
@@ -457,6 +456,14 @@ test_rust() {
 
   # we are targeting Rust nightly for releases
   rustup default nightly
+
+  # use local modules because we don't publish modules to crates.io yet
+  sed \
+    -i.bak \
+    -E \
+    -e 's/^arrow = "([^"]*)"/arrow = { version = "\1", path = "..\/arrow" }/g' \
+    -e 's/^parquet = "([^"]*)"/parquet = { version = "\1", path = "..\/parquet" }/g' \
+    */Cargo.toml
 
   # raises on any warnings
   RUSTFLAGS="-D warnings" cargo build

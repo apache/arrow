@@ -73,6 +73,8 @@ fi
 : ${BINTRAY_REPOSITORY:=apache/arrow}
 : ${SOURCE_BINTRAY_REPOSITORY:=${BINTRAY_REPOSITORY}}
 
+BINTRAY_DOWNLOAD_URL_BASE=https://dl.bintray.com
+
 docker_run() {
   docker \
     run \
@@ -88,13 +90,22 @@ docker_run() {
 docker_gpg_ssh() {
   local ssh_port=$1
   shift
-  ssh \
-    -o StrictHostKeyChecking=no \
-    -i "${docker_ssh_key}" \
-    -p ${ssh_port} \
-    -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
-    arrow@127.0.0.1 \
-    "$@"
+  local known_hosts_file=$(mktemp -t "arrow-binary-gpg-ssh-known-hosts.XXXXX")
+  local exit_code=
+  if ssh \
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=${known_hosts_file} \
+      -i "${docker_ssh_key}" \
+      -p ${ssh_port} \
+      -R "/home/arrow/.gnupg/S.gpg-agent:${gpg_agent_extra_socket}" \
+      arrow@127.0.0.1 \
+      "$@"; then
+    exit_code=$?;
+  else
+    exit_code=$?;
+  fi
+  rm -f ${known_hosts_file}
+  return ${exit_code}
 }
 
 docker_run_gpg_ready() {
@@ -185,7 +196,7 @@ download_files() {
       --fail \
       --location \
       --output ${file} \
-      https://dl.bintray.com/${SOURCE_BINTRAY_REPOSITORY}/${file} &
+      ${BINTRAY_DOWNLOAD_URL_BASE}/${SOURCE_BINTRAY_REPOSITORY}/${file} &
   done
 }
 
@@ -234,6 +245,16 @@ sign_and_upload_file() {
   local target=$3
   local local_path=$4
   local upload_path=$5
+
+  local sha256=$(shasum -a 256 ${local_path} | awk '{print $1}')
+  local download_path=/${BINTRAY_REPOSITORY}/${target}-rc/${upload_path}
+  if curl \
+       --fail \
+       --head \
+       ${BINTRAY_DOWNLOAD_URL_BASE}${download_path} | \
+         grep -q "^X-Checksum-Sha2: ${sha256}"; then
+    return 0
+  fi
 
   upload_file ${version} ${rc} ${target} ${local_path} ${upload_path}
 
@@ -296,6 +317,7 @@ upload_deb() {
   for base_path in *; do
     upload_deb_file ${version} ${rc} ${distribution} ${code_name} ${base_path} &
   done
+  wait
 }
 
 upload_apt() {
@@ -426,6 +448,7 @@ upload_rpm() {
       ${distribution_version} \
       ${rpm_path} &
   done
+  wait
 }
 
 upload_yum() {
@@ -495,6 +518,7 @@ upload_python() {
       ${base_path} \
       ${version}-rc${rc}/${base_path} &
   done
+  wait
 }
 
 docker build -t ${docker_image_name} ${SOURCE_DIR}/binary

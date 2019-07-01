@@ -2,17 +2,17 @@
 % Please edit documentation in R/feather.R
 \name{FeatherTableReader}
 \alias{FeatherTableReader}
-\title{A arrow::ipc::feather::TableReader to read from a file}
+\title{A \code{arrow::ipc::feather::TableReader} to read from a file}
 \usage{
 FeatherTableReader(file, mmap = TRUE, ...)
 }
 \arguments{
-\item{file}{A file path, arrow::io::RandomAccessFile}
+\item{file}{A file path or \code{arrow::io::RandomAccessFile}}
 
-\item{mmap}{Is the file memory mapped (applicable to the character and fs_path methods)}
+\item{mmap}{Is the file memory mapped (applicable to the \code{character} and \code{fs_path} methods)}
 
 \item{...}{extra parameters}
 }
 \description{
-A arrow::ipc::feather::TableReader to read from a file
+A \code{arrow::ipc::feather::TableReader} to read from a file
 }

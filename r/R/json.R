@@ -27,7 +27,7 @@
 #'
 #' @section Methods:
 #'
-#' - `Read()` : read the json file as an [arrow::Table][arrow__Table]
+#' - `Read()` : read the JSON file as an [arrow::Table][arrow__Table]
 #'
 #' @rdname arrow__json__TableReader
 #' @name arrow__json__TableReader
@@ -40,11 +40,7 @@
 `arrow::json::ReadOptions` <- R6Class("arrow::json::ReadOptions", inherit = `arrow::Object`)
 `arrow::json::ParseOptions` <- R6Class("arrow::json::ParseOptions", inherit = `arrow::Object`)
 
-#' read options for the json reader
-#'
-#' @param use_threads Whether to use the global CPU thread pool
-#' @param block_size Block size we request from the IO layer; also determines the size of chunks when use_threads is `TRUE`. NB: if false, input must end with an empty line
-#'
+#' @rdname csv_read_options
 #' @export
 json_read_options <- function(use_threads = TRUE, block_size = 1048576L) {
   shared_ptr(`arrow::json::ReadOptions`, json___ReadOptions__initialize(
@@ -55,14 +51,9 @@ json_read_options <- function(use_threads = TRUE, block_size = 1048576L) {
   ))
 }
 
-#' Parsing options
-#'
-#' @param newlines_in_values Whether objects may be printed across multiple lines (for example pretty printed),
-#'
+#' @rdname csv_parse_options
 #' @export
-json_parse_options <- function(
-  newlines_in_values = FALSE
-){
+json_parse_options <- function(newlines_in_values = FALSE) {
   shared_ptr(`arrow::json::ParseOptions`, json___ParseOptions__initialize(
     list(
       newlines_in_values = newlines_in_values
@@ -70,13 +61,7 @@ json_parse_options <- function(
   ))
 }
 
-#' Json table reader
-#'
-#' @param file file
-#' @param read_options, see [json_read_options()]
-#' @param parse_options, see [json_parse_options()]
-#' @param ... additional parameters.
-#'
+#' @rdname csv_table_reader
 #' @export
 json_table_reader <- function(file,
   read_options = json_read_options(),
@@ -142,17 +127,17 @@ json_table_reader.default <- function(file,
   file
 }
 
-#' Read json file into an arrow::Table
+#' Read a JSON file
 #'
 #' Use [arrow::json::TableReader][arrow__json__TableReader] from [json_table_reader()]
 #'
-#' @param ... Used to construct an arrow::json::TableReader
-#' @param as_tibble convert the [arrow::Table][arrow__Table] to a data frame
-#' @param col_select [tidy selection][tidyselect::vars_select] of columns
+#' @inheritParams read_delim_arrow
+#' @param ... Additional options, passed to `json_table_reader()`
 #'
+#' @return A `data.frame`, or an `arrow::Table` if `as_tibble = FALSE`.
 #' @export
-read_json_arrow <- function(..., as_tibble = TRUE, col_select = NULL) {
-  tab <- json_table_reader(...)$Read()$select(!!enquo(col_select))
+read_json_arrow <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
+  tab <- json_table_reader(file, ...)$Read()$select(!!enquo(col_select))
 
   if (isTRUE(as_tibble)) {
     tab <- as.data.frame(tab)
