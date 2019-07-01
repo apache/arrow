@@ -310,9 +310,9 @@ public class UInt2Vector extends BaseFixedWidthVector implements BaseIntVector {
   }
 
   @Override
-  public void setEncodedValue(int index, int value) {
+  public void setWithPossibleTruncate(int index, long value) {
     Preconditions.checkArgument(value <= Character.MAX_VALUE, "value is overflow: %s", value);
-    this.setSafe(index, value);
+    this.setSafe(index, (int) value);
   }
 
   private class TransferImpl implements TransferPair {

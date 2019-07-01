@@ -78,7 +78,7 @@ public class DictionaryEncoder {
         if (encoded == null) {
           throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
         }
-        indices.setEncodedValue(i, encoded);
+        indices.setWithPossibleTruncate(i, encoded);
       }
     }
 

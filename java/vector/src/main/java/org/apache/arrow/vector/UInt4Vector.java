@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.UInt4ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
@@ -302,8 +303,9 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
   }
 
   @Override
-  public void setEncodedValue(int index, int value) {
-    this.setSafe(index, value);
+  public void setWithPossibleTruncate(int index, long value) {
+    Preconditions.checkArgument(value <= 0x00000000ffffffffL, "value is overflow: %s", value);
+    this.setSafe(index, (int) value);
   }
 
   private class TransferImpl implements TransferPair {

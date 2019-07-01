@@ -331,9 +331,9 @@ public class UInt1Vector extends BaseFixedWidthVector implements BaseIntVector {
   }
 
   @Override
-  public void setEncodedValue(int index, int value) {
+  public void setWithPossibleTruncate(int index, long value) {
     Preconditions.checkArgument(value <= 0xFF, "value is overflow: %s", value);
-    this.setSafe(index, value);
+    this.setSafe(index, (int) value);
   }
 
 
