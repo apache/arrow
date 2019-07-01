@@ -22,6 +22,21 @@ import numpy as np
 import pyarrow as pa
 
 
+tensor_type_pairs = [
+    ('i1', pa.int8()),
+    ('i2', pa.int16()),
+    ('i4', pa.int32()),
+    ('i8', pa.int64()),
+    ('u1', pa.uint8()),
+    ('u2', pa.uint16()),
+    ('u4', pa.uint32()),
+    ('u8', pa.uint64()),
+    ('f2', pa.float16()),
+    ('f4', pa.float32()),
+    ('f8', pa.float64())
+]
+
+
 @pytest.mark.parametrize('sparse_tensor_type', [
     pa.SparseTensorCSR,
     pa.SparseTensorCOO,
@@ -48,7 +63,7 @@ def test_sparse_tensor_attrs(sparse_tensor_type):
 
 def test_sparse_tensor_coo_base_object():
     data = np.array([[4], [9], [7], [5]])
-    coords = np.array([[0, 0], [1, 3], [0, 2], [1, 3]])
+    coords = np.array([[0, 0], [0, 2], [1, 1], [3, 3]])
     array = np.array([[4, 0, 9, 0],
                       [0, 7, 0, 0],
                       [0, 0, 0, 0],
@@ -61,6 +76,7 @@ def test_sparse_tensor_coo_base_object():
     sparse_tensor = None
     assert np.array_equal(data, result_data)
     assert np.array_equal(coords, result_coords)
+    assert result_coords.flags.f_contiguous  # column-major
 
 
 def test_sparse_tensor_csr_base_object():
@@ -109,23 +125,11 @@ def test_sparse_tensor_equals(sparse_tensor_type):
     ne(sparse_tensor1, sparse_tensor2)
 
 
-@pytest.mark.parametrize('dtype_str,arrow_type', [
-    ('i1', pa.int8()),
-    ('i2', pa.int16()),
-    ('i4', pa.int32()),
-    ('i8', pa.int64()),
-    ('u1', pa.uint8()),
-    ('u2', pa.uint16()),
-    ('u4', pa.uint32()),
-    ('u8', pa.uint64()),
-    ('f2', pa.float16()),
-    ('f4', pa.float32()),
-    ('f8', pa.float64())
-])
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_sparse_tensor_coo_from_dense(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     data = np.array([[4], [9], [7], [5]]).astype(dtype)
-    coords = np.array([[0, 0], [1, 3], [0, 2], [1, 3]])
+    coords = np.array([[0, 0], [0, 2], [1, 1], [3, 3]])
     array = np.array([[4, 0, 9, 0],
                       [0, 7, 0, 0],
                       [0, 0, 0, 0],
@@ -149,19 +153,7 @@ def test_sparse_tensor_coo_from_dense(dtype_str, arrow_type):
     assert np.array_equal(coords, result_coords)
 
 
-@pytest.mark.parametrize('dtype_str,arrow_type', [
-    ('i1', pa.int8()),
-    ('i2', pa.int16()),
-    ('i4', pa.int32()),
-    ('i8', pa.int64()),
-    ('u1', pa.uint8()),
-    ('u2', pa.uint16()),
-    ('u4', pa.uint32()),
-    ('u8', pa.uint64()),
-    ('f2', pa.float16()),
-    ('f4', pa.float32()),
-    ('f8', pa.float64())
-])
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_sparse_tensor_csr_from_dense(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     dense_data = np.array([[1, 0, 2],
@@ -191,19 +183,7 @@ def test_sparse_tensor_csr_from_dense(dtype_str, arrow_type):
     assert np.array_equal(indices, result_indices)
 
 
-@pytest.mark.parametrize('dtype_str,arrow_type', [
-    ('i1', pa.int8()),
-    ('i2', pa.int16()),
-    ('i4', pa.int32()),
-    ('i8', pa.int64()),
-    ('u1', pa.uint8()),
-    ('u2', pa.uint16()),
-    ('u4', pa.uint32()),
-    ('u8', pa.uint64()),
-    ('f2', pa.float16()),
-    ('f4', pa.float32()),
-    ('f8', pa.float64())
-])
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_sparse_tensor_coo_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     data = np.array([[4], [9], [7], [5]]).astype(dtype)
@@ -221,19 +201,7 @@ def test_sparse_tensor_coo_numpy_roundtrip(dtype_str, arrow_type):
     assert sparse_tensor.dim_names == dim_names
 
 
-@pytest.mark.parametrize('dtype_str,arrow_type', [
-    ('i1', pa.int8()),
-    ('i2', pa.int16()),
-    ('i4', pa.int32()),
-    ('i8', pa.int64()),
-    ('u1', pa.uint8()),
-    ('u2', pa.uint16()),
-    ('u4', pa.uint32()),
-    ('u8', pa.uint64()),
-    ('f2', pa.float16()),
-    ('f4', pa.float32()),
-    ('f8', pa.float64())
-])
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_sparse_tensor_csr_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     data = np.array([[1], [2], [3], [4], [5], [6]]).astype(dtype)

@@ -593,6 +593,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t size()
 
         int ndim()
+        const vector[c_string]& dim_names()
         const c_string& dim_name(int i)
 
         c_bool is_mutable()
@@ -1234,6 +1235,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                            shared_ptr[CChunkedArray]* out)
 
     CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
+                            const vector[c_string]& dim_names,
                             shared_ptr[CTensor]* out)
 
     CStatus TensorToNdarray(const shared_ptr[CTensor]& tensor, object base,
@@ -1258,14 +1260,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                       const vector[int64_t]& shape,
                                       const vector[c_string]& dim_names,
                                       shared_ptr[CSparseTensorCSR]* out)
-
-    CStatus DenseNdarrayToSparseTensorCOO(CMemoryPool* pool, object ao,
-                                          const vector[c_string]& dim_names,
-                                          shared_ptr[CSparseTensorCOO]* out)
-
-    CStatus DenseNdarrayToSparseTensorCSR(CMemoryPool* pool, object ao,
-                                          const vector[c_string]& dim_names,
-                                          shared_ptr[CSparseTensorCSR]* out)
 
     CStatus TensorToSparseTensorCOO(shared_ptr[CTensor],
                                     shared_ptr[CSparseTensorCOO]* out)

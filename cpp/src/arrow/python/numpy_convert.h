@@ -65,6 +65,7 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out);
 Status GetNumPyType(const DataType& type, int* type_num);
 
 ARROW_PYTHON_EXPORT Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,
+                                           const std::vector<std::string>& dim_names,
                                            std::shared_ptr<Tensor>* out);
 
 ARROW_PYTHON_EXPORT Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor,
@@ -77,14 +78,6 @@ SparseTensorCOOToNdarray(const std::shared_ptr<SparseTensorCOO>& sparse_tensor,
 ARROW_PYTHON_EXPORT Status SparseTensorCSRToNdarray(
     const std::shared_ptr<SparseTensorCSR>& sparse_tensor, PyObject* base,
     PyObject** out_data, PyObject** out_indptr, PyObject** out_indices);
-
-ARROW_PYTHON_EXPORT Status DenseNdarrayToSparseTensorCOO(
-    MemoryPool* pool, PyObject* ao, const std::vector<std::string>& dim_names,
-    std::shared_ptr<SparseTensorCOO>* out);
-
-ARROW_PYTHON_EXPORT Status DenseNdarrayToSparseTensorCSR(
-    MemoryPool* pool, PyObject* ao, const std::vector<std::string>& dim_names,
-    std::shared_ptr<SparseTensorCSR>* out);
 
 ARROW_PYTHON_EXPORT Status NdarraysToSparseTensorCOO(
     MemoryPool* pool, PyObject* data_ao, PyObject* coords_ao,
