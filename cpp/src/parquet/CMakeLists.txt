@@ -327,7 +327,9 @@ add_parquet_test(arrow-test
                  test-util.cc)
 
 if(ARROW_USE_OPENSSL)
-  add_parquet_test(encryption-test SOURCES encryption-properties-test.cc
+  add_parquet_test(encryption-test
+                   SOURCES
+                   encryption-properties-test.cc
                    encryption-configurations-test.cc
                    test-util.cc)
 endif()
