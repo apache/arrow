@@ -410,11 +410,11 @@ Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is
     int32_t rows_in_chunk;
     constexpr int32_t kTargetChunkSize = 32768;
     if (num_cols_ > 0) {
-      rows_in_chunk =
-          std::max(std::min(kTargetChunkSize / num_cols_, max_num_rows_ - num_rows_), 1);
+      rows_in_chunk = std::min(kTargetChunkSize / num_cols_, max_num_rows_ - num_rows_);
     } else {
-      rows_in_chunk = std::max(std::min(kTargetChunkSize, max_num_rows_ - num_rows_), 1);
+      rows_in_chunk = std::min(kTargetChunkSize, max_num_rows_ - num_rows_);
     }
+    rows_in_chunk = std::max(1, rows_in_chunk);
 
     PresizedValuesWriter values_writer(pool_, rows_in_chunk, num_cols_);
     values_writer.Start(parsed_writer);
