@@ -121,6 +121,9 @@ include "builder.pxi"
 # Column, Table, Record Batch
 include "table.pxi"
 
+# Tensors
+include "tensor.pxi"
+
 # File IO
 include "io.pxi"
 include "io-hdfs.pxi"

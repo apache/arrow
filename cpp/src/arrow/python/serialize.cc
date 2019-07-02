@@ -515,7 +515,7 @@ Status AppendArray(PyObject* context, PyArrayObject* array, SequenceBuilder* bui
           builder->AppendNdarray(static_cast<int32_t>(blobs_out->ndarrays.size())));
       std::shared_ptr<Tensor> tensor;
       RETURN_NOT_OK(NdarrayToTensor(default_memory_pool(),
-                                    reinterpret_cast<PyObject*>(array), &tensor));
+                                    reinterpret_cast<PyObject*>(array), {}, &tensor));
       blobs_out->ndarrays.push_back(tensor);
     } break;
     default: {

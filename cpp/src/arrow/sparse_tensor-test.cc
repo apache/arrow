@@ -182,6 +182,25 @@ TEST(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
   AssertCOOIndex(sidx, 11, {1, 2, 3});
 }
 
+TEST(TestSparseCOOTensor, TensorEquality) {
+  std::vector<int64_t> shape = {2, 3, 4};
+  std::vector<int64_t> values1 = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  std::vector<int64_t> values2 = {0, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  std::shared_ptr<Buffer> buffer1 = Buffer::Wrap(values1);
+  std::shared_ptr<Buffer> buffer2 = Buffer::Wrap(values2);
+  NumericTensor<Int64Type> tensor1(buffer1, shape);
+  NumericTensor<Int64Type> tensor2(buffer1, shape);
+  NumericTensor<Int64Type> tensor3(buffer2, shape);
+  SparseTensorImpl<SparseCOOIndex> st1(tensor1);
+  SparseTensorImpl<SparseCOOIndex> st2(tensor2);
+  SparseTensorImpl<SparseCOOIndex> st3(tensor3);
+
+  ASSERT_TRUE(st1.Equals(st2));
+  ASSERT_TRUE(!st1.Equals(st3));
+}
+
 TEST(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   std::vector<int64_t> shape = {6, 4};
   std::vector<int64_t> values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
@@ -267,6 +286,26 @@ TEST(TestSparseCSRMatrix, CreationFromNonContiguousTensor) {
 
   ASSERT_EQ(12, indices_values.size());
   ASSERT_EQ(std::vector<int64_t>({0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3}), indices_values);
+}
+
+TEST(TestSparseCSRMatrix, TensorEquality) {
+  std::vector<int64_t> shape = {6, 4};
+  std::vector<int64_t> values1 = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+  std::vector<int64_t> values2 = {
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  };
+  std::shared_ptr<Buffer> buffer1 = Buffer::Wrap(values1);
+  std::shared_ptr<Buffer> buffer2 = Buffer::Wrap(values2);
+  NumericTensor<Int64Type> tensor1(buffer1, shape);
+  NumericTensor<Int64Type> tensor2(buffer1, shape);
+  NumericTensor<Int64Type> tensor3(buffer2, shape);
+  SparseTensorImpl<SparseCSRIndex> st1(tensor1);
+  SparseTensorImpl<SparseCSRIndex> st2(tensor2);
+  SparseTensorImpl<SparseCSRIndex> st3(tensor3);
+
+  ASSERT_TRUE(st1.Equals(st2));
+  ASSERT_TRUE(!st1.Equals(st3));
 }
 
 }  // namespace arrow

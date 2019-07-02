@@ -18,7 +18,8 @@
 from libcpp.memory cimport shared_ptr
 from pyarrow.includes.libarrow cimport (CArray, CColumn, CDataType, CField,
                                         CRecordBatch, CSchema,
-                                        CTable, CTensor)
+                                        CTable, CTensor,
+                                        CSparseTensorCSR, CSparseTensorCOO)
 
 # You cannot assign something to a dereferenced pointer in Cython thus these
 # methods don't use Status to indicate a successful operation.
@@ -225,6 +226,7 @@ cdef api object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar):
     scalar.init(sp_scalar)
     return scalar
 
+
 cdef api bint pyarrow_is_tensor(object tensor):
     return isinstance(tensor, Tensor)
 
@@ -246,6 +248,52 @@ cdef api object pyarrow_wrap_tensor(
     cdef Tensor tensor = Tensor.__new__(Tensor)
     tensor.init(sp_tensor)
     return tensor
+
+
+cdef api bint pyarrow_is_sparse_tensor_coo(object sparse_tensor):
+    return isinstance(sparse_tensor, SparseTensorCOO)
+
+cdef api shared_ptr[CSparseTensorCOO] pyarrow_unwrap_sparse_tensor_coo(
+        object sparse_tensor):
+    cdef SparseTensorCOO sten
+    if pyarrow_is_sparse_tensor_coo(sparse_tensor):
+        sten = <SparseTensorCOO>(sparse_tensor)
+        return sten.sp_sparse_tensor
+
+    return shared_ptr[CSparseTensorCOO]()
+
+cdef api object pyarrow_wrap_sparse_tensor_coo(
+        const shared_ptr[CSparseTensorCOO]& sp_sparse_tensor):
+    if sp_sparse_tensor.get() == NULL:
+        raise ValueError('SparseTensorCOO was NULL')
+
+    cdef SparseTensorCOO sparse_tensor = SparseTensorCOO.__new__(
+        SparseTensorCOO)
+    sparse_tensor.init(sp_sparse_tensor)
+    return sparse_tensor
+
+
+cdef api bint pyarrow_is_sparse_tensor_csr(object sparse_tensor):
+    return isinstance(sparse_tensor, SparseTensorCSR)
+
+cdef api shared_ptr[CSparseTensorCSR] pyarrow_unwrap_sparse_tensor_csr(
+        object sparse_tensor):
+    cdef SparseTensorCSR sten
+    if pyarrow_is_sparse_tensor_csr(sparse_tensor):
+        sten = <SparseTensorCSR>(sparse_tensor)
+        return sten.sp_sparse_tensor
+
+    return shared_ptr[CSparseTensorCSR]()
+
+cdef api object pyarrow_wrap_sparse_tensor_csr(
+        const shared_ptr[CSparseTensorCSR]& sp_sparse_tensor):
+    if sp_sparse_tensor.get() == NULL:
+        raise ValueError('SparseTensorCSR was NULL')
+
+    cdef SparseTensorCSR sparse_tensor = SparseTensorCSR.__new__(
+        SparseTensorCSR)
+    sparse_tensor.init(sp_sparse_tensor)
+    return sparse_tensor
 
 
 cdef api bint pyarrow_is_column(object column):
