@@ -26,9 +26,12 @@ import collections
 import datetime
 import decimal
 import itertools
+import traceback
+import sys
+
 import numpy as np
-import six
 import pytz
+import six
 
 
 int_type_pairs = [
@@ -51,6 +54,19 @@ class StrangeIterable:
 
     def __iter__(self):
         return self.lst.__iter__()
+
+
+class MyInt:
+    def __init__(self, value):
+        self.value = value
+
+    def __int__(self):
+        return self.value
+
+
+class MyBrokenInt:
+    def __int__(self):
+        1/0  # MARKER
 
 
 def check_struct_type(ty, expected):
@@ -297,6 +313,24 @@ def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     assert arr.null_count == 2
     assert arr.type == pa_type
     assert arr.to_pylist() == expected
+
+
+@parametrize_with_iterable_types
+def test_sequence_custom_integers(seq):
+    expected = [0, 42, 2**33 + 1, -2**63]
+    data = list(map(MyInt, expected))
+    arr = pa.array(seq(data), type=pa.int64())
+    assert arr.to_pylist() == expected
+
+
+@parametrize_with_iterable_types
+def test_broken_integers(seq):
+    data = [MyBrokenInt()]
+    with pytest.raises(ZeroDivisionError) as exc_info:
+        pa.array(seq(data), type=pa.int64())
+    # Original traceback is kept
+    tb_lines = traceback.format_tb(exc_info.tb)
+    assert "# MARKER" in tb_lines[-1]
 
 
 def test_numpy_scalars_mixed_type():
@@ -661,7 +695,7 @@ def test_sequence_explicit_types(input):
 def test_date32_overflow():
     # Overflow
     data3 = [2**32, None]
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises((OverflowError, pa.ArrowException)):
         pa.array(data3, type=pa.date32())
 
 
@@ -831,12 +865,19 @@ def test_sequence_timestamp_from_int_with_unit():
     assert repr(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
     assert str(arr_ns[0]) == "1970-01-01 00:00:00.000000001"
 
-    with pytest.raises(TypeError):
-        class CustomClass():
-            pass
-        pa.array([1, CustomClass()], type=ns)
-        pa.array([1, CustomClass()], type=pa.date32())
-        pa.array([1, CustomClass()], type=pa.date64())
+    if sys.version_info >= (3,):
+        expected_exc = TypeError
+    else:
+        # Can have "AttributeError: CustomClass instance
+        # has no attribute '__trunc__'"
+        expected_exc = (TypeError, AttributeError)
+
+    class CustomClass():
+        pass
+
+    for ty in [ns, pa.date32(), pa.date64()]:
+        with pytest.raises(expected_exc):
+            pa.array([1, CustomClass()], type=ty)
 
 
 def test_sequence_nesting_levels():
