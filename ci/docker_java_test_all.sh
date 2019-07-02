@@ -20,6 +20,10 @@ set -e
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+export ARROW_TEST_DATA=/arrow/testing/data
+
+export ARROW_JAVA_RUN_TESTS=1
+
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 export ARROW_JAVADOC=1
 bash $SOURCE_DIR/docker_build_java.sh

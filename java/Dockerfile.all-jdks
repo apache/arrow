@@ -32,4 +32,4 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Test all supported JDKs
-CMD ["arrow/ci/docker_build_java_all.sh"]
+CMD ["arrow/ci/docker_java_test_all.sh"]
