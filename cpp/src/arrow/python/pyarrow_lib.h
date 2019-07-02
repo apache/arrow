@@ -48,6 +48,8 @@ __PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_resizable_buffer(std
 __PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_schema(std::shared_ptr< arrow::Schema>  const &);
 __PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_table(std::shared_ptr< arrow::Table>  const &);
 __PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_tensor(std::shared_ptr< arrow::Tensor>  const &);
+__PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_sparse_tensor_coo(std::shared_ptr< arrow::SparseTensorCOO>  const &);
+__PYX_EXTERN_C PyObject *__pyx_f_7pyarrow_3lib_pyarrow_wrap_sparse_tensor_csr(std::shared_ptr< arrow::SparseTensorCSR>  const &);
 __PYX_EXTERN_C std::shared_ptr< arrow::Array>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_array(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::RecordBatch>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_batch(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::Buffer>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_buffer(PyObject *);
@@ -57,6 +59,8 @@ __PYX_EXTERN_C std::shared_ptr< arrow::Field>  __pyx_f_7pyarrow_3lib_pyarrow_unw
 __PYX_EXTERN_C std::shared_ptr< arrow::Schema>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_schema(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::Table>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_table(PyObject *);
 __PYX_EXTERN_C std::shared_ptr< arrow::Tensor>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_tensor(PyObject *);
+__PYX_EXTERN_C std::shared_ptr< arrow::SparseTensorCOO>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_sparse_tensor_coo(PyObject *);
+__PYX_EXTERN_C std::shared_ptr< arrow::SparseTensorCSR>  __pyx_f_7pyarrow_3lib_pyarrow_unwrap_sparse_tensor_csr(PyObject *);
 
 #endif /* !__PYX_HAVE_API__pyarrow__lib */
 

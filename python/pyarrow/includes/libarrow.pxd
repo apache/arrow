@@ -593,12 +593,45 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t size()
 
         int ndim()
+        const vector[c_string]& dim_names()
         const c_string& dim_name(int i)
 
         c_bool is_mutable()
         c_bool is_contiguous()
         Type type_id()
         c_bool Equals(const CTensor& other)
+
+    cdef cppclass CSparseTensorCOO" arrow::SparseTensorCOO":
+        shared_ptr[CDataType] type()
+        shared_ptr[CBuffer] data()
+
+        const vector[int64_t]& shape()
+        int64_t size()
+        int64_t non_zero_length()
+
+        int ndim()
+        const vector[c_string]& dim_names()
+        const c_string& dim_name(int i)
+
+        c_bool is_mutable()
+        Type type_id()
+        c_bool Equals(const CSparseTensorCOO& other)
+
+    cdef cppclass CSparseTensorCSR" arrow::SparseTensorCSR":
+        shared_ptr[CDataType] type()
+        shared_ptr[CBuffer] data()
+
+        const vector[int64_t]& shape()
+        int64_t size()
+        int64_t non_zero_length()
+
+        int ndim()
+        const vector[c_string]& dim_names()
+        const c_string& dim_name(int i)
+
+        c_bool is_mutable()
+        Type type_id()
+        c_bool Equals(const CSparseTensorCSR& other)
 
     cdef cppclass CScalar" arrow::Scalar":
         shared_ptr[CDataType] type
@@ -1202,10 +1235,37 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                            shared_ptr[CChunkedArray]* out)
 
     CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
+                            const vector[c_string]& dim_names,
                             shared_ptr[CTensor]* out)
 
     CStatus TensorToNdarray(const shared_ptr[CTensor]& tensor, object base,
                             PyObject** out)
+
+    CStatus SparseTensorCOOToNdarray(
+        const shared_ptr[CSparseTensorCOO]& sparse_tensor, object base,
+        PyObject** out_data, PyObject** out_coords)
+
+    CStatus SparseTensorCSRToNdarray(
+        const shared_ptr[CSparseTensorCSR]& sparse_tensor, object base,
+        PyObject** out_data, PyObject** out_indptr, PyObject** out_indices)
+
+    CStatus NdarraysToSparseTensorCOO(CMemoryPool* pool, object data_ao,
+                                      object coords_ao,
+                                      const vector[int64_t]& shape,
+                                      const vector[c_string]& dim_names,
+                                      shared_ptr[CSparseTensorCOO]* out)
+
+    CStatus NdarraysToSparseTensorCSR(CMemoryPool* pool, object data_ao,
+                                      object indptr_ao, object indices_ao,
+                                      const vector[int64_t]& shape,
+                                      const vector[c_string]& dim_names,
+                                      shared_ptr[CSparseTensorCSR]* out)
+
+    CStatus TensorToSparseTensorCOO(shared_ptr[CTensor],
+                                    shared_ptr[CSparseTensorCOO]* out)
+
+    CStatus TensorToSparseTensorCSR(shared_ptr[CTensor],
+                                    shared_ptr[CSparseTensorCSR]* out)
 
     CStatus ConvertArrayToPandas(const PandasOptions& options,
                                  const shared_ptr[CArray]& arr,
