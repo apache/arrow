@@ -53,27 +53,27 @@ using internal::HashTraits;
 namespace compute {
 
 class IsInKernelImpl : public UnaryKernel {
-  virtual Status Compute(FunctionContext* ctx, const ArrayData& right) = 0;
+  virtual Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) = 0;
 
  public:
-  // \brief Check if value in both arrays or not and returns boolean values
-  Status Call(FunctionContext* ctx, const Datum& right, Datum* out) override {
-    DCHECK_EQ(Datum::ARRAY, right.kind());
-    const ArrayData& right_data = *right.array();
-    RETURN_NOT_OK(Compute(ctx, right_data));
+  // \brief Check if value in both arrays or not and returns boolean values/null
+  Status Call(FunctionContext* ctx, const Datum& left, Datum* out) override {
+    DCHECK_EQ(Datum::ARRAY, left.kind());
+    RETURN_NOT_OK(Compute(ctx, left, out));
     return Status::OK();
   }
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
 
-  virtual Status CompareArray(const Datum& left, Datum* out) = 0;
+  virtual Status Reset() = 0;
+  virtual Status ConstructRight(FunctionContext* ctx, const Datum& right) = 0;
 };
 
 // ----------------------------------------------------------------------
 // Using a visitor create a memo_table_ for the right array
 // TODO: Implement for small lists
 
-template <typename Type, typename Scalar>
+template <typename T, typename Scalar>
 struct MemoTableRight {
   Status VisitNull() { return Status::OK(); }
 
@@ -82,21 +82,29 @@ struct MemoTableRight {
     return Status::OK();
   }
 
-  Status Append(const ArrayData& right) {
+  Status Reset() {
     memo_table_.reset(new MemoTable(0));
-    return ArrayDataVisitor<Type>::Visit(right, this);
+    return Status::OK();
   }
 
-  using MemoTable = typename HashTraits<Type>::MemoTableType;
+  Status Append(FunctionContext* ctx, const Datum& right) {
+    const ArrayData& right_data = *right.array();
+    right_null_count = right_data.GetNullCount();
+    return ArrayDataVisitor<T>::Visit(right_data, this);
+  }
+
+  using MemoTable = typename HashTraits<T>::MemoTableType;
   std::unique_ptr<MemoTable> memo_table_;
+  int64_t right_null_count;
 };
 
 // ----------------------------------------------------------------------
 
-template <typename T, typename Scalar>
+template <typename Type, typename Scalar>
 class IsInKernel : public IsInKernelImpl {
  public:
-  IsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
+  IsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : type_(type), pool_(pool) {}
 
   // \brief if null_count in right is not 0, then append true to the
   // BooleanBuilder when left array has a null, else append null.
@@ -118,33 +126,48 @@ class IsInKernel : public IsInKernelImpl {
     return Status::OK();
   }
 
-  Status Compute(FunctionContext* ctx, const ArrayData& right) override {
-    MemoTableRight<T, Scalar> func;
-    func.Append(right);
-    memo_table_ = std::move(func.memo_table_);
-
-    right_null_count = right.GetNullCount();
+  Status Reset() override {
+    bool_builder_.Reset();
     return Status::OK();
   }
 
-  Status CompareArray(const Datum& left, Datum* out) override {
+  Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
     const ArrayData& left_data = *left.array();
-    bool_builder_.Reset();
     bool_builder_.Reserve(left_data.length);
-    ArrayDataVisitor<T>::Visit(left_data, this);
+    ArrayDataVisitor<Type>::Visit(left_data, this);
     RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
     out->value = std::move(output);
     return Status::OK();
   }
 
+  Status ConstructRight(FunctionContext* ctx, const Datum& right) override {
+    MemoTableRight<Type, Scalar> func;
+    func.Reset();
+
+    if (right.kind() == Datum::CHUNKED_ARRAY) {
+      const ChunkedArray& right_array = *right.chunked_array();
+      for (int i = 0; i < right_array.num_chunks(); i++) {
+        func.Append(ctx, right_array.chunk(i));
+      }
+    } else {
+      func.Append(ctx, right);
+    }
+
+    memo_table_ = std::move(func.memo_table_);
+    right_null_count = func.right_null_count;
+    return Status::OK();
+  }
+
  protected:
-  using MemoTable = typename HashTraits<T>::MemoTableType;
+  using MemoTable = typename HashTraits<Type>::MemoTableType;
   std::unique_ptr<MemoTable> memo_table_;
+  std::shared_ptr<DataType> type_;
+  MemoryPool* pool_;
 
  private:
   // \brief Additional member "right_null_count" is used to check if
   // null count in right is not 0
-  int64_t right_null_count;
+  int64_t right_null_count{};
   BooleanBuilder bool_builder_;
   std::shared_ptr<ArrayData> output;
 };
@@ -153,41 +176,52 @@ class IsInKernel : public IsInKernelImpl {
 // (NullType has a separate implementation)
 
 // \brief When array is NullType, based on the null_count for the arrays,
-// append true/null to the BooleanBuilder
+// append true to the BooleanBuilder else propagate to all nulls
 
 class NullIsInKernel : public IsInKernelImpl {
  public:
   NullIsInKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
 
-  Status Compute(FunctionContext* ctx, const ArrayData& right) override {
-    right_null_count = right.GetNullCount();
+  Status Reset() override {
+    bool_builder_.Reset();
     return Status::OK();
   }
 
-  Status CompareArray(const Datum& left, Datum* out) override {
+  Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
     const ArrayData& left_data = *left.array();
-    bool_builder_.Reset();
-    bool_builder_.Reserve(left_data.length);
     left_null_count = left_data.GetNullCount();
 
-    if (left_null_count != 0 && right_null_count != 0) {
+    if (left_null_count != 0 && right_null_count == 0) {
+      output = out->array();
+      output->type = boolean();
+      RETURN_NOT_OK(detail::PropagateNulls(ctx, left_data, output.get()));
+    } else {
+      bool_builder_.Reserve(left_data.length);
       for (int64_t i = 0; i < left_data.length; ++i) {
         bool_builder_.UnsafeAppend(true);
       }
-    } else if (left_null_count != 0 && right_null_count == 0) {
-      for (int64_t i = 0; i < left_data.length; ++i) {
-        bool_builder_.UnsafeAppendNull();
-      }
+      RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
+      out->value = std::move(output);
     }
+    return Status::OK();
+  }
 
-    RETURN_NOT_OK(bool_builder_.FinishInternal(&output));
-    out->value = std::move(output);
+  Status ConstructRight(FunctionContext* ctx, const Datum& right) override {
+    if (right.kind() == Datum::CHUNKED_ARRAY) {
+      const ChunkedArray& right_array = *right.chunked_array();
+      for (int i = 0; i < right_array.num_chunks(); i++) {
+        right_null_count += right_array.chunk(i)->null_count();
+      }
+    } else {
+      const ArrayData& right_data = *right.array();
+      right_null_count = right_data.GetNullCount();
+    }
     return Status::OK();
   }
 
  private:
-  int64_t left_null_count;
-  int64_t right_null_count;
+  int64_t left_null_count{};
+  int64_t right_null_count{};
   BooleanBuilder bool_builder_;
   std::shared_ptr<ArrayData> output;
 };
@@ -263,36 +297,24 @@ Status GetIsInKernel(FunctionContext* ctx, const std::shared_ptr<DataType>& type
   if (!kernel) {
     return Status::NotImplemented("isin", " not implemented for ", type->ToString());
   }
-
+  RETURN_NOT_OK(kernel->Reset());
   *out = std::move(kernel);
   return Status::OK();
 }
 
-Status IsIn(FunctionContext* context, const Datum& left, const Datum& right, Datum* out) {
+Status IsIn(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
   DCHECK(left.type()->Equals(right.type()));
-  std::unique_ptr<IsInKernelImpl> kernel;
-  std::vector<Datum> unused_output;
-  RETURN_NOT_OK(GetIsInKernel(context, right.type(), &kernel));
+  std::vector<Datum> outputs;
+  std::unique_ptr<IsInKernelImpl> lkernel;
 
-  RETURN_NOT_OK(
-      detail::InvokeUnaryArrayKernel(context, kernel.get(), right, &unused_output));
+  RETURN_NOT_OK(GetIsInKernel(ctx, left.type(), &lkernel));
+  RETURN_NOT_OK(lkernel->ConstructRight(ctx, right));
 
-  Datum output;
-  std::vector<std::shared_ptr<Array>> arrays;
+  detail::PrimitiveAllocatingUnaryKernel kernel(lkernel.get());
 
-  if (left.kind() == Datum::CHUNKED_ARRAY) {
-    const ChunkedArray& left_array = *left.chunked_array();
-    for (int i = 0; i < left_array.num_chunks(); i++) {
-      output.value = ArrayData::Make(kernel->out_type(), left_array.chunk(i)->length());
-      RETURN_NOT_OK(kernel->CompareArray(left_array.chunk(i), &output));
-      arrays.emplace_back(MakeArray(output.array()));
-    }
-  } else {
-    RETURN_NOT_OK(kernel->CompareArray(left, &output));
-    arrays.emplace_back(MakeArray(output.array()));
-  }
+  RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &kernel, left, &outputs));
 
-  *out = detail::WrapArraysLike(left, arrays);
+  *out = detail::WrapDatumsLike(left, outputs);
   return Status::OK();
 }
 
