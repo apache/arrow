@@ -19,8 +19,10 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/util/checked_cast.h"
 #include <iostream>
 
+using arrow::internal::checked_cast;
 
 namespace arrow {
 
@@ -37,13 +39,13 @@ class ColumnMap::Impl {
   };
 
   // Return position if found or -(ins_pos-1) if not found
-  int find(const std::shared_ptr<Field>& field) const;
+  int Find(const std::shared_ptr<Field>& field) const;
 
   // Elements are ordered by pointer value ColumnData::field::get()
   std::vector<ColumnData> columns_;
 };
 
-int ColumnMap::Impl::find(const std::shared_ptr<Field>& field) const {
+int ColumnMap::Impl::Find(const std::shared_ptr<Field>& field) const {
   // First, binary search is used (equality is by pointer value).
   // This helps to locate elements fast when the objects from the schema are queried for.
   int low = 0;
@@ -80,7 +82,7 @@ void ColumnMap::Put(const std::shared_ptr<Field>& field,
                     const std::shared_ptr<Int16Array>& rep_levels,
                     const std::shared_ptr<Int16Array>& def_levels,
                     const std::shared_ptr<Array>& values) {
-  int i = impl_->find(field);
+  int i = impl_->Find(field);
   if (i < 0) {
     i = -i-1;
     impl_->columns_.insert(impl_->columns_.begin() + i, Impl::ColumnData());
@@ -91,9 +93,9 @@ void ColumnMap::Put(const std::shared_ptr<Field>& field,
   impl_->columns_[i].values = values;
 }
 
-int ColumnMap::find(const std::shared_ptr<Field>& field) const {
-  int i = impl_->find(field);
-  return (i >= 0) ? i : -1;
+int ColumnMap::Find(const std::shared_ptr<Field>& field) const {
+  int i = impl_->Find(field);
+  return (i >= 0) ? i : kFieldNotFound;
 }
 
 int ColumnMap::size() const {
@@ -104,7 +106,7 @@ std::shared_ptr<Field> ColumnMap::field(int i) const {
   return impl_->columns_[i].field;
 }
 
-void ColumnMap::get(int i, std::shared_ptr<Int16Array>* rep_levels,
+void ColumnMap::Get(int i, std::shared_ptr<Int16Array>* rep_levels,
                            std::shared_ptr<Int16Array>* def_levels,
                            std::shared_ptr<Array>* values) const {
   if (rep_levels) {
@@ -268,7 +270,7 @@ class PrimitiveShredNode : public ShredNode {
   }
 
   Status Handle(const Array& array, int64_t i, int16_t rep_level) override {
-    return Handle(static_cast<const PrimitiveArray&>(array), i, rep_level);
+    return Handle(checked_cast<const PrimitiveArray&>(array), i, rep_level);
   }
 
   Status Handle(const PrimitiveArray& array, int64_t i, int16_t rep_level) {
@@ -323,7 +325,7 @@ class StructShredNode : public ShredNode {
   }
 
   Status Handle(const Array& array, int64_t i, int16_t rep_level) override {
-    return Handle(static_cast<const StructArray&>(array), i, rep_level);
+    return Handle(checked_cast<const StructArray&>(array), i, rep_level);
   }
 
   Status Handle(const StructArray& array, int64_t i, int16_t rep_level) {
@@ -376,7 +378,7 @@ class ListShredNode : public ShredNode {
   }
 
   Status Handle(const Array& array, int64_t i, int16_t rep_level) override {
-    return Handle(static_cast<const ListArray&>(array), i, rep_level);
+    return Handle(checked_cast<const ListArray&>(array), i, rep_level);
   }
 
   Status Handle(const ListArray& array, int64_t i, int16_t rep_level) {
@@ -667,7 +669,7 @@ class StitchNode {
         RETURN_NOT_OK(child(i)->SetColumnDataRecursive(colmap));
       }
     } else {
-      int i = colmap.find(field_);
+      int i = colmap.Find(field_);
       if (i < 0) {
         return Status::Invalid("No data for field ", field_->name());
       }

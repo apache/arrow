@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COLUMNAR_FORMAT_H
-#define ARROW_COLUMNAR_FORMAT_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -28,6 +27,8 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+constexpr int kFieldNotFound = -1;
 
 /// \brief Per-field levels and values. Schema fields act as map keys.
 class ARROW_EXPORT ColumnMap {
@@ -41,8 +42,8 @@ class ARROW_EXPORT ColumnMap {
            const std::shared_ptr<Int16Array>& def_levels,
            const std::shared_ptr<Array>& values = nullptr);
 
-  /// Return position of given field or (-1) if not found
-  int find(const std::shared_ptr<Field>& field) const;
+  /// Return position of given field or kFieldNotFound
+  int Find(const std::shared_ptr<Field>& field) const;
 
   /// Return number of fields in map
   int size() const;
@@ -50,7 +51,7 @@ class ARROW_EXPORT ColumnMap {
   std::shared_ptr<Field> field(int i) const;
 
   /// Get all data for i'th field. Pass NULL if you don't need some array.
-  void get(int i, std::shared_ptr<Int16Array>* rep_levels,
+  void Get(int i, std::shared_ptr<Int16Array>* rep_levels,
                   std::shared_ptr<Int16Array>* def_levels,
                   std::shared_ptr<Array>* values = nullptr) const;
 
@@ -68,6 +69,7 @@ class ARROW_EXPORT ColumnMap {
 /// \brief Shred nested arrays into separate columns.
 /// Input arrays may have deeply nested schema consisting of
 /// primitives, structs and lists.
+/// Unions are currently unsupported.
 class ARROW_EXPORT Shredder {
  public:
   /// \brief Create new shredder.
@@ -109,6 +111,7 @@ class ARROW_EXPORT Shredder {
 /// \brief Given a schema and column data for all leaf nodes, stitch column data
 /// into nested array of given schema type.
 /// Schema may consist of primitives, structs and lists.
+/// Unions are currently unsupported.
 class ARROW_EXPORT Stitcher {
  public:
   static Status Create(const std::shared_ptr<Field>& schema,
@@ -127,7 +130,7 @@ class ARROW_EXPORT Stitcher {
 
   Status Finish(std::shared_ptr<Array>* array);
 
-  /// Print schema nodes along with their rep/def levels and FSM tables
+  /// Print schema nodes, their rep/def levels, and state transition table.
   void DebugPrint(std::ostream& out) const;
 
  private:
@@ -138,8 +141,5 @@ class ARROW_EXPORT Stitcher {
 };
 
 
-
 }  // namespace arrow
 
-
-#endif

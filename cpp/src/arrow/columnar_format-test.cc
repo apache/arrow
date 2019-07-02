@@ -58,21 +58,21 @@ class TestColumnarFormat : public ::testing::Test {
       std::shared_ptr<Int16Array> rep_levels_in;
       std::shared_ptr<Int16Array> def_levels_in;
       std::shared_ptr<Array> values_in;
-      colmap_in.get(i, &rep_levels_in, &def_levels_in, &values_in);
+      colmap_in.Get(i, &rep_levels_in, &def_levels_in, &values_in);
 
-      int j = colmap_out.find(colmap_in.field(i));
-      ASSERT_TRUE(j >= 0);
+      int j = colmap_out.Find(colmap_in.field(i));
+      ASSERT_TRUE(j != kFieldNotFound);
       std::shared_ptr<Int16Array> rep_levels_out;
       std::shared_ptr<Int16Array> def_levels_out;
       std::shared_ptr<Array> values_out;
-      colmap_out.get(j, &rep_levels_out, &def_levels_out, &values_out);
+      colmap_out.Get(j, &rep_levels_out, &def_levels_out, &values_out);
 
       ASSERT_ARRAYS_EQUAL(*rep_levels_in, *rep_levels_out);
       ASSERT_ARRAYS_EQUAL(*def_levels_in, *def_levels_out);
       if (values_in) {
         ASSERT_ARRAYS_EQUAL(*values_in, *values_out);
       } else {
-        ASSERT_TRUE(values_out == nullptr);
+        ASSERT_EQ(nullptr, values_out);
       }
     }
 
@@ -116,11 +116,11 @@ TEST_F(TestColumnarFormat, ColumnMap) {
   }
   map.Put(f1, nullptr, nullptr, nullptr);
 
-  EXPECT_TRUE(map.size() == 101);
-  EXPECT_TRUE(map.find(f1) >= 0);
-  EXPECT_TRUE(map.find(f1) == map.find(f2));
-  EXPECT_TRUE(map.find(f3) == -1);
-  EXPECT_TRUE(map.find(f4) == -1);
+  EXPECT_EQ(101, map.size());
+  EXPECT_TRUE(map.Find(f1) != kFieldNotFound);
+  EXPECT_TRUE(map.Find(f1) == map.Find(f2));
+  EXPECT_EQ(kFieldNotFound, map.Find(f3));
+  EXPECT_EQ(kFieldNotFound, map.Find(f4));
 }
 
 TEST_F(TestColumnarFormat, OptionalFields) {
@@ -135,8 +135,7 @@ TEST_F(TestColumnarFormat, OptionalFields) {
   auto f1 = field("f1", list(f2), true);
   auto f0 = field("f0", struct_({f1}), true);
 
-  std::string json = "[null, {'f1':null}, {'f1':[]}, {'f1':[5,null,10]}]";
-  std::replace(json.begin(), json.end(), '\'', '"');
+  std::string json = R"([null, {"f1":null}, {"f1":[]}, {"f1":[5,null,10]}])";
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
@@ -163,8 +162,7 @@ TEST_F(TestColumnarFormat, RequiredFields) {
   auto f1 = field("f1", list(f2), false);
   auto f0 = field("f0", struct_({f1}), false);
 
-  std::string json = "[{'f1':[]}, {'f1':[5,10,15]}]";
-  std::replace(json.begin(), json.end(), '\'', '"');
+  std::string json = R"([{"f1":[]}, {"f1":[5,10,15]}])";
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
@@ -200,8 +198,7 @@ TEST_F(TestColumnarFormat, Siblings) {
   auto f4 = field("f4", struct_({f5, f6}), false);
   auto f0 = field("f0", struct_({f1, f4}), false);
 
-  std::string json = "[{'f1':{'f2':5,'f3':10},'f4':{'f5':15,'f6':20}}]";
-  std::replace(json.begin(), json.end(), '\'', '"');
+  std::string json = R"([{"f1":{"f2":5,"f3":10},"f4":{"f5":15,"f6":20}}])";
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
@@ -233,8 +230,7 @@ TEST_F(TestColumnarFormat, PrimitiveTypes) {
   auto f3 = field("f3", boolean(), true);
   auto f0 = field("f0", struct_({f1, f2, f3}), false);
 
-  std::string json = "[{'f1':4294967295},{'f2':'abcde'},{'f3':true}]";
-  std::replace(json.begin(), json.end(), '\'', '"');
+  std::string json = R"([{"f1":4294967295},{"f2":"abcde"},{"f3":true}])";
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
@@ -256,7 +252,7 @@ TEST_F(TestColumnarFormat, PrimitiveTypes) {
 TEST_F(TestColumnarFormat, ChildlessStruct) {
   auto f0 = field("f0", struct_({}), true);
 
-  std::string json = "[null, {}]";
+  std::string json = R"([null, {}])";
   std::shared_ptr<Array> array = ArrayFromJSON(f0->type(), json);
 
   ColumnMap colmap;
