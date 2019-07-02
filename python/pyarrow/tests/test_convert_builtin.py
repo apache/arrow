@@ -191,7 +191,7 @@ def test_nested_lists(seq):
 @parametrize_with_iterable_types
 def test_list_with_non_list(seq):
     # List types don't accept non-sequences
-    with pytest.raises(pa.ArrowTypeError):
+    with pytest.raises(TypeError):
         pa.array(seq([[], [1, 2], 3]), type=pa.list_(pa.int64()))
 
 
@@ -308,7 +308,7 @@ def test_numpy_scalars_mixed_type():
 
 
 @pytest.mark.xfail(reason="Type inference for uint64 not implemented",
-                   raises=pa.ArrowException)
+                   raises=OverflowError)
 def test_uint64_max_convert():
     data = [0, np.iinfo(np.uint64).max]
 
@@ -323,20 +323,20 @@ def test_uint64_max_convert():
 @pytest.mark.parametrize("bits", [8, 16, 32, 64])
 def test_signed_integer_overflow(bits):
     ty = getattr(pa, "int%d" % bits)()
-    # XXX ideally would raise OverflowError
-    with pytest.raises((ValueError, pa.ArrowException)):
+    # XXX ideally would always raise OverflowError
+    with pytest.raises((OverflowError, pa.ArrowInvalid)):
         pa.array([2 ** (bits - 1)], ty)
-    with pytest.raises((ValueError, pa.ArrowException)):
+    with pytest.raises((OverflowError, pa.ArrowInvalid)):
         pa.array([-2 ** (bits - 1) - 1], ty)
 
 
 @pytest.mark.parametrize("bits", [8, 16, 32, 64])
 def test_unsigned_integer_overflow(bits):
     ty = getattr(pa, "uint%d" % bits)()
-    # XXX ideally would raise OverflowError
-    with pytest.raises((ValueError, pa.ArrowException)):
+    # XXX ideally would always raise OverflowError
+    with pytest.raises((OverflowError, pa.ArrowInvalid)):
         pa.array([2 ** bits], ty)
-    with pytest.raises((ValueError, pa.ArrowException)):
+    with pytest.raises((OverflowError, pa.ArrowInvalid)):
         pa.array([-1], ty)
 
 
@@ -831,7 +831,7 @@ def test_sequence_timestamp_from_int_with_unit():
     assert repr(arr_ns[0]) == "Timestamp('1970-01-01 00:00:00.000000001')"
     assert str(arr_ns[0]) == "1970-01-01 00:00:00.000000001"
 
-    with pytest.raises(pa.ArrowException):
+    with pytest.raises(TypeError):
         class CustomClass():
             pass
         pa.array([1, CustomClass()], type=ns)

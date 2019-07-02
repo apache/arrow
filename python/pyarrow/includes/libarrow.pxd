@@ -1207,7 +1207,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
     shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
 
-    c_bool IsPythonError(const CStatus& status)
     object PyHalf_FromHalf(npy_half value)
 
     cdef cppclass PyConversionOptions:
@@ -1217,6 +1216,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         int64_t size
         CMemoryPool* pool
         c_bool from_pandas
+
+    # TODO Some functions below are not actually "nogil"
 
     CStatus ConvertPySequence(object obj, object mask,
                               const PyConversionOptions& options,
@@ -1341,6 +1342,11 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
 cdef extern from 'arrow/python/init.h':
     int arrow_init_numpy() except -1
+
+
+cdef extern from 'arrow/python/common.h' namespace "arrow::py":
+    c_bool IsPyError(const CStatus& status)
+    void RestorePyError(const CStatus& status)
 
 
 cdef extern from 'arrow/python/pyarrow.h' namespace 'arrow::py':

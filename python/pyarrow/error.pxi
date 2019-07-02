@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.libarrow cimport CStatus, IsPythonError
+from pyarrow.includes.libarrow cimport CStatus, IsPyError, RestorePyError
 from pyarrow.includes.common cimport c_string
 from pyarrow.compat import frombytes
 
@@ -60,17 +60,17 @@ class ArrowSerializationError(ArrowException):
     pass
 
 
+# This function could be written directly in C++ if we didn't
+# define Arrow-specific subclasses (ArrowInvalid etc.)
 cdef int check_status(const CStatus& status) nogil except -1:
     if status.ok():
         return 0
 
-    # PythonError indicates there is already an exception raised
-    # so even though the cython documentation says not to ever return
-    # -1 here, we do so anyways.
-    if IsPythonError(status):
-        return -1
-
     with gil:
+        if IsPyError(status):
+            RestorePyError(status)
+            return -1
+
         message = frombytes(status.message())
         if status.IsInvalid():
             raise ArrowInvalid(message)
