@@ -816,6 +816,12 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
       uint8_t* value_buf = reinterpret_cast<uint8_t*>(out_bufs[buf_idx++]);
       jlong data_sz = out_sizes[sz_idx++];
       if (arrow::is_binary_like(field->type()->id())) {
+        if (jexpander == nullptr) {
+          status = Status::Invalid(
+              "expression has variable len output columns, but the expander object is "
+              "null");
+          break;
+        }
         buffers.push_back(std::make_shared<JavaResizableBuffer>(
             env, jexpander, output_vector_idx, value_buf, data_sz));
       } else {
@@ -825,6 +831,9 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
       auto array_data = arrow::ArrayData::Make(field->type(), output_row_count, buffers);
       output.push_back(array_data);
       ++output_vector_idx;
+    }
+    if (!status.ok()) {
+      break;
     }
     status = holder->projector()->Evaluate(*in_batch, selection_vector.get(), output);
   } while (0);
