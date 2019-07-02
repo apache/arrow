@@ -91,6 +91,7 @@ set(ARROW_SRCS
     array/builder_primitive.cc
     array/builder_union.cc
     array/concatenate.cc
+    array/diff.cc
     buffer.cc
     compare.cc
     extension_type.cc
