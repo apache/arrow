@@ -832,8 +832,7 @@ TEST_F(TestDecimal, TestNullDecimalConstant) {
                             {false, true, false, true});
 
   // prepare input record batch
-  auto in_batch =
-      arrow::RecordBatch::Make(schema, num_records, {array_b, array_c});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_b, array_c});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
