@@ -19,6 +19,8 @@
 
 #include <limits>
 
+#include "arrow/util/ubsan.h"
+
 #include "plasma/plasma_generated.h"
 
 namespace fb = plasma::flatbuf;
@@ -64,7 +66,7 @@ uint64_t MurmurHash64A(const void* key, int len, unsigned int seed) {
   const uint64_t* end = data + (len / 8);
 
   while (data != end) {
-    uint64_t k = *data++;
+    uint64_t k = arrow::util::SafeLoad(data++);
 
     k *= m;
     k ^= k >> r;

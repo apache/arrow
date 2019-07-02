@@ -27,6 +27,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
+#include "arrow/util/ubsan.h"
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
@@ -50,7 +51,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
   bit_width_ = BitUtil::Log2(max_level + 1);
   switch (encoding) {
     case Encoding::RLE: {
-      num_bytes = *reinterpret_cast<const int32_t*>(data);
+      num_bytes = arrow::util::SafeLoadAs<int32_t>(data);
       const uint8_t* decoder_data = data + sizeof(int32_t);
       if (!rle_decoder_) {
         rle_decoder_.reset(
