@@ -29,6 +29,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/rle-encoding.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/ubsan.h"
 
 #include "parquet/exception.h"
 #include "parquet/platform.h"
@@ -609,7 +610,7 @@ inline int DecodePlain<ByteArray>(const uint8_t* data, int64_t data_size, int nu
   int bytes_decoded = 0;
   int increment;
   for (int i = 0; i < num_values; ++i) {
-    uint32_t len = out[i].len = *reinterpret_cast<const uint32_t*>(data);
+    uint32_t len = out[i].len = arrow::util::SafeLoadAs<uint32_t>(data);
     increment = static_cast<int>(sizeof(uint32_t) + len);
     if (data_size < increment) ParquetException::EofException();
     out[i].ptr = data + sizeof(uint32_t);
@@ -719,7 +720,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     int bytes_decoded = 0;
     while (i < num_values) {
       if (bit_reader.IsSet()) {
-        uint32_t len = *reinterpret_cast<const uint32_t*>(data);
+        uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
         increment = static_cast<int>(sizeof(uint32_t) + len);
         if (data_size < increment) {
           ParquetException::EofException();
@@ -752,7 +753,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     int bytes_decoded = 0;
 
     while (i < num_values) {
-      uint32_t len = *reinterpret_cast<const uint32_t*>(data);
+      uint32_t len = arrow::util::SafeLoadAs<uint32_t>(data);
       int increment = static_cast<int>(sizeof(uint32_t) + len);
       if (data_size < increment) ParquetException::EofException();
       builder->Append(data + sizeof(uint32_t), len);
@@ -1103,7 +1104,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
     if (len == 0) return;
-    int total_lengths_len = *reinterpret_cast<const int*>(data);
+    int total_lengths_len = arrow::util::SafeLoadAs<int32_t>(data);
     data += 4;
     this->len_decoder_.SetData(num_values, data, total_lengths_len);
     data_ = data + total_lengths_len;
@@ -1145,7 +1146,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
   virtual void SetData(int num_values, const uint8_t* data, int len) {
     num_values_ = num_values;
     if (len == 0) return;
-    int prefix_len_length = *reinterpret_cast<const int*>(data);
+    int prefix_len_length = arrow::util::SafeLoadAs<int32_t>(data);
     data += 4;
     len -= 4;
     prefix_len_decoder_.SetData(num_values, data, prefix_len_length);
