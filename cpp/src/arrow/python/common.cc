@@ -160,7 +160,8 @@ bool IsPythonError(const Status& status) {
     return false;
   }
   auto detail = status.detail();
-  return detail != nullptr && detail->type_id() == kErrorDetailTypeId;
+  bool result = detail != nullptr && detail->type_id() == kErrorDetailTypeId;
+  return result;
 }
 
 }  // namespace py

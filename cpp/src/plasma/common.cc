@@ -51,6 +51,9 @@ class PlasmaStatusDetail : public arrow::StatusDetail {
       case PlasmaErrorCode::PlasmaObjectAlreadySealed:
         type = "Plasma object is already sealed";
         break;
+      default:
+        type = "Unknown plasma error";
+        break;
     }
     return std::string(type);
   }
