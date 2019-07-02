@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,32 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+FROM ubuntu:18.04
 
-export MAVEN_OPTS="-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+# install build essentials
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        wget \
+        software-properties-common \
+        ca-certificates \
+        maven \
+        rsync \
+        tzdata \
+        openjdk-8-jdk \
+        openjdk-11-jdk && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# /arrow/java is read-only
-mkdir -p /build/java
-
-arrow_src=/build/java/arrow
-
-# Remove any pre-existing artifacts
-rm -rf $arrow_src
-
-pushd /arrow
-rsync -a header java format integration $arrow_src
-popd
-
-JAVA_ARGS=
-if [ "$ARROW_JAVA_RUN_TESTS" != "1" ]; then
-  JAVA_ARGS=-DskipTests
-fi
-
-pushd $arrow_src/java
-mvn -B $JAVA_ARGS -Drat.skip=true install
-
-if [ "$ARROW_JAVADOC" == "1" ]; then
-  export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
-  mvn -B site
-fi
-popd
+# Test all supported JDKs
+CMD ["arrow/ci/docker_java_test_all.sh"]

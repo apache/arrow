@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -19,13 +18,16 @@
 
 set -e
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-JAVA_DIR=${TRAVIS_BUILD_DIR}/java
+export ARROW_TEST_DATA=/arrow/testing/data
 
-pushd $JAVA_DIR
+export ARROW_JAVA_RUN_TESTS=1
 
-export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
-$TRAVIS_MVN -B site
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+export ARROW_JAVADOC=1
+bash $SOURCE_DIR/docker_build_java.sh
 
-popd
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export ARROW_JAVADOC=0
+bash $SOURCE_DIR/docker_build_java.sh
