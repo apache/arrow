@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.arrow.memory.DictionaryEncodeHashMap;
 import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -38,7 +37,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmarks for {@link org.apache.arrow.memory.DictionaryEncodeHashMap}.
+ * Benchmarks for {@link DictionaryEncodeHashMap}.
  */
 @State(Scope.Benchmark)
 public class DictionaryEncodeHashMapBenchmarks {

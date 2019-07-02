@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.vector.dictionary;
 
 /**
  * Specific hash map for int type value, reducing boxing/unboxing operations.
@@ -23,9 +23,28 @@ package org.apache.arrow.memory;
  */
 public interface ObjectIntMap<K> {
 
+  /**
+   * Associates the specified value with the specified key in this map.
+   * If the map previously contained a mapping for the key, the old
+   * value is replaced.
+   * @param key key with which the specified value is to be associated
+   * @param value value to be associated with the specified key
+   * @return the previous value associated with <tt>key</tt>, or
+   *         -1 if there was no mapping for <tt>key</tt>.
+   */
   int put(K key, int value);
 
+  /**
+   * Returns the value to which the specified key is mapped,
+   * or -1 if this map contains no mapping for the key.
+   */
   int get(K key);
 
+  /**
+   * Removes the mapping for the specified key from this map if present.
+   * @param key key whose mapping is to be removed from the map
+   * @return the previous value associated with <tt>key</tt>, or
+   *         -1 if there was no mapping for <tt>key</tt>.
+   */
   int remove(K key);
 }

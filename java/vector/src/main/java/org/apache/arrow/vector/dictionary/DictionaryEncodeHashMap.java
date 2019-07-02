@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.vector.dictionary;
 
 import java.util.Objects;
 
@@ -26,22 +26,48 @@ import java.util.Objects;
  */
 public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
 
+  /**
+   * Represents a null value in map.
+   */
   static final int NULL_VALUE = -1;
 
+  /**
+   * The default initial capacity - MUST be a power of two.
+   */
   static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;
 
+  /**
+   * The maximum capacity, used if a higher value is implicitly specified
+   * by either of the constructors with arguments.
+   */
   static final int MAXIMUM_CAPACITY = 1 << 30;
 
+  /**
+   * The load factor used when none specified in constructor.
+   */
   static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
   static final Entry<?>[] EMPTY_TABLE = {};
 
+  /**
+   * The table, initialized on first use, and resized as
+   * necessary. When allocated, length is always a power of two.
+   */
   transient Entry<K>[] table = (Entry<K>[]) EMPTY_TABLE;
 
+  /**
+   * The number of key-value mappings contained in this map.
+   */
   transient int size;
 
+  /**
+   * The next size value at which to resize (capacity * load factor).
+   */
   int threshold;
 
+  /**
+   * The load factor for the hash table.
+   */
   final float loadFactor;
 
   /**
@@ -71,22 +97,33 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     this(DEFAULT_INITIAL_CAPACITY, DEFAULT_LOAD_FACTOR);
   }
 
+  /**
+   * Compute the capacity with given threshold and create init table.
+   */
   private void inflateTable(int threshold) {
     int capacity = roundUpToPowerOf2(threshold);
     this.threshold = (int) Math.min(capacity * loadFactor, MAXIMUM_CAPACITY + 1);
     table = new Entry[capacity];
   }
 
+  /**
+   * Computes key.hashCode() and spreads (XORs) higher bits of hash to lower.
+   */
   static final int hash(Object key) {
     int h;
     return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
   }
 
+  /**
+   * Computes the storage location in an array for the given hashCode.
+   */
   static int indexFor(int h, int length) {
     return h & (length - 1);
   }
 
-
+  /**
+   * Returns a power of two size for the given size.
+   */
   static final int roundUpToPowerOf2(int size) {
     int n = size - 1;
     n |= n >>> 1;
@@ -97,6 +134,10 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
   }
 
+  /**
+   * Returns the value to which the specified key is mapped,
+   * or -1 if this map contains no mapping for the key.
+   */
   @Override
   public int get(K key) {
     int hash = hash(key);
@@ -109,6 +150,11 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     return NULL_VALUE;
   }
 
+  /**
+   * Associates the specified value with the specified key in this map.
+   * If the map previously contained a mapping for the key, the old
+   * value is replaced.
+   */
   @Override
   public int put(K key, int value) {
     if (table == EMPTY_TABLE) {
@@ -134,19 +180,30 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     return NULL_VALUE;
   }
 
-
+  /**
+   * Removes the mapping for the specified key from this map if present.
+   * @param key key whose mapping is to be removed from the map
+   * @return the previous value associated with <tt>key</tt>, or
+   *         -1 if there was no mapping for <tt>key</tt>.
+   */
   @Override
   public int remove(K key) {
     Entry<K> e = removeEntryForKey(key);
     return (e == null ? NULL_VALUE : e.value);
   }
 
+  /**
+   * Create a new Entry at the specific position of table.
+   */
   void createEntry(int hash, K key, int value, int bucketIndex) {
     Entry<K> e = table[bucketIndex];
     table[bucketIndex] = new Entry<>(hash, key, value, e);
     size++;
   }
 
+  /**
+   * Put value when key is null.
+   */
   private int putForNullKey(int value) {
     for (Entry<K> e = table[0]; e != null; e = e.next) {
       if (e.key == null) {
@@ -159,6 +216,9 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     return NULL_VALUE;
   }
 
+  /**
+   * Add Entry at the specified location of the table.
+   */
   void addEntry(int hash, K key, int value, int bucketIndex) {
     if ((size >= threshold) && (null != table[bucketIndex])) {
       resize(2 * table.length);
@@ -169,6 +229,9 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     createEntry(hash, key, value, bucketIndex);
   }
 
+  /**
+   * Resize table with given new capacity.
+   */
   void resize(int newCapacity) {
     Entry[] oldTable = table;
     int oldCapacity = oldTable.length;
@@ -183,6 +246,10 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     threshold = (int)Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);
   }
 
+  /**
+   * Transfer entries into new table from old table.
+   * @param newTable new table
+   */
   void transfer(Entry[] newTable) {
     int newCapacity = newTable.length;
     for (Entry<K> e : table) {
@@ -196,6 +263,9 @@ public class DictionaryEncodeHashMap<K> implements ObjectIntMap<K> {
     }
   }
 
+  /**
+   * Remove entry associated with the given key.
+   */
   final Entry<K> removeEntryForKey(Object key) {
     if (size == 0) {
       return null;
