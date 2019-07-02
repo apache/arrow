@@ -24,6 +24,8 @@
 
 #include "arrow/python/visibility.h"
 
+#include "arrow/sparse_tensor.h"
+
 namespace arrow {
 
 class Array;
@@ -66,6 +68,18 @@ ARROW_PYTHON_EXPORT PyObject* wrap_array(const std::shared_ptr<Array>& array);
 ARROW_PYTHON_EXPORT bool is_tensor(PyObject* tensor);
 ARROW_PYTHON_EXPORT Status unwrap_tensor(PyObject* tensor, std::shared_ptr<Tensor>* out);
 ARROW_PYTHON_EXPORT PyObject* wrap_tensor(const std::shared_ptr<Tensor>& tensor);
+
+ARROW_PYTHON_EXPORT bool is_sparse_tensor_coo(PyObject* sparse_tensor);
+ARROW_PYTHON_EXPORT Status
+unwrap_sparse_tensor_coo(PyObject* sparse_tensor, std::shared_ptr<SparseTensorCOO>* out);
+ARROW_PYTHON_EXPORT PyObject* wrap_sparse_tensor_coo(
+    const std::shared_ptr<SparseTensorCOO>& sparse_tensor);
+
+ARROW_PYTHON_EXPORT bool is_sparse_tensor_csr(PyObject* sparse_tensor);
+ARROW_PYTHON_EXPORT Status
+unwrap_sparse_tensor_csr(PyObject* sparse_tensor, std::shared_ptr<SparseTensorCSR>* out);
+ARROW_PYTHON_EXPORT PyObject* wrap_sparse_tensor_csr(
+    const std::shared_ptr<SparseTensorCSR>& sparse_tensor);
 
 ARROW_PYTHON_EXPORT bool is_column(PyObject* column);
 ARROW_PYTHON_EXPORT Status unwrap_column(PyObject* column, std::shared_ptr<Column>* out);
