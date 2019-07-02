@@ -36,6 +36,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::MakeLazyRange;
 
 template <typename Iterator>
@@ -161,6 +162,7 @@ class DiffImpl {
 
       endpoint = previous;
     }
+    BitUtil::SetBitTo(insert_buf->mutable_data(), 0, false);
     run_length[0] = endpoint.base - base_begin_;
 
     ARROW_ASSIGN_OR_RAISE(
@@ -254,6 +256,33 @@ Status Diff(const Array& base, const Array& target, MemoryPool* pool,
   }
 
   return DiffImplVisitor{base, target, pool, out}.Diff();
+}
+
+Status DiffVisitor::Visit(const Array& edits) {
+  // FIXME add some assertions here: edits.type(), inserts.Value(0), edits.length()...
+  auto insert = checked_pointer_cast<BooleanArray>(
+      checked_cast<const StructArray&>(edits).field(0));
+  auto run_lengths =
+      checked_pointer_cast<UInt64Array>(checked_cast<const StructArray&>(edits).field(1));
+
+  auto length = run_lengths->Value(0);
+  RETURN_NOT_OK(Run(length));
+
+  int64_t base_index = length, target_index = length;
+  for (int64_t i = 1; i < edits.length(); ++i) {
+    if (insert->Value(i)) {
+      RETURN_NOT_OK(Insert(target_index));
+      ++target_index;
+    } else {
+      RETURN_NOT_OK(Delete(base_index));
+      ++base_index;
+    }
+    length = run_lengths->Value(i);
+    RETURN_NOT_OK(Run(length));
+    base_index += length;
+    target_index += length;
+  }
+  return Status::OK();
 }
 
 }  // namespace arrow

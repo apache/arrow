@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -38,7 +39,7 @@ class MemoryPool;
 ///
 /// For example for base "hlloo" and target "hello", the edit script would be
 /// [
-///   {"insert": true, "run_length": 1}, // leading run of length 1 ("h")
+///   {"insert": false, "run_length": 1}, // leading run of length 1 ("h")
 ///   {"insert": true, "run_length": 3}, // insert("e") then a run of length 3 ("llo")
 ///   {"insert": false, "run_length": 0} // delete("o") then an empty run
 /// ]
@@ -53,5 +54,28 @@ class MemoryPool;
 ARROW_EXPORT
 Status Diff(const Array& base, const Array& target, MemoryPool* pool,
             std::shared_ptr<Array>* out);
+
+// XXX would it be less confusing to switch vocabulary to actual/expected?
+
+/// \brief visitor interface for easy traversal of an edit script
+///
+/// Implement whichever methods correspond to edits you are interested in then
+/// call Visit on a valid edits array
+class ARROW_EXPORT DiffVisitor {
+ public:
+  virtual ~DiffVisitor() = default;
+
+  /// \brief called on visitation of insertion target[target_index]
+  virtual Status Insert(int64_t target_index) { return Status::OK(); }
+
+  /// \brief called on visitation of deletion of base[base_index]
+  virtual Status Delete(int64_t base_index) { return Status::OK(); }
+
+  /// \brief called on visitation of length identical elements
+  virtual Status Run(int64_t length) { return Status::OK(); }
+
+  /// \brief visit each insertion, deletion, or run of edits
+  Status Visit(const Array& edits);
+};
 
 }  // namespace arrow

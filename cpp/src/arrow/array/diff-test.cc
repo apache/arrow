@@ -83,6 +83,7 @@ TEST_F(DiffTest, Trivial) {
   target_ = ArrayFromJSON(int32(), "[1, 2, 3]");
   DoDiff();
   ASSERT_EQ(edits_->length(), 1);
+  ASSERT_EQ(insert_->Value(0), false);
   ASSERT_EQ(run_lengths_->Value(0), 3);
 }
 
@@ -92,6 +93,7 @@ TEST_F(DiffTest, Basics) {
   target_ = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]");
   DoDiff();
   ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
   ASSERT_EQ(run_lengths_->Value(0), 2);
   ASSERT_EQ(insert_->Value(1), true);
   ASSERT_EQ(run_lengths_->Value(1), 2);
@@ -101,6 +103,7 @@ TEST_F(DiffTest, Basics) {
   target_ = ArrayFromJSON(int32(), "[1, 2, 4, 5]");
   DoDiff();
   ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
   ASSERT_EQ(run_lengths_->Value(0), 2);
   ASSERT_EQ(insert_->Value(1), false);
   ASSERT_EQ(run_lengths_->Value(1), 2);
@@ -110,6 +113,7 @@ TEST_F(DiffTest, Basics) {
   target_ = ArrayFromJSON(int32(), "[1, 2, -3, 4, 5]");
   DoDiff();
   ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
   ASSERT_EQ(run_lengths_->Value(0), 2);
   ASSERT_EQ(insert_->Value(1), false);
   ASSERT_EQ(run_lengths_->Value(1), 0);
@@ -123,6 +127,7 @@ TEST_F(DiffTest, BasicsWithStrings) {
   target_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
   DoDiff();
   ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
   ASSERT_EQ(run_lengths_->Value(0), 1);
   ASSERT_EQ(insert_->Value(1), true);
   ASSERT_EQ(run_lengths_->Value(1), 2);
@@ -132,6 +137,7 @@ TEST_F(DiffTest, BasicsWithStrings) {
   target_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
   DoDiff();
   ASSERT_EQ(edits_->length(), 2);
+  ASSERT_EQ(insert_->Value(0), false);
   ASSERT_EQ(run_lengths_->Value(0), 1);
   ASSERT_EQ(insert_->Value(1), false);
   ASSERT_EQ(run_lengths_->Value(1), 2);
@@ -141,11 +147,58 @@ TEST_F(DiffTest, BasicsWithStrings) {
   target_ = ArrayFromJSON(utf8(), R"(["gimme", "a", "break"])");
   DoDiff();
   ASSERT_EQ(edits_->length(), 3);
+  ASSERT_EQ(insert_->Value(0), false);
   ASSERT_EQ(run_lengths_->Value(0), 0);
   ASSERT_EQ(insert_->Value(1), false);
   ASSERT_EQ(run_lengths_->Value(1), 0);
   ASSERT_EQ(insert_->Value(2), true);
   ASSERT_EQ(run_lengths_->Value(2), 2);
+}
+
+template <typename ArrayType>
+class PrettyPrintDiff : public DiffVisitor {
+ public:
+  PrettyPrintDiff(const Array& base, const Array& target)
+      : base_(checked_cast<const ArrayType&>(base)),
+        target_(checked_cast<const ArrayType&>(target)) {
+    ss_ << std::endl;
+  }
+
+  Status Insert(int64_t target_index) override {
+    ss_ << "+ " << target_.GetView(target_index) << std::endl;
+    return Status::OK();
+  }
+
+  Status Delete(int64_t base_index) override {
+    ss_ << "- " << base_.GetView(base_index) << std::endl;
+    return Status::OK();
+  }
+
+  Status Run(int64_t length) override {
+    ss_ << "  ... " << length << std::endl;
+    return Status::OK();
+  }
+
+  std::string ToString() const { return ss_.str(); }
+
+ private:
+  std::stringstream ss_;
+  const ArrayType& base_;
+  const ArrayType& target_;
+};
+
+TEST_F(DiffTest, DiffVisitor) {
+  // insert one
+  base_ = ArrayFromJSON(utf8(), R"(["give", "a", "break"])");
+  target_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
+  PrettyPrintDiff<StringArray> pretty_0(*base_, *target_);
+  DoDiff();
+  ASSERT_OK(pretty_0.Visit(*edits_));
+  ASSERT_EQ(pretty_0.ToString(), R"(
+  ... 1
++ me
+  ... 2
+)");
 }
 
 }  // namespace arrow
