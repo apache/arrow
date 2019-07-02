@@ -45,7 +45,6 @@ static void FromString(benchmark::State& state) {  // NOLINT non-const reference
 }
 
 constexpr int32_t kValueSize = 10;
-;
 
 static void BinaryCompareOp(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<BasicDecimal128> v1, v2;
