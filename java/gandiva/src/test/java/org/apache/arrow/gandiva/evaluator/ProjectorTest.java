@@ -580,8 +580,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
     // test with insufficient data buffer.
     try {
       outVector.allocateNew(4, numRows);
-      thrown.expect(GandivaException.class);
-      thrown.expectMessage("expand not implemented");
       eval.evaluate(batch, output);
     } finally {
       releaseRecordBatch(batch);

@@ -27,6 +27,7 @@ import org.apache.arrow.gandiva.expression.ArrowTypeHelper;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
+import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.FixedWidthVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VariableWidthVector;
@@ -236,14 +237,18 @@ public class Projector {
       bufSizes[idx++] = bufLayout.getSize();
     }
 
+    boolean hasVariableWidthColumns = false;
+    BaseVariableWidthVector[] resizableVectors = new BaseVariableWidthVector[outColumns.size()];
     long[] outAddrs = new long[3 * outColumns.size()];
     long[] outSizes = new long[3 * outColumns.size()];
     idx = 0;
+    int outColumnIdx = 0;
     for (ValueVector valueVector : outColumns) {
       boolean isFixedWith = valueVector instanceof FixedWidthVector;
       boolean isVarWidth = valueVector instanceof VariableWidthVector;
       if (!isFixedWith && !isVarWidth) {
-        throw new UnsupportedTypeException("Unsupported value vector type " + valueVector.getField().getFieldType());
+        throw new UnsupportedTypeException(
+            "Unsupported value vector type " + valueVector.getField().getFieldType());
       }
 
       outAddrs[idx] = valueVector.getValidityBuffer().memoryAddress();
@@ -251,17 +256,24 @@ public class Projector {
       if (isVarWidth) {
         outAddrs[idx] = valueVector.getOffsetBuffer().memoryAddress();
         outSizes[idx++] = valueVector.getOffsetBuffer().capacity();
+        hasVariableWidthColumns = true;
+
+        // save vector to allow for resizing.
+        resizableVectors[outColumnIdx] = (BaseVariableWidthVector)valueVector;
       }
       outAddrs[idx] = valueVector.getDataBuffer().memoryAddress();
       outSizes[idx++] = valueVector.getDataBuffer().capacity();
 
       valueVector.setValueCount(selectionVectorRecordCount);
+      outColumnIdx++;
     }
 
-    wrapper.evaluateProjector(this.moduleId, numRows, bufAddrs, bufSizes,
-            selectionVectorType, selectionVectorRecordCount,
-            selectionVectorAddr, selectionVectorSize, 
-            outAddrs, outSizes);
+    wrapper.evaluateProjector(
+        hasVariableWidthColumns ? new VectorExpander(resizableVectors) : null,
+        this.moduleId, numRows, bufAddrs, bufSizes,
+        selectionVectorType, selectionVectorRecordCount,
+        selectionVectorAddr, selectionVectorSize,
+        outAddrs, outSizes);
   }
 
   /**
