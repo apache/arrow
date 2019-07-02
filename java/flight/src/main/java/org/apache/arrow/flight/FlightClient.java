@@ -188,16 +188,6 @@ public class FlightClient implements AutoCloseable {
     ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
         ClientCalls.asyncBidiStreamingCall(
             authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
-
-    if (root.syncSchema()) {
-      // When syncSchema returns true, it means the schema and vector structure are different,
-      // and schema sync actually took place. This is an unexpected state.
-      // To resolve this issue, the caller should call the syncSchema method before trying to send the
-      // batch from the client side.
-      throw new IllegalStateException("The batch schema and the vector structure are different. " +
-              "Method syncSchema should be called at an early stage");
-    }
-
     // send the schema to start.
     DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, provider, observer::onNext);
     return new PutObserver(new VectorUnloader(
