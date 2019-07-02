@@ -290,11 +290,12 @@ class ArrayLoader {
 
     RETURN_NOT_OK(LoadCommon());
     if (out_->length > 0) {
-      RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
+      RETURN_NOT_OK(GetBuffer(context_->buffer_index, &out_->buffers[1]));
       if (type.mode() == UnionMode::DENSE) {
-        RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[2]));
+        RETURN_NOT_OK(GetBuffer(context_->buffer_index + 1, &out_->buffers[2]));
       }
     }
+    context_->buffer_index += type.mode() == UnionMode::DENSE ? 2 : 1;
     return LoadChildren(type.children());
   }
 
