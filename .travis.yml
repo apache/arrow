@@ -307,6 +307,8 @@ matrix:
     after_success:
       - pushd ${TRAVIS_BUILD_DIR}/rust
       # Run coverage for codecov.io
+      - export ARROW_TEST_DATA=$TRAVIS_BUILD_DIR/testing/data
+      - export PARQUET_TEST_DATA=$TRAVIS_BUILD_DIR/cpp/submodules/parquet-testing/data
       - cargo tarpaulin --out Xml
       - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
   - name: Go
