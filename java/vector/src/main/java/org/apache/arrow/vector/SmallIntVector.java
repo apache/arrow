@@ -20,7 +20,6 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.SmallIntReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableSmallIntHolder;
@@ -28,6 +27,8 @@ import org.apache.arrow.vector.holders.SmallIntHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -37,6 +38,7 @@ import io.netty.buffer.ArrowBuf;
  * maintained to track which elements in the vector are null.
  */
 public class SmallIntVector extends BaseFixedWidthVector implements BaseIntVector {
+  private static final Logger logger = LoggerFactory.getLogger(SmallIntVector.class);
   public static final byte TYPE_WIDTH = 2;
   private final FieldReader reader;
 
@@ -373,7 +375,9 @@ public class SmallIntVector extends BaseFixedWidthVector implements BaseIntVecto
 
   @Override
   public void setWithPossibleTruncate(int index, long value) {
-    Preconditions.checkArgument(value <= Short.MAX_VALUE, "value is overflow: %s", value);
+    if (value > Short.MAX_VALUE) {
+      logger.warn("value is overflow: %s", value);
+    }
     this.setSafe(index, (int) value);
   }
 
