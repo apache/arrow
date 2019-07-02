@@ -22,7 +22,6 @@ use criterion::Criterion;
 extern crate arrow;
 
 use arrow::array::*;
-use arrow::builder::*;
 use arrow::compute::*;
 
 fn create_array(size: usize) -> Float32Array {

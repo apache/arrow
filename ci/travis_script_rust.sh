@@ -31,7 +31,7 @@ rustup show
 # raises on any formatting errors
 cargo +stable fmt --all -- --check
 
-RUSTFLAGS="-D warnings" cargo build
+RUSTFLAGS="-D warnings" cargo build --all-targets
 cargo test
 
 # run examples
