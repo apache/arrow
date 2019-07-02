@@ -292,6 +292,18 @@ services:
       - .:/arrow:ro  # ensures that docker won't contaminate the host directory
       - maven-cache:/root/.m2:delegated
 
+  java-all-jdks:
+    # Usage:
+    #   docker-compose build java-all-jdks
+    #   docker-compose run java-all-jdks
+    image: ursalab/arrow-ci-java-all-jdks:latest
+    build:
+      context: .
+      dockerfile: java/Dockerfile.all-jdks
+    volumes:
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+      - maven-cache:/root/.m2:delegated
+
   js:
     image: arrow:js
     build:

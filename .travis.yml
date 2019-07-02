@@ -199,32 +199,14 @@ matrix:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker-compose pull python-manylinux1; fi
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
-  - name: "Java w/ OpenJDK 8"
-    language: java
+  - name: "Java OpenJDK8 and OpenJDK11"
+    language: cpp
     os: linux
-    jdk: openjdk8
     before_script:
     - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - docker-compose pull java-all-jdks
     script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_javadoc.sh
-  - name: "Java w/ OpenJDK 9"
-    language: java
-    os: linux
-    jdk: openjdk9
-    before_script:
-    - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
-  - name: "Java w/ OpenJDK 11"
-    language: java
-    os: linux
-    jdk: openjdk11
-    before_script:
-    - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
+    - docker-compose run java-all-jdks
   - name: "Integration w/ OpenJDK 8, conda-forge toolchain"
     language: java
     os: linux
