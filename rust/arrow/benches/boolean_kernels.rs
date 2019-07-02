@@ -22,7 +22,6 @@ use criterion::Criterion;
 extern crate arrow;
 
 use arrow::array::*;
-use arrow::builder::*;
 use arrow::compute::kernels::boolean as boolean_kernels;
 use arrow::error::{ArrowError, Result};
 

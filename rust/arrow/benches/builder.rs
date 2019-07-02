@@ -25,7 +25,7 @@ use criterion::*;
 use rand::distributions::Standard;
 use rand::{thread_rng, Rng};
 
-use arrow::builder::*;
+use arrow::array::*;
 
 // Build arrays with 512k elements.
 const BATCH_SIZE: usize = 8 << 10;
