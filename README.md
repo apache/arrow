@@ -88,3 +88,5 @@ integrations in other projects, we'd be happy to have you involved:
 [3]: https://issues.apache.org/jira/browse/ARROW
 [4]: https://github.com/apache/arrow
 [5]: https://github.com/apache/arrow/blob/master/docs/source/developers/contributing.rst
+
+Test CUDA builders.
