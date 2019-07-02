@@ -708,10 +708,10 @@ cdef class PlasmaClient:
         cdef int64_t data_size
         cdef int64_t metadata_size
         with nogil:
-            self.client.get().GetNotification(self.notification_fd,
-                                              &object_id.data,
-                                              &data_size,
-                                              &metadata_size)
+            status = self.client.get().GetNotification(self.notification_fd,
+                                                       &object_id.data,
+                                                       &data_size,
+                                                       &metadata_size)
             plasma_check_status(status)
         return object_id, data_size, metadata_size
 
