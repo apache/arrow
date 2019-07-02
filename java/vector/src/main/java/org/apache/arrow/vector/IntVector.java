@@ -27,8 +27,6 @@ import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -38,7 +36,6 @@ import io.netty.buffer.ArrowBuf;
  * maintained to track which elements in the vector are null.
  */
 public class IntVector extends BaseFixedWidthVector implements BaseIntVector {
-  private static final Logger logger = LoggerFactory.getLogger(IntVector.class);
   public static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
@@ -348,9 +345,6 @@ public class IntVector extends BaseFixedWidthVector implements BaseIntVector {
 
   @Override
   public void setWithPossibleTruncate(int index, long value) {
-    if (value > Integer.MAX_VALUE) {
-      logger.warn("value is overflow: %s", value);
-    }
     this.setSafe(index, (int) value);
   }
 
