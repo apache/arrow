@@ -23,4 +23,3 @@ cdef extern from "plasma/common.h" namespace "plasma" nogil:
     cdef c_bool IsPlasmaObjectExists(const CStatus& status)
     cdef c_bool IsPlasmaObjectNonexistent(const CStatus& status)
     cdef c_bool IsPlasmaStoreFull(const CStatus& status)
-
