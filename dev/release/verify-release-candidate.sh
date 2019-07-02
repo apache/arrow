@@ -486,7 +486,10 @@ test_integration() {
     INTEGRATION_TEST_ARGS=--run_flight
   fi
 
-  python integration_test.py $INTEGRATION_TEST_ARGS
+  # Flight integration test executable have runtime dependency on
+  # release/libgtest.so
+  LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH \
+      python integration_test.py $INTEGRATION_TEST_ARGS
 
   popd
 }
