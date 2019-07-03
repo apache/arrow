@@ -28,8 +28,6 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
 
   private VectorValueComparator<V> comparator;
 
-  private int typeWidth;
-
   /**
    * The vector to sort.
    */
@@ -46,7 +44,6 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
     try {
       this.vec = vec;
       this.comparator = comparator;
-      this.typeWidth = comparator.valueWidth;
       this.pivotBuffer = (V) vec.getField().createVector(vec.getAllocator());
       this.pivotBuffer.allocateNew(1);
 
