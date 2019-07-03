@@ -1479,7 +1479,7 @@ def test_array_masked():
 
 def test_array_from_large_pyints():
     # ARROW-5430
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(OverflowError):
         # too large for int64 so dtype must be explicitly provided
         pa.array([int(2 ** 63)])
 

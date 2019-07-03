@@ -156,7 +156,7 @@ TEST_F(TestPlasmaSerialization, SealReply) {
   ObjectID object_id2;
   Status s = ReadSealReply(data.data(), data.size(), &object_id2);
   ASSERT_EQ(object_id1, object_id2);
-  ASSERT_TRUE(s.IsPlasmaObjectExists());
+  ASSERT_TRUE(IsPlasmaObjectExists(s));
   close(fd);
 }
 
@@ -234,7 +234,7 @@ TEST_F(TestPlasmaSerialization, ReleaseReply) {
   ObjectID object_id2;
   Status s = ReadReleaseReply(data.data(), data.size(), &object_id2);
   ASSERT_EQ(object_id1, object_id2);
-  ASSERT_TRUE(s.IsPlasmaObjectExists());
+  ASSERT_TRUE(IsPlasmaObjectExists(s));
   close(fd);
 }
 

@@ -52,7 +52,7 @@
     if (ARROW_PREDICT_FALSE(!_s.ok())) {                                            \
       std::stringstream ss;                                                         \
       ss << __FILE__ << ":" << __LINE__ << " code: " << #s << "\n" << _s.message(); \
-      ctx->SetStatus(Status(_s.code(), ss.str()));                                  \
+      ctx->SetStatus(Status(_s.code(), ss.str(), s.detail()));                      \
       return;                                                                       \
     }                                                                               \
   } while (0)
