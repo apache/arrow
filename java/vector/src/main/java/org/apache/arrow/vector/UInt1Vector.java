@@ -20,7 +20,6 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.UInt1ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableUInt1Holder;
@@ -31,6 +30,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 import io.netty.buffer.ArrowBuf;
+
 
 /**
  * UInt1Vector implements a fixed width (1 bytes) vector of
@@ -318,9 +318,8 @@ public class UInt1Vector extends BaseFixedWidthVector implements BaseIntVector {
   }
 
   @Override
-  public void setEncodedValue(int index, int value) {
-    Preconditions.checkArgument(value <= 0xFF, "value is overflow: %s", value);
-    this.setSafe(index, value);
+  public void setWithPossibleTruncate(int index, long value) {
+    this.setSafe(index, (int) value);
   }
 
 

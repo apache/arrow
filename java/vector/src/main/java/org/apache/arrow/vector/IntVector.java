@@ -327,8 +327,8 @@ public class IntVector extends BaseFixedWidthVector implements BaseIntVector {
   }
 
   @Override
-  public void setEncodedValue(int index, int value) {
-    this.setSafe(index, value);
+  public void setWithPossibleTruncate(int index, long value) {
+    this.setSafe(index, (int) value);
   }
 
   private class TransferImpl implements TransferPair {
